@@ -36,6 +36,7 @@
 export const ROW_LABEL_WIDTH = 288;
 
 /** How tall the body grows before it scrolls under the header. */
+// PROTOTYPE (prototype/mis-look): taller, so a full Build fits one screenshot.
 export const MAX_BODY_HEIGHT = 560;
 
 /**
@@ -69,8 +70,16 @@ export const Z = {
  * colour and change nothing — see `rowSx`.
  */
 export const opaqueTint = (...tints: readonly string[]) => ({
-  backgroundColor: "background.paper",
-  backgroundImage: tints.map((tint) => `linear-gradient(${tint}, ${tint})`).join(", "),
+  // PROTOTYPE (prototype/mis-look) finding: Oxygen's `background.paper` is
+  // TRANSLUCENT (`#ffffffc5` light, `#00000026` dark), so a frozen cell resting
+  // on it lets the columns scrolling behind show through — the smear the
+  // handoff asked about, reproduced on the Customers table. The opaque base is
+  // `background.default`, with paper composited over it as the bottom layer, so
+  // every cell reads as the paper colour and stays opaque.
+  backgroundColor: "background.default",
+  backgroundImage: [...tints, "var(--oxygen-palette-background-paper)"]
+    .map((tint) => `linear-gradient(${tint}, ${tint})`)
+    .join(", "),
 });
 
 /**
@@ -118,14 +127,36 @@ export const rowSx = ({
   emphasis,
   ruleAbove,
   tint,
+  emphasisFill = true,
+  emphasisWeight = 700,
+  emphasisFontSize,
 }: {
   emphasis?: boolean;
   ruleAbove?: boolean;
   /** The theme's hover fill. Also the resting fill of a balance row. */
   tint: string;
+  /**
+   * PROTOTYPE (prototype/mis-look): whether a balance row RESTS on the tint.
+   * The source's `.bold-row` is weight alone — no fill — so the faithful look
+   * turns this off and keeps the hover layer.
+   */
+  emphasisFill?: boolean;
+  /**
+   * PROTOTYPE: the weight a balance row carries. Measured on the source:
+   * a Build's `.bold-row` is 600; the Customers `Total` row is 700 at 16px;
+   * a Region Summary total is 700.
+   */
+  emphasisWeight?: number;
+  emphasisFontSize?: string;
 }) => {
   const resting = {
-    ...(emphasis ? { fontWeight: 700, ...opaqueTint(tint) } : {}),
+    ...(emphasis
+      ? {
+          fontWeight: emphasisWeight,
+          ...(emphasisFontSize ? { fontSize: emphasisFontSize } : {}),
+          ...(emphasisFill ? opaqueTint(tint) : {}),
+        }
+      : {}),
     /** The rule an accountant draws above a total. */
     ...(ruleAbove ? { borderTop: "2px solid", borderTopColor: "text.secondary" } : {}),
   };
@@ -134,7 +165,7 @@ export const rowSx = ({
     // Two layers on a row that already wears one, so the pointer always
     // deepens the row rather than repainting it. `:hover` outranks the resting
     // rule on specificity, so order here is not what decides it.
-    [HOVER_CELLS]: emphasis ? opaqueTint(tint, tint) : opaqueTint(tint),
+    [HOVER_CELLS]: emphasis && emphasisFill ? opaqueTint(tint, tint) : opaqueTint(tint),
   };
 };
 
@@ -151,8 +182,9 @@ const cellBase = {
   borderBottom: 1,
   borderColor: "divider",
   // Opaque, not translucent: rows scroll underneath the header and the Period
-  // columns scroll behind the row labels.
-  backgroundColor: "background.paper",
+  // columns scroll behind the row labels. See `opaqueTint` for why this is no
+  // longer a bare `background.paper`.
+  ...opaqueTint(),
 } as const;
 
 /** A header cell, in either of the two header rows. */
@@ -191,6 +223,9 @@ export const ROW_LABEL_CELL_SX = {
   py: 0.15,
   px: 1,
   borderRight: 1,
+  // PROTOTYPE finding: the `borderRight` shorthand resets the side's colour to
+  // currentColor, so without this the frozen column's rule paints white in dark.
+  borderRightColor: "divider",
 } as const;
 
 /**
@@ -235,6 +270,7 @@ export const leadHeadCellSx = (offset: number | undefined) => ({
   textAlign: "left" as const,
   color: "text.primary",
   borderRight: 1,
+  borderRightColor: "divider",
   ...frozenAt(offset, Z.headerCorner, { left: "auto" as const, zIndex: Z.header }),
 });
 

@@ -15,7 +15,6 @@
 // under the License.
 
 import { useEffect, useState, type ReactElement } from "react";
-import { useNavigate } from "react-router";
 import {
   Alert,
   Autocomplete,
@@ -23,21 +22,17 @@ import {
   Button,
   Checkbox,
   FormControlLabel,
+  Paper,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
 import { ChevronDownIcon, ChevronUpIcon, EraserIcon, ListFilterIcon } from "@wso2/oxygen-ui-icons-react";
-import { MIS_BUILD_PATH_BY_PERIOD } from "@constants/misApps";
 import { describeAppliedFilters } from "../util/misAppliedFilterChips";
 import { useYearsBackSession } from "../util/YearsBackSessionContext";
 import {
   MIS_COLLAPSED_CONTROL_COUNT,
-  MIS_PERIOD_CHOICE_LABELS,
-  MIS_PERIOD_CHOICE_ORDER,
   MIS_CONFIDENCE_OPTIONS,
   MIS_FILTER_CONTROL_ORDER,
   appliedFromPending,
@@ -48,20 +43,17 @@ import {
   misFilterBarControls,
   normalisePending,
   pendingFromApplied,
-  periodChoiceOf,
-  periodChoiceTarget,
   samePending,
   typeLabel,
   yearsBackToRemember,
   type MisFilterView,
   type MisPendingFilters,
-  type MisPeriodChoice,
 } from "../util/misFilterBarModel";
 import { allowedTypeValues, unavailableFilters } from "../util/misViewState";
 import {
   ENDING_MONTH_VALUES,
   MIS_CHANNEL_DIRECT,
-  MIS_SCALES,
+  MIS_TABLES,
   MIS_TABLE_LABELS,
   MIS_VIEW_TYPES,
   MIS_WINDOWS,
@@ -69,10 +61,26 @@ import {
   type MisFilterControl,
 } from "../util/misViewVocabulary";
 import type { MisViewState } from "../util/useMisViewState";
-import type { MisScaleState } from "../util/useMisScale";
 import type { MisFilterOptions } from "../api/misAppConfigs";
 import MisAppliedFilterChips from "./MisAppliedFilterChips";
-import MisUnitTabs, { type MisUnitSelection } from "./MisUnitTabs";
+import { useMisLook } from "../prototype/misLookPrototype";
+import {
+  faithfulApplySx,
+  faithfulChipSx,
+  faithfulOutlinedSx,
+  faithfulTextButtonSx,
+  gradientCardSx,
+} from "../prototype/misLookTokens";
+
+// PROTOTYPE (branch prototype/mis-look): this bar is now ONLY the filter card of
+// D4 step 4 — header row More/Less · Apply · Clear All, one wrapping grid of
+// controls (the first 7 on a Build, 8 on Customers, when collapsed), applied
+// chips beneath. The Period row, the Unit pills and the Scale have LEFT it:
+// Period and Units sit above the card as tabs (`PrototypePeriodRow`,
+// `PrototypeTableTabs`, `PrototypeUnitPills`), the Scale sits in the per-grid
+// header beside the figures it rewrites (`PrototypeGridHeader`). The variant
+// decides only the chrome: A paints the source's gradient card and uppercase
+// buttons; B and C use `Paper variant="outlined"` and Oxygen buttons.
 
 // The whole filter surface above a Build.
 //
@@ -123,14 +131,12 @@ const CHANGE_MESSAGE = "Filters changed — apply to refresh";
 
 export default function MisFilterBar({
   view,
-  scale,
   options,
   optionsLoading = false,
   optionsErrorMessage = "",
   onRetryOptions,
 }: {
   view: MisViewState;
-  scale: MisScaleState;
   options: MisFilterOptions;
   /** While true the list menus are empty because they have not arrived, not because they are empty. */
   optionsLoading?: boolean;
@@ -138,35 +144,10 @@ export default function MisFilterBar({
   optionsErrorMessage?: string;
   onRetryOptions?: () => void;
 }) {
+  const look = useMisLook();
   const { period, table, viewWindow, filters } = view;
   // The three that every rule in `misFilterBarModel` is a question about.
   const filterView: MisFilterView = { period, table, viewWindow };
-  const navigate = useNavigate();
-
-  /**
-   * The Period control, which is the one control here that can leave the
-   * screen.
-   *
-   * A Period is a ROUTE, so picking one navigates — and to the BARE path, with
-   * no query string carried over. That is not laziness about preserving the
-   * view: the three Builds do not agree about what their filters mean (a
-   * `Total QRR` is not a type Annually has, and Years Back defaults to 1 off
-   * Annually and 5 on it), so carrying the old query across would hand the
-   * arriving screen values it has to discard anyway. It hydrates from its own
-   * defaults instead, and the bar's mount effect seeds Years Back back out of
-   * the session — which is the whole reason that session exists.
-   *
-   * TTM is the exception, and stays: it is Annually cut differently rather than
-   * a fourth Period, so it sets a Window on the route already showing.
-   */
-  const choosePeriod = (choice: MisPeriodChoice) => {
-    const target = periodChoiceTarget(choice);
-    if (target.period === period) {
-      view.setWindow(target.viewWindow ?? MIS_WINDOWS.CALENDAR);
-      return;
-    }
-    navigate(MIS_BUILD_PATH_BY_PERIOD[target.period]);
-  };
   const applied = pendingFromApplied(filters, period);
 
   const session = useYearsBackSession();
@@ -255,8 +236,6 @@ export default function MisFilterBar({
     commit(normalisePending({ ...applied, ...one }, filterView, changed));
   };
 
-  const changeUnits = (next: MisUnitSelection) => view.setView({ filters: { ...filters, ...next } });
-
   // Once, on mount, and it goes one way or the other:
   //
   //   arrived on a LINK   adopt the Years Back its author chose, so it survives
@@ -281,68 +260,33 @@ export default function MisFilterBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  return (
-    <Box sx={{ mb: 1.5 }}>
-      <Stack
-        direction="row"
-        sx={{ alignItems: "center", justifyContent: "space-between", gap: 1.5, flexWrap: "wrap", mb: 1.5 }}
-      >
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={periodChoiceOf(period, viewWindow)}
-          aria-label="Period"
-          onChange={(_, next: MisPeriodChoice | null) => next && choosePeriod(next)}
-        >
-          {MIS_PERIOD_CHOICE_ORDER.map((choice) => (
-            <ToggleButton key={choice} value={choice} sx={{ textTransform: "none" }}>
-              {MIS_PERIOD_CHOICE_LABELS[choice]}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
+  // D4: seven controls stay in view on a Build, eight on Customers (the source's
+  // own counts), the rest behind More.
+  const collapsedCount =
+    table === MIS_TABLES.SOFTWARE_CLOUD_CUSTOMERS ? MIS_COLLAPSED_CONTROL_COUNT + 1 : MIS_COLLAPSED_CONTROL_COUNT;
+  const faithful = look.filterButtons === "faithful";
 
-        {/* "Values in '000" is the label Finance reconciles against. */}
-        <FormControlLabel
-          sx={{ m: 0 }}
-          control={
-            <Checkbox
-              size="small"
-              checked={scale.scale === MIS_SCALES.THOUSANDS}
-              onChange={(event) =>
-                scale.setScale(event.target.checked ? MIS_SCALES.THOUSANDS : MIS_SCALES.UNITS)
-              }
-            />
-          }
-          label={<Typography variant="body2">Values in &apos;000</Typography>}
-        />
-      </Stack>
-
-      <MisUnitTabs
-        selection={{
-          buProductSelection: filters.buProductSelection,
-          customBusinessUnits: filters.customBusinessUnits,
-          customProductUnits: filters.customProductUnits,
-        }}
-        businessUnitOptions={options.businessUnits}
-        productUnitOptions={options.productUnits}
-        onChange={changeUnits}
-      />
-
-      <Box sx={{ p: 1.5, borderRadius: 1.5, border: 1, borderColor: "divider" }}>
+  const card = (
+    <>
         <Stack
           direction="row"
           sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap", mb: 1.25 }}
         >
           <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-            <ListFilterIcon size={16} />
-            <Typography variant="subtitle2">Filters</Typography>
+            <Box component="span" sx={{ display: "inline-flex", color: faithful ? "primary.main" : "inherit" }}>
+              <ListFilterIcon size={18} />
+            </Box>
+            <Typography variant="subtitle2" sx={faithful ? { fontSize: 16, fontWeight: 600 } : undefined}>
+              Filters
+            </Typography>
           </Stack>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-            {visible.length > MIS_COLLAPSED_CONTROL_COUNT && (
+            {visible.length > collapsedCount && (
               <Button
                 size="small"
                 onClick={() => setExpanded((open) => !open)}
                 startIcon={expanded ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
+                sx={faithful ? faithfulTextButtonSx : undefined}
               >
                 {expanded ? "Less" : "More"}
               </Button>
@@ -352,10 +296,17 @@ export default function MisFilterBar({
               variant="contained"
               disabled={!hasPendingChanges}
               onClick={apply}
+              sx={faithful ? faithfulApplySx : undefined}
             >
               Apply
             </Button>
-            <Button size="small" variant="outlined" startIcon={<EraserIcon size={14} />} onClick={clearAll}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<EraserIcon size={14} />}
+              onClick={clearAll}
+              sx={faithful ? faithfulOutlinedSx : undefined}
+            >
               Clear All
             </Button>
           </Stack>
@@ -378,8 +329,19 @@ export default function MisFilterBar({
           </Alert>
         )}
 
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1.25 }}>
-          {(expanded ? visible : visible.slice(0, MIS_COLLAPSED_CONTROL_COUNT)).map((control) => (
+        {/* The source's `.filter-row`: a grid of equal columns, so controls wrap
+            onto fewer columns as the card narrows instead of shrinking until
+            their labels truncate. The same in every variant — it is anatomy. */}
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fill, minmax(168px, 1fr))",
+            gap: "12px 14px",
+            alignItems: "center",
+            "& > *": { minWidth: 0, width: "100%" },
+          }}
+        >
+          {(expanded ? visible : visible.slice(0, collapsedCount)).map((control) => (
             <Unavailable key={control} on={unavailable.has(control) ? MIS_TABLE_LABELS[table] : ""}>
               <Control
                 control={control}
@@ -402,21 +364,30 @@ export default function MisFilterBar({
           variant="caption"
           component="p"
           color="text.secondary"
-          sx={{ mt: 1, minHeight: 18 }}
+          sx={[{ mt: 1, minHeight: 18 }, faithful && hasPendingChanges ? { fontWeight: 600, color: "primary.dark" } : {}]}
         >
           {hasPendingChanges ? CHANGE_MESSAGE : resetNotice}
         </Typography>
 
-        <MisAppliedFilterChips
-          chips={describeAppliedFilters(filters, filterView)}
-          onRemove={removeChip}
-        />
-      </Box>
-    </Box>
+        <Box sx={faithful ? (theme) => ({ "& .MuiChip-root": faithfulChipSx(theme) }) : undefined}>
+          <MisAppliedFilterChips
+            chips={describeAppliedFilters(filters, filterView)}
+            onRemove={removeChip}
+          />
+        </Box>
+    </>
+  );
+
+  return look.filterCard === "gradient" ? (
+    <Box sx={[{ mb: 1.5 }, gradientCardSx]}>{card}</Box>
+  ) : (
+    <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
+      {card}
+    </Paper>
   );
 }
 
-const CONTROL_WIDTH = { minWidth: 190, flex: "0 1 190px" } as const;
+const CONTROL_WIDTH = { minWidth: 0 } as const;
 
 /**
  * One control, greyed out and wearing its reason when this Table does not offer
@@ -435,7 +406,11 @@ function Unavailable({ on, children }: { on: string; children: ReactElement }) {
           receives no pointer events either, which is the thing being worked
           around. It becomes the flex item in the control row, so it carries the
           control's width. */}
-      <Box component="span" tabIndex={0} sx={{ ...CONTROL_WIDTH, display: "inline-flex" }}>
+      <Box
+        component="span"
+        tabIndex={0}
+        sx={{ ...CONTROL_WIDTH, display: "flex", width: "100%", "& > *": { width: "100%" } }}
+      >
         {children}
       </Box>
     </Tooltip>

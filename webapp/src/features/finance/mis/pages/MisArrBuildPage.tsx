@@ -15,7 +15,7 @@
 // under the License.
 
 import { useMemo, useState, type ReactNode } from "react";
-import { Box, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Skeleton, Typography } from "@wso2/oxygen-ui";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import MisShell from "../components/MisShell";
@@ -35,17 +35,16 @@ import {
 } from "../util/misPeriods";
 import {
   MIS_VALUE_TYPES,
-  amountUnitCaption,
   formatMisValue,
   misValueTypeForRow,
 } from "../util/misMoney";
 import type { MisViewState } from "../util/useMisViewState";
-import type { MisDateRange, MisScale } from "../util/misViewVocabulary";
+import type { MisDateRange } from "../util/misViewVocabulary";
 import type { BuildColumnGroup, BuildRow } from "../components/buildTableModel";
 import { useMisViewState } from "../util/useMisViewState";
 import { useMisScale } from "../util/useMisScale";
 import { useYearsBackSession } from "../util/YearsBackSessionContext";
-import { filtersAfterSwitch, periodInitials } from "../util/misFilterBarModel";
+import { filtersAfterSwitch } from "../util/misFilterBarModel";
 import {
   MIS_PERIODS,
   type MisPeriod,
@@ -71,11 +70,10 @@ import {
 } from "../components/customerAccountRows";
 import { useMisAppConfigs } from "../api/useMisAppConfigs";
 import MisFilterBar from "../components/MisFilterBar";
-import MisTableTabs from "../components/MisTableTabs";
+import MisCustomerBreakdownTabs from "../components/MisCustomerBreakdownTabs";
 import MisCustomerDrillDown from "../components/MisCustomerDrillDown";
 import MisOpportunities from "../components/MisOpportunities";
 import { opportunitiesRequest, useOpportunities } from "../api/useOpportunities";
-import MisCustomerBreakdownTabs from "../components/MisCustomerBreakdownTabs";
 import MisRegionTypeTabs from "../components/MisRegionTypeTabs";
 import MisRegionSummaryTabs, {
   MIS_REGION_SUMMARY_VIEWS,
@@ -98,7 +96,6 @@ import {
 import { drillDownRequest, DRILLABLE_ROW_IDS } from "../api/misDrillDownRequest";
 import { useDrillDownCustomers } from "../api/useDrillDownCustomers";
 import { describeAppliedFilters } from "../util/misAppliedFilterChips";
-import MisExportButton from "../components/MisExportButton";
 import {
   misBuildSheet,
   type MisBuildSheetInput,
@@ -106,6 +103,22 @@ import {
 } from "../export/misBuildWorkbook";
 import type { MisWorkbookSpec } from "../export/misWorkbook";
 import { misExportFilename, misFilenameWord } from "../export/misExportFilename";
+import type { MisScaleState } from "../util/useMisScale";
+import { MIS_UNITS_BY_CATEGORY, unitCategoryOf } from "../util/misUnits";
+import type { MisUnitSelection } from "../components/MisUnitTabs";
+import { MisLookPrototypeProvider } from "../prototype/misLookPrototype";
+import PrototypePeriodRow from "../prototype/PrototypePeriodRow";
+import PrototypeTableTabs from "../prototype/PrototypeTableTabs";
+import PrototypeUnitPills from "../prototype/PrototypeUnitPills";
+import PrototypeGridHeader, { type GridToggle } from "../prototype/PrototypeGridHeader";
+import PrototypeExportMenu from "../prototype/PrototypeExportMenu";
+
+// PROTOTYPE (branch prototype/mis-look): this page now renders the D4 anatomy —
+// Period row → seven Table tabs → Unit pills → filter card → per-grid header →
+// grid — under the One WSO2 eyebrow and an h1 that reads "ARR Dashboard" on
+// every Period (D10). Three variants of the CHROME are switchable via
+// `?variant=`; see `prototype/misLookPrototype.tsx`. The data path is the port's
+// own, untouched: the hooks below read the fixture backend in dev.
 
 // ARR Build — annual recurring revenue, on live figures.
 //
@@ -138,31 +151,27 @@ import { misExportFilename, misFilenameWord } from "../export/misExportFilename"
  * name and the gate id, so that is what this map holds; everything else reads
  * the Period out of `view`.
  */
-const BUILD_SCREENS: Readonly<
-  Record<MisPeriod, { gateId: string; sentence: string }>
-> = {
-  [MIS_PERIODS.ANNUALLY]: {
-    gateId: "mis-arr-build",
-    sentence: "Annual recurring revenue from an opening balance to a closing balance, one column per period.",
-  },
-  [MIS_PERIODS.QUARTERLY]: {
-    gateId: "mis-qrr-build",
-    sentence: "Quarterly recurring revenue from an opening balance to a closing balance, one column per quarter.",
-  },
-  [MIS_PERIODS.MONTHLY]: {
-    gateId: "mis-mrr-build",
-    sentence: "Monthly recurring revenue from an opening balance to a closing balance, one column per month.",
-  },
+const BUILD_SCREENS: Readonly<Record<MisPeriod, { gateId: string }>> = {
+  [MIS_PERIODS.ANNUALLY]: { gateId: "mis-arr-build" },
+  [MIS_PERIODS.QUARTERLY]: { gateId: "mis-qrr-build" },
+  [MIS_PERIODS.MONTHLY]: { gateId: "mis-mrr-build" },
 };
 
+/** D10: the h1 on every Period, and the document title. */
+const DASHBOARD_TITLE = "ARR Dashboard";
+/** D10: Period-neutral, so switching Annually → Monthly does not rewrite the header. */
+const DASHBOARD_SUBTITLE =
+  "Recurring revenue from an opening balance to a closing balance, one column per Period, across four Tables.";
+
 export default function MisArrBuildPage({ period }: { period: MisPeriod }) {
-  const { gateId, sentence } = BUILD_SCREENS[period];
-  const title = `${periodInitials(period)} Build`;
-  useDocumentTitle(title);
+  const { gateId } = BUILD_SCREENS[period];
+  useDocumentTitle(DASHBOARD_TITLE);
 
   return (
-    <MisShell gateId={gateId} title={title} subtitle={sentence}>
-      <ArrBuild period={period} />
+    <MisShell gateId={gateId} title={DASHBOARD_TITLE} subtitle={DASHBOARD_SUBTITLE}>
+      <MisLookPrototypeProvider>
+        <ArrBuild period={period} />
+      </MisLookPrototypeProvider>
     </MisShell>
   );
 }
@@ -182,28 +191,71 @@ function ArrBuild({ period }: { period: MisPeriod }) {
   // what survives, and the bar says what was dropped. The tabs commit on click,
   // so this is one navigation: the new Table and its filters together, which is
   // also what lets the bar tell a switch from an Apply.
-  const changeTable = (table: MisTable) =>
+  const changeTable = (table: MisTable, units?: MisUnitSelection) =>
     view.setView({
       table,
-      filters: filtersAfterSwitch(view.filters, { period: view.period, table }, session.yearsBack),
+      filters: {
+        ...filtersAfterSwitch(view.filters, { period: view.period, table }, session.yearsBack),
+        // A Build tab names a Unit category as well as the Table, so the two
+        // arrive in one navigation rather than as a Table switch and a second
+        // write that the first one's reset would race.
+        ...(units ?? {}),
+      },
     });
+  const changeUnits = (units: MisUnitSelection) =>
+    view.setView({ filters: { ...view.filters, ...units } });
+
+  const selection: MisUnitSelection = {
+    buProductSelection: view.filters.buProductSelection,
+    customBusinessUnits: view.filters.customBusinessUnits,
+    customProductUnits: view.filters.customProductUnits,
+  };
 
   return (
-    <Box>
-      <MisFilterBar
-        view={view}
-        scale={scale}
-        options={configs.options}
-        optionsLoading={configs.isLoading}
-        // Only when the lists actually FAILED. A bar still loading them says so
-        // in the menus themselves, which is not worth a warning above the bar.
-        optionsErrorMessage={configs.isError ? configs.errorMessage : ""}
-        onRetryOptions={configs.retry}
-      />
-      <MisTableTabs table={view.table} onChange={changeTable} />
-      <BuildForTable view={view} scale={scale.scale} />
+    // The chrome stays put; the grid body is the page's one scroller. The
+    // offset is the shell's own header, which this page does not own.
+    <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 152px)", minHeight: 0 }}>
+      <Box sx={{ flex: "none" }}>
+        <PrototypePeriodRow view={view} />
+        <MisFilterBar
+          view={view}
+          options={configs.options}
+          optionsLoading={configs.isLoading}
+          // Only when the lists actually FAILED. A bar still loading them says so
+          // in the menus themselves, which is not worth a warning above the bar.
+          optionsErrorMessage={configs.isError ? configs.errorMessage : ""}
+          onRetryOptions={configs.retry}
+        />
+        <PrototypeTableTabs view={view} onTable={changeTable} onUnits={changeUnits} />
+        {view.table === MIS_TABLES.SUBSCRIPTION && (
+          <PrototypeUnitPills
+            selection={selection}
+            businessUnitOptions={configs.options.businessUnits}
+            productUnitOptions={configs.options.productUnits}
+            onChange={changeUnits}
+          />
+        )}
+      </Box>
+      <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        <BuildForTable view={view} scale={scale} />
+      </Box>
     </Box>
   );
+}
+
+/**
+ * The Table title in the per-grid header — the source's words (`DataGrid.js`
+ * `displayTitle`): "<unit> <category> Build" on the Subscription Table ("All BU
+ * Build", "API Platform Software Build" — its `PRODUCT_LABELS` carry the
+ * category), the Table's own label elsewhere.
+ */
+function gridTitle(view: MisViewState): string {
+  if (view.table !== MIS_TABLES.SUBSCRIPTION) return MIS_TABLE_LABELS[view.table];
+  const code = view.filters.buProductSelection;
+  const category = unitCategoryOf(code);
+  if (category === "Custom") return "Custom Build";
+  const unit = MIS_UNITS_BY_CATEGORY[category].find((one) => one.code === code);
+  return unit ? `${unit.label} ${category} Build` : "Build";
 }
 
 /**
@@ -220,17 +272,17 @@ function ArrBuild({ period }: { period: MisPeriod }) {
  * the reader a different report than the one they asked for, under a heading
  * saying Subscription and an address saying Region Summary.
  */
-function BuildForTable({ view, scale }: { view: MisViewState; scale: MisScale }) {
+function BuildForTable({ view, scale }: { view: MisViewState; scale: MisScaleState }) {
   if (view.table === MIS_TABLES.SOFTWARE_CLOUD_CUSTOMERS) {
-    return <CustomersGrid view={view} scale={scale} />;
+    return <CustomersGrid view={view} scaleState={scale} />;
   }
   if (view.table === MIS_TABLES.EXIT_ARR_BY_REGION) {
-    return <RegionSummaryGrid view={view} scale={scale} />;
+    return <RegionSummaryGrid view={view} scaleState={scale} />;
   }
   if (view.table === MIS_TABLES.EXIT_ARR_BY_BU) {
-    return <BuSummaryGrid view={view} scale={scale} />;
+    return <BuSummaryGrid view={view} scaleState={scale} />;
   }
-  return <ArrBuildGrid view={view} scale={scale} />;
+  return <ArrBuildGrid view={view} scaleState={scale} />;
 }
 
 /**
@@ -241,7 +293,8 @@ function BuildForTable({ view, scale }: { view: MisViewState; scale: MisScale })
  * has to be able to change them, and a bar inside the early return below would
  * have vanished with the grid.
  */
-function ArrBuildGrid({ view, scale }: { view: MisViewState; scale: MisScale }) {
+function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
+  const scale = scaleState.scale;
 
   // Drawn from the ranges the URL contract already hydrated into the Applied
   // set, so the columns and the filters cannot disagree about which Periods are
@@ -346,10 +399,12 @@ function ArrBuildGrid({ view, scale }: { view: MisViewState; scale: MisScale }) 
       {/* Above the grid rather than beside the control, because Finance's
           workflow is to crop a table into a slide deck: a figure that has left
           the screen it was set on has to carry its own units. */}
-      <GridCaptionBar
+      <PrototypeGridHeader
+        title={gridTitle(view)}
         scale={scale}
-        exportButton={
-          <MisExportButton
+        onScale={scaleState.setScale}
+        exportMenu={
+          <PrototypeExportMenu scale={scale}
             workbook={() =>
               oneSheet({
                 name: MIS_TABLE_LABELS[MIS_TABLES.SUBSCRIPTION],
@@ -384,8 +439,10 @@ function ArrBuildGrid({ view, scale }: { view: MisViewState; scale: MisScale }) 
         state={drillDown}
       />
       )}
-      <BuildTable
+      <BuildTable fill
         label="ARR Build — Subscription"
+        // Measured on the source: one header row when a Period has one ARR type.
+        collapseLoneSubHeader
         rowLabelHeader="Summary"
         columnGroups={columnGroups}
         subColumns={SUB_COLUMNS}
@@ -415,11 +472,15 @@ function ArrBuildGrid({ view, scale }: { view: MisViewState; scale: MisScale }) 
  * reading the fetch as the column list would put six Periods on screen where
  * five belong.
  */
-function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale }) {
+function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
+  const scale = scaleState.scale;
   // The business-unit split is the default, so it starts on. Both breakdowns
   // read the same response, so this
   // switches columns and fires no request.
   const [buOnly, setBuOnly] = useState(true);
+  // D9: Totals only collapses each Period group to its Total column(s). Off by
+  // default; component state like BU only, for the same reason.
+  const [totalsOnly, setTotalsOnly] = useState(false);
   // `customerColumnRanges`, not `buildColumnRanges`: this is the one table with
   // ranges of its own, and only on a Delayed type, where the columns are a
   // recent run plus today rather than the whole Period. See misPeriods.ts.
@@ -473,10 +534,25 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
   const leadCell = (row: { id: string }, column: CustomerLeadColumn) =>
     customerIdentityText(row.id, accountById.get(row.id), column);
 
-  const columnGroups = book.columns.map(({ label }) => ({ key: label, label }));
+  // PROTOTYPE: the source heads a Customers Period "As of {end}" — a balance at
+  // a date, like the Exit ARR summaries — not "{opening} - {end}". Its
+  // `toAsOfAnnualLabel` splits the range label on " - " exactly as here; the
+  // real implementation should take the end off the range instead
+  // (`misPeriods.ts` already has the helper the Exit ARR tables use).
+  const columnGroups = book.columns.map(({ label }) => ({
+    key: label,
+    label: label.includes(" - ") ? `As of ${label.split(" - ")[1]}` : label,
+  }));
   const breakdown = buOnly ? CUSTOMER_BU_SUB_COLUMNS : CUSTOMER_SUB_COLUMNS;
   const breakdownByKey = buOnly ? CUSTOMER_BU_SUB_COLUMN_BY_KEY : CUSTOMER_SUB_COLUMN_BY_KEY;
-  const subColumns = breakdown.map(({ key, label }) => ({ key, label, width: 150 }));
+  // Totals only keeps the column(s) whose label is a total — "Total" under BU
+  // only; "Software Total", "Cloud Total" and "Total" under Software / Cloud.
+  const shownBreakdown = totalsOnly ? breakdown.filter((column) => /total/i.test(column.label)) : breakdown;
+  const subColumns = shownBreakdown.map(({ key, label }) => ({ key, label, width: 150 }));
+  // The grand total is the column reading `arrGrandTotal`, under either breakdown.
+  const grandTotalKeys = new Set(
+    breakdown.filter((column) => column.field === "arrGrandTotal").map((column) => column.key),
+  );
   /** The figure itself, shared by the cell below and by the export. */
   const rawFigure = (row: BuildRow, group: BuildColumnGroup, subColumnKey: string) => {
     // A Map, not a scan: `BuildTable` takes plain `BuildSubColumn`s, so the
@@ -524,13 +600,24 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;
   }
 
-  // Above every state but loading: the control is gated on `!loading` alone,
-  // and it sits where the Region Summary's two controls sit beside this one.
-  // It matters most on the states that are not the happy one: a reader who
-  // lands on an error or
-  // an empty book keeps the control, rather than losing the switch at the
-  // moment they most want to try the other side of it.
+  // Above every state but loading. The two toggles live in the per-grid header
+  // (D4 step 5), so on the error and empty states — which have no header — the
+  // header is still rendered, without an export, so a reader who lands on an
+  // empty book keeps the switch rather than losing it at the moment they most
+  // want to try the other side of it.
+  const toggles: GridToggle[] = [
+    { label: "Totals only", checked: totalsOnly, onChange: setTotalsOnly },
+  ];
   const breakdownTabs = <MisCustomerBreakdownTabs buOnly={buOnly} onChange={setBuOnly} />;
+  const header = (exportMenu?: ReactNode) => (
+    <PrototypeGridHeader
+      title={gridTitle(view)}
+      scale={scale}
+      onScale={scaleState.setScale}
+      toggles={toggles}
+      exportMenu={exportMenu}
+    />
+  );
 
   const opportunitiesDialog = (
     <MisOpportunities
@@ -547,6 +634,7 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
     return (
       <Box>
         {breakdownTabs}
+        {header()}
         <ErrorNotice onRetry={book.retry} sx={{ mt: 1.5 }}>
           Couldn't load the customers. {book.errorMessage}
         </ErrorNotice>
@@ -558,6 +646,7 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
     return (
       <Box>
         {breakdownTabs}
+        {header()}
         <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
           No customers to show. Widen Years Back, or loosen the filters.
         </Typography>
@@ -568,10 +657,8 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
   return (
     <Box>
       {breakdownTabs}
-      <GridCaptionBar
-        scale={scale}
-        exportButton={
-          <MisExportButton
+      {header(
+          <PrototypeExportMenu scale={scale}
             workbook={() =>
               oneSheet({
                 name: MIS_TABLE_LABELS[MIS_TABLES.SOFTWARE_CLOUD_CUSTOMERS],
@@ -591,11 +678,12 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
               })
             }
             filename={() => exportFilenameFor(MIS_TABLES.SOFTWARE_CLOUD_CUSTOMERS)}
-          />
-        }
-      />
-      <BuildTable
-        label="ARR Build — Software/Cloud Customers"
+          />,
+      )}
+      <BuildTable fill
+        label="Software/Cloud Customers"
+        // Measured on the source: the Total row is `.total-row-bold`, 16px/700.
+        emphasisStyle={{ fontWeight: 700, fontSize: "1rem" }}
         rowLabelHeader="Account Name"
         leadColumns={leadColumns}
         leadCell={leadCell}
@@ -603,6 +691,7 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
         subColumns={subColumns}
         rows={rows}
         cell={cell}
+        grandTotalKeys={grandTotalKeys}
       />
       {/* Mounted only on the happy path, beside the table it opens from — the
           same place the Build's drill-down sits. Nothing to open a dialog from
@@ -626,13 +715,15 @@ function CustomersGrid({ view, scale }: { view: MisViewState; scale: MisScale })
  * empty — for the same reason the filter bar is: a reader whose Sub Region read
  * failed has to be able to get back to Sales Region.
  */
-function RegionSummaryGrid({ view, scale }: { view: MisViewState; scale: MisScale }) {
+function RegionSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
   // Component state, and not in the URL — see `MisRegionSummaryTabs` and
   // `MisRegionTypeTabs`. The two views are not part of the shared address.
   const [summaryView, setSummaryView] = useState<MisRegionSummaryView>(
     MIS_REGION_SUMMARY_VIEWS.EXIT_ARR,
   );
   const [bySalesRegion, setBySalesRegion] = useState(true);
+  // D9: Totals only on the Exit ARR view keeps each Period's Total column alone.
+  const [totalsOnly, setTotalsOnly] = useState(false);
 
   // Switching view returns the cut to Sales Region. The two views ask the
   // backend for different things, so
@@ -648,9 +739,15 @@ function RegionSummaryGrid({ view, scale }: { view: MisViewState; scale: MisScal
       <MisRegionSummaryTabs view={summaryView} onChange={changeView} />
       <MisRegionTypeTabs bySalesRegion={bySalesRegion} onChange={setBySalesRegion} />
       {summaryView === MIS_REGION_SUMMARY_VIEWS.ALL_ARR_METRICS ? (
-        <RegionMetricsGrid view={view} scale={scale} bySalesRegion={bySalesRegion} />
+        <RegionMetricsGrid view={view} scaleState={scaleState} bySalesRegion={bySalesRegion} />
       ) : (
-        <RegionExitGrid view={view} scale={scale} bySalesRegion={bySalesRegion} />
+        <RegionExitGrid
+          view={view}
+          scaleState={scaleState}
+          bySalesRegion={bySalesRegion}
+          totalsOnly={totalsOnly}
+          onTotalsOnly={setTotalsOnly}
+        />
       )}
     </Box>
   );
@@ -674,13 +771,18 @@ function RegionSummaryGrid({ view, scale }: { view: MisViewState; scale: MisScal
  */
 function RegionExitGrid({
   view,
-  scale,
+  scaleState,
   bySalesRegion,
+  totalsOnly,
+  onTotalsOnly,
 }: {
   view: MisViewState;
-  scale: MisScale;
+  scaleState: MisScaleState;
   bySalesRegion: boolean;
+  totalsOnly: boolean;
+  onTotalsOnly: (on: boolean) => void;
 }) {
+  const scale = scaleState.scale;
   const ranges = useMemo(
     () => buildColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
@@ -692,6 +794,9 @@ function RegionExitGrid({
   const { rows, figures } = regionExitTable(summary.columns);
 
   const columnGroups = summary.columns.map(({ label }) => ({ key: label, label }));
+  const subColumns = totalsOnly
+    ? REGION_EXIT_SUB_COLUMNS.filter((column) => column.key === "total")
+    : REGION_EXIT_SUB_COLUMNS;
   /** The figure itself, shared by the cell below and by the export. */
   const rawFigure = (row: BuildRow, group: BuildColumnGroup, subColumnKey: string) => {
     // A Map, not a scan: `BuildTable` takes plain `BuildSubColumn`s, so the
@@ -717,16 +822,18 @@ function RegionExitGrid({
       isEmpty={rows.length <= 1}
       emptyMessage="No regions to show. Widen Years Back, or loosen the filters."
       errorMessage={`Couldn't load the Region Summary. ${summary.errorMessage}`}
-      scale={scale}
+      title={`${MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_REGION]} — ${MIS_REGION_SUMMARY_VIEW_LABELS[MIS_REGION_SUMMARY_VIEWS.EXIT_ARR]}`}
+      scaleState={scaleState}
+      toggles={[{ label: "Totals only", checked: totalsOnly, onChange: onTotalsOnly }]}
       exportButton={
-        <MisExportButton
+        <PrototypeExportMenu scale={scale}
           workbook={() =>
             oneSheet({
               name: MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_REGION],
               rowLabelHeader: "Region",
               rowLabelWidth: REGION_LABEL_WIDTH,
               columnGroups,
-              subColumns: REGION_EXIT_SUB_COLUMNS,
+              subColumns,
               rows,
               value: rawFigure,
               valueType: ALL_CURRENCY,
@@ -736,12 +843,14 @@ function RegionExitGrid({
         />
       }
     >
-      <BuildTable
-        label="ARR Build — Region Summary"
+      <BuildTable fill
+        label="ARR Dashboard — Region Summary"
+        // Measured on the source: `.exit-region-bold-row .ag-cell` is 700.
+        emphasisStyle={{ fontWeight: 700 }}
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
-        subColumns={REGION_EXIT_SUB_COLUMNS}
+        subColumns={subColumns}
         rows={rows}
         cell={cell}
       />
@@ -771,13 +880,14 @@ function RegionExitGrid({
  */
 function RegionMetricsGrid({
   view,
-  scale,
+  scaleState,
   bySalesRegion,
 }: {
   view: MisViewState;
-  scale: MisScale;
+  scaleState: MisScaleState;
   bySalesRegion: boolean;
 }) {
+  const scale = scaleState.scale;
   const ranges = useMemo(
     () => buildColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
@@ -814,9 +924,10 @@ function RegionMetricsGrid({
       // where no columns lands.
       emptyMessage="Choose units to generate region metrics, or widen Years Back."
       errorMessage={`Couldn't load the ARR metrics. ${metrics.errorMessage}`}
-      scale={scale}
+      title={`${MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_REGION]} — ${ALL_ARR_METRICS_LABEL}`}
+      scaleState={scaleState}
       exportButton={
-        <MisExportButton
+        <PrototypeExportMenu scale={scale}
           workbook={() =>
             oneSheet({
               name: ALL_ARR_METRICS_LABEL,
@@ -829,12 +940,14 @@ function RegionMetricsGrid({
               valueType: ALL_CURRENCY,
             })
           }
-          filename={() => misExportFilename(["arr_build", misFilenameWord(ALL_ARR_METRICS_LABEL)])}
+          filename={() => misExportFilename(["arr_dashboard", misFilenameWord(ALL_ARR_METRICS_LABEL)])}
         />
       }
     >
-      <BuildTable
-        label={`ARR Build — ${ALL_ARR_METRICS_LABEL}`}
+      <BuildTable fill
+        label={`ARR Dashboard — ${ALL_ARR_METRICS_LABEL}`}
+        // Measured on the source: `.region-metrics-total-row .ag-cell` is 700.
+        emphasisStyle={{ fontWeight: 700 }}
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
@@ -854,7 +967,8 @@ function RegionMetricsGrid({
  * one figure per Period rather than seven, because the per-unit split has
  * become the rows.
  */
-function BuSummaryGrid({ view, scale }: { view: MisViewState; scale: MisScale }) {
+function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
+  const scale = scaleState.scale;
   const ranges = useMemo(
     () => buildColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
@@ -883,9 +997,10 @@ function BuSummaryGrid({ view, scale }: { view: MisViewState; scale: MisScale })
       isEmpty={false}
       emptyMessage="No periods to show. Widen Years Back."
       errorMessage={`Couldn't load the BU Summary. ${summary.errorMessage}`}
-      scale={scale}
+      title={MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_BU]}
+      scaleState={scaleState}
       exportButton={
-        <MisExportButton
+        <PrototypeExportMenu scale={scale}
           workbook={() =>
             oneSheet({
               name: MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_BU],
@@ -902,8 +1017,8 @@ function BuSummaryGrid({ view, scale }: { view: MisViewState; scale: MisScale })
         />
       }
     >
-      <BuildTable
-        label="ARR Build — BU Summary"
+      <BuildTable fill
+        label="ARR Dashboard — BU Summary"
         rowLabelHeader="Business Unit"
         rowLabelWidth={BU_LABEL_WIDTH}
         columnGroups={columnGroups}
@@ -930,7 +1045,9 @@ function SummaryBody({
   isEmpty,
   emptyMessage,
   errorMessage,
-  scale,
+  title,
+  scaleState,
+  toggles,
   exportButton,
   children,
 }: {
@@ -938,30 +1055,54 @@ function SummaryBody({
   isEmpty: boolean;
   emptyMessage: string;
   errorMessage: string;
-  scale: MisScale;
-  /** Rendered beside the caption, and only once there is a table to export. */
+  /** The Table title in the per-grid header. */
+  title: string;
+  scaleState: MisScaleState;
+  toggles?: readonly GridToggle[];
+  /** Rendered in the header, and only once there is a table to export. */
   exportButton?: ReactNode;
   children: ReactNode;
 }) {
+  const header = (exportMenu?: ReactNode) => (
+    <PrototypeGridHeader
+      title={title}
+      scale={scaleState.scale}
+      onScale={scaleState.setScale}
+      toggles={toggles}
+      exportMenu={exportMenu}
+    />
+  );
+
   if (state.isLoading) {
-    return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;
+    return (
+      <Box>
+        {header()}
+        <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />
+      </Box>
+    );
   }
 
   // Only when EVERY column failed. One bad column blanks itself and the rest of
   // the summary still reads — see `useColumnQueries`.
   if (state.isError) {
     return (
-      <ErrorNotice onRetry={state.retry} sx={{ mt: 1.5 }}>
-        {errorMessage}
-      </ErrorNotice>
+      <Box>
+        {header()}
+        <ErrorNotice onRetry={state.retry} sx={{ mt: 1.5 }}>
+          {errorMessage}
+        </ErrorNotice>
+      </Box>
     );
   }
 
   if (!state.columns.length || isEmpty) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
-        {emptyMessage}
-      </Typography>
+      <Box>
+        {header()}
+        <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
+          {emptyMessage}
+        </Typography>
+      </Box>
     );
   }
 
@@ -969,7 +1110,7 @@ function SummaryBody({
     <Box>
       {/* Above the grid rather than beside the control, because Finance's
           workflow is to crop a table into a slide deck. */}
-      <GridCaptionBar scale={scale} exportButton={exportButton} />
+      {header(exportButton)}
       {children}
     </Box>
   );
@@ -985,32 +1126,7 @@ function SummaryBody({
 const EXIT_ARR_SUB_COLUMNS = [{ key: "amount", label: "Exit ARR", width: 180 }] as const;
 
 /**
- * The caption over a grid, and the control that takes the grid away.
- *
- * Above the grid rather than beside the Scale control, because Finance's
- * workflow is to crop a table into a slide deck: a figure that has left the
- * screen it was set on has to carry its own units.
- *
- * One component rather than the four copies the four tables would otherwise
- * each keep — the export button arrived as the second thing in this row, and
- * two things in a row is a layout rather than a caption.
- */
-function GridCaptionBar({ scale, exportButton }: { scale: MisScale; exportButton?: ReactNode }) {
-  return (
-    <Stack
-      direction="row"
-      sx={{ justifyContent: "flex-end", alignItems: "center", gap: 1.5, mb: 0.75 }}
-    >
-      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-        {amountUnitCaption(scale)}
-      </Typography>
-      {exportButton}
-    </Stack>
-  );
-}
-
-/**
- * `arr_build_bu_summary_2026-09-14.xlsx` — which table, and the day it was taken.
+ * `arr_dashboard_bu_summary_2026-09-14.xlsx` — which table, and the day it was taken.
  *
  * Dated in Pacific Time rather than UTC, which is how `misExportFilename`
  * dates a file; the table's own label rather than a second set of
@@ -1018,7 +1134,7 @@ function GridCaptionBar({ scale, exportButton }: { scale: MisScale; exportButton
  * clicked is named.
  */
 const exportFilenameFor = (table: MisTable): string =>
-  misExportFilename(["arr_build", misFilenameWord(MIS_TABLE_LABELS[table])]);
+  misExportFilename(["arr_dashboard", misFilenameWord(MIS_TABLE_LABELS[table])]);
 
 /**
  * The Region Summary's second view has no `MisTable` of its own — it is a view

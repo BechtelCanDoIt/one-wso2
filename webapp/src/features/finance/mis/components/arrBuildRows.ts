@@ -137,11 +137,14 @@ const SECTIONS: readonly SectionSpec[] = [
         ruleAbove: true,
       },
       { id: "ending-arr-yoy", label: MIS_ROW_LABELS.YOY_GROWTH, field: "endingArrYoyGrowth" },
-      { id: "net-new", label: MIS_ROW_LABELS.NET_NEW, field: "netNew" },
+      // PROTOTYPE (prototype/mis-look): the source's `.bold-row` set, read off
+      // mis-stg on 2026-10-07, is Opening ARR, Ending ARR, Net New, Total New
+      // ARR and Total Churn ARR — the three below were plain in the port.
+      { id: "net-new", label: MIS_ROW_LABELS.NET_NEW, field: "netNew", emphasis: true },
       { id: "net-new-yoy", label: MIS_ROW_LABELS.YOY_GROWTH, field: "netNewYoyGrowth" },
-      { id: "total-new-arr", label: MIS_ROW_LABELS.TOTAL_NEW_ARR, field: "totalNewArr" },
+      { id: "total-new-arr", label: MIS_ROW_LABELS.TOTAL_NEW_ARR, field: "totalNewArr", emphasis: true },
       { id: "total-new-arr-yoy", label: MIS_ROW_LABELS.YOY_GROWTH, field: "totalNewArrYoyGrowth" },
-      { id: "total-lost-arr", label: MIS_ROW_LABELS.TOTAL_CHURN_ARR, field: "totalChurnArr" },
+      { id: "total-lost-arr", label: MIS_ROW_LABELS.TOTAL_CHURN_ARR, field: "totalChurnArr", emphasis: true },
       {
         id: "total-lost-arr-yoy",
         label: MIS_ROW_LABELS.YOY_GROWTH,

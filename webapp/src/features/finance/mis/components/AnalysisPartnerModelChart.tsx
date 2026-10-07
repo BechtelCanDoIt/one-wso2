@@ -26,7 +26,7 @@ import {
   TableRow,
   Tooltip,
   Typography,
-  useTheme,
+  useColorScheme,
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
@@ -73,8 +73,7 @@ export default function AnalysisPartnerModelChart({
   breakdown,
   scale,
 }: AnalysisPartnerModelChartProps) {
-  const { palette } = useTheme();
-  const mode = palette.mode === "dark" ? "dark" : "light";
+  const mode = useLiveScheme();
   const slices = partnerModelSlices({
     channel: breakdown.channel,
     direct: breakdown.direct,
@@ -246,5 +245,12 @@ export default function AnalysisPartnerModelChart({
 }
 
 /** `tabular-nums` so a column of figures lines up when scanned down. */
+/** See AnalysisIndustryChart: palette.mode does not track the live scheme. */
+function useLiveScheme(): "light" | "dark" {
+  const { mode, systemMode } = useColorScheme();
+  const resolved = mode === "system" ? systemMode : mode;
+  return resolved === "dark" ? "dark" : "light";
+}
+
 const CELL_SX = { fontSize: 12.5, fontVariantNumeric: "tabular-nums" } as const;
 const HEAD_SX = { fontSize: 11, fontWeight: 700, color: "text.secondary" } as const;

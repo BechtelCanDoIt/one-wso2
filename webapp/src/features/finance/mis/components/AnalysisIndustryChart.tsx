@@ -35,6 +35,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useColorScheme,
   useTheme,
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
@@ -84,7 +85,7 @@ export default function AnalysisIndustryChart({
   scale,
 }: AnalysisIndustryChartProps) {
   const { palette } = useTheme();
-  const mode = palette.mode === "dark" ? "dark" : "light";
+  const mode = useLiveScheme();
   const chrome = chartChrome(mode);
   const fill = seriesColor(CHART_SERIES_1, mode);
 
@@ -272,6 +273,16 @@ export default function AnalysisIndustryChart({
 
 /** Tall enough for seven bars and their names without the axis being cropped. */
 const CHART_HEIGHT = 300;
+
+/**
+ * The live colour scheme. `palette.mode` stays "light" under Oxygen's
+ * CSS-variables theme, which is how these axes disappeared in dark mode.
+ */
+function useLiveScheme(): "light" | "dark" {
+  const { mode, systemMode } = useColorScheme();
+  const resolved = mode === "system" ? systemMode : mode;
+  return resolved === "dark" ? "dark" : "light";
+}
 
 const CELL_SX = { fontSize: 12.5, fontVariantNumeric: "tabular-nums" } as const;
 const HEAD_SX = { fontSize: 11, fontWeight: 700, color: "text.secondary" } as const;
