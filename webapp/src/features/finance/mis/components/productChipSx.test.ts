@@ -25,6 +25,10 @@ describe("a product chip", () => {
     expect(iam.backgroundColor).toBe("rgba(109, 40, 217, 0.1)");
   });
 
+  it("paints APIM in the same blue as API Platform", () => {
+    expect(productChipSx("APIM").color).toBe(productChipSx("API Platform").color);
+  });
+
   it("gives each known product a different colour", () => {
     const colours = ["API Platform", "IAM", "Integration", "Choreo", "Agent Platform", "Moesif"].map(
       (product) => productChipSx(product).color,

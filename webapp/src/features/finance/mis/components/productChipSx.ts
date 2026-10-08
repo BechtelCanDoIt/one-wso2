@@ -21,8 +21,12 @@
  * row of products reads as a legend rather than as six copies of the same
  * chip. A name this map does not know takes the slate, still outlined.
  */
+const API_PLATFORM = chip("#1d4ed8", "29, 78, 216");
+
 const PRODUCT_CHIP_COLOURS = {
-  "API Platform": chip("#1d4ed8", "29, 78, 216"),
+  "API Platform": API_PLATFORM,
+  // The accounts list sends the short name.
+  APIM: API_PLATFORM,
   IAM: chip("#6d28d9", "109, 40, 217"),
   Integration: chip("#0f766e", "15, 118, 110"),
   Choreo: chip("#b34c00", "179, 76, 0"),
