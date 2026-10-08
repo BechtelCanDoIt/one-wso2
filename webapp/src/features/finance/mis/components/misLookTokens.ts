@@ -284,10 +284,10 @@ export const gridHeaderBarSx = (theme: Theme) => ({
   ...theme.applyStyles("dark", { backgroundColor: "rgba(255,255,255,0.03)" }),
 });
 
-/** The Table title: 24px/600, -0.025em, line-height 1.6, brand text. */
+/** The Table title: 20px/600, -0.025em, line-height 1.6, brand text. */
 export const gridTitleSx = (theme: Theme) => ({
   m: 0,
-  fontSize: "1.5rem",
+  fontSize: "1.25rem",
   fontWeight: 600,
   letterSpacing: "-0.025em",
   lineHeight: 1.6,
