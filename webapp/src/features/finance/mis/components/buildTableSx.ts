@@ -210,34 +210,59 @@ const cellBase = {
 } as const;
 
 /**
- * The ListingTable head's fill: `grey.50` in light, a 4% white in dark. Its
- * own rule paints it translucent, through a selector that outranks a cell's
- * sx — fine on a head that nothing scrolls under, wrong on a sticky one.
+ * The header fill, as one OPAQUE colour.
+ *
+ * Light is `grey.50`. Dark is a 6% white over the page colour, mixed into a
+ * single colour so it has no alpha of its own. A translucent layer here is
+ * what lets the rows scrolling underneath show through the sticky header.
  */
-const HEAD_FILL = { light: cssVar("grey-50"), dark: "rgba(255, 255, 255, 0.04)" } as const;
+const HEAD_FILL = {
+  light: cssVar("grey-50"),
+  dark: "color-mix(in srgb, #fff 6%, var(--oxygen-palette-background-default))",
+} as const;
+
+/**
+ * A fill a sticky cell cannot drop.
+ *
+ * The colour alone is not enough: once the cell sticks, its background is
+ * composited without it and the rows scrolling underneath show through. Its
+ * own layer (`translateZ`) keeps the background, and the cover behind the
+ * label repaints the same colour inside that layer.
+ */
+const solidHead = (fill: string) => ({
+  backgroundColor: fill,
+  backgroundImage: "none",
+  transform: "translateZ(0)",
+  "&::before": {
+    content: '""',
+    position: "absolute",
+    zIndex: -1,
+    inset: 0,
+    backgroundColor: fill,
+  },
+});
 
 /**
  * A header cell, in either of the two header rows.
  *
- * Weight and padding are the ListingTable head's. The fill is the head's too,
- * but composited opaquely over `background.default` the way every body cell
- * composites paper, and raised in specificity so it wins over the head's own
- * translucent rule — otherwise the rows scrolling under the sticky header show
- * through it in dark. The borders ride on the same raised rule: a ListingTable
- * row strips the borders off the cells of a `last-child` row, which is right
- * under the body's final row and wrong under a header that happens to be the
- * only one — the drill-down's — and the frozen pane's rule must not vanish
- * with it.
+ * Weight and padding are the ListingTable head's. Its own head rule paints a
+ * translucent colour, so the fill here is a solid colour instead, on a
+ * selector that outranks that rule. The borders ride on the same rule: a
+ * ListingTable row strips the borders off the cells of a `last-child` row,
+ * which is right under the body's final row and wrong under a header that
+ * happens to be the only one — the drill-down's — and the frozen pane's rule
+ * must not vanish with it.
  */
 const headCell = (theme: Theme, edges: object = {}) => ({
   ...cellBase,
   position: "sticky" as const,
+  zIndex: Z.header,
   "&&.MuiTableCell-head": {
     borderBottom: 1,
     borderColor: "divider",
     ...edges,
-    ...opaqueTint(HEAD_FILL.light),
-    ...theme.applyStyles("dark", opaqueTint(HEAD_FILL.dark)),
+    ...solidHead(HEAD_FILL.light),
+    ...theme.applyStyles("dark", solidHead(HEAD_FILL.dark)),
   },
 });
 
