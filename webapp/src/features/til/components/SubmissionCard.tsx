@@ -87,7 +87,7 @@ export default function SubmissionCard({
               sx={submission.title ? undefined : { fontWeight: 700 }}
               noWrap
             >
-              Submitted by {submission.who}
+              Authored by {submission.who}
             </Typography>
             <Chip
               label={submission.whereDetail ? `${submission.where} — ${submission.whereDetail}` : submission.where}

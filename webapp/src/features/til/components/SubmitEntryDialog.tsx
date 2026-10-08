@@ -446,7 +446,7 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
       <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
         <Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.3 }}>
-            Submitted by
+            Authored by
           </Typography>
           <Typography variant="caption" sx={{ display: "block", lineHeight: 1.3 }}>
             {userInfo.isLoading

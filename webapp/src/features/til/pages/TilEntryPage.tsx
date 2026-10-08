@@ -95,7 +95,7 @@ export default function TilEntryPage() {
                   </Typography>
                   <Stack direction="row" alignItems="center" spacing={1.5}>
                     <Typography variant="body2" color="text.secondary">
-                      Submitted by {submission.data.who}
+                      Authored by {submission.data.who}
                     </Typography>
                     <Chip
                       label={
@@ -111,7 +111,7 @@ export default function TilEntryPage() {
               ) : (
                 <Stack direction="row" alignItems="center" spacing={1.5}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Submitted by {submission.data.who}
+                    Authored by {submission.data.who}
                   </Typography>
                   <Chip
                     label={
@@ -156,7 +156,7 @@ export default function TilEntryPage() {
           <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1.5, sm: 4 }}>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Submitted by
+                Authored by
               </Typography>
               <Typography variant="body2">{submission.data.submittedByEmail}</Typography>
             </Box>
