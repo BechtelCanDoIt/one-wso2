@@ -78,13 +78,19 @@ export const Z = {
  * colour and change nothing — see `rowSx`.
  */
 export const opaqueTint = (...tints: readonly string[]) => ({
-  // Oxygen's `background.paper` is TRANSLUCENT (`#ffffffc5` light, `#00000026`
-  // dark), so a frozen cell resting on it lets the columns scrolling behind
-  // show through — visible as a smear on the Customers table. The opaque base
-  // is `background.default`, with paper composited over it as the bottom
-  // layer, so every cell reads as the paper colour and stays opaque.
+  // Oxygen's `background.paper` is translucent, so a sticky cell painted with
+  // it lets whatever scrolls behind it show through. `background-color` does
+  // not save it: a sticky cell is composited from its background image, and a
+  // translucent image over an opaque colour still reads as translucent there.
+  // The opaque page colour is therefore the BOTTOM image layer, with paper and
+  // any tint composited over it, so the stack itself has no transparency.
   backgroundColor: "background.default",
-  backgroundImage: [...tints, "var(--oxygen-palette-background-paper)"]
+  backgroundImage: [
+    ...tints,
+    "var(--oxygen-palette-background-paper)",
+    // Last, so it sits at the bottom: an opaque layer, not another tint.
+    "var(--oxygen-palette-background-default)",
+  ]
     .map((tint) => `linear-gradient(${tint}, ${tint})`)
     .join(", "),
 });
