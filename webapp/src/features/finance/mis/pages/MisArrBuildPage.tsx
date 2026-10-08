@@ -171,6 +171,18 @@ export default function MisArrBuildPage({ period }: { period: MisPeriod }) {
 }
 
 /** Inside the shell, so it is only mounted once the gate has said yes. */
+/**
+ * The column a grid lives in. It takes the height the page has left under the
+ * chrome and passes it down, so `BuildTable`'s body is the thing that scrolls
+ * rather than the rows growing until the page clips them.
+ */
+const gridColumnSx = {
+  flex: 1,
+  minHeight: 0,
+  display: "flex",
+  flexDirection: "column",
+} as const;
+
 function ArrBuild({ period }: { period: MisPeriod }) {
   const view = useMisViewState(period, { columnRangesFor: pacificColumnRanges });
   const scale = useMisScale(view);
@@ -206,9 +218,11 @@ function ArrBuild({ period }: { period: MisPeriod }) {
   };
 
   return (
-    // The chrome stays put; the grid body is the page's one scroller. The
-    // offset is the shell's own header, which this page does not own.
-    <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 152px)", minHeight: 0 }}>
+    // The chrome stays put; the grid body is the page's one scroller. The page
+    // fills the shell's content column (under the header, above the footer)
+    // rather than guessing its height, so the column never grows a second
+    // scrollbar and the table always receives a real height to scroll in.
+    <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       <Box sx={{ flex: "none" }}>
         <MisPeriodRow view={view} />
         <MisFilterBar
@@ -388,7 +402,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
   }
 
   return (
-    <Box>
+    <Box sx={gridColumnSx}>
       {/* Above the grid rather than beside the control, because Finance's
           workflow is to crop a table into a slide deck: a figure that has left
           the screen it was set on has to carry its own units. */}
@@ -645,7 +659,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   }
 
   return (
-    <Box>
+    <Box sx={gridColumnSx}>
       {breakdownTabs}
       {header(
           <MisExportMenu scale={scale}
@@ -725,7 +739,7 @@ function RegionSummaryGrid({ view, scaleState }: { view: MisViewState; scaleStat
   };
 
   return (
-    <Box>
+    <Box sx={gridColumnSx}>
       <MisRegionSummaryTabs view={summaryView} onChange={changeView} />
       <MisRegionTypeTabs bySalesRegion={bySalesRegion} onChange={setBySalesRegion} />
       {summaryView === MIS_REGION_SUMMARY_VIEWS.ALL_ARR_METRICS ? (
@@ -1097,7 +1111,7 @@ function SummaryBody({
   }
 
   return (
-    <Box>
+    <Box sx={gridColumnSx}>
       {/* Above the grid rather than beside the control, because Finance's
           workflow is to crop a table into a slide deck. */}
       {header(exportButton)}
