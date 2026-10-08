@@ -134,6 +134,20 @@ describe("tilExcerpt", () => {
     expect(tilExcerpt("<p>Short learning.</p>")).toBe("Short learning.");
   });
 
+  it("puts each paragraph and list item on its own line", () => {
+    expect(tilExcerpt("<p>First.</p><p>Second.</p><ul><li>One</li><li>Two</li></ul>")).toBe(
+      "First.\nSecond.\nOne\nTwo",
+    );
+  });
+
+  it("drops the blank line an empty paragraph would leave", () => {
+    expect(tilExcerpt("<p>First.</p><p><br></p><p>Second.</p>")).toBe("First.\nSecond.");
+  });
+
+  it("does not turn a newline in the markup source into a line break", () => {
+    expect(tilExcerpt("<p>One\nsentence.</p>")).toBe("One sentence.");
+  });
+
   it("truncates long content at a word boundary with an ellipsis", () => {
     const long = Array.from({ length: 10 }, (_, i) => `word${i}`).join(" ");
     const result = tilExcerpt(`<p>${long}</p>`, 20);

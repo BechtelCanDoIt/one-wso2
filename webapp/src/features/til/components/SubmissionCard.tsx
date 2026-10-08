@@ -22,8 +22,10 @@ import { tilExcerpt } from "../util/tilRichText";
 //
 // Shows a plain-text EXCERPT of `what`, not the full rich content — a long
 // multi-paragraph/list entry made the feed itself unreadable (one card
-// could run to a dozen visible lines). The full rich version still renders
-// in full on the entry's own page (TilWhatContent, via onOpen below).
+// could run to a dozen visible lines). Each paragraph still starts its own
+// line within the three-line clamp, so the preview keeps the entry's shape.
+// The full rich version still renders in full on the entry's own page
+// (TilWhatContent, via onOpen below).
 export default function SubmissionCard({
   submission,
   canEdit,
@@ -148,6 +150,7 @@ export default function SubmissionCard({
         color="text.secondary"
         sx={{
           wordBreak: "break-word",
+          whiteSpace: "pre-line",
           display: "-webkit-box",
           WebkitLineClamp: 3,
           WebkitBoxOrient: "vertical",

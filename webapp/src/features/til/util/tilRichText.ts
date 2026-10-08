@@ -104,15 +104,32 @@ export function isEmptyTilHtml(html: string): boolean {
 // how much text is available to fill them.
 const EXCERPT_LENGTH = 480;
 
-/** A plain-text preview for the feed list — formatting (bold, lists) is
- * what's lost in a one-line excerpt anyway, so this trims at a word
- * boundary near EXCERPT_LENGTH rather than mid-word, and only appends "…"
- * when something was actually cut. The full rich version still shows on
- * the entry's own page. */
+// Like tilPlainText, but each paragraph, list item and line break starts a
+// new line instead of becoming a space, so a preview keeps the entry's shape.
+// Blank lines (an empty paragraph from pressing Enter twice) are dropped —
+// in a three-line preview they'd use up a line showing nothing. Kept apart
+// from tilPlainText, which must stay space-joined: the 5000-char limit
+// counts its output, and the backend counts the same way.
+function tilPlainTextLines(html: string): string {
+  const lined = html.replace(/\s+/g, " ").replace(/<\/(p|li)>|<br\s*\/?>/gi, "\n");
+  const text = new DOMParser().parseFromString(lined, "text/html").body.textContent ?? "";
+  return text
+    .replace(/\u00a0/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** A plain-text preview for the feed list, one line per paragraph or list
+ * item (shown with `white-space: pre-line`). Inline formatting (bold, list
+ * markers) is dropped. Trims at a word or line boundary near EXCERPT_LENGTH
+ * rather than mid-word, and only appends "…" when something was actually
+ * cut. The full rich version still shows on the entry's own page. */
 export function tilExcerpt(html: string, maxLength: number = EXCERPT_LENGTH): string {
-  const text = tilPlainText(html);
+  const text = tilPlainTextLines(html);
   if (text.length <= maxLength) return text;
   const cut = text.slice(0, maxLength);
-  const lastSpace = cut.lastIndexOf(" ");
-  return `${lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut}…`;
+  const lastBreak = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\n"));
+  return `${lastBreak > maxLength * 0.6 ? cut.slice(0, lastBreak) : cut}…`;
 }
