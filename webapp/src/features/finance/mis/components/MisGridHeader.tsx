@@ -18,7 +18,7 @@ import type { ReactNode } from "react";
 import { Box, Checkbox, FormControlLabel, Stack, Typography } from "@wso2/oxygen-ui";
 import { MIS_SCALES, type MisScale } from "../util/misViewVocabulary";
 import { amountUnitCaption } from "../util/misMoney";
-import { gridCaptionSx, gridHeaderBarSx, gridTitleSx, slateText } from "./misLookTokens";
+import { brandText, gridCaptionSx, gridHeaderBarSx, gridTitleSx, slateText } from "./misLookTokens";
 
 // The per-grid header — the Table title in brand text · the units caption
 // ("All amounts in USD" / "… in USD '000") · Values in '000 · BU only / Totals
@@ -43,6 +43,7 @@ export interface GridToggle {
 export default function MisGridHeader({
   title,
   note,
+  hint,
   scale,
   onScale,
   toggles = [],
@@ -52,6 +53,11 @@ export default function MisGridHeader({
   title: string;
   /** An italic aside after the title, e.g. the Channel/Direct note. */
   note?: string;
+  /**
+   * A one-line hint under the caption, in brand text — the Customers table's
+   * "Click on an account under a date range to view opportunity details."
+   */
+  hint?: string;
   scale: MisScale;
   onScale: (scale: MisScale) => void;
   /** BU only / Totals only, where the table offers them. */
@@ -77,6 +83,14 @@ export default function MisGridHeader({
         <Typography variant="caption" sx={gridCaptionSx}>
           {amountUnitCaption(scale)}
         </Typography>
+        {hint && (
+          <Typography
+            component="p"
+            sx={[{ m: 0, mt: 0.5, fontSize: "0.8125rem", fontWeight: 500, lineHeight: 1.5 }, brandText]}
+          >
+            {hint}
+          </Typography>
+        )}
       </Box>
       {/* The controls sit on the title's row: 14px/500 slate labels, primary
           checkboxes, the Export at the end. */}

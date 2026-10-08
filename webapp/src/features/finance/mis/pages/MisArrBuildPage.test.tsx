@@ -646,6 +646,22 @@ describe("how the customer table breaks a customer's revenue down", () => {
   });
 });
 
+describe("the customer table's hint", () => {
+  // The affordance is a click on a figure, which nothing on the table says by
+  // itself; the one line under the caption says it, on Customers only.
+  it("tells the reader that an account's figure opens its opportunities", () => {
+    renderPage("?table=customers");
+    expect(
+      screen.getByText("Click on an account under a date range to view opportunity details."),
+    ).toBeInTheDocument();
+  });
+
+  it("is not on the Build, where a figure opens a customer list instead", () => {
+    renderPage();
+    expect(screen.queryByText(/view opportunity details/)).not.toBeInTheDocument();
+  });
+});
+
 describe("the customer table's Total row", () => {
   // The only client-computed total in the ARR Build that runs down the
   // CUSTOMERS rather than across named metric rows.

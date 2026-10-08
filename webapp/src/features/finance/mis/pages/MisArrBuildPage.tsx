@@ -601,6 +601,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   const header = (exportMenu?: ReactNode) => (
     <MisGridHeader
       title={gridTitle(view)}
+      hint="Click on an account under a date range to view opportunity details."
       scale={scale}
       onScale={scaleState.setScale}
       toggles={toggles}

@@ -135,6 +135,13 @@ export default function MisCustomerDrillDown({
         {Boolean(state.customers.length) && !state.isLoading && !state.isError && (
           <Stack direction="row" sx={{ justifyContent: "flex-end", mb: 0.75 }}>
             <MisExportMenu
+              // The PDF's heading is the dialog's own: the figure (row and
+              // Period) and the filters that narrowed it, so the page says what
+              // the list is a list of.
+              heading={() => ({
+                title,
+                lines: chips.length ? [chips.map((chip) => chip.label).join(" · ")] : [],
+              })}
               workbook={() => ({
                 sheets: [
                   misDrillDownSheet({
