@@ -64,6 +64,12 @@ export default function TilRichTextField({
   disabled?: boolean;
 }) {
   const theme = useTheme();
+  // theme.palette holds the light scheme only; theme.vars follows the
+  // light/dark switch.
+  const palette = (theme.vars ?? theme).palette;
+  // Heavier than palette.divider so the editor reads as a field beside the
+  // Source/Title outlines.
+  const editorBorder = `1px solid color-mix(in srgb, ${palette.text.primary} 30%, transparent)`;
   const quillRef = useRef<ReactQuill>(null);
   // Wraps the whole editor (toolbar + ql-container) -- the resize/delete
   // overlay below is positioned absolutely against THIS box, not the page,
@@ -339,11 +345,7 @@ export default function TilRichTextField({
           display: "flex",
           flexDirection: "column",
           flex: 1,
-          // theme.palette.divider is too faint to read as a border at all on
-          // this dark surface (same issue the toolbar icons had) — explicit
-          // white at low opacity instead, matching the visible weight of the
-          // Who/Where fields' own outlines beside it.
-          border: "1px solid rgba(255, 255, 255, 0.3)",
+          border: editorBorder,
           borderRadius: 1,
         },
         "& .ql-container": {
@@ -355,18 +357,15 @@ export default function TilRichTextField({
           display: "flex",
           flexDirection: "column",
         },
-        // Same story as the toolbar icons below: a theme-token color here
-        // (text.primary) resolved to something too dark to read on this
-        // dark surface, so this is hardcoded white like the icons, not
-        // theme-derived — and !important for the same reason: quill's own
-        // base styles set color directly on this element too.
+        // !important because quill's own base styles set color directly on
+        // this element too.
         "& .ql-editor": {
           flex: 1,
           overflow: "auto",
           minHeight: 0,
           padding: "12px 15px",
           overflowWrap: "break-word",
-          color: "#fff !important",
+          color: `${palette.text.primary} !important`,
         },
         // TilWhatContent (the read-only view) already constrains images --
         // the live editor never got the same rule, so an inserted image at
@@ -384,7 +383,7 @@ export default function TilRichTextField({
         // fields do that (see the Who/Where placeholders beside this one),
         // so drop it for visual consistency.
         "& .ql-editor.ql-blank::before": {
-          color: "rgba(255, 255, 255, 0.5) !important",
+          color: `color-mix(in srgb, ${palette.text.primary} 50%, transparent) !important`,
           fontStyle: "normal",
           left: 15,
           right: 15,
@@ -393,32 +392,33 @@ export default function TilRichTextField({
           borderTop: "none",
           borderLeft: "none",
           borderRight: "none",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.3)",
+          borderBottom: editorBorder,
           flexShrink: 0,
         },
         "& .ql-container.ql-snow, & .ql-toolbar.ql-snow": {
           border: "none",
         },
-        // quill.snow.css hardcodes its toolbar icon colors for a light
-        // background (a dim grey stroke, #444, and #06c blue on hover),
-        // which is both low-contrast and off-brand against this app's dark
-        // theme — repaint every icon state. !important because quill.snow.
-        // css's own hover/active rule (.ql-snow.ql-toolbar button.ql-active
-        // .ql-stroke, etc.) sits at the same specificity as a plain nested
-        // selector here, so which one wins is a coin flip decided by import
-        // order, not a chain worth relying on. Literal white rather than a
-        // theme token: this editor only ever renders on this dialog's dark
-        // surface, never a light one, so there's no light/dark variant to
-        // account for.
-        "& .ql-toolbar .ql-stroke": { stroke: "#fff !important" },
-        "& .ql-toolbar .ql-fill": { fill: "#fff !important" },
-        "& .ql-toolbar .ql-picker-label": { color: "#fff !important" },
+        // Restores the toolbar divider the rule above just cleared.
+        "& .ql-toolbar.ql-snow": {
+          borderBottom: editorBorder,
+        },
+        // quill.snow.css hardcodes its toolbar icon colors (a dim grey
+        // stroke, #444, and #06c blue on hover), which is low-contrast on a
+        // dark surface and off-brand on either — repaint every icon state.
+        // !important because quill.snow.css's own hover/active rule
+        // (.ql-snow.ql-toolbar button.ql-active .ql-stroke, etc.) sits at
+        // the same specificity as a plain nested selector here, so which one
+        // wins is a coin flip decided by import order, not a chain worth
+        // relying on.
+        "& .ql-toolbar .ql-stroke": { stroke: `${palette.text.primary} !important` },
+        "& .ql-toolbar .ql-fill": { fill: `${palette.text.primary} !important` },
+        "& .ql-toolbar .ql-picker-label": { color: `${palette.text.primary} !important` },
         "& .ql-toolbar button:hover .ql-stroke, & .ql-toolbar button.ql-active .ql-stroke, & .ql-toolbar button:focus .ql-stroke":
-          { stroke: `${theme.palette.primary.main} !important` },
+          { stroke: `${palette.primary.main} !important` },
         "& .ql-toolbar button:hover .ql-fill, & .ql-toolbar button.ql-active .ql-fill, & .ql-toolbar button:focus .ql-fill":
-          { fill: `${theme.palette.primary.main} !important` },
+          { fill: `${palette.primary.main} !important` },
         "& .ql-toolbar button:hover, & .ql-toolbar button.ql-active, & .ql-toolbar button:focus": {
-          color: `${theme.palette.primary.main} !important`,
+          color: `${palette.primary.main} !important`,
         },
       }}
     >
