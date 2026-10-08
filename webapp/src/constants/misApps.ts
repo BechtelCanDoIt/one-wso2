@@ -98,10 +98,9 @@ export const MIS_APPS: readonly MenuApp[] = [
     // flag. The Flash Dashboard is not here — it stays in the MIS app.
     alwaysGroup: true,
     items: [
-      // PROTOTYPE (prototype/mis-look), D3: ONE row, "ARR Dashboard", replaces
-      // the ARR / QRR / MRR Build rows. The Period moved into the page as a
-      // segmented row; the three routes still exist and still gate on their
-      // own ids, so a deep link to /qrr-build keeps working.
+      // ONE rail row, "ARR Dashboard", stands for the three Build routes. The
+      // Period is chosen on the page; the three routes and their gate ids
+      // remain, so an existing link to /qrr-build or /mrr-build keeps working.
       {
         id: "mis-arr-build",
         label: "ARR Dashboard",

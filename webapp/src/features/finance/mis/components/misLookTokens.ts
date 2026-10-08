@@ -1,31 +1,45 @@
-// PROTOTYPE (branch prototype/mis-look) — throwaway, never merge.
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
 //
-// The source app's look (apps/mis `theme.css`, `TableNavigation.css`,
-// `FilterBar.css`, `DataGrid.css`), written as Oxygen theme tokens. This file
-// doubles as the TOKEN MAPPING the handoff asks for: every colour, radius and
-// weight the real implementation should use is named here once, with the
-// source value it stands in for, and the few places no token exists are marked
-// `NO TOKEN`.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
 //
-//   source                         token here
-//   ------------------------------ ----------------------------------------------
-//   --primary-500 #ff7800 fills    primary.main                 (shell's orange)
-//   --text-brand  #c2410c text     primary.dark in light, primary.main in dark
-//   --primary-50  #fff7ed hover    rgba(primary.mainChannel / .06)
-//   rgba(primary, .12) selected    rgba(primary.mainChannel / .12)
-//   --primary-300 hover border     primary.light
-//   --secondary-50 #f8fafc slate   NO TOKEN — grey.50 light / action.hover dark
-//   --secondary-200 #e2e8f0 border divider
-//   --secondary-600 #475569 text   text.secondary (NB: Oxygen's text.secondary
-//                                  equals text.primary in both shipped themes,
-//                                  so "slate for structure" has no tonal step)
-//   --bg-primary #fff surfaces     background.paper (translucent in Oxygen;
-//                                  composited opaquely where a cell is sticky)
-//   --radius-sm/md/lg 4/8/12px     literal px — shape.borderRadius is 12 or 20
-//                                  in the shipped themes, so the source radii
-//                                  are NOT derivable from the shape token
-//   --shadow-sm/md                 theme.shadows[1] / theme.shadows[3]
-//   Inter                          typography.fontFamily (already Inter Variable)
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+// The ARR Dashboard's look, as Oxygen theme tokens.
+//
+// Every colour, radius and weight the page's chrome and grids use is named
+// here once. Most resolve to a shell token. The few that cannot are literals,
+// marked NO TOKEN below, each with the design value it stands for and why the
+// shipped themes have nothing to offer in its place:
+//
+//   design value                     token here
+//   -------------------------------- ----------------------------------------------
+//   orange fills                     primary.main                 (the shell's orange)
+//   orange text                      primary.dark in light, primary.main in dark
+//   orange hover wash                rgba(primary.mainChannel / .06)
+//   orange selected wash             rgba(primary.mainChannel / .12)
+//   orange hover border              primary.light
+//   slate-50 #f8fafc fills           NO TOKEN — grey.50 light / action.hover dark
+//   slate-200 #e2e8f0 rules          divider
+//   slate-600 #475569 grid text      NO TOKEN — Oxygen's text.secondary equals
+//                                    text.primary in both shipped themes, so
+//                                    "slate for structure" has no tonal step
+//   white surfaces                   background.paper (translucent in Oxygen;
+//                                    composited opaquely where a cell is sticky)
+//   4 / 8 / 12px radii               NO TOKEN — shape.borderRadius is 12 or 20 in
+//                                    the shipped themes, so the small radii are
+//                                    not derivable from the shape token
+//   soft shadows                     theme.shadows[1] / theme.shadows[3]
+//   Inter                            typography.fontFamily (already Inter Variable)
 
 import type { Theme } from "@mui/material/styles";
 import type { SxProps } from "@mui/material/styles";
@@ -33,7 +47,7 @@ import type { SxProps } from "@mui/material/styles";
 /** `var(--oxygen-palette-…)` — the shell's CSS-variable prefix. */
 export const cssVar = (path: string) => `var(--oxygen-palette-${path})`;
 
-/** The primary at an alpha, scheme-aware: tints the shell's orange, never #ff7800. */
+/** The primary at an alpha, scheme-aware: always a wash of the shell's own orange. */
 export const primaryTint = (alpha: number) =>
   `rgba(${cssVar("primary-mainChannel")} / ${alpha})`;
 
@@ -47,52 +61,44 @@ export const brandText = (theme: Theme) => ({
   ...theme.applyStyles("light", { color: cssVar("primary-dark") }),
 });
 
-/** The source's slate fill for structure (section rows, pill rests). NO TOKEN. */
+/** The slate-50 fill under structure (section bands, pill rests). NO TOKEN. */
 export const slateFill = (theme: Theme) => ({
   backgroundColor: cssVar("action-hover"),
   ...theme.applyStyles("light", { backgroundColor: cssVar("grey-50") }),
 });
 
 /**
- * The source's table TEXT: every header, label and figure in a grid is
- * `--secondary-600` `#475569` (measured on mis-stg 2026-10-07 — AG Grid's
- * `--ag-foreground-color`), never the near-black body text. NO TOKEN: Oxygen's
- * `text.secondary` equals `text.primary`, so the step is a literal in light and
- * `grey.400` in dark, where the source has no answer.
+ * Grid TEXT: every header, label and figure in a grid is slate-600 `#475569`,
+ * never the near-black body text. NO TOKEN: Oxygen's `text.secondary` equals
+ * `text.primary`, so the step is a literal in light and `grey.400` in dark.
  */
 export const slateText = (theme: Theme) => ({
   color: cssVar("grey-400"),
   ...theme.applyStyles("light", { color: "#475569" }),
 });
 
-/** The units caption under a grid title: 12px/500 `#6b778c` (measured). NO TOKEN. */
+/** The units caption under a grid title: 12px/500 `#6b778c`. NO TOKEN. */
 export const slateMutedText = (theme: Theme) => ({
   color: cssVar("grey-500"),
   ...theme.applyStyles("light", { color: "#6b778c" }),
 });
 
 /**
- * The source's `--shadow-md`, the one shadow a grid card wears (measured on
- * `.data-grid-container`). Dropped in dark, where a shadow on black is noise.
+ * The one shadow a grid card wears. Dropped in dark, where a shadow on black is
+ * noise.
  */
 export const cardShadow = (theme: Theme) => ({
   boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)",
   ...theme.applyStyles("dark", { boxShadow: "none" }),
 });
 
-/**
- * The grid's measured geometry (mis-stg, AG Grid Quartz at 14px, grid size 8):
- * row 42px, header 48px, section band 44px, cell padding 16px.
- */
+/** The grid's geometry: row 42px, header 48px, section band 44px, cell padding 16px. */
 export const GRID = { rowHeight: 42, headerHeight: 48, sectionHeight: 44, cellPadX: "16px" } as const;
 
-/** The orange gradient the source paints a grand total with. */
-export const primaryGradient = `linear-gradient(135deg, ${cssVar("primary-main")}, ${cssVar("primary-dark")})`;
-
-/** Source radii, as literals — see the header note. */
+/** The small radii, as literals — see the header note. */
 export const RADIUS = { sm: "4px", md: "8px", lg: "12px", pill: "999px" } as const;
 
-// ---- Period segments (SegmentedFilter.js) ------------------------------------
+// ---- Period segments ----------------------------------------------------------
 
 export const periodSegmentSx = (pressed: boolean) => (theme: Theme) => ({
   height: 32,
@@ -119,7 +125,7 @@ export const periodSegmentSx = (pressed: boolean) => (theme: Theme) => ({
   }),
 });
 
-// ---- Table tabs (TableNavigation.css .table-nav-tab) ---------------------------
+// ---- Table tabs ---------------------------------------------------------------
 
 export const underlineTabRowSx: SxProps<Theme> = {
   display: "flex",
@@ -143,8 +149,8 @@ export const underlineTabSx = (active: boolean) => (theme: Theme) => ({
   fontWeight: 600,
   lineHeight: 1,
   color: active ? cssVar("text-primary") : cssVar("text-secondary"),
-  // Oxygen's text.secondary equals text.primary, so the resting tab needs the
-  // step the source gets for free: opacity stands in for the slate 600.
+  // Oxygen's text.secondary equals text.primary, so a resting tab has no tonal
+  // step of its own: opacity stands in for slate-600.
   opacity: active ? 1 : 0.72,
   transition: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
   "&:hover": {
@@ -155,7 +161,7 @@ export const underlineTabSx = (active: boolean) => (theme: Theme) => ({
   "&.Mui-focusVisible": { outline: `2px solid ${cssVar("primary-main")}`, outlineOffset: 2 },
 });
 
-// ---- Unit pills (TableNavigation.css .table-nav-subtab) -----------------------
+// ---- Unit pills ---------------------------------------------------------------
 
 export const unitPillSx = (active: boolean) => (theme: Theme) => ({
   height: 28,
@@ -182,7 +188,7 @@ export const unitPillSx = (active: boolean) => (theme: Theme) => ({
   }),
 });
 
-// ---- Filter card (FilterBar.css .filter-bar) -----------------------------------
+// ---- Filter card --------------------------------------------------------------
 
 /** The white→slate gradient card, light border, 12px radius, soft shadow. */
 export const gradientCardSx = (theme: Theme) => ({
@@ -198,7 +204,7 @@ export const gradientCardSx = (theme: Theme) => ({
   }),
 });
 
-/** The source's text button: uppercase 12px/700, letter-spacing .35px, 8px radius. */
+/** The card's text button (More / Less): uppercase 12px/700, letter-spacing .35px, 8px radius. */
 export const faithfulTextButtonSx = (theme: Theme) => ({
   textTransform: "uppercase",
   fontSize: 12,
@@ -212,7 +218,7 @@ export const faithfulTextButtonSx = (theme: Theme) => ({
   "&:hover": { ...brandText(theme), opacity: 1, backgroundColor: primaryTint(0.08) },
 });
 
-/** The source's Apply: filled primary, uppercase 12px/600, 4px radius. */
+/** Apply: filled primary, uppercase 12px/600, 4px radius. */
 export const faithfulApplySx = {
   textTransform: "uppercase",
   fontSize: 12,
@@ -226,7 +232,7 @@ export const faithfulApplySx = {
   "&:hover:not(:disabled)": { background: cssVar("primary-dark"), boxShadow: 3 },
 } as const;
 
-/** The source's outlined button: primary border, brand text, uppercase 12px/700, 8px radius. */
+/** The outlined button (Clear All, Reset): primary border, brand text, uppercase 12px/700, 8px radius. */
 export const faithfulOutlinedSx = (theme: Theme) => ({
   textTransform: "uppercase",
   fontSize: 12,
@@ -251,14 +257,13 @@ export const faithfulChipSx = (theme: Theme) => ({
   "& .MuiChip-deleteIcon": { color: "inherit", opacity: 0.7, "&:hover": { opacity: 1 } },
 });
 
-// ---- Per-grid header (DataGrid.css .data-grid-header) --------------------------
+// ---- Per-grid header ----------------------------------------------------------
 
 /**
- * The top of the ONE card the source puts a grid in (`.data-grid-container`:
- * 1px `--border-light`, 4px radius, `--shadow-md`). The header is this card's
- * head and the grid frame below is its body; the two meet on the header's
- * bottom rule, so the shadow sits on the frame alone — a shadow on the header
- * would fall across the grid's first rows.
+ * The head of the ONE card a grid sits in: 1px divider border, 4px radius, one
+ * soft shadow. The grid frame below is the card's body; the two meet on the
+ * header's bottom rule, so the shadow sits on the frame alone — a shadow on the
+ * header would fall across the grid's first rows.
  */
 export const gridHeaderBarSx = (theme: Theme) => ({
   display: "flex",
@@ -279,7 +284,7 @@ export const gridHeaderBarSx = (theme: Theme) => ({
   ...theme.applyStyles("dark", { backgroundColor: "rgba(255,255,255,0.03)" }),
 });
 
-/** The Table title — measured: Inter 24px/600, -0.025em, line-height 1.6, brand text. */
+/** The Table title: 24px/600, -0.025em, line-height 1.6, brand text. */
 export const gridTitleSx = (theme: Theme) => ({
   m: 0,
   fontSize: "1.5rem",
@@ -289,7 +294,7 @@ export const gridTitleSx = (theme: Theme) => ({
   ...brandText(theme),
 });
 
-/** The units caption — measured: 12px/500, `#6b778c`. */
+/** The units caption: 12px/500, muted slate. */
 export const gridCaptionSx = (theme: Theme) => ({
   display: "block",
   fontSize: "0.75rem",
@@ -298,10 +303,10 @@ export const gridCaptionSx = (theme: Theme) => ({
   ...slateMutedText(theme),
 });
 
-/** The source's Export: filled primary, uppercase 12px/600, 4px radius. */
+/** Export: the same filled primary as Apply. */
 export const faithfulExportSx = faithfulApplySx;
 
-// ---- The grid (DataGrid.css AG Grid quartz overrides) --------------------------
+// ---- The grid -----------------------------------------------------------------
 
 /**
  * The body of the grid card — see `gridHeaderBarSx`. Square top corners meet
@@ -317,9 +322,9 @@ export const faithfulGridFrameSx = (theme: Theme) => ({
 });
 
 /**
- * Header cell — measured: ONE 48px row, white, text 14px/700 slate, no
- * uppercase, a `--border-light` rule between cells, Period labels right-aligned
- * and wrapping ("2021/12/31 -" over "2022/10/07"), "Summary" left.
+ * Header cell: ONE 48px row on paper, 14px/700 slate text, no uppercase, a
+ * divider rule between cells. Period labels sit right-aligned and wrap onto
+ * two lines ("2021/12/31 -" over "2022/10/07"); the row-label header sits left.
  */
 export const faithfulHeadCellSx = (theme: Theme) => ({
   height: GRID.headerHeight,
@@ -338,7 +343,7 @@ export const faithfulHeadCellSx = (theme: Theme) => ({
   ...slateText(theme),
 });
 
-/** Section row label — measured: 11px/700 uppercase, .4px tracking, slate, at the band's foot. */
+/** Section band label: 11px/700 uppercase, .4px tracking, slate, at the band's foot. */
 export const sectionLabelSx = (theme: Theme) => ({
   fontSize: 11,
   fontWeight: 700,
@@ -349,8 +354,8 @@ export const sectionLabelSx = (theme: Theme) => ({
 });
 
 /**
- * The section band's cells — measured: 44px tall, `--bg-secondary`, the label
- * sitting at the bottom (`align-items: flex-end`, 2px up), no column rules.
+ * The section band's cells: 44px tall, slate fill, the label sitting at the
+ * bottom, no column rules.
  */
 export const sectionCellSx = (theme: Theme) => ({
   ...slateFill(theme),
@@ -360,9 +365,8 @@ export const sectionCellSx = (theme: Theme) => ({
 });
 
 /**
- * A figure — measured: 14px/400 slate, right-aligned, 16px side padding, the
- * row 42px tall, and NO vertical rule between data cells (AG's
- * `--ag-cell-horizontal-border` is transparent); bold rows go to 600 via
+ * A figure: 14px/400 slate, right-aligned, 16px side padding, the row 42px
+ * tall, and NO vertical rule between data cells; bold rows go to 600 via
  * `rowSx`.
  */
 export const faithfulNumericSx = (theme: Theme) => ({
@@ -378,8 +382,8 @@ export const faithfulNumericSx = (theme: Theme) => ({
 });
 
 /**
- * A row header — measured: 14px/400 slate, 12.8px left inset, no indent under
- * a section, and the pinned column's `--border-light` right rule.
+ * A row header: 14px/400 slate, 12.8px left inset, no indent under a section,
+ * and the pinned column's divider rule on the right.
  */
 export const faithfulRowLabelSx = (theme: Theme) => ({
   height: GRID.rowHeight - 1,
@@ -392,17 +396,4 @@ export const faithfulRowLabelSx = (theme: Theme) => ({
   pr: 1,
   borderRightColor: "divider",
   ...slateText(theme),
-});
-
-/**
- * Grand total column (Customers' Total): orange gradient, white text, 700.
- * The white is declared under `applyStyles("light")` too, because `slateText`
- * sets its light colour that way and a plain `color` loses to it.
- */
-export const grandTotalCellSx = (theme: Theme) => ({
-  backgroundColor: "transparent",
-  backgroundImage: primaryGradient,
-  color: cssVar("primary-contrastText"),
-  fontWeight: 700,
-  ...theme.applyStyles("light", { color: cssVar("primary-contrastText") }),
 });

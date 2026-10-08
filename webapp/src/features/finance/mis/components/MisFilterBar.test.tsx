@@ -26,10 +26,10 @@ import { filtersAfterSwitch } from "../util/misFilterBarModel";
 import { MIS_PERIODS, MIS_TABLES, type MisTable } from "../util/misViewVocabulary";
 import { useMisViewState } from "../util/useMisViewState";
 import MisFilterBar from "./MisFilterBar";
-import PrototypePeriodRow from "../prototype/PrototypePeriodRow";
-import PrototypeTableTabs from "../prototype/PrototypeTableTabs";
-import PrototypeGridHeader from "../prototype/PrototypeGridHeader";
-import PrototypeUnitPills from "../prototype/PrototypeUnitPills";
+import MisPeriodRow from "./MisPeriodRow";
+import MisTableTabs from "./MisTableTabs";
+import MisGridHeader from "./MisGridHeader";
+import MisUnitPills from "./MisUnitPills";
 import { useMisScale } from "../util/useMisScale";
 import type { MisUnitSelection } from "./MisUnitTabs";
 
@@ -97,9 +97,9 @@ function Harness({ optionsErrorMessage = "" }: { optionsErrorMessage?: string })
     view.setView({ filters: { ...view.filters, ...units } });
   return (
     <>
-      <PrototypePeriodRow view={view} />
-      <PrototypeTableTabs view={view} onTable={changeTable} onUnits={changeUnits} />
-      <PrototypeUnitPills
+      <MisPeriodRow view={view} />
+      <MisTableTabs view={view} onTable={changeTable} onUnits={changeUnits} />
+      <MisUnitPills
         selection={{
           buProductSelection: view.filters.buProductSelection,
           customBusinessUnits: view.filters.customBusinessUnits,
@@ -114,7 +114,7 @@ function Harness({ optionsErrorMessage = "" }: { optionsErrorMessage?: string })
         options={OPTIONS}
         optionsErrorMessage={optionsErrorMessage}
       />
-      <PrototypeGridHeader title="Build" scale={scale.scale} onScale={scale.setScale} />
+      <MisGridHeader title="Build" scale={scale.scale} onScale={scale.setScale} />
       <button type="button" onClick={() => changeTable(MIS_TABLES.EXIT_ARR_BY_REGION)}>
         to Region Summary
       </button>

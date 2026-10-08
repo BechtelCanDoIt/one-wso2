@@ -32,7 +32,7 @@ import MisAppliedFilterChips from "./MisAppliedFilterChips";
 import { drillDownColumns, drillDownRows, type DrillDownColumn } from "./drillDownColumns";
 import type { MisFilterChip } from "../util/misAppliedFilterChips";
 import type { DrillDownState } from "../api/useDrillDownCustomers";
-import PrototypeExportMenu from "../prototype/PrototypeExportMenu";
+import MisExportMenu from "./MisExportMenu";
 import { misDrillDownSheet } from "../export/misDrillDownWorkbook";
 import { misExportFilename, misFilenameRange, misFilenameWord } from "../export/misExportFilename";
 
@@ -134,7 +134,7 @@ export default function MisCustomerDrillDown({
             it. */}
         {Boolean(state.customers.length) && !state.isLoading && !state.isError && (
           <Stack direction="row" sx={{ justifyContent: "flex-end", mb: 0.75 }}>
-            <PrototypeExportMenu
+            <MisExportMenu
               workbook={() => ({
                 sheets: [
                   misDrillDownSheet({

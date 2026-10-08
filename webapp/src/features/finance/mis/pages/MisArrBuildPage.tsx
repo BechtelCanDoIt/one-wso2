@@ -21,7 +21,6 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import MisShell from "../components/MisShell";
 import BuildTable, { type BuildCellFor } from "../components/BuildTable";
 import {
-  ARR_BUILD_SECTION_IDS,
   arrBuildFieldFor,
   arrBuildRows,
   type ArrSummaryResponse,
@@ -106,19 +105,16 @@ import { misExportFilename, misFilenameWord } from "../export/misExportFilename"
 import type { MisScaleState } from "../util/useMisScale";
 import { MIS_UNITS_BY_CATEGORY, unitCategoryOf } from "../util/misUnits";
 import type { MisUnitSelection } from "../components/MisUnitTabs";
-import { MisLookPrototypeProvider } from "../prototype/misLookPrototype";
-import PrototypePeriodRow from "../prototype/PrototypePeriodRow";
-import PrototypeTableTabs from "../prototype/PrototypeTableTabs";
-import PrototypeUnitPills from "../prototype/PrototypeUnitPills";
-import PrototypeGridHeader, { type GridToggle } from "../prototype/PrototypeGridHeader";
-import PrototypeExportMenu from "../prototype/PrototypeExportMenu";
+import MisPeriodRow from "../components/MisPeriodRow";
+import MisTableTabs from "../components/MisTableTabs";
+import MisUnitPills from "../components/MisUnitPills";
+import MisGridHeader, { type GridToggle } from "../components/MisGridHeader";
+import MisExportMenu from "../components/MisExportMenu";
 
-// PROTOTYPE (branch prototype/mis-look): this page now renders the D4 anatomy —
-// Period row → seven Table tabs → Unit pills → filter card → per-grid header →
-// grid — under the One WSO2 eyebrow and an h1 that reads "ARR Dashboard" on
-// every Period (D10). Three variants of the CHROME are switchable via
-// `?variant=`; see `prototype/misLookPrototype.tsx`. The data path is the port's
-// own, untouched: the hooks below read the fixture backend in dev.
+// The ARR Dashboard, top to bottom: the Period row, the filter card, the seven
+// Table tabs, the Unit pills (on a Build tab), then the grid card — a per-grid
+// header over the grid itself — under the One WSO2 eyebrow and an h1 that
+// reads "ARR Dashboard" on every Period. The data path is the hooks below.
 
 // ARR Build — annual recurring revenue, on live figures.
 //
@@ -157,9 +153,9 @@ const BUILD_SCREENS: Readonly<Record<MisPeriod, { gateId: string }>> = {
   [MIS_PERIODS.MONTHLY]: { gateId: "mis-mrr-build" },
 };
 
-/** D10: the h1 on every Period, and the document title. */
+/** The h1 on every Period, and the document title. */
 const DASHBOARD_TITLE = "ARR Dashboard";
-/** D10: Period-neutral, so switching Annually → Monthly does not rewrite the header. */
+/** Period-neutral, so switching Annually → Monthly does not rewrite the header. */
 const DASHBOARD_SUBTITLE =
   "Recurring revenue from an opening balance to a closing balance, one column per Period, across four Tables.";
 
@@ -169,9 +165,7 @@ export default function MisArrBuildPage({ period }: { period: MisPeriod }) {
 
   return (
     <MisShell gateId={gateId} title={DASHBOARD_TITLE} subtitle={DASHBOARD_SUBTITLE}>
-      <MisLookPrototypeProvider>
-        <ArrBuild period={period} />
-      </MisLookPrototypeProvider>
+      <ArrBuild period={period} />
     </MisShell>
   );
 }
@@ -216,7 +210,7 @@ function ArrBuild({ period }: { period: MisPeriod }) {
     // offset is the shell's own header, which this page does not own.
     <Box sx={{ display: "flex", flexDirection: "column", height: "calc(100dvh - 152px)", minHeight: 0 }}>
       <Box sx={{ flex: "none" }}>
-        <PrototypePeriodRow view={view} />
+        <MisPeriodRow view={view} />
         <MisFilterBar
           view={view}
           options={configs.options}
@@ -226,9 +220,9 @@ function ArrBuild({ period }: { period: MisPeriod }) {
           optionsErrorMessage={configs.isError ? configs.errorMessage : ""}
           onRetryOptions={configs.retry}
         />
-        <PrototypeTableTabs view={view} onTable={changeTable} onUnits={changeUnits} />
+        <MisTableTabs view={view} onTable={changeTable} onUnits={changeUnits} />
         {view.table === MIS_TABLES.SUBSCRIPTION && (
-          <PrototypeUnitPills
+          <MisUnitPills
             selection={selection}
             businessUnitOptions={configs.options.businessUnits}
             productUnitOptions={configs.options.productUnits}
@@ -244,10 +238,9 @@ function ArrBuild({ period }: { period: MisPeriod }) {
 }
 
 /**
- * The Table title in the per-grid header — the source's words (`DataGrid.js`
- * `displayTitle`): "<unit> <category> Build" on the Subscription Table ("All BU
- * Build", "API Platform Software Build" — its `PRODUCT_LABELS` carry the
- * category), the Table's own label elsewhere.
+ * The Table title in the per-grid header: "<unit> <category> Build" on the
+ * Subscription Table ("All BU Build", "API Platform Software Build"), the
+ * Table's own label elsewhere.
  */
 function gridTitle(view: MisViewState): string {
   if (view.table !== MIS_TABLES.SUBSCRIPTION) return MIS_TABLE_LABELS[view.table];
@@ -399,12 +392,12 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
       {/* Above the grid rather than beside the control, because Finance's
           workflow is to crop a table into a slide deck: a figure that has left
           the screen it was set on has to carry its own units. */}
-      <PrototypeGridHeader
+      <MisGridHeader
         title={gridTitle(view)}
         scale={scale}
         onScale={scaleState.setScale}
         exportMenu={
-          <PrototypeExportMenu scale={scale}
+          <MisExportMenu scale={scale}
             workbook={() =>
               oneSheet({
                 name: MIS_TABLE_LABELS[MIS_TABLES.SUBSCRIPTION],
@@ -440,18 +433,14 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
       />
       )}
       <BuildTable fill
-        label="ARR Build — Subscription"
-        // Measured on the source: one header row when a Period has one ARR type.
+        label="ARR Dashboard — Subscription Build"
+        // One header row when each Period has a single figure column.
         collapseLoneSubHeader
         rowLabelHeader="Summary"
         columnGroups={columnGroups}
         subColumns={SUB_COLUMNS}
         rows={rows}
         cell={cell}
-        // All five open. A Subscription Build IS the summary — there are no
-        // customer lines under it to hold back — so opening it collapsed would
-        // hide the whole table behind five clicks.
-        defaultExpandedIds={ARR_BUILD_SECTION_IDS}
       />
     </Box>
   );
@@ -478,7 +467,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // read the same response, so this
   // switches columns and fires no request.
   const [buOnly, setBuOnly] = useState(true);
-  // D9: Totals only collapses each Period group to its Total column(s). Off by
+  // Totals only collapses each Period group to its Total column(s). Off by
   // default; component state like BU only, for the same reason.
   const [totalsOnly, setTotalsOnly] = useState(false);
   // `customerColumnRanges`, not `buildColumnRanges`: this is the one table with
@@ -534,11 +523,10 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   const leadCell = (row: { id: string }, column: CustomerLeadColumn) =>
     customerIdentityText(row.id, accountById.get(row.id), column);
 
-  // PROTOTYPE: the source heads a Customers Period "As of {end}" — a balance at
-  // a date, like the Exit ARR summaries — not "{opening} - {end}". Its
-  // `toAsOfAnnualLabel` splits the range label on " - " exactly as here; the
-  // real implementation should take the end off the range instead
-  // (`misPeriods.ts` already has the helper the Exit ARR tables use).
+  // A Customers Period is headed "As of {end}" — a balance at a date, like the
+  // Exit ARR summaries — not "{opening} - {end}". Read off the range label by
+  // splitting on " - "; `misPeriods.ts` has the helper the Exit ARR tables use
+  // to take the end off the range itself, which this could move to.
   const columnGroups = book.columns.map(({ label }) => ({
     key: label,
     label: label.includes(" - ") ? `As of ${label.split(" - ")[1]}` : label,
@@ -600,17 +588,16 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;
   }
 
-  // Above every state but loading. The two toggles live in the per-grid header
-  // (D4 step 5), so on the error and empty states — which have no header — the
-  // header is still rendered, without an export, so a reader who lands on an
-  // empty book keeps the switch rather than losing it at the moment they most
-  // want to try the other side of it.
+  // Above every state but loading. The two toggles live in the per-grid header,
+  // so on the error and empty states the header is still rendered, without an
+  // export, so a reader who lands on an empty book keeps the switch rather than
+  // losing it at the moment they most want to try the other side of it.
   const toggles: GridToggle[] = [
     { label: "Totals only", checked: totalsOnly, onChange: setTotalsOnly },
   ];
   const breakdownTabs = <MisCustomerBreakdownTabs buOnly={buOnly} onChange={setBuOnly} />;
   const header = (exportMenu?: ReactNode) => (
-    <PrototypeGridHeader
+    <MisGridHeader
       title={gridTitle(view)}
       scale={scale}
       onScale={scaleState.setScale}
@@ -658,7 +645,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
     <Box>
       {breakdownTabs}
       {header(
-          <PrototypeExportMenu scale={scale}
+          <MisExportMenu scale={scale}
             workbook={() =>
               oneSheet({
                 name: MIS_TABLE_LABELS[MIS_TABLES.SOFTWARE_CLOUD_CUSTOMERS],
@@ -682,7 +669,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
       )}
       <BuildTable fill
         label="Software/Cloud Customers"
-        // Measured on the source: the Total row is `.total-row-bold`, 16px/700.
+        // The Total row is 16px/700.
         emphasisStyle={{ fontWeight: 700, fontSize: "1rem" }}
         rowLabelHeader="Account Name"
         leadColumns={leadColumns}
@@ -722,7 +709,7 @@ function RegionSummaryGrid({ view, scaleState }: { view: MisViewState; scaleStat
     MIS_REGION_SUMMARY_VIEWS.EXIT_ARR,
   );
   const [bySalesRegion, setBySalesRegion] = useState(true);
-  // D9: Totals only on the Exit ARR view keeps each Period's Total column alone.
+  // Totals only on the Exit ARR view keeps each Period's Total column alone.
   const [totalsOnly, setTotalsOnly] = useState(false);
 
   // Switching view returns the cut to Sales Region. The two views ask the
@@ -826,7 +813,7 @@ function RegionExitGrid({
       scaleState={scaleState}
       toggles={[{ label: "Totals only", checked: totalsOnly, onChange: onTotalsOnly }]}
       exportButton={
-        <PrototypeExportMenu scale={scale}
+        <MisExportMenu scale={scale}
           workbook={() =>
             oneSheet({
               name: MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_REGION],
@@ -845,7 +832,7 @@ function RegionExitGrid({
     >
       <BuildTable fill
         label="ARR Dashboard — Region Summary"
-        // Measured on the source: `.exit-region-bold-row .ag-cell` is 700.
+        // The Total row is 700 at the table's own size.
         emphasisStyle={{ fontWeight: 700 }}
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
@@ -927,7 +914,7 @@ function RegionMetricsGrid({
       title={`${MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_REGION]} — ${ALL_ARR_METRICS_LABEL}`}
       scaleState={scaleState}
       exportButton={
-        <PrototypeExportMenu scale={scale}
+        <MisExportMenu scale={scale}
           workbook={() =>
             oneSheet({
               name: ALL_ARR_METRICS_LABEL,
@@ -946,7 +933,7 @@ function RegionMetricsGrid({
     >
       <BuildTable fill
         label={`ARR Dashboard — ${ALL_ARR_METRICS_LABEL}`}
-        // Measured on the source: `.region-metrics-total-row .ag-cell` is 700.
+        // The Total row is 700 at the table's own size.
         emphasisStyle={{ fontWeight: 700 }}
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
@@ -1000,7 +987,7 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
       title={MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_BU]}
       scaleState={scaleState}
       exportButton={
-        <PrototypeExportMenu scale={scale}
+        <MisExportMenu scale={scale}
           workbook={() =>
             oneSheet({
               name: MIS_TABLE_LABELS[MIS_TABLES.EXIT_ARR_BY_BU],
@@ -1064,7 +1051,7 @@ function SummaryBody({
   children: ReactNode;
 }) {
   const header = (exportMenu?: ReactNode) => (
-    <PrototypeGridHeader
+    <MisGridHeader
       title={title}
       scale={scaleState.scale}
       onScale={scaleState.setScale}
@@ -1148,9 +1135,9 @@ const ALL_ARR_METRICS_LABEL =
 /**
  * One table, as a one-sheet workbook.
  *
- * `MisExportButton` takes a whole workbook; every table on this page is one
+ * `MisExportMenu` takes a whole workbook; every table on this page is one
  * sheet, and this is where that difference is said once instead of at each of
- * the four call sites.
+ * the five call sites.
  */
 const oneSheet = <L extends MisLeadColumn>(sheet: MisBuildSheetInput<L>): MisWorkbookSpec => ({
   sheets: [misBuildSheet(sheet)],

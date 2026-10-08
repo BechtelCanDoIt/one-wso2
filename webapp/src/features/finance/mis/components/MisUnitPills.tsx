@@ -1,23 +1,35 @@
-// PROTOTYPE (branch prototype/mis-look) — throwaway, never merge.
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
 //
-// D4 step 3: the Unit pills under a Build tab. The category itself now lives in
-// the seven tabs above, so this row is only the units OF that category — or,
-// under Custom Build, the two chip lists (Business Units / Product Units) and
-// Reset, exactly as the port's `MisUnitTabs` already draws them.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
 //
-//   A, C  the source's `.table-nav-subtab`: 999px pills, light border, primary
-//         border + 12% tint + 700 when selected
-//   B     Oxygen ToggleButtonGroup / Chip
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
-import { Box, Button, ButtonBase, Chip, Paper, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, ButtonBase, Chip, Stack, Typography } from "@wso2/oxygen-ui";
 import { RotateCcwIcon } from "@wso2/oxygen-ui-icons-react";
 import { MIS_UNITS_BY_CATEGORY, formatUnitLabel, unitCategoryOf } from "../util/misUnits";
 import { CUSTOM_UNIT } from "../util/misViewVocabulary";
-import type { MisUnitSelection } from "../components/MisUnitTabs";
-import { useMisLook } from "./misLookPrototype";
+import type { MisUnitSelection } from "./MisUnitTabs";
 import { faithfulOutlinedSx, gradientCardSx, unitPillSx } from "./misLookTokens";
 
-export default function PrototypeUnitPills({
+// The Unit pills under a Build tab. The category itself lives in the seven
+// Table tabs above, so this row is only the units OF that category — or, under
+// Custom Build, the two chip lists (Business Units / Product Units) and Reset,
+// on the same gradient card the filters use.
+//
+// Drawn as 999px pills with a light border; a primary border, a 12% primary
+// tint and weight 700 when selected. Like the tabs, a pill commits on click.
+
+export default function MisUnitPills({
   selection,
   businessUnitOptions,
   productUnitOptions,
@@ -28,7 +40,6 @@ export default function PrototypeUnitPills({
   productUnitOptions: readonly string[];
   onChange: (next: MisUnitSelection) => void;
 }) {
-  const look = useMisLook();
   const category = unitCategoryOf(selection.buProductSelection);
 
   const chooseUnit = (code: string) =>
@@ -47,8 +58,8 @@ export default function PrototypeUnitPills({
   if (category === "Custom") {
     const reset = () =>
       onChange({ buProductSelection: CUSTOM_UNIT, customBusinessUnits: [], customProductUnits: [] });
-    const body = (
-      <>
+    return (
+      <Box sx={[{ mb: 1.5 }, gradientCardSx]}>
         <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>
             Select a combination of either a set of Business Units or Product Units.
@@ -58,42 +69,18 @@ export default function PrototypeUnitPills({
             variant="outlined"
             startIcon={<RotateCcwIcon size={14} />}
             onClick={reset}
-            sx={look.filterButtons === "faithful" ? faithfulOutlinedSx : undefined}
+            sx={faithfulOutlinedSx}
           >
             Reset
           </Button>
         </Stack>
         <CustomGroup label="Business Units" options={businessUnitOptions} selected={selection.customBusinessUnits} onToggle={(code) => toggleCustom("customBusinessUnits", code)} />
         <CustomGroup label="Product Units" options={productUnitOptions} selected={selection.customProductUnits} onToggle={(code) => toggleCustom("customProductUnits", code)} />
-      </>
-    );
-    return look.filterCard === "gradient" ? (
-      <Box sx={[{ mb: 1.5 }, gradientCardSx]}>{body}</Box>
-    ) : (
-      <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>{body}</Paper>
+      </Box>
     );
   }
 
   const units = MIS_UNITS_BY_CATEGORY[category];
-
-  if (look.unitPills === "toggle") {
-    return (
-      <ToggleButtonGroup
-        exclusive
-        size="small"
-        value={selection.buProductSelection}
-        aria-label="Unit"
-        onChange={(_, next: string | null) => next && chooseUnit(next)}
-        sx={{ mb: 1.5, flexWrap: "wrap" }}
-      >
-        {units.map((unit) => (
-          <ToggleButton key={unit.code} value={unit.code} sx={{ textTransform: "none" }}>
-            {unit.label}
-          </ToggleButton>
-        ))}
-      </ToggleButtonGroup>
-    );
-  }
 
   return (
     <Box role="group" aria-label="Unit" sx={{ display: "flex", flexWrap: "wrap", gap: 1, py: 1, mb: 0.5 }}>
@@ -125,7 +112,6 @@ function CustomGroup({
   selected: readonly string[];
   onToggle: (code: string) => void;
 }) {
-  const look = useMisLook();
   return (
     <Box sx={{ mt: 1.25 }} role="group" aria-label={label}>
       <Typography variant="caption" sx={{ fontWeight: 800, letterSpacing: "0.1px" }}>
@@ -149,11 +135,8 @@ function CustomGroup({
               variant={on ? "filled" : "outlined"}
               color={on ? "primary" : "default"}
               onClick={() => onToggle(code)}
-              sx={
-                look.unitPills === "pills"
-                  ? { borderRadius: 999, fontWeight: 700, letterSpacing: "0.2px" }
-                  : undefined
-              }
+              // The same pill shape as the unit row above.
+              sx={{ borderRadius: 999, fontWeight: 700, letterSpacing: "0.2px" }}
             />
           );
         })}

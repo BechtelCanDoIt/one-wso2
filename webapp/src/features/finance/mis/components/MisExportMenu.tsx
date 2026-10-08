@@ -1,13 +1,18 @@
-// PROTOTYPE (branch prototype/mis-look) — throwaway, never merge.
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
 //
-// D8: ONE filled-primary "Export ▾" menu offering CSV · Excel · PDF, at every
-// export point. The prototype needs the MENU, not working exports: Excel still
-// writes the workbook the port already builds (so the button does something
-// real), CSV and PDF only say what they would do.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
 //
-//   A, C  the source's `.export-csv-btn`: filled primary, uppercase 12px/600,
-//         4px radius
-//   B     Oxygen `Button variant="contained"`
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 import { useState, type MouseEvent } from "react";
 import { Button, ListItemIcon, ListItemText, Menu, MenuItem, Typography } from "@wso2/oxygen-ui";
@@ -18,19 +23,29 @@ import { saveMisWorkbook, type MisWorkbookSpec } from "../export/misWorkbook";
 import { saveBlob } from "@utils/saveFile";
 import type { MisScale } from "../util/misViewVocabulary";
 import { MIS_SCALES } from "../util/misViewVocabulary";
-import { useMisLook } from "./misLookPrototype";
 import { faithfulExportSx } from "./misLookTokens";
 
-export default function PrototypeExportMenu({
+// ONE filled-primary "Export ▾" menu offering CSV · Excel · PDF, at every
+// export point on the ARR Dashboard and in its dialogs.
+//
+// All three read the same workbook, so the file cannot disagree with the
+// screen about which rows and Periods went out. Excel keeps the raw numbers
+// with number formats; CSV keeps the raw numbers as text a spreadsheet can
+// sum; the PDF prints the table as it was seen, Scale applied.
+//
+// Every item runs through `run`, so a failure in any of the three says so in
+// the same note rather than vanishing into the console.
+
+export default function MisExportMenu({
   workbook,
   filename,
   scale = MIS_SCALES.UNITS,
   heading,
   repeatColumns = 1,
 }: {
-  /** The workbook Excel and CSV write, and the table PDF formats. */
-  workbook?: () => MisWorkbookSpec;
-  /** The port's `misExportFilename` (ends in `.xlsx`); each item swaps the extension. */
+  /** The workbook Excel and CSV write, and the table the PDF formats. */
+  workbook: () => MisWorkbookSpec;
+  /** The `.xlsx` name from `misExportFilename`; each item swaps the extension. */
   filename: () => string;
   /** How the PDF shows currency. Excel and CSV ignore it and keep the raw numbers. */
   scale?: MisScale;
@@ -39,7 +54,6 @@ export default function PrototypeExportMenu({
   /** Identity columns repeated when the PDF breaks across pages. */
   repeatColumns?: number;
 }) {
-  const look = useMisLook();
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
   const [working, setWorking] = useState(false);
   const [note, setNote] = useState("");
@@ -47,16 +61,16 @@ export default function PrototypeExportMenu({
   const close = () => setAnchor(null);
   const base = () => filename().replace(/\.xlsx$/i, "");
 
-  const excel = async () => {
+  /** Close the menu, write one file, and say so if that failed. */
+  const run = async (write: () => Promise<void> | void) => {
     close();
-    if (!workbook) {
-      setNote("No workbook builder on this table yet.");
-      return;
-    }
+    setNote("");
     setWorking(true);
     try {
+      // One tick, so the menu is gone and the button reads "Exporting…" before
+      // a large workbook is built.
       await new Promise((resolve) => setTimeout(resolve, 0));
-      await saveMisWorkbook(workbook(), `${base()}.xlsx`);
+      await write();
     } catch {
       setNote("Couldn't write the file.");
     } finally {
@@ -64,36 +78,19 @@ export default function PrototypeExportMenu({
     }
   };
 
-  const csv = () => {
-    close();
-    if (!workbook) {
-      setNote("Nothing to export yet.");
-      return;
-    }
-    const text = misWorkbookCsv(workbook());
-    saveBlob(new Blob([text], { type: "text/csv;charset=utf-8" }), `${base()}.csv`);
-  };
+  const csv = () =>
+    run(() => {
+      const text = misWorkbookCsv(workbook());
+      saveBlob(new Blob([text], { type: "text/csv;charset=utf-8" }), `${base()}.csv`);
+    });
 
-  const pdf = async () => {
-    close();
-    if (!workbook) {
-      setNote("Nothing to export yet.");
-      return;
-    }
-    setWorking(true);
-    try {
+  const excel = () => run(() => saveMisWorkbook(workbook(), `${base()}.xlsx`));
+
+  const pdf = () =>
+    run(() => {
       const described = heading?.() ?? { title: base(), lines: [] };
-      await saveMisPdf(
-        workbook(),
-        { ...described, scale, repeatColumns },
-        `${base()}.pdf`,
-      );
-    } catch {
-      setNote("Couldn't write the file.");
-    } finally {
-      setWorking(false);
-    }
-  };
+      return saveMisPdf(workbook(), { ...described, scale, repeatColumns }, `${base()}.pdf`);
+    });
 
   return (
     <>
@@ -111,7 +108,7 @@ export default function PrototypeExportMenu({
         aria-haspopup="menu"
         aria-expanded={Boolean(anchor)}
         onClick={(event: MouseEvent<HTMLElement>) => setAnchor(event.currentTarget)}
-        sx={look.gridHeader === "brand" ? faithfulExportSx : undefined}
+        sx={faithfulExportSx}
       >
         {working ? "Exporting…" : "Export"}
       </Button>

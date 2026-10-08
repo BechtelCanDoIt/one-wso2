@@ -55,7 +55,11 @@ const ROW_LABEL_WIDTH = 288;
 const periodsOf = (count: number): BuildColumnGroup[] =>
   Array.from({ length: count }, (_, i) => ({ key: `fy${2020 + i}`, label: `FY${2020 + i}` }));
 
-/** Opening, one movement three levels deep, Closing — a Build in miniature. */
+/**
+ * Opening, one movement with a tree under it, Closing — a Build in miniature.
+ * The screens nest two levels (a section and its rows); the third level here
+ * pins that every depth is on screen, not just the first one under a section.
+ */
 const ROWS: BuildRow[] = [
   { id: "opening", label: "Opening ARR", emphasis: true },
   {
@@ -80,7 +84,7 @@ const cell: BuildCellFor = (row, group, subColumn) => ({
   muted: subColumn.key === "pct",
 });
 
-function renderTable(periodCount = 5, rows: BuildRow[] = ROWS, expanded?: readonly string[]) {
+function renderTable(periodCount = 5, rows: BuildRow[] = ROWS) {
   return render(
     <BuildTable
       label="ARR Build"
@@ -89,7 +93,6 @@ function renderTable(periodCount = 5, rows: BuildRow[] = ROWS, expanded?: readon
       subColumns={SUB_COLUMNS}
       rows={rows}
       cell={cell}
-      defaultExpandedIds={expanded}
     />,
   );
 }
@@ -388,43 +391,17 @@ describe("what a screen reader can say about a figure", () => {
   });
 });
 
-describe("opening and closing a section", () => {
-  it("opens as the summary a Build is meant to be", () => {
+describe("a section and its rows", () => {
+  // A section row is a label over the rows beneath it, not a fold. There is
+  // nothing to open, so there is nothing a reader can close by accident, and
+  // every figure in the Build is on the screen the moment it is.
+  it("shows every row of every section, and offers no control to close one", () => {
     renderTable(5);
-    expect(bodyRows()).toHaveLength(4);
-    expect(screen.queryByText("APIM")).not.toBeInTheDocument();
-  });
-
-  it("shows what a section holds, one level at a time", async () => {
-    const user = userEvent.setup();
-    renderTable(5);
-
-    await user.click(screen.getByRole("button", { name: "New" }));
+    expect(screen.getByText("New")).toBeInTheDocument();
     expect(screen.getByText("APIM")).toBeInTheDocument();
-    // One level at a time: opening the movement does not open the unit under it.
-    expect(screen.queryByText("Northwind Bank")).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "APIM" }));
     expect(screen.getByText("Northwind Bank")).toBeInTheDocument();
-  });
-
-  it("takes the whole subtree away again, not just the level below", async () => {
-    const user = userEvent.setup();
-    renderTable(5);
-    await user.click(screen.getByRole("button", { name: "New" }));
-    await user.click(screen.getByRole("button", { name: "APIM" }));
-    await user.click(screen.getByRole("button", { name: "New" }));
-    expect(screen.queryByText("APIM")).not.toBeInTheDocument();
-    expect(screen.queryByText("Northwind Bank")).not.toBeInTheDocument();
-  });
-
-  it("says whether a section is open", async () => {
-    const user = userEvent.setup();
-    renderTable(5);
-    const toggle = screen.getByRole("button", { name: "New" });
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await user.click(toggle);
-    expect(screen.getByRole("button", { name: "New" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("button", { name: "New" })).not.toBeInTheDocument();
+    expect(document.querySelector("[aria-expanded]")).toBeNull();
   });
 
   it("offers no control on a row that holds nothing", () => {
@@ -432,28 +409,11 @@ describe("opening and closing a section", () => {
     expect(screen.queryByRole("button", { name: "Opening ARR" })).not.toBeInTheDocument();
   });
 
-  it("opens the sections the caller asks for", () => {
-    render(
-      <BuildTable
-        label="ARR Build"
-        rowLabelHeader="Movement"
-        columnGroups={periodsOf(5)}
-        subColumns={SUB_COLUMNS}
-        rows={ROWS}
-        cell={cell}
-        defaultExpandedIds={["new", "new-apim"]}
-      />,
-    );
-    expect(screen.getByText("Northwind Bank")).toBeInTheDocument();
-  });
-
-  // A refetch, or a change of Period, must not blow open a tree the reader had
-  // closed — or reading a Build becomes a fight with the screen.
-  it("keeps what the reader opened when the rows are replaced", async () => {
-    const user = userEvent.setup();
+  // A refetch, or a change of Period, hands the table new row objects. Nothing
+  // may go missing on the way.
+  it("keeps every row visible when the rows are replaced", () => {
     const { rerender } = renderTable(5);
-    await user.click(screen.getByRole("button", { name: "New" }));
-    expect(screen.getByText("APIM")).toBeInTheDocument();
+    expect(screen.getByText("Northwind Bank")).toBeInTheDocument();
 
     rerender(
       <BuildTable
@@ -466,7 +426,7 @@ describe("opening and closing a section", () => {
         cell={cell}
       />,
     );
-    expect(screen.getByText("APIM")).toBeInTheDocument();
+    expect(screen.getByText("Northwind Bank")).toBeInTheDocument();
   });
 });
 
@@ -504,9 +464,9 @@ describe("the figures themselves", () => {
     expect(asked.has("opening/fy2024/pct")).toBe(true);
   });
 
-  // Not asked for rows nobody can see: a
-  // closed section must cost nothing rather than merely look as though it does.
-  it("asks for nothing on a row a closed section is hiding", () => {
+  // Every row of every section is on screen, so every one of them is asked
+  // for — down to the deepest, which is the one a tree walk drops by mistake.
+  it("asks for the figures of every row under a section, at every depth", () => {
     const spy = vi.fn(cell);
     render(
       <BuildTable
@@ -518,7 +478,9 @@ describe("the figures themselves", () => {
         cell={spy}
       />,
     );
-    expect(spy.mock.calls.some(([row]) => row.id === "new-apim")).toBe(false);
+    const askedRows = new Set(spy.mock.calls.map(([row]) => row.id));
+    expect(askedRows.has("new-apim")).toBe(true);
+    expect(askedRows.has("new-apim-northwind")).toBe(true);
   });
 
   it("marks a figure that subtracts, and mutes one that is subordinate", () => {
@@ -609,7 +571,7 @@ describe("a Build with more rows than a document should hold", { timeout: 30_000
     // The point of the whole exercise, and the thing that is actually
     // expensive. Every figure is a call into the caller's formatter, so an
     // unwindowed 3,000-row Build at five Periods asks 30,000 questions to show
-    // twenty lines — and asks them again on every hover, every toggle, and
+    // twenty lines — and asks them again on every hover, every refetch, and
     // every time the measured header settles.
     const askedFor = (rows: BuildRow[]) => {
       const asked = vi.fn(cell);
@@ -644,44 +606,21 @@ describe("a Build with more rows than a document should hold", { timeout: 30_000
     expect(windowed).toBeLessThan(everything / 3);
   });
 
-  it("can be worked from the keyboard, at any size", async () => {
-    // Windowing removes rows from the
-    // document, so the risk is a table that can be read and not operated.
+  it("windows the rows under a section, since every one of them is on screen", () => {
+    // A section's rows are always visible, so a section over two thousand
+    // customers is 2,001 visible rows — and the window has to be running from
+    // the first paint, not after something the reader does.
     const tree: BuildRow[] = [{ id: "new", label: "New", children: customers(2000) }];
     renderTable(5, tree);
-    await userEvent.tab();
-    const toggle = screen.getByRole("button", { name: "New" });
-    expect(toggle).toHaveFocus();
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    await userEvent.keyboard("{Enter}");
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("New")).toBeInTheDocument();
     expect(screen.getByText("Customer 0")).toBeInTheDocument();
-    // Still the same control, still focused: opening two thousand rows under it
-    // did not move the reader somewhere else.
-    expect(screen.getByRole("button", { name: "New" })).toHaveFocus();
-  });
-
-  it("lets the reader close a section that is being windowed, and releases its rows", async () => {
-    // A windowed table nobody can operate has traded one failure for another.
-    //
-    // The section is open from the START, which is the whole point: two
-    // COLLAPSED parents would be two visible rows, which is the plain path, and
-    // a test that renders them pins nothing about windowing however many
-    // children they have. Open, this is 2,001 visible rows and the window is
-    // already running before the click.
-    const tree: BuildRow[] = [{ id: "new", label: "New", children: customers(2000) }];
-    renderTable(5, tree, ["new"]);
+    const rendered = bodyRows().filter((row) => !row.hasAttribute("aria-hidden"));
+    expect(rendered.length).toBeLessThan(100);
+    // The spacers hold the height of the rows that were not rendered, so the
+    // scrollbar still describes all 2,001.
     expect(spacers().length).toBeGreaterThan(0);
-    expect(screen.getByText("Customer 0")).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: "New" }));
-
-    // Released, not hidden: the rows are gone from the document and so is the
-    // space that was being held for them — a spacer left behind here would be a
-    // Build scrolling over the ghost of a section that is no longer open.
-    expect(bodyRows()).toHaveLength(1);
-    expect(spacers()).toHaveLength(0);
-    expect(screen.queryByText("Customer 0")).not.toBeInTheDocument();
+    const padding = spacerHeights().reduce((total, height) => total + height, 0);
+    expect(padding + rendered.length * 30).toBe(2001 * 30);
   });
 
   it("shows the rows further down once the reader scrolls to them", () => {
@@ -761,21 +700,20 @@ describe("a Build with more rows than a document should hold", { timeout: 30_000
     expect(announced.length).toBe(2 + bodyRows().filter((r) => !r.hasAttribute("aria-hidden")).length);
   });
 
-  // The other direction from the collapse test above: that one closes a section
-  // the window is already running on, this one opens one it was not.
-  it("costs nothing while a section is closed, and windows it the moment it opens", async () => {
+  it("windows a section's rows alongside the plain rows beside it", () => {
+    // A Build mixes the two: a balance line with nothing under it, then a
+    // section over thousands of customers. The window runs over the whole
+    // visible list, so the balance is there and the section is a slice.
     const tree: BuildRow[] = [
       { id: "opening", label: "Opening ARR", emphasis: true },
       { id: "new", label: "New", children: customers(3000) },
     ];
     renderTable(5, tree);
-    // Closed: two rows, no window needed.
-    expect(bodyRows()).toHaveLength(2);
-    expect(spacers()).toHaveLength(0);
-    await userEvent.click(screen.getByRole("button", { name: "New" }));
+    expect(screen.getByText("Opening ARR")).toBeInTheDocument();
+    expect(screen.getByText("Customer 0")).toBeInTheDocument();
     const rendered = bodyRows().filter((row) => !row.hasAttribute("aria-hidden"));
     expect(rendered.length).toBeLessThan(100);
-    expect(screen.getByText("Customer 0")).toBeInTheDocument();
+    expect(spacers().length).toBeGreaterThan(0);
   });
 });
 
@@ -977,10 +915,12 @@ describe("opening the figures that have something behind them", () => {
 
   it("never makes the row-label column openable", () => {
     // The label column has no date, so there is nothing
-    // to ask the backend about. Its only control stays the section toggle.
+    // to ask the backend about — and a section row carries no control either.
     renderOpenable();
     const label = cellsOf(rowLabelled("Opening ARR"))[0] as HTMLElement;
     expect(within(label).queryByRole("button")).not.toBeInTheDocument();
+    const section = cellsOf(rowLabelled("New"))[0] as HTMLElement;
+    expect(within(section).queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("keeps the figure pointed at its row, Period and sub-column", () => {

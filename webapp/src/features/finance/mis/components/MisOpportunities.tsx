@@ -38,7 +38,7 @@ import {
 import { MIS_VALUE_TYPES, amountUnitCaption, formatMisValue } from "../util/misMoney";
 import type { MisScale } from "../util/misViewVocabulary";
 import type { OpportunitiesState } from "../api/useOpportunities";
-import PrototypeExportMenu from "../prototype/PrototypeExportMenu";
+import MisExportMenu from "./MisExportMenu";
 import { misExportFilename } from "../export/misExportFilename";
 import { MIS_NUMBER_FORMATS, misSheetName, type MisWorkbookSpec } from "../export/misWorkbook";
 import { MIS_SCALES } from "../util/misViewVocabulary";
@@ -169,9 +169,7 @@ export default function MisOpportunities({
                 <Typography variant="caption" color="text.secondary">
                   {amountUnitCaption(scale)}
                 </Typography>
-                {/* PROTOTYPE, D8: the sixth export point. No workbook builder
-                    exists for this table yet, so the menu alone. */}
-                <PrototypeExportMenu
+                <MisExportMenu
                   scale={scale}
                   repeatColumns={1}
                   heading={() => ({

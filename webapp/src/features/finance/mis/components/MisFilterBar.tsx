@@ -22,7 +22,6 @@ import {
   Button,
   Checkbox,
   FormControlLabel,
-  Paper,
   Stack,
   TextField,
   Tooltip,
@@ -63,29 +62,24 @@ import {
 import type { MisViewState } from "../util/useMisViewState";
 import type { MisFilterOptions } from "../api/misAppConfigs";
 import MisAppliedFilterChips from "./MisAppliedFilterChips";
-import { useMisLook } from "../prototype/misLookPrototype";
 import {
   faithfulApplySx,
   faithfulChipSx,
   faithfulOutlinedSx,
   faithfulTextButtonSx,
   gradientCardSx,
-} from "../prototype/misLookTokens";
+} from "./misLookTokens";
 
-// PROTOTYPE (branch prototype/mis-look): this bar is now ONLY the filter card of
-// D4 step 4 — header row More/Less · Apply · Clear All, one wrapping grid of
-// controls (the first 7 on a Build, 8 on Customers, when collapsed), applied
-// chips beneath. The Period row, the Unit pills and the Scale have LEFT it:
-// Period and Units sit above the card as tabs (`PrototypePeriodRow`,
-// `PrototypeTableTabs`, `PrototypeUnitPills`), the Scale sits in the per-grid
-// header beside the figures it rewrites (`PrototypeGridHeader`). The variant
-// decides only the chrome: A paints the source's gradient card and uppercase
-// buttons; B and C use `Paper variant="outlined"` and Oxygen buttons.
-
-// The whole filter surface above a Build.
+// The filter card of the ARR Dashboard: a header row of More/Less · Apply ·
+// Clear All, one wrapping grid of controls (the first 7 on a Build, 8 on
+// Customers, when collapsed), applied chips beneath — on the gradient card,
+// with uppercase buttons.
 //
-// Four things that look like one control each but are not the same KIND of
-// control, and the difference is the thing to hold on to:
+// The Period row, the Unit pills and the Scale are NOT here: Period and Units
+// sit above the card (`MisPeriodRow`, `MisTableTabs`, `MisUnitPills`), the
+// Scale sits in the per-grid header beside the figures it rewrites
+// (`MisGridHeader`). Four things that look like one control each are not the
+// same KIND of control, and the difference is the thing to hold on to:
 //
 //   the Period      navigates. Calendar ↔ TTM is a different cut of the same
 //                   Build, and `view.setWindow` owns everything that implies.
@@ -144,7 +138,6 @@ export default function MisFilterBar({
   optionsErrorMessage?: string;
   onRetryOptions?: () => void;
 }) {
-  const look = useMisLook();
   const { period, table, viewWindow, filters } = view;
   // The three that every rule in `misFilterBarModel` is a question about.
   const filterView: MisFilterView = { period, table, viewWindow };
@@ -260,23 +253,22 @@ export default function MisFilterBar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // D4: seven controls stay in view on a Build, eight on Customers (the source's
-  // own counts), the rest behind More.
+  // Seven controls stay in view on a Build, eight on Customers, the rest
+  // behind More.
   const collapsedCount =
     table === MIS_TABLES.SOFTWARE_CLOUD_CUSTOMERS ? MIS_COLLAPSED_CONTROL_COUNT + 1 : MIS_COLLAPSED_CONTROL_COUNT;
-  const faithful = look.filterButtons === "faithful";
 
-  const card = (
-    <>
+  return (
+    <Box sx={[{ mb: 1.5 }, gradientCardSx]}>
         <Stack
           direction="row"
           sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap", mb: 1.25 }}
         >
           <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-            <Box component="span" sx={{ display: "inline-flex", color: faithful ? "primary.main" : "inherit" }}>
+            <Box component="span" sx={{ display: "inline-flex", color: "primary.main" }}>
               <ListFilterIcon size={18} />
             </Box>
-            <Typography variant="subtitle2" sx={faithful ? { fontSize: 16, fontWeight: 600 } : undefined}>
+            <Typography variant="subtitle2" sx={{ fontSize: 16, fontWeight: 600 }}>
               Filters
             </Typography>
           </Stack>
@@ -286,7 +278,7 @@ export default function MisFilterBar({
                 size="small"
                 onClick={() => setExpanded((open) => !open)}
                 startIcon={expanded ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
-                sx={faithful ? faithfulTextButtonSx : undefined}
+                sx={faithfulTextButtonSx}
               >
                 {expanded ? "Less" : "More"}
               </Button>
@@ -296,7 +288,7 @@ export default function MisFilterBar({
               variant="contained"
               disabled={!hasPendingChanges}
               onClick={apply}
-              sx={faithful ? faithfulApplySx : undefined}
+              sx={faithfulApplySx}
             >
               Apply
             </Button>
@@ -305,7 +297,7 @@ export default function MisFilterBar({
               variant="outlined"
               startIcon={<EraserIcon size={14} />}
               onClick={clearAll}
-              sx={faithful ? faithfulOutlinedSx : undefined}
+              sx={faithfulOutlinedSx}
             >
               Clear All
             </Button>
@@ -329,9 +321,8 @@ export default function MisFilterBar({
           </Alert>
         )}
 
-        {/* The source's `.filter-row`: a grid of equal columns, so controls wrap
-            onto fewer columns as the card narrows instead of shrinking until
-            their labels truncate. The same in every variant — it is anatomy. */}
+        {/* A grid of equal columns, so controls wrap onto fewer columns as the
+            card narrows instead of shrinking until their labels truncate. */}
         <Box
           sx={{
             display: "grid",
@@ -364,26 +355,18 @@ export default function MisFilterBar({
           variant="caption"
           component="p"
           color="text.secondary"
-          sx={[{ mt: 1, minHeight: 18 }, faithful && hasPendingChanges ? { fontWeight: 600, color: "primary.dark" } : {}]}
+          sx={[{ mt: 1, minHeight: 18 }, hasPendingChanges ? { fontWeight: 600, color: "primary.dark" } : {}]}
         >
           {hasPendingChanges ? CHANGE_MESSAGE : resetNotice}
         </Typography>
 
-        <Box sx={faithful ? (theme) => ({ "& .MuiChip-root": faithfulChipSx(theme) }) : undefined}>
+        <Box sx={(theme) => ({ "& .MuiChip-root": faithfulChipSx(theme) })}>
           <MisAppliedFilterChips
             chips={describeAppliedFilters(filters, filterView)}
             onRemove={removeChip}
           />
         </Box>
-    </>
-  );
-
-  return look.filterCard === "gradient" ? (
-    <Box sx={[{ mb: 1.5 }, gradientCardSx]}>{card}</Box>
-  ) : (
-    <Paper variant="outlined" sx={{ p: 1.5, mb: 1.5 }}>
-      {card}
-    </Paper>
+    </Box>
   );
 }
 

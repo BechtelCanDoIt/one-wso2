@@ -14,9 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, ButtonBase, Stack, ToggleButton, ToggleButtonGroup, Typography } from "@wso2/oxygen-ui";
-import { useMisLook } from "../prototype/misLookPrototype";
-import { periodSegmentSx } from "../prototype/misLookTokens";
+import { Box, ButtonBase, Stack, Typography } from "@wso2/oxygen-ui";
+import { periodSegmentSx } from "./misLookTokens";
 
 // A labelled row of mutually exclusive choices, committing on click.
 //
@@ -30,9 +29,8 @@ import { periodSegmentSx } from "../prototype/misLookTokens";
 // which is the default, and what a change does to its siblings are the caller's
 // questions, and they differ at each of the three call sites.
 //
-// PROTOTYPE (branch prototype/mis-look): in the faithful variants (A, C) this
-// renders the source's `.region-summary-controls` — an uppercase 12px/700 label
-// beside the same segments the Period row uses; B keeps Oxygen's toggle group.
+// Drawn as an uppercase 12px/700 label beside the same segments the Period row
+// uses, so the two controls read as one family.
 
 export default function MisSegmentedControl<T extends string>({
   label,
@@ -53,9 +51,6 @@ export default function MisSegmentedControl<T extends string>({
   options: readonly { value: T; label: string }[];
   onChange: (value: T) => void;
 }) {
-  const look = useMisLook();
-  const faithful = look.periodControl === "segments";
-
   return (
     <Stack direction="row" sx={{ alignItems: "center", gap: 1, mb: 1.5, flexWrap: "wrap" }}>
       {/* Hidden from assistive tech, because the group below carries the same
@@ -64,49 +59,25 @@ export default function MisSegmentedControl<T extends string>({
         variant="body2"
         color="text.secondary"
         aria-hidden
-        sx={faithful ? { fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.35px" } : undefined}
+        sx={{ fontSize: 12, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.35px" }}
       >
         {label}
       </Typography>
-      {faithful ? (
-        <Box role="group" aria-label={ariaLabel} sx={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
-          {options.map((option) => {
-            const pressed = option.value === value;
-            return (
-              <ButtonBase
-                key={option.value}
-                aria-pressed={pressed}
-                onClick={() => onChange(option.value)}
-                sx={[periodSegmentSx(pressed), { minWidth: 0 }]}
-              >
-                {option.label}
-              </ButtonBase>
-            );
-          })}
-        </Box>
-      ) : (
-        <ToggleButtonGroup
-          exclusive
-          size="small"
-          value={value}
-          aria-label={ariaLabel}
-          // `null` when the reader clicks the choice they are already on. Ignored
-          // rather than treated as "neither": these controls pick between
-          // arrangements of a table that is on screen either way, so there is no
-          // third state for the group to fall into.
-          onChange={(_event, next: T | null) => next && onChange(next)}
-        >
-          {options.map((option) => (
-            <ToggleButton
+      <Box role="group" aria-label={ariaLabel} sx={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+        {options.map((option) => {
+          const pressed = option.value === value;
+          return (
+            <ButtonBase
               key={option.value}
-              value={option.value}
-              sx={{ textTransform: "none", px: 1.5 }}
+              aria-pressed={pressed}
+              onClick={() => onChange(option.value)}
+              sx={[periodSegmentSx(pressed), { minWidth: 0 }]}
             >
               {option.label}
-            </ToggleButton>
-          ))}
-        </ToggleButtonGroup>
-      )}
+            </ButtonBase>
+          );
+        })}
+      </Box>
     </Stack>
   );
 }

@@ -35,8 +35,10 @@
 /** How wide the pinned row-label column is. Long customer names ellipsis inside it. */
 export const ROW_LABEL_WIDTH = 288;
 
-/** How tall the body grows before it scrolls under the header. */
-// PROTOTYPE (prototype/mis-look): taller, so a full Build fits one screenshot.
+/**
+ * How tall the body grows before it scrolls under the header. Tall enough for
+ * a full Subscription Build to fit one screenshot.
+ */
 export const MAX_BODY_HEIGHT = 560;
 
 /**
@@ -70,12 +72,11 @@ export const Z = {
  * colour and change nothing — see `rowSx`.
  */
 export const opaqueTint = (...tints: readonly string[]) => ({
-  // PROTOTYPE (prototype/mis-look) finding: Oxygen's `background.paper` is
-  // TRANSLUCENT (`#ffffffc5` light, `#00000026` dark), so a frozen cell resting
-  // on it lets the columns scrolling behind show through — the smear the
-  // handoff asked about, reproduced on the Customers table. The opaque base is
-  // `background.default`, with paper composited over it as the bottom layer, so
-  // every cell reads as the paper colour and stays opaque.
+  // Oxygen's `background.paper` is TRANSLUCENT (`#ffffffc5` light, `#00000026`
+  // dark), so a frozen cell resting on it lets the columns scrolling behind
+  // show through — visible as a smear on the Customers table. The opaque base
+  // is `background.default`, with paper composited over it as the bottom
+  // layer, so every cell reads as the paper colour and stays opaque.
   backgroundColor: "background.default",
   backgroundImage: [...tints, "var(--oxygen-palette-background-paper)"]
     .map((tint) => `linear-gradient(${tint}, ${tint})`)
@@ -136,15 +137,14 @@ export const rowSx = ({
   /** The theme's hover fill. Also the resting fill of a balance row. */
   tint: string;
   /**
-   * PROTOTYPE (prototype/mis-look): whether a balance row RESTS on the tint.
-   * The source's `.bold-row` is weight alone — no fill — so the faithful look
-   * turns this off and keeps the hover layer.
+   * Whether a balance row RESTS on the tint. The ARR Dashboard's bold rows are
+   * weight alone — no fill — so `BuildTable` turns this off and keeps the
+   * hover layer.
    */
   emphasisFill?: boolean;
   /**
-   * PROTOTYPE: the weight a balance row carries. Measured on the source:
-   * a Build's `.bold-row` is 600; the Customers `Total` row is 700 at 16px;
-   * a Region Summary total is 700.
+   * The weight a balance row carries: a Build's bold rows are 600; the
+   * Customers `Total` row is 700 at 16px; a Region Summary total is 700.
    */
   emphasisWeight?: number;
   emphasisFontSize?: string;
@@ -223,8 +223,8 @@ export const ROW_LABEL_CELL_SX = {
   py: 0.15,
   px: 1,
   borderRight: 1,
-  // PROTOTYPE finding: the `borderRight` shorthand resets the side's colour to
-  // currentColor, so without this the frozen column's rule paints white in dark.
+  // The `borderRight` shorthand resets the side's colour to currentColor, so
+  // without this the frozen column's rule paints white in dark.
   borderRightColor: "divider",
 } as const;
 
@@ -273,13 +273,3 @@ export const leadHeadCellSx = (offset: number | undefined) => ({
   borderRightColor: "divider",
   ...frozenAt(offset, Z.headerCorner, { left: "auto" as const, zIndex: Z.header }),
 });
-
-/**
- * The hairline between two Periods, on the first sub-column of each.
- *
- * Skipped on the first Period so it does not double against the pinned
- * column's own right edge — under `border-collapse: separate` two adjacent
- * borders are drawn twice rather than merged.
- */
-export const groupEdgeSx = (groupIndex: number) =>
-  groupIndex > 0 ? { borderLeft: 1, borderLeftColor: "divider" } : {};
