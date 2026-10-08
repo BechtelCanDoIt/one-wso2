@@ -115,6 +115,12 @@ export function tilPlainTextLength(html: string): number {
   return tilPlainText(html).length;
 }
 
+/** Minutes to read an entry at 200 words a minute, never less than one. */
+export function tilReadingMinutes(html: string): number {
+  const words = tilPlainText(html).split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
 /** A Quill editor with nothing typed still returns markup (`<p><br></p>`,
  * not `""`), so `.trim() === ""` on the raw HTML never catches an empty
  * entry — check the plain-text content instead. */

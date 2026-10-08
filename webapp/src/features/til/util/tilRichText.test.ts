@@ -24,7 +24,29 @@ import {
   tilDisplayHtml,
   tilExcerpt,
   tilPlainTextLength,
+  tilReadingMinutes,
 } from "./tilRichText";
+import { isTilArticleSearch, tilArticlePath, tilEntryPath } from "./tilArticleView";
+
+describe("tilReadingMinutes", () => {
+  it("rounds up at 200 words a minute, with a one-minute floor", () => {
+    expect(tilReadingMinutes("<p>A few words.</p>")).toBe(1);
+    expect(tilReadingMinutes(`<p>${"word ".repeat(201)}</p>`)).toBe(2);
+  });
+});
+
+describe("TIL article view paths", () => {
+  it("builds the in-shell and article URLs for one entry", () => {
+    expect(tilEntryPath("abc")).toBe("/knowledge-base/abc");
+    expect(tilArticlePath("abc")).toBe("/knowledge-base/abc?view=article");
+  });
+
+  it("recognises the article view from a search string or params", () => {
+    expect(isTilArticleSearch("?view=article")).toBe(true);
+    expect(isTilArticleSearch(new URLSearchParams("view=article&x=1"))).toBe(true);
+    expect(isTilArticleSearch("")).toBe(false);
+  });
+});
 
 describe("normalizeTilSpaces", () => {
   it("turns the editor's &nbsp; and raw no-break spaces into ordinary spaces", () => {
