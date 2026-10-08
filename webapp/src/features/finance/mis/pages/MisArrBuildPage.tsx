@@ -536,7 +536,9 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // Totals only keeps the column(s) whose label is a total — "Total" under BU
   // only; "Software Total", "Cloud Total" and "Total" under Software / Cloud.
   const shownBreakdown = totalsOnly ? breakdown.filter((column) => /total/i.test(column.label)) : breakdown;
-  const subColumns = shownBreakdown.map(({ key, label }) => ({ key, label, width: 150 }));
+  // 160px: under Totals only a Period is one column, and its "As of …" label
+  // (119px at 14px/700) has to stay on one line inside the 16px padding.
+  const subColumns = shownBreakdown.map(({ key, label }) => ({ key, label, width: 160 }));
   // The grand total is the column reading `arrGrandTotal`, under either breakdown.
   const grandTotalKeys = new Set(
     breakdown.filter((column) => column.field === "arrGrandTotal").map((column) => column.key),
@@ -1110,7 +1112,7 @@ function SummaryBody({
  * this the figure column would have no name at all. The Region Summary needs no
  * such row: its seven sub-columns name themselves.
  */
-const EXIT_ARR_SUB_COLUMNS = [{ key: "amount", label: "Exit ARR", width: 180 }] as const;
+const EXIT_ARR_SUB_COLUMNS = [{ key: "amount", label: "Exit ARR", width: 200 }] as const;
 
 /**
  * `arr_dashboard_bu_summary_2026-09-14.xlsx` — which table, and the day it was taken.
@@ -1166,8 +1168,11 @@ const BU_LABEL_WIDTH = 200;
  * the percentages are rows of their own, further down. So there is one
  * sub-column, and it names what the figure IS — which is worth a line of header
  * given the Period above it only says which dates it covers.
+ *
+ * 200px: the Period label above it ("2021/12/31 - 2022/10/07") is 167px at
+ * 14px/700 and stays on one line, with the cell's 16px padding either side.
  */
-const SUB_COLUMNS = [{ key: "amount", label: "ARR", width: 170 }] as const;
+const SUB_COLUMNS = [{ key: "amount", label: "ARR", width: 200 }] as const;
 
 /**
  * A column's header is its identity — no two columns close on the same date —

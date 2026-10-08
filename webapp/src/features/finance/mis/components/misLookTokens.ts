@@ -323,8 +323,9 @@ export const faithfulGridFrameSx = (theme: Theme) => ({
 
 /**
  * Header cell: ONE 48px row on paper, 14px/700 slate text, no uppercase, a
- * divider rule between cells. Period labels sit right-aligned and wrap onto
- * two lines ("2021/12/31 -" over "2022/10/07"); the row-label header sits left.
+ * divider rule between cells. Period labels sit right-aligned on ONE line
+ * ("2021/12/31 - 2022/10/07" is 167px at this size, so a Period column that
+ * carries a single figure is 200px wide); the row-label header sits left.
  */
 export const faithfulHeadCellSx = (theme: Theme) => ({
   height: GRID.headerHeight,
@@ -334,7 +335,7 @@ export const faithfulHeadCellSx = (theme: Theme) => ({
   letterSpacing: 0,
   textTransform: "none" as const,
   lineHeight: 1.25,
-  whiteSpace: "normal" as const,
+  whiteSpace: "nowrap" as const,
   verticalAlign: "middle" as const,
   py: 0.5,
   px: GRID.cellPadX,
