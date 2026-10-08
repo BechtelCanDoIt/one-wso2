@@ -537,7 +537,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // only; "Software Total", "Cloud Total" and "Total" under Software / Cloud.
   const shownBreakdown = totalsOnly ? breakdown.filter((column) => /total/i.test(column.label)) : breakdown;
   // 160px: under Totals only a Period is one column, and its "As of …" label
-  // (119px at 14px/700) has to stay on one line inside the 16px padding.
+  // (119px at 14px/600) has to stay on one line inside the 16px padding.
   const subColumns = shownBreakdown.map(({ key, label }) => ({ key, label, width: 160 }));
   // The grand total is the column reading `arrGrandTotal`, under either breakdown.
   const grandTotalKeys = new Set(
@@ -671,8 +671,8 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
       )}
       <BuildTable fill
         label="Software/Cloud Customers"
-        // The Total row is 16px/700.
-        emphasisStyle={{ fontWeight: 700, fontSize: "1rem" }}
+        // The Total row is weight 700, at the table's own size.
+        emphasisStyle={{ fontWeight: 700 }}
         rowLabelHeader="Account Name"
         leadColumns={leadColumns}
         leadCell={leadCell}
@@ -1170,7 +1170,7 @@ const BU_LABEL_WIDTH = 200;
  * given the Period above it only says which dates it covers.
  *
  * 200px: the Period label above it ("2021/12/31 - 2022/10/07") is 167px at
- * 14px/700 and stays on one line, with the cell's 16px padding either side.
+ * 14px/600 and stays on one line, with the cell's 16px padding either side.
  */
 const SUB_COLUMNS = [{ key: "amount", label: "ARR", width: 200 }] as const;
 

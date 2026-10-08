@@ -339,15 +339,79 @@ describe("borders", () => {
     expect(getComputedStyle(cellsOf(bodyRows()[0])[1]).borderBottomWidth).not.toBe("");
   });
 
-  it("separates one Period from the next, but not the first from the pinned column", () => {
+  it("draws no vertical rule between figures — only the pinned column carries one", () => {
     renderTable(5);
-    const figures = cellsOf(bodyRows()[0]).slice(1);
-    // The first Period's Amount sits against the pinned column's own right
-    // edge; a second border there would be drawn twice, not merged.
-    expect(getComputedStyle(figures[0]).borderLeftWidth).toMatch(/^(0px)?$/);
-    expect(getComputedStyle(figures[2]).borderLeftWidth).not.toBe("");
-    // Only on the first sub-column of a Period — not between Amount and % Open.
-    expect(getComputedStyle(figures[3]).borderLeftWidth).toMatch(/^(0px)?$/);
+    const [label, ...figures] = cellsOf(bodyRows()[0]);
+    // The frozen pane's edge is the one vertical rule in the body: the first
+    // figure sits against it, and nothing separates one Period from the next
+    // or an Amount from its % Open.
+    expect(getComputedStyle(label).borderRightWidth).not.toBe("");
+    for (const figure of figures) {
+      expect(getComputedStyle(figure).borderLeftWidth).toMatch(/^(0px)?$/);
+      expect(getComputedStyle(figure).borderRightWidth).toMatch(/^(0px)?$/);
+    }
+  });
+});
+
+describe("the look it takes from the ListingTable", () => {
+  // The table is Oxygen's, at its compact density, so it reads like every
+  // other table in the app. What follows pins that nothing here overrides the
+  // component's own text, padding or head — the ways a hand-rolled table
+  // quietly drifts from the ones beside it.
+  //
+  // The density and the head's weight reach a cell through rules on the TABLE
+  // and the HEAD (`.table .MuiTableCell-root`), which jsdom's cascade does not
+  // follow — so those are read out of the generated sheet, and the cell is
+  // checked for setting nothing of its own that would beat them.
+  /** The rules written for this element alone — its emotion class, not MUI's shared ones. */
+  const ownRules = (element: Element) => {
+    const own = Array.from(element.classList).filter((one) => one.startsWith("css-"));
+    return cssRulesFor(element).filter((rule) => own.some((one) => rule.includes(`.${one}`)));
+  };
+
+  it("pads every cell at the compact density and sets no height of its own", () => {
+    renderTable(5);
+    const table = screen.getByRole("table");
+    const density = cssRulesFor(table).find((rule) => rule.includes(".MuiTableCell-root"));
+    expect(density).toContain("padding: 6px 16px");
+    const figure = cellsOf(bodyRows()[1])[1] as HTMLElement;
+    expect(figure.style.height).toBe("");
+    // `line-height` is MUI's; a `height` of this table's own is what is barred.
+    expect(ownRules(figure).join(" ")).not.toMatch(/(^|[^-])height:/);
+  });
+
+  it("lets the head keep the ListingTable head's weight", () => {
+    renderTable(5);
+    const head = document.querySelector("thead")!;
+    const headRule = cssRulesFor(head).find((rule) => rule.includes(".MuiTableCell-head"));
+    expect(headRule).toContain("font-weight: 600");
+    const period = cellsOf(headerRows()[0])[1];
+    expect(period.className).toContain("MuiTableCell-head");
+    const own = ownRules(period).join(" ");
+    expect(own).not.toContain("text-transform");
+    expect(own).not.toMatch(/(^|[^-])height:/);
+  });
+
+  it("highlights a row with the theme's own hover tint", () => {
+    renderTable(5);
+    expect(rowCellRules(rowLabelled("New"), true).join(" ")).toContain("action-hover");
+  });
+
+  it("sets a section row on a band that does not react to the pointer", () => {
+    renderTable(5);
+    const section = rowLabelled("New");
+    const resting = rowCellRules(section, false).join(" ");
+    const hovered = rowCellRules(section, true).join(" ");
+    expect(resting).toContain("grey-50");
+    // Under the pointer the band is painted again, exactly as it rests — and
+    // last, so it is what wins over the row highlight written before it.
+    const fills = (css: string) => css.match(/background-image:[^;]+/g) ?? [];
+    expect(fills(hovered)).toEqual(expect.arrayContaining(fills(resting)));
+    expect(fills(hovered).at(-1)).toContain("grey-50");
+    // The label: small caps in the secondary tone, no indent.
+    const label = within(cellsOf(section)[0] as HTMLElement).getByText("New");
+    expect(getComputedStyle(label).textTransform).toBe("uppercase");
+    expect(getComputedStyle(label).fontWeight).toBe("600");
   });
 });
 

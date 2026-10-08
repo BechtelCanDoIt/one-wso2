@@ -29,9 +29,10 @@ import { gridCaptionSx, gridHeaderBarSx, gridTitleSx, slateText } from "./misLoo
 // filter card, for the same reason: a figure that has left the screen it was
 // set on has to carry its own units.
 //
-// This is the head of the grid card (1px border, 4px radius; the grid frame
-// below is its body): a 24px/600 title in brand text, a 12px/500 caption, and
-// primary checkboxes with 14px/500 slate labels for the Scale and the toggles.
+// This is the head of the grid card — one outlined Oxygen surface with the
+// grid frame below as its body: a 20px/600 title in brand text, a 12px/500
+// caption in the secondary tone, and primary checkboxes with 14px/500 slate
+// labels for the Scale and the toggles.
 
 export interface GridToggle {
   label: string;
@@ -73,7 +74,7 @@ export default function MisGridHeader({
             </Typography>
           )}
         </Stack>
-        <Typography variant="caption" sx={[gridCaptionSx]}>
+        <Typography variant="caption" sx={gridCaptionSx}>
           {amountUnitCaption(scale)}
         </Typography>
       </Box>

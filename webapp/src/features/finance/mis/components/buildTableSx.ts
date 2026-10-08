@@ -29,8 +29,14 @@
 //
 // The community `@mui/x-data-grid` this app ships cannot express a
 // Build — no column pinning, no row grouping, `pageSize` throws above 100. So
-// the table is a plain `<Table>`, and these are the pieces MUI then declines to
-// provide.
+// the table is Oxygen's `ListingTable` — the same component as the rest of the
+// app's tables, which is where its text size, weights, cell padding and head
+// fill come from — and these are the pieces that component declines to
+// provide: the frozen pane, the two-row header's offset, the opaque composites
+// under anything sticky, and the per-cell row highlight.
+
+import type { Theme } from "@mui/material/styles";
+import { cssVar } from "./misLookTokens";
 
 /** How wide the pinned row-label column is. Long customer names ellipsis inside it. */
 export const ROW_LABEL_WIDTH = 288;
@@ -83,6 +89,9 @@ export const opaqueTint = (...tints: readonly string[]) => ({
     .join(", "),
 });
 
+/** The theme's row highlight, the one every other table in the app uses. */
+const HOVER_TINT = cssVar("action-hover");
+
 /**
  * The selector a row's resting treatment is painted through.
  *
@@ -120,22 +129,24 @@ export const HOVER_CELLS = "&:hover > th, &:hover > td";
  * The highlight LAYERS over the resting tint rather than replacing it. A single
  * tint would be a no-op on a balance row, which already rests at exactly that
  * colour: the pointer would cross the row a reader most wants to track and
- * nothing would happen. The prototype hit this and wrote it down — "on the
- * balance rows this is a no-op, which is fine" — and it is not fine on a table
- * two dozen columns wide.
+ * nothing would happen — and on a table two dozen columns wide that is not
+ * fine.
  */
 export const rowSx = ({
   emphasis,
   ruleAbove,
-  tint,
+  tint = HOVER_TINT,
   emphasisFill = true,
-  emphasisWeight = 700,
-  emphasisFontSize,
+  emphasisWeight = 600,
 }: {
   emphasis?: boolean;
   ruleAbove?: boolean;
-  /** The theme's hover fill. Also the resting fill of a balance row. */
-  tint: string;
+  /**
+   * The hover fill. Also the resting fill of a balance row. Default: the
+   * theme's `action.hover`, which is what every other table in the app
+   * highlights with.
+   */
+  tint?: string;
   /**
    * Whether a balance row RESTS on the tint. The ARR Dashboard's bold rows are
    * weight alone — no fill — so `BuildTable` turns this off and keeps the
@@ -144,16 +155,15 @@ export const rowSx = ({
   emphasisFill?: boolean;
   /**
    * The weight a balance row carries: a Build's bold rows are 600; the
-   * Customers `Total` row is 700 at 16px; a Region Summary total is 700.
+   * Customers `Total` row and a Region Summary total are 700. The size is the
+   * table's own, as it is in every other table in the app.
    */
   emphasisWeight?: number;
-  emphasisFontSize?: string;
 }) => {
   const resting = {
     ...(emphasis
       ? {
           fontWeight: emphasisWeight,
-          ...(emphasisFontSize ? { fontSize: emphasisFontSize } : {}),
           ...(emphasisFill ? opaqueTint(tint) : {}),
         }
       : {}),
@@ -172,12 +182,18 @@ export const rowSx = ({
 /**
  * Shared by every cell in the table.
  *
+ * Text size, weight and padding are NOT here: they are the ListingTable's, at
+ * its compact density, so the Build reads like every other table in the app.
+ * What is here is what that component cannot know this table needs.
+ *
  * `stickyHeader` forces `border-collapse: separate`, under which the collapsed
  * border shorthand does nothing at all — so every border in this table is
  * placed on a cell, deliberately, and the ones that look like they should be on
  * the table or the row are not available.
  */
 const cellBase = {
+  // A row is measured once and every other is assumed to match it, so no cell
+  // may wrap.
   whiteSpace: "nowrap",
   borderBottom: 1,
   borderColor: "divider",
@@ -187,28 +203,45 @@ const cellBase = {
   ...opaqueTint(),
 } as const;
 
-/** A header cell, in either of the two header rows. */
-export const HEAD_CELL_SX = {
+/**
+ * The ListingTable head's fill: `grey.50` in light, a 4% white in dark. Its
+ * own rule paints it translucent, through a selector that outranks a cell's
+ * sx — fine on a head that nothing scrolls under, wrong on a sticky one.
+ */
+const HEAD_FILL = { light: cssVar("grey-50"), dark: "rgba(255, 255, 255, 0.04)" } as const;
+
+/**
+ * A header cell, in either of the two header rows.
+ *
+ * Weight and padding are the ListingTable head's. The fill is the head's too,
+ * but composited opaquely over `background.default` the way every body cell
+ * composites paper, and raised in specificity so it wins over the head's own
+ * translucent rule — otherwise the rows scrolling under the sticky header show
+ * through it in dark. The borders ride on the same raised rule: a ListingTable
+ * row strips the borders off the cells of a `last-child` row, which is right
+ * under the body's final row and wrong under a header that happens to be the
+ * only one — the drill-down's — and the frozen pane's rule must not vanish
+ * with it.
+ */
+const headCell = (theme: Theme, edges: object = {}) => ({
   ...cellBase,
-  position: "sticky",
-  fontSize: 11,
-  fontWeight: 700,
-  letterSpacing: "0.07em",
-  textTransform: "uppercase",
-  lineHeight: 1.3,
-  py: 0.5,
-  px: 1.25,
-  color: "text.secondary",
-} as const;
+  position: "sticky" as const,
+  "&&.MuiTableCell-head": {
+    borderBottom: 1,
+    borderColor: "divider",
+    ...edges,
+    ...opaqueTint(HEAD_FILL.light),
+    ...theme.applyStyles("dark", opaqueTint(HEAD_FILL.dark)),
+  },
+});
+
+export const headCellSx = (theme: Theme) => headCell(theme);
 
 /** A figure. Tabular numerals so digits line up down a column. */
 export const NUMERIC_CELL_SX = {
   ...cellBase,
-  fontSize: 12.5,
   fontVariantNumeric: "tabular-nums",
   textAlign: "right",
-  py: 0.3,
-  px: 1.25,
 } as const;
 
 /** The pinned row-label column. Sticky on the horizontal axis only. */
@@ -217,15 +250,41 @@ export const ROW_LABEL_CELL_SX = {
   position: "sticky",
   left: 0,
   zIndex: Z.rowLabel,
-  fontSize: 12.5,
-  fontWeight: 400,
   textAlign: "left",
-  py: 0.15,
-  px: 1,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
   borderRight: 1,
   // The `borderRight` shorthand resets the side's colour to currentColor, so
   // without this the frozen column's rule paints white in dark.
   borderRightColor: "divider",
+} as const;
+
+/**
+ * A section row — the band naming the metric group under it (ARR movement,
+ * Customers, …).
+ *
+ * A label, not a fold: no chevron, no indent, and every row beneath it is
+ * always on screen. It rests on `grey.50` in light and `action.hover` in dark,
+ * composited opaquely because its first cell is the pinned one, and it does
+ * not react to the pointer — the highlight is written again under `:hover` so
+ * `rowSx`'s does not reach it. The band's height is the compact row's own; the
+ * label sits centred in it.
+ */
+export const sectionRowSx = (theme: Theme) => {
+  const band = {
+    ...opaqueTint(cssVar("action-hover")),
+    ...theme.applyStyles("light", opaqueTint(cssVar("grey-50"))),
+  };
+  return { [EMPHASIS_CELLS]: band, [HOVER_CELLS]: band };
+};
+
+/** The section row's label: small caps in the secondary tone, weight 600. */
+export const SECTION_LABEL_SX = {
+  fontSize: 12,
+  fontWeight: 600,
+  letterSpacing: "0.4px",
+  textTransform: "uppercase",
+  color: "text.secondary",
 } as const;
 
 /**
@@ -236,7 +295,7 @@ export const ROW_LABEL_CELL_SX = {
  * Customers table needs seventeen columns to say which account a row is. A
  * frozen cell must also be OPAQUE — a translucent one lets the figures moving
  * behind it show through, and the pane reads as a smear rather than as a pane —
- * which `cellBase` and `HEAD_CELL_SX` already supply.
+ * which `cellBase` and `headCellSx` already supply.
  *
  * `undefined` means the column scrolls, and the two callers disagree about what
  * that implies, which is why the fallback is passed in rather than assumed: a
@@ -264,12 +323,9 @@ export const leadCellSx = (offset: number | undefined) => ({
  * A frozen one is sticky on BOTH axes, so it has to outrank the Period headers
  * it scrolls under AND the identity cells it scrolls over.
  */
-export const leadHeadCellSx = (offset: number | undefined) => ({
-  ...HEAD_CELL_SX,
+export const leadHeadCellSx = (offset: number | undefined) => (theme: Theme) => ({
+  ...headCell(theme, { borderRight: 1, borderRightColor: "divider" }),
   top: 0,
   textAlign: "left" as const,
-  color: "text.primary",
-  borderRight: 1,
-  borderRightColor: "divider",
   ...frozenAt(offset, Z.headerCorner, { left: "auto" as const, zIndex: Z.header }),
 });
