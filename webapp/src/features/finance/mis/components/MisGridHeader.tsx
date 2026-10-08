@@ -71,7 +71,7 @@ export default function MisGridHeader({
     <Box sx={[gridHeaderBarSx]}>
       <Box sx={{ minWidth: 0 }}>
         <Stack direction="row" sx={{ alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-          <Typography component="h3" sx={[gridTitleSx]}>
+          <Typography component="h2" sx={[gridTitleSx]}>
             {title}
           </Typography>
           {note && (

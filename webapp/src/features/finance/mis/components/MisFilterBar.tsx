@@ -268,7 +268,7 @@ export default function MisFilterBar({
             <Box component="span" sx={{ display: "inline-flex", color: "primary.main" }}>
               <ListFilterIcon size={18} />
             </Box>
-            <Typography variant="subtitle2" sx={{ fontSize: 16, fontWeight: 600 }}>
+            <Typography component="h2" variant="subtitle2" sx={{ fontSize: 16, fontWeight: 600 }}>
               Filters
             </Typography>
           </Stack>

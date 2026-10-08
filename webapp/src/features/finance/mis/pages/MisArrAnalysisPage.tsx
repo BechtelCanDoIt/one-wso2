@@ -234,7 +234,7 @@ function ArrAnalysis() {
         direction="row"
         sx={{ alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", mb: 0.75 }}
       >
-        <Typography variant="subtitle2">Account performance detail</Typography>
+        <Typography component="h2" variant="subtitle2">Account performance detail</Typography>
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
           {/* The caption travels with the TABLE rather than with the control,
               because Finance's workflow is to crop a table into a deck — see

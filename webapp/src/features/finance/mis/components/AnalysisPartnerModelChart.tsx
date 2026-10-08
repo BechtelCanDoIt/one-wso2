@@ -101,7 +101,7 @@ export default function AnalysisPartnerModelChart({
 
   return (
     <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, p: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 0.25 }}>
+      <Typography component="h2" variant="subtitle2" sx={{ mb: 0.25 }}>
         ARR by partner model
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
