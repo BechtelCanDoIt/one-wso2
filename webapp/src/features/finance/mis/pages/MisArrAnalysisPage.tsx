@@ -329,7 +329,7 @@ function SummaryCards({
         ) : isLoading ? (
           <Skeleton variant="text" width={160} height={44} />
         ) : (
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          <Typography component="p" variant="h5" sx={{ fontWeight: 700 }}>
             {/* A HEADLINE, so it is compact, in dollars, and NOT scaled —
                 `misHeadlineAmount` has no Scale parameter to break it with. An
                 em dash rather than a zero when the figure never arrived: `$0`
@@ -346,7 +346,7 @@ function SummaryCards({
         {accountsLoading ? (
           <Skeleton variant="text" width={80} height={44} />
         ) : (
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+          <Typography component="p" variant="h5" sx={{ fontWeight: 700 }}>
             {/* The reader's Scale IS handed over here, and makes no
                 difference: `formatMisValue` reads it in the currency branch
                 and nowhere else, so a count cannot be divided by a thousand

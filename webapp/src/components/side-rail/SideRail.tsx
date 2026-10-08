@@ -276,17 +276,15 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
 
       <Sidebar.Footer showDivider>
         {/* The footer is not a list, and Sidebar.Item is an li, so it needs one. */}
-        <Box component="ul" sx={{ m: 0, p: 0, listStyle: "none" }}>
+        {/* The tour marker sits on the list, not inside the label. Oxygen
+            names a collapsed row with String(label children), and a span
+            there becomes the accessible name "[object Object]". */}
+        <Box component="ul" data-tour="settings" sx={{ m: 0, p: 0, listStyle: "none" }}>
         <Sidebar.Item id={SETTINGS_ID}>
           <Sidebar.ItemIcon>
             <SettingsIcon />
           </Sidebar.ItemIcon>
-          {/* The tour points here. The marker is on a span of our own because
-              Sidebar.Item drops unknown props, so data-* put on it never reaches
-              the DOM. */}
-          <Sidebar.ItemLabel>
-            <span data-tour="settings">Settings</span>
-          </Sidebar.ItemLabel>
+          <Sidebar.ItemLabel>Settings</Sidebar.ItemLabel>
         </Sidebar.Item>
         </Box>
       </Sidebar.Footer>

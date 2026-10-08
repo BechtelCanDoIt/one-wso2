@@ -187,8 +187,9 @@ describe("the shape of the table", () => {
 
   it("scrolls the table rather than the page", () => {
     renderTable(12);
-    const scroller = screen.getByRole("table").parentElement!;
+    const scroller = screen.getByRole("region", { name: "ARR Build" });
     expect(getComputedStyle(scroller).overflow).toBe("auto");
+    expect(scroller).toHaveAttribute("tabindex", "0");
   });
 });
 
@@ -964,6 +965,22 @@ describe("opening the figures that have something behind them", () => {
     renderOpenable();
     fireEvent.click(screen.getByRole("button", { name: /closing\/fy2021\/pct/ }));
     expect(opened).toEqual(["closing"]);
+  });
+
+  it("names a blank figure that can still be opened", () => {
+    render(
+      <BuildTable
+        label="Customers"
+        rowLabelHeader="Account"
+        columnGroups={periodsOf(1)}
+        subColumns={SUB_COLUMNS}
+        rows={[{ id: "acme", label: "Acme" }]}
+        cell={() => ({ text: "", onActivate: () => undefined })}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "View details for Acme, FY2020, Amount" }),
+    ).toBeInTheDocument();
   });
 
   it("can be opened from the keyboard", async () => {

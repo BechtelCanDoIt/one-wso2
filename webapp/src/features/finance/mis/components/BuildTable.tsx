@@ -282,6 +282,11 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
         <Box
           ref={scrollRef}
           onScroll={onScroll}
+          // A wide table scrolls inside this box. Keyboard users can only
+          // scroll a region they can focus, so it is in the tab order and named.
+          tabIndex={0}
+          role="region"
+          aria-label={label}
           sx={{ overflow: "auto", position: "relative", ...(fill ? { flex: 1, minWidth: 0, minHeight: 0 } : {}) }}
           style={fill ? undefined : { maxHeight: maxBodyHeight }}
         >
@@ -509,6 +514,13 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                             // instead, so the cell keeps its `headers` wiring.
                             <ButtonBase
                               onClick={figure.onActivate}
+                              // A blank figure is still a control when it opens
+                              // something. With no text, the button has no name.
+                              aria-label={
+                                figure.text.trim()
+                                  ? undefined
+                                  : `View details for ${row.label}, ${group.label}, ${subColumn.label}`
+                              }
                               sx={{
                                 font: "inherit",
                                 color: "inherit",

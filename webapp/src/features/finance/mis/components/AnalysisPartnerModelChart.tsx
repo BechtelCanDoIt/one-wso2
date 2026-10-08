@@ -128,7 +128,9 @@ export default function AnalysisPartnerModelChart({
         <>
           {/* The bar. `role="img"` with the whole split as its label, because a
               row of divs is meaningless to a screen reader and the companion
-              table below is the real accessible presentation. */}
+              table below is the real accessible presentation. Each segment's
+              tooltip uses `describeChild`: a plain div may not carry
+              aria-label, and the hover text is a description, not a name. */}
           <Box
             role="img"
             aria-label={slices
@@ -139,6 +141,7 @@ export default function AnalysisPartnerModelChart({
             {slices.map((slice, index) => (
               <Tooltip
                 key={slice.id}
+                describeChild
                 title={`${slice.label}: ${misHeadlineAmount(slice.amount)} · ${slice.share.toFixed(1)}%`}
               >
                 <Box
