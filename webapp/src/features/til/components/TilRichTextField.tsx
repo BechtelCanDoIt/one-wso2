@@ -20,7 +20,7 @@ import "react-quill-new/dist/quill.snow.css";
 import { Box, IconButton, Tooltip, Typography, useTheme } from "@wso2/oxygen-ui";
 import { TrashIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "../util/tilError";
-import { sanitizeTilHtml } from "../util/tilRichText";
+import { sanitizeEditorHtml, sanitizeTilHtml } from "../util/tilRichText";
 
 // react-quill-new, same as every other One WSO2 rich-text field -- draft-js
 // has no React 19 support. Toolbar is bold/italic/underline, lists, and now
@@ -426,7 +426,7 @@ export default function TilRichTextField({
         ref={quillRef}
         theme="snow"
         value={value}
-        onChange={(html) => onChange(sanitizeTilHtml(html))}
+        onChange={(html) => onChange(sanitizeEditorHtml(html))}
         placeholder={placeholder}
         modules={modules}
         formats={FORMATS}

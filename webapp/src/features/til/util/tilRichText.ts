@@ -51,6 +51,22 @@ export function sanitizeTilHtml(html: string): string {
   return cleaned.replace(_DATA_URI_IMG_RE, "");
 }
 
+/** sanitizeTilHtml for the editor's own change events: returns `html`
+ * unchanged when sanitizing would only re-spell it, and the clean version
+ * when it actually removes something.
+ *
+ * Quill writes a quote or apostrophe in text as &quot; / &#39;, the browser
+ * serializer behind sanitizeTilHtml writes it bare, so the clean string can
+ * differ from Quill's while saying the same thing. react-quill-new resets the
+ * whole editor from the value it gets back whenever that differs from the one
+ * it emitted, and the reset drops an empty trailing line: Enter at the end of
+ * any entry with a quote or apostrophe in it did nothing. */
+export function sanitizeEditorHtml(html: string): string {
+  const cleaned = sanitizeTilHtml(html);
+  const reserialized = new DOMParser().parseFromString(html, "text/html").body.innerHTML;
+  return cleaned === reserialized ? html : cleaned;
+}
+
 // Converts to plain text for the two things that must count characters, not
 // markup: the 0/5000 counter and the max-length check. Block-level tags
 // become a space first so "<p>One</p><p>Two</p>" doesn't read as "OneTwo".

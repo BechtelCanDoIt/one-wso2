@@ -15,7 +15,26 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { isEmptyTilHtml, sanitizeTilHtml, tilExcerpt, tilPlainTextLength } from "./tilRichText";
+import { isEmptyTilHtml, sanitizeEditorHtml, sanitizeTilHtml, tilExcerpt, tilPlainTextLength } from "./tilRichText";
+
+describe("sanitizeEditorHtml", () => {
+  it("hands back the editor's own string when sanitizing would only re-spell quotes", () => {
+    // Quill escapes quotes in text; the sanitizer's serializer doesn't. A
+    // different string here made react-quill-new reset the editor and drop
+    // the line Enter had just added.
+    const html = "<p>it&#39;s &quot;done&quot;</p><p></p>";
+    expect(sanitizeTilHtml(html)).not.toBe(html);
+    expect(sanitizeEditorHtml(html)).toBe(html);
+  });
+
+  it("still returns the clean version when sanitizing removes something", () => {
+    expect(sanitizeEditorHtml('<p>it&#39;s</p><script>alert("x")</script>')).toBe("<p>it's</p>");
+  });
+
+  it("still strips a data: image", () => {
+    expect(sanitizeEditorHtml('<p>a</p><img src="data:image/png;base64,AAAA">')).toBe("<p>a</p>");
+  });
+});
 
 describe("sanitizeTilHtml", () => {
   it("keeps allowlisted formatting", () => {
