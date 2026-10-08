@@ -44,6 +44,35 @@ describe("the ARR Dashboard export", () => {
     );
   });
 
+  it("keeps a text cell that opens like a formula as text, and a negative number as a number", () => {
+    const hostile: MisWorkbookSpec = {
+      sheets: [
+        {
+          name: "Customers",
+          columns: [{ width: 20 }, { width: 14 }],
+          rows: [
+            { bold: true, cells: [{ value: "Account Name" }, { value: "ARR" }] },
+            { cells: [{ value: "=HYPERLINK(\"https://example.test\")" }, { value: -1500, numFmt: MIS_NUMBER_FORMATS.CURRENCY }] },
+            { cells: [{ value: "-Acme" }, { value: 20, numFmt: MIS_NUMBER_FORMATS.CURRENCY }] },
+            { cells: [{ value: "+Plus Co" }, { value: "@mention" }] },
+            { cells: [{ value: "\tTabbed" }, { value: "Plain" }] },
+          ],
+        },
+      ],
+    };
+    expect(misWorkbookCsv(hostile)).toBe(
+      [
+        "Account Name,ARR",
+        // The quote goes on BEFORE the RFC 4180 quoting, and the number beside
+        // it keeps its sign.
+        '"\'=HYPERLINK(""https://example.test"")",-1500',
+        "'-Acme,20",
+        "'+Plus Co,'@mention",
+        "'\tTabbed,Plain",
+      ].join("\r\n"),
+    );
+  });
+
   it("writes the PDF as the table was seen, with Scale applied to currency only", () => {
     const table = misPdfTable(spec, MIS_SCALES.THOUSANDS);
     expect(table.head).toEqual([

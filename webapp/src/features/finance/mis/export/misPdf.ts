@@ -77,10 +77,10 @@ const seenCell = (cell: MisWorkbookCell, scale: MisScale): string => {
 /**
  * The table, as a landscape A4 file.
  *
- * jsPDF is imported here and nowhere else in Finance MIS, and only when a
- * reader asks for a PDF — the same reason ExcelJS is imported inside
- * `writeMisWorkbook`. A table wider than the page breaks across pages, and the
- * identity columns are repeated on each one so a row can still be named.
+ * jsPDF is loaded here and nowhere else in Finance MIS, and only when a reader
+ * asks for a PDF — the same reason ExcelJS is loaded inside `writeMisWorkbook`.
+ * A table wider than the page breaks across pages, and the identity columns
+ * are repeated on each one so a row can still be named.
  */
 export async function saveMisPdf(spec: MisWorkbookSpec, heading: MisPdfHeading, filename: string): Promise<void> {
   const { default: jsPDF } = await import("jspdf");
@@ -104,13 +104,21 @@ export async function saveMisPdf(spec: MisWorkbookSpec, heading: MisPdfHeading, 
     headStyles: { fillColor: [248, 250, 252], textColor: [71, 85, 105], fontStyle: "bold" },
     horizontalPageBreak: true,
     horizontalPageBreakRepeat: Array.from({ length: repeat }, (_, index) => index),
-    didDrawPage: () => {
-      const pages = doc.getNumberOfPages();
-      doc.setFontSize(8);
-      doc.setTextColor(120);
-      doc.text(`${doc.getCurrentPageInfo().pageNumber} / ${pages}`, doc.internal.pageSize.getWidth() - 60, doc.internal.pageSize.getHeight() - 20);
-    },
   });
+
+  // The footers go on once the table has finished, when the page count is
+  // final. Drawn from inside the table's own page hook, the count is still
+  // running, and every page but the last says "of" too few.
+  const pages = doc.getNumberOfPages();
+  // Right-aligned to the same 40pt margin the heading keeps on the left.
+  const footerX = doc.internal.pageSize.getWidth() - 40;
+  const footerY = doc.internal.pageSize.getHeight() - 20;
+  doc.setFontSize(8);
+  doc.setTextColor(120);
+  for (let page = 1; page <= pages; page += 1) {
+    doc.setPage(page);
+    doc.text(`Page ${page} of ${pages}`, footerX, footerY, { align: "right" });
+  }
 
   saveBlob(new Blob([doc.output("arraybuffer")], { type: "application/pdf" }), filename);
 }

@@ -41,10 +41,22 @@ export function rowsAfterCaption<T extends { cells: readonly { value: MisCellVal
   return [...rows];
 }
 
-/** RFC 4180: quote a field that contains a comma, a quote or a line break. */
+/** The first characters a spreadsheet takes as the start of a formula. */
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+
+/**
+ * One field. RFC 4180: quote it when it contains a comma, a quote or a line
+ * break.
+ *
+ * A TEXT field that opens with `=`, `+`, `-`, `@`, a tab or a carriage return
+ * is prefixed with a single quote first, so a spreadsheet opening the file
+ * reads a customer called `=HYPERLINK(...)` as the words and not as a formula.
+ * A number is written as the number, so a negative keeps its minus sign.
+ */
 const csvField = (value: MisCellValue): string => {
   if (value == null) return "";
-  const text = String(value);
+  if (typeof value === "number") return String(value);
+  const text = FORMULA_LEAD.test(value) ? `'${value}` : value;
   if (/[",\r\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
   return text;
 };
