@@ -42,7 +42,7 @@ import {
   type TilWhere,
 } from "../api/tilTypes";
 import { describeError } from "../util/tilError";
-import { isEmptyTilHtml, tilPlainTextLength } from "../util/tilRichText";
+import { isEmptyTilHtml, isSameTilHtml, normalizeTilSpaces, tilPlainTextLength } from "../util/tilRichText";
 import TilRichTextField from "./TilRichTextField";
 
 // Where options whose feed entry needs a bit more detail -- which customer,
@@ -198,7 +198,7 @@ export default function SubmitEntryDialog({
     title.trim() === entry?.title &&
     where === entry?.where &&
     (needsWhereDetail ? whereDetail.trim() : null) === (entry?.whereDetail ?? null) &&
-    what === entry?.what;
+    isSameTilHtml(what, entry?.what ?? "");
 
   const reset = () => {
     setTitle("");
@@ -226,7 +226,7 @@ export default function SubmitEntryDialog({
           payload: {
             title: title.trim(),
             where: where as TilWhere,
-            what,
+            what: normalizeTilSpaces(what),
             ...(needsWhereDetail ? { whereDetail: whereDetail.trim() } : {}),
           },
         },
@@ -245,7 +245,7 @@ export default function SubmitEntryDialog({
         title: title.trim(),
         who,
         where: where as TilWhere,
-        what,
+        what: normalizeTilSpaces(what),
         ...(needsWhereDetail ? { whereDetail: whereDetail.trim() } : {}),
       },
       {

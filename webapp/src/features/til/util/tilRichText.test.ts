@@ -15,7 +15,43 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { isEmptyTilHtml, sanitizeEditorHtml, sanitizeTilHtml, tilExcerpt, tilPlainTextLength } from "./tilRichText";
+import {
+  isEmptyTilHtml,
+  isSameTilHtml,
+  normalizeTilSpaces,
+  sanitizeEditorHtml,
+  sanitizeTilHtml,
+  tilDisplayHtml,
+  tilExcerpt,
+  tilPlainTextLength,
+} from "./tilRichText";
+
+describe("normalizeTilSpaces", () => {
+  it("turns the editor's &nbsp; and raw no-break spaces into ordinary spaces", () => {
+    expect(normalizeTilSpaces("<p>a&nbsp;b\u00a0c</p>")).toBe("<p>a b c</p>");
+  });
+
+  it("leaves a typed '&nbsp;' (escaped as &amp;nbsp;) alone", () => {
+    expect(normalizeTilSpaces("<p>&amp;nbsp;</p>")).toBe("<p>&amp;nbsp;</p>");
+  });
+});
+
+describe("tilDisplayHtml", () => {
+  it("sanitizes and normalizes spaces in one pass", () => {
+    expect(tilDisplayHtml("<p>a&nbsp;b</p><script>x()</script>")).toBe("<p>a b</p>");
+  });
+});
+
+describe("isSameTilHtml", () => {
+  it("treats the editor's re-spelling of quotes and spaces as the same content", () => {
+    expect(isSameTilHtml("<p>it&#39;s&nbsp;&quot;done&quot;</p>", "<p>it's \"done\"</p>")).toBe(true);
+  });
+
+  it("still sees a real change, including formatting", () => {
+    expect(isSameTilHtml("<p>one</p>", "<p>two</p>")).toBe(false);
+    expect(isSameTilHtml("<p>one</p>", "<p><strong>one</strong></p>")).toBe(false);
+  });
+});
 
 describe("sanitizeEditorHtml", () => {
   it("hands back the editor's own string when sanitizing would only re-spell quotes", () => {

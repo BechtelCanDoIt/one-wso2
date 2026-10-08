@@ -67,6 +67,30 @@ export function sanitizeEditorHtml(html: string): string {
   return cleaned === reserialized ? html : cleaned;
 }
 
+/** Quill (through react-quill-new) writes every space in text as &nbsp;, and
+ * a line of non-breaking spaces can't wrap between words, so long lines broke
+ * mid-word on the entry page. Turns them back into ordinary spaces. Applied
+ * when saving and when displaying, never to the editor's own change events:
+ * those must hand back exactly what Quill emitted (see sanitizeEditorHtml). */
+export function normalizeTilSpaces(html: string): string {
+  return html.replace(/&nbsp;|\u00a0/g, " ");
+}
+
+/** Sanitized HTML for read-only display, with &nbsp; as ordinary spaces —
+ * which also covers entries saved before saving normalized them. */
+export function tilDisplayHtml(html: string): string {
+  return normalizeTilSpaces(sanitizeTilHtml(html));
+}
+
+/** Whether two `what` values say the same thing once the editor's own
+ * re-spellings (escaped quotes, &nbsp;) are set aside, so an entry opened for
+ * editing doesn't read as changed before anything was touched. */
+export function isSameTilHtml(a: string, b: string): boolean {
+  const canonical = (html: string) =>
+    normalizeTilSpaces(new DOMParser().parseFromString(html, "text/html").body.innerHTML);
+  return canonical(a) === canonical(b);
+}
+
 // Converts to plain text for the two things that must count characters, not
 // markup: the 0/5000 counter and the max-length check. Block-level tags
 // become a space first so "<p>One</p><p>Two</p>" doesn't read as "OneTwo".
