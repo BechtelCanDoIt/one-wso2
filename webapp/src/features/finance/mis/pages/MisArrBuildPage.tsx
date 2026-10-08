@@ -178,6 +178,10 @@ export default function MisArrBuildPage({ period }: { period: MisPeriod }) {
  */
 const gridColumnSx = {
   flex: 1,
+  // `minWidth: 0` as well as `minHeight`: a flex item's default minimum is its
+  // content, so without it the column grows to the table and the page crops
+  // the Periods that do not fit instead of scrolling them.
+  minWidth: 0,
   minHeight: 0,
   display: "flex",
   flexDirection: "column",
@@ -222,7 +226,7 @@ function ArrBuild({ period }: { period: MisPeriod }) {
     // fills the shell's content column (under the header, above the footer)
     // rather than guessing its height, so the column never grows a second
     // scrollbar and the table always receives a real height to scroll in.
-    <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, minHeight: 0 }}>
       <Box sx={{ flex: "none" }}>
         <MisPeriodRow view={view} />
         <MisFilterBar
@@ -244,7 +248,7 @@ function ArrBuild({ period }: { period: MisPeriod }) {
           />
         )}
       </Box>
-      <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <BuildForTable view={view} scale={scale} />
       </Box>
     </Box>

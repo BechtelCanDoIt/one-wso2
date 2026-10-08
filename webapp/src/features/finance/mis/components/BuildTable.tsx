@@ -261,7 +261,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
   const drawnMinWidth = tableMinWidth(columnGroups.length, sized, leadWidth);
 
   return (
-    <Box sx={fill ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : undefined}>
+    <Box sx={fill ? { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" } : undefined}>
       {/* Above the table it describes, and only ever beside a real one — a page
           that mounted this itself would show it over a loading skeleton, an
           error and an empty state too, none of which is a table wider than the
@@ -276,13 +276,13 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
         ref={frameRef}
         sx={[
           gridFrameSx,
-          fill ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : {},
+          fill ? { flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" } : {},
         ]}
       >
         <Box
           ref={scrollRef}
           onScroll={onScroll}
-          sx={{ overflow: "auto", position: "relative", ...(fill ? { flex: 1, minHeight: 0 } : {}) }}
+          sx={{ overflow: "auto", position: "relative", ...(fill ? { flex: 1, minWidth: 0, minHeight: 0 } : {}) }}
           style={fill ? undefined : { maxHeight: maxBodyHeight }}
         >
           <ListingTable

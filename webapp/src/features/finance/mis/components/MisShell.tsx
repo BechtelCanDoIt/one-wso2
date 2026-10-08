@@ -122,7 +122,7 @@ export default function MisShell({
           screen, so a screen that scrolls its own body (the ARR Dashboard's
           tables) receives a real height. A screen that does not still overflows
           here, and the content column scrolls it as before. */}
-      <Box sx={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
         <Stack
           direction="row"
           spacing={0.75}
