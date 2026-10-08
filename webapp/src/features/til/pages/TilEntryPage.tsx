@@ -15,12 +15,13 @@
 // under the License.
 import { Alert, Box, Button, Chip, Divider, Paper, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { useState } from "react";
-import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowLeftIcon, NewspaperIcon, PencilIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { isTilBackendConfigured, useTilSubmission, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
+import { tilArticlePath } from "../util/tilArticleView";
 import { describeError, isNotFound } from "../util/tilError";
 import SubmitEntryDialog from "../components/SubmitEntryDialog";
 import TilShell from "../components/TilShell";
@@ -127,27 +128,38 @@ export default function TilEntryPage() {
                 </Stack>
               )}
             </Box>
-            {canChange && (
-              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                <Button
-                  size="small"
-                  startIcon={<PencilIcon size={16} />}
-                  onClick={() => setEditing(true)}
-                  disabled={deleteSubmission.isPending}
-                >
-                  Edit entry
-                </Button>
-                <Button
-                  size="small"
-                  color="error"
-                  startIcon={<TrashIcon size={16} />}
-                  onClick={confirmDelete}
-                  disabled={deleteSubmission.isPending}
-                >
-                  {deleteSubmission.isPending ? "Deleting…" : "Delete entry"}
-                </Button>
-              </Stack>
-            )}
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {/* For every reader, not just the ones who can change it. */}
+              <Button
+                size="small"
+                startIcon={<NewspaperIcon size={16} />}
+                component={RouterLink}
+                to={tilArticlePath(submission.data.id)}
+              >
+                Open as article
+              </Button>
+              {canChange && (
+                <>
+                  <Button
+                    size="small"
+                    startIcon={<PencilIcon size={16} />}
+                    onClick={() => setEditing(true)}
+                    disabled={deleteSubmission.isPending}
+                  >
+                    Edit entry
+                  </Button>
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<TrashIcon size={16} />}
+                    onClick={confirmDelete}
+                    disabled={deleteSubmission.isPending}
+                  >
+                    {deleteSubmission.isPending ? "Deleting…" : "Delete entry"}
+                  </Button>
+                </>
+              )}
+            </Stack>
           </Stack>
 
           <Divider sx={{ mt: 2, mb: 2.5 }} />
