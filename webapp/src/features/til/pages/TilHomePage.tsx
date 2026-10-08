@@ -34,6 +34,7 @@ import ConfirmationDialog, { type ConfirmationContent } from "@components/confir
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { isTilBackendConfigured, useTilSubmissions, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
+import type { TilSubmission } from "../api/tilTypes";
 import { describeError } from "../util/tilError";
 import { tilPlainText } from "../util/tilRichText";
 import SubmissionCard from "../components/SubmissionCard";
@@ -53,9 +54,9 @@ function localDateString(date: Date): string {
 
 const ENTRIES_PER_PAGE = 10;
 
-// Shared by the "My entries" filter and canDelete below -- both are "is
+// Shared by the "My entries" filter and canChange below -- both are "is
 // this my entry" checks and must agree, or an entry can show up under My
-// entries (this comparison) while its own Delete button stays disabled (a
+// entries (this comparison) while its own Edit/Delete buttons stay hidden (a
 // separate, exact-match comparison that doesn't agree with it) whenever
 // the two addresses differ only in case. Module scope, not a closure
 // inside the component, specifically so it isn't a new function identity
@@ -79,6 +80,7 @@ export default function TilHomePage() {
   const { showError, showSuccess } = useNotifications();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<TilSubmission | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -284,16 +286,22 @@ export default function TilHomePage() {
       ) : filteredItems.length > 0 ? (
         <>
           <Stack spacing={1.5}>
-            {pagedItems.map((s) => (
-              <SubmissionCard
-                key={s.id}
-                submission={s}
-                canDelete={canModerate || isOwnEntry(s.submittedByEmail, myEmail)}
-                deleting={deletingId === s.id}
-                onDelete={() => confirmDelete(s.id)}
-                onOpen={() => navigate(`/knowledge-base/${s.id}`)}
-              />
-            ))}
+            {pagedItems.map((s) => {
+              // Edit and delete share one rule, same as the backend's.
+              const canChange = canModerate || isOwnEntry(s.submittedByEmail, myEmail);
+              return (
+                <SubmissionCard
+                  key={s.id}
+                  submission={s}
+                  canEdit={canChange}
+                  onEdit={() => setEditing(s)}
+                  canDelete={canChange}
+                  deleting={deletingId === s.id}
+                  onDelete={() => confirmDelete(s.id)}
+                  onOpen={() => navigate(`/knowledge-base/${s.id}`)}
+                />
+              );
+            })}
           </Stack>
           <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, mt: 2 }}>
             {pageCount > 1 && (
@@ -319,6 +327,7 @@ export default function TilHomePage() {
       )}
 
       <SubmitEntryDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      {editing && <SubmitEntryDialog key={editing.id} open entry={editing} onClose={() => setEditing(null)} />}
       <ConfirmationDialog content={confirmContent} onClose={() => setConfirmContent(null)} />
     </TilShell>
   );

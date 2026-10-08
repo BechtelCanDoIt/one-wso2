@@ -15,13 +15,14 @@
 // under the License.
 import { Alert, Box, Button, Chip, Divider, Paper, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { useState } from "react";
-import { ArrowLeftIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowLeftIcon, PencilIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { isTilBackendConfigured, useTilSubmission, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
 import { describeError, isNotFound } from "../util/tilError";
+import SubmitEntryDialog from "../components/SubmitEntryDialog";
 import TilShell from "../components/TilShell";
 import TilWhatContent from "../components/TilWhatContent";
 
@@ -40,9 +41,11 @@ export default function TilEntryPage() {
 
   const canModerate = userInfo.data?.canModerate ?? false;
   const isOwner = Boolean(userInfo.data?.email) && submission.data?.submittedByEmail === userInfo.data?.email;
-  const canDelete = canModerate || isOwner;
+  // Edit and delete share one rule, same as the backend's.
+  const canChange = canModerate || isOwner;
   const notFound = isNotFound(submission.error);
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const runDelete = () => {
     if (!id) return;
@@ -124,17 +127,26 @@ export default function TilEntryPage() {
                 </Stack>
               )}
             </Box>
-            {canDelete && (
-              <Button
-                size="small"
-                color="error"
-                startIcon={<TrashIcon size={16} />}
-                onClick={confirmDelete}
-                disabled={deleteSubmission.isPending}
-                sx={{ flexShrink: 0 }}
-              >
-                {deleteSubmission.isPending ? "Deleting…" : "Delete entry"}
-              </Button>
+            {canChange && (
+              <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                <Button
+                  size="small"
+                  startIcon={<PencilIcon size={16} />}
+                  onClick={() => setEditing(true)}
+                  disabled={deleteSubmission.isPending}
+                >
+                  Edit entry
+                </Button>
+                <Button
+                  size="small"
+                  color="error"
+                  startIcon={<TrashIcon size={16} />}
+                  onClick={confirmDelete}
+                  disabled={deleteSubmission.isPending}
+                >
+                  {deleteSubmission.isPending ? "Deleting…" : "Delete entry"}
+                </Button>
+              </Stack>
             )}
           </Stack>
 
@@ -171,9 +183,30 @@ export default function TilEntryPage() {
                 })}
               </Typography>
             </Box>
+            {submission.data.updatedAt && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Edited
+                </Typography>
+                <Typography variant="body2">
+                  {submission.data.updatedAt.toLocaleString(undefined, {
+                    dateStyle: "full",
+                    timeStyle: "short",
+                  })}
+                </Typography>
+              </Box>
+            )}
           </Stack>
         </Paper>
       ) : null}
+      {editing && submission.data && (
+        <SubmitEntryDialog
+          key={submission.data.id}
+          open
+          entry={submission.data}
+          onClose={() => setEditing(false)}
+        />
+      )}
       <ConfirmationDialog content={confirmContent} onClose={() => setConfirmContent(null)} />
     </TilShell>
   );

@@ -47,6 +47,36 @@ describe("normalizeSubmission", () => {
     expect(result.createdAt.toISOString()).toBe("2026-10-01T10:00:00.000Z");
   });
 
+  it("parses updatedAt when the entry has been edited", () => {
+    const result = normalizeSubmission({
+      id: "1",
+      title: "T",
+      who: "Jane",
+      where: "Internal",
+      whereDetail: null,
+      what: "x",
+      submittedByEmail: "jane@wso2.com",
+      createdAt: "2026-10-01T10:00:00.000Z",
+      updatedAt: "2026-10-02T09:30:00.000Z",
+    });
+    expect(result.updatedAt?.toISOString()).toBe("2026-10-02T09:30:00.000Z");
+  });
+
+  it("reads a never-edited entry as updatedAt null, with or without the field", () => {
+    const base = {
+      id: "1",
+      title: "T",
+      who: "Jane",
+      where: "Internal" as const,
+      whereDetail: null,
+      what: "x",
+      submittedByEmail: "jane@wso2.com",
+      createdAt: "2026-10-01T10:00:00.000Z",
+    };
+    expect(normalizeSubmission({ ...base, updatedAt: null }).updatedAt).toBeNull();
+    expect(normalizeSubmission(base).updatedAt).toBeNull();
+  });
+
   it("passes every other field through unchanged", () => {
     const result = normalizeSubmission({
       id: "42",
