@@ -23,6 +23,7 @@ import { MIS_VALUE_TYPES, formatMisValue } from "../util/misMoney";
 import { analysisYearsLabel } from "../util/misAnalysisFilters";
 import type { MisScale } from "../util/misViewVocabulary";
 import type { AnalysisAccountRow } from "./analysisAccountRows";
+import { productChipSx } from "./productChipSx";
 
 // The account table: one row per account, eleven columns, flat.
 //
@@ -226,7 +227,7 @@ export function analysisAccountColumns(scale: MisScale): DataGrid.GridColDef<Ana
               label={product}
               size="small"
               variant="outlined"
-              sx={{ height: 21, fontWeight: 600, "& .MuiChip-label": { fontSize: 11 } }}
+              sx={productChipSx(product)}
             />
           ))}
         </Stack>
