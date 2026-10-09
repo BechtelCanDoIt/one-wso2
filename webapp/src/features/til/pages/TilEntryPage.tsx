@@ -146,7 +146,7 @@ export default function TilEntryPage() {
                     onClick={() => setEditing(true)}
                     disabled={deleteSubmission.isPending}
                   >
-                    Edit entry
+                    Edit
                   </Button>
                   <Button
                     size="small"
@@ -155,7 +155,7 @@ export default function TilEntryPage() {
                     onClick={confirmDelete}
                     disabled={deleteSubmission.isPending}
                   >
-                    {deleteSubmission.isPending ? "Deleting…" : "Delete entry"}
+                    {deleteSubmission.isPending ? "Deleting…" : "Delete"}
                   </Button>
                 </>
               )}
