@@ -54,9 +54,9 @@ function localDateString(date: Date): string {
 
 const ENTRIES_PER_PAGE = 10;
 
-// Shared by the "My entries" filter and canChange below -- both are "is
+// Shared by the "My articles" filter and canChange below -- both are "is
 // this my entry" checks and must agree, or an entry can show up under My
-// entries (this comparison) while its own Edit/Delete buttons stay hidden (a
+// articles (this comparison) while its own Edit/Delete buttons stay hidden (a
 // separate, exact-match comparison that doesn't agree with it) whenever
 // the two addresses differ only in case. Module scope, not a closure
 // inside the component, specifically so it isn't a new function identity
@@ -165,13 +165,13 @@ export default function TilHomePage() {
           }}
           sx={{ mb: 1.5, minHeight: 36, "& .MuiTab-root": { minHeight: 36, textTransform: "none" } }}
         >
-          <Tab value="all" label="All entries" />
+          <Tab value="all" label="All articles" />
           {/* Disabled while identity is still loading -- myEmail is
               undefined until userInfo resolves, so selecting this tab any
               earlier filtered out every entry and showed the misleading
               "You haven't shared an entry yet." empty state even though
               nothing had actually been checked yet. */}
-          <Tab value="mine" label="My entries" disabled={userInfo.isLoading} />
+          <Tab value="mine" label="My articles" disabled={userInfo.isLoading} />
         </Tabs>
       )}
 
