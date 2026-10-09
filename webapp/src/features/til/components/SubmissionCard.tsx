@@ -13,10 +13,11 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import { Box, Chip, IconButton, Paper, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { PencilIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, Chip, Paper, Typography } from "@wso2/oxygen-ui";
 import type { TilSubmission } from "../api/tilTypes";
+import { entryLinkProps } from "../util/tilEntryLink";
 import { tilExcerpt } from "../util/tilRichText";
+import SubmissionActions from "./SubmissionActions";
 
 // One entry in the history feed.
 //
@@ -49,22 +50,7 @@ export default function SubmissionCard({
   return (
     <Paper
       variant="outlined"
-      onClick={onOpen}
-      role={onOpen ? "link" : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-      onKeyDown={
-        onOpen
-          ? (e) => {
-              // target === currentTarget so Enter on the edit/delete IconButtons
-              // below (which bubbles as a keydown same as any other) doesn't
-              // ALSO open the entry -- only a keypress on the card itself
-              // (the only thing with tabIndex here) should count.
-              if (e.key === "Enter" && e.target === e.currentTarget) {
-                onOpen();
-              }
-            }
-          : undefined
-      }
+      {...(onOpen && entryLinkProps(onOpen))}
       sx={{
         p: 2,
         display: "flex",
@@ -102,48 +88,13 @@ export default function SubmissionCard({
             />
           </Box>
         </Box>
-        {(canEdit || canDelete) && (
-          <Box sx={{ display: "flex", flexShrink: 0 }}>
-            {canEdit && (
-              <Tooltip title="Edit this entry">
-                <span>
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      // Same as delete below: keeps the card's own onClick
-                      // from also opening the entry.
-                      e.stopPropagation();
-                      onEdit();
-                    }}
-                    disabled={deleting}
-                    aria-label="Edit entry"
-                  >
-                    <PencilIcon size={16} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            )}
-            {canDelete && (
-              <Tooltip title="Delete this entry">
-                <span>
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      // The card's own onClick (onOpen) would otherwise also
-                      // fire, navigating to the entry this click just deleted.
-                      e.stopPropagation();
-                      onDelete();
-                    }}
-                    disabled={deleting}
-                    aria-label="Delete entry"
-                  >
-                    <TrashIcon size={16} />
-                  </IconButton>
-                </span>
-              </Tooltip>
-            )}
-          </Box>
-        )}
+        <SubmissionActions
+          canEdit={canEdit}
+          onEdit={onEdit}
+          canDelete={canDelete}
+          onDelete={onDelete}
+          deleting={deleting}
+        />
       </Box>
       <Typography
         variant="body2"

@@ -24,6 +24,7 @@ import TilArticleLayout, { TIL_SERIF } from "../components/TilArticleLayout";
 import TilMark from "../components/TilMark";
 import { tilArticlePath, tilEntryPath } from "../util/tilArticleView";
 import { describeError, isNotFound } from "../util/tilError";
+import { tilInitials, tilShortDate } from "../util/tilFormat";
 import { tilReadingMinutes } from "../util/tilRichText";
 
 const MORE_COUNT = 3;
@@ -32,19 +33,6 @@ const kickerSx = { fontSize: 12, fontWeight: 500, letterSpacing: "0.1em", textTr
 
 function source(entry: TilSubmission): string {
   return entry.whereDetail ? `${entry.where} · ${entry.whereDetail}` : entry.where;
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0].toUpperCase())
-    .join("");
-}
-
-function shortDate(date: Date): string {
-  return date.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 // A message in the article's own column, for every state that isn't the entry.
@@ -149,13 +137,13 @@ export default function TilArticlePage() {
                   fontWeight: 600,
                 }}
               >
-                {initials(entry.who)}
+                {tilInitials(entry.who)}
               </Box>
               <Box component="span" sx={{ color: "text.primary", fontWeight: 500 }}>
                 {entry.who}
               </Box>
-              <span>· {shortDate(entry.createdAt)}</span>
-              {entry.updatedAt && <span>· Updated {shortDate(entry.updatedAt)}</span>}
+              <span>· {tilShortDate(entry.createdAt)}</span>
+              {entry.updatedAt && <span>· Updated {tilShortDate(entry.updatedAt)}</span>}
               <span>· {tilReadingMinutes(entry.what)} min read</span>
             </Box>
             <TilArticleBody html={entry.what} />
