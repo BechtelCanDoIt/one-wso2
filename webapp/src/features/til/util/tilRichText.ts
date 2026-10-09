@@ -115,6 +115,14 @@ export function tilPlainTextLength(html: string): number {
   return tilPlainText(html).length;
 }
 
+/** The first picture in an entry, for the feed's thumbnails — read from the
+ * sanitized HTML, so it's only ever a URL the entry page itself would show
+ * (never a data: URI or a script URL). Null when the entry has none. */
+export function tilFirstImageSrc(html: string): string | null {
+  const img = new DOMParser().parseFromString(sanitizeTilHtml(html), "text/html").querySelector("img[src]");
+  return img?.getAttribute("src") || null;
+}
+
 /** Minutes to read an entry at 200 words a minute, never less than one. */
 export function tilReadingMinutes(html: string): number {
   const words = tilPlainText(html).split(/\s+/).filter(Boolean).length;

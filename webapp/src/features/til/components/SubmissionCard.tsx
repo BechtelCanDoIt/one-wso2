@@ -19,7 +19,7 @@ import { entryLinkProps } from "../util/tilEntryLink";
 import { tilExcerpt } from "../util/tilRichText";
 import SubmissionActions from "./SubmissionActions";
 
-// One entry in the history feed.
+// One entry in the history feed, in the Cards layout.
 //
 // Shows a plain-text EXCERPT of `what`, not the full rich content — a long
 // multi-paragraph/list entry made the feed itself unreadable (one card

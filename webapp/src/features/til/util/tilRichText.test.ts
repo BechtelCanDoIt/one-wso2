@@ -23,6 +23,7 @@ import {
   sanitizeTilHtml,
   tilDisplayHtml,
   tilExcerpt,
+  tilFirstImageSrc,
   tilPlainTextLength,
   tilReadingMinutes,
 } from "./tilRichText";
@@ -212,5 +213,22 @@ describe("tilExcerpt", () => {
     expect(result.endsWith("…")).toBe(true);
     expect(result.length).toBeLessThan(long.length);
     expect(result).not.toMatch(/\s…$/);
+  });
+});
+
+describe("tilFirstImageSrc", () => {
+  it("returns the first picture's URL", () => {
+    const html =
+      '<p>Before</p><p><img src="https://til.example.com/uploads/a.png"></p><p><img src="https://til.example.com/uploads/b.png"></p>';
+    expect(tilFirstImageSrc(html)).toBe("https://til.example.com/uploads/a.png");
+  });
+
+  it("returns null when the entry has no picture", () => {
+    expect(tilFirstImageSrc("<p>Just text</p>")).toBeNull();
+  });
+
+  it("never returns a URL the sanitizer would drop", () => {
+    expect(tilFirstImageSrc('<p><img src="data:image/png;base64,AAAA"></p>')).toBeNull();
+    expect(tilFirstImageSrc('<p><img src="javascript:alert(1)"></p>')).toBeNull();
   });
 });

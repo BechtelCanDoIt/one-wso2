@@ -28,3 +28,8 @@ export function tilInitials(name: string): string {
     .map((part) => part[0].toUpperCase())
     .join("");
 }
+
+/** sx that clamps text to `lines` lines, ending the last in an ellipsis. */
+export function tilLineClamp(lines: number) {
+  return { display: "-webkit-box", WebkitLineClamp: lines, WebkitBoxOrient: "vertical", overflow: "hidden" } as const;
+}
