@@ -15,7 +15,7 @@
 // under the License.
 
 import { useEffect, useState } from "react";
-import { Box, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtLifecycleState } from "../../api/umtTypes";
@@ -229,6 +229,18 @@ export default function UmtUpdateEditTab({
       showError(`Proceed failed. ${describeError(error)}`);
     }
   };
+
+  // A demotion from Staging waits on the synchronizer, and the only valid
+  // move out of this state is the synchronizer's own transition to
+  // Development, so there is no step or action to offer meanwhile.
+  if (lifecycleState === "DemoteStagingRequested") {
+    return (
+      <Stack spacing={2} sx={{ alignItems: "center", py: 6 }}>
+        <CircularProgress />
+        <Typography variant="h6">Demoting from Staging...</Typography>
+      </Stack>
+    );
+  }
 
   return (
     <Stack spacing={3}>

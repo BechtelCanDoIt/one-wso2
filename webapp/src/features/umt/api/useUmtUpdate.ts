@@ -48,8 +48,14 @@ export function useUmtUpdate(id: string | undefined) {
     // no client action: the Edit tab's Proceed gate and the Testing step both
     // read lifecycleState, so the update resource has to notice the transition
     // itself. Mirrors useUmtPrAnalysisStatus's self-terminating poll.
-    refetchInterval: (query) =>
-      umtShouldPollStagingTestResults(umtLifecycleState(query.state.data?.lifecycleState)) ? 3000 : false,
+    // DemoteStagingRequested is transient the same way: the synchronizer
+    // moves the update on to Development once the demotion completes.
+    refetchInterval: (query) => {
+      const lifecycleState = umtLifecycleState(query.state.data?.lifecycleState);
+      return umtShouldPollStagingTestResults(lifecycleState) || lifecycleState === "DemoteStagingRequested"
+        ? 3000
+        : false;
+    },
     retry: httpRetry,
   });
 
