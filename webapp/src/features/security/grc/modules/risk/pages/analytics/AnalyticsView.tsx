@@ -20,7 +20,9 @@ import type { AnalyticsSummary } from "../../api/riskApi";
 import ChartCard from "../dashboard/ChartCard";
 import { CLOSED_COLOR } from "../dashboard/constants";
 import KpiTiles from "./KpiTiles";
+import AvgRiskScoreQuarterlyChart from "./AvgRiskScoreQuarterlyChart";
 import TrendChart from "./TrendChart";
+import AvgRisksByRegisterChart from "./AvgRisksByRegisterChart";
 import RegisterTrendChart from "./RegisterTrendChart";
 import LevelDistributionChart from "./LevelDistributionChart";
 import RegisterShareDonut from "./RegisterShareDonut";
@@ -64,6 +66,13 @@ export default function AnalyticsView({ analytics, isAllRegisters }: AnalyticsVi
     <Stack spacing={3}>
       <KpiTiles loading={false} kpis={analytics.kpis} />
 
+      <ChartCard title="Avg. Risk Score by Quarter">
+        <NoteBox>
+          Average residual score of risks identified each quarter{isAllRegisters ? " across all registers" : " for the selected register"}, rebucketed from the trailing 12 months of monthly data below.
+        </NoteBox>
+        <AvgRiskScoreQuarterlyChart data={analytics.trend} />
+      </ChartCard>
+
       <ChartCard title="Overall Risk Trend Over Time">
         <NoteBox>
           Monthly count of risks identified vs. closed{isAllRegisters ? " across all registers" : " for the selected register"}, with the average residual
@@ -74,6 +83,17 @@ export default function AnalyticsView({ analytics, isAllRegisters }: AnalyticsVi
 
       {isAllRegisters && (
         <>
+          <ChartCard title="Avg. Risk by Register">
+            <NoteBox>
+              Average monthly count of risks identified per source register, bucketed by quarter, over
+              the trailing 12 months.
+            </NoteBox>
+            <AvgRisksByRegisterChart
+              data={analytics.identified_by_register ?? []}
+              emptyMessage="No risks identified in the last 12 months."
+            />
+          </ChartCard>
+
           <ChartCard title="Risks Identified by Source Register">
             <NoteBox>
               Monthly count of risks identified, broken down by source register, over the trailing 12
