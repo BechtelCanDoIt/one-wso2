@@ -29,12 +29,14 @@ const CHART_HEIGHT = 280;
 
 // "Avg. Risk Score by Quarter": TrendChart's monthly avg_score rebucketed
 // into calendar quarters, so the same residual-score trend reads at a
-// coarser, less noisy granularity. Quarters with no identified risks in the
-// trailing-12-month window are omitted rather than drawn as zero.
+// coarser, less noisy granularity. A quarter with no identified risks keeps
+// its x-axis slot with a null score (a gap in the line via connectNulls)
+// rather than being dropped, which would otherwise pull its neighboring
+// quarters together and draw a line straight across the gap.
 export default function AvgRiskScoreQuarterlyChart({ data }: AvgRiskScoreQuarterlyChartProps): JSX.Element {
-  const rows = groupTrendByQuarter(data).filter((q) => q.avg_score !== null);
+  const rows = groupTrendByQuarter(data);
 
-  if (rows.length === 0) {
+  if (rows.every((q) => q.avg_score === null)) {
     return (
       <Typography variant="body2" color="text.secondary">
         No risk activity in the last 12 months.

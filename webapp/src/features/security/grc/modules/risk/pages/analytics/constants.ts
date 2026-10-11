@@ -64,54 +64,69 @@ export interface QuarterlyAvgScore {
   avg_score: number | null;
 }
 
-// Rebuckets TrendChart's monthly avg_score into calendar quarters, averaging
-// whichever months in a quarter had a non-null score. A quarter where every
-// month is null (no risks identified at all) reports null rather than being
-// zero-filled, matching TrendPoint's own "nil means no data" convention.
+// Shared calendar-quarter label for a "YYYY-MM-DD"-ish month string, used by
+// every rebucketing helper below so a given month always lands in the same
+// quarter bucket.
+function monthToQuarterLabel(monthStr: string): string {
+  const date = parseDateStr(monthStr);
+  return `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
+}
+
+// Rebuckets TrendChart's monthly avg_score into calendar quarters, weighting
+// each month's score by that month's identified_count — avg_score and
+// identified_count describe the same population (risks identified that
+// month), so an unweighted mean would let a low-volume month skew the
+// quarter as much as a high-volume one. A quarter where every month is null
+// (no risks identified at all) reports null rather than being zero-filled,
+// matching TrendPoint's own "nil means no data" convention.
 export function groupTrendByQuarter(data: TrendPoint[]): QuarterlyAvgScore[] {
-  const buckets = new Map<string, { sum: number; count: number }>();
+  const buckets = new Map<string, { weightedSum: number; totalIdentified: number }>();
   const order: string[] = [];
   for (const d of data) {
-    const date = parseDateStr(d.month);
-    const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
+    const quarter = monthToQuarterLabel(d.month);
     if (!buckets.has(quarter)) {
-      buckets.set(quarter, { sum: 0, count: 0 });
+      buckets.set(quarter, { weightedSum: 0, totalIdentified: 0 });
       order.push(quarter);
     }
-    if (d.avg_score != null) {
+    if (d.avg_score != null && d.identified_count > 0) {
       const bucket = buckets.get(quarter)!;
-      bucket.sum += d.avg_score;
-      bucket.count += 1;
+      bucket.weightedSum += d.avg_score * d.identified_count;
+      bucket.totalIdentified += d.identified_count;
     }
   }
   return order.map((quarter) => {
     const bucket = buckets.get(quarter)!;
-    return { quarter, avg_score: bucket.count > 0 ? bucket.sum / bucket.count : null };
+    return { quarter, avg_score: bucket.totalIdentified > 0 ? bucket.weightedSum / bucket.totalIdentified : null };
   });
 }
 
 // A quarter's row: "quarter" plus one numeric field per register present in
 // that quarter (keyed by register name, read dynamically by the chart's
-// per-register `bars` config — see AvgRisksByRegisterChart).
+// per-register `bars` config — see AvgRisksByRegisterChart). A register with
+// no data that quarter simply has no key here, which recharts (with
+// connectNulls) reads the same as an explicit null — a gap, not a zero.
 export type QuarterlyRegisterCount = { quarter: string } & Record<string, number | string>;
-
-function quarterSortKey(quarter: string): number {
-  const [q, year] = quarter.split(" ");
-  return Number(year) * 10 + Number(q.slice(1));
-}
 
 // Rebuckets RegisterTrendChart's per-month-per-register counts into calendar
 // quarters, averaging the up-to-3 months that fall in each quarter per
 // register — so registers stay comparable against each other across time
 // instead of collapsing to one all-time figure per register.
+//
+// `quarterOrder` is the full list of quarters in the displayed window (e.g.
+// from groupTrendByQuarter(analytics.trend), which — unlike this per-register
+// breakdown — always has one row per month regardless of activity). Driving
+// the output off that list, rather than off whichever quarters happen to
+// appear in `data`, keeps a quarter with zero identified risks across every
+// register on the x-axis as a gap instead of silently disappearing and
+// pulling its neighboring quarters together.
 export function groupRegisterTrendByQuarter(
   data: MonthRegisterCount[],
+  quarterOrder: string[],
 ): { rows: QuarterlyRegisterCount[]; registers: string[] } {
   const buckets = new Map<string, Map<string, { sum: number; count: number }>>();
   const registers = new Set<string>();
   for (const d of data) {
-    const date = parseDateStr(d.month);
-    const quarter = `Q${Math.floor(date.getMonth() / 3) + 1} ${date.getFullYear()}`;
+    const quarter = monthToQuarterLabel(d.month);
     if (!buckets.has(quarter)) buckets.set(quarter, new Map());
     const byRegister = buckets.get(quarter)!;
     if (!byRegister.has(d.register_name)) byRegister.set(d.register_name, { sum: 0, count: 0 });
@@ -121,15 +136,16 @@ export function groupRegisterTrendByQuarter(
     registers.add(d.register_name);
   }
 
-  const rows = [...buckets.entries()]
-    .sort(([a], [b]) => quarterSortKey(a) - quarterSortKey(b))
-    .map(([quarter, byRegister]) => {
-      const row: QuarterlyRegisterCount = { quarter };
+  const rows = quarterOrder.map((quarter) => {
+    const row: QuarterlyRegisterCount = { quarter };
+    const byRegister = buckets.get(quarter);
+    if (byRegister) {
       for (const [register, { sum, count }] of byRegister) {
-        row[register] = count > 0 ? sum / count : 0;
+        row[register] = sum / count;
       }
-      return row;
-    });
+    }
+    return row;
+  });
 
   return { rows, registers: [...registers].sort((a, b) => a.localeCompare(b)) };
 }

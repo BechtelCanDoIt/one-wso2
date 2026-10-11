@@ -19,6 +19,7 @@ import type { JSX, ReactNode } from "react";
 import type { AnalyticsSummary } from "../../api/riskApi";
 import ChartCard from "../dashboard/ChartCard";
 import { CLOSED_COLOR } from "../dashboard/constants";
+import { groupTrendByQuarter } from "./constants";
 import KpiTiles from "./KpiTiles";
 import AvgRiskScoreQuarterlyChart from "./AvgRiskScoreQuarterlyChart";
 import TrendChart from "./TrendChart";
@@ -62,6 +63,12 @@ function NoteBox({ children }: { children: ReactNode }): JSX.Element {
 // already covers as a point-in-time snapshot — every chart here either adds a
 // time dimension or is an org-wide aggregate the Dashboard doesn't compute.
 export default function AnalyticsView({ analytics, isAllRegisters }: AnalyticsViewProps): JSX.Element {
+  // Full list of quarters in the trailing-12-month window, derived from the
+  // monthly trend (which always has one row per month regardless of
+  // activity) — used to keep the per-register quarterly chart's x-axis
+  // complete even for quarters with zero identified risks.
+  const quarterOrder = groupTrendByQuarter(analytics.trend).map((q) => q.quarter);
+
   return (
     <Stack spacing={3}>
       <KpiTiles loading={false} kpis={analytics.kpis} />
@@ -90,6 +97,7 @@ export default function AnalyticsView({ analytics, isAllRegisters }: AnalyticsVi
             </NoteBox>
             <AvgRisksByRegisterChart
               data={analytics.identified_by_register ?? []}
+              quarterOrder={quarterOrder}
               emptyMessage="No risks identified in the last 12 months."
             />
           </ChartCard>

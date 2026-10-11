@@ -23,6 +23,7 @@ import { groupRegisterTrendByQuarter } from "./constants";
 
 interface AvgRisksByRegisterChartProps {
   data: MonthRegisterCount[];
+  quarterOrder: string[];
   emptyMessage: string;
 }
 
@@ -32,7 +33,11 @@ const CHART_HEIGHT = 320;
 // rebucketed into calendar quarters (averaging the up-to-3 months in each
 // quarter), with one line per register so registers stay comparable against
 // each other across time instead of collapsing to a single all-time figure.
-export default function AvgRisksByRegisterChart({ data, emptyMessage }: AvgRisksByRegisterChartProps): JSX.Element {
+export default function AvgRisksByRegisterChart({
+  data,
+  quarterOrder,
+  emptyMessage,
+}: AvgRisksByRegisterChartProps): JSX.Element {
   if (data.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
@@ -41,7 +46,7 @@ export default function AvgRisksByRegisterChart({ data, emptyMessage }: AvgRisks
     );
   }
 
-  const { rows, registers } = groupRegisterTrendByQuarter(data);
+  const { rows, registers } = groupRegisterTrendByQuarter(data, quarterOrder);
   const colorMap = buildRegisterColorMap(registers);
   const lines = registers.map((register) => ({
     dataKey: register,
