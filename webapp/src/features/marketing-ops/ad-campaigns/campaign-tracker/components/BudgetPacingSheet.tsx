@@ -20,8 +20,8 @@
 // landing and delivery capacity, plus CSV/PDF report export. The math lives in
 // budgetPacingLogic.ts (pure), the exports in budgetPacingExport.ts.
 //
-// Data and `day` are owned by BudgetSyncPanel (its day control sits beside the
-// Year/Month run pickers, and the pacing queries are lifted there so its Apply
+// Data and `day` are owned by BudgetSyncPacingPanel (its day control sits beside the
+// Year/Month run pickers, and the pacing queries live there so its Apply
 // button can show fetch progress). Every other filter below is local, and the
 // panel keys this component by run id so they reset when the run changes.
 
@@ -168,9 +168,19 @@ function IntegrityPanel({ checks, palette }: { checks: IntegrityCheck[]; palette
                   <>
                     {" — "}
                     <Box
-                      component="span"
+                      component="button"
+                      type="button"
                       onClick={() => toggle(i)}
-                      sx={{ color: "error.main", fontWeight: 700, cursor: "pointer", textDecoration: "underline" }}
+                      sx={{
+                        color: "error.main",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        textDecoration: "underline",
+                        background: "none",
+                        border: 0,
+                        p: 0,
+                        font: "inherit",
+                      }}
                     >
                       {expanded.has(i)
                         ? "hide campaigns"
@@ -364,12 +374,16 @@ function NavButton({
 }) {
   return (
     <Box
+      component="button"
+      type="button"
       onClick={onClick}
       sx={{
         display: "flex",
         alignItems: "center",
         gap: 0.6,
         cursor: "pointer",
+        font: "inherit",
+        color: "inherit",
         px: small ? 1 : 1.25,
         py: small ? 0.4 : 0.6,
         borderRadius: "999px",

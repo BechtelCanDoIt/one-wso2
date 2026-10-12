@@ -19,7 +19,7 @@
 // Field names stay plain snake_case end-to-end, matching the backend exactly
 // (no camelCase mapping layer) — same convention as the BU ownership registry
 // types in useCampaignTracker.ts. This surface is read-only (ingest is
-// machine-to-machine, from the DigiOps-Connector add-on) and the payload is
+// machine-to-machine, from the Google Sheets budget connector add-on) and the payload is
 // deeply nested, so a mapper would add cost with nothing to write back.
 
 export interface SyncCell {

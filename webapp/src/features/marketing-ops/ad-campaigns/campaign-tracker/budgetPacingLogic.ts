@@ -14,10 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// The pacing/forecasting engine behind Budget Sync's Pacing sub-tab, ported from
-// Marketing Ops' budget-phase/september-dashboard.html slice()/judge()/
-// capacity()/crossTable()/integrity() onto real synced Budget Sync cells (a
-// run's `payload.cells`) and real ad spend (GET /pacing-lines — deliberately
+// The pacing/forecasting engine behind Budget Sync's Pacing sub-tab: slice(),
+// judge(), capacity(), crossTable() and integrity() over real synced Budget
+// Sync cells (a run's `payload.cells`) and real ad spend (GET /pacing-lines — deliberately
 // unfiltered by status, unlike the Budget Pacing tab's Active-only read).
 //
 // Pure functions only: no React, no theme. Verdicts carry a semantic `tone`
@@ -38,8 +37,8 @@ import { fmtMoney } from "./campaignTrackerTypes";
 import { attributeCampaignName, type CampaignAttribution } from "./pacingAttribution";
 import type { Tone } from "./useBudgetSyncColors";
 
-// The 13 budget tabs, matching the budget-phase connector's Rules.js
-// ownerToTab exactly — six BU-side tabs, seven Regional-side tabs.
+// The 13 budget tabs, matching the budget connector's owner-to-tab
+// rule exactly — six BU-side tabs, seven Regional-side tabs.
 export const TABS: { id: string; grp: "BU" | "Region" }[] = [
   { id: "API", grp: "BU" },
   { id: "Integration", grp: "BU" },
@@ -377,7 +376,9 @@ export function computeIntegrity(
       drilldown: unmappedDrilldown.length > 0 ? unmappedDrilldown : undefined,
     },
     {
-      ok: Math.abs(knownTotal + unmappedSpend - accountTotal) < 0.5,
+      // Informational: attribution always yields a known tab or Unmapped, so this
+      // sum holds by construction; the check above is what flags real problems.
+      ok: null,
       title: "Tab totals reconcile to account total",
       detail: `${fmtMoney(knownTotal)} across 13 tabs + ${fmtMoney(unmappedSpend)} unmapped = ${fmtMoney(accountTotal)} total spend`,
     },

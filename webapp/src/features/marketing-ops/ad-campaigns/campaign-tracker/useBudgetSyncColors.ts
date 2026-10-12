@@ -14,12 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Theme-resolved colors for the Budget Sync tab. Marketing Ops' source used a
-// fixed `tok` palette with hex-alpha suffixes (`${tok.x}0a`); this app is
+// Theme-resolved colors for the Budget Sync tab. This app is
 // themeable (light/dark), so the semantic colors are resolved from the active
-// MUI palette instead, and tints go through CSS color-mix, which accepts any
-// color string (a hex, an rgb() — whatever the theme produces) where a hex
-// alpha suffix only works on a 6-digit hex.
+// MUI palette, and tints go through CSS color-mix, which accepts any color
+// string (a hex, an rgb() — whatever the theme produces) where a hex alpha
+// suffix only works on a 6-digit hex.
 //
 // Separate from the components for the reason useChartStyles.ts gives: a module
 // that exports both components and hooks loses React Fast Refresh.

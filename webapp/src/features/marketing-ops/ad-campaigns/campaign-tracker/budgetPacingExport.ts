@@ -53,7 +53,9 @@ const CSV_KEYS: (keyof AttributedLine)[] = [
 ];
 
 function csvEsc(v: unknown): string {
-  const s = v == null ? "" : String(v);
+  let s = v == null ? "" : String(v);
+  // Neutralize spreadsheet formulas in free-text cells (e.g. campaign names).
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

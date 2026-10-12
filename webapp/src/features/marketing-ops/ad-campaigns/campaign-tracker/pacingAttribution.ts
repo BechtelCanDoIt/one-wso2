@@ -14,12 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Ported from Marketing Ops' budget-phase/september-dashboard.html parseName()/
-// BUMAP/RGMAP/BUNORM — the proven attribution of a real ad campaign name to a
-// Budget Sync cell's own (tab_label, side, region, bu) vocabulary. These maps
-// are an exact match for the budget-phase connector's Rules.js ownerToTab/
-// buColumns, the source of truth for every tab_label/bu Budget Sync ever stores
-// — so this parser's output is safe to bucket real cells against, unlike
+// Attributes a real ad campaign name to a Budget Sync cell's own
+// (tab_label, side, region, bu) vocabulary. These maps match the budget
+// connector's owner-to-tab and BU column rules, the source of truth for every
+// tab_label/bu Budget Sync ever stores — so this parser's output is safe to bucket real cells against, unlike
 // Campaign Tracker's own Register BU tagging (a different, documented-
 // incompatible vocabulary). Do not swap the two.
 //

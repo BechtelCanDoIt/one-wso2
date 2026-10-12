@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { PacingLine, SyncCell } from "./budgetSyncTypes";
 import {
   attributeLines,
@@ -109,8 +109,13 @@ describe("dates", () => {
 
   it("defaults to the last day for a month that isn't the current one", () => {
     expect(defaultDay(2001, 1)).toBe(28);
-    const now = new Date();
-    expect(defaultDay(now.getFullYear(), now.getMonth())).toBe(now.getDate());
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 4, 17, 12));
+      expect(defaultDay(2026, 4)).toBe(17);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
@@ -240,7 +245,8 @@ describe("computeIntegrity", () => {
   it("passes when every campaign maps and totals reconcile", () => {
     const checks = computeIntegrity(cells, attributeLines([line({ mtd_spend: 10 })]), 1);
     expect(checks[0].ok).toBe(true);
-    expect(checks[1].ok).toBe(true);
+    // Informational row: true by construction, so it carries no pass/fail.
+    expect(checks[1].ok).toBeNull();
     expect(checks[2].detail).toContain("$250");
   });
 

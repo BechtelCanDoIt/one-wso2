@@ -892,7 +892,7 @@ export const marketingOpsServiceUrls = {
   campaignTrackerLinkedinRefresh: `${marketingOpsBackendUrl}/api/ad-campaigns/campaign-tracker/linkedin-refresh`,
   // ---- ad campaigns → Budget Sync (read-only) --------------------------------
   //
-  // Synced runs from the DigiOps-Connector Google Sheets add-on, plus the
+  // Synced runs from the Google Sheets budget connector add-on, plus the
   // unfiltered per-campaign real-spend read the Pacing sub-tab joins against
   // them. `month` on pacing-lines is 0-indexed.
   budgetSyncRuns: (year?: number, limit = 25) =>

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Budget Sync: a read-only inspector for the DigiOps-Connector Google Sheets
+// Budget Sync: a read-only inspector for the Google Sheets budget connector
 // add-on's synced runs — the plan side only: what was allocated (cells), which
 // tabs contributed it (sources), and what got left out of the reviewed month
 // and why (exclusions). Every sync is an immutable, append-only run, so the run

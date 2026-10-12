@@ -622,7 +622,7 @@ export function useAssignBuOwner() {
   });
 }
 
-// ─── Budget Sync (read-only: runs synced from the DigiOps-Connector add-on) ──
+// ─── Budget Sync (read-only: runs synced from the Google Sheets budget connector add-on) ──
 
 // Newest first (backend sorts by received_at DESC), so the first run matching
 // a (year, month) pair is the latest re-sync of it.

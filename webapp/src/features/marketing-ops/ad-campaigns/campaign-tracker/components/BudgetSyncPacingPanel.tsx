@@ -55,6 +55,7 @@ export function BudgetSyncPacingPanel() {
   const linkedinQ = usePacingLines("LinkedIn", budgetYear, monthIndex, day, !!detail);
   const pacingFetching = googleQ.isFetching || linkedinQ.isFetching;
   const pacingError = googleQ.error ?? linkedinQ.error;
+  const pacingPlaceholder = googleQ.isPlaceholderData || linkedinQ.isPlaceholderData;
   const rawLines = useMemo(
     () => (googleQ.data && linkedinQ.data ? [...googleQ.data, ...linkedinQ.data] : null),
     [googleQ.data, linkedinQ.data],
@@ -62,7 +63,7 @@ export function BudgetSyncPacingPanel() {
 
   if (runsQ.isPending || runsQ.error || !run) return <RunsStatus pending={runsQ.isPending} error={runsQ.error} />;
 
-  const dim = daysInMonth(run.budget_year, run.reviewed_month);
+  const dim = daysInMonth(run.budget_year, monthIndex);
   const applyDay = () => {
     const v = parseInt(dayDraft, 10);
     if (Number.isFinite(v) && v >= 1 && v <= dim) setDayEdit({ runId: run.id, day: v, draft: String(v) });
@@ -115,7 +116,7 @@ export function BudgetSyncPacingPanel() {
               { label: "Total − buffer", value: fmtMoney(Number(detail.total_month) - Number(detail.total_month_buffer)) },
             ]}
           />
-          {rawLines ? (
+          {rawLines && !pacingPlaceholder ? (
             // Keyed by run so the sheet's own filters reset when the run changes.
             <BudgetPacingSheet
               key={detail.id}

@@ -136,8 +136,7 @@ export function ToneChip({ label, color }: { label: string; color: string }) {
 
 /**
  * A row of label/value readouts for already-formatted figures (money, text) —
- * unlike StatCell, which renders a count. Used by the Budget Sync tab, where
- * Marketing Ops' ConsoleReadout did the same job.
+ * unlike StatCell, which renders a count. Used by the Budget Sync tab.
  */
 export function ReadoutStrip({
   items,
