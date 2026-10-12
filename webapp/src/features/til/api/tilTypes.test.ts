@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { isTilWhere, normalizeSubmission, TIL_WHERE_OPTIONS } from "./tilTypes";
+import { isSameWhereDetail, isTilWhere, normalizeSubmission, TIL_WHERE_OPTIONS } from "./tilTypes";
 
 describe("isTilWhere", () => {
   it.each(TIL_WHERE_OPTIONS)("accepts %s", (opt) => {
@@ -28,6 +28,25 @@ describe("isTilWhere", () => {
 
   it("is case-sensitive", () => {
     expect(isTilWhere("customer")).toBe(false);
+  });
+});
+
+describe("isSameWhereDetail", () => {
+  it("ignores a stored detail, blank or not, for a source that takes none", () => {
+    expect(isSameWhereDetail(false, "", "")).toBe(true);
+    expect(isSameWhereDetail(false, "", null)).toBe(true);
+    expect(isSameWhereDetail(false, "", "Acme Corp")).toBe(true);
+  });
+
+  it("reads blank the same as none", () => {
+    expect(isSameWhereDetail(true, "  ", null)).toBe(true);
+    expect(isSameWhereDetail(true, "", "")).toBe(true);
+  });
+
+  it("compares the trimmed detail for a source that takes one", () => {
+    expect(isSameWhereDetail(true, " Acme Corp ", "Acme Corp")).toBe(true);
+    expect(isSameWhereDetail(true, "Globex", "Acme Corp")).toBe(false);
+    expect(isSameWhereDetail(true, "Acme Corp", null)).toBe(false);
   });
 });
 

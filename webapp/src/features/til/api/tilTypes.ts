@@ -96,6 +96,13 @@ export interface TilSubmissionPayload {
  * when a moderator makes it. */
 export type TilSubmissionUpdatePayload = Omit<TilSubmissionPayload, "who">;
 
+/** Whether an edit leaves `whereDetail` as the entry has it. Blank reads the
+ * same as none, and for a source that takes no detail the stored value doesn't
+ * count: the form neither shows nor sends it, so it can't have been changed. */
+export function isSameWhereDetail(needsDetail: boolean, edited: string, stored: string | null): boolean {
+  return !needsDetail || edited.trim() === (stored ?? "").trim();
+}
+
 export function normalizeSubmission(wire: TilSubmissionWire): TilSubmission {
   return {
     ...wire,

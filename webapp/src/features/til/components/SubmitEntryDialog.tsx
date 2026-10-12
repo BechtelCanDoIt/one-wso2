@@ -38,6 +38,7 @@ import {
   TIL_WHAT_MAX_LENGTH,
   TIL_WHERE_DETAIL_MAX_LENGTH,
   TIL_WHERE_OPTIONS,
+  isSameWhereDetail,
   type TilSubmission,
   type TilWhere,
 } from "../api/tilTypes";
@@ -197,7 +198,7 @@ export default function SubmitEntryDialog({
     Boolean(entry) &&
     title.trim() === entry?.title &&
     where === entry?.where &&
-    (needsWhereDetail ? whereDetail.trim() : null) === (entry?.whereDetail ?? null) &&
+    isSameWhereDetail(needsWhereDetail, whereDetail, entry?.whereDetail ?? null) &&
     isSameTilHtml(what, entry?.what ?? "");
 
   const reset = () => {
