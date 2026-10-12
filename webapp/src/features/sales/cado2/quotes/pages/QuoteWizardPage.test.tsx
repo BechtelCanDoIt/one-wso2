@@ -20,8 +20,6 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { HttpError } from "@api/http";
 import { draft, ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
-import { fromVersion } from "@features/sales/cado2/quotes/form/draftForm";
-import { readUnsavedDraft, stashUnsavedDraft } from "@features/sales/cado2/quotes/form/unsavedDraftStash";
 import { scrollMainToTop } from "@features/sales/cado2/utils/scroll";
 import QuoteWizardPage from "./QuoteWizardPage";
 
@@ -465,46 +463,25 @@ describe("QuoteWizardPage — lifecycle", () => {
   });
 });
 
+// Unsaved changes are never kept aside to offer back (removed 2026-10-12):
+// moving between steps saves the draft, and Close asks first.
 describe("QuoteWizardPage — unsaved changes when leaving", () => {
-  it("offers to restore the changes kept aside when the draft was last left", async () => {
-    Object.assign(version, { data: ready });
-    const values = { ...fromVersion(ready), poNumber: "PO-RESTORED" };
-    stashUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit", values);
-    renderWizard();
-
-    const banner = screen.getByText(/You left this draft with unsaved changes/);
-    expect(banner).toBeInTheDocument();
-    expect(screen.queryByText("Unsaved changes")).toBeNull();
-
-    await userEvent.setup().click(screen.getByRole("button", { name: "Restore" }));
-    expect(screen.queryByText(/You left this draft with unsaved changes/)).toBeNull();
-    expect(screen.getByText("Unsaved changes")).toBeInTheDocument(); // the saved version stays the baseline
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")).toBeNull();
-  });
-
-  it("keeps unsaved edits aside when the wizard is left from outside it (the rail, Back)", async () => {
+  it("keeps nothing aside when the wizard is left with unsaved edits, and offers nothing back", async () => {
     Object.assign(version, { data: ready });
     const view = renderWizard();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Commercial/ }));
     await user.type(await screen.findByLabelText(/PO number/), "PO-77");
 
-    view.unmount();
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")?.values.poNumber).toBe("PO-77");
-  });
-
-  it("keeps unsaved edits aside when the page goes away (reload, sign in again)", async () => {
-    Object.assign(version, { data: ready });
-    renderWizard();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Commercial/ }));
-    await user.type(await screen.findByLabelText(/PO number/), "PO-78");
-
     act(() => void window.dispatchEvent(new Event("pagehide")));
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")?.values.poNumber).toBe("PO-78");
+    view.unmount();
+    expect(sessionStorage.length).toBe(0);
+
+    renderWizard();
+    expect(screen.queryByText(/You left this draft with unsaved changes/)).toBeNull();
   });
 
-  it("asks before Close throws unsaved edits away, and keeps nothing once you agree", async () => {
+  it("asks before Close throws unsaved edits away", async () => {
     Object.assign(version, { data: ready });
     render(
       <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
@@ -526,13 +503,6 @@ describe("QuoteWizardPage — unsaved changes when leaving", () => {
     confirm.mockReturnValueOnce(true);
     await user.click(screen.getByRole("button", { name: "Close" }));
     expect(await screen.findByText("quote page")).toBeInTheDocument();
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")).toBeNull();
     confirm.mockRestore();
-  });
-
-  it("keeps nothing when the wizard is left with nothing unsaved", () => {
-    Object.assign(version, { data: ready });
-    renderWizard().unmount();
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")).toBeNull();
   });
 });

@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { Link as RouterLink, useLocation, useNavigate, useParams } from "react-router";
+import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import {
   AdapterDateFns,
   Alert,
@@ -39,7 +39,6 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { useLeaveGuard } from "@features/sales/cado2/quotes/form/useLeaveGuard";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
-import { forgetUnsavedDraft, readUnsavedDraft } from "@features/sales/cado2/quotes/form/unsavedDraftStash";
 import {
   usePricingPreview,
   useActiveLegalEntities,
@@ -151,24 +150,8 @@ export default function QuoteWizardPage(): JSX.Element {
     if (loaded.data) form.reset(fromVersion(loaded.data));
   }, [loaded.data, form]);
 
-  // Unsaved changes are kept aside whenever the wizard is left without saving
-  // (useLeaveGuard) and offered back here.
-  const { pathname } = useLocation();
-  const [stashed, setStashed] = useState(() => readUnsavedDraft(pathname));
-  const restoreStashed = () => {
-    if (!stashed) return;
-    // Keep the saved version as the baseline, so the restored edits show as unsaved.
-    form.reset(stashed.values, { keepDefaultValues: true });
-    forgetUnsavedDraft();
-    setStashed(null);
-  };
-  const discardStashed = () => {
-    forgetUnsavedDraft();
-    setStashed(null);
-  };
-
   const { isDirty } = form.formState;
-  const { confirmLeave, allowLeave } = useLeaveGuard(isDirty, pathname, () => form.getValues());
+  const { confirmLeave, allowLeave } = useLeaveGuard(isDirty);
 
   // Live pricing while editing. A frozen or unchanged version shows its stored
   // numbers instead, so a submitted version is never re-priced with newer rules.
@@ -462,23 +445,6 @@ export default function QuoteWizardPage(): JSX.Element {
                 {version.copiedFromVersion}.
               </Alert>
             ) : null}
-            {stashed && editable && (isNew || loaded.data) ? (
-              <Alert
-                severity="warning"
-                action={
-                  <>
-                    <Button color="inherit" size="small" onClick={discardStashed}>
-                      Discard
-                    </Button>
-                    <Button color="inherit" size="small" variant="outlined" onClick={restoreStashed}>
-                      Restore
-                    </Button>
-                  </>
-                }
-              >
-                You left this draft with unsaved changes. Restore them?
-              </Alert>
-            ) : null}
             {refusal ? (
               <Alert severity="error">
                 {refusal.kind === "save"
@@ -637,7 +603,6 @@ export default function QuoteWizardPage(): JSX.Element {
               onDeleted={(res) => {
                 // The draft and any unsaved edits are gone; nothing to warn about.
                 allowLeave();
-                forgetUnsavedDraft();
                 navigate(res.quoteDeleted ? cado2Paths.quotes : cado2Paths.quote(saved.quote.id), { replace: true });
               }}
             />

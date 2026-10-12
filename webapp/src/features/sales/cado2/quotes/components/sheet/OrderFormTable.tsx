@@ -31,11 +31,10 @@ interface OrderFormTableProps {
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
   /**
-   * The wizard's Category column, by position in `lines` (D72): the mapped
-   * category, or a choice for an unmapped product. Lines without a category
-   * yet are listed first.
+   * The wizard's note on a line without a category yet (D72), by position in
+   * `lines`, shown under the product. Such lines are listed first.
    */
-  readonly category?: (index: number) => ReactNode;
+  readonly categoryNote?: (index: number) => ReactNode;
 }
 
 /**
@@ -49,18 +48,17 @@ interface OrderFormTableProps {
  *   Partner commission (15%)     − 13,305.00
  *   Net order value                75,395.00
  */
-export default function OrderFormTable({ lines, currency, actions, below, commissionPercent = null, category }: OrderFormTableProps): JSX.Element {
+export default function OrderFormTable({ lines, currency, actions, below, commissionPercent = null, categoryNote }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
-  const cols = (actions ? 7 : 6) + (category ? 1 : 0);
-  const labelSpan = category ? 6 : 5;
+  const cols = actions ? 7 : 6;
   // Products brought in from Salesforce whose category isn't chosen yet (D72).
-  const pending = category ? lines.filter((l) => !l.category) : [];
+  const pending = categoryNote ? lines.filter((l) => !l.category) : [];
   const cur = currency ? ` (${currency})` : "";
   const money = (v: string | null) => (v ? formatMoney(v) : "—");
 
   const totalRow = (label: string, value: string | null, strong = false, prefix = "") => (
     <TableRow sx={strong ? { bgcolor: "action.hover" } : undefined}>
-      <TableCell colSpan={labelSpan} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
+      <TableCell colSpan={5} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
         {label}
         {cur}
       </TableCell>
@@ -80,18 +78,14 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {l.productName}
             </Typography>
-            {l.productDescription ? (
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.4 }}>
-                {l.productDescription}
-              </Typography>
-            ) : null}
-            {/* Every line is from the quote's price book, shown once in the Deal section. */}
+            {/* The name and the SKU only (2026-10-12, amends D53): the description is shown when choosing the product. */}
             {l.productCode ? (
               <Typography variant="caption" color="text.secondary" display="block">
                 {l.productCode}
               </Typography>
             ) : null}
-            {l.categoryByRep && !category ? (
+            {!l.category ? categoryNote?.(index) : null}
+            {l.categoryByRep && l.category ? (
               <Chip
                 size="small"
                 color="warning"
@@ -102,7 +96,6 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
               />
             ) : null}
           </TableCell>
-          {category ? <TableCell sx={{ minWidth: 190 }}>{category(index)}</TableCell> : null}
           <TableCell>{l.unitOfMeasure ?? "–"}</TableCell>
           <TableCell align="right" sx={num}>
             {formatMoney(l.unitPrice)}
@@ -133,7 +126,6 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
         <TableHead>
           <TableRow>
             <TableCell>Product or service</TableCell>
-            {category ? <TableCell>Category</TableCell> : null}
             <TableCell>Unit of measure</TableCell>
             <TableCell align="right">Unit list</TableCell>
             <TableCell align="right">Qty</TableCell>
@@ -149,7 +141,7 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
           </TableRow>
         </TableHead>
         <TableBody>
-          {/* No heading: the line's own category choice says what's needed. */}
+          {/* No heading: the line's own note says what's needed. */}
           {pending.map(lineRow)}
           {form.groups.map((g) => (
             <Fragment key={g.category}>

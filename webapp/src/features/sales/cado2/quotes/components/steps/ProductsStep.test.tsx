@@ -107,32 +107,36 @@ describe("ProductsStep (Term & Products)", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows every line with its category, and a choice on the line when the product isn't mapped", async () => {
+  it("marks a line whose product isn't mapped, and its category is chosen in the line's dialog", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     const table = screen.getByRole("table", { name: "Products" });
-
-    const gateway = within(table)
-      .getByText("WSO2 Gateway")
-      .closest("tr") as HTMLElement;
-    expect(within(gateway).getByText("Subscription")).toBeInTheDocument(); // mapped: shown, not chosen
-    expect(within(gateway).queryByRole("combobox")).toBeNull();
-    expect(within(table).queryByText("Category to choose")).toBeNull(); // no heading strip (2026-10-12)
-
-    await user.click(
-      within(table).getByRole("combobox", {
-        name: "Category of WSO2 Integrator",
-      }),
-    );
-    await user.click(screen.getByRole("option", { name: "Support" }));
+    expect(within(table).queryByRole("combobox")).toBeNull(); // no dropdown on the line
+    expect(within(table).queryByText("Category to choose")).toBeNull(); // no heading strip
 
     const integrator = within(table)
       .getByText("WSO2 Integrator")
       .closest("tr") as HTMLElement;
-    expect(
-      within(integrator).getByRole("combobox", {
-        name: "Category of WSO2 Integrator",
+    await user.click(
+      within(integrator).getByRole("button", {
+        name: "Category not set · Choose",
       }),
-    ).toHaveTextContent("Support");
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("No category is set up for this product");
+    await user.click(
+      within(dialog).getByRole("combobox", { name: "Category" }),
+    );
+    await user.click(screen.getByRole("option", { name: "Support" }));
+    await user.click(
+      within(dialog).getByRole("button", { name: "Update line" }),
+    );
+
+    expect(
+      within(table).queryByRole("button", {
+        name: "Category not set · Choose",
+      }),
+    ).toBeNull();
+    expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
   });
 });

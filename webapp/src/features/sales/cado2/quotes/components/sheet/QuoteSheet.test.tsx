@@ -150,12 +150,15 @@ describe("Order form", () => {
     expect(rows[at("Total order value")]).toContain("119,540.00");
   });
 
-  it("shows a line's product description under its name", () => {
-    const described = { ...threeYears.lines[0], productDescription: "Based on the number of gateways." };
+  // 2026-10-12 (amends D53): a line shows its product's name and SKU only; the
+  // description is shown when choosing the product.
+  it("shows a line's product name and SKU, not its description", () => {
+    const described = { ...threeYears.lines[0], productCode: "GW-SKU", productDescription: "Based on the number of gateways." };
     render(<QuoteSheet sheet={{ ...threeYears, lines: [described, ...threeYears.lines.slice(1)] }} />);
     const table = within(screen.getByRole("table", { name: "Products" }));
     const cell = table.getByText(described.productName).closest("td")!;
-    expect(within(cell).getByText("Based on the number of gateways.")).toBeInTheDocument();
+    expect(within(cell).getByText("GW-SKU")).toBeInTheDocument();
+    expect(within(cell).queryByText("Based on the number of gateways.")).toBeNull();
   });
 
   it("shows the yearly schedule for a multi-year quote, with each year's opportunity", () => {

@@ -21,12 +21,11 @@ import {
   AlertTitle,
   Box,
   Button,
+  Chip,
   IconButton,
-  MenuItem,
   Stack,
   TableCell,
   TableRow,
-  TextField,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
@@ -38,14 +37,12 @@ import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/Schedul
 import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
-  LINE_CATEGORIES,
   hasRecurring,
   isPartnerLed,
   termEnd,
   type DraftFormValues,
   type LineValue,
 } from "@features/sales/cado2/quotes/form/draftForm";
-import type { LineCategory } from "@features/sales/cado2/quotes/api/quoteTypes";
 import AddLineDialog from "@features/sales/cado2/quotes/components/AddLineDialog";
 import SubscriptionTermCard from "@features/sales/cado2/quotes/components/SubscriptionTermCard";
 import PartnerCommissionCard from "@features/sales/cado2/quotes/components/PartnerCommissionCard";
@@ -77,47 +74,10 @@ function LineIssue({ index }: { index: number }) {
 }
 
 /**
- * A line's category (D72): the Admin's mapping, shown; or, for a product not
- * mapped (brought in from Salesforce, or added by the AM), a choice on the line.
- */
-function CategoryCell({ index }: { index: number }): JSX.Element | null {
-  const { control, setValue } = useFormContext<DraftFormValues>();
-  const line = useWatch({ control, name: `lines.${index}` });
-  const issue = useFieldIssue(`lines[${index}].category`);
-  if (!line) return null;
-  if (line.categorySource === "MAPPED" && line.category) {
-    return <Typography variant="body2">{LINE_CATEGORIES.find((c) => c.value === line.category)?.label ?? line.category}</Typography>;
-  }
-  return (
-    <TextField
-      select
-      size="small"
-      value={line.category}
-      onChange={(e) => {
-        setValue(`lines.${index}.category`, e.target.value as LineCategory, { shouldDirty: true });
-        setValue(`lines.${index}.categorySource`, "REP", { shouldDirty: true });
-      }}
-      error={!line.category || Boolean(issue)}
-      slotProps={{ select: { displayEmpty: true }, htmlInput: { "aria-label": `Category of ${line.productName}` } }}
-      sx={{ minWidth: 180 }}
-    >
-      <MenuItem value="" disabled>
-        Choose
-      </MenuItem>
-      {LINE_CATEGORIES.map((c) => (
-        <MenuItem key={c.value} value={c.value}>
-          {c.label}
-        </MenuItem>
-      ))}
-    </TextField>
-  );
-}
-
-/**
  * Step ② Term & Products (D73): when the quote starts and how long it runs,
  * then the products, priced from the opportunity's price book. A new quote's
  * products are brought in from the opportunity (D72); one not mapped to a
- * category gets a choice on its line.
+ * category says so on its line, and is chosen in the line's dialog.
  */
 export default function ProductsStep({ preview }: ProductsStepProps): JSX.Element {
   const { control, getValues } = useFormContext<DraftFormValues>();
@@ -214,7 +174,17 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               </>
             )}
             below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
-            category={(i) => <CategoryCell key={fields[i]?.id} index={i} />}
+            categoryNote={(i) => (
+              <Chip
+                size="small"
+                color="warning"
+                variant="outlined"
+                clickable
+                label="Category not set · Choose"
+                onClick={() => setEditing({ open: true, index: i })}
+                sx={{ mt: 0.5 }}
+              />
+            )}
           />
         )}
         {amountsHint ? (
