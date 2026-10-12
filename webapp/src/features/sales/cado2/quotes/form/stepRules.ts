@@ -80,10 +80,10 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
         ? "Choose the opportunity it co-terminates with"
         : !v.termEndDate
           ? "That opportunity has no subscription end date in Salesforce"
-          : shortTermProblem(v.startDate, v.termEndDate);
+          : shortTermProblem(v.startDate, v.termEndDate, "CO_TERMED");
       need(products, !problem, "coTermOpportunityId", problem);
     } else if (isShortMode(v.termMode)) {
-      const problem = v.termEndDate ? shortTermProblem(v.startDate, v.termEndDate) : "Choose the end date";
+      const problem = v.termEndDate ? shortTermProblem(v.startDate, v.termEndDate, "SHORTER") : "Choose the end date";
       need(products, !problem, "subscriptionEndDate", problem);
     }
   }

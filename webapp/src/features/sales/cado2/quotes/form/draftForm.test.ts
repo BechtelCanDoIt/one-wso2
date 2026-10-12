@@ -29,6 +29,7 @@ import {
   alignPreview,
   isExpired,
   parseDateString,
+  shortTermLatestEnd,
   shortTermProblem,
   splitStreet,
   stepOfField,
@@ -285,10 +286,15 @@ describe("subscription term", () => {
     expect(termEnd({ ...term, startDate: "", termMode: "ONE_YEAR" })).toBe("");
   });
 
-  it("keeps a typed end within a year of the start", () => {
-    expect(shortTermProblem("2027-03-15", "2028-03-14")).toBe("");
-    expect(shortTermProblem("2027-03-15", "2028-03-15")).toMatch(/within a year/);
-    expect(shortTermProblem("2027-03-15", "2027-03-14")).toMatch(/before the start/);
+  it("ends Less than a year at least a day short of a full year; a co-termed end may fall on it", () => {
+    expect(shortTermLatestEnd("2027-03-15")).toBe("2028-03-13");
+    expect(shortTermProblem("2027-03-15", "2028-03-13", "SHORTER")).toBe("");
+    expect(shortTermProblem("2027-03-15", "2028-03-14", "SHORTER")).toBe(
+      "Less than a year must end before 14 Mar 2028. For a full year, choose 1 year",
+    );
+    expect(shortTermProblem("2027-03-15", "2028-03-14", "CO_TERMED")).toBe("");
+    expect(shortTermProblem("2027-03-15", "2028-03-15", "CO_TERMED")).toMatch(/within a year/);
+    expect(shortTermProblem("2027-03-15", "2027-03-14", "SHORTER")).toMatch(/before the start/);
   });
 
   it("uses the chosen billing for Multi-year only", () => {

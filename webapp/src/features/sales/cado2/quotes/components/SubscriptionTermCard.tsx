@@ -137,7 +137,7 @@ export default function SubscriptionTermCard(): JSX.Element {
   const coTermIssue = useFieldIssue("coTermOpportunityId");
   const billingIssue = useFieldIssue("billingFrequency");
   const typedProblem =
-    termMode === "SHORTER" ? shortTermProblem(startDate, termEndDate) : "";
+    termMode === "SHORTER" ? shortTermProblem(startDate, termEndDate, "SHORTER") : "";
 
   const chooseDuration = (d: Duration) => {
     setUnderYear(d === "UNDER_YEAR");

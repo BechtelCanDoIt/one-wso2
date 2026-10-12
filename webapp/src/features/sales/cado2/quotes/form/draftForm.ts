@@ -270,14 +270,28 @@ export const hasRecurring = (lines: readonly { category: LineCategory | "" }[]) 
 /** Whether the AM types the end date (Co-termed, Shorter term). */
 export const isShortMode = (mode: TermMode | "" | null) => mode === "CO_TERMED" || mode === "SHORTER";
 
-/** The latest end date a Co-termed or Shorter term may have: within a year. */
-export const shortTermLatestEnd = (start: string) => endDateFor(start, 1);
+/**
+ * The latest end date "Less than a year" may have: the day before a full year
+ * would end (2026-10-12), e.g. 30 Dec 2027 from 1 Jan 2027. A full year is "1 year".
+ */
+export function shortTermLatestEnd(start: string): string {
+  const d = parseDateString(endDateFor(start, 1));
+  if (!d) return "";
+  d.setDate(d.getDate() - 1);
+  return toDateString(d);
+}
 
-/** Why a typed short-term end date is not allowed, or "" when it is. */
-export function shortTermProblem(start: string, end: string): string {
+/**
+ * Why a Co-termed or Shorter term end date is not allowed, or "" when it is.
+ * A co-termed end comes from the other contract, so it may fall on the full year.
+ */
+export function shortTermProblem(start: string, end: string, mode: "CO_TERMED" | "SHORTER"): string {
   if (!start || !end) return "";
   if (end < start) return "The end date must not be before the start date";
-  if (end > shortTermLatestEnd(start)) return "Ends within a year of the start. For longer, choose 1 year or Multi-year";
+  if (mode === "SHORTER" && end > shortTermLatestEnd(start)) {
+    return `Less than a year must end before ${formatDate(endDateFor(start, 1))}. For a full year, choose 1 year`;
+  }
+  if (end > endDateFor(start, 1)) return "Ends within a year of the start. For longer, choose 1 year or Multi-year";
   return "";
 }
 
@@ -554,7 +568,7 @@ export function toPreviewBody(v: DraftFormValues): object | null {
   const recurring = hasRecurring(v.lines);
   const end = termEnd(v);
   const billing = effectiveBilling(v);
-  if (recurring && (!end || !billing || (isShortMode(v.termMode) && shortTermProblem(v.startDate, end)))) return null;
+  if (recurring && (!end || !billing || (isShortMode(v.termMode) && shortTermProblem(v.startDate, end, v.termMode as "CO_TERMED" | "SHORTER")))) return null;
   return {
     currencyIsoCode: v.currencyIsoCode,
     subscriptionStartDate: v.startDate,
