@@ -88,7 +88,16 @@ const EVERY_FINANCE_GATE_APP: readonly FinanceGateApp[] = ["cc", "opd", "expense
  */
 const ITEM_BACKENDS: Readonly<Record<string, readonly FinanceGateApp[]>> = {
   "claim-approval": ["opd", "expense"],
+  "cc-new": ["cc"],
+  "cc-pending": ["cc"],
+  "cc-history": ["cc"],
+  "cc-approve": ["cc"],
+  "cc-settings": ["cc"],
   "finance-overview": ["cc", "opd", "expense"],
+  "master-data-subsidiaries": ["masterData"],
+  "master-data-departments": ["masterData"],
+  "master-data-expense-types": ["masterData"],
+  "master-data-credit-cards": ["masterData"],
 };
 
 /**
@@ -115,6 +124,16 @@ export const OVERVIEW_GATE_APPS = ITEM_BACKENDS["finance-overview"];
 export interface FinanceGate {
   canSee: (itemId: string) => boolean;
   isResolving: boolean;
+  /**
+   * Whether THIS item's own answer is final — per-item, not the aggregate
+   * `isResolving`. `needs` still fetches every backend it names regardless of
+   * which item is asked about, so `isResolving` stays true until ALL of them
+   * answer even when ONE item's own backends already have. A caller folding
+   * this gate into the rail (`financeVisibility`) needs the per-item answer,
+   * or a finance item already decided stays unreachable behind a backend it
+   * never read — see `firstVisibleLeaf`, the one place this is for.
+   */
+  itemAnswered: (itemId: string) => boolean;
   /**
    * The raw signals behind the `finance-overview` case, exposed so a caller
    * with a choice to make — which dashboard FinanceOverviewPage should
@@ -297,27 +316,44 @@ export function useFinanceGate(
   const hasAnswered = (q: { isSuccess: boolean; isError: boolean }, configured: boolean) =>
     !configured || q.isSuccess || q.isError;
 
-  // A backend left out of `needs` MUST also be left out here: its query is
-  // disabled, so it stays `pending` forever and neither `isSuccess` nor
-  // `isError` ever goes true, which would pin `isResolving` true for the life
-  // of the mount.
+  // Per backend, not just the aggregate below — this is what lets
+  // `itemAnswered` tell "my own backends are done" from "SOME backend this
+  // caller asked about is still going", even when that other backend has
+  // nothing to do with the item being asked. A backend left out of `needs`
+  // reads as answered here too: its query is disabled, so it would otherwise
+  // stay `pending` forever and pin every item false.
+  const backendAnswered: Record<FinanceGateApp, boolean> = {
+    cc: !needsCc || hasAnswered(cc, isCcBackendConfigured()),
+    opd: !needsOpd || hasAnswered(opd, isOpdBackendConfigured()),
+    expense: !needsExpense || hasAnswered(expense, isExpenseBackendConfigured()),
+    // Counted here too, now that a master-data row waits on a real request
+    // rather than on an identity field the rail already had. Left out, the
+    // rail would call the four rows resolved while this query was still in
+    // flight and render them hidden, then show them when it landed — the
+    // appearing-and-vanishing row this hook's comments above are about.
+    masterData: !needsMasterData || hasAnswered(masterData, isFinanceMasterDataBackendConfigured()),
+  };
+
   const isResolving =
     enabled &&
-    !(
-      (!needsCc || hasAnswered(cc, isCcBackendConfigured())) &&
-      (!needsOpd || hasAnswered(opd, isOpdBackendConfigured())) &&
-      (!needsExpense || hasAnswered(expense, isExpenseBackendConfigured())) &&
-      // Counted here too, now that a master-data row waits on a real request
-      // rather than on an identity field the rail already had. Left out, the
-      // rail would call the four rows resolved while this query was still in
-      // flight and render them hidden, then show them when it landed — the
-      // appearing-and-vanishing row this hook's comments above are about.
-      (!needsMasterData || hasAnswered(masterData, isFinanceMasterDataBackendConfigured()))
-    );
+    !(backendAnswered.cc && backendAnswered.opd && backendAnswered.expense && backendAnswered.masterData);
+
+  // Per-item version of `isResolving`, for `financeVisibility` — see the
+  // field's own doc on `FinanceGate`. An item outside `ITEM_BACKENDS` (there
+  // is none today, but a future case could reach the switch's `default`
+  // without being added here) falls back to the aggregate, the same answer
+  // this gate always gave before `itemAnswered` existed — safe because it
+  // can only make that one item wait LONGER than it strictly has to, never
+  // answer it wrong.
+  const itemAnswered = (itemId: string): boolean => {
+    const required = ITEM_BACKENDS[itemId];
+    return required ? required.every((app) => backendAnswered[app]) : !isResolving;
+  };
 
   return {
     canSee,
     isResolving,
+    itemAnswered,
     ccHasOwnCard,
     opdFinance,
     expenseFinance,
@@ -335,6 +371,7 @@ export function financeVisibility(gate: FinanceGate): VisibilityAnswer {
   return {
     canSee: (id) => gate.canSee(id),
     resolving: gate.isResolving,
+    answered: (id) => gate.itemAnswered(id),
     retry: () => undefined,
   };
 }

@@ -337,6 +337,24 @@ describe("a reader shut out by a failed CC lookup, not a missing role", () => {
     expect(screen.queryByText(/Couldn.t check your Credit Card access/)).not.toBeInTheDocument();
     expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
   });
+
+  // `foldIdentityError` marks every finance query errored together on an
+  // identity hiccup — naming only the first one found would retry CC alone
+  // and leave OPD and Expense still erroring once the reader's eye reached
+  // them.
+  it("names every errored backend at once, and retries all of them together", async () => {
+    settled({ ccErrored: true, opdErrored: true });
+    render(<FinanceOverviewPage />);
+
+    expect(
+      screen.getByText(/Couldn.t check your Credit Card and OPD Claims access/),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retryCc).toHaveBeenCalledTimes(1);
+    expect(retryOpd).toHaveBeenCalledTimes(1);
+    expect(retryExpense).not.toHaveBeenCalled();
+  });
 });
 
 // Reviewed into this exact order: "Default to OPD, then Expense, then CC".
@@ -412,7 +430,7 @@ describe("locking the first dashboard shown", () => {
 
   it("an explicit pick overrides the computed default and is itself permanent", async () => {
     settled({ ccHasOwnCard: true, opdFinance: true, expenseFinance: true });
-    render(<FinanceOverviewPage />);
+    const { rerender } = render(<FinanceOverviewPage />);
     // Default lands on OPD (top priority).
     expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
 
@@ -421,7 +439,11 @@ describe("locking the first dashboard shown", () => {
     expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
 
     // A later-changing answer must not override the explicit pick either.
+    // The mocked hook reads `backend` fresh only on render, so the mutation
+    // needs a rerender to actually reach the component — without this the
+    // assertion below checks the exact same DOM the one above already did.
     backend.expense.role = false;
+    rerender(<FinanceOverviewPage />);
     expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
   });
 });

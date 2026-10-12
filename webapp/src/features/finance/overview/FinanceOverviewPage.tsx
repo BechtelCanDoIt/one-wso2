@@ -128,24 +128,33 @@ export default function FinanceOverviewPage() {
     // hears that it failed, with a way back. Each backend gets its own
     // message rather than one generic "something failed", so Retry can
     // target the one that actually needs it.
-    const failure = ccGate.ccErrored
-      ? { label: "Credit Card", retry: ccGate.retryCc }
-      : opdGate.opdErrored
-        ? { label: "OPD Claims", retry: opdGate.retryOpd }
-        : expenseGate.expenseErrored
-          ? { label: "Expense Claims", retry: expenseGate.retryExpense }
-          : null;
-    if (failure) {
+    // Every errored backend, not just the first found — `foldIdentityError`
+    // marks all three failed together on an identity hiccup, so naming only
+    // CC (say) would retry CC alone and leave the reader staring at the same
+    // banner once OPD or Expense's own turn to be checked came up.
+    const failures = [
+      ccGate.ccErrored && { label: "Credit Card", retry: ccGate.retryCc },
+      opdGate.opdErrored && { label: "OPD Claims", retry: opdGate.retryOpd },
+      expenseGate.expenseErrored && { label: "Expense Claims", retry: expenseGate.retryExpense },
+    ].filter((f): f is { label: string; retry: () => void } => f !== false);
+    if (failures.length > 0) {
+      const names = new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(
+        failures.map((f) => f.label),
+      );
       return (
         <Alert
           severity="error"
           action={
-            <Button size="small" onClick={failure.retry} sx={{ textTransform: "none" }}>
+            <Button
+              size="small"
+              onClick={() => failures.forEach((f) => f.retry())}
+              sx={{ textTransform: "none" }}
+            >
               Retry
             </Button>
           }
         >
-          Couldn&apos;t check your {failure.label} access.
+          Couldn&apos;t check your {names} access.
         </Alert>
       );
     }

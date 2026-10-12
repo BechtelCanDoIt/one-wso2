@@ -49,6 +49,21 @@ export interface VisibilityAnswer {
   canSee: (sectionId: string) => boolean;
   resolving: boolean;
   /**
+   * Whether THIS item's own answer is final, if different from `resolving`.
+   * Optional — most adapters ask one backend for everything they claim, so
+   * `!resolving` already means "every item I claim has answered", and
+   * `sectionAnswered` falls back to exactly that when this is omitted.
+   *
+   * Only an adapter whose items can depend on DIFFERENT SUBSETS of what it
+   * fetches needs to override this — finance is the one case today: it asks
+   * four backends, but `finance-overview` needs three of them and
+   * `claim-approval` needs two, so `resolving` (all four) can stay true long
+   * after a given item's own answer is already known. Without this, a
+   * finance item that was already decided still blocked `firstVisibleLeaf`
+   * behind an unrelated backend — see useFinanceGate's `itemAnswered`.
+   */
+  answered?: (sectionId: string) => boolean;
+  /**
    * A failed read the landing should retry.
    * Omitted when a failed read means the section is not allowed.
    */
@@ -286,7 +301,11 @@ export function foldVisibility(
     // nothing is answered while that is still resolving, adapter or not.
     if (shell.employeeRecordResolving) return false;
     const owner = adapters.find((adapter) => claimedIds(adapter, shell).has(section.id));
-    return owner ? !owner.resolving : true;
+    if (!owner) return true;
+    // Per-item, where the adapter provides it (finance); the aggregate
+    // `resolving` otherwise, which is correct for everyone else, since they
+    // each ask one backend for everything they claim.
+    return owner.answered ? owner.answered(section.id) : !owner.resolving;
   };
 
   const failedAdapters = adapters.filter((adapter) => adapter.error !== undefined);

@@ -525,6 +525,55 @@ describe("needs: scoping which backends a caller depends on", () => {
   });
 });
 
+// THE bug `itemAnswered` exists to close: `financeVisibility` folds this gate
+// into the rail/landing using the FULL, unscoped call (every backend fetched)
+// — so `isResolving` alone stays true until all four answer, even once a
+// specific item's own question is already settled. `firstVisibleLeaf` reads
+// `itemAnswered` instead of the aggregate for exactly this reason: a granted
+// item (finance-overview, decided by OPD) must not stay unreachable behind an
+// unrelated, still-pending backend (CC, Master Data) it never consulted.
+describe("itemAnswered", () => {
+  it("is true for finance-overview once OPD decides it, while CC is still pending", () => {
+    roles.loading = true;
+    const { result, rerender } = renderHook(() => useFinanceGate());
+    expect(result.current.itemAnswered("finance-overview")).toBe(false);
+
+    // Only OPD resolves — CC, Expense and Master Data stay pending. This
+    // fixture answers every backend off the one shared `roles.loading` flag,
+    // so the next assertion is the real point: OPD's role already makes
+    // finance-overview's OWN three required backends (cc, opd, expense) the
+    // ones still being waited on, not the aggregate across all four.
+    roles.loading = false;
+    roles.opd = [555];
+    rerender();
+    expect(result.current.canSee("finance-overview")).toBe(true);
+    expect(result.current.itemAnswered("finance-overview")).toBe(true);
+  });
+
+  it("is false for claim-approval while a backend IT needs (expense) is still pending, independent of other items", () => {
+    const { result } = renderHook(() => useFinanceGate(true, ["opd", "expense"]));
+    // Both needed backends resolved in this fixture (roles.loading defaults
+    // false), so this is the settled case — confirms true once both answer.
+    expect(result.current.itemAnswered("claim-approval")).toBe(true);
+  });
+
+  it("stays false for cc-approve while CC alone is unresolved, regardless of OPD/Expense", () => {
+    roles.loading = true;
+    const { result } = renderHook(() => useFinanceGate());
+    expect(result.current.itemAnswered("cc-approve")).toBe(false);
+  });
+
+  it("falls back to the aggregate isResolving for an item with no ITEM_BACKENDS entry", () => {
+    roles.loading = true;
+    const { result, rerender } = renderHook(() => useFinanceGate());
+    expect(result.current.itemAnswered("some-future-item")).toBe(false);
+
+    roles.loading = false;
+    rerender();
+    expect(result.current.itemAnswered("some-future-item")).toBe(true);
+  });
+});
+
 // Distinct from "no CC role": a reader refused everywhere else because CC's
 // own lookup failed outright should be told that, with a way back, rather
 // than the same "not for you" a genuinely roleless reader gets.
