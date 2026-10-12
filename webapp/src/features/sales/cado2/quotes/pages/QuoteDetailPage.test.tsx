@@ -286,7 +286,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(within(reason).getByText(/^35% discount/)).toBeInTheDocument();
     expect(reason).toHaveTextContent("Above the Area GM's 30% limit");
     expect(panel).not.toHaveTextContent("CRO's 32% limit"); // the CFO's reason is for the CFO
-    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument(); // short labels
+    expect(screen.getByRole("button", { name: "Request changes" })).toBeInTheDocument(); // short labels
+    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull(); // merged into Request changes (2026-10-12)
 
     await user.click(screen.getByRole("button", { name: "Approve" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
@@ -411,11 +412,11 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.queryByRole("button", { name: /as Legal|as Regional Director/ })).toBeNull();
     // One short set of buttons per role, inside its card.
     const rd = screen.getByRole("region", { name: "Your approval as Regional Director" });
-    await user.click(within(rd).getByRole("button", { name: "Reject" }));
-    expect(within(screen.getByRole("dialog")).getByRole("heading")).toHaveTextContent("Reject");
+    await user.click(within(rd).getByRole("button", { name: "Request changes" }));
+    expect(within(screen.getByRole("dialog")).getByRole("heading")).toHaveTextContent("Send it back for changes?");
     await user.type(within(screen.getByRole("dialog")).getByRole("textbox"), "Too deep");
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reject" }));
-    expect(decide.mutate).toHaveBeenCalledWith(expect.objectContaining({ stepId: 2, outcome: "reject" }), expect.anything());
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Request changes" }));
+    expect(decide.mutate).toHaveBeenCalledWith(expect.objectContaining({ stepId: 2, outcome: "request-changes" }), expect.anything());
   });
 
   it("shows a rep-chosen category on its line and in Deal Desk's summary, nowhere else", async () => {

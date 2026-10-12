@@ -106,9 +106,8 @@ describe("decisionNote", () => {
       .toBe("Approved as CRO. Nothing else on this quote is waiting for you.");
   });
 
-  it("names the role for a rejection or a send-back", () => {
-    const after = wf([step("CRO", "REJECTED")], "REJECTED");
-    expect(decisionNote("reject", cro, after, roles)).toBe("Rejected as CRO. The approval has stopped.");
+  it("names the role for a send-back", () => {
+    const after = wf([step("CRO", "CHANGES_REQUESTED")], "CHANGES_REQUESTED");
     expect(decisionNote("request-changes", cro, after, roles)).toBe("Sent back for changes as CRO.");
   });
 });

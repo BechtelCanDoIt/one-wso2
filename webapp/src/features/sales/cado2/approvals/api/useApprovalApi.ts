@@ -93,7 +93,7 @@ export function useApprovalWorkflow(quoteId: number | null, version: number | nu
   });
 }
 
-/** Approve, reject or request changes on a step. */
+/** Approve or request changes on a step (Reject was merged into Request changes, 2026-10-12). */
 export function useDecideStep() {
   const { getToken, key } = useCado2Basis();
   const queryClient = useQueryClient();

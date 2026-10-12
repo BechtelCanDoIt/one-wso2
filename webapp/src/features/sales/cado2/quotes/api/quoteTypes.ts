@@ -379,7 +379,6 @@ export type VersionStatus =
   | "RECALLED"
   | "CLOSED"
   | "APPROVED"
-  | "REJECTED"
   | "CHANGES_REQUESTED";
 
 /** Lifecycle actions the caller may take now. */
@@ -518,6 +517,7 @@ export interface AuditEvent {
     | "APPROVAL_WORKFLOW_CREATED"
     | "APPROVAL_REQUESTED"
     | "APPROVAL_APPROVED"
+    // Kept for history from before Reject was merged into Request changes (2026-10-12).
     | "APPROVAL_REJECTED"
     | "APPROVAL_CHANGES_REQUESTED"
     | "VERSION_APPROVED"

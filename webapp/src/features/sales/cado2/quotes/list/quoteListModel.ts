@@ -25,7 +25,7 @@ import { expiryState } from "@features/sales/cado2/quotes/sheet/sheetModel";
 
 /**
  * A status, quotes expiring within seven days, or quotes back with the owner
- * to revise or close (recalled, rejected, changes requested). "" = all.
+ * to revise or close (recalled, changes requested). "" = all.
  */
 export type QuoteFilter = "" | VersionStatus | "EXPIRING" | "TO_REVISE";
 
@@ -41,7 +41,7 @@ export interface QuoteCounts {
 }
 
 /** Back with the owner: in none of these is anything in flight. */
-export const TO_REVISE: readonly VersionStatus[] = ["RECALLED", "REJECTED", "CHANGES_REQUESTED"];
+export const TO_REVISE: readonly VersionStatus[] = ["RECALLED", "CHANGES_REQUESTED"];
 
 /** In approval or approved, and expiring within seven days (today included), not already expired. */
 export function isExpiringSoon(q: QuoteListItem, now: Date): boolean {

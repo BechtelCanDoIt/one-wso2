@@ -59,7 +59,6 @@ const FILTER_LABEL: Record<Exclude<QuoteFilter, "">, string> = {
   TO_REVISE: "To revise",
   EXPIRING: "Expiring within 7 days",
   RECALLED: "Recalled",
-  REJECTED: "Rejected",
   CHANGES_REQUESTED: "Changes requested",
   CLOSED: "Closed",
 };
@@ -284,7 +283,7 @@ export default function MyQuotesPage(): JSX.Element {
         <KpiFilter label="Drafts" value={counts.drafts} icon={<FilePenIcon size={22} />} color="secondary" active={filter === "DRAFT"} onClick={() => toggle("DRAFT")} />
         <KpiFilter label="In approval" value={counts.submitted} icon={<SendIcon size={22} />} color="primary" active={filter === "SUBMITTED"} onClick={() => toggle("SUBMITTED")} />
         <KpiFilter label="Approved" value={counts.approved} icon={<CircleCheckIcon size={22} />} color="success" active={filter === "APPROVED"} onClick={() => toggle("APPROVED")} />
-        {/* Recalled, rejected or sent back: the owner revises or closes. */}
+        {/* Recalled or sent back: the owner revises or closes. */}
         <KpiFilter label="To revise" value={counts.toRevise} icon={<Undo2Icon size={22} />} color="info" active={filter === "TO_REVISE"} onClick={() => toggle("TO_REVISE")} />
         <KpiFilter label="Expiring within 7 days" value={counts.expiringSoon} icon={<HourglassIcon size={22} />} color="warning" active={filter === "EXPIRING"} onClick={() => toggle("EXPIRING")} />
         <KpiFilter label="Closed" value={counts.closed} icon={<XCircleIcon size={22} />} color="error" active={filter === "CLOSED"} onClick={() => toggle("CLOSED")} />

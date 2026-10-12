@@ -270,17 +270,10 @@ export default function QuoteDetailPage(): JSX.Element {
 
       {decision ? (
         <LifecycleDialog
-          title={
-            decision.outcome === "approve"
-              ? `Approve as ${decision.step.roleLabel}?`
-              : decision.outcome === "reject"
-                ? `Reject ${name}?`
-                : "Send it back for changes?"
-          }
-          confirmLabel={decision.outcome === "approve" ? "Approve" : decision.outcome === "reject" ? "Reject" : "Request changes"}
+          title={decision.outcome === "approve" ? `Approve as ${decision.step.roleLabel}?` : "Send it back for changes?"}
+          confirmLabel={decision.outcome === "approve" ? "Approve" : "Request changes"}
           reason={decision.outcome === "approve" ? "optional" : "required"}
           reasonLabel={decision.outcome === "approve" ? "Comment" : "What should the owner know?"}
-          danger={decision.outcome === "reject"}
           pending={decide.isPending}
           error={decide.error}
           onClose={() => setDecision(null)}
@@ -300,9 +293,7 @@ export default function QuoteDetailPage(): JSX.Element {
         >
           {decision.outcome === "approve"
             ? `You approve version ${v.versionNumber} for ${decision.step.roleLabel}. The next approvers are asked straight away.`
-            : decision.outcome === "reject"
-              ? `The approval stops for everyone, and version ${v.versionNumber} is rejected. The owner can revise it or close the quote.`
-              : `The approval stops for everyone, and the owner is asked to change version ${v.versionNumber} and submit again.`}
+            : `The approval stops for everyone, and the owner is asked to change version ${v.versionNumber} and submit again, or close the quote.`}
         </LifecycleDialog>
       ) : null}
       {dialog === "recall" ? (

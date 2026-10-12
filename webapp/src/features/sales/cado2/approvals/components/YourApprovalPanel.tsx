@@ -240,9 +240,6 @@ export default function YourApprovalPanel({
                 <Button variant="outlined" onClick={() => onDecide("request-changes", s)}>
                   Request changes
                 </Button>
-                <Button variant="outlined" color="error" onClick={() => onDecide("reject", s)}>
-                  Reject
-                </Button>
               </Stack>
             </Paper>
           );

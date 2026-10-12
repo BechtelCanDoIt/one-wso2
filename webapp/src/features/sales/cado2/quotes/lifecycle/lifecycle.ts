@@ -35,7 +35,6 @@ export const STATUS_LABEL: Record<VersionStatus, string> = {
   RECALLED: "Recalled",
   CLOSED: "Closed",
   APPROVED: "Approved",
-  REJECTED: "Rejected",
   CHANGES_REQUESTED: "Changes requested",
 };
 
@@ -45,7 +44,6 @@ export const STATUS_COLOR: Record<VersionStatus, "default" | "primary" | "warnin
   RECALLED: "warning",
   CLOSED: "error",
   APPROVED: "success",
-  REJECTED: "error",
   CHANGES_REQUESTED: "warning",
 };
 
@@ -244,7 +242,7 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `Waiting on ${roleOf(meta)}`;
     case "APPROVAL_APPROVED":
       return `${roleOf(meta)} approved ${v.toLowerCase()}`;
-    case "APPROVAL_REJECTED":
+    case "APPROVAL_REJECTED": // history from before Reject was merged into Request changes (2026-10-12)
       return `${roleOf(meta)} rejected ${v.toLowerCase()}`;
     case "APPROVAL_CHANGES_REQUESTED":
       return `${roleOf(meta)} asked for changes to ${v.toLowerCase()}`;
