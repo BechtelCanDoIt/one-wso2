@@ -51,8 +51,8 @@ export const CADO2_APPS: readonly MenuApp[] = [
     items: [
       {
         id: CADO2_ITEM.quotes,
-        label: "My Quotes",
-        desc: "Quotes you have built: drafts, submitted, approved and closed.",
+        label: "Quotes",
+        desc: "Your quotes and everyone else's: drafts, submitted, approved and closed.",
         requires: ["admin"],
         path: cado2Paths.quotes,
       },

@@ -14,20 +14,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// My Quotes (2026-09-25): the list is loaded once and counted, filtered
-// and searched in the browser. Pure functions, unit-tested.
+// The Quotes page (My Quotes 2026-09-25; tabs, list and tree layouts, D70):
+// the list is loaded once and counted, filtered, searched and grouped in the
+// browser. Pure functions, unit-tested.
+//
+// A list, not a report (D70): one row per quote with its own figures; groups
+// only organise rows, with no totals.
 //
 // Known limit: the list endpoint returns at most 200 quotes per call; past
 // that, filtering and search need server-side paging.
 
 import type { QuoteListItem, VersionStatus } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { expiryState } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import { quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 
 /**
- * A status, quotes expiring within seven days, or quotes back with the owner
- * to revise or close (recalled, changes requested). "" = all.
+ * A status, or quotes back with the owner to revise or close (recalled,
+ * changes requested). "" = all.
  */
-export type QuoteFilter = "" | VersionStatus | "EXPIRING" | "TO_REVISE";
+export type QuoteFilter = "" | VersionStatus | "TO_REVISE";
+
+/** How the quotes are laid out (D70): one row each, or the account › opportunity › quote tree. */
+export type QuoteLayout = "list" | "tree";
 
 export interface QuoteCounts {
   readonly all: number;
@@ -35,7 +42,6 @@ export interface QuoteCounts {
   readonly submitted: number;
   readonly approved: number;
   readonly toRevise: number;
-  readonly expiringSoon: number;
   readonly recalled: number;
   readonly closed: number;
 }
@@ -43,16 +49,7 @@ export interface QuoteCounts {
 /** Back with the owner: in none of these is anything in flight. */
 export const TO_REVISE: readonly VersionStatus[] = ["RECALLED", "CHANGES_REQUESTED"];
 
-/** In approval or approved, and expiring within seven days (today included), not already expired. */
-export function isExpiringSoon(q: QuoteListItem, now: Date): boolean {
-  return (
-    (q.status === "SUBMITTED" || q.status === "APPROVED") &&
-    q.expiryDate !== null &&
-    expiryState(q.expiryDate, now).tone === "soon"
-  );
-}
-
-export function countQuotes(items: readonly QuoteListItem[], now: Date): QuoteCounts {
+export function countQuotes(items: readonly QuoteListItem[]): QuoteCounts {
   const by = (s: VersionStatus) => items.filter((q) => q.status === s).length;
   return {
     all: items.length,
@@ -60,26 +57,69 @@ export function countQuotes(items: readonly QuoteListItem[], now: Date): QuoteCo
     submitted: by("SUBMITTED"),
     approved: by("APPROVED"),
     toRevise: items.filter((q) => TO_REVISE.includes(q.status)).length,
-    expiringSoon: items.filter((q) => isExpiringSoon(q, now)).length,
     recalled: by("RECALLED"),
     closed: by("CLOSED"),
   };
 }
 
-/** Case-insensitive match on quote number, account or opportunity. */
-export function filterQuotes(items: readonly QuoteListItem[], filter: QuoteFilter, search: string, now: Date): QuoteListItem[] {
+/** Case-insensitive match on quote number, account, opportunity or owner. */
+export function filterQuotes(items: readonly QuoteListItem[], filter: QuoteFilter, search: string): QuoteListItem[] {
   const term = search.trim().toLowerCase();
   return items.filter((q) => {
-    if (filter === "EXPIRING") {
-      if (!isExpiringSoon(q, now)) return false;
-    } else if (filter === "TO_REVISE") {
+    if (filter === "TO_REVISE") {
       if (!TO_REVISE.includes(q.status)) return false;
     } else if (filter && q.status !== filter) {
       return false;
     }
     if (!term) return true;
-    return [q.quoteNumber, q.accountName, q.opportunityName].some((f) => f?.toLowerCase().includes(term));
+    return [q.quoteNumber, q.accountName, q.opportunityName, q.ownerEmail].some((f) => f?.toLowerCase().includes(term));
   });
+}
+
+export interface OpportunityGroup {
+  readonly opportunityId: string;
+  readonly opportunityName: string;
+  /** Its primary quote, if it is in the list. */
+  readonly primary: QuoteListItem | undefined;
+  readonly quotes: readonly QuoteListItem[];
+}
+
+export interface AccountGroup {
+  readonly accountId: string;
+  readonly accountName: string;
+  readonly quotes: readonly QuoteListItem[];
+  readonly opportunities: readonly OpportunityGroup[];
+}
+
+/**
+ * Groups the rows by account, and within each by opportunity, in the list's
+ * order (most recently changed first): a group comes where its first quote
+ * would. Organises rows only; nothing is added up (D70).
+ */
+export function groupQuotes(items: readonly QuoteListItem[]): AccountGroup[] {
+  const accounts = new Map<string, { name: string; quotes: QuoteListItem[]; opps: Map<string, QuoteListItem[]> }>();
+  for (const q of items) {
+    let a = accounts.get(q.sfAccountId);
+    if (!a) {
+      a = { name: q.accountName ?? "No account", quotes: [], opps: new Map() };
+      accounts.set(q.sfAccountId, a);
+    }
+    a.quotes.push(q);
+    const list = a.opps.get(q.sfOpportunityId) ?? [];
+    list.push(q);
+    a.opps.set(q.sfOpportunityId, list);
+  }
+  return [...accounts.entries()].map(([accountId, a]) => ({
+    accountId,
+    accountName: a.name,
+    quotes: a.quotes,
+    opportunities: [...a.opps.entries()].map(([opportunityId, quotes]) => ({
+      opportunityId,
+      opportunityName: quotes[0].opportunityName ?? "No opportunity",
+      primary: quotes.find((q) => q.isPrimary),
+      quotes,
+    })),
+  }));
 }
 
 /** "just now", "5 min ago", "2 h ago", "3 d ago", else the date. */
@@ -94,4 +134,37 @@ export function changedAgo(iso: string, now: Date): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} d ago`;
   return then.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** A column the Quotes page sorts on (D70). */
+export type QuoteSortKey = "quote" | "account" | "opportunity" | "status" | "owner" | "created" | "updated";
+export interface QuoteSort {
+  readonly key: QuoteSortKey;
+  readonly dir: "asc" | "desc";
+}
+/** Most recently changed first, as the list arrives. */
+export const DEFAULT_SORT: QuoteSort = { key: "updated", dir: "desc" };
+
+const sortValue: Record<QuoteSortKey, (q: QuoteListItem) => string> = {
+  quote: (q) => q.quoteNumber ?? "",
+  account: (q) => (q.accountName ?? "").toLowerCase(),
+  opportunity: (q) => (q.opportunityName ?? "").toLowerCase(),
+  status: (q) => quoteStatusLabel(q.status, q.versionNumber).toLowerCase(),
+  owner: (q) => q.ownerEmail.toLowerCase(),
+  // ISO timestamps sort as text.
+  created: (q) => q.createdAt,
+  updated: (q) => q.updatedAt,
+};
+
+/**
+ * Sorted on one column, either way; ties keep the list's order (the newest
+ * change first). The tree groups the sorted rows, so its branches follow too.
+ */
+export function sortQuotes(items: readonly QuoteListItem[], sort: QuoteSort): QuoteListItem[] {
+  const value = sortValue[sort.key];
+  const sign = sort.dir === "asc" ? 1 : -1;
+  return items
+    .map((q, i) => ({ q, i }))
+    .sort((a, b) => sign * value(a.q).localeCompare(value(b.q)) || a.i - b.i)
+    .map((x) => x.q);
 }

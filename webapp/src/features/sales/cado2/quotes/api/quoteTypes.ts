@@ -499,12 +499,19 @@ export interface QuoteListItem {
   /** The latest version's status. */
   readonly status: VersionStatus;
   readonly ownerEmail: string;
+  readonly sfAccountId: string;
+  readonly sfOpportunityId: string;
+  /** The opportunity's primary quote (D68). */
+  readonly isPrimary: boolean;
+  /** The caller may change it (D69). */
+  readonly canEdit: boolean;
   readonly accountName: string | null;
   readonly opportunityName: string | null;
   readonly versionNumber: number;
   readonly currencyIsoCode: string | null;
   readonly tcv: string;
   readonly expiryDate: string | null;
+  readonly createdAt: string;
   readonly updatedAt: string;
 }
 
@@ -609,3 +616,6 @@ export interface OpportunityQuote {
 
 /** What AMs may do with quotes they don't own (D69). */
 export type QuoteAccess = "VIEW" | "VIEW_EDIT";
+
+/** Whose quotes the Quotes page lists (D70): the caller's own, or everyone's. */
+export type QuoteScope = "mine" | "all";

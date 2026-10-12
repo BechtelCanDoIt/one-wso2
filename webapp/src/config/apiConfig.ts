@@ -1866,9 +1866,11 @@ export const cado2ServiceUrls = {
   pricingPreview: `${cado2BackendUrl}/pricing/preview`,
   quotes: `${cado2BackendUrl}/quotes`,
   // My Quotes: the caller's own quotes.
-  quoteList: (status: string): string => {
+  // scope "mine" (the default) or "all" (every AM's quotes, D70).
+  quoteList: (status: string, scope = "mine"): string => {
     const q = new URLSearchParams({ limit: "200" });
     if (status) q.set("status", status);
+    if (scope !== "mine") q.set("scope", scope);
     return `${cado2BackendUrl}/quotes?${q.toString()}`;
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,

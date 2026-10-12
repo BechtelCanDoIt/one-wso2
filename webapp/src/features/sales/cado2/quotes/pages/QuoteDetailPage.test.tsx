@@ -148,12 +148,12 @@ describe("QuoteDetailPage — primary quote", () => {
 });
 
 describe("QuoteDetailPage — lifecycle", () => {
-  it("goes back to My Approvals when opened from there, else to My Quotes", () => {
+  it("goes back to My Approvals when opened from there, else to Quotes", () => {
     showFrom("approvals", submitted.quote, submitted);
     expect(screen.getByRole("link", { name: /My Approvals/ })).toHaveAttribute("href", "/sales/cado2/approvals");
     cleanup();
     show(submitted.quote, submitted);
-    expect(screen.getByRole("link", { name: /My Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
+    expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
   });
 
   it("offers only Recall on a submitted quote", async () => {

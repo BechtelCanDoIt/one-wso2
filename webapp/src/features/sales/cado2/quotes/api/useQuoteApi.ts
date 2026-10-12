@@ -45,6 +45,7 @@ import type {
   Product,
   AuditEvent,
   QuoteList,
+  QuoteScope,
   QuoteSettings,
   QuoteView,
 } from "./quoteTypes";
@@ -153,8 +154,8 @@ export function useActiveLegalEntities() {
 }
 
 /** My Quotes: the caller's own quotes, filtered by the latest version's status. */
-export function useQuoteList(status = "") {
-  return useAuthedQuery<QuoteList>(["quotes", "list", status], cado2ServiceUrls.quoteList(status), "live");
+export function useQuoteList(status = "", scope: QuoteScope = "mine") {
+  return useAuthedQuery<QuoteList>(["quotes", "list", scope, status], cado2ServiceUrls.quoteList(status, scope), "live");
 }
 
 /** A quote with its version list and the caller's actions. */

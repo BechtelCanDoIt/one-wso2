@@ -22,20 +22,19 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
   useAuditEvents,
   useCloseQuote,
-  useOpportunityQuotes,
   useQuote,
   useQuoteVersion,
   useRecallVersion,
   useReviseQuote,
-  useSetPrimary,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import OpportunityQuotesPanel from "@features/sales/cado2/quotes/components/detail/OpportunityQuotesPanel";
+import PrimaryDialog from "@features/sales/cado2/quotes/components/detail/PrimaryDialog";
 import { sheetFromVersion } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import QuoteSheet from "@features/sales/cado2/quotes/components/sheet/QuoteSheet";
 import DocumentsPanel from "@features/sales/cado2/quotes/components/detail/DocumentsPanel";
 import StatusPanel from "@features/sales/cado2/quotes/components/detail/StatusPanel";
 import CustomerBand from "@features/sales/cado2/quotes/components/sheet/CustomerBand";
-import { STATUS_COLOR, primaryLabel, quoteLabel, quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
+import { STATUS_COLOR, quoteLabel, quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import VersionsTab from "@features/sales/cado2/quotes/components/detail/VersionsTab";
 import HistoryTab from "@features/sales/cado2/quotes/components/detail/HistoryTab";
@@ -86,10 +85,7 @@ export default function QuoteDetailPage(): JSX.Element {
   const recall = useRecallVersion();
   const revise = useReviseQuote();
   const close = useCloseQuote();
-  const setPrimary = useSetPrimary();
   const events = useAuditEvents(quoteId);
-  // The opportunity's quotes: who is primary, for the Make primary confirmation (D68).
-  const oppQuotes = useOpportunityQuotes(quote.data?.sfOpportunityId ?? null);
   const sheet = useMemo(() => (latest.data ? sheetFromVersion(latest.data) : null), [latest.data]);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [decision, setDecision] = useState<Decision>(null);
@@ -116,7 +112,6 @@ export default function QuoteDetailPage(): JSX.Element {
     recall.reset();
     revise.reset();
     close.reset();
-    setPrimary.reset();
     setDialog(d);
   };
 
@@ -175,7 +170,7 @@ export default function QuoteDetailPage(): JSX.Element {
           variant="body2"
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, alignSelf: "flex-start" }}
         >
-          <ArrowLeftIcon size={14} /> {fromApprovals ? "My Approvals" : "My Quotes"}
+          <ArrowLeftIcon size={14} /> {fromApprovals ? "My Approvals" : "Quotes"}
         </Link>
         {/* The record header (frontend.md, "Page titles"): the account is the
             page's title on every tab, with everything about who and what the
@@ -371,23 +366,7 @@ export default function QuoteDetailPage(): JSX.Element {
         />
       ) : null}
       {dialog === "primary" ? (
-        <LifecycleDialog
-          title={q.isPrimary ? "Remove primary?" : "Make this the primary quote?"}
-          confirmLabel={q.isPrimary ? "Remove primary" : "Make primary"}
-          pending={setPrimary.isPending}
-          error={setPrimary.error}
-          onClose={() => setDialog(null)}
-          onConfirm={() => setPrimary.mutate({ quoteId: q.id, primary: !q.isPrimary }, { onSuccess: () => setDialog(null) })}
-        >
-          {q.isPrimary
-            ? "The opportunity will have no primary quote, so nothing is synced to Salesforce until one is chosen."
-            : (() => {
-                const current = oppQuotes.data?.find((o) => o.isPrimary && o.quoteId !== q.id);
-                return current
-                  ? `${primaryLabel(current)} is the primary quote for this opportunity. Making this quote primary releases it. Approvals aren't affected.`
-                  : "This quote becomes the one synced to Salesforce. Approvals aren't affected.";
-              })()}
-        </LifecycleDialog>
+        <PrimaryDialog quoteId={q.id} opportunityId={q.sfOpportunityId} isPrimary={q.isPrimary} onClose={() => setDialog(null)} />
       ) : null}
       {dialog === "close" ? (
         <LifecycleDialog
