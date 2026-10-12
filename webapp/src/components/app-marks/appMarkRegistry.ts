@@ -21,13 +21,13 @@ import {
   CsmMark,
   EngineeringMark,
   FinanceMark,
+  KnowledgeMark,
   LegalMark,
   SecurityMark,
   MarketingMark,
   MeMark,
   PeopleMark,
   SalesMark,
-  UmtMark,
   type MarkProps,
 } from "./AppMark";
 
@@ -43,9 +43,9 @@ const APP_MARKS: Record<string, (p: MarkProps) => ReactElement> = {
   csm: CsmMark,
   legal: LegalMark,
   security: SecurityMark,
-  umt: UmtMark,
   sales: SalesMark,
   engineering: EngineeringMark,
+  "knowledge-base": KnowledgeMark,
 };
 
 /**

@@ -630,7 +630,7 @@ export function isUmtBackendConfigured(): boolean {
 }
 
 export const umtServiceUrls = {
-  // GET — caller identity and UMT-local roles; this is the perspective gate.
+  // GET — caller identity and UMT-local roles; this is the UMT access gate.
   userInfo: `${umtBackendUrl}/update/user-info`,
   // GET — products, versions, issue types, lifecycles and user emails shared
   // by the update workflows. This endpoint deliberately sits outside /update.
@@ -1668,6 +1668,10 @@ export const tilServiceUrls = {
   // configured on the backend", so the form can't tell those apart and
   // doesn't need to; either way it just has no suggestions to show.
   customersSearch: (q: string) => `${tilBackendUrl}/customers/search?q=${encodeURIComponent(q)}`,
+  // Image upload for the "What did you learn?" rich-text field. Returns
+  // { url } — an absolute URL to the stored image, inserted directly into
+  // the entry's HTML. Webapp-only, same gate as POST /submissions.
+  uploads: `${tilBackendUrl}/uploads`,
 };
 
 // ---------------------------------------------------------------------------
@@ -1838,15 +1842,16 @@ export const cado2ServiceUrls = {
   // Salesforce lookups, read live through the backend.
   accounts: (nameContains: string): string =>
     `${cado2BackendUrl}/accounts?nameContains=${encodeSegment(nameContains)}&limit=20`,
-  accountOpportunities: (accountId: string): string =>
-    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities`,
+  // Open opportunities to quote; closed-won ones for a renewal to renew.
+  accountOpportunities: (accountId: string, status: "open" | "won" = "open"): string =>
+    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${status}`,
   accountContacts: (accountId: string): string =>
     `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/contacts`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (
     currency: string,
-    nameContains: string,
+    search: string,
     page: { pricebookId: string; limit: number; offset: number },
   ): string => {
     const q = new URLSearchParams({
@@ -1855,7 +1860,8 @@ export const cado2ServiceUrls = {
       limit: String(page.limit),
       offset: String(page.offset),
     });
-    if (nameContains) q.set("nameContains", nameContains);
+    // The product name or its product code.
+    if (search) q.set("search", search);
     return `${cado2BackendUrl}/products?${q.toString()}`;
   },
   pricebooks: (currency: string): string => `${cado2BackendUrl}/pricebooks?currency=${encodeSegment(currency)}`,

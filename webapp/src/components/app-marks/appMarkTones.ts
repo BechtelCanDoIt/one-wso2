@@ -72,7 +72,6 @@ export const APP_MARK_TONES: Record<string, AppMarkTones> = {
   // hue at 82% (the 18%-black mix this file's header describes). The test
   // recomputes every ratio, so these are asserted rather than trusted.
   security: { field: "#DCC285", lead: "#B8860B", detail: "#976E09" },
-  umt: { field: "#AFC78F", lead: "#5F8F1F", detail: "#4E7519" },
   // Sales. Derived from its hue by this file's own rule — field is the hue 50%
   // toward white, detail the hue at 82%. Measured 3.45:1 and 5.07:1 for lead,
   // 4.88:1 and 3.58:1 for detail, against the light and dark tiles.
@@ -81,6 +80,11 @@ export const APP_MARK_TONES: Record<string, AppMarkTones> = {
   // 3.46:1 and 5.04:1 for lead, 4.89:1 and 3.57:1 for detail, against the
   // light and dark tiles.
   engineering: { field: "#ECB588", lead: "#D96B12", detail: "#B2580F" },
+  // Knowledge. Same rule — field 50% toward white, detail at 82%. Measured
+  // 4.01:1 and 4.36:1 for lead, 5.58:1 and 3.13:1 for detail, against the
+  // light and dark tiles. `detail` is unused by KnowledgeMark (field + lead
+  // only, like Me) but kept so the contrast tests check the full set.
+  "knowledge-base": { field: "#EEA5AE", lead: "#DD4B5E", detail: "#B53E4D" },
 };
 
 /**

@@ -33,6 +33,9 @@ export function isTilWhere(value: string): value is TilWhere {
 }
 
 export const TIL_WHAT_MAX_LENGTH = 5000;
+export const TIL_TITLE_MAX_LENGTH = 100;
+export const TIL_WHERE_DETAIL_MAX_LENGTH = 200;
+export const TIL_WHO_MAX_LENGTH = 200;
 
 // --- wire --------------------------------------------------------------
 
@@ -45,6 +48,7 @@ export interface TilUserInfoWire {
 
 export interface TilSubmissionWire {
   id: string;
+  title: string;
   who: string;
   where: TilWhere;
   /** The customer/partner's name — present when `where` is "Customer" or "Partner". */
@@ -52,6 +56,9 @@ export interface TilSubmissionWire {
   what: string;
   submittedByEmail: string;
   createdAt: string; // ISO 8601
+  /** ISO 8601, or null when the entry has never been edited. Optional so a
+   * backend that predates editing still parses. */
+  updatedAt?: string | null;
 }
 
 export interface TilSubmissionsPageWire {
@@ -64,6 +71,7 @@ export interface TilSubmissionsPageWire {
 
 export interface TilSubmission {
   id: string;
+  title: string;
   who: string;
   where: TilWhere;
   whereDetail: string | null;
@@ -71,9 +79,12 @@ export interface TilSubmission {
   submittedByEmail: string;
   /** Parsed once here so components never touch `Date` directly (see conventions.md, Time). */
   createdAt: Date;
+  /** When the entry was last edited, or null if it never has been. */
+  updatedAt: Date | null;
 }
 
 export interface TilSubmissionPayload {
+  title: string;
   who: string;
   where: TilWhere;
   /** Required by the backend when `where` is "Customer" or "Partner", omitted otherwise. */
@@ -81,8 +92,23 @@ export interface TilSubmissionPayload {
   what: string;
 }
 
+/** PUT /submissions/{id}. No `who`: an edit never changes the byline, even
+ * when a moderator makes it. */
+export type TilSubmissionUpdatePayload = Omit<TilSubmissionPayload, "who">;
+
+/** Whether an edit leaves `whereDetail` as the entry has it. Blank reads the
+ * same as none, and for a source that takes no detail the stored value doesn't
+ * count: the form neither shows nor sends it, so it can't have been changed. */
+export function isSameWhereDetail(needsDetail: boolean, edited: string, stored: string | null): boolean {
+  return !needsDetail || edited.trim() === (stored ?? "").trim();
+}
+
 export function normalizeSubmission(wire: TilSubmissionWire): TilSubmission {
-  return { ...wire, createdAt: new Date(wire.createdAt) };
+  return {
+    ...wire,
+    createdAt: new Date(wire.createdAt),
+    updatedAt: wire.updatedAt ? new Date(wire.updatedAt) : null,
+  };
 }
 
 /** One match from GET /customers/search (entity-service's Account, proxied

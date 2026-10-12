@@ -22,7 +22,6 @@ import { isPreviewEnabled } from "@config/previewFeatures";
 import { CADO2_APPS } from "@constants/cado2Apps";
 import {
   AwardIcon,
-  Box as BoxIcon,
   BarChart3,
   BookOpenIcon,
   CheckCheckIcon,
@@ -33,12 +32,10 @@ import {
   LandmarkIcon,
   LifeBuoyIcon,
   LightbulbIcon,
-  LayoutDashboard,
-  LucideLayoutGrid,
+  RefreshCw,
   MegaphoneIcon,
   NetworkIcon,
   RadioIcon,
-  RefreshCcw,
   SatelliteDishIcon,
   ScaleIcon,
   ShieldIcon,
@@ -61,6 +58,7 @@ import {
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
 import { MIS_APPS } from "@constants/misApps";
+import { DOWNLOAD_STATS_APPS } from "@constants/downloadStatsApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
 import { DUE_DILIGENCE_APPS } from "@constants/dueDiligenceApps";
@@ -69,6 +67,7 @@ import { ME_APPS } from "@constants/meApps";
 import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
+import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
 
 export interface PerspectiveSection {
   id: string; // anchor id on the perspective's page (leaf sections)
@@ -87,6 +86,10 @@ export interface PerspectiveSection {
   path?: string;
   // Render as a group even with a single visible child — see MenuApp.alwaysGroup.
   alwaysGroup?: boolean;
+  // One rail row whose screens the app offers as tabs — see MenuApp.inTabs.
+  // Children stay so a pin can name each screen; the rail does not list them.
+  // The row's path is the first item, which is where choosing the app opens.
+  inTabs?: boolean;
   // When set, a leaf item leaves One WSO2 entirely: it renders as an anchor
   // that opens in a new tab, and is never route-highlighted because no route
   // of ours is active while the user is over there. Mutually exclusive with
@@ -104,9 +107,12 @@ function appsToSections(apps: readonly MenuApp[]): PerspectiveSection[] {
     label: app.name,
     icon: app.icon,
     alwaysGroup: app.alwaysGroup,
+    inTabs: app.inTabs,
+    path: app.inTabs ? app.items[0]?.path : undefined,
     children: app.items.map((it) => ({
       id: it.id,
       label: it.label,
+      icon: it.icon,
       requires: it.requires,
       path: it.path,
     })),
@@ -480,17 +486,28 @@ const KNOWLEDGE_BASE_SECTIONS: PerspectiveSection[] = [
   { id: "knowledge-base-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge-base" },
 ];
 
-const UMT_SECTIONS: PerspectiveSection[] = [
-  { id: "umt-updates", label: "Updates", icon: RefreshCcw, path: "/umt/updates" },
-  // Admin-only. `requires` speaks the people-app capability vocabulary, which
-  // UMT's own numeric roles have nothing to do with — this is filtered by
-  // UMT_ADMIN_ITEM_IDS below instead, the same way Finance/Leave/Subscriptions
-  // items are (see the comment above SUBSCRIPTION_ITEM_IDS).
-  { id: "umt-products", label: "Product Management", icon: BoxIcon, path: "/umt/products" },
-  { id: "umt-release-chunks", label: "Release Chunks", icon: LucideLayoutGrid, path: "/umt/release-chunks" },
-  { id: "umt-statistics", label: "Statistics", icon: BarChart3, path: "/umt/statistics" },
-];
-
+// UMT, an app inside the Engineering perspective (see `engineering` in
+// PERSPECTIVES below). A group like Product Download Stats beside it, with its
+// dashboard as the first row: Engineering forwards to its first item, so the
+// rail has no perspective-level Overview row that could stand in for it.
+const UMT_SECTION: PerspectiveSection = {
+  id: "engineering-umt",
+  label: "UMT",
+  icon: RefreshCw,
+  alwaysGroup: true,
+  children: [
+    { id: "umt-overview", label: "Overview", path: UMT_PATH },
+    { id: "umt-updates", label: "Updates", path: umtPaths.updates },
+    // Admin-only. `requires` speaks One WSO2's own capabilities, which have
+    // nothing to do with the roles the UMT backend (ONE_WSO2_UMT_BACKEND_URL)
+    // assigns — so this is filtered by UMT_ADMIN_ITEM_IDS below instead, the
+    // same way Finance/Leave/Subscriptions items are (see the comment above
+    // SUBSCRIPTION_ITEM_IDS).
+    { id: "umt-products", label: "Product Management", path: umtPaths.products },
+    { id: "umt-release-chunks", label: "Release Chunks", path: umtPaths.releaseChunks },
+    { id: "umt-statistics", label: "Statistics", path: umtPaths.statistics },
+  ],
+};
 
 /**
  * UMT rail ids whose visibility must be decided by UMT's own /update/user-info
@@ -502,6 +519,17 @@ const UMT_SECTIONS: PerspectiveSection[] = [
  * ask useUmtGate directly rather than reading `requires` for them.
  */
 export const UMT_ADMIN_ITEM_IDS: ReadonlySet<string> = new Set(["umt-products"]);
+
+/**
+ * Every UMT rail id, the group included. UMT's own roles decide all of them
+ * (see umtVisibility), so someone in Engineering with no UMT role does not see
+ * the group — the same way MIS, Due Diligence and CadO2 hide from callers their
+ * backends grant nothing.
+ */
+export const UMT_ITEM_IDS: ReadonlySet<string> = new Set([
+  UMT_SECTION.id,
+  ...(UMT_SECTION.children ?? []).map((child) => child.id),
+]);
 // Sales's rail: the meeting history, and CadO2 while its preview flag is on.
 const SALES_MEETINGS_SECTION: PerspectiveSection = {
   id: "sales-meetings",
@@ -596,11 +624,6 @@ export interface PerspectiveDef {
   sections?: PerspectiveSection[];
 }
 
-// Admin under Product Download Stats, in the Engineering perspective below.
-// The rail shows this row only when the download-stats API says the caller
-// is an admin.
-export const ENGINEERING_ADMIN_ITEM_ID = "engineering-download-stats-admin";
-
 export const PERSPECTIVES: readonly PerspectiveDef[] = [
   // "Apps" (persona areas, locked or unlocked). Order here is the order
   // shown in the waffle's Apps group.
@@ -678,12 +701,16 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/legal",
     forwardsToFirstItem: true,
     sections: [
-      {
-        id: "legal-nda",
-        label: "NDA",
-        icon: FileSignatureIcon,
-        path: "/legal/nda",
-      },
+      ...(isPreviewEnabled("nda")
+        ? [
+            {
+              id: "legal-nda",
+              label: "NDA",
+              icon: FileSignatureIcon,
+              path: "/legal/nda",
+            },
+          ]
+        : []),
       ...appsToSections(DUE_DILIGENCE_APPS),
     ],
   },
@@ -739,7 +766,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     ? [
         {
           key: "knowledge-base",
-          label: "Knowledge Base",
+          label: "Knowledge",
           icon: BookOpenIcon,
           access: true,
           path: "/knowledge-base",
@@ -748,67 +775,29 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
         },
       ]
     : []),
-  // Product Download Stats is the first engineering tool. It is not under
+  // Download Stats is the first engineering tool (ADR 0001). It is not under
   // Infra Portal: Infra is GitHub administration, and this is release
-  // downloads, package downloads, and repository stats. The perspective stays
-  // hidden until the preview flag is on. The route stays registered either
-  // way, so a direct visit while the flag is off says Engineering is not
-  // available.
-  ...(isPreviewEnabled("engineering")
-    ? [
-        {
-          key: "engineering",
-          label: "Engineering",
-          icon: BarChart3,
-          access: true,
-          path: "/engineering",
-          forwardsToFirstItem: true,
-          sections: [
-            {
-              id: "engineering-product-download-stats",
-              label: "Product Download Stats",
-              icon: BarChart3,
-              alwaysGroup: true,
-              children: [
-                {
-                  id: "engineering-download-stats-overview",
-                  label: "Overview",
-                  path: "/engineering",
-                },
-                {
-                  id: "engineering-download-stats-downloads",
-                  label: "Downloads",
-                  path: "/engineering/downloads",
-                },
-                {
-                  id: "engineering-download-stats-versions",
-                  label: "Versions",
-                  path: "/engineering/versions",
-                },
-                {
-                  id: "engineering-download-stats-packages",
-                  label: "Packages",
-                  path: "/engineering/packages",
-                },
-                {
-                  id: "engineering-download-stats-repository-stats",
-                  label: "Repository Stats",
-                  path: "/engineering/repository-stats",
-                },
-                {
-                  id: ENGINEERING_ADMIN_ITEM_ID,
-                  label: "Admin",
-                  path: "/engineering/admin",
-                },
-              ],
-            },
-          ],
-        },
-      ]
-    : []),
+  // downloads, package downloads, and repository stats. It is an app inside
+  // the perspective the way MIS is inside Finance — its own registry
+  // (downloadStatsApps.ts), one rail row, screens in a tab bar — because its
+  // Admin screen is gated by the Download Stats API's own user-info, not by
+  // `requires`. UMT is the second app, and only while its own preview flag
+  // is on. Engineering itself is shipped.
+  {
+    key: "engineering",
+    label: "Engineering",
+    icon: BarChart3,
+    access: true,
+    path: "/engineering",
+    forwardsToFirstItem: true,
+    sections: [
+      ...appsToSections(DOWNLOAD_STATS_APPS),
+      ...(isPreviewEnabled("umt") ? [UMT_SECTION] : []),
+    ],
+  },
   // Held behind a preview flag, whole perspective and all, until it's ready
   // for production. With the flag off the entry does not exist, so the waffle,
-  // landing options, and favourites stay clean. Same shape as UMT above.
+  // landing options, and favourites stay clean.
   ...(isPreviewEnabled("infra")
   ? [
       {
@@ -891,27 +880,6 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/me",
     sections: ME_SECTIONS,
   },
-  // UmtShell performs the service-owned role check for all UMT pages.
-  //
-  // Held behind a preview flag, whole perspective and all, until it's ready for
-  // production — not just `access: false`, because that would still leave a
-  // disabled "not available yet" tile in the waffle (see FUNCTIONAL_PERSPECTIVES
-  // below, which is unfiltered). Spread in exactly like FINANCE_PERSPECTIVE_APPS
-  // does for the expense app, so with the flag off the entry does not exist at
-  // all, and every surface that reads PERSPECTIVES stays clean.
-  ...(isPreviewEnabled("umt")
-    ? [
-        {
-          key: "umt",
-          label: "UMT",
-          icon: LayoutDashboard,
-          externallyGated: true,
-          access: true,
-          path: "/umt",
-          sections: UMT_SECTIONS,
-        },
-      ]
-    : []),
 ];
 
 /**

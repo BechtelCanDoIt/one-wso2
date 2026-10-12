@@ -16,6 +16,7 @@
 
 import type { Capability } from "@constants/appMenu";
 import { isPreviewEnabled } from "@config/previewFeatures";
+import { ENGINEERING_ADMIN_ITEM_ID } from "@constants/downloadStatsApps";
 import { DUE_DILIGENCE_ITEM_IDS } from "@constants/dueDiligenceApps";
 import { FINANCE_ITEM_IDS } from "@constants/financeApps";
 import { MIS_ITEM_IDS } from "@constants/misApps";
@@ -24,7 +25,6 @@ import { BANKING_ITEM_IDS, LEAVE_ITEM_IDS } from "@constants/meApps";
 import { PAR_EMPLOYEE_ITEM_ID } from "@constants/parApps";
 import {
   BANKING_ADMIN_ITEM_ID,
-  ENGINEERING_ADMIN_ITEM_ID,
   PAR_ADMIN_PORTAL_ITEM_ID,
   PAR_LEAD_PORTAL_ITEM_ID,
   PROMOTION_ADMIN_PORTAL_ITEM_ID,
@@ -35,7 +35,7 @@ import {
   PROMOTION_TEAM_HISTORY_ITEM_ID,
   SALES_ITEM_IDS,
   SUBSCRIPTION_ITEM_IDS,
-  UMT_ADMIN_ITEM_IDS,
+  UMT_ITEM_IDS,
   type PerspectiveSection,
 } from "@constants/perspectives";
 import { SECURITY_ITEM_IDS } from "@constants/securityApps";
@@ -187,7 +187,7 @@ export function claimOf(name: AdapterName): SectionClaim {
     case "security":
       return { kind: "sections", ids: SECURITY_ITEM_IDS };
     case "umt":
-      return { kind: "sections", ids: UMT_ADMIN_ITEM_IDS };
+      return { kind: "sections", ids: UMT_ITEM_IDS };
     case "subscriptions":
       return { kind: "sections", ids: SUBSCRIPTION_ITEM_IDS };
     case "engineering":
@@ -229,8 +229,11 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   // backend that has nothing to show.
   if (perspectiveKey === "people" && isPreviewEnabled("promotion")) names.push("promotion");
   if (perspectiveKey === "security") names.push("security");
-  if (perspectiveKey === "umt") names.push("umt");
-  if (perspectiveKey === "engineering" && isPreviewEnabled("engineering")) names.push("engineering");
+  if (perspectiveKey === "engineering") names.push("engineering");
+  // UMT's rows exist only while its preview flag is on, same as MIS and CadO2.
+  // Asking its /update/user-info when they are absent holds the Engineering
+  // landing on a backend that has nothing to show.
+  if (perspectiveKey === "engineering" && isPreviewEnabled("umt")) names.push("umt");
   names.push("subscriptions");
   return names;
 }

@@ -20,7 +20,7 @@ import { Navigate, Route, Routes } from "react-router";
 import { landingPath } from "@config/landingConfig";
 import SettingsPage from "@features/settings/pages/SettingsPage";
 import MenuHomePage from "@features/menu/pages/MenuHomePage";
-import TilEntryPage from "@features/til/pages/TilEntryPage";
+import TilEntryRoute from "@features/til/pages/TilEntryRoute";
 import TilHomePage from "@features/til/pages/TilHomePage";
 import OrgChartPage from "@features/org-chart/pages/OrgChartPage";
 import SalesMeetingsPage from "@features/sales/pages/SalesMeetingsPage";
@@ -222,12 +222,7 @@ import UmtReleaseChunksPage from "@features/umt/pages/UmtReleaseChunksPage";
 import UmtStatisticsPage from "@features/umt/pages/UmtStatisticsPage";
 import UmtUpdateView from "@features/umt/pages/UmtUpdateView";
 import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
-import EngineeringDownloadsPage from "@features/engineering/pages/EngineeringDownloadsPage";
-import EngineeringVersionsPage from "@features/engineering/pages/EngineeringVersionsPage";
-import EngineeringPackagesPage from "@features/engineering/pages/EngineeringPackagesPage";
-import EngineeringRepositoryStatsPage from "@features/engineering/pages/EngineeringRepositoryStatsPage";
-import EngineeringAdminPage from "@features/engineering/pages/EngineeringAdminPage";
-import EngineeringOverviewPage from "@features/engineering/pages/EngineeringOverviewPage";
+import { engineeringRoutes } from "@features/engineering/routes";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
 
@@ -240,31 +235,27 @@ export default function App() {
           <Route index element={<Navigate to={landingPath()} replace />} />
           {/* Me home — the full profile page including Connected apps. */}
           <Route path="me" element={<MyProfilePage />} />
-          {/* UmtShell owns its role gate. Behind the same preview flag as its
-              perspective entry — hiding only the rail/launcher tile would leave
-              the routes reachable by URL. */}
+          {/* Engineering → Download Stats, routed as perspective / app / screen,
+              with the earlier addresses forwarding. The feature owns the
+              tree, as CadO2 and the GRC modules own theirs. */}
+          {engineeringRoutes}
+          {/* Engineering → UMT. UmtShell owns its role gate. Behind the same
+              preview flag as its rail group — hiding only the rail entries
+              would leave the routes reachable by URL. Nested under
+              /engineering/ so the Engineering rail renders around them. */}
           {isPreviewEnabled("umt") && (
             <>
-              <Route path="umt" element={<UmtHomePage />} />
-              <Route path="umt/updates" element={<UmtUpdatesPage />} />
-              <Route path="umt/updates/:id" element={<UmtUpdateView />} />
+              <Route path="engineering/umt" element={<UmtHomePage />} />
+              <Route path="engineering/umt/updates" element={<UmtUpdatesPage />} />
+              <Route path="engineering/umt/updates/:id" element={<UmtUpdateView />} />
               {/* Admin-only: UmtProductsPage itself enforces this via UmtShell's
                   requireAdmin, independent of the rail item's own visibility. */}
-              <Route path="umt/products" element={<UmtProductsPage />} />
-              <Route path="umt/release-chunks" element={<UmtReleaseChunksPage />} />
-              <Route path="umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
-              <Route path="umt/statistics" element={<UmtStatisticsPage />} />
+              <Route path="engineering/umt/products" element={<UmtProductsPage />} />
+              <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
+              <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
+              <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
             </>
           )}
-          {/* Registered even while the engineering preview flag is off. The page
-              says Engineering is not available; omitting the route would send a
-              direct visit home with no answer. */}
-          <Route path="engineering" element={<EngineeringOverviewPage />} />
-          <Route path="engineering/downloads" element={<EngineeringDownloadsPage />} />
-          <Route path="engineering/versions" element={<EngineeringVersionsPage />} />
-          <Route path="engineering/packages" element={<EngineeringPackagesPage />} />
-          <Route path="engineering/repository-stats" element={<EngineeringRepositoryStatsPage />} />
-          <Route path="engineering/admin" element={<EngineeringAdminPage />} />
           {isPreviewEnabled("infra") && (
             <>
               <Route path="infra" element={<InfraHomePage />} />
@@ -991,16 +982,20 @@ export default function App() {
                   No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
                   Colombo-office perk, every employee everywhere can use it. */}
               <Route path="knowledge-base" element={<TilHomePage />} />
-              {/* One entry's own page — what a Chat "View entry" button and a
-                  feed card's own link both land on. */}
-              <Route path="knowledge-base/:id" element={<TilEntryPage />} />
+              {/* One entry's own page — what a feed card opens inside One
+                  WSO2, or, with ?view=article, the full-page article a Chat
+                  "Read more" link lands on (AppLayout drops its shell for
+                  that; see layouts/fullPageRoutes). */}
+              <Route path="knowledge-base/:id" element={<TilEntryRoute />} />
             </>
           )}
           {/* Legal perspective — currently just a second entry point into Due
               Diligence, alongside Finance (see the finance/ routes below and
               DUE_DILIGENCE_APPS). */}
           <Route path="legal" element={<PerspectiveLanding />} />
-          <Route path="legal/nda" element={<NdaPage />} />
+          {/* Behind the same preview flag as its rail entry, so the page is not
+              reachable by URL either. */}
+          {isPreviewEnabled("nda") && <Route path="legal/nda" element={<NdaPage />} />}
           {/* Security — the GRC platform's Risk Hub and Admin Console, lifted
               from grc-tools rather than rewritten. The two route fragments are
               the SOURCE's own (modules/{risk,audit,admin}/routes.tsx), spread

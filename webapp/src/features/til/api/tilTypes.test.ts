@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { isTilWhere, normalizeSubmission, TIL_WHERE_OPTIONS } from "./tilTypes";
+import { isSameWhereDetail, isTilWhere, normalizeSubmission, TIL_WHERE_OPTIONS } from "./tilTypes";
 
 describe("isTilWhere", () => {
   it.each(TIL_WHERE_OPTIONS)("accepts %s", (opt) => {
@@ -31,10 +31,30 @@ describe("isTilWhere", () => {
   });
 });
 
+describe("isSameWhereDetail", () => {
+  it("ignores a stored detail, blank or not, for a source that takes none", () => {
+    expect(isSameWhereDetail(false, "", "")).toBe(true);
+    expect(isSameWhereDetail(false, "", null)).toBe(true);
+    expect(isSameWhereDetail(false, "", "Acme Corp")).toBe(true);
+  });
+
+  it("reads blank the same as none", () => {
+    expect(isSameWhereDetail(true, "  ", null)).toBe(true);
+    expect(isSameWhereDetail(true, "", "")).toBe(true);
+  });
+
+  it("compares the trimmed detail for a source that takes one", () => {
+    expect(isSameWhereDetail(true, " Acme Corp ", "Acme Corp")).toBe(true);
+    expect(isSameWhereDetail(true, "Globex", "Acme Corp")).toBe(false);
+    expect(isSameWhereDetail(true, "Acme Corp", null)).toBe(false);
+  });
+});
+
 describe("normalizeSubmission", () => {
   it("parses the wire createdAt string into a real Date", () => {
     const result = normalizeSubmission({
       id: "1",
+      title: "What I learned",
       who: "Jane Doe, CSM",
       where: "Customer",
       whereDetail: "Acme Corp",
@@ -46,9 +66,40 @@ describe("normalizeSubmission", () => {
     expect(result.createdAt.toISOString()).toBe("2026-10-01T10:00:00.000Z");
   });
 
+  it("parses updatedAt when the entry has been edited", () => {
+    const result = normalizeSubmission({
+      id: "1",
+      title: "T",
+      who: "Jane",
+      where: "Internal",
+      whereDetail: null,
+      what: "x",
+      submittedByEmail: "jane@wso2.com",
+      createdAt: "2026-10-01T10:00:00.000Z",
+      updatedAt: "2026-10-02T09:30:00.000Z",
+    });
+    expect(result.updatedAt?.toISOString()).toBe("2026-10-02T09:30:00.000Z");
+  });
+
+  it("reads a never-edited entry as updatedAt null, with or without the field", () => {
+    const base = {
+      id: "1",
+      title: "T",
+      who: "Jane",
+      where: "Internal" as const,
+      whereDetail: null,
+      what: "x",
+      submittedByEmail: "jane@wso2.com",
+      createdAt: "2026-10-01T10:00:00.000Z",
+    };
+    expect(normalizeSubmission({ ...base, updatedAt: null }).updatedAt).toBeNull();
+    expect(normalizeSubmission(base).updatedAt).toBeNull();
+  });
+
   it("passes every other field through unchanged", () => {
     const result = normalizeSubmission({
       id: "42",
+      title: "A title",
       who: "Someone",
       where: "Internal",
       whereDetail: null,
@@ -57,6 +108,7 @@ describe("normalizeSubmission", () => {
       createdAt: "2026-10-01T10:00:00.000Z",
     });
     expect(result.id).toBe("42");
+    expect(result.title).toBe("A title");
     expect(result.who).toBe("Someone");
     expect(result.where).toBe("Internal");
     expect(result.what).toBe("A thing.");
