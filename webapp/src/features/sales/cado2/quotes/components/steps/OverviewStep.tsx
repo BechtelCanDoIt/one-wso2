@@ -14,20 +14,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useCallback, useState, type JSX, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Alert, AlertTitle, Box, Chip, DatePickers, MenuItem, Stack, TextField, Typography } from "@wso2/oxygen-ui";
+import { Alert, AlertTitle, Box, Chip, MenuItem, Stack, TextField, Typography } from "@wso2/oxygen-ui";
 import {
   useAccountContacts,
   useAccountOpportunities,
   useActiveLegalEntities,
   useCurrencies,
+  useOpportunityProducts,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { Account, Opportunity } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   BriefcaseIcon,
   Building2Icon,
-  CalendarDaysIcon,
   LandmarkIcon,
   RepeatIcon,
   StarIcon,
@@ -36,8 +36,7 @@ import {
   addressFrom,
   emptyAddress,
   emptyContact,
-  parseDateString,
-  toDateString,
+  pulledLines,
   type DraftFormValues,
 } from "@features/sales/cado2/quotes/form/draftForm";
 import SalesforceFindings, { type Finding } from "@features/sales/cado2/quotes/components/SalesforceFindings";
@@ -45,12 +44,10 @@ import { formatMoney } from "@features/sales/cado2/utils/money";
 import AccountPicker from "@features/sales/cado2/quotes/components/pickers/AccountPicker";
 import OpportunityPicker from "@features/sales/cado2/quotes/components/pickers/OpportunityPicker";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import { expectedRenewalStart, renewalStartWarning } from "@features/sales/cado2/quotes/form/renewalStart";
+import { expectedRenewalStart } from "@features/sales/cado2/quotes/form/renewalStart";
 import { subscriptionPeriod } from "@features/sales/cado2/utils/subscription";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
 import PrimaryQuoteField from "@features/sales/cado2/quotes/components/PrimaryQuoteField";
-
-const { DatePicker } = DatePickers;
 
 interface OverviewStepProps {
   /** After the first save the account and opportunity are fixed (UI choice 3). */
@@ -182,6 +179,18 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
   const [revealedFor, setRevealedFor] = useState<string | null>(null);
   const markRevealed = useCallback(() => setRevealedFor(opportunityId), [opportunityId]);
   const showRest = Boolean(opportunityId) && (locked || revealedFor === opportunityId);
+
+  // A new quote starts from its opportunity's products (D72): only the
+  // products, 1 unit each, priced from its price book; once per opportunity
+  // chosen, before the first save fixes it.
+  const pulled = useOpportunityProducts(!locked && accountId ? accountId : null, !locked && opportunityId ? opportunityId : null);
+  const pulledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (locked || !pulled.data || !opportunityId || pulledFor.current === opportunityId) return;
+    pulledFor.current = opportunityId;
+    setValue("lines", pulledLines(pulled.data.products), { shouldDirty: true });
+    setValue("notBroughtIn", pulled.data.notBroughtIn, { shouldDirty: true });
+  }, [locked, pulled.data, opportunityId, setValue]);
   // Likewise, the opportunity list waits until the account's findings have
   // all ticked in (2026-10-09), so the page doesn't change under them.
   const [accountRevealedFor, setAccountRevealedFor] = useState<string | null>(null);
@@ -196,7 +205,6 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
   const currencies = useCurrencies();
 
   const oppIssue = useFieldIssue("sfOpportunityId");
-  const startIssue = useFieldIssue("subscriptionStartDate");
 
   const accountAddress = useWatch({ control, name: "accountAddress" });
   const accountSalesRegion = useWatch({ control, name: "accountSalesRegion" });
@@ -261,20 +269,12 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
 
   const previousOptions = (wonOpportunities.data ?? []).filter((o) => o.id !== opportunityId);
 
-  // A renewal starts the day after the renewed opportunity ends (2026-10-09):
-  // filled in when it is chosen; the AM may change it, with a warning.
-  const [previousIds, startDate] = useWatch({ control, name: ["previousOpportunityIds", "startDate"] });
+  // A renewal starts the day after the renewed opportunity ends, locked (D73):
+  // set when it is chosen; shown on Term & Products. Without an end date in
+  // Salesforce, the AM chooses it there.
   const renewedOf = (ids: readonly string[]) => (wonOpportunities.data ?? []).filter((o) => ids.includes(o.id));
-  const expectedStart = isRenewal ? expectedRenewalStart(renewedOf(previousIds)) : null;
-  const renewedWithoutEnd = isRenewal ? renewedOf(previousIds).filter((o) => !o.subsEndDate) : [];
-  // The start date follows the suggestion only while the AM hasn't chosen
-  // their own: when it is empty, or still the date suggested before this
-  // change. A date the AM picked stays (with its warning); a suggestion whose
-  // source is gone is cleared, so the AM is asked to choose.
   const chooseRenewed = (ids: string[]) => {
     setValue("previousOpportunityIds", ids, { shouldDirty: true });
-    const current = getValues("startDate");
-    if (current && current !== expectedStart?.date) return;
     const expected = expectedRenewalStart(renewedOf(ids));
     setValue("startDate", expected?.date ?? "", { shouldDirty: true });
   };
@@ -427,45 +427,6 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
             />
           </Section>
 
-          <Section title="Start date" icon={<CalendarDaysIcon size={18} />}>
-            <Controller
-              name="startDate"
-              control={control}
-              render={({ field }) => (
-                <DatePicker
-                  label="Start date"
-                  value={parseDateString(field.value)}
-                  onChange={(d: Date | null) => field.onChange(d && !Number.isNaN(d.getTime()) ? toDateString(d) : "")}
-                  slotProps={{
-                    textField: {
-                      size: "small",
-                      required: true,
-                      error: Boolean(startIssue),
-                      helperText:
-                        startIssue ??
-                        (expectedStart && field.value === expectedStart.date
-                          ? `The day after ${expectedStart.fromName || "the renewed opportunity"} ends`
-                          : "The subscription term is set with the products"),
-                      sx: { maxWidth: 240 },
-                    },
-                  }}
-                />
-              )}
-            />
-            {/* The AM may start another day; it is pointed out, never blocked (2026-10-09). */}
-            {expectedStart && startDate && startDate !== expectedStart.date ? (
-              <Alert severity="warning" role="status">
-                {renewalStartWarning(startDate, expectedStart)}. Deal Desk will see this.
-              </Alert>
-            ) : null}
-            {renewedWithoutEnd.length ? (
-              <Alert severity="info" variant="outlined">
-                {renewedWithoutEnd.map((o) => o.name ?? o.id).join(", ")} {renewedWithoutEnd.length === 1 ? "has" : "have"} no
-                subscription end date in Salesforce (<code>Subs_End_Date__c</code>), so the start date can&apos;t be
-                worked out from {renewedWithoutEnd.length === 1 ? "it" : "them"}. Choose it.
-              </Alert>
-            ) : null}
-          </Section>
         </>
       ) : null}
 

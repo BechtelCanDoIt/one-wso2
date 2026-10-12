@@ -40,7 +40,7 @@ import { descriptionAfterName } from "@features/sales/cado2/utils/productDescrip
 import { lineProblems } from "@features/sales/cado2/quotes/components/lineProblems";
 import { useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { CategorySource, LineCategory, PricebookRef, Product } from "@features/sales/cado2/quotes/api/quoteTypes";
-import type { LineValue } from "@features/sales/cado2/quotes/form/draftForm";
+import { LINE_CATEGORIES, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
 
 /** A small heading for a group of fields in the dialog. */
 function Group({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }): JSX.Element {
@@ -137,11 +137,7 @@ interface AddLineDialogProps {
   readonly onClose: () => void;
 }
 
-const CATEGORIES: readonly { value: LineCategory; label: string }[] = [
-  { value: "SUBSCRIPTION", label: "Subscription" },
-  { value: "SUPPORT", label: "Support" },
-  { value: "PROFESSIONAL_SERVICE", label: "Professional Service (one-time)" },
-];
+const CATEGORIES = LINE_CATEGORIES;
 
 const categoryLabel = (c: LineCategory) => CATEGORIES.find((x) => x.value === c)?.label ?? c;
 
@@ -238,7 +234,7 @@ export default function AddLineDialog({
   // A mapped product's category is the Admin's and can't be changed.
   const mapped: LineCategory | null = product
     ? (product.category ?? null)
-    : keepsExisting && line.categorySource === "MAPPED"
+    : keepsExisting && line.categorySource === "MAPPED" && line.category
       ? line.category
       : null;
   const source: CategorySource = mapped ? "MAPPED" : "REP";

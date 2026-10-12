@@ -30,11 +30,9 @@ describe("stepChecks", () => {
 
   it("starts a new quote at Overview with everything to choose", () => {
     const [overview, products, commercial] = stepChecks(emptyDraftForm());
-    expect(overview.map((c) => c.field)).toEqual([
-      "sfAccountId", "sfOpportunityId", "legalEntityId", "subscriptionStartDate",
-    ]);
-    // The currency is chosen with the price book.
-    expect(products.map((c) => c.field)).toEqual(["currencyIsoCode", "lines"]);
+    expect(overview.map((c) => c.field)).toEqual(["sfAccountId", "sfOpportunityId", "legalEntityId"]);
+    // The start date is chosen with the term (D73); the currency with the price book.
+    expect(products.map((c) => c.field)).toEqual(["subscriptionStartDate", "currencyIsoCode", "lines"]);
     expect(commercial.map((c) => c.field)).toEqual(["netTermsDays", "billTo", "shipTo", "contacts.billing"]);
     expect(reachableStep(stepChecks(emptyDraftForm()))).toBe(0);
   });
@@ -65,14 +63,18 @@ describe("stepChecks", () => {
     expect(stepChecks(v)[2].map((c) => c.field)).toEqual(["governingTerms.text"]);
   });
 
-  it("checks the subscription term on Products & Pricing", () => {
+  it("checks the subscription term on Term & Products", () => {
     const products = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[1];
     expect(products({ termMode: "" }).map((c) => c.field)).toEqual(["termMode"]);
     expect(products({ termMode: "MULTI_YEAR", billingFrequency: "" }).map((c) => c.field)).toEqual(["billingFrequency"]);
     expect(products({ termMode: "ONE_YEAR", billingFrequency: "" })).toEqual([]);
     expect(products({ termMode: "SHORTER", termEndDate: "" })[0].message).toBe("Choose the end date");
-    expect(products({ termMode: "CO_TERMED", termEndDate: "2027-09-30" })).toEqual([]);
-    expect(products({ termMode: "CO_TERMED", termEndDate: "2027-10-01" })[0].message).toMatch(/within a year/);
+    // Co-termed: ends with the chosen opportunity (D73).
+    expect(products({ termMode: "CO_TERMED", coTermOpportunityId: "", termEndDate: "" })[0].message).toBe(
+      "Choose the opportunity it co-terminates with",
+    );
+    expect(products({ termMode: "CO_TERMED", coTermOpportunityId: "006CO", termEndDate: "2027-09-30" })).toEqual([]);
+    expect(products({ termMode: "CO_TERMED", coTermOpportunityId: "006CO", termEndDate: "2027-10-01" })[0].message).toMatch(/within a year/);
   });
 
   it("needs the partner's commission on a partner-led quote", () => {
@@ -81,6 +83,12 @@ describe("stepChecks", () => {
     expect(products({ partnerCommissionPercent: "120" })[0].message).toMatch(/0 to 100/);
     expect(products({ partnerCommissionPercent: "0" })).toEqual([]);
     expect(products({ dealType: "DIRECT", partnerCommissionPercent: "" })).toEqual([]);
+  });
+
+  it("needs a category on every line brought in from Salesforce (D72)", () => {
+    const v = complete();
+    const lines = v.lines.map((l, i) => (i === 0 ? { ...l, category: "" as const } : l));
+    expect(stepChecks({ ...v, lines })[1].map((c) => c.message)).toContain("Choose the category of 1 product");
   });
 
   it("needs no term for a services-only quote", () => {

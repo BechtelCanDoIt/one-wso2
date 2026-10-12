@@ -33,6 +33,7 @@ import type {
   LineCategory,
   Partner,
   PricingPreview,
+  Product,
   TermMode,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
@@ -72,7 +73,8 @@ export interface LineValue {
   pricebookId: string;
   pricebookName: string;
   unitPrice: string;
-  category: LineCategory;
+  /** "" = a product pulled from the opportunity that waits for the AM's category (D72). */
+  category: LineCategory | "";
   /** MAPPED: set by the Admin's product mapping and locked; REP: the rep chose. */
   categorySource: CategorySource;
   unitOfMeasure: string;
@@ -118,8 +120,13 @@ export interface DraftFormValues {
   termMode: TermMode | "";
   /** Multi-year only. */
   termYears: string;
-  /** Co-termed and Shorter term only: the end date the AM types. */
+  /** Shorter term: the end date the AM types. Co-termed: the chosen opportunity's end (D73). */
   termEndDate: string;
+  /** A co-termed expansion: the opportunity it ends with (D73); "" otherwise. */
+  coTermOpportunityId: string;
+  coTermOpportunityName: string;
+  /** The opportunity's products that couldn't be brought in, and why (D72). Shown once; never saved. */
+  notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
   /** Multi-year only; every other term is billed annually. */
   billingFrequency: BillingFrequency | "";
   /** Partner-led quotes only: the partner's commission %, "" until entered. */
@@ -184,6 +191,9 @@ export function emptyDraftForm(): DraftFormValues {
     termMode: "ONE_YEAR", // T1
     termYears: "2",
     termEndDate: "",
+    coTermOpportunityId: "",
+    coTermOpportunityName: "",
+    notBroughtIn: [],
     billingFrequency: "",
     partnerCommissionPercent: "",
     lines: [],
@@ -244,11 +254,18 @@ export function endDateFor(start: string, years: number): string {
 /** Lines with a discount above 0%; any makes the justification required. */
 export const discountedLines = (lines: readonly { discount: string }[]) => lines.filter((l) => Number(l.discount) > 0).length;
 
+/** The line categories, as the AM chooses them (D46, D72). */
+export const LINE_CATEGORIES: readonly { value: LineCategory; label: string }[] = [
+  { value: "SUBSCRIPTION", label: "Subscription" },
+  { value: "SUPPORT", label: "Support" },
+  { value: "PROFESSIONAL_SERVICE", label: "Professional Service (one-time)" },
+];
+
 /** Subscription and Support lines repeat yearly; a Professional Service doesn't. */
-export const isRecurring = (category: LineCategory) => category !== "PROFESSIONAL_SERVICE";
+export const isRecurring = (category: LineCategory | "") => category !== "" && category !== "PROFESSIONAL_SERVICE";
 
 /** Whether the quote needs a subscription term: any recurring line. */
-export const hasRecurring = (lines: readonly { category: LineCategory }[]) => lines.some((l) => isRecurring(l.category));
+export const hasRecurring = (lines: readonly { category: LineCategory | "" }[]) => lines.some((l) => isRecurring(l.category));
 
 /** Whether the AM types the end date (Co-termed, Shorter term). */
 export const isShortMode = (mode: TermMode | "" | null) => mode === "CO_TERMED" || mode === "SHORTER";
@@ -363,6 +380,8 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
     termMode: v.termMode ?? (hasRecurring(v.lines) ? "" : "ONE_YEAR"),
     termYears: String(v.termYears ?? 2),
     termEndDate: isShortMode(v.termMode) ? end : "",
+    coTermOpportunityId: v.coTermOpportunity?.id ?? "",
+    coTermOpportunityName: v.coTermOpportunity?.name ?? "",
     billingFrequency: v.termMode === "MULTI_YEAR" ? (v.billingFrequency ?? "") : "",
     partnerCommissionPercent: v.partnerCommissionPercent ? String(Number(v.partnerCommissionPercent)) : "",
     lines: v.lines.map((l) => ({
@@ -474,7 +493,8 @@ function termInput(v: DraftFormValues) {
   return {
     termMode: v.termMode,
     termYears: v.termMode === "MULTI_YEAR" ? Number(v.termYears) : undefined,
-    subscriptionEndDate: isShortMode(v.termMode) ? opt(v.termEndDate) : undefined,
+    subscriptionEndDate: v.termMode === "SHORTER" ? opt(v.termEndDate) : undefined,
+    coTermOpportunityId: v.termMode === "CO_TERMED" ? opt(v.coTermOpportunityId) : undefined,
     billingFrequency: v.termMode === "MULTI_YEAR" ? v.billingFrequency || undefined : undefined,
   };
 }
@@ -528,7 +548,9 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
  * term and (for Multi-year) a billing frequency.
  */
 export function toPreviewBody(v: DraftFormValues): object | null {
-  if (!v.startDate || !v.currencyIsoCode || v.lines.length === 0) return null;
+  // A line waiting for its category isn't priced yet (D72); the others are.
+  const lines = v.lines.filter((l) => l.category);
+  if (!v.startDate || !v.currencyIsoCode || lines.length === 0) return null;
   const recurring = hasRecurring(v.lines);
   const end = termEnd(v);
   const billing = effectiveBilling(v);
@@ -539,7 +561,7 @@ export function toPreviewBody(v: DraftFormValues): object | null {
     subscriptionEndDate: recurring ? end : undefined,
     billingFrequency: recurring ? billing : "ANNUAL",
     partnerCommissionPercent: commissionInput(v),
-    lines: v.lines.map((l) => ({
+    lines: lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,
       quantity: Number(l.quantity),
       category: l.category,
@@ -563,8 +585,10 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
   const start = v.subscriptionStartDate;
   // A services-only quote has no end date: its one "year" is the start day.
   const end = v.subscriptionEndDate ?? (hasRecurring(v.lines) ? null : start);
-  if (!start || !end || v.lines.length === 0 || v.lines.some((l) => l.schedule.length === 0)) return null;
-  const yearCount = Math.max(...v.lines.flatMap((l) => l.schedule.map((r) => r.yearNumber)));
+  // A line waiting for its category is stored unpriced (D72); any other unpriced line means the quote isn't priced.
+  const pricedLines = v.lines.filter((l) => l.category !== "");
+  if (!start || !end || pricedLines.length === 0 || pricedLines.some((l) => l.schedule.length === 0)) return null;
+  const yearCount = Math.max(...pricedLines.flatMap((l) => l.schedule.map((r) => r.yearNumber)));
   const years = [];
   for (let n = 1; n <= yearCount; n++) {
     const rows = v.lines.flatMap((l) => l.schedule.filter((r) => r.yearNumber === n));
@@ -584,16 +608,42 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
     termMonths: "",
     totals: v.totals,
     years,
-    lines: v.lines.map((l) => ({
-      pricebookEntryId: l.pricebookEntryId,
-      annualList: l.annualList,
-      annualNet: l.annualNet,
-      arr: l.arr,
-      tcv: l.tcv,
-      commission: l.commission,
-      schedule: l.schedule,
-    })),
+    // Aligned with the version's lines: a gap where a line waits for its category.
+    lines: v.lines.map((l) =>
+      l.category !== ""
+        ? {
+            pricebookEntryId: l.pricebookEntryId,
+            annualList: l.annualList,
+            annualNet: l.annualNet,
+            arr: l.arr,
+            tcv: l.tcv,
+            commission: l.commission,
+            schedule: l.schedule,
+          }
+        : undefined,
+    ) as unknown as PricingPreview["lines"],
   };
+}
+
+/**
+ * The live preview prices only the lines with a category (D72). This lines its
+ * prices up with the form's lines again, product by product in order, leaving
+ * a gap where a line waits for its category (or where the preview hasn't
+ * caught up with a change yet), so no line shows another's amount.
+ */
+export function alignPreview(
+  p: PricingPreview | null,
+  lines: readonly { readonly category: LineCategory | ""; readonly pricebookEntryId: string }[],
+): PricingPreview | null {
+  if (!p) return null;
+  let k = 0;
+  const aligned = lines.map((l) => {
+    const next = p.lines[k];
+    if (!l.category || !next || next.pricebookEntryId !== l.pricebookEntryId) return undefined;
+    k++;
+    return next;
+  });
+  return { ...p, lines: aligned as unknown as PricingPreview["lines"] };
 }
 
 function dayAfter(date: string): string {
@@ -629,10 +679,13 @@ export function formatDate(date: string | null): string {
 // ---------------------------------------------------------------------------
 
 /** Wizard steps, in order. */
-export const STEPS = ["Overview", "Products & Pricing", "Commercial", "Review"] as const;
+export const STEPS = ["Overview", "Term & Products", "Commercial", "Review"] as const;
 
-/** Fields on Products & Pricing besides the lines: currency and price book, the term card, commission. */
+/** Fields on Term & Products besides the lines: the start date and term, currency and price book, commission. */
 const TERM_FIELDS = [
+  // The start date is on step 2 with the term (D73).
+  "subscriptionStartDate",
+  "coTermOpportunityId",
   "currencyIsoCode",
   "defaultPricebookId",
   "termMode",
@@ -659,4 +712,33 @@ export function stepOfField(field: string): number {
   if (field === "lines" || field.startsWith("lines[") || TERM_FIELDS.includes(field)) return 1;
   if (STEP_3_FIELDS.some((f) => field === f || field.startsWith(f + ".") || field.startsWith(f + "["))) return 2;
   return 0;
+}
+
+/**
+ * The lines a new quote starts with (D72): one per product on the Salesforce
+ * opportunity, priced from the price book, 1 unit each (the AM changes it), no
+ * discount, the Admin's category if mapped, else "" for the AM to choose.
+ */
+export function pulledLines(products: readonly Product[]): LineValue[] {
+  return products.flatMap((p) => {
+    const entry = p.pricebookEntries.find((e) => e.isActive);
+    if (!entry) return [];
+    return [
+      {
+        lineId: null,
+        pricebookEntryId: entry.id,
+        productName: p.name ?? p.id,
+        productCode: p.productCode ?? "",
+        productDescription: p.description ?? "",
+        pricebookId: entry.pricebook?.id ?? "",
+        pricebookName: entry.pricebook?.name ?? "",
+        unitPrice: entry.unitPrice ?? "",
+        category: p.category ?? "",
+        categorySource: p.category ? "MAPPED" : "REP",
+        unitOfMeasure: "",
+        quantity: "1",
+        discount: "",
+      } satisfies LineValue,
+    ];
+  });
 }

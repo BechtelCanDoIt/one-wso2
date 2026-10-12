@@ -1878,6 +1878,9 @@ export const cado2ServiceUrls = {
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
   // Makes the quote its opportunity's primary quote, or releases it (D68).
   quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,
+  // The products on an opportunity, priced from its price book: a new quote starts from them (D72).
+  opportunityProducts: (accountId: string, opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/products?accountId=${encodeURIComponent(accountId)}`,
   // The quotes on an opportunity, with which is primary (D68).
   opportunityQuotes: (opportunityId: string): string =>
     `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,

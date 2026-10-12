@@ -282,6 +282,8 @@ export interface DraftInput {
   readonly termYears?: number;
   /** Typed in for Co-termed and Shorter term only; other modes derive it. */
   readonly subscriptionEndDate?: string;
+  /** A co-termed expansion: the opportunity it ends with (D73). */
+  readonly coTermOpportunityId?: string;
   /** Multi-year only; every other term is billed annually. */
   readonly billingFrequency?: BillingFrequency;
   /** Partner-led quotes only: one % for every line. */
@@ -416,6 +418,8 @@ export interface VersionView {
   /** Null for a services-only quote, or a version submitted before term modes. */
   readonly termMode: TermMode | null;
   readonly termYears: number | null;
+  /** A co-termed expansion: the opportunity it ends with (D73). */
+  readonly coTermOpportunity: { readonly id: string; readonly name: string | null } | null;
   /** "15.00" on a partner-led quote with a commission; null otherwise. */
   readonly partnerCommissionPercent?: string | null;
   readonly billingFrequency: BillingFrequency | null;
@@ -619,3 +623,13 @@ export type QuoteAccess = "VIEW" | "VIEW_EDIT";
 
 /** Whose quotes the Quotes page lists (D70): the caller's own, or everyone's. */
 export type QuoteScope = "mine" | "all";
+
+/** GET /opportunities/{id}/products: what a new quote starts from (D72). */
+export interface OpportunityProducts {
+  readonly currencyIsoCode: string | null;
+  readonly pricebook: { readonly id: string | null; readonly name: string | null } | null;
+  /** One per Salesforce line, priced from the opportunity's price book. */
+  readonly products: readonly Product[];
+  /** Products the price book doesn't price, e.g. "not active in USD Price Book in USD". */
+  readonly notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
+}

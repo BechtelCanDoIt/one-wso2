@@ -18,12 +18,15 @@ import { useMemo, useState, type JSX } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import {
   Alert,
+  AlertTitle,
   Box,
   Button,
   IconButton,
+  MenuItem,
   Stack,
   TableCell,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
@@ -34,7 +37,15 @@ import DealFiguresSection from "@features/sales/cado2/quotes/components/sheet/De
 import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/ScheduleTable";
 import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { hasRecurring, isPartnerLed, type DraftFormValues, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
+import {
+  LINE_CATEGORIES,
+  hasRecurring,
+  isPartnerLed,
+  termEnd,
+  type DraftFormValues,
+  type LineValue,
+} from "@features/sales/cado2/quotes/form/draftForm";
+import type { LineCategory } from "@features/sales/cado2/quotes/api/quoteTypes";
 import AddLineDialog from "@features/sales/cado2/quotes/components/AddLineDialog";
 import SubscriptionTermCard from "@features/sales/cado2/quotes/components/SubscriptionTermCard";
 import PartnerCommissionCard from "@features/sales/cado2/quotes/components/PartnerCommissionCard";
@@ -65,7 +76,49 @@ function LineIssue({ index }: { index: number }) {
   );
 }
 
-/** Step ② Products & Pricing. */
+/**
+ * A line's category (D72): the Admin's mapping, shown; or, for a product not
+ * mapped (brought in from Salesforce, or added by the AM), a choice on the line.
+ */
+function CategoryCell({ index }: { index: number }): JSX.Element | null {
+  const { control, setValue } = useFormContext<DraftFormValues>();
+  const line = useWatch({ control, name: `lines.${index}` });
+  const issue = useFieldIssue(`lines[${index}].category`);
+  if (!line) return null;
+  if (line.categorySource === "MAPPED" && line.category) {
+    return <Typography variant="body2">{LINE_CATEGORIES.find((c) => c.value === line.category)?.label ?? line.category}</Typography>;
+  }
+  return (
+    <TextField
+      select
+      size="small"
+      value={line.category}
+      onChange={(e) => {
+        setValue(`lines.${index}.category`, e.target.value as LineCategory, { shouldDirty: true });
+        setValue(`lines.${index}.categorySource`, "REP", { shouldDirty: true });
+      }}
+      error={!line.category || Boolean(issue)}
+      slotProps={{ select: { displayEmpty: true }, htmlInput: { "aria-label": `Category of ${line.productName}` } }}
+      sx={{ minWidth: 180 }}
+    >
+      <MenuItem value="" disabled>
+        Choose
+      </MenuItem>
+      {LINE_CATEGORIES.map((c) => (
+        <MenuItem key={c.value} value={c.value}>
+          {c.label}
+        </MenuItem>
+      ))}
+    </TextField>
+  );
+}
+
+/**
+ * Step ② Term & Products (D73): when the quote starts and how long it runs,
+ * then the products, priced from the opportunity's price book. A new quote's
+ * products are brought in from the opportunity (D72); one not mapped to a
+ * category gets a choice on its line.
+ */
 export default function ProductsStep({ preview }: ProductsStepProps): JSX.Element {
   const { control, getValues } = useFormContext<DraftFormValues>();
   const { fields, append, update, remove } = useFieldArray({
@@ -82,7 +135,15 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
   const currency = values.currencyIsoCode;
   // The opportunity's book must be usable; the card says what to fix otherwise.
   const ready = Boolean(currency && values.defaultPricebookId && values.startDate);
-  const recurring = hasRecurring(values.lines);
+  // Why the amounts are blank, when it isn't a line waiting for its category.
+  const amountsHint =
+    preview || !values.lines.some((l) => l.category)
+      ? null
+      : !values.startDate
+        ? "Amounts appear once the start date is chosen."
+        : hasRecurring(values.lines) && !termEnd(values)
+          ? "Amounts appear once the term is chosen."
+          : null;
   // The same lines, amounts and figures as the Review step's sheet.
   const sheet = useMemo(() => sheetFromForm(values, preview, null), [values, preview]);
 
@@ -105,20 +166,18 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
 
   return (
     <Stack spacing={2.5}>
-      {!values.startDate ? (
-        <Alert severity="info">Choose the start date in Step 1 before adding products.</Alert>
-      ) : null}
       {linesIssue ? <Alert severity="error">{linesIssue}</Alert> : null}
+
+      {/* When it starts and how long it runs: the term comes first (D73). */}
+      <SubscriptionTermCard />
 
       {/* The opportunity's currency and price book, locked. */}
       <PricingSetupCard />
 
-      {/* The term only matters once something recurs. */}
-      {recurring ? (
-        <SubscriptionTermCard />
-      ) : fields.length > 0 ? (
-        <Alert severity="info">
-          Services only: this quote has no subscription term. Only the contract total (TCV) applies.
+      {values.notBroughtIn?.length ? (
+        <Alert severity="info" variant="outlined">
+          <AlertTitle>Not brought in from Salesforce ({values.notBroughtIn.length})</AlertTitle>
+          {values.notBroughtIn.map((n) => `${n.productName}: ${n.reason}`).join(" · ")}
         </Alert>
       ) : null}
 
@@ -155,8 +214,14 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               </>
             )}
             below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
+            category={(i) => <CategoryCell key={fields[i]?.id} index={i} />}
           />
         )}
+        {amountsHint ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {amountsHint}
+          </Typography>
+        ) : null}
       </SectionCard>
 
       {/* Partner-led: the partner's commission. */}

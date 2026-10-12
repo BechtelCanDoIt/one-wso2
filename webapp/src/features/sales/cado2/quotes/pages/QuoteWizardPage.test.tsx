@@ -43,6 +43,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     MIN_ACCOUNT_SEARCH: 3,
     useAccountSearch: () => idle(),
     useOpportunityQuotes: () => idle(),
+    useOpportunityProducts: () => ({ ...idle(), data: undefined }),
     useAccountOpportunities: () => idle(),
     useAccountContacts: () => idle(),
     useProducts: () => idle(),
@@ -102,7 +103,7 @@ describe("QuoteWizardPage — drafts", () => {
     // The draft has no contact, legal entity or products: it opens at Overview, the rest locked.
     const steps = within(screen.getByRole("navigation", { name: "Quote steps" }));
     expect(steps.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "step");
-    expect(steps.getByRole("button", { name: "Products & Pricing" })).toBeDisabled();
+    expect(steps.getByRole("button", { name: "Term & Products" })).toBeDisabled();
     expect(steps.getByRole("button", { name: "Review" })).toBeDisabled();
     expect(screen.getByRole("heading", { level: 2, name: "Overview" })).toBeInTheDocument();
     expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
@@ -160,7 +161,7 @@ describe("QuoteWizardPage — review and submit", () => {
   it("is filled in order: Next unlocks only when the step is complete", () => {
     renderWizard();
 
-    const next = screen.getByRole("button", { name: "Next: Products & Pricing →" });
+    const next = screen.getByRole("button", { name: "Next: Term & Products →" });
     expect(next).toBeDisabled();
     expect(screen.getByText("To continue: Choose the WSO2 legal entity")).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Quote steps" })).getByRole("button", { name: "Review" })).toBeDisabled();
@@ -173,11 +174,11 @@ describe("QuoteWizardPage — review and submit", () => {
     });
     renderWizard();
 
-    // The pricing problem makes Products & Pricing the furthest reachable step.
+    // The pricing problem makes Term & Products the furthest reachable step.
     expect(
       await screen.findByText("To continue: The minimum quantity for WSO2 Gateway is 50", undefined, { timeout: 2000 }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Products & Pricing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Term & Products" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next: Commercial →" })).toBeDisabled();
     expect(within(screen.getByRole("navigation", { name: "Quote steps" })).getByRole("button", { name: "Commercial" })).toBeDisabled();
   });
@@ -224,8 +225,8 @@ describe("QuoteWizardPage — review and submit", () => {
     // A complete draft opens on Review; go back to the start, then forward again.
     await user.click(screen.getByRole("button", { name: "Overview" }));
     const scrolls = vi.mocked(scrollMainToTop).mock.calls.length;
-    await user.click(screen.getByRole("button", { name: "Next: Products & Pricing →" }));
-    expect(screen.getByRole("heading", { level: 2, name: "Products & Pricing" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next: Term & Products →" }));
+    expect(screen.getByRole("heading", { level: 2, name: "Term & Products" })).toBeInTheDocument();
     // A new step starts at the top, not where the last one was scrolled to.
     expect(vi.mocked(scrollMainToTop).mock.calls.length).toBe(scrolls + 1);
     await user.click(screen.getByRole("button", { name: "← Back" }));
@@ -239,7 +240,7 @@ describe("QuoteWizardPage — review and submit", () => {
     Object.assign(version, { data: { ...ready, version: { ...ready.version, defaultPricebook: book } } });
     renderWizard();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Products & Pricing" }));
+    await user.click(screen.getByRole("button", { name: "Term & Products" }));
 
     const field = screen.getByRole("textbox", { name: "Price book" });
     expect(field).toHaveValue("USD Price Book (Current)");
@@ -254,7 +255,7 @@ describe("QuoteWizardPage — review and submit", () => {
     const book = { id: "01sUSD00000000001A", name: "USD Price Book (Current)" };
     Object.assign(version, { data: { ...ready, version: { ...ready.version, defaultPricebook: book, lines: [] } } });
     renderWizard();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Term & Products" }));
     expect(
       screen.getByText("Add products from the USD Price Book (Current) price book. Prices come from this price book."),
     ).toBeInTheDocument();
@@ -264,7 +265,7 @@ describe("QuoteWizardPage — review and submit", () => {
   it("can't add products without a price book from the opportunity", async () => {
     Object.assign(version, { data: { ...ready, version: { ...ready.version, defaultPricebook: null } } });
     renderWizard();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Term & Products" }));
     expect(screen.getByRole("textbox", { name: "Price book" })).toHaveValue("—");
     expect(screen.getByRole("button", { name: "Add line" })).toBeDisabled();
   });
@@ -370,7 +371,7 @@ describe("QuoteWizardPage — review and submit", () => {
 
     expect(await screen.findByText(/The version wasn't submitted/)).toBeInTheDocument();
     // findBy: the page is aria-hidden until the dialog's closing transition ends.
-    expect(await screen.findByRole("button", { name: /Products & Pricing: The minimum quantity/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Term & Products: The minimum quantity/ })).toBeInTheDocument();
   });
 
   it("opens a submitted version read-only on Review", () => {

@@ -25,6 +25,8 @@ import {
   expiryFor,
   formatDate,
   fromVersion,
+  pulledLines,
+  alignPreview,
   isExpired,
   parseDateString,
   shortTermProblem,
@@ -204,8 +206,11 @@ describe("toDraftInput", () => {
   it("sends only the term fields each mode uses", () => {
     const one = toDraftInput({ ...filled(), termMode: "ONE_YEAR", termEndDate: "2027-06-30", billingFrequency: "UPFRONT" });
     expect(one).toMatchObject({ termMode: "ONE_YEAR", termYears: undefined, subscriptionEndDate: undefined, billingFrequency: undefined });
-    const co = toDraftInput({ ...filled(), termMode: "CO_TERMED", termEndDate: "2027-06-30" });
-    expect(co).toMatchObject({ termMode: "CO_TERMED", subscriptionEndDate: "2027-06-30", billingFrequency: undefined });
+    // Co-termed: the opportunity it ends with, not a typed date (D73).
+    const co = toDraftInput({ ...filled(), termMode: "CO_TERMED", termEndDate: "2027-06-30", coTermOpportunityId: "006CO" });
+    expect(co).toMatchObject({ termMode: "CO_TERMED", coTermOpportunityId: "006CO", subscriptionEndDate: undefined, billingFrequency: undefined });
+    const short = toDraftInput({ ...filled(), termMode: "SHORTER", termEndDate: "2027-06-30", coTermOpportunityId: "006CO" });
+    expect(short).toMatchObject({ termMode: "SHORTER", subscriptionEndDate: "2027-06-30", coTermOpportunityId: undefined });
   });
 
   it("sends no term for a services-only quote", () => {
@@ -232,6 +237,14 @@ describe("toPreviewBody", () => {
     expect(toPreviewBody({ ...filled(), lines: [] })).toBeNull();
     expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "" })).toBeNull();
     expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "2028-01-01" })).toBeNull();
+  });
+
+  it("prices only the lines with a category (D72)", () => {
+    const v = filled();
+    const waiting = { ...v, lines: [...v.lines, { ...v.lines[0], pricebookEntryId: "01uWAIT", category: "" as const }] };
+    const body = toPreviewBody(waiting) as { lines: { pricebookEntryId: string }[] };
+    expect(body.lines.map((l) => l.pricebookEntryId)).not.toContain("01uWAIT");
+    expect(toPreviewBody({ ...v, lines: [{ ...v.lines[0], category: "" }] })).toBeNull(); // nothing to price yet
   });
 
   it("carries the term and the lines' choices", () => {
@@ -387,10 +400,11 @@ describe("stepOfField", () => {
   it("sends each issue to the step that owns the field", () => {
     expect(stepOfField("legalEntityId")).toBe(0);
     expect(stepOfField("contacts.billing")).toBe(2);
-    expect(stepOfField("defaultPricebookId")).toBe(1); // the price book card is on Products & Pricing
+    expect(stepOfField("defaultPricebookId")).toBe(1); // the price book card is on Term & Products
     expect(stepOfField("lines")).toBe(1);
     expect(stepOfField("lines[2].quantity")).toBe(1);
-    expect(stepOfField("subscriptionStartDate")).toBe(0);
+    expect(stepOfField("subscriptionStartDate")).toBe(1); // with the term (D73)
+    expect(stepOfField("coTermOpportunityId")).toBe(1);
     expect(stepOfField("termMode")).toBe(1);
     expect(stepOfField("subscriptionEndDate")).toBe(1);
     expect(stepOfField("billTo.city")).toBe(2);
@@ -426,6 +440,15 @@ describe("storedPricing", () => {
       { yearNumber: 2, periodStart: "2028-01-01", periodEnd: "2028-06-30", net: "500.15", billing: "500.15", commission: "0.00", netBilling: "500.15" },
     ]);
     expect(p?.lines[1].annualNet).toBe("0.20");
+  });
+
+  it("leaves a gap for a line waiting for its category, and prices the rest (D72)", () => {
+    const waiting = {
+      version: { ...res.version, lines: [res.version.lines[0], { ...res.version.lines[1], category: "", schedule: [] }] },
+    } as unknown as DraftResponse;
+    const p = storedPricing(waiting);
+    expect(p?.lines[0].tcv).toBe("1500.15");
+    expect(p?.lines[1]).toBeUndefined();
   });
 
   it("is null when a line was stored unpriced", () => {
@@ -485,5 +508,44 @@ describe("partner commission", () => {
     expect(toPreviewBody(partner())).toMatchObject({ partnerCommissionPercent: "15" });
     expect(toPreviewBody({ ...partner(), partnerCommissionPercent: "abc" })).toMatchObject({ partnerCommissionPercent: undefined });
     expect(toPreviewBody({ ...partner(), dealType: "DIRECT" })).toMatchObject({ partnerCommissionPercent: undefined });
+  });
+});
+
+// D72: a new quote starts from its opportunity's products.
+describe("pulledLines", () => {
+  const entry = (id: string, isActive: boolean) => ({
+    id, unitPrice: "360", currencyIsoCode: "USD", isActive, pricebook: { id: "01sUSD", name: "USD Price Book" },
+  });
+  it("brings in each product at 1 unit, priced from the book, with its mapped category or none yet", () => {
+    const lines = pulledLines([
+      { id: "01tGW", name: "WSO2 Gateway", productCode: "GW", category: "SUBSCRIPTION", pricebookEntries: [entry("01uGW", true)] },
+      { id: "01tIS", name: "WSO2 Integrator", pricebookEntries: [entry("01uIS", true)] },
+      { id: "01tOLD", name: "Old", pricebookEntries: [entry("01uOLD", false)] },
+    ] as never);
+    expect(lines.map((l) => [l.pricebookEntryId, l.quantity, l.discount, l.unitPrice, l.category, l.categorySource])).toEqual([
+      ["01uGW", "1", "", "360", "SUBSCRIPTION", "MAPPED"],
+      ["01uIS", "1", "", "360", "", "REP"],
+    ]);
+    expect(lines[0].pricebookName).toBe("USD Price Book");
+  });
+});
+
+describe("alignPreview", () => {
+  const priced = (ids: string[]) => ({ lines: ids.map((pricebookEntryId) => ({ pricebookEntryId, tcv: `tcv-${pricebookEntryId}` })) }) as never;
+  const line = (pricebookEntryId: string, category: "" | "SUBSCRIPTION" = "SUBSCRIPTION") => ({ pricebookEntryId, category });
+
+  it("puts each price back on its line, with a gap for a line waiting for its category", () => {
+    const p = alignPreview(priced(["A", "C"]), [line("A"), line("B", ""), line("C")]);
+    expect(p?.lines.map((l) => l?.tcv)).toEqual(["tcv-A", undefined, "tcv-C"]);
+  });
+
+  it("never shows a line another's price while the preview catches up", () => {
+    // B just got its category; the preview still has A and C only.
+    const p = alignPreview(priced(["A", "C"]), [line("A"), line("B"), line("C")]);
+    expect(p?.lines.map((l) => l?.tcv)).toEqual(["tcv-A", undefined, "tcv-C"]); // B waits; C keeps its own
+
+    // C removed just now; the preview still has A and C: B doesn't take C's price.
+    const q = alignPreview(priced(["A", "C"]), [line("A"), line("B")]);
+    expect(q?.lines.map((l) => l?.tcv)).toEqual(["tcv-A", undefined]);
   });
 });

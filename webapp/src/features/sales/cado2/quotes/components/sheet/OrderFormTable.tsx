@@ -30,6 +30,12 @@ interface OrderFormTableProps {
   readonly below?: (index: number) => ReactNode;
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
+  /**
+   * The wizard's Category column, by position in `lines` (D72): the mapped
+   * category, or a choice for an unmapped product. Lines without a category
+   * yet are listed first.
+   */
+  readonly category?: (index: number) => ReactNode;
 }
 
 /**
@@ -43,15 +49,18 @@ interface OrderFormTableProps {
  *   Partner commission (15%)     − 13,305.00
  *   Net order value                75,395.00
  */
-export default function OrderFormTable({ lines, currency, actions, below, commissionPercent = null }: OrderFormTableProps): JSX.Element {
+export default function OrderFormTable({ lines, currency, actions, below, commissionPercent = null, category }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
-  const cols = actions ? 7 : 6;
+  const cols = (actions ? 7 : 6) + (category ? 1 : 0);
+  const labelSpan = category ? 6 : 5;
+  // Products brought in from Salesforce whose category isn't chosen yet (D72).
+  const pending = category ? lines.filter((l) => !l.category) : [];
   const cur = currency ? ` (${currency})` : "";
   const money = (v: string | null) => (v ? formatMoney(v) : "—");
 
   const totalRow = (label: string, value: string | null, strong = false, prefix = "") => (
     <TableRow sx={strong ? { bgcolor: "action.hover" } : undefined}>
-      <TableCell colSpan={5} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
+      <TableCell colSpan={labelSpan} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
         {label}
         {cur}
       </TableCell>
@@ -62,12 +71,69 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
     </TableRow>
   );
 
+  const lineRow = (l: SheetLine) => {
+    const index = lines.indexOf(l);
+    return (
+      <Fragment key={l.number}>
+        <TableRow hover>
+          <TableCell sx={{ minWidth: 200 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {l.productName}
+            </Typography>
+            {l.productDescription ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.4 }}>
+                {l.productDescription}
+              </Typography>
+            ) : null}
+            {/* Every line is from the quote's price book, shown once in the Deal section. */}
+            {l.productCode ? (
+              <Typography variant="caption" color="text.secondary" display="block">
+                {l.productCode}
+              </Typography>
+            ) : null}
+            {l.categoryByRep && !category ? (
+              <Chip
+                size="small"
+                color="warning"
+                variant="outlined"
+                label="Category chosen by rep"
+                title="This product has no category set up by an Admin, so the rep chose it. Deal Desk checks it."
+                sx={{ mt: 0.5 }}
+              />
+            ) : null}
+          </TableCell>
+          {category ? <TableCell sx={{ minWidth: 190 }}>{category(index)}</TableCell> : null}
+          <TableCell>{l.unitOfMeasure ?? "–"}</TableCell>
+          <TableCell align="right" sx={num}>
+            {formatMoney(l.unitPrice)}
+          </TableCell>
+          <TableCell align="right" sx={num}>
+            {l.quantity}
+          </TableCell>
+          <TableCell align="right" sx={num}>
+            {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
+          </TableCell>
+          <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
+            {money(l.tcv)}
+          </TableCell>
+          {actions ? (
+            <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+              {actions(index)}
+            </TableCell>
+          ) : null}
+        </TableRow>
+        {below?.(index)}
+      </Fragment>
+    );
+  };
+
   return (
     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
       <Table size="small" aria-label="Products">
         <TableHead>
           <TableRow>
             <TableCell>Product or service</TableCell>
+            {category ? <TableCell>Category</TableCell> : null}
             <TableCell>Unit of measure</TableCell>
             <TableCell align="right">Unit list</TableCell>
             <TableCell align="right">Qty</TableCell>
@@ -83,6 +149,8 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
           </TableRow>
         </TableHead>
         <TableBody>
+          {/* No heading: the line's own category choice says what's needed. */}
+          {pending.map(lineRow)}
           {form.groups.map((g) => (
             <Fragment key={g.category}>
               <TableRow>
@@ -92,60 +160,7 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
                   </Typography>
                 </TableCell>
               </TableRow>
-              {g.lines.map((l) => {
-                const index = lines.indexOf(l);
-                return (
-                  <Fragment key={l.number}>
-                    <TableRow hover>
-                      <TableCell sx={{ minWidth: 200 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {l.productName}
-                        </Typography>
-                        {l.productDescription ? (
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.4 }}>
-                            {l.productDescription}
-                          </Typography>
-                        ) : null}
-                        {/* Every line is from the quote's price book, shown once in the Deal section. */}
-                        {l.productCode ? (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {l.productCode}
-                          </Typography>
-                        ) : null}
-                        {l.categoryByRep ? (
-                          <Chip
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                            label="Category chosen by rep"
-                            title="This product has no category set up by an Admin, so the rep chose it. Deal Desk checks it."
-                            sx={{ mt: 0.5 }}
-                          />
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{l.unitOfMeasure ?? "–"}</TableCell>
-                      <TableCell align="right" sx={num}>
-                        {formatMoney(l.unitPrice)}
-                      </TableCell>
-                      <TableCell align="right" sx={num}>
-                        {l.quantity}
-                      </TableCell>
-                      <TableCell align="right" sx={num}>
-                        {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
-                      </TableCell>
-                      <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
-                        {money(l.tcv)}
-                      </TableCell>
-                      {actions ? (
-                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                          {actions(index)}
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                    {below?.(index)}
-                  </Fragment>
-                );
-              })}
+              {g.lines.map(lineRow)}
               {totalRow(`${g.title} subtotal`, g.subtotal)}
             </Fragment>
           ))}

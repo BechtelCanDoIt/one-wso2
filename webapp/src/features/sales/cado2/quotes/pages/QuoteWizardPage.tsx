@@ -56,6 +56,7 @@ import {
   fromVersion,
   STEPS,
   stepOfField,
+  alignPreview,
   storedPricing,
   toDraftInput,
   toPreviewBody,
@@ -177,7 +178,11 @@ export default function QuoteWizardPage(): JSX.Element {
     PREVIEW_DEBOUNCE_MS,
   );
   const preview = usePricingPreview(previewBody);
-  const priced = preview.data?.kind === "priced" ? preview.data.preview : null;
+  // Lined up with the form's lines: lines waiting for a category aren't priced (D72).
+  const priced = useMemo(
+    () => alignPreview(preview.data?.kind === "priced" ? preview.data.preview : null, values.lines),
+    [preview.data, values.lines],
+  );
   const previewProblems = useMemo(
     () => (preview.data?.kind === "problems" && previewBody ? preview.data.issues : []),
     [preview.data, previewBody],
@@ -190,7 +195,7 @@ export default function QuoteWizardPage(): JSX.Element {
     if (!editable || !priced) return;
     priced.lines.forEach((p, i) => {
       const l = form.getValues(`lines.${i}`);
-      if (!l || l.pricebookEntryId !== p.pricebookEntryId || !p.categorySource) return;
+      if (!p || !l || l.pricebookEntryId !== p.pricebookEntryId || !p.categorySource) return;
       if (p.categorySource === "MAPPED" && p.category && (l.category !== p.category || l.categorySource !== "MAPPED")) {
         form.setValue(`lines.${i}.category`, p.category, { shouldDirty: true });
         form.setValue(`lines.${i}.categorySource`, "MAPPED", { shouldDirty: true });
