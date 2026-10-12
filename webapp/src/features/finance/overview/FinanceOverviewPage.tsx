@@ -67,9 +67,10 @@ export default function FinanceOverviewPage() {
   const ccGate = useFinanceGate(true, ["cc"]);
 
   // `picked` is null until someone chooses, or until the default below
-  // settles and locks itself in (see the effect further down) — from then on
-  // this is the only thing `section` reads, and the priority computation
-  // underneath it is never consulted again for this mount.
+  // settles and locks itself in (see the render-time adjustment further
+  // down) — from then on this is the only thing `section` reads, and the
+  // priority computation underneath it is never consulted again for this
+  // mount.
   //
   // Declared before the access guard below, not after: React's Rules of
   // Hooks — every hook has to run on every render, so this can't follow an
@@ -79,31 +80,52 @@ export default function FinanceOverviewPage() {
   // Priority order: OPD, then Expense, then CC — reviewed into this order
   // because OPD is the common case. Staged rather than flat, so a role that
   // ranks ABOVE another is never skipped just because it hasn't answered
-  // yet: Expense is not consulted at all until OPD has definitively said no,
-  // and CC (the last resort) not until Expense has too. `null` means "not
-  // decidable yet" at that stage.
-  const defaultSection: OverviewTab | null = opdGate.isResolving
-    ? null
-    : opdGate.opdFinance
-      ? "opd"
-      : expenseGate.isResolving
-        ? null
-        : expenseGate.expenseFinance
-          ? "expense"
-          : ccGate.isResolving
-            ? null
-            : "cc";
+  // yet: Expense is not consulted at all until OPD has definitively said
+  // no, and CC (the last resort) not until Expense has too.
+  //
+  // `defaultStable` is the second half of this, for a case "definitively
+  // no" glossed over: OPD can also settle by ERRORING, which reads exactly
+  // like "no role" to `opdFinance` but is NOT definitive — a retry could
+  // still turn it into a yes, which would need to outrank whatever we
+  // picked by falling through. A default reached by stepping over an
+  // errored tier is marked unstable so it is shown (it is still the best
+  // answer available right now) but never LOCKED — seen below, where only a
+  // stable default gets written to `picked`. This is what stops the bug
+  // reported as "after a successful retry, Overview shows the wrong
+  // dashboard": the wrong tab was never actually committed, so the next
+  // render's recomputed default (now OPD, say) is still free to replace it.
+  let defaultSection: OverviewTab | null;
+  let defaultStable: boolean;
+  if (opdGate.isResolving) {
+    defaultSection = null;
+    defaultStable = false;
+  } else if (opdGate.opdFinance) {
+    defaultSection = "opd";
+    defaultStable = true; // nothing outranks OPD, so nothing can un-decide this
+  } else if (expenseGate.isResolving) {
+    defaultSection = null;
+    defaultStable = false;
+  } else if (expenseGate.expenseFinance) {
+    defaultSection = "expense";
+    defaultStable = !opdGate.opdErrored;
+  } else if (ccGate.isResolving) {
+    defaultSection = null;
+    defaultStable = false;
+  } else {
+    defaultSection = "cc";
+    defaultStable = !opdGate.opdErrored && !expenseGate.expenseErrored;
+  }
 
-  // Locks the FIRST dashboard this mount ever decided on, the moment it's
-  // known — adjusting state during render rather than in an effect, the
-  // pattern React's own docs recommend for "remember this, once" (no extra
+  // Adjusting state during render rather than in an effect, the pattern
+  // React's own docs recommend for "remember this, once" (no extra
   // render-commit-effect round trip, and nothing to clean up). Guarded by
   // `picked === null` so it only ever fires the one time: without this, a
   // role that resolves (or simply changes, on a background refetch) after a
-  // lower-priority one already committed would silently swap what the reader
-  // is looking at — reviewed as "Overview ... should never switch on its
-  // own".
-  if (picked === null && defaultSection !== null) {
+  // lower-priority one already committed would silently swap what the
+  // reader is looking at — reviewed as "Overview ... should never switch on
+  // its own". `defaultStable` is the other half of that same guarantee —
+  // see its own comment above.
+  if (picked === null && defaultSection !== null && defaultStable) {
     setPicked(defaultSection);
   }
   const section = picked ?? defaultSection;
@@ -117,6 +139,36 @@ export default function FinanceOverviewPage() {
   if (!hasAccess && stillDeciding) {
     return null;
   }
+
+  // Every errored backend, not just the first found — `foldIdentityError`
+  // marks all three failed together on an identity hiccup, so naming only
+  // CC (say) would retry CC alone and leave the reader staring at the same
+  // banner once OPD or Expense's own turn to be checked came up. Computed
+  // whether or not the reader has access, because a failure is not only
+  // worth reporting when it is the ONLY thing standing between them and the
+  // page — see the non-blocking banner below for the other case.
+  const failures = [
+    ccGate.ccErrored && { label: "Credit Card", retry: ccGate.retryCc },
+    opdGate.opdErrored && { label: "OPD Claims", retry: opdGate.retryOpd },
+    expenseGate.expenseErrored && { label: "Expense Claims", retry: expenseGate.retryExpense },
+  ].filter((f): f is { label: string; retry: () => void } => f !== false);
+
+  const failureBanner = failures.length > 0 && (
+    <Alert
+      severity="error"
+      sx={{ mb: 2 }}
+      action={
+        <Button size="small" onClick={() => failures.forEach((f) => f.retry())} sx={{ textTransform: "none" }}>
+          Retry
+        </Button>
+      }
+    >
+      Couldn&apos;t check your{" "}
+      {new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(failures.map((f) => f.label))}{" "}
+      access.
+    </Alert>
+  );
+
   // The rail hides this entry when nobody has a role, but hiding a link is
   // not access control — the route is still reachable by a bookmark or a
   // typed URL, the same reasoning `ClaimApprovalTabRoute` guards each of ITS
@@ -125,39 +177,8 @@ export default function FinanceOverviewPage() {
   if (!hasAccess) {
     // An error is not the same sentence as a refusal: a reader denied every
     // role fairly hears "not for you"; a reader whose lookup failed outright
-    // hears that it failed, with a way back. Each backend gets its own
-    // message rather than one generic "something failed", so Retry can
-    // target the one that actually needs it.
-    // Every errored backend, not just the first found — `foldIdentityError`
-    // marks all three failed together on an identity hiccup, so naming only
-    // CC (say) would retry CC alone and leave the reader staring at the same
-    // banner once OPD or Expense's own turn to be checked came up.
-    const failures = [
-      ccGate.ccErrored && { label: "Credit Card", retry: ccGate.retryCc },
-      opdGate.opdErrored && { label: "OPD Claims", retry: opdGate.retryOpd },
-      expenseGate.expenseErrored && { label: "Expense Claims", retry: expenseGate.retryExpense },
-    ].filter((f): f is { label: string; retry: () => void } => f !== false);
-    if (failures.length > 0) {
-      const names = new Intl.ListFormat("en", { style: "long", type: "conjunction" }).format(
-        failures.map((f) => f.label),
-      );
-      return (
-        <Alert
-          severity="error"
-          action={
-            <Button
-              size="small"
-              onClick={() => failures.forEach((f) => f.retry())}
-              sx={{ textTransform: "none" }}
-            >
-              Retry
-            </Button>
-          }
-        >
-          Couldn&apos;t check your {names} access.
-        </Alert>
-      );
-    }
+    // hears that it failed, with a way back.
+    if (failureBanner) return failureBanner;
     return <Alert severity="info">This isn&apos;t available for your role.</Alert>;
   }
   // Still deciding the default (every backend above the eventual answer has
@@ -201,7 +222,24 @@ export default function FinanceOverviewPage() {
     </Select>
   );
 
-  if (section === "cc") return <CcDashboardPage headerActions={switcher} />;
-  if (section === "opd") return <OpdDashboardScreen headerActions={switcher} />;
-  return <ExpenseDashboardScreen headerActions={switcher} />;
+  // `failureBanner` here is the case review asked for: a reader who DOES
+  // have access (through some other role) still hears about a backend that
+  // failed to check, instead of that backend just silently never appearing
+  // in the dropdown — indistinguishable, until now, from genuinely holding
+  // no role there.
+  const page =
+    section === "cc" ? (
+      <CcDashboardPage headerActions={switcher} />
+    ) : section === "opd" ? (
+      <OpdDashboardScreen headerActions={switcher} />
+    ) : (
+      <ExpenseDashboardScreen headerActions={switcher} />
+    );
+  if (!failureBanner) return page;
+  return (
+    <>
+      {failureBanner}
+      {page}
+    </>
+  );
 }

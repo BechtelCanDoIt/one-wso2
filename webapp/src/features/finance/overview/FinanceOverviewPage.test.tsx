@@ -326,15 +326,16 @@ describe("a reader shut out by a failed CC lookup, not a missing role", () => {
   // A role elsewhere still gets the ordinary generic refusal, not the CC
   // error banner — CC failing is only the reason to say so when CC was the
   // reader's only possible way in.
-  it("falls back to the generic refusal when another role could have opened it anyway", () => {
-    settled({ ccErrored: true, opdFinance: false, expenseFinance: false });
-    // Same scenario as above already covers the error path; this confirms
-    // a reader who ALSO holds a real role never sees the error banner at all,
-    // because hasAccess is already true and the error branch is unreachable.
-    backend.opd.role = true;
+  // Reviewed: a failed backend must not go silent just because the reader
+  // has access through another one — CC's failure is still worth knowing
+  // about even though OPD is what actually got them in. Non-blocking: the
+  // banner and the dashboard both render, rather than the banner replacing
+  // the page the way it does when NOTHING else grants access.
+  it("still names a failed backend even when another role already grants access", () => {
+    settled({ ccErrored: true, opdFinance: true });
     render(<FinanceOverviewPage />);
 
-    expect(screen.queryByText(/Couldn.t check your Credit Card access/)).not.toBeInTheDocument();
+    expect(screen.getByText(/Couldn.t check your Credit Card access/)).toBeInTheDocument();
     expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
   });
 
@@ -415,6 +416,45 @@ describe("locking the first dashboard shown", () => {
 
     expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
     expect(screen.queryByTestId("opd-dashboard")).not.toBeInTheDocument();
+  });
+
+  // THE bug reviewed as "after a successful retry, Overview shows the wrong
+  // dashboard". Different from the test above in one crucial way: there, OPD
+  // cleanly resolved "no role" before CC locked in, so the lock was correct
+  // to hold. Here, OPD ERRORED — an uncertain "no", not a definitive one — so
+  // CC is shown (it is still the best answer available) but must NOT lock,
+  // precisely so a successful retry can still promote OPD above it.
+  it("switches to OPD once a retry resolves OPD's earlier error, because the CC default was never locked", () => {
+    settled({ ccHasOwnCard: true, opdErrored: true });
+    const { rerender } = render(<FinanceOverviewPage />);
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+
+    // The reader presses Retry (or a background refetch succeeds): OPD now
+    // resolves with a real role instead of an error.
+    backend.opd = { resolved: true, role: true, errored: false };
+    rerender(<FinanceOverviewPage />);
+
+    expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
+    expect(screen.queryByTestId("cc-dashboard")).not.toBeInTheDocument();
+  });
+
+  // The flip side of the same fix: if the retry does NOT change the
+  // answer (OPD resolves cleanly to "no role" this time, rather than
+  // another error), CC is still correct, and now gets to lock in.
+  it("keeps showing CC if a retry resolves OPD's error into a clean 'no role' rather than a yes", () => {
+    settled({ ccHasOwnCard: true, opdErrored: true });
+    const { rerender } = render(<FinanceOverviewPage />);
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+
+    backend.opd = { resolved: true, role: false, errored: false };
+    rerender(<FinanceOverviewPage />);
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+
+    // Now locked — confirms the retry outcome didn't just coincidentally
+    // match, but actually latched the way the first test in this block does.
+    backend.opd.role = true;
+    rerender(<FinanceOverviewPage />);
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
   });
 
   it("keeps showing OPD after it locks in, even once a background refetch changes CC's own answer", () => {

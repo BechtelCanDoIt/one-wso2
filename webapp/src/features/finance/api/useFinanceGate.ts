@@ -110,11 +110,12 @@ export const CLAIM_APPROVAL_GATE_APPS = ITEM_BACKENDS["claim-approval"];
 /** What `canSee("finance-overview")` and the three raw flags below read. */
 export const OVERVIEW_GATE_APPS = ITEM_BACKENDS["finance-overview"];
 
-// Role-gates the Finance menu items (surfaced under Me) against each app's
-// OWN backend roles — not the coarse One WSO2 capabilities derived from
-// people-app. The rail uses this so a menu item is only shown to someone
-// who can actually use its page (e.g. cc "Approve Submissions" needs a
-// cc-expenses lead/finance role, exactly like the page enforces).
+// Role-gates the Finance menu items against each app's OWN backend roles —
+// not the coarse One WSO2 capabilities derived from people-app. The rail
+// uses this so a menu item is only shown to someone who can actually use
+// its page (e.g. cc "Approve Submissions" needs a cc-expenses lead/finance
+// role, exactly like the page enforces). Only one of these items is under
+// Me now (`claims`); the rest live under the Finance perspective.
 //
 // Only the restricted items are listed; anything not named here is a
 // per-user view (New / Pending / History) and stays visible to everyone.
