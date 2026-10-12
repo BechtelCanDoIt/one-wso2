@@ -79,38 +79,24 @@ export function canSeeMasterData(user: MasterDataUserInfo | undefined): boolean 
 // `enabled` lets the caller avoid firing the finance /user-info calls when
 // the Me perspective isn't active (e.g. while on People Ops).
 /**
- * The backends THIS HOOK reads, named so a caller can say which of them its own
- * questions actually depend on. See `needs` on `useFinanceGate`.
- *
- * Not the Finance perspective's app list, which is longer. MIS, Banking and Due
- * Diligence each answer for themselves through their own gate — `useMisGate`,
- * `useBankingAccess`, `useDueDiligenceGate` — mounted separately in
- * `usePerspectiveVisibility`, and none of them has ever been decided here. This
- * hook only ever asked these four, both before and after `needs` was added; the
- * parameter narrows that set per caller, it does not widen it.
+ * The backends THIS HOOK reads — not the Finance perspective's app list, which
+ * is longer. MIS, Banking and Due Diligence answer for themselves through their
+ * own gates (`useMisGate`, `useBankingAccess`, `useDueDiligenceGate`), mounted
+ * separately in `usePerspectiveVisibility`.
  */
 export type FinanceGateApp = "cc" | "opd" | "expense" | "masterData";
 
-/**
- * Every app above — the default, and what the rail needs, since it asks
- * `canSee` about items belonging to all four.
- */
-export const EVERY_FINANCE_GATE_APP: readonly FinanceGateApp[] = [
-  "cc",
-  "opd",
-  "expense",
-  "masterData",
-];
+const EVERY_FINANCE_GATE_APP: readonly FinanceGateApp[] = ["cc", "opd", "expense", "masterData"];
 
 /**
- * What `canSee("claim-approval")` reads, and nothing else. CC is deliberately
- * absent: card submissions are approved under Credit Card Expenses, never on
- * the Claim Approval screen, so that backend has no say in it.
+ * What `canSee("claim-approval")` reads. CC is deliberately absent: card
+ * submissions are approved under Credit Card Expenses, never on the Claim
+ * Approval screen, so that backend has no say in it.
  */
-export const CLAIM_APPROVAL_APPS: readonly FinanceGateApp[] = ["opd", "expense"];
+export const CLAIM_APPROVAL_GATE_APPS: readonly FinanceGateApp[] = ["opd", "expense"];
 
 /** What `canSee("finance-overview")` and the three raw flags below read. */
-export const FINANCE_OVERVIEW_APPS: readonly FinanceGateApp[] = ["cc", "opd", "expense"];
+export const OVERVIEW_GATE_APPS: readonly FinanceGateApp[] = ["cc", "opd", "expense"];
 
 export interface FinanceGate {
   canSee: (itemId: string) => boolean;
@@ -148,24 +134,11 @@ export function useFinanceGate(
   enabled = true,
   needs: readonly FinanceGateApp[] = EVERY_FINANCE_GATE_APP,
 ): FinanceGate {
-  // Which backends this caller's questions actually depend on. A caller that
-  // leaves this out keeps the old behaviour — every backend fetched, every
-  // backend waited for — which is right for the rail, since it asks about all
-  // of them.
-  //
-  // Scoped for everyone else, because `isResolving` below is all-or-nothing and
-  // every caller renders NOTHING while it is true. That turned one slow backend
-  // into a blank screen on pages that never needed it: a 504 from cc-expenses'
-  // `/user-info` left Claim Approval showing its header and an empty pane —
-  // reported as "leads and finance cannot see Claim Approval" — for as long as
-  // the gateway took to give up, twice over, since `financeRetry` retries a 5xx
-  // once. CC has no say in who approves a claim, so it should never have been
-  // able to hold that screen shut.
-  //
-  // `useMasterDataAccess` already learned this the same way (see
-  // `canSeeMasterData` above, which exists so the Master Data route can ask its
-  // one question without mounting the other three queries). This generalises
-  // that fix rather than repeating it per screen.
+  // `isResolving` below is all-or-nothing and every caller renders NOTHING
+  // while it is true, so a backend named here can hold a screen blank whether
+  // or not that screen's questions depend on it. Omitting `needs` keeps the old
+  // behaviour — fetch and wait for all four — which is what the rail wants,
+  // since it asks `canSee` about items belonging to each.
   const needsCc = needs.includes("cc");
   const needsOpd = needs.includes("opd");
   const needsExpense = needs.includes("expense");
@@ -287,11 +260,10 @@ export function useFinanceGate(
   const hasAnswered = (q: { isSuccess: boolean; isError: boolean }, configured: boolean) =>
     !configured || q.isSuccess || q.isError;
 
-  // A backend this caller did not ask for is never waited on — and MUST not be,
-  // beyond the waste: its query is disabled, so it stays `pending` forever and
-  // neither `isSuccess` nor `isError` ever goes true. Left in, an un-needed
-  // backend would pin `isResolving` true for the life of the mount, which is
-  // the blank screen this change exists to end, not a milder version of it.
+  // A backend left out of `needs` MUST also be left out here: its query is
+  // disabled, so it stays `pending` forever and neither `isSuccess` nor
+  // `isError` ever goes true, which would pin `isResolving` true for the life
+  // of the mount.
   const isResolving =
     enabled &&
     !(

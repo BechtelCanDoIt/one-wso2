@@ -33,10 +33,8 @@ vi.mock("../api/useFinanceGate", () => ({
     canSee: (id: string) => state.allow.has(id),
     isResolving: state.isResolving,
   }),
-  // The real module's dependency lists, which the page imports to say which
-  // backends its questions need. Values don't matter to a mocked gate, but the
-  // export has to exist or importing the page throws.
-  CLAIM_APPROVAL_APPS: ["opd", "expense"],
+  // Unused by the mocked gate, but the page imports it, so it has to exist.
+  CLAIM_APPROVAL_GATE_APPS: ["opd", "expense"],
 }));
 
 const { default: ClaimApprovalPage, ClaimApprovalIndex, ClaimApprovalTabRoute } = await import(
