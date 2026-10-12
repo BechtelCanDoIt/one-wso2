@@ -15,7 +15,8 @@
 // under the License.
 
 import { Fragment, type JSX, type ReactNode } from "react";
-import { Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { alpha, Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { TriangleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 
@@ -79,12 +80,43 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
     </TableRow>
   );
 
+  // Lines waiting for a category stand apart from the category sections: an
+  // amber strip that says what to do, and an amber bar down each line (2026-10-12).
+  const pendingHeader = (
+    <TableRow>
+      <TableCell
+        colSpan={cols}
+        sx={{
+          bgcolor: (t) => alpha(t.palette.warning.main, 0.14),
+          boxShadow: (t) => `inset 4px 0 ${t.palette.warning.main}`,
+          py: 0.75,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "warning.dark" }}>
+          <TriangleAlertIcon size={16} aria-hidden />
+          <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
+            Not categorised
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.primary" }}>
+            · Choose a category for {pending.length === 1 ? "1 product" : `${pending.length} products`}
+          </Typography>
+        </Box>
+      </TableCell>
+    </TableRow>
+  );
+
   const lineRow = (l: SheetLine) => {
     const index = lines.indexOf(l);
+    const waiting = pending.includes(l);
     return (
       <Fragment key={l.number}>
         <TableRow>
-          <TableCell sx={{ minWidth: 200 }}>
+          <TableCell
+            sx={{
+              minWidth: 200,
+              ...(waiting ? { boxShadow: (t) => `inset 4px 0 ${t.palette.warning.main}` } : {}),
+            }}
+          >
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {l.productName}
             </Typography>
@@ -154,7 +186,7 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
           {/* Lines waiting for a category come first, under their own heading, with no subtotal (D72). */}
           {pending.length > 0 ? (
             <>
-              {groupHeader("Not categorised")}
+              {pendingHeader}
               {pending.map(lineRow)}
             </>
           ) : null}

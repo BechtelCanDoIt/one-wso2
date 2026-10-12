@@ -239,12 +239,15 @@ describe("toPreviewBody", () => {
     expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "2028-01-01" })).toBeNull();
   });
 
-  it("prices only the lines with a category (D72)", () => {
+  it("prices a line waiting for its category too, so the total includes it (D75)", () => {
     const v = filled();
     const waiting = { ...v, lines: [...v.lines, { ...v.lines[0], pricebookEntryId: "01uWAIT", category: "" as const }] };
-    const body = toPreviewBody(waiting) as { lines: { pricebookEntryId: string }[] };
-    expect(body.lines.map((l) => l.pricebookEntryId)).not.toContain("01uWAIT");
-    expect(toPreviewBody({ ...v, lines: [{ ...v.lines[0], category: "" }] })).toBeNull(); // nothing to price yet
+    const body = toPreviewBody(waiting) as { lines: { pricebookEntryId: string; category: string }[] };
+    expect(body.lines.at(-1)).toMatchObject({ pricebookEntryId: "01uWAIT", category: "" });
+    // Only uncategorised lines: priced from the start date alone, like services.
+    expect(toPreviewBody({ ...v, termMode: "", lines: [{ ...v.lines[0], category: "" }] })).toMatchObject({
+      subscriptionEndDate: undefined,
+    });
   });
 
   it("carries the term and the lines' choices", () => {
@@ -442,13 +445,13 @@ describe("storedPricing", () => {
     expect(p?.lines[1].annualNet).toBe("0.20");
   });
 
-  it("leaves a gap for a line waiting for its category, and prices the rest (D72)", () => {
+  it("shows a stored line waiting for its category with its amount (D75)", () => {
     const waiting = {
-      version: { ...res.version, lines: [res.version.lines[0], { ...res.version.lines[1], category: "", schedule: [] }] },
+      version: { ...res.version, lines: [res.version.lines[0], { ...res.version.lines[1], category: "" }] },
     } as unknown as DraftResponse;
     const p = storedPricing(waiting);
     expect(p?.lines[0].tcv).toBe("1500.15");
-    expect(p?.lines[1]).toBeUndefined();
+    expect(p?.lines[1].tcv).toBe(res.version.lines[1].tcv);
   });
 
   it("is null when a line was stored unpriced", () => {

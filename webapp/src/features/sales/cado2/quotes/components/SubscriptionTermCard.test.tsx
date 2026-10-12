@@ -16,7 +16,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import type { JSX } from "react";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { AdapterDateFns, DatePickers } from "@wso2/oxygen-ui";
@@ -173,6 +173,33 @@ describe("Term card", () => {
     expect(
       screen.getByText("A term under a year needs approval."),
     ).toBeInTheDocument();
+  });
+
+  it("says why there's no duration yet: no products, or products without a category (not 'services only')", () => {
+    render(<Harness values={{ dealKind: "FIRST_SALE", lines: [] }} />);
+    expect(
+      screen.getByText("The duration is asked once a Subscription or Support product is added below."),
+    ).toBeInTheDocument();
+    cleanup();
+
+    render(
+      <Harness
+        values={{
+          dealKind: "FIRST_SALE",
+          lines: [
+            { ...line, category: "" },
+            { ...line, category: "" },
+          ],
+        }}
+      />,
+    );
+    expect(screen.queryByRole("radiogroup", { name: "Duration" })).toBeNull();
+    expect(
+      screen.getByText(
+        "2 products below have no category yet. If any is Subscription or Support, the duration is asked here.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Services only/)).toBeNull();
   });
 
   it("has no duration on a services-only quote", () => {

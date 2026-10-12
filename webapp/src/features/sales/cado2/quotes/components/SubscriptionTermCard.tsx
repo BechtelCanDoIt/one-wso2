@@ -71,6 +71,18 @@ const DURATIONS: readonly { value: Duration; label: string }[] = [
  *                yes → pick it → its end date      no → the AM types the end
  *     renewal or fresh sale: a short term (needs approval); the AM types the end
  */
+/** Why the duration isn't asked, when no line is Subscription or Support. */
+function termNote(lines: readonly { readonly category: string }[]): string {
+  const waiting = lines.filter((l) => !l.category).length;
+  if (lines.length === 0) {
+    return "The duration is asked once a Subscription or Support product is added below.";
+  }
+  if (waiting > 0) {
+    return `${waiting === 1 ? "1 product below has" : `${waiting} products below have`} no category yet. If any is Subscription or Support, the duration is asked here.`;
+  }
+  return "Services only: no subscription term. Only the contract total (TCV) applies.";
+}
+
 export default function SubscriptionTermCard(): JSX.Element {
   const { control, setValue } = useFormContext<DraftFormValues>();
   const [
@@ -416,12 +428,12 @@ export default function SubscriptionTermCard(): JSX.Element {
               </>
             ) : null}
           </>
-        ) : lines.length > 0 ? (
+        ) : (
+          // Never hidden without a reason: the duration depends on the products below (2026-10-12).
           <Typography variant="body2" color="text.secondary">
-            Services only: no subscription term. Only the contract total (TCV)
-            applies.
+            {termNote(lines)}
           </Typography>
-        ) : null}
+        )}
       </Stack>
     </SectionCard>
   );

@@ -95,9 +95,9 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
   const currency = values.currencyIsoCode;
   // The opportunity's book must be usable; the card says what to fix otherwise.
   const ready = Boolean(currency && values.defaultPricebookId && values.startDate);
-  // Why the amounts are blank, when it isn't a line waiting for its category.
+  // Why the amounts are blank.
   const amountsHint =
-    preview || !values.lines.some((l) => l.category)
+    preview || values.lines.length === 0
       ? null
       : !values.startDate
         ? "Amounts appear once the start date is chosen."

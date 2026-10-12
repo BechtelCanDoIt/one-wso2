@@ -548,8 +548,8 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
  * term and (for Multi-year) a billing frequency.
  */
 export function toPreviewBody(v: DraftFormValues): object | null {
-  // A line waiting for its category isn't priced yet (D72); the others are.
-  const lines = v.lines.filter((l) => l.category);
+  // Every line, a line waiting for its category included: it is priced once, like a service (D75, WIP for multi-year).
+  const lines = v.lines;
   if (!v.startDate || !v.currencyIsoCode || lines.length === 0) return null;
   const recurring = hasRecurring(v.lines);
   const end = termEnd(v);
@@ -585,8 +585,9 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
   const start = v.subscriptionStartDate;
   // A services-only quote has no end date: its one "year" is the start day.
   const end = v.subscriptionEndDate ?? (hasRecurring(v.lines) ? null : start);
-  // A line waiting for its category is stored unpriced (D72); any other unpriced line means the quote isn't priced.
-  const pricedLines = v.lines.filter((l) => l.category !== "");
+  // Every line is priced, a line waiting for its category included (D75); one
+  // unpriced (e.g. saved before D75) means the quote isn't priced.
+  const pricedLines = v.lines;
   if (!start || !end || pricedLines.length === 0 || pricedLines.some((l) => l.schedule.length === 0)) return null;
   const yearCount = Math.max(...pricedLines.flatMap((l) => l.schedule.map((r) => r.yearNumber)));
   const years = [];
@@ -608,28 +609,23 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
     termMonths: "",
     totals: v.totals,
     years,
-    // Aligned with the version's lines: a gap where a line waits for its category.
-    lines: v.lines.map((l) =>
-      l.category !== ""
-        ? {
-            pricebookEntryId: l.pricebookEntryId,
-            annualList: l.annualList,
-            annualNet: l.annualNet,
-            arr: l.arr,
-            tcv: l.tcv,
-            commission: l.commission,
-            schedule: l.schedule,
-          }
-        : undefined,
-    ) as unknown as PricingPreview["lines"],
+    // Aligned with the version's lines, one for one (a line waiting for its category is priced too, D75).
+    lines: v.lines.map((l) => ({
+      pricebookEntryId: l.pricebookEntryId,
+      annualList: l.annualList,
+      annualNet: l.annualNet,
+      arr: l.arr,
+      tcv: l.tcv,
+      commission: l.commission,
+      schedule: l.schedule,
+    })),
   };
 }
 
 /**
- * The live preview prices only the lines with a category (D72). This lines its
- * prices up with the form's lines again, product by product in order, leaving
- * a gap where a line waits for its category (or where the preview hasn't
- * caught up with a change yet), so no line shows another's amount.
+ * Lines the live preview's prices up with the form's lines, product by product
+ * in order, leaving a gap where the preview hasn't caught up with a change yet,
+ * so no line shows another's amount.
  */
 export function alignPreview(
   p: PricingPreview | null,
@@ -639,7 +635,7 @@ export function alignPreview(
   let k = 0;
   const aligned = lines.map((l) => {
     const next = p.lines[k];
-    if (!l.category || !next || next.pricebookEntryId !== l.pricebookEntryId) return undefined;
+    if (!next || next.pricebookEntryId !== l.pricebookEntryId) return undefined;
     k++;
     return next;
   });

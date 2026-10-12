@@ -113,6 +113,7 @@ describe("ProductsStep (Term & Products)", () => {
     const table = screen.getByRole("table", { name: "Products" });
     expect(within(table).queryByRole("combobox")).toBeNull(); // no dropdown on the line
     expect(within(table).getByText("Not categorised")).toBeInTheDocument(); // its own section, first
+    expect(within(table).getByText("· Choose a category for 1 product")).toBeInTheDocument();
 
     const integrator = within(table)
       .getByText("WSO2 Integrator")
