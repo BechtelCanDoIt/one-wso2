@@ -211,12 +211,7 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   // CadO2's rows exist only while its preview flag is on. Asking its /me when
   // they are absent would hold the Sales landing on a backend with nothing to show.
   if (perspectiveKey === "sales" && isPreviewEnabled("cado2")) names.push("cado2");
-  // The promotion sections exist only while the preview flag is on. Asking
-  // for privileges when they are absent holds the People Ops landing on a
-  // backend that has nothing to show.
-  if ((perspectiveKey === "people" || perspectiveKey === "me") && isPreviewEnabled("promotion")) {
-    names.push("promotion");
-  }
+  if (perspectiveKey === "people" || perspectiveKey === "me") names.push("promotion");
   if (perspectiveKey === "security") names.push("security");
   if (perspectiveKey === "umt") names.push("umt");
   names.push("subscriptions");

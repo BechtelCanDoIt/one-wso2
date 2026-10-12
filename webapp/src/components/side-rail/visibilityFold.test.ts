@@ -159,9 +159,9 @@ describe("foldVisibility", () => {
 
   it("hides a claimed section when its adapter is not in play", () => {
     const folded = foldVisibility(
-      claimsForPerspective("me").map((name) => adapter({ name, canSee: () => true })),
+      claimsForPerspective("finance").map((name) => adapter({ name, canSee: () => true })),
       shell({
-        perspectiveKey: "me",
+        perspectiveKey: "finance",
         sectionIds: new Set([PROMOTION_LEAD_PORTAL_ITEM_ID]),
         capabilities: new Set(),
       }),
@@ -229,18 +229,10 @@ describe("foldVisibility", () => {
 });
 
 describe("claimsForPerspective", () => {
-  it("includes promotion on People Ops and Me only while the preview flag is on", () => {
-    const previous = window.config;
-    window.config = { ...(previous ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
-    expect(claimsForPerspective("people")).not.toContain("promotion");
-
-    window.config = {
-      ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { promotion: true },
-    } as Window["config"];
+  it("includes promotion on People Ops and Me", () => {
     expect(claimsForPerspective("people")).toContain("promotion");
     expect(claimsForPerspective("me")).toContain("promotion");
-    window.config = previous;
+    expect(claimsForPerspective("finance")).not.toContain("promotion");
   });
 
   it("puts the claiming adapter in play for every section of each real perspective", () => {
@@ -275,12 +267,12 @@ describe("claimsForPerspective", () => {
     }
   });
 
-  it("covers infra, umt, and promotion when those preview flags are on", async () => {
+  it("covers infra and umt when their preview flags are on, and promotion regardless", async () => {
     const previous = window.config;
     vi.resetModules();
     window.config = {
       ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { infra: true, umt: true, promotion: true },
+      ONE_WSO2_PREVIEW_FEATURES: { infra: true, umt: true },
     } as Window["config"];
     const { PERSPECTIVES: flagged } = await import("@constants/perspectives");
     const fold = await import("./visibilityFold");

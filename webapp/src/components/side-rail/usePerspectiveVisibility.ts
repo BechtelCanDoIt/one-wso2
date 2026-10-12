@@ -224,10 +224,7 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // Role.LEAD comes from promotion-app's own backend and bears no fixed
   // relationship to people-app's generic "lead" privilege `caps` is built
   // from. Only fetched while People Ops is active.
-  const promotionLeadPortalGate = usePromotionPrivileges(
-    userInfo.data?.workEmail,
-    isPeopleOps && isPreviewEnabled("promotion"),
-  );
+  const promotionLeadPortalGate = usePromotionPrivileges(userInfo.data?.workEmail, isPeopleOps);
 
   // UMT is the same shape of problem again: Product Management is
   // UMT_ADMIN-only, decided by UMT's own /update/user-info roles, which bear
