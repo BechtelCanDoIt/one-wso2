@@ -23,7 +23,7 @@ import TilEntryByline from "./TilEntryByline";
 import TilEntryCover from "./TilEntryCover";
 import TilSourceLabel from "./TilSourceLabel";
 
-// One entry in the Small thumbnails layout: a small picture or cover, the
+// One entry in the Small thumbnails layout: a small source cover, the
 // title, two lines of the learning and the byline. In a narrow feed (a phone,
 // where the rail leaves little room) edit and delete move under the text.
 export default function SubmissionThumbnailRow({

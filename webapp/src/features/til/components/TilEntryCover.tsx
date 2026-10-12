@@ -13,11 +13,9 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import { useMemo, useState } from "react";
 import { Box } from "@wso2/oxygen-ui";
 import { BookOpenIcon, Building2Icon, HandshakeIcon, LightbulbIcon, type LucideIcon } from "@wso2/oxygen-ui-icons-react";
 import type { TilSubmission, TilWhere } from "../api/tilTypes";
-import { tilFirstImageSrc } from "../util/tilRichText";
 import { tilSourceColors } from "../util/tilSourceTones";
 
 const SOURCE_ICONS: Record<TilWhere, LucideIcon> = {
@@ -27,28 +25,9 @@ const SOURCE_ICONS: Record<TilWhere, LucideIcon> = {
   Other: BookOpenIcon,
 };
 
-// The picture for an entry in the thumbnail layouts: the first picture in the
-// entry, or else a cover in its source's colour with the source's icon. Fills
-// its parent, which sets the size and shape. Decorative (alt=""): the title
-// is always right beside it.
+// The cover for an entry in the thumbnail layouts: its source's colour with the
+// source's icon. Fills its parent, which sets the size and shape.
 export default function TilEntryCover({ submission, iconSize }: { submission: TilSubmission; iconSize: number }) {
-  const src = useMemo(() => tilFirstImageSrc(submission.what), [submission.what]);
-  // A picture that fails to load (removed, or refused by the page's image
-  // policy) falls back to the cover instead of showing a broken image.
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
-
-  if (src && src !== failedSrc) {
-    return (
-      <Box
-        component="img"
-        src={src}
-        alt=""
-        loading="lazy"
-        onError={() => setFailedSrc(src)}
-        sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
-      />
-    );
-  }
   const Icon = SOURCE_ICONS[submission.where] ?? BookOpenIcon;
   return (
     <Box

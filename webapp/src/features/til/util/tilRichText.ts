@@ -26,29 +26,17 @@ import DOMPurify from "dompurify";
 
 // Sanitized on both write and read: `what` is written by one employee and
 // read by every OTHER employee who opens the feed, so the read side never
-// trusts that the editor sanitized it either.
+// trusts that the editor sanitized it either. Text only: no <img>, so a
+// pasted or dragged-in picture never reaches storage. The backend sanitizer
+// allows the same tags.
 const SANITIZE_CONFIG = {
-  ALLOWED_TAGS: ["p", "br", "strong", "em", "u", "ol", "ul", "li", "a", "img"],
-  // "width" (not "style") backs the editor's resize overlay -- a plain HTML
-  // dimension attribute, not a CSS property string, so there's no style-
-  // based injection surface (background: url(...), position: fixed, etc.)
-  // the way allowing "style" outright would open up. The backend sanitizer
-  // allows the same attribute, for the same reason.
-  ALLOWED_ATTR: ["href", "target", "src", "alt", "width"],
+  ALLOWED_TAGS: ["p", "br", "strong", "em", "u", "ol", "ul", "li", "a"],
+  ALLOWED_ATTR: ["href", "target"],
   ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel):|[^a-z]|[a-z+.-]+(?:[^a-z+.\-:]|$))/i,
 };
 
-// DOMPurify special-cases img/video/audio/source src to allow a data: URI
-// REGARDLESS of ALLOWED_URI_REGEXP above (long-documented DOMPurify
-// behavior -- confirmed directly: the regex alone does not block it).
-// Stripped as a second pass for the same reason the backend's own
-// sanitizer never allows it either -- real storage via POST /uploads, not
-// an inline blob that could blow past WHAT_MAX_LENGTH and bloat storage.
-const _DATA_URI_IMG_RE = /<img\b[^>]*\bsrc="data:[^"]*"[^>]*>/gi;
-
 export function sanitizeTilHtml(html: string): string {
-  const cleaned = DOMPurify.sanitize(html, SANITIZE_CONFIG);
-  return cleaned.replace(_DATA_URI_IMG_RE, "");
+  return DOMPurify.sanitize(html, SANITIZE_CONFIG);
 }
 
 /** sanitizeTilHtml for the editor's own change events: returns `html`
@@ -113,14 +101,6 @@ export function tilPlainText(html: string): string {
 
 export function tilPlainTextLength(html: string): number {
   return tilPlainText(html).length;
-}
-
-/** The first picture in an entry, for the feed's thumbnails — read from the
- * sanitized HTML, so it's only ever a URL the entry page itself would show
- * (never a data: URI or a script URL). Null when the entry has none. */
-export function tilFirstImageSrc(html: string): string | null {
-  const img = new DOMParser().parseFromString(sanitizeTilHtml(html), "text/html").querySelector("img[src]");
-  return img?.getAttribute("src") || null;
 }
 
 /** Minutes to read an entry at 200 words a minute, never less than one. */

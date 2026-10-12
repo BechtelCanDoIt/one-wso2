@@ -23,7 +23,6 @@ import {
   sanitizeTilHtml,
   tilDisplayHtml,
   tilExcerpt,
-  tilFirstImageSrc,
   tilPlainTextLength,
   tilReadingMinutes,
 } from "./tilRichText";
@@ -90,8 +89,8 @@ describe("sanitizeEditorHtml", () => {
     expect(sanitizeEditorHtml('<p>it&#39;s</p><script>alert("x")</script>')).toBe("<p>it's</p>");
   });
 
-  it("still strips a data: image", () => {
-    expect(sanitizeEditorHtml('<p>a</p><img src="data:image/png;base64,AAAA">')).toBe("<p>a</p>");
+  it("still strips a picture", () => {
+    expect(sanitizeEditorHtml('<p>a</p><img src="https://wso2.com/x.png">')).toBe("<p>a</p>");
   });
 });
 
@@ -119,48 +118,14 @@ describe("sanitizeTilHtml", () => {
     expect(sanitizeTilHtml('<a href="javascript:alert(1)">bad</a>')).not.toContain("javascript:");
   });
 
-  it("keeps an img's src and alt", () => {
-    const html = '<img src="https://wso2.com/x.png" alt="a screenshot">';
-    const result = sanitizeTilHtml(html);
-    expect(result).toContain('src="https://wso2.com/x.png"');
-    expect(result).toContain('alt="a screenshot"');
-  });
-
-  it("strips a disallowed attribute (onerror) on an img but keeps the element", () => {
-    const result = sanitizeTilHtml('<img src="https://wso2.com/x.png" onerror="alert(1)">');
-    expect(result).not.toContain("onerror");
-    expect(result).toContain("<img");
-  });
-
-  it("drops a javascript: img src", () => {
-    expect(sanitizeTilHtml('<img src="javascript:alert(1)">')).not.toContain("javascript:");
-  });
-
-  it("drops a data: img src", () => {
-    // ALLOWED_URI_REGEXP only permits http(s)/mailto/tel -- data: URIs
-    // (base64-embedded images) are excluded on purpose, same reasoning as
-    // the backend sanitizer: real storage via POST /uploads, not inline
-    // data blowing past the length limit and bloating storage.
-    expect(sanitizeTilHtml('<img src="data:image/png;base64,aGVsbG8=">')).not.toContain("data:");
-  });
-
-  it("keeps an img's width attribute", () => {
-    // Backs TilRichTextField's resize overlay (S/M/L presets), which sets
-    // this as a plain HTML attribute, never an inline style.
-    const result = sanitizeTilHtml('<img src="https://wso2.com/x.png" width="50%">');
-    expect(result).toContain('width="50%"');
-  });
-
-  it("strips an img's style attribute", () => {
-    // "width" is allowed specifically because, unlike "style", it can't
-    // carry CSS -- style itself must stay disallowed regardless, or the
-    // resize overlay could just as easily have opened a style-based
-    // injection surface instead of this one safe attribute.
-    const result = sanitizeTilHtml(
-      '<img src="https://wso2.com/x.png" style="position:fixed;top:0;left:0;width:100vw;height:100vh;">',
-    );
-    expect(result).not.toContain("style");
-    expect(result).toContain("<img");
+  it.each([
+    '<img src="https://wso2.com/x.png" alt="a screenshot" width="50%">',
+    '<img src="data:image/png;base64,aGVsbG8=">',
+    '<img src="javascript:alert(1)" onerror="alert(1)">',
+  ])("strips a picture, whatever its source: %s", (img) => {
+    // Entries are text only, so an <img> pasted in, or saved back when
+    // pictures were allowed, never shows.
+    expect(sanitizeTilHtml(`<p>a</p>${img}`)).toBe("<p>a</p>");
   });
 });
 
@@ -213,22 +178,5 @@ describe("tilExcerpt", () => {
     expect(result.endsWith("…")).toBe(true);
     expect(result.length).toBeLessThan(long.length);
     expect(result).not.toMatch(/\s…$/);
-  });
-});
-
-describe("tilFirstImageSrc", () => {
-  it("returns the first picture's URL", () => {
-    const html =
-      '<p>Before</p><p><img src="https://til.example.com/uploads/a.png"></p><p><img src="https://til.example.com/uploads/b.png"></p>';
-    expect(tilFirstImageSrc(html)).toBe("https://til.example.com/uploads/a.png");
-  });
-
-  it("returns null when the entry has no picture", () => {
-    expect(tilFirstImageSrc("<p>Just text</p>")).toBeNull();
-  });
-
-  it("never returns a URL the sanitizer would drop", () => {
-    expect(tilFirstImageSrc('<p><img src="data:image/png;base64,AAAA"></p>')).toBeNull();
-    expect(tilFirstImageSrc('<p><img src="javascript:alert(1)"></p>')).toBeNull();
   });
 });
