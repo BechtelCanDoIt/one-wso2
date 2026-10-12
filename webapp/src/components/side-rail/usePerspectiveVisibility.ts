@@ -43,7 +43,7 @@ import {
   useEngineeringAdminGate,
 } from "@features/engineering/api/engineeringAdminVisibility";
 import { isSriLankaWorkLocation } from "@utils/locationGate";
-import { visibleLeavesOf } from "./railActive";
+import { firstVisibleLeaf as firstVisibleLeafOf, visibleLeavesOf } from "./railActive";
 import {
   claimOf,
   claimsForPerspective,
@@ -88,6 +88,16 @@ export interface PerspectiveVisibility {
    * screen.
    */
   visibleLeaves: PerspectiveSection[];
+  /**
+   * The first leaf a caller may safely navigate to RIGHT NOW, in rail order —
+   * `undefined` until every section ranked above it has answered, visible or
+   * not. See `firstVisibleLeaf` for why this is not just `visibleLeaves[0]`:
+   * that fills in whatever has resolved so far, which can rank a quick lower
+   * answer ahead of a slow higher one. A caller that redirects (PerspectiveLanding)
+   * needs the rail-order-correct answer; the rail itself, which only ever
+   * draws what it knows and fills the rest in, keeps using `visibleLeaves`.
+   */
+  firstVisibleLeaf: PerspectiveSection | undefined;
   /**
    * True when something this perspective needed to answer the question failed.
    *
@@ -344,11 +354,13 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
 
   const resolveVisible = (section: PerspectiveSection): boolean => folded.canSee(section);
   const visibleLeaves = visibleLeavesOf(sections, resolveVisible);
+  const firstVisibleLeaf = firstVisibleLeafOf(sections, resolveVisible, folded.sectionAnswered);
 
   return {
     resolveVisible,
     isResolving: folded.resolving,
     visibleLeaves,
+    firstVisibleLeaf,
     isError: folded.failed,
     error: folded.error,
     retry: folded.retry,

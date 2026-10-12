@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { activeGroupIds, activeItemId, onPathOrBelow, visibleLeavesOf } from "./railActive";
+import { activeGroupIds, activeItemId, firstVisibleLeaf, onPathOrBelow, visibleLeavesOf } from "./railActive";
 import type { PerspectiveSection } from "@constants/perspectives";
 
 // Driven off the real registry, not a fixture: the bug this covers was a rail
@@ -214,5 +214,62 @@ describe("visibleLeavesOf", () => {
   it("skips a leaf with no route", () => {
     const anchors: PerspectiveSection[] = [{ id: "anchor", label: "Anchor" }];
     expect(visibleLeavesOf(anchors, () => true)).toEqual([]);
+  });
+});
+
+// THE thing PerspectiveLanding redirects on now — not visibleLeavesOf[0],
+// which fills in whatever has resolved so far and can rank a quick lower
+// answer ahead of a slow higher one.
+describe("firstVisibleLeaf", () => {
+  const sections: PerspectiveSection[] = [
+    {
+      id: "group",
+      label: "Group",
+      children: [
+        { id: "child-hidden", label: "Hidden", path: "/a/hidden" },
+        { id: "child-shown", label: "Shown", path: "/a/shown" },
+      ],
+    },
+    { id: "leaf", label: "Leaf", path: "/b" },
+  ];
+  const allAnswered = () => true;
+
+  it("returns the first visible leaf when everything has answered", () => {
+    const visible = (s: PerspectiveSection) => s.id !== "child-hidden";
+    expect(firstVisibleLeaf(sections, visible, allAnswered)?.id).toBe("child-shown");
+  });
+
+  it("returns undefined, not a lower-ranked leaf, while a section above it has not answered", () => {
+    // "leaf" is visible and would rank last of what's answered, but "group"
+    // (ranked above it) has not answered — nothing here is safe to return yet.
+    const visible = (s: PerspectiveSection) => s.id === "leaf";
+    const answered = (s: PerspectiveSection) => s.id !== "group";
+    expect(firstVisibleLeaf(sections, visible, answered)).toBeUndefined();
+  });
+
+  it("returns undefined while an EARLIER CHILD within an answered, visible group has not answered", () => {
+    // The group itself has answered and is visible, but its first child
+    // (ranked above the second) has not — the second child must not be
+    // returned just because it happens to already be visible.
+    const visible = (s: PerspectiveSection) => s.id === "group" || s.id === "child-shown";
+    const answered = (s: PerspectiveSection) => s.id !== "child-hidden";
+    expect(firstVisibleLeaf(sections, visible, answered)).toBeUndefined();
+  });
+
+  it("moves past a group that answered hidden, without waiting on its children", () => {
+    // A hidden group's children are never checked at all — matching
+    // visibleLeavesOf, which drops them the same way.
+    const visible = (s: PerspectiveSection) => s.id === "leaf";
+    const answered = (s: PerspectiveSection) => s.id !== "child-hidden" && s.id !== "child-shown";
+    expect(firstVisibleLeaf(sections, visible, answered)?.id).toBe("leaf");
+  });
+
+  it("skips a leaf with no route, same as visibleLeavesOf", () => {
+    const anchors: PerspectiveSection[] = [{ id: "anchor", label: "Anchor" }];
+    expect(firstVisibleLeaf(anchors, () => true, allAnswered)).toBeUndefined();
+  });
+
+  it("returns undefined when every section has answered and none is visible", () => {
+    expect(firstVisibleLeaf(sections, () => false, allAnswered)).toBeUndefined();
   });
 });

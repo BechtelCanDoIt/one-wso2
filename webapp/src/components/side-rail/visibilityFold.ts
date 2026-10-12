@@ -128,6 +128,16 @@ export interface VisibilityShell {
 
 export interface FoldedVisibility {
   canSee: (section: VisibilitySection) => boolean;
+  /**
+   * Whether `canSee`'s answer for this ONE section is final — the employee
+   * record it may read capabilities/Sri-Lanka from has resolved, and so has
+   * whichever adapter owns it, if any. A caller choosing the first VISIBLE
+   * section in rail order needs this alongside `canSee`: a later section
+   * answering `true` before an earlier one has answered at all is not "the
+   * first visible one" yet, only the first one checked so far — see
+   * `firstVisibleLeaf` in `railActive.ts`, the one place this is for.
+   */
+  sectionAnswered: (section: VisibilitySection) => boolean;
   resolving: boolean;
   failed: boolean;
   error?: unknown;
@@ -267,6 +277,15 @@ export function foldVisibility(
     return allowedByCapabilities(section.requires, shell.capabilities);
   };
 
+  const sectionAnswered = (section: VisibilitySection): boolean => {
+    // Capabilities and the Sri-Lanka check both read off the employee record,
+    // which `canSee` consults before it even looks for an owning adapter — so
+    // nothing is answered while that is still resolving, adapter or not.
+    if (shell.employeeRecordResolving) return false;
+    const owner = adapters.find((adapter) => claimedIds(adapter, shell).has(section.id));
+    return owner ? !owner.resolving : true;
+  };
+
   const failedAdapters = adapters.filter((adapter) => adapter.error !== undefined);
   const failed = shell.employeeRecordFailed || failedAdapters.length > 0;
   const error = shell.employeeRecordFailed ? shell.employeeRecordError : failedAdapters[0]?.error;
@@ -278,6 +297,7 @@ export function foldVisibility(
 
   return {
     canSee,
+    sectionAnswered,
     resolving: shell.employeeRecordResolving || adapters.some((adapter) => adapter.resolving),
     failed,
     error,

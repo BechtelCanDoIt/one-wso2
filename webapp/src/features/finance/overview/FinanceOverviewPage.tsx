@@ -18,7 +18,7 @@
 
 import { useState } from "react";
 import { Alert, Button, MenuItem, Select } from "@wso2/oxygen-ui";
-import { OVERVIEW_GATE_APPS, useFinanceGate } from "../api/useFinanceGate";
+import { useFinanceGate } from "../api/useFinanceGate";
 import CcDashboardPage from "../cc/pages/CcDashboardPage";
 import OpdDashboardScreen from "../opd/dashboard/OpdDashboardScreen";
 import ExpenseDashboardScreen from "../expense/dashboard/ExpenseDashboardScreen";
@@ -56,92 +56,109 @@ const OVERVIEW_SECTIONS: { value: OverviewTab; label: string }[] = [
  * screen's own notice, not a missing option.
  */
 export default function FinanceOverviewPage() {
-  // The three dashboards this screen switches between. It never asks about
-  // Master Data, so a slow answer from there should not keep this page blank
-  // behind `gate.isResolving` below.
-  const gate = useFinanceGate(true, OVERVIEW_GATE_APPS);
-  // Derived-with-override, the same pattern NeedsYouTab's `expenseStage` and
-  // CcApprovePage's `role` use: `picked` is null until someone chooses, and
-  // the default is recomputed every render rather than captured once — a
-  // plain `useState("cc")` would freeze on "cc" even after a card-less
-  // reader's access resolved, since nothing ever re-triggers a `useState`
-  // initializer. A reader with no CC card defaults to whichever of OPD or
-  // Expense they actually hold; everyone else keeps the current "cc" default.
+  // Three single-backend asks, each independently scoped rather than one
+  // three-wide gate — this is what lets every check below wait on only the
+  // ONE backend it actually needs, instead of a slow backend nobody's
+  // decision depends on holding up the page. Deduped against each other by
+  // React Query's own query-key cache, so this costs no extra request over a
+  // single combined call.
+  const opdGate = useFinanceGate(true, ["opd"]);
+  const expenseGate = useFinanceGate(true, ["expense"]);
+  const ccGate = useFinanceGate(true, ["cc"]);
+
+  // `picked` is null until someone chooses, or until the default below
+  // settles and locks itself in (see the effect further down) — from then on
+  // this is the only thing `section` reads, and the priority computation
+  // underneath it is never consulted again for this mount.
   //
   // Declared before the access guard below, not after: React's Rules of
   // Hooks — every hook has to run on every render, so this can't follow an
   // early return.
-  //
-  // Roles only — a failed lookup no longer counts for anything here, the
-  // same as in `useFinanceGate`'s `finance-overview` case. Treating an error
-  // as a reason to open this screen is what showed the whole entry to readers
-  // holding no role at all whenever identity hiccuped, and took it away again
-  // when identity recovered.
   const [picked, setPicked] = useState<OverviewTab | null>(null);
-  const section: OverviewTab =
-    picked ??
-    (!gate.ccHasOwnCard && gate.opdFinance
+
+  // Priority order: OPD, then Expense, then CC — reviewed into this order
+  // because OPD is the common case. Staged rather than flat, so a role that
+  // ranks ABOVE another is never skipped just because it hasn't answered
+  // yet: Expense is not consulted at all until OPD has definitively said no,
+  // and CC (the last resort) not until Expense has too. `null` means "not
+  // decidable yet" at that stage.
+  const defaultSection: OverviewTab | null = opdGate.isResolving
+    ? null
+    : opdGate.opdFinance
       ? "opd"
-      : !gate.ccHasOwnCard && !gate.opdFinance && gate.expenseFinance
-        ? "expense"
-        : "cc");
+      : expenseGate.isResolving
+        ? null
+        : expenseGate.expenseFinance
+          ? "expense"
+          : ccGate.isResolving
+            ? null
+            : "cc";
 
-  // A second, narrower ask of the SAME hook — same query keys, so React Query
-  // serves it from the cache `gate` above already populated rather than
-  // firing a second request. This is what lets the page stop waiting on all
-  // three backends: `gate` above still needs all three to pick the right
-  // DEFAULT tab and to build the dropdown's option list, but rendering the
-  // tab actually selected only ever needs that tab's own backend to answer.
-  // A CC-only reader whose OPD/Expense queries are slow — or a CC-only
-  // backend that is slow for someone who holds no CC role at all and will
-  // never land on this tab — no longer holds up a page they were always
-  // going to see.
-  const sectionGate = useFinanceGate(true, [section]);
+  // Locks the FIRST dashboard this mount ever decided on, the moment it's
+  // known — adjusting state during render rather than in an effect, the
+  // pattern React's own docs recommend for "remember this, once" (no extra
+  // render-commit-effect round trip, and nothing to clean up). Guarded by
+  // `picked === null` so it only ever fires the one time: without this, a
+  // role that resolves (or simply changes, on a background refetch) after a
+  // lower-priority one already committed would silently swap what the reader
+  // is looking at — reviewed as "Overview ... should never switch on its
+  // own".
+  if (picked === null && defaultSection !== null) {
+    setPicked(defaultSection);
+  }
+  const section = picked ?? defaultSection;
 
-  // `canSee("finance-overview")` is an OR across all three roles, so it can
-  // already read `true` from whichever backend answered first — it does not
-  // need `gate.isResolving` to be false to KNOW someone belongs here, only to
-  // rule out everyone who turns out not to. That split is the point: a
-  // reader who clearly has access (their own tab's role already answered)
-  // never waits on the other two just to be let in.
-  const hasAccess = gate.canSee("finance-overview");
-  if (!hasAccess && gate.isResolving) {
+  // An OR across all three — true as soon as ANY one resolves and grants
+  // access, without needing the other two to also answer first. A reader
+  // whose own role already came back never waits on backends that were
+  // never going to change their answer.
+  const hasAccess = ccGate.ccHasOwnCard || opdGate.opdFinance || expenseGate.expenseFinance;
+  const stillDeciding = opdGate.isResolving || expenseGate.isResolving || ccGate.isResolving;
+  if (!hasAccess && stillDeciding) {
     return null;
   }
-  // The rail hides this entry when `canSee("finance-overview")` is false,
-  // but hiding a link is not access control — the route is still reachable
-  // by a bookmark or a typed URL, the same reasoning `ClaimApprovalTabRoute`
-  // guards each of ITS routes on. Without this check `visibleSections`
-  // below would come back empty for that reader (every branch of its filter
-  // false) and they'd see a dropdown with nothing in it instead of an
-  // explicit answer. No data exposure either way — same as any finance
-  // route today — just a dead-end UI this closes off.
+  // The rail hides this entry when nobody has a role, but hiding a link is
+  // not access control — the route is still reachable by a bookmark or a
+  // typed URL, the same reasoning `ClaimApprovalTabRoute` guards each of ITS
+  // routes on. No data exposure either way — same as any finance route
+  // today — just a dead-end UI this closes off.
   if (!hasAccess) {
-    // CC erroring is not the same sentence as CC refusing: a reader denied
-    // every role fairly hears "not for you"; a reader whose only possible
-    // route in (CC) failed outright hears that it failed, with a way back.
-    if (gate.ccErrored && !gate.opdFinance && !gate.expenseFinance) {
+    // An error is not the same sentence as a refusal: a reader denied every
+    // role fairly hears "not for you"; a reader whose lookup failed outright
+    // hears that it failed, with a way back. Each backend gets its own
+    // message rather than one generic "something failed", so Retry can
+    // target the one that actually needs it.
+    const failure = ccGate.ccErrored
+      ? { label: "Credit Card", retry: ccGate.retryCc }
+      : opdGate.opdErrored
+        ? { label: "OPD Claims", retry: opdGate.retryOpd }
+        : expenseGate.expenseErrored
+          ? { label: "Expense Claims", retry: expenseGate.retryExpense }
+          : null;
+    if (failure) {
       return (
         <Alert
           severity="error"
           action={
-            <Button size="small" onClick={gate.retryCc} sx={{ textTransform: "none" }}>
+            <Button size="small" onClick={failure.retry} sx={{ textTransform: "none" }}>
               Retry
             </Button>
           }
         >
-          Couldn&apos;t check your Credit Card access.
+          Couldn&apos;t check your {failure.label} access.
         </Alert>
       );
     }
     return <Alert severity="info">This isn&apos;t available for your role.</Alert>;
   }
-  // Waits on the ONE backend the picked (or defaulted) tab actually needs —
-  // not `gate.isResolving` above, which is three backends wide. Nothing
-  // rendered while it resolves, matching `gate.isResolving`'s own guard: a
-  // placeholder would be the one thing left to blink between "resolving" and
-  // the dashboard underneath.
-  if (sectionGate.isResolving) {
+  // Still deciding the default (every backend above the eventual answer has
+  // to resolve first — see `defaultSection`) or picked but the picked tab's
+  // own backend hasn't answered yet. Nothing rendered either way: a
+  // placeholder would be the one thing left to blink on the way to the
+  // dashboard underneath.
+  const sectionGate =
+    section === "opd" ? opdGate : section === "expense" ? expenseGate : section === "cc" ? ccGate : null;
+  if (sectionGate === null || sectionGate.isResolving) {
     return null;
   }
 
@@ -151,11 +168,12 @@ export default function FinanceOverviewPage() {
   // not, and picking one landed them on that dashboard's own denial notice
   // instead of a filtered list.
   //
-  // Never empty here specifically: the `canSee("finance-overview")` guard
-  // above already returned for anyone who fails every branch of this same
-  // filter, so by this line at least one of them is guaranteed true.
+  // Never empty here specifically: `hasAccess` above is already true, and it
+  // can only be true because one of these three flags is — so by this line
+  // at least one of them is guaranteed true, even if the other two are still
+  // resolving (and so, for now, read as the false they will settle into).
   const visibleSections = OVERVIEW_SECTIONS.filter((s) =>
-    s.value === "cc" ? gate.ccHasOwnCard : s.value === "opd" ? gate.opdFinance : gate.expenseFinance,
+    s.value === "cc" ? ccGate.ccHasOwnCard : s.value === "opd" ? opdGate.opdFinance : expenseGate.expenseFinance,
   );
 
   const switcher = (

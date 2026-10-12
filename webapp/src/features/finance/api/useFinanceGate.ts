@@ -125,14 +125,18 @@ export interface FinanceGate {
   opdFinance: boolean;
   expenseFinance: boolean;
   /**
-   * Whether CC's own `/user-info` failed outright, distinct from a reader who
-   * simply holds no CC role. `canSee` folds both into "no" — a failed lookup
-   * is not a yes, same reasoning as every other case here — so a caller
-   * showing CC-gated UI on a `false` answer needs this to tell "not for you"
-   * from "couldn't check", and `retryCc` to offer a way back from the latter.
+   * Whether each backend's own lookup failed outright, distinct from a reader
+   * who simply holds no role there. `canSee` folds both into "no" for every
+   * case here — a failed lookup is not a yes — so a caller showing gated UI
+   * on a `false` answer needs these to tell "not for you" from "couldn't
+   * check", and the matching `retry*` to offer a way back from the latter.
    */
   ccErrored: boolean;
+  opdErrored: boolean;
+  expenseErrored: boolean;
   retryCc: () => void;
+  retryOpd: () => void;
+  retryExpense: () => void;
 }
 
 /**
@@ -176,6 +180,8 @@ export function useFinanceGate(
   const expenseLead = Boolean(expense.data?.enableLeadView);
   const expenseFinance = Boolean(expense.data?.enableFinanceView);
   const ccErrored = cc.isError;
+  const opdErrored = opd.isError;
+  const expenseErrored = expense.isError;
 
   const canSee = (itemId: string): boolean => {
     // Dev-only: a scoped gate silently answers "no" for an item whose backend
@@ -316,7 +322,11 @@ export function useFinanceGate(
     opdFinance,
     expenseFinance,
     ccErrored,
+    opdErrored,
+    expenseErrored,
     retryCc: () => void cc.refetch(),
+    retryOpd: () => void opd.refetch(),
+    retryExpense: () => void expense.refetch(),
   };
 }
 

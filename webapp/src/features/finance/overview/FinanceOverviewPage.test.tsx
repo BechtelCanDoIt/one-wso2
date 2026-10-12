@@ -34,30 +34,41 @@ const backend = {
   expense: { resolved: true, role: false, errored: false },
 };
 const retryCc = vi.fn();
+const retryOpd = vi.fn();
+const retryExpense = vi.fn();
 
 function resetBackends() {
   backend.cc = { resolved: true, role: false, errored: false };
   backend.opd = { resolved: true, role: false, errored: false };
   backend.expense = { resolved: true, role: false, errored: false };
   retryCc.mockClear();
+  retryOpd.mockClear();
+  retryExpense.mockClear();
 }
 
 vi.mock("../api/useFinanceGate", () => ({
+  // `_enabled` mirrors the real hook's signature; this fixture never needs it.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   useFinanceGate: (_enabled = true, needs: Backend[] = ["cc", "opd", "expense"]) => ({
     isResolving: needs.some((app) => !backend[app].resolved),
-    ccHasOwnCard: needs.includes("cc") && backend.cc.role,
-    opdFinance: needs.includes("opd") && backend.opd.role,
-    expenseFinance: needs.includes("expense") && backend.expense.role,
+    // Gated on `resolved`, same as the real hook: `ccHasOwnCard` etc. come off
+    // `.data`, which reads as its empty/undefined default (never the eventual
+    // role) until the query actually answers.
+    ccHasOwnCard: needs.includes("cc") && backend.cc.resolved && backend.cc.role,
+    opdFinance: needs.includes("opd") && backend.opd.resolved && backend.opd.role,
+    expenseFinance: needs.includes("expense") && backend.expense.resolved && backend.expense.role,
     ccErrored: needs.includes("cc") && backend.cc.errored,
+    opdErrored: needs.includes("opd") && backend.opd.errored,
+    expenseErrored: needs.includes("expense") && backend.expense.errored,
     retryCc,
+    retryOpd,
+    retryExpense,
     canSee: (id: string) =>
       id === "finance-overview" &&
-      ((needs.includes("cc") && backend.cc.role) ||
-        (needs.includes("opd") && backend.opd.role) ||
-        (needs.includes("expense") && backend.expense.role)),
+      ((needs.includes("cc") && backend.cc.resolved && backend.cc.role) ||
+        (needs.includes("opd") && backend.opd.resolved && backend.opd.role) ||
+        (needs.includes("expense") && backend.expense.resolved && backend.expense.role)),
   }),
-  // Unused by this mocked gate directly, but the page imports it, so it has to exist.
-  OVERVIEW_GATE_APPS: ["cc", "opd", "expense"],
 }));
 vi.mock("../cc/pages/CcDashboardPage", () => ({
   default: ({ headerActions }: { headerActions?: React.ReactNode }) => (
@@ -178,24 +189,30 @@ describe("what the switcher offers", () => {
     expect(screen.queryByTestId("cc-dashboard")).not.toBeInTheDocument();
   });
 
-  it("offers both to a reader holding both", () => {
+  // OPD ranks above CC in the default priority (reviewed: "Default to OPD,
+  // then Expense, then CC"), so a reader holding both lands on OPD, not CC.
+  it("offers both to a reader holding both, defaulting to OPD", () => {
     settled({ ccHasOwnCard: true, opdFinance: true });
     render(<FinanceOverviewPage />);
 
-    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+    expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toBeInTheDocument();
   });
 
-  // A failed lookup is not a role. `foldIdentityError` reports every finance
-  // query as `isError` whenever identity itself fails to resolve, so opening
-  // this screen on an error opened it for readers holding nothing at all —
-  // and closed it again when identity recovered, which is the blinking.
-  it("stays shut for a reader whose OPD lookup merely failed", () => {
+  // A failed lookup is not a role — `canSee`'s OR still reads only the role
+  // flags, never the error flags, so a reader with no role ANYWHERE still
+  // correctly has no access regardless of which backend errored. What
+  // changed is only the SENTENCE: once access is refused, naming which
+  // backend failed (and offering its retry) beats one generic "not for you"
+  // — reviewed as "handle a failed lookup for any of the three backends,
+  // not just CC".
+  it("shows the OPD failure with a retry for a reader holding no role anywhere", () => {
     settled({ opdErrored: true });
     render(<FinanceOverviewPage />);
 
     expect(aDashboard()).not.toBeInTheDocument();
-    expect(screen.getByText(/isn't available for your role/)).toBeInTheDocument();
+    expect(screen.getByText(/Couldn.t check your OPD Claims access/)).toBeInTheDocument();
+    expect(screen.queryByText(/isn't available for your role/)).not.toBeInTheDocument();
   });
 
   // The flip side: a real approver still gets in while OPD is having a bad
@@ -319,5 +336,92 @@ describe("a reader shut out by a failed CC lookup, not a missing role", () => {
 
     expect(screen.queryByText(/Couldn.t check your Credit Card access/)).not.toBeInTheDocument();
     expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
+  });
+});
+
+// Reviewed into this exact order: "Default to OPD, then Expense, then CC".
+describe("default priority: OPD, then Expense, then CC", () => {
+  it("defaults to OPD for a reader holding all three roles", () => {
+    settled({ ccHasOwnCard: true, opdFinance: true, expenseFinance: true });
+    render(<FinanceOverviewPage />);
+
+    expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
+  });
+
+  it("defaults to Expense, not CC, for a reader holding Expense and CC but not OPD", () => {
+    settled({ ccHasOwnCard: true, expenseFinance: true });
+    render(<FinanceOverviewPage />);
+
+    expect(screen.getByTestId("expense-dashboard")).toBeInTheDocument();
+  });
+
+  it("does not default to Expense while OPD has not answered, even if Expense already has", () => {
+    backend.opd = { resolved: false, role: false, errored: false };
+    backend.expense = { resolved: true, role: true, errored: false };
+    backend.cc = { resolved: true, role: false, errored: false };
+
+    const { container } = render(<FinanceOverviewPage />);
+
+    // Access is already knowable (Expense granted it), but WHICH tab is
+    // correct is not — OPD, ranked above Expense, could still say yes.
+    expect(aDashboard()).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("falls to CC only once both OPD and Expense have answered no", () => {
+    backend.opd = { resolved: true, role: false, errored: false };
+    backend.expense = { resolved: true, role: false, errored: false };
+    backend.cc = { resolved: true, role: true, errored: false };
+
+    render(<FinanceOverviewPage />);
+
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+  });
+});
+
+// Reviewed: "Overview ... should never switch on its own" — the default,
+// once shown, is not swapped for a later-arriving or later-changing answer.
+describe("locking the first dashboard shown", () => {
+  it("keeps showing CC after it locks in, even once OPD resolves true afterward", () => {
+    // OPD and Expense both answer no first — CC is the only option, and it
+    // locks in as soon as it's reached.
+    settled({ ccHasOwnCard: true });
+    const { rerender } = render(<FinanceOverviewPage />);
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+
+    // OPD's answer changes afterward (a background refetch granting a role
+    // that was not there a moment ago) — without the lock this would swap
+    // the screen to OPD mid-session.
+    backend.opd.role = true;
+    rerender(<FinanceOverviewPage />);
+
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+    expect(screen.queryByTestId("opd-dashboard")).not.toBeInTheDocument();
+  });
+
+  it("keeps showing OPD after it locks in, even once a background refetch changes CC's own answer", () => {
+    settled({ opdFinance: true });
+    const { rerender } = render(<FinanceOverviewPage />);
+    expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
+
+    backend.cc.role = true; // irrelevant to the lock, but also lower priority regardless
+    rerender(<FinanceOverviewPage />);
+
+    expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
+  });
+
+  it("an explicit pick overrides the computed default and is itself permanent", async () => {
+    settled({ ccHasOwnCard: true, opdFinance: true, expenseFinance: true });
+    render(<FinanceOverviewPage />);
+    // Default lands on OPD (top priority).
+    expect(screen.getByTestId("opd-dashboard")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("combobox"));
+    await userEvent.click(await screen.findByText("Credit Card"));
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
+
+    // A later-changing answer must not override the explicit pick either.
+    backend.expense.role = false;
+    expect(screen.getByTestId("cc-dashboard")).toBeInTheDocument();
   });
 });

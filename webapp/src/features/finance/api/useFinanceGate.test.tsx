@@ -56,11 +56,15 @@ const roles = {
   opdErrored: false,
   /** The CC lookup came back a failure rather than a role. */
   ccErrored: false,
+  /** The Expense lookup came back a failure rather than a role. */
+  expenseErrored: false,
   /** The master-data backend's own `privileges` — `["admin"]` or empty. */
   masterData: [] as MasterDataAccessLevel[],
 };
 
 const ccRefetch = vi.fn().mockResolvedValue(undefined);
+const opdRefetch = vi.fn().mockResolvedValue(undefined);
+const expenseRefetch = vi.fn().mockResolvedValue(undefined);
 
 // `isSuccess`/`isError` are what the gate reads to decide whether a backend
 // has finished having its say. Neither ever goes back to false in React Query
@@ -87,12 +91,16 @@ vi.mock("../opd/useOpd", () => ({
     isLoading: answered().isLoading,
     isError: roles.opdErrored,
     isSuccess: answered().isSuccess && !roles.opdErrored,
+    refetch: opdRefetch,
   }),
 }));
 vi.mock("../expense/useExpense", () => ({
   useExpenseAppData: () => ({
     data: { enableLeadView: roles.expenseLead, enableFinanceView: roles.expenseFinance },
-    ...answered(),
+    isLoading: answered().isLoading,
+    isError: roles.expenseErrored,
+    isSuccess: answered().isSuccess && !roles.expenseErrored,
+    refetch: expenseRefetch,
   }),
 }));
 // The master-data backend's own /user-info, which is what the four table rows
@@ -132,7 +140,10 @@ beforeEach(() => {
   roles.betweenRetries = false;
   roles.opdErrored = false;
   roles.ccErrored = false;
+  roles.expenseErrored = false;
   ccRefetch.mockClear();
+  opdRefetch.mockClear();
+  expenseRefetch.mockClear();
 });
 
 // The entry appears when ANY claim is approvable. Requiring all three would
@@ -517,28 +528,45 @@ describe("needs: scoping which backends a caller depends on", () => {
 // Distinct from "no CC role": a reader refused everywhere else because CC's
 // own lookup failed outright should be told that, with a way back, rather
 // than the same "not for you" a genuinely roleless reader gets.
-describe("ccErrored and retryCc", () => {
-  it("is false on a healthy lookup", () => {
-    expect(gate().ccErrored).toBe(false);
+// Every backend gets the same treatment — originally just CC, generalised on
+// review so a caller can tell "couldn't check" from "no role" for OPD and
+// Expense too, not only Credit Card.
+describe("ccErrored/opdErrored/expenseErrored and their retry functions", () => {
+  it("are all false on a healthy lookup", () => {
+    const g = gate();
+    expect(g.ccErrored).toBe(false);
+    expect(g.opdErrored).toBe(false);
+    expect(g.expenseErrored).toBe(false);
   });
 
-  it("is true when CC's own user-info call fails", () => {
-    roles.ccErrored = true;
-    expect(gate().ccErrored).toBe(true);
+  it("is true for whichever backend's own user-info call fails, and false for the others", () => {
+    roles.opdErrored = true;
+    const g = gate();
+    expect(g.opdErrored).toBe(true);
+    expect(g.ccErrored).toBe(false);
+    expect(g.expenseErrored).toBe(false);
   });
 
-  // A failed lookup still reads as "no" everywhere canSee reads ccHasOwnCard
-  // — the same "a failed lookup is not a yes" rule every other backend here
-  // follows. ccErrored exists so a caller can tell THIS "no" apart from a
-  // genuine refusal, not to change what canSee itself answers.
+  // A failed lookup still reads as "no" everywhere canSee reads the role
+  // flags — the same "a failed lookup is not a yes" rule every case here
+  // follows. The error fields exist so a caller can tell THIS "no" apart
+  // from a genuine refusal, not to change what canSee itself answers.
   it("a CC error still answers no on CC-gated items, same as holding no CC role", () => {
     roles.ccErrored = true;
     expect(gate().canSee("cc-approve")).toBe(false);
     expect(gate().ccHasOwnCard).toBe(false);
   });
 
-  it("retryCc refetches the CC query", () => {
+  it("retryCc/retryOpd/retryExpense each refetch their own query only", () => {
     gate().retryCc();
     expect(ccRefetch).toHaveBeenCalledTimes(1);
+    expect(opdRefetch).not.toHaveBeenCalled();
+    expect(expenseRefetch).not.toHaveBeenCalled();
+
+    gate().retryOpd();
+    expect(opdRefetch).toHaveBeenCalledTimes(1);
+
+    gate().retryExpense();
+    expect(expenseRefetch).toHaveBeenCalledTimes(1);
   });
 });
