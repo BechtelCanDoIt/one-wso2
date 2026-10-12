@@ -26,6 +26,7 @@
 
 import type { ReactNode } from "react";
 import { Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
+import { tint } from "../useBudgetSyncColors";
 
 export const NUMERIC = { fontVariantNumeric: "tabular-nums" } as const;
 
@@ -124,6 +125,82 @@ export function ToneChip({ label, color }: { label: string; color: string }) {
         color,
         border: 1,
         borderColor: color,
+        borderRadius: 0.5,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
+
+/**
+ * A row of label/value readouts for already-formatted figures (money, text) —
+ * unlike StatCell, which renders a count. Used by the Budget Sync tab, where
+ * Marketing Ops' ConsoleReadout did the same job.
+ */
+export function ReadoutStrip({
+  items,
+}: {
+  items: { label: string; value: string; color?: string }[];
+}) {
+  return (
+    <Box
+      sx={{
+        display: "inline-flex",
+        flexWrap: "wrap",
+        border: 1,
+        borderColor: "divider",
+        borderRadius: 1.5,
+        overflow: "hidden",
+      }}
+    >
+      {items.map((it) => (
+        <Box
+          key={it.label}
+          sx={{ px: 1.75, py: 1.25, borderLeft: 1, borderColor: "divider", "&:first-of-type": { borderLeft: 0 } }}
+        >
+          <Typography
+            sx={{
+              fontSize: 9.5,
+              fontWeight: 700,
+              letterSpacing: "0.13em",
+              textTransform: "uppercase",
+              color: "text.secondary",
+              mb: 0.5,
+            }}
+          >
+            {it.label}
+          </Typography>
+          <Typography
+            sx={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.02em", lineHeight: 1, color: it.color ?? "text.primary", ...NUMERIC }}
+          >
+            {it.value}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  );
+}
+
+/** A small uppercase chip with a tinted fill and border, from a resolved color string. */
+export function TintChip({ label, color, height = 18 }: { label: string; color: string; height?: number }) {
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: "inline-block",
+        height,
+        lineHeight: `${height - 2}px`,
+        px: 0.75,
+        fontSize: 9.5,
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        color,
+        bgcolor: tint(color, 8),
+        border: 1,
+        borderColor: tint(color, 22),
         borderRadius: 0.5,
         whiteSpace: "nowrap",
       }}

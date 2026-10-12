@@ -890,6 +890,22 @@ export const marketingOpsServiceUrls = {
   campaignTrackerWeeklyLogEntry: (groupId: string, entryId: string) =>
     `${marketingOpsBackendUrl}/api/ad-campaigns/campaign-tracker/weekly-log/${encodeURIComponent(groupId)}/entries/${encodeURIComponent(entryId)}`,
   campaignTrackerLinkedinRefresh: `${marketingOpsBackendUrl}/api/ad-campaigns/campaign-tracker/linkedin-refresh`,
+  // ---- ad campaigns → Budget Sync (read-only) --------------------------------
+  //
+  // Synced runs from the DigiOps-Connector Google Sheets add-on, plus the
+  // unfiltered per-campaign real-spend read the Pacing sub-tab joins against
+  // them. `month` on pacing-lines is 0-indexed.
+  budgetSyncRuns: (year?: number, limit = 25) =>
+    `${marketingOpsBackendUrl}/api/ad-campaigns/budget-sync/runs?limit=${limit}${year ? `&year=${year}` : ""}`,
+  budgetSyncRun: (runId: string) =>
+    `${marketingOpsBackendUrl}/api/ad-campaigns/budget-sync/runs/${encodeURIComponent(runId)}`,
+  campaignTrackerPacingLines: (
+    platform: "google_ads" | "linkedin",
+    year: number,
+    month: number,
+    day: number,
+  ) =>
+    `${marketingOpsBackendUrl}/api/ad-campaigns/campaign-tracker/pacing-lines?platform=${platform}&year=${year}&month=${month}&day=${day}`,
   // ---- ad campaigns → BU ownership registry ----------------------------------
   //
   // Owner name/email + which BU they currently own, with full append-only

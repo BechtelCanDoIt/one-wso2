@@ -56,8 +56,13 @@ import type {
   WeeklyLogEntryRow,
   WeeklyLogRow,
 } from "../ad-campaigns/campaign-tracker/campaignTrackerTypes";
+import type {
+  BudgetSyncRunDetail,
+  BudgetSyncRunSummary,
+  PacingLine,
+} from "../ad-campaigns/campaign-tracker/budgetSyncTypes";
 
-const ROOT = ["marketing-ops", "campaign-tracker"] as const;
+const ROOT =["marketing-ops", "campaign-tracker"] as const;
 const OWNERSHIP_ROOT = ["marketing-ops", "ad-campaigns-ownership"] as const;
 
 const KEY = {
@@ -70,6 +75,10 @@ const KEY = {
     [...ROOT, "weekly-log", days, includeUnlogged] as const,
   weeklyLogAll: [...ROOT, "weekly-log"] as const,
   linkedinRefreshStatus: [...ROOT, "linkedin-refresh-status"] as const,
+  budgetSyncRuns: (year?: number) => [...ROOT, "budget-sync-runs", year ?? "all"] as const,
+  budgetSyncRun: (runId: string) => [...ROOT, "budget-sync-run", runId] as const,
+  pacingLines: (platform: AdPlatform, year: number, month: number, day: number) =>
+    [...ROOT, "pacing-lines", platform, year, month, day] as const,
   owners: [...OWNERSHIP_ROOT, "owners"] as const,
   buCurrent: [...OWNERSHIP_ROOT, "bu-current"] as const,
   buHistory: (bu?: BusinessUnit) => [...OWNERSHIP_ROOT, "bu-history", bu ?? "all"] as const,
@@ -610,5 +619,67 @@ export function useAssignBuOwner() {
       qc.invalidateQueries({ queryKey: KEY.buHistory(bu) });
       qc.invalidateQueries({ queryKey: KEY.buHistory(undefined) });
     },
+  });
+}
+
+// ─── Budget Sync (read-only: runs synced from the DigiOps-Connector add-on) ──
+
+// Newest first (backend sorts by received_at DESC), so the first run matching
+// a (year, month) pair is the latest re-sync of it.
+export function useBudgetSyncRuns(year?: number) {
+  const { getAccessToken, ready } = useBase();
+  return useQuery<BudgetSyncRunSummary[]>({
+    queryKey: KEY.budgetSyncRuns(year),
+    enabled: ready,
+    queryFn: async () =>
+      requireResult(
+        await authedGet<BudgetSyncRunSummary[]>(urls.budgetSyncRuns(year), await getAccessToken()),
+        "List budget sync runs",
+      ),
+    retry: httpRetry,
+  });
+}
+
+// Runs are immutable and append-only, so a fetched run never goes stale.
+export function useBudgetSyncRun(runId: string | null) {
+  const { getAccessToken, ready } = useBase();
+  return useQuery<BudgetSyncRunDetail>({
+    queryKey: KEY.budgetSyncRun(runId ?? ""),
+    enabled: ready && runId !== null,
+    staleTime: Infinity,
+    queryFn: async () =>
+      requireResult(
+        await authedGet<BudgetSyncRunDetail>(urls.budgetSyncRun(runId ?? ""), await getAccessToken()),
+        "Load budget sync run",
+      ),
+    retry: httpRetry,
+  });
+}
+
+// Real vendor spend for the month a sync run reviewed. `month` is 0-indexed;
+// `day` is a genuine re-query bound (spend from the 1st through that day), so
+// moving it changes "spend to date" rather than scaling a client-side figure.
+// The previous day's rows stay on screen while the next day fetches (stale-
+// while-revalidate) — but only within the same platform/year/month: carrying
+// them across to a different run's month would pair last month's spend with
+// this month's budget cells.
+export function usePacingLines(platform: AdPlatform, year: number, month: number, day: number, enabled = true) {
+  const { getAccessToken, ready } = useBase();
+  return useQuery<PacingLine[]>({
+    queryKey: KEY.pacingLines(platform, year, month, day),
+    enabled: ready && enabled,
+    placeholderData: (previous, previousQuery) => {
+      const key = previousQuery?.queryKey;
+      return key && key[3] === platform && key[4] === year && key[5] === month ? previous : undefined;
+    },
+    queryFn: async () =>
+      requireResult(
+        await authedGet<PacingLine[]>(
+          urls.campaignTrackerPacingLines(platformParam(platform), year, month, day),
+          await getAccessToken(),
+        ),
+        "Load pacing lines",
+      ),
+    retry: httpRetry,
   });
 }
