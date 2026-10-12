@@ -69,11 +69,21 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
     </TableRow>
   );
 
+  const groupHeader = (title: string) => (
+    <TableRow>
+      <TableCell colSpan={cols} sx={{ bgcolor: "action.hover", py: 0.75 }}>
+        <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
+          {title}
+        </Typography>
+      </TableCell>
+    </TableRow>
+  );
+
   const lineRow = (l: SheetLine) => {
     const index = lines.indexOf(l);
     return (
       <Fragment key={l.number}>
-        <TableRow hover>
+        <TableRow>
           <TableCell sx={{ minWidth: 200 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {l.productName}
@@ -90,8 +100,8 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
                 size="small"
                 color="warning"
                 variant="outlined"
-                label="Category chosen by rep"
-                title="This product has no category set up by an Admin, so the rep chose it. Deal Desk checks it."
+                label="Category chosen by AM"
+                title="This product has no category set up by an Admin, so the AM chose it. Deal Desk checks it."
                 sx={{ mt: 0.5 }}
               />
             ) : null}
@@ -141,17 +151,16 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
           </TableRow>
         </TableHead>
         <TableBody>
-          {/* No heading: the line's own note says what's needed. */}
-          {pending.map(lineRow)}
+          {/* Lines waiting for a category come first, under their own heading, with no subtotal (D72). */}
+          {pending.length > 0 ? (
+            <>
+              {groupHeader("Not categorised")}
+              {pending.map(lineRow)}
+            </>
+          ) : null}
           {form.groups.map((g) => (
             <Fragment key={g.category}>
-              <TableRow>
-                <TableCell colSpan={cols} sx={{ bgcolor: "action.hover", py: 0.75 }}>
-                  <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
-                    {g.title}
-                  </Typography>
-                </TableCell>
-              </TableRow>
+              {groupHeader(g.title)}
               {g.lines.map(lineRow)}
               {totalRow(`${g.title} subtotal`, g.subtotal)}
             </Fragment>

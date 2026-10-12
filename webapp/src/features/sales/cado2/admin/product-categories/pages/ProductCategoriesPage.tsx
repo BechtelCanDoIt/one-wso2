@@ -241,7 +241,7 @@ export default function ProductCategoriesPage(): JSX.Element {
           <EmptyState
             icon={<TagsIcon size={28} />}
             title="No products mapped yet"
-            body="Until a product is mapped, reps choose its category on each line and Deal Desk checks it. Start with the products sold most often."
+            body="Until a product is mapped, AMs choose its category on each line and Deal Desk checks it. Start with the products sold most often."
           />
         ) : (
           <Stack spacing={2}>

@@ -107,12 +107,12 @@ describe("ProductsStep (Term & Products)", () => {
     ).toBeInTheDocument();
   });
 
-  it("marks a line whose product isn't mapped, and its category is chosen in the line's dialog", async () => {
+  it("puts a line whose product isn't mapped under Not categorised; its category is chosen in the line's dialog", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     const table = screen.getByRole("table", { name: "Products" });
     expect(within(table).queryByRole("combobox")).toBeNull(); // no dropdown on the line
-    expect(within(table).queryByText("Category to choose")).toBeNull(); // no heading strip
+    expect(within(table).getByText("Not categorised")).toBeInTheDocument(); // its own section, first
 
     const integrator = within(table)
       .getByText("WSO2 Integrator")
@@ -138,5 +138,6 @@ describe("ProductsStep (Term & Products)", () => {
       }),
     ).toBeNull();
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
+    expect(within(table).queryByText("Not categorised")).toBeNull(); // gone once empty
   });
 });

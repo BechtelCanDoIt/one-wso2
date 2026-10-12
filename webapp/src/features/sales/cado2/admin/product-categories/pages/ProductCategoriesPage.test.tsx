@@ -58,7 +58,7 @@ describe("ProductCategoriesPage", () => {
     Object.assign(mapped, { isPending: false, data: [] });
     render(<ProductCategoriesPage />);
     expect(screen.getByText("No products mapped yet")).toBeInTheDocument();
-    expect(screen.getByText(/reps choose its category on each line and Deal Desk checks it/)).toBeInTheDocument();
+    expect(screen.getByText(/AMs choose its category on each line and Deal Desk checks it/)).toBeInTheDocument();
   });
 
   it("lists the mapped products, filters them, and re-maps or unmaps one", async () => {

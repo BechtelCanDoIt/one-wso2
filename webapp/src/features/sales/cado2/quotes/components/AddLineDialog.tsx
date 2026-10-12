@@ -192,7 +192,8 @@ export default function AddLineDialog({
   const [term, setTerm] = useState("");
   const debounced = useDebouncedValue(term, 300);
   // The quote's price book only, a page at a time as the rep scrolls.
-  const products = useProducts(open ? currency : "", debounced, pricebook.id);
+  // Editing never searches: a line's product can't be changed, only removed (2026-10-12).
+  const products = useProducts(open && !line ? currency : "", debounced, pricebook.id);
   const options = products.data ?? [];
   // MUI scrolls the list back to the top when options are added and none is
   // highlighted, so the position is kept here and put back after a page loads.
@@ -329,7 +330,7 @@ export default function AddLineDialog({
                 pricebook={line.pricebookName}
                 unitPrice={line.unitPrice}
                 currency={currency}
-                note="The saved price is kept. Choose the product again below to price it again."
+                note="The product can't be changed. To use a different one, remove this line and add it."
               />
             ) : product && entry ? (
               <ProductCard
@@ -341,57 +342,59 @@ export default function AddLineDialog({
                 currency={currency}
               />
             ) : null}
-            <ProductListContext.Provider value={listState}>
-              <Autocomplete
-                options={options}
-                getOptionLabel={getName}
-                isOptionEqualToValue={(a, b) => a.id === b.id}
-                filterOptions={(x) => x}
-                loading={products.isPending && products.fetchStatus !== "idle"}
-                value={product}
-                onChange={(_, p) => chooseProduct(p)}
-                onInputChange={(_, v) => setTerm(v)}
-                slots={{ paper: ProductListPaper }}
-                slotProps={{
-                  listbox: {
-                    ref: (el: Element | null) => {
-                      listbox.current = el as HTMLElement | null;
+            {line ? null : (
+              <ProductListContext.Provider value={listState}>
+                <Autocomplete
+                  options={options}
+                  getOptionLabel={getName}
+                  isOptionEqualToValue={(a, b) => a.id === b.id}
+                  filterOptions={(x) => x}
+                  loading={products.isPending && products.fetchStatus !== "idle"}
+                  value={product}
+                  onChange={(_, p) => chooseProduct(p)}
+                  onInputChange={(_, v) => setTerm(v)}
+                  slots={{ paper: ProductListPaper }}
+                  slotProps={{
+                    listbox: {
+                      ref: (el: Element | null) => {
+                        listbox.current = el as HTMLElement | null;
+                      },
+                      onScroll: (e: UIEvent<HTMLElement>) => onListScroll(e.currentTarget),
                     },
-                    onScroll: (e: UIEvent<HTMLElement>) => onListScroll(e.currentTarget),
-                  },
-                }}
-                // The name, then the description on one quiet line; in full on hover.
-                renderOption={({ key, ...props }, p) => {
-                  const about = descriptionAfterName(p.name ?? "", p.description);
-                  return (
-                    <li key={key} {...props}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="body2" noWrap title={getName(p)}>
-                          {getName(p)}
-                        </Typography>
-                        {about ? (
-                          <Typography variant="caption" color="text.secondary" component="div" noWrap title={about}>
-                            {about}
+                  }}
+                  // The name, then the description on one quiet line; in full on hover.
+                  renderOption={({ key, ...props }, p) => {
+                    const about = descriptionAfterName(p.name ?? "", p.description);
+                    return (
+                      <li key={key} {...props}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" noWrap title={getName(p)}>
+                            {getName(p)}
                           </Typography>
-                        ) : null}
-                      </Box>
-                    </li>
-                  );
-                }}
-                noOptionsText={`No matching products in ${pricebook.name}`}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={line ? "Change product" : "Product"}
-                    placeholder="Search by name or product code"
-                    size="small"
-                    required={!line}
-                    error={Boolean(show("product")) && !product}
-                    helperText={show("product") && !product ? show("product") : `Products in ${pricebook.name}, priced in ${currency}`}
-                  />
-                )}
-              />
-            </ProductListContext.Provider>
+                          {about ? (
+                            <Typography variant="caption" color="text.secondary" component="div" noWrap title={about}>
+                              {about}
+                            </Typography>
+                          ) : null}
+                        </Box>
+                      </li>
+                    );
+                  }}
+                  noOptionsText={`No matching products in ${pricebook.name}`}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Product"
+                      placeholder="Search by name or product code"
+                      size="small"
+                      required
+                      error={Boolean(show("product")) && !product}
+                      helperText={show("product") && !product ? show("product") : `Products in ${pricebook.name}, priced in ${currency}`}
+                    />
+                  )}
+                />
+              </ProductListContext.Provider>
+            )}
             {chosen && mapped ? (
               <Stack
                 direction="row"

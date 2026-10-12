@@ -68,7 +68,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useDocumentFiles: () => files,
 }));
 
-/** The submitted quote with every product mapped: no category chosen by the rep. */
+/** The submitted quote with every product mapped: no category chosen by the AM. */
 const allMapped: DraftResponse = {
   ...submitted,
   version: { ...submitted.version, lines: submitted.version.lines.map((l) => ({ ...l, categorySource: "MAPPED" as const })) },
@@ -480,13 +480,13 @@ describe("QuoteDetailPage — lifecycle", () => {
     show({ ...submitted.quote, actions: [] }, mixed);
 
     // 1. The tag on the line, for everyone.
-    expect(within(screen.getByRole("table", { name: "Products" })).getAllByText("Category chosen by rep")).toHaveLength(1);
+    expect(within(screen.getByRole("table", { name: "Products" })).getAllByText("Category chosen by AM")).toHaveLength(1);
     // 2. A point in Deal Desk's summary.
     const points = within(screen.getByRole("region", { name: "Your approval as Deal Desk" })).getByRole("list", { name: "What's non-standard" });
     expect(points).toHaveTextContent(`Line ${first.lineNumber} · ${first.productName}`);
-    expect(points).toHaveTextContent("Category chosen by the rep");
+    expect(points).toHaveTextContent("Category chosen by the AM");
     // Nowhere else: no warning box, and nothing in the approval dialog.
-    expect(screen.queryByRole("region", { name: "Categories chosen by the rep" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Categories chosen by the AM" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Approve" }));
     expect(screen.getByRole("dialog")).not.toHaveTextContent(/category/i);
   });
@@ -497,8 +497,8 @@ describe("QuoteDetailPage — lifecycle", () => {
       version: { ...submitted.version, lines: submitted.version.lines.map((l) => ({ ...l, categorySource: "MAPPED" as const })) },
     };
     show(submitted.quote, allMapped);
-    expect(screen.queryByRole("region", { name: "Categories chosen by the rep" })).toBeNull();
-    expect(screen.queryByText("Category chosen by rep")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Categories chosen by the AM" })).toBeNull();
+    expect(screen.queryByText("Category chosen by AM")).toBeNull();
   });
 
   it("explains a closed quote", () => {
