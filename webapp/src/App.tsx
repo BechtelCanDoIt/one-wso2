@@ -20,7 +20,7 @@ import { Navigate, Route, Routes } from "react-router";
 import { landingPath } from "@config/landingConfig";
 import SettingsPage from "@features/settings/pages/SettingsPage";
 import MenuHomePage from "@features/menu/pages/MenuHomePage";
-import TilEntryPage from "@features/til/pages/TilEntryPage";
+import TilEntryRoute from "@features/til/pages/TilEntryRoute";
 import TilHomePage from "@features/til/pages/TilHomePage";
 import OrgChartPage from "@features/org-chart/pages/OrgChartPage";
 import SalesMeetingsPage from "@features/sales/pages/SalesMeetingsPage";
@@ -982,9 +982,11 @@ export default function App() {
                   No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
                   Colombo-office perk, every employee everywhere can use it. */}
               <Route path="knowledge-base" element={<TilHomePage />} />
-              {/* One entry's own page — what a Chat "View entry" button and a
-                  feed card's own link both land on. */}
-              <Route path="knowledge-base/:id" element={<TilEntryPage />} />
+              {/* One entry's own page — what a feed card opens inside One
+                  WSO2, or, with ?view=article, the full-page article a Chat
+                  "Read more" link lands on (AppLayout drops its shell for
+                  that; see layouts/fullPageRoutes). */}
+              <Route path="knowledge-base/:id" element={<TilEntryRoute />} />
             </>
           )}
           {/* Legal perspective — currently just a second entry point into Due

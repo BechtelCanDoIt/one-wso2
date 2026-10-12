@@ -51,6 +51,46 @@ export function sanitizeTilHtml(html: string): string {
   return cleaned.replace(_DATA_URI_IMG_RE, "");
 }
 
+/** sanitizeTilHtml for the editor's own change events: returns `html`
+ * unchanged when sanitizing would only re-spell it, and the clean version
+ * when it actually removes something.
+ *
+ * Quill writes a quote or apostrophe in text as &quot; / &#39;, the browser
+ * serializer behind sanitizeTilHtml writes it bare, so the clean string can
+ * differ from Quill's while saying the same thing. react-quill-new resets the
+ * whole editor from the value it gets back whenever that differs from the one
+ * it emitted, and the reset drops an empty trailing line: Enter at the end of
+ * any entry with a quote or apostrophe in it did nothing. */
+export function sanitizeEditorHtml(html: string): string {
+  const cleaned = sanitizeTilHtml(html);
+  const reserialized = new DOMParser().parseFromString(html, "text/html").body.innerHTML;
+  return cleaned === reserialized ? html : cleaned;
+}
+
+/** Quill (through react-quill-new) writes every space in text as &nbsp;, and
+ * a line of non-breaking spaces can't wrap between words, so long lines broke
+ * mid-word on the entry page. Turns them back into ordinary spaces. Applied
+ * when saving and when displaying, never to the editor's own change events:
+ * those must hand back exactly what Quill emitted (see sanitizeEditorHtml). */
+export function normalizeTilSpaces(html: string): string {
+  return html.replace(/&nbsp;|\u00a0/g, " ");
+}
+
+/** Sanitized HTML for read-only display, with &nbsp; as ordinary spaces —
+ * which also covers entries saved before saving normalized them. */
+export function tilDisplayHtml(html: string): string {
+  return normalizeTilSpaces(sanitizeTilHtml(html));
+}
+
+/** Whether two `what` values say the same thing once the editor's own
+ * re-spellings (escaped quotes, &nbsp;) are set aside, so an entry opened for
+ * editing doesn't read as changed before anything was touched. */
+export function isSameTilHtml(a: string, b: string): boolean {
+  const canonical = (html: string) =>
+    normalizeTilSpaces(new DOMParser().parseFromString(html, "text/html").body.innerHTML);
+  return canonical(a) === canonical(b);
+}
+
 // Converts to plain text for the two things that must count characters, not
 // markup: the 0/5000 counter and the max-length check. Block-level tags
 // become a space first so "<p>One</p><p>Two</p>" doesn't read as "OneTwo".
@@ -75,6 +115,20 @@ export function tilPlainTextLength(html: string): number {
   return tilPlainText(html).length;
 }
 
+/** The first picture in an entry, for the feed's thumbnails — read from the
+ * sanitized HTML, so it's only ever a URL the entry page itself would show
+ * (never a data: URI or a script URL). Null when the entry has none. */
+export function tilFirstImageSrc(html: string): string | null {
+  const img = new DOMParser().parseFromString(sanitizeTilHtml(html), "text/html").querySelector("img[src]");
+  return img?.getAttribute("src") || null;
+}
+
+/** Minutes to read an entry at 200 words a minute, never less than one. */
+export function tilReadingMinutes(html: string): number {
+  const words = tilPlainText(html).split(/\s+/).filter(Boolean).length;
+  return Math.max(1, Math.ceil(words / 200));
+}
+
 /** A Quill editor with nothing typed still returns markup (`<p><br></p>`,
  * not `""`), so `.trim() === ""` on the raw HTML never catches an empty
  * entry — check the plain-text content instead. */
@@ -88,15 +142,32 @@ export function isEmptyTilHtml(html: string): boolean {
 // how much text is available to fill them.
 const EXCERPT_LENGTH = 480;
 
-/** A plain-text preview for the feed list — formatting (bold, lists) is
- * what's lost in a one-line excerpt anyway, so this trims at a word
- * boundary near EXCERPT_LENGTH rather than mid-word, and only appends "…"
- * when something was actually cut. The full rich version still shows on
- * the entry's own page. */
+// Like tilPlainText, but each paragraph, list item and line break starts a
+// new line instead of becoming a space, so a preview keeps the entry's shape.
+// Blank lines (an empty paragraph from pressing Enter twice) are dropped —
+// in a three-line preview they'd use up a line showing nothing. Kept apart
+// from tilPlainText, which must stay space-joined: the 5000-char limit
+// counts its output, and the backend counts the same way.
+function tilPlainTextLines(html: string): string {
+  const lined = html.replace(/\s+/g, " ").replace(/<\/(p|li)>|<br\s*\/?>/gi, "\n");
+  const text = new DOMParser().parseFromString(lined, "text/html").body.textContent ?? "";
+  return text
+    .replace(/\u00a0/g, " ")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join("\n");
+}
+
+/** A plain-text preview for the feed list, one line per paragraph or list
+ * item (shown with `white-space: pre-line`). Inline formatting (bold, list
+ * markers) is dropped. Trims at a word or line boundary near EXCERPT_LENGTH
+ * rather than mid-word, and only appends "…" when something was actually
+ * cut. The full rich version still shows on the entry's own page. */
 export function tilExcerpt(html: string, maxLength: number = EXCERPT_LENGTH): string {
-  const text = tilPlainText(html);
+  const text = tilPlainTextLines(html);
   if (text.length <= maxLength) return text;
   const cut = text.slice(0, maxLength);
-  const lastSpace = cut.lastIndexOf(" ");
-  return `${lastSpace > maxLength * 0.6 ? cut.slice(0, lastSpace) : cut}…`;
+  const lastBreak = Math.max(cut.lastIndexOf(" "), cut.lastIndexOf("\n"));
+  return `${lastBreak > maxLength * 0.6 ? cut.slice(0, lastBreak) : cut}…`;
 }

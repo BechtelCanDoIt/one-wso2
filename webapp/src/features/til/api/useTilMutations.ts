@@ -22,11 +22,12 @@
 // transient failure worth retrying.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authedDelete, authedPost, authedUpload } from "@api/http";
+import { authedDelete, authedPost, authedPut, authedUpload } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { tilServiceUrls } from "@config/apiConfig";
 import { useAsgardeoSub } from "@hooks/useAsgardeoSub";
-import type { TilSubmissionPayload } from "./tilTypes";
+import { normalizeSubmission } from "./tilTypes";
+import type { TilSubmission, TilSubmissionPayload, TilSubmissionUpdatePayload, TilSubmissionWire } from "./tilTypes";
 
 function useTilSubmissionsKey(): unknown[] {
   const { state } = useAsgardeoSub();
@@ -43,6 +44,27 @@ export function useCreateTilSubmission() {
       await authedPost<unknown>(tilServiceUrls.submissions, await getAccessToken(), payload);
     },
     onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: submissionsKey });
+    },
+  });
+}
+
+/** PUT /submissions/{id}. The backend re-checks author-or-canModerate — this is presentation-only gating. */
+export function useUpdateTilSubmission() {
+  const getAccessToken = useAccessToken();
+  const qc = useQueryClient();
+  const submissionsKey = useTilSubmissionsKey();
+  return useMutation<TilSubmission | null, Error, { id: string; payload: TilSubmissionUpdatePayload }>({
+    mutationFn: async ({ id, payload }) => {
+      const wire = await authedPut<TilSubmissionWire>(tilServiceUrls.submission(id), await getAccessToken(), payload);
+      return wire ? normalizeSubmission(wire) : null;
+    },
+    onSuccess: async (updated, { id }) => {
+      // The entry's own page reads the detail query, not the feed list, so
+      // both have to pick up the edit.
+      const detailKey = ["til-submission", submissionsKey[1], id];
+      if (updated) qc.setQueryData(detailKey, updated);
+      else await qc.invalidateQueries({ queryKey: detailKey });
       await qc.invalidateQueries({ queryKey: submissionsKey });
     },
   });

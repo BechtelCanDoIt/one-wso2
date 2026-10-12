@@ -34,10 +34,20 @@ import ConfirmationDialog, { type ConfirmationContent } from "@components/confir
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { isTilBackendConfigured, useTilSubmissions, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
+import type { TilSubmission } from "../api/tilTypes";
+import { tilEntryPath } from "../util/tilArticleView";
 import { describeError } from "../util/tilError";
+import {
+  TIL_FEED_PAGE_SIZE,
+  pageContaining,
+  readTilFeedLayout,
+  writeTilFeedLayout,
+  type TilFeedLayout,
+} from "../util/tilFeedLayout";
 import { tilPlainText } from "../util/tilRichText";
-import SubmissionCard from "../components/SubmissionCard";
 import SubmitEntryDialog from "../components/SubmitEntryDialog";
+import TilFeed from "../components/TilFeed";
+import TilFeedLayoutSwitch from "../components/TilFeedLayoutSwitch";
 import TilShell from "../components/TilShell";
 
 // Local calendar day (not UTC) so it lines up with what the "Submitted on"
@@ -51,11 +61,9 @@ function localDateString(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-const ENTRIES_PER_PAGE = 10;
-
-// Shared by the "My entries" filter and canDelete below -- both are "is
+// Shared by the "My articles" filter and canChange below -- both are "is
 // this my entry" checks and must agree, or an entry can show up under My
-// entries (this comparison) while its own Delete button stays disabled (a
+// articles (this comparison) while its own Edit/Delete buttons stay hidden (a
 // separate, exact-match comparison that doesn't agree with it) whenever
 // the two addresses differ only in case. Module scope, not a closure
 // inside the component, specifically so it isn't a new function identity
@@ -79,6 +87,7 @@ export default function TilHomePage() {
   const { showError, showSuccess } = useNotifications();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editing, setEditing] = useState<TilSubmission | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -92,6 +101,8 @@ export default function TilHomePage() {
   // rather than "my own entries" first.
   const [tab, setTab] = useState<"all" | "mine">("all");
   const [page, setPage] = useState(1);
+  const [layout, setLayout] = useState<TilFeedLayout>(readTilFeedLayout);
+  const pageSize = TIL_FEED_PAGE_SIZE[layout];
 
   const canModerate = userInfo.data?.canModerate ?? false;
   const myEmail = userInfo.data?.email;
@@ -114,14 +125,22 @@ export default function TilHomePage() {
   }, [submissions.data, searchQuery, dateFrom, dateTo, tab, myEmail]);
   const isFiltering = Boolean(searchQuery.trim() || dateFrom || dateTo || tab === "mine");
 
-  const pageCount = Math.max(1, Math.ceil(filteredItems.length / ENTRIES_PER_PAGE));
+  const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   // Clamped, not reset via an effect: if a filter change leaves `page`
   // pointing past the new last page, this corrects it on the same render
   // instead of flashing an empty page first and fixing it one render later.
   const safePage = Math.min(page, pageCount);
-  const rangeStart = filteredItems.length === 0 ? 0 : (safePage - 1) * ENTRIES_PER_PAGE + 1;
-  const rangeEnd = Math.min(safePage * ENTRIES_PER_PAGE, filteredItems.length);
-  const pagedItems = filteredItems.slice((safePage - 1) * ENTRIES_PER_PAGE, safePage * ENTRIES_PER_PAGE);
+  const rangeStart = filteredItems.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(safePage * pageSize, filteredItems.length);
+  const pagedItems = filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  // Each layout holds a different number of entries a page, so switching
+  // moves to whichever page still starts with what you were looking at.
+  const changeLayout = (next: TilFeedLayout) => {
+    setPage(pageContaining((safePage - 1) * pageSize, TIL_FEED_PAGE_SIZE[next]));
+    setLayout(next);
+    writeTilFeedLayout(next);
+  };
 
   const runDelete = (id: string) => {
     setDeletingId(id);
@@ -163,13 +182,13 @@ export default function TilHomePage() {
           }}
           sx={{ mb: 1.5, minHeight: 36, "& .MuiTab-root": { minHeight: 36, textTransform: "none" } }}
         >
-          <Tab value="all" label="All entries" />
+          <Tab value="all" label="All articles" />
           {/* Disabled while identity is still loading -- myEmail is
               undefined until userInfo resolves, so selecting this tab any
               earlier filtered out every entry and showed the misleading
               "You haven't shared an entry yet." empty state even though
               nothing had actually been checked yet. */}
-          <Tab value="mine" label="My entries" disabled={userInfo.isLoading} />
+          <Tab value="mine" label="My articles" disabled={userInfo.isLoading} />
         </Tabs>
       )}
 
@@ -222,6 +241,7 @@ export default function TilHomePage() {
             >
               Advanced Search{!showAdvanced && hasActiveDateFilter ? " •" : ""}
             </Button>
+            <TilFeedLayoutSwitch value={layout} onChange={changeLayout} />
           </Stack>
 
           {showAdvanced && (
@@ -283,18 +303,15 @@ export default function TilHomePage() {
         <Alert severity="error">Couldn&apos;t load entries. {describeError(submissions.error)}</Alert>
       ) : filteredItems.length > 0 ? (
         <>
-          <Stack spacing={1.5}>
-            {pagedItems.map((s) => (
-              <SubmissionCard
-                key={s.id}
-                submission={s}
-                canDelete={canModerate || isOwnEntry(s.submittedByEmail, myEmail)}
-                deleting={deletingId === s.id}
-                onDelete={() => confirmDelete(s.id)}
-                onOpen={() => navigate(`/knowledge-base/${s.id}`)}
-              />
-            ))}
-          </Stack>
+          <TilFeed
+            layout={layout}
+            submissions={pagedItems}
+            canChange={(s) => canModerate || isOwnEntry(s.submittedByEmail, myEmail)}
+            deletingId={deletingId}
+            onEdit={setEditing}
+            onDelete={confirmDelete}
+            onOpen={(id) => navigate(tilEntryPath(id))}
+          />
           <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, mt: 2 }}>
             {pageCount > 1 && (
               <Pagination count={pageCount} page={safePage} onChange={(_, p) => setPage(p)} color="primary" />
@@ -319,6 +336,7 @@ export default function TilHomePage() {
       )}
 
       <SubmitEntryDialog open={dialogOpen} onClose={() => setDialogOpen(false)} />
+      {editing && <SubmitEntryDialog key={editing.id} open entry={editing} onClose={() => setEditing(null)} />}
       <ConfirmationDialog content={confirmContent} onClose={() => setConfirmContent(null)} />
     </TilShell>
   );
