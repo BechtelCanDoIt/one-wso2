@@ -91,9 +91,9 @@ describe("stepChecks", () => {
     expect(stepChecks({ ...v, lines })[1].map((c) => c.message)).toContain("Choose the category of 1 product");
   });
 
-  it("needs no term for a services-only quote", () => {
+  it("needs no term when no product recurs in Salesforce (D76)", () => {
     const v = complete();
-    const services = { ...v, termMode: "" as const, lines: v.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) };
+    const services = { ...v, termMode: "" as const, lines: v.lines.map((l) => ({ ...l, recurring: false })) };
     expect(stepChecks(services)[1]).toEqual([]);
   });
 });

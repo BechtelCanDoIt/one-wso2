@@ -161,6 +161,8 @@ export interface Product {
   readonly classification: string | null;
   /** The Admin's mapping; null = not mapped, the rep chooses. */
   readonly category?: LineCategory | null;
+  /** Charged every year, from the Salesforce classification (D76). */
+  readonly recurring: boolean;
   readonly pricebookEntries: readonly PricebookEntry[];
 }
 
@@ -258,7 +260,8 @@ export interface DraftLineInput {
   readonly keepSnapshotFromLineId?: number;
   readonly pricebookEntryId: string;
   readonly quantity: number;
-  readonly category: LineCategory;
+  /** "" = not chosen yet (D72): the draft saves, submission waits for it. */
+  readonly category: LineCategory | "";
   readonly discretionaryDiscountPercent: string;
   readonly unitOfMeasure?: string;
 }
@@ -321,6 +324,8 @@ export interface LineView {
   readonly unitOfMeasure: string | null;
   readonly productUnit: string | null;
   readonly classification: string | null;
+  /** Charged every year, from the classification (D76). */
+  readonly recurring: boolean;
   readonly quantity: number;
   readonly category: LineCategory;
   readonly categorySource?: CategorySource;

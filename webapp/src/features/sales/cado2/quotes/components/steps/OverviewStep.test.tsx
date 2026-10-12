@@ -59,7 +59,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
             currencyIsoCode: "USD",
             pricebook: { id: "01sUSD", name: "USD Price Book (Current)" },
             products: [
-              { id: "01tGW", name: "WSO2 Gateway", category: "SUBSCRIPTION",
+              { id: "01tGW", name: "WSO2 Gateway", category: "SUBSCRIPTION", recurring: true,
                 pricebookEntries: [{ id: "01uGW", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01sUSD", name: "USD Price Book (Current)" } }] },
             ],
             notBroughtIn: [{ productName: "WSO2 Legacy", reason: "not active in USD Price Book (Current) in USD" }],

@@ -27,6 +27,7 @@ const gateway = {
   productCode: "APIM-GW",
   family: null,
   unitOfMeasure: "Gateways",
+  recurring: true, // from its Salesforce classification (D76)
   pricebookEntries: [
     { id: "01u000000000001", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01s1", name: "FY26 USD" } },
   ],
@@ -117,6 +118,7 @@ describe("AddLineDialog", () => {
         unitOfMeasure: "",
         category: "SUBSCRIPTION",
         categorySource: "REP",
+        recurring: true,
       }),
     );
   });
@@ -146,6 +148,7 @@ describe("AddLineDialog", () => {
       unitPrice: "25000",
       category: "SUPPORT",
       categorySource: "MAPPED",
+      recurring: true,
       unitOfMeasure: "",
       quantity: "1",
       discount: "0",

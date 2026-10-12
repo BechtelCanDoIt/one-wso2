@@ -94,12 +94,12 @@ describe("SummaryPanel (F5 review)", () => {
 
 describe("SummaryPanel — services only", () => {
   it("shows the start date without a term", () => {
-    const services = { ...values, lines: values.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) };
+    const services = { ...values, lines: values.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const, recurring: false })) };
     const t = { arr: null, acv: null, tcv: "720.00", payableNow: "720.00" };
     render(<SummaryPanel values={services} legalEntityName={null} totals={t} pricing={false} />);
     expect(screen.getAllByText("USD 720.00")).toHaveLength(2); // total order value, first invoice
     const terms = within(screen.getByRole("region", { name: "Deal terms" }));
-    expect(terms.getByText("No subscription term: services only")).toBeInTheDocument();
+    expect(terms.getByText("No subscription term: no recurring products")).toBeInTheDocument();
     expect(terms.queryByText("Billing")).toBeNull();
   });
 });

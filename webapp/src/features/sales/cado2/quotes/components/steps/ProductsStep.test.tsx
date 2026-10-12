@@ -59,6 +59,7 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   unitPrice: "360",
   category,
   categorySource: category ? "MAPPED" : "REP",
+  recurring: category !== "PROFESSIONAL_SERVICE",
   unitOfMeasure: "",
   quantity: "1",
   discount: "",

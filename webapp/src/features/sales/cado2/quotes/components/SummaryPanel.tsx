@@ -284,7 +284,7 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
               <Field label="Billing">{billing ? BILLING[billing] : null}</Field>
             </>
           ) : (
-            <Field label="Start date" detail="No subscription term: services only">
+            <Field label="Start date" detail="No subscription term: no recurring products">
               {v.startDate ? formatDate(v.startDate) : null}
             </Field>
           )}

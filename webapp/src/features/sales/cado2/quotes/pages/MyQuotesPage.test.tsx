@@ -65,6 +65,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useDeleteDraft: () => deleteDraft,
 }));
 
+const NOW = new Date().toISOString();
 const item = (
   id: number,
   over: Partial<QuoteListItem> = {},
@@ -84,7 +85,9 @@ const item = (
   tcv: "123000.00",
   expiryDate: null,
   createdAt: "2026-10-02T08:00:00Z",
-  updatedAt: new Date().toISOString(),
+  // One time for every item: a fresh new Date() per item could tick between
+  // items and reorder the list, which is sorted by last update.
+  updatedAt: NOW,
   ...over,
 });
 const mine = [

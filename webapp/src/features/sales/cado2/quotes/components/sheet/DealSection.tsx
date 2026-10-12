@@ -27,7 +27,7 @@ const BILLING = { ANNUAL: "Annually in advance", UPFRONT: "Upfront, whole term" 
 /** The term fact: its dates and mode, or the start date alone for services only. */
 function termFact(sheet: QuoteSheet): { label: string; value: string; hint: string } {
   if (!sheet.recurring) {
-    return { label: "Start date", value: sheet.startDate ? formatDate(sheet.startDate) : "", hint: "No subscription term: services only" };
+    return { label: "Start date", value: sheet.startDate ? formatDate(sheet.startDate) : "", hint: "No subscription term: no recurring products" };
   }
   return {
     label: "Subscription term",

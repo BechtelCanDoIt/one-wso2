@@ -277,6 +277,7 @@ export default function AddLineDialog({
           unitPrice: entry!.unitPrice ?? "",
           category: mapped ?? (category as LineCategory),
           categorySource: source,
+          recurring: product!.recurring,
           unitOfMeasure: "",
           quantity: "",
           discount: "",

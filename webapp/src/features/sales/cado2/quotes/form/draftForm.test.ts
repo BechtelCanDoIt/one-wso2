@@ -137,6 +137,7 @@ function filled(): DraftFormValues {
         unitPrice: "360",
         category: "SUBSCRIPTION",
         categorySource: "REP",
+        recurring: true,
         unitOfMeasure: "",
         quantity: "20",
         discount: "10",
@@ -152,6 +153,7 @@ function filled(): DraftFormValues {
         unitPrice: "4800",
         category: "SUBSCRIPTION",
         categorySource: "REP",
+        recurring: true,
         unitOfMeasure: "Portals",
         quantity: "1",
         discount: "",
@@ -214,9 +216,10 @@ describe("toDraftInput", () => {
     expect(short).toMatchObject({ termMode: "SHORTER", subscriptionEndDate: "2027-06-30", coTermOpportunityId: undefined });
   });
 
-  it("sends no term for a services-only quote", () => {
+  it("sends no term when no product recurs in Salesforce (D76)", () => {
     const v = filled();
-    const input = toDraftInput({ ...v, lines: v.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) });
+    // Still under Subscription: the category doesn't decide.
+    const input = toDraftInput({ ...v, lines: v.lines.map((l) => ({ ...l, recurring: false })) });
     expect(input.termMode).toBeUndefined();
     expect(input.subscriptionStartDate).toBe("2027-01-01");
   });
@@ -240,15 +243,13 @@ describe("toPreviewBody", () => {
     expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "2028-01-01" })).toBeNull();
   });
 
-  it("prices a line waiting for its category too, so the total includes it (D75)", () => {
+  it("prices a line waiting for its category too (D72, D76)", () => {
     const v = filled();
     const waiting = { ...v, lines: [...v.lines, { ...v.lines[0], pricebookEntryId: "01uWAIT", category: "" as const }] };
     const body = toPreviewBody(waiting) as { lines: { pricebookEntryId: string; category: string }[] };
     expect(body.lines.at(-1)).toMatchObject({ pricebookEntryId: "01uWAIT", category: "" });
-    // Only uncategorised lines: priced from the start date alone, like services.
-    expect(toPreviewBody({ ...v, termMode: "", lines: [{ ...v.lines[0], category: "" }] })).toMatchObject({
-      subscriptionEndDate: undefined,
-    });
+    // An uncategorised recurring product still needs the term.
+    expect(toPreviewBody({ ...v, termMode: "", lines: [{ ...v.lines[0], category: "" }] })).toBeNull();
   });
 
   it("carries the term and the lines' choices", () => {
@@ -267,9 +268,9 @@ describe("toPreviewBody", () => {
     });
   });
 
-  it("prices a services-only quote from its start date alone", () => {
+  it("prices a quote with no recurring product from its start date alone", () => {
     const v = filled();
-    const body = toPreviewBody({ ...v, termMode: "", lines: v.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) });
+    const body = toPreviewBody({ ...v, termMode: "", lines: v.lines.map((l) => ({ ...l, recurring: false })) });
     expect(body).toMatchObject({ subscriptionStartDate: "2027-01-01", subscriptionEndDate: undefined });
   });
 });
@@ -527,13 +528,13 @@ describe("pulledLines", () => {
   });
   it("brings in each product at 1 unit, priced from the book, with its mapped category or none yet", () => {
     const lines = pulledLines([
-      { id: "01tGW", name: "WSO2 Gateway", productCode: "GW", category: "SUBSCRIPTION", pricebookEntries: [entry("01uGW", true)] },
-      { id: "01tIS", name: "WSO2 Integrator", pricebookEntries: [entry("01uIS", true)] },
+      { id: "01tGW", name: "WSO2 Gateway", productCode: "GW", category: "SUBSCRIPTION", recurring: true, pricebookEntries: [entry("01uGW", true)] },
+      { id: "01tIS", name: "WSO2 Integrator", recurring: false, pricebookEntries: [entry("01uIS", true)] },
       { id: "01tOLD", name: "Old", pricebookEntries: [entry("01uOLD", false)] },
     ] as never);
-    expect(lines.map((l) => [l.pricebookEntryId, l.quantity, l.discount, l.unitPrice, l.category, l.categorySource])).toEqual([
-      ["01uGW", "1", "", "360", "SUBSCRIPTION", "MAPPED"],
-      ["01uIS", "1", "", "360", "", "REP"],
+    expect(lines.map((l) => [l.pricebookEntryId, l.quantity, l.discount, l.unitPrice, l.category, l.categorySource, l.recurring])).toEqual([
+      ["01uGW", "1", "", "360", "SUBSCRIPTION", "MAPPED", true],
+      ["01uIS", "1", "", "360", "", "REP", false], // recurring from Salesforce, not the category (D76)
     ]);
     expect(lines[0].pricebookName).toBe("USD Price Book");
   });

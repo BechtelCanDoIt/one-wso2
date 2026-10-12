@@ -77,6 +77,12 @@ export interface LineValue {
   category: LineCategory | "";
   /** MAPPED: set by the Admin's product mapping and locked; REP: the rep chose. */
   categorySource: CategorySource;
+  /**
+   * Charged every year (else once), from the product's Salesforce
+   * classification, as the backend says (D76). The category only places the
+   * line in an order-form section.
+   */
+  recurring: boolean;
   unitOfMeasure: string;
   quantity: string;
   discount: string;
@@ -262,10 +268,11 @@ export const LINE_CATEGORIES: readonly { value: LineCategory; label: string }[] 
 ];
 
 /** Subscription and Support lines repeat yearly; a Professional Service doesn't. */
-export const isRecurring = (category: LineCategory | "") => category !== "" && category !== "PROFESSIONAL_SERVICE";
+
 
 /** Whether the quote needs a subscription term: any recurring line. */
-export const hasRecurring = (lines: readonly { category: LineCategory | "" }[]) => lines.some((l) => isRecurring(l.category));
+/** Whether any line is charged every year, so a subscription term is needed (D37, D76). */
+export const hasRecurring = (lines: readonly { readonly recurring: boolean }[]) => lines.some((l) => l.recurring);
 
 /** Whether the AM types the end date (Co-termed, Shorter term). */
 export const isShortMode = (mode: TermMode | "" | null) => mode === "CO_TERMED" || mode === "SHORTER";
@@ -409,6 +416,7 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
       unitPrice: l.unitPrice,
       category: l.category,
       categorySource: l.categorySource ?? "REP",
+      recurring: l.recurring,
       unitOfMeasure: l.unitOfMeasure ?? "",
       quantity: String(l.quantity),
       discount: String(Number(l.discretionaryDiscountPercent)),
@@ -745,6 +753,7 @@ export function pulledLines(products: readonly Product[]): LineValue[] {
         unitPrice: entry.unitPrice ?? "",
         category: p.category ?? "",
         categorySource: p.category ? "MAPPED" : "REP",
+        recurring: p.recurring,
         unitOfMeasure: "",
         quantity: "1",
         discount: "",
