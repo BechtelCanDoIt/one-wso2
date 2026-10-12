@@ -47,7 +47,8 @@ import {
 import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/sales/cado2/approvals/model/myApprovals";
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
-import { ArrowDownIcon, ArrowLeftIcon, StarIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowDownIcon, ArrowLeftIcon, RotateCcwIcon, StarIcon, Trash2Icon, Undo2Icon, XCircleIcon } from "@wso2/oxygen-ui-icons-react";
+import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
 import { useCado2Me } from "@features/sales/cado2/api/useCado2Me";
 import { cado2Paths, type Cado2QuoteTab } from "@features/sales/cado2/cado2Paths";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
@@ -161,6 +162,25 @@ export default function QuoteDetailPage(): JSX.Element {
     setDecision({ outcome, step });
   };
 
+  // The page's one main button: the approver's task, else the AM's next step.
+  // In approval and approved have none; their actions are in the menu.
+  const reviseIsMain = can("REVISE") && (v.status === "RECALLED" || v.status === "CHANGES_REQUESTED");
+  const mainAction =
+    actionable.length && tab !== 0 ? (
+      // Decisions are made in "Your decision" on the Quote tab; from another tab this goes back there.
+      <Button variant="contained" endIcon={<ArrowDownIcon size={16} />} onClick={jumpToYourApproval}>
+        {actionable.length === 1 ? "Your approval" : `Your approvals (${actionable.length})`}
+      </Button>
+    ) : v.status === "DRAFT" && can("CLOSE") ? (
+      <Button variant="contained" component={RouterLink} to={cado2Paths.editVersion(q.id, v.versionNumber)}>
+        Continue draft v{v.versionNumber}
+      </Button>
+    ) : reviseIsMain ? (
+      <Button variant="contained" onClick={() => openDialog("revise")}>
+        Revise
+      </Button>
+    ) : null;
+
   return (
     <Stack spacing={3} sx={{ maxWidth: 1400, minWidth: 0 }}>
       <Stack spacing={1.5}>
@@ -182,49 +202,38 @@ export default function QuoteDetailPage(): JSX.Element {
               eyebrow: `${q.quoteNumber ?? "Draft"} · Version ${v.versionNumber}`,
               status: (
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip color={STATUS_COLOR[q.status]} label={quoteStatusLabel(q.status, v.versionNumber)} />
-                  {q.isPrimary ? <Chip variant="outlined" icon={<StarIcon size={14} />} label="Primary" /> : null}
+                  <Chip size="small" color={STATUS_COLOR[q.status]} label={quoteStatusLabel(q.status, v.versionNumber)} />
+                  {q.isPrimary ? <Chip size="small" variant="outlined" icon={<StarIcon size={14} />} label="Primary" /> : null}
                 </Stack>
               ),
               actions: (
                 <>
-                  {/* Decisions are made in "Your decision" on the Quote tab; from another tab this goes back there. */}
-                  {actionable.length && tab !== 0 ? (
-                    <Button variant="contained" endIcon={<ArrowDownIcon size={16} />} onClick={jumpToYourApproval}>
-                      {actionable.length === 1 ? "Your approval" : `Your approvals (${actionable.length})`}
-                    </Button>
-                  ) : null}
-                  {v.status === "DRAFT" && can("CLOSE") ? (
-                    <Button variant="contained" component={RouterLink} to={cado2Paths.editVersion(q.id, v.versionNumber)}>
-                      Continue draft v{v.versionNumber}
-                    </Button>
-                  ) : null}
-                  {can("RECALL") ? (
-                    <Button variant="contained" onClick={() => openDialog("recall")}>
-                      Recall
-                    </Button>
-                  ) : null}
-                  {can("REVISE") ? (
-                    <Button variant="contained" onClick={() => openDialog("revise")}>
-                      Revise
-                    </Button>
-                  ) : null}
-                  {v.status === "DRAFT" && can("CLOSE") ? (
-                    <Button color="error" variant="outlined" onClick={() => openDialog("delete")}>
-                      Delete draft
-                    </Button>
-                  ) : null}
-                  {/* A setting of the quote: any status, approvals untouched (D68). */}
-                  {q.canEdit ? (
-                    <Button variant="outlined" startIcon={<StarIcon size={16} />} onClick={() => openDialog("primary")}>
-                      {q.isPrimary ? "Remove primary" : "Make primary"}
-                    </Button>
-                  ) : null}
-                  {can("CLOSE") ? (
-                    <Button color="error" variant="outlined" onClick={() => openDialog("close")}>
-                      Close quote
-                    </Button>
-                  ) : null}
+                  {/* One main button, the next step for this status; the rest is under "⋯" (2026-10-12). */}
+                  {mainAction}
+                  <QuoteActionsMenu
+                    actions={[
+                      ...(can("RECALL") ? [{ label: "Recall", icon: <Undo2Icon size={16} />, onClick: () => openDialog("recall") }] : []),
+                      ...(can("REVISE") && !reviseIsMain
+                        ? [{ label: "Revise", icon: <RotateCcwIcon size={16} />, onClick: () => openDialog("revise") }]
+                        : []),
+                      // A setting of the quote: any status, approvals untouched (D68).
+                      ...(q.canEdit
+                        ? [
+                            {
+                              label: q.isPrimary ? "Remove primary" : "Make primary",
+                              icon: <StarIcon size={16} />,
+                              onClick: () => openDialog("primary"),
+                            },
+                          ]
+                        : []),
+                    ]}
+                    destructive={[
+                      ...(v.status === "DRAFT" && can("CLOSE")
+                        ? [{ label: "Delete draft", icon: <Trash2Icon size={16} />, onClick: () => openDialog("delete") }]
+                        : []),
+                      ...(can("CLOSE") ? [{ label: "Close quote", icon: <XCircleIcon size={16} />, onClick: () => openDialog("close") }] : []),
+                    ]}
+                  />
                 </>
               ),
             }}

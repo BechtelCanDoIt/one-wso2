@@ -23,6 +23,12 @@ import type { ApprovalStep, ApprovalWorkflow } from "@features/sales/cado2/appro
 import { ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
 import QuoteDetailPage from "./QuoteDetailPage";
 
+/** Opens the header's "⋯ More actions" menu, where every action but the main one is (2026-10-12). */
+async function openMenu(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "More actions" }));
+}
+const menuItems = () => screen.getAllByRole("menuitem").map((m) => m.textContent);
+
 const query = (data: unknown) => ({ data, error: null, isPending: false, isFetching: false, refetch: vi.fn() });
 const quote = query(undefined as unknown);
 const versions = new Map<number, DraftResponse>();
@@ -129,7 +135,8 @@ describe("QuoteDetailPage — primary quote", () => {
     expect(within(panel).getByRole("link", { name: "Q-26-00031" })).toHaveAttribute("href", "/sales/cado2/quotes/3/quote");
     expect(within(panel).getByText("Q-26-00005 (this quote)")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Make primary" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Make primary" }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("Q-26-00031 (nimesha@wso2.com) is the primary quote for this opportunity. Making this quote primary releases it.");
     await user.click(within(dialog).getByRole("button", { name: "Make primary" }));
@@ -141,7 +148,8 @@ describe("QuoteDetailPage — primary quote", () => {
     show({ ...submitted.quote, isPrimary: true }, submitted);
 
     expect(screen.getByText("Primary")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Remove primary" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Remove primary" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove primary" }));
     expect(setPrimary.mutate).toHaveBeenCalledWith({ quoteId: submitted.quote.id, primary: false }, expect.anything());
   });
@@ -156,7 +164,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
   });
 
-  it("offers only Recall on a submitted quote", async () => {
+  it("offers Recall in the menu on a submitted quote, with no main button", async () => {
     show(submitted.quote, submitted);
     const user = userEvent.setup();
 
@@ -164,11 +172,13 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
     expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
     expect(screen.queryByText("Acme APIM renewal · Acme Corp")).toBeNull(); // nothing under the title
+    // In approval the AM waits: no main button, the rest under "⋯".
     expect(screen.queryByRole("button", { name: "Revise" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Close quote" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete draft" })).toBeNull(); // only a draft
+    expect(screen.queryByRole("link", { name: /Continue draft/ })).toBeNull();
+    await openMenu(user);
+    expect(menuItems()).toEqual(["Recall", "Make primary"]); // no Close or Delete draft here
 
-    await user.click(screen.getByRole("button", { name: "Recall" }));
+    await user.click(screen.getByRole("menuitem", { name: "Recall" }));
     const dialog = screen.getByRole("dialog", { name: "Recall version 1?" });
     await user.type(within(dialog).getByLabelText(/Why are you recalling it/), "Customer wants 30 gateways");
     await user.click(within(dialog).getByRole("button", { name: "Recall" }));
@@ -193,7 +203,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     show(recalledV1.quote, recalledV1);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Close quote" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Close quote" }));
     const dialog = screen.getByRole("dialog", { name: "Close Q-26-00005?" });
     expect(within(dialog).getByText(/This is permanent/)).toBeInTheDocument();
     const confirm = within(dialog).getByRole("button", { name: "Close quote" });
@@ -211,7 +222,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     // Never submitted, so it has no number: it is named by customer and deal.
     expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
     expect(screen.getByText("Draft · Version 1")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Delete draft" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     const dialog = screen.getByRole("dialog", { name: "Delete this draft quote?" });
     expect(within(dialog).getByText(/only has a draft, so Acme Corp · Acme APIM renewal is removed completely\. This can't be undone/)).toBeInTheDocument();
 
@@ -232,24 +244,28 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show(q, recalledV1, v2);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Delete draft" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     const dialog = screen.getByRole("dialog", { name: "Delete draft v2?" });
     expect(within(dialog).getByText(/Version 1 \(Recalled\) becomes the latest again\. This can't be undone/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Delete draft" }));
     expect(del.mutate).toHaveBeenCalledWith({ quoteId: 5, version: 2, expectedUpdatedAt: v2.version.updatedAt }, expect.anything());
   });
 
-  it("shows a draft's owner Continue and Close", () => {
+  it("gives a draft one main button, Continue, and puts the destructive actions last in the menu", async () => {
     show(ready.quote, ready);
+    const user = userEvent.setup();
     expect(screen.getByRole("link", { name: "Continue draft v1" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/1/edit");
-    expect(screen.getByRole("button", { name: "Close quote" })).toBeInTheDocument();
+    // The status is with the title, not among the actions.
+    expect(within(screen.getByLabelText("About this quote")).queryByRole("button", { name: "Close quote" })).toBeNull();
+    await openMenu(user);
+    expect(menuItems()).toEqual(["Make primary", "Delete draft", "Close quote"]);
+    expect(screen.getByRole("separator")).toBeInTheDocument(); // between everyday and destructive
   });
 
   it("gives an Admin (no actions) a read-only page with the whole quote", () => {
     show({ ...submitted.quote, actions: [], canEdit: false }, submitted);
-    expect(screen.queryByRole("button", { name: "Recall" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Make primary" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Close quote" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull(); // nothing to offer
     // The customer is in the page's header band, and not repeated in the deal.
     const header = screen.getByLabelText("About this quote");
     expect(within(header).getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();

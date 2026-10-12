@@ -26,6 +26,7 @@ import {
   IconButton,
   InputAdornment,
   Link,
+  Divider,
   Menu,
   MenuItem,
   Paper,
@@ -167,6 +168,8 @@ function RowMenu({ q }: { q: QuoteListItem }): JSX.Element {
         >
           {q.isPrimary ? "Remove primary" : "Make primary"}
         </MenuItem>
+        {/* The destructive one last, below a line, as on the quote page. */}
+        {q.status === "DRAFT" ? <Divider /> : null}
         {q.status === "DRAFT" ? (
           <MenuItem
             sx={{ color: "error.main" }}

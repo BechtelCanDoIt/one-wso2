@@ -28,9 +28,9 @@ import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initi
 interface HeaderParts {
   /** Above the account name, e.g. "Q-26-00012 · Version 2". */
   readonly eyebrow: ReactNode;
-  /** Status chips, top right. */
+  /** Status chips, under the account name: what the quote is, apart from what can be done. */
   readonly status: ReactNode;
-  /** The page's buttons (Recall, Revise, Your approval, …), top right. */
+  /** The page's main button and its "⋯" menu, top right. */
   readonly actions: ReactNode;
 }
 
@@ -72,12 +72,12 @@ export default function CustomerBand({ sheet, header }: { sheet: QuoteSheet; hea
               <BriefcaseIcon size={14} />
               <Typography variant="body2">{sheet.opportunityName || "No opportunity yet"}</Typography>
             </Stack>
+            {header ? <Box sx={{ mt: 1 }}>{header.status}</Box> : null}
           </Box>
         </Stack>
         <Stack spacing={2} alignItems={{ xs: "flex-start", md: "flex-end" }} sx={{ minWidth: 0, flexShrink: 0 }}>
         {header ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 1, justifyContent: { md: "flex-end" } }}>
-            {header.status}
             {header.actions}
           </Stack>
         ) : null}
