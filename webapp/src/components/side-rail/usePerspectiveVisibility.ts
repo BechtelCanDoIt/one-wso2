@@ -114,19 +114,21 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   const caps = capabilitiesFromPrivileges(userInfo.data?.privileges);
   const infraGate = useInfraGate(active.key === "infra");
 
-  // Finance items (OPD/credit-card/expense, surfaced under Me) gate on each
-  // finance app's OWN backend roles, not the coarse people-app capabilities
-  // — so someone who is a people-app lead but not a cc-expenses lead/finance
-  // doesn't see "Approve Submissions". Dispatched per item id rather than
-  // per perspective since Finance items are just some of Me's sections now.
-  // Only fetch those roles while Me is active.
-  // Both perspectives: the claim apps' own screens are under Me, and Claim
-  // approval is under Finance. One gate answers for both, so it has to be
-  // asked in either place.
+  // Finance items gate on each finance app's OWN backend roles, not the
+  // coarse people-app capabilities — so someone who is a people-app lead but
+  // not a cc-expenses lead/finance doesn't see "Approve Submissions".
+  // Dispatched per item id rather than per perspective.
+  //
+  // Finance only, not Me: Me's one finance-claimed id ("claims", under
+  // ME_FINANCE_APPS) has no `requires` and falls to `canSee`'s open default
+  // regardless of what this gate answers — nothing under Me actually reads
+  // it. Fetching it there was four wasted `/user-info` calls on every visit
+  // to Me, and backend latency bleeding into `isResolving` for a perspective
+  // that never needed an answer.
   // No `caps` any more: master data was the one finance item the portal's own
   // privileges decided, and its backend now answers for itself — see
   // useFinanceGate's note.
-  const financeGate = useFinanceGate(active.key === "me" || active.key === "finance");
+  const financeGate = useFinanceGate(active.key === "finance");
 
   // Finance MIS, also under Finance, but a different backend again — the MIS
   // ARR service's own /user-info. It cannot share the finance gate above: that

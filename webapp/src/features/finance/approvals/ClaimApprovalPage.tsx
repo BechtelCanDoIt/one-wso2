@@ -69,11 +69,11 @@ export default function ClaimApprovalPage() {
       </Typography>
 
       {/* Nothing rendered while resolving — not even a skeleton. The rail
-          already shows no row for this entry until its gate settles, so the
-          content pane matches it: a placeholder here would be the one thing
-          left to blink on the way to a final answer, and this screen's
-          answer flips between "tabs" and "nothing here" rather than filling
-          a fixed shape. */}
+          itself does not wait on this same gate (it renders what it knows and
+          fills the rest in), but THIS page has only two answers once it
+          settles — tabs, or "nothing here" — and no fixed shape to hold a
+          placeholder's place between them, so a skeleton here would be the
+          one thing left to blink on the way to a final answer. */}
       {gate.isResolving ? null : visible.length === 0 ? (
         <Alert severity="info">You don&apos;t approve claims, so there is nothing here.</Alert>
       ) : (

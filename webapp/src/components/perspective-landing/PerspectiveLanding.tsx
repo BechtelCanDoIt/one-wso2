@@ -37,17 +37,29 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
  * navigates to its `path` — and because someone who can see nothing here has to
  * be told that somewhere.
  *
- * Four states, in this order, and the order is the point:
+ * States, and the order is the point:
  *
- *   resolving → hold. Every gate fails closed while it answers, so "your first
- *               item" read mid-flight is the wrong item or none at all, and
- *               redirecting on it would land people on a screen they didn't
- *               ask for or refuse them one they have.
+ *   have one  → go to it NOW, even if another gate this perspective also
+ *               depends on is still resolving. A visible leaf a reader already
+ *               has does not get taken away by an ANSWER ARRIVING for a
+ *               different backend — `isResolving` only ever goes from true to
+ *               false once per identity (see useFinanceGate's own note on
+ *               monotonicity) — so this is never a leaf we have to retract;
+ *               waiting here only holds someone on a backend that has nothing
+ *               to do with the item they are about to open. Rail order means a
+ *               LOWER-ranked leaf can resolve first and get shown before a
+ *               higher-ranked one lands; `replace` below means that correction
+ *               is a second navigate over the first, not a second entry in
+ *               Back, so this is the same tradeoff the rail already makes —
+ *               see its own "renders what is known and fills the rest in"
+ *               above.
+ *   resolving → hold. Nothing visible YET could still become a leaf once every
+ *               gate settles, and reporting "nothing here" on an incomplete
+ *               answer would send people chasing access they already hold.
  *   failed    → say so, with a Retry. Checked BEFORE the empty state for the
  *               same reason MarketingOpsShell checks it there: a failed request
  *               also leaves us with nothing to show, and reporting that as "you
  *               have no access" sends people chasing a permission they hold.
- *   have one  → go to it.
  *   have none → one sentence saying so, and where access comes from.
  *
  * Everything here reads from usePerspectiveVisibility, which is the rail's own
@@ -58,6 +70,17 @@ export default function PerspectiveLanding(): JSX.Element {
   const active = useActivePerspective();
   const { visibleLeaves, isResolving, isError, error, retry } = usePerspectiveVisibility();
   const first = visibleLeaves[0]?.path;
+
+  // `replace`, so Back leaves the perspective rather than bouncing off this
+  // route and forwarding again.
+  //
+  // `state` for the same reason SideRail's RouteItem passes it: some
+  // destinations sit outside their perspective's path prefix (Legal and Finance
+  // both forward into the shared /due-diligence/* routes), and the rail asks the
+  // URL first. Without this it falls through to the sessionStorage memory of the
+  // last non-Me perspective, which happens to hold the right answer here — but
+  // only because an effect ran before we left, which is not a thing to depend on.
+  if (first) return <Navigate to={first} replace state={{ fromPerspective: active.key }} />;
 
   if (isResolving) {
     return (
@@ -80,17 +103,6 @@ export default function PerspectiveLanding(): JSX.Element {
       </Box>
     );
   }
-
-  // `replace`, so Back leaves the perspective rather than bouncing off this
-  // route and forwarding again.
-  //
-  // `state` for the same reason SideRail's RouteItem passes it: some
-  // destinations sit outside their perspective's path prefix (Legal and Finance
-  // both forward into the shared /due-diligence/* routes), and the rail asks the
-  // URL first. Without this it falls through to the sessionStorage memory of the
-  // last non-Me perspective, which happens to hold the right answer here — but
-  // only because an effect ran before we left, which is not a thing to depend on.
-  if (first) return <Navigate to={first} replace state={{ fromPerspective: active.key }} />;
 
   return (
     <Box>

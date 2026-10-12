@@ -107,15 +107,30 @@ describe("a perspective landing that forwards to the first item", () => {
     expect(screen.getByTestId("from")).toHaveTextContent("security");
   });
 
-  // THE bug this guards. Every gate fails closed while it answers, so the
-  // first visible item read mid-flight is either the wrong one or absent —
-  // redirecting on it lands people on a screen they did not ask for, or
-  // refuses one they can open.
-  it("waits rather than redirecting while the gates are still answering", () => {
+  // A leaf already known is navigable NOW — waiting on some OTHER gate this
+  // perspective also depends on would hold the reader on a backend that has
+  // nothing to do with the item they are about to open. `isResolving` can
+  // still be true here (another gate hasn't answered yet); it just is no
+  // longer what decides whether this redirects.
+  it("redirects to a known leaf even while another gate is still answering", () => {
     visibility.current = {
       ...visibility.current,
       isResolving: true,
       visibleLeaves: [leaf("risk-registers", "/security/risk/registers")],
+    };
+    renderLanding();
+    expect(screen.getByTestId("url")).toHaveTextContent("/security/risk/registers");
+  });
+
+  // THE bug this guards, for the case that's still real: NOTHING visible yet
+  // could still become a leaf once every gate settles, so this has to wait —
+  // concluding "nothing here" on an incomplete answer would send someone
+  // chasing a permission they already hold.
+  it("waits rather than saying 'nothing here' while nothing is visible yet and gates are still answering", () => {
+    visibility.current = {
+      ...visibility.current,
+      isResolving: true,
+      visibleLeaves: [],
     };
     renderLanding();
     expect(screen.getByTestId("url")).toHaveTextContent("/security");

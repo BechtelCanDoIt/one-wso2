@@ -17,7 +17,7 @@
  */
 
 import { useState } from "react";
-import { Alert, MenuItem, Select } from "@wso2/oxygen-ui";
+import { Alert, Button, MenuItem, Select } from "@wso2/oxygen-ui";
 import { OVERVIEW_GATE_APPS, useFinanceGate } from "../api/useFinanceGate";
 import CcDashboardPage from "../cc/pages/CcDashboardPage";
 import OpdDashboardScreen from "../opd/dashboard/OpdDashboardScreen";
@@ -86,14 +86,26 @@ export default function FinanceOverviewPage() {
         ? "expense"
         : "cc");
 
-  // Nothing rendered while resolving — not even a skeleton. The rail already
-  // shows no row for this entry until its gate settles (SideRail fails
-  // closed while resolving, same as every other perspective's), so the
-  // content pane matches it: a placeholder here would be the one thing left
-  // to blink if `isResolving` ever flips more than once on the way to a
-  // final answer. Nothing to see is worth more than something to look at
-  // twice.
-  if (gate.isResolving) {
+  // A second, narrower ask of the SAME hook — same query keys, so React Query
+  // serves it from the cache `gate` above already populated rather than
+  // firing a second request. This is what lets the page stop waiting on all
+  // three backends: `gate` above still needs all three to pick the right
+  // DEFAULT tab and to build the dropdown's option list, but rendering the
+  // tab actually selected only ever needs that tab's own backend to answer.
+  // A CC-only reader whose OPD/Expense queries are slow — or a CC-only
+  // backend that is slow for someone who holds no CC role at all and will
+  // never land on this tab — no longer holds up a page they were always
+  // going to see.
+  const sectionGate = useFinanceGate(true, [section]);
+
+  // `canSee("finance-overview")` is an OR across all three roles, so it can
+  // already read `true` from whichever backend answered first — it does not
+  // need `gate.isResolving` to be false to KNOW someone belongs here, only to
+  // rule out everyone who turns out not to. That split is the point: a
+  // reader who clearly has access (their own tab's role already answered)
+  // never waits on the other two just to be let in.
+  const hasAccess = gate.canSee("finance-overview");
+  if (!hasAccess && gate.isResolving) {
     return null;
   }
   // The rail hides this entry when `canSee("finance-overview")` is false,
@@ -104,8 +116,33 @@ export default function FinanceOverviewPage() {
   // false) and they'd see a dropdown with nothing in it instead of an
   // explicit answer. No data exposure either way — same as any finance
   // route today — just a dead-end UI this closes off.
-  if (!gate.canSee("finance-overview")) {
+  if (!hasAccess) {
+    // CC erroring is not the same sentence as CC refusing: a reader denied
+    // every role fairly hears "not for you"; a reader whose only possible
+    // route in (CC) failed outright hears that it failed, with a way back.
+    if (gate.ccErrored && !gate.opdFinance && !gate.expenseFinance) {
+      return (
+        <Alert
+          severity="error"
+          action={
+            <Button size="small" onClick={gate.retryCc} sx={{ textTransform: "none" }}>
+              Retry
+            </Button>
+          }
+        >
+          Couldn&apos;t check your Credit Card access.
+        </Alert>
+      );
+    }
     return <Alert severity="info">This isn&apos;t available for your role.</Alert>;
+  }
+  // Waits on the ONE backend the picked (or defaulted) tab actually needs —
+  // not `gate.isResolving` above, which is three backends wide. Nothing
+  // rendered while it resolves, matching `gate.isResolving`'s own guard: a
+  // placeholder would be the one thing left to blink between "resolving" and
+  // the dashboard underneath.
+  if (sectionGate.isResolving) {
+    return null;
   }
 
   // Same access this page's own default above already reads — each tab

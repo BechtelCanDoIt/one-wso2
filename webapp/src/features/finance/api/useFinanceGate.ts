@@ -68,16 +68,6 @@ export function canSeeMasterData(user: MasterDataUserInfo | undefined): boolean 
   return masterDataHasAccess(user);
 }
 
-// Role-gates the Finance menu items (surfaced under Me) against each app's
-// OWN backend roles — not the coarse One WSO2 capabilities derived from
-// people-app. The rail uses this so a menu item is only shown to someone
-// who can actually use its page (e.g. cc "Approve Submissions" needs a
-// cc-expenses lead/finance role, exactly like the page enforces).
-//
-// Only the restricted items are listed; anything not named here is a
-// per-user view (New / Pending / History) and stays visible to everyone.
-// `enabled` lets the caller avoid firing the finance /user-info calls when
-// the Me perspective isn't active (e.g. while on People Ops).
 /**
  * The backends THIS HOOK reads — not the Finance perspective's app list, which
  * is longer. MIS, Banking and Due Diligence answer for themselves through their
@@ -89,15 +79,39 @@ export type FinanceGateApp = "cc" | "opd" | "expense" | "masterData";
 const EVERY_FINANCE_GATE_APP: readonly FinanceGateApp[] = ["cc", "opd", "expense", "masterData"];
 
 /**
+ * Which backends each scoped `canSee` item actually reads, as ONE table rather
+ * than one constant per caller — so a case added to the `canSee` switch below
+ * and a `needs` list handed to the hook can't quietly drift apart. A caller
+ * scoping itself to less than an item's own list here would see that item
+ * silently answer "no" forever, for a backend it never asked; see the
+ * dev-only check against this map inside `canSee`.
+ */
+const ITEM_BACKENDS: Readonly<Record<string, readonly FinanceGateApp[]>> = {
+  "claim-approval": ["opd", "expense"],
+  "finance-overview": ["cc", "opd", "expense"],
+};
+
+/**
  * What `canSee("claim-approval")` reads. CC is deliberately absent: card
  * submissions are approved under Credit Card Expenses, never on the Claim
  * Approval screen, so that backend has no say in it.
  */
-export const CLAIM_APPROVAL_GATE_APPS: readonly FinanceGateApp[] = ["opd", "expense"];
+export const CLAIM_APPROVAL_GATE_APPS = ITEM_BACKENDS["claim-approval"];
 
 /** What `canSee("finance-overview")` and the three raw flags below read. */
-export const OVERVIEW_GATE_APPS: readonly FinanceGateApp[] = ["cc", "opd", "expense"];
+export const OVERVIEW_GATE_APPS = ITEM_BACKENDS["finance-overview"];
 
+// Role-gates the Finance menu items (surfaced under Me) against each app's
+// OWN backend roles — not the coarse One WSO2 capabilities derived from
+// people-app. The rail uses this so a menu item is only shown to someone
+// who can actually use its page (e.g. cc "Approve Submissions" needs a
+// cc-expenses lead/finance role, exactly like the page enforces).
+//
+// Only the restricted items are listed; anything not named here is a
+// per-user view (New / Pending / History) and stays visible to everyone.
+// `enabled` lets the caller avoid firing the finance /user-info calls at all
+// — unlike `needs` below, which still fires every backend it names but skips
+// waiting on the ones it doesn't.
 export interface FinanceGate {
   canSee: (itemId: string) => boolean;
   isResolving: boolean;
@@ -105,18 +119,20 @@ export interface FinanceGate {
    * The raw signals behind the `finance-overview` case, exposed so a caller
    * with a choice to make — which dashboard FinanceOverviewPage should
    * default to — can use the SAME resolved access `canSee` already computed,
-   * rather than re-deriving it from the backends itself. `opdErrored` in
-   * particular is what lets that default actually land on the OPD tab (with
-   * its own retry) when that's the reason Overview is visible at all —
-   * without it, `finance-overview`'s "a failed lookup counts as a yes"
-   * reasoning below would be true only in the rail, and a no-card reader
-   * would land on the tab that has nothing to show instead of the one
-   * that's erroring and can be retried.
+   * rather than re-deriving it from the backends itself.
    */
   ccHasOwnCard: boolean;
   opdFinance: boolean;
-  opdErrored: boolean;
   expenseFinance: boolean;
+  /**
+   * Whether CC's own `/user-info` failed outright, distinct from a reader who
+   * simply holds no CC role. `canSee` folds both into "no" — a failed lookup
+   * is not a yes, same reasoning as every other case here — so a caller
+   * showing CC-gated UI on a `false` answer needs this to tell "not for you"
+   * from "couldn't check", and `retryCc` to offer a way back from the latter.
+   */
+  ccErrored: boolean;
+  retryCc: () => void;
 }
 
 /**
@@ -157,11 +173,26 @@ export function useFinanceGate(
   // dashboard for their team or the company, not for a card of their own.
   const ccHasOwnCard = ccHasAccess(cc.data, "cc_owner") || ccLeadOrFinance;
   const opdFinance = opdHasRole(opd.data, OPD_ROLE.FINANCE_APPROVER);
-  const opdErrored = opd.isError;
   const expenseLead = Boolean(expense.data?.enableLeadView);
   const expenseFinance = Boolean(expense.data?.enableFinanceView);
+  const ccErrored = cc.isError;
 
   const canSee = (itemId: string): boolean => {
+    // Dev-only: a scoped gate silently answers "no" for an item whose backend
+    // it never fetched, which is correct for every item NOT in `needs` but a
+    // real bug for one that is in `ITEM_BACKENDS` — a caller that trimmed its
+    // `needs` list too far would see that item refuse everyone, forever, with
+    // nothing in production to say why.
+    if (process.env.NODE_ENV !== "production") {
+      const required = ITEM_BACKENDS[itemId];
+      const missing = required?.filter((app) => !needs.includes(app));
+      if (missing && missing.length > 0) {
+        console.warn(
+          `useFinanceGate: canSee("${itemId}") depends on ${required.join(", ")}, ` +
+            `but this caller's \`needs\` is missing ${missing.join(", ")}.`,
+        );
+      }
+    }
     switch (itemId) {
       // Claim approval, in the Finance perspective — just its two tabs now,
       // Needs You and Decided, both spanning every claim type. CC does not
@@ -278,7 +309,15 @@ export function useFinanceGate(
       (!needsMasterData || hasAnswered(masterData, isFinanceMasterDataBackendConfigured()))
     );
 
-  return { canSee, isResolving, ccHasOwnCard, opdFinance, opdErrored, expenseFinance };
+  return {
+    canSee,
+    isResolving,
+    ccHasOwnCard,
+    opdFinance,
+    expenseFinance,
+    ccErrored,
+    retryCc: () => void cc.refetch(),
+  };
 }
 
 /** Rail and landing facts. Dashboard-tab fields stay on FinanceGate. */

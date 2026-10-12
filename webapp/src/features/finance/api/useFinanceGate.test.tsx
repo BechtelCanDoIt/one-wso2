@@ -54,9 +54,13 @@ const roles = {
   betweenRetries: false,
   /** The OPD lookup came back a failure rather than a role. */
   opdErrored: false,
+  /** The CC lookup came back a failure rather than a role. */
+  ccErrored: false,
   /** The master-data backend's own `privileges` — `["admin"]` or empty. */
   masterData: [] as MasterDataAccessLevel[],
 };
+
+const ccRefetch = vi.fn().mockResolvedValue(undefined);
 
 // `isSuccess`/`isError` are what the gate reads to decide whether a backend
 // has finished having its say. Neither ever goes back to false in React Query
@@ -69,7 +73,13 @@ const answered = () => ({
 });
 
 vi.mock("../cc/useCc", () => ({
-  useCcUserInfo: () => ({ data: { privileges: roles.cc }, ...answered() }),
+  useCcUserInfo: () => ({
+    data: { privileges: roles.cc },
+    isLoading: answered().isLoading,
+    isError: roles.ccErrored,
+    isSuccess: answered().isSuccess && !roles.ccErrored,
+    refetch: ccRefetch,
+  }),
 }));
 vi.mock("../opd/useOpd", () => ({
   useOpdUserInfo: () => ({
@@ -105,7 +115,10 @@ vi.mock("@config/apiConfig", () => ({
   isFinanceMasterDataBackendConfigured: () => true,
 }));
 
-const { useFinanceGate, canSeeMasterData } = await import("./useFinanceGate");
+const { useFinanceGate, canSeeMasterData, CLAIM_APPROVAL_GATE_APPS, OVERVIEW_GATE_APPS } = await import(
+  "./useFinanceGate"
+);
+type FinanceGateApp = "cc" | "opd" | "expense" | "masterData";
 const { FINANCE_ITEM_IDS } = await import("@constants/financeApps");
 
 const gate = () => renderHook(() => useFinanceGate()).result.current;
@@ -118,6 +131,8 @@ beforeEach(() => {
   roles.loading = false;
   roles.betweenRetries = false;
   roles.opdErrored = false;
+  roles.ccErrored = false;
+  ccRefetch.mockClear();
 });
 
 // The entry appears when ANY claim is approvable. Requiring all three would
@@ -408,5 +423,122 @@ describe("settling, and staying settled", () => {
 
     rerender({ on: true });
     expect(result.current.isResolving).toBe(true);
+  });
+});
+
+// `needs` narrows which backends a caller fetches and waits on. The whole
+// point: a backend left out must behave as if it were never asked at all —
+// not fetched, not waited for, not able to hold `isResolving` open — so a
+// slow or failing backend outside `needs` can never blank a screen that does
+// not read it. See Claim Approval and Finance Overview, which this exists for.
+describe("needs: scoping which backends a caller depends on", () => {
+  function settlingWithNeeds(needsList: FinanceGateApp[]) {
+    return renderHook(() => useFinanceGate(true, needsList)).result;
+  }
+
+  it("resolves immediately when every needed backend has answered, even mid-flight on the rest", () => {
+    // CC and Master Data never finish — they are not in `needs`, so they must
+    // not matter to this caller at all.
+    roles.loading = true;
+    const opdOnly = settlingWithNeeds(["opd"]);
+    // OPD itself is also "loading" via the shared `roles.loading` flag in this
+    // fixture, so isResolving starts true, exactly like a caller asking for
+    // every backend would — the difference under test is what happens next.
+    expect(opdOnly.current.isResolving).toBe(true);
+  });
+
+  it("stops resolving once only the needed backends answer, regardless of the rest", () => {
+    roles.loading = true;
+    const { result, rerender } = renderHook(({ needsList }) => useFinanceGate(true, needsList), {
+      initialProps: { needsList: ["opd"] as FinanceGateApp[] },
+    });
+    expect(result.current.isResolving).toBe(true);
+
+    // Only OPD settles. CC, Expense and Master Data are mocked off the same
+    // shared `roles.loading` flag in this fixture, so in isolation this also
+    // "answers" them — the real guarantee under test is in the next case,
+    // where an EXCLUDED backend is made to fail outright and still does not
+    // block.
+    roles.loading = false;
+    rerender({ needsList: ["opd"] });
+    expect(result.current.isResolving).toBe(false);
+  });
+
+  it("does not wait on a backend outside needs even when that backend errors", () => {
+    roles.opdErrored = true;
+    // CC is excluded from `needs`; OPD alone decides this caller's answer.
+    const opdOnly = settlingWithNeeds(["opd"]);
+    expect(opdOnly.current.isResolving).toBe(false);
+    expect(opdOnly.current.canSee("claim-approval")).toBe(false); // opdErrored, no role
+  });
+
+  it("CLAIM_APPROVAL_GATE_APPS excludes cc, matching canSee's own switch", () => {
+    expect(CLAIM_APPROVAL_GATE_APPS).toEqual(["opd", "expense"]);
+  });
+
+  it("OVERVIEW_GATE_APPS excludes masterData, matching canSee's own switch", () => {
+    expect(OVERVIEW_GATE_APPS).toEqual(["cc", "opd", "expense"]);
+  });
+
+  // The two constants above are DERIVED from the same table canSee's warning
+  // reads, rather than hand-typed separately — this just confirms that table
+  // actually agrees with canSee's real behaviour, not only with itself.
+  it("a gate scoped to CLAIM_APPROVAL_GATE_APPS answers claim-approval the same as the full gate", () => {
+    roles.opd = [555];
+    const full = gate();
+    const scoped = settlingWithNeeds([...CLAIM_APPROVAL_GATE_APPS]).current;
+    expect(scoped.canSee("claim-approval")).toBe(full.canSee("claim-approval"));
+  });
+
+  it("a gate scoped to OVERVIEW_GATE_APPS answers finance-overview the same as the full gate", () => {
+    roles.expenseFinance = true;
+    const full = gate();
+    const scoped = settlingWithNeeds([...OVERVIEW_GATE_APPS]).current;
+    expect(scoped.canSee("finance-overview")).toBe(full.canSee("finance-overview"));
+  });
+
+  it("warns in dev when canSee is asked about an item whose backend needs excluded", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ccOnly = settlingWithNeeds(["cc"]);
+    ccOnly.current.canSee("claim-approval"); // needs opd+expense, neither is in `needs`
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("claim-approval"));
+    warn.mockRestore();
+  });
+
+  it("does not warn when the item's backends are all in needs", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const scoped = settlingWithNeeds(["opd", "expense"]);
+    scoped.current.canSee("claim-approval");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+// Distinct from "no CC role": a reader refused everywhere else because CC's
+// own lookup failed outright should be told that, with a way back, rather
+// than the same "not for you" a genuinely roleless reader gets.
+describe("ccErrored and retryCc", () => {
+  it("is false on a healthy lookup", () => {
+    expect(gate().ccErrored).toBe(false);
+  });
+
+  it("is true when CC's own user-info call fails", () => {
+    roles.ccErrored = true;
+    expect(gate().ccErrored).toBe(true);
+  });
+
+  // A failed lookup still reads as "no" everywhere canSee reads ccHasOwnCard
+  // — the same "a failed lookup is not a yes" rule every other backend here
+  // follows. ccErrored exists so a caller can tell THIS "no" apart from a
+  // genuine refusal, not to change what canSee itself answers.
+  it("a CC error still answers no on CC-gated items, same as holding no CC role", () => {
+    roles.ccErrored = true;
+    expect(gate().canSee("cc-approve")).toBe(false);
+    expect(gate().ccHasOwnCard).toBe(false);
+  });
+
+  it("retryCc refetches the CC query", () => {
+    gate().retryCc();
+    expect(ccRefetch).toHaveBeenCalledTimes(1);
   });
 });
