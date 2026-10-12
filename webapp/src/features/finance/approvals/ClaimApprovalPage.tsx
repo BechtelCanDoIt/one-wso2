@@ -20,7 +20,7 @@ import type { ReactNode } from "react";
 import { Navigate, Outlet } from "react-router";
 import { Alert, Box, Typography } from "@wso2/oxygen-ui";
 import RoutedTabs from "@components/routed-tabs/RoutedTabs";
-import { useFinanceGate } from "../api/useFinanceGate";
+import { CLAIM_APPROVAL_APPS, useFinanceGate } from "../api/useFinanceGate";
 import {
   CLAIM_APPROVAL_PATH,
   CLAIM_APPROVAL_TABS,
@@ -49,7 +49,12 @@ const scrollBoundary = { ...fillColumn, overflowY: "auto" } as const;
 // "not connected" message. This screen spans two, and either may be missing, so
 // each tab reports its own connectivity where it knows about it.
 export default function ClaimApprovalPage() {
-  const gate = useFinanceGate();
+  // OPD and Expense only — the two backends `canSee("claim-approval")` reads.
+  // Scoped because everything below renders behind `gate.isResolving`, so any
+  // backend named here can hold this screen blank while it answers: a
+  // cc-expenses `/user-info` timeout used to empty this page for approvers who
+  // were entitled to it, over a backend that has no say in claim approval.
+  const gate = useFinanceGate(true, CLAIM_APPROVAL_APPS);
   const visible = CLAIM_APPROVAL_TABS.filter((t) => gate.canSee(t.gateId));
 
   return (
@@ -104,7 +109,7 @@ export default function ClaimApprovalPage() {
  * entitled to. A redirect is not undone when the answer arrives.
  */
 export function ClaimApprovalIndex() {
-  const gate = useFinanceGate();
+  const gate = useFinanceGate(true, CLAIM_APPROVAL_APPS);
   if (gate.isResolving) return null;
   const first = firstAllowedClaimTab(gate.canSee);
   if (!first) return null; // the page already explains this case
@@ -123,7 +128,7 @@ export function ClaimApprovalTabRoute({
   gateId: ClaimApprovalGateId;
   children: ReactNode;
 }) {
-  const gate = useFinanceGate();
+  const gate = useFinanceGate(true, CLAIM_APPROVAL_APPS);
 
   // An unresolved gate reports no roles, and this component decides between
   // "your tab" and "not available for your role" with no third answer — so

@@ -78,6 +78,25 @@ export function canSeeMasterData(user: MasterDataUserInfo | undefined): boolean 
 // per-user view (New / Pending / History) and stays visible to everyone.
 // `enabled` lets the caller avoid firing the finance /user-info calls when
 // the Me perspective isn't active (e.g. while on People Ops).
+/**
+ * The backends this hook can read, named so a caller can say which of them its
+ * own questions actually depend on. See `needs` on `useFinanceGate`.
+ */
+export type FinanceGateApp = "cc" | "opd" | "expense" | "masterData";
+
+/** Every backend — what a caller that asks about all of them (the rail) needs. */
+export const EVERY_FINANCE_APP: readonly FinanceGateApp[] = ["cc", "opd", "expense", "masterData"];
+
+/**
+ * What `canSee("claim-approval")` reads, and nothing else. CC is deliberately
+ * absent: card submissions are approved under Credit Card Expenses, never on
+ * the Claim Approval screen, so that backend has no say in it.
+ */
+export const CLAIM_APPROVAL_APPS: readonly FinanceGateApp[] = ["opd", "expense"];
+
+/** What `canSee("finance-overview")` and the three raw flags below read. */
+export const FINANCE_OVERVIEW_APPS: readonly FinanceGateApp[] = ["cc", "opd", "expense"];
+
 export interface FinanceGate {
   canSee: (itemId: string) => boolean;
   isResolving: boolean;
@@ -110,11 +129,37 @@ export interface FinanceGate {
  * to gate the next finance item on a portal-wide privilege too, which is the
  * mistake this change exists to undo.
  */
-export function useFinanceGate(enabled = true): FinanceGate {
-  const cc = useCcUserInfo(enabled);
-  const opd = useOpdUserInfo(enabled);
-  const expense = useExpenseAppData(enabled);
-  const masterData = useMasterDataUserInfo(enabled);
+export function useFinanceGate(
+  enabled = true,
+  needs: readonly FinanceGateApp[] = EVERY_FINANCE_APP,
+): FinanceGate {
+  // Which backends this caller's questions actually depend on. A caller that
+  // leaves this out keeps the old behaviour — every backend fetched, every
+  // backend waited for — which is right for the rail, since it asks about all
+  // of them.
+  //
+  // Scoped for everyone else, because `isResolving` below is all-or-nothing and
+  // every caller renders NOTHING while it is true. That turned one slow backend
+  // into a blank screen on pages that never needed it: a 504 from cc-expenses'
+  // `/user-info` left Claim Approval showing its header and an empty pane —
+  // reported as "leads and finance cannot see Claim Approval" — for as long as
+  // the gateway took to give up, twice over, since `financeRetry` retries a 5xx
+  // once. CC has no say in who approves a claim, so it should never have been
+  // able to hold that screen shut.
+  //
+  // `useMasterDataAccess` already learned this the same way (see
+  // `canSeeMasterData` above, which exists so the Master Data route can ask its
+  // one question without mounting the other three queries). This generalises
+  // that fix rather than repeating it per screen.
+  const needsCc = needs.includes("cc");
+  const needsOpd = needs.includes("opd");
+  const needsExpense = needs.includes("expense");
+  const needsMasterData = needs.includes("masterData");
+
+  const cc = useCcUserInfo(enabled && needsCc);
+  const opd = useOpdUserInfo(enabled && needsOpd);
+  const expense = useExpenseAppData(enabled && needsExpense);
+  const masterData = useMasterDataUserInfo(enabled && needsMasterData);
 
   const ccLeadOrFinance = ccHasAccess(cc.data, "lead") || ccHasAccess(cc.data, "finance");
   const ccFinance = ccHasAccess(cc.data, "finance");
@@ -227,18 +272,23 @@ export function useFinanceGate(enabled = true): FinanceGate {
   const hasAnswered = (q: { isSuccess: boolean; isError: boolean }, configured: boolean) =>
     !configured || q.isSuccess || q.isError;
 
+  // A backend this caller did not ask for is never waited on — and MUST not be,
+  // beyond the waste: its query is disabled, so it stays `pending` forever and
+  // neither `isSuccess` nor `isError` ever goes true. Left in, an un-needed
+  // backend would pin `isResolving` true for the life of the mount, which is
+  // the blank screen this change exists to end, not a milder version of it.
   const isResolving =
     enabled &&
     !(
-      hasAnswered(cc, isCcBackendConfigured()) &&
-      hasAnswered(opd, isOpdBackendConfigured()) &&
-      hasAnswered(expense, isExpenseBackendConfigured()) &&
+      (!needsCc || hasAnswered(cc, isCcBackendConfigured())) &&
+      (!needsOpd || hasAnswered(opd, isOpdBackendConfigured())) &&
+      (!needsExpense || hasAnswered(expense, isExpenseBackendConfigured())) &&
       // Counted here too, now that a master-data row waits on a real request
       // rather than on an identity field the rail already had. Left out, the
       // rail would call the four rows resolved while this query was still in
       // flight and render them hidden, then show them when it landed — the
       // appearing-and-vanishing row this hook's comments above are about.
-      hasAnswered(masterData, isFinanceMasterDataBackendConfigured())
+      (!needsMasterData || hasAnswered(masterData, isFinanceMasterDataBackendConfigured()))
     );
 
   return { canSee, isResolving, ccHasOwnCard, opdFinance, opdErrored, expenseFinance };

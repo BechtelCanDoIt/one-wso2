@@ -32,7 +32,13 @@ const gate = {
   expenseFinance: false,
 };
 
-vi.mock("../api/useFinanceGate", () => ({ useFinanceGate: () => gate }));
+// FINANCE_OVERVIEW_APPS is the real module's dependency list, which the page
+// imports to say which backends its questions need. Its value doesn't matter to
+// a mocked gate, but the export has to exist or importing the page throws.
+vi.mock("../api/useFinanceGate", () => ({
+  useFinanceGate: () => gate,
+  FINANCE_OVERVIEW_APPS: ["cc", "opd", "expense"],
+}));
 vi.mock("../cc/pages/CcDashboardPage", () => ({
   default: ({ headerActions }: { headerActions?: React.ReactNode }) => (
     <div data-testid="cc-dashboard">{headerActions}</div>

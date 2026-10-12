@@ -18,7 +18,7 @@
 
 import { useState } from "react";
 import { Alert, MenuItem, Select } from "@wso2/oxygen-ui";
-import { useFinanceGate } from "../api/useFinanceGate";
+import { FINANCE_OVERVIEW_APPS, useFinanceGate } from "../api/useFinanceGate";
 import CcDashboardPage from "../cc/pages/CcDashboardPage";
 import OpdDashboardScreen from "../opd/dashboard/OpdDashboardScreen";
 import ExpenseDashboardScreen from "../expense/dashboard/ExpenseDashboardScreen";
@@ -56,7 +56,10 @@ const OVERVIEW_SECTIONS: { value: OverviewTab; label: string }[] = [
  * screen's own notice, not a missing option.
  */
 export default function FinanceOverviewPage() {
-  const gate = useFinanceGate();
+  // The three dashboards this screen switches between, and nothing else — it
+  // never asks about Master Data, so a slow answer from that backend should
+  // not keep this page blank behind `gate.isResolving` below.
+  const gate = useFinanceGate(true, FINANCE_OVERVIEW_APPS);
   // Derived-with-override, the same pattern NeedsYouTab's `expenseStage` and
   // CcApprovePage's `role` use: `picked` is null until someone chooses, and
   // the default is recomputed every render rather than captured once — a
