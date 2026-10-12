@@ -23,6 +23,7 @@ import {
 } from "@constants/perspectives";
 import { PAR_ADMIN_PORTAL_ITEM_ID, PAR_LEAD_PORTAL_ITEM_ID } from "@constants/perspectives";
 import { PAR_EMPLOYEE_ITEM_ID } from "@constants/parApps";
+import { PROMOTION_EMPLOYEE_ITEM_ID } from "@constants/promotionApps";
 import { parVisibility } from "@features/par/api/parVisibility";
 import { promotionVisibility } from "@features/promotion/api/usePromotionRoles";
 import { salesVisibility } from "@features/sales/api/useSalesGate";
@@ -55,18 +56,27 @@ describe("promotionVisibility", () => {
     isHrAdmin: false,
     isLoading: false,
   };
+  const employee = { canSee: true, isLoading: false };
 
   it("shows the lead portal only to a lead, and waits while privileges load", () => {
-    expect(promotionVisibility(none).canSee(PROMOTION_LEAD_PORTAL_ITEM_ID)).toBe(false);
-    expect(promotionVisibility({ ...none, isLead: true }).canSee(PROMOTION_LEAD_PORTAL_ITEM_ID)).toBe(true);
-    expect(promotionVisibility({ ...none, isFunctionalLead: true }).canSee(PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID)).toBe(
+    expect(promotionVisibility(none, employee, false).canSee(PROMOTION_LEAD_PORTAL_ITEM_ID)).toBe(false);
+    expect(promotionVisibility({ ...none, isLead: true }, employee, false).canSee(PROMOTION_LEAD_PORTAL_ITEM_ID)).toBe(true);
+    expect(promotionVisibility({ ...none, isFunctionalLead: true }, employee, false).canSee(PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID)).toBe(
       true,
     );
     expect(
-      promotionVisibility({ ...none, isHrAdmin: true }).canSee(PROMOTION_CYCLE_HISTORY_ITEM_ID),
+      promotionVisibility({ ...none, isHrAdmin: true }, employee, false).canSee(PROMOTION_CYCLE_HISTORY_ITEM_ID),
     ).toBe(true);
-    expect(promotionVisibility({ ...none, isLoading: true }).resolving).toBe(true);
-    expect(promotionVisibility({ ...none, isHrAdmin: true }).canSee(PROMOTION_ADMIN_PORTAL_ITEM_ID)).toBe(true);
+    expect(promotionVisibility({ ...none, isLoading: true }, employee, false).resolving).toBe(true);
+    expect(promotionVisibility({ ...none, isHrAdmin: true }, employee, false).canSee(PROMOTION_ADMIN_PORTAL_ITEM_ID)).toBe(true);
+  });
+
+  it("hides the employee item from an intern, and while the profile is loading or failed", () => {
+    expect(promotionVisibility(none, employee, false).canSee(PROMOTION_EMPLOYEE_ITEM_ID)).toBe(true);
+    expect(promotionVisibility(none, { canSee: false, isLoading: false }, false).canSee(PROMOTION_EMPLOYEE_ITEM_ID)).toBe(false);
+    expect(promotionVisibility(none, { canSee: true, isLoading: true }, false).canSee(PROMOTION_EMPLOYEE_ITEM_ID)).toBe(false);
+    expect(promotionVisibility(none, { canSee: true, isLoading: true }, false).resolving).toBe(true);
+    expect(promotionVisibility(none, employee, true).canSee(PROMOTION_EMPLOYEE_ITEM_ID)).toBe(false);
   });
 });
 

@@ -290,7 +290,7 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
       case "cado2":
         return cado2Visibility(cado2Gate);
       case "promotion":
-        return promotionVisibility(promotionLeadPortalGate);
+        return promotionVisibility(promotionLeadPortalGate, parEmployeeItemGate, meProfile.isError);
       case "security":
         return securityVisibility(securityGate);
       case "umt":

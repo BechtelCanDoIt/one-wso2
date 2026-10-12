@@ -534,8 +534,19 @@ export default function App() {
           {/* Me → Promotion: promotion-app's own employee route ("Self
               Promotion History"). Behind the same preview flag as every
               other promotion-app route (People Ops → Promotion below) — the
-              whole app isn't released yet. */}
-          {isPreviewEnabled("promotion") && <Route path="me/promotion" element={<PromotionHistoryPage />} />}
+              whole app isn't released yet. An intern has no promotion
+              history to show, so ParRequiresSomethingToShowRoute redirects
+              them to /me, same as /me/performance. */}
+          {isPreviewEnabled("promotion") && (
+            <Route
+              path="me/promotion"
+              element={
+                <ParRequiresSomethingToShowRoute>
+                  <PromotionHistoryPage />
+                </ParRequiresSomethingToShowRoute>
+              }
+            />
+          )}
           {/* Me → PAR: the employee half of par-app, ported one screen at a
               time. Tab names match par-app's own OngoingCycleView tab bar
               (Employee Feedback / Request 360° Feedback / Provide 360°

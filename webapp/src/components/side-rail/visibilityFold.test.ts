@@ -229,7 +229,7 @@ describe("foldVisibility", () => {
 });
 
 describe("claimsForPerspective", () => {
-  it("includes promotion on People Ops only while the preview flag is on", () => {
+  it("includes promotion on People Ops and Me only while the preview flag is on", () => {
     const previous = window.config;
     window.config = { ...(previous ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
     expect(claimsForPerspective("people")).not.toContain("promotion");
@@ -239,7 +239,7 @@ describe("claimsForPerspective", () => {
       ONE_WSO2_PREVIEW_FEATURES: { promotion: true },
     } as Window["config"];
     expect(claimsForPerspective("people")).toContain("promotion");
-    expect(claimsForPerspective("me")).not.toContain("promotion");
+    expect(claimsForPerspective("me")).toContain("promotion");
     window.config = previous;
   });
 
