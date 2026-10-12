@@ -38,7 +38,6 @@ export default function TilArticleBody({ html }: { html: string }) {
         "& li::marker": { color: "var(--til-accent)" },
         "& a": { color: "var(--til-accent)", textUnderlineOffset: "3px" },
         "& strong": { fontWeight: 650 },
-        "& img": { maxWidth: "100%", height: "auto", display: "block", borderRadius: 1, my: "1em" },
       }}
       dangerouslySetInnerHTML={{ __html: tilDisplayHtml(html) }}
     />

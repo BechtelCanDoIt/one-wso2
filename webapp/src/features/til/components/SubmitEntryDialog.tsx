@@ -32,7 +32,7 @@ import type { PaperProps } from "@wso2/oxygen-ui";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useCustomerSearch, useTilUserInfo } from "../api/useTilData";
-import { useCreateTilSubmission, useUpdateTilSubmission, useUploadTilImage } from "../api/useTilMutations";
+import { useCreateTilSubmission, useUpdateTilSubmission } from "../api/useTilMutations";
 import {
   TIL_TITLE_MAX_LENGTH,
   TIL_WHAT_MAX_LENGTH,
@@ -148,12 +148,6 @@ export default function SubmitEntryDialog({
   const create = useCreateTilSubmission();
   const update = useUpdateTilSubmission();
   const pending = entry ? update.isPending : create.isPending;
-  const uploadImage = useUploadTilImage();
-  // True while TilRichTextField has an image upload in flight -- blocks
-  // Share so a submission can never go out missing an image the user
-  // thought they'd just attached (see TilRichTextField's onUploadingChange
-  // for the full race condition this closes).
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
   // Only searches real customer records -- Partner/Other keep plain
   // free-text entry (no equivalent searchable list exists for them). null
   // (not "") when where !== "Customer" so useCustomerSearch knows the field
@@ -192,7 +186,7 @@ export default function SubmitEntryDialog({
     (whereDetail.trim().length === 0 || whereDetail.trim().length > TIL_WHERE_DETAIL_MAX_LENGTH);
   const whatLength = tilPlainTextLength(what);
   const whatInvalid = isEmptyTilHtml(what) || whatLength > TIL_WHAT_MAX_LENGTH;
-  const invalid = whoInvalid || titleInvalid || whereInvalid || whereDetailInvalid || whatInvalid || isUploadingImage;
+  const invalid = whoInvalid || titleInvalid || whereInvalid || whereDetailInvalid || whatInvalid;
   // Saving an untouched entry would still mark it as edited.
   const unchanged =
     Boolean(entry) &&
@@ -207,7 +201,6 @@ export default function SubmitEntryDialog({
     setWhereDetail("");
     setWhat("");
     setTouched(false);
-    setIsUploadingImage(false);
     create.reset();
     update.reset();
   };
@@ -478,9 +471,6 @@ export default function SubmitEntryDialog({
             <TilRichTextField
               value={what}
               onChange={setWhat}
-              onUploadImage={uploadImage}
-              onUploadError={showError}
-              onUploadingChange={setIsUploadingImage}
               placeholder="What did you learn? Explain it so others can learn from it too."
             />
           </Box>
@@ -508,16 +498,14 @@ export default function SubmitEntryDialog({
           <Button onClick={close} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="contained" onClick={submit} disabled={pending || isUploadingImage || unchanged}>
+          <Button variant="contained" onClick={submit} disabled={pending || unchanged}>
             {pending
               ? entry
                 ? "Saving…"
                 : "Sharing…"
-              : isUploadingImage
-                ? "Uploading image…"
-                : entry
-                  ? "Save"
-                  : "Share"}
+              : entry
+                ? "Save"
+                : "Share"}
           </Button>
         </Stack>
       </DialogActions>

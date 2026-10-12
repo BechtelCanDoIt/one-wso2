@@ -23,7 +23,7 @@ import TilEntryByline from "./TilEntryByline";
 import TilEntryCover from "./TilEntryCover";
 import TilSourceLabel from "./TilSourceLabel";
 
-// One entry in the Large thumbnails layout: a wide picture or cover over the
+// One entry in the Large thumbnails layout: a wide source cover over the
 // title, three lines of the learning and the byline. Edit and delete sit on
 // the cover, shown on hover or keyboard focus, and always on touch screens.
 export default function SubmissionTile({

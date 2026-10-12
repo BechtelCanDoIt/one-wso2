@@ -19,6 +19,7 @@ import type { TilSubmission } from "../api/tilTypes";
 import { TIL_FEED_LAYOUTS, type TilFeedLayout } from "../util/tilFeedLayout";
 import TilFeed from "./TilFeed";
 
+// An entry saved while pictures were still allowed: the feed must not show it.
 const PICTURE = "https://til.example.com/uploads/plan.png";
 
 const MINE: TilSubmission = {
@@ -91,32 +92,18 @@ describe.each(TIL_FEED_LAYOUTS)("TilFeed in the %s layout", (layout) => {
   });
 });
 
-describe("TilFeed thumbnails", () => {
-  it.each(["small", "large"] as const)("uses the entry's first picture in the %s layout", (layout) => {
+describe("TilFeed pictures", () => {
+  it.each(TIL_FEED_LAYOUTS)("shows no pictures in the %s layout, even from an entry that holds one", (layout) => {
     const { container } = render(
       <TilFeed layout={layout} submissions={[MINE, THEIRS]} canChange={() => false} deletingId={null} onEdit={vi.fn()} onDelete={vi.fn()} onOpen={vi.fn()} />,
     );
-    const pictures = container.querySelectorAll("img");
-    expect(pictures).toHaveLength(1);
-    expect(pictures[0]).toHaveAttribute("src", PICTURE);
-  });
-
-  it("falls back to the source cover when the picture can't load", () => {
-    const { container } = render(
-      <TilFeed layout="large" submissions={[MINE]} canChange={() => false} deletingId={null} onEdit={vi.fn()} onDelete={vi.fn()} onOpen={vi.fn()} />,
-    );
-    fireEvent.error(container.querySelector("img")!);
     expect(container.querySelector("img")).toBeNull();
-    expect(container.querySelector("svg")).not.toBeNull();
   });
 
-  it("shows no pictures in the cards and list layouts", () => {
-    for (const layout of ["cards", "list"] as const) {
-      const { container, unmount } = render(
-        <TilFeed layout={layout} submissions={[MINE]} canChange={() => false} deletingId={null} onEdit={vi.fn()} onDelete={vi.fn()} onOpen={vi.fn()} />,
-      );
-      expect(container.querySelector("img")).toBeNull();
-      unmount();
-    }
+  it.each(["small", "large"] as const)("gives each entry its source cover in the %s layout", (layout) => {
+    const { container } = render(
+      <TilFeed layout={layout} submissions={[MINE]} canChange={() => false} deletingId={null} onEdit={vi.fn()} onDelete={vi.fn()} onOpen={vi.fn()} />,
+    );
+    expect(container.querySelector("svg")).not.toBeNull();
   });
 });
