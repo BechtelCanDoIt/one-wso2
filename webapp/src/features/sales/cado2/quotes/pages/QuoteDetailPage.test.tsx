@@ -15,9 +15,9 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
 import type { DraftResponse, QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import type { ApprovalStep, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
@@ -45,6 +45,9 @@ vi.mock("@features/sales/cado2/approvals/api/useApprovalApi", () => ({
   useDecideStep: () => decide,
 }));
 
+const me = { data: { sub: "s", email: "approver@wso2.com", roles: [], approverRoles: ["DEAL_DESK"] as string[] } };
+vi.mock("@features/sales/cado2/api/useCado2Me", () => ({ useCado2Me: () => me }));
+
 const documents = query(undefined as unknown);
 const issue = { ...mutation(), mutateAsync: vi.fn() };
 const files = { preview: vi.fn(), download: vi.fn() };
@@ -60,6 +63,12 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useIssueOrderForm: () => issue,
   useDocumentFiles: () => files,
 }));
+
+/** The submitted quote with every product mapped: no category chosen by the rep. */
+const allMapped: DraftResponse = {
+  ...submitted,
+  version: { ...submitted.version, lines: submitted.version.lines.map((l) => ({ ...l, categorySource: "MAPPED" as const })) },
+};
 
 const recalledV1: DraftResponse = {
   ...submitted,
@@ -90,6 +99,7 @@ function showFrom(from: string | undefined, q: QuoteView, ...vs: DraftResponse[]
 beforeEach(() => {
   Object.assign(decide, mutation());
   workflow.data = null;
+  me.data.approverRoles = ["DEAL_DESK"];
   Object.assign(recall, mutation());
   Object.assign(revise, mutation());
   Object.assign(close, mutation());
@@ -110,7 +120,9 @@ describe("QuoteDetailPage — lifecycle", () => {
     show(submitted.quote, submitted);
     const user = userEvent.setup();
 
-    expect(screen.getByRole("heading", { level: 1, name: "Q-26-00005" })).toBeInTheDocument();
+    // The account is the title; the quote number sits on the line above it.
+    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
     expect(screen.queryByText("Acme APIM renewal · Acme Corp")).toBeNull(); // nothing under the title
     expect(screen.queryByRole("button", { name: "Revise" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Close quote" })).toBeNull();
@@ -157,7 +169,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     show(ready.quote, ready);
     const user = userEvent.setup();
     // Never submitted, so it has no number: it is named by customer and deal.
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp · Acme APIM renewal" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByText("Draft · Version 1")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Delete draft" }));
     const dialog = screen.getByRole("dialog", { name: "Delete this draft quote?" });
     expect(within(dialog).getByText(/only has a draft, so Acme Corp · Acme APIM renewal is removed completely\. This can't be undone/)).toBeInTheDocument();
@@ -196,7 +209,11 @@ describe("QuoteDetailPage — lifecycle", () => {
     show({ ...submitted.quote, actions: [] }, submitted);
     expect(screen.queryByRole("button", { name: "Recall" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Close quote" })).toBeNull();
-    expect(screen.getByRole("region", { name: "Customer" })).toBeInTheDocument();
+    // The customer is in the page's header band, and not repeated in the deal.
+    const header = screen.getByLabelText("About this quote");
+    expect(within(header).getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(header).toHaveTextContent("Acme APIM renewal");
+    expect(screen.queryByRole("region", { name: "Customer" })).toBeNull();
     expect(screen.getByRole("table", { name: "Products" })).toBeInTheDocument();
   });
 
@@ -228,7 +245,10 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(within(chain).getByRole("listitem", { name: "Deal Desk" })).toHaveTextContent("Overdue by 2 h"); // its deadline
     expect(within(chain).getByRole("listitem", { name: "Regional Director" })).toHaveTextContent("above the Account Manager's 5% limit");
 
-    await user.click(screen.getByRole("button", { name: "Request changes" }));
+    // From another tab, the header's "Your approval" goes back to the Quote tab's panel.
+    await user.click(screen.getByRole("button", { name: "Your approval" }));
+    const panel = await screen.findByRole("region", { name: "Your approval as Deal Desk" });
+    await user.click(within(panel).getByRole("button", { name: "Request changes" }));
     const dialog = screen.getByRole("dialog");
     const send = within(dialog).getByRole("button", { name: "Request changes" });
     expect(send).toBeDisabled();
@@ -240,7 +260,165 @@ describe("QuoteDetailPage — lifecycle", () => {
     );
   });
 
-  it("shows Deal Desk the categories the rep chose, and asks them to confirm on approval", async () => {
+  const reasonStep = (role: ApprovalStep["role"], stepId: number, over: Partial<ApprovalStep> = {}): ApprovalStep => ({
+    stepId, role, roleLabel: role === "DEAL_DESK" ? "Deal Desk" : role, branches: ["DISCOUNT"], dependsOn: [], triggers: [],
+    status: "WAITING", requestedAt: null, actedAt: null, actedByEmail: null, comment: null, canAct: false, cantActReason: null, ...over,
+  });
+  const because = (reason: string) => [{ rule: "DISCOUNT", branch: "DISCOUNT" as const, lineNumber: 2, reason }];
+
+  it("tells an approver why their role is asked, and confirms each decision in place", async () => {
+    const user = userEvent.setup();
+    me.data.approverRoles = ["CRO", "CFO", "CEO"];
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [
+        reasonStep("CRO", 2, { status: "PENDING", canAct: true, triggers: because("Line 2 · WSO2 API Control Plane (APIM): 35% discount is above the Area GM's 30% limit") }),
+        reasonStep("CFO", 3, { triggers: because("Line 2 · WSO2 API Control Plane (APIM): 35% discount is above the CRO's 32% limit") }),
+      ],
+    };
+    show({ ...submitted.quote, actions: [] }, submitted);
+
+    const panel = screen.getByRole("region", { name: "Your approval as CRO" });
+    // Each reason as a row: the line and product, its group, the discount and the limit it passes.
+    const reason = within(within(panel).getByRole("list", { name: "Why CRO approves" })).getByRole("listitem");
+    expect(reason).toHaveTextContent("Line 2 · WSO2 API Control Plane");
+    expect(within(reason).getByText("APIM")).toBeInTheDocument();
+    expect(within(reason).getByText(/^35% discount/)).toBeInTheDocument();
+    expect(reason).toHaveTextContent("Above the Area GM's 30% limit");
+    expect(panel).not.toHaveTextContent("CRO's 32% limit"); // the CFO's reason is for the CFO
+    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument(); // short labels
+
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
+    const [vars, opts] = decide.mutate.mock.calls[0] as [unknown, { onSuccess: (wf: ApprovalWorkflow) => void }];
+    expect(vars).toMatchObject({ quoteId: 5, version: 1, stepId: 2, outcome: "approve" });
+
+    // Saved: CFO is the viewer's turn now; the note confirms CRO above the CFO panel.
+    const after: ApprovalWorkflow = { ...workflow.data, steps: [reasonStep("CRO", 2, { status: "APPROVED" }),
+      reasonStep("CFO", 3, { status: "PENDING", canAct: true, triggers: because("Line 2 · WSO2 API Control Plane (APIM): 35% discount is above the CRO's 32% limit") })] };
+    workflow.data = after;
+    act(() => opts.onSuccess(after));
+    expect(await screen.findByRole("status")).toHaveTextContent("Approved as CRO.");
+    expect(screen.getByRole("region", { name: "Your approval as CFO" })).toHaveTextContent("Above the CRO's 32% limit");
+  });
+
+  it("gives Deal Desk a summary of what's non-standard, each point once with the approvals it needs", () => {
+    const line = "Line 2 · WSO2 API Control Plane (APIM): 45% discount";
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("DEAL_DESK", 11, { status: "PENDING", canAct: true }),
+        reasonStep("CRO", 12, { triggers: because(`${line} is above the Area GM's 30% limit`) }),
+        reasonStep("CFO", 13, { triggers: because(`${line} is above the CRO's 40% limit`) })],
+    };
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
+    // The decision is its own full-width section above the deal; the account stays the page title.
+    expect(within(screen.getByRole("region", { name: "Your decision" })).getByRole("region", { name: "Your approval as Deal Desk" })).toBe(panel);
+    expect(within(screen.getByRole("region", { name: "The deal" })).queryByRole("region", { name: /Your approval/ })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(panel).not.toHaveTextContent("After you"); // who approves is in the Approvals tab
+    const points = within(within(panel).getByRole("list", { name: "What's non-standard" })).getAllByRole("listitem");
+    expect(points).toHaveLength(1);
+    expect(points[0]).toHaveTextContent("Line 2 · WSO2 API Control Plane");
+    expect(points[0]).toHaveTextContent("45% discount");
+    expect(points[0]).toHaveTextContent("Above the Area GM's 30% limit · needs CRO and CFO");
+  });
+
+  it("tells Deal Desk when nothing is non-standard", () => {
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("DEAL_DESK", 11, { status: "PENDING", canAct: true })],
+    };
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    expect(screen.getByRole("region", { name: "Your approval as Deal Desk" })).toHaveTextContent(
+      "Nothing non-standard: no further approvals are needed.",
+    );
+  });
+
+  it("doesn't tell Deal Desk nothing follows when later approvals have no points to show", () => {
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("DEAL_DESK", 11, { status: "PENDING", canAct: true }), reasonStep("CFO", 12)],
+    };
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
+    expect(panel).toHaveTextContent("Further approvals follow, with no specific points recorded.");
+    expect(panel).not.toHaveTextContent("no further approvals are needed");
+  });
+
+  it("keeps a decision's note with its own quote when another quote opens", async () => {
+    const user = userEvent.setup();
+    me.data.approverRoles = ["CRO"];
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("CRO", 2, { status: "PENDING", canAct: true })],
+    };
+    Object.assign(quote, { data: { ...submitted.quote, actions: [] } });
+    versions.clear();
+    versions.set(1, submitted);
+    function OtherQuote() {
+      const navigate = useNavigate();
+      return <button onClick={() => navigate("/sales/cado2/quotes/6/quote")}>Open quote 6</button>;
+    }
+    render(
+      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/quote"]}>
+        <OtherQuote />
+        <Routes>
+          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
+    const [, opts] = decide.mutate.mock.calls[0] as [unknown, { onSuccess: (wf: ApprovalWorkflow) => void }];
+    act(() => opts.onSuccess({ ...workflow.data!, steps: [reasonStep("CRO", 2, { status: "APPROVED" })] }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Approved as CRO.");
+
+    await user.click(screen.getByRole("button", { name: "Open quote 6" }));
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("shows an approver's first three reasons, and the rest on request", async () => {
+    const user = userEvent.setup();
+    me.data.approverRoles = ["LEGAL"];
+    const triggers = [1, 2, 3, 4, 5].map((n) => ({ rule: "REQUIRED_REVIEW", branch: "DISCOUNT" as const, lineNumber: n,
+      reason: `Line ${n} · WSO2 Identity Server (IAM): Legal reviews every IAM line` }));
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("LEGAL", 1, { status: "PENDING", canAct: true, roleLabel: "Legal", triggers })],
+    };
+    show({ ...submitted.quote, actions: [] }, submitted);
+    const list = () => screen.getByRole("list", { name: "Why Legal approves" });
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(3);
+    await user.click(screen.getByRole("button", { name: "Show 2 more" }));
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(5);
+  });
+
+  it("keeps the header short with two open steps: each role decides in its own card", async () => {
+    const user = userEvent.setup();
+    me.data.approverRoles = ["LEGAL", "REGIONAL_DIRECTOR"];
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("LEGAL", 1, { status: "PENDING", canAct: true, roleLabel: "Legal" }),
+        reasonStep("REGIONAL_DIRECTOR", 2, { status: "PENDING", canAct: true, roleLabel: "Regional Director" })],
+    };
+    show({ ...submitted.quote, actions: [] }, submitted);
+
+    // On the Quote tab the cards are beside the deal, so no jump button; from another tab it leads back.
+    expect(screen.queryByRole("button", { name: "Your approvals (2)" })).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "Versions (1)" }));
+    await user.click(screen.getByRole("button", { name: "Your approvals (2)" }));
+    expect(screen.queryByRole("button", { name: /as Legal|as Regional Director/ })).toBeNull();
+    // One short set of buttons per role, inside its card.
+    const rd = screen.getByRole("region", { name: "Your approval as Regional Director" });
+    await user.click(within(rd).getByRole("button", { name: "Reject" }));
+    expect(within(screen.getByRole("dialog")).getByRole("heading")).toHaveTextContent("Reject");
+    await user.type(within(screen.getByRole("dialog")).getByRole("textbox"), "Too deep");
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reject" }));
+    expect(decide.mutate).toHaveBeenCalledWith(expect.objectContaining({ stepId: 2, outcome: "reject" }), expect.anything());
+  });
+
+  it("shows a rep-chosen category on its line and in Deal Desk's summary, nowhere else", async () => {
     const user = userEvent.setup();
     const [first, ...rest] = submitted.version.lines;
     const mixed: DraftResponse = {
@@ -259,14 +437,16 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show({ ...submitted.quote, actions: [] }, mixed);
 
-    const notice = screen.getByRole("region", { name: "Categories chosen by the rep" });
-    expect(notice).toHaveTextContent("1 line uses a category chosen by the rep");
-    expect(notice).toHaveTextContent(first.productName);
+    // 1. The tag on the line, for everyone.
     expect(within(screen.getByRole("table", { name: "Products" })).getAllByText("Category chosen by rep")).toHaveLength(1);
-
+    // 2. A point in Deal Desk's summary.
+    const points = within(screen.getByRole("region", { name: "Your approval as Deal Desk" })).getByRole("list", { name: "What's non-standard" });
+    expect(points).toHaveTextContent(`Line ${first.lineNumber} · ${first.productName}`);
+    expect(points).toHaveTextContent("Category chosen by the rep");
+    // Nowhere else: no warning box, and nothing in the approval dialog.
+    expect(screen.queryByRole("region", { name: "Categories chosen by the rep" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Approve" }));
-    const dialog = within(screen.getByRole("dialog"));
-    expect(dialog.getByRole("region", { name: "Categories chosen by the rep" })).toHaveTextContent(/By approving, you confirm/);
+    expect(screen.getByRole("dialog")).not.toHaveTextContent(/category/i);
   });
 
   it("shows no category notice when every product is mapped", () => {

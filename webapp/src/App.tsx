@@ -20,9 +20,12 @@ import { Navigate, Route, Routes } from "react-router";
 import { landingPath } from "@config/landingConfig";
 import SettingsPage from "@features/settings/pages/SettingsPage";
 import MenuHomePage from "@features/menu/pages/MenuHomePage";
+import TilEntryPage from "@features/til/pages/TilEntryPage";
+import TilHomePage from "@features/til/pages/TilHomePage";
 import OrgChartPage from "@features/org-chart/pages/OrgChartPage";
 import SalesMeetingsPage from "@features/sales/pages/SalesMeetingsPage";
 import MeetingDetailPage from "@features/sales/pages/MeetingDetailPage";
+import SalesDealsPage from "@features/sales/pages/SalesDealsPage";
 import PromotionHistoryPage from "@features/promotion/pages/PromotionHistoryPage";
 import PromotionRequiresLeadRoute from "@features/promotion/components/PromotionRequiresLeadRoute";
 import LeadPortalPage, { LeadPortalIndex } from "@features/promotion/pages/LeadPortalPage";
@@ -130,6 +133,7 @@ import {
   EventsMinePage,
   EventsReviewPage,
 } from "@features/marketing-ops/events/pages/EventsPages";
+import { eventPlatformRoutes } from "@features/marketing-ops/event-platform/routes";
 import {
   CrmUploadPipelinesPage,
   CrmUploadRecordsPage,
@@ -168,6 +172,7 @@ import OpdNewClaimPage from "@features/finance/opd/pages/OpdNewClaimPage";
 // not your own. Claim History used to live here too as its own Finance app;
 // retired once Me → Claims → OPD covered the same queue, filters and all.
 import OpdDashboardScreen from "@features/finance/opd/dashboard/OpdDashboardScreen";
+import ExpenseDashboardScreen from "@features/finance/expense/dashboard/ExpenseDashboardScreen";
 import OpdClaimsTab from "@features/finance/opd/pages/OpdHistoryPage";
 import FinanceOverviewPage from "@features/finance/overview/FinanceOverviewPage";
 import { FINANCE_OVERVIEW_ROUTE } from "@features/finance/overview/financeOverviewPaths";
@@ -193,6 +198,7 @@ import ClaimApprovalPage, {
 } from "@features/finance/approvals/ClaimApprovalPage";
 import NeedsYouTab from "@features/finance/approvals/NeedsYouTab";
 import DecidedTab from "@features/finance/approvals/DecidedTab";
+import NdaPage from "@features/legal/pages/NdaPage";
 import { riskRoutes } from "@features/security/grc/modules/risk/routes";
 import { auditRoutes } from "@features/security/grc/modules/audit/routes";
 import { adminRoutes } from "@features/security/grc/modules/admin/routes";
@@ -216,11 +222,7 @@ import UmtReleaseChunksPage from "@features/umt/pages/UmtReleaseChunksPage";
 import UmtStatisticsPage from "@features/umt/pages/UmtStatisticsPage";
 import UmtUpdateView from "@features/umt/pages/UmtUpdateView";
 import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
-import EngineeringDownloadsPage from "@features/engineering/pages/EngineeringDownloadsPage";
-import EngineeringVersionsPage from "@features/engineering/pages/EngineeringVersionsPage";
-import EngineeringPackagesPage from "@features/engineering/pages/EngineeringPackagesPage";
-import EngineeringRepositoryStatsPage from "@features/engineering/pages/EngineeringRepositoryStatsPage";
-import EngineeringOverviewPage from "@features/engineering/pages/EngineeringOverviewPage";
+import { engineeringRoutes } from "@features/engineering/routes";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
 
@@ -233,30 +235,27 @@ export default function App() {
           <Route index element={<Navigate to={landingPath()} replace />} />
           {/* Me home — the full profile page including Connected apps. */}
           <Route path="me" element={<MyProfilePage />} />
-          {/* UmtShell owns its role gate. Behind the same preview flag as its
-              perspective entry — hiding only the rail/launcher tile would leave
-              the routes reachable by URL. */}
+          {/* Engineering → Download Stats, routed as perspective / app / screen,
+              with the earlier addresses forwarding. The feature owns the
+              tree, as CadO2 and the GRC modules own theirs. */}
+          {engineeringRoutes}
+          {/* Engineering → UMT. UmtShell owns its role gate. Behind the same
+              preview flag as its rail group — hiding only the rail entries
+              would leave the routes reachable by URL. Nested under
+              /engineering/ so the Engineering rail renders around them. */}
           {isPreviewEnabled("umt") && (
             <>
-              <Route path="umt" element={<UmtHomePage />} />
-              <Route path="umt/updates" element={<UmtUpdatesPage />} />
-              <Route path="umt/updates/:id" element={<UmtUpdateView />} />
+              <Route path="engineering/umt" element={<UmtHomePage />} />
+              <Route path="engineering/umt/updates" element={<UmtUpdatesPage />} />
+              <Route path="engineering/umt/updates/:id" element={<UmtUpdateView />} />
               {/* Admin-only: UmtProductsPage itself enforces this via UmtShell's
                   requireAdmin, independent of the rail item's own visibility. */}
-              <Route path="umt/products" element={<UmtProductsPage />} />
-              <Route path="umt/release-chunks" element={<UmtReleaseChunksPage />} />
-              <Route path="umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
-              <Route path="umt/statistics" element={<UmtStatisticsPage />} />
+              <Route path="engineering/umt/products" element={<UmtProductsPage />} />
+              <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
+              <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
+              <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
             </>
           )}
-          {/* Registered even while the engineering preview flag is off. The page
-              says Engineering is not available; omitting the route would send a
-              direct visit home with no answer. */}
-          <Route path="engineering" element={<EngineeringOverviewPage />} />
-          <Route path="engineering/downloads" element={<EngineeringDownloadsPage />} />
-          <Route path="engineering/versions" element={<EngineeringVersionsPage />} />
-          <Route path="engineering/packages" element={<EngineeringPackagesPage />} />
-          <Route path="engineering/repository-stats" element={<EngineeringRepositoryStatsPage />} />
           {isPreviewEnabled("infra") && (
             <>
               <Route path="infra" element={<InfraHomePage />} />
@@ -420,6 +419,7 @@ export default function App() {
           <Route path="finance/cc/history" element={<CcHistoryPage />} />
           <Route path="finance/cc/settings" element={<CcSettingsPage />} />
           <Route path="finance/opd/dashboard" element={<OpdDashboardScreen />} />
+          <Route path="finance/expense/dashboard" element={<ExpenseDashboardScreen />} />
           {/* Finance → Master Data: the four reference tables the other
               finance apps are keyed against, each its own route.
               MasterDataRoute-guarded: this backend has no role scheme of its
@@ -925,6 +925,12 @@ export default function App() {
           <Route path="marketing-ops/admin/events" element={<EventsSettingsPage />} />
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
+          {/* Event Platform — the agenda-organizer port, a different app from
+              Events above. The tree is deep enough that the feature owns it, as
+              the GRC modules own theirs. See event-platform/eventPlatformTabs.ts.
+              Behind the same preview flag as its rail group — hiding only the
+              rail would leave the routes reachable by URL. */}
+          {isPreviewEnabled("eventPlatform") && eventPlatformRoutes}
           <Route
             path="marketing-ops/crm-upload/pipelines"
             element={<CrmUploadPipelinesPage />}
@@ -955,6 +961,9 @@ export default function App() {
               preview flag; Cado2Shell resolves access for every page. See
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
           {isPreviewEnabled("cado2") && cado2Routes}
+          {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
+              not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
+          <Route path="sales/deals" element={<SalesDealsPage />} />
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
               menu app. One page, as the original was. */}
@@ -966,10 +975,24 @@ export default function App() {
               </SriLankaRoute>
             }
           />
+          {isPreviewEnabled("til") && (
+            <>
+              {/* Knowledge Base → Today I Learned: a company-wide learnings feed.
+                  No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
+                  Colombo-office perk, every employee everywhere can use it. */}
+              <Route path="knowledge-base" element={<TilHomePage />} />
+              {/* One entry's own page — what a Chat "View entry" button and a
+                  feed card's own link both land on. */}
+              <Route path="knowledge-base/:id" element={<TilEntryPage />} />
+            </>
+          )}
           {/* Legal perspective — currently just a second entry point into Due
               Diligence, alongside Finance (see the finance/ routes below and
               DUE_DILIGENCE_APPS). */}
           <Route path="legal" element={<PerspectiveLanding />} />
+          {/* Behind the same preview flag as its rail entry, so the page is not
+              reachable by URL either. */}
+          {isPreviewEnabled("nda") && <Route path="legal/nda" element={<NdaPage />} />}
           {/* Security — the GRC platform's Risk Hub and Admin Console, lifted
               from grc-tools rather than rewritten. The two route fragments are
               the SOURCE's own (modules/{risk,audit,admin}/routes.tsx), spread

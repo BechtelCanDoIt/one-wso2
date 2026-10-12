@@ -14,81 +14,39 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { JSX } from "react";
-import { Avatar, Box, Chip, Link, Paper, Stack, Typography } from "@wso2/oxygen-ui";
-import { BriefcaseIcon, HandshakeIcon, MailIcon, RepeatIcon } from "@wso2/oxygen-ui-icons-react";
-import type { ContactRole, QuoteSheet, SheetContact } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import type { JSX, ReactNode } from "react";
+import { Avatar, Box, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { BriefcaseIcon, HandshakeIcon } from "@wso2/oxygen-ui-icons-react";
+import type { QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initials";
 
-const ROLE_LABEL: Record<ContactRole, string> = {
-  BILLING: "Billing contact",
-  SECURITY: "Security contact",
-};
-const ROLE_COLOR: Record<ContactRole, "secondary" | "info"> = {
-  BILLING: "secondary",
-  SECURITY: "info",
-};
-
-function ContactCard({ role, contact }: { role: ContactRole; contact: SheetContact | null }): JSX.Element {
-  if (!contact) {
-    return (
-      <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, borderStyle: "dashed" }} aria-label={ROLE_LABEL[role]}>
-        <Stack direction="row" spacing={1.5} alignItems="center">
-          <Avatar sx={{ width: 40, height: 40, bgcolor: "action.disabledBackground", color: "text.disabled" }}>–</Avatar>
-          <Box>
-            <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.4, display: "block" }}>
-              {ROLE_LABEL[role]}
-            </Typography>
-            <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
-              {role === "SECURITY" ? "Not set (optional)" : "Not set yet"}
-            </Typography>
-          </Box>
-        </Stack>
-      </Paper>
-    );
-  }
-  return (
-    <Paper variant="outlined" sx={{ p: 1.75, borderRadius: 2, minWidth: 0 }} aria-label={ROLE_LABEL[role]}>
-      <Stack direction="row" spacing={1.5} alignItems="flex-start">
-        <Avatar sx={{ width: 40, height: 40, bgcolor: `${ROLE_COLOR[role]}.main`, color: `${ROLE_COLOR[role]}.contrastText`, fontSize: 15 }}>
-          {initialsFor(contact.name)}
-        </Avatar>
-        <Box sx={{ minWidth: 0, flexGrow: 1 }}>
-          <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.4, display: "block" }}>
-            {ROLE_LABEL[role]}
-          </Typography>
-          <Typography variant="subtitle2" sx={{ fontWeight: 600 }} noWrap title={contact.name}>
-            {contact.name}
-          </Typography>
-          {contact.title ? (
-            <Typography variant="caption" color="text.secondary" display="block" noWrap>
-              {contact.title}
-            </Typography>
-          ) : null}
-          {contact.email ? (
-            <Link href={`mailto:${contact.email}`} variant="caption" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mt: 0.25, maxWidth: "100%" }}>
-              <MailIcon size={12} />
-              <Box component="span" sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                {contact.email}
-              </Box>
-            </Link>
-          ) : null}
-          <Box sx={{ mt: 0.75 }}>
-            <Chip size="small" variant="outlined" label={contact.source === "MANUAL" ? "Typed in" : "Salesforce"} />
-          </Box>
-        </Box>
-      </Stack>
-    </Paper>
-  );
+/**
+ * The quote page's record header: the band, with the quote number above the
+ * account, the status, and the page's actions (2026-10-07; frontend.md, "Page
+ * titles": a record page's header carries the record's identity).
+ */
+interface HeaderParts {
+  /** Above the account name, e.g. "Q-26-00012 · Version 2". */
+  readonly eyebrow: ReactNode;
+  /** Status chips, top right. */
+  readonly status: ReactNode;
+  /** The page's buttons (Recall, Revise, Your approval, …), top right. */
+  readonly actions: ReactNode;
 }
 
-/** Who the quote is for: account, opportunity, partner and the three contacts, up front. */
-export default function CustomerBand({ sheet }: { sheet: QuoteSheet }): JSX.Element {
+/**
+ * Who the quote is for: account, opportunity and partner, up front (the deal
+ * type, region and currency are facts in the Deal section). The
+ * contacts sit with the addresses. With `header`, it is the quote page's
+ * header (the account is the page's title); without, a box at the top of the
+ * Review step.
+ */
+export default function CustomerBand({ sheet, header }: { sheet: QuoteSheet; header?: HeaderParts }): JSX.Element {
   const partner = sheet.dealType === "PARTNER" ? sheet.partner : null;
   return (
     <Paper
-      component="section"
-      aria-label="Customer"
+      component={header ? "header" : "section"}
+      aria-label={header ? "About this quote" : "Customer"}
       variant="outlined"
       sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, borderLeft: 4, borderLeftColor: "primary.main", minWidth: 0 }}
     >
@@ -98,33 +56,31 @@ export default function CustomerBand({ sheet }: { sheet: QuoteSheet }): JSX.Elem
             {initialsFor(sheet.accountName || "?")}
           </Avatar>
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h5" component="p" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+            {header ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.25 }}>
+                {header.eyebrow}
+              </Typography>
+            ) : null}
+            <Typography
+              variant={header ? "h4" : "h5"}
+              component={header ? "h1" : "p"}
+              sx={{ fontWeight: 700, lineHeight: 1.2 }}
+            >
               {sheet.accountName || "No account yet"}
             </Typography>
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5, color: "text.secondary" }}>
               <BriefcaseIcon size={14} />
               <Typography variant="body2">{sheet.opportunityName || "No opportunity yet"}</Typography>
             </Stack>
-            <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap", rowGap: 1 }}>
-              {sheet.dealType ? (
-                <Chip size="small" color="primary" label={sheet.dealType === "PARTNER" ? "Partner deal" : "Direct deal"} />
-              ) : (
-                <Chip size="small" color="warning" variant="outlined" label="Deal type unknown" />
-              )}
-              <Chip
-                size="small"
-                variant="outlined"
-                icon={sheet.isRenewal ? <RepeatIcon size={12} /> : undefined}
-                label={
-                  sheet.isRenewal
-                    ? `Renewal of ${sheet.previousOpportunityCount} opportunit${sheet.previousOpportunityCount === 1 ? "y" : "ies"}`
-                    : "New business"
-                }
-              />
-              {sheet.currency ? <Chip size="small" variant="outlined" label={sheet.currency} /> : null}
-            </Stack>
           </Box>
         </Stack>
+        <Stack spacing={2} alignItems={{ xs: "flex-start", md: "flex-end" }} sx={{ minWidth: 0, flexShrink: 0 }}>
+        {header ? (
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 1, justifyContent: { md: "flex-end" } }}>
+            {header.status}
+            {header.actions}
+          </Stack>
+        ) : null}
         {partner ? (
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
             <Avatar sx={{ width: 44, height: 44, bgcolor: "secondary.main", color: "secondary.contrastText" }}>
@@ -145,13 +101,8 @@ export default function CustomerBand({ sheet }: { sheet: QuoteSheet }): JSX.Elem
             </Box>
           </Stack>
         ) : null}
+        </Stack>
       </Stack>
-      <Box
-        sx={{ mt: 3, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0,1fr))" }, gap: 1.5 }}
-      >
-        <ContactCard role="BILLING" contact={sheet.contacts[0]} />
-        <ContactCard role="SECURITY" contact={sheet.contacts[1]} />
-      </Box>
     </Paper>
   );
 }

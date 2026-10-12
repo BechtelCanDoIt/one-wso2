@@ -18,6 +18,7 @@ import type { JSX } from "react";
 import { Stack, Typography } from "@wso2/oxygen-ui";
 import { LandmarkIcon } from "@wso2/oxygen-ui-icons-react";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { renewalStartWarning } from "@features/sales/cado2/quotes/form/renewalStart";
 import { termLabel, type QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import SheetCard, { Fact, FactGrid } from "@features/sales/cado2/components/section-card/SectionCard";
 
@@ -41,6 +42,13 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
   return (
     <SheetCard title="Deal" icon={<LandmarkIcon size={18} />}>
       <FactGrid>
+        <Fact
+          label="Deal type"
+          value={sheet.dealType === "PARTNER" ? "Partner deal" : sheet.dealType === "DIRECT" ? "Direct deal" : "Unknown"}
+          hint={sheet.dealType ? undefined : "Salesforce has no Direct / Partner value"}
+        />
+        <Fact label="Sales region" value={sheet.salesRegion || "Not set in Salesforce"} />
+        <Fact label="Sub-region" value={sheet.subRegion || "Not set"} />
         <Fact label="WSO2 legal entity" value={sheet.legalEntity?.name} hint={sheet.legalEntity?.address} />
         <Fact label={term.label} value={term.value} hint={term.hint} />
         {sheet.recurring ? <Fact label="Billing" value={sheet.billingFrequency ? BILLING[sheet.billingFrequency] : ""} /> : null}
@@ -64,7 +72,17 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
                 `${sheet.previousOpportunityCount} previous opportunit${sheet.previousOpportunityCount === 1 ? "y" : "ies"}`
               )
             }
-            hint="Previous ARR not available yet"
+            hint={
+              sheet.renewalStart?.differs && sheet.startDate ? (
+                <Typography variant="caption" color="warning.main">
+                  ⚠ {renewalStartWarning(sheet.startDate, sheet.renewalStart)}
+                </Typography>
+              ) : sheet.renewalStart ? (
+                `Starts the day after ${sheet.renewalStart.fromName || "it"} ends`
+              ) : (
+                "Previous ARR not available yet"
+              )
+            }
           />
         ) : null}
         <Fact label="Pricing rules" value={sheet.pricingRulesVersion} />

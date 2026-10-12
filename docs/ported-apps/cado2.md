@@ -19,10 +19,12 @@ issues an order form.
 | Role (from CadO2 `/me`) | Gets |
 |---|---|
 | `SALES` | My Quotes: create, edit, submit, recall, revise, close and delete their own quotes |
-| `ADMIN` | Everything `SALES` gets, plus every quote (read) and Admin |
+| `ADMIN` | Admin only: the approval matrix, approval SLAs and the reference data. No quotes and no approvals |
 | Any approver role (`approverRoles` non-empty: Deal Desk, Legal, Regional Director, Area GM, CRO, CFO, CEO, …) | My Approvals, and read access to the quotes waiting on their role |
 
-A person can hold several. Someone with none of them sees no CadO2 entries at all (§4).
+Roles add up: a person can hold several and gets the sum. `ADMIN` is meant to be given on top of another
+role, to the few people who also run the admin panel. Someone with none of them sees no CadO2 entries at
+all (§4).
 
 ---
 
@@ -36,7 +38,7 @@ All paths below are relative to `/sales/cado2`. Paths are built in one place,
 | Rail item | Id | Target | Access |
 |---|---|---|---|
 | CadO2 (group) | `sec-app-cado2` | — | shown when any child is |
-| My Quotes | `sales-cado2-quotes` | `/quotes` | `SALES` or `ADMIN` |
+| My Quotes | `sales-cado2-quotes` | `/quotes` | `SALES` |
 | My Approvals | `sales-cado2-approvals` | `/approvals` | any approver role |
 | Admin | `sales-cado2-admin` | `/admin` | `ADMIN` |
 
@@ -45,17 +47,17 @@ sections only while the flag is on. The group uses `ReceiptTextIcon` (not the pe
 Meetings' Video icon) and `alwaysGroup: true`, so a person who can open only one child still sees it
 under **CadO2**.
 
-`/sales/cado2` itself redirects: to `/approvals` for someone with approver roles only, otherwise to
-`/quotes`.
+`/sales/cado2` itself redirects to `/quotes` for a rep, otherwise to `/approvals` for an approver,
+otherwise to `/admin`.
 
 ### 2.2 Quotes
 
 | Target | Screen | Access |
 |---|---|---|
-| `/quotes` | My Quotes (list, status filters, search; Admin can switch to "everyone") | `SALES` or `ADMIN` |
-| `/quotes/new` | Quote wizard, new quote | `SALES` or `ADMIN` |
-| `/quotes/:quoteId/versions/:version/edit` | Quote wizard, editing a draft version | `SALES` or `ADMIN` |
-| `/quotes/:quoteId` → `/quotes/:quoteId/quote` | Quote page | owner, `ADMIN`, or an approver on it |
+| `/quotes` | My Quotes: the caller's own quotes (status filters, search) | `SALES` |
+| `/quotes/new` | Quote wizard, new quote | `SALES` |
+| `/quotes/:quoteId/versions/:version/edit` | Quote wizard, editing a draft version | `SALES` |
+| `/quotes/:quoteId` → `/quotes/:quoteId/quote` | Quote page | the owner, or an approver on it |
 | `/quotes/:quoteId/approvals` | Quote page, Approvals tab | as above |
 | `/quotes/:quoteId/versions` | Quote page, Versions tab | as above |
 | `/quotes/:quoteId/history` | Quote page, History tab | as above |
@@ -108,23 +110,39 @@ Behaviour is kept as it is today unless §7 says otherwise.
 
 - **My Quotes** — KPI filter chips by status, search, rich rows (customer, opportunity, totals,
   status, approval deadline), row menu (open, edit, delete draft). "New quote" button.
-- **Quote wizard** — Overview (Salesforce account, opportunity, legal entity, start date) → Products
-  & Pricing (the opportunity's currency and price book, locked; add lines from that price book only;
+- **Quote wizard** — Overview (Salesforce account with its sales region, an open opportunity tagged First Sale /
+  Renewal / Expansion, legal entity, start date; a renewal picks the closed-won opportunities it renews and starts the
+  day after they end, with a warning if the AM picks another day; an account with no sales region in Salesforce stops the quote here, with Next and Save draft disabled) → Products
+  & Pricing (the opportunity's currency and price book, locked; add lines from that price book only, searched by name or product code;
   discounts; subscription term; partner commission) → Commercial (payment terms, contacts, bill-to
   and ship-to, special terms, justification) → Review (summary, approval preview, submit). The draft
   is saved when moving between steps and on "Save draft". The live pricing and approval previews are
   debounced. A save that hits a newer version (409) offers to reload; a refused save (422) lists the
   issues with links to their step.
 - **Quote page** — the quote as a read-only sheet (customer band, deal, order-form table, deal
-  figures, yearly schedule, terms, addresses, justification), status panel with the actions the
+  figures, yearly schedule, terms, addresses with their contacts (as in the order form's section 01), justification), status panel with the actions the
   backend allows (`quote.actions`: recall, revise, close, delete draft, approve, request changes,
   reject), documents panel (order form preview, issue, download), and the Approvals, Versions and
-  History tabs.
+  History tabs. Above the tabs, a header card names the quote: the quote number and version, the
+  account as the page title, the opportunity, the partner, the status and the page's buttons. The deal type, sales
+  region and sub-region are facts in the Deal section, beside the currency and what a renewal renews. The deal below doesn't
+  repeat it. When it's the viewer's turn, the Quote tab opens with a full-width
+  "Your decision" section, set apart from the deal below it (several roles' cards sit side by
+  side). Each card ("Your approval · CFO") says which role they act as and why it's asked (that step's reasons as rows: line, product
+  group, discount and the limit it passes; the first three, then "Show N more"). Deal Desk, who
+  reviews every quote, sees "What's non-standard": lines whose category the rep chose (the only place besides the
+  line's own "Category chosen by rep" tag), then every point from the approvals still to come,
+  once each, with the approvals it needs ("· needs CRO and CFO"). Who approves is left to the
+  Approvals tab. After a decision a line in
+  the same place confirms it ("Approved as CRO."). Approve, Request changes and
+  Reject sit at the foot of each role's card, next to its reasons; the header only has a "Your
+  approval" link (or "Your approvals (2)") that jumps there from any tab.
 - **My Approvals** — inbox of steps for the viewer's roles, deadline chips, opens the quote.
 - **Approval diagram** — the approval workflow drawn with React Flow, in the Approvals tab and the
   submit preview.
 - **Admin sections** — approval matrix (discount groups and ladders, product mapping, commercial
-  rules, change log; saving shows which quotes in approval would be recalled first), approval SLAs,
+  rules, change log; saving shows which quotes in approval would be recalled first, as plain text since
+  Admin gives no access to quotes), approval SLAs,
   legal entities (master–detail with an edit drawer), currencies, product categories.
 
 ---
@@ -162,7 +180,7 @@ built in `cado2ServiceUrls` in `src/config/apiConfig.ts`.
 | Area | Endpoints |
 |---|---|
 | Identity | `GET /me` |
-| Salesforce lookups | `GET /accounts?nameContains&limit`, `GET /accounts/{id}/opportunities`, `GET /accounts/{id}/contacts`, `GET /products?currency&pricebookId&limit&offset[&nameContains]`, `GET /pricebooks?currency` |
+| Salesforce lookups | `GET /accounts?nameContains&limit`, `GET /accounts/{id}/opportunities[?status=open\|won]`, `GET /accounts/{id}/contacts`, `GET /products?currency&pricebookId&limit&offset[&search]`, `GET /pricebooks?currency` |
 | Reference data | `GET /legal-entities[?active=true]`, `GET /currencies`, `GET /quote-settings` |
 | Pricing | `POST /pricing/preview` |
 | Quotes | `GET /quotes?limit&status&scope=all`, `POST /quotes`, `GET /quotes/{id}`, `POST /quotes/{id}/revise`, `POST /quotes/{id}/close`, `GET /quotes/{id}/audit-events`, `GET/PUT/DELETE /quotes/{id}/versions/{v}`, `POST …/submit`, `POST …/recall` |

@@ -55,13 +55,11 @@
  */
 export type PreviewFeature =
   /**
-   * The whole UMT perspective — rail entry, launcher tile, landing-page
-   * option, favourites eligibility, and the `/umt` route. UMT is still being
-   * ported: only its dashboard exists so far (see perspectives.ts), and that
-   * is gated as a whole rather than screen-by-screen because the thing that
-   * needs to stay preview-only is the perspective's presence itself, not one
-   * route inside it. `useUmtGate`'s own role check against the UMT backend is
-   * unrelated and keeps working the same regardless of this flag.
+   * Engineering → UMT, the whole app — its rail group and every route under
+   * `/engineering/umt`. Engineering itself is shipped; this flag only hides
+   * UMT. Held back as a whole, the same way Finance MIS is inside Finance.
+   * `useUmtGate`'s own role check against the UMT backend is unrelated and
+   * keeps working the same regardless of this flag.
    */
   | "umt"
   /* The whole Infra Portal perspective. Still being ported, so the waffle
@@ -69,12 +67,6 @@ export type PreviewFeature =
    */
   | "infra"
   /**
-   * The whole Engineering perspective — waffle tile, rail, favourites,
-   * landing choices, and the Product Download Stats screens. The perspective
-   * stays hidden until this is on. A direct visit while it is off says
-   * Engineering is not available.
-   */
-  | "engineering"
   /**
    * Finance → Finance MIS — the ARR, QRR and MRR Builds and ARR Analysis,
    * rail entries and routes alike. Held back as a whole until Finance has
@@ -98,7 +90,20 @@ export type PreviewFeature =
    * `/me` roles still decide who sees which item once this is on. See
    * docs/ported-apps/cado2.md.
    */
-  | "cado2";
+  | "cado2"
+  /**
+   * Legal → NDA, the PDF generator — its rail entry and the `/legal/nda`
+   * route. Held back until it is ready for production. Due Diligence, the
+   * rest of the Legal perspective, is unaffected.
+   */
+  | "nda"
+  /**
+   * The whole Knowledge Base perspective — waffle tile, rail, and the
+   * `/knowledge-base` route, currently just Today I Learned. Waiting on
+   * til-backend's first real Choreo deployment and the Google Chat App's
+   * Space/Dialog registration (outside this codebase) before going live.
+   */
+  | "til";
 
 /**
  * Whether a preview feature should be shown.

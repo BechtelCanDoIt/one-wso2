@@ -267,7 +267,7 @@ describe("claimsForPerspective", () => {
     }
   });
 
-  it("covers infra and umt when their preview flags are on, and promotion regardless", async () => {
+  it("covers infra and shipped Engineering with UMT when those flags are on, and promotion regardless", async () => {
     const previous = window.config;
     vi.resetModules();
     window.config = {
@@ -277,10 +277,16 @@ describe("claimsForPerspective", () => {
     const { PERSPECTIVES: flagged } = await import("@constants/perspectives");
     const fold = await import("./visibilityFold");
     const keys = flagged.map((perspective) => perspective.key);
-    expect(keys).toEqual(expect.arrayContaining(["infra", "umt"]));
+    expect(keys).toEqual(expect.arrayContaining(["infra", "engineering"]));
+    expect(keys).not.toContain("umt");
     const people = flagged.find((perspective) => perspective.key === "people");
     expect(fold.sectionIdsIn(people?.sections ?? []).has("promotion-lead-portal")).toBe(true);
     expect(fold.claimsForPerspective("people")).toContain("promotion");
+    // UMT's admin row sits in Engineering now, so UMT's gate must be in play
+    // there or Product Management falls through to "visible to everyone".
+    const engineering = flagged.find((perspective) => perspective.key === "engineering");
+    expect(fold.sectionIdsIn(engineering?.sections ?? []).has("umt-products")).toBe(true);
+    expect(fold.claimsForPerspective("engineering")).toEqual(expect.arrayContaining(["engineering", "umt"]));
 
     const names = [
       "par",
@@ -296,6 +302,7 @@ describe("claimsForPerspective", () => {
       "security",
       "umt",
       "subscriptions",
+      "engineering",
     ] as const;
     for (const perspective of flagged) {
       const sectionIds = fold.sectionIdsIn(perspective.sections ?? []);
@@ -329,7 +336,6 @@ describe("claimsForPerspective", () => {
       "sales",
       "security",
       "infra",
-      "umt",
       "engineering",
     ]);
 
@@ -363,6 +369,7 @@ describe("claimOf", () => {
       "security",
       "umt",
       "subscriptions",
+      "engineering",
     ];
     for (const name of names) {
       expect(claimOf(name)).toBeTruthy();

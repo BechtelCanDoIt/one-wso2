@@ -89,10 +89,11 @@ export function useAccountSearch(term: string) {
   return useAuthedQuery<Account[]>(["accounts", t], t.length >= MIN_ACCOUNT_SEARCH ? cado2ServiceUrls.accounts(t) : null);
 }
 
-export function useAccountOpportunities(accountId: string | null) {
+/** Open opportunities to quote (the default), or closed-won ones for a renewal to renew. */
+export function useAccountOpportunities(accountId: string | null, status: "open" | "won" = "open") {
   return useAuthedQuery<Opportunity[]>(
-    ["account-opportunities", accountId],
-    accountId ? cado2ServiceUrls.accountOpportunities(accountId) : null,
+    ["account-opportunities", accountId, status],
+    accountId ? cado2ServiceUrls.accountOpportunities(accountId, status) : null,
   );
 }
 
@@ -150,9 +151,9 @@ export function useActiveLegalEntities() {
   return useAuthedQuery<ActiveLegalEntity[]>(["legal-entities", "active"], cado2ServiceUrls.legalEntities(true));
 }
 
-/** My Quotes: filtered by the latest version's status; `everyone` is Admin only. */
-export function useQuoteList(status = "", everyone = false) {
-  return useAuthedQuery<QuoteList>(["quotes", "list", status, everyone], cado2ServiceUrls.quoteList(status, everyone), "live");
+/** My Quotes: the caller's own quotes, filtered by the latest version's status. */
+export function useQuoteList(status = "") {
+  return useAuthedQuery<QuoteList>(["quotes", "list", status], cado2ServiceUrls.quoteList(status), "live");
 }
 
 /** A quote with its version list and the caller's actions. */

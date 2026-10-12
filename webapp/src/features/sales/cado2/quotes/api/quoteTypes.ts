@@ -62,6 +62,10 @@ export interface Account {
   readonly id: string;
   readonly name: string | null;
   readonly billingAddress: Address | null;
+  /** Salesforce Sales_Regions__c, e.g. "APAC". Required to quote. */
+  readonly salesRegion: string | null;
+  /** Salesforce Sub_Region__c, e.g. "South Asia". Optional. */
+  readonly subRegion: string | null;
 }
 
 export interface Partner {
@@ -93,6 +97,21 @@ export interface Opportunity {
   readonly arr: number | null;
   /** The opportunity's price book, which all its products come from; pre-fills the quote's. */
   readonly pricebook?: PricebookRef | null;
+  /** Subs_Start_Date__c / Subs_End_Date__c; null on a consultancy-only deal. A renewal starts the day after the renewed one ends. */
+  readonly subsStartDate?: string | null;
+  readonly subsEndDate?: string | null;
+}
+
+/**
+ * When a renewal is expected to start: the day after the renewed opportunity's
+ * subscription end date. `differs`: the quote starts another day (a warning
+ * for the AM and Deal Desk; never blocks).
+ */
+export interface RenewalStart {
+  readonly expectedStartDate: string;
+  readonly fromOpportunityId: string;
+  readonly fromOpportunityName: string;
+  readonly differs: boolean;
 }
 
 /** First Sale, Renewal or Expansion; any other record type is OTHER. */
@@ -371,6 +390,9 @@ export interface VersionView {
   readonly status: VersionStatus;
   readonly pricingRulesVersion: string;
   readonly accountName: string | null;
+  /** The account's sales region and sub-region, as of the last save; frozen at submit. */
+  readonly accountSalesRegion: string | null;
+  readonly accountSubRegion: string | null;
   readonly opportunityName: string | null;
   readonly dealType: DealType | null;
   readonly partner: {
@@ -415,7 +437,12 @@ export interface VersionView {
     readonly name: string;
     readonly arr: string | null;
     readonly currencyIsoCode: string | null;
+    /** Its subscription dates in Salesforce when the version was saved (frozen at submission). */
+    readonly subsStartDate?: string | null;
+    readonly subsEndDate?: string | null;
   }[];
+  /** A renewal's expected start date: the day after the renewed opportunity ends; null when unknown or not a renewal. */
+  readonly renewalStart?: RenewalStart | null;
   readonly lines: readonly LineView[];
   /** Set on submit: the UTC day it was submitted, and + validity days. */
   readonly issueDate: string | null;

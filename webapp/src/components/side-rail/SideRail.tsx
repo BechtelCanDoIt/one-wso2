@@ -358,6 +358,21 @@ function SectionNode({
   /** The perspective this section is rendered under — see RouteItem. */
   fromPerspective: string;
 }): JSX.Element | null {
+  // Screens offered as tabs stay children of the section (pins name them from
+  // there) and are not rows. The row is the app, and it opens its first screen.
+  if (section.inTabs) {
+    if (!resolveVisible(section)) return null;
+    return (
+      <LeafItem
+        id={section.id}
+        label={section.label}
+        icon={section.icon}
+        to={section.path}
+        fromPerspective={fromPerspective}
+      />
+    );
+  }
+
   if (section.children && section.children.length > 0) {
     const visible = section.children.filter((c) => resolveVisible(c));
     if (visible.length === 0) return null;
@@ -397,11 +412,24 @@ function SectionNode({
             build the collapsed-rail flyout. Any wrapper — a Link, or one of
             our own components — swallows the injected `depth` and hides the
             label from that flyout. These rows navigate via `onSelect`. */}
-        {visible.map((c) => (
-          <Sidebar.Item key={c.id} id={c.id} sx={{ pl: NESTED_LABEL_PL }}>
-            <Sidebar.ItemLabel sx={ELLIPSIS_SX}>{c.label}</Sidebar.ItemLabel>
-          </Sidebar.Item>
-        ))}
+        {visible.map((c) => {
+          // A row that names an icon wears it, starting where the parent label
+          // starts. A row that doesn't stays a plain label lined up with that
+          // word. The label itself stays a string: the collapsed flyout reads
+          // it with String(children), and an element there becomes
+          // "[object Object]".
+          const Icon = c.icon;
+          return (
+            <Sidebar.Item key={c.id} id={c.id} sx={{ pl: NESTED_LABEL_PL }}>
+              {Icon ? (
+                <Sidebar.ItemIcon>
+                  <Icon />
+                </Sidebar.ItemIcon>
+              ) : null}
+              <Sidebar.ItemLabel sx={ELLIPSIS_SX}>{c.label}</Sidebar.ItemLabel>
+            </Sidebar.Item>
+          );
+        })}
       </Sidebar.Item>
     );
   }

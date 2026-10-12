@@ -44,6 +44,9 @@ declare global {
       // Cafeteria menu backend (daily menu, lunch feedback, dinner orders).
       // Optional — when absent the Menu screen shows a not-connected state.
       ONE_WSO2_MENU_BACKEND_URL?: string;
+      // Today I Learned backend (til-backend) — company-wide learnings feed.
+      // Optional — when absent the Today I Learned screen shows a not-connected state.
+      ONE_WSO2_TIL_BACKEND_URL?: string;
       // Base URL for the digiops-hr subscription-app backend (PickMe Commute
       // and LaaS opt-in/opt-out). Optional — when absent the Subscriptions
       // screens show a not-connected state.
@@ -61,6 +64,10 @@ declare global {
       // Optional — when absent (and the `cado2` preview flag is on) CadO2's
       // pages show a not-connected state and make no requests.
       ONE_WSO2_CADO2_BACKEND_URL?: string;
+      // Base URL for the MEDDPICC backend (digiops-sales echo-backend), which
+      // powers the Deals tab and the MEDDPICC column under Sales. Optional —
+      // when absent Deals shows a not-connected state and the column is left out.
+      ONE_WSO2_ECHO_BACKEND_URL?: string;
       // Base URL for the digiops-hr promotion-app backend. Optional — when
       // absent, ConnectedServices' "Last promotion" row falls back to a
       // "not configured" state and doesn't fire a request.
@@ -138,6 +145,12 @@ declare global {
       // like the others) whose routes live under /api/*. Optional — when
       // absent, MarketingOpsShell shows a "not connected" state.
       ONE_WSO2_MARKETINGOPS_BACKEND_URL?: string;
+      // Base URL for the digiops-marketing agenda-organizer backend — the
+      // Event Platform screens under Marketing Ops. Its own service: the
+      // marketing-ops /api/me decides what the UI shows, and this backend
+      // enforces its own roles. Optional — when absent, the Event Platform
+      // shell shows a "not connected" state.
+      ONE_WSO2_EVENT_PLATFORM_BACKEND_URL?: string;
       // ISAC's own base URL — a separate marketing application, linked to
       // from the top of the Marketing Ops rail and opened in a new tab.
       // Nothing here calls it as an API. Optional — when absent, the rail
@@ -171,6 +184,8 @@ declare global {
       // ONE_WSO2_AUTH_BASE_URL by swapping the api. subdomain for
       // myaccount. (e.g. api.asgardeo.io/t/wso2 → myaccount.asgardeo.io/t/wso2).
       ONE_WSO2_ASGARDEO_MYACCOUNT_URL?: string;
+      // Backend that serves the customer-search endpoint used by the NDA page.
+      ONE_WSO2_LEGAL_BACKEND_URL?: string;
       // Features built but not yet released — see @config/previewFeatures.
       // Absent or false hides the feature, so a deployment that says nothing
       // shows nothing. Typed loosely here and narrowed by `PreviewFeature` at

@@ -16,6 +16,7 @@
 
 import type { Capability } from "@constants/appMenu";
 import { isPreviewEnabled } from "@config/previewFeatures";
+import { ENGINEERING_ADMIN_ITEM_ID } from "@constants/downloadStatsApps";
 import { DUE_DILIGENCE_ITEM_IDS } from "@constants/dueDiligenceApps";
 import { FINANCE_ITEM_IDS } from "@constants/financeApps";
 import { MIS_ITEM_IDS } from "@constants/misApps";
@@ -35,7 +36,7 @@ import {
   PROMOTION_TEAM_HISTORY_ITEM_ID,
   SALES_ITEM_IDS,
   SUBSCRIPTION_ITEM_IDS,
-  UMT_ADMIN_ITEM_IDS,
+  UMT_ITEM_IDS,
   type PerspectiveSection,
 } from "@constants/perspectives";
 import { SECURITY_ITEM_IDS } from "@constants/securityApps";
@@ -77,7 +78,8 @@ export type AdapterName =
   | "promotion"
   | "security"
   | "umt"
-  | "subscriptions";
+  | "subscriptions"
+  | "engineering";
 
 const ADAPTER_NAMES: readonly AdapterName[] = [
   "par",
@@ -95,6 +97,7 @@ const ADAPTER_NAMES: readonly AdapterName[] = [
   "security",
   "umt",
   "subscriptions",
+  "engineering",
 ];
 
 /** Which sections this adapter answers. A perspective claim answers every section of that perspective. */
@@ -176,9 +179,11 @@ export function claimOf(name: AdapterName): SectionClaim {
     case "security":
       return { kind: "sections", ids: SECURITY_ITEM_IDS };
     case "umt":
-      return { kind: "sections", ids: UMT_ADMIN_ITEM_IDS };
+      return { kind: "sections", ids: UMT_ITEM_IDS };
     case "subscriptions":
       return { kind: "sections", ids: SUBSCRIPTION_ITEM_IDS };
+    case "engineering":
+      return ids([ENGINEERING_ADMIN_ITEM_ID]);
     default: {
       const neverName: never = name;
       return neverName;
@@ -213,7 +218,11 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   if (perspectiveKey === "sales" && isPreviewEnabled("cado2")) names.push("cado2");
   if (perspectiveKey === "people" || perspectiveKey === "me") names.push("promotion");
   if (perspectiveKey === "security") names.push("security");
-  if (perspectiveKey === "umt") names.push("umt");
+  if (perspectiveKey === "engineering") names.push("engineering");
+  // UMT's rows exist only while its preview flag is on, same as MIS and CadO2.
+  // Asking its /update/user-info when they are absent holds the Engineering
+  // landing on a backend that has nothing to show.
+  if (perspectiveKey === "engineering" && isPreviewEnabled("umt")) names.push("umt");
   names.push("subscriptions");
   return names;
 }

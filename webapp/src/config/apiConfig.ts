@@ -520,6 +520,9 @@ export const ccServiceUrls = {
   transactionSummary: `${ccBackendUrl}/transactions/new-transaction-summary`,
   submittedByCategory: `${ccBackendUrl}/transactions/submitted-transaction-summary`,
   cardHolderCompliance: `${ccBackendUrl}/transactions/card-holder-compliance-summary`,
+  // Admin view's "Group by: Reporting Manager" — the same backlog rolled up
+  // under each report's manager. Finance only, enforced server-side.
+  managerCompliance: `${ccBackendUrl}/transactions/manager-compliance-summary`,
   // Lead view: every lead's approval backlog, and one lead's team within it.
   leadApprovalSummary: `${ccBackendUrl}/transactions/lead-approval-summary`,
   leadTeamCardHolders: `${ccBackendUrl}/transactions/lead-team-card-holder-summary`,
@@ -566,6 +569,13 @@ export const expenseServiceUrls = {
     `${expenseBackendUrl}/claims/${encodeURIComponent(email)}/transactions/receipts/file`,
   receiptFile: (fileName: string) =>
     `${expenseBackendUrl}/claims/transactions/receipts/file/${encodeURIComponent(fileName)}`,
+  // The dashboard's two reference lists + its one report. `/expense-types`
+  // here is a DIFFERENT resource from `expenseTypes()` above — that one is
+  // `/user-configurations/expense-types`, scoped by travel job; this is the
+  // plain, unscoped list the dashboard's category filter and CSV need.
+  subsidiaries: `${expenseBackendUrl}/subsidiaries`,
+  dashboardExpenseTypes: `${expenseBackendUrl}/expense-types`,
+  claimsReport: `${expenseBackendUrl}/claims-report`,
 };
 
 // Finance master data — ONE_WSO2_FINANCE_MASTER_DATA_BACKEND_URL.
@@ -620,7 +630,7 @@ export function isUmtBackendConfigured(): boolean {
 }
 
 export const umtServiceUrls = {
-  // GET — caller identity and UMT-local roles; this is the perspective gate.
+  // GET — caller identity and UMT-local roles; this is the UMT access gate.
   userInfo: `${umtBackendUrl}/update/user-info`,
   // GET — products, versions, issue types, lifecycles and user emails shared
   // by the update workflows. This endpoint deliberately sits outside /update.
@@ -1035,6 +1045,141 @@ export const marketingOpsServiceUrls = {
   // that ports it, so this object never lists a URL nothing calls.
 };
 
+// The Event Platform backend (digiops-marketing/apps/conference/agenda-organizer)
+// — its own service, NOT a router of the Marketing Ops backend above, so it has a
+// key of its own. The Marketing Ops gate (/api/me capabilities `eventplatform`
+// and `eventplatform-shop`) decides only what the UI offers. It runs in the
+// browser and is not the enforcement point: the agenda-organizer checks the
+// admin and shop roles itself, on every route, against the token it is sent.
+//
+// Like Marketing Ops, its routes are namespaced under `/api/*`. Same
+// trailing-slash strip, for the same reason.
+//
+// Empty string = not configured; the Event Platform shell renders a "not
+// connected" state rather than firing broken requests.
+export const eventPlatformBackendUrl: string = (
+  window.config?.ONE_WSO2_EVENT_PLATFORM_BACKEND_URL ?? ""
+).replace(/\/+$/, "");
+
+export function isEventPlatformConfigured(): boolean {
+  return Boolean(eventPlatformBackendUrl);
+}
+
+// One builder per endpoint the Event Platform calls, checked against the routes
+// the ONE_WSO2_EVENT_PLATFORM_BACKEND_URL backend actually registers.
+//
+// Two naming quirks are the backend's, not typos: some collections sit under
+// `/api/event/…` (singular — days, tracks, rooms, room mappings) while their
+// items sit at `/api/<thing>/{id}`, and the per-event collections sit under
+// `/api/events/{id}/…`. The builders follow the routes as they are.
+//
+// Every JSON body is bound with DisallowUnknownFields, so the hooks send exactly
+// the fields each handler declares — an extra key is a 400, not something the
+// server ignores.
+export const eventPlatformServiceUrls = {
+  // ---- events --------------------------------------------------------------
+  //
+  // PUT on one event is an UPSERT of its fields AND its full `days` array —
+  // that is how days are edited. The standalone day create/update/delete
+  // routes exist but no screen calls them, so they have no builder here.
+  events: `${eventPlatformBackendUrl}/api/events`,
+  event: (id: string) => `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(id)}`,
+  // Every event's days, not one event's. The room-mapping tree filters by
+  // `configId` client side; there is no server filter.
+  days: `${eventPlatformBackendUrl}/api/event/days`,
+  exportAgenda: (id: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(id)}/export/agenda`,
+  // `roles` is a comma list; the server defaults to `internal,external` when
+  // it is absent, so no param is sent rather than an empty one.
+  exportSpeakers: (id: string, roles?: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(id)}/export/speakers${query(
+      roles ? new URLSearchParams({ roles }) : undefined,
+    )}`,
+
+  // ---- tracks, sections, footnotes, topics ---------------------------------
+  //
+  // Like days, `allTracks` is every event's tracks — used by the room-mapping
+  // tree, which groups them under the event's days itself.
+  allTracks: `${eventPlatformBackendUrl}/api/event/tracks`,
+  dayTracks: (dayId: string) =>
+    `${eventPlatformBackendUrl}/api/event/days/${encodeURIComponent(dayId)}/tracks`,
+  track: (id: string) => `${eventPlatformBackendUrl}/api/tracks/${encodeURIComponent(id)}`,
+  trackSections: (trackId: string) =>
+    `${eventPlatformBackendUrl}/api/tracks/${encodeURIComponent(trackId)}/sections`,
+  // Keynote sections belong to a day rather than a track, but are edited and
+  // deleted through the same `/track-sections/{id}` item route.
+  dayKeynoteSections: (dayId: string) =>
+    `${eventPlatformBackendUrl}/api/event/days/${encodeURIComponent(dayId)}/keynote-sections`,
+  trackSection: (id: string) =>
+    `${eventPlatformBackendUrl}/api/track-sections/${encodeURIComponent(id)}`,
+  dayFootnotes: (dayId: string) =>
+    `${eventPlatformBackendUrl}/api/event/days/${encodeURIComponent(dayId)}/footnotes`,
+  footnote: (id: string) => `${eventPlatformBackendUrl}/api/footnotes/${encodeURIComponent(id)}`,
+  eventTrackTopics: (eventId: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(eventId)}/track-topics`,
+  // PUT only: the backend does not route PATCH here, so a PATCH rename would
+  // never save.
+  trackTopic: (id: string) =>
+    `${eventPlatformBackendUrl}/api/track-topics/${encodeURIComponent(id)}`,
+
+  // ---- sessions and speakers -----------------------------------------------
+  //
+  // `scheduled=false` requires `configId` (an unscheduled session has no day
+  // to scope it by); the hooks always send `configId`, so a palette never
+  // lists another event's unscheduled sessions.
+  sessions: (filters?: { configId?: string; dayId?: string; scheduled?: boolean }) => {
+    const params = new URLSearchParams();
+    if (filters?.configId) params.set("configId", filters.configId);
+    if (filters?.dayId) params.set("dayId", filters.dayId);
+    if (filters?.scheduled !== undefined) params.set("scheduled", String(filters.scheduled));
+    return `${eventPlatformBackendUrl}/api/sessions${query(params)}`;
+  },
+  session: (id: string) => `${eventPlatformBackendUrl}/api/sessions/${encodeURIComponent(id)}`,
+  // PUT with all four fields null = unschedule.
+  sessionPlacement: (id: string) =>
+    `${eventPlatformBackendUrl}/api/sessions/${encodeURIComponent(id)}/placement`,
+  sessionArtifacts: (id: string) =>
+    `${eventPlatformBackendUrl}/api/sessions/${encodeURIComponent(id)}/artifacts`,
+  // The global speaker library, shared by every event. PUT on one speaker
+  // replaces its fields; PATCH toggles `visible` and nothing else.
+  speakers: `${eventPlatformBackendUrl}/api/speakers`,
+  speaker: (id: string) => `${eventPlatformBackendUrl}/api/speakers/${encodeURIComponent(id)}`,
+
+  // ---- rooms and activities ------------------------------------------------
+  //
+  // The rooms collection is POSTed bare (the event is in the body) but always
+  // listed with `configId`: without it the server returns every event's rooms,
+  // and room names repeat across events with their own rows and colours.
+  rooms: `${eventPlatformBackendUrl}/api/event/rooms`,
+  roomsForEvent: (configId: string) =>
+    `${eventPlatformBackendUrl}/api/event/rooms${query(new URLSearchParams({ configId }))}`,
+  room: (id: string) => `${eventPlatformBackendUrl}/api/rooms/${encodeURIComponent(id)}`,
+  // Same split as rooms: read with `configId` in the query, written with it in
+  // the body.
+  roomMappings: `${eventPlatformBackendUrl}/api/event/room-mappings`,
+  roomMappingsForEvent: (configId: string) =>
+    `${eventPlatformBackendUrl}/api/event/room-mappings${query(new URLSearchParams({ configId }))}`,
+  roomsReapply: `${eventPlatformBackendUrl}/api/event/rooms/reapply`,
+  eventActivities: (eventId: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(eventId)}/activities`,
+  activity: (id: string) => `${eventPlatformBackendUrl}/api/activities/${encodeURIComponent(id)}`,
+  // PUT replaces the activity's whole schedule in one call.
+  activityHours: (id: string) =>
+    `${eventPlatformBackendUrl}/api/activities/${encodeURIComponent(id)}/hours`,
+
+  // ---- shop (admin or shop role) -------------------------------------------
+  //
+  // Orders carry shipping PII — keep responses out of logs and error text.
+  shopItems: (eventId: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(eventId)}/shop/items`,
+  shopItem: (eventId: string, itemId: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(eventId)}/shop/items/${encodeURIComponent(itemId)}`,
+  shopOrders: (eventId: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(eventId)}/shop/orders`,
+  shopOrderStatus: (eventId: string, orderId: string) =>
+    `${eventPlatformBackendUrl}/api/events/${encodeURIComponent(eventId)}/shop/orders/${encodeURIComponent(orderId)}/status`,
+};
+
 // `?a=b` when there is anything to append, otherwise nothing — a bare trailing "?"
 // is harmless but ends up in query keys and logs, and reads as a bug.
 function query(params?: URLSearchParams): string {
@@ -1234,6 +1379,18 @@ export function isIsacConfigured(): boolean {
 //
 // Empty string = not configured, and the tile then stays in its unbuilt state
 // rather than becoming a link to nowhere.
+export const legalBackendUrl: string = (
+  window.config?.ONE_WSO2_LEGAL_BACKEND_URL ?? ""
+).replace(/\/+$/, "");
+
+export function isLegalBackendConfigured(): boolean {
+  return Boolean(legalBackendUrl);
+}
+
+export const legalServiceUrls = {
+  customerSearch: `${legalBackendUrl}/customer-search`,
+};
+
 export const csmUrl: string = window.config?.ONE_WSO2_CSM_URL ?? "";
 
 export function isCsmConfigured(): boolean {
@@ -1484,6 +1641,40 @@ export const menuServiceUrls = {
 };
 
 // ---------------------------------------------------------------------------
+// Today I Learned backend (til-backend) — a company-wide feed of learnings
+// from customers, partners, and internal sources. One submission form in One
+// WSO2, one in the Google Chat App's "+" Dialog, both calling this same
+// backend.
+//
+// Trailing slashes stripped for the same reason as dueDiligenceBackendUrl —
+// every URL below concatenates a path onto this.
+export const tilBackendUrl: string = (
+  window.config?.ONE_WSO2_TIL_BACKEND_URL ?? ""
+).replace(/\/+$/, "");
+
+export function isTilBackendConfigured(): boolean {
+  return Boolean(tilBackendUrl);
+}
+
+export const tilServiceUrls = {
+  // Identity + whether the caller may delete other people's entries.
+  userInfo: `${tilBackendUrl}/user-info`,
+  // GET (paginated, ?cursor=&limit=) to list, POST to create.
+  submissions: `${tilBackendUrl}/submissions`,
+  // DELETE one entry, moderator-only (re-checked server-side).
+  submission: (id: string) => `${tilBackendUrl}/submissions/${encodeURIComponent(id)}`,
+  // Customer-name autocomplete (where == "Customer"). Always returns 200
+  // with an array -- [] both for "no matches" and for "this feature isn't
+  // configured on the backend", so the form can't tell those apart and
+  // doesn't need to; either way it just has no suggestions to show.
+  customersSearch: (q: string) => `${tilBackendUrl}/customers/search?q=${encodeURIComponent(q)}`,
+  // Image upload for the "What did you learn?" rich-text field. Returns
+  // { url } — an absolute URL to the stored image, inserted directly into
+  // the entry's HTML. Webapp-only, same gate as POST /submissions.
+  uploads: `${tilBackendUrl}/uploads`,
+};
+
+// ---------------------------------------------------------------------------
 // Subscription backend (digiops-hr subscription-app). The two paid staff
 // services an employee opts in and out of — PickMe Commute and LaaS (lunch as
 // a service) — plus the admin screens that manage them on someone's behalf.
@@ -1651,15 +1842,16 @@ export const cado2ServiceUrls = {
   // Salesforce lookups, read live through the backend.
   accounts: (nameContains: string): string =>
     `${cado2BackendUrl}/accounts?nameContains=${encodeSegment(nameContains)}&limit=20`,
-  accountOpportunities: (accountId: string): string =>
-    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities`,
+  // Open opportunities to quote; closed-won ones for a renewal to renew.
+  accountOpportunities: (accountId: string, status: "open" | "won" = "open"): string =>
+    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${status}`,
   accountContacts: (accountId: string): string =>
     `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/contacts`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (
     currency: string,
-    nameContains: string,
+    search: string,
     page: { pricebookId: string; limit: number; offset: number },
   ): string => {
     const q = new URLSearchParams({
@@ -1668,7 +1860,8 @@ export const cado2ServiceUrls = {
       limit: String(page.limit),
       offset: String(page.offset),
     });
-    if (nameContains) q.set("nameContains", nameContains);
+    // The product name or its product code.
+    if (search) q.set("search", search);
     return `${cado2BackendUrl}/products?${q.toString()}`;
   },
   pricebooks: (currency: string): string => `${cado2BackendUrl}/pricebooks?currency=${encodeSegment(currency)}`,
@@ -1676,11 +1869,10 @@ export const cado2ServiceUrls = {
   quoteSettings: `${cado2BackendUrl}/quote-settings`,
   pricingPreview: `${cado2BackendUrl}/pricing/preview`,
   quotes: `${cado2BackendUrl}/quotes`,
-  // My Quotes. `everyone` (scope=all) is answered for CadO2 admins only.
-  quoteList: (status: string, everyone: boolean): string => {
+  // My Quotes: the caller's own quotes.
+  quoteList: (status: string): string => {
     const q = new URLSearchParams({ limit: "200" });
     if (status) q.set("status", status);
-    if (everyone) q.set("scope", "all");
     return `${cado2BackendUrl}/quotes?${q.toString()}`;
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
@@ -1870,3 +2062,59 @@ export const misArrServiceUrls = {
   // cache key. Takes `accountId` and `endDate`, and nothing else.
   opportunities: `${misArrBackendUrl}/opportunities`,
 };
+
+// ---------------------------------------------------------------------------
+// MEDDPICC backend (digiops-sales echo-backend). A separate service from the
+// meet-app backend above: it reads the same meetings, analyses their
+// transcripts and proposes the Opportunity's MEDDPICC Gate fields, which an
+// AM approves before they are written to Salesforce. See the MEDDPICC
+// contract, §3.6, for every route below.
+//
+// Blank means "not connected", as for every other key in this file: Deals
+// shows the not-connected state and Meetings leaves the MEDDPICC column out.
+export const echoBackendUrl: string = (window.config?.ONE_WSO2_ECHO_BACKEND_URL ?? "").replace(
+  /\/+$/,
+  "",
+);
+
+export function isEchoBackendConfigured(): boolean {
+  return Boolean(echoBackendUrl);
+}
+
+export const echoServiceUrls = {
+  // The Gate definitions, with picklist options from the live Salesforce describe.
+  gates: `${echoBackendUrl}/gates`,
+  // Coverage for many meetings in one call — the meetings table asks for its visible page.
+  meetingCoverage: `${echoBackendUrl}/meetings/coverage`,
+  // Queues a new extraction run for one meeting. 202, no body worth reading.
+  reanalyse: (meetingId: number): string => `${echoBackendUrl}/meetings/${meetingId}/reanalyse`,
+  deals: `${echoBackendUrl}/deals`,
+  deal: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}`,
+  approve: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/approve`,
+  moveStage: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/move-stage`,
+  includeCalls: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/include-calls`,
+};
+
+/**
+ * The deal list URL with only the filters that are set.
+ *
+ * `hideClosed` is always sent, because the backend's default is not this
+ * screen's to assume.
+ */
+export function buildDealsUrl(params: {
+  search?: string | null;
+  owner?: string | null;
+  stage?: string | null;
+  hideClosed: boolean;
+}): string {
+  const qs = new URLSearchParams();
+  if (params.search?.trim()) qs.set("search", params.search.trim());
+  if (params.owner?.trim()) qs.set("owner", params.owner.trim());
+  if (params.stage?.trim()) qs.set("stage", params.stage.trim());
+  qs.set("hideClosed", String(params.hideClosed));
+  return `${echoServiceUrls.deals}?${qs.toString()}`;
+}
