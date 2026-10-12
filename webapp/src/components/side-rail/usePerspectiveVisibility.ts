@@ -37,6 +37,7 @@ import { parVisibility } from "@features/par/api/parVisibility";
 import { useParCanSeeLeadPortal, useParEmployeeItemVisible } from "@features/par/api/useParData";
 import { useParIsAdmin } from "@features/par/api/useParIsAdmin";
 import { promotionVisibility, usePromotionPrivileges } from "@features/promotion/api/usePromotionRoles";
+import { promotionEmployeeAccess } from "@features/promotion/util/promotionEmployeeAccess";
 import { umtVisibility, useUmtGate } from "@features/umt/api/useUmtGate";
 import {
   engineeringAdminVisibility,
@@ -225,6 +226,14 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
     isMe && meProfile.isPending,
   );
 
+  // The employee-facing "Promotion" item under Me — promotionEmployeeAccess
+  // hides it for employment types it isn't for, from the same profile
+  // record as above.
+  const promotionEmployeeGate = promotionEmployeeAccess(
+    meProfile.data?.employee?.employmentType,
+    isMe && meProfile.isPending,
+  );
+
   // promotion-app's Lead Portal — same shape of problem as PAR's above: its
   // Role.LEAD comes from promotion-app's own backend and bears no fixed
   // relationship to people-app's generic "lead" privilege `caps` is built
@@ -294,7 +303,7 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
       case "cado2":
         return cado2Visibility(cado2Gate);
       case "promotion":
-        return promotionVisibility(promotionLeadPortalGate, parEmployeeItemGate, meProfile.isError);
+        return promotionVisibility(promotionLeadPortalGate, promotionEmployeeGate, meProfile.isError);
       case "security":
         return securityVisibility(securityGate);
       case "umt":
