@@ -158,6 +158,11 @@ function filled(): DraftFormValues {
 }
 
 describe("toDraftInput", () => {
+  it("sends the Overview's primary tick, a setting of the quote (D68)", () => {
+    expect(toDraftInput({ ...emptyDraftForm(), isPrimary: true }).isPrimary).toBe(true);
+    expect(toDraftInput(emptyDraftForm()).isPrimary).toBe(false);
+  });
+
   it("sends choices, never prices, and keeps saved lines' snapshots", () => {
     const input = toDraftInput(filled(), "2026-09-25T10:00:00.123Z");
 

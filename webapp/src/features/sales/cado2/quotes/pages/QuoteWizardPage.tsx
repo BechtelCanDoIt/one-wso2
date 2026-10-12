@@ -116,7 +116,8 @@ export default function QuoteWizardPage(): JSX.Element {
   // After that the version query holds it (the save and submit hooks write the cache).
   const [created, setCreated] = useState<DraftResponse | null>(null);
   const saved = loaded.data ?? created;
-  const editable = !saved || saved.version.status === "DRAFT";
+  // A draft, and the caller may change it: its owner, or another AM when Admin allows it (D69).
+  const editable = !saved || (saved.version.status === "DRAFT" && saved.quote.canEdit);
   useDocumentTitle(
     saved
       ? quoteLabel(saved.quote.quoteNumber, saved.version.accountName, saved.version.opportunityName)
@@ -507,7 +508,7 @@ export default function QuoteWizardPage(): JSX.Element {
                   <StepIntro step={step} />
                 </Box>
                 <Box component="fieldset" disabled={!editable} sx={{ border: 0, m: 0, p: 0, minWidth: 0 }}>
-                  {step === 0 ? <OverviewStep locked={saved !== null} /> : null}
+                  {step === 0 ? <OverviewStep locked={saved !== null} quoteId={saved?.quote.id ?? null} /> : null}
                   {step === 1 ? <ProductsStep preview={shown} /> : null}
                   {step === 2 ? <CommercialStep /> : null}
                 </Box>

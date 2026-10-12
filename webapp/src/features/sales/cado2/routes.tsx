@@ -32,6 +32,7 @@ import ApprovalSlasPage from "./admin/approval-slas/pages/ApprovalSlasPage";
 import LegalEntitiesPage from "./admin/legal-entities/pages/LegalEntitiesPage";
 import CurrenciesPage from "./admin/currencies/pages/CurrenciesPage";
 import ProductCategoriesPage from "./admin/product-categories/pages/ProductCategoriesPage";
+import QuoteAccessPage from "./admin/quote-access/pages/QuoteAccessPage";
 
 // The heavy screens load on first use.
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
@@ -86,6 +87,7 @@ export const cado2Routes = (
       <Route path="legal-entities" element={<LegalEntitiesPage />} />
       <Route path="currencies" element={<CurrenciesPage />} />
       <Route path="product-categories" element={<ProductCategoriesPage />} />
+      <Route path="quote-access" element={<QuoteAccessPage />} />
       <Route path="*" element={<Navigate to={cado2Paths.adminSection(FIRST_ADMIN_SECTION)} replace />} />
     </Route>
     <Route path="*" element={<Navigate to={cado2Paths.home} replace />} />

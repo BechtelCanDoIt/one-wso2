@@ -30,6 +30,7 @@ import {
   CalendarDaysIcon,
   LandmarkIcon,
   RepeatIcon,
+  StarIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import {
   addressFrom,
@@ -47,12 +48,15 @@ import SectionCard from "@features/sales/cado2/components/section-card/SectionCa
 import { expectedRenewalStart, renewalStartWarning } from "@features/sales/cado2/quotes/form/renewalStart";
 import { subscriptionPeriod } from "@features/sales/cado2/utils/subscription";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
+import PrimaryQuoteField from "@features/sales/cado2/quotes/components/PrimaryQuoteField";
 
 const { DatePicker } = DatePickers;
 
 interface OverviewStepProps {
   /** After the first save the account and opportunity are fixed (UI choice 3). */
   readonly locked: boolean;
+  /** The quote being edited; null before its first save. */
+  readonly quoteId?: number | null;
 }
 
 /** The saved opportunity, when Salesforce no longer lists it (shown locked). */
@@ -166,7 +170,7 @@ function dealFindings(v: DraftFormValues, o: Opportunity | undefined): Finding[]
 }
 
 /** Step ① Overview. */
-export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element {
+export default function OverviewStep({ locked, quoteId = null }: OverviewStepProps): JSX.Element {
   const { control, setValue, getValues } = useFormContext<DraftFormValues>();
   const [accountId, isRenewal, opportunityId] = useWatch({
     control,
@@ -374,6 +378,10 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
       {/* Everything else waits for the account and the deal (2026-09-28). */}
       {showRest ? (
         <>
+          {/* Which of the opportunity's quotes is synced to Salesforce (D68). */}
+          <Section title="Primary quote" icon={<StarIcon size={18} />}>
+            <PrimaryQuoteField quoteId={quoteId} opportunityId={opportunityId} />
+          </Section>
           {/* Salesforce says it's a renewal: which opportunities does it renew? */}
           {isRenewal ? (
             <Section title="Renewal" icon={<RepeatIcon size={18} />}>

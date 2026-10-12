@@ -1874,6 +1874,13 @@ export const cado2ServiceUrls = {
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
   quoteRevise: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/revise`,
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
+  // Makes the quote its opportunity's primary quote, or releases it (D68).
+  quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,
+  // The quotes on an opportunity, with which is primary (D68).
+  opportunityQuotes: (opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
+  // What AMs may do with quotes they don't own (D69; Admin).
+  adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>

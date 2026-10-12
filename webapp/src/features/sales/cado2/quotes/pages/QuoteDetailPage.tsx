@@ -22,17 +22,20 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
   useAuditEvents,
   useCloseQuote,
+  useOpportunityQuotes,
   useQuote,
   useQuoteVersion,
   useRecallVersion,
   useReviseQuote,
+  useSetPrimary,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import OpportunityQuotesPanel from "@features/sales/cado2/quotes/components/detail/OpportunityQuotesPanel";
 import { sheetFromVersion } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import QuoteSheet from "@features/sales/cado2/quotes/components/sheet/QuoteSheet";
 import DocumentsPanel from "@features/sales/cado2/quotes/components/detail/DocumentsPanel";
 import StatusPanel from "@features/sales/cado2/quotes/components/detail/StatusPanel";
 import CustomerBand from "@features/sales/cado2/quotes/components/sheet/CustomerBand";
-import { STATUS_COLOR, quoteLabel, quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
+import { STATUS_COLOR, primaryLabel, quoteLabel, quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import VersionsTab from "@features/sales/cado2/quotes/components/detail/VersionsTab";
 import HistoryTab from "@features/sales/cado2/quotes/components/detail/HistoryTab";
@@ -45,12 +48,12 @@ import {
 import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/sales/cado2/approvals/model/myApprovals";
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
-import { ArrowDownIcon, ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowDownIcon, ArrowLeftIcon, StarIcon } from "@wso2/oxygen-ui-icons-react";
 import { useCado2Me } from "@features/sales/cado2/api/useCado2Me";
 import { cado2Paths, type Cado2QuoteTab } from "@features/sales/cado2/cado2Paths";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 
-type Dialog = "recall" | "revise" | "close" | "delete" | null;
+type Dialog = "recall" | "revise" | "close" | "delete" | "primary" | null;
 
 const scrollToYourApproval = () =>
   document.getElementById(YOUR_APPROVAL_ANCHOR)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -83,7 +86,10 @@ export default function QuoteDetailPage(): JSX.Element {
   const recall = useRecallVersion();
   const revise = useReviseQuote();
   const close = useCloseQuote();
+  const setPrimary = useSetPrimary();
   const events = useAuditEvents(quoteId);
+  // The opportunity's quotes: who is primary, for the Make primary confirmation (D68).
+  const oppQuotes = useOpportunityQuotes(quote.data?.sfOpportunityId ?? null);
   const sheet = useMemo(() => (latest.data ? sheetFromVersion(latest.data) : null), [latest.data]);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [decision, setDecision] = useState<Decision>(null);
@@ -110,6 +116,7 @@ export default function QuoteDetailPage(): JSX.Element {
     recall.reset();
     revise.reset();
     close.reset();
+    setPrimary.reset();
     setDialog(d);
   };
 
@@ -178,7 +185,12 @@ export default function QuoteDetailPage(): JSX.Element {
             sheet={sheet}
             header={{
               eyebrow: `${q.quoteNumber ?? "Draft"} · Version ${v.versionNumber}`,
-              status: <Chip color={STATUS_COLOR[q.status]} label={quoteStatusLabel(q.status, v.versionNumber)} />,
+              status: (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Chip color={STATUS_COLOR[q.status]} label={quoteStatusLabel(q.status, v.versionNumber)} />
+                  {q.isPrimary ? <Chip variant="outlined" icon={<StarIcon size={14} />} label="Primary" /> : null}
+                </Stack>
+              ),
               actions: (
                 <>
                   {/* Decisions are made in "Your decision" on the Quote tab; from another tab this goes back there. */}
@@ -205,6 +217,12 @@ export default function QuoteDetailPage(): JSX.Element {
                   {v.status === "DRAFT" && can("CLOSE") ? (
                     <Button color="error" variant="outlined" onClick={() => openDialog("delete")}>
                       Delete draft
+                    </Button>
+                  ) : null}
+                  {/* A setting of the quote: any status, approvals untouched (D68). */}
+                  {q.canEdit ? (
+                    <Button variant="outlined" startIcon={<StarIcon size={16} />} onClick={() => openDialog("primary")}>
+                      {q.isPrimary ? "Remove primary" : "Make primary"}
                     </Button>
                   ) : null}
                   {can("CLOSE") ? (
@@ -254,12 +272,15 @@ export default function QuoteDetailPage(): JSX.Element {
               <Box component="section" aria-label="The deal" sx={{ minWidth: 0 }}>
                 <QuoteSheet sheet={sheet} withCustomer={false} />
               </Box>
-              <StatusPanel
-                latest={latest.data}
-                events={events.data ?? []}
-                approvals={<ApprovalSummary {...approvalProps} onOpen={() => openTab(APPROVALS_TAB)} />}
-                documents={<DocumentsPanel quoteId={q.id} version={v.versionNumber} approved={v.status === "APPROVED"} />}
-              />
+              <Stack spacing={3}>
+                <StatusPanel
+                  latest={latest.data}
+                  events={events.data ?? []}
+                  approvals={<ApprovalSummary {...approvalProps} onOpen={() => openTab(APPROVALS_TAB)} />}
+                  documents={<DocumentsPanel quoteId={q.id} version={v.versionNumber} approved={v.status === "APPROVED"} />}
+                />
+                <OpportunityQuotesPanel quoteId={q.id} opportunityId={q.sfOpportunityId} />
+              </Stack>
             </Box>
           </Stack>
         ) : null}
@@ -348,6 +369,25 @@ export default function QuoteDetailPage(): JSX.Element {
             if (res.quoteDeleted) navigate(cado2Paths.quotes, { replace: true });
           }}
         />
+      ) : null}
+      {dialog === "primary" ? (
+        <LifecycleDialog
+          title={q.isPrimary ? "Remove primary?" : "Make this the primary quote?"}
+          confirmLabel={q.isPrimary ? "Remove primary" : "Make primary"}
+          pending={setPrimary.isPending}
+          error={setPrimary.error}
+          onClose={() => setDialog(null)}
+          onConfirm={() => setPrimary.mutate({ quoteId: q.id, primary: !q.isPrimary }, { onSuccess: () => setDialog(null) })}
+        >
+          {q.isPrimary
+            ? "The opportunity will have no primary quote, so nothing is synced to Salesforce until one is chosen."
+            : (() => {
+                const current = oppQuotes.data?.find((o) => o.isPrimary && o.quoteId !== q.id);
+                return current
+                  ? `${primaryLabel(current)} is the primary quote for this opportunity. Making this quote primary releases it. Approvals aren't affected.`
+                  : "This quote becomes the one synced to Salesforce. Approvals aren't affected.";
+              })()}
+        </LifecycleDialog>
       ) : null}
       {dialog === "close" ? (
         <LifecycleDialog

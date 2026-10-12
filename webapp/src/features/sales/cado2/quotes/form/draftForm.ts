@@ -94,6 +94,8 @@ export interface DraftFormValues {
   accountSubRegion: string;
   opportunityId: string;
   opportunityName: string;
+  /** The opportunity's primary quote, synced to Salesforce (D68): a setting of the quote. */
+  isPrimary: boolean;
   dealType: DealType | null;
   partner: Pick<Partner, "id" | "name" | "role" | "billingAddress"> | null;
   /**
@@ -167,6 +169,7 @@ export function emptyDraftForm(): DraftFormValues {
     accountSubRegion: "",
     opportunityId: "",
     opportunityName: "",
+    isPrimary: false,
     dealType: null,
     partner: null,
     dealKind: "",
@@ -331,6 +334,7 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
   return {
     ...emptyDraftForm(),
     accountId: res.quote.sfAccountId,
+    isPrimary: res.quote.isPrimary,
     accountName: v.accountName ?? "",
     accountSalesRegion: v.accountSalesRegion ?? "",
     accountSubRegion: v.accountSubRegion ?? "",
@@ -481,6 +485,7 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
     sfOpportunityId: v.opportunityId,
     sfAccountId: v.accountId,
     expectedUpdatedAt,
+    isPrimary: v.isPrimary,
     previousOpportunityIds: v.isRenewal ? v.previousOpportunityIds : [],
     legalEntityId: v.legalEntityId ? Number(v.legalEntityId) : undefined,
     currencyIsoCode: opt(v.currencyIsoCode),

@@ -27,6 +27,8 @@ export const draft: DraftResponse = {
     status: "DRAFT",
     ownerEmail: "rep@wso2.com",
     actions: ["CLOSE"],
+    isPrimary: false,
+    canEdit: true,
     sfOpportunityId: "006000000000001",
     sfAccountId: "001000000000001",
     createdAt: "2026-09-25T09:00:00Z",

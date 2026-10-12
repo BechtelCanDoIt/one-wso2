@@ -268,6 +268,8 @@ export interface DraftInput {
   readonly sfOpportunityId: string;
   readonly sfAccountId: string;
   readonly expectedUpdatedAt?: string;
+  /** The Overview's "Primary quote" tick (D68); ticking releases the current primary. */
+  readonly isPrimary?: boolean;
   /** Only kept when Salesforce says the opportunity is a Renewal. */
   readonly previousOpportunityIds: readonly string[];
   readonly legalEntityId?: number;
@@ -463,8 +465,12 @@ export interface QuoteView {
   readonly quoteNumber: string | null;
   /** The latest version's status; the quote has none of its own. */
   readonly status: VersionStatus;
-  /** What the caller may do now; empty for anyone but the owner. */
+  /** What the caller may do now; empty for anyone who may not change the quote. */
   readonly actions: readonly QuoteAction[];
+  /** The opportunity's primary quote, the one synced to Salesforce (D68). */
+  readonly isPrimary: boolean;
+  /** The caller may change the quote: its owner, or another AM when Admin allows it (D69). */
+  readonly canEdit: boolean;
   readonly ownerEmail: string;
   readonly sfOpportunityId: string;
   readonly sfAccountId: string;
@@ -519,6 +525,9 @@ export interface AuditEvent {
     | "APPROVAL_APPROVED"
     // Kept for history from before Reject was merged into Request changes (2026-10-12).
     | "APPROVAL_REJECTED"
+    // Primary quote (D68): on the quote, with no version.
+    | "QUOTE_MADE_PRIMARY"
+    | "QUOTE_PRIMARY_RELEASED"
     | "APPROVAL_CHANGES_REQUESTED"
     | "VERSION_APPROVED"
     | "ORDER_FORM_PREVIEWED"
@@ -583,3 +592,20 @@ export interface DeleteDraftResult {
   /** The latest version again; null when the quote is gone. */
   readonly latest: DraftResponse | null;
 }
+
+/** A quote on an opportunity, with which is primary (D68). Every AM sees them all (D69). */
+export interface OpportunityQuote {
+  readonly quoteId: number;
+  readonly quoteNumber: string | null;
+  readonly ownerEmail: string;
+  readonly isPrimary: boolean;
+  readonly status: VersionStatus;
+  readonly versionNumber: number;
+  readonly currencyIsoCode: string | null;
+  readonly tcv: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** What AMs may do with quotes they don't own (D69). */
+export type QuoteAccess = "VIEW" | "VIEW_EDIT";

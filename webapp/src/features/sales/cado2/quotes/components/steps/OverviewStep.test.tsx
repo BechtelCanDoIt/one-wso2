@@ -50,6 +50,7 @@ const lookup = (data: unknown) => ({ data, isPending: false, isFetching: false, 
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   MIN_ACCOUNT_SEARCH: 3,
   useAccountSearch: () => lookup(searchResults),
+  useOpportunityQuotes: () => lookup([]),
   useAccountOpportunities: (id: string | null, status = "open") => {
     if (id) asked.push(status);
     return lookup(status === "won" ? wonList : [{ ...renewal, currencyIsoCode: oppCurrency }]);

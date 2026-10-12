@@ -18,7 +18,14 @@
 // comparison (worked out in the browser) and the history timeline.
 // Pure functions only, so each is unit-tested without rendering.
 
-import type { AuditEvent, ContactView, AddressView, DraftResponse, VersionStatus } from "@features/sales/cado2/quotes/api/quoteTypes";
+import type {
+  AuditEvent,
+  ContactView,
+  AddressView,
+  DraftResponse,
+  OpportunityQuote,
+  VersionStatus,
+} from "@features/sales/cado2/quotes/api/quoteTypes";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { MODE_LABEL } from "@features/sales/cado2/quotes/sheet/sheetModel";
@@ -206,6 +213,11 @@ export function groupHistory(events: readonly AuditEvent[]): HistoryEntry[] {
 
 const roleOf = (meta: Record<string, unknown>) => (typeof meta.role === "string" ? roleLabel(meta.role) : "An approver");
 
+/** A primary quote named for others (D68): "Q-26-00031 (nimesha@wso2.com)", or "A draft by …" before its first submit. */
+export function primaryLabel(q: Pick<OpportunityQuote, "quoteNumber" | "ownerEmail">): string {
+  return q.quoteNumber ? `${q.quoteNumber} (${q.ownerEmail})` : `A draft by ${q.ownerEmail}`;
+}
+
 /**
  * A quote's name: its number once it has been submitted, otherwise its
  * customer and deal, e.g. "Acme Corp · APIM renewal 2026".
@@ -234,6 +246,17 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `${v} created${typeof meta.copiedFromVersion === "number" ? ` (revised from v${meta.copiedFromVersion})` : ""}`;
     case "QUOTE_CLOSED":
       return "Quote closed";
+    // Primary quote (D68): metadata names the other quote involved, if any.
+    case "QUOTE_MADE_PRIMARY":
+      return typeof meta.releasedQuoteNumber === "string"
+        ? `Made the primary quote, releasing ${meta.releasedQuoteNumber}`
+        : "Made the primary quote";
+    case "QUOTE_PRIMARY_RELEASED":
+      return typeof meta.byQuoteNumber === "string"
+        ? `No longer the primary quote: ${meta.byQuoteNumber} was made primary`
+        : typeof meta.byQuoteId === "number"
+          ? "No longer the primary quote: another quote was made primary"
+          : "No longer the primary quote";
     case "APPROVAL_WORKFLOW_CREATED": {
       const n = Array.isArray(meta.steps) ? meta.steps.length : 0;
       return `${v} approval started${n ? ` · ${n} approval${n === 1 ? "" : "s"} needed` : ""}`;

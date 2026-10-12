@@ -51,6 +51,8 @@ vi.mock("@features/sales/cado2/api/useCado2Me", () => ({ useCado2Me: () => me })
 const documents = query(undefined as unknown);
 const issue = { ...mutation(), mutateAsync: vi.fn() };
 const files = { preview: vi.fn(), download: vi.fn() };
+const setPrimary = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
+const opportunityQuotes = { data: [] as unknown[], error: null, isPending: false, isFetching: false, refetch: vi.fn() };
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useQuote: () => quote,
   useQuoteVersion: (_id: number, n: number) => query(versions.get(n)),
@@ -58,6 +60,8 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useRecallVersion: () => recall,
   useReviseQuote: () => revise,
   useCloseQuote: () => close,
+  useSetPrimary: () => setPrimary,
+  useOpportunityQuotes: () => opportunityQuotes,
   useDeleteDraft: () => del,
   useDocuments: (_q: number, _v: number, enabled: boolean) => (enabled ? documents : query(undefined)),
   useIssueOrderForm: () => issue,
@@ -97,6 +101,8 @@ function showFrom(from: string | undefined, q: QuoteView, ...vs: DraftResponse[]
 }
 
 beforeEach(() => {
+  Object.assign(setPrimary, mutation());
+  opportunityQuotes.data = [];
   Object.assign(decide, mutation());
   workflow.data = null;
   me.data.approverRoles = ["DEAL_DESK"];
@@ -105,6 +111,40 @@ beforeEach(() => {
   Object.assign(close, mutation());
   Object.assign(del, mutation());
   Object.assign(history, query([]));
+});
+
+// D68: primary is a setting of the quote, changed in any status.
+describe("QuoteDetailPage — primary quote", () => {
+  const oq = (quoteId: number, isPrimary: boolean, quoteNumber: string) => ({
+    quoteId, quoteNumber, ownerEmail: "nimesha@wso2.com", isPrimary, status: "APPROVED", versionNumber: 1,
+    currencyIsoCode: "USD", tcv: "1000.00", createdAt: "2026-10-02T08:00:00Z", updatedAt: "2026-10-02T08:00:00Z",
+  });
+
+  it("makes a quote in approval primary, releasing the current one, after asking", async () => {
+    const user = userEvent.setup();
+    opportunityQuotes.data = [oq(3, true, "Q-26-00031"), oq(submitted.quote.id, false, "Q-26-00005")];
+    show(submitted.quote, submitted);
+
+    const panel = screen.getByRole("region", { name: "This opportunity's quotes" });
+    expect(within(panel).getByRole("link", { name: "Q-26-00031" })).toHaveAttribute("href", "/sales/cado2/quotes/3/quote");
+    expect(within(panel).getByText("Q-26-00005 (this quote)")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Make primary" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Q-26-00031 (nimesha@wso2.com) is the primary quote for this opportunity. Making this quote primary releases it.");
+    await user.click(within(dialog).getByRole("button", { name: "Make primary" }));
+    expect(setPrimary.mutate).toHaveBeenCalledWith({ quoteId: submitted.quote.id, primary: true }, expect.anything());
+  });
+
+  it("marks the primary quote and lets it be released", async () => {
+    const user = userEvent.setup();
+    show({ ...submitted.quote, isPrimary: true }, submitted);
+
+    expect(screen.getByText("Primary")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove primary" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove primary" }));
+    expect(setPrimary.mutate).toHaveBeenCalledWith({ quoteId: submitted.quote.id, primary: false }, expect.anything());
+  });
 });
 
 describe("QuoteDetailPage — lifecycle", () => {
@@ -206,8 +246,9 @@ describe("QuoteDetailPage — lifecycle", () => {
   });
 
   it("gives an Admin (no actions) a read-only page with the whole quote", () => {
-    show({ ...submitted.quote, actions: [] }, submitted);
+    show({ ...submitted.quote, actions: [], canEdit: false }, submitted);
     expect(screen.queryByRole("button", { name: "Recall" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Make primary" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Close quote" })).toBeNull();
     // The customer is in the page's header band, and not repeated in the deal.
     const header = screen.getByLabelText("About this quote");

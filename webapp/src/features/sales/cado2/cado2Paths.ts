@@ -26,7 +26,8 @@ export type Cado2AdminSection =
   | "approval-slas"
   | "legal-entities"
   | "currencies"
-  | "product-categories";
+  | "product-categories"
+  | "quote-access";
 
 /** The quote page's tabs, each its own route. */
 export type Cado2QuoteTab = "quote" | "approvals" | "versions" | "history";
