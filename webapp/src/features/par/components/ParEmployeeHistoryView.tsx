@@ -15,7 +15,7 @@
 // under the License.
 
 import { useMemo, useState } from "react";
-import { Accordion, AccordionDetails, AccordionSummary, Avatar, Card, Chip, ComplexSelect, Divider, Grid, Skeleton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Accordion, AccordionDetails, AccordionSummary, Avatar, Card, Chip, ComplexSelect, Divider, Grid, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { ChevronDownIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
@@ -24,6 +24,7 @@ import { useAllClosedParCycles, useParEmployeeReviews, useParLegacyHistory } fro
 import { buildMergedCycleOptions } from "../util/parEmployeeHistory";
 import { decodeParComment } from "../util/parComment";
 import { ParCommentView } from "./ParContent";
+import { ParAutoAssignedChip } from "./ParChips";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
 import ParLegacyRecordDetail from "./ParLegacyRecordDetail";
@@ -192,15 +193,7 @@ export default function ParEmployeeHistoryView({
                   />
                 )}
                 {rating.data.parRatingUpdatedBy === "SYSTEM" && (
-                  <Tooltip title="Automatically assigned by the system because the PAR deadline was missed">
-                    <Chip
-                      size="small"
-                      color="warning"
-                      variant="outlined"
-                      sx={{ mt: 1, ml: rating.data.parRatingSharedBy ? 1 : 0 }}
-                      label="Auto-assigned (deadline missed)"
-                    />
-                  </Tooltip>
+                  <ParAutoAssignedChip sx={{ mt: 1, ml: rating.data.parRatingSharedBy ? 1 : 0 }} />
                 )}
               </Grid>
               <InfoItem label="Employee" value={employeeName} secondaryValue={employeeEmail} />

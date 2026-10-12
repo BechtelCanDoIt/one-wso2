@@ -317,7 +317,7 @@ export default function Par360ReviewDialog({
 
       {/* ReviewProvideModal.tsx's ConfirmationDialog — wording matches
           uiMessages.dialog.threeSixtyReviewShare / threeSixtyReviewReject. */}
-      <Dialog open={confirmingAction !== null} onClose={() => setConfirmingAction(null)} maxWidth="md">
+      <Dialog open={confirmingAction !== null} onClose={() => setConfirmingAction(null)} maxWidth="md" fullWidth>
         <DialogTitle>
           {confirmingAction === "decline" ? "Decline 360° Feedback Request?" : "Share 360° Feedback?"}
         </DialogTitle>

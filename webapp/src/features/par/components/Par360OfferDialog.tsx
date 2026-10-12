@@ -157,7 +157,7 @@ export function Par360OfferConfirmDialog({
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md">
+    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle>Provide Feedback</DialogTitle>
       <DialogContent>
         <Typography variant="body2" color="text.secondary">

@@ -41,7 +41,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ChevronDownIcon, ExternalLinkIcon, FileDownIcon, Google, PencilIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, ExternalLinkIcon, FileDownIcon, Google, InfoIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
 import {
@@ -61,6 +61,7 @@ import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
 import { LEADERSHIP_ALLOWED_RATINGS } from "../util/parLeadership";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
+import { ParAutoAssignedChip } from "./ParChips";
 import ParDriveFileChip from "./ParDriveFileChip";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
@@ -411,11 +412,7 @@ export default function ParLeadReviewPanel({
                     parRatingData.parRating ? (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                         <Chip size="small" label={parRatingData.parRating} />
-                        {parRatingData.parRatingUpdatedBy === "SYSTEM" && (
-                          <Tooltip title="Automatically assigned by the system because the PAR deadline was missed">
-                            <Chip size="small" color="warning" variant="outlined" label="Auto-assigned (deadline missed)" />
-                          </Tooltip>
-                        )}
+                        {parRatingData.parRatingUpdatedBy === "SYSTEM" && <ParAutoAssignedChip />}
                       </Box>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
@@ -445,8 +442,25 @@ export default function ParLeadReviewPanel({
 
                 {parRatingValue === top5p20pEnabledRating && (
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Typography id="lead-review-special-rating-label" variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                    <Typography
+                      id="lead-review-special-rating-label"
+                      variant="body2"
+                      sx={{ flexShrink: 0, minWidth: 96, display: "flex", alignItems: "center", gap: 0.75 }}
+                      color="text.secondary"
+                    >
                       Top 5%/20%
+                      {!readOnly && parRatingData.parSpecialRatingEligibility === false && (
+                        <Tooltip title="This employee isn't eligible for a Top 5%/20% rating in this cycle.">
+                          <Box
+                            component="span"
+                            tabIndex={0}
+                            aria-label="Not eligible for a Top 5%/20% rating"
+                            sx={{ display: "flex", cursor: "help" }}
+                          >
+                            <InfoIcon size={16} />
+                          </Box>
+                        </Tooltip>
+                      )}
                     </Typography>
                     {readOnly ? (
                       <Chip size="small" label={SPECIAL_RATING_LABELS[specialRating]} />
@@ -456,7 +470,7 @@ export default function ParLeadReviewPanel({
                         value={specialRating}
                         onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
                         disabled={
-                          !specialRatingConfirmed || ratingUpdate.isPending || !parRatingData.parSpecialRatingEligibility
+                          !specialRatingConfirmed || ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false
                         }
                         aria-labelledby="lead-review-special-rating-label"
                       >
@@ -476,7 +490,7 @@ export default function ParLeadReviewPanel({
                       <Checkbox
                         checked={specialRatingConfirmed}
                         onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
-                        disabled={ratingUpdate.isPending || !parRatingData.parSpecialRatingEligibility}
+                        disabled={ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false}
                       />
                     }
                     label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"

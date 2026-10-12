@@ -137,8 +137,7 @@ export interface ParRating {
   // par-app's EmployeePar.tsx renders this as "PAR Shared By".
   parRatingSharedBy?: string;
   // Who last updated parRating — a real invoker's email normally, or the literal string
-  // "SYSTEM" when the backend's autoAssignMissedDeadlineRatings wrote it after a missed
-  // deadline. ParLeadReviewPanel.tsx uses this to flag an auto-assigned rating distinctly,
+  // "SYSTEM" when the rating was auto-assigned after a missed deadline. ParLeadReviewPanel.tsx uses this to flag an auto-assigned rating distinctly,
   // so nobody mistakes it for (or blames a lead for) something the system did.
   parRatingUpdatedBy?: string;
   parF2fStatus: ParF2fStatus;
@@ -155,7 +154,7 @@ export interface ParRating {
   // employees under the tenure threshold, etc. An ineligible employee can't
   // be given a Top 5% or Top 20% rating, so ParLeadReviewPanel.tsx disables
   // those controls.
-  parSpecialRatingEligibility: boolean;
+  parSpecialRatingEligibility?: boolean;
   // Whether the employee holds an active leadership attribute, as determined
   // by the backend. Computed once at cycle-creation time, same as
   // parSpecialRatingEligibility above. When true, the employee's parRating is
