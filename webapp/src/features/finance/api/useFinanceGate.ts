@@ -79,13 +79,28 @@ export function canSeeMasterData(user: MasterDataUserInfo | undefined): boolean 
 // `enabled` lets the caller avoid firing the finance /user-info calls when
 // the Me perspective isn't active (e.g. while on People Ops).
 /**
- * The backends this hook can read, named so a caller can say which of them its
- * own questions actually depend on. See `needs` on `useFinanceGate`.
+ * The backends THIS HOOK reads, named so a caller can say which of them its own
+ * questions actually depend on. See `needs` on `useFinanceGate`.
+ *
+ * Not the Finance perspective's app list, which is longer. MIS, Banking and Due
+ * Diligence each answer for themselves through their own gate — `useMisGate`,
+ * `useBankingAccess`, `useDueDiligenceGate` — mounted separately in
+ * `usePerspectiveVisibility`, and none of them has ever been decided here. This
+ * hook only ever asked these four, both before and after `needs` was added; the
+ * parameter narrows that set per caller, it does not widen it.
  */
 export type FinanceGateApp = "cc" | "opd" | "expense" | "masterData";
 
-/** Every backend — what a caller that asks about all of them (the rail) needs. */
-export const EVERY_FINANCE_APP: readonly FinanceGateApp[] = ["cc", "opd", "expense", "masterData"];
+/**
+ * Every app above — the default, and what the rail needs, since it asks
+ * `canSee` about items belonging to all four.
+ */
+export const EVERY_FINANCE_GATE_APP: readonly FinanceGateApp[] = [
+  "cc",
+  "opd",
+  "expense",
+  "masterData",
+];
 
 /**
  * What `canSee("claim-approval")` reads, and nothing else. CC is deliberately
@@ -131,7 +146,7 @@ export interface FinanceGate {
  */
 export function useFinanceGate(
   enabled = true,
-  needs: readonly FinanceGateApp[] = EVERY_FINANCE_APP,
+  needs: readonly FinanceGateApp[] = EVERY_FINANCE_GATE_APP,
 ): FinanceGate {
   // Which backends this caller's questions actually depend on. A caller that
   // leaves this out keeps the old behaviour — every backend fetched, every
