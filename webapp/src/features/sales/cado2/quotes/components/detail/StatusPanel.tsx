@@ -16,8 +16,9 @@
 
 import type { JSX, ReactNode } from "react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
-import { Box, Chip, Divider, Paper, Stack, Typography } from "@wso2/oxygen-ui";
-import { HourglassIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, Chip, Divider, Stack, Typography } from "@wso2/oxygen-ui";
+import { ActivityIcon, HourglassIcon } from "@wso2/oxygen-ui-icons-react";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { AuditEvent, DraftResponse } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { expiryState } from "@features/sales/cado2/quotes/sheet/sheetModel";
@@ -54,10 +55,7 @@ export default function StatusPanel({
   return (
     <Stack spacing={2} component="aside" aria-label="Status">
       {documents}
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-          Status
-        </Typography>
+      <SectionCard title="Status" icon={<ActivityIcon size={18} />}>
         {expiry ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
             <HourglassIcon size={16} />
@@ -119,7 +117,7 @@ export default function StatusPanel({
             Last changed {day(v.updatedAt)} · {v.updatedByEmail}
           </Typography>
         </Stack>
-      </Paper>
+      </SectionCard>
     </Stack>
   );
 }

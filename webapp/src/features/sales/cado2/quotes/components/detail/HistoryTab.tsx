@@ -15,7 +15,9 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { HistoryIcon } from "@wso2/oxygen-ui-icons-react";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useAuditEvents } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { describeEvent, groupHistory } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
@@ -28,7 +30,16 @@ const when = (iso: string) => {
 /** History tab: the audit events as a timeline, newest first. */
 export default function HistoryTab({ quoteId }: { quoteId: number }): JSX.Element {
   const { data, error, isPending, isFetching, refetch } = useAuditEvents(quoteId);
-  if (isPending) return <CircularProgress size={24} aria-label="Loading the history" />;
+  // A list: skeleton rows while it loads (2026-10-13).
+  if (isPending) {
+    return (
+      <Box aria-label="Loading the history">
+        {[0, 1, 2].map((i) => (
+          <Skeleton key={i} variant="rounded" height={36} sx={{ my: 1 }} />
+        ))}
+      </Box>
+    );
+  }
   if (error) {
     return (
       <ErrorNotice error={error} onRetry={() => void refetch()} retrying={isFetching}>
@@ -37,6 +48,7 @@ export default function HistoryTab({ quoteId }: { quoteId: number }): JSX.Elemen
     );
   }
   const entries = groupHistory(data).reverse();
+  if (!entries.length) return <EmptyState compact icon={<HistoryIcon size={20} />} title="No history yet" />;
   return (
     <Stack component="ol" aria-label="History" spacing={0} sx={{ listStyle: "none", m: 0, p: 0 }}>
       {entries.map((entry, i) => (

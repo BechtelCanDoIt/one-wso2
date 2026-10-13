@@ -572,6 +572,13 @@ describe("QuoteDetailPage — versions and history", () => {
     expect(screen.queryByText(/You're viewing version/)).toBeNull();
   });
 
+  it("says so when there is no history yet", async () => {
+    Object.assign(history, query([]));
+    show(recalledV1.quote, recalledV1);
+    await userEvent.setup().click(screen.getByRole("tab", { name: "History (0)" }));
+    expect(screen.getByText("No history yet")).toBeInTheDocument();
+  });
+
   it("shows the history newest first, with grouped saves and reasons", async () => {
     const e = (id: number, eventType: string, extra = {}) => ({
       id, eventType, versionNumber: 1, actorEmail: "rep@wso2.com", occurredAt: `2026-10-0${id}T09:00:00Z`,
@@ -629,6 +636,18 @@ describe("QuoteDetailPage — order form", () => {
     expect(panel().getByText("Issued 12 Oct 2026")).toBeInTheDocument();
     expect(panel().getByRole("button", { name: "Download PDF" })).toBeInTheDocument();
     expect(panel().queryByRole("button", { name: "Issue order form" })).toBeNull();
+  });
+
+  it("says a failed issue in the shared error notice, with what failed", async () => {
+    Object.assign(documents, { data: { canPreview: true, canIssue: true, issueDate: "2026-10-12", expiryDate: "2026-11-11", documents: [] } });
+    issue.mutateAsync.mockRejectedValue(new Error("down"));
+    show(quoteOf(approved), approved);
+    const user = userEvent.setup();
+
+    await user.click(panel().getByRole("button", { name: "Issue order form" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Issue order form" }));
+    // findBy on screen: the page is aria-hidden until the dialog's closing transition ends.
+    expect(await screen.findByText(/Couldn't issue the order form\./)).toBeInTheDocument();
   });
 
   it("shows no order form before approval", () => {

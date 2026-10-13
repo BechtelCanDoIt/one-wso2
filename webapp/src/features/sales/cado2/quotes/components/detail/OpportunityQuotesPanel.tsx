@@ -16,8 +16,9 @@
 
 import type { JSX } from "react";
 import { Link as RouterLink } from "react-router";
-import { Box, Chip, Link, Paper, Stack, Typography } from "@wso2/oxygen-ui";
-import { StarIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
+import { LayersIcon, StarIcon } from "@wso2/oxygen-ui-icons-react";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useOpportunityQuotes } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import {
@@ -50,15 +51,7 @@ export default function OpportunityQuotesPanel({
   const hasPrimary = quotes.data.some((q) => q.isPrimary);
 
   return (
-    <Paper
-      variant="outlined"
-      component="section"
-      aria-label="This opportunity's quotes"
-      sx={{ p: 2.5, borderRadius: 2 }}
-    >
-      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 0.5 }}>
-        This opportunity&apos;s quotes
-      </Typography>
+    <SectionCard title="This opportunity's quotes" icon={<LayersIcon size={18} />}>
       <Typography
         variant="caption"
         color="text.secondary"
@@ -110,6 +103,6 @@ export default function OpportunityQuotesPanel({
           </Box>
         ))}
       </Stack>
-    </Paper>
+    </SectionCard>
   );
 }

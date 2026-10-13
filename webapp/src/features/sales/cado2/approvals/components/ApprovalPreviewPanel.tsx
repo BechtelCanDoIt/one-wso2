@@ -17,6 +17,8 @@
 import type { JSX } from "react";
 import { Alert, Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
 import { ShieldCheckIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { ApprovalPreview } from "@features/sales/cado2/approvals/api/approvalTypes";
 import LazyApprovalDiagram from "./LazyApprovalDiagram";
 
@@ -37,9 +39,8 @@ export default function ApprovalPreviewPanel({ preview, loading, error, bare = f
   const body = (() => {
     if (error && !preview) {
       return (
-        <Typography variant="body2" color="error">
-          Couldn&apos;t work out the approvals right now.
-        </Typography>
+        // The shared error notice, with the cause (2026-10-13; was a bare red line).
+        <ErrorNotice error={error}>Couldn&apos;t work out the approvals right now.</ErrorNotice>
       );
     }
     if (!preview) {
@@ -89,18 +90,17 @@ export default function ApprovalPreviewPanel({ preview, loading, error, bare = f
 
   if (bare) return <Box aria-busy={loading}>{body}</Box>;
   return (
-    <Box aria-label="Approvals" component="section" aria-busy={loading}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-        <ShieldCheckIcon size={18} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
-          Who approves if you submit now
+    <Box aria-busy={loading}>
+      <SectionCard
+        title="Who approves if you submit now"
+        icon={<ShieldCheckIcon size={18} />}
+        aside={loading && preview ? <CircularProgress size={14} aria-label="Updating the approvals" /> : undefined}
+      >
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          Deal Desk goes first; the discount and commercial approvals then run in parallel. Nothing is sent until you submit.
         </Typography>
-        {loading && preview ? <CircularProgress size={14} aria-label="Updating the approvals" /> : null}
-      </Stack>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-        Deal Desk goes first; the discount and commercial approvals then run in parallel. Nothing is sent until you submit.
-      </Typography>
-      {body}
+        {body}
+      </SectionCard>
     </Box>
   );
 }

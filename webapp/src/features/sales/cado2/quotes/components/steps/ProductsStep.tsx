@@ -19,7 +19,6 @@ import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import {
   Alert,
   AlertTitle,
-  Box,
   Button,
   Chip,
   IconButton,
@@ -31,6 +30,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { ChartColumnIcon, PackageIcon, PencilIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import OrderFormTable from "@features/sales/cado2/quotes/components/sheet/OrderFormTable";
 import DealFiguresSection from "@features/sales/cado2/quotes/components/sheet/DealFiguresSection";
 import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/ScheduleTable";
@@ -144,17 +144,14 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
 
       <SectionCard title="Products" icon={<PackageIcon size={18} />} aside={fields.length > 0 ? addButton : undefined}>
         {fields.length === 0 ? (
-          <Box sx={{ py: 3, textAlign: "center" }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              No products yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              {/* One price book: the opportunity's (D57), named. */}
-              Add products from {values.defaultPricebookName ? `the ${values.defaultPricebookName} price book` : "the quote's price book"}.
-              Prices come from this price book.
-            </Typography>
-            {addButton}
-          </Box>
+          <EmptyState
+            compact
+            icon={<PackageIcon size={20} />}
+            title="No products yet"
+            // One price book: the opportunity's (D57), named.
+            body={`Add products from ${values.defaultPricebookName ? `the ${values.defaultPricebookName} price book` : "the quote's price book"}. Prices come from this price book.`}
+            action={addButton}
+          />
         ) : (
           <OrderFormTable
             lines={sheet.lines}

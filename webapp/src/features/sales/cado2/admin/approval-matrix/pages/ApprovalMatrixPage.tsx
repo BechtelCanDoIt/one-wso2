@@ -35,7 +35,8 @@ import {
   TextField,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ArrowDownIcon, LayersIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowDownIcon, HistoryIcon, LayersIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
@@ -549,9 +550,7 @@ function ChangeLog(): JSX.Element {
   }
   if (!changes.data.length) {
     return (
-      <Typography variant="body2" color="text.secondary">
-        No changes yet: the matrix is the V1 sheet as seeded.
-      </Typography>
+      <EmptyState compact icon={<HistoryIcon size={20} />} title="No changes yet" body="The matrix is the V1 sheet as seeded." />
     );
   }
   return (

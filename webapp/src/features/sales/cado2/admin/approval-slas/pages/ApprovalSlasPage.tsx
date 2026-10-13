@@ -31,6 +31,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { HistoryIcon, TimerIcon } from "@wso2/oxygen-ui-icons-react";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
@@ -70,9 +71,7 @@ export default function ApprovalSlasPage(): JSX.Element {
         ) : !changes.data ? (
           <Skeleton variant="rounded" height={60} />
         ) : changes.data.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No changes yet: every role has the default 24 hours.
-          </Typography>
+          <EmptyState compact icon={<HistoryIcon size={20} />} title="No changes yet" body="Every role has the default 24 hours." />
         ) : (
           <Stack component="ul" spacing={1} aria-label="SLA changes" sx={{ m: 0, pl: 2.5 }}>
             {changes.data.map((c) => {

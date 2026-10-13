@@ -16,7 +16,7 @@
 
 import { useMemo, type JSX, type ReactNode } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
-import { Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Stack, Typography } from "@wso2/oxygen-ui";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { useActiveLegalEntities } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
@@ -57,11 +57,8 @@ export default function ReviewStep({ preview, savedLegalEntityName, approvals }:
       <Typography variant="body2" color="text.secondary">
         Check everything before submitting. A submitted version can&apos;t be changed.
       </Typography>
-      {approvals ? (
-        <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-          {approvals}
-        </Paper>
-      ) : null}
+      {/* A card of its own (the approval preview is a SectionCard). */}
+      {approvals}
       <QuoteSheet sheet={sheet} />
     </Stack>
   );

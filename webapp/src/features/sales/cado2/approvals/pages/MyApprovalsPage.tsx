@@ -16,7 +16,7 @@
 
 import type { JSX } from "react";
 import { Link as RouterLink } from "react-router";
-import { Avatar, Box, Chip, CircularProgress, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Avatar, Box, Chip, Paper, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { ShieldCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
@@ -53,9 +53,12 @@ export default function MyApprovalsPage(): JSX.Element {
         ))}
       />
       {inbox.isPending ? (
-        <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
-          <CircularProgress aria-label="Loading your approvals" />
-        </Box>
+        // A list loads as skeleton rows, like the Quotes list (2026-10-13).
+        <Paper variant="outlined" sx={{ borderRadius: 2, p: 2 }} aria-label="Loading your approvals">
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} variant="rounded" height={36} sx={{ my: 1 }} />
+          ))}
+        </Paper>
       ) : inbox.error ? (
         <ErrorNotice error={inbox.error} onRetry={() => void inbox.refetch()} retrying={inbox.isFetching}>
           Couldn&apos;t load your approvals.

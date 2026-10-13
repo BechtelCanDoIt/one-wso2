@@ -19,6 +19,7 @@ import { Typography } from "@wso2/oxygen-ui";
 import { PackageIcon } from "@wso2/oxygen-ui-icons-react";
 import type { QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import SheetCard from "@features/sales/cado2/components/section-card/SectionCard";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import OrderFormTable from "./OrderFormTable";
 
 /** Every line, as on the order form. */
@@ -34,9 +35,7 @@ export default function ProductsSection({ sheet }: { sheet: QuoteSheet }): JSX.E
       }
     >
       {sheet.lines.length === 0 ? (
-        <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
-          No products yet
-        </Typography>
+        <EmptyState compact icon={<PackageIcon size={20} />} title="No products yet" />
       ) : (
         <OrderFormTable lines={sheet.lines} currency={sheet.currency} commissionPercent={sheet.partnerCommissionPercent} />
       )}

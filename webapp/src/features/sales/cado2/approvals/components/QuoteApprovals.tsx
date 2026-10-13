@@ -15,9 +15,10 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Alert, Box, Chip, CircularProgress, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Chip, CircularProgress, Typography } from "@wso2/oxygen-ui";
 import { ShieldCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { ApprovalPreview, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { WORKFLOW_STATUS } from "@features/sales/cado2/approvals/model/approvalText";
 import LazyApprovalDiagram from "./LazyApprovalDiagram";
@@ -33,11 +34,7 @@ interface QuoteApprovalsProps {
 /** The quote page's Approvals tab. */
 export default function QuoteApprovals({ isDraft, workflow, preview }: QuoteApprovalsProps): JSX.Element {
   if (isDraft) {
-    return (
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <ApprovalPreviewPanel preview={preview.data} loading={preview.isFetching} error={preview.error} />
-      </Paper>
-    );
+    return <ApprovalPreviewPanel preview={preview.data} loading={preview.isFetching} error={preview.error} />;
   }
   if (workflow.isPending) {
     return (
@@ -59,19 +56,16 @@ export default function QuoteApprovals({ isDraft, workflow, preview }: QuoteAppr
   }
   const status = WORKFLOW_STATUS[wf.status];
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-        <ShieldCheckIcon size={18} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
-          Approvals
-        </Typography>
-        <Chip size="small" color={status.color} label={status.label} />
-      </Stack>
+    <SectionCard
+      title="Approvals"
+      icon={<ShieldCheckIcon size={18} />}
+      aside={<Chip size="small" color={status.color} label={status.label} />}
+    >
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Worked out from this exact version when it was submitted. Deal Desk goes first; the discount and commercial
         approvals then run in parallel. Click a role to see why it is needed.
       </Typography>
       <LazyApprovalDiagram steps={wf.steps} />
-    </Paper>
+    </SectionCard>
   );
 }

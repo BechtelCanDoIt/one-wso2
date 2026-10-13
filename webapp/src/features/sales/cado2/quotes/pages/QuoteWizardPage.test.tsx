@@ -326,7 +326,7 @@ describe("QuoteWizardPage — review and submit", () => {
     expect(within(screen.getByRole("region", { name: "Deal" })).getByText("WSO2, LLC.")).toBeInTheDocument();
     // The live approval chain, inline above the sheet; no preview button on Review.
     expect(screen.queryByRole("button", { name: "Preview approvals" })).toBeNull();
-    const chain = within(screen.getByRole("region", { name: "Approvals" }));
+    const chain = within(screen.getByRole("region", { name: "Who approves if you submit now" }));
     expect(chain.getByText("Who approves if you submit now")).toBeInTheDocument();
     expect(chain.getByRole("listitem", { name: "Regional Director" })).toHaveTextContent("10% discount");
   });
@@ -348,7 +348,7 @@ describe("QuoteWizardPage — review and submit", () => {
     expect(save.mutateAsync).not.toHaveBeenCalled();
     expect(submit.mutateAsync).toHaveBeenCalledWith({ quoteId: 5, version: 1, expectedUpdatedAt: "2026-09-25T10:00:00.123Z" });
     expect(await screen.findByText("quote page /sales/cado2/quotes/5/quote")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Version 1 submitted for approval");
+    expect(await screen.findByRole("status")).toHaveTextContent("Version 1 submitted for approval");
   });
 
   it("saves the changes when moving to another step, then submits the saved copy", async () => {
