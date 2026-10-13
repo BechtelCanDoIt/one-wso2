@@ -17,7 +17,14 @@
 // Central perspective registry. The waffle switcher and left rail both read
 // from this — one edit here changes every entry point.
 
-import { csmUrl, isCsmConfigured, isIsacConfigured, isacUrl } from "@config/apiConfig";
+import {
+  csmUrl,
+  isCsmConfigured,
+  isIsacConfigured,
+  isacUrl,
+  grcUserGuideUrl,
+  isGrcUserGuideConfigured,
+} from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { CADO2_APPS } from "@constants/cado2Apps";
 import {
@@ -96,11 +103,12 @@ export interface PerspectiveSection {
   // of ours is active while the user is over there. Mutually exclusive with
   // `path` — a section is either somewhere we host or somewhere we don't.
   externalUrl?: string;
-  // Rendered in its own group at the bottom of the rail's scroll area, with a
-  // divider above it, rather than flowing with the rest of `sections`. For a
-  // row that belongs to the perspective (so it must live in `sections`, not
-  // SideRail's cross-perspective Footer) but reads better set apart from the
-  // app groups above it than mixed into their list.
+  // Rendered in its own group at the bottom of the rail's scroll area —
+  // pushed down by margin rather than flowing with the rest of `sections` —
+  // with a gap above it instead of a divider. For a row that belongs to the
+  // perspective (so it must live in `sections`, not SideRail's
+  // cross-perspective Footer) but reads better set apart from the app groups
+  // above it than mixed into their list.
   pinnedToBottom?: boolean;
 }
 
@@ -904,14 +912,23 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // visible to anyone who can reach this perspective, scoped to it simply
       // by living in this sections array (unlike Settings, a true
       // cross-perspective global in SideRail's Footer).
-      {
-        id: "security-user-guide",
-        label: "User Guide",
-        icon: BookOpenIcon,
-        externalUrl:
-          "https://docs.google.com/document/d/1DOzS-srDY59eOuE-YfxpnvsBLA-Ln4wGEu0wcfIl94k/",
-        pinnedToBottom: true,
-      },
+      //
+      // Omitted entirely when its URL isn't configured — same contract as
+      // ISAC above: a row that goes nowhere is worse than one that isn't
+      // there, and this is a config rather than a hardcoded URL so it can be
+      // updated, or hidden, without a redeploy (a Cloudflare-cached build can
+      // keep serving an old one for a while otherwise).
+      ...(isGrcUserGuideConfigured()
+        ? [
+            {
+              id: "security-user-guide",
+              label: "User Guide",
+              icon: BookOpenIcon,
+              externalUrl: grcUserGuideUrl,
+              pinnedToBottom: true,
+            },
+          ]
+        : []),
     ],
   },
   // "Me" is the Home landing: the person's own profile plus everyday apps —

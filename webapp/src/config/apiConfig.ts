@@ -1832,6 +1832,20 @@ export function isSecurityBackendConfigured(): boolean {
   return Boolean(securityBackendUrl);
 }
 
+// The GRC Platform user guide — a Google Doc, maintained independently of
+// this app's release cycle, not a route this webapp hosts. Configured rather
+// than hardcoded so it can be updated (or the row hidden) without a redeploy,
+// and because a build can be served from a Cloudflare cache for a while after
+// it ships, which would otherwise leave a stale or broken link in place.
+//
+// Empty string = not configured, and the rail then omits the item entirely
+// rather than showing one that goes nowhere. Same contract as isacUrl above.
+export const grcUserGuideUrl: string = window.config?.ONE_WSO2_GRC_USER_GUIDE_URL ?? "";
+
+export function isGrcUserGuideConfigured(): boolean {
+  return Boolean(grcUserGuideUrl);
+}
+
 // ---------------------------------------------------------------------------
 // Evidence Portal backend — the third app under Security and Compliance,
 // lifted from grc-tools/apps/evidence-app alongside the GRC Platform above.
