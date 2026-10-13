@@ -21,11 +21,9 @@ import SalesShell from "../components/SalesShell";
 import MeetingFilters from "../components/MeetingFilters";
 import MeetingsTable from "../components/MeetingsTable";
 import AttachmentsDialog from "../components/AttachmentsDialog";
-import CancelMeetingDialog from "../components/CancelMeetingDialog";
 import type { Meeting, MeetingScope } from "../api/salesTypes";
 import { isSalesBackendConfigured, useSalesRegions, useMeetings } from "../api/useSalesData";
 import { useSalesGate } from "../api/useSalesGate";
-import { useCancelMeeting } from "../api/useSalesMutations";
 import { describeError, isForbidden } from "../util/salesError";
 import DealPanel from "../meddpicc/components/DealPanel";
 import { isEchoBackendConfigured, useMeetingCoverage } from "../meddpicc/api/useMeddpiccData";
@@ -44,30 +42,26 @@ const DEFAULT_PAGE_SIZE = 10;
 export default function SalesMeetingsPage() {
   const configured = isSalesBackendConfigured();
 
-  const [scope, setScope] = useState<MeetingScope>("past");
+  const [scope, setScope] = useState<MeetingScope>("echo");
   const [region, setRegion] = useState<string | null>(null);
   const [search, setSearch] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const [attachmentsFor, setAttachmentsFor] = useState<Meeting | null>(null);
-  const [cancelTarget, setCancelTarget] = useState<Meeting | null>(null);
-  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const [openDeal, setOpenDeal] = useState<{ id: string; letter: LetterKey | null } | null>(null);
 
   const { showSuccess, showError } = useNotifications();
   const gate = useSalesGate();
   const regionsQuery = useSalesRegions();
-  const cancelMeeting = useCancelMeeting();
 
-  // "Past" means "already ended". The cutoff instant is NOT computed here: it belongs to
-  // the fetch, so it advances with each one. Computing it here froze the list at whatever
-  // moment the scope was chosen, and a tab left open stopped showing meetings as they ended.
+  // Both scopes list past meetings only; the "already ended" cutoff is computed per fetch
+  // inside useMeetings, so a tab left open keeps picking up meetings as they end.
   const meetingsQuery = useMeetings({
     search,
     region,
-    pastOnly: scope === "past",
+    echoOnly: scope === "echo",
     page,
     pageSize,
   });
@@ -84,6 +78,10 @@ export default function SalesMeetingsPage() {
   // out-of-range pairing never reaches a query.
   const changeScope = (next: MeetingScope) => {
     setScope(next);
+    // Echo meetings carry no region (the add-on never records the host's sub-team), so
+    // any region would empty the list. The filter is disabled for Echo and reset here; it
+    // stays on "All regions" when switching back rather than restoring an old pick.
+    if (next === "echo") setRegion(null);
     setPage(0);
   };
   const changeRegion = (next: string | null) => {
@@ -126,21 +124,6 @@ export default function SalesMeetingsPage() {
   // repeating it per panel.
   const forbidden = isForbidden(meetingsQuery.error) || isForbidden(regionsQuery.error);
 
-  const confirmCancel = async () => {
-    if (!cancelTarget) return;
-    setCancelError(null);
-    try {
-      await cancelMeeting.mutateAsync(cancelTarget.meetingId);
-      showSuccess(`"${cancelTarget.title}" was cancelled.`);
-      setCancelTarget(null);
-    } catch (error: unknown) {
-      // Kept in the dialog rather than raised as a toast: the dialog is still
-      // open and is where the user is looking, and the backend's reason
-      // ("Insufficient privileges...") belongs next to the action it refused.
-      setCancelError(describeError(error));
-    }
-  };
-
   return (
     <SalesShell
       title="Meetings"
@@ -157,6 +140,7 @@ export default function SalesMeetingsPage() {
           onRegionChange={changeRegion}
           regions={regionsQuery.data?.regions ?? []}
           regionsLoading={regionsQuery.isLoading}
+          regionDisabled={scope === "echo"}
           search={search}
           onSearchChange={changeSearch}
         />
@@ -174,17 +158,11 @@ export default function SalesMeetingsPage() {
           meetings={meetings}
           totalCount={totalCount}
           loading={meetingsQuery.isLoading || meetingsQuery.isFetching}
-          scope={scope}
           page={page}
           pageSize={pageSize}
           onPageChange={setPage}
           onPageSizeChange={changePageSize}
           onOpenAttachments={setAttachmentsFor}
-          onCancelMeeting={(meeting) => {
-            setCancelError(null);
-            setCancelTarget(meeting);
-          }}
-          canCancel={gate.canCancel}
           coverage={echoConfigured ? coverageQuery.byId : undefined}
           coverageLoading={coverageQuery.isLoading}
           onOpenDeal={(id, letter) => setOpenDeal({ id, letter: letter ?? null })}
@@ -201,17 +179,6 @@ export default function SalesMeetingsPage() {
       />
 
       <AttachmentsDialog meeting={attachmentsFor} onClose={() => setAttachmentsFor(null)} />
-
-      <CancelMeetingDialog
-        meeting={cancelTarget}
-        onConfirm={confirmCancel}
-        onClose={() => {
-          setCancelTarget(null);
-          setCancelError(null);
-        }}
-        pending={cancelMeeting.isPending}
-        error={cancelError}
-      />
     </SalesShell>
   );
 }

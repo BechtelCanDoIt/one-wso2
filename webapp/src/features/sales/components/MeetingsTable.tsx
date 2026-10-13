@@ -26,11 +26,8 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import {
-  PaperclipIcon,
-  Trash2Icon,
-} from "@wso2/oxygen-ui-icons-react";
-import type { Meeting, MeetingScope } from "../api/salesTypes";
+import { PaperclipIcon } from "@wso2/oxygen-ui-icons-react";
+import type { Meeting } from "../api/salesTypes";
 import { meetingCustomer, meetingTypeLabel } from "../api/salesTypes";
 import { formatDateTime } from "../util/salesTime";
 import MeetingCoverageCell from "../meddpicc/components/MeetingCoverageCell";
@@ -63,23 +60,18 @@ const COLUMNS = [
  * whose call belongs to a deal opens that deal's panel; the links and buttons
  * inside it keep their own clicks.
  *
- * The Cancel column appears only in the All scope, matching the standalone app.
- * The reasoning holds up: in the Past scope nothing is cancellable — every row
- * has already happened — so the column would be a full width of disabled
- * buttons.
+ * No Cancel column, unlike the standalone app: every scope here lists meetings
+ * that have already happened, and those cannot be called off.
  */
 export default function MeetingsTable({
   meetings,
   totalCount,
   loading,
-  scope,
   page,
   pageSize,
   onPageChange,
   onPageSizeChange,
   onOpenAttachments,
-  onCancelMeeting,
-  canCancel,
   coverage,
   coverageLoading = false,
   onOpenDeal,
@@ -90,14 +82,11 @@ export default function MeetingsTable({
   meetings: Meeting[];
   totalCount: number;
   loading: boolean;
-  scope: MeetingScope;
   page: number;
   pageSize: number;
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onOpenAttachments: (meeting: Meeting) => void;
-  onCancelMeeting: (meeting: Meeting) => void;
-  canCancel: (meeting: Meeting) => boolean;
   /** MEDDPICC coverage by meetingId. Omit to leave the column out. */
   coverage?: Map<number, MeetingCoverage>;
   coverageLoading?: boolean;
@@ -107,12 +96,8 @@ export default function MeetingsTable({
   /** The meeting whose re-analysis request is in flight. */
   reanalysingId?: number | null;
 }) {
-  const showCancel = scope === "all";
   const showMeddpicc = coverage !== undefined;
-  const baseColumns = showMeddpicc ? COLUMNS : COLUMNS.filter((column) => column.key !== "meddpicc");
-  const columns = showCancel
-    ? [...baseColumns, { key: "cancel", label: "Cancel", width: 80, center: true } as const]
-    : baseColumns;
+  const columns = showMeddpicc ? COLUMNS : COLUMNS.filter((column) => column.key !== "meddpicc");
 
   return (
     <ListingTable.Provider
@@ -153,7 +138,6 @@ export default function MeetingsTable({
                   </ListingTable.Row>
                 ))
               : meetings.map((meeting) => {
-                  const cancellable = canCancel(meeting);
                   const isCancelled = meeting.meetingStatus === "CANCELLED";
                   const customer = meetingCustomer(meeting);
                   const typeLabel = meetingTypeLabel(meeting.meetingType);
@@ -289,41 +273,6 @@ export default function MeetingsTable({
                           </IconButton>
                         </Tooltip>
                       </ListingTable.Cell>
-
-                      {showCancel && (
-                        <ListingTable.Cell align="center">
-                          <Tooltip
-                            title={
-                              cancellable
-                                ? "Cancel meeting"
-                                : "Only the host or a Sales admin can cancel an upcoming meeting"
-                            }
-                            arrow
-                          >
-                            {/* The span is required: a disabled button fires no
-                                pointer events, so without it the tooltip that
-                                explains WHY it is disabled never appears. */}
-                            <Box
-                              component="span"
-                              sx={{ display: "inline-flex" }}
-                              onClick={(event) => event.stopPropagation()}
-                            >
-                              <IconButton
-                                size="small"
-                                color="error"
-                                disabled={!cancellable}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  onCancelMeeting(meeting);
-                                }}
-                                aria-label={`Cancel ${meeting.title}`}
-                              >
-                                <Trash2Icon size={16} />
-                              </IconButton>
-                            </Box>
-                          </Tooltip>
-                        </ListingTable.Cell>
-                      )}
                     </ListingTable.Row>
                   );
                 })}
@@ -333,7 +282,7 @@ export default function MeetingsTable({
         {!loading && meetings.length === 0 && (
           <ListingTable.EmptyState
             title="No meetings found"
-            description="Try a different scope, region, or search term."
+            description="Try a different filter, region, or search term."
           />
         )}
 
