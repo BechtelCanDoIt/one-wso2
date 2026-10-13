@@ -64,9 +64,12 @@ export function useTilUserInfo() {
   return foldIdentityError(query, subState, retryIdentity);
 }
 
-/** The learning's length limit the backend enforces, or its default until
- * GET /settings answers (and if it can't). */
-export function useTilWhatMaxLength(): number {
+/** The learning's length limit the backend enforces (GET /settings). `max`
+ * is the backend's default until the answer arrives; `known` says whether it
+ * has. The form holds Submit until then, and if the request fails it stays
+ * held with a retry: guessing could let the form accept text the backend
+ * rejects. */
+export function useTilWhatMaxLength(): { max: number; known: boolean; failed: boolean; retry: () => void } {
   const { getAccessToken, userSub, ready } = useTilQueryBasis();
   const query = useQuery<TilSettingsWire>({
     queryKey: ["til-settings", userSub],
@@ -75,7 +78,12 @@ export function useTilWhatMaxLength(): number {
     staleTime: 5 * 60 * 1000,
     retry: tilRetry,
   });
-  return query.data?.whatMaxLength ?? TIL_WHAT_DEFAULT_MAX_LENGTH;
+  return {
+    max: query.data?.whatMaxLength ?? TIL_WHAT_DEFAULT_MAX_LENGTH,
+    known: query.data !== undefined,
+    failed: query.isError,
+    retry: () => void query.refetch(),
+  };
 }
 
 function submissionsUrl(q: TilSubmissionsQuery): string {
