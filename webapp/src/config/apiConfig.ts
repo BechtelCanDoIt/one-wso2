@@ -1936,9 +1936,6 @@ export const salesServiceUrls = {
   // whatever else was attached. Returns links, never file content.
   attachments: (meetingId: number): string =>
     `${salesBackendUrl}/meetings/${meetingId}/attachments`,
-  // Cancels a meeting. The backend refuses unless the caller is the host or a
-  // meet-app admin, so the UI's own check is a courtesy, not the control.
-  meeting: (meetingId: number): string => `${salesBackendUrl}/meetings/${meetingId}`,
   // One meeting, for the detail page. The list endpoint cannot serve a direct link: it is
   // paged and filtered, so the meeting asked for may be on no page the caller would fetch.
   meetingById: (meetingId: number): string => `${salesBackendUrl}/meetings/${meetingId}`,
@@ -1972,6 +1969,8 @@ export function buildMeetingsUrl(params: {
   searchString?: string | null;
   region?: string | null;
   endTime?: string | null;
+  /** `"echo"` for add-on-registered meetings only; omitted for every meeting. */
+  source?: "echo" | null;
   limit: number;
   offset: number;
 }): string {
@@ -1979,6 +1978,7 @@ export function buildMeetingsUrl(params: {
   if (params.searchString?.trim()) qs.set("searchString", params.searchString.trim());
   if (params.region?.trim()) qs.set("region", params.region.trim());
   if (params.endTime?.trim()) qs.set("endTime", params.endTime.trim());
+  if (params.source) qs.set("source", params.source);
   qs.set("limit", String(params.limit));
   qs.set("offset", String(params.offset));
   return `${salesServiceUrls.meetings}?${qs.toString()}`;

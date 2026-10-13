@@ -249,5 +249,10 @@ export const SALES_PRIVILEGE = {
   TEAM: 987,
 } as const;
 
-/** Which meetings the list is showing — the Past/All radio. */
-export type MeetingScope = "past" | "all";
+/**
+ * Which meetings the list is showing — the Echo/All radio. Both are past meetings only.
+ *
+ * "echo" is a meeting the Echo calendar add-on registered for recording; "all" adds
+ * every other past meeting on the list, such as ones scheduled without the add-on.
+ */
+export type MeetingScope = "echo" | "all";
