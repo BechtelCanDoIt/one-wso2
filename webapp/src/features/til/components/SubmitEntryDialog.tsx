@@ -32,16 +32,18 @@ import type { PaperProps } from "@wso2/oxygen-ui";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useCustomerSearch, useTilUserInfo } from "../api/useTilData";
-import { useCreateTilSubmission, useUploadTilImage } from "../api/useTilMutations";
+import { useCreateTilSubmission, useUpdateTilSubmission } from "../api/useTilMutations";
 import {
   TIL_TITLE_MAX_LENGTH,
   TIL_WHAT_MAX_LENGTH,
   TIL_WHERE_DETAIL_MAX_LENGTH,
   TIL_WHERE_OPTIONS,
+  isSameWhereDetail,
+  type TilSubmission,
   type TilWhere,
 } from "../api/tilTypes";
 import { describeError } from "../util/tilError";
-import { isEmptyTilHtml, tilPlainTextLength } from "../util/tilRichText";
+import { isEmptyTilHtml, isSameTilHtml, normalizeTilSpaces, tilPlainTextLength } from "../util/tilRichText";
 import TilRichTextField from "./TilRichTextField";
 
 // Where options whose feed entry needs a bit more detail -- which customer,
@@ -124,20 +126,28 @@ function whereDetailCopy(where: TilWhere): { label: string; placeholder: string;
 // The "+ New entry" form. Mirrors the field set the Chat App's own Dialog
 // presents (Who / Where / What) so the two entry points feel like the same
 // product — see the backend's openapi.yaml for the shared contract.
-export default function SubmitEntryDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+//
+// Given an `entry`, the same form edits it instead. Its fields start from
+// that entry, so a caller mounts it per entry (keyed by id) rather than
+// reusing one instance across entries.
+export default function SubmitEntryDialog({
+  open,
+  onClose,
+  entry,
+}: {
+  open: boolean;
+  onClose: () => void;
+  entry?: TilSubmission;
+}) {
   const userInfo = useTilUserInfo();
-  const [title, setTitle] = useState("");
-  const [where, setWhere] = useState<TilWhere | "">("");
-  const [whereDetail, setWhereDetail] = useState("");
-  const [what, setWhat] = useState("");
+  const [title, setTitle] = useState(entry?.title ?? "");
+  const [where, setWhere] = useState<TilWhere | "">(entry?.where ?? "");
+  const [whereDetail, setWhereDetail] = useState(entry?.whereDetail ?? "");
+  const [what, setWhat] = useState(entry?.what ?? "");
   const [touched, setTouched] = useState(false);
   const create = useCreateTilSubmission();
-  const uploadImage = useUploadTilImage();
-  // True while TilRichTextField has an image upload in flight -- blocks
-  // Share so a submission can never go out missing an image the user
-  // thought they'd just attached (see TilRichTextField's onUploadingChange
-  // for the full race condition this closes).
-  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const update = useUpdateTilSubmission();
+  const pending = entry ? update.isPending : create.isPending;
   // Only searches real customer records -- Partner/Other keep plain
   // free-text entry (no equivalent searchable list exists for them). null
   // (not "") when where !== "Customer" so useCustomerSearch knows the field
@@ -165,8 +175,9 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
   // and submittedByEmail already carries it independently on the backend
   // side for anything that actually needs it (e.g. the delete-your-own-
   // entry check), so the public byline doesn't need to repeat it.
-  const who = userInfo.data ? userInfo.data.displayName : "";
-  const whoInvalid = !userInfo.data;
+  // An edit keeps the entry's own byline, whoever makes it.
+  const who = entry ? entry.who : userInfo.data ? userInfo.data.displayName : "";
+  const whoInvalid = !entry && !userInfo.data;
   const titleInvalid = title.trim().length === 0 || title.trim().length > TIL_TITLE_MAX_LENGTH;
   const whereInvalid = where === "";
   const needsWhereDetail = where !== "" && WHERE_OPTIONS_NEEDING_DETAIL.includes(where);
@@ -175,7 +186,14 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
     (whereDetail.trim().length === 0 || whereDetail.trim().length > TIL_WHERE_DETAIL_MAX_LENGTH);
   const whatLength = tilPlainTextLength(what);
   const whatInvalid = isEmptyTilHtml(what) || whatLength > TIL_WHAT_MAX_LENGTH;
-  const invalid = whoInvalid || titleInvalid || whereInvalid || whereDetailInvalid || whatInvalid || isUploadingImage;
+  const invalid = whoInvalid || titleInvalid || whereInvalid || whereDetailInvalid || whatInvalid;
+  // Saving an untouched entry would still mark it as edited.
+  const unchanged =
+    Boolean(entry) &&
+    title.trim() === entry?.title &&
+    where === entry?.where &&
+    isSameWhereDetail(needsWhereDetail, whereDetail, entry?.whereDetail ?? null) &&
+    isSameTilHtml(what, entry?.what ?? "");
 
   const reset = () => {
     setTitle("");
@@ -183,8 +201,8 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
     setWhereDetail("");
     setWhat("");
     setTouched(false);
-    setIsUploadingImage(false);
     create.reset();
+    update.reset();
   };
 
   const close = () => {
@@ -195,12 +213,33 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
   const submit = () => {
     setTouched(true);
     if (invalid) return;
+    if (entry) {
+      update.mutate(
+        {
+          id: entry.id,
+          payload: {
+            title: title.trim(),
+            where: where as TilWhere,
+            what: normalizeTilSpaces(what),
+            ...(needsWhereDetail ? { whereDetail: whereDetail.trim() } : {}),
+          },
+        },
+        {
+          onSuccess: () => {
+            showSuccess("Entry updated");
+            close();
+          },
+          onError: (err) => showError(describeError(err)),
+        },
+      );
+      return;
+    }
     create.mutate(
       {
         title: title.trim(),
         who,
         where: where as TilWhere,
-        what,
+        what: normalizeTilSpaces(what),
         ...(needsWhereDetail ? { whereDetail: whereDetail.trim() } : {}),
       },
       {
@@ -216,7 +255,7 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
   return (
     <Dialog
       open={open}
-      onClose={create.isPending ? undefined : close}
+      onClose={pending ? undefined : close}
       maxWidth="lg"
       fullWidth
       slotProps={{
@@ -224,7 +263,7 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
         backdrop: { sx: { bgcolor: "rgba(10,10,11,.4)", backdropFilter: "blur(3px)" } },
       }}
     >
-      <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>Today I Learned</DialogTitle>
+      <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>{entry ? "Edit entry" : "Today I Learned"}</DialogTitle>
       <DialogContent dividers sx={{ display: "flex", gap: 3, minHeight: 420 }}>
         {/* Left quarter: who's submitting it and where it came from.
             Every field here is labeled with a plain Typography above it,
@@ -432,9 +471,6 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
             <TilRichTextField
               value={what}
               onChange={setWhat}
-              onUploadImage={uploadImage}
-              onUploadError={showError}
-              onUploadingChange={setIsUploadingImage}
               placeholder="What did you learn? Explain it so others can learn from it too."
             />
           </Box>
@@ -446,22 +482,30 @@ export default function SubmitEntryDialog({ open, onClose }: { open: boolean; on
       <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
         <Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", lineHeight: 1.3 }}>
-            Submitted by
+            Authored by
           </Typography>
           <Typography variant="caption" sx={{ display: "block", lineHeight: 1.3 }}>
-            {userInfo.isLoading
-              ? "Loading…"
-              : userInfo.data
-                ? `${userInfo.data.displayName} (${userInfo.data.email})`
-                : "Couldn't load your name"}
+            {entry
+              ? `${entry.who} (${entry.submittedByEmail})`
+              : userInfo.isLoading
+                ? "Loading…"
+                : userInfo.data
+                  ? `${userInfo.data.displayName} (${userInfo.data.email})`
+                  : "Couldn't load your name"}
           </Typography>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button onClick={close} disabled={create.isPending}>
+          <Button onClick={close} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="contained" onClick={submit} disabled={create.isPending || isUploadingImage}>
-            {create.isPending ? "Sharing…" : isUploadingImage ? "Uploading image…" : "Share"}
+          <Button variant="contained" onClick={submit} disabled={pending || unchanged}>
+            {pending
+              ? entry
+                ? "Saving…"
+                : "Sharing…"
+              : entry
+                ? "Save"
+                : "Share"}
           </Button>
         </Stack>
       </DialogActions>

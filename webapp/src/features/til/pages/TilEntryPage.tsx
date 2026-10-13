@@ -15,13 +15,15 @@
 // under the License.
 import { Alert, Box, Button, Chip, Divider, Paper, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { useState } from "react";
-import { ArrowLeftIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowLeftIcon, NewspaperIcon, PencilIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { isTilBackendConfigured, useTilSubmission, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
+import { tilArticlePath } from "../util/tilArticleView";
 import { describeError, isNotFound } from "../util/tilError";
+import SubmitEntryDialog from "../components/SubmitEntryDialog";
 import TilShell from "../components/TilShell";
 import TilWhatContent from "../components/TilWhatContent";
 
@@ -40,9 +42,11 @@ export default function TilEntryPage() {
 
   const canModerate = userInfo.data?.canModerate ?? false;
   const isOwner = Boolean(userInfo.data?.email) && submission.data?.submittedByEmail === userInfo.data?.email;
-  const canDelete = canModerate || isOwner;
+  // Edit and delete share one rule, same as the backend's.
+  const canChange = canModerate || isOwner;
   const notFound = isNotFound(submission.error);
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
+  const [editing, setEditing] = useState(false);
 
   const runDelete = () => {
     if (!id) return;
@@ -95,7 +99,7 @@ export default function TilEntryPage() {
                   </Typography>
                   <Stack direction="row" alignItems="center" spacing={1.5}>
                     <Typography variant="body2" color="text.secondary">
-                      Submitted by {submission.data.who}
+                      Authored by {submission.data.who}
                     </Typography>
                     <Chip
                       label={
@@ -111,7 +115,7 @@ export default function TilEntryPage() {
               ) : (
                 <Stack direction="row" alignItems="center" spacing={1.5}>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Submitted by {submission.data.who}
+                    Authored by {submission.data.who}
                   </Typography>
                   <Chip
                     label={
@@ -124,18 +128,38 @@ export default function TilEntryPage() {
                 </Stack>
               )}
             </Box>
-            {canDelete && (
+            <Stack direction="row" spacing={1} useFlexGap sx={{ flexShrink: 0, flexWrap: "wrap", justifyContent: "flex-end" }}>
+              {/* For every reader, not just the ones who can change it. */}
               <Button
                 size="small"
-                color="error"
-                startIcon={<TrashIcon size={16} />}
-                onClick={confirmDelete}
-                disabled={deleteSubmission.isPending}
-                sx={{ flexShrink: 0 }}
+                startIcon={<NewspaperIcon size={16} />}
+                component={RouterLink}
+                to={tilArticlePath(submission.data.id)}
               >
-                {deleteSubmission.isPending ? "Deleting…" : "Delete entry"}
+                Open as article
               </Button>
-            )}
+              {canChange && (
+                <>
+                  <Button
+                    size="small"
+                    startIcon={<PencilIcon size={16} />}
+                    onClick={() => setEditing(true)}
+                    disabled={deleteSubmission.isPending}
+                  >
+                    Edit
+                  </Button>
+                  <Button
+                    size="small"
+                    color="error"
+                    startIcon={<TrashIcon size={16} />}
+                    onClick={confirmDelete}
+                    disabled={deleteSubmission.isPending}
+                  >
+                    {deleteSubmission.isPending ? "Deleting…" : "Delete"}
+                  </Button>
+                </>
+              )}
+            </Stack>
           </Stack>
 
           <Divider sx={{ mt: 2, mb: 2.5 }} />
@@ -156,7 +180,7 @@ export default function TilEntryPage() {
           <Stack direction={{ xs: "column", sm: "row" }} spacing={{ xs: 1.5, sm: 4 }}>
             <Box>
               <Typography variant="caption" color="text.secondary">
-                Submitted by
+                Authored by
               </Typography>
               <Typography variant="body2">{submission.data.submittedByEmail}</Typography>
             </Box>
@@ -171,9 +195,30 @@ export default function TilEntryPage() {
                 })}
               </Typography>
             </Box>
+            {submission.data.updatedAt && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">
+                  Edited
+                </Typography>
+                <Typography variant="body2">
+                  {submission.data.updatedAt.toLocaleString(undefined, {
+                    dateStyle: "full",
+                    timeStyle: "short",
+                  })}
+                </Typography>
+              </Box>
+            )}
           </Stack>
         </Paper>
       ) : null}
+      {editing && submission.data && (
+        <SubmitEntryDialog
+          key={submission.data.id}
+          open
+          entry={submission.data}
+          onClose={() => setEditing(false)}
+        />
+      )}
       <ConfirmationDialog content={confirmContent} onClose={() => setConfirmContent(null)} />
     </TilShell>
   );

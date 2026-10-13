@@ -287,3 +287,31 @@ export function EngineeringMark({ size }: MarkProps) {
     </Svg>
   );
 }
+
+/**
+ * Knowledge — an open book, traced from the same silhouette as the rail's line
+ * icon (lucide's BookOpen, scaled 2x for this 48-unit grid) and split at the
+ * spine into two pages. The left page carries the hue and the right one sits
+ * back in `field`, the same split People uses for its two figures. Field + lead
+ * only, like Me.
+ *
+ * Scaled to 0.88 about its centre so its weight sits with the rest of the set:
+ * 40% coverage and L* 64.0 at 64px.
+ */
+export function KnowledgeMark({ size }: MarkProps) {
+  const t = appMarkTones("knowledge-base")!;
+  return (
+    <Svg size={size}>
+      <g transform="translate(24 24) scale(0.88) translate(-24 -24)">
+        <path
+          d="M42 36a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H32a8 8 0 0 0-8 8v28a6 6 0 0 1 6-6z"
+          fill={t.field}
+        />
+        <path
+          d="M6 36a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h10a8 8 0 0 1 8 8v28a6 6 0 0 0-6-6z"
+          fill={t.lead}
+        />
+      </g>
+    </Svg>
+  );
+}

@@ -20,7 +20,7 @@ import { createContext, useContext, type ReactNode } from "react";
 import { Navigate, Outlet } from "react-router";
 import { Alert, Box, Typography } from "@wso2/oxygen-ui";
 import RoutedTabs from "@components/routed-tabs/RoutedTabs";
-import { useFinanceGate, type FinanceGate } from "../api/useFinanceGate";
+import { CLAIM_APPROVAL_GATE_APPS, useFinanceGate, type FinanceGate } from "../api/useFinanceGate";
 import {
   CLAIM_APPROVAL_PATH,
   CLAIM_APPROVAL_TABS,
@@ -72,7 +72,9 @@ const scrollBoundary = { ...fillColumn, overflowY: "auto" } as const;
 // "not connected" message. This screen spans two, and either may be missing, so
 // each tab reports its own connectivity where it knows about it.
 export default function ClaimApprovalPage() {
-  const gate = useFinanceGate();
+  // Scoped: everything below renders behind `gate.isResolving`, so a backend
+  // this screen does not read could otherwise hold it blank while it answers.
+  const gate = useFinanceGate(true, CLAIM_APPROVAL_GATE_APPS);
   const visible = CLAIM_APPROVAL_TABS.filter((t) => gate.canSee(t.gateId));
 
   return (
@@ -90,11 +92,11 @@ export default function ClaimApprovalPage() {
       </Typography>
 
       {/* Nothing rendered while resolving — not even a skeleton. The rail
-          already shows no row for this entry until its gate settles, so the
-          content pane matches it: a placeholder here would be the one thing
-          left to blink on the way to a final answer, and this screen's
-          answer flips between "tabs" and "nothing here" rather than filling
-          a fixed shape. */}
+          itself does not wait on this same gate (it renders what it knows and
+          fills the rest in), but THIS page has only two answers once it
+          settles — tabs, or "nothing here" — and no fixed shape to hold a
+          placeholder's place between them, so a skeleton here would be the
+          one thing left to blink on the way to a final answer. */}
       {gate.isResolving ? null : visible.length === 0 ? (
         <Alert severity="info">You don&apos;t approve claims, so there is nothing here.</Alert>
       ) : (

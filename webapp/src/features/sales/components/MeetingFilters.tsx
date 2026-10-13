@@ -27,6 +27,7 @@ import {
   RadioGroup,
   Select,
   TextField,
+  Tooltip,
 } from "@wso2/oxygen-ui";
 import { SearchIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MeetingScope } from "../api/salesTypes";
@@ -35,6 +36,10 @@ const ALL_REGIONS = "__all__";
 
 /**
  * The three filters above the list: scope, region and title search.
+ *
+ * Both scopes are past meetings only: Echo is what the calendar add-on recorded,
+ * All adds every other way a meeting got in. Region is disabled under Echo —
+ * add-on meetings carry no region yet, so any pick would empty the list.
  *
  * Search is a FORM rather than a text field with a keydown handler. Submitting
  * on Enter then comes for free and works the same as clicking the button.
@@ -53,6 +58,7 @@ export default function MeetingFilters({
   onRegionChange,
   regions,
   regionsLoading,
+  regionDisabled = false,
   search,
   onSearchChange,
   disabled,
@@ -63,6 +69,8 @@ export default function MeetingFilters({
   onRegionChange: (region: string | null) => void;
   regions: string[];
   regionsLoading: boolean;
+  /** Grey out the region filter (the page resets it to every region). */
+  regionDisabled?: boolean;
   /** The APPLIED search, not the draft. */
   search: string | null;
   onSearchChange: (search: string | null) => void;
@@ -114,9 +122,9 @@ export default function MeetingFilters({
         aria-label="Which meetings to show"
       >
         <FormControlLabel
-          value="past"
+          value="echo"
           control={<Radio size="small" disabled={disabled} />}
-          label="Past meetings"
+          label="Echo meetings"
         />
         <FormControlLabel
           value="all"
@@ -125,27 +133,43 @@ export default function MeetingFilters({
         />
       </RadioGroup>
 
-      <FormControl size="small" sx={{ minWidth: 180 }} disabled={disabled || regionsLoading}>
-        <InputLabel id="sales-region-label">Region</InputLabel>
-        <Select
-          labelId="sales-region-label"
-          label="Region"
-          value={region ?? ALL_REGIONS}
-          onChange={(event) => {
-            const value = event.target.value as string;
-            onRegionChange(value === ALL_REGIONS ? null : value);
-          }}
-        >
-          {/* "All" is a sentinel rather than an empty string: an empty value
-              would render the Select as unset and float its label oddly. */}
-          <MenuItem value={ALL_REGIONS}>All regions</MenuItem>
-          {regions.map((name) => (
-            <MenuItem key={name} value={name}>
-              {name}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
+      {/* The span is required: a disabled control fires no pointer events and takes no
+          focus, so without it the tooltip explaining WHY it is disabled never appears.
+          While disabled the span is focusable, and describeChild makes the tooltip its
+          accessible description, so keyboard and screen-reader users get it too. */}
+      <Tooltip
+        title={regionDisabled ? "Region isn't available for Echo meetings yet" : ""}
+        describeChild
+        arrow
+      >
+        <Box component="span" sx={{ display: "inline-flex" }} tabIndex={regionDisabled ? 0 : undefined}>
+          <FormControl
+            size="small"
+            sx={{ minWidth: 180 }}
+            disabled={disabled || regionsLoading || regionDisabled}
+          >
+            <InputLabel id="sales-region-label">Region</InputLabel>
+            <Select
+              labelId="sales-region-label"
+              label="Region"
+              value={region ?? ALL_REGIONS}
+              onChange={(event) => {
+                const value = event.target.value as string;
+                onRegionChange(value === ALL_REGIONS ? null : value);
+              }}
+            >
+              {/* "All" is a sentinel rather than an empty string: an empty value
+                  would render the Select as unset and float its label oddly. */}
+              <MenuItem value={ALL_REGIONS}>All regions</MenuItem>
+              {regions.map((name) => (
+                <MenuItem key={name} value={name}>
+                  {name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
+      </Tooltip>
 
       <Box component="form" role="search" onSubmit={submit} sx={{ flex: 1, minWidth: 240 }}>
         <TextField
