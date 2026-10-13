@@ -15,7 +15,7 @@
 // under the License.
 
 import { useState, type JSX, type ReactNode } from "react";
-import { Box, Button, Chip, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Chip, Stack, Typography } from "@wso2/oxygen-ui";
 import {
   BadgePercentIcon,
   CalendarClockIcon,
@@ -29,6 +29,7 @@ import {
   TagIcon,
   TrendingDownIcon,
 } from "@wso2/oxygen-ui-icons-react";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { deskSummary, reasonRows, type ReasonKind, type ReasonRow } from "@features/sales/cado2/approvals/model/myApprovals";
 
@@ -207,20 +208,15 @@ export default function YourApprovalPanel({
         {actionable.map((s) => {
           const deskReview = s.role === "DEAL_DESK";
           return (
-            <Paper
+            // The shared card, like the rest of the page (2026-10-13; was its own card with a blue left bar).
+            <SectionCard
               key={s.role}
-              component="section"
-              variant="outlined"
-              aria-label={`Your approval as ${s.roleLabel}`}
-              sx={{ p: 2, borderRadius: 2, borderLeft: 4, borderLeftColor: "primary.main", display: "flex", flexDirection: "column" }}
+              title={deskReview ? "What's non-standard" : "Why your approval is needed"}
+              icon={<ShieldCheckIcon size={18} />}
+              aside={<Chip size="small" color="primary" label={s.roleLabel} />}
+              label={`Your approval as ${s.roleLabel}`}
+              stretch
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
-                <ShieldCheckIcon size={18} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  {deskReview ? "What's non-standard" : "Why your approval is needed"}
-                </Typography>
-                <Chip size="small" color="primary" label={s.roleLabel} />
-              </Stack>
               {deskReview ? <DeskReview steps={steps} step={s} repCategories={repCategories} /> : <OwnReasons step={s} />}
               {/* The decision sits with its reasons; the card already names the role. */}
               {/* Under the reasons, Approve first: where the eye ends after reading. Pushed
@@ -233,7 +229,7 @@ export default function YourApprovalPanel({
                   Request changes
                 </Button>
               </Stack>
-            </Paper>
+            </SectionCard>
           );
         })}
       </Box>
