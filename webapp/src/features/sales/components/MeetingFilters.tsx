@@ -133,10 +133,16 @@ export default function MeetingFilters({
         />
       </RadioGroup>
 
-      {/* The span is required: a disabled control fires no pointer events, so
-          without it the tooltip explaining WHY it is disabled never appears. */}
-      <Tooltip title={regionDisabled ? "Region isn't available for Echo meetings yet" : ""} arrow>
-        <Box component="span" sx={{ display: "inline-flex" }}>
+      {/* The span is required: a disabled control fires no pointer events and takes no
+          focus, so without it the tooltip explaining WHY it is disabled never appears.
+          While disabled the span is focusable, and describeChild makes the tooltip its
+          accessible description, so keyboard and screen-reader users get it too. */}
+      <Tooltip
+        title={regionDisabled ? "Region isn't available for Echo meetings yet" : ""}
+        describeChild
+        arrow
+      >
+        <Box component="span" sx={{ display: "inline-flex" }} tabIndex={regionDisabled ? 0 : undefined}>
           <FormControl
             size="small"
             sx={{ minWidth: 180 }}
