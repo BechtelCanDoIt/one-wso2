@@ -909,7 +909,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
         label: "User Guide",
         icon: BookOpenIcon,
         externalUrl:
-          "https://docs.google.com/document/d/1DOzS-srDY59eOuE-YfxpnvsBLA-Ln4wGEu0wcfIl94k/edit?usp=sharing",
+          "https://docs.google.com/document/d/1DOzS-srDY59eOuE-YfxpnvsBLA-Ln4wGEu0wcfIl94k/",
         pinnedToBottom: true,
       },
     ],
