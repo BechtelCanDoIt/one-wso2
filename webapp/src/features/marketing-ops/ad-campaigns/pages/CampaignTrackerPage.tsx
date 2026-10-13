@@ -15,9 +15,11 @@
 // under the License.
 
 // Ad Campaigns → Campaign Tracker: the weekly operating rhythm for every live
-// campaign — the Campaign Register (what's quietly spending?), the shared
+// campaign — Pacing (how is real spend tracking against this month's synced
+// budget?), the Campaign Register (what's quietly spending?), the shared
 // Weekly Log (if it's not logged, it didn't happen), and Budget Pacing
-// (who's over/under pace?). Ported from Marketing Ops' CampaignTrackerView +
+// (who's over/under pace?), plus the BU ownership registry and the read-only
+// Budget Sync inspector. Ported from Marketing Ops' CampaignTrackerView +
 // CampaignTrackerContext.
 //
 // Both platforms' Register/Budget Pacing are always fetched (see the
@@ -39,7 +41,7 @@
 import { useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Box, Typography, Switch, Select, MenuItem, IconButton, Tooltip } from "@wso2/oxygen-ui";
-import { RefreshCw, List, NotebookPen, TrendingUp, Users } from "@wso2/oxygen-ui-icons-react";
+import { RefreshCw, List, NotebookPen, TrendingUp, Users, WalletCards, Gauge } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import { MARKETING_OPS_EYEBROW } from "@constants/marketingOpsApps";
 import MarketingOpsShell from "../../components/MarketingOpsShell";
@@ -59,6 +61,8 @@ import {
   EMPTY_PACING_FILTERS,
 } from "../campaign-tracker/components/BudgetPacingTable";
 import { BuOwnersPanel } from "../campaign-tracker/components/BuOwnersPanel";
+import { BudgetSyncPanel } from "../campaign-tracker/components/BudgetSyncPanel";
+import { BudgetSyncPacingPanel } from "../campaign-tracker/components/BudgetSyncPacingPanel";
 import { AD_PLATFORMS, AdPlatform, registerFlag } from "../campaign-tracker/campaignTrackerTypes";
 import type { CampaignRegisterRow, WeeklyLogRow, BudgetPacingRow } from "../campaign-tracker/campaignTrackerTypes";
 import {
@@ -81,15 +85,17 @@ import {
   setWeeklyLogCache,
 } from "../../api/useCampaignTracker";
 
-type Tab = "Register" | "Weekly Log" | "Budget Pacing" | "BU Owners";
+type Tab = "Pacing" | "Register" | "Weekly Log" | "Budget Pacing" | "BU Owners" | "Budget Sync";
 
 const TRACKER_LOADING_MESSAGES = ["Loading campaigns…", "Loading change history…", "Loading budget pacing…", "Almost there…"] as const;
 
 const TABS: { label: Tab; icon: React.ReactNode }[] = [
+  { label: "Pacing", icon: <Gauge size={16} /> },
   { label: "Register", icon: <List size={16} /> },
   { label: "Weekly Log", icon: <NotebookPen size={16} /> },
   { label: "Budget Pacing", icon: <TrendingUp size={16} /> },
   { label: "BU Owners", icon: <Users size={16} /> },
+  { label: "Budget Sync", icon: <WalletCards size={16} /> },
 ];
 
 // Segmented platform switch — same ToggleChip primitive as the sibling
@@ -227,7 +233,11 @@ function mergePlatformSlice<T extends { platform: AdPlatform }>(all: T[], platfo
 }
 
 export default function CampaignTrackerPage() {
-  const [activeTab, setActiveTab] = useState<Tab>("Register");
+  const [activeTab, setActiveTab] = useState<Tab>("Pacing");
+  // Pacing, BU Owners and Budget Sync fetch their own data, so the Register/
+  // Weekly Log/Budget Pacing chrome above the tab bar (platform toggle,
+  // filters, stat strip, tracker loading/error) doesn't apply to them.
+  const ownsItsData = activeTab === "Pacing" || activeTab === "BU Owners" || activeTab === "Budget Sync";
   const [registerFilters, setRegisterFilters] = useState<RegisterFilters>(EMPTY_REGISTER_FILTERS);
   const [logFilters, setLogFilters] = useState<LogFilters>(EMPTY_LOG_FILTERS);
   const [pacingFilters, setPacingFilters] = useState<PacingFilters>(EMPTY_PACING_FILTERS);
@@ -318,7 +328,7 @@ export default function CampaignTrackerPage() {
       title="Campaign Tracker"
       subtitle="Every optimization, major change, and budget check lives here. No campaign runs indefinitely without an owner, an end/review-by date, and a recent log entry."
     >
-      {activeTab !== "BU Owners" && (
+      {!ownsItsData && (
         <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, p: 2.5, mb: 3 }}>
           <Box sx={{ display: "flex", alignItems: "flex-end", gap: 3, rowGap: 2, flexWrap: "wrap" }}>
             <PlatformToggle platform={platform} onChange={setPlatform} />
@@ -345,12 +355,12 @@ export default function CampaignTrackerPage() {
         </Box>
       )}
 
-      {activeTab !== "BU Owners" && trackerLoading && <TrackerLoading messages={TRACKER_LOADING_MESSAGES} />}
-      {activeTab !== "BU Owners" && trackerError && (
+      {!ownsItsData && trackerLoading && <TrackerLoading messages={TRACKER_LOADING_MESSAGES} />}
+      {!ownsItsData && trackerError && (
         <Typography sx={{ fontSize: "0.76rem", color: "error.main", mb: 2 }}>Couldn't load campaign data: {trackerError}</Typography>
       )}
 
-      {activeTab !== "BU Owners" && (
+      {!ownsItsData && (
         <StatStrip>
           <StatCell label="Active campaigns" value={active} color="success.main" total={total} />
           <StatCell label="Review overdue" value={overdue} color="error.main" total={total} />
@@ -400,6 +410,17 @@ export default function CampaignTrackerPage() {
           );
         })}
       </Box>
+
+      {activeTab === "Pacing" && (
+        <Box
+          role="tabpanel"
+          id="campaign-tracker-tabpanel-pacing"
+          aria-labelledby="campaign-tracker-tab-pacing"
+          sx={{ p: 2, borderRadius: "10px", border: 1, borderColor: "divider", bgcolor: "background.paper" }}
+        >
+          <BudgetSyncPacingPanel />
+        </Box>
+      )}
 
       {activeTab === "Register" && (
         <Box
@@ -474,6 +495,17 @@ export default function CampaignTrackerPage() {
           sx={{ p: 2, borderRadius: "10px", border: 1, borderColor: "divider", bgcolor: "background.paper" }}
         >
           <BuOwnersPanel />
+        </Box>
+      )}
+
+      {activeTab === "Budget Sync" && (
+        <Box
+          role="tabpanel"
+          id="campaign-tracker-tabpanel-budget-sync"
+          aria-labelledby="campaign-tracker-tab-budget-sync"
+          sx={{ p: 2, borderRadius: "10px", border: 1, borderColor: "divider", bgcolor: "background.paper" }}
+        >
+          <BudgetSyncPanel />
         </Box>
       )}
 
