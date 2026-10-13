@@ -268,7 +268,7 @@ function DealPanelBody({
   const otherGates = gates.filter((gate) => gate !== detail.currentStage);
 
   const approveHint = readOnly
-    ? "Only the Opportunity owner, a call host or a Sales admin can approve."
+    ? "Only the Opportunity owner can approve."
     : unmatched.length > 0
       ? `Pick the matching contact for ${unmatched.map((f) => f.label.toLowerCase()).join(", ")}, or mark it not known.`
       : !somethingToApprove
@@ -338,7 +338,7 @@ function DealPanelBody({
         <Stack spacing={1.5}>
           {readOnly && (
             <Alert severity="info">
-              You can view this deal. Only its owner, a call host or a Sales admin can approve, include calls or
+              You can view this deal. Only its Opportunity owner can approve, include calls or
               move its stage.
             </Alert>
           )}
