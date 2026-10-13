@@ -20,7 +20,7 @@
 // switching accounts must not serve the previous user's canModerate answer
 // from cache.
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
@@ -28,11 +28,14 @@ import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { isTilBackendConfigured, tilServiceUrls } from "@config/apiConfig";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { tilRetry } from "../util/tilError";
-import { normalizeSubmission } from "./tilTypes";
+import { TIL_WHAT_DEFAULT_MAX_LENGTH, normalizeSubmission } from "./tilTypes";
 import type {
   TilCustomerOption,
+  TilSettingsWire,
   TilSubmission,
+  TilSubmissionsPage,
   TilSubmissionsPageWire,
+  TilSubmissionsQuery,
   TilSubmissionWire,
   TilUserInfoWire,
 } from "./tilTypes";
@@ -61,27 +64,51 @@ export function useTilUserInfo() {
   return foldIdentityError(query, subState, retryIdentity);
 }
 
-// The most recent page is what the history view shows. The backend's own
-// cursor is still returned (TilSubmissionsPageWire.nextCursor) so a "load
-// older entries" affordance is a small, additive follow-up rather than a
-// backend change — v1 keeps the client side to a single plain `useQuery`
-// (matching foldIdentityError's shape) instead of `useInfiniteQuery`, since
-// the feed's expected volume doesn't need it yet.
-const PAGE_SIZE = 100;
+/** The learning's length limit the backend enforces (GET /settings). `max`
+ * is the backend's default until the answer arrives; `known` says whether it
+ * has. The form holds Submit until then, and if the request fails it stays
+ * held with a retry: guessing could let the form accept text the backend
+ * rejects. */
+export function useTilWhatMaxLength(): { max: number; known: boolean; failed: boolean; retry: () => void } {
+  const { getAccessToken, userSub, ready } = useTilQueryBasis();
+  const query = useQuery<TilSettingsWire>({
+    queryKey: ["til-settings", userSub],
+    enabled: ready,
+    queryFn: async () => authedGet<TilSettingsWire>(tilServiceUrls.settings, await getAccessToken()),
+    staleTime: 5 * 60 * 1000,
+    retry: tilRetry,
+  });
+  return {
+    max: query.data?.whatMaxLength ?? TIL_WHAT_DEFAULT_MAX_LENGTH,
+    known: query.data !== undefined,
+    failed: query.isError,
+    retry: () => void query.refetch(),
+  };
+}
 
-/** The most recent submissions, newest first. */
-export function useTilSubmissions() {
+function submissionsUrl(q: TilSubmissionsQuery): string {
+  const params = new URLSearchParams({ limit: String(q.limit), offset: String(q.offset) });
+  if (q.search) params.set("q", q.search);
+  if (q.createdFrom) params.set("createdFrom", q.createdFrom);
+  if (q.createdBefore) params.set("createdBefore", q.createdBefore);
+  if (q.mine) params.set("mine", "true");
+  return `${tilServiceUrls.submissions}?${params}`;
+}
+
+/** One page of submissions, newest first, with how many match in total. The
+ * backend searches, filters and pages, so a search covers every entry, not
+ * just the ones loaded. The previous page stays on screen while the next one
+ * loads (isPlaceholderData), instead of the feed blanking on every page turn. */
+export function useTilSubmissions(q: TilSubmissionsQuery) {
   const { getAccessToken, subState, retryIdentity, userSub, ready } = useTilQueryBasis();
-  const query = useQuery<{ items: TilSubmission[]; nextCursor: string | null }>({
-    queryKey: ["til-submissions", userSub],
+  const query = useQuery<TilSubmissionsPage>({
+    queryKey: ["til-submissions", userSub, q],
     enabled: ready,
     queryFn: async () => {
-      const page = await authedGet<TilSubmissionsPageWire>(
-        `${tilServiceUrls.submissions}?limit=${PAGE_SIZE}`,
-        await getAccessToken(),
-      );
-      return { ...page, items: page.items.map(normalizeSubmission) };
+      const page = await authedGet<TilSubmissionsPageWire>(submissionsUrl(q), await getAccessToken());
+      return { items: page.items.map(normalizeSubmission), total: page.total };
     },
+    placeholderData: keepPreviousData,
     staleTime: 30 * 1000,
     refetchOnMount: true,
     retry: tilRetry,

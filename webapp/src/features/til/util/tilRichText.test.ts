@@ -151,6 +151,17 @@ describe("tilPlainTextLength", () => {
   it("doesn't glue adjacent paragraphs into one word", () => {
     expect(tilPlainTextLength("<p>One</p><p>Two</p>")).toBe("One Two".length);
   });
+
+  it("counts characters as the backend does: code points, not UTF-16 units", () => {
+    expect(tilPlainTextLength("<p>😀</p>")).toBe(1);
+    expect(tilPlainTextLength("<p>é ශ 中</p>")).toBe(5);
+    // A family emoji is three people joined by two zero-width joiners.
+    expect(tilPlainTextLength("<p>👨‍👩‍👧</p>")).toBe(5);
+  });
+
+  it("counts an entity as the one character it stands for", () => {
+    expect(tilPlainTextLength("<p>R&amp;D</p>")).toBe(3);
+  });
 });
 
 describe("tilExcerpt", () => {

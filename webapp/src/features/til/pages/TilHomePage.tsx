@@ -13,7 +13,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Box,
@@ -26,63 +26,51 @@ import {
   Tab,
   Tabs,
   TextField,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@wso2/oxygen-ui";
 import { PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNavigate } from "react-router";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useNotifications } from "@context/notifications/NotificationsContext";
+import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { isTilBackendConfigured, useTilSubmissions, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
 import type { TilSubmission } from "../api/tilTypes";
 import { tilEntryPath } from "../util/tilArticleView";
 import { describeError } from "../util/tilError";
 import {
-  TIL_FEED_PAGE_SIZE,
+  TIL_FEED_PAGE_SIZES,
   pageContaining,
   readTilFeedLayout,
+  readTilFeedPageSize,
   writeTilFeedLayout,
+  writeTilFeedPageSize,
   type TilFeedLayout,
+  type TilFeedPageSize,
 } from "../util/tilFeedLayout";
-import { tilPlainText } from "../util/tilRichText";
+import { tilFeedQuery } from "../util/tilFeedQuery";
 import SubmitEntryDialog from "../components/SubmitEntryDialog";
 import TilFeed from "../components/TilFeed";
 import TilFeedLayoutSwitch from "../components/TilFeedLayoutSwitch";
 import TilShell from "../components/TilShell";
 
-// Local calendar day (not UTC) so it lines up with what the "Submitted on"
-// date input shows and with how SubmissionCard's own timestamp is rendered
-// (toLocaleString, also local time) — matching either by UTC date would
-// drift by a day right around midnight for a lot of this company's offices.
-function localDateString(date: Date): string {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-// Shared by the "My articles" filter and canChange below -- both are "is
-// this my entry" checks and must agree, or an entry can show up under My
-// articles (this comparison) while its own Edit/Delete buttons stay hidden (a
-// separate, exact-match comparison that doesn't agree with it) whenever
-// the two addresses differ only in case. Module scope, not a closure
-// inside the component, specifically so it isn't a new function identity
-// every render -- useMemo's dependency array below depends on primitives
-// only (myEmail, a string), not on this function, which an in-component
-// closure would otherwise need to be listed as too.
+// Whether the signed-in employee wrote this entry, for its Edit and Delete
+// buttons. Case-insensitive, as the backend's own author check is. Module
+// scope, not a closure in the component, so it isn't a new function on every
+// render.
 function isOwnEntry(submittedByEmail: string, myEmail: string | undefined): boolean {
   return Boolean(myEmail) && submittedByEmail.toLowerCase() === myEmail?.toLowerCase();
 }
 
 // Today I Learned: a company-wide feed of learnings from customers, partners,
-// and internal sources, plus the form to add one. A Google Chat App's "+"
-// Dialog is a second way to post an entry, calling the same
-// ONE_WSO2_TIL_BACKEND_URL this page's "New entry" button does.
+// and internal sources, plus the form to add one. The backend searches,
+// filters and pages the feed; this page asks only for the page in view.
 export default function TilHomePage() {
   const navigate = useNavigate();
   const configured = isTilBackendConfigured();
   const userInfo = useTilUserInfo();
-  const submissions = useTilSubmissions();
   const deleteSubmission = useDeleteTilSubmission();
   const { showError, showSuccess } = useNotifications();
 
@@ -91,6 +79,7 @@ export default function TilHomePage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const search = useDebouncedValue(searchQuery.trim(), 300);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -102,44 +91,42 @@ export default function TilHomePage() {
   const [tab, setTab] = useState<"all" | "mine">("all");
   const [page, setPage] = useState(1);
   const [layout, setLayout] = useState<TilFeedLayout>(readTilFeedLayout);
-  const pageSize = TIL_FEED_PAGE_SIZE[layout];
+  const [pageSize, setPageSize] = useState<TilFeedPageSize>(readTilFeedPageSize);
+
+  const submissions = useTilSubmissions(
+    tilFeedQuery({ search, dateFrom, dateTo, mine: tab === "mine" }, page, pageSize),
+  );
+  const items = submissions.data?.items ?? [];
+  const total = submissions.data?.total ?? 0;
 
   const canModerate = userInfo.data?.canModerate ?? false;
   const myEmail = userInfo.data?.email;
 
-  const filteredItems = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
-    return (submissions.data?.items ?? []).filter((s) => {
-      if (tab === "mine" && !isOwnEntry(s.submittedByEmail, myEmail)) return false;
-      const day = localDateString(s.createdAt);
-      if (dateFrom && day < dateFrom) return false;
-      if (dateTo && day > dateTo) return false;
-      if (!query) return true;
-      // A plain substring match against entry content only, not a regex:
-      // "not exact" is the whole point, and nobody searching a feed like
-      // this wants to write a pattern. No scope picker in this UI (Advanced
-      // Search only exposes the date range), so this always searches
-      // "what was learned" -- the one field people actually want to search.
-      return tilPlainText(s.what).toLowerCase().includes(query);
-    });
-  }, [submissions.data, searchQuery, dateFrom, dateTo, tab, myEmail]);
-  const isFiltering = Boolean(searchQuery.trim() || dateFrom || dateTo || tab === "mine");
+  const isFiltering = Boolean(search || dateFrom || dateTo || tab === "mine");
+  // The controls stay while filtering, even when nothing matches, so a search
+  // that finds nothing can still be changed. Hidden only for an empty feed.
+  const showControls = Boolean(submissions.data) && (isFiltering || total > 0);
 
-  const pageCount = Math.max(1, Math.ceil(filteredItems.length / pageSize));
-  // Clamped, not reset via an effect: if a filter change leaves `page`
-  // pointing past the new last page, this corrects it on the same render
-  // instead of flashing an empty page first and fixing it one render later.
-  const safePage = Math.min(page, pageCount);
-  const rangeStart = filteredItems.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
-  const rangeEnd = Math.min(safePage * pageSize, filteredItems.length);
-  const pagedItems = filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const shownPage = Math.min(page, pageCount);
+  const rangeStart = total === 0 ? 0 : (shownPage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(shownPage * pageSize, total);
 
-  // Each layout holds a different number of entries a page, so switching
-  // moves to whichever page still starts with what you were looking at.
+  // A delete can leave this page past the last one; move to the new last page.
+  // Set during render (React's pattern for adjusting state to new data), so
+  // the empty page never paints.
+  if (submissions.data && !submissions.isPlaceholderData && page > pageCount) setPage(pageCount);
+
   const changeLayout = (next: TilFeedLayout) => {
-    setPage(pageContaining((safePage - 1) * pageSize, TIL_FEED_PAGE_SIZE[next]));
     setLayout(next);
     writeTilFeedLayout(next);
+  };
+
+  // Keeps the entry at the top of this page in view at the new size.
+  const changePageSize = (next: TilFeedPageSize) => {
+    setPage(pageContaining((shownPage - 1) * pageSize, next));
+    setPageSize(next);
+    writeTilFeedPageSize(next);
   };
 
   const runDelete = (id: string) => {
@@ -173,7 +160,7 @@ export default function TilHomePage() {
         </Button>
       }
     >
-      {submissions.data && submissions.data.items.length > 0 && (
+      {showControls && (
         <Tabs
           value={tab}
           onChange={(_, next: "all" | "mine") => {
@@ -183,24 +170,24 @@ export default function TilHomePage() {
           sx={{ mb: 1.5, minHeight: 36, "& .MuiTab-root": { minHeight: 36, textTransform: "none" } }}
         >
           <Tab value="all" label="All articles" />
-          {/* Disabled while identity is still loading -- myEmail is
-              undefined until userInfo resolves, so selecting this tab any
-              earlier filtered out every entry and showed the misleading
-              "You haven't shared an entry yet." empty state even though
-              nothing had actually been checked yet. */}
-          <Tab value="mine" label="My articles" disabled={userInfo.isLoading} />
+          <Tab value="mine" label="My articles" />
         </Tabs>
       )}
 
-      {submissions.data && submissions.data.items.length > 0 && (
+      {showControls && (
         <Stack spacing={1.5} sx={{ mb: 2 }}>
           <Stack direction="row" spacing={1.5} alignItems="flex-end" sx={{ flexWrap: "wrap", rowGap: 1.5 }}>
             <TextField
               size="small"
               type="search"
-              placeholder="Search what was learned…"
+              // The backend matches the title, the learning, the author and
+              // the customer or partner, by the start of each word.
+              placeholder="Search entries…"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               autoCorrect="off"
               autoCapitalize="none"
               spellCheck={false}
@@ -220,7 +207,14 @@ export default function TilHomePage() {
                   ),
                   endAdornment: searchQuery && (
                     <InputAdornment position="end">
-                      <IconButton size="small" onClick={() => setSearchQuery("")} aria-label="Clear search">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setPage(1);
+                        }}
+                        aria-label="Clear search"
+                      >
                         <XIcon size={16} />
                       </IconButton>
                     </InputAdornment>
@@ -251,14 +245,24 @@ export default function TilHomePage() {
                 type="date"
                 label="Submitted from"
                 value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
+                onChange={(e) => {
+                  setDateFrom(e.target.value);
+                  setPage(1);
+                }}
                 slotProps={{
                   inputLabel: { shrink: true },
                   htmlInput: { max: dateTo || undefined },
                   input: {
                     endAdornment: dateFrom && (
                       <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setDateFrom("")} aria-label="Clear from date">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setDateFrom("");
+                            setPage(1);
+                          }}
+                          aria-label="Clear from date"
+                        >
                           <XIcon size={16} />
                         </IconButton>
                       </InputAdornment>
@@ -272,14 +276,24 @@ export default function TilHomePage() {
                 type="date"
                 label="Submitted to"
                 value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
+                onChange={(e) => {
+                  setDateTo(e.target.value);
+                  setPage(1);
+                }}
                 slotProps={{
                   inputLabel: { shrink: true },
                   htmlInput: { min: dateFrom || undefined },
                   input: {
                     endAdornment: dateTo && (
                       <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setDateTo("")} aria-label="Clear to date">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setDateTo("");
+                            setPage(1);
+                          }}
+                          aria-label="Clear to date"
+                        >
                           <XIcon size={16} />
                         </IconButton>
                       </InputAdornment>
@@ -301,36 +315,68 @@ export default function TilHomePage() {
         </Stack>
       ) : submissions.isError ? (
         <Alert severity="error">Couldn&apos;t load entries. {describeError(submissions.error)}</Alert>
-      ) : filteredItems.length > 0 ? (
+      ) : total > 0 ? (
         <>
-          <TilFeed
-            layout={layout}
-            submissions={pagedItems}
-            canChange={(s) => canModerate || isOwnEntry(s.submittedByEmail, myEmail)}
-            deletingId={deletingId}
-            onEdit={setEditing}
-            onDelete={confirmDelete}
-            onOpen={(id) => navigate(tilEntryPath(id))}
-          />
-          <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 2, mt: 2 }}>
-            {pageCount > 1 && (
-              <Pagination count={pageCount} page={safePage} onChange={(_, p) => setPage(p)} color="primary" />
-            )}
-            <Typography variant="caption" color="text.secondary">
-              {rangeStart}–{rangeEnd} of {filteredItems.length}
-            </Typography>
+          {/* Dimmed while the next page loads; the previous one stays meanwhile. */}
+          <Box sx={{ opacity: submissions.isPlaceholderData ? 0.6 : 1, transition: "opacity 120ms" }}>
+            <TilFeed
+              layout={layout}
+              submissions={items}
+              canChange={(s) => canModerate || isOwnEntry(s.submittedByEmail, myEmail)}
+              deletingId={deletingId}
+              onEdit={setEditing}
+              onDelete={confirmDelete}
+              onOpen={(id) => navigate(tilEntryPath(id))}
+            />
+          </Box>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              flexWrap: "wrap",
+              gap: 2,
+              mt: 2,
+            }}
+          >
+            <Stack direction="row" spacing={1} alignItems="center">
+              <Typography variant="caption" color="text.secondary">
+                Per page
+              </Typography>
+              <ToggleButtonGroup
+                size="small"
+                exclusive
+                value={pageSize}
+                // null when the selected size is clicked again; a size is always on.
+                onChange={(_, next: TilFeedPageSize | null) => next && changePageSize(next)}
+                aria-label="Entries per page"
+                sx={{ "& .MuiToggleButton-root": { px: 1.25, py: 0.25 } }}
+              >
+                {TIL_FEED_PAGE_SIZES.map((size) => (
+                  <ToggleButton key={size} value={size} aria-label={`${size} per page`}>
+                    {size}
+                  </ToggleButton>
+                ))}
+              </ToggleButtonGroup>
+            </Stack>
+            <Stack direction="row" spacing={2} alignItems="center">
+              {pageCount > 1 && (
+                <Pagination count={pageCount} page={shownPage} onChange={(_, p) => setPage(p)} color="primary" />
+              )}
+              <Typography variant="caption" color="text.secondary">
+                {rangeStart}–{rangeEnd} of {total}
+              </Typography>
+            </Stack>
           </Box>
         </>
       ) : (
         <Box sx={{ py: 4, textAlign: "center" }}>
           <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
-            {tab === "mine" && userInfo.isError
-              ? "Couldn't check which entries are yours. Try again shortly."
-              : tab === "mine" && !searchQuery.trim() && !dateFrom && !dateTo
-                ? "You haven't shared an entry yet."
-                : isFiltering
-                  ? "No entries match your search."
-                  : "No entries yet. Be the first to share something you learned."}
+            {tab === "mine" && !search && !dateFrom && !dateTo
+              ? "You haven't shared an entry yet."
+              : isFiltering
+                ? "No entries match your search."
+                : "No entries yet. Be the first to share something you learned."}
           </Typography>
         </Box>
       )}

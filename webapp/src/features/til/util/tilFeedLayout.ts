@@ -27,18 +27,16 @@ export const TIL_FEED_LAYOUT_LABELS: Record<TilFeedLayout, string> = {
   large: "Large thumbnails",
 };
 
-// The denser the layout, the more entries a page holds. Large thumbnails
-// holds 12 so its grid's two- and three-column rows both come out full.
-export const TIL_FEED_PAGE_SIZE: Record<TilFeedLayout, number> = {
-  cards: 10,
-  list: 25,
-  small: 15,
-  large: 12,
-};
+// The reader picks how many entries a page shows, whatever the layout.
+export const TIL_FEED_PAGE_SIZES = [5, 10] as const;
+export type TilFeedPageSize = (typeof TIL_FEED_PAGE_SIZES)[number];
+export const DEFAULT_TIL_FEED_PAGE_SIZE: TilFeedPageSize = 10;
 
-// Per browser, not per account: a layout is a reading preference for the
-// screen in front of you, and keeping it here needs no backend change.
+// Per browser, not per account: layout and page size are reading
+// preferences for the screen in front of you, and keeping them here needs no
+// backend change.
 const STORAGE_KEY = "one-wso2.til.feed-layout";
+const PAGE_SIZE_STORAGE_KEY = "one-wso2.til.feed-page-size";
 
 function isTilFeedLayout(value: string | null): value is TilFeedLayout {
   return (TIL_FEED_LAYOUTS as readonly (string | null)[]).includes(value);
@@ -62,8 +60,30 @@ export function writeTilFeedLayout(layout: TilFeedLayout): void {
   }
 }
 
+function isTilFeedPageSize(value: number): value is TilFeedPageSize {
+  return (TIL_FEED_PAGE_SIZES as readonly number[]).includes(value);
+}
+
+/** The page size this browser last used, or the default. */
+export function readTilFeedPageSize(): TilFeedPageSize {
+  try {
+    const stored = Number(localStorage.getItem(PAGE_SIZE_STORAGE_KEY));
+    return isTilFeedPageSize(stored) ? stored : DEFAULT_TIL_FEED_PAGE_SIZE;
+  } catch {
+    return DEFAULT_TIL_FEED_PAGE_SIZE;
+  }
+}
+
+export function writeTilFeedPageSize(size: TilFeedPageSize): void {
+  try {
+    localStorage.setItem(PAGE_SIZE_STORAGE_KEY, String(size));
+  } catch {
+    /* ignore — a blocked localStorage just means the choice isn't remembered */
+  }
+}
+
 /** The page that still shows the entry at `firstIndex` once pages hold
- * `pageSize` entries, so switching layout keeps your place in the feed
+ * `pageSize` entries, so changing the page size keeps your place in the feed
  * instead of jumping back to page one. */
 export function pageContaining(firstIndex: number, pageSize: number): number {
   return Math.floor(Math.max(0, firstIndex) / pageSize) + 1;

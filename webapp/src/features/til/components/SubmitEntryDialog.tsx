@@ -22,6 +22,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Link,
   MenuItem,
   Paper,
   Stack,
@@ -31,11 +32,10 @@ import {
 import type { PaperProps } from "@wso2/oxygen-ui";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { useCustomerSearch, useTilUserInfo } from "../api/useTilData";
+import { useCustomerSearch, useTilUserInfo, useTilWhatMaxLength } from "../api/useTilData";
 import { useCreateTilSubmission, useUpdateTilSubmission } from "../api/useTilMutations";
 import {
   TIL_TITLE_MAX_LENGTH,
-  TIL_WHAT_MAX_LENGTH,
   TIL_WHERE_DETAIL_MAX_LENGTH,
   TIL_WHERE_OPTIONS,
   isSameWhereDetail,
@@ -140,6 +140,8 @@ export default function SubmitEntryDialog({
   entry?: TilSubmission;
 }) {
   const userInfo = useTilUserInfo();
+  const whatLimit = useTilWhatMaxLength();
+  const whatMaxLength = whatLimit.max;
   const [title, setTitle] = useState(entry?.title ?? "");
   const [where, setWhere] = useState<TilWhere | "">(entry?.where ?? "");
   const [whereDetail, setWhereDetail] = useState(entry?.whereDetail ?? "");
@@ -185,7 +187,7 @@ export default function SubmitEntryDialog({
     needsWhereDetail &&
     (whereDetail.trim().length === 0 || whereDetail.trim().length > TIL_WHERE_DETAIL_MAX_LENGTH);
   const whatLength = tilPlainTextLength(what);
-  const whatInvalid = isEmptyTilHtml(what) || whatLength > TIL_WHAT_MAX_LENGTH;
+  const whatInvalid = isEmptyTilHtml(what) || whatLength > whatMaxLength;
   const invalid = whoInvalid || titleInvalid || whereInvalid || whereDetailInvalid || whatInvalid;
   // Saving an untouched entry would still mark it as edited.
   const unchanged =
@@ -212,7 +214,7 @@ export default function SubmitEntryDialog({
 
   const submit = () => {
     setTouched(true);
-    if (invalid) return;
+    if (invalid || !whatLimit.known) return;
     if (entry) {
       update.mutate(
         {
@@ -475,8 +477,16 @@ export default function SubmitEntryDialog({
             />
           </Box>
           <Typography variant="caption" color={touched && whatInvalid ? "error" : "text.secondary"}>
-            {whatLength}/{TIL_WHAT_MAX_LENGTH}
+            {whatLength}/{whatLimit.known ? whatMaxLength : "…"}
           </Typography>
+          {whatLimit.failed && (
+            <Typography variant="caption" color="error">
+              Couldn&apos;t load the length limit, so this can&apos;t be saved yet.{" "}
+              <Link component="button" type="button" variant="caption" onClick={whatLimit.retry}>
+                Try again
+              </Link>
+            </Typography>
+          )}
         </Box>
       </DialogContent>
       <DialogActions sx={{ justifyContent: "space-between", px: 3 }}>
@@ -498,7 +508,7 @@ export default function SubmitEntryDialog({
           <Button onClick={close} disabled={pending}>
             Cancel
           </Button>
-          <Button variant="contained" onClick={submit} disabled={pending || unchanged}>
+          <Button variant="contained" onClick={submit} disabled={pending || unchanged || !whatLimit.known}>
             {pending
               ? entry
                 ? "Saving…"
