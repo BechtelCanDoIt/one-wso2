@@ -15,7 +15,7 @@
 // under the License.
 
 import { useState, type JSX, type ReactNode } from "react";
-import { Alert, Box, Button, Chip, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Chip, Paper, Stack, Typography } from "@wso2/oxygen-ui";
 import {
   BadgePercentIcon,
   CalendarClockIcon,
@@ -37,8 +37,6 @@ interface YourApprovalPanelProps {
   readonly steps: readonly ApprovalStep[];
   /** The steps the viewer may decide now; usually one. */
   readonly actionable: readonly ApprovalStep[];
-  /** After a decision: what was recorded, e.g. "Approved as CRO." */
-  readonly note: string | null;
   /**
    * Deal Desk: what they verify themselves: the lines whose category the rep
    * chose (repCategoryPoints) and a renewal starting another day (renewalStartPoints).
@@ -185,24 +183,18 @@ function OwnReasons({ step }: { readonly step: ApprovalStep }): JSX.Element {
 /**
  * When it's the viewer's turn: which role they act as and why it's asked.
  * Deal Desk reviews every quote, so they see what's non-standard about it.
- * Kept short, so the quote stays in view. Nothing when there is neither a
- * turn nor a note.
+ * Kept short, so the quote stays in view. Nothing when it isn't their turn;
+ * what was just decided shows as a toast (2026-10-13).
  */
 export default function YourApprovalPanel({
   steps,
   actionable,
-  note,
   repCategories = [],
   onDecide,
 }: YourApprovalPanelProps): JSX.Element | null {
-  if (!note && actionable.length === 0) return null;
+  if (actionable.length === 0) return null;
   return (
     <Stack spacing={1.5} id={YOUR_APPROVAL_ANCHOR} sx={{ scrollMarginTop: 16 }}>
-      {note ? (
-        <Alert severity="success" role="status">
-          {note}
-        </Alert>
-      ) : null}
       {/* Several roles sit side by side, so they cost one card's height, not several. */}
       <Box
         sx={{

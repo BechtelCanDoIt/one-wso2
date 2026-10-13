@@ -65,7 +65,7 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   discount: "",
 });
 
-function Harness(): JSX.Element {
+function Harness({ startDate = "2027-01-01" }: { startDate?: string } = {}): JSX.Element {
   const form = useForm<DraftFormValues>({
     defaultValues: {
       ...emptyDraftForm(),
@@ -73,7 +73,7 @@ function Harness(): JSX.Element {
       currencyIsoCode: "USD",
       defaultPricebookId: "01sUSD",
       defaultPricebookName: "USD Price Book",
-      startDate: "2027-01-01",
+      startDate,
       dealKind: "FIRST_SALE",
       lines: [
         line("WSO2 Gateway", "SUBSCRIPTION"),
@@ -97,6 +97,14 @@ function Harness(): JSX.Element {
 }
 
 describe("ProductsStep (Term & Products)", () => {
+  // D78: products can be added and kept before the start date; they are
+  // priced once it is chosen.
+  it("lets the AM add products before the start date is chosen", () => {
+    render(<Harness startDate="" />);
+    expect(screen.getByRole("button", { name: "Add line" })).toBeEnabled();
+    expect(screen.getByText("Amounts appear once the start date is chosen.")).toBeInTheDocument();
+  });
+
   it("puts the term first, and says what wasn't brought in", () => {
     render(<Harness />);
     const regions = screen

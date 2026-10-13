@@ -83,8 +83,8 @@ export interface SheetLine {
   /** e.g. "10" for 10%; "0" when none. */
   readonly discountPercent: string;
   /** Every line covers the quote's term; a service is dated at the start. */
-  readonly startDate: string;
-  readonly endDate: string;
+  readonly startDate: string | null;
+  readonly endDate: string | null;
   /** From the pricing, when the quote can be priced. */
   readonly annualList: string | null;
   readonly annualNet: string | null;

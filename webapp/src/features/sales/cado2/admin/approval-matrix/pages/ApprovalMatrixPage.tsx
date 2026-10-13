@@ -36,6 +36,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { ArrowDownIcon, LayersIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
@@ -77,6 +78,7 @@ export default function ApprovalMatrixPage(): JSX.Element {
   const [base, setBase] = useState<ApprovalMatrix | undefined>(undefined);
   const [impact, setImpact] = useState<readonly AffectedQuote[] | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
+  const notify = useCado2Toast();
 
   // Start editing from the loaded matrix, and again after a save reloads it.
   if (loaded.data && loaded.data !== base) {
@@ -113,11 +115,13 @@ export default function ApprovalMatrixPage(): JSX.Element {
       {
         onSuccess: (res) => {
           setImpact(null);
-          setSavedNote(
-            res.affected.length
-              ? `Saved. ${res.affected.length} quote${res.affected.length === 1 ? " was" : "s were"} recalled for resubmission.`
-              : "Saved. No quote in approval was affected.",
-          );
+          // Quotes recalled: it stays until closed, as it concerns other
+          // people's quotes; nothing affected: a toast (2026-10-13).
+          if (res.affected.length) {
+            setSavedNote(`Saved. ${res.affected.length} quote${res.affected.length === 1 ? " was" : "s were"} recalled for resubmission.`);
+          } else {
+            notify("Saved. No quote in approval was affected.");
+          }
         },
       },
     );
@@ -137,7 +141,11 @@ export default function ApprovalMatrixPage(): JSX.Element {
           </>
         }
       />
-      {savedNote ? <Alert severity="success">{savedNote}</Alert> : null}
+      {savedNote ? (
+        <Alert severity="success" onClose={() => setSavedNote(null)}>
+          {savedNote}
+        </Alert>
+      ) : null}
       {problems.length ? <ProblemList issues={problems} matrix={draft} /> : null}
       {save.error && !problems.length ? <ErrorNotice error={save.error}>Couldn&apos;t save the matrix.</ErrorNotice> : null}
 

@@ -727,7 +727,8 @@ const STEP_3_FIELDS = [
 
 /** The step (0-based) where an issue's field lives, so the summary panel can jump there. */
 export function stepOfField(field: string): number {
-  if (field === "lines" || field.startsWith("lines[") || TERM_FIELDS.includes(field)) return 1;
+  // "salesforce": a refused sync (D77), done from Term & Products.
+  if (field === "lines" || field.startsWith("lines[") || field === "salesforce" || TERM_FIELDS.includes(field)) return 1;
   if (STEP_3_FIELDS.some((f) => field === f || field.startsWith(f + ".") || field.startsWith(f + "["))) return 2;
   return 0;
 }

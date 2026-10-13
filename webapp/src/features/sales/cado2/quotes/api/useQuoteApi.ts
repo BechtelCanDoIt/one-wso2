@@ -332,6 +332,20 @@ export function useSubmitVersion() {
   });
 }
 
+/** "Sync to Salesforce" (D77): writes a saved draft of the primary quote to its opportunity. */
+export function useSyncToSalesforce() {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<DraftResponse, Error, { quoteId: number; version: number; expectedUpdatedAt: string }>({
+    mutationFn: async ({ quoteId, version, expectedUpdatedAt }) =>
+      cado2Send<DraftResponse>("POST", cado2ServiceUrls.quoteSync(quoteId, version), await getToken(), { expectedUpdatedAt }),
+    onSuccess: (res) => {
+      queryClient.setQueryData(key("quote-version", res.quote.id, res.version.versionNumber), res);
+      void queryClient.invalidateQueries({ queryKey: key("quotes") });
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Order form documents
 // ---------------------------------------------------------------------------

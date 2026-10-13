@@ -14,10 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import type { DraftResponse, QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import type { ApprovalStep, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
@@ -96,13 +97,15 @@ function showFrom(from: string | undefined, q: QuoteView, ...vs: DraftResponse[]
   versions.clear();
   for (const v of vs) versions.set(v.version.versionNumber, v);
   render(
-    <MemoryRouter initialEntries={[`/sales/cado2/quotes/5/quote${from === "approvals" ? "?from=approvals" : ""}`]}>
-      <Routes>
-        <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
-        <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<p>wizard</p>} />
-        <Route path="sales/cado2/quotes" element={<p>My Quotes page</p>} />
-      </Routes>
-    </MemoryRouter>,
+    <Cado2ToastProvider>
+      <MemoryRouter initialEntries={[`/sales/cado2/quotes/5/quote${from === "approvals" ? "?from=approvals" : ""}`]}>
+        <Routes>
+          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
+          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<p>wizard</p>} />
+          <Route path="sales/cado2/quotes" element={<p>My Quotes page</p>} />
+        </Routes>
+      </MemoryRouter>
+    </Cado2ToastProvider>,
   );
 }
 
@@ -404,37 +407,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(panel).not.toHaveTextContent("no further approvals are needed");
   });
 
-  it("keeps a decision's note with its own quote when another quote opens", async () => {
-    const user = userEvent.setup();
-    me.data.approverRoles = ["CRO"];
-    workflow.data = {
-      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
-      steps: [reasonStep("CRO", 2, { status: "PENDING", canAct: true })],
-    };
-    Object.assign(quote, { data: { ...submitted.quote, actions: [] } });
-    versions.clear();
-    versions.set(1, submitted);
-    function OtherQuote() {
-      const navigate = useNavigate();
-      return <button onClick={() => navigate("/sales/cado2/quotes/6/quote")}>Open quote 6</button>;
-    }
-    render(
-      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/quote"]}>
-        <OtherQuote />
-        <Routes>
-          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await user.click(screen.getByRole("button", { name: "Approve" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
-    const [, opts] = decide.mutate.mock.calls[0] as [unknown, { onSuccess: (wf: ApprovalWorkflow) => void }];
-    act(() => opts.onSuccess({ ...workflow.data!, steps: [reasonStep("CRO", 2, { status: "APPROVED" })] }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Approved as CRO.");
-
-    await user.click(screen.getByRole("button", { name: "Open quote 6" }));
-    expect(screen.queryByRole("status")).toBeNull();
-  });
+  // The decision note is a toast now (2026-10-13), so it no longer belongs to a quote.
 
   it("shows an approver's first three reasons, and the rest on request", async () => {
     const user = userEvent.setup();

@@ -16,7 +16,6 @@
 
 import { useState, type FormEvent, type JSX } from "react";
 import {
-  Alert,
   Button,
   InputAdornment,
   Paper,
@@ -32,6 +31,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { HistoryIcon, TimerIcon } from "@wso2/oxygen-ui-icons-react";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
@@ -97,6 +97,7 @@ export default function ApprovalSlasPage(): JSX.Element {
 }
 
 function SlaForm({ policy, save }: { policy: ApprovalSlaPolicy; save: ReturnType<typeof useSaveApprovalSlas> }): JSX.Element {
+  const notify = useCado2Toast();
   const [hours, setHours] = useState<Record<string, string>>(() =>
     Object.fromEntries(policy.roles.map((r) => [r.role, String(r.hours)])),
   );
@@ -116,7 +117,10 @@ function SlaForm({ policy, save }: { policy: ApprovalSlaPolicy; save: ReturnType
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (invalid || !changed) return;
-    save.mutate({ hours: Object.fromEntries(policy.roles.map((r) => [r.role, whole(hours[r.role] ?? "")])), atRiskPercent: atRiskN });
+    save.mutate(
+      { hours: Object.fromEntries(policy.roles.map((r) => [r.role, whole(hours[r.role] ?? "")])), atRiskPercent: atRiskN },
+      { onSuccess: () => notify("Saved. New approvals use these times.") },
+    );
   };
 
   return (
@@ -178,11 +182,7 @@ function SlaForm({ policy, save }: { policy: ApprovalSlaPolicy; save: ReturnType
           slotProps={{ htmlInput: { inputMode: "numeric" }, input: { endAdornment: <InputAdornment position="end">%</InputAdornment> } }}
           sx={{ maxWidth: 260 }}
         />
-        {save.error ? (
-          <ErrorNotice error={save.error}>Couldn&apos;t save the SLAs.</ErrorNotice>
-        ) : save.isSuccess ? (
-          <Alert severity="success">Saved. New approvals use these times.</Alert>
-        ) : null}
+        {save.error ? <ErrorNotice error={save.error}>Couldn&apos;t save the SLAs.</ErrorNotice> : null}
         <Stack direction="row">
           <Button type="submit" variant="contained" disabled={!changed || invalid || save.isPending}>
             {save.isPending ? "Saving…" : "Save"}

@@ -246,6 +246,15 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `${v} created${typeof meta.copiedFromVersion === "number" ? ` (revised from v${meta.copiedFromVersion})` : ""}`;
     case "QUOTE_CLOSED":
       return "Quote closed";
+    // Salesforce sync (D77): what changed there, or why it was refused.
+    case "QUOTE_SYNCED": {
+      const n = (k: string) => (typeof meta[k] === "number" ? (meta[k] as number) : 0);
+      return `${v} synced to Salesforce · ${n("updated")} updated, ${n("added")} added, ${n("removed")} removed`;
+    }
+    case "QUOTE_SYNC_FAILED":
+      return `Salesforce refused the sync of ${v.toLowerCase()}${
+        Array.isArray(meta.reasons) && meta.reasons.length ? `: ${meta.reasons.join("; ")}` : ""
+      }`;
     // Primary quote (D68): metadata names the other quote involved, if any.
     case "QUOTE_MADE_PRIMARY":
       return typeof meta.releasedQuoteNumber === "string"

@@ -46,6 +46,7 @@ import {
 } from "@features/sales/cado2/approvals/api/useApprovalApi";
 import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/sales/cado2/approvals/model/myApprovals";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
 import { ArrowDownIcon, ArrowLeftIcon, RotateCcwIcon, StarIcon, Trash2Icon, Undo2Icon, XCircleIcon } from "@wso2/oxygen-ui-icons-react";
 import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
@@ -96,9 +97,8 @@ export default function QuoteDetailPage(): JSX.Element {
   const approvalPreview = useStoredApprovalPreview(quoteId, latestNumber, isDraft);
   const decide = useDecideStep();
   const me = useCado2Me();
-  // After a decision: what was recorded, shown above the next step (if any).
-  // Kept with its quote, as the page stays mounted when another quote opens.
-  const [decisionNoteState, setDecisionNoteState] = useState<{ quoteId: number; text: string } | null>(null);
+  // After a decision: what was recorded, as a toast (2026-10-13).
+  const notify = useCado2Toast();
   // Set by the header's "Your approval" from another tab; scrolls once the
   // Quote tab shows the panel.
   const jumpPending = useRef(false);
@@ -143,9 +143,8 @@ export default function QuoteDetailPage(): JSX.Element {
   // Steps the caller may decide now; usually one.
   const actionable = (workflow.data?.steps ?? []).filter((s) => s.canAct);
   const approverRoles = me.data?.approverRoles ?? [];
-  const noteForThisQuote = decisionNoteState?.quoteId === quoteId ? decisionNoteState.text : null;
-  // Something to decide (or just decided): the "Your decision" band shows.
-  const hasDecision = actionable.length > 0 || noteForThisQuote !== null;
+  // Something to decide: the "Your decision" band shows.
+  const hasDecision = actionable.length > 0;
 
   const approvalProps = { isDraft, workflow, preview: approvalPreview };
   // Opens the Quote tab if needed, then scrolls to "Your approval".
@@ -264,7 +263,6 @@ export default function QuoteDetailPage(): JSX.Element {
                 <YourApprovalPanel
                   steps={workflow.data?.steps ?? []}
                   actionable={actionable}
-                  note={noteForThisQuote}
                   repCategories={[...repCategoryPoints(sheet.lines), ...renewalStartPoints(sheet)]}
                   onDecide={openDecision}
                 />
@@ -308,8 +306,8 @@ export default function QuoteDetailPage(): JSX.Element {
               {
                 onSuccess: (after) => {
                   // Say what was recorded, so the next step's buttons don't
-                  // look like the same ones again.
-                  setDecisionNoteState({ quoteId: q.id, text: decisionNote(decision.outcome, decision.step, after, approverRoles) });
+                  // look like the same ones again: a toast (2026-10-13).
+                  notify(decisionNote(decision.outcome, decision.step, after, approverRoles));
                   setDecision(null);
                 },
               },

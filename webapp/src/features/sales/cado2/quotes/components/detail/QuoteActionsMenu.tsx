@@ -29,10 +29,14 @@ export interface QuoteMenuAction {
   readonly label: string;
   readonly icon: ReactNode;
   readonly onClick: () => void;
+  /** A quiet second line under the label, e.g. when it was last done. */
+  readonly detail?: string;
+  readonly disabled?: boolean;
 }
 
 /**
- * The quote page's "⋯ More actions" (2026-10-12): everyday actions first,
+ * The "⋯ More actions" of the quote page (2026-10-12) and the wizard
+ * (2026-10-13): everyday actions first,
  * then, below a line and in red, the destructive ones, so neither sits next
  * to the page's one main button. Hidden when there is nothing to offer.
  */
@@ -50,13 +54,18 @@ export default function QuoteActionsMenu({
     <MenuItem
       key={a.label}
       sx={danger ? { color: "error.main" } : undefined}
+      disabled={a.disabled}
       onClick={() => {
         setAnchorEl(null);
         a.onClick();
       }}
     >
       <ListItemIcon sx={{ color: "inherit" }}>{a.icon}</ListItemIcon>
-      <ListItemText>{a.label}</ListItemText>
+      <ListItemText
+        primary={a.label}
+        secondary={a.detail}
+        slotProps={{ secondary: { variant: "caption" } }}
+      />
     </MenuItem>
   );
 

@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -29,6 +30,7 @@ const pricing = { ...idle(), data: undefined as unknown };
 const mutation = () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false, isSuccess: false, error: null as unknown });
 const save = mutation();
 const submit = mutation();
+const sync = mutation();
 const deleteDraft = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
 
 // Mocked so the wizard is tested without Asgardeo, the network or window.config.
@@ -60,6 +62,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     useQuoteVersion: () => version,
     useSaveDraft: () => save,
     useSubmitVersion: () => submit,
+    useSyncToSalesforce: () => sync,
     useDeleteDraft: () => deleteDraft,
   };
 });
@@ -68,13 +71,21 @@ const approvals = { data: undefined as unknown, isFetching: false, error: null }
 vi.mock("@features/sales/cado2/utils/scroll", () => ({ scrollMainToTop: vi.fn() }));
 vi.mock("@features/sales/cado2/approvals/api/useApprovalApi", () => ({ useApprovalPreview: () => approvals }));
 
+/** Picks an item from the header's "⋯ More actions" (2026-10-13). */
+async function pickAction(user: ReturnType<typeof userEvent.setup>, name: string): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "More actions" }));
+  await user.click(screen.getByRole("menuitem", { name: new RegExp(`^${name}`) }));
+}
+
 function renderWizard() {
   return render(
-    <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
-      <Routes>
-        <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <Cado2ToastProvider>
+      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
+        <Routes>
+          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
+        </Routes>
+      </MemoryRouter>
+    </Cado2ToastProvider>,
   );
 }
 
@@ -85,6 +96,7 @@ beforeEach(() => {
   Object.assign(version, { data: draft, isPending: false, error: null, refetch: vi.fn() });
   Object.assign(save, mutation());
   Object.assign(submit, mutation());
+  Object.assign(sync, mutation());
 });
 
 describe("QuoteWizardPage — drafts", () => {
@@ -330,8 +342,9 @@ describe("QuoteWizardPage — review and submit", () => {
 
     expect(save.mutateAsync).toHaveBeenCalledTimes(1);
     expect(save.mutateAsync.mock.calls[0][0].input).toMatchObject({ poNumber: "PO-9" });
-    expect(await screen.findByText("Saved")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    // Moving between steps saves without a toast; only Save draft says so (2026-10-13).
+    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    expect(screen.queryByText("Draft saved")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Submit version 1" }));
     const dialog = await screen.findByRole("dialog");
@@ -410,11 +423,28 @@ describe("QuoteWizardPage — new quote", () => {
   });
 });
 
+// "It worked" is a toast that goes away (2026-10-13).
+describe("QuoteWizardPage — toasts", () => {
+  it("says Draft saved after Save draft", async () => {
+    save.mutateAsync.mockResolvedValue(draft);
+    renderWizard();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Draft saved");
+  });
+});
+
 describe("QuoteWizardPage — delete a draft", () => {
   it("offers Delete draft on a saved draft, and asks first", async () => {
     Object.assign(version, { data: draft, isPending: false });
     renderWizard();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Delete draft" }));
+    const user = userEvent.setup();
+    // One main button; the rest under "⋯", Delete draft last (2026-10-13).
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Close", "Delete draft"]);
+    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     expect(screen.getByRole("dialog", { name: "Delete this draft quote?" })).toBeInTheDocument();
   });
 
@@ -458,7 +488,7 @@ describe("QuoteWizardPage — lifecycle", () => {
         </Routes>
       </MemoryRouter>,
     );
-    await userEvent.setup().click(screen.getByRole("button", { name: "Close" }));
+    await pickAction(userEvent.setup(), "Close");
     expect(await screen.findByText("quote page")).toBeInTheDocument();
   });
 });
@@ -496,13 +526,82 @@ describe("QuoteWizardPage — unsaved changes when leaving", () => {
     await user.type(await screen.findByLabelText(/PO number/), "PO-79");
 
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await pickAction(user, "Close");
     expect(confirm).toHaveBeenCalledWith("You have unsaved changes. Leave without saving?");
     expect(screen.queryByText("quote page")).toBeNull();
 
     confirm.mockReturnValueOnce(true);
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await pickAction(user, "Close");
     expect(await screen.findByText("quote page")).toBeInTheDocument();
     confirm.mockRestore();
+  });
+});
+
+// D77: the primary quote's "Sync to Salesforce" on Term & Products.
+describe("QuoteWizardPage — Salesforce sync", () => {
+  const primary = { ...ready, quote: { ...ready.quote, isPrimary: true, canSync: true, sfSyncedAt: null } };
+
+  async function openTermAndProducts() {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: "Term & Products" }));
+    return user;
+  }
+
+  it("syncs the saved primary draft, and says when it was last synced", async () => {
+    Object.assign(version, { data: primary });
+    sync.mutateAsync.mockResolvedValue({
+      ...primary,
+      quote: { ...primary.quote, sfSyncedAt: "2026-10-13T10:42:00Z", sfSyncedByEmail: "rep@wso2.com", sfSyncedVersion: 1 },
+    });
+    const user = await openTermAndProducts();
+    // In the header's "⋯", with when it was last synced (2026-10-13).
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: /Sync to Salesforce/ })).toHaveTextContent("Not synced yet");
+    await user.click(screen.getByRole("menuitem", { name: /Sync to Salesforce/ }));
+    // It asks first, saying Salesforce will be made to match the quote.
+    const dialog = within(screen.getByRole("dialog", { name: "Sync to Salesforce?" }));
+    expect(dialog.getByText(/products on it that aren.t on this quote are removed in\s+Salesforce/)).toBeInTheDocument();
+    expect(sync.mutateAsync).not.toHaveBeenCalled();
+    await user.click(dialog.getByRole("button", { name: "Sync" }));
+
+    expect(save.mutateAsync).not.toHaveBeenCalled(); // nothing changed: nothing to save first
+    expect(sync.mutateAsync).toHaveBeenCalledWith({
+      quoteId: primary.quote.id,
+      version: 1,
+      expectedUpdatedAt: primary.version.updatedAt,
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("Synced to Salesforce"); // a toast
+  });
+
+  it("syncs nothing when the AM cancels", async () => {
+    Object.assign(version, { data: primary });
+    const user = await openTermAndProducts();
+    await pickAction(user, "Sync to Salesforce");
+    await user.click(within(screen.getByRole("dialog", { name: "Sync to Salesforce?" })).getByRole("button", { name: "Cancel" }));
+    expect(sync.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("isn't offered on a quote that can't be synced", async () => {
+    Object.assign(version, { data: ready });
+    const user = await openTermAndProducts();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByRole("menuitem", { name: /Sync to Salesforce/ })).toBeNull();
+  });
+
+  it("says why when Salesforce refuses, and that nothing changed there", async () => {
+    Object.assign(version, { data: primary });
+    const body = {
+      message: "Salesforce refused the sync, so nothing was changed there",
+      issues: [{ field: "salesforce", message: "Closed Won opportunities can't be edited" }],
+    };
+    sync.mutateAsync.mockRejectedValue(new HttpError("u", 422, JSON.stringify(body)));
+    const user = await openTermAndProducts();
+
+    await pickAction(user, "Sync to Salesforce");
+    await user.click(within(screen.getByRole("dialog", { name: "Sync to Salesforce?" })).getByRole("button", { name: "Sync" }));
+
+    expect(await screen.findByText(/Salesforce refused the sync, so nothing changed there:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Closed Won opportunities can't be edited/).length).toBeGreaterThan(0);
   });
 });

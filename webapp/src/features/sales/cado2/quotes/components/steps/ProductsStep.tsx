@@ -94,7 +94,8 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
 
   const currency = values.currencyIsoCode;
   // The opportunity's book must be usable; the card says what to fix otherwise.
-  const ready = Boolean(currency && values.defaultPricebookId && values.startDate);
+  // Products can be added before the start date (D78); they are priced once it is chosen.
+  const ready = Boolean(currency && values.defaultPricebookId);
   // Why the amounts are blank.
   const amountsHint =
     preview || values.lines.length === 0

@@ -330,8 +330,9 @@ export interface LineView {
   readonly category: LineCategory;
   readonly categorySource?: CategorySource;
   readonly discretionaryDiscountPercent: string;
-  readonly startDate: string;
-  readonly endDate: string;
+  /** Null until the quote has a start date (D78). */
+  readonly startDate: string | null;
+  readonly endDate: string | null;
   readonly annualList: string;
   readonly annualNet: string;
   readonly arr: string;
@@ -478,6 +479,12 @@ export interface QuoteView {
   readonly actions: readonly QuoteAction[];
   /** The opportunity's primary quote, the one synced to Salesforce (D68). */
   readonly isPrimary: boolean;
+  /** The caller may "Sync to Salesforce": sync on, primary, may change it (D77). */
+  readonly canSync?: boolean;
+  /** The last sync to Salesforce (D77); null until the first. */
+  readonly sfSyncedAt?: string | null;
+  readonly sfSyncedByEmail?: string | null;
+  readonly sfSyncedVersion?: number | null;
   /** The caller may change the quote: its owner, or another AM when Admin allows it (D69). */
   readonly canEdit: boolean;
   readonly ownerEmail: string;
@@ -544,6 +551,9 @@ export interface AuditEvent {
     // Primary quote (D68): on the quote, with no version.
     | "QUOTE_MADE_PRIMARY"
     | "QUOTE_PRIMARY_RELEASED"
+    // Salesforce sync (D77): written to the opportunity, or refused by it.
+    | "QUOTE_SYNCED"
+    | "QUOTE_SYNC_FAILED"
     | "APPROVAL_CHANGES_REQUESTED"
     | "VERSION_APPROVED"
     | "ORDER_FORM_PREVIEWED"
