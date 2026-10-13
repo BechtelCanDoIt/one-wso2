@@ -60,8 +60,8 @@ const COLUMNS = [
  * whose call belongs to a deal opens that deal's panel; the links and buttons
  * inside it keep their own clicks.
  *
- * No Cancel column, unlike the standalone app: every scope here lists meetings
- * that have already happened, and those cannot be called off.
+ * There is no Cancel column: every scope lists meetings that have already
+ * happened, and those cannot be called off.
  */
 export default function MeetingsTable({
   meetings,
