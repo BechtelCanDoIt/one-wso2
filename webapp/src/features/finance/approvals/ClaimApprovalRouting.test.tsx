@@ -33,6 +33,8 @@ vi.mock("../api/useFinanceGate", () => ({
     canSee: (id: string) => state.allow.has(id),
     isResolving: state.isResolving,
   }),
+  // Unused by the mocked gate, but the page imports it, so it has to exist.
+  CLAIM_APPROVAL_GATE_APPS: ["opd", "expense"],
 }));
 
 const { default: ClaimApprovalPage, ClaimApprovalIndex, ClaimApprovalTabRoute } = await import(
