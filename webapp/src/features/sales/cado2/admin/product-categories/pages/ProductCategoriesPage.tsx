@@ -35,6 +35,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { SearchIcon, TagsIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
@@ -137,13 +138,15 @@ function ProductCell({ name, details }: { name: string; details: readonly (strin
 export default function ProductCategoriesPage(): JSX.Element {
   const mapped = useProductCategories();
   const set = useSetProductCategory();
+  const notify = useCado2Toast();
   const [term, setTerm] = useState("");
   const search = useProductCategorySearch(useDebouncedValue(term, 300));
   const [filter, setFilter] = useState("");
   const [only, setOnly] = useState<LineCategory | "ALL">("ALL");
 
   const savingId = set.isPending ? set.variables?.productId : undefined;
-  const change = (productId: string, category: LineCategory | null) => set.mutate({ productId, category });
+  const change = (productId: string, category: LineCategory | null) =>
+    set.mutate({ productId, category }, { onSuccess: () => notify(category ? "Category saved" : "Category removed") });
 
   const shown = useMemo(() => filterMapped(mapped.data ?? [], filter, only), [mapped.data, filter, only]);
   const searching = term.trim().length >= MIN_PRODUCT_SEARCH;

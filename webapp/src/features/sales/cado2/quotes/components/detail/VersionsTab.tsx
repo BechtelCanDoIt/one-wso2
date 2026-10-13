@@ -51,6 +51,7 @@ export default function VersionsTab({ quote, currency }: { quote: QuoteView; cur
   // Only the owner acts on a quote; a draft is always the latest version, and
   // the owner can then close it, so CLOSE doubles as "may edit the draft".
   const canEdit = quote.actions.includes("CLOSE");
+  const latestNumber = versions.at(-1)?.versionNumber;
   return (
     <Stack spacing={3}>
       <TableContainer component={Paper} variant="outlined">
@@ -80,9 +81,20 @@ export default function VersionsTab({ quote, currency }: { quote: QuoteView; cur
                 <TableCell align="right">{`${currency} ${formatMoney(v.tcv)}`.trim()}</TableCell>
                 <TableCell>{formatDate(v.updatedAt.slice(0, 10))}</TableCell>
                 <TableCell align="right">
-                  <Button size="small" component={RouterLink} to={cado2Paths.editVersion(quote.id, v.versionNumber)}>
-                    {v.status === "DRAFT" && canEdit ? "Edit" : "View"}
-                  </Button>
+                  {/* View mode is the quote page; the wizard only edits a draft (2026-10-13). */}
+                  {v.status === "DRAFT" && canEdit ? (
+                    <Button size="small" component={RouterLink} to={cado2Paths.editVersion(quote.id, v.versionNumber)}>
+                      Edit draft
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      component={RouterLink}
+                      to={cado2Paths.quote(quote.id, "quote", false, v.versionNumber === latestNumber ? undefined : v.versionNumber)}
+                    >
+                      View
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}

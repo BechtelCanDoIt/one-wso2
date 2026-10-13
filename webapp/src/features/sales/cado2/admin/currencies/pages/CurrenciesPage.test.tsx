@@ -57,7 +57,7 @@ describe("CurrenciesPage", () => {
     expect(table.getByRole("switch", { name: "Offer BRL to reps" })).not.toBeChecked();
 
     await user.click(table.getByRole("switch", { name: "Offer USD to reps" }));
-    expect(toggle.mutate).toHaveBeenCalledWith({ isoCode: "USD", isActive: false });
+    expect(toggle.mutate).toHaveBeenCalledWith({ isoCode: "USD", isActive: false }, expect.anything());
     expect(screen.getByText(/Drafts already in it can still be saved and submitted/)).toBeInTheDocument();
   });
 

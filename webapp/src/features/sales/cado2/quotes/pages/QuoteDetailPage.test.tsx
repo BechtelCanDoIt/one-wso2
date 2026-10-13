@@ -96,12 +96,16 @@ function show(q: QuoteView, ...vs: DraftResponse[]) {
 
 /** Opens the quote page as if from another page, e.g. My Approvals. */
 function showFrom(from: string | undefined, q: QuoteView, ...vs: DraftResponse[]) {
+  showAt(`/sales/cado2/quotes/5/quote${from === "approvals" ? "?from=approvals" : ""}`, q, ...vs);
+}
+
+function showAt(url: string, q: QuoteView, ...vs: DraftResponse[]) {
   Object.assign(quote, { data: q });
   versions.clear();
   for (const v of vs) versions.set(v.version.versionNumber, v);
   render(
     <Cado2ToastProvider>
-      <MemoryRouter initialEntries={[`/sales/cado2/quotes/5/quote${from === "approvals" ? "?from=approvals" : ""}`]}>
+      <MemoryRouter initialEntries={[url]}>
         <Routes>
           <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
           <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<p>wizard</p>} />
@@ -183,7 +187,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.queryByText("Acme APIM renewal · Acme Corp")).toBeNull(); // nothing under the title
     // In approval the AM waits: no main button, the rest under "⋯".
     expect(screen.queryByRole("button", { name: "Revise" })).toBeNull();
-    expect(screen.queryByRole("link", { name: /Continue draft/ })).toBeNull();
+    expect(screen.queryByRole("link", { name: /Edit draft/ })).toBeNull();
     await openMenu(user);
     expect(menuItems()).toEqual(["Recall", "Make primary"]); // no Close or Delete draft here
 
@@ -193,6 +197,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     await user.click(within(dialog).getByRole("button", { name: "Recall" }));
 
     expect(recall.mutate).toHaveBeenCalledWith({ quoteId: 5, version: 1, reason: "Customer wants 30 gateways" }, expect.anything());
+    act(() => recall.mutate.mock.calls[0][1].onSuccess());
+    expect(await screen.findByRole("status")).toHaveTextContent("Version 1 recalled");
   });
 
   it("revises a recalled version and opens the new draft", async () => {
@@ -259,12 +265,14 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(within(dialog).getByText(/Version 1 \(Recalled\) becomes the latest again\. This can't be undone/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Delete draft" }));
     expect(del.mutate).toHaveBeenCalledWith({ quoteId: 5, version: 2, expectedUpdatedAt: v2.version.updatedAt }, expect.anything());
+    act(() => del.mutate.mock.calls[0][1].onSuccess({ quoteDeleted: false }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Draft v2 deleted");
   });
 
-  it("gives a draft one main button, Continue, and puts the destructive actions last in the menu", async () => {
+  it("gives a draft one main button, Edit draft, and puts the destructive actions last in the menu", async () => {
     show(ready.quote, ready);
     const user = userEvent.setup();
-    expect(screen.getByRole("link", { name: "Continue draft v1" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/1/edit");
+    expect(screen.getByRole("link", { name: "Edit draft" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/1/edit");
     // The status is with the title, not among the actions.
     expect(within(screen.getByLabelText("About this quote")).queryByRole("button", { name: "Close quote" })).toBeNull();
     await openMenu(user);
@@ -533,8 +541,9 @@ describe("QuoteDetailPage — versions and history", () => {
     await user.click(screen.getByRole("tab", { name: "Versions (2)" }));
 
     const table = screen.getByRole("table", { name: "Versions" });
-    expect(within(table).getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/2/edit");
-    expect(within(table).getByRole("link", { name: "View" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/1/edit");
+    // The draft opens in edit mode; any other version is viewed here (2026-10-13).
+    expect(within(table).getByRole("link", { name: "Edit draft" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/2/edit");
+    expect(within(table).getByRole("link", { name: "View" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote?version=1");
 
     const diff = screen.getByRole("table", { name: "Comparison" });
     expect(within(diff).getByText("WSO2 Gateway · Quantity")).toBeInTheDocument();
@@ -542,6 +551,25 @@ describe("QuoteDetailPage — versions and history", () => {
 
     await user.click(screen.getByRole("button", { name: "All fields" }));
     expect(within(screen.getByRole("table", { name: "Comparison" })).getByText("Currency")).toBeInTheDocument();
+  });
+
+  // View mode (2026-10-13): an older version is shown here, read-only, with no actions.
+  it("shows an older version with a way back to the latest, and no actions", () => {
+    showAt("/sales/cado2/quotes/5/quote?version=1", v2.quote, recalledV1, v2);
+
+    expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
+    expect(screen.getByText("Recalled")).toBeInTheDocument();
+    expect(screen.getByText(/You're viewing version 1\. The latest is version 2; actions apply to the latest\./)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View latest version" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Edit draft" })).toBeNull();
+  });
+
+  it("ignores a version that doesn't exist and shows the latest", () => {
+    showAt("/sales/cado2/quotes/5/quote?version=9", v2.quote, recalledV1, v2);
+
+    expect(screen.getByRole("link", { name: "Edit draft" })).toBeInTheDocument();
+    expect(screen.queryByText(/You're viewing version/)).toBeNull();
   });
 
   it("shows the history newest first, with grouped saves and reasons", async () => {

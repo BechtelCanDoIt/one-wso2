@@ -18,7 +18,7 @@ import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2Toas
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { HttpError } from "@api/http";
 import { draft, ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
 import { scrollMainToTop } from "@features/sales/cado2/utils/scroll";
@@ -89,6 +89,25 @@ function renderWizard() {
   );
 }
 
+/** The wizard, with a stand-in quote page that shows the URL it landed on. */
+function renderAt() {
+  return render(
+    <Cado2ToastProvider>
+      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
+        <Routes>
+          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
+          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<LandedOn />} />
+        </Routes>
+      </MemoryRouter>
+    </Cado2ToastProvider>,
+  );
+}
+
+function LandedOn() {
+  const at = useLocation();
+  return <p>{`quote page ${at.pathname}${at.search}`}</p>;
+}
+
 beforeEach(() => {
   sessionStorage.clear();
   approvals.data = undefined;
@@ -103,9 +122,12 @@ describe("QuoteWizardPage — drafts", () => {
   it("loads a saved draft with its open issues", () => {
     renderWizard();
 
-    // A static title (F5 review); the chosen values live in the summary.
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp · Acme APIM renewal" })).toBeInTheDocument(); // a draft: no number yet
-    expect(screen.getByText("v1 · Draft")).toBeInTheDocument();
+    // Edit mode (2026-10-13): marked "Editing", the quote page's identity, a way back.
+    expect(screen.getByText("Editing")).toBeInTheDocument();
+    expect(screen.getByText("Draft · Version 1")).toBeInTheDocument(); // a draft: no number yet
+    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back to quote/ })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
     const summary = within(screen.getByRole("complementary", { name: "Quote summary" }));
     expect(summary.getByText("Acme Corp")).toBeInTheDocument();
     expect(summary.getByText("Acme APIM renewal")).toBeInTheDocument();
@@ -309,10 +331,10 @@ describe("QuoteWizardPage — review and submit", () => {
     expect(chain.getByRole("listitem", { name: "Regional Director" })).toHaveTextContent("10% discount");
   });
 
-  it("confirms with the expiry date, then submits what was reviewed", async () => {
+  it("confirms with the expiry date, submits what was reviewed, and lands on the quote page", async () => {
     Object.assign(version, { data: ready });
     submit.mutateAsync.mockResolvedValue(submitted);
-    renderWizard();
+    renderAt();
     const user = await openReview();
 
     await user.click(screen.getByRole("button", { name: "Submit version 1" }));
@@ -325,6 +347,8 @@ describe("QuoteWizardPage — review and submit", () => {
 
     expect(save.mutateAsync).not.toHaveBeenCalled();
     expect(submit.mutateAsync).toHaveBeenCalledWith({ quoteId: 5, version: 1, expectedUpdatedAt: "2026-09-25T10:00:00.123Z" });
+    expect(await screen.findByText("quote page /sales/cado2/quotes/5/quote")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Version 1 submitted for approval");
   });
 
   it("saves the changes when moving to another step, then submits the saved copy", async () => {
@@ -385,16 +409,27 @@ describe("QuoteWizardPage — review and submit", () => {
     expect(await screen.findByRole("button", { name: /Term & Products: The minimum quantity/ })).toBeInTheDocument();
   });
 
-  it("opens a submitted version read-only on Review", () => {
+  // The wizard only edits (2026-10-13): anything else is viewed on the quote page.
+  it("sends a submitted version to the quote page", () => {
     Object.assign(version, { data: submitted });
-    renderWizard();
+    renderAt();
 
-    expect(screen.getByText("v1 · In approval")).toBeInTheDocument();
-    expect(screen.getByText(/submitted on 1 Oct 2026 by rep@wso2.com and is in approval/)).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Products" })).toBeInTheDocument();
+    expect(screen.getByText("quote page /sales/cado2/quotes/5/quote")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Submit version/ })).toBeNull();
-    expect(screen.getAllByText("USD 6,480.00").length).toBeGreaterThan(0);
+  });
+
+  it("sends an older version to the quote page, on that version", () => {
+    const older = { ...submitted.version, versionNumber: 1 };
+    Object.assign(version, {
+      data: {
+        ...submitted,
+        version: older,
+        quote: { ...submitted.quote, versions: [...submitted.quote.versions, { ...submitted.quote.versions[0], versionNumber: 2 }] },
+      },
+    });
+    renderAt();
+
+    expect(screen.getByText("quote page /sales/cado2/quotes/5/quote?version=1")).toBeInTheDocument();
   });
 });
 
@@ -409,7 +444,9 @@ describe("QuoteWizardPage — new quote", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { level: 1, name: "New Quote" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "New quote" })).toBeInTheDocument();
+    expect(screen.getByText("Editing")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
     expect(screen.queryByText(/Start by choosing/)).toBeNull(); // no hint in the title
     expect(screen.getByText("Choose the Salesforce account this quote is for.")).toBeInTheDocument();
     expect(screen.getByText("Not saved yet")).toBeInTheDocument();
@@ -441,9 +478,8 @@ describe("QuoteWizardPage — delete a draft", () => {
     const user = userEvent.setup();
     // One main button; the rest under "⋯", Delete draft last (2026-10-13).
     expect(screen.getByRole("button", { name: "Save draft" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "More actions" }));
-    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Close", "Delete draft"]);
+    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Delete draft"]);
     await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     expect(screen.getByRole("dialog", { name: "Delete this draft quote?" })).toBeInTheDocument();
   });
@@ -462,14 +498,11 @@ describe("QuoteWizardPage — delete a draft", () => {
 });
 
 describe("QuoteWizardPage — lifecycle", () => {
-  it("explains a recalled version and links back to the quote", () => {
+  it("sends a recalled version to the quote page", () => {
     Object.assign(version, { data: { ...submitted, version: { ...submitted.version, status: "RECALLED" } } });
-    renderWizard();
+    renderAt();
 
-    expect(screen.getByText("v1 · Recalled")).toBeInTheDocument();
-    expect(screen.getByText(/was recalled and can't be changed/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "quote page" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
-    expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull();
+    expect(screen.getByText("quote page /sales/cado2/quotes/5/quote")).toBeInTheDocument();
   });
 
   it("says where a revised draft was copied from", () => {
@@ -479,22 +512,15 @@ describe("QuoteWizardPage — lifecycle", () => {
     expect(screen.getByText(/Copied from version 1/)).toBeInTheDocument();
   });
 
-  it("returns to the quote page on Close", async () => {
-    render(
-      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
-        <Routes>
-          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
-          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<p>quote page</p>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await pickAction(userEvent.setup(), "Close");
-    expect(await screen.findByText("quote page")).toBeInTheDocument();
+  it("returns to the quote page from Back to quote", async () => {
+    renderAt();
+    await userEvent.setup().click(screen.getByRole("link", { name: /Back to quote/ }));
+    expect(await screen.findByText(/^quote page/)).toBeInTheDocument();
   });
 });
 
 // Unsaved changes are never kept aside to offer back (removed 2026-10-12):
-// moving between steps saves the draft, and Close asks first.
+// moving between steps saves the draft, and Back to quote asks first.
 describe("QuoteWizardPage — unsaved changes when leaving", () => {
   it("keeps nothing aside when the wizard is left with unsaved edits, and offers nothing back", async () => {
     Object.assign(version, { data: ready });
@@ -511,28 +537,21 @@ describe("QuoteWizardPage — unsaved changes when leaving", () => {
     expect(screen.queryByText(/You left this draft with unsaved changes/)).toBeNull();
   });
 
-  it("asks before Close throws unsaved edits away", async () => {
+  it("asks before Back to quote throws unsaved edits away", async () => {
     Object.assign(version, { data: ready });
-    render(
-      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
-        <Routes>
-          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
-          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<p>quote page</p>} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderAt();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Commercial/ }));
     await user.type(await screen.findByLabelText(/PO number/), "PO-79");
 
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
-    await pickAction(user, "Close");
+    await user.click(screen.getByRole("link", { name: /Back to quote/ }));
     expect(confirm).toHaveBeenCalledWith("You have unsaved changes. Leave without saving?");
-    expect(screen.queryByText("quote page")).toBeNull();
+    expect(screen.queryByText(/^quote page/)).toBeNull();
 
     confirm.mockReturnValueOnce(true);
-    await pickAction(user, "Close");
-    expect(await screen.findByText("quote page")).toBeInTheDocument();
+    await user.click(screen.getByRole("link", { name: /Back to quote/ }));
+    expect(await screen.findByText(/^quote page/)).toBeInTheDocument();
     confirm.mockRestore();
   });
 });

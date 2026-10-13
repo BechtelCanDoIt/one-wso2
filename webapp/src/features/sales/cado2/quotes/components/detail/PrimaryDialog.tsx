@@ -19,6 +19,7 @@ import {
   useSetPrimary,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import { primaryLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 
 interface PrimaryDialogProps {
@@ -41,6 +42,7 @@ export default function PrimaryDialog({
   onClose,
 }: PrimaryDialogProps): JSX.Element {
   const setPrimary = useSetPrimary();
+  const notify = useCado2Toast();
   const quotes = useOpportunityQuotes(opportunityId);
   const current = quotes.data?.find(
     (o) => o.isPrimary && o.quoteId !== quoteId,
@@ -55,7 +57,12 @@ export default function PrimaryDialog({
       onConfirm={() =>
         setPrimary.mutate(
           { quoteId, primary: !isPrimary },
-          { onSuccess: onClose },
+          {
+            onSuccess: () => {
+              notify(isPrimary ? "No longer the primary quote" : "Now the primary quote");
+              onClose();
+            },
+          },
         )
       }
     >

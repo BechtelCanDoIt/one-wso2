@@ -26,6 +26,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { LockIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import {
@@ -56,6 +57,7 @@ const OPTIONS: readonly { value: QuoteAccess; label: string; help: string }[] =
 export default function QuoteAccessPage(): JSX.Element {
   const setting = useQuoteAccess();
   const save = useSaveQuoteAccess();
+  const notify = useCado2Toast();
   const [choice, setChoice] = useState<QuoteAccess | null>(null);
   const current = setting.data?.access;
   const selected = choice ?? current ?? "VIEW";
@@ -127,7 +129,12 @@ export default function QuoteAccessPage(): JSX.Element {
                 variant="contained"
                 disabled={selected === current || save.isPending}
                 onClick={() =>
-                  save.mutate(selected, { onSuccess: () => setChoice(null) })
+                  save.mutate(selected, {
+                    onSuccess: () => {
+                      setChoice(null);
+                      notify("Quote access saved");
+                    },
+                  })
                 }
               >
                 {save.isPending ? "Saving…" : "Save"}

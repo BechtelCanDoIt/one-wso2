@@ -131,7 +131,7 @@ describe("LegalEntitiesPage", () => {
 
     await userEvent.setup().click(screen.getByRole("switch", { name: "WSO2, LLC. active" }));
 
-    expect(update.mutate).toHaveBeenCalledWith({ id: 7, changes: { isActive: false } });
+    expect(update.mutate).toHaveBeenCalledWith({ id: 7, changes: { isActive: false } }, expect.anything());
   });
 
   it("opens the add panel", async () => {

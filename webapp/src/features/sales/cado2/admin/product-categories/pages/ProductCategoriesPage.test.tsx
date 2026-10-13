@@ -77,11 +77,11 @@ describe("ProductCategoriesPage", () => {
 
     await user.click(table.getByRole("combobox", { name: "Category of WSO2 API Manager" }));
     await user.click(screen.getByRole("option", { name: "Professional Service" }));
-    expect(set.mutate).toHaveBeenLastCalledWith({ productId: apim.productId, category: "PROFESSIONAL_SERVICE" });
+    expect(set.mutate).toHaveBeenLastCalledWith({ productId: apim.productId, category: "PROFESSIONAL_SERVICE" }, expect.anything());
 
     await user.click(table.getByRole("combobox", { name: "Category of WSO2 Enterprise Support Plan - APIM" }));
     await user.click(screen.getByRole("option", { name: "Not mapped" }));
-    expect(set.mutate).toHaveBeenLastCalledWith({ productId: support.productId, category: null });
+    expect(set.mutate).toHaveBeenLastCalledWith({ productId: support.productId, category: null }, expect.anything());
   });
 
   it("finds a Salesforce product and maps it", async () => {
@@ -102,6 +102,6 @@ describe("ProductCategoriesPage", () => {
     expect(select).toHaveTextContent("Not mapped");
     await user.click(select);
     await user.click(screen.getByRole("option", { name: "Subscription" }));
-    expect(set.mutate).toHaveBeenLastCalledWith({ productId: "01t000000000003AAA", category: "SUBSCRIPTION" });
+    expect(set.mutate).toHaveBeenLastCalledWith({ productId: "01t000000000003AAA", category: "SUBSCRIPTION" }, expect.anything());
   });
 });

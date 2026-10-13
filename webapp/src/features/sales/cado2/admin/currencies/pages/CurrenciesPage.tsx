@@ -33,6 +33,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { CoinsIcon, PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
@@ -48,6 +49,7 @@ export default function CurrenciesPage(): JSX.Element {
   const list = useAdminCurrencies();
   const add = useAddCurrency();
   const toggle = useSetCurrencyActive();
+  const notify = useCado2Toast();
   const [code, setCode] = useState("");
 
   const submit = (e: FormEvent) => {
@@ -55,7 +57,12 @@ export default function CurrenciesPage(): JSX.Element {
     const iso = code.trim().toUpperCase();
     if (!iso) return;
     toggle.reset();
-    add.mutate(iso, { onSuccess: () => setCode("") });
+    add.mutate(iso, {
+      onSuccess: () => {
+        setCode("");
+        notify(`${iso} added`);
+      },
+    });
   };
   const switching = toggle.isPending ? toggle.variables?.isoCode : undefined;
 
@@ -161,7 +168,10 @@ export default function CurrenciesPage(): JSX.Element {
                           disabled={switching !== undefined}
                           onChange={(_, on) => {
                             add.reset();
-                            toggle.mutate({ isoCode: c.isoCode, isActive: on });
+                            toggle.mutate(
+                              { isoCode: c.isoCode, isActive: on },
+                              { onSuccess: () => notify(`${c.isoCode} ${on ? "offered" : "no longer offered"}`) },
+                            );
                           }}
                           slotProps={{ input: { role: "switch", "aria-label": `Offer ${c.isoCode} to reps` } }}
                         />

@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { Link as RouterLink, useNavigate, useParams } from "react-router";
+import { Navigate, useNavigate, useParams } from "react-router";
 import {
   AdapterDateFns,
   Alert,
@@ -34,7 +34,7 @@ import {
   Stack,
   Typography,
 } from "@wso2/oxygen-ui";
-import { CloudUploadIcon, ShieldCheckIcon, Trash2Icon, XIcon } from "@wso2/oxygen-ui-icons-react";
+import { CloudUploadIcon, PencilIcon, ShieldCheckIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { useLeaveGuard } from "@features/sales/cado2/quotes/form/useLeaveGuard";
@@ -52,7 +52,6 @@ import { isConflict, problemOf } from "@features/sales/cado2/quotes/api/errors";
 import type { DraftResponse, Issue, QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   emptyDraftForm,
-  formatDate,
   fromVersion,
   STEPS,
   stepOfField,
@@ -79,7 +78,7 @@ import WizardStepper from "@features/sales/cado2/quotes/components/wizard/Wizard
 import StepIntro from "@features/sales/cado2/quotes/components/wizard/StepIntro";
 import { nextHint, reachableStep, stepChecks } from "@features/sales/cado2/quotes/form/stepRules";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
-import { STATUS_COLOR, STATUS_LABEL, quoteLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
+import { STATUS_COLOR, quoteLabel, quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
 
 const { LocalizationProvider } = DatePickers;
@@ -336,8 +335,9 @@ export default function QuoteWizardPage(): JSX.Element {
       if (isNew) setCreated(res);
       form.reset(fromVersion(res));
       notify(`Version ${res.version.versionNumber} submitted for approval`);
-      setStepChoice(REVIEW_STEP);
-      leaveNewQuoteFor(res);
+      // Out of edit mode: a submitted version is viewed on the quote page (2026-10-13).
+      allowLeave();
+      navigate(cado2Paths.quote(res.quote.id));
     } catch (err) {
       handleRefusal(err, "submit");
       leaveNewQuoteFor(current);
@@ -379,10 +379,6 @@ export default function QuoteWizardPage(): JSX.Element {
   };
 
   // Back to the quote page once the quote exists, else to My Quotes.
-  const close = () => {
-    if (confirmLeave()) navigate(saved ? cado2Paths.quote(saved.quote.id) : cado2Paths.quotes);
-  };
-
   if (!isNew && loaded.isPending) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
@@ -396,6 +392,15 @@ export default function QuoteWizardPage(): JSX.Element {
         Couldn&apos;t load the quote.
       </ErrorNotice>
     );
+  }
+
+  // Edit mode only (2026-10-13): a version that can't be edited (submitted,
+  // recalled, closed, or another AM's) is viewed on the quote page. This is
+  // also where a submit lands.
+  if (saved && !editable) {
+    const latestNumber = saved.quote.versions.at(-1)?.versionNumber;
+    const n = saved.version.versionNumber;
+    return <Navigate to={cado2Paths.quote(saved.quote.id, "quote", false, n === latestNumber ? undefined : n)} replace />;
   }
 
   const chosenLegalEntity =
@@ -424,14 +429,33 @@ export default function QuoteWizardPage(): JSX.Element {
       <FormProvider {...form}>
         <FieldIssuesContext.Provider value={fieldIssues}>
           <Stack spacing={2} sx={{ minWidth: 0 }}>
-            {/* A static title (F5 review): the values entered so far live in the summary. */}
+            {/* Edit mode (2026-10-13): marked "Editing", with the same identity as
+                the quote page (number, version, account), and a way back to it. */}
             <PageHeader
-              title={saved ? quoteLabel(saved.quote.quoteNumber, saved.version.accountName, saved.version.opportunityName) : "New Quote"}
+              back={{
+                to: saved ? cado2Paths.quote(saved.quote.id) : cado2Paths.quotes,
+                label: saved ? "Back to quote" : "Quotes",
+                onClick: (e) => {
+                  if (!confirmLeave()) e.preventDefault();
+                },
+              }}
+              eyebrow={
+                <>
+                  <Chip size="small" color="primary" variant="outlined" icon={<PencilIcon size={14} />} label="Editing" />
+                  {saved ? (
+                    <Typography variant="body2" color="text.secondary">
+                      {saved.quote.quoteNumber ?? "Draft"} · Version {saved.version.versionNumber}
+                    </Typography>
+                  ) : null}
+                </>
+              }
+              title={saved ? saved.version.accountName || "New quote" : "New quote"}
               chips={
                 <>
                   <Chip
+                    size="small"
                     color={version ? STATUS_COLOR[version.status] : "default"}
-                    label={version ? `v${version.versionNumber} · ${STATUS_LABEL[version.status]}` : "Not saved yet"}
+                    label={version ? quoteStatusLabel(version.status, version.versionNumber) : "Not saved yet"}
                   />
                   {/* A new quote is all unsaved, so "Unsaved changes" is only for saved ones. */}
                   {saved && isDirty ? (
@@ -442,19 +466,13 @@ export default function QuoteWizardPage(): JSX.Element {
               actions={
                 <>
                   {/* One main button, the rest under "⋯", destructive last (2026-10-13, as on the quote page). */}
-                  {editable ? (
-                    <Button variant="contained" onClick={() => void onSave()} disabled={busy || !canSave}>
-                      {save.isPending ? "Saving…" : sync.isPending ? "Syncing…" : "Save draft"}
-                    </Button>
-                  ) : (
-                    <Button variant="contained" onClick={close}>
-                      Close
-                    </Button>
-                  )}
+                  <Button variant="contained" onClick={() => void onSave()} disabled={busy || !canSave}>
+                    {save.isPending ? "Saving…" : sync.isPending ? "Syncing…" : "Save draft"}
+                  </Button>
                   <QuoteActionsMenu
                     actions={[
                       // D77: the primary quote's sync, saved first.
-                      ...(editable && saved?.quote.canSync
+                      ...(saved?.quote.canSync
                         ? [
                             {
                               label: "Sync to Salesforce",
@@ -465,7 +483,6 @@ export default function QuoteWizardPage(): JSX.Element {
                             },
                           ]
                         : []),
-                      ...(editable ? [{ label: "Close", icon: <XIcon size={16} />, onClick: close }] : []),
                     ]}
                     destructive={
                       saved && saved.version.status === "DRAFT" && saved.quote.actions.includes("CLOSE")
@@ -477,28 +494,6 @@ export default function QuoteWizardPage(): JSX.Element {
               }
             />
 
-            {version?.status === "SUBMITTED" ? (
-              <Alert severity="info">
-                Version {version.versionNumber} was submitted
-                {version.submittedAt ? ` on ${formatDate(version.submittedAt.slice(0, 10))}` : ""}
-                {version.submittedByEmail ? ` by ${version.submittedByEmail}` : ""} and is in approval. It can&apos;t be
-                changed. Once approved, issue the order form from the quote page; the expiry starts then.
-              </Alert>
-            ) : version?.status === "RECALLED" ? (
-              <Alert severity="info">
-                Version {version.versionNumber} was recalled and can&apos;t be changed. Revise or close it from the{" "}
-                <Link component={RouterLink} to={saved ? cado2Paths.quote(saved.quote.id) : cado2Paths.quotes}>
-                  quote page
-                </Link>
-                .
-              </Alert>
-            ) : version?.status === "CLOSED" ? (
-              <Alert severity="info">
-                The quote was closed{version.closedAt ? ` on ${formatDate(version.closedAt.slice(0, 10))}` : ""}
-                {version.closedByEmail ? ` by ${version.closedByEmail}` : ""}
-                {version.closedReason ? `: “${version.closedReason}”` : "."}
-              </Alert>
-            ) : null}
             {version?.status === "DRAFT" && version.copiedFromVersion ? (
               <Alert severity="info" variant="outlined">
                 Copied from version {version.copiedFromVersion}. Prices stay as they were in v

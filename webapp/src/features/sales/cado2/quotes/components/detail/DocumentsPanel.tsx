@@ -33,6 +33,7 @@ import { useDocumentFiles, useDocuments, useIssueOrderForm } from "@features/sal
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { describeError } from "@api/errors";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 
 /** Saves a Blob under a file name (a click on a temporary link). */
 function saveBlob(blob: Blob, name: string): void {
@@ -63,6 +64,7 @@ export default function DocumentsPanel({
 }): JSX.Element | null {
   const docs = useDocuments(quoteId, version, approved);
   const issue = useIssueOrderForm();
+  const notify = useCado2Toast();
   const files = useDocumentFiles();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -116,6 +118,7 @@ export default function DocumentsPanel({
     try {
       await issue.mutateAsync({ quoteId, version });
       setConfirming(false);
+      notify("Order form issued");
     } catch (e) {
       setError(describeError(e));
       setConfirming(false);

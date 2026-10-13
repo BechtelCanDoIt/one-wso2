@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
-import { Box, Button, Chip, CircularProgress, Link, Stack, Tab, Tabs, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Button, Chip, CircularProgress, Link, Stack, Tab, Tabs, Typography } from "@wso2/oxygen-ui";
 import DeleteDraftDialog from "@features/sales/cado2/quotes/components/detail/DeleteDraftDialog";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
@@ -48,7 +48,7 @@ import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approv
 import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/sales/cado2/approvals/model/myApprovals";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
-import { ArrowDownIcon, ArrowLeftIcon, RotateCcwIcon, StarIcon, Trash2Icon, Undo2Icon, XCircleIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowDownIcon, ArrowLeftIcon, PencilIcon, RotateCcwIcon, StarIcon, Trash2Icon, Undo2Icon, XCircleIcon } from "@wso2/oxygen-ui-icons-react";
 import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
 import { useCado2Me } from "@features/sales/cado2/api/useCado2Me";
 import { cado2Paths, type Cado2QuoteTab } from "@features/sales/cado2/cado2Paths";
@@ -80,21 +80,27 @@ export default function QuoteDetailPage(): JSX.Element {
   const fromApprovals = search.get("from") === "approvals";
   const quoteId = Number(params.quoteId);
   const tab = TAB_SEGMENTS.indexOf(params.tab as Cado2QuoteTab);
-  const openTab = (i: number) => navigate(cado2Paths.quote(quoteId, TAB_SEGMENTS[i], fromApprovals));
   const quote = useQuote(quoteId);
   const latestNumber = quote.data?.versions.at(-1)?.versionNumber ?? null;
-  const latest = useQuoteVersion(quoteId, latestNumber);
+  // View mode (2026-10-13): any version can be viewed here (?version=N), the
+  // latest by default. The wizard is only for editing a draft.
+  const asked = Number(search.get("version"));
+  const shownNumber = quote.data?.versions.some((x) => x.versionNumber === asked) ? asked : latestNumber;
+  const viewingOlder = shownNumber !== null && latestNumber !== null && shownNumber !== latestNumber;
+  const shownParam = viewingOlder ? (shownNumber ?? undefined) : undefined;
+  const openTab = (i: number) => navigate(cado2Paths.quote(quoteId, TAB_SEGMENTS[i], fromApprovals, shownParam));
+  const shown = useQuoteVersion(quoteId, shownNumber);
   const recall = useRecallVersion();
   const revise = useReviseQuote();
   const close = useCloseQuote();
   const events = useAuditEvents(quoteId);
-  const sheet = useMemo(() => (latest.data ? sheetFromVersion(latest.data) : null), [latest.data]);
+  const sheet = useMemo(() => (shown.data ? sheetFromVersion(shown.data) : null), [shown.data]);
   const [dialog, setDialog] = useState<Dialog>(null);
   const [decision, setDecision] = useState<Decision>(null);
-  const latestStatus = latest.data?.version.status ?? null;
-  const isDraft = latestStatus === "DRAFT";
-  const workflow = useApprovalWorkflow(quoteId, latestNumber, latestStatus !== null && !isDraft);
-  const approvalPreview = useStoredApprovalPreview(quoteId, latestNumber, isDraft);
+  const shownStatus = shown.data?.version.status ?? null;
+  const isDraft = shownStatus === "DRAFT";
+  const workflow = useApprovalWorkflow(quoteId, shownNumber, shownStatus !== null && !isDraft);
+  const approvalPreview = useStoredApprovalPreview(quoteId, shownNumber, isDraft);
   const decide = useDecideStep();
   const me = useCado2Me();
   // After a decision: what was recorded, as a toast (2026-10-13).
@@ -107,7 +113,7 @@ export default function QuoteDetailPage(): JSX.Element {
     jumpPending.current = false;
     scrollToYourApproval();
   }, [tab]);
-  useDocumentTitle(quote.data ? quoteLabel(quote.data.quoteNumber, latest.data?.version.accountName, latest.data?.version.opportunityName) : "Quote");
+  useDocumentTitle(quote.data ? quoteLabel(quote.data.quoteNumber, shown.data?.version.accountName, shown.data?.version.opportunityName) : "Quote");
 
   const openDialog = (d: Dialog) => {
     recall.reset();
@@ -116,17 +122,17 @@ export default function QuoteDetailPage(): JSX.Element {
     setDialog(d);
   };
 
-  if (tab < 0) return <Navigate to={cado2Paths.quote(quoteId, "quote", fromApprovals)} replace />;
+  if (tab < 0) return <Navigate to={cado2Paths.quote(quoteId, "quote", fromApprovals, shownParam)} replace />;
 
-  if (quote.isPending || (quote.data && latest.isPending)) {
+  if (quote.isPending || (quote.data && shown.isPending)) {
     return (
       <Box sx={{ display: "flex", justifyContent: "center", p: 4 }}>
         <CircularProgress aria-label="Loading the quote" />
       </Box>
     );
   }
-  const loadError = quote.error ?? latest.error;
-  if (loadError || !quote.data || !latest.data) {
+  const loadError = quote.error ?? shown.error;
+  if (loadError || !quote.data || !shown.data) {
     return (
       <ErrorNotice error={loadError} onRetry={() => void quote.refetch()} retrying={quote.isFetching}>
         Couldn&apos;t load the quote.
@@ -135,7 +141,7 @@ export default function QuoteDetailPage(): JSX.Element {
   }
 
   const q = quote.data;
-  const v = latest.data.version;
+  const v = shown.data.version;
   // The number once submitted; before that, the customer and deal.
   const name = quoteLabel(q.quoteNumber, v.accountName, v.opportunityName);
   const can = (a: "RECALL" | "REVISE" | "CLOSE") => q.actions.includes(a);
@@ -164,15 +170,25 @@ export default function QuoteDetailPage(): JSX.Element {
   // The page's one main button: the approver's task, else the AM's next step.
   // In approval and approved have none; their actions are in the menu.
   const reviseIsMain = can("REVISE") && (v.status === "RECALLED" || v.status === "CHANGES_REQUESTED");
-  const mainAction =
-    actionable.length && tab !== 0 ? (
+  const mainAction = viewingOlder ? (
+    // An older version is for reading: its actions belong to the latest.
+    <Button variant="contained" component={RouterLink} to={cado2Paths.quote(q.id, TAB_SEGMENTS[tab] ?? "quote", fromApprovals)}>
+      View latest version
+    </Button>
+  ) : actionable.length && tab !== 0 ? (
       // Decisions are made in "Your decision" on the Quote tab; from another tab this goes back there.
       <Button variant="contained" endIcon={<ArrowDownIcon size={16} />} onClick={jumpToYourApproval}>
         {actionable.length === 1 ? "Your approval" : `Your approvals (${actionable.length})`}
       </Button>
     ) : v.status === "DRAFT" && can("CLOSE") ? (
-      <Button variant="contained" component={RouterLink} to={cado2Paths.editVersion(q.id, v.versionNumber)}>
-        Continue draft v{v.versionNumber}
+      // Into edit mode: the wizard is only for editing a draft (2026-10-13).
+      <Button
+        variant="contained"
+        component={RouterLink}
+        to={cado2Paths.editVersion(q.id, v.versionNumber)}
+        startIcon={<PencilIcon size={16} />}
+      >
+        Edit draft
       </Button>
     ) : reviseIsMain ? (
       <Button variant="contained" onClick={() => openDialog("revise")}>
@@ -201,7 +217,8 @@ export default function QuoteDetailPage(): JSX.Element {
               eyebrow: `${q.quoteNumber ?? "Draft"} · Version ${v.versionNumber}`,
               status: (
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <Chip size="small" color={STATUS_COLOR[q.status]} label={quoteStatusLabel(q.status, v.versionNumber)} />
+                  {/* The version shown: the latest, or an older one in view mode. */}
+                  <Chip size="small" color={STATUS_COLOR[v.status]} label={quoteStatusLabel(v.status, v.versionNumber)} />
                   {q.isPrimary ? <Chip size="small" variant="outlined" icon={<StarIcon size={14} />} label="Primary" /> : null}
                 </Stack>
               ),
@@ -209,34 +226,41 @@ export default function QuoteDetailPage(): JSX.Element {
                 <>
                   {/* One main button, the next step for this status; the rest is under "⋯" (2026-10-12). */}
                   {mainAction}
-                  <QuoteActionsMenu
-                    actions={[
-                      ...(can("RECALL") ? [{ label: "Recall", icon: <Undo2Icon size={16} />, onClick: () => openDialog("recall") }] : []),
-                      ...(can("REVISE") && !reviseIsMain
-                        ? [{ label: "Revise", icon: <RotateCcwIcon size={16} />, onClick: () => openDialog("revise") }]
-                        : []),
-                      // A setting of the quote: any status, approvals untouched (D68).
-                      ...(q.canEdit
-                        ? [
-                            {
-                              label: q.isPrimary ? "Remove primary" : "Make primary",
-                              icon: <StarIcon size={16} />,
-                              onClick: () => openDialog("primary"),
-                            },
-                          ]
-                        : []),
-                    ]}
-                    destructive={[
-                      ...(v.status === "DRAFT" && can("CLOSE")
-                        ? [{ label: "Delete draft", icon: <Trash2Icon size={16} />, onClick: () => openDialog("delete") }]
-                        : []),
-                      ...(can("CLOSE") ? [{ label: "Close quote", icon: <XCircleIcon size={16} />, onClick: () => openDialog("close") }] : []),
-                    ]}
-                  />
+                  {viewingOlder ? null : (
+                    <QuoteActionsMenu
+                      actions={[
+                        ...(can("RECALL") ? [{ label: "Recall", icon: <Undo2Icon size={16} />, onClick: () => openDialog("recall") }] : []),
+                        ...(can("REVISE") && !reviseIsMain
+                          ? [{ label: "Revise", icon: <RotateCcwIcon size={16} />, onClick: () => openDialog("revise") }]
+                          : []),
+                        // A setting of the quote: any status, approvals untouched (D68).
+                        ...(q.canEdit
+                          ? [
+                              {
+                                label: q.isPrimary ? "Remove primary" : "Make primary",
+                                icon: <StarIcon size={16} />,
+                                onClick: () => openDialog("primary"),
+                              },
+                            ]
+                          : []),
+                      ]}
+                      destructive={[
+                        ...(v.status === "DRAFT" && can("CLOSE")
+                          ? [{ label: "Delete draft", icon: <Trash2Icon size={16} />, onClick: () => openDialog("delete") }]
+                          : []),
+                        ...(can("CLOSE") ? [{ label: "Close quote", icon: <XCircleIcon size={16} />, onClick: () => openDialog("close") }] : []),
+                      ]}
+                    />
+                  )}
                 </>
               ),
             }}
           />
+        ) : null}
+        {viewingOlder ? (
+          <Alert severity="info">
+            You&apos;re viewing version {v.versionNumber}. The latest is version {latestNumber}; actions apply to the latest.
+          </Alert>
         ) : null}
       </Stack>
 
@@ -286,7 +310,7 @@ export default function QuoteDetailPage(): JSX.Element {
                 }}
               >
                 <StatusPanel
-                  latest={latest.data}
+                  latest={shown.data}
                   events={events.data ?? []}
                   eventsError={events.error}
                   onRetryEvents={() => void events.refetch()}
@@ -340,7 +364,15 @@ export default function QuoteDetailPage(): JSX.Element {
           error={recall.error}
           onClose={() => setDialog(null)}
           onConfirm={(reason) =>
-            recall.mutate({ quoteId: q.id, version: v.versionNumber, reason }, { onSuccess: () => setDialog(null) })
+            recall.mutate(
+              { quoteId: q.id, version: v.versionNumber, reason },
+              {
+                onSuccess: () => {
+                  setDialog(null);
+                  notify(`Version ${v.versionNumber} recalled`);
+                },
+              },
+            )
           }
         >
           Version {v.versionNumber} will be taken back and can&apos;t be put back in flight. Afterwards you can revise it
@@ -396,7 +428,17 @@ export default function QuoteDetailPage(): JSX.Element {
           pending={close.isPending}
           error={close.error}
           onClose={() => setDialog(null)}
-          onConfirm={(reason) => close.mutate({ quoteId: q.id, reason }, { onSuccess: () => setDialog(null) })}
+          onConfirm={(reason) =>
+            close.mutate(
+              { quoteId: q.id, reason },
+              {
+                onSuccess: () => {
+                  setDialog(null);
+                  notify(`${name} closed`);
+                },
+              },
+            )
+          }
         >
           This is permanent. The quote can&apos;t be revised or submitted again; its versions stay viewable.
         </LifecycleDialog>

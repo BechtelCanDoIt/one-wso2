@@ -41,6 +41,7 @@ import {
   SearchIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import LegalEntityDrawer from "@features/sales/cado2/admin/legal-entities/components/LegalEntityDrawer";
@@ -64,6 +65,7 @@ export default function LegalEntitiesPage(): JSX.Element {
   const { data: entities, error, isPending, isFetching, refetch } = useLegalEntities();
   const create = useCreateLegalEntity();
   const update = useUpdateLegalEntity();
+  const notify = useCado2Toast();
   const [drawer, setDrawer] = useState<DrawerState>({ open: false });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
@@ -77,7 +79,12 @@ export default function LegalEntitiesPage(): JSX.Element {
 
   const onSave = (values: LegalEntityFormValues) => {
     if (!drawer.open) return;
-    const done = { onSuccess: () => setDrawer({ open: false }) };
+    const done = {
+      onSuccess: () => {
+        setDrawer({ open: false });
+        notify(`${values.name} saved`);
+      },
+    };
     if (drawer.entity) {
       // The code is fixed, so it is never sent on update.
       const { code: _code, ...changes } = values;
@@ -160,7 +167,12 @@ export default function LegalEntitiesPage(): JSX.Element {
             selectedId={selectedId}
             onSelect={setSelectedId}
             busy={update.isPending}
-            onToggle={(e, on) => update.mutate({ id: e.id, changes: { isActive: on } })}
+            onToggle={(e, on) =>
+              update.mutate(
+                { id: e.id, changes: { isActive: on } },
+                { onSuccess: () => notify(`${e.name} ${on ? "activated" : "deactivated"}`) },
+              )
+            }
             onEdit={(e) => openDrawer(e)}
           />
         </>
