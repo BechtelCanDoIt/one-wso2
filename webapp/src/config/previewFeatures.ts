@@ -67,7 +67,6 @@ export type PreviewFeature =
    */
   | "infra"
   /**
-  /**
    * Finance → Finance MIS — the ARR, QRR and MRR Builds and ARR Analysis,
    * rail entries and routes alike. Held back as a whole until Finance has
    * verified its figures. `useMisGate`'s own privilege check is unrelated and
