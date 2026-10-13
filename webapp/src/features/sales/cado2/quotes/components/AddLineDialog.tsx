@@ -293,7 +293,8 @@ export default function AddLineDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    // A click outside doesn't throw the typed line away (2026-10-13); Cancel, X or Escape close it.
+    <Dialog open={open} onClose={(_, reason) => reason !== "backdropClick" && onClose()} fullWidth maxWidth="sm">
       <DialogTitle component="div">
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
@@ -381,7 +382,11 @@ export default function AddLineDialog({
                       </li>
                     );
                   }}
-                  noOptionsText={`No matching products in ${pricebook.name}`}
+                  noOptionsText={
+                    products.error
+                      ? "Couldn't load the products. Try again." // not "no matching" (2026-10-13)
+                      : `No matching products in ${pricebook.name}`
+                  }
                   renderInput={(params) => (
                     <TextField
                       {...params}

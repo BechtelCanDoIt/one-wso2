@@ -364,7 +364,9 @@ export default function SubscriptionTermCard(): JSX.Element {
               >
                 {coTermOptions.length === 0 ? (
                   <MenuItem value="" disabled>
-                    No won opportunity of this account runs past the start date
+                    {won.error
+                      ? "Couldn't load the account's opportunities from Salesforce" // not "none" (2026-10-13)
+                      : "No won opportunity of this account runs past the start date"}
                   </MenuItem>
                 ) : null}
                 {coTermOptions.map((o) => (

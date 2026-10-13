@@ -16,6 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { Alert, AlertTitle, Box, Chip, MenuItem, Stack, TextField, Typography } from "@wso2/oxygen-ui";
 import {
   useAccountContacts,
@@ -100,9 +101,10 @@ const DEAL_KIND_LABEL = { FIRST_SALE: "First Sale", RENEWAL: "Renewal", EXPANSIO
 /** Stage ②: what Salesforce has for the chosen account (the deal details belong to each opportunity). */
 function accountFindings(
   account: { place: string; salesRegion: string; subRegion: string },
-  opportunities: number,
-  contacts: number,
+  opportunities: number | null,
+  contacts: number | null,
 ): Finding[] {
+  // null = the lookup failed: say so, never "None found" (2026-10-13).
   // No "Account" line: the chosen account is shown just above, more prominently.
   return [
     ...(account.place ? [{ key: "location", label: "Location", value: account.place }] : []),
@@ -113,10 +115,20 @@ function accountFindings(
     {
       key: "opportunities",
       label: "Open opportunities",
-      value: opportunities ? `${opportunities} found, newest first` : "None found",
-      warning: opportunities === 0,
+      value:
+        opportunities === null
+          ? "Couldn't load from Salesforce"
+          : opportunities
+            ? `${opportunities} found, newest first`
+            : "None found",
+      warning: !opportunities,
     },
-    { key: "contacts", label: "Contacts", value: contacts ? `${contacts} found` : "None found" },
+    {
+      key: "contacts",
+      label: "Contacts",
+      value: contacts === null ? "Couldn't load from Salesforce" : contacts ? `${contacts} found` : "None found",
+      warning: contacts === null,
+    },
   ];
 }
 
@@ -317,8 +329,8 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                 salesRegion: accountSalesRegion,
                 subRegion: accountSubRegion,
               },
-              (opportunities.data ?? []).length,
-              (contacts.data ?? []).length,
+              opportunities.error ? null : (opportunities.data ?? []).length,
+              contacts.error ? null : (contacts.data ?? []).length,
             )}
             animate={!locked}
           />
@@ -345,6 +357,17 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                 Open ones, newest first
               </Typography>
             </Stack>
+            {/* A failed lookup is an error, not "no open opportunities" (2026-10-13). */}
+            {opportunities.error && !locked ? (
+              <ErrorNotice
+                error={opportunities.error}
+                onRetry={() => void opportunities.refetch()}
+                retrying={opportunities.isFetching}
+                sx={{ mb: 1.5 }}
+              >
+                Couldn&apos;t load the account&apos;s opportunities from Salesforce.
+              </ErrorNotice>
+            ) : (
             <OpportunityPicker
               label="Opportunity"
               opportunities={
@@ -360,6 +383,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
               emptyText="This account has no open opportunities in Salesforce."
               instruction="Choose the opportunity this quote is for"
             />
+            )}
           </Box>
         ) : null}
 
@@ -394,6 +418,16 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                       Choose the closed-won opportunities this renews; several when co-terminated deals are consolidated. Their
                       ARR is compared with this quote&apos;s to check for a downsell, and the quote starts the day after they end.
                     </Typography>
+                    {wonOpportunities.error ? (
+                      <ErrorNotice
+                        error={wonOpportunities.error}
+                        onRetry={() => void wonOpportunities.refetch()}
+                        retrying={wonOpportunities.isFetching}
+                        sx={{ mb: 1.5 }}
+                      >
+                        Couldn&apos;t load the account&apos;s closed-won opportunities from Salesforce.
+                      </ErrorNotice>
+                    ) : (
                     <OpportunityPicker
                       label="Previous opportunities"
                       multiple
@@ -404,6 +438,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                       emptyText="This account has no closed-won opportunities in Salesforce."
                       instruction="Tick the opportunities this quote renews"
                     />
+                    )}
                   </Box>
                 )}
               />
@@ -412,6 +447,16 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
 
           {/* The currency moved to Products & Pricing, next to the price book. */}
           <Section title="WSO2 legal entity" icon={<LandmarkIcon size={18} />}>
+            {legalEntities.error ? (
+              <ErrorNotice
+                error={legalEntities.error}
+                onRetry={() => void legalEntities.refetch()}
+                retrying={legalEntities.isFetching}
+                sx={{ mb: 1.5 }}
+              >
+                Couldn&apos;t load the legal entities.
+              </ErrorNotice>
+            ) : null}
             <Controller
               name="legalEntityId"
               control={control}

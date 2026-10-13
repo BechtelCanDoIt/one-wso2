@@ -35,6 +35,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@wso2/oxygen-ui";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { useQuoteVersion } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { STATUS_COLOR, STATUS_LABEL, compareVersions, type CompareRow } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
@@ -126,7 +127,19 @@ function Compare({ quote }: { quote: QuoteView }): JSX.Element {
           <ToggleButton value={false}>All fields</ToggleButton>
         </ToggleButtonGroup>
       </Stack>
-      {a.isPending || b.isPending ? (
+      {/* A failed load is an error, never "No differences." (2026-10-13). */}
+      {a.error || b.error ? (
+        <ErrorNotice
+          error={a.error ?? b.error}
+          onRetry={() => {
+            void a.refetch();
+            void b.refetch();
+          }}
+          retrying={a.isFetching || b.isFetching}
+        >
+          Couldn&apos;t load the versions to compare.
+        </ErrorNotice>
+      ) : a.isPending || b.isPending ? (
         <CircularProgress size={24} aria-label="Loading the versions" />
       ) : shown.length === 0 ? (
         <Typography variant="body2" color="text.secondary">

@@ -45,6 +45,8 @@ const wonList = [
 ];
 /** Which lists were asked for: open by default, won for a renewal. */
 const asked: string[] = [];
+/** The opportunities lookup fails (2026-10-13). */
+const salesforceDown = { on: false };
 const lookup = (data: unknown) => ({ data, isPending: false, isFetching: false, error: null });
 
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
@@ -68,6 +70,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
     ),
   useAccountOpportunities: (id: string | null, status = "open") => {
     if (id) asked.push(status);
+    if (salesforceDown.on) return { ...lookup(undefined), error: new Error("down"), refetch: () => undefined };
     return lookup(status === "won" ? wonList : [{ ...renewal, currencyIsoCode: oppCurrency }]);
   },
   useAccountContacts: () => lookup([{ id: "003A", name: "Marco Ruiz" }, { id: "003B", name: "Ana" }]),
@@ -281,5 +284,22 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     await user.click(screen.getByRole("option", { name: "APIM Subs 2026" }));
     await user.click(screen.getByRole("option", { name: "No dates" }));
     expect(screen.getByText("start: none")).toBeInTheDocument();
+  });
+});
+
+// A failed lookup is an error, never "None found" (2026-10-13).
+describe("OverviewStep — Salesforce lookups that fail", () => {
+  it("says the opportunities couldn't be loaded, not that there are none", async () => {
+    salesforceDown.on = true;
+    try {
+      render(<Harness values={account} />);
+      const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+      expect(await within(found).findByText("Couldn't load from Salesforce", {}, { timeout: 3000 })).toBeInTheDocument();
+      expect(within(found).queryByText("None found")).toBeNull();
+      expect(await screen.findByText(/^Couldn't load the account's opportunities from Salesforce\./)).toBeInTheDocument();
+      expect(screen.queryByText("This account has no open opportunities in Salesforce.")).toBeNull();
+    } finally {
+      salesforceDown.on = false;
+    }
   });
 });

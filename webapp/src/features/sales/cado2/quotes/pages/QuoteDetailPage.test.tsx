@@ -34,6 +34,8 @@ const query = (data: unknown) => ({ data, error: null, isPending: false, isFetch
 const quote = query(undefined as unknown);
 const versions = new Map<number, DraftResponse>();
 const history = query([] as unknown);
+/** Versions whose load fails, for the error cases. */
+const failingVersions = new Set<number>();
 const mutation = () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null as Error | null });
 const recall = mutation();
 const revise = mutation();
@@ -62,7 +64,8 @@ const setPrimary = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: n
 const opportunityQuotes = { data: [] as unknown[], error: null, isPending: false, isFetching: false, refetch: vi.fn() };
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useQuote: () => quote,
-  useQuoteVersion: (_id: number, n: number) => query(versions.get(n)),
+  useQuoteVersion: (_id: number, n: number) =>
+    failingVersions.has(n) ? { ...query(undefined), error: new Error("down") } : query(versions.get(n)),
   useAuditEvents: () => history,
   useRecallVersion: () => recall,
   useReviseQuote: () => revise,
@@ -120,6 +123,9 @@ beforeEach(() => {
   Object.assign(close, mutation());
   Object.assign(del, mutation());
   Object.assign(history, query([]));
+  failingVersions.clear();
+  Object.assign(opportunityQuotes, { error: null });
+  Object.assign(documents, { error: null });
 });
 
 // D68: primary is a setting of the quote, changed in any status.
@@ -600,5 +606,44 @@ describe("QuoteDetailPage — order form", () => {
   it("shows no order form before approval", () => {
     show(quoteOf(submitted), submitted);
     expect(screen.queryByRole("region", { name: "Order form" })).toBeNull();
+  });
+});
+
+// A failed load is an error on screen, never a wrong answer or a missing card (2026-10-13).
+describe("QuoteDetailPage — load errors say so", () => {
+  const v2: DraftResponse = { ...ready, version: { ...ready.version, versionNumber: 2 } };
+  const twoVersions: QuoteView = {
+    ...ready.quote,
+    versions: [
+      { versionNumber: 1, status: "RECALLED", tcv: "0.00", submittedAt: null, updatedAt: "2026-10-02T09:30:00Z" },
+      { versionNumber: 2, status: "DRAFT", tcv: "0.00", submittedAt: null, updatedAt: "2026-10-03T09:30:00Z" },
+    ],
+  };
+
+  it("says Compare couldn't load, not 'No differences.'", async () => {
+    failingVersions.add(1);
+    show(twoVersions, submitted, v2);
+    await userEvent.setup().click(screen.getByRole("tab", { name: "Versions (2)" }));
+    expect(screen.getByText(/^Couldn't load the versions to compare\./)).toBeInTheDocument();
+    expect(screen.queryByText("No differences.")).toBeNull();
+  });
+
+  it("says when this opportunity's quotes or the history couldn't load", () => {
+    Object.assign(opportunityQuotes, { error: new Error("down") });
+    Object.assign(history, { ...query(undefined), error: new Error("down") });
+    show(submitted.quote, submitted);
+    expect(screen.getByText(/^Couldn't load this opportunity's quotes\./)).toBeInTheDocument();
+    expect(screen.getByText(/this timeline may be incomplete/)).toBeInTheDocument();
+  });
+
+  it("says when an approved quote's order form couldn't load", () => {
+    const approved: DraftResponse = {
+      ...submitted,
+      quote: { ...submitted.quote, status: "APPROVED", actions: ["CLOSE"] },
+      version: { ...submitted.version, status: "APPROVED" },
+    };
+    Object.assign(documents, { data: undefined, error: new Error("down") });
+    show({ ...approved.quote, versions: [{ versionNumber: 1, status: "APPROVED", tcv: "6480.00", submittedAt: null, updatedAt: approved.version.updatedAt }] } as unknown as QuoteView, approved);
+    expect(screen.getByText(/^Couldn't load the order form\./)).toBeInTheDocument();
   });
 });

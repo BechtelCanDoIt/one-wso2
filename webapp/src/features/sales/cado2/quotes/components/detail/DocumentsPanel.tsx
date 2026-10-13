@@ -32,6 +32,7 @@ import type { DocumentView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { useDocumentFiles, useDocuments, useIssueOrderForm } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { describeError } from "@api/errors";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 
 /** Saves a Blob under a file name (a click on a temporary link). */
 function saveBlob(blob: Blob, name: string): void {
@@ -67,7 +68,16 @@ export default function DocumentsPanel({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (!approved || !docs.data) return null;
+  if (!approved) return null;
+  // A failed load says so, rather than the card vanishing (2026-10-13).
+  if (docs.error) {
+    return (
+      <ErrorNotice error={docs.error} onRetry={() => void docs.refetch()} retrying={docs.isFetching}>
+        Couldn&apos;t load the order form.
+      </ErrorNotice>
+    );
+  }
+  if (!docs.data) return null;
   const d = docs.data;
   const active = d.documents.find((x) => x.status === "ACTIVE") ?? d.documents[0];
 

@@ -288,6 +288,8 @@ export default function QuoteDetailPage(): JSX.Element {
                 <StatusPanel
                   latest={latest.data}
                   events={events.data ?? []}
+                  eventsError={events.error}
+                  onRetryEvents={() => void events.refetch()}
                   documents={<DocumentsPanel quoteId={q.id} version={v.versionNumber} approved={v.status === "APPROVED"} />}
                 />
                 <OpportunityQuotesPanel quoteId={q.id} opportunityId={q.sfOpportunityId} />

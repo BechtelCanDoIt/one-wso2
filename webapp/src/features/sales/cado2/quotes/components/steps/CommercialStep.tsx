@@ -164,6 +164,8 @@ export default function CommercialStep(): JSX.Element {
           label="Billing contact"
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
+          loadError={contacts.error}
+          onRetry={() => void contacts.refetch()}
           helperText="Receives invoices"
         />
       </Section>
@@ -188,6 +190,8 @@ export default function CommercialStep(): JSX.Element {
           label="Security contact (optional)"
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
+          loadError={contacts.error}
+          onRetry={() => void contacts.refetch()}
           helperText="Receives WSO2 security bulletins"
         />
       </Section>

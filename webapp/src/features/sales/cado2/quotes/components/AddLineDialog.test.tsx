@@ -231,3 +231,21 @@ describe("AddLineDialog", () => {
     expect(screen.getByRole("textbox", { name: "Unit of measure" })).not.toHaveAccessibleDescription();
   });
 });
+
+// A click outside the dialog doesn't throw the typed line away (2026-10-13).
+describe("AddLineDialog — closing", () => {
+  it("stays open on a click outside it; Cancel closes it", async () => {
+    const onClose = vi.fn();
+    render(
+      <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
+        <AddLineDialog open line={null} currency="USD" pricebook={quoteBook} onSave={vi.fn()} onClose={onClose} />
+      </DatePickers.LocalizationProvider>,
+    );
+    const user = userEvent.setup();
+    const backdrop = document.querySelector(".MuiBackdrop-root") as HTMLElement;
+    await user.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+});

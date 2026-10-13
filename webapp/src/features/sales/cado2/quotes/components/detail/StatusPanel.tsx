@@ -15,6 +15,7 @@
 // under the License.
 
 import type { JSX, ReactNode } from "react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { Box, Chip, Divider, Paper, Stack, Typography } from "@wso2/oxygen-ui";
 import { HourglassIcon } from "@wso2/oxygen-ui-icons-react";
 import type { AuditEvent, DraftResponse } from "@features/sales/cado2/quotes/api/quoteTypes";
@@ -34,10 +35,15 @@ const TONE_COLOR = { ok: "success", soon: "warning", expired: "error" } as const
 export default function StatusPanel({
   latest,
   events,
+  eventsError,
+  onRetryEvents,
   documents,
 }: {
   latest: DraftResponse;
   events: readonly AuditEvent[];
+  /** The history couldn't be loaded: the timeline says it may be incomplete (2026-10-13). */
+  eventsError?: unknown;
+  onRetryEvents?: () => void;
   /** The order form, once approved. */
   documents?: ReactNode;
 }): JSX.Element {
@@ -57,6 +63,11 @@ export default function StatusPanel({
             <HourglassIcon size={16} />
             <Chip size="small" color={TONE_COLOR[expiry.tone]} label={expiry.label} />
           </Stack>
+        ) : null}
+        {eventsError ? (
+          <ErrorNotice error={eventsError} onRetry={onRetryEvents} sx={{ mb: 2 }}>
+            Couldn&apos;t load the quote&apos;s history, so this timeline may be incomplete.
+          </ErrorNotice>
         ) : null}
         <Stack component="ol" aria-label="Lifecycle" spacing={0} sx={{ listStyle: "none", m: 0, p: 0 }}>
           {steps.map((s, i) => (

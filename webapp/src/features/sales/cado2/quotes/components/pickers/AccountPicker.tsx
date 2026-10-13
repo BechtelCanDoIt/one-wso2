@@ -107,7 +107,13 @@ export default function AccountPicker({ chosenName, chosenPlace, locked, onChoos
         loading={accounts.isFetching}
         onInputChange={(_, v) => setTerm(v)}
         onChange={(_, a) => a && onChoose(a)}
-        noOptionsText={term.trim().length < MIN_ACCOUNT_SEARCH ? "Type at least 3 letters" : "No matching accounts"}
+        noOptionsText={
+          term.trim().length < MIN_ACCOUNT_SEARCH
+            ? "Type at least 3 letters"
+            : accounts.error
+              ? "Couldn't search Salesforce. Try again." // not "No matching accounts" (2026-10-13)
+              : "No matching accounts"
+        }
         renderOption={({ key, ...props }, a) => (
           <li key={key} {...props}>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.5 }}>

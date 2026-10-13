@@ -250,15 +250,17 @@ function GroupsEditor({ matrix, onChange }: { matrix: ApprovalMatrix; onChange: 
               <Typography variant="caption" color="text.secondary">
                 {mapped(g.code)} mapping{mapped(g.code) === 1 ? "" : "s"}
               </Typography>
-              <IconButton
-                aria-label={`Remove ${g.name || "group"}`}
-                size="small"
-                disabled={mapped(g.code) > 0}
-                title={mapped(g.code) > 0 ? "Move its product mappings first" : "Remove the group"}
-                onClick={() => onChange(matrix.groups.filter((_, j) => j !== i))}
-              >
-                <Trash2Icon size={16} />
-              </IconButton>
+              {/* The hint sits on a wrapper: a disabled button shows no hint of its own (2026-10-13). */}
+              <Box component="span" title={mapped(g.code) > 0 ? "Move its product mappings first" : "Remove the group"}>
+                <IconButton
+                  aria-label={`Remove ${g.name || "group"}`}
+                  size="small"
+                  disabled={mapped(g.code) > 0}
+                  onClick={() => onChange(matrix.groups.filter((_, j) => j !== i))}
+                >
+                  <Trash2Icon size={16} />
+                </IconButton>
+              </Box>
             </Stack>
           }
         >

@@ -18,6 +18,7 @@ import type { JSX } from "react";
 import { Link as RouterLink } from "react-router";
 import { Box, Chip, Link, Paper, Stack, Typography } from "@wso2/oxygen-ui";
 import { StarIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useOpportunityQuotes } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import {
   STATUS_COLOR,
@@ -37,6 +38,14 @@ export default function OpportunityQuotesPanel({
   opportunityId: string;
 }): JSX.Element | null {
   const quotes = useOpportunityQuotes(opportunityId);
+  // A failed load says so, rather than the card vanishing (2026-10-13).
+  if (quotes.error) {
+    return (
+      <ErrorNotice error={quotes.error} onRetry={() => void quotes.refetch()} retrying={quotes.isFetching}>
+        Couldn&apos;t load this opportunity&apos;s quotes.
+      </ErrorNotice>
+    );
+  }
   if (!quotes.data) return null;
   const hasPrimary = quotes.data.some((q) => q.isPrimary);
 
