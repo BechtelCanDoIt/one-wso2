@@ -81,7 +81,7 @@ describe("LegalEntitiesPage", () => {
     expect(items).toHaveLength(2);
 
     // The first entity is selected and shown in full.
-    const llc = within(screen.getByRole("article", { name: "WSO2, LLC." }));
+    const llc = within(screen.getByRole("region", { name: "WSO2, LLC." }));
     expect(llc.getByRole("heading", { name: "WSO2, LLC." })).toBeInTheDocument();
     expect(llc.getByText("WSO2_LLC")).toBeInTheDocument();
     expect(llc.getByText("787 Castro Street")).toBeInTheDocument();
@@ -90,7 +90,7 @@ describe("LegalEntitiesPage", () => {
     expect(llc.getByText(/Last changed .* by admin@wso2.com/)).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "WSO2 UK Ltd" }));
-    const uk = within(screen.getByRole("article", { name: "WSO2 UK Ltd" }));
+    const uk = within(screen.getByRole("region", { name: "WSO2 UK Ltd" }));
     expect(uk.getByText("Inactive")).toBeInTheDocument();
     expect(uk.getByText("GB999")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "WSO2 UK Ltd" })).toHaveAttribute("aria-current", "true");
@@ -111,6 +111,15 @@ describe("LegalEntitiesPage", () => {
     expect(within(items()[0]).getByText("WSO2, LLC.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Inactive" }));
     expect(within(items()[0]).getByText("WSO2 UK Ltd")).toBeInTheDocument();
+  });
+
+  it("says so when nothing matches the search", async () => {
+    Object.assign(list, { isPending: false, data: [row] });
+    render(<LegalEntitiesPage />);
+    await userEvent.setup().type(screen.getByRole("textbox", { name: "Search legal entities" }), "nowhere");
+
+    expect(screen.getByText("No legal entities match")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Legal entities" })).toBeNull();
   });
 
   it("edits the selected entity", async () => {

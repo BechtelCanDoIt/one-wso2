@@ -44,6 +44,7 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import LegalEntityDrawer from "@features/sales/cado2/admin/legal-entities/components/LegalEntityDrawer";
 import {
@@ -268,9 +269,9 @@ function MasterDetail({
 }): JSX.Element {
   if (entities.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-        No legal entities match.
-      </Typography>
+      <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+        <EmptyState compact icon={<SearchIcon size={20} />} title="No legal entities match" body="Try another name, code or country, or show All." />
+      </Paper>
     );
   }
   const selected = entities.find((e) => e.id === selectedId) ?? entities[0];
@@ -383,46 +384,13 @@ function EntityDetail({
     ["Phone", e.phone],
   ];
   const changed = new Date(e.updatedAt);
+  // The shared card (2026-10-13; was its own record header with a big avatar
+  // and a coloured top bar): the name as title, the switch and Edit beside it.
   return (
-    <Paper
-      component="article"
-      variant="outlined"
-      aria-label={e.name}
-      sx={{
-        p: { xs: 2.5, sm: 3 },
-        borderRadius: 2,
-        borderTop: 4,
-        borderTopColor: e.isActive ? "primary.main" : "divider",
-      }}
-    >
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between">
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0 }}>
-          <Avatar
-            sx={{
-              width: 56,
-              height: 56,
-              fontSize: 20,
-              fontWeight: 700,
-              bgcolor: e.isActive ? "primary.main" : "action.disabledBackground",
-              color: e.isActive ? "primary.contrastText" : "text.secondary",
-            }}
-          >
-            {initialsOfName(e.name)}
-          </Avatar>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h5" component="h2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-              {e.name}
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 0.75 }}>
-              <Chip size="small" variant="outlined" label={e.code} sx={{ fontFamily: "monospace" }} />
-              <Chip
-                size="small"
-                color={e.isActive ? "success" : "default"}
-                label={e.isActive ? "Active" : "Inactive"}
-              />
-            </Stack>
-          </Box>
-        </Stack>
+    <SectionCard
+      title={e.name}
+      icon={<LandmarkIcon size={18} />}
+      aside={
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           <Switch
             checked={e.isActive}
@@ -440,6 +408,11 @@ function EntityDetail({
             Edit
           </Button>
         </Stack>
+      }
+    >
+      <Stack direction="row" spacing={1}>
+        <Chip size="small" variant="outlined" label={e.code} sx={{ fontFamily: "monospace" }} />
+        <Chip size="small" color={e.isActive ? "success" : "default"} label={e.isActive ? "Active" : "Inactive"} />
       </Stack>
 
       <Divider sx={{ my: 2.5 }} />
@@ -487,6 +460,6 @@ function EntityDetail({
           : changed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{" "}
         by {e.updatedByEmail}
       </Typography>
-    </Paper>
+    </SectionCard>
   );
 }
