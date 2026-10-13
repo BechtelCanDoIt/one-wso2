@@ -26,17 +26,18 @@ const day = (iso: string) => formatDate(iso.slice(0, 10));
 
 const TONE_COLOR = { ok: "success", soon: "warning", expired: "error" } as const;
 
-/** The quote page's side panel: lifecycle, expiry, approvals and details. */
+/**
+ * The quote page's side panel: lifecycle, expiry and details. The approvals
+ * are on the Approvals tab only (2026-10-13); the page pins the whole side
+ * column, this included.
+ */
 export default function StatusPanel({
   latest,
   events,
-  approvals,
   documents,
 }: {
   latest: DraftResponse;
   events: readonly AuditEvent[];
-  /** Where the approval stands (the Approvals tab has the detail). */
-  approvals?: ReactNode;
   /** The order form, once approved. */
   documents?: ReactNode;
 }): JSX.Element {
@@ -45,7 +46,7 @@ export default function StatusPanel({
   const expiry =
     (v.status === "SUBMITTED" || v.status === "APPROVED") && v.expiryDate ? expiryState(v.expiryDate, new Date()) : null;
   return (
-    <Stack spacing={2} component="aside" aria-label="Status" sx={{ position: { lg: "sticky" }, top: { lg: 16 } }}>
+    <Stack spacing={2} component="aside" aria-label="Status">
       {documents}
       <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
@@ -108,7 +109,6 @@ export default function StatusPanel({
           </Typography>
         </Stack>
       </Paper>
-      {approvals}
     </Stack>
   );
 }

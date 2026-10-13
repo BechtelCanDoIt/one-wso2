@@ -38,7 +38,7 @@ import { STATUS_COLOR, quoteLabel, quoteStatusLabel } from "@features/sales/cado
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import VersionsTab from "@features/sales/cado2/quotes/components/detail/VersionsTab";
 import HistoryTab from "@features/sales/cado2/quotes/components/detail/HistoryTab";
-import QuoteApprovals, { ApprovalSummary } from "@features/sales/cado2/approvals/components/QuoteApprovals";
+import QuoteApprovals from "@features/sales/cado2/approvals/components/QuoteApprovals";
 import {
   useApprovalWorkflow,
   useDecideStep,
@@ -274,11 +274,20 @@ export default function QuoteDetailPage(): JSX.Element {
               <Box component="section" aria-label="The deal" sx={{ minWidth: 0 }}>
                 <QuoteSheet sheet={sheet} withCustomer={false} />
               </Box>
-              <Stack spacing={3}>
+              {/* The side column is pinned as one, so no part of it slides under
+                  another; taller than the screen, it scrolls on its own (2026-10-13). */}
+              <Stack
+                spacing={3}
+                sx={{
+                  position: { lg: "sticky" },
+                  top: { lg: 16 },
+                  maxHeight: { lg: "calc(100vh - 32px)" },
+                  overflowY: { lg: "auto" },
+                }}
+              >
                 <StatusPanel
                   latest={latest.data}
                   events={events.data ?? []}
-                  approvals={<ApprovalSummary {...approvalProps} onOpen={() => openTab(APPROVALS_TAB)} />}
                   documents={<DocumentsPanel quoteId={q.id} version={v.versionNumber} approved={v.status === "APPROVED"} />}
                 />
                 <OpportunityQuotesPanel quoteId={q.id} opportunityId={q.sfOpportunityId} />

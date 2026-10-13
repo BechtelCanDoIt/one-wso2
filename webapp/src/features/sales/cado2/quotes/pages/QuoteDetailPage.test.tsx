@@ -297,7 +297,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show({ ...submitted.quote, actions: [] }, submitted);
 
-    expect(screen.getByRole("region", { name: "Approval summary" })).toHaveTextContent("Waiting on Deal Desk · 0 of 2 approved");
+    // Approvals live on their tab only, not in the side panel (2026-10-13).
+    expect(screen.queryByRole("region", { name: "Approval summary" })).toBeNull();
 
     await user.click(await screen.findByRole("tab", { name: "Approvals" }));
     const chain = screen.getByRole("list", { name: "Approval chain" });

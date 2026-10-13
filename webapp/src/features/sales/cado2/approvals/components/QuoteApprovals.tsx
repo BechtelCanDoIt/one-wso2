@@ -15,7 +15,7 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Chip, CircularProgress, Paper, Stack, Typography } from "@wso2/oxygen-ui";
 import { ShieldCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { ApprovalPreview, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
@@ -72,51 +72,6 @@ export default function QuoteApprovals({ isDraft, workflow, preview }: QuoteAppr
         approvals then run in parallel. Click a role to see why it is needed.
       </Typography>
       <LazyApprovalDiagram steps={wf.steps} />
-    </Paper>
-  );
-}
-
-/** The status panel's short version: where the approval stands. */
-export function ApprovalSummary({
-  isDraft,
-  workflow,
-  preview,
-  onOpen,
-}: QuoteApprovalsProps & { onOpen: () => void }): JSX.Element | null {
-  const wf = workflow.data;
-  let line: string | null = null;
-  let chip: { label: string; color: "default" | "primary" | "success" | "warning" | "error" | "info" } | null = null;
-  if (isDraft) {
-    const steps = preview.data?.steps ?? [];
-    if (preview.data?.blockers.length) line = "Can't be submitted until the approval blockers are fixed.";
-    else if (steps.length) line = `Needs ${steps.length} approval${steps.length === 1 ? "" : "s"}: ${steps.map((s) => s.roleLabel).join(", ")}.`;
-  } else if (wf) {
-    chip = WORKFLOW_STATUS[wf.status];
-    const waiting = wf.steps.filter((s) => s.status === "PENDING");
-    const done = wf.steps.filter((s) => s.status === "APPROVED").length;
-    line =
-      wf.status === "IN_PROGRESS"
-        ? `Waiting on ${waiting.map((s) => s.roleLabel).join(" and ")} · ${done} of ${wf.steps.length} approved`
-        : `${done} of ${wf.steps.length} approved`;
-  }
-  if (!line && !chip) return null;
-  return (
-    <Paper component="section" variant="outlined" sx={{ p: 2.5, borderRadius: 2 }} aria-label="Approval summary">
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <ShieldCheckIcon size={16} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
-          Approvals
-        </Typography>
-        {chip ? <Chip size="small" color={chip.color} label={chip.label} /> : null}
-      </Stack>
-      {line ? (
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          {line}
-        </Typography>
-      ) : null}
-      <Button size="small" onClick={onOpen}>
-        See who approves and why
-      </Button>
     </Paper>
   );
 }
