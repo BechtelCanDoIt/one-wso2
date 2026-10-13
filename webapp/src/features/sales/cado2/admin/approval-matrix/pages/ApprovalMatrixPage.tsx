@@ -191,7 +191,8 @@ export default function ApprovalMatrixPage(): JSX.Element {
           <Button onClick={() => setImpact(null)} disabled={save.isPending}>
             Cancel
           </Button>
-          <Button variant="contained" onClick={confirm} disabled={save.isPending}>
+          {/* Red when it recalls other people's quotes (2026-10-13). */}
+          <Button variant="contained" color={impact?.length ? "error" : "primary"} onClick={confirm} disabled={save.isPending}>
             {save.isPending ? "Saving…" : impact?.length ? "Save and recall" : "Save"}
           </Button>
         </DialogActions>

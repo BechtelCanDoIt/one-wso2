@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpError } from "@api/http";
 import CurrenciesPage from "./CurrenciesPage";
@@ -56,9 +56,18 @@ describe("CurrenciesPage", () => {
     expect(table.getByText("Couldn't check")).toBeInTheDocument();
     expect(table.getByRole("switch", { name: "Offer BRL to reps" })).not.toBeChecked();
 
+    // Switching off asks first (2026-10-13); switching on is instant.
     await user.click(table.getByRole("switch", { name: "Offer USD to reps" }));
+    expect(toggle.mutate).not.toHaveBeenCalled();
+    const dialog = within(screen.getByRole("dialog", { name: "Stop offering USD?" }));
+    expect(dialog.getByText(/Drafts already in it can still be saved and submitted/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Stop offering" }));
     expect(toggle.mutate).toHaveBeenCalledWith({ isoCode: "USD", isActive: false }, expect.anything());
-    expect(screen.getByText(/Drafts already in it can still be saved and submitted/)).toBeInTheDocument();
+    act(() => toggle.mutate.mock.calls[0][1].onSuccess());
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+
+    await user.click(screen.getByRole("switch", { name: "Offer BRL to reps" }));
+    expect(toggle.mutate).toHaveBeenLastCalledWith({ isoCode: "BRL", isActive: true }, expect.anything());
   });
 
   it("adds a currency by its code, and shows why one is refused", async () => {

@@ -42,6 +42,7 @@ import {
 } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import LegalEntityDrawer from "@features/sales/cado2/admin/legal-entities/components/LegalEntityDrawer";
@@ -70,6 +71,8 @@ export default function LegalEntitiesPage(): JSX.Element {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Switching an entity off asks first; on is instant (2026-10-13).
+  const [deactivating, setDeactivating] = useState<LegalEntity | null>(null);
 
   const openDrawer = (entity: LegalEntity | null) => {
     create.reset();
@@ -167,19 +170,21 @@ export default function LegalEntitiesPage(): JSX.Element {
             selectedId={selectedId}
             onSelect={setSelectedId}
             busy={update.isPending}
-            onToggle={(e, on) =>
-              update.mutate(
-                { id: e.id, changes: { isActive: on } },
-                { onSuccess: () => notify(`${e.name} ${on ? "activated" : "deactivated"}`) },
-              )
-            }
+            onToggle={(e, on) => {
+              if (!on) {
+                update.reset();
+                setDeactivating(e);
+                return;
+              }
+              update.mutate({ id: e.id, changes: { isActive: true } }, { onSuccess: () => notify(`${e.name} activated`) });
+            }}
             onEdit={(e) => openDrawer(e)}
           />
         </>
       )}
 
       {/* A failed toggle has no drawer to show its error in. */}
-      {!drawer.open && update.error ? (
+      {!drawer.open && !deactivating && update.error ? (
         <ErrorNotice error={update.error} sx={{ mt: 2 }}>
           Couldn&apos;t change the entity.
         </ErrorNotice>
@@ -193,6 +198,31 @@ export default function LegalEntitiesPage(): JSX.Element {
         saving={saving}
         saveError={saveError}
       />
+
+      {deactivating ? (
+        <LifecycleDialog
+          title={`Deactivate ${deactivating.name}?`}
+          confirmLabel="Deactivate"
+          danger
+          pending={update.isPending}
+          error={update.error}
+          onClose={() => setDeactivating(null)}
+          onConfirm={() =>
+            update.mutate(
+              { id: deactivating.id, changes: { isActive: false } },
+              {
+                onSuccess: () => {
+                  notify(`${deactivating.name} deactivated`);
+                  setDeactivating(null);
+                },
+              },
+            )
+          }
+        >
+          It won&apos;t be offered on new quotes. A draft that uses it must choose another legal entity before it can be
+          submitted. Submitted quotes don&apos;t change. You can switch it on again.
+        </LifecycleDialog>
+      ) : null}
     </Stack>
   );
 }

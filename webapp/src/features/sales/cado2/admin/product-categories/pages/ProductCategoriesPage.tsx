@@ -36,6 +36,7 @@ import {
 import { SearchIcon, TagsIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
@@ -145,8 +146,16 @@ export default function ProductCategoriesPage(): JSX.Element {
   const [only, setOnly] = useState<LineCategory | "ALL">("ALL");
 
   const savingId = set.isPending ? set.variables?.productId : undefined;
-  const change = (productId: string, category: LineCategory | null) =>
-    set.mutate({ productId, category }, { onSuccess: () => notify(category ? "Category saved" : "Category removed") });
+  // Removing a mapping asks first; choosing or changing one is instant (2026-10-13).
+  const [unmapping, setUnmapping] = useState<{ productId: string; name: string } | null>(null);
+  const change = (productId: string, name: string, category: LineCategory | null) => {
+    if (category === null) {
+      set.reset();
+      setUnmapping({ productId, name });
+      return;
+    }
+    set.mutate({ productId, category }, { onSuccess: () => notify("Category saved") });
+  };
 
   const shown = useMemo(() => filterMapped(mapped.data ?? [], filter, only), [mapped.data, filter, only]);
   const searching = term.trim().length >= MIN_PRODUCT_SEARCH;
@@ -155,7 +164,7 @@ export default function ProductCategoriesPage(): JSX.Element {
     <Stack spacing={3} sx={{ maxWidth: 1100 }}>
       <PageHeader title="Product Categories" />
 
-      {set.error ? (
+      {set.error && !unmapping ? (
         <ErrorNotice error={set.error} onRetry={() => set.variables && set.mutate(set.variables)} retrying={set.isPending}>
           Couldn&apos;t change the category.
         </ErrorNotice>
@@ -217,7 +226,7 @@ export default function ProductCategoriesPage(): JSX.Element {
                             value={p.category}
                             saving={savingId === p.productId}
                             disabled={set.isPending}
-                            onChange={(c) => change(p.productId, c)}
+                            onChange={(c) => change(p.productId, name, c)}
                           />
                         </TableCell>
                       </TableRow>
@@ -300,7 +309,7 @@ export default function ProductCategoriesPage(): JSX.Element {
                               value={m.category}
                               saving={savingId === m.productId}
                               disabled={set.isPending}
-                              onChange={(c) => change(m.productId, c)}
+                              onChange={(c) => change(m.productId, name, c)}
                             />
                           </TableCell>
                           <TableCell>
@@ -319,6 +328,31 @@ export default function ProductCategoriesPage(): JSX.Element {
           </Stack>
         )}
       </SectionCard>
+
+      {unmapping ? (
+        <LifecycleDialog
+          title={`Remove the category of ${unmapping.name}?`}
+          confirmLabel="Remove category"
+          danger
+          pending={set.isPending}
+          error={set.error}
+          onClose={() => setUnmapping(null)}
+          onConfirm={() =>
+            set.mutate(
+              { productId: unmapping.productId, category: null },
+              {
+                onSuccess: () => {
+                  notify("Category removed");
+                  setUnmapping(null);
+                },
+              },
+            )
+          }
+        >
+          AMs will choose its category themselves when they add it, and Deal Desk sees that choice. A draft takes this at its
+          next save; submitted quotes keep their categories.
+        </LifecycleDialog>
+      ) : null}
     </Stack>
   );
 }

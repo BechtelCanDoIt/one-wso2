@@ -34,6 +34,7 @@ import {
 import { CoinsIcon, PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
@@ -51,6 +52,8 @@ export default function CurrenciesPage(): JSX.Element {
   const toggle = useSetCurrencyActive();
   const notify = useCado2Toast();
   const [code, setCode] = useState("");
+  // Switching a currency off asks first; on is instant (2026-10-13).
+  const [stopping, setStopping] = useState<string | null>(null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -100,7 +103,7 @@ export default function CurrenciesPage(): JSX.Element {
         title={list.data ? `Quote currencies (${list.data.filter((c) => c.isActive).length} active)` : "Quote currencies"}
         icon={<CoinsIcon size={16} />}
       >
-        {toggle.error ? (
+        {toggle.error && !stopping ? (
           <ErrorNotice error={toggle.error} sx={{ mb: 1.5 }}>
             Couldn&apos;t change the currency.
           </ErrorNotice>
@@ -168,9 +171,14 @@ export default function CurrenciesPage(): JSX.Element {
                           disabled={switching !== undefined}
                           onChange={(_, on) => {
                             add.reset();
+                            if (!on) {
+                              toggle.reset();
+                              setStopping(c.isoCode);
+                              return;
+                            }
                             toggle.mutate(
-                              { isoCode: c.isoCode, isActive: on },
-                              { onSuccess: () => notify(`${c.isoCode} ${on ? "offered" : "no longer offered"}`) },
+                              { isoCode: c.isoCode, isActive: true },
+                              { onSuccess: () => notify(`${c.isoCode} offered`) },
                             );
                           }}
                           slotProps={{ input: { role: "switch", "aria-label": `Offer ${c.isoCode} to reps` } }}
@@ -188,6 +196,31 @@ export default function CurrenciesPage(): JSX.Element {
           </Stack>
         )}
       </SectionCard>
+
+      {stopping ? (
+        <LifecycleDialog
+          title={`Stop offering ${stopping}?`}
+          confirmLabel="Stop offering"
+          danger
+          pending={toggle.isPending}
+          error={toggle.error}
+          onClose={() => setStopping(null)}
+          onConfirm={() =>
+            toggle.mutate(
+              { isoCode: stopping, isActive: false },
+              {
+                onSuccess: () => {
+                  notify(`${stopping} no longer offered`);
+                  setStopping(null);
+                },
+              },
+            )
+          }
+        >
+          New quotes can&apos;t be in {stopping}. Drafts already in it can still be saved and submitted; submitted quotes
+          don&apos;t change. You can switch it on again.
+        </LifecycleDialog>
+      ) : null}
     </Stack>
   );
 }

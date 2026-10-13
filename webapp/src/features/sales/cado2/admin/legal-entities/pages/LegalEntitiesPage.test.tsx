@@ -125,11 +125,16 @@ describe("LegalEntitiesPage", () => {
     }
   });
 
-  it("disables an entity from its switch instead of deleting it", async () => {
+  it("disables an entity from its switch instead of deleting it, after asking", async () => {
     Object.assign(list, { isPending: false, data: [row] });
     render(<LegalEntitiesPage />);
+    const user = userEvent.setup();
 
-    await userEvent.setup().click(screen.getByRole("switch", { name: "WSO2, LLC. active" }));
+    await user.click(screen.getByRole("switch", { name: "WSO2, LLC. active" }));
+    expect(update.mutate).not.toHaveBeenCalled();
+    const dialog = within(screen.getByRole("dialog", { name: "Deactivate WSO2, LLC.?" }));
+    expect(dialog.getByText(/must choose another legal entity before it can be submitted/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Deactivate" }));
 
     expect(update.mutate).toHaveBeenCalledWith({ id: 7, changes: { isActive: false } }, expect.anything());
   });

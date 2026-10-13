@@ -22,7 +22,7 @@ import ProductCategoriesPage from "./ProductCategoriesPage";
 const query = () => ({ data: undefined as unknown, error: null as unknown, isPending: true, isFetching: false, refetch: vi.fn() });
 const mapped = query();
 const search = query();
-const set = { mutate: vi.fn(), isPending: false, error: null as unknown, variables: undefined as unknown };
+const set = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null as unknown, variables: undefined as unknown };
 const searchedFor: string[] = [];
 
 // Mocked so the page is tested without Asgardeo, the network or window.config.
@@ -81,6 +81,10 @@ describe("ProductCategoriesPage", () => {
 
     await user.click(table.getByRole("combobox", { name: "Category of WSO2 Enterprise Support Plan - APIM" }));
     await user.click(screen.getByRole("option", { name: "Not mapped" }));
+    // Removing a mapping asks first (2026-10-13).
+    expect(set.mutate).toHaveBeenCalledTimes(1);
+    const dialog = within(screen.getByRole("dialog", { name: "Remove the category of WSO2 Enterprise Support Plan - APIM?" }));
+    await user.click(dialog.getByRole("button", { name: "Remove category" }));
     expect(set.mutate).toHaveBeenLastCalledWith({ productId: support.productId, category: null }, expect.anything());
   });
 
