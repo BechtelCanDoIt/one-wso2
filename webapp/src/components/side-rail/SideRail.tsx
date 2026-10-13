@@ -285,10 +285,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
           )}
         </Sidebar.Category>
 
-        {/* Sidebar.Nav inserts a divider between its own top-level children
-            (unless collapsed), which is exactly the separation a row marked
-            `pinnedToBottom` wants from the groups above it — so this stays a
-            second Category rather than joining the list inside the first. */}
+        {/* A second top-level child of Sidebar.Nav, not a row joining the
+            list inside the first Category — that's what lets `mt: "auto"`
+            push it down the flex column to the foot of the scroll area,
+            opening the gap a row marked `pinnedToBottom` wants from the
+            groups above it. showDividers is off, so no rule is drawn between
+            the two; the gap alone is the separation. */}
         {bottomSections.length > 0 && (
           <Sidebar.Category sx={{ mt: "auto" }}>
             {bottomSections.map((s) => (
