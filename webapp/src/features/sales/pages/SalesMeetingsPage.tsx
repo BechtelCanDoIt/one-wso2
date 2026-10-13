@@ -57,7 +57,7 @@ export default function SalesMeetingsPage() {
   const regionsQuery = useSalesRegions();
 
   // Both scopes list past meetings only; the "already ended" cutoff is computed per fetch
-  // inside useMeetings, so a tab left open keeps picking up meetings as they end.
+  // inside useMeetings, so any refetch picks up meetings that have ended since.
   const meetingsQuery = useMeetings({
     search,
     region,

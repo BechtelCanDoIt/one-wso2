@@ -125,8 +125,8 @@ export function useMeetings(params: MeetingsQueryParams) {
     // Every scope lists only meetings that have already ended. The cutoff is "now", and
     // it is produced inside the fetch rather than passed in: a caller computing it once
     // would freeze the list at the moment the scope was chosen, and as part of the key it
-    // would make every render a new key. Freshness comes from staleTime instead -- each
-    // refetch recomputes the cutoff below.
+    // would make every render a new key. Each fetch recomputes the cutoff below. There is
+    // no polling: an open page refreshes on a filter, page or search change, or on remount.
     queryKey: ["sales-meetings", userSub, search, region, echoOnly, page, pageSize],
     enabled: ready,
     queryFn: async () =>
