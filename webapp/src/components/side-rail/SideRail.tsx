@@ -102,6 +102,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
   // dependency lists below on every render, defeating both useMemos.
   const sections = useMemo(() => active.sections ?? [], [active.sections]);
 
+  // Split out for rendering only — pathById, activeGroupIds and friends below
+  // all still read the combined `sections`, so a pinned row stays a normal
+  // member of the perspective for routing and highlighting purposes.
+  const mainSections = useMemo(() => sections.filter((s) => !s.pinnedToBottom), [sections]);
+  const bottomSections = useMemo(() => sections.filter((s) => s.pinnedToBottom), [sections]);
+
   // Manual open/close choices for groups the user has explicitly clicked.
   // These win: navigating into a group opens it, and closing it again is
   // allowed even while you are inside it.
@@ -230,7 +236,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
       onSelect={onSelect}
       onToggleExpand={onToggleExpand}
     >
-      <Sidebar.Nav>
+      {/* flex column: lets the pinned-to-bottom category below push itself to
+          the foot of this scroll area with `mt: auto`, rather than flowing
+          directly under the main one. showDividers off: Nav would otherwise
+          draw its own rule between the two categories, on top of the gap
+          `mt: auto` already opens up. */}
+      <Sidebar.Nav showDividers={false} sx={{ display: "flex", flexDirection: "column" }}>
         <Sidebar.Category>
           <Sidebar.CategoryLabel>{active.label}</Sidebar.CategoryLabel>
 
@@ -255,7 +266,7 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
             </RouteItem>
           )}
 
-          {sections.map((s) => (
+          {mainSections.map((s) => (
             <SectionNode
               key={s.id}
               section={s}
@@ -274,6 +285,23 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
           )}
         </Sidebar.Category>
 
+        {/* Sidebar.Nav inserts a divider between its own top-level children
+            (unless collapsed), which is exactly the separation a row marked
+            `pinnedToBottom` wants from the groups above it — so this stays a
+            second Category rather than joining the list inside the first. */}
+        {bottomSections.length > 0 && (
+          <Sidebar.Category sx={{ mt: "auto" }}>
+            {bottomSections.map((s) => (
+              <SectionNode
+                key={s.id}
+                section={s}
+                resolveVisible={resolveVisible}
+                containsActiveRoute={activeGroupIds.has(s.id)}
+                fromPerspective={active.key}
+              />
+            ))}
+          </Sidebar.Category>
+        )}
       </Sidebar.Nav>
 
       <Sidebar.Footer showDivider>
@@ -488,7 +516,15 @@ function LeafItem({
           outbound item is indistinguishable from a route until it has already
           opened a tab. */}
       {href ? (
-        <Sidebar.ItemBadge color="default">
+        <Sidebar.ItemBadge
+          color="default"
+          sx={{
+            mr: -0.75,
+            // The chip's default label padding is sized for text; an
+            // icon-only badge this small just wants to fill the pill.
+            "& .MuiChip-label": { display: "flex", px: "4px" },
+          }}
+        >
           <ExternalLinkIcon size={11} />
         </Sidebar.ItemBadge>
       ) : null}

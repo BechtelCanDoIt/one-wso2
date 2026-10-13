@@ -96,6 +96,12 @@ export interface PerspectiveSection {
   // of ours is active while the user is over there. Mutually exclusive with
   // `path` — a section is either somewhere we host or somewhere we don't.
   externalUrl?: string;
+  // Rendered in its own group at the bottom of the rail's scroll area, with a
+  // divider above it, rather than flowing with the rest of `sections`. For a
+  // row that belongs to the perspective (so it must live in `sections`, not
+  // SideRail's cross-perspective Footer) but reads better set apart from the
+  // app groups above it than mixed into their list.
+  pinnedToBottom?: boolean;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group
@@ -887,7 +893,26 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     access: true,
     path: "/security",
     forwardsToFirstItem: true,
-    sections: [...appsToSections(SECURITY_APPS)],
+    sections: [
+      ...appsToSections(SECURITY_APPS),
+      // Not one of SECURITY_APPS's own items deliberately: the guide covers
+      // Risk Hub AND Audit Hub, so it belongs to neither one's group —
+      // `pinnedToBottom` sets it apart from all of them, in its own group at
+      // the foot of the rail. Also why it carries no `requires` — unlike
+      // every item above, its id is outside SECURITY_ITEM_IDS, so it skips
+      // the security gate entirely and falls through to the open default:
+      // visible to anyone who can reach this perspective, scoped to it simply
+      // by living in this sections array (unlike Settings, a true
+      // cross-perspective global in SideRail's Footer).
+      {
+        id: "security-user-guide",
+        label: "User Guide",
+        icon: BookOpenIcon,
+        externalUrl:
+          "https://docs.google.com/document/d/1DOzS-srDY59eOuE-YfxpnvsBLA-Ln4wGEu0wcfIl94k/edit?usp=sharing",
+        pinnedToBottom: true,
+      },
+    ],
   },
   // "Me" is the Home landing: the person's own profile plus everyday apps —
   // Leave, Menu, and the finance claims.
