@@ -39,13 +39,19 @@ export interface QuoteMenuAction {
  * (2026-10-13): everyday actions first,
  * then, below a line and in red, the destructive ones, so neither sits next
  * to the page's one main button. Hidden when there is nothing to offer.
+ * Also a Quotes list row's "⋯" (2026-10-13): `inRow` gives a small borderless
+ * button that doesn't open the row, and `label` names it for that row.
  */
 export default function QuoteActionsMenu({
   actions,
   destructive,
+  label = "More actions",
+  inRow = false,
 }: {
   actions: readonly QuoteMenuAction[];
   destructive: readonly QuoteMenuAction[];
+  label?: string;
+  inRow?: boolean;
 }): JSX.Element | null {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   if (actions.length + destructive.length === 0) return null;
@@ -72,18 +78,24 @@ export default function QuoteActionsMenu({
   return (
     <>
       <IconButton
-        aria-label="More actions"
+        aria-label={label}
         aria-haspopup="menu"
         aria-expanded={anchorEl !== null}
-        onClick={(e) => setAnchorEl(e.currentTarget)}
-        sx={{ border: 1, borderColor: "divider", borderRadius: 1 }}
+        size={inRow ? "small" : "medium"}
+        onClick={(e) => {
+          e.stopPropagation();
+          setAnchorEl(e.currentTarget);
+        }}
+        sx={inRow ? undefined : { border: 1, borderColor: "divider", borderRadius: 1 }}
       >
-        <EllipsisIcon size={18} />
+        <EllipsisIcon size={inRow ? 16 : 18} />
       </IconButton>
       <Menu
         anchorEl={anchorEl}
         open={anchorEl !== null}
         onClose={() => setAnchorEl(null)}
+        // Clicks inside the menu never reach a clickable row behind it.
+        onClick={(e) => e.stopPropagation()}
         anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
         transformOrigin={{ vertical: "top", horizontal: "right" }}
       >

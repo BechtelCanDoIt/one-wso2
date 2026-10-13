@@ -323,6 +323,8 @@ describe("Quotes page", () => {
         name: "Actions for Q-26-00001",
       }),
     );
+    // The quote page's menu (2026-10-13): the everyday action first, Delete draft last.
+    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Remove primary", "Delete draft"]); // this draft is the primary
     await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     const dialog = screen.getByRole("dialog", {
       name: "Delete this draft quote?",

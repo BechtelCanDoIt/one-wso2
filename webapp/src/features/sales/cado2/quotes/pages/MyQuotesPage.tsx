@@ -26,9 +26,6 @@ import {
   IconButton,
   InputAdornment,
   Link,
-  Divider,
-  Menu,
-  MenuItem,
   Paper,
   Skeleton,
   Stack,
@@ -51,13 +48,13 @@ import {
   ChevronRightIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
-  EllipsisIcon,
   FileTextIcon,
   ListIcon,
   ListTreeIcon,
   PlusIcon,
   SearchIcon,
   StarIcon,
+  Trash2Icon,
 } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
@@ -69,6 +66,7 @@ import {
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import DeleteDraftDialog from "@features/sales/cado2/quotes/components/detail/DeleteDraftDialog";
 import PrimaryDialog from "@features/sales/cado2/quotes/components/detail/PrimaryDialog";
+import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
 import type {
   QuoteListItem,
   QuoteScope,
@@ -132,56 +130,27 @@ const day = (iso: string) => formatDate(iso.slice(0, 10));
 /**
  * A row's actions, behind "⋯" so a destructive one isn't a click away from
  * opening the quote: Make primary / Remove primary (D68) and Delete draft,
- * for whoever may change the quote (D69).
+ * for whoever may change the quote (D69). The quote page's menu component
+ * (same icons, order and red destructive part, 2026-10-13), with a smaller
+ * set on purpose: Recall, Revise and Close quote are done on the quote page.
+ * Rendered only when `q.canEdit`, so "Draft" here is the quote page's
+ * "Draft and CLOSE allowed".
  */
 function RowMenu({ q }: { q: QuoteListItem }): JSX.Element {
-  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [primary, setPrimary] = useState(false);
   return (
     <>
-      <IconButton
-        aria-label={`Actions for ${quoteLabel(q.quoteNumber, q.accountName, q.opportunityName)}`}
-        aria-haspopup="menu"
-        aria-expanded={anchorEl !== null}
-        size="small"
-        onClick={(e) => {
-          e.stopPropagation();
-          setAnchorEl(e.currentTarget);
-        }}
-      >
-        <EllipsisIcon size={16} />
-      </IconButton>
-      <Menu
-        anchorEl={anchorEl}
-        open={anchorEl !== null}
-        onClose={() => setAnchorEl(null)}
-        onClick={(e) => e.stopPropagation()}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-        transformOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <MenuItem
-          onClick={() => {
-            setAnchorEl(null);
-            setPrimary(true);
-          }}
-        >
-          {q.isPrimary ? "Remove primary" : "Make primary"}
-        </MenuItem>
-        {/* The destructive one last, below a line, as on the quote page. */}
-        {q.status === "DRAFT" ? <Divider /> : null}
-        {q.status === "DRAFT" ? (
-          <MenuItem
-            sx={{ color: "error.main" }}
-            onClick={() => {
-              setAnchorEl(null);
-              setDeleting(true);
-            }}
-          >
-            Delete draft
-          </MenuItem>
-        ) : null}
-      </Menu>
+      <QuoteActionsMenu
+        inRow
+        label={`Actions for ${quoteLabel(q.quoteNumber, q.accountName, q.opportunityName)}`}
+        actions={[
+          { label: q.isPrimary ? "Remove primary" : "Make primary", icon: <StarIcon size={16} />, onClick: () => setPrimary(true) },
+        ]}
+        destructive={
+          q.status === "DRAFT" ? [{ label: "Delete draft", icon: <Trash2Icon size={16} />, onClick: () => setDeleting(true) }] : []
+        }
+      />
       {deleting ? (
         <DeleteFromList q={q} onClose={() => setDeleting(false)} />
       ) : null}
