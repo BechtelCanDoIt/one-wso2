@@ -31,11 +31,10 @@ import {
 import type { PaperProps } from "@wso2/oxygen-ui";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { useCustomerSearch, useTilUserInfo } from "../api/useTilData";
+import { useCustomerSearch, useTilUserInfo, useTilWhatMaxLength } from "../api/useTilData";
 import { useCreateTilSubmission, useUpdateTilSubmission } from "../api/useTilMutations";
 import {
   TIL_TITLE_MAX_LENGTH,
-  TIL_WHAT_MAX_LENGTH,
   TIL_WHERE_DETAIL_MAX_LENGTH,
   TIL_WHERE_OPTIONS,
   isSameWhereDetail,
@@ -140,6 +139,7 @@ export default function SubmitEntryDialog({
   entry?: TilSubmission;
 }) {
   const userInfo = useTilUserInfo();
+  const whatMaxLength = useTilWhatMaxLength();
   const [title, setTitle] = useState(entry?.title ?? "");
   const [where, setWhere] = useState<TilWhere | "">(entry?.where ?? "");
   const [whereDetail, setWhereDetail] = useState(entry?.whereDetail ?? "");
@@ -185,7 +185,7 @@ export default function SubmitEntryDialog({
     needsWhereDetail &&
     (whereDetail.trim().length === 0 || whereDetail.trim().length > TIL_WHERE_DETAIL_MAX_LENGTH);
   const whatLength = tilPlainTextLength(what);
-  const whatInvalid = isEmptyTilHtml(what) || whatLength > TIL_WHAT_MAX_LENGTH;
+  const whatInvalid = isEmptyTilHtml(what) || whatLength > whatMaxLength;
   const invalid = whoInvalid || titleInvalid || whereInvalid || whereDetailInvalid || whatInvalid;
   // Saving an untouched entry would still mark it as edited.
   const unchanged =
@@ -475,7 +475,7 @@ export default function SubmitEntryDialog({
             />
           </Box>
           <Typography variant="caption" color={touched && whatInvalid ? "error" : "text.secondary"}>
-            {whatLength}/{TIL_WHAT_MAX_LENGTH}
+            {whatLength}/{whatMaxLength}
           </Typography>
         </Box>
       </DialogContent>

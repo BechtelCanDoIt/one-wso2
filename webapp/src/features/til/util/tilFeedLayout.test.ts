@@ -16,11 +16,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_TIL_FEED_LAYOUT,
-  TIL_FEED_LAYOUTS,
-  TIL_FEED_PAGE_SIZE,
+  DEFAULT_TIL_FEED_PAGE_SIZE,
+  TIL_FEED_PAGE_SIZES,
   pageContaining,
   readTilFeedLayout,
+  readTilFeedPageSize,
   writeTilFeedLayout,
+  writeTilFeedPageSize,
 } from "./tilFeedLayout";
 
 afterEach(() => {
@@ -56,27 +58,47 @@ describe("readTilFeedLayout / writeTilFeedLayout", () => {
   });
 });
 
-describe("TIL_FEED_PAGE_SIZE", () => {
-  it("has a page size for every layout, keeping Cards at today's 10", () => {
-    for (const layout of TIL_FEED_LAYOUTS) expect(TIL_FEED_PAGE_SIZE[layout]).toBeGreaterThan(0);
-    expect(TIL_FEED_PAGE_SIZE.cards).toBe(10);
+describe("readTilFeedPageSize / writeTilFeedPageSize", () => {
+  it("offers 5 or 10, and shows 10 until one is chosen", () => {
+    expect(TIL_FEED_PAGE_SIZES).toEqual([5, 10]);
+    expect(DEFAULT_TIL_FEED_PAGE_SIZE).toBe(10);
+    expect(readTilFeedPageSize()).toBe(10);
   });
 
-  it("fills every row of the large grid at one to four columns", () => {
-    for (const columns of [1, 2, 3, 4]) expect(TIL_FEED_PAGE_SIZE.large % columns).toBe(0);
+  it("remembers the chosen size", () => {
+    writeTilFeedPageSize(5);
+    expect(readTilFeedPageSize()).toBe(5);
+  });
+
+  it("ignores a stored value that isn't one of the sizes", () => {
+    localStorage.setItem("one-wso2.til.feed-page-size", "25");
+    expect(readTilFeedPageSize()).toBe(10);
+    localStorage.setItem("one-wso2.til.feed-page-size", "ten");
+    expect(readTilFeedPageSize()).toBe(10);
+  });
+
+  it("falls back to the default when storage is blocked", () => {
+    vi.spyOn(localStorage, "getItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    vi.spyOn(localStorage, "setItem").mockImplementation(() => {
+      throw new Error("blocked");
+    });
+    expect(() => writeTilFeedPageSize(5)).not.toThrow();
+    expect(readTilFeedPageSize()).toBe(10);
   });
 });
 
 describe("pageContaining", () => {
   it("keeps the first entry on screen when pages grow", () => {
-    // Page 3 of Cards starts at entry 20; Lists of 25 hold it on page 1.
-    expect(pageContaining(20, 25)).toBe(1);
-    expect(pageContaining(30, 25)).toBe(2);
+    // Page 3 of 5 starts at entry 10; pages of 10 hold it on page 2.
+    expect(pageContaining(10, 10)).toBe(2);
+    expect(pageContaining(5, 10)).toBe(1);
   });
 
   it("keeps the first entry on screen when pages shrink", () => {
-    // Page 2 of List starts at entry 25; Cards of 10 hold it on page 3.
-    expect(pageContaining(25, 10)).toBe(3);
+    // Page 2 of 10 starts at entry 10; pages of 5 hold it on page 3.
+    expect(pageContaining(10, 5)).toBe(3);
   });
 
   it("starts at page one", () => {

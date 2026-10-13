@@ -51,8 +51,9 @@ export default function TilArticlePage() {
   const { id } = useParams();
   const configured = isTilBackendConfigured();
   const submission = useTilSubmission(id);
-  // The feed's own cached list, so "More learnings" costs no extra request.
-  const submissions = useTilSubmissions();
+  // The newest few entries for "More learnings": one more than shown, in case
+  // this entry is among them.
+  const submissions = useTilSubmissions({ limit: MORE_COUNT + 1, offset: 0 });
   const entry = submission.data;
   const notFound = isNotFound(submission.error);
 

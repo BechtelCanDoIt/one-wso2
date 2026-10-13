@@ -18,7 +18,7 @@ import DOMPurify from "dompurify";
 
 // Everything to do with the "What did you learn?" rich-text field: the HTML
 // sanitizing every value goes through whether it's being edited or read
-// back, and the plain-text helpers that let the 5000-char limit and the
+// back, and the plain-text helpers that let the length limit and the
 // "is this actually empty" check reason about content, not markup. Mirrors
 // promotion's own promotionRichText.ts (same library, same allowlist); kept
 // as its own copy rather than a shared import because PAR's and Promotion's
@@ -80,7 +80,7 @@ export function isSameTilHtml(a: string, b: string): boolean {
 }
 
 // Converts to plain text for the two things that must count characters, not
-// markup: the 0/5000 counter and the max-length check. Block-level tags
+// markup: the character counter and the max-length check. Block-level tags
 // become a space first so "<p>One</p><p>Two</p>" doesn't read as "OneTwo".
 export function tilPlainText(html: string): string {
   // DOMParser round-trip decodes every HTML entity (&amp;, &lt;, &gt;, …),
@@ -99,8 +99,10 @@ export function tilPlainText(html: string): string {
   return text.replace(/\u00a0/g, " ").trim();
 }
 
+// Counts Unicode code points, the same unit the backend counts: an emoji
+// like 😀 is one, where String.length would say two.
 export function tilPlainTextLength(html: string): number {
-  return tilPlainText(html).length;
+  return [...tilPlainText(html)].length;
 }
 
 /** Minutes to read an entry at 200 words a minute, never less than one. */
@@ -126,7 +128,7 @@ const EXCERPT_LENGTH = 480;
 // new line instead of becoming a space, so a preview keeps the entry's shape.
 // Blank lines (an empty paragraph from pressing Enter twice) are dropped —
 // in a three-line preview they'd use up a line showing nothing. Kept apart
-// from tilPlainText, which must stay space-joined: the 5000-char limit
+// from tilPlainText, which must stay space-joined: the length limit
 // counts its output, and the backend counts the same way.
 function tilPlainTextLines(html: string): string {
   const lined = html.replace(/\s+/g, " ").replace(/<\/(p|li)>|<br\s*\/?>/gi, "\n");

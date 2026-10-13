@@ -32,7 +32,9 @@ export function isTilWhere(value: string): value is TilWhere {
   return (TIL_WHERE_OPTIONS as readonly string[]).includes(value);
 }
 
-export const TIL_WHAT_MAX_LENGTH = 5000;
+// The backend sets the learning's length limit (GET /settings); this is its
+// default, used until that answer arrives or if it can't be fetched.
+export const TIL_WHAT_DEFAULT_MAX_LENGTH = 500;
 export const TIL_TITLE_MAX_LENGTH = 100;
 export const TIL_WHERE_DETAIL_MAX_LENGTH = 200;
 export const TIL_WHO_MAX_LENGTH = 200;
@@ -63,11 +65,34 @@ export interface TilSubmissionWire {
 
 export interface TilSubmissionsPageWire {
   items: TilSubmissionWire[];
-  /** Opaque cursor for the next page, or null when this is the last page. */
-  nextCursor: string | null;
+  /** How many entries match, across all pages. */
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface TilSettingsWire {
+  /** The most characters of plain text a learning may have. */
+  whatMaxLength: number;
 }
 
 // --- domain --------------------------------------------------------------
+
+/** One page of the feed, as GET /submissions is asked for it. Times are ISO
+ * 8601: createdFrom is inclusive, createdBefore exclusive. */
+export interface TilSubmissionsQuery {
+  search?: string;
+  createdFrom?: string;
+  createdBefore?: string;
+  mine?: boolean;
+  limit: number;
+  offset: number;
+}
+
+export interface TilSubmissionsPage {
+  items: TilSubmission[];
+  total: number;
+}
 
 export interface TilSubmission {
   id: string;

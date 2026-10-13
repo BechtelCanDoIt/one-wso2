@@ -1658,9 +1658,7 @@ export const menuServiceUrls = {
 
 // ---------------------------------------------------------------------------
 // Today I Learned backend (til-backend) — a company-wide feed of learnings
-// from customers, partners, and internal sources. One submission form in One
-// WSO2, one in the Google Chat App's "+" Dialog, both calling this same
-// backend.
+// from customers, partners, and internal sources.
 //
 // Trailing slashes stripped for the same reason as dueDiligenceBackendUrl —
 // every URL below concatenates a path onto this.
@@ -1675,9 +1673,13 @@ export function isTilBackendConfigured(): boolean {
 export const tilServiceUrls = {
   // Identity + whether the caller may delete other people's entries.
   userInfo: `${tilBackendUrl}/user-info`,
-  // GET (paginated, ?cursor=&limit=) to list, POST to create.
+  // The rules the entry form shows, e.g. the learning's length limit.
+  settings: `${tilBackendUrl}/settings`,
+  // GET one page (q, createdFrom, createdBefore, mine, limit, offset) to
+  // list, POST to create.
   submissions: `${tilBackendUrl}/submissions`,
-  // DELETE one entry, moderator-only (re-checked server-side).
+  // GET one entry; PUT or DELETE it as its author or a moderator (checked
+  // server-side).
   submission: (id: string) => `${tilBackendUrl}/submissions/${encodeURIComponent(id)}`,
   // Customer-name autocomplete (where == "Customer"). Always returns 200
   // with an array -- [] both for "no matches" and for "this feature isn't
