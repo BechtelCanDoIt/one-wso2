@@ -20,6 +20,7 @@ import { FileDownIcon } from "@wso2/oxygen-ui-icons-react";
 import type { ParCycle, ParRating } from "../api/types";
 import { decodeParComment } from "../util/parComment";
 import { ParCommentView, ParQuestionText } from "./ParContent";
+import { ParAutoAssignedChip } from "./ParChips";
 import { employeeChipLabel } from "../util/parLabels";
 import { downloadParPdf } from "../util/parPdf";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
@@ -81,6 +82,7 @@ export default function ParRatingSummary({
             {rating.parRatingSharedBy && (
               <Chip size="small" variant="outlined" label={`Shared by ${nameByEmail.get(rating.parRatingSharedBy) ?? rating.parRatingSharedBy}`} />
             )}
+            {rating.parRatingUpdatedBy === "SYSTEM" && <ParAutoAssignedChip />}
           </Stack>
           <ParCommentView html={leadComment} />
         </Card>

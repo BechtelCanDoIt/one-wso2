@@ -41,7 +41,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ChevronDownIcon, ExternalLinkIcon, FileDownIcon, Google, PencilIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, ExternalLinkIcon, FileDownIcon, Google, InfoIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
 import {
@@ -58,8 +58,10 @@ import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
+import { LEADERSHIP_ALLOWED_RATINGS } from "../util/parLeadership";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
+import { ParAutoAssignedChip } from "./ParChips";
 import ParDriveFileChip from "./ParDriveFileChip";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
@@ -99,6 +101,7 @@ export default function ParLeadReviewPanel({
   // falling back to the deploy-wide window.config value.
   const top5p20pEnabledRating = cycle.parCycleConfigurations?.top5p20pEnabledRating ?? defaultTop5p20pEnabledRating;
   const evidenceEnabledRating = cycle.parCycleConfigurations?.evidenceEnabledRating ?? defaultEvidenceEnabledRating;
+  const leadershipAllowedRatings = cycle.parCycleConfigurations?.leadershipAllowedRatings ?? LEADERSHIP_ALLOWED_RATINGS;
 
   const [leadComment, setLeadComment] = useState("");
   const [adminComment, setAdminComment] = useState("");
@@ -272,6 +275,7 @@ export default function ParLeadReviewPanel({
   }
 
   const employeeComment = decodeParComment(parRatingData.parEmployeeComment);
+  const isLeadership = parRatingData.parIsLeadershipEmployee;
 
   const dirty =
     leadComment.trim() !== savedLeadComment.trim() ||
@@ -406,7 +410,10 @@ export default function ParLeadReviewPanel({
                   </Typography>
                   {readOnly ? (
                     parRatingData.parRating ? (
-                      <Chip size="small" label={parRatingData.parRating} />
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Chip size="small" label={parRatingData.parRating} />
+                        {parRatingData.parRatingUpdatedBy === "SYSTEM" && <ParAutoAssignedChip />}
+                      </Box>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
                         N/A
@@ -420,19 +427,40 @@ export default function ParLeadReviewPanel({
                       disabled={ratingUpdate.isPending}
                       aria-labelledby="lead-review-rating-label"
                     >
-                      {(cycle.parCycleConfigurations?.parRatings ?? []).map((r) => (
-                        <ComplexSelect.MenuItem key={r} value={r}>
-                          {r}
-                        </ComplexSelect.MenuItem>
-                      ))}
+                      {(cycle.parCycleConfigurations?.parRatings ?? [])
+                        .filter(
+                          (r) => !isLeadership || leadershipAllowedRatings.includes(r) || r === parRatingValue,
+                        )
+                        .map((r) => (
+                          <ComplexSelect.MenuItem key={r} value={r}>
+                            {r}
+                          </ComplexSelect.MenuItem>
+                        ))}
                     </ComplexSelect>
                   )}
                 </Box>
 
                 {parRatingValue === top5p20pEnabledRating && (
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Typography id="lead-review-special-rating-label" variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                    <Typography
+                      id="lead-review-special-rating-label"
+                      variant="body2"
+                      sx={{ flexShrink: 0, minWidth: 96, display: "flex", alignItems: "center", gap: 0.75 }}
+                      color="text.secondary"
+                    >
                       Top 5%/20%
+                      {!readOnly && parRatingData.parSpecialRatingEligibility === false && (
+                        <Tooltip title="This employee isn't eligible for a Top 5%/20% rating in this cycle.">
+                          <Box
+                            component="span"
+                            tabIndex={0}
+                            aria-label="Not eligible for a Top 5%/20% rating"
+                            sx={{ display: "flex", cursor: "help" }}
+                          >
+                            <InfoIcon size={16} />
+                          </Box>
+                        </Tooltip>
+                      )}
                     </Typography>
                     {readOnly ? (
                       <Chip size="small" label={SPECIAL_RATING_LABELS[specialRating]} />
@@ -441,7 +469,9 @@ export default function ParLeadReviewPanel({
                         fullWidth
                         value={specialRating}
                         onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
-                        disabled={!specialRatingConfirmed || ratingUpdate.isPending}
+                        disabled={
+                          !specialRatingConfirmed || ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false
+                        }
                         aria-labelledby="lead-review-special-rating-label"
                       >
                         {(Object.keys(SPECIAL_RATING_LABELS) as SpecialRatingUi[]).map((value) => (
@@ -460,7 +490,7 @@ export default function ParLeadReviewPanel({
                       <Checkbox
                         checked={specialRatingConfirmed}
                         onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
-                        disabled={ratingUpdate.isPending}
+                        disabled={ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false}
                       />
                     }
                     label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"

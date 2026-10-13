@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Chip } from "@wso2/oxygen-ui";
+import { Chip, Tooltip, type SxProps, type Theme } from "@wso2/oxygen-ui";
 import type { Par360ReviewStatus } from "../api/types";
 
 // Shared by ParRequestFeedbackTab and ParProvideFeedbackTab — par-app's
@@ -31,4 +31,13 @@ export function Par360StatusChip({ status }: { status: Par360ReviewStatus }) {
   const color =
     status === "SHARED" ? "success" : status === "REJECTED" ? "error" : status === "DRAFT" ? "warning" : "default";
   return <Chip size="small" color={color} variant="outlined" label={STATUS_LABEL[status]} />;
+}
+
+/** Marks a rating the system auto-assigned after a missed deadline. */
+export function ParAutoAssignedChip({ sx }: { sx?: SxProps<Theme> }) {
+  return (
+    <Tooltip title="Automatically assigned by the system because the PAR deadline was missed">
+      <Chip size="small" color="warning" variant="outlined" label="Auto-assigned (deadline missed)" sx={sx} />
+    </Tooltip>
+  );
 }
