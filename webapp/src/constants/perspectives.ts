@@ -68,6 +68,7 @@ import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
+import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 
 export interface PerspectiveSection {
   id: string; // anchor id on the perspective's page (leaf sections)
@@ -543,6 +544,16 @@ const SALES_MEETINGS_SECTION: PerspectiveSection = {
   path: "/sales",
 };
 
+// Sales's Library: Smart Search over Pitstop's content. A plain row with no `requires`, and not in
+// SALES_ITEM_IDS: it is not decided by the meet-app roles that own Meetings and Deals. Pitstop's own
+// backend decides what each caller may see in the results. Held back by the `smartSearch` flag.
+const SALES_LIBRARY_SECTION: PerspectiveSection = {
+  id: "sales-library",
+  label: "Library",
+  icon: BookOpenIcon,
+  path: SMART_SEARCH_LIBRARY_PATH,
+};
+
 const SALES_SECTIONS: PerspectiveSection[] = [
   SALES_MEETINGS_SECTION,
   {
@@ -554,6 +565,7 @@ const SALES_SECTIONS: PerspectiveSection[] = [
     icon: HandshakeIcon,
     path: "/sales/deals",
   },
+  ...(isPreviewEnabled("smartSearch") ? [SALES_LIBRARY_SECTION] : []),
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
   ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS) : []),
