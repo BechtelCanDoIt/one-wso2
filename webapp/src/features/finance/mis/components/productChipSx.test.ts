@@ -29,6 +29,20 @@ function stylesFor(product: string) {
   return { light: productChipSx(product)(theme), dark };
 }
 
+/** Ink on its own translucent wash, composited over a solid cell. */
+function contrastOnWash(foreground: string, wash: string, cell: string) {
+  const match = wash.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+  if (!match) throw new Error(`expected an rgba wash, got ${wash}`);
+  const alpha = Number(match[4]);
+  const mixed = [1, 2, 3].map((index) => {
+    const channel = Number(match[index]);
+    const under = parseInt(cell.slice(index * 2 - 1, index * 2 + 1), 16);
+    return Math.round(channel * alpha + under * (1 - alpha));
+  });
+  const hex = `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+  return contrast(foreground, hex);
+}
+
 function contrast(foreground: string, background: string) {
   const channel = (hex: string, start: number) => {
     const value = parseInt(hex.slice(start, start + 2), 16) / 255;
@@ -64,6 +78,14 @@ describe("a product chip", () => {
     const unknown = stylesFor("Something else").light;
     expect(unknown.color).toBe("#475569");
     expect(unknown.borderColor).toContain("71, 85, 105");
+  });
+
+  it("keeps each light ink at least 4.5:1 on its wash over a cell", () => {
+    const cell = "#fafafa";
+    for (const product of ["API Platform", "IAM", "Integration", "Choreo", "Agent Platform", "Moesif", "Something else"]) {
+      const { color, backgroundColor } = stylesFor(product).light;
+      expect(contrastOnWash(String(color), String(backgroundColor), cell), product).toBeGreaterThanOrEqual(4.5);
+    }
   });
 
   it("uses a lighter ink in the dark scheme, readable on a black canvas", () => {

@@ -1266,6 +1266,13 @@ describe("the QRR and MRR Builds", () => {
     expect(address()).toBe("?window=ttm");
   });
 
+  it("puts Pacific Time on the Period row", () => {
+    renderPage();
+    const row = screen.getByRole("group", { name: "Period" }).parentElement;
+    expect(row).not.toBeNull();
+    expect(within(row!).getByRole("note", { name: /every period on this screen/i })).toBeInTheDocument();
+  });
+
   it("offers all four options, which the annual Build alone used to", () => {
     renderPage("", MIS_PERIODS.QUARTERLY);
     const control = within(screen.getByRole("group", { name: "Period" }));

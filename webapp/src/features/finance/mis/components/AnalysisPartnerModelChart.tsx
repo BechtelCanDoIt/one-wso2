@@ -37,6 +37,7 @@ import {
 } from "@components/charts/chartPalette";
 import { MIS_VALUE_TYPES, formatMisValue, misHeadlineAmount } from "../util/misMoney";
 import type { MisScale } from "../util/misViewVocabulary";
+import { analysisSurfaceSx } from "./misLookTokens";
 import { partnerModelSlices, type PartnerModelSlice } from "./analysisBreakdowns";
 import type { PartnerModelBreakdown } from "../api/useAnalysisBreakdowns";
 
@@ -100,7 +101,7 @@ export default function AnalysisPartnerModelChart({
     seriesColor(slice.slot === 1 ? CHART_SERIES_1 : CHART_SERIES_2, mode);
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, p: 2 }}>
+    <Box sx={(theme) => ({ ...analysisSurfaceSx(theme), height: "100%", p: 2 })}>
       <Typography component="h2" variant="subtitle2" sx={{ mb: 0.25 }}>
         ARR by partner model
       </Typography>

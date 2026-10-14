@@ -248,7 +248,21 @@ function ArrBuild({ period }: { period: MisPeriod }) {
           />
         )}
       </Box>
-      <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* 320px is the floor the standalone grid uses. Below it the flex column
+          was squashing All BU Build to a header and one row, and the page
+          scroller had nothing left to scroll. The floor makes this box overflow
+          the content column, which then scrolls, and the table body keeps a
+          real height of its own. */}
+      <Box
+        sx={{
+          flex: 1,
+          minWidth: 0,
+          minHeight: 320,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
+      >
         <BuildForTable view={view} scale={scale} />
       </Box>
     </Box>

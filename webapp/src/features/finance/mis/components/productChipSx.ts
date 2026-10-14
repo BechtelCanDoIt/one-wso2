@@ -34,9 +34,11 @@ const PRODUCT_CHIP_COLOURS = {
   APIM: API_PLATFORM,
   IAM: chip("#6d28d9", "109, 40, 217", "#c4b5fd", "196, 181, 253"),
   Integration: chip("#0f766e", "15, 118, 110", "#5eead4", "94, 234, 212"),
-  Choreo: chip("#b34c00", "179, 76, 0", "#fdba74", "253, 186, 116"),
-  "Agent Platform": chip("#b45309", "180, 83, 9", "#fcd34d", "252, 211, 77"),
-  Moesif: chip("#0e7490", "14, 116, 144", "#67e8f9", "103, 232, 249"),
+  // The light ink is darker than the hue's first pick. On the 10% wash over a
+  // #fafafa cell, that first pick was under 4.5:1.
+  Choreo: chip("#ae4a00", "174, 74, 0", "#fdba74", "253, 186, 116"),
+  "Agent Platform": chip("#a54c08", "165, 76, 8", "#fcd34d", "252, 211, 77"),
+  Moesif: chip("#0e708b", "14, 112, 139", "#67e8f9", "103, 232, 249"),
 } as const;
 
 const SLATE = chip("#475569", "71, 85, 105", "#cbd5e1", "203, 213, 225");

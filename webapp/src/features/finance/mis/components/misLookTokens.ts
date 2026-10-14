@@ -128,10 +128,11 @@ export const underlineTabSx = (active: boolean) => (theme: Theme) => ({
   fontSize: "0.875rem",
   fontWeight: 600,
   lineHeight: 1,
-  color: active ? cssVar("text-primary") : cssVar("text-secondary"),
   // Oxygen's text.secondary equals text.primary, so a resting tab has no tonal
-  // step of its own: opacity stands in for slate-600.
-  opacity: active ? 1 : 0.72,
+  // step of its own. Opacity at 0.72 of that ink is about 4.3:1 on the page.
+  // The slate literal is the step, at full opacity.
+  ...(active ? { color: cssVar("text-primary") } : slateText(theme)),
+  opacity: 1,
   transition: "all 300ms cubic-bezier(0.4, 0, 0.2, 1)",
   "&:hover": {
     ...brandText(theme),
@@ -170,6 +171,20 @@ export const unitPillSx = (active: boolean) => (theme: Theme) => ({
 
 // ---- Filter card --------------------------------------------------------------
 
+/**
+ * The analysis summary, chart and account cards. Standalone ARR Analysis draws
+ * these as white surfaces with a 12px radius and a soft slate shadow, which is
+ * the frame the finance team looks for under the filter panel.
+ */
+export const analysisSurfaceSx = (theme: Theme) => ({
+  borderRadius: RADIUS.lg,
+  backgroundColor: cssVar("background-paper"),
+  border: "1px solid",
+  borderColor: cssVar("divider"),
+  boxShadow: "0 12px 24px -18px rgba(15, 23, 42, 0.56), 0 2px 8px rgba(15, 23, 42, 0.08)",
+  ...theme.applyStyles("dark", { boxShadow: "none" }),
+});
+
 /** The white→slate gradient card, light border, 12px radius, soft shadow. */
 export const gradientCardSx = (theme: Theme) => ({
   p: 1.5,
@@ -193,12 +208,23 @@ export const faithfulTextButtonSx = (theme: Theme) => ({
   borderRadius: RADIUS.md,
   px: "10px",
   py: "6px",
-  color: cssVar("text-secondary"),
-  opacity: 0.85,
+  // The a11y overlay paints a text button in primary.dark. At 0.85 opacity that
+  // orange is about 3.9:1 on the filter card. Slate at full opacity is the
+  // resting colour; the hover is the brand orange, also at full opacity.
+  ...slateText(theme),
+  opacity: 1,
   "&:hover": { ...brandText(theme), opacity: 1, backgroundColor: primaryTint(0.08) },
 });
 
-/** Apply: filled primary, uppercase 12px/600, 4px radius. */
+/**
+ * Apply and Export: filled, uppercase 12px/600, 4px radius.
+ *
+ * Oxygen's contained primary forces a bright orange gradient and white type
+ * with `!important`. White on that gradient is about 2.7:1. The gradient is
+ * the brand fill, so the type changes: black on both stops clears 4.5:1,
+ * including the theme's 0.9 hover opacity. The `!important` is what it takes
+ * to beat the theme's own.
+ */
 export const faithfulApplySx = {
   textTransform: "uppercase",
   fontSize: 12,
@@ -208,8 +234,9 @@ export const faithfulApplySx = {
   px: 1,
   py: "4px",
   boxShadow: 1,
-  "&:not(:disabled)": { background: cssVar("primary-main"), color: cssVar("primary-contrastText") },
-  "&:hover:not(:disabled)": { background: cssVar("primary-dark"), boxShadow: 3 },
+  "&&:not(:disabled), &&:hover:not(:disabled)": {
+    color: "#000 !important",
+  },
 } as const;
 
 /** The outlined button (Clear All, Reset): primary border, brand text, uppercase 12px/700, 8px radius. */
@@ -226,15 +253,24 @@ export const faithfulOutlinedSx = (theme: Theme) => ({
   "&:hover": { backgroundColor: primaryTint(0.12), borderColor: cssVar("primary-dark") },
 });
 
-/** Applied-filter chips: primary tint, brand text, 700. */
+/**
+ * Applied-filter chips: primary tint, brand text, 700.
+ *
+ * `primary.dark` on the 12% wash is about 4.4:1 over the filter card.
+ * `#aa4c00` is the same orange, darker, and clears 4.5:1 there. The delete
+ * icon stays at that ink: 0.7 opacity of it is under 3:1.
+ */
+export const CHIP_INK = "#aa4c00";
+
 export const faithfulChipSx = (theme: Theme) => ({
   height: 24,
   fontSize: 12,
   fontWeight: 700,
   backgroundColor: primaryTint(0.12),
   border: `1px solid ${primaryTint(0.24)}`,
-  ...brandText(theme),
-  "& .MuiChip-deleteIcon": { color: "inherit", opacity: 0.7, "&:hover": { opacity: 1 } },
+  color: CHIP_INK,
+  ...theme.applyStyles("dark", { color: cssVar("primary-main") }),
+  "& .MuiChip-deleteIcon": { color: "inherit" },
 });
 
 // ---- Per-grid header ----------------------------------------------------------

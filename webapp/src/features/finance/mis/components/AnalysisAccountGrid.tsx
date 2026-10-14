@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useMemo, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useRef, type RefObject } from "react";
 import { Box, Chip, DataGrid, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { FINANCE_GRID_SX } from "@features/finance/util/financeGridSx";
 import { MIS_VALUE_TYPES, formatMisValue } from "../util/misMoney";
@@ -96,9 +96,46 @@ export default function AnalysisAccountGrid({
   apiRef,
 }: AnalysisAccountGridProps) {
   const columns = useMemo(() => analysisAccountColumns(scale), [scale]);
+  const frame = useRef<HTMLDivElement>(null);
+
+  // The grid's empty body is a rowgroup with no rows, and its search field
+  // puts aria-label on the field's wrapper div. Both are the grid's own DOM,
+  // and the field is mounted only once the reader opens search, which does
+  // not re-render this component. The observer follows that DOM. The "No rows"
+  // overlay stays.
+  useLayoutEffect(() => {
+    const root = frame.current;
+    if (!root) return;
+
+    const fix = () => {
+      const zone = root.querySelector(".MuiDataGrid-virtualScrollerRenderZone");
+      if (zone) {
+        if (rows.length === 0) zone.setAttribute("aria-hidden", "true");
+        else zone.removeAttribute("aria-hidden");
+      }
+
+      const control = root.querySelector('[class*="toolbarQuickFilterControl"]');
+      const input = control?.querySelector("input");
+      const name = control?.getAttribute("aria-label");
+      if (control && input && name) {
+        input.setAttribute("aria-label", name);
+        control.removeAttribute("aria-label");
+      }
+    };
+
+    fix();
+    const observer = new MutationObserver(fix);
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["aria-label"],
+    });
+    return () => observer.disconnect();
+  }, [rows.length]);
 
   return (
-    <Box sx={{ height: 660, width: "100%" }}>
+    <Box ref={frame} sx={{ height: 660, width: "100%" }}>
       <DataGrid.DataGrid
         apiRef={apiRef}
         rows={rows}

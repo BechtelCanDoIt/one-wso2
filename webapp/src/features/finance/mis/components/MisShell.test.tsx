@@ -131,34 +131,13 @@ describe("the subtitle", () => {
   });
 });
 
-// Every MIS screen carries the chip, so no screen has to remember it —
-// the same argument that puts the degraded states here.
-describe("the Pacific Time chip", () => {
-  const chip = () => screen.queryByText(/^Pacific Time \((PST|PDT|PT)\)$/);
-
-  it("sits above a screen showing figures", () => {
+// The title stands on its own. The MIS eyebrow repeated the rail, and the
+// Pacific Time chip belongs beside the Period it measures, not above the heading.
+describe("the header", () => {
+  it("carries neither an MIS chip nor the Pacific Time chip", () => {
     renderShell();
-    expect(chip()).toBeInTheDocument();
-  });
-
-  // "Permanent" is the spec's own word, and the subtitle is the contrast: that
-  // one IS dropped on the locked rung, because it sells a screen being withheld.
-  // A timezone states a fact about MIS rather than advertising anything, so it
-  // survives every rung the subtitle does not.
-  it("survives a locked screen", () => {
-    renderShell({ canSee: () => false });
-    expect(chip()).toBeInTheDocument();
-  });
-
-  it("survives the privilege check being in flight", () => {
-    renderShell({ isResolving: true, canSee: () => false });
-    expect(chip()).toBeInTheDocument();
-  });
-
-  it("survives the backend not being connected", () => {
-    configured.value = false;
-    renderShell();
-    expect(chip()).toBeInTheDocument();
+    expect(screen.queryByText("MIS")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Pacific Time \((PST|PDT|PT)\)$/)).not.toBeInTheDocument();
   });
 });
 

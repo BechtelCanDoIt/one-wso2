@@ -15,17 +15,15 @@
 // under the License.
 
 import type { ReactNode } from "react";
-import { Alert, Box, Chip, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
-import { ChartNoAxesCombinedIcon } from "@wso2/oxygen-ui-icons-react";
+import { Alert, Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
 import { isMisArrConfigured } from "@config/apiConfig";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useMisGate } from "../api/useMisGate";
 import MisLocked from "./MisLocked";
-import PacificTimeChip from "./PacificTimeChip";
 import { ScalePreferenceProvider } from "../util/ScalePreferenceContext";
 
-// Shared page frame for every Finance MIS screen: the app eyebrow, a title and
-// subtitle, and — the reason this exists — ONE place that owns every degraded
+// Shared page frame for every Finance MIS screen: a title and subtitle, and —
+// the reason this exists — ONE place that owns every degraded
 // state, so no screen has to remember them and none of them differs:
 //
 //   1. ARR backend URL not set    → say which config key is missing
@@ -123,29 +121,6 @@ export default function MisShell({
           tables) receives a real height. A screen that does not still overflows
           here, and the content column scrolls it as before. */}
       <Box sx={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column" }}>
-        <Stack
-          direction="row"
-          spacing={0.75}
-          sx={{ mb: 0.5, alignItems: "center", flexWrap: "wrap", rowGap: 0.75 }}
-        >
-          <Chip
-            icon={<ChartNoAxesCombinedIcon size={14} />}
-            label="MIS"
-            color="primary"
-            // Outlined, not filled: white-on-orange at chip text sizes is ~3.6:1
-            // and fails WCAG AA. Outlined routes through the a11y overlay, which
-            // shifts the label and border to primary.dark in light mode. Matches
-            // the Finance, Leave and Marketing Ops shells.
-            variant="outlined"
-            size="small"
-          />
-          {/* Permanent, on every rung.
-              Unconditional beats "only where there are figures": the reader who
-              most needs to know which clock MIS runs on is the one who has just
-              arrived, and a chip that comes and goes is one more thing on the
-              page whose absence means something. */}
-          <PacificTimeChip />
-        </Stack>
         {/* An h1, not a styled div: it is the page's heading, and a screen-reader
             user navigating by headings needs something to land on. */}
         <Typography component="h1" variant="h5" sx={{ mb: 0.5, mt: 0 }}>

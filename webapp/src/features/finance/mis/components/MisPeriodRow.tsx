@@ -26,6 +26,7 @@ import {
 } from "../util/misFilterBarModel";
 import { MIS_WINDOWS } from "../util/misViewVocabulary";
 import type { MisViewState } from "../util/useMisViewState";
+import PacificTimeChip from "./PacificTimeChip";
 import { periodSegmentSx } from "./misLookTokens";
 
 // The Period row — Annually | Quarterly | Monthly | TTM — at the top of the
@@ -50,20 +51,34 @@ export default function MisPeriodRow({ view }: { view: MisViewState }) {
   };
 
   return (
-    <Box role="group" aria-label="Period" sx={{ display: "flex", flexWrap: "wrap", gap: "6px", mb: 1.5 }}>
-      {MIS_PERIOD_CHOICE_ORDER.map((choice) => {
-        const pressed = choice === current;
-        return (
-          <ButtonBase
-            key={choice}
-            aria-pressed={pressed}
-            onClick={() => choose(choice)}
-            sx={periodSegmentSx(pressed)}
-          >
-            {MIS_PERIOD_CHOICE_LABELS[choice]}
-          </ButtonBase>
-        );
-      })}
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 1,
+        flexWrap: "wrap",
+        mb: 1.5,
+      }}
+    >
+      <Box role="group" aria-label="Period" sx={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
+        {MIS_PERIOD_CHOICE_ORDER.map((choice) => {
+          const pressed = choice === current;
+          return (
+            <ButtonBase
+              key={choice}
+              aria-pressed={pressed}
+              onClick={() => choose(choice)}
+              sx={periodSegmentSx(pressed)}
+            >
+              {MIS_PERIOD_CHOICE_LABELS[choice]}
+            </ButtonBase>
+          );
+        })}
+      </Box>
+      {/* The Periods are cut on this clock. It sits on their row, the same
+          place the ARR Dashboard puts it, rather than above the title. */}
+      <PacificTimeChip />
     </Box>
   );
 }
