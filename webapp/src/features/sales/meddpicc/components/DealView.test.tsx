@@ -44,17 +44,34 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import DealPanel from "./DealPanel";
+import { MemoryRouter } from "react-router";
+import DealView from "./DealView";
+import { useDeal } from "../api/useMeddpiccData";
 import { mockMeddpiccClient, resetMockStore } from "../mock/mockStore";
+
+/** What DealPage does once the deal has loaded, without the page's shell around it. */
+function LoadedDeal({ opportunityId }: { opportunityId: string }) {
+  const query = useDeal(opportunityId);
+  if (!query.data) return <p>Loading MEDDPICC…</p>;
+  // The page's title names the deal; the view itself does not.
+  return (
+    <>
+      <h1>{query.data.deal.name}</h1>
+      <DealView detail={query.data} />
+    </>
+  );
+}
 
 function renderPanel(opportunityId: string) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
   });
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    </MemoryRouter>
   );
-  return render(<DealPanel opportunityId={opportunityId} onClose={() => {}} />, { wrapper });
+  return render(<LoadedDeal opportunityId={opportunityId} />, { wrapper });
 }
 
 const approveButton = () => screen.getByRole("button", { name: /^Approve all/ });
@@ -65,9 +82,9 @@ beforeEach(() => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-// A drawer full of MUI selects and tooltips, driven by userEvent: well under a
+// A page full of MUI selects and tooltips, driven by userEvent: well under a
 // second each on an idle machine, but the default 5s is too tight on a busy runner.
-describe("DealPanel", { timeout: 20000 }, () => {
+describe("DealView", { timeout: 20000 }, () => {
   it("keeps Approve all disabled, and says why, while a proposed role has no matching contact", async () => {
     const user = userEvent.setup();
     renderPanel("006MOCK0000MERI");
@@ -188,4 +205,52 @@ describe("DealPanel", { timeout: 20000 }, () => {
     expect(approveButton()).toBeDisabled();
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
   });
+
+  // The redesign: the AM's attention goes to what the AI proposes and what is missing;
+  // what Salesforce already has is folded away.
+  it("opens on the current stage with what needs review and what is missing up front", async () => {
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+
+    // The stage path: the current stage is open, and an earlier stage's leftover shows.
+    expect(screen.getByRole("button", { name: /^Technical Proof, current stage: / })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: /^Qualify: 1 to review$/ })).toBeInTheDocument();
+
+    const review = screen.getByRole("region", { name: "Needs your review" });
+    for (const label of ["WSO2–customer use case fit", "Competitors", "Cloud service provider", "On Kubernetes"]) {
+      expect(within(review).getByText(label)).toBeInTheDocument();
+    }
+    const missing = screen.getByRole("region", { name: "Missing" });
+    expect(within(missing).getByText("POC completed")).toBeInTheDocument();
+    expect(within(missing).getByText(/Where are we with the POC/)).toBeInTheDocument();
+
+    // Already in Salesforce is folded until opened, and then one line per field.
+    expect(screen.queryByText("POC required")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Already in Salesforce/ }));
+    expect(await screen.findByText("POC required")).toBeInTheDocument();
+    expect(screen.getByText("Empty · optional")).toBeInTheDocument();
+  });
+
+  it("moves to another stage from the path", async () => {
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    await user.click(screen.getByRole("button", { name: /^Qualify: / }));
+    const review = screen.getByRole("region", { name: "Needs your review" });
+    expect(within(review).getByText("Economic buyer")).toBeInTheDocument();
+    expect(within(review).getByRole("combobox", { name: "Matching contact" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Missing" })).toHaveTextContent("Nothing is missing in Qualify.");
+  });
+
+  it("shows the deal's journey beside the fields", async () => {
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    const aside = screen.getByRole("complementary", { name: "About this deal" });
+    expect(within(aside).getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    // Each activity entry says what it was; without the backend's kind, a call is a customer call.
+    const activity = within(aside).getByRole("region", { name: "Activity" });
+    expect(within(activity).getAllByText(/^Customer call · /).length).toBeGreaterThan(0);
+  });
 });
+
