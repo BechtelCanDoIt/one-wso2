@@ -95,7 +95,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 /**
  * For Deal Desk: lines whose category the rep chose because the product isn't
- * mapped, e.g. "Line 3 · WSO2 Onboarding" / "Category chosen by the rep:
+ * mapped, e.g. "Line 3 · WSO2 Onboarding" / "Category chosen by the AM:
  * Professional Service". Deal Desk verifies them (quote-submission.md D46).
  */
 export function repCategoryPoints(
@@ -106,7 +106,7 @@ export function repCategoryPoints(
     .map((l) => ({
       kind: "category" as const,
       title: `Line ${l.number} · ${l.productName}`,
-      detail: `Category chosen by the rep: ${CATEGORY_LABEL[l.category] ?? l.category}`,
+      detail: `Category chosen by the AM: ${CATEGORY_LABEL[l.category] ?? l.category}`,
     }));
 }
 
@@ -157,8 +157,7 @@ export function decisionNote(
   after: ApprovalWorkflow,
   approverRoles: readonly string[],
 ): string {
-  if (outcome === "reject") return `Rejected as ${step.roleLabel}. The approval has stopped.`;
-  if (outcome === "request-changes") return `Sent back for changes as ${step.roleLabel}.`;
+  if (outcome === "return") return `Returned as ${step.roleLabel}.`;
   const mine = after.steps.filter((s) => approverRoles.includes(s.role) && (s.status === "WAITING" || s.status === "PENDING"));
   if (mine.some((s) => s.canAct)) return `Approved as ${step.roleLabel}.`;
   if (mine.length) return `Approved as ${step.roleLabel}. You approve as ${mine.map((s) => s.roleLabel).join(" and ")} later.`;

@@ -19,7 +19,7 @@ import { Box, Stack, Typography } from "@wso2/oxygen-ui";
 import { STEPS } from "@features/sales/cado2/quotes/form/draftForm";
 import { STEP_HINTS_LONG } from "./stepText";
 
-/** "Step 2 of 4 · Products & Pricing" with what the step is for. */
+/** "Step 2 of 4 · Term & Products" with what the step is for. */
 export default function StepIntro({ step }: { step: number }): JSX.Element {
   return (
     <Box sx={{ px: 0.5 }}>

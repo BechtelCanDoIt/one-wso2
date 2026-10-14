@@ -59,8 +59,12 @@ function OpportunityIcon(): JSX.Element {
   );
 }
 
-/** A chosen opportunity, compact: icon, name, subscription dates, deal type and direct / partner. */
-function Chosen({ o, action }: { o: Opportunity; action: JSX.Element | null }): JSX.Element {
+/**
+ * A chosen opportunity, compact: icon, name, subscription dates, deal type and
+ * direct / partner. `nameOnly` for the quote's own opportunity, whose details
+ * are in "What Salesforce says" just below (C6, 2026-10-14).
+ */
+function Chosen({ o, action, nameOnly = false }: { o: Opportunity; action: JSX.Element | null; nameOnly?: boolean }): JSX.Element {
   return (
     <Paper variant="outlined" aria-label={`Chosen: ${o.name ?? o.id}`} sx={{ px: 1.5, py: 1.25, borderRadius: 2 }}>
       <Stack direction="row" spacing={1.5} alignItems="center">
@@ -69,14 +73,18 @@ function Chosen({ o, action }: { o: Opportunity; action: JSX.Element | null }): 
           <Typography variant="subtitle2" sx={{ fontWeight: 600 }} noWrap>
             {o.name ?? o.id}
           </Typography>
-          <Typography variant="caption" color="text.secondary" component="div" noWrap>
-            {subscription(o)}
-          </Typography>
+          {nameOnly ? null : (
+            <Typography variant="caption" color="text.secondary" component="div" noWrap>
+              {subscription(o)}
+            </Typography>
+          )}
         </Box>
-        <Stack direction="row" spacing={0.75} sx={{ display: { xs: "none", sm: "flex" } }}>
-          <KindChip o={o} />
-          {o.dealType ? <Chip size="small" label={o.dealType === "PARTNER" ? "Partner" : "Direct"} /> : null}
-        </Stack>
+        {nameOnly ? null : (
+          <Stack direction="row" spacing={0.75} sx={{ display: { xs: "none", sm: "flex" } }}>
+            <KindChip o={o} />
+            {o.dealType ? <Chip size="small" label={o.dealType === "PARTNER" ? "Partner" : "Direct"} /> : null}
+          </Stack>
+        )}
         {action}
       </Stack>
     </Paper>
@@ -258,6 +266,7 @@ export default function OpportunityPicker({
       ) : chosen[0] && !open ? (
         <Chosen
           o={chosen[0]}
+          nameOnly
           action={
             locked ? null : (
               <Button size="small" onClick={() => setOpen(true)} aria-label={`Change ${label.toLowerCase()}`}>

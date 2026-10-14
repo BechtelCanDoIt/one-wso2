@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -69,7 +69,12 @@ function show() {
 
 /** The filter the page most recently asked for. */
 function lastFilter() {
-  return filters[filters.length - 1] as { employeeStatuses?: string[]; approverEmail?: string };
+  return filters[filters.length - 1] as {
+    employeeStatuses?: string[];
+    approverEmail?: string;
+    email?: string;
+    startDate?: string;
+  };
 }
 
 beforeEach(() => {
@@ -112,6 +117,64 @@ describe("a plain lead's report", () => {
     show();
     expect(lastFilter().approverEmail).toBe("lead@wso2.com");
   });
+
+  it("offers no employee picker and no switch", () => {
+    show();
+    expect(screen.queryByPlaceholderText("All employees")).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Subordinates only/ })).not.toBeInTheDocument();
+  });
+});
+
+// Sabbaticals have their own report, so the general one never shows them —
+// whoever is looking.
+describe("sabbaticals in the general report", () => {
+  it.each([
+    ["a plain lead", [LEAVE_PRIVILEGE.EMPLOYEE, LEAVE_PRIVILEGE.LEAD]],
+    ["People Ops", [LEAVE_PRIVILEGE.EMPLOYEE, LEAVE_PRIVILEGE.PEOPLE_OPS_TEAM]],
+    ["the general report role", [LEAVE_PRIVILEGE.EMPLOYEE, LEAVE_PRIVILEGE.GENERAL_REPORT]],
+  ])("are left out for %s", (_who, privileges) => {
+    userInfo.data = { workEmail: "x@wso2.com", privileges };
+    show();
+    expect((lastFilter() as { excludedLeaveCategory?: string[] }).excludedLeaveCategory).toEqual([
+      "sabbatical",
+    ]);
+  });
+});
+
+describe("the general report role", () => {
+  it("sees everyone, with the picker but no team to narrow to", () => {
+    userInfo.data = {
+      workEmail: "auditor@wso2.com",
+      privileges: [LEAVE_PRIVILEGE.EMPLOYEE, LEAVE_PRIVILEGE.GENERAL_REPORT],
+    };
+    show();
+    expect(lastFilter().approverEmail).toBeUndefined();
+    expect(screen.getByPlaceholderText("All employees")).toBeInTheDocument();
+    expect(screen.getByLabelText("Employee status")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Subordinates only/ })).not.toBeInTheDocument();
+  });
+
+  it("lets a lead who holds it narrow to their team", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    userInfo.data = {
+      workEmail: "lead@wso2.com",
+      privileges: [LEAVE_PRIVILEGE.EMPLOYEE, LEAVE_PRIVILEGE.LEAD, LEAVE_PRIVILEGE.GENERAL_REPORT],
+    };
+    show();
+    expect(lastFilter().approverEmail).toBeUndefined();
+    await user.click(screen.getByRole("switch", { name: /Subordinates only/ }));
+    expect(lastFilter().approverEmail).toBe("lead@wso2.com");
+  });
+
+  it("does not stretch to a lead who holds only the sabbatical report role", () => {
+    userInfo.data = {
+      workEmail: "lead@wso2.com",
+      privileges: [LEAVE_PRIVILEGE.EMPLOYEE, LEAVE_PRIVILEGE.LEAD, LEAVE_PRIVILEGE.SABBATICAL_REPORT],
+    };
+    show();
+    expect(lastFilter().approverEmail).toBe("lead@wso2.com");
+    expect(screen.queryByPlaceholderText("All employees")).not.toBeInTheDocument();
+  });
 });
 
 describe("a People Ops report", () => {
@@ -132,6 +195,36 @@ describe("a People Ops report", () => {
   it("is org-wide by default, not scoped to the viewer", () => {
     show();
     expect(lastFilter().approverEmail).toBeUndefined();
+  });
+
+  // The switch and the employee picker reload on their own; only Fetch applies
+  // the dates.
+  it("reloads when Subordinates only is flipped, without pressing Fetch", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    show();
+    await user.click(screen.getByRole("switch", { name: /Subordinates only/ }));
+    expect(lastFilter().approverEmail).toBe("ops@wso2.com");
+    await user.click(screen.getByRole("switch", { name: /Subordinates only/ }));
+    expect(lastFilter().approverEmail).toBeUndefined();
+  });
+
+  it("reloads when an employee is picked, without pressing Fetch", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    show();
+    await user.click(screen.getByPlaceholderText("All employees"));
+    await user.click(await screen.findByRole("option", { name: /Still Here/ }));
+    expect(lastFilter().email).toBe("here@wso2.com");
+  });
+
+  it("does not apply an unfetched date along with the switch", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    const { container } = show();
+    const appliedFrom = lastFilter().startDate;
+    // The From field: its caption is a sibling Typography, not a <label>.
+    const from = container.querySelector<HTMLInputElement>('input[type="date"]')!;
+    fireEvent.change(from, { target: { value: "2020-01-01" } });
+    await user.click(screen.getByRole("switch", { name: /Subordinates only/ }));
+    expect(lastFilter().startDate).toBe(appliedFrom);
   });
 });
 

@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { umt?: boolean; infra?: boolean; mis?: boolean; cado2?: boolean } = {},
+  preview: { umt?: boolean; infra?: boolean; mis?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -129,7 +129,7 @@ describe("CadO2's rail entries", () => {
     expect(group?.label).toBe("CadO2");
     expect(group?.alwaysGroup).toBe(true);
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
-      ["My Quotes", "/sales/cado2/quotes"],
+      ["Quotes", "/sales/cado2/quotes"],
       ["My Approvals", "/sales/cado2/approvals"],
       ["Admin", "/sales/cado2/admin"],
     ]);
@@ -146,6 +146,41 @@ describe("CadO2's rail entries", () => {
     // Echo and Deals are the Sales rows gated through ONE_WSO2_REVOPS_BACKEND_URL;
     // nothing of CadO2's joins them.
     expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
+  });
+});
+
+// The Library lands behind its own flag, as one row inside the Sales perspective.
+describe("the Library's rail entry", () => {
+  const salesIdsIn = (perspectives: Perspectives) =>
+    (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
+
+  it("is a Library row under Sales, after Deals, once the flag is on", async () => {
+    const perspectives = await load({ smartSearch: true });
+    const row = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-library");
+    expect(row?.label).toBe("Library");
+    expect(row?.path).toBe("/sales/library");
+    expect(salesIdsIn(perspectives)).toEqual(["sales-meetings", "sales-deals", "sales-library"]);
+  });
+
+  it("sits before CadO2 when both flags are on", async () => {
+    expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
+      "sales-meetings",
+      "sales-deals",
+      "sales-library",
+      "sec-app-cado2",
+    ]);
+  });
+
+  it("is gone when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ smartSearch: false }, {}]) {
+      expect(salesIdsIn(await load(preview))).toEqual(["sales-meetings", "sales-deals"]);
+    }
+  });
+
+  it("never joins the Meetings gate's ids", async () => {
+    const { SALES_ITEM_IDS } = await load({ smartSearch: true });
+    // Meetings and Deals are gated by the meet-app backend; the Library is decided by Pitstop's own backend.
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-meetings", "sales-deals"]);
   });
 });
 

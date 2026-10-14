@@ -15,6 +15,7 @@
 // under the License.
 
 import type { SlaState } from "@features/sales/cado2/approvals/api/approvalTypes";
+import { formatDateTime } from "@features/sales/cado2/quotes/form/draftForm";
 
 /** "45 min", "6 h", "6 h 30 min", "2 d 3 h": a length of time, roughly. */
 export function duration(ms: number): string {
@@ -46,13 +47,14 @@ export function slaLabel(
 ): { label: string; color: "error" | "warning" | "default"; title: string } {
   const due = new Date(dueAt);
   const left = due.getTime() - now.getTime();
-  const title = `Due ${due.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}`;
+  // The one date-time format (D14, 2026-10-14); the short chip labels below stay short.
+  const title = `Due ${formatDateTime(dueAt)}`;
   if (state === "BREACHED") return { label: `Overdue by ${duration(left)}`, color: "error", title };
   if (state === "AT_RISK") return { label: `Due in ${duration(left)}`, color: "warning", title };
   if (left < DAY_MS) return { label: `Due in ${duration(left)}`, color: "default", title };
   const when =
     left < 6 * DAY_MS
-      ? due.toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit" })
-      : due.toLocaleString(undefined, { day: "numeric", month: "short" });
+      ? due.toLocaleString("en-GB", { weekday: "short", hour: "2-digit", minute: "2-digit" })
+      : due.toLocaleString("en-GB", { day: "numeric", month: "short" });
   return { label: `Due ${when}`, color: "default", title };
 }

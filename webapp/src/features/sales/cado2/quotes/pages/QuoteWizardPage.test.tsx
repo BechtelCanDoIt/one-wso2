@@ -14,14 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { HttpError } from "@api/http";
 import { draft, ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
-import { fromVersion } from "@features/sales/cado2/quotes/form/draftForm";
-import { readUnsavedDraft, stashUnsavedDraft } from "@features/sales/cado2/quotes/form/unsavedDraftStash";
 import { scrollMainToTop } from "@features/sales/cado2/utils/scroll";
 import QuoteWizardPage from "./QuoteWizardPage";
 
@@ -31,6 +30,7 @@ const pricing = { ...idle(), data: undefined as unknown };
 const mutation = () => ({ mutateAsync: vi.fn(), reset: vi.fn(), isPending: false, isSuccess: false, error: null as unknown });
 const save = mutation();
 const submit = mutation();
+const sync = mutation();
 const deleteDraft = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
 
 // Mocked so the wizard is tested without Asgardeo, the network or window.config.
@@ -42,6 +42,8 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
   return {
     MIN_ACCOUNT_SEARCH: 3,
     useAccountSearch: () => idle(),
+    useOpportunityQuotes: () => idle(),
+    useOpportunityProducts: () => ({ ...idle(), data: undefined }),
     useAccountOpportunities: () => idle(),
     useAccountContacts: () => idle(),
     useProducts: () => idle(),
@@ -60,6 +62,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     useQuoteVersion: () => version,
     useSaveDraft: () => save,
     useSubmitVersion: () => submit,
+    useSyncToSalesforce: () => sync,
     useDeleteDraft: () => deleteDraft,
   };
 });
@@ -68,14 +71,41 @@ const approvals = { data: undefined as unknown, isFetching: false, error: null }
 vi.mock("@features/sales/cado2/utils/scroll", () => ({ scrollMainToTop: vi.fn() }));
 vi.mock("@features/sales/cado2/approvals/api/useApprovalApi", () => ({ useApprovalPreview: () => approvals }));
 
+/** Picks an item from the header's "⋯ More actions" (2026-10-13). */
+async function pickAction(user: ReturnType<typeof userEvent.setup>, name: string): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "More actions" }));
+  await user.click(screen.getByRole("menuitem", { name: new RegExp(`^${name}`) }));
+}
+
 function renderWizard() {
   return render(
-    <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
-      <Routes>
-        <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
-      </Routes>
-    </MemoryRouter>,
+    <Cado2ToastProvider>
+      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
+        <Routes>
+          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
+        </Routes>
+      </MemoryRouter>
+    </Cado2ToastProvider>,
   );
+}
+
+/** The wizard, with a stand-in quote page that shows the URL it landed on. */
+function renderAt() {
+  return render(
+    <Cado2ToastProvider>
+      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
+        <Routes>
+          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
+          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<LandedOn />} />
+        </Routes>
+      </MemoryRouter>
+    </Cado2ToastProvider>,
+  );
+}
+
+function LandedOn() {
+  const at = useLocation();
+  return <p>{`quote page ${at.pathname}${at.search}`}</p>;
 }
 
 beforeEach(() => {
@@ -85,15 +115,19 @@ beforeEach(() => {
   Object.assign(version, { data: draft, isPending: false, error: null, refetch: vi.fn() });
   Object.assign(save, mutation());
   Object.assign(submit, mutation());
+  Object.assign(sync, mutation());
 });
 
 describe("QuoteWizardPage — drafts", () => {
   it("loads a saved draft with its open issues", () => {
     renderWizard();
 
-    // A static title (F5 review); the chosen values live in the summary.
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp · Acme APIM renewal" })).toBeInTheDocument(); // a draft: no number yet
-    expect(screen.getByText("v1 · Draft")).toBeInTheDocument();
+    // Edit mode (2026-10-13): marked "Editing", the quote page's identity, a way back.
+    expect(screen.getByText("Editing")).toBeInTheDocument();
+    expect(screen.getByText("Draft · Version 1")).toBeInTheDocument(); // a draft: no number yet
+    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Back to quote/ })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
     const summary = within(screen.getByRole("complementary", { name: "Quote summary" }));
     expect(summary.getByText("Acme Corp")).toBeInTheDocument();
     expect(summary.getByText("Acme APIM renewal")).toBeInTheDocument();
@@ -101,7 +135,7 @@ describe("QuoteWizardPage — drafts", () => {
     // The draft has no contact, legal entity or products: it opens at Overview, the rest locked.
     const steps = within(screen.getByRole("navigation", { name: "Quote steps" }));
     expect(steps.getByRole("button", { name: "Overview" })).toHaveAttribute("aria-current", "step");
-    expect(steps.getByRole("button", { name: "Products & Pricing" })).toBeDisabled();
+    expect(steps.getByRole("button", { name: "Term & Products" })).toBeDisabled();
     expect(steps.getByRole("button", { name: "Review" })).toBeDisabled();
     expect(screen.getByRole("heading", { level: 2, name: "Overview" })).toBeInTheDocument();
     expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
@@ -159,7 +193,7 @@ describe("QuoteWizardPage — review and submit", () => {
   it("is filled in order: Next unlocks only when the step is complete", () => {
     renderWizard();
 
-    const next = screen.getByRole("button", { name: "Next: Products & Pricing →" });
+    const next = screen.getByRole("button", { name: "Next: Term & Products →" });
     expect(next).toBeDisabled();
     expect(screen.getByText("To continue: Choose the WSO2 legal entity")).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Quote steps" })).getByRole("button", { name: "Review" })).toBeDisabled();
@@ -172,11 +206,11 @@ describe("QuoteWizardPage — review and submit", () => {
     });
     renderWizard();
 
-    // The pricing problem makes Products & Pricing the furthest reachable step.
+    // The pricing problem makes Term & Products the furthest reachable step.
     expect(
       await screen.findByText("To continue: The minimum quantity for WSO2 Gateway is 50", undefined, { timeout: 2000 }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Products & Pricing" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Term & Products" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Next: Commercial →" })).toBeDisabled();
     expect(within(screen.getByRole("navigation", { name: "Quote steps" })).getByRole("button", { name: "Commercial" })).toBeDisabled();
   });
@@ -223,8 +257,8 @@ describe("QuoteWizardPage — review and submit", () => {
     // A complete draft opens on Review; go back to the start, then forward again.
     await user.click(screen.getByRole("button", { name: "Overview" }));
     const scrolls = vi.mocked(scrollMainToTop).mock.calls.length;
-    await user.click(screen.getByRole("button", { name: "Next: Products & Pricing →" }));
-    expect(screen.getByRole("heading", { level: 2, name: "Products & Pricing" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Next: Term & Products →" }));
+    expect(screen.getByRole("heading", { level: 2, name: "Term & Products" })).toBeInTheDocument();
     // A new step starts at the top, not where the last one was scrolled to.
     expect(vi.mocked(scrollMainToTop).mock.calls.length).toBe(scrolls + 1);
     await user.click(screen.getByRole("button", { name: "← Back" }));
@@ -238,7 +272,7 @@ describe("QuoteWizardPage — review and submit", () => {
     Object.assign(version, { data: { ...ready, version: { ...ready.version, defaultPricebook: book } } });
     renderWizard();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Products & Pricing" }));
+    await user.click(screen.getByRole("button", { name: "Term & Products" }));
 
     const field = screen.getByRole("textbox", { name: "Price book" });
     expect(field).toHaveValue("USD Price Book (Current)");
@@ -253,7 +287,7 @@ describe("QuoteWizardPage — review and submit", () => {
     const book = { id: "01sUSD00000000001A", name: "USD Price Book (Current)" };
     Object.assign(version, { data: { ...ready, version: { ...ready.version, defaultPricebook: book, lines: [] } } });
     renderWizard();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Term & Products" }));
     expect(
       screen.getByText("Add products from the USD Price Book (Current) price book. Prices come from this price book."),
     ).toBeInTheDocument();
@@ -263,7 +297,7 @@ describe("QuoteWizardPage — review and submit", () => {
   it("can't add products without a price book from the opportunity", async () => {
     Object.assign(version, { data: { ...ready, version: { ...ready.version, defaultPricebook: null } } });
     renderWizard();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Term & Products" }));
     expect(screen.getByRole("textbox", { name: "Price book" })).toHaveValue("—");
     expect(screen.getByRole("button", { name: "Add line" })).toBeDisabled();
   });
@@ -281,26 +315,28 @@ describe("QuoteWizardPage — review and submit", () => {
     };
     renderWizard();
     await openReview();
+    // The summary stays beside it, with the account and opportunity (C1, 2026-10-14).
+    expect(screen.getByRole("complementary", { name: "Quote summary" })).toBeInTheDocument();
 
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
     // The line, the subscription subtotal and the total order value.
     expect(within(products).getAllByText("6,480.00")).toHaveLength(3);
     expect(within(products).getByText("10%")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Deal figures" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Deal Figures" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Internal view" })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Deal" })).getByText("WSO2, LLC.")).toBeInTheDocument();
     // The live approval chain, inline above the sheet; no preview button on Review.
     expect(screen.queryByRole("button", { name: "Preview approvals" })).toBeNull();
-    const chain = within(screen.getByRole("region", { name: "Approvals" }));
-    expect(chain.getByText("Who approves if you submit now")).toBeInTheDocument();
+    const chain = within(screen.getByRole("region", { name: "Who Approves If You Submit Now" }));
+    expect(chain.getByText("Who Approves If You Submit Now")).toBeInTheDocument();
     expect(chain.getByRole("listitem", { name: "Regional Director" })).toHaveTextContent("10% discount");
   });
 
-  it("confirms with the expiry date, then submits what was reviewed", async () => {
+  it("confirms with the expiry date, submits what was reviewed, and lands on the quote page", async () => {
     Object.assign(version, { data: ready });
     submit.mutateAsync.mockResolvedValue(submitted);
-    renderWizard();
+    renderAt();
     const user = await openReview();
 
     await user.click(screen.getByRole("button", { name: "Submit version 1" }));
@@ -313,6 +349,8 @@ describe("QuoteWizardPage — review and submit", () => {
 
     expect(save.mutateAsync).not.toHaveBeenCalled();
     expect(submit.mutateAsync).toHaveBeenCalledWith({ quoteId: 5, version: 1, expectedUpdatedAt: "2026-09-25T10:00:00.123Z" });
+    expect(await screen.findByText("quote page /sales/cado2/quotes/5/quote")).toBeInTheDocument();
+    expect(await screen.findByRole("status")).toHaveTextContent("Version 1 submitted for approval");
   });
 
   it("saves the changes when moving to another step, then submits the saved copy", async () => {
@@ -330,8 +368,9 @@ describe("QuoteWizardPage — review and submit", () => {
 
     expect(save.mutateAsync).toHaveBeenCalledTimes(1);
     expect(save.mutateAsync.mock.calls[0][0].input).toMatchObject({ poNumber: "PO-9" });
-    expect(await screen.findByText("Saved")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    // Moving between steps saves without a toast; only Save draft says so (2026-10-13).
+    expect(await screen.findByRole("heading", { level: 2, name: "Review" })).toBeInTheDocument();
+    expect(screen.queryByText("Draft saved")).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Submit version 1" }));
     const dialog = await screen.findByRole("dialog");
@@ -369,19 +408,30 @@ describe("QuoteWizardPage — review and submit", () => {
 
     expect(await screen.findByText(/The version wasn't submitted/)).toBeInTheDocument();
     // findBy: the page is aria-hidden until the dialog's closing transition ends.
-    expect(await screen.findByRole("button", { name: /Products & Pricing: The minimum quantity/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Term & Products: The minimum quantity/ })).toBeInTheDocument();
   });
 
-  it("opens a submitted version read-only on Review", () => {
+  // The wizard only edits (2026-10-13): anything else is viewed on the quote page.
+  it("sends a submitted version to the quote page", () => {
     Object.assign(version, { data: submitted });
-    renderWizard();
+    renderAt();
 
-    expect(screen.getByText("v1 · In approval")).toBeInTheDocument();
-    expect(screen.getByText(/submitted on 1 Oct 2026 by rep@wso2.com and is in approval/)).toBeInTheDocument();
-    expect(screen.getByRole("table", { name: "Products" })).toBeInTheDocument();
+    expect(screen.getByText("quote page /sales/cado2/quotes/5/quote")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull();
-    expect(screen.queryByRole("button", { name: /Submit version/ })).toBeNull();
-    expect(screen.getAllByText("USD 6,480.00").length).toBeGreaterThan(0);
+  });
+
+  it("sends an older version to the quote page, on that version", () => {
+    const older = { ...submitted.version, versionNumber: 1 };
+    Object.assign(version, {
+      data: {
+        ...submitted,
+        version: older,
+        quote: { ...submitted.quote, versions: [...submitted.quote.versions, { ...submitted.quote.versions[0], versionNumber: 2 }] },
+      },
+    });
+    renderAt();
+
+    expect(screen.getByText("quote page /sales/cado2/quotes/5/quote?version=1")).toBeInTheDocument();
   });
 });
 
@@ -397,6 +447,8 @@ describe("QuoteWizardPage — new quote", () => {
     );
 
     expect(screen.getByRole("heading", { level: 1, name: "New Quote" })).toBeInTheDocument();
+    expect(screen.getByText("Editing")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
     expect(screen.queryByText(/Start by choosing/)).toBeNull(); // no hint in the title
     expect(screen.getByText("Choose the Salesforce account this quote is for.")).toBeInTheDocument();
     expect(screen.getByText("Not saved yet")).toBeInTheDocument();
@@ -404,9 +456,20 @@ describe("QuoteWizardPage — new quote", () => {
     expect(screen.getByRole("combobox", { name: /Account/ })).toBeInTheDocument();
     // Only the account search at first: everything else waits for the account and the deal.
     expect(screen.queryByRole("radiogroup", { name: "Opportunity" })).toBeNull();
-    for (const section of ["Renewal", "WSO2 legal entity", "Start date"]) {
+    for (const section of ["Renewal", "WSO2 Legal Entity", "Start date"]) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
+  });
+});
+
+// "It worked" is a toast that goes away (2026-10-13).
+describe("QuoteWizardPage — toasts", () => {
+  it("says Draft saved after Save draft", async () => {
+    save.mutateAsync.mockResolvedValue(draft);
+    renderWizard();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Save draft" }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Draft saved");
   });
 });
 
@@ -414,7 +477,12 @@ describe("QuoteWizardPage — delete a draft", () => {
   it("offers Delete draft on a saved draft, and asks first", async () => {
     Object.assign(version, { data: draft, isPending: false });
     renderWizard();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Delete draft" }));
+    const user = userEvent.setup();
+    // One main button; the rest under "⋯", Delete draft last (2026-10-13).
+    expect(screen.getByRole("button", { name: "Save draft" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Delete draft"]);
+    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     expect(screen.getByRole("dialog", { name: "Delete this draft quote?" })).toBeInTheDocument();
   });
 
@@ -432,14 +500,11 @@ describe("QuoteWizardPage — delete a draft", () => {
 });
 
 describe("QuoteWizardPage — lifecycle", () => {
-  it("explains a recalled version and links back to the quote", () => {
+  it("sends a recalled version to the quote page", () => {
     Object.assign(version, { data: { ...submitted, version: { ...submitted.version, status: "RECALLED" } } });
-    renderWizard();
+    renderAt();
 
-    expect(screen.getByText("v1 · Recalled")).toBeInTheDocument();
-    expect(screen.getByText(/was recalled and can't be changed/)).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "quote page" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
-    expect(screen.queryByRole("button", { name: "Save draft" })).toBeNull();
+    expect(screen.getByText("quote page /sales/cado2/quotes/5/quote")).toBeInTheDocument();
   });
 
   it("says where a revised draft was copied from", () => {
@@ -449,88 +514,115 @@ describe("QuoteWizardPage — lifecycle", () => {
     expect(screen.getByText(/Copied from version 1/)).toBeInTheDocument();
   });
 
-  it("returns to the quote page on Close", async () => {
-    render(
-      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
-        <Routes>
-          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
-          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<p>quote page</p>} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await userEvent.setup().click(screen.getByRole("button", { name: "Close" }));
-    expect(await screen.findByText("quote page")).toBeInTheDocument();
+  it("returns to the quote page from Back to quote", async () => {
+    renderAt();
+    await userEvent.setup().click(screen.getByRole("link", { name: /Back to quote/ }));
+    expect(await screen.findByText(/^quote page/)).toBeInTheDocument();
   });
 });
 
+// Unsaved changes are never kept aside to offer back (removed 2026-10-12):
+// moving between steps saves the draft, and Back to quote asks first.
 describe("QuoteWizardPage — unsaved changes when leaving", () => {
-  it("offers to restore the changes kept aside when the draft was last left", async () => {
-    Object.assign(version, { data: ready });
-    const values = { ...fromVersion(ready), poNumber: "PO-RESTORED" };
-    stashUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit", values);
-    renderWizard();
-
-    const banner = screen.getByText(/You left this draft with unsaved changes/);
-    expect(banner).toBeInTheDocument();
-    expect(screen.queryByText("Unsaved changes")).toBeNull();
-
-    await userEvent.setup().click(screen.getByRole("button", { name: "Restore" }));
-    expect(screen.queryByText(/You left this draft with unsaved changes/)).toBeNull();
-    expect(screen.getByText("Unsaved changes")).toBeInTheDocument(); // the saved version stays the baseline
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")).toBeNull();
-  });
-
-  it("keeps unsaved edits aside when the wizard is left from outside it (the rail, Back)", async () => {
+  it("keeps nothing aside when the wizard is left with unsaved edits, and offers nothing back", async () => {
     Object.assign(version, { data: ready });
     const view = renderWizard();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Commercial/ }));
     await user.type(await screen.findByLabelText(/PO number/), "PO-77");
 
-    view.unmount();
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")?.values.poNumber).toBe("PO-77");
-  });
-
-  it("keeps unsaved edits aside when the page goes away (reload, sign in again)", async () => {
-    Object.assign(version, { data: ready });
-    renderWizard();
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: /Commercial/ }));
-    await user.type(await screen.findByLabelText(/PO number/), "PO-78");
-
     act(() => void window.dispatchEvent(new Event("pagehide")));
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")?.values.poNumber).toBe("PO-78");
+    view.unmount();
+    expect(sessionStorage.length).toBe(0);
+
+    renderWizard();
+    expect(screen.queryByText(/You left this draft with unsaved changes/)).toBeNull();
   });
 
-  it("asks before Close throws unsaved edits away, and keeps nothing once you agree", async () => {
+  it("asks before Back to quote throws unsaved edits away", async () => {
     Object.assign(version, { data: ready });
-    render(
-      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/versions/1/edit"]}>
-        <Routes>
-          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
-          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<p>quote page</p>} />
-        </Routes>
-      </MemoryRouter>,
-    );
+    renderAt();
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: /Commercial/ }));
     await user.type(await screen.findByLabelText(/PO number/), "PO-79");
 
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false);
-    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("link", { name: /Back to quote/ }));
     expect(confirm).toHaveBeenCalledWith("You have unsaved changes. Leave without saving?");
-    expect(screen.queryByText("quote page")).toBeNull();
+    expect(screen.queryByText(/^quote page/)).toBeNull();
 
     confirm.mockReturnValueOnce(true);
-    await user.click(screen.getByRole("button", { name: "Close" }));
-    expect(await screen.findByText("quote page")).toBeInTheDocument();
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")).toBeNull();
+    await user.click(screen.getByRole("link", { name: /Back to quote/ }));
+    expect(await screen.findByText(/^quote page/)).toBeInTheDocument();
     confirm.mockRestore();
   });
+});
 
-  it("keeps nothing when the wizard is left with nothing unsaved", () => {
+// D77: the primary quote's "Sync to Salesforce" on Term & Products.
+describe("QuoteWizardPage — Salesforce sync", () => {
+  const primary = { ...ready, quote: { ...ready.quote, isPrimary: true, canSync: true, sfSyncedAt: null } };
+
+  async function openTermAndProducts() {
+    const user = userEvent.setup();
+    renderWizard();
+    await user.click(screen.getByRole("button", { name: "Term & Products" }));
+    return user;
+  }
+
+  it("syncs the saved primary draft, and says when it was last synced", async () => {
+    Object.assign(version, { data: primary });
+    sync.mutateAsync.mockResolvedValue({
+      ...primary,
+      quote: { ...primary.quote, sfSyncedAt: "2026-10-13T10:42:00Z", sfSyncedByEmail: "rep@wso2.com", sfSyncedVersion: 1 },
+    });
+    const user = await openTermAndProducts();
+    // In the header's "⋯", with when it was last synced (2026-10-13).
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.getByRole("menuitem", { name: /Sync to Salesforce/ })).toHaveTextContent("Not synced yet");
+    await user.click(screen.getByRole("menuitem", { name: /Sync to Salesforce/ }));
+    // It asks first, saying Salesforce will be made to match the quote.
+    const dialog = within(screen.getByRole("dialog", { name: "Sync to Salesforce?" }));
+    expect(dialog.getByText(/products on it that aren.t on this quote are removed in\s+Salesforce/)).toBeInTheDocument();
+    expect(sync.mutateAsync).not.toHaveBeenCalled();
+    await user.click(dialog.getByRole("button", { name: "Sync" }));
+
+    expect(save.mutateAsync).not.toHaveBeenCalled(); // nothing changed: nothing to save first
+    expect(sync.mutateAsync).toHaveBeenCalledWith({
+      quoteId: primary.quote.id,
+      version: 1,
+      expectedUpdatedAt: primary.version.updatedAt,
+    });
+    expect(await screen.findByRole("status")).toHaveTextContent("Synced to Salesforce"); // a toast
+  });
+
+  it("syncs nothing when the AM cancels", async () => {
+    Object.assign(version, { data: primary });
+    const user = await openTermAndProducts();
+    await pickAction(user, "Sync to Salesforce");
+    await user.click(within(screen.getByRole("dialog", { name: "Sync to Salesforce?" })).getByRole("button", { name: "Cancel" }));
+    expect(sync.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("isn't offered on a quote that can't be synced", async () => {
     Object.assign(version, { data: ready });
-    renderWizard().unmount();
-    expect(readUnsavedDraft("/sales/cado2/quotes/5/versions/1/edit")).toBeNull();
+    const user = await openTermAndProducts();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(screen.queryByRole("menuitem", { name: /Sync to Salesforce/ })).toBeNull();
+  });
+
+  it("says why when Salesforce refuses, and that nothing changed there", async () => {
+    Object.assign(version, { data: primary });
+    const body = {
+      message: "Salesforce refused the sync, so nothing was changed there",
+      issues: [{ field: "salesforce", message: "Closed Won opportunities can't be edited" }],
+    };
+    sync.mutateAsync.mockRejectedValue(new HttpError("u", 422, JSON.stringify(body)));
+    const user = await openTermAndProducts();
+
+    await pickAction(user, "Sync to Salesforce");
+    await user.click(within(screen.getByRole("dialog", { name: "Sync to Salesforce?" })).getByRole("button", { name: "Sync" }));
+
+    expect(await screen.findByText(/Salesforce refused the sync, so nothing changed there:/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Closed Won opportunities can't be edited/).length).toBeGreaterThan(0);
   });
 });

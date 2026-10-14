@@ -54,7 +54,7 @@ export default function ParEmployeeFeedbackTab() {
   const leadEmail = useParEmployeeInfo(workEmail).data?.leadEmail ?? undefined;
 
   const activeCycles = useActiveParCycle(workEmail);
-  // manager.bal refuses to have two cycles OPEN at once, so there is at most
+  // The backend refuses to have two cycles OPEN at once, so there is at most
   // one to show.
   const cycle = activeCycles.data?.[0];
   const rating = useParRating(cycle?.parCycleId, workEmail);

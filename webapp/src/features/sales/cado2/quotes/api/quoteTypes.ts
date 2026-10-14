@@ -161,6 +161,8 @@ export interface Product {
   readonly classification: string | null;
   /** The Admin's mapping; null = not mapped, the rep chooses. */
   readonly category?: LineCategory | null;
+  /** Charged every year, from the Salesforce classification (D76). */
+  readonly recurring: boolean;
   readonly pricebookEntries: readonly PricebookEntry[];
 }
 
@@ -258,7 +260,8 @@ export interface DraftLineInput {
   readonly keepSnapshotFromLineId?: number;
   readonly pricebookEntryId: string;
   readonly quantity: number;
-  readonly category: LineCategory;
+  /** "" = not chosen yet (D72): the draft saves, submission waits for it. */
+  readonly category: LineCategory | "";
   readonly discretionaryDiscountPercent: string;
   readonly unitOfMeasure?: string;
 }
@@ -268,6 +271,8 @@ export interface DraftInput {
   readonly sfOpportunityId: string;
   readonly sfAccountId: string;
   readonly expectedUpdatedAt?: string;
+  /** The Overview's "Primary quote" tick (D68); ticking releases the current primary. */
+  readonly isPrimary?: boolean;
   /** Only kept when Salesforce says the opportunity is a Renewal. */
   readonly previousOpportunityIds: readonly string[];
   readonly legalEntityId?: number;
@@ -280,6 +285,8 @@ export interface DraftInput {
   readonly termYears?: number;
   /** Typed in for Co-termed and Shorter term only; other modes derive it. */
   readonly subscriptionEndDate?: string;
+  /** A co-termed expansion: the opportunity it ends with (D73). */
+  readonly coTermOpportunityId?: string;
   /** Multi-year only; every other term is billed annually. */
   readonly billingFrequency?: BillingFrequency;
   /** Partner-led quotes only: one % for every line. */
@@ -317,12 +324,15 @@ export interface LineView {
   readonly unitOfMeasure: string | null;
   readonly productUnit: string | null;
   readonly classification: string | null;
+  /** Charged every year, from the classification (D76). */
+  readonly recurring: boolean;
   readonly quantity: number;
   readonly category: LineCategory;
   readonly categorySource?: CategorySource;
   readonly discretionaryDiscountPercent: string;
-  readonly startDate: string;
-  readonly endDate: string;
+  /** Null until the quote has a start date (D78). */
+  readonly startDate: string | null;
+  readonly endDate: string | null;
   readonly annualList: string;
   readonly annualNet: string;
   readonly arr: string;
@@ -379,8 +389,7 @@ export type VersionStatus =
   | "RECALLED"
   | "CLOSED"
   | "APPROVED"
-  | "REJECTED"
-  | "CHANGES_REQUESTED";
+  | "RETURNED";
 
 /** Lifecycle actions the caller may take now. */
 export type QuoteAction = "RECALL" | "REVISE" | "CLOSE";
@@ -415,6 +424,8 @@ export interface VersionView {
   /** Null for a services-only quote, or a version submitted before term modes. */
   readonly termMode: TermMode | null;
   readonly termYears: number | null;
+  /** A co-termed expansion: the opportunity it ends with (D73). */
+  readonly coTermOpportunity: { readonly id: string; readonly name: string | null } | null;
   /** "15.00" on a partner-led quote with a commission; null otherwise. */
   readonly partnerCommissionPercent?: string | null;
   readonly billingFrequency: BillingFrequency | null;
@@ -464,8 +475,18 @@ export interface QuoteView {
   readonly quoteNumber: string | null;
   /** The latest version's status; the quote has none of its own. */
   readonly status: VersionStatus;
-  /** What the caller may do now; empty for anyone but the owner. */
+  /** What the caller may do now; empty for anyone who may not change the quote. */
   readonly actions: readonly QuoteAction[];
+  /** The opportunity's primary quote, the one synced to Salesforce (D68). */
+  readonly isPrimary: boolean;
+  /** The caller may "Sync to Salesforce": sync on, primary, may change it (D77). */
+  readonly canSync?: boolean;
+  /** The last sync to Salesforce (D77); null until the first. */
+  readonly sfSyncedAt?: string | null;
+  readonly sfSyncedByEmail?: string | null;
+  readonly sfSyncedVersion?: number | null;
+  /** The caller may change the quote: its owner, or another AM when Admin allows it (D69). */
+  readonly canEdit: boolean;
   readonly ownerEmail: string;
   readonly sfOpportunityId: string;
   readonly sfAccountId: string;
@@ -494,12 +515,19 @@ export interface QuoteListItem {
   /** The latest version's status. */
   readonly status: VersionStatus;
   readonly ownerEmail: string;
+  readonly sfAccountId: string;
+  readonly sfOpportunityId: string;
+  /** The opportunity's primary quote (D68). */
+  readonly isPrimary: boolean;
+  /** The caller may change it (D69). */
+  readonly canEdit: boolean;
   readonly accountName: string | null;
   readonly opportunityName: string | null;
   readonly versionNumber: number;
   readonly currencyIsoCode: string | null;
   readonly tcv: string;
   readonly expiryDate: string | null;
+  readonly createdAt: string;
   readonly updatedAt: string;
 }
 
@@ -518,8 +546,15 @@ export interface AuditEvent {
     | "APPROVAL_WORKFLOW_CREATED"
     | "APPROVAL_REQUESTED"
     | "APPROVAL_APPROVED"
+    // Kept for history from before Reject was merged into Return (2026-10-12).
     | "APPROVAL_REJECTED"
-    | "APPROVAL_CHANGES_REQUESTED"
+    // Primary quote (D68): on the quote, with no version.
+    | "QUOTE_MADE_PRIMARY"
+    | "QUOTE_PRIMARY_RELEASED"
+    // Salesforce sync (D77): written to the opportunity, or refused by it.
+    | "QUOTE_SYNCED"
+    | "QUOTE_SYNC_FAILED"
+    | "APPROVAL_RETURNED"
     | "VERSION_APPROVED"
     | "ORDER_FORM_PREVIEWED"
     | "ORDER_FORM_ISSUED"
@@ -582,4 +617,34 @@ export interface DeleteDraftResult {
   readonly quoteDeleted: boolean;
   /** The latest version again; null when the quote is gone. */
   readonly latest: DraftResponse | null;
+}
+
+/** A quote on an opportunity, with which is primary (D68). Every AM sees them all (D69). */
+export interface OpportunityQuote {
+  readonly quoteId: number;
+  readonly quoteNumber: string | null;
+  readonly ownerEmail: string;
+  readonly isPrimary: boolean;
+  readonly status: VersionStatus;
+  readonly versionNumber: number;
+  readonly currencyIsoCode: string | null;
+  readonly tcv: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** What AMs may do with quotes they don't own (D69). */
+export type QuoteAccess = "VIEW" | "VIEW_EDIT";
+
+/** Whose quotes the Quotes page lists (D70): the caller's own, or everyone's. */
+export type QuoteScope = "mine" | "all";
+
+/** GET /opportunities/{id}/products: what a new quote starts from (D72). */
+export interface OpportunityProducts {
+  readonly currencyIsoCode: string | null;
+  readonly pricebook: { readonly id: string | null; readonly name: string | null } | null;
+  /** One per Salesforce line, priced from the opportunity's price book. */
+  readonly products: readonly Product[];
+  /** Products the price book doesn't price, e.g. "not active in USD Price Book in USD". */
+  readonly notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
 }

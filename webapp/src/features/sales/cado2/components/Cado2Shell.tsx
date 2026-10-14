@@ -22,6 +22,7 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { NothingHere, PageTitle } from "@components/perspective-landing/PerspectiveLanding";
 import { isCado2BackendConfigured } from "@config/apiConfig";
 import { cado2Access, useCado2Me, type Cado2Access } from "../api/useCado2Me";
+import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { cado2Paths } from "../cado2Paths";
 
 const NAME = "CadO2";
@@ -88,7 +89,11 @@ export default function Cado2Shell(): JSX.Element {
     );
   }
 
-  return <Outlet />;
+  return (
+    <Cado2ToastProvider>
+      <Outlet />
+    </Cado2ToastProvider>
+  );
 }
 
 /** What a route needs, in CadO2's terms. */

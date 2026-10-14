@@ -15,7 +15,8 @@
 // under the License.
 
 import { Fragment, type JSX, type ReactNode } from "react";
-import { Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { alpha, Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { TriangleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 
@@ -30,6 +31,11 @@ interface OrderFormTableProps {
   readonly below?: (index: number) => ReactNode;
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
+  /**
+   * The wizard's note on a line without a category yet (D72), by position in
+   * `lines`, shown under the product. Such lines are listed first.
+   */
+  readonly categoryNote?: (index: number) => ReactNode;
 }
 
 /**
@@ -43,9 +49,11 @@ interface OrderFormTableProps {
  *   Partner commission (15%)     − 13,305.00
  *   Net order value                75,395.00
  */
-export default function OrderFormTable({ lines, currency, actions, below, commissionPercent = null }: OrderFormTableProps): JSX.Element {
+export default function OrderFormTable({ lines, currency, actions, below, commissionPercent = null, categoryNote }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
   const cols = actions ? 7 : 6;
+  // Products brought in from Salesforce whose category isn't chosen yet (D72).
+  const pending = categoryNote ? lines.filter((l) => !l.category) : [];
   const cur = currency ? ` (${currency})` : "";
   const money = (v: string | null) => (v ? formatMoney(v) : "—");
 
@@ -61,6 +69,98 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
       {actions ? <TableCell sx={{ borderBottom: strong ? 0 : undefined }} /> : null}
     </TableRow>
   );
+
+  const groupHeader = (title: string) => (
+    <TableRow>
+      <TableCell colSpan={cols} sx={{ bgcolor: "action.hover", py: 0.75 }}>
+        <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
+          {title}
+        </Typography>
+      </TableCell>
+    </TableRow>
+  );
+
+  // Lines waiting for a category stand apart from the category sections: an
+  // amber strip that says what to do, and an amber bar down each line (2026-10-12).
+  const pendingHeader = (
+    <TableRow>
+      <TableCell
+        colSpan={cols}
+        sx={{
+          bgcolor: (t) => alpha(t.palette.warning.main, 0.14),
+          boxShadow: (t) => `inset 4px 0 ${t.palette.warning.main}`,
+          py: 0.75,
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "warning.dark" }}>
+          <TriangleAlertIcon size={16} aria-hidden />
+          <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
+            Not Categorised
+          </Typography>
+          <Typography variant="body2" sx={{ color: "text.primary" }}>
+            · Choose a category for {pending.length === 1 ? "1 product" : `${pending.length} products`}
+          </Typography>
+        </Box>
+      </TableCell>
+    </TableRow>
+  );
+
+  const lineRow = (l: SheetLine) => {
+    const index = lines.indexOf(l);
+    const waiting = pending.includes(l);
+    return (
+      <Fragment key={l.number}>
+        <TableRow>
+          <TableCell
+            sx={{
+              minWidth: 200,
+              ...(waiting ? { boxShadow: (t) => `inset 4px 0 ${t.palette.warning.main}` } : {}),
+            }}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              {l.productName}
+            </Typography>
+            {/* The name and the SKU only (2026-10-12, amends D53): the description is shown when choosing the product. */}
+            {l.productCode ? (
+              <Typography variant="caption" color="text.secondary" display="block">
+                {l.productCode}
+              </Typography>
+            ) : null}
+            {!l.category ? categoryNote?.(index) : null}
+            {l.categoryByRep && l.category ? (
+              <Chip
+                size="small"
+                color="warning"
+                variant="outlined"
+                label="Category chosen by AM"
+                title="This product has no category set up by an Admin, so the AM chose it. Deal Desk checks it."
+                sx={{ mt: 0.5 }}
+              />
+            ) : null}
+          </TableCell>
+          <TableCell>{l.unitOfMeasure ?? "–"}</TableCell>
+          <TableCell align="right" sx={num}>
+            {formatMoney(l.unitPrice)}
+          </TableCell>
+          <TableCell align="right" sx={num}>
+            {l.quantity}
+          </TableCell>
+          <TableCell align="right" sx={num}>
+            {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
+          </TableCell>
+          <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
+            {money(l.tcv)}
+          </TableCell>
+          {actions ? (
+            <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
+              {actions(index)}
+            </TableCell>
+          ) : null}
+        </TableRow>
+        {below?.(index)}
+      </Fragment>
+    );
+  };
 
   return (
     <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
@@ -83,69 +183,17 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
           </TableRow>
         </TableHead>
         <TableBody>
+          {/* Lines waiting for a category come first, under their own heading, with no subtotal (D72). */}
+          {pending.length > 0 ? (
+            <>
+              {pendingHeader}
+              {pending.map(lineRow)}
+            </>
+          ) : null}
           {form.groups.map((g) => (
             <Fragment key={g.category}>
-              <TableRow>
-                <TableCell colSpan={cols} sx={{ bgcolor: "action.hover", py: 0.75 }}>
-                  <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
-                    {g.title}
-                  </Typography>
-                </TableCell>
-              </TableRow>
-              {g.lines.map((l) => {
-                const index = lines.indexOf(l);
-                return (
-                  <Fragment key={l.number}>
-                    <TableRow hover>
-                      <TableCell sx={{ minWidth: 200 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {l.productName}
-                        </Typography>
-                        {l.productDescription ? (
-                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25, lineHeight: 1.4 }}>
-                            {l.productDescription}
-                          </Typography>
-                        ) : null}
-                        {/* Every line is from the quote's price book, shown once in the Deal section. */}
-                        {l.productCode ? (
-                          <Typography variant="caption" color="text.secondary" display="block">
-                            {l.productCode}
-                          </Typography>
-                        ) : null}
-                        {l.categoryByRep ? (
-                          <Chip
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                            label="Category chosen by rep"
-                            title="This product has no category set up by an Admin, so the rep chose it. Deal Desk checks it."
-                            sx={{ mt: 0.5 }}
-                          />
-                        ) : null}
-                      </TableCell>
-                      <TableCell>{l.unitOfMeasure ?? "–"}</TableCell>
-                      <TableCell align="right" sx={num}>
-                        {formatMoney(l.unitPrice)}
-                      </TableCell>
-                      <TableCell align="right" sx={num}>
-                        {l.quantity}
-                      </TableCell>
-                      <TableCell align="right" sx={num}>
-                        {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
-                      </TableCell>
-                      <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
-                        {money(l.tcv)}
-                      </TableCell>
-                      {actions ? (
-                        <TableCell align="right" sx={{ whiteSpace: "nowrap" }}>
-                          {actions(index)}
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                    {below?.(index)}
-                  </Fragment>
-                );
-              })}
+              {groupHeader(g.title)}
+              {g.lines.map(lineRow)}
               {totalRow(`${g.title} subtotal`, g.subtotal)}
             </Fragment>
           ))}

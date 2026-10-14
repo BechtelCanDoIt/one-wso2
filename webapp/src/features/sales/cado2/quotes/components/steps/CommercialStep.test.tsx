@@ -44,6 +44,7 @@ const line = (discount: string): LineValue => ({
   unitPrice: "1000",
   category: "SUBSCRIPTION",
   categorySource: "MAPPED",
+  recurring: true,
   unitOfMeasure: "Gateways",
   quantity: "1",
   discount,

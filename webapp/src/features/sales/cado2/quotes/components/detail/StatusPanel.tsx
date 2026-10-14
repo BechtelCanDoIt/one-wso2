@@ -15,8 +15,11 @@
 // under the License.
 
 import type { JSX, ReactNode } from "react";
-import { Box, Chip, Divider, Paper, Stack, Typography } from "@wso2/oxygen-ui";
-import { HourglassIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
+import { Box, Divider, Stack, Typography } from "@wso2/oxygen-ui";
+import { ActivityIcon, HourglassIcon } from "@wso2/oxygen-ui-icons-react";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { AuditEvent, DraftResponse } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { expiryState } from "@features/sales/cado2/quotes/sheet/sheetModel";
@@ -26,17 +29,23 @@ const day = (iso: string) => formatDate(iso.slice(0, 10));
 
 const TONE_COLOR = { ok: "success", soon: "warning", expired: "error" } as const;
 
-/** The quote page's side panel: lifecycle, expiry, approvals and details. */
+/**
+ * The quote page's side panel: lifecycle, expiry and details. The approvals
+ * are on the Approvals tab only (2026-10-13); the page pins the whole side
+ * column, this included.
+ */
 export default function StatusPanel({
   latest,
   events,
-  approvals,
+  eventsError,
+  onRetryEvents,
   documents,
 }: {
   latest: DraftResponse;
   events: readonly AuditEvent[];
-  /** Where the approval stands (the Approvals tab has the detail). */
-  approvals?: ReactNode;
+  /** The history couldn't be loaded: the timeline says it may be incomplete (2026-10-13). */
+  eventsError?: unknown;
+  onRetryEvents?: () => void;
   /** The order form, once approved. */
   documents?: ReactNode;
 }): JSX.Element {
@@ -45,17 +54,20 @@ export default function StatusPanel({
   const expiry =
     (v.status === "SUBMITTED" || v.status === "APPROVED") && v.expiryDate ? expiryState(v.expiryDate, new Date()) : null;
   return (
-    <Stack spacing={2} component="aside" aria-label="Status" sx={{ position: { lg: "sticky" }, top: { lg: 16 } }}>
+    <Stack spacing={2} component="aside" aria-label="Status">
       {documents}
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
-          Status
-        </Typography>
+      {/* "Timeline": the status itself is the header's chip (C4, 2026-10-14). */}
+      <SectionCard title="Timeline" icon={<ActivityIcon size={18} />}>
         {expiry ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
             <HourglassIcon size={16} />
-            <Chip size="small" color={TONE_COLOR[expiry.tone]} label={expiry.label} />
+            <StatusChip color={TONE_COLOR[expiry.tone]} label={expiry.label} />
           </Stack>
+        ) : null}
+        {eventsError ? (
+          <ErrorNotice error={eventsError} onRetry={onRetryEvents} sx={{ mb: 2 }}>
+            Couldn&apos;t load the quote&apos;s history, so this timeline may be incomplete.
+          </ErrorNotice>
         ) : null}
         <Stack component="ol" aria-label="Lifecycle" spacing={0} sx={{ listStyle: "none", m: 0, p: 0 }}>
           {steps.map((s, i) => (
@@ -107,8 +119,7 @@ export default function StatusPanel({
             Last changed {day(v.updatedAt)} · {v.updatedByEmail}
           </Typography>
         </Stack>
-      </Paper>
-      {approvals}
+      </SectionCard>
     </Stack>
   );
 }

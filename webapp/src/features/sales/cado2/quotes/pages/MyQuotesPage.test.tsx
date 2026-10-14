@@ -17,171 +17,365 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import type { JSX } from "react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { QuoteListItem } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { ready } from "@features/sales/cado2/quotes/testing/fixtures";
 import MyQuotesPage from "./MyQuotesPage";
 
-const list = { data: undefined as unknown, error: null as unknown, isPending: true, isFetching: false, refetch: vi.fn() };
-const listCalls: [string][] = [];
+// The Quotes page (D70): tabs, status chips, list and tree layouts.
+
+const query = () => ({
+  data: undefined as unknown,
+  error: null as unknown,
+  isPending: true,
+  isFetching: false,
+  refetch: vi.fn(),
+});
+const lists = { mine: query(), all: query() };
+const setPrimary = {
+  mutate: vi.fn(),
+  reset: vi.fn(),
+  isPending: false,
+  error: null,
+};
+const deleteDraft = {
+  mutate: vi.fn(),
+  reset: vi.fn(),
+  isPending: false,
+  error: null,
+};
 
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
-  useQuoteList: (status: string) => {
-    listCalls.push([status]);
-    return list;
-  },
+  useQuoteList: (_status: string, scope: "mine" | "all") => lists[scope],
+  useSetPrimary: () => setPrimary,
+  useOpportunityQuotes: () => ({
+    data: [],
+    error: null,
+    isPending: false,
+    isFetching: false,
+  }),
   // The draft a row menu deletes is loaded first.
-  useQuoteVersion: () => ({ data: ready, error: null, isFetching: false, refetch: vi.fn() }),
+  useQuoteVersion: () => ({
+    data: ready,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
   useDeleteDraft: () => deleteDraft,
 }));
-const deleteDraft = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
 
-const soon = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
-const later = new Date(Date.now() + 30 * 86_400_000).toISOString().slice(0, 10);
-const item = (id: number, over: Partial<QuoteListItem> = {}): QuoteListItem => ({
+const NOW = new Date().toISOString();
+const item = (
+  id: number,
+  over: Partial<QuoteListItem> = {},
+): QuoteListItem => ({
   id,
   quoteNumber: `Q-26-0000${id}`,
   status: "DRAFT",
   ownerEmail: "rep@wso2.com",
+  sfAccountId: "001ACME",
+  sfOpportunityId: "006ACMEAPIM",
+  isPrimary: false,
+  canEdit: true,
   accountName: "Acme Corp",
   opportunityName: "Acme APIM renewal",
   versionNumber: 1,
   currencyIsoCode: "USD",
   tcv: "123000.00",
   expiryDate: null,
-  updatedAt: new Date().toISOString(),
+  createdAt: "2026-10-02T08:00:00Z",
+  // One time for every item: a fresh new Date() per item could tick between
+  // items and reorder the list, which is sorted by last update.
+  updatedAt: NOW,
   ...over,
 });
-const items = [
-  item(1, { versionNumber: 2 }),
-  // Issued (approved) quotes carry an expiry; one still in approval has none.
-  item(2, { status: "APPROVED", expiryDate: soon, accountName: "Northwind Logistics", opportunityName: "API Platform 2027" }),
-  item(3, { status: "APPROVED", expiryDate: later }),
-  item(5, { status: "SUBMITTED" }),
+const mine = [
+  item(1, { versionNumber: 2, isPrimary: true }),
+  item(2, {
+    status: "APPROVED",
+    sfAccountId: "001NW",
+    accountName: "Northwind Logistics",
+    sfOpportunityId: "006NW",
+    opportunityName: "API Platform 2027",
+  }),
+  item(3, { status: "APPROVED" }),
+  item(5, {
+    status: "SUBMITTED",
+    sfOpportunityId: "006ACMEIAM",
+    opportunityName: "Acme IAM",
+  }),
   item(4, { status: "RECALLED" }),
 ];
+const everyone = [
+  ...mine,
+  item(6, {
+    ownerEmail: "nimesha@wso2.com",
+    canEdit: false,
+    sfAccountId: "001SUVA",
+    accountName: "Suva",
+    sfOpportunityId: "006SUVA",
+    opportunityName: "Renewal 2027",
+  }),
+];
 
-function renderPage() {
+function Where(): JSX.Element {
+  const l = useLocation();
+  return <output aria-label="Location">{l.pathname + l.search}</output>;
+}
+
+function renderPage(path = "/sales/cado2/quotes") {
   render(
-    <MemoryRouter>
-      <MyQuotesPage />
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route path="/sales/cado2/quotes" element={<MyQuotesPage />} />
+        <Route path="/sales/cado2/quotes/:id/quote" element={<Where />} />
+      </Routes>
     </MemoryRouter>,
   );
 }
 
-const rows = () => within(screen.getByRole("list", { name: "Quotes" })).getAllByRole("listitem");
+const table = (name = "Quotes") => screen.getByRole("table", { name });
+const bodyRows = (name = "Quotes") =>
+  within(table(name)).getAllByRole("row").slice(1);
 
 beforeEach(() => {
-  Object.assign(list, { data: undefined, error: null, isPending: true });
-  listCalls.length = 0;
+  Object.assign(lists.mine, {
+    data: { items: mine, total: mine.length },
+    error: null,
+    isPending: false,
+  });
+  Object.assign(lists.all, {
+    data: { items: everyone, total: everyone.length },
+    error: null,
+    isPending: false,
+  });
+  setPrimary.mutate = vi.fn();
+  localStorage.clear();
 });
 
-describe("MyQuotesPage", () => {
-  it("shows the counts and one row per quote, each opening its quote page", () => {
-    Object.assign(list, { isPending: false, data: { items, total: 5 } });
+describe("Quotes page", () => {
+  it("shows my quotes as compact rows, with each tab's count and the status chips' counts", async () => {
     renderPage();
 
-    expect(screen.getByRole("heading", { name: "My Quotes" })).toBeInTheDocument();
-    // Nothing under the title (frontend.md, "Page titles").
-    expect(screen.queryByText("5 quotes")).toBeNull();
-    const counts = within(screen.getByRole("group", { name: "Quote counts" }));
-    expect(counts.getByRole("button", { name: "Drafts: 1" })).toBeInTheDocument();
-    expect(counts.getByRole("button", { name: "In approval: 1" })).toBeInTheDocument();
-    expect(counts.getByRole("button", { name: "Approved: 2" })).toBeInTheDocument();
-    expect(counts.getByRole("button", { name: "Expiring within 7 days: 1" })).toBeInTheDocument();
-    expect(counts.getByRole("button", { name: "To revise: 1" })).toBeInTheDocument();
-    expect(counts.getByRole("button", { name: "Closed: 0" })).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "Filter by status" })).toBeNull(); // merged into the cards
+    expect(screen.getByRole("heading", { name: "Quotes" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "My quotes 5" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(
+      screen.getByRole("tab", { name: "All quotes 6" }),
+    ).toBeInTheDocument();
+    const chips = within(
+      screen.getByRole("group", { name: "Filter by status" }),
+    );
+    for (const name of [
+      "All 5",
+      "Draft 1",
+      "In approval 1",
+      "Approved 2",
+      "To revise 1",
+      "Closed 0",
+    ]) {
+      expect(chips.getByRole("button", { name })).toBeInTheDocument();
+    }
+    // Gone (2026-10-12 feedback): the big cards, "Needs your attention", "Expiring within 7 days".
+    expect(screen.queryByRole("group", { name: "Quote counts" })).toBeNull();
+    expect(
+      screen.queryByText(/Needs your attention|Expiring within/),
+    ).toBeNull();
 
-    expect(rows()).toHaveLength(5);
-    const first = within(rows()[0]);
-    expect(first.getByRole("link")).toHaveAttribute("href", "/sales/cado2/quotes/1/quote");
+    expect(
+      within(table()).queryByRole("columnheader", { name: "Owner" }),
+    ).toBeNull(); // always you
+    const first = within(bodyRows()[0]);
+    expect(first.getByLabelText("Primary quote")).toBeInTheDocument();
+    expect(first.getByRole("link", { name: "Q-26-00001" })).toHaveAttribute(
+      "href",
+      "/sales/cado2/quotes/1/quote",
+    );
     expect(first.getByText("Draft (v2)")).toBeInTheDocument();
-    expect(first.getByText("USD 123,000.00")).toBeInTheDocument();
-    expect(first.getByText("just now")).toBeInTheDocument();
-    expect(within(rows()[1]).getByText("3 days left")).toBeInTheDocument();
-    expect(within(rows()[4]).queryByText(/left/)).toBeNull(); // in approval: the clock hasn't started
-    expect(screen.getByRole("link", { name: "Create Quote" })).toHaveAttribute("href", "/sales/cado2/quotes/new");
+    expect(first.getByText("2 Oct 2026")).toBeInTheDocument(); // created
+    expect(first.getByText("just now")).toBeInTheDocument(); // updated
+    expect(
+      within(table()).queryByRole("columnheader", { name: /Total/ }),
+    ).toBeNull(); // not needed (2026-10-12)
+
+    await userEvent
+      .setup()
+      .click(within(bodyRows()[1]).getByText("Northwind Logistics"));
+    expect(screen.getByLabelText("Location")).toHaveTextContent(
+      "/sales/cado2/quotes/2/quote",
+    ); // the whole row opens it
   });
 
-  it("filters from a KPI card, and clears it with a second click", async () => {
-    Object.assign(list, { isPending: false, data: { items, total: 5 } });
-    renderPage();
-    const user = userEvent.setup();
-    const expiring = screen.getByRole("button", { name: "Expiring within 7 days: 1" });
-
-    await user.click(expiring);
-    expect(expiring).toHaveAttribute("aria-pressed", "true");
-    expect(rows()).toHaveLength(1);
-    expect(within(rows()[0]).getByText("Northwind Logistics")).toBeInTheDocument();
-    expect(screen.getByText(/Showing 1 of 5 · Expiring within 7 days/)).toBeInTheDocument();
-
-    await user.click(expiring);
-    expect(expiring).toHaveAttribute("aria-pressed", "false");
-    expect(rows()).toHaveLength(5);
-  });
-
-  it("filters by a status card, shows all again, and searches, all in the browser", async () => {
-    Object.assign(list, { isPending: false, data: { items, total: 5 } });
+  it("filters by a status chip, searches, and clears", async () => {
     renderPage();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Approved: 2" }));
-    expect(rows()).toHaveLength(2);
-    await user.click(screen.getByRole("button", { name: "Show all" }));
-    expect(rows()).toHaveLength(5);
-    expect(screen.queryByRole("button", { name: "Show all" })).toBeNull();
-    await user.type(screen.getByRole("textbox", { name: "Search quotes" }), "northwind");
-    expect(rows()).toHaveLength(1);
-    expect(listCalls.every(([status]) => status === "")).toBe(true);
-
+    await user.click(screen.getByRole("button", { name: "Approved 2" }));
+    expect(bodyRows()).toHaveLength(2);
+    await user.click(screen.getByRole("button", { name: "All 5" }));
+    await user.type(
+      screen.getByRole("textbox", { name: "Search quotes" }),
+      "northwind",
+    );
+    expect(bodyRows()).toHaveLength(1);
     await user.clear(screen.getByRole("textbox", { name: "Search quotes" }));
-    await user.type(screen.getByRole("textbox", { name: "Search quotes" }), "zzz");
+    await user.type(
+      screen.getByRole("textbox", { name: "Search quotes" }),
+      "zzz",
+    );
     expect(screen.getByText("No quotes match")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
-    expect(rows()).toHaveLength(5);
+    expect(bodyRows()).toHaveLength(5);
   });
 
-  it("welcomes a rep with no quotes", () => {
-    Object.assign(list, { isPending: false, data: { items: [], total: 0 } });
-    renderPage();
-    expect(screen.getByText("No quotes yet")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Create your first quote" })).toHaveAttribute("href", "/sales/cado2/quotes/new");
-  });
-
-  it("lists only the caller's own quotes: there is no Everyone switch", () => {
-    Object.assign(list, { isPending: false, data: { items, total: 5 } });
-    renderPage();
-    expect(screen.queryByRole("switch")).toBeNull();
-    expect(screen.getByRole("heading", { name: "My Quotes" })).toBeInTheDocument();
-    expect(listCalls.at(-1)).toEqual([""]);
-  });
-
-  it("offers Delete draft in a draft row's menu, and asks first", async () => {
-    Object.assign(list, { isPending: false, data: { items, total: 5 } });
+  it("shows everyone's quotes on All quotes, with an Owner column, found by search; others' rows are read-only", async () => {
     renderPage();
     const user = userEvent.setup();
 
-    // Only draft rows have the menu.
-    expect(within(rows()[0]).getByRole("button", { name: "Actions for Q-26-00001" })).toBeInTheDocument();
-    for (const r of rows().slice(1)) expect(within(r).queryByRole("button", { name: /^Actions for/ })).toBeNull();
+    await user.click(screen.getByRole("tab", { name: "All quotes 6" }));
+    expect(
+      within(table()).getByRole("columnheader", { name: "Owner" }),
+    ).toBeInTheDocument();
+    const suva = within(bodyRows()[5]);
+    expect(suva.getByText("nimesha@wso2.com")).toBeInTheDocument();
+    expect(suva.queryByRole("button", { name: /^Actions for/ })).toBeNull(); // quote access View
 
-    await user.click(within(rows()[0]).getByRole("button", { name: "Actions for Q-26-00001" }));
-    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
-    const dialog = screen.getByRole("dialog", { name: "Delete this draft quote?" }); // never submitted, so no number
-    await user.click(within(dialog).getByRole("button", { name: "Delete quote" }));
-    expect(deleteDraft.mutate).toHaveBeenCalledWith(
-      { quoteId: ready.quote.id, version: ready.version.versionNumber, expectedUpdatedAt: ready.version.updatedAt },
+    expect(screen.queryByRole("combobox", { name: "Owner" })).toBeNull(); // no owner dropdown (2026-10-12)
+    await user.type(
+      screen.getByRole("textbox", { name: "Search quotes" }),
+      "nimesha",
+    );
+    expect(bodyRows()).toHaveLength(1);
+  });
+
+  it("lays quotes out as a tree, account › opportunity › quote, each branch collapsible, and remembers the choice", async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Tree" }));
+    const tree = "Quotes by account and opportunity";
+    expect(within(table(tree)).getByText("Acme Corp")).toBeInTheDocument();
+    expect(
+      within(table(tree)).getByText("Acme APIM renewal"),
+    ).toBeInTheDocument();
+    expect(
+      within(table(tree)).getByText("★ Q-26-00001 is primary"),
+    ).toBeInTheDocument();
+    expect(
+      within(table(tree)).getByText("Northwind Logistics"),
+    ).toBeInTheDocument();
+    expect(within(table(tree)).getAllByRole("link")).toHaveLength(5);
+
+    await user.click(
+      screen.getByRole("button", { name: "Collapse Acme APIM renewal" }),
+    );
+    expect(within(table(tree)).getAllByRole("link")).toHaveLength(2); // Acme IAM's and Northwind's
+    await user.click(
+      screen.getByRole("button", { name: "Collapse Acme Corp" }),
+    );
+    expect(within(table(tree)).queryByText("Acme IAM")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Expand Acme Corp" }));
+    expect(within(table(tree)).getByText("Acme IAM")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(within(table(tree)).queryAllByRole("link")).toHaveLength(0);
+    // A search opens every branch with a match.
+    await user.type(
+      screen.getByRole("textbox", { name: "Search quotes" }),
+      "Q-26-00003",
+    );
+    expect(within(table(tree)).getAllByRole("link")).toHaveLength(1);
+
+    expect(localStorage.getItem("cado2.quotes.layout")).toBe("tree");
+  });
+
+  it("makes a quote primary from its row menu, after asking; Delete draft only on drafts", async () => {
+    renderPage();
+    const user = userEvent.setup();
+
+    await user.click(
+      within(bodyRows()[2]).getByRole("button", {
+        name: "Actions for Q-26-00003",
+      }),
+    );
+    expect(screen.queryByRole("menuitem", { name: "Delete draft" })).toBeNull(); // approved, not a draft
+    await user.click(screen.getByRole("menuitem", { name: "Make primary" }));
+    await user.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Make primary",
+      }),
+    );
+    expect(setPrimary.mutate).toHaveBeenCalledWith(
+      { quoteId: 3, primary: true },
       expect.anything(),
     );
   });
 
-  it("shows Not submitted where a never-submitted quote's number would be", () => {
-    Object.assign(list, { isPending: false, data: { items: [item(9, { quoteNumber: null })], total: 1 } });
+  it("deletes a draft from its row menu, after asking", async () => {
     renderPage();
-    const row = within(rows()[0]);
-    expect(row.getByText("Not submitted")).toBeInTheDocument();
-    expect(row.getByText("Acme Corp")).toBeInTheDocument();
-    expect(row.getByRole("button", { name: "Actions for Acme Corp · Acme APIM renewal" })).toBeInTheDocument();
+    const user = userEvent.setup();
+
+    await user.click(
+      within(bodyRows()[0]).getByRole("button", {
+        name: "Actions for Q-26-00001",
+      }),
+    );
+    // The quote page's menu (2026-10-13): the everyday action first, Delete draft last.
+    expect(screen.getAllByRole("menuitem").map((m) => m.textContent)).toEqual(["Remove primary", "Delete draft"]); // this draft is the primary
+    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
+    const dialog = screen.getByRole("dialog", {
+      name: "Delete this draft quote?",
+    }); // never submitted, so no number
+    await user.click(
+      within(dialog).getByRole("button", { name: "Delete quote" }),
+    );
+    expect(deleteDraft.mutate).toHaveBeenCalledWith(
+      {
+        quoteId: ready.quote.id,
+        version: ready.version.versionNumber,
+        expectedUpdatedAt: ready.version.updatedAt,
+      },
+      expect.anything(),
+    );
+  });
+
+  it("sorts on any column, ascending then descending", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    const numbers = () =>
+      bodyRows().map((r) => within(r).getAllByRole("link")[0].textContent);
+
+    await user.click(screen.getByRole("button", { name: "Account" }));
+    expect(
+      within(bodyRows()[4]).getByText("Northwind Logistics"),
+    ).toBeInTheDocument(); // A to Z
+    await user.click(screen.getByRole("button", { name: "Account" }));
+    expect(
+      within(bodyRows()[0]).getByText("Northwind Logistics"),
+    ).toBeInTheDocument(); // Z to A
+    expect(
+      screen.getByRole("columnheader", { name: /Account/ }),
+    ).toHaveAttribute("aria-sort", "descending");
+
+    await user.click(screen.getByRole("button", { name: "Quote" }));
+    expect(numbers()).toEqual([
+      "Q-26-00001",
+      "Q-26-00002",
+      "Q-26-00003",
+      "Q-26-00004",
+      "Q-26-00005",
+    ]);
+  });
+
+  it("welcomes a rep with no quotes", () => {
+    Object.assign(lists.mine, { data: { items: [], total: 0 } });
+    renderPage();
+    expect(screen.getByText("No quotes yet")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Create your first quote" }),
+    ).toHaveAttribute("href", "/sales/cado2/quotes/new");
   });
 });

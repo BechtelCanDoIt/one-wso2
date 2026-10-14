@@ -86,6 +86,8 @@ describe("ApprovalMatrixPage", () => {
     // Plain text: the admin panel gives no access to the quotes themselves.
     expect(dialog.getByText("Q-26-00005")).toBeInTheDocument();
     expect(dialog.queryByRole("link", { name: "Q-26-00005" })).toBeNull();
+    // Red: it recalls other people's quotes (2026-10-13).
+    expect(dialog.getByRole("button", { name: "Save and recall" })).toHaveClass("MuiButton-colorError");
     await user.click(dialog.getByRole("button", { name: "Save and recall" }));
     expect(mutate).toHaveBeenLastCalledWith(expect.objectContaining({ confirm: true }), expect.anything());
     expect(await screen.findByText("Saved. 1 quote was recalled for resubmission.")).toBeInTheDocument();

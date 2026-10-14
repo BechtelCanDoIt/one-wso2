@@ -14,12 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// PAR (Performance Appraisal Review) app types. Subset of
-// digiops-hr/apps/par-app backend modules/types/types.bal — only the
-// employee-facing fields this app renders.
+// PAR (Performance Appraisal Review) app types. Subset of the PAR backend's
+// types — only the employee-facing fields this app renders.
 
-// GET /employees/{workEmail} — mirrors par-app backend's EmployeeInfo
-// (modules/types/types.bal), narrowed to the one field this app reads:
+// GET /employees/{workEmail} — mirrors the backend's EmployeeInfo,
+// narrowed to the one field this app reads:
 // `leadEmail`, which OngoingCycleView.tsx's tab-set gate checks directly
 // (`employeeInfo?.leadEmail !== null`).
 export interface ParEmployeeInfo {
@@ -55,8 +54,7 @@ export interface ParCycleConfigurations {
   parRatings: string[];
   threeSixtyReviewRatings: string[];
   // Not on the wire yet — the backend's ParCycleConfigurations is a closed
-  // record with no such fields (see digiops-hr/apps/par-app/backend's
-  // modules/types/types.bal), so these are always undefined today. Typed
+  // record with no such fields, so these are always undefined today. Typed
   // ahead of a planned backend change so ParLeadReviewPanel.tsx's fallback
   // chain (cycle config → apiConfig.ts's window.config value → hardcoded
   // default) picks them up automatically once the backend ships them,
@@ -133,8 +131,8 @@ export interface ParRating {
   parSpecialRating?: string;
   parLeadComment?: string;
   parLeadStatus: ParLeadStatus;
-  // Who invoked the share (a lead, or an admin sharing on a lead's behalf) —
-  // par-app's EmployeePar.tsx renders this as "PAR Shared By".
+  // Who invoked the share (a lead, or an admin sharing on a lead's behalf),
+  // shown to the employee as "PAR Shared By".
   parRatingSharedBy?: string;
   // Who last updated parRating — a real invoker's email normally, or the literal string
   // "SYSTEM" when the rating was auto-assigned after a missed deadline. ParLeadReviewPanel.tsx uses this to flag an auto-assigned rating distinctly,
@@ -164,8 +162,8 @@ export interface ParRating {
 
 // ---- 360° feedback ----------------------------------------------------------
 //
-// Mirrors par-app backend's Par360Reviewer / Par360ReviewRequest / Par360Review
-// / Par360ReviewUpdate / Par360ReviewRequestCreate (modules/types/types.bal).
+// Mirrors the backend's Par360Reviewer / Par360ReviewRequest / Par360Review
+// / Par360ReviewUpdate / Par360ReviewRequestCreate.
 // "SANITIZED" is a real wire value (a past review privacy-scrubbed after the
 // fact) that this app treats the same as REJECTED — nothing to act on, nothing
 // to show.
@@ -228,10 +226,9 @@ export interface ParParticipant {
 }
 
 // Body for PATCH /par-cycles/{cycleId}/employees/{email}/par-ratings/{id}.
-// par-app's backend rejects (403) any field outside what the caller's role
-// may touch — checkForModifiableFieldsForSelf/-ForLead in
-// modules/types/types.bal are each a DENYLIST, not an allowlist: self blocks
-// parRating/parSpecialRating/parLeadComment/parLeadStatus/parAdminComment/
+// The backend rejects (403) any field outside what the caller's role may
+// touch. Its self and lead checks are each a DENYLIST, not an allowlist:
+// self blocks parRating/parSpecialRating/parLeadComment/parLeadStatus/parAdminComment/
 // parPerformanceNoticeAck; lead blocks parEmployeeComment/parEmployeeStatus/
 // parEmployeeAcceptanceStatus/parEmployeeAcceptanceComment/parAdminComment.
 // Everything else on the type goes through for that caller — which is why
@@ -243,13 +240,13 @@ export interface ParRatingModify {
   parEmployeeStatus?: ParEmployeeStatus;
   parF2fStatus?: ParF2fStatus;
   parF2fDate?: string;
-  // Lead-only, per checkForModifiableFieldsForLead above.
+  // The employee can't set these four; the self denylist above blocks them.
   parRating?: string;
   parSpecialRating?: string;
   parLeadComment?: string;
   parLeadStatus?: ParLeadStatus;
-  // Admin-only — both checkForModifiableFieldsForLead and -ForSelf reject a
-  // non-empty value here, so only an admin caller may actually set it.
+  // Admin-only — both the self and lead denylists reject a non-empty value
+  // here, so only an admin caller may actually set it.
   parAdminComment?: string;
   // Lead-only, per the denylist comment above.
   parPerformanceNoticeAck?: string;
@@ -257,8 +254,8 @@ export interface ParRatingModify {
 
 // ---- Lead Portal ---------------------------------------------------------
 //
-// Mirrors par-app backend's ParTeamSummary/ParTeamDetails/ParRatingMinimal
-// (modules/types/types.bal) — the "Direct Reports" tab's team browser.
+// Mirrors the backend's ParTeamSummary/ParTeamDetails/ParRatingMinimal
+// — the "Direct Reports" tab's team browser.
 
 export interface ParTeamSummaryCounts {
   employeeParCompletedCount: number;
@@ -410,7 +407,7 @@ export interface ParChainReport extends ParRatingMinimal {
 }
 
 // One row of GET /par-cycles/{cycleId}/special-rating-groups-quota — mirrors
-// service.bal's own SpecialRatingAllocation record exactly. Rows share a
+// the backend's SpecialRatingAllocation record exactly. Rows share a
 // parQuotaId across every (BU, department, team) combination the quota
 // group covers; SpecialRatingAllocationView groups by it client-side.
 export interface ParSpecialRatingAllocation {
@@ -425,9 +422,8 @@ export interface ParSpecialRatingAllocation {
 
 // ---- F2F scheduling ----------------------------------------------------------
 //
-// Mirrors par-app backend's raw Google Calendar freebusy shape (gcalendar:
-// FreeBusyResponse) and its own ScheduleMeetingRequest — see manager.bal's
-// getBusyTimeSlots / scheduleF2FMeeting.
+// Mirrors the backend's raw Google Calendar freebusy shape (gcalendar:
+// FreeBusyResponse) and its own ScheduleMeetingRequest.
 
 export interface ParCalendarBusySlot {
   start: string;
@@ -447,8 +443,8 @@ export interface ParFreeBusyResponse {
 }
 
 // Body for POST .../calendar/schedule-f2f. The response is a bare 201 with
-// no payload (service.bal's own resource returns `http:CREATED` and nothing
-// else) — there is no meetLink to read back from this call.
+// no payload (the backend returns `http:CREATED` and nothing else) — there
+// is no meetLink to read back from this call.
 export interface ParScheduleF2fRequest {
   parRatingId: number;
   title: string;

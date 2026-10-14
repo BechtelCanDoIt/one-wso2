@@ -165,6 +165,8 @@ const GeneralReportTab = lazy(() => import("@features/leave/pages/LeaveReportsPa
 const SabbaticalReportTab = lazy(
   () => import("@features/leave/components/SabbaticalReportTab"),
 );
+// Sales Library: only routed when the `smartSearch` preview flag is on.
+const LibraryPage = lazy(() => import("@features/sales/smartSearch/pages/LibraryPage"));
 
 import SabbaticalApplyTab from "@features/leave/pages/LeaveSabbaticalPage";
 import ClaimsPage, { ClaimsIndex } from "@features/finance/claims/ClaimsPage";
@@ -353,7 +355,7 @@ export default function App() {
               <Route
                 path="general"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-general">
                     {/* Skeleton rather than null: the chunk is fetched on
                         navigation, and a blank frame reads as a broken link. */}
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
@@ -365,7 +367,7 @@ export default function App() {
               <Route
                 path="sabbatical"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-sabbatical">
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
                       <SabbaticalReportTab />
                     </Suspense>
@@ -979,6 +981,18 @@ export default function App() {
           {/* One deal, as a page rather than a drawer: it can be linked, refreshed and
               returned to with Back. ?letter= opens it filtered to one MEDDPICC Letter. */}
           <Route path="sales/deals/:opportunityId" element={<DealPage />} />
+          {/* Sales → Library, Smart Search over Pitstop's content. Behind the `smartSearch` preview
+              flag, and loaded lazily so nothing of it is downloaded while the flag is off. */}
+          {isPreviewEnabled("smartSearch") && (
+            <Route
+              path="sales/library"
+              element={
+                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                  <LibraryPage />
+                </Suspense>
+              }
+            />
+          )}
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
               menu app. One page, as the original was. */}

@@ -342,6 +342,55 @@ describe("what it shows", () => {
     expect(screen.queryByText("EXP-LEAD")).not.toBeInTheDocument();
   });
 
+  // OPD is a finance-only decision: its roles are CLAIM_SUBMITTER and
+  // FINANCE_APPROVER, with no lead stage to sit in. So the group belongs on
+  // "As finance" and must not follow the reader onto "As lead".
+  it("keeps OPD claims off the lead stage and shows them on finance", async () => {
+    data.opd = [opdClaim({})];
+    data.lead = [expenseClaim({ id: "EXP-LEAD" })];
+    const user = userEvent.setup();
+    show();
+
+    // Opens on lead, where only the expense claim belongs.
+    expect(await screen.findByText("EXP-LEAD")).toBeInTheDocument();
+    expect(screen.queryByText(/OPD claims/)).not.toBeInTheDocument();
+    expect(screen.queryByText("OPD-1")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "As finance" }));
+    expect(await screen.findByText(/OPD claims · 1/)).toBeInTheDocument();
+    expect(screen.getByText("OPD-1")).toBeInTheDocument();
+  });
+
+  // Finance can be sitting on fifty-odd OPD claims, and the Expense claims
+  // group below them was reachable only by scrolling past every one.
+  it("folds a group away when its heading is clicked, keeping the count", async () => {
+    flags.lead = false;
+    data.opd = [opdClaim({})];
+    data.finance = [
+      expenseClaim({
+        id: "EXP-FIN",
+        statusDetails: { status: "PENDING_FINANCE", leadApprovedDate: iso(2026, 7, 25) },
+      }),
+    ];
+    const user = userEvent.setup();
+    show();
+
+    const opdHeading = await screen.findByRole("button", { name: /OPD claims · 1/ });
+    expect(opdHeading).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("OPD-1")).toBeInTheDocument();
+
+    await user.click(opdHeading);
+    expect(opdHeading).toHaveAttribute("aria-expanded", "false");
+    // The rows go; the heading and its count stay, so the group is still
+    // accounted for — and the other group has not moved or been touched.
+    expect(screen.queryByText("OPD-1")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /OPD claims · 1/ })).toBeInTheDocument();
+    expect(screen.getByText("EXP-FIN")).toBeInTheDocument();
+
+    await user.click(opdHeading);
+    expect(screen.getByText("OPD-1")).toBeInTheDocument();
+  });
+
   it("offers the toggle only to someone holding both flags", async () => {
     flags.finance = false;
     data.lead = [expenseClaim({})];
@@ -375,6 +424,9 @@ describe("what it shows", () => {
   });
 
   it("puts the longest wait first", async () => {
+    // Finance-only: OPD is decided at the finance stage, so a reader sitting
+    // on the lead stage has no OPD list to order in the first place.
+    flags.lead = false;
     data.opd = [
       opdClaim({ id: "OPD-NEW", createdDate: iso(2026, 7, 28) }),
       opdClaim({ id: "OPD-OLD", createdDate: iso(2026, 7, 1) }),
@@ -416,6 +468,8 @@ describe("opening a claim", () => {
   // OPD also replaces the whole tab with its own review screen now, the
   // same way expense does — one flow, not a dialog copy.
   it("replaces the queue with the review screen for an OPD claim", async () => {
+    // Finance-only: OPD never appears while the reader is on the lead stage.
+    flags.lead = false;
     data.opd = [opdClaim({})];
     show();
     const row = (await screen.findByText("OPD-1")).closest("tr")!;

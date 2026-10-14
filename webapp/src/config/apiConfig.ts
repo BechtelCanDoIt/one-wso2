@@ -1904,20 +1904,34 @@ export const cado2ServiceUrls = {
   pricingPreview: `${cado2BackendUrl}/pricing/preview`,
   quotes: `${cado2BackendUrl}/quotes`,
   // My Quotes: the caller's own quotes.
-  quoteList: (status: string): string => {
+  // scope "mine" (the default) or "all" (every AM's quotes, D70).
+  quoteList: (status: string, scope = "mine"): string => {
     const q = new URLSearchParams({ limit: "200" });
     if (status) q.set("status", status);
+    if (scope !== "mine") q.set("scope", scope);
     return `${cado2BackendUrl}/quotes?${q.toString()}`;
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
   quoteRevise: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/revise`,
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
+  // Makes the quote its opportunity's primary quote, or releases it (D68).
+  quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,
+  // The products on an opportunity, priced from its price book: a new quote starts from them (D72).
+  opportunityProducts: (accountId: string, opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/products?accountId=${encodeURIComponent(accountId)}`,
+  // The quotes on an opportunity, with which is primary (D68).
+  opportunityQuotes: (opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
+  // What AMs may do with quotes they don't own (D69; Admin).
+  adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}`,
   quoteSubmit: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/submit`,
+  quoteSync: (quoteId: number, version: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/sync`,
   quoteRecall: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/recall`,
   // A version's order form documents: GET lists them, POST issues the order form.
@@ -1937,7 +1951,7 @@ export const cado2ServiceUrls = {
     quoteId: number,
     version: number,
     stepId: number,
-    outcome: "approve" | "reject" | "request-changes",
+    outcome: "approve" | "return",
   ): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/approval/steps/${encodeSegment(stepId)}/${outcome}`,
   approvalInbox: `${cado2BackendUrl}/approvals/inbox`,
@@ -2021,6 +2035,26 @@ export function buildMeetingsUrl(params: {
   qs.set("offset", String(params.offset));
   return `${salesServiceUrls.meetings}?${qs.toString()}`;
 }
+
+// Smart Search — Sales → Library, the plain-language search over Pitstop's content. It is served by
+// the Pitstop backend, which re-checks every result against what the caller may see in Pitstop, so
+// nothing is filtered here. The base URL includes its version segment. Unset means "not connected":
+// the page says so and makes no requests. Gated as a whole by the `smartSearch` preview flag too
+// (previewFeatures.ts).
+export const smartSearchBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_SMART_SEARCH_BACKEND_URL ?? "",
+);
+
+export function isSmartSearchBackendConfigured(): boolean {
+  return Boolean(smartSearchBackendUrl);
+}
+
+export const smartSearchServiceUrls = {
+  // Without the generated answer when `includeAnswer` is false, so the matching documents can show
+  // first. The query is encoded by hand: a comma left raw is read by the backend as a list separator.
+  search: (userQuery: string, includeAnswer: boolean): string =>
+    `${smartSearchBackendUrl}/smart-search?userQuery=${encodeURIComponent(userQuery)}&includeAnswer=${includeAnswer}`,
+};
 
 // Finance MIS backend (digiops-finance/apps/mis) — the ARR service. The port
 // replaces the MIS frontend only; the Ballerina services are untouched.

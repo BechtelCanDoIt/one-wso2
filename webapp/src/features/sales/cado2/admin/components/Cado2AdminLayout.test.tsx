@@ -60,7 +60,7 @@ describe("CadO2 Admin's section list", () => {
   it("gives each section its own address", () => {
     wide.value = true;
     open("/sales/cado2/admin/currencies");
-    expect(screen.getByRole("link", { name: "Legal entities" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Legal Entities" })).toHaveAttribute(
       "href",
       "/sales/cado2/admin/legal-entities",
     );
@@ -72,7 +72,7 @@ describe("CadO2 Admin's section list", () => {
     expect(screen.queryByRole("navigation", { name: "CadO2 Admin sections" })).toBeNull();
     const user = userEvent.setup();
     await user.click(screen.getByRole("combobox", { name: "Admin section" }));
-    await user.click(screen.getByRole("option", { name: "Product categories" }));
+    await user.click(screen.getByRole("option", { name: "Product Categories" }));
     expect(screen.getByTestId("where").textContent).toBe("/sales/cado2/admin/product-categories");
   });
 
