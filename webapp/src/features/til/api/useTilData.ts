@@ -64,20 +64,32 @@ export function useTilUserInfo() {
   return foldIdentityError(query, subState, retryIdentity);
 }
 
-/** The learning's length limit the backend enforces (GET /settings). `max`
- * is the backend's default until the answer arrives; `known` says whether it
- * has. The form holds Submit until then, and if the request fails it stays
- * held with a retry: guessing could let the form accept text the backend
- * rejects. */
-export function useTilWhatMaxLength(): { max: number; known: boolean; failed: boolean; retry: () => void } {
+// GET /settings, shared by every hook that reads one of its rules.
+function useTilSettings() {
   const { getAccessToken, userSub, ready } = useTilQueryBasis();
-  const query = useQuery<TilSettingsWire>({
+  return useQuery<TilSettingsWire>({
     queryKey: ["til-settings", userSub],
     enabled: ready,
     queryFn: async () => authedGet<TilSettingsWire>(tilServiceUrls.settings, await getAccessToken()),
     staleTime: 5 * 60 * 1000,
     retry: tilRetry,
   });
+}
+
+/** Whether entries are sent to Google Chat (GET /settings). False until the
+ * answer arrives, and from a backend that predates it, so an entry is only
+ * flagged as unsent when there's somewhere to send it. */
+export function useTilNotificationsEnabled(): boolean {
+  return useTilSettings().data?.notificationsEnabled ?? false;
+}
+
+/** The learning's length limit the backend enforces (GET /settings). `max`
+ * is the backend's default until the answer arrives; `known` says whether it
+ * has. The form holds Submit until then, and if the request fails it stays
+ * held with a retry: guessing could let the form accept text the backend
+ * rejects. */
+export function useTilWhatMaxLength(): { max: number; known: boolean; failed: boolean; retry: () => void } {
+  const query = useTilSettings();
   return {
     max: query.data?.whatMaxLength ?? TIL_WHAT_DEFAULT_MAX_LENGTH,
     known: query.data !== undefined,

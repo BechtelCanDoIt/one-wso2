@@ -96,6 +96,24 @@ describe("normalizeSubmission", () => {
     expect(normalizeSubmission(base).updatedAt).toBeNull();
   });
 
+  it("parses notifiedAt, and reads an unsent entry (or an older backend) as null", () => {
+    const base = {
+      id: "1",
+      title: "T",
+      who: "Jane",
+      where: "Internal" as const,
+      whereDetail: null,
+      what: "x",
+      submittedByEmail: "jane@wso2.com",
+      createdAt: "2026-10-01T10:00:00.000Z",
+    };
+    expect(normalizeSubmission({ ...base, notifiedAt: "2026-10-01T10:00:01.000Z" }).notifiedAt?.toISOString()).toBe(
+      "2026-10-01T10:00:01.000Z",
+    );
+    expect(normalizeSubmission({ ...base, notifiedAt: null }).notifiedAt).toBeNull();
+    expect(normalizeSubmission(base).notifiedAt).toBeNull();
+  });
+
   it("passes every other field through unchanged", () => {
     const result = normalizeSubmission({
       id: "42",

@@ -61,6 +61,9 @@ export interface TilSubmissionWire {
   /** ISO 8601, or null when the entry has never been edited. Optional so a
    * backend that predates editing still parses. */
   updatedAt?: string | null;
+  /** ISO 8601 when the entry was sent to Google Chat, or null when its
+   * announcement failed. Optional so a backend that predates it still parses. */
+  notifiedAt?: string | null;
 }
 
 export interface TilSubmissionsPageWire {
@@ -74,6 +77,9 @@ export interface TilSubmissionsPageWire {
 export interface TilSettingsWire {
   /** The most characters of plain text a learning may have. */
   whatMaxLength: number;
+  /** Whether entries are sent to Google Chat. Absent from a backend that
+   * predates it. */
+  notificationsEnabled?: boolean;
 }
 
 // --- domain --------------------------------------------------------------
@@ -106,6 +112,9 @@ export interface TilSubmission {
   createdAt: Date;
   /** When the entry was last edited, or null if it never has been. */
   updatedAt: Date | null;
+  /** When the entry was sent to Google Chat, or null if it hasn't been
+   * (its announcement failed, or the backend predates this). */
+  notifiedAt: Date | null;
 }
 
 export interface TilSubmissionPayload {
@@ -133,6 +142,7 @@ export function normalizeSubmission(wire: TilSubmissionWire): TilSubmission {
     ...wire,
     createdAt: new Date(wire.createdAt),
     updatedAt: wire.updatedAt ? new Date(wire.updatedAt) : null,
+    notifiedAt: wire.notifiedAt ? new Date(wire.notifiedAt) : null,
   };
 }
 
