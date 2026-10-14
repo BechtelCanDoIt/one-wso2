@@ -176,6 +176,10 @@ export default function MisArrBuildPage({ period }: { period: MisPeriod }) {
  * chrome and passes it down, so `BuildTable`'s body is the thing that scrolls
  * rather than the rows growing until the page clips them.
  */
+/** Tall enough for every All BU Build summary row, so that table is read down
+ *  the page instead of inside a short scroller. */
+const BUILD_TABLE_BODY_HEIGHT = 1400;
+
 const gridColumnSx = {
   flex: 1,
   // `minWidth: 0` as well as `minHeight`: a flex item's default minimum is its
@@ -222,10 +226,8 @@ function ArrBuild({ period }: { period: MisPeriod }) {
   };
 
   return (
-    // The chrome stays put; the grid body is the page's one scroller. The page
-    // fills the shell's content column (under the header, above the footer)
-    // rather than guessing its height, so the column never grows a second
-    // scrollbar and the table always receives a real height to scroll in.
+    // All BU Build is drawn at the height of its rows. The other tables fill
+    // whatever height is left under this chrome and scroll inside that.
     <Box sx={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0, minHeight: 0 }}>
       <Box sx={{ flex: "none" }}>
         <MisPeriodRow view={view} />
@@ -248,20 +250,23 @@ function ArrBuild({ period }: { period: MisPeriod }) {
           />
         )}
       </Box>
-      {/* 320px is the floor the standalone grid uses. Below it the flex column
-          was squashing All BU Build to a header and one row, and the page
-          scroller had nothing left to scroll. The floor makes this box overflow
-          the content column, which then scrolls, and the table body keeps a
-          real height of its own. */}
+      {/* All BU Build is a fixed summary. It is drawn at its own height so the
+          rows are on the page, and the content column scrolls if the window is
+          shorter. The other tables stay in the leftover height, with the
+          standalone 320px floor so they are not squashed to a single row. */}
       <Box
-        sx={{
-          flex: 1,
-          minWidth: 0,
-          minHeight: 320,
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
-        }}
+        sx={
+          view.table === MIS_TABLES.SUBSCRIPTION
+            ? { display: "flex", flexDirection: "column", minWidth: 0 }
+            : {
+                flex: 1,
+                minWidth: 0,
+                minHeight: 320,
+                display: "flex",
+                flexDirection: "column",
+                overflow: "hidden",
+              }
+        }
       >
         <BuildForTable view={view} scale={scale} />
       </Box>
@@ -420,7 +425,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
   }
 
   return (
-    <Box sx={gridColumnSx}>
+    <Box sx={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
       {/* Above the grid rather than beside the control, because Finance's
           workflow is to crop a table into a slide deck: a figure that has left
           the screen it was set on has to carry its own units. */}
@@ -464,7 +469,8 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
         state={drillDown}
       />
       )}
-      <BuildTable fill
+      <BuildTable
+        maxBodyHeight={BUILD_TABLE_BODY_HEIGHT}
         label="ARR Dashboard — Subscription Build"
         // One header row when each Period has a single figure column.
         collapseLoneSubHeader
