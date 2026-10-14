@@ -23,7 +23,7 @@ import { KIND_ORDER, KINDS } from "../util/timelineKinds";
 import { formatSalesforceDate } from "../util/meddpiccFormat";
 
 /** Past this, a deal with no activity reads as quiet. */
-const QUIET_AFTER_DAYS = 21;
+export const QUIET_AFTER_DAYS = 21;
 
 const DAY = 86_400_000;
 
@@ -326,7 +326,7 @@ export default function DealJourney({
         {toClose !== null && ` · ${closeIn(toClose)}`}
       </Typography>
       <Typography variant="caption" color="text.secondary" component="div">
-        {counts.length ? counts.map(([kind, n]) => `${n} ${n === 1 ? KINDS[kind].label.toLowerCase() : KINDS[kind].plural}`).join(" · ") : "No activity yet"}
+        {counts.length ? counts.map(([kind, n]) => `${n} ${n === 1 ? KINDS[kind].singular : KINDS[kind].plural}`).join(" · ") : "No activity yet"}
         {quietDays !== null && (
           <Box component="span" sx={quiet ? { color: "warning.dark", fontWeight: 600 } : undefined}>
             {" · "}
