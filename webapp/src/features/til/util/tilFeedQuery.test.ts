@@ -55,6 +55,17 @@ describe("tilFeedQuery", () => {
     expect(q.createdBefore).toBe(new Date(2026, 9, 6).toISOString());
   });
 
+  it("sends the author trimmed, and leaves out a blank one", () => {
+    expect(tilFeedQuery({ ...none, author: "  Alex Sam " }, 1, 10).author).toBe("Alex Sam");
+    expect(tilFeedQuery({ ...none, author: "  " }, 1, 10)).not.toHaveProperty("author");
+    expect(tilFeedQuery(none, 1, 10)).not.toHaveProperty("author");
+  });
+
+  it("sends the source only when one is chosen", () => {
+    expect(tilFeedQuery({ ...none, source: "Partner" }, 1, 10).source).toBe("Partner");
+    expect(tilFeedQuery({ ...none, source: "" }, 1, 10)).not.toHaveProperty("source");
+  });
+
   it("asks for only the reader's own entries on My articles", () => {
     expect(tilFeedQuery({ ...none, mine: true }, 1, 10).mine).toBe(true);
     expect(tilFeedQuery(none, 1, 10)).not.toHaveProperty("mine");

@@ -104,6 +104,8 @@ function submissionsUrl(q: TilSubmissionsQuery): string {
   if (q.search) params.set("q", q.search);
   if (q.createdFrom) params.set("createdFrom", q.createdFrom);
   if (q.createdBefore) params.set("createdBefore", q.createdBefore);
+  if (q.author) params.set("author", q.author);
+  if (q.source) params.set("source", q.source);
   if (q.mine) params.set("mine", "true");
   return `${tilServiceUrls.submissions}?${params}`;
 }

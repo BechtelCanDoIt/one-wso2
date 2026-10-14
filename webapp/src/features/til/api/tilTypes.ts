@@ -90,6 +90,9 @@ export interface TilSubmissionsQuery {
   search?: string;
   createdFrom?: string;
   createdBefore?: string;
+  /** The author's name alone; each word matches the start of a word in it. */
+  author?: string;
+  source?: TilWhere;
   mine?: boolean;
   limit: number;
   offset: number;
