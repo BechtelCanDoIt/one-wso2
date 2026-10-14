@@ -21,6 +21,7 @@
 // from cache.
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
@@ -105,6 +106,44 @@ function submissionsUrl(q: TilSubmissionsQuery): string {
   if (q.createdBefore) params.set("createdBefore", q.createdBefore);
   if (q.mine) params.set("mine", "true");
   return `${tilServiceUrls.submissions}?${params}`;
+}
+
+// The backend's largest page, so an export takes as few requests as it can.
+export const TIL_EXPORT_PAGE_SIZE = 100;
+
+/** Every entry, page by page from `fetchPage` (given an offset), until a page
+ * comes back short or the total is reached. An entry shared mid-export can
+ * shift the pages, so each entry is kept once. */
+export async function collectTilPages(
+  fetchPage: (offset: number) => Promise<TilSubmissionsPageWire>,
+): Promise<TilSubmission[]> {
+  const entries: TilSubmission[] = [];
+  const seen = new Set<string>();
+  for (let offset = 0; ; offset += TIL_EXPORT_PAGE_SIZE) {
+    const page = await fetchPage(offset);
+    for (const wire of page.items) {
+      if (seen.has(wire.id)) continue;
+      seen.add(wire.id);
+      entries.push(normalizeSubmission(wire));
+    }
+    if (page.items.length < TIL_EXPORT_PAGE_SIZE || offset + TIL_EXPORT_PAGE_SIZE >= page.total) return entries;
+  }
+}
+
+/** Every entry a feed query selects, newest first, for the CSV export: the
+ * query's search, dates and "mine" apply, its paging doesn't. */
+export function useTilExportEntries(): (q: TilSubmissionsQuery) => Promise<TilSubmission[]> {
+  const getAccessToken = useAccessToken();
+  return useCallback(
+    (q) =>
+      collectTilPages(async (offset) =>
+        authedGet<TilSubmissionsPageWire>(
+          submissionsUrl({ ...q, limit: TIL_EXPORT_PAGE_SIZE, offset }),
+          await getAccessToken(),
+        ),
+      ),
+    [getAccessToken],
+  );
 }
 
 /** One page of submissions, newest first, with how many match in total. The

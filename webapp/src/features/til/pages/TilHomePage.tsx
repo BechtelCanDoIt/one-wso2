@@ -28,17 +28,19 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
+import { DownloadIcon, PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNavigate } from "react-router";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
-import { isTilBackendConfigured, useTilSubmissions, useTilUserInfo } from "../api/useTilData";
+import { isTilBackendConfigured, useTilExportEntries, useTilSubmissions, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
 import type { TilSubmission } from "../api/tilTypes";
 import { tilEntryPath } from "../util/tilArticleView";
+import { downloadTilCsv } from "../util/tilExportCsv";
 import { describeError } from "../util/tilError";
 import {
   TIL_FEED_PAGE_SIZES,
@@ -93,9 +95,11 @@ export default function TilHomePage() {
   const [layout, setLayout] = useState<TilFeedLayout>(readTilFeedLayout);
   const [pageSize, setPageSize] = useState<TilFeedPageSize>(readTilFeedPageSize);
 
-  const submissions = useTilSubmissions(
-    tilFeedQuery({ search, dateFrom, dateTo, mine: tab === "mine" }, page, pageSize),
-  );
+  // What the feed shows, shared by the page in view and the export.
+  const filters = { search, dateFrom, dateTo, mine: tab === "mine" };
+  const submissions = useTilSubmissions(tilFeedQuery(filters, page, pageSize));
+  const exportEntries = useTilExportEntries();
+  const [exporting, setExporting] = useState(false);
   const items = submissions.data?.items ?? [];
   const total = submissions.data?.total ?? 0;
 
@@ -127,6 +131,20 @@ export default function TilHomePage() {
     setPage(pageContaining((shownPage - 1) * pageSize, next));
     setPageSize(next);
     writeTilFeedPageSize(next);
+  };
+
+  // Every entry the search, dates and tab select, not just this page.
+  const runExport = async () => {
+    setExporting(true);
+    try {
+      const entries = await exportEntries(tilFeedQuery(filters, 1, pageSize));
+      downloadTilCsv(entries, window.location.origin, new Date());
+      showSuccess(`Exported ${entries.length} ${entries.length === 1 ? "entry" : "entries"}`);
+    } catch (err) {
+      showError(`Couldn't export the entries. ${describeError(err)}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const runDelete = (id: string) => {
@@ -235,6 +253,20 @@ export default function TilHomePage() {
             >
               Advanced Search{!showAdvanced && hasActiveDateFilter ? " •" : ""}
             </Button>
+            <Tooltip title="Every entry matching the search, dates and tab, for Google Sheets or Excel">
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<DownloadIcon size={14} />}
+                  onClick={() => void runExport()}
+                  disabled={exporting || total === 0}
+                  sx={{ flex: "none", textTransform: "none", fontWeight: 500, px: 1.5, minWidth: "auto", height: "37.125px" }}
+                >
+                  {exporting ? "Exporting…" : "Export CSV"}
+                </Button>
+              </span>
+            </Tooltip>
             <TilFeedLayoutSwitch value={layout} onChange={changeLayout} />
           </Stack>
 
