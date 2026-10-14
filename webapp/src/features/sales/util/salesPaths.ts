@@ -36,13 +36,13 @@ export function meetingPath(
 }
 
 /** The deal page's tabs. */
-export type DealTab = "meddpicc" | "journey";
-export const DEAL_TABS: readonly DealTab[] = ["meddpicc", "journey"];
+export type DealTab = "meddpicc" | "activity";
+export const DEAL_TABS: readonly DealTab[] = ["meddpicc", "activity"];
 
 /**
  * Where a deal lives. `letter` opens it filtered to one Letter, as a clicked circle does;
  * `tab` opens it on one of its tabs (MEDDPICC when left out). A Letter only filters the
- * MEDDPICC tab, so it is dropped on the Journey tab.
+ * MEDDPICC tab, so it is dropped on the Activity tab.
  */
 export function dealPath(opportunityId: string, letter?: LetterKey | null, tab: DealTab = "meddpicc"): string {
   const params = new URLSearchParams();
