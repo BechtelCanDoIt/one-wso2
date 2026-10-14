@@ -157,7 +157,7 @@ export function decisionNote(
   after: ApprovalWorkflow,
   approverRoles: readonly string[],
 ): string {
-  if (outcome === "request-changes") return `Sent back for changes as ${step.roleLabel}.`;
+  if (outcome === "return") return `Returned as ${step.roleLabel}.`;
   const mine = after.steps.filter((s) => approverRoles.includes(s.role) && (s.status === "WAITING" || s.status === "PENDING"));
   if (mine.some((s) => s.canAct)) return `Approved as ${step.roleLabel}.`;
   if (mine.length) return `Approved as ${step.roleLabel}. You approve as ${mine.map((s) => s.roleLabel).join(" and ")} later.`;

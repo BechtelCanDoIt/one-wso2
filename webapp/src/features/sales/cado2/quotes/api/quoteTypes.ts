@@ -389,7 +389,7 @@ export type VersionStatus =
   | "RECALLED"
   | "CLOSED"
   | "APPROVED"
-  | "CHANGES_REQUESTED";
+  | "RETURNED";
 
 /** Lifecycle actions the caller may take now. */
 export type QuoteAction = "RECALL" | "REVISE" | "CLOSE";
@@ -546,7 +546,7 @@ export interface AuditEvent {
     | "APPROVAL_WORKFLOW_CREATED"
     | "APPROVAL_REQUESTED"
     | "APPROVAL_APPROVED"
-    // Kept for history from before Reject was merged into Request changes (2026-10-12).
+    // Kept for history from before Reject was merged into Return (2026-10-12).
     | "APPROVAL_REJECTED"
     // Primary quote (D68): on the quote, with no version.
     | "QUOTE_MADE_PRIMARY"
@@ -554,7 +554,7 @@ export interface AuditEvent {
     // Salesforce sync (D77): written to the opportunity, or refused by it.
     | "QUOTE_SYNCED"
     | "QUOTE_SYNC_FAILED"
-    | "APPROVAL_CHANGES_REQUESTED"
+    | "APPROVAL_RETURNED"
     | "VERSION_APPROVED"
     | "ORDER_FORM_PREVIEWED"
     | "ORDER_FORM_ISSUED"

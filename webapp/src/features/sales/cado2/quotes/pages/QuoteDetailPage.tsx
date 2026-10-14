@@ -171,7 +171,7 @@ export default function QuoteDetailPage(): JSX.Element {
 
   // The page's one main button: the approver's task, else the AM's next step.
   // In approval and approved have none; their actions are in the menu.
-  const reviseIsMain = can("REVISE") && (v.status === "RECALLED" || v.status === "CHANGES_REQUESTED");
+  const reviseIsMain = can("REVISE") && (v.status === "RECALLED" || v.status === "RETURNED");
   const mainAction = viewingOlder ? (
     // An older version is for reading: its actions belong to the latest.
     <Button variant="contained" component={RouterLink} to={cado2Paths.quote(q.id, TAB_SEGMENTS[tab] ?? "quote", fromApprovals)}>
@@ -330,8 +330,8 @@ export default function QuoteDetailPage(): JSX.Element {
 
       {decision ? (
         <LifecycleDialog
-          title={decision.outcome === "approve" ? `Approve as ${decision.step.roleLabel}?` : "Send it back for changes?"}
-          confirmLabel={decision.outcome === "approve" ? "Approve" : "Request changes"}
+          title={`${decision.outcome === "approve" ? "Approve" : "Return"} as ${decision.step.roleLabel}?`}
+          confirmLabel={decision.outcome === "approve" ? "Approve" : "Return"}
           reason={decision.outcome === "approve" ? "optional" : "required"}
           reasonLabel={decision.outcome === "approve" ? "Comment" : "What should the owner know?"}
           pending={decide.isPending}

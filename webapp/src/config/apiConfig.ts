@@ -1913,7 +1913,7 @@ export const cado2ServiceUrls = {
     quoteId: number,
     version: number,
     stepId: number,
-    outcome: "approve" | "reject" | "request-changes",
+    outcome: "approve" | "return",
   ): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/approval/steps/${encodeSegment(stepId)}/${outcome}`,
   approvalInbox: `${cado2BackendUrl}/approvals/inbox`,

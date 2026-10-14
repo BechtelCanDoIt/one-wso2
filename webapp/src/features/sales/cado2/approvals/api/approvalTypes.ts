@@ -34,9 +34,9 @@ export type ApprovalRole =
 export type ApprovalBranch = "DISCOUNT" | "COMMERCIAL";
 
 /** WAITING → PENDING (its turn) → a decision, or CANCELLED. */
-export type StepStatus = "WAITING" | "PENDING" | "APPROVED" | "CHANGES_REQUESTED" | "CANCELLED";
+export type StepStatus = "WAITING" | "PENDING" | "APPROVED" | "RETURNED" | "CANCELLED";
 
-export type WorkflowStatus = "IN_PROGRESS" | "APPROVED" | "CHANGES_REQUESTED" | "RECALLED";
+export type WorkflowStatus = "IN_PROGRESS" | "APPROVED" | "RETURNED" | "RECALLED";
 
 /** One reason a step exists. */
 export interface ApprovalTrigger {
@@ -102,7 +102,7 @@ export interface ApprovalWorkflow {
   readonly steps: readonly ApprovalStep[];
 }
 
-export type ApprovalOutcome = "approve" | "request-changes";
+export type ApprovalOutcome = "approve" | "return";
 
 /** GET /approvals/inbox: a step waiting for the caller. */
 export interface ApprovalInboxItem {

@@ -107,8 +107,8 @@ describe("decisionNote", () => {
   });
 
   it("names the role for a send-back", () => {
-    const after = wf([step("CRO", "CHANGES_REQUESTED")], "CHANGES_REQUESTED");
-    expect(decisionNote("request-changes", cro, after, roles)).toBe("Sent back for changes as CRO.");
+    const after = wf([step("CRO", "RETURNED")], "RETURNED");
+    expect(decisionNote("return", cro, after, roles)).toBe("Returned as CRO.");
   });
 });
 

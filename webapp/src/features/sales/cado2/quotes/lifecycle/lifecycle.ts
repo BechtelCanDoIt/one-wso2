@@ -42,7 +42,7 @@ export const STATUS_LABEL: Record<VersionStatus, string> = {
   RECALLED: "Recalled",
   CLOSED: "Closed",
   APPROVED: "Approved",
-  CHANGES_REQUESTED: "Changes requested",
+  RETURNED: "Returned",
 };
 
 export const STATUS_COLOR: Record<VersionStatus, "default" | "primary" | "warning" | "error" | "success"> = {
@@ -51,7 +51,7 @@ export const STATUS_COLOR: Record<VersionStatus, "default" | "primary" | "warnin
   RECALLED: "warning",
   CLOSED: "default", // an end, not an error (2026-10-14)
   APPROVED: "success",
-  CHANGES_REQUESTED: "warning",
+  RETURNED: "warning",
 };
 
 /** The label for a quote's status, which is its latest version's. */
@@ -274,10 +274,10 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `Waiting on ${roleOf(meta)}`;
     case "APPROVAL_APPROVED":
       return `${roleOf(meta)} approved ${v.toLowerCase()}`;
-    case "APPROVAL_REJECTED": // history from before Reject was merged into Request changes (2026-10-12)
+    case "APPROVAL_REJECTED": // history from before Reject was merged into Return (2026-10-12)
       return `${roleOf(meta)} rejected ${v.toLowerCase()}`;
-    case "APPROVAL_CHANGES_REQUESTED":
-      return `${roleOf(meta)} asked for changes to ${v.toLowerCase()}`;
+    case "APPROVAL_RETURNED":
+      return `${roleOf(meta)} returned ${v.toLowerCase()}`;
     case "VERSION_APPROVED":
       return `${v} fully approved`;
     case "ORDER_FORM_PREVIEWED":

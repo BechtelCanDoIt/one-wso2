@@ -46,7 +46,7 @@ const items = [
   q(5, { status: "RECALLED" }),
   q(6, { status: "CLOSED" }),
   q(7, { status: "APPROVED", expiryDate: "2026-10-03" }),
-  q(8, { status: "CHANGES_REQUESTED" }),
+  q(8, { status: "RETURNED" }),
 ];
 
 describe("My Quotes model", () => {

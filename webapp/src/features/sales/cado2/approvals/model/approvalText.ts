@@ -40,14 +40,14 @@ export const STEP_STATUS: Record<StepStatus, { label: string; color: Tone }> = {
   WAITING: { label: "Waiting", color: "default" },
   PENDING: { label: "Their turn", color: "primary" },
   APPROVED: { label: "Approved", color: "success" },
-  CHANGES_REQUESTED: { label: "Changes requested", color: "warning" },
+  RETURNED: { label: "Returned", color: "warning" },
   CANCELLED: { label: "Not needed", color: "default" },
 };
 
 export const WORKFLOW_STATUS: Record<WorkflowStatus, { label: string; color: Tone }> = {
   IN_PROGRESS: { label: "In approval", color: "primary" },
   APPROVED: { label: "Approved", color: "success" },
-  CHANGES_REQUESTED: { label: "Changes requested", color: "warning" },
+  RETURNED: { label: "Returned", color: "warning" },
   RECALLED: { label: "Stopped (recalled)", color: "warning" },
 };
 

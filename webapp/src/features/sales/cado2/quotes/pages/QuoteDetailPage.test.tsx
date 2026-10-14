@@ -146,7 +146,12 @@ describe("QuoteDetailPage — primary quote", () => {
 
     const panel = screen.getByRole("region", { name: "This Opportunity's Quotes" });
     expect(within(panel).getByRole("link", { name: "Q-26-00031" })).toHaveAttribute("href", "/sales/cado2/quotes/3/quote");
-    expect(within(panel).getByText("Q-26-00005 (this quote)")).toBeInTheDocument();
+    // The current quote: a shaded row, not a link, "This quote" under its number (2026-10-14).
+    const rows = within(panel).getAllByRole("listitem");
+    expect(rows[1]).toHaveAttribute("aria-current", "true");
+    expect(within(rows[1]).queryByRole("link")).toBeNull();
+    expect(rows[1]).toHaveTextContent(/Q-26-00005This quote · /);
+    expect(rows[0]).not.toHaveAttribute("aria-current");
 
     await openMenu(user);
     await user.click(screen.getByRole("menuitem", { name: "Make primary" }));
@@ -324,14 +329,14 @@ describe("QuoteDetailPage — lifecycle", () => {
     // From another tab, the header's "Your approval" goes back to the Quote tab's panel.
     await user.click(screen.getByRole("button", { name: "Your approval" }));
     const panel = await screen.findByRole("region", { name: "Your approval as Deal Desk" });
-    await user.click(within(panel).getByRole("button", { name: "Request changes" }));
+    await user.click(within(panel).getByRole("button", { name: "Return" }));
     const dialog = screen.getByRole("dialog");
-    const send = within(dialog).getByRole("button", { name: "Request changes" });
+    const send = within(dialog).getByRole("button", { name: "Return" });
     expect(send).toBeDisabled();
     await user.type(within(dialog).getByRole("textbox"), "Use the FY26 price book");
     await user.click(send);
     expect(decide.mutate).toHaveBeenCalledWith(
-      { quoteId: 5, version: 1, stepId: 11, outcome: "request-changes", comment: "Use the FY26 price book" },
+      { quoteId: 5, version: 1, stepId: 11, outcome: "return", comment: "Use the FY26 price book" },
       expect.anything(),
     );
   });
@@ -362,8 +367,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(within(reason).getByText(/^35% discount/)).toBeInTheDocument();
     expect(reason).toHaveTextContent("Above the Area GM's 30% limit");
     expect(panel).not.toHaveTextContent("CRO's 32% limit"); // the CFO's reason is for the CFO
-    expect(screen.getByRole("button", { name: "Request changes" })).toBeInTheDocument(); // short labels
-    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull(); // merged into Request changes (2026-10-12)
+    expect(screen.getByRole("button", { name: "Return" })).toBeInTheDocument(); // short labels
+    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull(); // merged into Return (2026-10-12)
 
     await user.click(screen.getByRole("button", { name: "Approve" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
@@ -458,11 +463,11 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.queryByRole("button", { name: /as Legal|as Regional Director/ })).toBeNull();
     // One short set of buttons per role, inside its card.
     const rd = screen.getByRole("region", { name: "Your approval as Regional Director" });
-    await user.click(within(rd).getByRole("button", { name: "Request changes" }));
-    expect(within(screen.getByRole("dialog")).getByRole("heading")).toHaveTextContent("Send it back for changes?");
+    await user.click(within(rd).getByRole("button", { name: "Return" }));
+    expect(within(screen.getByRole("dialog")).getByRole("heading")).toHaveTextContent("Return as Regional Director?");
     await user.type(within(screen.getByRole("dialog")).getByRole("textbox"), "Too deep");
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Request changes" }));
-    expect(decide.mutate).toHaveBeenCalledWith(expect.objectContaining({ stepId: 2, outcome: "request-changes" }), expect.anything());
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Return" }));
+    expect(decide.mutate).toHaveBeenCalledWith(expect.objectContaining({ stepId: 2, outcome: "return" }), expect.anything());
   });
 
   it("shows a rep-chosen category on its line and in Deal Desk's summary, nowhere else", async () => {

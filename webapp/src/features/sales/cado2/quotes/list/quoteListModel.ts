@@ -29,7 +29,7 @@ import { quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecyc
 
 /**
  * A status, or quotes back with the owner to revise or close (recalled,
- * changes requested). "" = all.
+ * returned). "" = all.
  */
 export type QuoteFilter = "" | VersionStatus | "TO_REVISE";
 
@@ -47,7 +47,7 @@ export interface QuoteCounts {
 }
 
 /** Back with the owner: in none of these is anything in flight. */
-export const TO_REVISE: readonly VersionStatus[] = ["RECALLED", "CHANGES_REQUESTED"];
+export const TO_REVISE: readonly VersionStatus[] = ["RECALLED", "RETURNED"];
 
 export function countQuotes(items: readonly QuoteListItem[]): QuoteCounts {
   const by = (s: VersionStatus) => items.filter((q) => q.status === s).length;

@@ -226,8 +226,8 @@ export default function YourApprovalPanel({
                 <Button variant="contained" color="success" onClick={() => onDecide("approve", s)}>
                   Approve
                 </Button>
-                <Button variant="outlined" onClick={() => onDecide("request-changes", s)}>
-                  Request changes
+                <Button variant="outlined" onClick={() => onDecide("return", s)}>
+                  Return
                 </Button>
               </Stack>
             </SectionCard>
