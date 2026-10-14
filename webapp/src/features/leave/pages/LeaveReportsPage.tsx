@@ -36,6 +36,7 @@ import VirtualizedListbox from "@components/virtualized-listbox/VirtualizedListb
 import { EmployeeOption } from "../components/EmployeeOption";
 import { employeeDisplayName } from "../util/employeeName";
 import { LeaveTypeChip } from "../components/LeaveChips";
+import LeaveDateField from "../components/LeaveDateField";
 import type { DatabaseLeave, EmployeeStatus, LeaveFilter } from "../api/leaveTypes";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { REPORT_VALIDATION_MESSAGE } from "../util/leaveCopy";
@@ -205,8 +206,8 @@ function ReportsBody() {
       {/* Toolbar */}
       <Card variant="outlined" sx={{ p: 1.75, mb: 2 }}>
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "auto auto 1fr auto" }, gap: 1.5, alignItems: "end" }}>
-          <DateField label="From" value={fromDate} onChange={setFromDate} />
-          <DateField label="To" value={toDate} min={fromDate} onChange={setToDate} />
+          <LeaveDateField label="From" value={fromDate} onChange={setFromDate} />
+          <LeaveDateField label="To" value={toDate} min={fromDate} onChange={setToDate} />
           {canSeeEveryone ? (
             <Box>
               <Typography sx={{ fontSize: 11, color: "text.secondary", mb: 0.375 }}>Employee</Typography>
@@ -426,29 +427,3 @@ function GridText({
     </Stack>
   );
 }
-
-function DateField({
-  label,
-  value,
-  min,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  min?: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <Box>
-      <Typography sx={{ fontSize: 11, color: "text.secondary", mb: 0.375 }}>{label}</Typography>
-      <TextField
-        type="date"
-        size="small"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        inputProps={{ min }}
-      />
-    </Box>
-  );
-}
-

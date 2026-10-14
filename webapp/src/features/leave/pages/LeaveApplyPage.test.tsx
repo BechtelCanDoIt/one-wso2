@@ -15,7 +15,7 @@
 // under the License.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router";
@@ -212,6 +212,11 @@ describe("who can be picked", () => {
   });
 });
 
+/** Sets a date field the way a completed pick or a fully typed date does. */
+function setDate(field: HTMLElement, value: string) {
+  fireEvent.change(field, { target: { value } });
+}
+
 // GeneralLeave.tsx:165-189. The port disabled the button instead, which tells
 // the reader nothing about what to change.
 describe("what happens when the form is not ready", () => {
@@ -219,10 +224,10 @@ describe("what happens when the form is not ready", () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     show();
 
-    // An end date before the start gives zero days.
+    // An end date before the start gives zero days. The picker refuses it, so
+    // the form holds no end date at all.
     const end = screen.getByLabelText("End");
-    await user.clear(end);
-    await user.type(end, "2020-01-01");
+    setDate(end, "2020-01-01");
 
     await user.click(screen.getByRole("button", { name: /Submit Leave/ }));
     expect(await screen.findByText("Please select start and end dates")).toBeInTheDocument();
@@ -236,7 +241,6 @@ describe("what happens when the form is not ready", () => {
 // back too, or a corrected single-day pick quietly turns into a multi-day one.
 describe("keeping the end date in sync with the start date", () => {
   it("brings the end date back when the start date moves back to it", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
     show();
 
     const start = screen.getByLabelText("Start");
@@ -244,35 +248,29 @@ describe("keeping the end date in sync with the start date", () => {
     const originalStart = (start as HTMLInputElement).value;
 
     // Start jumps forward past the (still-default) end date; end follows.
-    await user.clear(start);
-    await user.type(start, "2030-06-15");
+    setDate(start, "2030-06-15");
     expect(end).toHaveValue("2030-06-15");
 
     // Start is corrected back to where it began; end should follow back down
     // rather than leaving a stale, later end date behind.
-    await user.clear(start);
-    await user.type(start, originalStart);
+    setDate(start, originalStart);
     expect(end).toHaveValue(originalStart);
   });
 
   it("leaves an end date the user deliberately picked alone", async () => {
-    const user = (await import("@testing-library/user-event")).default.setup();
     show();
 
     const start = screen.getByLabelText("Start");
     const end = screen.getByLabelText("End");
 
-    await user.clear(start);
-    await user.type(start, "2030-06-15");
+    setDate(start, "2030-06-15");
     expect(end).toHaveValue("2030-06-15");
 
     // The user picks their own, later end date.
-    await user.clear(end);
-    await user.type(end, "2030-06-20");
+    setDate(end, "2030-06-20");
 
     // Nudging the start date forward again must not clobber that choice.
-    await user.clear(start);
-    await user.type(start, "2030-06-16");
+    setDate(start, "2030-06-16");
     expect(end).toHaveValue("2030-06-20");
   });
 });

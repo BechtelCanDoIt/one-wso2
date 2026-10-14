@@ -16,14 +16,34 @@
  * under the License.
  */
 
-import { Box, TextField, Typography } from "@wso2/oxygen-ui";
+import { AdapterDateFns, Box, DatePickers, Typography } from "@wso2/oxygen-ui";
+import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 
-// One date input, shared by the general and sabbatical apply forms.
+const { DatePicker, LocalizationProvider } = DatePickers;
+
+/** `YYYY-MM-DD` to a local Date, or null for empty or malformed input. */
+function fromIso(iso: string | undefined): Date | null {
+  if (!iso) return null;
+  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
+}
+
+/** A local Date to `YYYY-MM-DD`, or "" when there is no complete date. */
+function toIso(d: Date | null): string {
+  if (!d || Number.isNaN(d.getTime())) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+// One date input, shared by every leave form and report.
 //
-// The source uses MUI X's DatePicker; the port uses a native `type="date"`
-// throughout, so its `minDate` / `maxDate` / `disablePast` / `disableFuture`
-// props arrive here as plain `min` and `max` ISO bounds and its `slotProps
-// .textField.error` / `.helperText` as `error` and `helperText`.
+// MUI X's DatePicker rather than a native `type="date"`: the browser's own
+// popup lists years outside `min`/`max` and only greys them out, and a typed
+// date goes straight past both bounds. Here the year list stops at the bounds,
+// and a typed date outside them is reported as "" — no date — so the caller
+// never holds one the picker would have refused.
+//
+// Values stay `YYYY-MM-DD` strings in and out, so callers are unchanged.
 export default function LeaveDateField({
   label,
   value,
@@ -46,20 +66,35 @@ export default function LeaveDateField({
   return (
     <Box>
       <Typography sx={{ fontSize: 11, color: "text.secondary", mb: 0.375 }}>{label}</Typography>
-      <TextField
-        type="date"
-        size="small"
-        fullWidth
-        value={value}
-        disabled={disabled}
-        error={error}
-        helperText={helperText}
-        onChange={(e) => onChange?.(e.target.value)}
-        // On the input, not the wrapper. The visible text above is a plain
-        // Typography, so without this the field has no accessible name at all —
-        // the source's DatePicker carries one via its `label` prop.
-        inputProps={{ min, max, "aria-label": label }}
-      />
+      <LocalizationProvider dateAdapter={AdapterDateFns}>
+        <DatePicker
+          value={fromIso(value)}
+          minDate={fromIso(min) ?? undefined}
+          maxDate={fromIso(max) ?? undefined}
+          disabled={disabled}
+          readOnly={!onChange}
+          format="yyyy-MM-dd"
+          onChange={(d: Date | null, context: { validationError: unknown }) =>
+            onChange?.(context.validationError ? "" : toIso(d))
+          }
+          slotProps={{
+            textField: {
+              size: "small",
+              fullWidth: true,
+              error: error || undefined,
+              helperText,
+              // The visible text above is a plain Typography, so the field
+              // carries its accessible name itself.
+              inputProps: { "aria-label": label },
+            },
+            // The theme's Paper is translucent, which lets the form show through
+            // the calendar. Give the popup (and its small-screen dialog) the
+            // same opaque surface as the app's other floating dialogs.
+            desktopPaper: { sx: dialogPaperSx },
+            mobilePaper: { sx: dialogPaperSx },
+          }}
+        />
+      </LocalizationProvider>
     </Box>
   );
 }
