@@ -64,45 +64,47 @@ export default function OpportunityQuotesPanel({
           ? "The primary quote is synced to Salesforce."
           : "No primary quote: nothing is synced to Salesforce."}
       </Typography>
-      <Stack
-        component="ul"
-        spacing={1.25}
-        sx={{ listStyle: "none", m: 0, p: 0 }}
-      >
-        {quotes.data.map((q) => (
-          <Box component="li" key={q.quoteId}>
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              {q.isPrimary ? (
-                <PrimaryStar />
-              ) : null}
-              {q.quoteId === quoteId ? (
-                <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                  {q.quoteNumber ?? "Draft"} (this quote)
-                </Typography>
-              ) : (
-                <Link
-                  component={RouterLink}
-                  to={cado2Paths.quote(q.quoteId)}
-                  variant="body2"
-                  sx={{ fontWeight: 600 }}
-                >
-                  {q.quoteNumber ?? "Draft"}
-                </Link>
-              )}
-              <StatusChip
-                color={STATUS_COLOR[q.status]}
-                label={quoteStatusLabel(q.status, q.versionNumber)}
-              />
-            </Stack>
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              display="block"
+      {/* Fixed columns (2026-10-14): star, quote and owner, status on the right;
+          the current quote is a shaded row, "This quote" under its number. */}
+      <Stack component="ul" spacing={0.5} sx={{ listStyle: "none", m: 0, p: 0 }}>
+        {quotes.data.map((q) => {
+          const current = q.quoteId === quoteId;
+          return (
+            <Box
+              component="li"
+              key={q.quoteId}
+              aria-current={current ? "true" : undefined}
+              sx={{
+                display: "grid",
+                gridTemplateColumns: "16px minmax(0,1fr) auto",
+                columnGap: 1,
+                alignItems: "center",
+                px: 1,
+                py: 0.75,
+                mx: -1,
+                borderRadius: 1,
+                bgcolor: current ? "action.selected" : "transparent",
+              }}
             >
-              {q.ownerEmail}
-            </Typography>
-          </Box>
-        ))}
+              <Box sx={{ display: "inline-flex" }}>{q.isPrimary ? <PrimaryStar /> : null}</Box>
+              <Box sx={{ minWidth: 0 }}>
+                {current ? (
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {q.quoteNumber ?? "Draft"}
+                  </Typography>
+                ) : (
+                  <Link component={RouterLink} to={cado2Paths.quote(q.quoteId)} variant="body2" sx={{ fontWeight: 600 }}>
+                    {q.quoteNumber ?? "Draft"}
+                  </Link>
+                )}
+                <Typography variant="caption" color="text.secondary" display="block" noWrap title={q.ownerEmail}>
+                  {current ? `This quote · ${q.ownerEmail}` : q.ownerEmail}
+                </Typography>
+              </Box>
+              <StatusChip color={STATUS_COLOR[q.status]} label={quoteStatusLabel(q.status, q.versionNumber)} />
+            </Box>
+          );
+        })}
       </Stack>
     </SectionCard>
   );

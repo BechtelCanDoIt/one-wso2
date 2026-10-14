@@ -27,6 +27,12 @@ describe("StatusChip", () => {
     expect(screen.getByText("Approved").closest(".MuiChip-root")).toHaveClass("MuiChip-outlined");
   });
 
+  it("fills an outlined chip with a light tint of its own colour", () => {
+    render(<StatusChip color="success" label="Approved" />);
+    const bg = getComputedStyle(screen.getByText("Approved").closest(".MuiChip-root")!).backgroundColor;
+    expect(bg).toMatch(/^rgba\(.*, 0\.1\)$/);
+  });
+
   it("fills only an overdue approval", () => {
     const now = new Date("2026-10-14T12:00:00Z");
     render(<SlaChip state="BREACHED" dueAt="2026-10-14T06:00:00Z" now={now} />);

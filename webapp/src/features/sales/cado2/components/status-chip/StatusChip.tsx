@@ -14,16 +14,39 @@
 // specific language governing permissions and limitations
 // under the License.
 import type { JSX } from "react";
-import { Chip, type ChipProps } from "@wso2/oxygen-ui";
+import { Chip, alpha, type ChipProps } from "@wso2/oxygen-ui";
 
 /**
  * A status, role or deadline label (2026-10-14): small and outlined, the
- * style used across OneWSO2, so a screen of statuses stays calm. `urgent`
- * fills it, for the one thing that must shout (an overdue approval).
+ * style used across OneWSO2, so a screen of statuses stays calm, with a
+ * light tint of its own colour inside (10%, as the Leave app's chips), so it
+ * isn't a bare outline. `urgent` fills it solid, for the one thing that must
+ * shout (an overdue approval).
  */
 export default function StatusChip({
   urgent = false,
+  color = "default",
+  sx,
   ...props
 }: Omit<ChipProps, "size" | "variant"> & { urgent?: boolean }): JSX.Element {
-  return <Chip size="small" variant={urgent ? "filled" : "outlined"} {...props} />;
+  return (
+    <Chip
+      size="small"
+      variant={urgent ? "filled" : "outlined"}
+      color={color}
+      sx={[
+        (theme) =>
+          urgent
+            ? {}
+            : {
+                bgcolor:
+                  color === "default"
+                    ? theme.palette.action.hover
+                    : alpha(theme.palette[color].main, 0.1),
+              },
+        ...(Array.isArray(sx) ? sx : sx ? [sx] : []),
+      ]}
+      {...props}
+    />
+  );
 }
