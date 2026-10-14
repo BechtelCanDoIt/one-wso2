@@ -24,3 +24,49 @@
  * ParRating.parIsLeadershipEmployee — read that field directly rather than
  * re-deriving it from org-chart fields like subTeam. */
 export const LEADERSHIP_ALLOWED_RATINGS = ["Successful", "Step Up"];
+
+/** Ratings reserved for leadership employees specifically -- the reverse of
+ * LEADERSHIP_ALLOWED_RATINGS above. A non-leadership employee must never be
+ * given one of these: the backend rejects "Step Up" outright for a
+ * non-leadership employee, regardless of what this cycle's
+ * leadershipAllowedRatings contains. This only drives which options the
+ * dropdown offers -- the backend is what actually enforces it. */
+export const LEADERSHIP_EXCLUSIVE_RATINGS = ["Step Up"];
+
+/** The rating dropdown's options: a leadership employee gets only
+ * `leadershipAllowedRatings`, anyone else everything except
+ * LEADERSHIP_EXCLUSIVE_RATINGS. The currently selected rating always stays
+ * listed, so a saved value never breaks the select. */
+export function ratingOptions(
+  parRatings: string[],
+  {
+    isLeadership,
+    leadershipAllowedRatings,
+    currentRating,
+  }: { isLeadership: boolean; leadershipAllowedRatings: string[]; currentRating: string },
+): string[] {
+  return parRatings.filter(
+    (r) =>
+      r === currentRating ||
+      (isLeadership ? leadershipAllowedRatings.includes(r) : !LEADERSHIP_EXCLUSIVE_RATINGS.includes(r)),
+  );
+}
+
+/** Whether Share is still waiting on the evidence for an evidence-required
+ * rating (the confirmation checkbox plus at least one file). A rating the
+ * system auto-assigned is locked, so it needs no evidence. */
+export function isEvidenceMissing({
+  rating,
+  evidenceEnabledRating,
+  ratingLocked,
+  evidenceConfirmed,
+  fileCount,
+}: {
+  rating: string;
+  evidenceEnabledRating: string;
+  ratingLocked: boolean;
+  evidenceConfirmed: boolean;
+  fileCount: number;
+}): boolean {
+  return rating === evidenceEnabledRating && !ratingLocked && (!evidenceConfirmed || fileCount === 0);
+}
