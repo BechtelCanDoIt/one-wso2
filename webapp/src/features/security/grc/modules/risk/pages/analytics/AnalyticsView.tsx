@@ -19,8 +19,11 @@ import type { JSX, ReactNode } from "react";
 import type { AnalyticsSummary } from "../../api/riskApi";
 import ChartCard from "../dashboard/ChartCard";
 import { CLOSED_COLOR } from "../dashboard/constants";
+import { groupTrendByQuarter } from "./constants";
 import KpiTiles from "./KpiTiles";
+import AvgRiskScoreQuarterlyChart from "./AvgRiskScoreQuarterlyChart";
 import TrendChart from "./TrendChart";
+import AvgRisksByRegisterChart from "./AvgRisksByRegisterChart";
 import RegisterTrendChart from "./RegisterTrendChart";
 import LevelDistributionChart from "./LevelDistributionChart";
 import RegisterShareDonut from "./RegisterShareDonut";
@@ -60,9 +63,22 @@ function NoteBox({ children }: { children: ReactNode }): JSX.Element {
 // already covers as a point-in-time snapshot — every chart here either adds a
 // time dimension or is an org-wide aggregate the Dashboard doesn't compute.
 export default function AnalyticsView({ analytics, isAllRegisters }: AnalyticsViewProps): JSX.Element {
+  // Full list of quarters in the trailing-12-month window, derived from the
+  // monthly trend (which always has one row per month regardless of
+  // activity) — used to keep the per-register quarterly chart's x-axis
+  // complete even for quarters with zero identified risks.
+  const quarterOrder = groupTrendByQuarter(analytics.trend).map((q) => q.quarter);
+
   return (
     <Stack spacing={3}>
       <KpiTiles loading={false} kpis={analytics.kpis} />
+
+      <ChartCard title="Avg. Risk Score by Quarter">
+        <NoteBox>
+          Average residual score of risks identified each quarter{isAllRegisters ? " across all registers" : " for the selected register"}, rebucketed from the trailing 12 months of monthly data below.
+        </NoteBox>
+        <AvgRiskScoreQuarterlyChart data={analytics.trend} />
+      </ChartCard>
 
       <ChartCard title="Overall Risk Trend Over Time">
         <NoteBox>
@@ -74,6 +90,18 @@ export default function AnalyticsView({ analytics, isAllRegisters }: AnalyticsVi
 
       {isAllRegisters && (
         <>
+          <ChartCard title="Avg. Risk by Register">
+            <NoteBox>
+              Average monthly count of risks identified per source register, bucketed by quarter, over
+              the trailing 12 months.
+            </NoteBox>
+            <AvgRisksByRegisterChart
+              data={analytics.identified_by_register ?? []}
+              quarterOrder={quarterOrder}
+              emptyMessage="No risks identified in the last 12 months."
+            />
+          </ChartCard>
+
           <ChartCard title="Risks Identified by Source Register">
             <NoteBox>
               Monthly count of risks identified, broken down by source register, over the trailing 12
