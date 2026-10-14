@@ -2036,6 +2036,26 @@ export function buildMeetingsUrl(params: {
   return `${salesServiceUrls.meetings}?${qs.toString()}`;
 }
 
+// Smart Search — Sales → Library, the plain-language search over Pitstop's content. It is served by
+// the Pitstop backend, which re-checks every result against what the caller may see in Pitstop, so
+// nothing is filtered here. The base URL includes its version segment. Unset means "not connected":
+// the page says so and makes no requests. Gated as a whole by the `smartSearch` preview flag too
+// (previewFeatures.ts).
+export const smartSearchBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_SMART_SEARCH_BACKEND_URL ?? "",
+);
+
+export function isSmartSearchBackendConfigured(): boolean {
+  return Boolean(smartSearchBackendUrl);
+}
+
+export const smartSearchServiceUrls = {
+  // Without the generated answer when `includeAnswer` is false, so the matching documents can show
+  // first. The query is encoded by hand: a comma left raw is read by the backend as a list separator.
+  search: (userQuery: string, includeAnswer: boolean): string =>
+    `${smartSearchBackendUrl}/smart-search?userQuery=${encodeURIComponent(userQuery)}&includeAnswer=${includeAnswer}`,
+};
+
 // Finance MIS backend (digiops-finance/apps/mis) — the ARR service. The port
 // replaces the MIS frontend only; the Ballerina services are untouched.
 //

@@ -164,6 +164,8 @@ const GeneralReportTab = lazy(() => import("@features/leave/pages/LeaveReportsPa
 const SabbaticalReportTab = lazy(
   () => import("@features/leave/components/SabbaticalReportTab"),
 );
+// Sales Library: only routed when the `smartSearch` preview flag is on.
+const LibraryPage = lazy(() => import("@features/sales/smartSearch/pages/LibraryPage"));
 
 import SabbaticalApplyTab from "@features/leave/pages/LeaveSabbaticalPage";
 import ClaimsPage, { ClaimsIndex } from "@features/finance/claims/ClaimsPage";
@@ -972,6 +974,18 @@ export default function App() {
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />
+          {/* Sales → Library, Smart Search over Pitstop's content. Behind the `smartSearch` preview
+              flag, and loaded lazily so nothing of it is downloaded while the flag is off. */}
+          {isPreviewEnabled("smartSearch") && (
+            <Route
+              path="sales/library"
+              element={
+                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                  <LibraryPage />
+                </Suspense>
+              }
+            />
+          )}
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
               menu app. One page, as the original was. */}
