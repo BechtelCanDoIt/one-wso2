@@ -109,7 +109,7 @@ export function timelineOf(deal: DealSummary): TimelineMark[] {
 }
 
 /** What a timeline entry was. Without the backend's kind, every call counts as a customer call. */
-export function kindOf(mark: TimelineMark): TimelineKind {
+export function kindOf(mark: Pick<TimelineMark, "type" | "kind">): TimelineKind {
   if (mark.kind) return mark.kind;
   return mark.type === "CALL" ? "CUSTOMER_CALL" : mark.type;
 }
