@@ -39,31 +39,70 @@ function gateFor(data: unknown) {
 
 const P = LEAVE_PRIVILEGE;
 
+// Each report on its own: a lead sees their team in both, a report role (or
+// People Ops) sees everyone in that one report, and nobody else sees Reports.
 describe("who can see Reports", () => {
-  it("a leave lead can", () => {
-    expect(gateFor({ privileges: [P.EMPLOYEE, P.LEAD] }).canSee("leave-reports")).toBe(true);
+  const reports = (privileges: number[], extra: Record<string, unknown> = {}) => {
+    const gate = gateFor({ privileges, ...extra });
+    return {
+      general: gate.canSee("leave-reports-general"),
+      sabbatical: gate.canSee("leave-reports-sabbatical"),
+      allGeneral: gate.canReportAllGeneral,
+      allSabbatical: gate.canReportAllSabbatical,
+    };
+  };
+
+  it("a plain employee sees neither", () => {
+    expect(reports([P.EMPLOYEE])).toEqual({
+      general: false, sabbatical: false, allGeneral: false, allSabbatical: false,
+    });
   });
 
-  it("People Ops can", () => {
-    expect(gateFor({ privileges: [P.EMPLOYEE, P.PEOPLE_OPS_TEAM] }).canSee("leave-reports")).toBe(
-      true,
-    );
+  it("a lead sees both, for their own team only", () => {
+    expect(reports([P.EMPLOYEE, P.LEAD])).toEqual({
+      general: true, sabbatical: true, allGeneral: false, allSabbatical: false,
+    });
   });
 
-  it("a plain employee cannot", () => {
-    expect(gateFor({ privileges: [P.EMPLOYEE] }).canSee("leave-reports")).toBe(false);
+  it("the general report role sees only the general report, for everyone", () => {
+    expect(reports([P.EMPLOYEE, P.GENERAL_REPORT])).toEqual({
+      general: true, sabbatical: false, allGeneral: true, allSabbatical: false,
+    });
+  });
+
+  it("the sabbatical report role sees only the sabbatical report, for everyone", () => {
+    expect(reports([P.EMPLOYEE, P.SABBATICAL_REPORT])).toEqual({
+      general: false, sabbatical: true, allGeneral: false, allSabbatical: true,
+    });
+  });
+
+  it("a lead with the general report role keeps their team's sabbaticals", () => {
+    expect(reports([P.EMPLOYEE, P.LEAD, P.GENERAL_REPORT])).toEqual({
+      general: true, sabbatical: true, allGeneral: true, allSabbatical: false,
+    });
+  });
+
+  it("a lead with the sabbatical report role keeps their team's general report", () => {
+    expect(reports([P.EMPLOYEE, P.LEAD, P.SABBATICAL_REPORT])).toEqual({
+      general: true, sabbatical: true, allGeneral: false, allSabbatical: true,
+    });
+  });
+
+  // An older backend sends People Ops without the report privileges.
+  it("People Ops see both, for everyone, even without the report privileges", () => {
+    expect(reports([P.EMPLOYEE, P.PEOPLE_OPS_TEAM])).toEqual({
+      general: true, sabbatical: true, allGeneral: true, allSabbatical: true,
+    });
   });
 
   // Two widenings the port had that the running app does not: it checks the
   // privilege number alone (LeadReportTab.tsx:50).
   it("an isLead flag without the privilege does not count", () => {
-    expect(gateFor({ isLead: true, privileges: [P.EMPLOYEE] }).canSee("leave-reports")).toBe(false);
+    expect(reports([P.EMPLOYEE], { isLead: true }).general).toBe(false);
   });
 
   it("having subordinates without the privilege does not count", () => {
-    expect(
-      gateFor({ subordinateCount: 9, privileges: [P.EMPLOYEE] }).canSee("leave-reports"),
-    ).toBe(false);
+    expect(reports([P.EMPLOYEE], { subordinateCount: 9 }).general).toBe(false);
   });
 });
 
@@ -126,7 +165,8 @@ describe("before /user-info has answered", () => {
     userInfo.isLoading = true;
     const gate = renderHook(() => useLeaveGate()).result.current;
     expect(gate.isResolving).toBe(true);
-    expect(gate.canSee("leave-reports")).toBe(false);
+    expect(gate.canSee("leave-reports-general")).toBe(false);
+    expect(gate.canSee("leave-reports-sabbatical")).toBe(false);
     expect(gate.isLead).toBe(false);
     expect(gate.isPeopleOps).toBe(false);
   });
@@ -174,7 +214,8 @@ describe("whether the rail offers Leave at all", () => {
     const gate = gateFor({ privileges: [P.PEOPLE_OPS_TEAM] });
     expect(gate.canSee("leave-home")).toBe(true);
     expect(gate.canSee("leave-sabbatical-own")).toBe(false);
-    expect(gate.canSee("leave-reports")).toBe(true);
+    expect(gate.canSee("leave-reports-general")).toBe(true);
+    expect(gate.canSee("leave-reports-sabbatical")).toBe(true);
   });
 
   // Applying is open to everyone, so there is no role that sees nothing —
@@ -236,7 +277,7 @@ describe("while identity is still resolving", () => {
     userInfo.isLoading = false; // disabled: never started, so never "loading"
     const gate = renderHook(() => useLeaveGate()).result.current;
     expect(gate.isResolving).toBe(true);
-    expect(gate.canSee("leave-reports")).toBe(false);
+    expect(gate.canSee("leave-reports-general")).toBe(false);
   });
 });
 

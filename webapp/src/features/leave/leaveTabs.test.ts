@@ -34,7 +34,8 @@ const allowing = (...ids: string[]) => (id: string) => ids.includes(id);
 const EVERYTHING = allowing(
   "leave-apply",
   "leave-history",
-  "leave-reports",
+  "leave-reports-general",
+  "leave-reports-sabbatical",
   "leave-approve",
   "leave-sabbatical-own",
 );
@@ -144,10 +145,26 @@ describe("what each role is offered", () => {
   // "may you take this kind of leave": a People-Ops-only account holds no
   // leave of its own but does get both reports.
   it("gives a People-Ops-only account Apply and both reports", () => {
-    const peopleOps = allowing("leave-apply", "leave-reports");
+    const peopleOps = allowing("leave-apply", "leave-reports-general", "leave-reports-sabbatical");
     expect(visibleTabs(peopleOps).map((t) => t.segment)).toEqual(["apply", "reports"]);
     expect(visibleKinds(leaveTab("reports")!, peopleOps).map((k) => k.kind)).toEqual([
       "general",
+      "sabbatical",
+    ]);
+  });
+
+  // The two reports are granted separately, so Reports offers only the kind
+  // this person may open — and no toggle when that is one.
+  it("offers only the general report to someone with only that", () => {
+    const general = allowing("leave-reports-general");
+    expect(visibleTabs(general).map((t) => t.segment)).toEqual(["reports"]);
+    expect(visibleKinds(leaveTab("reports")!, general).map((k) => k.kind)).toEqual(["general"]);
+  });
+
+  it("offers only the sabbatical report to someone with only that", () => {
+    const sabbatical = allowing("leave-reports-sabbatical");
+    expect(visibleTabs(sabbatical).map((t) => t.segment)).toEqual(["reports"]);
+    expect(visibleKinds(leaveTab("reports")!, sabbatical).map((k) => k.kind)).toEqual([
       "sabbatical",
     ]);
   });
@@ -169,7 +186,8 @@ describe("where /me/leave lands", () => {
     const cases = [
       allowing("leave-apply"),
       allowing("leave-history"),
-      allowing("leave-reports"),
+      allowing("leave-reports-general"),
+      allowing("leave-reports-sabbatical"),
       allowing("leave-approve"),
       allowing("leave-apply", "leave-sabbatical-own"),
       // The discriminating one: the first tab is visible, but its FIRST

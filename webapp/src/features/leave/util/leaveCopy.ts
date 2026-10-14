@@ -356,6 +356,7 @@ export const SABBATICAL = {
   /** ApproveLeaveTable.tsx:94-124 and ApprovalHistoryTable.tsx:28-66. */
   columns: {
     employee: "Employee",
+    leaveType: "Leave Type",
     startDate: "Start Date",
     endDate: "End Date",
     dayCount: "Day Count",

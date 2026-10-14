@@ -30,7 +30,7 @@ const state = {
   isResolving: false,
   isLead: false,
   isPeopleOps: false,
-  allow: new Set<string>(["leave-apply", "leave-history", "leave-reports"]),
+  allow: new Set<string>(["leave-apply", "leave-history", "leave-reports-general", "leave-reports-sabbatical"]),
 };
 
 vi.mock("../api/useLeaveGate", () => ({
@@ -65,7 +65,7 @@ beforeEach(() => {
   state.isResolving = false;
   state.isLead = false;
   state.isPeopleOps = false;
-  state.allow = new Set(["leave-apply", "leave-history", "leave-reports"]);
+  state.allow = new Set(["leave-apply", "leave-history", "leave-reports-general", "leave-reports-sabbatical"]);
 });
 
 /** Leave, wired the way App.tsx wires it. */
@@ -127,7 +127,7 @@ function show(initial = "/me/leave") {
             <Route
               path="general"
               element={
-                <LeaveKindRoute gateId="leave-reports">
+                <LeaveKindRoute gateId="leave-reports-general">
                   <Here />
                 </LeaveKindRoute>
               }
@@ -135,7 +135,7 @@ function show(initial = "/me/leave") {
             <Route
               path="sabbatical"
               element={
-                <LeaveKindRoute gateId="leave-reports">
+                <LeaveKindRoute gateId="leave-reports-sabbatical">
                   <Here />
                 </LeaveKindRoute>
               }
@@ -156,9 +156,17 @@ describe("landing on /me/leave", () => {
   // A People-Ops-only account cannot apply for a sabbatical, and a hardcoded
   // redirect would drop them on a screen they are refused.
   it("lands on the first tab the visitor is actually allowed", async () => {
-    state.allow = new Set(["leave-reports"]);
+    state.allow = new Set(["leave-reports-general", "leave-reports-sabbatical"]);
     show();
     expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/reports/general");
+  });
+
+  // Sabbatical report access alone: Reports is the only tab, and its only kind
+  // is the sabbatical one.
+  it("lands someone with only the sabbatical report on that report", async () => {
+    state.allow = new Set(["leave-reports-sabbatical"]);
+    show();
+    expect(await screen.findByTestId("path")).toHaveTextContent("/me/leave/reports/sabbatical");
   });
 
   // An intern may apply, but never for a sabbatical. The kind is in the URL,
@@ -315,7 +323,7 @@ describe("the kind toggle", () => {
   // An intern may apply for general leave only. A toggle with one live option
   // is not a choice, and showing the other half greyed would imply it unlocks.
   it("is not drawn when only one kind is open to them", async () => {
-    state.allow = new Set(["leave-apply", "leave-history", "leave-reports"]);
+    state.allow = new Set(["leave-apply", "leave-history", "leave-reports-general", "leave-reports-sabbatical"]);
     show("/me/leave/apply/general");
     await screen.findByRole("tab", { name: "Apply" });
     // The whole control, not just the option they lack — a one-option toggle

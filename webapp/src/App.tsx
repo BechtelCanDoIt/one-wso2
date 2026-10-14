@@ -345,7 +345,7 @@ export default function App() {
               <Route
                 path="general"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-general">
                     {/* Skeleton rather than null: the chunk is fetched on
                         navigation, and a blank frame reads as a broken link. */}
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
@@ -357,7 +357,7 @@ export default function App() {
               <Route
                 path="sabbatical"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-sabbatical">
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
                       <SabbaticalReportTab />
                     </Suspense>

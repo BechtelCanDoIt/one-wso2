@@ -51,7 +51,10 @@ const state = {
   featureEnabled: true,
   isLead: false,
   isPeopleOps: false,
+  // The sabbatical report role, granted on its own.
+  sabbaticalReport: false,
   subordinateCount: 0 as number | null,
+  employees: [] as Record<string, unknown>[],
   // Query outcomes, so a test can say "this fetch failed" rather than only
   // "this fetch returned nothing" — the two must not behave the same.
   leavesFailed: false,
@@ -80,7 +83,7 @@ vi.mock("../api/useLeaveData", () => ({
     isError: state.configFailed,
     isSuccess: !state.configFailed,
   }),
-  useLeaveEmployees: () => ({ data: [], isLoading: false, isError: false }),
+  useLeaveEmployees: () => ({ data: state.employees, isLoading: false, isError: false }),
   useLeaves: (filter: Record<string, unknown>, enabled = true) => {
     if (enabled) leaveFilters.push(filter);
     return {
@@ -104,6 +107,8 @@ vi.mock("../api/useLeaveGate", () => ({
     isResolving: false,
     isPeopleOps: state.isPeopleOps,
     isLead: state.isLead,
+    canReportAllGeneral: state.isPeopleOps,
+    canReportAllSabbatical: state.isPeopleOps || state.sabbaticalReport,
   }),
 }));
 
@@ -134,6 +139,7 @@ beforeEach(() => {
   leaveFilters.length = 0;
   state.isLead = false;
   state.isPeopleOps = false;
+  state.sabbaticalReport = false;
   state.subordinateCount = 0;
   state.leavesFailed = false;
   state.configFailed = false;
@@ -143,6 +149,7 @@ beforeEach(() => {
   profile.leadEmail = "lead@wso2.com";
   profile.jobBand = 5;
   state.leaves = [];
+  state.employees = [];
   state.canSee = true;
   state.featureEnabled = true;
 });
@@ -626,6 +633,50 @@ describe("the sabbatical report tab", () => {
     expect(leaveFilters.at(-1)!.approverEmail).toBeUndefined();
   });
 
+  it("starts the sabbatical report role across everyone, with no team to narrow to", async () => {
+    state.sabbaticalReport = true;
+    show(<SabbaticalReportTab />);
+    await waitFor(() => expect(leaveFilters.length).toBeGreaterThan(0));
+    expect(leaveFilters.at(-1)!.approverEmail).toBeUndefined();
+    expect(screen.getByPlaceholderText("All employees")).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /Subordinates only/ })).not.toBeInTheDocument();
+  });
+
+  it("lets a lead with the sabbatical report role narrow to their team", async () => {
+    state.isLead = true;
+    state.sabbaticalReport = true;
+    show(<SabbaticalReportTab />);
+    await waitFor(() => expect(leaveFilters.length).toBeGreaterThan(0));
+    expect(leaveFilters.at(-1)!.approverEmail).toBeUndefined();
+    expect(screen.getByRole("switch", { name: /Subordinates only/ })).toBeInTheDocument();
+  });
+
+  it("gives a plain lead no employee picker", async () => {
+    state.isLead = true;
+    show(<SabbaticalReportTab />);
+    await screen.findByRole("button", { name: /Fetch report/ });
+    expect(screen.queryByPlaceholderText("All employees")).not.toBeInTheDocument();
+  });
+
+  it("shows each row's leave type, as the general report does", async () => {
+    state.isLead = true;
+    state.leaves = [
+      {
+        id: 7,
+        email: "someone@wso2.com",
+        leaveType: "sabbatical",
+        startDate: "2026-02-02T00:00:00",
+        endDate: "2026-03-13T23:59:00",
+        numberOfDays: 30,
+        status: "APPROVED",
+        approverEmail: "me@wso2.com",
+      },
+    ];
+    show(<SabbaticalReportTab />);
+    expect(await screen.findByRole("columnheader", { name: "Leave Type" })).toBeInTheDocument();
+    expect(screen.getByRole("row", { name: /someone@wso2.com/ })).toHaveTextContent("Sabbatical");
+  });
+
   it("offers no employee-status filter", async () => {
     state.isLead = true;
     state.isPeopleOps = true;
@@ -641,6 +692,31 @@ describe("the sabbatical report tab", () => {
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "2027-04-01" } });
     fireEvent.click(screen.getByRole("button", { name: /Fetch report/ }));
     expect(await screen.findByText("End date must be after start date")).toBeInTheDocument();
+  });
+
+  // AdminSabbaticalTab.tsx:72-79 — both controls reload on their own.
+  it("reloads when Subordinates only is flipped, without pressing Fetch", async () => {
+    state.isLead = true;
+    state.isPeopleOps = true;
+    show(<SabbaticalReportTab />);
+    await waitFor(() => expect(leaveFilters.length).toBeGreaterThan(0));
+    fireEvent.click(screen.getByRole("switch", { name: /Subordinates only/ }));
+    await waitFor(() => expect(leaveFilters.at(-1)!.approverEmail).toBe("me@wso2.com"));
+    fireEvent.click(screen.getByRole("switch", { name: /Subordinates only/ }));
+    await waitFor(() => expect(leaveFilters.at(-1)!.approverEmail).toBeUndefined());
+  });
+
+  it("reloads when an employee is picked, without pressing Fetch", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    state.isLead = true;
+    state.isPeopleOps = true;
+    state.employees = [
+      { workEmail: "here@wso2.com", firstName: "Still", lastName: "Here", employeeThumbnail: "", employeeStatus: "Active" },
+    ];
+    show(<SabbaticalReportTab />);
+    await user.click(screen.getByPlaceholderText("All employees"));
+    await user.click(await screen.findByRole("option", { name: /Still Here/ }));
+    await waitFor(() => expect(leaveFilters.at(-1)!.email).toBe("here@wso2.com"));
   });
 });
 

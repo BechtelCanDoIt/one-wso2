@@ -68,18 +68,19 @@ function ReportsBody() {
   // disagree about who gets in. Previously this also accepted `isLead === true`
   // and `subordinateCount > 0`, granting the report to people the source never
   // grants it to — it checks the privilege number alone.
-  const { isPeopleOps, isLead } = useLeaveGate();
+  const { isPeopleOps, isLead, canReportAllGeneral: canSeeEveryone } = useLeaveGate();
+  // Narrowing to "my team" only means something to someone who has one.
+  const canNarrowToTeam = canSeeEveryone && (isLead || isPeopleOps);
 
-  const employees = useLeaveEmployees(isPeopleOps);
+  const employees = useLeaveEmployees(canSeeEveryone);
 
   // Draft filter (edited in the toolbar) vs applied filter (drives the query).
   const [fromDate, setFromDate] = useState(startOfYearIso(new Date().getFullYear()));
   const [toDate, setToDate] = useState(todayIso());
   const [employee, setEmployee] = useState<string | null>(null);
-  // People-Ops-only: default to org-wide, matching leave-app's LeadReportTab
-  // default (showAllEmployees=true for People Ops). Leads-without-People-Ops
-  // never see this toggle — they're always scoped to their subordinates,
-  // same as before.
+  // Anyone who may see everyone starts org-wide, matching leave-app's
+  // LeadReportTab default for People Ops. A plain lead never sees the toggle —
+  // they're always scoped to their subordinates, same as before.
   const [showAllEmployees, setShowAllEmployees] = useState(true);
   const [employeeStatuses, setEmployeeStatuses] = useState<EmployeeStatus[]>(DEFAULT_EMPLOYEE_STATUSES);
   const [applied, setApplied] = useState({
@@ -106,10 +107,22 @@ function ReportsBody() {
     setApplied({ from: fromDate, to: toDate, email: employee, showAllEmployees, employeeStatuses });
   };
 
+  // The scope switch and the employee picker reload on their own, as the
+  // running app does (LeadReportTab.tsx:70-77). Only their own field is
+  // applied: the dates and statuses still wait for Fetch and its checks.
+  const flipScope = (next: boolean) => {
+    setShowAllEmployees(next);
+    setApplied((prev) => ({ ...prev, showAllEmployees: next }));
+  };
+  const pickEmployee = (next: string | null) => {
+    setEmployee(next);
+    setApplied((prev) => ({ ...prev, email: next }));
+  };
+
   const workEmail = userInfo.data?.workEmail ?? null;
   // Whether *this* applied filter needs approverEmail scoping — plain leads
-  // always do; People Ops only once they've narrowed to "Subordinates only".
-  const needsApproverScope = isPeopleOps ? !applied.showAllEmployees : true;
+  // always do; everyone else only once they've narrowed to "Subordinates only".
+  const needsApproverScope = canSeeEveryone ? !applied.showAllEmployees : true;
   // If scoping is needed but workEmail is unavailable, the request must NOT
   // silently fall through to an unscoped (org-wide) report — that would
   // show far more than the user asked for. Block the query entirely
@@ -121,6 +134,9 @@ function ReportsBody() {
       startDate: applied.from,
       endDate: applied.to,
       statuses: ["APPROVED"],
+      // Sabbaticals have a report of their own, so the general one never shows
+      // them — for leads, People Ops and the general report role alike.
+      excludedLeaveCategory: ["sabbatical"],
       // No orderBy and no limit — the running app sends neither
       // (LeadReportTab.tsx:55-62). The cap existed only because every row was
       // rendered at once; the table pages now, and the totals below cover the
@@ -137,19 +153,19 @@ function ReportsBody() {
     // point; the mechanism behind it is the backend's business.
     if (applied.employeeStatuses.length > 0) base.employeeStatuses = applied.employeeStatuses;
 
-    if (isPeopleOps) {
+    if (canSeeEveryone) {
       if (applied.email) base.email = applied.email;
-      // Matches leave-app's "Subordinates only" toggle — People Ops default
-      // to org-wide, but can narrow to their own reports like a plain lead.
+      // Matches leave-app's "Subordinates only" toggle — org-wide by default,
+      // but a lead or People Ops can narrow to their own reports.
       if (!applied.showAllEmployees && workEmail) base.approverEmail = workEmail;
     } else if (workEmail) {
       // Lead: scope to their subordinates via approverEmail.
       base.approverEmail = workEmail;
     }
     return base;
-  }, [applied, isPeopleOps, workEmail]);
+  }, [applied, canSeeEveryone, workEmail]);
 
-  const allowed = isPeopleOps || isLead;
+  const allowed = canSeeEveryone || isLead;
   const leaves = useLeaves(filter, Boolean(userInfo.data) && allowed && canScopeToApprover);
 
   const offerable = useMemo(
@@ -192,14 +208,14 @@ function ReportsBody() {
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "auto auto 1fr auto" }, gap: 1.5, alignItems: "end" }}>
           <DateField label="From" value={fromDate} onChange={setFromDate} />
           <DateField label="To" value={toDate} min={fromDate} onChange={setToDate} />
-          {isPeopleOps ? (
+          {canSeeEveryone ? (
             <Box>
               <Typography sx={{ fontSize: 11, color: "text.secondary", mb: 0.375 }}>Employee</Typography>
               <Autocomplete
                 size="small"
                 options={employeeOptions}
                 value={employee}
-                onChange={(_e, v) => setEmployee(v as string | null)}
+                onChange={(_e, v) => pickEmployee(v as string | null)}
                 loading={employees.isLoading}
                 disabled={employees.isLoading}
                 loadingText="Loading employees…"
@@ -251,34 +267,36 @@ function ReportsBody() {
           </Button>
         </Box>
 
-        {isPeopleOps && (
+        {canSeeEveryone && (
           <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2, mt: 1.5 }}>
-            <Tooltip title={workEmail ? "" : "Your work email couldn't be resolved."}>
-              {/* span wrapper so the tooltip still fires when the control is disabled */}
-              <span>
-                <FormControlLabel
-                  disabled={!workEmail}
-                  control={
-                    <Switch
-                      size="small"
-                      checked={!showAllEmployees}
-                      onChange={(e) => setShowAllEmployees(!e.target.checked)}
-                    />
-                  }
-                  label={
-                    <Typography
-                      sx={{
-                        fontSize: 12.5,
-                        fontWeight: showAllEmployees ? 400 : 600,
-                        color: showAllEmployees ? "text.secondary" : "text.primary",
-                      }}
-                    >
-                      Subordinates only
-                    </Typography>
-                  }
-                />
-              </span>
-            </Tooltip>
+            {canNarrowToTeam && (
+              <Tooltip title={workEmail ? "" : "Your work email couldn't be resolved."}>
+                {/* span wrapper so the tooltip still fires when the control is disabled */}
+                <span>
+                  <FormControlLabel
+                    disabled={!workEmail}
+                    control={
+                      <Switch
+                        size="small"
+                        checked={!showAllEmployees}
+                        onChange={(e) => flipScope(!e.target.checked)}
+                      />
+                    }
+                    label={
+                      <Typography
+                        sx={{
+                          fontSize: 12.5,
+                          fontWeight: showAllEmployees ? 400 : 600,
+                          color: showAllEmployees ? "text.secondary" : "text.primary",
+                        }}
+                      >
+                        Subordinates only
+                      </Typography>
+                    }
+                  />
+                </span>
+              </Tooltip>
+            )}
             <Box sx={{ minWidth: 260 }}>
               <Autocomplete
                 multiple

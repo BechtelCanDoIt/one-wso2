@@ -48,25 +48,28 @@ import { withLoadingAdornment } from "@components/picker-loading/pickerLoading";
 // route of its own, so it reads the gate directly — one less thing a caller can
 // wire up wrongly, and the same source of truth the route is guarded by.
 export default function SabbaticalReportTab() {
-  const { isPeopleOps } = useLeaveGate();
+  const { isPeopleOps, isLead, canReportAllSabbatical: canSeeEveryone } = useLeaveGate();
+  // Narrowing to "my team" only means something to someone who has one.
+  const canNarrowToTeam = canSeeEveryone && (isLead || isPeopleOps);
   const userInfo = useLeaveUserInfo();
-  const employees = useLeaveEmployees(isPeopleOps);
+  const employees = useLeaveEmployees(canSeeEveryone);
   const { showError } = useNotifications();
 
   const workEmail = userInfo.data?.workEmail ?? undefined;
 
   const [fromDate, setFromDate] = useState(startOfYearIso(new Date().getFullYear()));
   const [toDate, setToDate] = useState(todayIso());
-  // :45,:68-71 — People Ops start across everyone; a plain lead is always
-  // scoped to their own reports and never sees the toggle.
-  const [showAllEmployees, setShowAllEmployees] = useState(isPeopleOps);
+  // :45,:68-71 — anyone who may see everyone (People Ops or the sabbatical
+  // report role) starts there; a plain lead is always scoped to their own
+  // reports and never sees the toggle.
+  const [showAllEmployees, setShowAllEmployees] = useState(canSeeEveryone);
   const [employee, setEmployee] = useState<string | null>(null);
 
   const [applied, setApplied] = useState({
     from: fromDate,
     to: toDate,
     email: null as string | null,
-    showAllEmployees: isPeopleOps,
+    showAllEmployees: canSeeEveryone,
   });
 
   const byEmail = useMemo(
@@ -101,6 +104,17 @@ export default function SabbaticalReportTab() {
     setApplied({ from: fromDate, to: toDate, email: employee, showAllEmployees });
   };
 
+  // :72-79 — the scope switch and the employee picker reload on their own.
+  // Only their own field is applied; the dates still wait for Fetch.
+  const flipScope = (next: boolean) => {
+    setShowAllEmployees(next);
+    setApplied((prev) => ({ ...prev, showAllEmployees: next }));
+  };
+  const pickEmployee = (next: string | null) => {
+    setEmployee(next);
+    setApplied((prev) => ({ ...prev, email: next }));
+  };
+
   return (
     <Box>
       <Card variant="outlined" sx={{ p: 2, mb: 2 }}>
@@ -124,29 +138,31 @@ export default function SabbaticalReportTab() {
           </Button>
         </Box>
 
-        {/* Toolbar.tsx:114,214 — both controls are People Ops only. */}
-        {isPeopleOps && (
+        {/* Toolbar.tsx:114,214 — only for those who may see everyone. */}
+        {canSeeEveryone && (
           <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2, mt: 1.5 }}>
-            <FormControlLabel
-              control={
-                <Switch
-                  size="small"
-                  checked={!showAllEmployees}
-                  onChange={(e) => setShowAllEmployees(!e.target.checked)}
-                />
-              }
-              label={
-                <Typography sx={{ fontSize: 12.5, fontWeight: showAllEmployees ? 400 : 600 }}>
-                  Subordinates only
-                </Typography>
-              }
-            />
+            {canNarrowToTeam && (
+              <FormControlLabel
+                control={
+                  <Switch
+                    size="small"
+                    checked={!showAllEmployees}
+                    onChange={(e) => flipScope(!e.target.checked)}
+                  />
+                }
+                label={
+                  <Typography sx={{ fontSize: 12.5, fontWeight: showAllEmployees ? 400 : 600 }}>
+                    Subordinates only
+                  </Typography>
+                }
+              />
+            )}
             <Box sx={{ minWidth: 260 }}>
               <Autocomplete
                 size="small"
                 options={(employees.data ?? []).map((e) => e.workEmail)}
                 value={employee}
-                onChange={(_e, v) => setEmployee(v)}
+                onChange={(_e, v) => pickEmployee(v)}
                 loading={employees.isLoading}
                 disabled={employees.isLoading}
                 getOptionLabel={(option) => {
@@ -177,6 +193,7 @@ export default function SabbaticalReportTab() {
         isLoading={report.isLoading}
         error={report.isError ? (report.error as Error) : null}
         emptyMessage="No sabbatical leave in this period."
+        showLeaveType
       />
     </Box>
   );
