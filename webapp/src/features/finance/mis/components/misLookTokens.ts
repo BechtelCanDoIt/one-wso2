@@ -172,9 +172,8 @@ export const unitPillSx = (active: boolean) => (theme: Theme) => ({
 // ---- Filter card --------------------------------------------------------------
 
 /**
- * The analysis summary, chart and account cards. Standalone ARR Analysis draws
- * these as white surfaces with a 12px radius and a soft slate shadow, which is
- * the frame the finance team looks for under the filter panel.
+ * The analysis summary, chart and account cards: white surfaces with a 12px
+ * radius and a soft slate shadow, the frame under the filter panel.
  */
 export const analysisSurfaceSx = (theme: Theme) => ({
   borderRadius: RADIUS.lg,
