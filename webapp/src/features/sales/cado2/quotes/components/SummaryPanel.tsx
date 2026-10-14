@@ -15,8 +15,8 @@
 // under the License.
 
 import type { JSX, ReactNode } from "react";
-import { Box, CircularProgress, Divider, Link, Paper, Stack, Typography } from "@wso2/oxygen-ui";
-import { Building2Icon, ExternalLinkIcon, FileTextIcon, LandmarkIcon, PackageIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, CircularProgress, Divider, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Building2Icon, FileTextIcon, LandmarkIcon, PackageIcon } from "@wso2/oxygen-ui-icons-react";
 import type { Totals } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   BILLING_LABEL,
@@ -28,7 +28,7 @@ import {
   type DraftFormValues,
 } from "@features/sales/cado2/quotes/form/draftForm";
 import { termLabel } from "@features/sales/cado2/quotes/sheet/sheetModel";
-import { salesforceRecordUrl, type SalesforceObject } from "@features/sales/cado2/utils/salesforceLinks";
+import SalesforceLink from "@features/sales/cado2/components/salesforce-link/SalesforceLink";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 
 interface SummaryPanelProps {
@@ -45,35 +45,6 @@ interface SummaryPanelProps {
 }
 
 const SHOWN_LINES = 4;
-
-/** A value, linked to its Salesforce record when a base URL is configured. */
-function SfValue({
-  object,
-  id,
-  children,
-}: {
-  object: SalesforceObject;
-  id: string | null | undefined;
-  children: ReactNode;
-}): JSX.Element {
-  const url = salesforceRecordUrl(object, id);
-  if (!url) return <>{children}</>;
-  return (
-    <Link
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
-      underline="hover"
-      color="inherit"
-      sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, font: "inherit" }}
-    >
-      {children}
-      <Box component="span" sx={{ display: "inline-flex", color: "primary.main" }}>
-        <ExternalLinkIcon size={12} aria-label="(opens Salesforce)" />
-      </Box>
-    </Link>
-  );
-}
 
 /**
  * Label above value. Every value has the same look (bold body text); extra
@@ -140,9 +111,9 @@ function Group({ title, icon, children }: { title: string; icon: ReactNode; chil
 function contactName(c: ContactValue): ReactNode {
   if (c.mode === "salesforce" && c.sfContactId) {
     return (
-      <SfValue object="Contact" id={c.sfContactId}>
+      <SalesforceLink object="Contact" id={c.sfContactId}>
         {c.name || c.sfContactId}
-      </SfValue>
+      </SalesforceLink>
     );
   }
   if (c.mode === "manual" && c.name.trim()) return c.name.trim();
@@ -237,28 +208,25 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
         <Group title="Customer" icon={<Building2Icon size={14} />}>
           <Field label="Account">
             {v.accountId ? (
-              <SfValue object="Account" id={v.accountId}>
+              <SalesforceLink object="Account" id={v.accountId}>
                 {v.accountName}
-              </SfValue>
+              </SalesforceLink>
             ) : null}
           </Field>
           {v.accountId ? (
             <>
               <Field label="Sales region">
-                {v.accountSalesRegion || (
-                  <Box component="span" sx={{ color: "error.main" }}>
-                    Not set in Salesforce
-                  </Box>
-                )}
+                {/* The warning is the Overview step's amber box only (C6, 2026-10-14). */}
+                {v.accountSalesRegion || "Not set in Salesforce"}
               </Field>
               <Field label="Sub-region">{v.accountSubRegion || "Not set"}</Field>
             </>
           ) : null}
           <Field label="Opportunity">
             {v.opportunityId ? (
-              <SfValue object="Opportunity" id={v.opportunityId}>
+              <SalesforceLink object="Opportunity" id={v.opportunityId}>
                 {v.opportunityName || v.opportunityId}
-              </SfValue>
+              </SalesforceLink>
             ) : null}
           </Field>
           <Field label="Deal">
@@ -266,9 +234,9 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
           </Field>
           {partner?.name ? (
             <Field label="Partner">
-              <SfValue object="Account" id={partner.id}>
+              <SalesforceLink object="Account" id={partner.id}>
                 {partner.name}
-              </SfValue>
+              </SalesforceLink>
             </Field>
           ) : null}
         </Group>

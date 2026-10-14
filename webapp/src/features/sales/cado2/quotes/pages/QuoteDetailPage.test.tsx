@@ -182,7 +182,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     const user = userEvent.setup();
 
     // The account is the title; the quote number sits on the line above it.
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
     expect(screen.queryByText("Acme APIM renewal · Acme Corp")).toBeNull(); // nothing under the title
     // In approval the AM waits: no main button, the rest under "⋯".
@@ -236,7 +236,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     show(ready.quote, ready);
     const user = userEvent.setup();
     // Never submitted, so it has no number: it is named by customer and deal.
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(screen.getByText("Draft · Version 1")).toBeInTheDocument();
     await openMenu(user);
     await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
@@ -286,7 +286,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull(); // nothing to offer
     // The customer is in the page's header band, and not repeated in the deal.
     const header = screen.getByLabelText("About this quote");
-    expect(within(header).getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(within(header).getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(header).toHaveTextContent("Acme APIM renewal");
     expect(screen.queryByRole("region", { name: "Customer" })).toBeNull();
     expect(screen.getByRole("table", { name: "Products" })).toBeInTheDocument();
@@ -392,7 +392,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     // The decision is its own full-width section above the deal; the account stays the page title.
     expect(within(screen.getByRole("region", { name: "Your approval" })).getByRole("region", { name: "Your approval as Deal Desk" })).toBe(panel);
     expect(within(screen.getByRole("region", { name: "The deal" })).queryByRole("region", { name: /Your approval/ })).toBeNull();
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(panel).not.toHaveTextContent("After you"); // who approves is in the Approvals tab
     const points = within(within(panel).getByRole("list", { name: "What's non-standard" })).getAllByRole("listitem");
     expect(points).toHaveLength(1);

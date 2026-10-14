@@ -55,7 +55,8 @@ export default function StatusPanel({
   return (
     <Stack spacing={2} component="aside" aria-label="Status">
       {documents}
-      <SectionCard title="Status" icon={<ActivityIcon size={18} />}>
+      {/* "Timeline": the status itself is the header's chip (C4, 2026-10-14). */}
+      <SectionCard title="Timeline" icon={<ActivityIcon size={18} />}>
         {expiry ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
             <HourglassIcon size={16} />

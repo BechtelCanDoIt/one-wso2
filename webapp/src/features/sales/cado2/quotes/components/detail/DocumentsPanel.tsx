@@ -139,7 +139,7 @@ export default function DocumentsPanel({
               Issued {formatDate(active.issueDate)}
             </Typography>
             <Typography variant="caption" color="text.secondary" component="div">
-              Expires {formatDate(active.expiryDate)} · {active.fileName}
+              {active.fileName}
             </Typography>
           </Box>
           <Button

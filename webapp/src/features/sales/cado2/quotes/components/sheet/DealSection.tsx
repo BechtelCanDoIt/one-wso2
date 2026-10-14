@@ -46,6 +46,9 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
           value={sheet.dealType === "PARTNER" ? "Partner deal" : sheet.dealType === "DIRECT" ? "Direct deal" : "Unknown"}
           hint={sheet.dealType ? undefined : "Salesforce has no Direct / Partner value"}
         />
+        {sheet.dealType === "PARTNER" ? (
+          <Fact label="Partner" value={sheet.partner?.name} hint={sheet.partner?.role ?? undefined} />
+        ) : null}
         <Fact label="Sales region" value={sheet.salesRegion || "Not set in Salesforce"} />
         <Fact label="Sub-region" value={sheet.subRegion || "Not set"} />
         <Fact label="WSO2 legal entity" value={sheet.legalEntity?.name} hint={sheet.legalEntity?.address} />

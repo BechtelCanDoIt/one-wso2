@@ -25,7 +25,6 @@ import { initialsOfName } from "@features/sales/cado2/utils/initials";
 interface AccountPickerProps {
   /** The chosen account's name, or "" when none. */
   readonly chosenName: string;
-  readonly chosenPlace: string;
   /** After the first save the account is fixed. */
   readonly locked: boolean;
   readonly onChoose: (account: Account | null) => void;
@@ -37,7 +36,7 @@ const place = (a: Account) => [a.billingAddress?.city, a.billingAddress?.country
  * Account first (F5 feedback): search Salesforce accounts with rich results;
  * once chosen, the account shows as a card with Change.
  */
-export default function AccountPicker({ chosenName, chosenPlace, locked, onChoose }: AccountPickerProps): JSX.Element {
+export default function AccountPicker({ chosenName, locked, onChoose }: AccountPickerProps): JSX.Element {
   const [term, setTerm] = useState("");
   const accounts = useAccountSearch(useDebouncedValue(term, 300));
 
@@ -61,11 +60,6 @@ export default function AccountPicker({ chosenName, chosenPlace, locked, onChoos
             <Typography variant="h6" component="p" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
               {chosenName}
             </Typography>
-            {chosenPlace ? (
-              <Typography variant="body2" color="text.secondary">
-                {chosenPlace}
-              </Typography>
-            ) : null}
           </Box>
           {locked ? null : (
             <Button onClick={() => onChoose(null)} aria-label="Change account">

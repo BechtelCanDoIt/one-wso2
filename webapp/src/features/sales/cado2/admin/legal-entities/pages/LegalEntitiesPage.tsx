@@ -412,7 +412,6 @@ function EntityDetail({
     >
       <Stack direction="row" spacing={1}>
         <Chip size="small" variant="outlined" label={e.code} sx={{ fontFamily: "monospace" }} />
-        <Chip size="small" color={e.isActive ? "success" : "default"} label={e.isActive ? "Active" : "Inactive"} />
       </Stack>
 
       <Divider sx={{ my: 2.5 }} />

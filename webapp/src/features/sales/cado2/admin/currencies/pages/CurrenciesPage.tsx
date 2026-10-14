@@ -17,7 +17,6 @@
 import { useState, type FormEvent, type JSX } from "react";
 import {
   Button,
-  Chip,
   Paper,
   Skeleton,
   Stack,
@@ -134,7 +133,6 @@ export default function CurrenciesPage(): JSX.Element {
                           <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: "monospace" }}>
                             {c.isoCode}
                           </Typography>
-                          <Chip size="small" color={c.isActive ? "success" : "default"} label={c.isActive ? "Active" : "Inactive"} />
                         </Stack>
                       </TableCell>
                       <TableCell>

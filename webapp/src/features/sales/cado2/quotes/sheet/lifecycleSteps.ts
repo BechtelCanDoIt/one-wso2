@@ -73,7 +73,6 @@ export function lifecycleSteps(res: DraftResponse, events: readonly AuditEvent[]
   }
   if (v.status === "DRAFT") steps.push({ label: "Submit", when: "Not yet", done: false });
   if (v.status === "SUBMITTED") steps.push({ label: "In approval", when: "See Approvals", done: false });
-  if ((v.status === "SUBMITTED" || v.status === "APPROVED") && v.expiryDate)
-    steps.push({ label: "Expires", when: formatDate(v.expiryDate), done: false });
+  // The expiry is the chip above the timeline, once (C4, 2026-10-14).
   return steps;
 }

@@ -34,7 +34,7 @@ import QuoteSheet from "@features/sales/cado2/quotes/components/sheet/QuoteSheet
 import DocumentsPanel from "@features/sales/cado2/quotes/components/detail/DocumentsPanel";
 import StatusPanel from "@features/sales/cado2/quotes/components/detail/StatusPanel";
 import CustomerBand from "@features/sales/cado2/quotes/components/sheet/CustomerBand";
-import { STATUS_COLOR, quoteLabel, quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
+import { STATUS_COLOR, STATUS_LABEL, quoteLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import VersionsTab from "@features/sales/cado2/quotes/components/detail/VersionsTab";
 import HistoryTab from "@features/sales/cado2/quotes/components/detail/HistoryTab";
@@ -218,7 +218,7 @@ export default function QuoteDetailPage(): JSX.Element {
               status: (
                 <Stack direction="row" spacing={1} alignItems="center">
                   {/* The version shown: the latest, or an older one in view mode. */}
-                  <Chip size="small" color={STATUS_COLOR[v.status]} label={quoteStatusLabel(v.status, v.versionNumber)} />
+                  <Chip size="small" color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
                   {q.isPrimary ? <Chip size="small" variant="outlined" icon={<StarIcon size={14} />} label="Primary" /> : null}
                 </Stack>
               ),
@@ -296,7 +296,7 @@ export default function QuoteDetailPage(): JSX.Element {
               sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0,1fr)", lg: "minmax(0,1fr) 320px" }, gap: 3, alignItems: "start" }}
             >
               <Box component="section" aria-label="The deal" sx={{ minWidth: 0 }}>
-                <QuoteSheet sheet={sheet} withCustomer={false} />
+                <QuoteSheet sheet={sheet} />
               </Box>
               {/* The side column is pinned as one, so no part of it slides under
                   another; taller than the screen, it scrolls on its own (2026-10-13). */}

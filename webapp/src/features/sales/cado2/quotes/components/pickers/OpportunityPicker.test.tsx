@@ -73,8 +73,9 @@ describe("OpportunityPicker (F5 review: like the contact picker)", () => {
     await user.click(options()[0]);
 
     expect(screen.queryByRole("listbox")).toBeNull();
-    expect(screen.getByLabelText("Chosen: Choreo pilot")).toHaveTextContent("No subscription dates in Salesforce");
-    expect(screen.getByLabelText("Chosen: Choreo pilot")).not.toHaveTextContent("Proposal");
+    // Just the name: its details are in "What Salesforce says" (C6, 2026-10-14).
+    expect(screen.getByLabelText("Chosen: Choreo pilot")).toHaveTextContent("Choreo pilot");
+    expect(screen.getByLabelText("Chosen: Choreo pilot")).not.toHaveTextContent("No subscription dates in Salesforce");
 
     await user.click(screen.getByRole("button", { name: "Change opportunity" }));
     expect(screen.getByRole("listbox", { name: "Opportunity" })).toBeInTheDocument();

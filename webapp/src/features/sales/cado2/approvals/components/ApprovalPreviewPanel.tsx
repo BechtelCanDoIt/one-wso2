@@ -28,6 +28,8 @@ interface ApprovalPreviewPanelProps {
   readonly error: Error | null;
   /** Draws no heading (the caller has its own, e.g. a dialog title). */
   readonly bare?: boolean;
+  /** False when the caller lists the blockers itself (the wizard's Review, C1 2026-10-14). */
+  readonly showBlockers?: boolean;
 }
 
 /**
@@ -35,7 +37,7 @@ interface ApprovalPreviewPanelProps {
  * now, in which order, and why. Information only — nothing is requested until
  * submission. Blockers are the approvals that can't be worked out safely.
  */
-export default function ApprovalPreviewPanel({ preview, loading, error, bare = false }: ApprovalPreviewPanelProps): JSX.Element {
+export default function ApprovalPreviewPanel({ preview, loading, error, bare = false, showBlockers = true }: ApprovalPreviewPanelProps): JSX.Element {
   const body = (() => {
     if (error && !preview) {
       return (
@@ -57,7 +59,7 @@ export default function ApprovalPreviewPanel({ preview, loading, error, bare = f
     }
     return (
       <Stack spacing={1.5}>
-        {preview.blockers.length ? (
+        {showBlockers && preview.blockers.length ? (
           <Alert severity="error">
             The approvals can&apos;t be worked out, so this can&apos;t be submitted:
             <Box component="ul" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>

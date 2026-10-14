@@ -85,13 +85,14 @@ describe("LegalEntitiesPage", () => {
     expect(llc.getByRole("heading", { name: "WSO2, LLC." })).toBeInTheDocument();
     expect(llc.getByText("WSO2_LLC")).toBeInTheDocument();
     expect(llc.getByText("787 Castro Street")).toBeInTheDocument();
-    expect(llc.getByText("Active")).toBeInTheDocument();
+    // The switch says whether it's active; no chip as well (C8, 2026-10-14).
+    expect(llc.getByRole("switch", { name: "WSO2, LLC. active" })).toBeChecked();
     expect(llc.getAllByText("—")).toHaveLength(3); // no tax ID, registration or phone
     expect(llc.getByText(/Last changed .* · admin@wso2.com/)).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "WSO2 UK Ltd" }));
     const uk = within(screen.getByRole("region", { name: "WSO2 UK Ltd" }));
-    expect(uk.getByText("Inactive")).toBeInTheDocument();
+    expect(uk.getByRole("switch", { name: "WSO2 UK Ltd active" })).not.toBeChecked();
     expect(uk.getByText("GB999")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "WSO2 UK Ltd" })).toHaveAttribute("aria-current", "true");
   });

@@ -315,6 +315,8 @@ describe("QuoteWizardPage — review and submit", () => {
     };
     renderWizard();
     await openReview();
+    // The summary stays beside it, with the account and opportunity (C1, 2026-10-14).
+    expect(screen.getByRole("complementary", { name: "Quote summary" })).toBeInTheDocument();
 
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();

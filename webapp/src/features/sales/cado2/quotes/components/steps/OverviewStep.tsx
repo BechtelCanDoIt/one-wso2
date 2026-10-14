@@ -109,7 +109,7 @@ function accountFindings(
   return [
     ...(account.place ? [{ key: "location", label: "Location", value: account.place }] : []),
     // Required to quote (D59).
-    { key: "region", label: "Sales region", value: account.salesRegion || "Not set in Salesforce", warning: !account.salesRegion },
+    { key: "region", label: "Sales region", value: account.salesRegion || "Not set in Salesforce", },
     // Informational: never blocks.
     { key: "subRegion", label: "Sub-region", value: account.subRegion || "Not set in Salesforce" },
     {
@@ -306,7 +306,6 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
         {/* Account first; the opportunity list appears once it is chosen (F5 feedback). */}
         <AccountPicker
           chosenName={accountId ? accountName : ""}
-          chosenPlace={[accountAddress?.city, accountAddress?.country].filter(Boolean).join(", ")}
           locked={locked}
           onChoose={chooseAccount}
         />
