@@ -24,3 +24,11 @@
  * ParRating.parIsLeadershipEmployee — read that field directly rather than
  * re-deriving it from org-chart fields like subTeam. */
 export const LEADERSHIP_ALLOWED_RATINGS = ["Successful", "Step Up"];
+
+/** Ratings reserved for leadership employees specifically -- the reverse of
+ * LEADERSHIP_ALLOWED_RATINGS above. A non-leadership employee must never be
+ * given one of these: the backend rejects "Step Up" outright for a
+ * non-leadership employee, regardless of what this cycle's
+ * leadershipAllowedRatings contains. This only drives which options the
+ * dropdown offers -- the backend is what actually enforces it. */
+export const LEADERSHIP_EXCLUSIVE_RATINGS = ["Step Up"];

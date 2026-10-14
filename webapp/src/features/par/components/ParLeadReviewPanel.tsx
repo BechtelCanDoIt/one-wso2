@@ -58,7 +58,7 @@ import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
-import { LEADERSHIP_ALLOWED_RATINGS } from "../util/parLeadership";
+import { LEADERSHIP_ALLOWED_RATINGS, LEADERSHIP_EXCLUSIVE_RATINGS } from "../util/parLeadership";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
 import { ParAutoAssignedChip } from "./ParChips";
@@ -200,20 +200,18 @@ export default function ParLeadReviewPanel({
             : {
                 ...(parRatingValue ? { parRating: parRatingValue } : {}),
                 // The backend's wire vocabulary is TOP5P/TOP20P/NOT_ASSIGNED
-                // (manager.bal's validateParRatingModify) — "NONE" is only
+                // — "NONE" is only
                 // this component's own UI sentinel and 400s if sent as-is.
                 parSpecialRating: specialRating === "NONE" ? "NOT_ASSIGNED" : specialRating,
                 // Omitted entirely rather than sent as "" when there's no
                 // evidence — the backend's ParRatingModify constrains this
-                // field to a non-empty string whenever it's present at all
-                // (types.bal's own [\s\S]*\S[\s\S]* pattern), so an explicit
-                // empty string 400s. Source's own updateEmployeeParRating
+                // field to a non-empty string whenever it's present at all,
+                // so an explicit empty string 400s. Source's own updateEmployeeParRating
                 // has this same conditional-include for the same reason.
                 //
                 // One consequence neither side works around: there is no way
                 // to CLEAR a saved attachment through this endpoint at all.
-                // manager.bal's own isUpdatedString guard
-                // (`newValue.trim() != ""`) refuses to apply an empty value
+                // The backend refuses to apply an empty value
                 // as an update even if one got past the constraint above, so
                 // removing every file and saving leaves the old URLs on the
                 // record — they reappear on the next fetch. Source has this
@@ -222,8 +220,7 @@ export default function ParLeadReviewPanel({
                 ...(driveFiles.length > 0 ? { parPerformanceNoticeAck: driveFiles.map((f) => f.url).join("\n") } : {}),
               }),
           // Only an admin caller may set this field — the backend rejects a
-          // non-empty value from anyone else, per checkForModifiableFields-
-          // ForLead/-ForSelf.
+          // non-empty value from anyone else.
           ...(isAdminView ? { parAdminComment: encodeParComment(adminComment) } : {}),
         },
       },
@@ -429,7 +426,11 @@ export default function ParLeadReviewPanel({
                     >
                       {(cycle.parCycleConfigurations?.parRatings ?? [])
                         .filter(
-                          (r) => !isLeadership || leadershipAllowedRatings.includes(r) || r === parRatingValue,
+                          (r) =>
+                            r === parRatingValue ||
+                            (isLeadership
+                              ? leadershipAllowedRatings.includes(r)
+                              : !LEADERSHIP_EXCLUSIVE_RATINGS.includes(r)),
                         )
                         .map((r) => (
                           <ComplexSelect.MenuItem key={r} value={r}>
