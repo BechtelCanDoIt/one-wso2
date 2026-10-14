@@ -15,6 +15,7 @@
 // under the License.
 
 import { useState } from "react";
+import { useNavigate } from "react-router";
 import { Alert, Box } from "@wso2/oxygen-ui";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import SalesShell from "../components/SalesShell";
@@ -25,10 +26,9 @@ import type { Meeting, MeetingScope } from "../api/salesTypes";
 import { isSalesBackendConfigured, useSalesRegions, useMeetings } from "../api/useSalesData";
 import { useSalesGate } from "../api/useSalesGate";
 import { describeError, isForbidden } from "../util/salesError";
-import DealPanel from "../meddpicc/components/DealPanel";
+import { meetingPath } from "../util/salesPaths";
 import { isEchoBackendConfigured, useMeetingCoverage } from "../meddpicc/api/useMeddpiccData";
 import { useReanalyseMeeting } from "../meddpicc/api/useMeddpiccMutations";
-import type { LetterKey } from "../meddpicc/types";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -50,7 +50,7 @@ export default function SalesMeetingsPage() {
 
   const [attachmentsFor, setAttachmentsFor] = useState<Meeting | null>(null);
 
-  const [openDeal, setOpenDeal] = useState<{ id: string; letter: LetterKey | null } | null>(null);
+  const navigate = useNavigate();
 
   const { showSuccess, showError } = useNotifications();
   const gate = useSalesGate();
@@ -127,7 +127,7 @@ export default function SalesMeetingsPage() {
   return (
     <SalesShell
       title="Meetings"
-      subtitle="Meetings recorded across the sales team."
+      subtitle="Recorded sales meetings, with their transcripts, notes and MEDDPICC evidence."
       configured={configured}
       configKey="ONE_WSO2_REVOPS_BACKEND_URL"
       forbidden={forbidden}
@@ -165,18 +165,15 @@ export default function SalesMeetingsPage() {
           onOpenAttachments={setAttachmentsFor}
           coverage={echoConfigured ? coverageQuery.byId : undefined}
           coverageLoading={coverageQuery.isLoading}
-          onOpenDeal={(id, letter) => setOpenDeal({ id, letter: letter ?? null })}
+          onOpenAnalysis={(meeting, letter) =>
+            void navigate(meetingPath(meeting.meetingId, { tab: "meddpicc", letter }))
+          }
           canReanalyse={canReanalyse}
           onReanalyse={echoConfigured ? (meeting) => void requestReanalysis(meeting) : undefined}
           reanalysingId={reanalyse.isPending ? (reanalyse.variables ?? null) : null}
         />
       </Box>
 
-      <DealPanel
-        opportunityId={openDeal?.id ?? null}
-        initialLetter={openDeal?.letter ?? null}
-        onClose={() => setOpenDeal(null)}
-      />
 
       <AttachmentsDialog meeting={attachmentsFor} onClose={() => setAttachmentsFor(null)} />
     </SalesShell>
