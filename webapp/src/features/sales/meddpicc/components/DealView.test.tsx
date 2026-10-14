@@ -245,16 +245,16 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toHaveTextContent("Nothing is missing in Qualify.");
   });
 
-  it("keeps the journey on its own tab, away from the fields", async () => {
+  it("keeps the journey and activity on the Activity tab, away from the fields", async () => {
     const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
-    expect(screen.getByRole("tab", { name: "MEDDPICC" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /^MEDDPICC/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("list", { name: /^Deal journey/ })).not.toBeInTheDocument();
     unmount();
 
-    renderPanel("006MOCK0000MERI", "journey");
+    renderPanel("006MOCK0000MERI", "activity");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
-    expect(screen.getByRole("tab", { name: /^Journey/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("tab", { name: /^Activity/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
     // The fields and their approval bar stay on the MEDDPICC tab.
     expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();

@@ -38,7 +38,7 @@ import {
   ExternalLinkIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { formatDateTime } from "../../util/salesTime";
+import { formatDateTime, parseUtc } from "../../util/salesTime";
 import { describeError } from "../../util/salesError";
 import {
   describeMoveStageError,
@@ -57,10 +57,10 @@ import type {
   LetterKey,
   TimelineMark,
 } from "../types";
-import { activityOf, describeSources, journeyOf, sourcesOf } from "../util/evidenceSource";
+import { activityOf, describeSources, journeyOf, kindOf, sourcesOf } from "../util/evidenceSource";
 import { defaultGate, gateSummaries, sectionsFor } from "../util/dealSections";
 import { useNow } from "../../util/useNow";
-import DealJourney, { KindMark } from "./DealJourney";
+import DealJourney, { KindMark, QUIET_AFTER_DAYS } from "./DealJourney";
 import { KINDS } from "../util/timelineKinds";
 import StagePath from "./StagePath";
 import { meetingPath, type DealTab } from "../../util/salesPaths";
@@ -85,9 +85,9 @@ import StageChip from "./StageChip";
  * and survives a refresh. The page owns loading and errors; this renders a loaded deal.
  *
  * Two tabs under the header, as a meeting has Summary, MEDDPICC and Transcript:
- * MEDDPICC, the stage's fields where the work happens, with the approval bar kept in view
- * at the bottom while they scroll; and Journey, the deal's track from start to close, its
- * activity and the products discussed. The page keeps the tab in the URL.
+ * MEDDPICC, the stage's fields where the work happens, with the approval actions under the
+ * stage path; and Activity, the deal's journey from start to close, its activity and the
+ * products discussed. The page keeps the tab in the URL. Above them, the deal's facts.
  */
 
 export default function DealView({
@@ -257,12 +257,12 @@ export default function DealView({
     [...activity]
       .map((a) => ({
         type: a.type,
-        kind: a.kind ?? (a.type === "CALL" ? ("CUSTOMER_CALL" as const) : a.type),
+        kind: kindOf(a),
         at: a.occurredAt,
         title: a.title,
         meetingId: a.meetingId,
       }))
-      .sort((x, y) => Date.parse(x.at) - Date.parse(y.at));
+      .sort((x, y) => (parseUtc(x.at)?.getTime() ?? 0) - (parseUtc(y.at)?.getTime() ?? 0));
   const coverageByMeeting = new Map(detail.calls.map((call) => [call.meetingId, call.coverage]));
   const sourceKinds = (
     [
@@ -272,19 +272,43 @@ export default function DealView({
     ] as const
   ).filter(([, , count]) => count > 0);
 
+  // The header's facts. Times from the backend may carry no zone; parseUtc reads them as UTC.
+  const reviewCount = summaries.reduce((n, s) => n + s.review, 0);
+  const filledLetters = Object.values(deal.dealState).filter((state) => state === "FILLED").length;
+  const closeEnd = deal.closeDate ? parseUtc(`${deal.closeDate.slice(0, 10)} 23:59:59`)?.getTime() : undefined;
+  const closeDays = closeEnd === undefined ? null : Math.floor((closeEnd - now) / 86_400_000);
+  const lastMs = sources.lastActivityAt ? parseUtc(sources.lastActivityAt)?.getTime() : undefined;
+  const quietDays = lastMs === undefined ? null : Math.max(0, Math.floor((now - lastMs) / 86_400_000));
+
   return (
     <>
-      {/* ---- Header: the page title names the deal ------------------------- */}
-      <Box sx={{ pb: 1 }}>
-        <Typography variant="body2" color="text.secondary">
-          {deal.accountName}
-          {" · "}
-          {formatAmount(deal.amount, deal.currencyIsoCode)}
-          {" · closes "}
-          {formatSalesforceDate(deal.closeDate)}
-        </Typography>
+      {/* ---- Header: the deal at a glance. The page title names it. ---------- */}
+      <Box sx={{ mb: 2.5 }}>
+        <Box
+          sx={{
+            display: "grid",
+            gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" },
+            gap: 1.25,
+          }}
+        >
+          <Fact label="Account" value={deal.accountName} />
+          <Fact label="Amount" value={formatAmount(deal.amount, deal.currencyIsoCode)} />
+          <Fact
+            label="Close date"
+            value={formatSalesforceDate(deal.closeDate)}
+            detail={closeDays === null ? undefined : closeDays < 0 ? `${-closeDays} days past` : closeDays === 0 ? "today" : `in ${closeDays} days`}
+            warn={closeDays !== null && closeDays < 0 && !deal.isClosed}
+          />
+          <Fact label="Owner" value={deal.ownerName ?? deal.ownerEmail ?? "—"} />
+          <Fact
+            label="Last activity"
+            value={quietDays === null ? "None yet" : quietDays === 0 ? "Today" : quietDays === 1 ? "Yesterday" : `${quietDays} days ago`}
+            detail={describeSources(sources) || undefined}
+            warn={quietDays !== null && quietDays > QUIET_AFTER_DAYS}
+          />
+        </Box>
 
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, mt: 1.25 }}>
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, mt: 2 }}>
           <StageChip stage={deal.stage} />
           <MeddpiccCircles
             variant="dealState"
@@ -298,63 +322,74 @@ export default function DealView({
             }}
             label={`MEDDPICC for ${deal.name}. Pick a letter to show its fields.`}
           />
+          <Typography variant="body2" color="text.secondary">
+            {filledLetters} of 8 in Salesforce
+            {reviewCount > 0 && (
+              <Box component="span" sx={{ color: "warning.dark", fontWeight: 600 }}>
+                {` · ${reviewCount} to review`}
+              </Box>
+            )}
+          </Typography>
+          {/* Which source's evidence to show, once a deal has more than one kind. */}
+          {sourceKinds.length > 1 && (
+            <Stack direction="row" spacing={0.5} role="group" aria-label="Show evidence from">
+              <Chip
+                label="All"
+                size="small"
+                variant={sourceFilter === null ? "filled" : "outlined"}
+                onClick={() => setSourceFilter(null)}
+              />
+              {sourceKinds.map(([type, label]) => (
+                <Chip
+                  key={type}
+                  label={label}
+                  size="small"
+                  variant={sourceFilter === type ? "filled" : "outlined"}
+                  onClick={() => setSourceFilter(type)}
+                />
+              ))}
+            </Stack>
+          )}
           <Button
             size="small"
+            variant="outlined"
             href={detail.salesforceUrl}
             target="_blank"
             rel="noopener noreferrer"
             endIcon={<ExternalLinkIcon size={14} />}
-            sx={{ ml: "auto" }}
+            sx={{ ml: "auto !important", textTransform: "none" }}
           >
             Open in Salesforce
           </Button>
         </Stack>
-
-        {/* What the deal's evidence is drawn from. Calls only for now; emails and
-            Salesforce activities join here once the backend reads them. */}
-        {(sources.calls + sources.emails + sources.activities > 0) && (
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5, mt: 1 }}>
-            <Typography variant="caption" color="text.secondary">
-              Evidence from {describeSources(sources)}
-              {sources.lastActivityAt && ` · last activity ${formatDateTime(sources.lastActivityAt)}`}
-            </Typography>
-            {sourceKinds.length > 1 && (
-              <Stack direction="row" spacing={0.5} role="group" aria-label="Show evidence from">
-                <Chip
-                  label="All"
-                  size="small"
-                  variant={sourceFilter === null ? "filled" : "outlined"}
-                  onClick={() => setSourceFilter(null)}
-                />
-                {sourceKinds.map(([type, label]) => (
-                  <Chip
-                    key={type}
-                    label={label}
-                    size="small"
-                    variant={sourceFilter === type ? "filled" : "outlined"}
-                    onClick={() => setSourceFilter(type)}
-                  />
-                ))}
-              </Stack>
-            )}
-          </Stack>
-        )}
       </Box>
 
+      {/* ---- Tabs: the MEDDPICC work, and the deal's activity ---------------- */}
       <Tabs
         value={tab}
         onChange={(_, next: DealTab) => onTabChange?.(next)}
         aria-label="Deal views"
         sx={{
           mb: 2.5,
-          minHeight: 36,
+          minHeight: 40,
           borderBottom: 1,
           borderColor: "divider",
-          "& .MuiTab-root": { minHeight: 36, textTransform: "none" },
+          "& .MuiTab-root": { minHeight: 40, textTransform: "none" },
         }}
       >
-        <Tab value="meddpicc" label="MEDDPICC" />
-        <Tab value="journey" label={activity.length > 0 ? `Journey (${activity.length})` : "Journey"} />
+        <Tab
+          value="meddpicc"
+          aria-label={reviewCount > 0 ? `MEDDPICC, ${reviewCount} to review` : "MEDDPICC"}
+          label={
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+              <span>MEDDPICC</span>
+              {reviewCount > 0 && (
+                <Chip label={reviewCount} size="small" color="warning" sx={{ height: 18, fontSize: "0.7rem", fontWeight: 700 }} />
+              )}
+            </Stack>
+          }
+        />
+        <Tab value="activity" label={`Activity (${activity.length})`} />
       </Tabs>
 
       {tab === "meddpicc" ? (
@@ -656,8 +691,8 @@ function ActivityRow({
   coverage: Record<LetterKey, 0 | 1 | 2> | null | undefined;
   now: number;
 }) {
-  const kind = entry.kind ?? (entry.type === "CALL" ? "CUSTOMER_CALL" : entry.type);
-  const upcoming = Date.parse(entry.occurredAt) > now;
+  const kind = kindOf(entry);
+  const upcoming = (parseUtc(entry.occurredAt)?.getTime() ?? 0) > now;
   const title =
     entry.type === "CALL" && entry.meetingId !== null ? (
       <Link component={RouterLink} to={meetingPath(entry.meetingId, { tab: "meddpicc" })} underline="hover" color="inherit">
@@ -803,5 +838,39 @@ function SalesforceSection({
         {notNeeded.map(render)}
       </AccordionDetails>
     </Accordion>
+  );
+}
+
+/** One fact in the header: a label, the value, and a line of detail. */
+function Fact({ label, value, detail, warn = false }: { label: string; value: ReactNode; detail?: string; warn?: boolean }) {
+  return (
+    <Box sx={{ border: 1, borderColor: "divider", borderRadius: "10px", px: 1.5, py: 1, minWidth: 0 }}>
+      <Typography variant="caption" color="text.secondary" component="div">
+        {label}
+      </Typography>
+      <Typography
+        variant="body2"
+        component="div"
+        title={typeof value === "string" ? value : undefined}
+        sx={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+      >
+        {value}
+      </Typography>
+      {detail && (
+        <Typography
+          variant="caption"
+          component="div"
+          sx={{
+            color: warn ? "warning.dark" : "text.secondary",
+            fontWeight: warn ? 600 : 400,
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {detail}
+        </Typography>
+      )}
+    </Box>
   );
 }
