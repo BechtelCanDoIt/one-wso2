@@ -143,7 +143,8 @@ describe("CadO2's rail entries", () => {
 
   it("never join the Echo gate's ids", async () => {
     const { SALES_ITEM_IDS } = await load({ cado2: true });
-    // Echo and Deals are the meet-app-gated rows; nothing of CadO2's joins them.
+    // Echo and Deals are the Sales rows gated through ONE_WSO2_REVOPS_BACKEND_URL;
+    // nothing of CadO2's joins them.
     expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
   });
 });
