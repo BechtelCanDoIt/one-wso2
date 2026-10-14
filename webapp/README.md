@@ -84,7 +84,7 @@ naming the key and makes no requests.
 | Email groups | `ONE_WSO2_EMAIL_GROUPS_BACKEND_URL` |
 | PAR | `ONE_WSO2_PAR_BACKEND_URL`, `ONE_WSO2_PAR_*` |
 | Promotion | `ONE_WSO2_PROMOTION_BACKEND_URL` |
-| Security: Risk Hub, Audit Hub, Admin Console | `ONE_WSO2_GRC_PLATFORM_BACKEND_URL`, `ONE_WSO2_GRC_USER_GUIDE_URL` |
+| Security: Risk Hub, Audit Hub, Admin Console | `ONE_WSO2_GRC_PLATFORM_BACKEND_URL` |
 | Security: Evidence Portal | `ONE_WSO2_EVIDENCE_PORTAL_BACKEND_URL` |
 | UMT | `ONE_WSO2_UMT_BACKEND_URL` |
 | Sales meetings | `ONE_WSO2_REVOPS_BACKEND_URL` |

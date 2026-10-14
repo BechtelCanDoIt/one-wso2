@@ -16,10 +16,11 @@
 
 import { useMemo, useState, type JSX, type ReactNode } from "react";
 import { Box, Link, Sidebar, Typography } from "@wso2/oxygen-ui";
-import { ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
+import { BookOpenIcon, ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, matchPath, useLocation, useNavigate } from "react-router";
 import { useActivePerspective } from "@context/perspective/PerspectiveContext";
 import type { PerspectiveSection } from "@constants/perspectives";
+import { useUserGuideUrl } from "@features/security/api/useUserGuideUrl";
 import {
   activeGroupIds as activeGroupIdsFor,
   activeItemId as activeItemIdFor,
@@ -102,11 +103,11 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
   // dependency lists below on every render, defeating both useMemos.
   const sections = useMemo(() => active.sections ?? [], [active.sections]);
 
-  // Split out for rendering only — pathById, activeGroupIds and friends below
-  // all still read the combined `sections`, so a pinned row stays a normal
-  // member of the perspective for routing and highlighting purposes.
-  const mainSections = useMemo(() => sections.filter((s) => !s.pinnedToBottom), [sections]);
-  const bottomSections = useMemo(() => sections.filter((s) => s.pinnedToBottom), [sections]);
+  // The GRC user guide link, served by the GRC backend rather than carried in
+  // this perspective's own registry data — see useUserGuideUrl. Fetched only
+  // while Security and Compliance is active, same as every other
+  // perspective-scoped gate in usePerspectiveVisibility.
+  const userGuide = useUserGuideUrl(active.key === "security");
 
   // Manual open/close choices for groups the user has explicitly clicked.
   // These win: navigating into a group opens it, and closing it again is
@@ -266,7 +267,7 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
             </RouteItem>
           )}
 
-          {mainSections.map((s) => (
+          {sections.map((s) => (
             <SectionNode
               key={s.id}
               section={s}
@@ -288,20 +289,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
         {/* A second top-level child of Sidebar.Nav, not a row joining the
             list inside the first Category — that's what lets `mt: "auto"`
             push it down the flex column to the foot of the scroll area,
-            opening the gap a row marked `pinnedToBottom` wants from the
-            groups above it. showDividers is off, so no rule is drawn between
-            the two; the gap alone is the separation. */}
-        {bottomSections.length > 0 && (
+            opening a gap from the groups above. showDividers is off, so no
+            rule is drawn between the two; the gap alone is the separation.
+            Only Security and Compliance has anything to put here today. */}
+        {active.key === "security" && userGuide.data?.url && (
           <Sidebar.Category sx={{ mt: "auto" }}>
-            {bottomSections.map((s) => (
-              <SectionNode
-                key={s.id}
-                section={s}
-                resolveVisible={resolveVisible}
-                containsActiveRoute={activeGroupIds.has(s.id)}
-                fromPerspective={active.key}
-              />
-            ))}
+            <LeafItem id="security-user-guide" label="User Guide" icon={BookOpenIcon} href={userGuide.data.url} />
           </Sidebar.Category>
         )}
       </Sidebar.Nav>

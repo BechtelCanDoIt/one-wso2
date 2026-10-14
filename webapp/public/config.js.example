@@ -101,11 +101,6 @@ window.config = {
   // See src/config/apiConfig.ts.
   // ONE_WSO2_GRC_PLATFORM_BACKEND_URL: "<your-grc-platform-backend-url>",
 
-  // The GRC Platform user guide — a Google Doc, linked from the bottom of the
-  // Security and Compliance rail and opened in a new tab. Nothing here calls
-  // it as an API. When absent, the rail item is omitted entirely.
-  // ONE_WSO2_GRC_USER_GUIDE_URL: "<your-grc-user-guide-url>",
-
   // Evidence Portal backend — the third app in Security and Compliance, a
   // separate service from the GRC platform, with the same audience
   // requirement.

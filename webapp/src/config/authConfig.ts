@@ -127,9 +127,6 @@ declare global {
       // screens are lifted rather than rewritten and a GRC deployment already
       // publishes this exact key. See apiConfig.ts.
       ONE_WSO2_GRC_PLATFORM_BACKEND_URL?: string;
-      // The GRC Platform user guide (a Google Doc). Optional — the rail omits
-      // the row entirely when unset. See apiConfig.ts's grcUserGuideUrl.
-      ONE_WSO2_GRC_USER_GUIDE_URL?: string;
       // Base URL for the grc-tools evidence-app backend — the Evidence
       // Portal, the third app under the Security perspective, lifted
       // alongside GRC Platform above. Optional/"not connected" like the
