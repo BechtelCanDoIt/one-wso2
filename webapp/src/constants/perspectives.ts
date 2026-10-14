@@ -545,8 +545,8 @@ const SALES_MEETINGS_SECTION: PerspectiveSection = {
 };
 
 // Sales's Library: Smart Search over Pitstop's content. A plain row with no `requires`, and not in
-// SALES_ITEM_IDS: it is not decided by the meet-app roles that own Meetings and Deals. Pitstop's own
-// backend decides what each caller may see in the results. Held back by the `smartSearch` flag.
+// SALES_ITEM_IDS: it is not gated by the meet-app backend (ONE_WSO2_REVOPS_BACKEND_URL) that owns Meetings
+// and Deals. Pitstop's own backend decides what each caller may see. Held back by the `smartSearch` flag.
 const SALES_LIBRARY_SECTION: PerspectiveSection = {
   id: "sales-library",
   label: "Library",

@@ -168,7 +168,7 @@ describe("the Library's rail entry", () => {
 
   it("never joins the Meetings gate's ids", async () => {
     const { SALES_ITEM_IDS } = await load({ smartSearch: true });
-    // Meetings and Deals are the meet-app-gated rows; the Library is decided by Pitstop's own backend.
+    // Meetings and Deals are gated by the meet-app backend; the Library is decided by Pitstop's own backend.
     expect([...SALES_ITEM_IDS]).toEqual(["sales-meetings", "sales-deals"]);
   });
 });
