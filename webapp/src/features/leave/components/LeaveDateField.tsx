@@ -92,6 +92,10 @@ export default function LeaveDateField({
             // same opaque surface as the app's other floating dialogs.
             desktopPaper: { sx: dialogPaperSx },
             mobilePaper: { sx: dialogPaperSx },
+            // The popup is a dialog with no visible title, so name it after its
+            // field; several date fields sit side by side.
+            popper: { "aria-label": `${label} calendar` },
+            dialog: { "aria-label": `${label} calendar` },
           }}
         />
       </LocalizationProvider>

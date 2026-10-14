@@ -39,6 +39,17 @@ describe("the year list", () => {
   });
 });
 
+describe("the calendar popup", () => {
+  // Several date fields sit side by side, so the open calendar has to say
+  // which one it belongs to.
+  it("is named after its field", async () => {
+    const user = (await import("@testing-library/user-event")).default.setup();
+    show();
+    await user.click(screen.getByRole("button", { name: /choose date/i }));
+    expect(await screen.findByRole("dialog", { name: "Last sabbatical calendar" })).toBeInTheDocument();
+  });
+});
+
 describe("a typed date", () => {
   it("comes back as YYYY-MM-DD", () => {
     const onChange = show({ min: "2024-09-01", max: "2026-10-14" });
