@@ -58,7 +58,7 @@ import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
-import { LEADERSHIP_ALLOWED_RATINGS, LEADERSHIP_EXCLUSIVE_RATINGS } from "../util/parLeadership";
+import { LEADERSHIP_ALLOWED_RATINGS, isEvidenceMissing, ratingOptions } from "../util/parLeadership";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
 import { ParAutoAssignedChip } from "./ParChips";
@@ -121,6 +121,9 @@ export default function ParLeadReviewPanel({
   const autoSaveTokenRef = useRef(0);
 
   const parRatingData = rating.data;
+  // The backend refuses a non-admin change to a rating the system
+  // auto-assigned after a missed deadline; an admin can still correct it.
+  const ratingLocked = !isAdminView && parRatingData?.parRatingUpdatedBy === "SYSTEM";
 
   // Seed once per record, so a background refetch doesn't overwrite mid-typing.
   if (parRatingData && parRatingData.parRatingId !== seededForId) {
@@ -134,9 +137,8 @@ export default function ParLeadReviewPanel({
         toSpecialRatingUi(parRatingData.parSpecialRating) !== "NONE",
     );
     setDriveFiles(parseSavedUrls(parRatingData.parPerformanceNoticeAck ?? ""));
-    // par-app never persists the checkbox itself, only its effect (the
-    // attached files) — always seeds unchecked, same as legacy's own
-    // initialValues.isEvidenceDiscussionConfirmed: false.
+    // The checkbox itself is never saved, only its effect (the attached
+    // files), so it always starts unchecked.
     setEvidenceConfirmed(false);
   }
 
@@ -190,33 +192,26 @@ export default function ParLeadReviewPanel({
           parLeadStatus: status,
           parLeadComment: encodeParComment(leadComment),
           // The autosave fires purely off comment typing and must not also
-          // commit whatever the rating dropdowns currently hold — source's
-          // own updateParRatingAutoSave has this same bug (parSpecialRating
-          // sent unconditionally, clobbering a saved Top 5%/20% allocation
-          // the moment someone types a character), so this is a deliberate
-          // deviation, not a port gap.
+          // commit whatever the rating dropdowns currently hold — sending
+          // parSpecialRating with it would clobber a saved Top 5%/20%
+          // allocation the moment someone types a character.
           ...(opts?.commentOnly
             ? {}
             : {
-                ...(parRatingValue ? { parRating: parRatingValue } : {}),
-                // The backend's wire vocabulary is TOP5P/TOP20P/NOT_ASSIGNED
-                // — "NONE" is only
-                // this component's own UI sentinel and 400s if sent as-is.
+                ...(parRatingValue && !ratingLocked ? { parRating: parRatingValue } : {}),
+                // The backend's wire vocabulary is TOP5P/TOP20P/NOT_ASSIGNED;
+                // "NONE" is only this component's UI sentinel and 400s if sent.
                 parSpecialRating: specialRating === "NONE" ? "NOT_ASSIGNED" : specialRating,
                 // Omitted entirely rather than sent as "" when there's no
-                // evidence — the backend's ParRatingModify constrains this
-                // field to a non-empty string whenever it's present at all,
-                // so an explicit empty string 400s. Source's own updateEmployeeParRating
-                // has this same conditional-include for the same reason.
+                // evidence — the backend requires a non-empty string whenever
+                // this field is present, so an empty string 400s.
                 //
-                // One consequence neither side works around: there is no way
-                // to CLEAR a saved attachment through this endpoint at all.
-                // The backend refuses to apply an empty value
-                // as an update even if one got past the constraint above, so
-                // removing every file and saving leaves the old URLs on the
-                // record — they reappear on the next fetch. Source has this
-                // identical gap; fixing it needs a backend change (a real
-                // clear operation), not a frontend one.
+                // One consequence: there is no way to CLEAR a saved attachment
+                // through this endpoint. The backend also ignores an empty
+                // value as an update, so removing every file and saving leaves
+                // the old URLs on the record and they reappear on the next
+                // fetch. Fixing that needs a backend change (a real clear
+                // operation), not a frontend one.
                 ...(driveFiles.length > 0 ? { parPerformanceNoticeAck: driveFiles.map((f) => f.url).join("\n") } : {}),
               }),
           // Only an admin caller may set this field — the backend rejects a
@@ -302,16 +297,13 @@ export default function ParLeadReviewPanel({
 
   // Save Draft only enables once something has actually changed; Share
   // additionally waits for the employee to have at least started their own
-  // side (LeadReviewPanel.tsx:1572-1574 — parEmployeeStatus !== PENDING),
-  // and — per its own yup validationSchema (parRating/parLeadComment both
-  // "Required" for a non-admin caller) — for a rating to be picked and the
-  // comment to be non-empty. The backend doesn't enforce either, so this is
-  // the only place that does.
+  // side (parEmployeeStatus !== PENDING), for a rating to be picked and for
+  // the comment to be non-empty. The backend doesn't enforce either, so this
+  // is the only place that does.
   // In admin mode, the "employee hasn't started yet" gate on Share is
   // removed — an admin can force a rating through regardless of where the
   // employee's own side is.
   const employeeHasStarted = isAdminView || parRatingData.parEmployeeStatus !== "PENDING";
-  const autoAssigned = parRatingData.parRatingUpdatedBy === "SYSTEM";
   const canSaveDraft = !readOnly && !deadlinePassed && !ratingUpdate.isPending && dirty;
   const canShare =
     !readOnly &&
@@ -320,7 +312,13 @@ export default function ParLeadReviewPanel({
     employeeHasStarted &&
     Boolean(parRatingValue) &&
     !isEmptyHtml(leadComment) &&
-    !(parRatingValue === evidenceEnabledRating && !autoAssigned && (!evidenceConfirmed || driveFiles.length === 0));
+    !isEvidenceMissing({
+      rating: parRatingValue,
+      evidenceEnabledRating,
+      ratingLocked,
+      evidenceConfirmed,
+      fileCount: driveFiles.length,
+    });
 
   return (
     <Grid container spacing={2}>
@@ -410,7 +408,7 @@ export default function ParLeadReviewPanel({
                     color="text.secondary"
                   >
                     Rating
-                    {!readOnly && autoAssigned && (
+                    {!readOnly && ratingLocked && (
                       <Tooltip title="This rating was automatically assigned after the PAR deadline was missed and can no longer be changed.">
                         <Box
                           component="span"
@@ -439,18 +437,14 @@ export default function ParLeadReviewPanel({
                       fullWidth
                       value={parRatingValue}
                       onChange={(e) => setParRatingValue(e.target.value as string)}
-                      disabled={ratingUpdate.isPending || autoAssigned}
+                      disabled={ratingUpdate.isPending || ratingLocked}
                       aria-labelledby="lead-review-rating-label"
                     >
-                      {(cycle.parCycleConfigurations?.parRatings ?? [])
-                        .filter(
-                          (r) =>
-                            r === parRatingValue ||
-                            (isLeadership
-                              ? leadershipAllowedRatings.includes(r)
-                              : !LEADERSHIP_EXCLUSIVE_RATINGS.includes(r)),
-                        )
-                        .map((r) => (
+                      {ratingOptions(cycle.parCycleConfigurations?.parRatings ?? [], {
+                        isLeadership,
+                        leadershipAllowedRatings,
+                        currentRating: parRatingValue,
+                      }).map((r) => (
                           <ComplexSelect.MenuItem key={r} value={r}>
                             {r}
                           </ComplexSelect.MenuItem>
@@ -524,7 +518,7 @@ export default function ParLeadReviewPanel({
                         <Checkbox
                           checked={evidenceConfirmed}
                           onChange={(e) => setEvidenceConfirmed(e.target.checked)}
-                          disabled={ratingUpdate.isPending || autoAssigned}
+                          disabled={ratingUpdate.isPending || ratingLocked}
                         />
                       }
                       label={`Performance gaps were discussed, and the employee has been informed of the "${evidenceEnabledRating}" rating, and at least two discussions were held.`}

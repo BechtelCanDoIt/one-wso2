@@ -131,8 +131,8 @@ export interface ParRating {
   parSpecialRating?: string;
   parLeadComment?: string;
   parLeadStatus: ParLeadStatus;
-  // Who invoked the share (a lead, or an admin sharing on a lead's behalf) —
-  // par-app's EmployeePar.tsx renders this as "PAR Shared By".
+  // Who invoked the share (a lead, or an admin sharing on a lead's behalf),
+  // shown to the employee as "PAR Shared By".
   parRatingSharedBy?: string;
   // Who last updated parRating — a real invoker's email normally, or the literal string
   // "SYSTEM" when the rating was auto-assigned after a missed deadline. ParLeadReviewPanel.tsx uses this to flag an auto-assigned rating distinctly,
@@ -227,8 +227,8 @@ export interface ParParticipant {
 
 // Body for PATCH /par-cycles/{cycleId}/employees/{email}/par-ratings/{id}.
 // The backend rejects (403) any field outside what the caller's role may
-// touch — its self and lead checks are each a DENYLIST, not an allowlist: self blocks
-// parRating/parSpecialRating/parLeadComment/parLeadStatus/parAdminComment/
+// touch. Its self and lead checks are each a DENYLIST, not an allowlist:
+// self blocks parRating/parSpecialRating/parLeadComment/parLeadStatus/parAdminComment/
 // parPerformanceNoticeAck; lead blocks parEmployeeComment/parEmployeeStatus/
 // parEmployeeAcceptanceStatus/parEmployeeAcceptanceComment/parAdminComment.
 // Everything else on the type goes through for that caller — which is why
@@ -240,7 +240,7 @@ export interface ParRatingModify {
   parEmployeeStatus?: ParEmployeeStatus;
   parF2fStatus?: ParF2fStatus;
   parF2fDate?: string;
-  // Lead-only, per the self denylist above.
+  // The employee can't set these four; the self denylist above blocks them.
   parRating?: string;
   parSpecialRating?: string;
   parLeadComment?: string;
