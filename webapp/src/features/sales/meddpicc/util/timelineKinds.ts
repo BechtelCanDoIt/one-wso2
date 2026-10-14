@@ -25,11 +25,11 @@ import type { TimelineKind } from "../types";
  */
 export const KINDS: Record<
   TimelineKind,
-  { label: string; plural: string; size: number; shape: "circle" | "diamond" | "ring"; light?: string; dark?: string }
+  { label: string; singular: string; plural: string; size: number; shape: "circle" | "diamond" | "ring"; light?: string; dark?: string }
 > = {
-  CUSTOMER_CALL: { label: "Customer call", plural: "customer calls", size: 12, shape: "circle", light: "#2a78d6", dark: "#3987e5" },
-  EMAIL: { label: "Email", plural: "emails", size: 10, shape: "diamond", light: "#1baf7a", dark: "#199e70" },
-  INTERNAL_CALL: { label: "Internal discussion", plural: "internal discussions", size: 8, shape: "circle", light: "#eb6834", dark: "#d95926" },
-  ACTIVITY: { label: "Salesforce activity", plural: "activities", size: 7, shape: "ring" },
+  CUSTOMER_CALL: { label: "Customer call", singular: "customer call", plural: "customer calls", size: 12, shape: "circle", light: "#2a78d6", dark: "#3987e5" },
+  EMAIL: { label: "Email", singular: "email", plural: "emails", size: 10, shape: "diamond", light: "#1baf7a", dark: "#199e70" },
+  INTERNAL_CALL: { label: "Internal discussion", singular: "internal discussion", plural: "internal discussions", size: 8, shape: "circle", light: "#eb6834", dark: "#d95926" },
+  ACTIVITY: { label: "Salesforce activity", singular: "Salesforce activity", plural: "Salesforce activities", size: 7, shape: "ring" },
 };
 export const KIND_ORDER: TimelineKind[] = ["CUSTOMER_CALL", "INTERNAL_CALL", "EMAIL", "ACTIVITY"];
