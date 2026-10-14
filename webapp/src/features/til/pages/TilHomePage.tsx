@@ -110,7 +110,9 @@ export default function TilHomePage() {
   const canModerate = userInfo.data?.canModerate ?? false;
   const myEmail = userInfo.data?.email;
 
-  const isFiltering = Boolean(search || dateFrom || dateTo || author || source || tab === "mine");
+  // Whether anything beyond the tab narrows the feed.
+  const narrowed = Boolean(search || dateFrom || dateTo || author || source);
+  const isFiltering = narrowed || tab === "mine";
   // The controls stay while filtering, even when nothing matches, so a search
   // that finds nothing can still be changed. Hidden only for an empty feed.
   const showControls = Boolean(submissions.data) && (isFiltering || total > 0);
@@ -463,7 +465,7 @@ export default function TilHomePage() {
       ) : (
         <Box sx={{ py: 4, textAlign: "center" }}>
           <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
-            {tab === "mine" && !search && !dateFrom && !dateTo
+            {tab === "mine" && !narrowed
               ? "You haven't shared an entry yet."
               : isFiltering
                 ? "No entries match your search."

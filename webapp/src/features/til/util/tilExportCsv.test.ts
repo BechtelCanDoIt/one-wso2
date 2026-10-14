@@ -109,6 +109,10 @@ describe("tilExportText", () => {
   it("decodes entities and line breaks, and drops empty lines", () => {
     expect(tilExportText("<p>R&amp;D&nbsp;team<br>next line</p><p><br></p>")).toBe("R&D team\nnext line");
   });
+
+  it("breaks the line at any form of <br>", () => {
+    expect(tilExportText('<p>One<br/>Two<br />Three<br class="soft">Four</p>')).toBe("One\nTwo\nThree\nFour");
+  });
 });
 
 describe("tilExportFilename", () => {

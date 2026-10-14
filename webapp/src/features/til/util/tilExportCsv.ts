@@ -39,7 +39,7 @@ const toRow = (cells: string[]): string => cells.map(escapeCell).join(",");
 /** The learning as plain text: one paragraph or list item per line, list
  * items marked "• ", entities decoded. A spreadsheet cell keeps the lines. */
 export function tilExportText(html: string): string {
-  const marked = html.replace(/<li\b[^>]*>/gi, "$&• ").replace(/<\/(p|li)>|<br\s*\/?>/gi, "\n");
+  const marked = html.replace(/<li\b[^>]*>/gi, "$&• ").replace(/<\/(p|li)>|<br\b[^>]*>/gi, "\n");
   const text = new DOMParser().parseFromString(marked, "text/html").body.textContent ?? "";
   return text
     .replace(/\u00a0/g, " ")
