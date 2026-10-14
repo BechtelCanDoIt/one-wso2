@@ -68,6 +68,10 @@ export interface Meeting {
   accountId?: string | null;
   /** The account's display name, denormalised at link time. */
   accountName?: string | null;
+  /** Salesforce Lead id, for Inbound calls, which target a lead rather than a customer. */
+  leadId?: string | null;
+  /** The lead's company, denormalised at link time. */
+  leadCompany?: string | null;
 }
 
 /**
@@ -137,11 +141,25 @@ export function parseOpportunityDetails(
  * Account first: it is set for account-targeted calls, which includes the
  * add-on's default type and so is the common case. The snapshot's customerName
  * covers opportunity-targeted calls, which have no account row of their own.
+ * Last, the lead's company, for Inbound calls, which target a lead (see
+ * isLeadMeeting).
  */
 export function meetingCustomer(meeting: Meeting): string | null {
   if (meeting.accountName?.trim()) return meeting.accountName.trim();
   const details = parseOpportunityDetails(meeting.opportunityDetails);
-  return details?.customerName?.trim() || null;
+  if (details?.customerName?.trim()) return details.customerName.trim();
+  return meeting.leadCompany?.trim() || null;
+}
+
+/**
+ * True when the name meetingCustomer shows is a lead's company rather than a
+ * customer's: an Inbound call, linked to a Salesforce Lead and to no account or
+ * deal. The two mean different things to sales, so the table marks it.
+ */
+export function isLeadMeeting(meeting: Meeting): boolean {
+  if (!meeting.leadId?.trim()) return false;
+  if (meeting.accountName?.trim()) return false;
+  return !parseOpportunityDetails(meeting.opportunityDetails)?.customerName?.trim();
 }
 
 /** `GET /meetings` — `count` is the unpaged total, for server-side paging. */
