@@ -84,7 +84,7 @@ export default function PricingSetupCard(): JSX.Element {
 
   const locked = { input: { readOnly: true, endAdornment: <InputAdornment position="end"><LockIcon size={14} /></InputAdornment> } };
   return (
-    <SectionCard title="Currency & price book" icon={<CoinsIcon size={18} />}>
+    <SectionCard title="Currency & Price Book" icon={<CoinsIcon size={18} />}>
       <Stack spacing={2}>
         <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
           <TextField

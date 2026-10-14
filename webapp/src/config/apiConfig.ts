@@ -1904,20 +1904,34 @@ export const cado2ServiceUrls = {
   pricingPreview: `${cado2BackendUrl}/pricing/preview`,
   quotes: `${cado2BackendUrl}/quotes`,
   // My Quotes: the caller's own quotes.
-  quoteList: (status: string): string => {
+  // scope "mine" (the default) or "all" (every AM's quotes, D70).
+  quoteList: (status: string, scope = "mine"): string => {
     const q = new URLSearchParams({ limit: "200" });
     if (status) q.set("status", status);
+    if (scope !== "mine") q.set("scope", scope);
     return `${cado2BackendUrl}/quotes?${q.toString()}`;
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
   quoteRevise: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/revise`,
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
+  // Makes the quote its opportunity's primary quote, or releases it (D68).
+  quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,
+  // The products on an opportunity, priced from its price book: a new quote starts from them (D72).
+  opportunityProducts: (accountId: string, opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/products?accountId=${encodeURIComponent(accountId)}`,
+  // The quotes on an opportunity, with which is primary (D68).
+  opportunityQuotes: (opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
+  // What AMs may do with quotes they don't own (D69; Admin).
+  adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}`,
   quoteSubmit: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/submit`,
+  quoteSync: (quoteId: number, version: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/sync`,
   quoteRecall: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/recall`,
   // A version's order form documents: GET lists them, POST issues the order form.
@@ -1937,7 +1951,7 @@ export const cado2ServiceUrls = {
     quoteId: number,
     version: number,
     stepId: number,
-    outcome: "approve" | "reject" | "request-changes",
+    outcome: "approve" | "return",
   ): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/approval/steps/${encodeSegment(stepId)}/${outcome}`,
   approvalInbox: `${cado2BackendUrl}/approvals/inbox`,

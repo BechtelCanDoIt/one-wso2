@@ -19,6 +19,7 @@ import { Avatar, Box, Paper, Stack, Typography } from "@wso2/oxygen-ui";
 import { BriefcaseIcon, HandshakeIcon } from "@wso2/oxygen-ui-icons-react";
 import type { QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initials";
+import SalesforceLink from "@features/sales/cado2/components/salesforce-link/SalesforceLink";
 
 /**
  * The quote page's record header: the band, with the quote number above the
@@ -28,9 +29,9 @@ import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initi
 interface HeaderParts {
   /** Above the account name, e.g. "Q-26-00012 · Version 2". */
   readonly eyebrow: ReactNode;
-  /** Status chips, top right. */
+  /** Status chips, under the account name: what the quote is, apart from what can be done. */
   readonly status: ReactNode;
-  /** The page's buttons (Recall, Revise, Your approval, …), top right. */
+  /** The page's main button and its "⋯" menu, top right. */
   readonly actions: ReactNode;
 }
 
@@ -66,18 +67,24 @@ export default function CustomerBand({ sheet, header }: { sheet: QuoteSheet; hea
               component={header ? "h1" : "p"}
               sx={{ fontWeight: 700, lineHeight: 1.2 }}
             >
-              {sheet.accountName || "No account yet"}
+              <SalesforceLink object="Account" id={sheet.accountId}>
+                {sheet.accountName || "No account yet"}
+              </SalesforceLink>
             </Typography>
             <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5, color: "text.secondary" }}>
               <BriefcaseIcon size={14} />
-              <Typography variant="body2">{sheet.opportunityName || "No opportunity yet"}</Typography>
+              <Typography variant="body2">
+                <SalesforceLink object="Opportunity" id={sheet.opportunityId}>
+                  {sheet.opportunityName || "No opportunity yet"}
+                </SalesforceLink>
+              </Typography>
             </Stack>
+            {header ? <Box sx={{ mt: 1 }}>{header.status}</Box> : null}
           </Box>
         </Stack>
         <Stack spacing={2} alignItems={{ xs: "flex-start", md: "flex-end" }} sx={{ minWidth: 0, flexShrink: 0 }}>
         {header ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 1, justifyContent: { md: "flex-end" } }}>
-            {header.status}
             {header.actions}
           </Stack>
         ) : null}

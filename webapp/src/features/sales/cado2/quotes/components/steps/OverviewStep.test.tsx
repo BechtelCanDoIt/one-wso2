@@ -45,13 +45,32 @@ const wonList = [
 ];
 /** Which lists were asked for: open by default, won for a renewal. */
 const asked: string[] = [];
+/** The opportunities lookup fails (2026-10-13). */
+const salesforceDown = { on: false };
 const lookup = (data: unknown) => ({ data, isPending: false, isFetching: false, error: null });
 
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   MIN_ACCOUNT_SEARCH: 3,
   useAccountSearch: () => lookup(searchResults),
+  useOpportunityQuotes: () => lookup([]),
+  // D72: the chosen opportunity's products, priced from its book.
+  useOpportunityProducts: (_account: string | null, opportunity: string | null) =>
+    lookup(
+      opportunity
+        ? {
+            currencyIsoCode: "USD",
+            pricebook: { id: "01sUSD", name: "USD Price Book (Current)" },
+            products: [
+              { id: "01tGW", name: "WSO2 Gateway", category: "SUBSCRIPTION", recurring: true,
+                pricebookEntries: [{ id: "01uGW", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01sUSD", name: "USD Price Book (Current)" } }] },
+            ],
+            notBroughtIn: [{ productName: "WSO2 Legacy", reason: "not active in USD Price Book (Current) in USD" }],
+          }
+        : undefined,
+    ),
   useAccountOpportunities: (id: string | null, status = "open") => {
     if (id) asked.push(status);
+    if (salesforceDown.on) return { ...lookup(undefined), error: new Error("down"), refetch: () => undefined };
     return lookup(status === "won" ? wonList : [{ ...renewal, currencyIsoCode: oppCurrency }]);
   },
   useAccountContacts: () => lookup([{ id: "003A", name: "Marco Ruiz" }, { id: "003B", name: "Ana" }]),
@@ -59,7 +78,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useCurrencies: () => lookup(["USD"]),
 }));
 
-/** What Products & Pricing will start from. */
+/** What Term & Products will start from. */
 function Pricing() {
   const [currency, book] = useWatch<DraftFormValues, ["currencyIsoCode", "defaultPricebookName"]>({
     name: ["currencyIsoCode", "defaultPricebookName"],
@@ -73,6 +92,12 @@ function Start() {
   return <p>start: {start || "none"}</p>;
 }
 
+/** The lines the form holds. */
+function Lines() {
+  const lines = useWatch<DraftFormValues, "lines">({ name: "lines" });
+  return <p>lines: {lines.map((l) => `${l.productName} ×${l.quantity}`).join(", ") || "none"}</p>;
+}
+
 function Harness({ values, locked = false }: { values: Partial<DraftFormValues>; locked?: boolean }) {
   const form = useForm<DraftFormValues>({ defaultValues: { ...emptyDraftForm(), ...values } });
   return (
@@ -81,6 +106,7 @@ function Harness({ values, locked = false }: { values: Partial<DraftFormValues>;
         <OverviewStep locked={locked} />
         <Pricing />
         <Start />
+        <Lines />
       </FormProvider>
     </DatePickers.LocalizationProvider>
   );
@@ -95,7 +121,8 @@ const deal = {
   partner: { id: "001P", name: "Acme Reseller", role: "Reseller", billingAddress: null }, dealKind: "RENEWAL" as const,
   recordTypeName: "Renewal", isRenewal: true,
 };
-const REST = ["Renewal", "WSO2 legal entity", "Start date"];
+// The start date is on Term & Products now (D73).
+const REST = ["Renewal", "WSO2 Legal Entity", "Primary Quote"];
 
 describe("OverviewStep — Salesforce first (2026-09-28)", () => {
   it("shows only the account search before anything is chosen", () => {
@@ -107,7 +134,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("ticks in what Salesforce has for the account, then offers its opportunities", async () => {
     render(<Harness values={account} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     // The opportunity list waits until every finding is showing (2026-10-09).
     expect(screen.queryByRole("listbox", { name: "Opportunity" })).toBeNull();
     expect(await within(found).findByText("2 found", {}, { timeout: 3000 })).toBeInTheDocument(); // contacts, the last line
@@ -119,7 +146,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("shows the account's location and sales region, not its name again", async () => {
     render(<Harness values={account} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     await within(found).findByText("2 found", {}, { timeout: 3000 });
     // The name is shown above the findings; no "Account" line repeats it.
     expect(within(found).queryByText("Account")).toBeNull();
@@ -140,7 +167,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     await user.click(await screen.findByRole("option", { name: /Northwind Logistics/ }));
 
     expect(screen.getByLabelText("Chosen account")).toHaveTextContent("Northwind Logistics");
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     await within(found).findByText("2 found", {}, { timeout: 3000 });
     expect(within(found).queryByText("Northwind Logistics")).toBeNull();
     expect(within(found).queryByText("Found")).toBeNull();
@@ -149,7 +176,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("says when Salesforce has no sub-region, without stopping the quote", async () => {
     render(<Harness values={{ ...account, accountSubRegion: "" }} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     await within(found).findByText("2 found", {}, { timeout: 3000 }); // the last line is in
     expect(within(found).getByText("NA")).toBeInTheDocument();
     expect(within(found).getByText("Not set in Salesforce")).toBeInTheDocument();
@@ -158,7 +185,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("stops the quote when the account has no sales region in Salesforce", async () => {
     render(<Harness values={{ ...account, accountSalesRegion: "", accountSubRegion: "" }} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     expect(await within(found).findByText("Not set in Salesforce", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("This account has no sales region in Salesforce");
     expect(screen.getByRole("alert")).toHaveTextContent("Sales_Regions__c");
@@ -166,10 +193,10 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("shows the deal's findings, then the rest of the step", async () => {
     render(<Harness values={deal} />);
-    const found = await screen.findByLabelText("What Salesforce says about this deal", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("What Salesforce Says About This Deal", {}, { timeout: 3000 });
     expect(await within(found).findByText("USD 34,000.00", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(within(found).getByText("Renewal")).toBeInTheDocument();
-    expect(within(found).getByText("Partner-led · Acme Reseller (Reseller)")).toBeInTheDocument();
+    expect(within(found).getByText("Partner deal · Acme Reseller (Reseller)")).toBeInTheDocument();
     // The subscription it covers, not its pipeline stage (2026-10-09).
     expect(within(found).getByText("No subscription dates in Salesforce")).toBeInTheDocument();
     expect(within(found).queryByText(/Negotiation/)).toBeNull();
@@ -180,17 +207,18 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     render(<Harness values={{ ...deal, dealType: null, isRenewal: false, dealKind: "FIRST_SALE" }} />);
     expect(await screen.findByText(/doesn't say whether this is direct or partner-led/, {}, { timeout: 3000 })).toBeInTheDocument();
     // Not a renewal: no Renewal section.
-    expect(await screen.findByRole("region", { name: "Start date" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "WSO2 Legal Entity" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Start date" })).toBeNull(); // on Term & Products (D73)
     expect(screen.queryByRole("region", { name: "Renewal" })).toBeNull();
   });
 
   it("shows everything at once on a saved draft", () => {
     render(<Harness values={deal} locked />);
-    expect(screen.getByLabelText("What Salesforce says about this deal")).toHaveTextContent("USD 34,000.00");
+    expect(screen.getByLabelText("What Salesforce Says About This Deal")).toHaveTextContent("USD 34,000.00");
     for (const r of REST) expect(screen.getByRole("region", { name: r })).toBeInTheDocument();
   });
 
-  it("asks for no currency: it is chosen with the price book on Products & Pricing", () => {
+  it("asks for no currency: it is chosen with the price book on Term & Products", () => {
     render(<Harness values={deal} locked />);
     expect(screen.queryByRole("combobox", { name: /Currency/ })).toBeNull();
   });
@@ -200,6 +228,19 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     const user = userEvent.setup();
     await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
     expect(screen.getByText("pricing: USD · USD Price Book (Current)")).toBeInTheDocument();
+  });
+
+  // D72: only the products, 1 unit each; what the book doesn't price is kept to say so.
+  it("brings in the chosen opportunity's products on a new quote", async () => {
+    render(<Harness values={account} />);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
+    expect(screen.getByText("lines: WSO2 Gateway ×1")).toBeInTheDocument();
+  });
+
+  it("brings in nothing on a saved draft: its opportunity is fixed", () => {
+    render(<Harness values={deal} locked />);
+    expect(screen.getByText("lines: none")).toBeInTheDocument();
   });
 
   it("leaves the currency empty when the opportunity's isn't offered in CadO2", async () => {
@@ -214,7 +255,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     }
   });
 
-  // 2026-10-09: a renewal renews closed-won opportunities and starts the day after they end.
+  // A renewal renews closed-won opportunities and starts the day after they end, locked (D73).
   it("offers closed-won opportunities to renew, and starts the day after the renewed one ends", async () => {
     asked.length = 0;
     render(<Harness values={deal} locked />);
@@ -224,41 +265,41 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     await userEvent.click(screen.getByRole("option", { name: "APIM Subs 2026" }));
 
     expect(screen.getByText("start: 2027-02-01")).toBeInTheDocument();
-    expect(screen.getByText("The day after APIM Subs 2026 ends")).toBeInTheDocument();
-    expect(screen.queryByText(/Deal Desk will see this/)).toBeNull();
   });
 
-  it("warns, without blocking, when a renewal starts another day", () => {
-    render(<Harness values={{ ...deal, previousOpportunityIds: ["006W"], startDate: "2027-03-01" }} locked />);
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Starts 1 Mar 2027, not 1 Feb 2027, the day after APIM Subs 2026 ends. Deal Desk will see this.",
-    );
-  });
-
-  // Review: changing the renewed opportunities keeps a start date the AM chose…
-  it("keeps a start date the AM chose when the renewed opportunities change", async () => {
+  it("follows the renewed opportunities, whatever date was there", async () => {
     render(<Harness values={{ ...deal, previousOpportunityIds: ["006W"], startDate: "2027-03-01" }} locked />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("button", { name: "Change selection" }));
     await user.click(screen.getByRole("option", { name: "IS Subs 2026" }));
 
-    expect(screen.getByText("start: 2027-03-01")).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("not 1 Apr 2027, the day after IS Subs 2026 ends");
+    expect(screen.getByText("start: 2027-04-01")).toBeInTheDocument(); // the day after the latest end
   });
 
-  // …but follows the suggestion while it is still the suggestion, and drops it when its source goes.
-  it("follows the suggestion, and clears it when no renewed opportunity has an end date", async () => {
+  it("clears the start when no renewed opportunity has an end date, for the AM to choose", async () => {
     render(<Harness values={deal} locked />);
     const user = userEvent.setup();
     await user.click(screen.getByRole("option", { name: "APIM Subs 2026" }));
     expect(screen.getByText("start: 2027-02-01")).toBeInTheDocument();
-    await user.click(screen.getByRole("option", { name: "IS Subs 2026" }));
-    expect(screen.getByText("start: 2027-04-01")).toBeInTheDocument(); // the latest end now
-
     await user.click(screen.getByRole("option", { name: "APIM Subs 2026" }));
-    await user.click(screen.getByRole("option", { name: "IS Subs 2026" }));
     await user.click(screen.getByRole("option", { name: "No dates" }));
     expect(screen.getByText("start: none")).toBeInTheDocument();
-    expect(screen.getByText(/No dates has no\s+subscription end date in Salesforce/)).toBeInTheDocument();
+  });
+});
+
+// A failed lookup is an error, never "None found" (2026-10-13).
+describe("OverviewStep — Salesforce lookups that fail", () => {
+  it("says the opportunities couldn't be loaded, not that there are none", async () => {
+    salesforceDown.on = true;
+    try {
+      render(<Harness values={account} />);
+      const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
+      expect(await within(found).findByText("Couldn't load from Salesforce", {}, { timeout: 3000 })).toBeInTheDocument();
+      expect(within(found).queryByText("None found")).toBeNull();
+      expect(await screen.findByText(/^Couldn't load the account's opportunities from Salesforce\./)).toBeInTheDocument();
+      expect(screen.queryByText("This account has no open opportunities in Salesforce.")).toBeNull();
+    } finally {
+      salesforceDown.on = false;
+    }
   });
 });

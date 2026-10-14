@@ -14,8 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import ApprovalSlasPage from "./ApprovalSlasPage";
 
@@ -42,7 +43,11 @@ beforeEach(() => {
 
 describe("ApprovalSlasPage", () => {
   it("sets each role's hours and the at-risk share, and saves only a valid change", async () => {
-    render(<ApprovalSlasPage />);
+    render(
+      <Cado2ToastProvider>
+        <ApprovalSlasPage />
+      </Cado2ToastProvider>,
+    );
     const user = userEvent.setup();
     const save$ = screen.getByRole("button", { name: "Save" });
     expect(save$).toBeDisabled(); // nothing changed yet
@@ -60,7 +65,11 @@ describe("ApprovalSlasPage", () => {
     await user.clear(cfo);
     await user.type(cfo, "48");
     await user.click(save$);
-    expect(save.mutate).toHaveBeenCalledWith({ hours: { DEAL_DESK: 8, CFO: 48 }, atRiskPercent: 75 });
+    expect(save.mutate).toHaveBeenCalledWith({ hours: { DEAL_DESK: 8, CFO: 48 }, atRiskPercent: 75 }, expect.anything());
+    // "It worked" is a toast (2026-10-13), not a message that stays.
+    const [, opts] = save.mutate.mock.calls[0] as [unknown, { onSuccess: () => void }];
+    act(() => opts.onSuccess());
+    expect(await screen.findByRole("status")).toHaveTextContent("Saved. New approvals use these times.");
   });
 
   it("lists the changes made", () => {

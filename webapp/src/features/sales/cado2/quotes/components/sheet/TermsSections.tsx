@@ -31,7 +31,7 @@ function TextBlock({ children }: { children: ReactNode }): JSX.Element {
 /** Payment terms, PO, and any special or governing terms. */
 export function TermsSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
   return (
-    <SheetCard title="Commercial terms" icon={<FileTextIcon size={18} />}>
+    <SheetCard title="Commercial Terms" icon={<FileTextIcon size={18} />}>
       <FactGrid>
         <Fact
           label="Payment terms"
@@ -156,11 +156,11 @@ function AddressCard({
 /** Bill to with the billing contact, ship to with the security contact: section 01 of the order form. */
 export function AddressesSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
   return (
-    <SheetCard title="Addresses and contacts" icon={<MapPinIcon size={18} />}>
+    <SheetCard title="Addresses and Contacts" icon={<MapPinIcon size={18} />}>
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0,1fr))" }, columnGap: 1.5, rowGap: 1.5 }}>
-        <AddressCard title="Bill to" address={sheet.billTo} contact={<ContactBlock role="BILLING" contact={sheet.contacts[0]} />} />
+        <AddressCard title="Bill To" address={sheet.billTo} contact={<ContactBlock role="BILLING" contact={sheet.contacts[0]} />} />
         <AddressCard
-          title="Ship to"
+          title="Ship To"
           // Printed in full either way; a small mark says it's the bill-to address.
           address={sheet.shipToSameAsBillTo ? sheet.billTo : sheet.shipTo}
           note={sheet.shipToSameAsBillTo ? "Same as bill to" : undefined}

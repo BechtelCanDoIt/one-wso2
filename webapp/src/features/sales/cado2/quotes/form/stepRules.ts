@@ -38,7 +38,7 @@ const hasContact = (c: ContactValue) =>
 const addressComplete = (a: AddressValue) =>
   Boolean(a.companyName.trim() && a.addressLine1.trim() && a.city.trim() && a.country.trim());
 
-/** Missing items per step: [Overview, Products & Pricing, Commercial]. Review has none of its own. */
+/** Missing items per step: [Overview, Term & Products, Commercial]. Review has none of its own. */
 export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepCheck[]] {
   const overview: StepCheck[] = [];
   const need = (list: StepCheck[], ok: boolean, field: string, message: string) => {
@@ -53,20 +53,37 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
     if (v.dealType === "PARTNER") need(overview, Boolean(v.partner?.id), "partner", "The partner deal has no primary partner in Salesforce");
   }
   need(overview, Boolean(v.legalEntityId), "legalEntityId", "Choose the WSO2 legal entity");
-  need(overview, Boolean(v.startDate), "subscriptionStartDate", "Choose the start date");
 
   const products: StepCheck[] = [];
-  // The currency sits with the price book on Products & Pricing.
+  // The term comes first on Term & Products (D73).
+  need(products, Boolean(v.startDate), "subscriptionStartDate", "Choose the start date");
+  // The currency sits with the price book on Term & Products.
   need(products, Boolean(v.currencyIsoCode), "currencyIsoCode", "Choose the currency");
   need(products, v.lines.length > 0, "lines", "Add at least one product");
+  // Products brought in from the opportunity wait for a category when unmapped (D72).
+  const uncategorised = v.lines.filter((l) => !l.category).length;
+  need(
+    products,
+    uncategorised === 0,
+    "lines",
+    uncategorised === 1 ? "Choose the category of 1 product" : `Choose the category of ${uncategorised} products`,
+  );
   // The Subscription term card, only when a line recurs.
   if (hasRecurring(v.lines)) {
     need(products, Boolean(v.termMode), "termMode", "Choose the subscription term");
     if (v.termMode === "MULTI_YEAR") {
       need(products, Boolean(v.billingFrequency), "billingFrequency", "Choose how the multi-year term is billed");
     }
-    if (isShortMode(v.termMode)) {
-      const problem = v.termEndDate ? shortTermProblem(v.startDate, v.termEndDate) : "Choose the end date";
+    if (v.termMode === "CO_TERMED") {
+      // Ends with the opportunity it co-terminates with (D73).
+      const problem = !v.coTermOpportunityId
+        ? "Choose the opportunity it co-terminates with"
+        : !v.termEndDate
+          ? "That opportunity has no subscription end date in Salesforce"
+          : shortTermProblem(v.startDate, v.termEndDate, "CO_TERMED");
+      need(products, !problem, "coTermOpportunityId", problem);
+    } else if (isShortMode(v.termMode)) {
+      const problem = v.termEndDate ? shortTermProblem(v.startDate, v.termEndDate, "SHORTER") : "Choose the end date";
       need(products, !problem, "subscriptionEndDate", problem);
     }
   }

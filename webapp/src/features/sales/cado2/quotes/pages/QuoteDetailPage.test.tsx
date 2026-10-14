@@ -14,19 +14,28 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes, useNavigate } from "react-router";
+import { MemoryRouter, Route, Routes } from "react-router";
 import type { DraftResponse, QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import type { ApprovalStep, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
 import QuoteDetailPage from "./QuoteDetailPage";
 
+/** Opens the header's "⋯ More actions" menu, where every action but the main one is (2026-10-12). */
+async function openMenu(user: ReturnType<typeof userEvent.setup>): Promise<void> {
+  await user.click(screen.getByRole("button", { name: "More actions" }));
+}
+const menuItems = () => screen.getAllByRole("menuitem").map((m) => m.textContent);
+
 const query = (data: unknown) => ({ data, error: null, isPending: false, isFetching: false, refetch: vi.fn() });
 const quote = query(undefined as unknown);
 const versions = new Map<number, DraftResponse>();
 const history = query([] as unknown);
+/** Versions whose load fails, for the error cases. */
+const failingVersions = new Set<number>();
 const mutation = () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null as Error | null });
 const recall = mutation();
 const revise = mutation();
@@ -51,20 +60,25 @@ vi.mock("@features/sales/cado2/api/useCado2Me", () => ({ useCado2Me: () => me })
 const documents = query(undefined as unknown);
 const issue = { ...mutation(), mutateAsync: vi.fn() };
 const files = { preview: vi.fn(), download: vi.fn() };
+const setPrimary = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
+const opportunityQuotes = { data: [] as unknown[], error: null, isPending: false, isFetching: false, refetch: vi.fn() };
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useQuote: () => quote,
-  useQuoteVersion: (_id: number, n: number) => query(versions.get(n)),
+  useQuoteVersion: (_id: number, n: number) =>
+    failingVersions.has(n) ? { ...query(undefined), error: new Error("down") } : query(versions.get(n)),
   useAuditEvents: () => history,
   useRecallVersion: () => recall,
   useReviseQuote: () => revise,
   useCloseQuote: () => close,
+  useSetPrimary: () => setPrimary,
+  useOpportunityQuotes: () => opportunityQuotes,
   useDeleteDraft: () => del,
   useDocuments: (_q: number, _v: number, enabled: boolean) => (enabled ? documents : query(undefined)),
   useIssueOrderForm: () => issue,
   useDocumentFiles: () => files,
 }));
 
-/** The submitted quote with every product mapped: no category chosen by the rep. */
+/** The submitted quote with every product mapped: no category chosen by the AM. */
 const allMapped: DraftResponse = {
   ...submitted,
   version: { ...submitted.version, lines: submitted.version.lines.map((l) => ({ ...l, categorySource: "MAPPED" as const })) },
@@ -82,21 +96,29 @@ function show(q: QuoteView, ...vs: DraftResponse[]) {
 
 /** Opens the quote page as if from another page, e.g. My Approvals. */
 function showFrom(from: string | undefined, q: QuoteView, ...vs: DraftResponse[]) {
+  showAt(`/sales/cado2/quotes/5/quote${from === "approvals" ? "?from=approvals" : ""}`, q, ...vs);
+}
+
+function showAt(url: string, q: QuoteView, ...vs: DraftResponse[]) {
   Object.assign(quote, { data: q });
   versions.clear();
   for (const v of vs) versions.set(v.version.versionNumber, v);
   render(
-    <MemoryRouter initialEntries={[`/sales/cado2/quotes/5/quote${from === "approvals" ? "?from=approvals" : ""}`]}>
-      <Routes>
-        <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
-        <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<p>wizard</p>} />
-        <Route path="sales/cado2/quotes" element={<p>My Quotes page</p>} />
-      </Routes>
-    </MemoryRouter>,
+    <Cado2ToastProvider>
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
+          <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<p>wizard</p>} />
+          <Route path="sales/cado2/quotes" element={<p>My Quotes page</p>} />
+        </Routes>
+      </MemoryRouter>
+    </Cado2ToastProvider>,
   );
 }
 
 beforeEach(() => {
+  Object.assign(setPrimary, mutation());
+  opportunityQuotes.data = [];
   Object.assign(decide, mutation());
   workflow.data = null;
   me.data.approverRoles = ["DEAL_DESK"];
@@ -105,35 +127,83 @@ beforeEach(() => {
   Object.assign(close, mutation());
   Object.assign(del, mutation());
   Object.assign(history, query([]));
+  failingVersions.clear();
+  Object.assign(opportunityQuotes, { error: null });
+  Object.assign(documents, { error: null });
+});
+
+// D68: primary is a setting of the quote, changed in any status.
+describe("QuoteDetailPage — primary quote", () => {
+  const oq = (quoteId: number, isPrimary: boolean, quoteNumber: string) => ({
+    quoteId, quoteNumber, ownerEmail: "nimesha@wso2.com", isPrimary, status: "APPROVED", versionNumber: 1,
+    currencyIsoCode: "USD", tcv: "1000.00", createdAt: "2026-10-02T08:00:00Z", updatedAt: "2026-10-02T08:00:00Z",
+  });
+
+  it("makes a quote in approval primary, releasing the current one, after asking", async () => {
+    const user = userEvent.setup();
+    opportunityQuotes.data = [oq(3, true, "Q-26-00031"), oq(submitted.quote.id, false, "Q-26-00005")];
+    show(submitted.quote, submitted);
+
+    const panel = screen.getByRole("region", { name: "This Opportunity's Quotes" });
+    expect(within(panel).getByRole("link", { name: "Q-26-00031" })).toHaveAttribute("href", "/sales/cado2/quotes/3/quote");
+    // The current quote: a shaded row, not a link, "This quote" under its number (2026-10-14).
+    const rows = within(panel).getAllByRole("listitem");
+    expect(rows[1]).toHaveAttribute("aria-current", "true");
+    expect(within(rows[1]).queryByRole("link")).toBeNull();
+    expect(rows[1]).toHaveTextContent(/Q-26-00005This quote · /);
+    expect(rows[0]).not.toHaveAttribute("aria-current");
+
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Make primary" }));
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("Q-26-00031 (nimesha@wso2.com) is the primary quote for this opportunity. Making this quote primary releases it.");
+    await user.click(within(dialog).getByRole("button", { name: "Make primary" }));
+    expect(setPrimary.mutate).toHaveBeenCalledWith({ quoteId: submitted.quote.id, primary: true }, expect.anything());
+  });
+
+  it("marks the primary quote and lets it be released", async () => {
+    const user = userEvent.setup();
+    show({ ...submitted.quote, isPrimary: true }, submitted);
+
+    expect(screen.getByText("Primary")).toBeInTheDocument();
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Remove primary" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Remove primary" }));
+    expect(setPrimary.mutate).toHaveBeenCalledWith({ quoteId: submitted.quote.id, primary: false }, expect.anything());
+  });
 });
 
 describe("QuoteDetailPage — lifecycle", () => {
-  it("goes back to My Approvals when opened from there, else to My Quotes", () => {
+  it("goes back to My Approvals when opened from there, else to Quotes", () => {
     showFrom("approvals", submitted.quote, submitted);
     expect(screen.getByRole("link", { name: /My Approvals/ })).toHaveAttribute("href", "/sales/cado2/approvals");
     cleanup();
     show(submitted.quote, submitted);
-    expect(screen.getByRole("link", { name: /My Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
+    expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
   });
 
-  it("offers only Recall on a submitted quote", async () => {
+  it("offers Recall in the menu on a submitted quote, with no main button", async () => {
     show(submitted.quote, submitted);
     const user = userEvent.setup();
 
     // The account is the title; the quote number sits on the line above it.
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
     expect(screen.queryByText("Acme APIM renewal · Acme Corp")).toBeNull(); // nothing under the title
+    // In approval the AM waits: no main button, the rest under "⋯".
     expect(screen.queryByRole("button", { name: "Revise" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Close quote" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Delete draft" })).toBeNull(); // only a draft
+    expect(screen.queryByRole("link", { name: /Edit draft/ })).toBeNull();
+    await openMenu(user);
+    expect(menuItems()).toEqual(["Recall", "Make primary"]); // no Close or Delete draft here
 
-    await user.click(screen.getByRole("button", { name: "Recall" }));
+    await user.click(screen.getByRole("menuitem", { name: "Recall" }));
     const dialog = screen.getByRole("dialog", { name: "Recall version 1?" });
     await user.type(within(dialog).getByLabelText(/Why are you recalling it/), "Customer wants 30 gateways");
     await user.click(within(dialog).getByRole("button", { name: "Recall" }));
 
     expect(recall.mutate).toHaveBeenCalledWith({ quoteId: 5, version: 1, reason: "Customer wants 30 gateways" }, expect.anything());
+    act(() => recall.mutate.mock.calls[0][1].onSuccess());
+    expect(await screen.findByRole("status")).toHaveTextContent("Version 1 recalled");
   });
 
   it("revises a recalled version and opens the new draft", async () => {
@@ -143,7 +213,8 @@ describe("QuoteDetailPage — lifecycle", () => {
 
     expect(screen.getByText("Recalled")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Revise" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Create version 2" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Revise to version 2?" }));
+    await user.click(dialog.getByRole("button", { name: "Revise" }));
 
     expect(revise.mutate).toHaveBeenCalledWith({ quoteId: 5 }, expect.anything());
     expect(await screen.findByText("wizard")).toBeInTheDocument();
@@ -153,7 +224,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     show(recalledV1.quote, recalledV1);
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Close quote" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Close quote" }));
     const dialog = screen.getByRole("dialog", { name: "Close Q-26-00005?" });
     expect(within(dialog).getByText(/This is permanent/)).toBeInTheDocument();
     const confirm = within(dialog).getByRole("button", { name: "Close quote" });
@@ -169,9 +241,10 @@ describe("QuoteDetailPage — lifecycle", () => {
     show(ready.quote, ready);
     const user = userEvent.setup();
     // Never submitted, so it has no number: it is named by customer and deal.
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(screen.getByText("Draft · Version 1")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Delete draft" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     const dialog = screen.getByRole("dialog", { name: "Delete this draft quote?" });
     expect(within(dialog).getByText(/only has a draft, so Acme Corp · Acme APIM renewal is removed completely\. This can't be undone/)).toBeInTheDocument();
 
@@ -192,26 +265,33 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show(q, recalledV1, v2);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Delete draft" }));
+    await openMenu(user);
+    await user.click(screen.getByRole("menuitem", { name: "Delete draft" }));
     const dialog = screen.getByRole("dialog", { name: "Delete draft v2?" });
     expect(within(dialog).getByText(/Version 1 \(Recalled\) becomes the latest again\. This can't be undone/)).toBeInTheDocument();
     await user.click(within(dialog).getByRole("button", { name: "Delete draft" }));
     expect(del.mutate).toHaveBeenCalledWith({ quoteId: 5, version: 2, expectedUpdatedAt: v2.version.updatedAt }, expect.anything());
+    act(() => del.mutate.mock.calls[0][1].onSuccess({ quoteDeleted: false }));
+    expect(await screen.findByRole("status")).toHaveTextContent("Draft v2 deleted");
   });
 
-  it("shows a draft's owner Continue and Close", () => {
+  it("gives a draft one main button, Edit draft, and puts the destructive actions last in the menu", async () => {
     show(ready.quote, ready);
-    expect(screen.getByRole("link", { name: "Continue draft v1" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/1/edit");
-    expect(screen.getByRole("button", { name: "Close quote" })).toBeInTheDocument();
+    const user = userEvent.setup();
+    expect(screen.getByRole("link", { name: "Edit draft" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/1/edit");
+    // The status is with the title, not among the actions.
+    expect(within(screen.getByLabelText("About this quote")).queryByRole("button", { name: "Close quote" })).toBeNull();
+    await openMenu(user);
+    expect(menuItems()).toEqual(["Make primary", "Delete draft", "Close quote"]);
+    expect(screen.getByRole("separator")).toBeInTheDocument(); // between everyday and destructive
   });
 
   it("gives an Admin (no actions) a read-only page with the whole quote", () => {
-    show({ ...submitted.quote, actions: [] }, submitted);
-    expect(screen.queryByRole("button", { name: "Recall" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Close quote" })).toBeNull();
+    show({ ...submitted.quote, actions: [], canEdit: false }, submitted);
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull(); // nothing to offer
     // The customer is in the page's header band, and not repeated in the deal.
     const header = screen.getByLabelText("About this quote");
-    expect(within(header).getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(within(header).getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(header).toHaveTextContent("Acme APIM renewal");
     expect(screen.queryByRole("region", { name: "Customer" })).toBeNull();
     expect(screen.getByRole("table", { name: "Products" })).toBeInTheDocument();
@@ -237,7 +317,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show({ ...submitted.quote, actions: [] }, submitted);
 
-    expect(screen.getByRole("region", { name: "Approval summary" })).toHaveTextContent("Waiting on Deal Desk · 0 of 2 approved");
+    // Approvals live on their tab only, not in the side panel (2026-10-13).
+    expect(screen.queryByRole("region", { name: "Approval summary" })).toBeNull();
 
     await user.click(await screen.findByRole("tab", { name: "Approvals" }));
     const chain = screen.getByRole("list", { name: "Approval chain" });
@@ -248,14 +329,14 @@ describe("QuoteDetailPage — lifecycle", () => {
     // From another tab, the header's "Your approval" goes back to the Quote tab's panel.
     await user.click(screen.getByRole("button", { name: "Your approval" }));
     const panel = await screen.findByRole("region", { name: "Your approval as Deal Desk" });
-    await user.click(within(panel).getByRole("button", { name: "Request changes" }));
+    await user.click(within(panel).getByRole("button", { name: "Return" }));
     const dialog = screen.getByRole("dialog");
-    const send = within(dialog).getByRole("button", { name: "Request changes" });
+    const send = within(dialog).getByRole("button", { name: "Return" });
     expect(send).toBeDisabled();
     await user.type(within(dialog).getByRole("textbox"), "Use the FY26 price book");
     await user.click(send);
     expect(decide.mutate).toHaveBeenCalledWith(
-      { quoteId: 5, version: 1, stepId: 11, outcome: "request-changes", comment: "Use the FY26 price book" },
+      { quoteId: 5, version: 1, stepId: 11, outcome: "return", comment: "Use the FY26 price book" },
       expect.anything(),
     );
   });
@@ -286,7 +367,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(within(reason).getByText(/^35% discount/)).toBeInTheDocument();
     expect(reason).toHaveTextContent("Above the Area GM's 30% limit");
     expect(panel).not.toHaveTextContent("CRO's 32% limit"); // the CFO's reason is for the CFO
-    expect(screen.getByRole("button", { name: "Reject" })).toBeInTheDocument(); // short labels
+    expect(screen.getByRole("button", { name: "Return" })).toBeInTheDocument(); // short labels
+    expect(screen.queryByRole("button", { name: "Reject" })).toBeNull(); // merged into Return (2026-10-12)
 
     await user.click(screen.getByRole("button", { name: "Approve" }));
     await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
@@ -313,9 +395,9 @@ describe("QuoteDetailPage — lifecycle", () => {
     show({ ...submitted.quote, actions: [] }, allMapped);
     const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
     // The decision is its own full-width section above the deal; the account stays the page title.
-    expect(within(screen.getByRole("region", { name: "Your decision" })).getByRole("region", { name: "Your approval as Deal Desk" })).toBe(panel);
+    expect(within(screen.getByRole("region", { name: "Your approval" })).getByRole("region", { name: "Your approval as Deal Desk" })).toBe(panel);
     expect(within(screen.getByRole("region", { name: "The deal" })).queryByRole("region", { name: /Your approval/ })).toBeNull();
-    expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: /^Acme Corp/ })).toBeInTheDocument();
     expect(panel).not.toHaveTextContent("After you"); // who approves is in the Approvals tab
     const points = within(within(panel).getByRole("list", { name: "What's non-standard" })).getAllByRole("listitem");
     expect(points).toHaveLength(1);
@@ -346,37 +428,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(panel).not.toHaveTextContent("no further approvals are needed");
   });
 
-  it("keeps a decision's note with its own quote when another quote opens", async () => {
-    const user = userEvent.setup();
-    me.data.approverRoles = ["CRO"];
-    workflow.data = {
-      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
-      steps: [reasonStep("CRO", 2, { status: "PENDING", canAct: true })],
-    };
-    Object.assign(quote, { data: { ...submitted.quote, actions: [] } });
-    versions.clear();
-    versions.set(1, submitted);
-    function OtherQuote() {
-      const navigate = useNavigate();
-      return <button onClick={() => navigate("/sales/cado2/quotes/6/quote")}>Open quote 6</button>;
-    }
-    render(
-      <MemoryRouter initialEntries={["/sales/cado2/quotes/5/quote"]}>
-        <OtherQuote />
-        <Routes>
-          <Route path="sales/cado2/quotes/:quoteId/:tab" element={<QuoteDetailPage />} />
-        </Routes>
-      </MemoryRouter>,
-    );
-    await user.click(screen.getByRole("button", { name: "Approve" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Approve" }));
-    const [, opts] = decide.mutate.mock.calls[0] as [unknown, { onSuccess: (wf: ApprovalWorkflow) => void }];
-    act(() => opts.onSuccess({ ...workflow.data!, steps: [reasonStep("CRO", 2, { status: "APPROVED" })] }));
-    expect(await screen.findByRole("status")).toHaveTextContent("Approved as CRO.");
-
-    await user.click(screen.getByRole("button", { name: "Open quote 6" }));
-    expect(screen.queryByRole("status")).toBeNull();
-  });
+  // The decision note is a toast now (2026-10-13), so it no longer belongs to a quote.
 
   it("shows an approver's first three reasons, and the rest on request", async () => {
     const user = userEvent.setup();
@@ -411,11 +463,11 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.queryByRole("button", { name: /as Legal|as Regional Director/ })).toBeNull();
     // One short set of buttons per role, inside its card.
     const rd = screen.getByRole("region", { name: "Your approval as Regional Director" });
-    await user.click(within(rd).getByRole("button", { name: "Reject" }));
-    expect(within(screen.getByRole("dialog")).getByRole("heading")).toHaveTextContent("Reject");
+    await user.click(within(rd).getByRole("button", { name: "Return" }));
+    expect(within(screen.getByRole("dialog")).getByRole("heading")).toHaveTextContent("Return as Regional Director?");
     await user.type(within(screen.getByRole("dialog")).getByRole("textbox"), "Too deep");
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Reject" }));
-    expect(decide.mutate).toHaveBeenCalledWith(expect.objectContaining({ stepId: 2, outcome: "reject" }), expect.anything());
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Return" }));
+    expect(decide.mutate).toHaveBeenCalledWith(expect.objectContaining({ stepId: 2, outcome: "return" }), expect.anything());
   });
 
   it("shows a rep-chosen category on its line and in Deal Desk's summary, nowhere else", async () => {
@@ -438,13 +490,13 @@ describe("QuoteDetailPage — lifecycle", () => {
     show({ ...submitted.quote, actions: [] }, mixed);
 
     // 1. The tag on the line, for everyone.
-    expect(within(screen.getByRole("table", { name: "Products" })).getAllByText("Category chosen by rep")).toHaveLength(1);
+    expect(within(screen.getByRole("table", { name: "Products" })).getAllByText("Category chosen by AM")).toHaveLength(1);
     // 2. A point in Deal Desk's summary.
     const points = within(screen.getByRole("region", { name: "Your approval as Deal Desk" })).getByRole("list", { name: "What's non-standard" });
     expect(points).toHaveTextContent(`Line ${first.lineNumber} · ${first.productName}`);
-    expect(points).toHaveTextContent("Category chosen by the rep");
+    expect(points).toHaveTextContent("Category chosen by the AM");
     // Nowhere else: no warning box, and nothing in the approval dialog.
-    expect(screen.queryByRole("region", { name: "Categories chosen by the rep" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Categories chosen by the AM" })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Approve" }));
     expect(screen.getByRole("dialog")).not.toHaveTextContent(/category/i);
   });
@@ -455,8 +507,8 @@ describe("QuoteDetailPage — lifecycle", () => {
       version: { ...submitted.version, lines: submitted.version.lines.map((l) => ({ ...l, categorySource: "MAPPED" as const })) },
     };
     show(submitted.quote, allMapped);
-    expect(screen.queryByRole("region", { name: "Categories chosen by the rep" })).toBeNull();
-    expect(screen.queryByText("Category chosen by rep")).toBeNull();
+    expect(screen.queryByRole("region", { name: "Categories chosen by the AM" })).toBeNull();
+    expect(screen.queryByText("Category chosen by AM")).toBeNull();
   });
 
   it("explains a closed quote", () => {
@@ -495,8 +547,9 @@ describe("QuoteDetailPage — versions and history", () => {
     await user.click(screen.getByRole("tab", { name: "Versions (2)" }));
 
     const table = screen.getByRole("table", { name: "Versions" });
-    expect(within(table).getByRole("link", { name: "Edit" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/2/edit");
-    expect(within(table).getByRole("link", { name: "View" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/1/edit");
+    // The draft opens in edit mode; any other version is viewed here (2026-10-13).
+    expect(within(table).getByRole("link", { name: "Edit draft" })).toHaveAttribute("href", "/sales/cado2/quotes/5/versions/2/edit");
+    expect(within(table).getByRole("link", { name: "View" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote?version=1");
 
     const diff = screen.getByRole("table", { name: "Comparison" });
     expect(within(diff).getByText("WSO2 Gateway · Quantity")).toBeInTheDocument();
@@ -504,6 +557,32 @@ describe("QuoteDetailPage — versions and history", () => {
 
     await user.click(screen.getByRole("button", { name: "All fields" }));
     expect(within(screen.getByRole("table", { name: "Comparison" })).getByText("Currency")).toBeInTheDocument();
+  });
+
+  // View mode (2026-10-13): an older version is shown here, read-only, with no actions.
+  it("shows an older version with a way back to the latest, and no actions", () => {
+    showAt("/sales/cado2/quotes/5/quote?version=1", v2.quote, recalledV1, v2);
+
+    expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
+    expect(screen.getByText("Recalled")).toBeInTheDocument();
+    expect(screen.getByText(/You're viewing version 1\. The latest is version 2; actions apply to the latest\./)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View latest version" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
+    expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Edit draft" })).toBeNull();
+  });
+
+  it("ignores a version that doesn't exist and shows the latest", () => {
+    showAt("/sales/cado2/quotes/5/quote?version=9", v2.quote, recalledV1, v2);
+
+    expect(screen.getByRole("link", { name: "Edit draft" })).toBeInTheDocument();
+    expect(screen.queryByText(/You're viewing version/)).toBeNull();
+  });
+
+  it("says so when there is no history yet", async () => {
+    Object.assign(history, query([]));
+    show(recalledV1.quote, recalledV1);
+    await userEvent.setup().click(screen.getByRole("tab", { name: "History (0)" }));
+    expect(screen.getByText("No history yet")).toBeInTheDocument();
   });
 
   it("shows the history newest first, with grouped saves and reasons", async () => {
@@ -533,7 +612,7 @@ describe("QuoteDetailPage — order form", () => {
     version: { ...submitted.version, status: "APPROVED" },
   };
   const quoteOf = (r: DraftResponse): QuoteView => ({ ...r.quote, versions: [{ versionNumber: 1, status: r.version.status, tcv: "6480.00", submittedAt: null, updatedAt: r.version.updatedAt }] }) as unknown as QuoteView;
-  const panel = () => within(screen.getByRole("region", { name: "Order form" }));
+  const panel = () => within(screen.getByRole("region", { name: "Order Form" }));
 
   it("previews, then issues once, confirming the dates it will set", async () => {
     Object.assign(documents, { data: { canPreview: true, canIssue: true, issueDate: "2026-10-12", expiryDate: "2026-11-11", documents: [] } });
@@ -565,8 +644,59 @@ describe("QuoteDetailPage — order form", () => {
     expect(panel().queryByRole("button", { name: "Issue order form" })).toBeNull();
   });
 
+  it("says a failed issue in the shared error notice, with what failed", async () => {
+    Object.assign(documents, { data: { canPreview: true, canIssue: true, issueDate: "2026-10-12", expiryDate: "2026-11-11", documents: [] } });
+    issue.mutateAsync.mockRejectedValue(new Error("down"));
+    show(quoteOf(approved), approved);
+    const user = userEvent.setup();
+
+    await user.click(panel().getByRole("button", { name: "Issue order form" }));
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Issue order form" }));
+    // findBy on screen: the page is aria-hidden until the dialog's closing transition ends.
+    expect(await screen.findByText(/Couldn't issue the order form\./)).toBeInTheDocument();
+  });
+
   it("shows no order form before approval", () => {
     show(quoteOf(submitted), submitted);
-    expect(screen.queryByRole("region", { name: "Order form" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Order Form" })).toBeNull();
+  });
+});
+
+// A failed load is an error on screen, never a wrong answer or a missing card (2026-10-13).
+describe("QuoteDetailPage — load errors say so", () => {
+  const v2: DraftResponse = { ...ready, version: { ...ready.version, versionNumber: 2 } };
+  const twoVersions: QuoteView = {
+    ...ready.quote,
+    versions: [
+      { versionNumber: 1, status: "RECALLED", tcv: "0.00", submittedAt: null, updatedAt: "2026-10-02T09:30:00Z" },
+      { versionNumber: 2, status: "DRAFT", tcv: "0.00", submittedAt: null, updatedAt: "2026-10-03T09:30:00Z" },
+    ],
+  };
+
+  it("says Compare couldn't load, not 'No differences.'", async () => {
+    failingVersions.add(1);
+    show(twoVersions, submitted, v2);
+    await userEvent.setup().click(screen.getByRole("tab", { name: "Versions (2)" }));
+    expect(screen.getByText(/^Couldn't load the versions to compare\./)).toBeInTheDocument();
+    expect(screen.queryByText("No differences.")).toBeNull();
+  });
+
+  it("says when this opportunity's quotes or the history couldn't load", () => {
+    Object.assign(opportunityQuotes, { error: new Error("down") });
+    Object.assign(history, { ...query(undefined), error: new Error("down") });
+    show(submitted.quote, submitted);
+    expect(screen.getByText(/^Couldn't load this opportunity's quotes\./)).toBeInTheDocument();
+    expect(screen.getByText(/this timeline may be incomplete/)).toBeInTheDocument();
+  });
+
+  it("says when an approved quote's order form couldn't load", () => {
+    const approved: DraftResponse = {
+      ...submitted,
+      quote: { ...submitted.quote, status: "APPROVED", actions: ["CLOSE"] },
+      version: { ...submitted.version, status: "APPROVED" },
+    };
+    Object.assign(documents, { data: undefined, error: new Error("down") });
+    show({ ...approved.quote, versions: [{ versionNumber: 1, status: "APPROVED", tcv: "6480.00", submittedAt: null, updatedAt: approved.version.updatedAt }] } as unknown as QuoteView, approved);
+    expect(screen.getByText(/^Couldn't load the order form\./)).toBeInTheDocument();
   });
 });

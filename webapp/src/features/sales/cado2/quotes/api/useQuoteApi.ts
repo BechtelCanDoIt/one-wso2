@@ -39,11 +39,14 @@ import type {
   DraftResponse,
   Issue,
   Opportunity,
+  OpportunityProducts,
+  OpportunityQuote,
   PricebookOption,
   PricingPreview,
   Product,
   AuditEvent,
   QuoteList,
+  QuoteScope,
   QuoteSettings,
   QuoteView,
 } from "./quoteTypes";
@@ -152,13 +155,51 @@ export function useActiveLegalEntities() {
 }
 
 /** My Quotes: the caller's own quotes, filtered by the latest version's status. */
-export function useQuoteList(status = "") {
-  return useAuthedQuery<QuoteList>(["quotes", "list", status], cado2ServiceUrls.quoteList(status), "live");
+export function useQuoteList(status = "", scope: QuoteScope = "mine") {
+  return useAuthedQuery<QuoteList>(["quotes", "list", scope, status], cado2ServiceUrls.quoteList(status, scope), "live");
 }
 
 /** A quote with its version list and the caller's actions. */
 export function useQuote(quoteId: number | null) {
   return useAuthedQuery<QuoteView>(["quotes", "one", quoteId], quoteId ? cado2ServiceUrls.quote(quoteId) : null, "live");
+}
+
+/** The products on an opportunity, priced from its price book: what a new quote starts from (D72). */
+export function useOpportunityProducts(accountId: string | null, opportunityId: string | null) {
+  return useAuthedQuery<OpportunityProducts>(
+    ["opportunity-products", accountId, opportunityId],
+    accountId && opportunityId ? cado2ServiceUrls.opportunityProducts(accountId, opportunityId) : null,
+    "live",
+  );
+}
+
+/**
+ * The quotes on an opportunity, oldest first, with which is primary (D68).
+ * Under the "quotes" key, so any quote change refreshes it.
+ */
+export function useOpportunityQuotes(opportunityId: string | null) {
+  return useAuthedQuery<OpportunityQuote[]>(
+    ["quotes", "opportunity", opportunityId],
+    opportunityId ? cado2ServiceUrls.opportunityQuotes(opportunityId) : null,
+    "live",
+  );
+}
+
+/**
+ * Makes a quote its opportunity's primary quote, releasing the current one, or
+ * releases it (D68). A setting of the quote: any status, approvals untouched.
+ */
+export function useSetPrimary() {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<QuoteView, Error, { quoteId: number; primary: boolean }>({
+    mutationFn: async ({ quoteId, primary }) =>
+      cado2Send<QuoteView>("POST", cado2ServiceUrls.quotePrimary(quoteId), await getToken(), { primary }),
+    onSuccess: (q) => {
+      void queryClient.invalidateQueries({ queryKey: key("quotes") });
+      void queryClient.invalidateQueries({ queryKey: key("quote-version", q.id) });
+    },
+  });
 }
 
 /** A quote's history, oldest first. */
@@ -284,6 +325,20 @@ export function useSubmitVersion() {
   return useMutation<DraftResponse, Error, { quoteId: number; version: number; expectedUpdatedAt: string }>({
     mutationFn: async ({ quoteId, version, expectedUpdatedAt }) =>
       cado2Send<DraftResponse>("POST", cado2ServiceUrls.quoteSubmit(quoteId, version), await getToken(), { expectedUpdatedAt }),
+    onSuccess: (res) => {
+      queryClient.setQueryData(key("quote-version", res.quote.id, res.version.versionNumber), res);
+      void queryClient.invalidateQueries({ queryKey: key("quotes") });
+    },
+  });
+}
+
+/** "Sync to Salesforce" (D77): writes a saved draft of the primary quote to its opportunity. */
+export function useSyncToSalesforce() {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<DraftResponse, Error, { quoteId: number; version: number; expectedUpdatedAt: string }>({
+    mutationFn: async ({ quoteId, version, expectedUpdatedAt }) =>
+      cado2Send<DraftResponse>("POST", cado2ServiceUrls.quoteSync(quoteId, version), await getToken(), { expectedUpdatedAt }),
     onSuccess: (res) => {
       queryClient.setQueryData(key("quote-version", res.quote.id, res.version.versionNumber), res);
       void queryClient.invalidateQueries({ queryKey: key("quotes") });

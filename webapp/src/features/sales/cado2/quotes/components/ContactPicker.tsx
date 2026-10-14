@@ -18,6 +18,7 @@ import { useState, type JSX } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Avatar, Box, Button, ButtonBase, Chip, InputAdornment, Paper, Skeleton, Stack, TextField, Typography } from "@wso2/oxygen-ui";
 import { MailIcon, SearchIcon, UserPlusIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { Contact } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { emptyContact, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
 import { initialsOfName } from "@features/sales/cado2/utils/initials";
@@ -33,6 +34,9 @@ interface ContactPickerProps {
   /** The customer account's contacts. */
   readonly contacts: readonly Contact[];
   readonly loading: boolean;
+  /** The contacts couldn't be loaded: shown as an error, not "no contacts" (2026-10-13). */
+  readonly loadError?: unknown;
+  readonly onRetry?: () => void;
   readonly helperText?: string;
 }
 
@@ -48,7 +52,16 @@ const ROLE: Record<ContactField, string> = { billingContact: "billing contact", 
  * contact shows as a card with Change. Only Salesforce Ids and typed text are
  * sent; the backend snapshots the contact's details.
  */
-export default function ContactPicker({ name, issueField, label, contacts, loading, helperText }: ContactPickerProps): JSX.Element {
+export default function ContactPicker({
+  name,
+  issueField,
+  label,
+  contacts,
+  loading,
+  loadError,
+  onRetry,
+  helperText,
+}: ContactPickerProps): JSX.Element {
   const { control, setValue } = useFormContext<DraftFormValues>();
   const value = useWatch({ control, name });
   const idIssue = useFieldIssue(`${issueField}.sfContactId`);
@@ -200,7 +213,11 @@ export default function ContactPicker({ name, issueField, label, contacts, loadi
               },
             }}
           />
-          {loading ? (
+          {loadError ? (
+            <ErrorNotice error={loadError} onRetry={onRetry} retrying={loading}>
+              Couldn&apos;t load the account&apos;s contacts from Salesforce.
+            </ErrorNotice>
+          ) : loading ? (
             <Stack spacing={1} aria-label="Loading contacts">
               {[0, 1].map((i) => (
                 <Skeleton key={i} variant="rounded" height={48} />

@@ -23,15 +23,24 @@ interface SectionCardProps {
   /** Shown on the right of the heading, e.g. a count or a note. */
   readonly aside?: ReactNode;
   readonly children: ReactNode;
+  /** The section's accessible name when it should differ from the title. */
+  readonly label?: string;
+  /** Fills its grid cell, so a footer (`mt: "auto"`) lines up with its neighbours'. */
+  readonly stretch?: boolean;
 }
 
 /**
  * A titled card: icon badge, title, optional aside, content. The app-wide
  * section style, introduced by the quote sheet and shared since F5.
  */
-export default function SectionCard({ title, icon, aside, children }: SectionCardProps): JSX.Element {
+export default function SectionCard({ title, icon, aside, children, label, stretch = false }: SectionCardProps): JSX.Element {
   return (
-    <Paper component="section" aria-label={title} variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 2, minWidth: 0 }}>
+    <Paper
+      component="section"
+      aria-label={label ?? title}
+      variant="outlined"
+      sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 2, minWidth: 0, ...(stretch ? { display: "flex", flexDirection: "column" } : {}) }}
+    >
       <Stack direction="row" alignItems="center" spacing={1.25} sx={{ mb: 2 }}>
         <Box
           aria-hidden

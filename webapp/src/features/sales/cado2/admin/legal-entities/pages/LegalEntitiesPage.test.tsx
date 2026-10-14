@@ -81,17 +81,18 @@ describe("LegalEntitiesPage", () => {
     expect(items).toHaveLength(2);
 
     // The first entity is selected and shown in full.
-    const llc = within(screen.getByRole("article", { name: "WSO2, LLC." }));
+    const llc = within(screen.getByRole("region", { name: "WSO2, LLC." }));
     expect(llc.getByRole("heading", { name: "WSO2, LLC." })).toBeInTheDocument();
     expect(llc.getByText("WSO2_LLC")).toBeInTheDocument();
     expect(llc.getByText("787 Castro Street")).toBeInTheDocument();
-    expect(llc.getByText("Active")).toBeInTheDocument();
+    // The switch says whether it's active; no chip as well (C8, 2026-10-14).
+    expect(llc.getByRole("switch", { name: "WSO2, LLC. active" })).toBeChecked();
     expect(llc.getAllByText("—")).toHaveLength(3); // no tax ID, registration or phone
-    expect(llc.getByText(/Last changed .* by admin@wso2.com/)).toBeInTheDocument();
+    expect(llc.getByText(/Last changed .* · admin@wso2.com/)).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "WSO2 UK Ltd" }));
-    const uk = within(screen.getByRole("article", { name: "WSO2 UK Ltd" }));
-    expect(uk.getByText("Inactive")).toBeInTheDocument();
+    const uk = within(screen.getByRole("region", { name: "WSO2 UK Ltd" }));
+    expect(uk.getByRole("switch", { name: "WSO2 UK Ltd active" })).not.toBeChecked();
     expect(uk.getByText("GB999")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "WSO2 UK Ltd" })).toHaveAttribute("aria-current", "true");
   });
@@ -113,6 +114,15 @@ describe("LegalEntitiesPage", () => {
     expect(within(items()[0]).getByText("WSO2 UK Ltd")).toBeInTheDocument();
   });
 
+  it("says so when nothing matches the search", async () => {
+    Object.assign(list, { isPending: false, data: [row] });
+    render(<LegalEntitiesPage />);
+    await userEvent.setup().type(screen.getByRole("textbox", { name: "Search legal entities" }), "nowhere");
+
+    expect(screen.getByText("No legal entities match")).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Legal entities" })).toBeNull();
+  });
+
   it("edits the selected entity", async () => {
     Object.assign(list, { isPending: false, data: [row] });
     render(<LegalEntitiesPage />);
@@ -120,18 +130,23 @@ describe("LegalEntitiesPage", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Edit WSO2, LLC." }));
 
     expect(await screen.findByRole("heading", { name: "Edit WSO2_LLC" })).toBeInTheDocument();
-    for (const section of ["Identity", "Registered address", "Registration", "Availability"]) {
+    for (const section of ["Identity", "Registered Address", "Registration", "Availability"]) {
       expect(screen.getByRole("region", { name: section })).toBeInTheDocument();
     }
   });
 
-  it("disables an entity from its switch instead of deleting it", async () => {
+  it("disables an entity from its switch instead of deleting it, after asking", async () => {
     Object.assign(list, { isPending: false, data: [row] });
     render(<LegalEntitiesPage />);
+    const user = userEvent.setup();
 
-    await userEvent.setup().click(screen.getByRole("switch", { name: "WSO2, LLC. active" }));
+    await user.click(screen.getByRole("switch", { name: "WSO2, LLC. active" }));
+    expect(update.mutate).not.toHaveBeenCalled();
+    const dialog = within(screen.getByRole("dialog", { name: "Deactivate WSO2, LLC.?" }));
+    expect(dialog.getByText(/must choose another legal entity before it can be submitted/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Deactivate" }));
 
-    expect(update.mutate).toHaveBeenCalledWith({ id: 7, changes: { isActive: false } });
+    expect(update.mutate).toHaveBeenCalledWith({ id: 7, changes: { isActive: false } }, expect.anything());
   });
 
   it("opens the add panel", async () => {

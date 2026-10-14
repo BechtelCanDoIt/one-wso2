@@ -23,10 +23,36 @@ interface EmptyStateProps {
   readonly body?: ReactNode;
   /** A call to action, e.g. a button. */
   readonly action?: ReactNode;
+  /** Inside a card: a smaller icon and no box of its own (2026-10-13). */
+  readonly compact?: boolean;
 }
 
-/** A friendly "nothing here yet" panel with a way forward. */
-export default function EmptyState({ icon, title, body, action }: EmptyStateProps): JSX.Element {
+/**
+ * A friendly "nothing here yet" panel with a way forward: page-sized by
+ * default, `compact` inside a card.
+ */
+export default function EmptyState({ icon, title, body, action, compact = false }: EmptyStateProps): JSX.Element {
+  if (compact) {
+    return (
+      <Box sx={{ py: 3, textAlign: "center" }}>
+        <Box
+          aria-hidden
+          sx={{ width: 40, height: 40, mx: "auto", mb: 1.5, borderRadius: 2, display: "grid", placeItems: "center", color: "text.secondary", bgcolor: "action.hover" }}
+        >
+          {icon}
+        </Box>
+        <Typography variant="body1" component="p" sx={{ fontWeight: 600 }}>
+          {title}
+        </Typography>
+        {body ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: 420, mx: "auto" }}>
+            {body}
+          </Typography>
+        ) : null}
+        {action ? <Box sx={{ mt: 2 }}>{action}</Box> : null}
+      </Box>
+    );
+  }
   return (
     <Paper variant="outlined" sx={{ p: { xs: 4, sm: 6 }, borderRadius: 2, borderStyle: "dashed", textAlign: "center" }}>
       <Box

@@ -41,7 +41,10 @@ import {
   SearchIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import LegalEntityDrawer from "@features/sales/cado2/admin/legal-entities/components/LegalEntityDrawer";
 import {
@@ -51,6 +54,7 @@ import {
 } from "@features/sales/cado2/admin/legal-entities/api/useLegalEntities";
 import type { LegalEntity, LegalEntityFormValues } from "@features/sales/cado2/admin/legal-entities/api/legalEntityTypes";
 import { initialsOfName } from "@features/sales/cado2/utils/initials";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 
 /** The drawer's state: closed, adding, or editing one entity. */
 type DrawerState = { open: false } | { open: true; entity: LegalEntity | null };
@@ -64,10 +68,13 @@ export default function LegalEntitiesPage(): JSX.Element {
   const { data: entities, error, isPending, isFetching, refetch } = useLegalEntities();
   const create = useCreateLegalEntity();
   const update = useUpdateLegalEntity();
+  const notify = useCado2Toast();
   const [drawer, setDrawer] = useState<DrawerState>({ open: false });
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | "active" | "inactive">("all");
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  // Switching an entity off asks first; on is instant (2026-10-13).
+  const [deactivating, setDeactivating] = useState<LegalEntity | null>(null);
 
   const openDrawer = (entity: LegalEntity | null) => {
     create.reset();
@@ -77,7 +84,12 @@ export default function LegalEntitiesPage(): JSX.Element {
 
   const onSave = (values: LegalEntityFormValues) => {
     if (!drawer.open) return;
-    const done = { onSuccess: () => setDrawer({ open: false }) };
+    const done = {
+      onSuccess: () => {
+        setDrawer({ open: false });
+        notify(`${values.name} saved`);
+      },
+    };
     if (drawer.entity) {
       // The code is fixed, so it is never sent on update.
       const { code: _code, ...changes } = values;
@@ -160,14 +172,21 @@ export default function LegalEntitiesPage(): JSX.Element {
             selectedId={selectedId}
             onSelect={setSelectedId}
             busy={update.isPending}
-            onToggle={(e, on) => update.mutate({ id: e.id, changes: { isActive: on } })}
+            onToggle={(e, on) => {
+              if (!on) {
+                update.reset();
+                setDeactivating(e);
+                return;
+              }
+              update.mutate({ id: e.id, changes: { isActive: true } }, { onSuccess: () => notify(`${e.name} activated`) });
+            }}
             onEdit={(e) => openDrawer(e)}
           />
         </>
       )}
 
       {/* A failed toggle has no drawer to show its error in. */}
-      {!drawer.open && update.error ? (
+      {!drawer.open && !deactivating && update.error ? (
         <ErrorNotice error={update.error} sx={{ mt: 2 }}>
           Couldn&apos;t change the entity.
         </ErrorNotice>
@@ -181,6 +200,31 @@ export default function LegalEntitiesPage(): JSX.Element {
         saving={saving}
         saveError={saveError}
       />
+
+      {deactivating ? (
+        <LifecycleDialog
+          title={`Deactivate ${deactivating.name}?`}
+          confirmLabel="Deactivate"
+          danger
+          pending={update.isPending}
+          error={update.error}
+          onClose={() => setDeactivating(null)}
+          onConfirm={() =>
+            update.mutate(
+              { id: deactivating.id, changes: { isActive: false } },
+              {
+                onSuccess: () => {
+                  notify(`${deactivating.name} deactivated`);
+                  setDeactivating(null);
+                },
+              },
+            )
+          }
+        >
+          It won&apos;t be offered on new quotes. A draft that uses it must choose another legal entity before it can be
+          submitted. Submitted quotes don&apos;t change. You can switch it on again.
+        </LifecycleDialog>
+      ) : null}
     </Stack>
   );
 }
@@ -226,9 +270,9 @@ function MasterDetail({
 }): JSX.Element {
   if (entities.length === 0) {
     return (
-      <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
-        No legal entities match.
-      </Typography>
+      <Paper variant="outlined" sx={{ borderRadius: 2 }}>
+        <EmptyState compact icon={<SearchIcon size={20} />} title="No legal entities match" body="Try another name, code or country, or show All." />
+      </Paper>
     );
   }
   const selected = entities.find((e) => e.id === selectedId) ?? entities[0];
@@ -340,47 +384,13 @@ function EntityDetail({
     ["Registration number", e.registrationNumber],
     ["Phone", e.phone],
   ];
-  const changed = new Date(e.updatedAt);
+  // The shared card (2026-10-13; was its own record header with a big avatar
+  // and a coloured top bar): the name as title, the switch and Edit beside it.
   return (
-    <Paper
-      component="article"
-      variant="outlined"
-      aria-label={e.name}
-      sx={{
-        p: { xs: 2.5, sm: 3 },
-        borderRadius: 2,
-        borderTop: 4,
-        borderTopColor: e.isActive ? "primary.main" : "divider",
-      }}
-    >
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between">
-        <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0 }}>
-          <Avatar
-            sx={{
-              width: 56,
-              height: 56,
-              fontSize: 20,
-              fontWeight: 700,
-              bgcolor: e.isActive ? "primary.main" : "action.disabledBackground",
-              color: e.isActive ? "primary.contrastText" : "text.secondary",
-            }}
-          >
-            {initialsOfName(e.name)}
-          </Avatar>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="h5" component="h2" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
-              {e.name}
-            </Typography>
-            <Stack direction="row" spacing={1} sx={{ mt: 0.75 }}>
-              <Chip size="small" variant="outlined" label={e.code} sx={{ fontFamily: "monospace" }} />
-              <Chip
-                size="small"
-                color={e.isActive ? "success" : "default"}
-                label={e.isActive ? "Active" : "Inactive"}
-              />
-            </Stack>
-          </Box>
-        </Stack>
+    <SectionCard
+      title={e.name}
+      icon={<LandmarkIcon size={18} />}
+      aside={
         <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
           <Switch
             checked={e.isActive}
@@ -398,6 +408,10 @@ function EntityDetail({
             Edit
           </Button>
         </Stack>
+      }
+    >
+      <Stack direction="row" spacing={1}>
+        <Chip size="small" variant="outlined" label={e.code} sx={{ fontFamily: "monospace" }} />
       </Stack>
 
       <Divider sx={{ my: 2.5 }} />
@@ -407,7 +421,7 @@ function EntityDetail({
           <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "text.secondary", mb: 1 }}>
             <MapPinIcon size={14} />
             <Typography variant="overline" sx={{ lineHeight: 1.4 }}>
-              Registered address
+              Registered Address
             </Typography>
           </Stack>
           {[e.addressLine1, e.addressLine2, cityLine, e.country].filter(Boolean).map((l) => (
@@ -439,12 +453,8 @@ function EntityDetail({
       </Box>
 
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 3 }}>
-        Last changed{" "}
-        {Number.isNaN(changed.getTime())
-          ? e.updatedAt
-          : changed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{" "}
-        by {e.updatedByEmail}
+        Last changed {changedText(e.updatedAt, e.updatedByEmail)}
       </Typography>
-    </Paper>
+    </SectionCard>
   );
 }
