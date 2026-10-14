@@ -59,9 +59,9 @@ export default function SabbaticalReportTab() {
 
   const [fromDate, setFromDate] = useState(startOfYearIso(new Date().getFullYear()));
   const [toDate, setToDate] = useState(todayIso());
-  // :45,:68-71 — anyone who may see everyone (People Ops or the sabbatical
-  // report role) starts there; a plain lead is always scoped to their own
-  // reports and never sees the toggle.
+  // Anyone who may see everyone (People Ops or the sabbatical report role)
+  // starts there; a plain lead is always scoped to their own reports and never
+  // sees the toggle.
   const [showAllEmployees, setShowAllEmployees] = useState(canSeeEveryone);
   const [employee, setEmployee] = useState<string | null>(null);
 
@@ -104,8 +104,8 @@ export default function SabbaticalReportTab() {
     setApplied({ from: fromDate, to: toDate, email: employee, showAllEmployees });
   };
 
-  // :72-79 — the scope switch and the employee picker reload on their own.
-  // Only their own field is applied; the dates still wait for Fetch.
+  // The scope switch and the employee picker reload on their own. Only their
+  // own field is applied; the dates still wait for Fetch.
   const flipScope = (next: boolean) => {
     setShowAllEmployees(next);
     setApplied((prev) => ({ ...prev, showAllEmployees: next }));
@@ -138,7 +138,7 @@ export default function SabbaticalReportTab() {
           </Button>
         </Box>
 
-        {/* Toolbar.tsx:114,214 — only for those who may see everyone. */}
+        {/* Only for those who may see everyone. */}
         {canSeeEveryone && (
           <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 2, mt: 1.5 }}>
             {canNarrowToTeam && (

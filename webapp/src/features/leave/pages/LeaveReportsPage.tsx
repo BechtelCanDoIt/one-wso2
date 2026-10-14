@@ -78,9 +78,8 @@ function ReportsBody() {
   const [fromDate, setFromDate] = useState(startOfYearIso(new Date().getFullYear()));
   const [toDate, setToDate] = useState(todayIso());
   const [employee, setEmployee] = useState<string | null>(null);
-  // Anyone who may see everyone starts org-wide, matching leave-app's
-  // LeadReportTab default for People Ops. A plain lead never sees the toggle —
-  // they're always scoped to their subordinates, same as before.
+  // Anyone who may see everyone starts org-wide. A plain lead never sees the
+  // toggle — they're always scoped to their subordinates.
   const [showAllEmployees, setShowAllEmployees] = useState(true);
   const [employeeStatuses, setEmployeeStatuses] = useState<EmployeeStatus[]>(DEFAULT_EMPLOYEE_STATUSES);
   const [applied, setApplied] = useState({
@@ -107,9 +106,9 @@ function ReportsBody() {
     setApplied({ from: fromDate, to: toDate, email: employee, showAllEmployees, employeeStatuses });
   };
 
-  // The scope switch and the employee picker reload on their own, as the
-  // running app does (LeadReportTab.tsx:70-77). Only their own field is
-  // applied: the dates and statuses still wait for Fetch and its checks.
+  // The scope switch and the employee picker reload on their own. Only their
+  // own field is applied: the dates and statuses still wait for Fetch and its
+  // checks.
   const flipScope = (next: boolean) => {
     setShowAllEmployees(next);
     setApplied((prev) => ({ ...prev, showAllEmployees: next }));
@@ -155,8 +154,8 @@ function ReportsBody() {
 
     if (canSeeEveryone) {
       if (applied.email) base.email = applied.email;
-      // Matches leave-app's "Subordinates only" toggle — org-wide by default,
-      // but a lead or People Ops can narrow to their own reports.
+      // "Subordinates only": org-wide by default, but a lead or People Ops can
+      // narrow to their own reports.
       if (!applied.showAllEmployees && workEmail) base.approverEmail = workEmail;
     } else if (workEmail) {
       // Lead: scope to their subordinates via approverEmail.

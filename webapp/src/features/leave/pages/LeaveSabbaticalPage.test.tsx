@@ -694,7 +694,7 @@ describe("the sabbatical report tab", () => {
     expect(await screen.findByText("End date must be after start date")).toBeInTheDocument();
   });
 
-  // AdminSabbaticalTab.tsx:72-79 — both controls reload on their own.
+  // The switch and the employee picker both reload on their own.
   it("reloads when Subordinates only is flipped, without pressing Fetch", async () => {
     state.isLead = true;
     state.isPeopleOps = true;

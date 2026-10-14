@@ -197,8 +197,8 @@ describe("a People Ops report", () => {
     expect(lastFilter().approverEmail).toBeUndefined();
   });
 
-  // LeadReportTab.tsx:70-77 — the switch and the employee picker reload on
-  // their own; only Fetch applies the dates.
+  // The switch and the employee picker reload on their own; only Fetch applies
+  // the dates.
   it("reloads when Subordinates only is flipped, without pressing Fetch", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
     show();
