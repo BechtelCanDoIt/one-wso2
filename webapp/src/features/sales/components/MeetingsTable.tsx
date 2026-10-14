@@ -28,7 +28,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { PaperclipIcon } from "@wso2/oxygen-ui-icons-react";
 import type { Meeting } from "../api/salesTypes";
-import { meetingCustomer, meetingTypeLabel } from "../api/salesTypes";
+import { isLeadMeeting, meetingCustomer, meetingTypeLabel } from "../api/salesTypes";
 import { formatDateTime } from "../util/salesTime";
 import MeetingCoverageCell from "../meddpicc/components/MeetingCoverageCell";
 import type { LetterKey, MeetingCoverage } from "../meddpicc/types";
@@ -140,6 +140,7 @@ export default function MeetingsTable({
               : meetings.map((meeting) => {
                   const isCancelled = meeting.meetingStatus === "CANCELLED";
                   const customer = meetingCustomer(meeting);
+                  const isLead = isLeadMeeting(meeting);
                   const typeLabel = meetingTypeLabel(meeting.meetingType);
                   const meetingCoverage = coverage?.get(meeting.meetingId);
                   // The backend's link first: an included call belongs to a deal the
@@ -199,14 +200,19 @@ export default function MeetingsTable({
                             a meeting scheduled through the old form was never
                             linked to Salesforce, so there is nothing missing to
                             point at. */}
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                          title={customer ?? undefined}
-                        >
-                          {customer ?? ""}
-                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, minWidth: 0 }}>
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                            title={customer ?? undefined}
+                          >
+                            {customer ?? ""}
+                          </Typography>
+                          {/* An Inbound call's name is a lead's company, not a
+                              customer's; the chip says so. */}
+                          {isLead && <Chip label="Lead" size="small" variant="outlined" sx={{ flexShrink: 0 }} />}
+                        </Box>
                       </ListingTable.Cell>
 
                       <ListingTable.Cell>
