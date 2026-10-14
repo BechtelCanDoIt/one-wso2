@@ -317,7 +317,7 @@ export function EngineeringMark({ size }: MarkProps) {
  * 40% coverage and L* 64.0 at 64px.
  */
 export function KnowledgeMark({ size }: MarkProps) {
-  const t = appMarkTones("knowledge-base")!;
+  const t = appMarkTones("knowledge")!;
   return (
     <Svg size={size}>
       <g transform="translate(24 24) scale(0.88) translate(-24 -24)">

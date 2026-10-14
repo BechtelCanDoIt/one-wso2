@@ -145,8 +145,8 @@ webapp/
 
 A **perspective** is a role- or purpose-shaped area of the app. They are registered in
 `src/constants/perspectives.ts` (`PERSPECTIVES`), and the launcher (the waffle, top right) lists
-them in that order: People Ops, Finance, Legal, CSM, Sales, Knowledge Base, Engineering, Infra
-Portal, Marketing Ops, Security and Compliance, and Me. Knowledge Base and Infra Portal are behind
+them in that order: People Ops, Finance, Legal, CSM, Sales, Knowledge, Engineering, Infra
+Portal, Marketing Ops, Security and Compliance, and Me. Knowledge and Infra Portal are behind
 preview flags. UMT is an app inside Engineering, behind its own `umt` flag. CSM is a separate app
 opened in a new tab.
 

@@ -479,11 +479,11 @@ const ME_SECTIONS: PerspectiveSection[] = [
   ...(isPreviewEnabled("promotion") ? appsToSections(ME_PROMOTION_APPS) : []),
 ];
 
-// Knowledge Base's one item so far. Its own perspective (not nested under Me)
+// Knowledge's one item so far. Its own perspective (not nested under Me)
 // since "a company-wide learnings feed" is a destination in its own right,
-// not a personal-portal item — see KNOWLEDGE_BASE in PERSPECTIVES below.
-const KNOWLEDGE_BASE_SECTIONS: PerspectiveSection[] = [
-  { id: "knowledge-base-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge/today-i-learned" },
+// not a personal-portal item — see `knowledge` in PERSPECTIVES below.
+const KNOWLEDGE_SECTIONS: PerspectiveSection[] = [
+  { id: "knowledge-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge/today-i-learned" },
 ];
 
 // UMT, an app inside the Engineering perspective (see `engineering` in
@@ -755,7 +755,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/sales",
     sections: SALES_SECTIONS,
   },
-  // Knowledge Base, so far just Today I Learned's feed. Held behind a preview
+  // Knowledge, so far just Today I Learned's feed. Held behind a preview
   // flag until til-backend has a real Choreo deployment and the Chat App side
   // is registered — see isPreviewEnabled("til")'s doc comment in
   // previewFeatures.ts. Its own perspective rather than nested under Me or
@@ -765,13 +765,13 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
   ...(isPreviewEnabled("til")
     ? [
         {
-          key: "knowledge-base",
+          key: "knowledge",
           label: "Knowledge",
           icon: BookOpenIcon,
           access: true,
           path: "/knowledge",
           forwardsToFirstItem: true,
-          sections: KNOWLEDGE_BASE_SECTIONS,
+          sections: KNOWLEDGE_SECTIONS,
         },
       ]
     : []),

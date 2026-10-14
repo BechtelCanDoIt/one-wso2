@@ -33,7 +33,7 @@ export const TIL_SERIF = "'Newsreader Variable', Georgia, 'Times New Roman', ser
 // here: its rules need at least 180x72px and monochrome use, which a
 // masthead this size can't give it, so TIL's own mark carries the brand.
 export default function TilArticleLayout({ shellHref, children }: { shellHref: string; children: ReactNode }) {
-  const hue = perspectiveHue("knowledge-base");
+  const hue = perspectiveHue("knowledge");
   return (
     <Box
       sx={(theme) => ({
