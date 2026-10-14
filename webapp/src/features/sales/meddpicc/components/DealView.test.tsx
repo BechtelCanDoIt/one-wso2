@@ -48,21 +48,22 @@ import { MemoryRouter } from "react-router";
 import DealView from "./DealView";
 import { useDeal } from "../api/useMeddpiccData";
 import { mockMeddpiccClient, resetMockStore } from "../mock/mockStore";
+import type { DealTab } from "../../util/salesPaths";
 
 /** What DealPage does once the deal has loaded, without the page's shell around it. */
-function LoadedDeal({ opportunityId }: { opportunityId: string }) {
+function LoadedDeal({ opportunityId, tab }: { opportunityId: string; tab?: DealTab }) {
   const query = useDeal(opportunityId);
   if (!query.data) return <p>Loading MEDDPICC…</p>;
   // The page's title names the deal; the view itself does not.
   return (
     <>
       <h1>{query.data.deal.name}</h1>
-      <DealView detail={query.data} />
+      <DealView detail={query.data} tab={tab} />
     </>
   );
 }
 
-function renderPanel(opportunityId: string) {
+function renderPanel(opportunityId: string, tab?: DealTab) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
   });
@@ -71,7 +72,7 @@ function renderPanel(opportunityId: string) {
       <QueryClientProvider client={client}>{children}</QueryClientProvider>
     </MemoryRouter>
   );
-  return render(<LoadedDeal opportunityId={opportunityId} />, { wrapper });
+  return render(<LoadedDeal opportunityId={opportunityId} tab={tab} />, { wrapper });
 }
 
 const approveButton = () => screen.getByRole("button", { name: /^Approve all/ });
@@ -202,7 +203,8 @@ describe("DealView", { timeout: 20000 }, () => {
     renderPanel("006MOCK0000ASTE");
     await screen.findByRole("heading", { name: "Asterra Health – FHIR gateway" });
     expect(screen.getByText(/You can view this deal/)).toBeInTheDocument();
-    expect(approveButton()).toBeDisabled();
+    // The notice says why; there is no disabled Approve all to puzzle over.
+    expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
   });
 
@@ -243,13 +245,21 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toHaveTextContent("Nothing is missing in Qualify.");
   });
 
-  it("shows the deal's journey beside the fields", async () => {
-    renderPanel("006MOCK0000MERI");
+  it("keeps the journey on its own tab, away from the fields", async () => {
+    const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
-    const aside = screen.getByRole("complementary", { name: "About this deal" });
-    expect(within(aside).getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "MEDDPICC" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("list", { name: /^Deal journey/ })).not.toBeInTheDocument();
+    unmount();
+
+    renderPanel("006MOCK0000MERI", "journey");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    expect(screen.getByRole("tab", { name: /^Journey/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    // The fields and their approval bar stay on the MEDDPICC tab.
+    expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
     // Each activity entry says what it was; without the backend's kind, a call is a customer call.
-    const activity = within(aside).getByRole("region", { name: "Activity" });
+    const activity = screen.getByRole("region", { name: "Activity" });
     expect(within(activity).getAllByText(/^Customer call · /).length).toBeGreaterThan(0);
   });
 });

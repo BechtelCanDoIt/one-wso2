@@ -53,6 +53,7 @@ vi.mock("../api/useSalesData", () => ({
 }));
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes } from "react-router";
 import DealPage from "./DealPage";
@@ -78,8 +79,18 @@ describe("DealPage", { timeout: 20000 }, () => {
     renderAt(dealPath("006MOCK0000MERI"));
     expect(await screen.findByRole("heading", { name: "Meridian Bank – integration platform" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Deals" })).toHaveAttribute("href", "/sales/deals");
-    expect(screen.getByRole("complementary", { name: "About this deal" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "MEDDPICC" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Approve all/ })).toBeInTheDocument();
+  });
+
+  it("opens on the Journey tab from ?tab=journey, and switches tabs in place", async () => {
+    renderAt(dealPath("006MOCK0000MERI", null, "journey"));
+    expect(await screen.findByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("tab", { name: "MEDDPICC" }));
+    expect(await screen.findByRole("button", { name: /^Approve all/ })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: /^Deal journey/ })).not.toBeInTheDocument();
   });
 
   it("opens filtered to a Letter from ?letter=, and ignores one that isn't a Letter", async () => {
@@ -97,5 +108,8 @@ describe("DealPage", { timeout: 20000 }, () => {
     expect(dealPath("006A")).toBe("/sales/deals/006A");
     expect(dealPath("006A", "DC")).toBe("/sales/deals/006A?letter=DC");
     expect(dealPath("a/b")).toBe("/sales/deals/a%2Fb");
+    expect(dealPath("006A", null, "journey")).toBe("/sales/deals/006A?tab=journey");
+    // A Letter only filters the MEDDPICC tab, so it is not carried to the Journey tab.
+    expect(dealPath("006A", "DC", "journey")).toBe("/sales/deals/006A?tab=journey");
   });
 });

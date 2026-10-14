@@ -24,6 +24,7 @@ import DealView from "../meddpicc/components/DealView";
 import { isEchoBackendConfigured, useDeal } from "../meddpicc/api/useMeddpiccData";
 import type { LetterKey } from "../meddpicc/types";
 import { LETTER_KEYS } from "../meddpicc/util/meddpiccFormat";
+import { DEAL_TABS, type DealTab } from "../util/salesPaths";
 
 /**
  * One deal: its MEDDPICC, the AI's proposals with their evidence, and the approval that
@@ -35,9 +36,21 @@ import { LETTER_KEYS } from "../meddpicc/util/meddpiccFormat";
  */
 export default function DealPage() {
   const { opportunityId = "" } = useParams();
-  const [params] = useSearchParams();
+  // The tab and the Letter live in the URL (?tab=&letter=), as on the meeting page, so a
+  // refresh or a pasted link lands on the same pane. Replaced rather than pushed when the
+  // tab changes here, so Back still leaves the deal instead of stepping through its tabs.
+  const [params, setParams] = useSearchParams();
   const raw = params.get("letter");
   const letter = raw && (LETTER_KEYS as readonly string[]).includes(raw) ? (raw as LetterKey) : null;
+  const rawTab = params.get("tab");
+  const tab: DealTab = (DEAL_TABS as readonly string[]).includes(rawTab ?? "") ? (rawTab as DealTab) : "meddpicc";
+  // Only the tab changes: the Letter stays, so the view (keyed by it) keeps its draft.
+  const showTab = (next: DealTab) => {
+    const nextParams = new URLSearchParams(params);
+    if (next === "meddpicc") nextParams.delete("tab");
+    else nextParams.set("tab", next);
+    setParams(nextParams, { replace: true });
+  };
 
   const meetAppConfigured = isSalesBackendConfigured();
   const echoConfigured = isEchoBackendConfigured();
@@ -77,7 +90,14 @@ export default function DealPage() {
       ) : (
         // Keyed by deal and Letter, so moving to another deal starts from a clean draft
         // rather than carrying one deal's unsaved edits into the next.
-        <DealView key={`${opportunityId}:${letter ?? ""}`} detail={query.data} initialLetter={letter} />
+        // The tab is not in the key: switching tabs keeps the draft.
+        <DealView
+          key={`${opportunityId}:${letter ?? ""}`}
+          detail={query.data}
+          initialLetter={letter}
+          tab={tab}
+          onTabChange={showTab}
+        />
       )}
     </SalesShell>
   );

@@ -27,6 +27,8 @@ import {
   CircularProgress,
   Link,
   Stack,
+  Tab,
+  Tabs,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
@@ -61,7 +63,7 @@ import { useNow } from "../../util/useNow";
 import DealJourney, { KindMark } from "./DealJourney";
 import { KINDS } from "../util/timelineKinds";
 import StagePath from "./StagePath";
-import { meetingPath } from "../../util/salesPaths";
+import { meetingPath, type DealTab } from "../../util/salesPaths";
 import {
   EMPTY_DRAFT,
   buildApproveRequest,
@@ -82,18 +84,23 @@ import StageChip from "./StageChip";
  * and a page has an address to send, room for the fields beside the deal's timeline,
  * and survives a refresh. The page owns loading and errors; this renders a loaded deal.
  *
- * Two columns once there is room: the stage's fields, where the work happens, on the
- * left; what to ask next, the activity and products discussed on the right. The
- * approval bar stays in view at the bottom while the fields scroll.
+ * Two tabs under the header, as a meeting has Summary, MEDDPICC and Transcript:
+ * MEDDPICC, the stage's fields where the work happens, with the approval bar kept in view
+ * at the bottom while they scroll; and Journey, the deal's track from start to close, its
+ * activity and the products discussed. The page keeps the tab in the URL.
  */
 
 export default function DealView({
   detail,
   initialLetter = null,
+  tab = "meddpicc",
+  onTabChange,
 }: {
   detail: DealDetail;
   /** Open already filtered to one Letter: a circle was clicked to get here. */
   initialLetter?: LetterKey | null;
+  tab?: DealTab;
+  onTabChange?: (tab: DealTab) => void;
 }) {
   const { deal, fields, canEdit } = detail;
   const { showSuccess } = useNotifications();
@@ -209,6 +216,19 @@ export default function DealView({
         ? "Nothing is waiting for approval."
         : null;
 
+  // Whether the action card is needed: something to approve (or a role still to match),
+  // a stage to move to, or a result or failure from the last attempt to show.
+  const canMoveStage = Boolean(detail.gateComplete && detail.nextStage && canEdit);
+  const showActions =
+    (!readOnly && (somethingToApprove || unmatched.length > 0)) ||
+    canMoveStage ||
+    Boolean(approveError || approveResult?.error || approveResult?.skipped.length || moveFailure);
+  const lastApproved = detail.lastApproval && (
+    <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+      Last approved by {detail.lastApproval.by}, {formatDateTime(detail.lastApproval.at)}
+    </Typography>
+  );
+
   const renderField = (field: DealField, variant: "full" | "compact" = "full") => (
     <DealFieldRow
       key={field.key}
@@ -255,7 +275,7 @@ export default function DealView({
   return (
     <>
       {/* ---- Header: the page title names the deal ------------------------- */}
-      <Box sx={{ pb: 2, mb: 2.5, borderBottom: 1, borderColor: "divider" }}>
+      <Box sx={{ pb: 1 }}>
         <Typography variant="body2" color="text.secondary">
           {deal.accountName}
           {" · "}
@@ -271,7 +291,11 @@ export default function DealView({
             values={deal.dealState}
             size="medium"
             selected={letter}
-            onLetterClick={(key) => setLetter((current) => (current === key ? null : key))}
+            onLetterClick={(key) => {
+              // A Letter filters the fields, so picking one shows them.
+              setLetter((current) => (current === key ? null : key));
+              onTabChange?.("meddpicc");
+            }}
             label={`MEDDPICC for ${deal.name}. Pick a letter to show its fields.`}
           />
           <Button
@@ -317,122 +341,253 @@ export default function DealView({
         )}
       </Box>
 
-      {/* ---- Body: fields on the left, the deal's context on the right ---- */}
-      <Box
+      <Tabs
+        value={tab}
+        onChange={(_, next: DealTab) => onTabChange?.(next)}
+        aria-label="Deal views"
         sx={{
-          display: "grid",
-          gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 1fr) minmax(280px, 360px)" },
-          gap: 3,
-          alignItems: "start",
+          mb: 2.5,
+          minHeight: 36,
+          borderBottom: 1,
+          borderColor: "divider",
+          "& .MuiTab-root": { minHeight: 36, textTransform: "none" },
         }}
       >
-        <Stack spacing={1.5} sx={{ minWidth: 0 }}>
-          {readOnly && (
-            <Alert severity="info">
-              You can view this deal. Only its Opportunity owner can approve, include calls or
-              move its stage.
-            </Alert>
-          )}
+        <Tab value="meddpicc" label="MEDDPICC" />
+        <Tab value="journey" label={activity.length > 0 ? `Journey (${activity.length})` : "Journey"} />
+      </Tabs>
 
-          {detail.unassignedCalls.length > 0 && (
-            <Alert
-              severity="info"
-              action={
-                !readOnly && detail.unassignedCalls.length > 1 ? (
-                  <Button
-                    size="small"
-                    color="inherit"
-                    disabled={includeCalls.isPending}
-                    onClick={() => void include(detail.unassignedCalls.map((c) => c.meetingId))}
-                  >
-                    Include all
-                  </Button>
-                ) : undefined
-              }
+      {tab === "meddpicc" ? (
+        <>
+          <Stack spacing={1.5} sx={{ minWidth: 0 }}>
+            {readOnly && (
+              <Alert severity="info">
+                You can view this deal. Only its Opportunity owner can approve, include calls or
+                move its stage.
+              </Alert>
+            )}
+
+            {detail.unassignedCalls.length > 0 && (
+              <Alert
+                severity="info"
+                action={
+                  !readOnly && detail.unassignedCalls.length > 1 ? (
+                    <Button
+                      size="small"
+                      color="inherit"
+                      disabled={includeCalls.isPending}
+                      onClick={() => void include(detail.unassignedCalls.map((c) => c.meetingId))}
+                    >
+                      Include all
+                    </Button>
+                  ) : undefined
+                }
+              >
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  {detail.unassignedCalls.length === 1
+                    ? `An earlier call with ${deal.accountName} isn't linked to this deal.`
+                    : `${detail.unassignedCalls.length} earlier calls with ${deal.accountName} aren't linked to this deal.`}
+                </Typography>
+                <Stack component="ul" spacing={0.5} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
+                  {detail.unassignedCalls.map((call) => (
+                    <Stack
+                      component="li"
+                      key={call.meetingId}
+                      direction="row"
+                      spacing={1}
+                      sx={{ alignItems: "center", flexWrap: "wrap" }}
+                    >
+                      <Typography variant="body2">
+                        {call.title} · {formatDateTime(call.start)}
+                        {call.letters.length > 0 && ` · covers ${call.letters.map(letterLabel).join(", ")}`}
+                      </Typography>
+                      {!readOnly && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="inherit"
+                          disabled={includeCalls.isPending}
+                          onClick={() => void include([call.meetingId])}
+                          aria-label={`Include ${call.title}`}
+                        >
+                          Include
+                        </Button>
+                      )}
+                    </Stack>
+                  ))}
+                </Stack>
+              </Alert>
+            )}
+            {includeError && <Alert severity="error">{includeError}</Alert>}
+
+            <StagePath stages={summaries} current={detail.currentStage} selected={letter ? null : gate} onSelect={pickGate} />
+
+          {/* ---- Actions ---------------------------------------------------------
+              Under the stage path, where Salesforce puts its own stage button: what
+              Approve all will do, with the two actions on the right. In the page's flow,
+              never floating over the fields. With nothing to approve and no stage to move,
+              a quiet line says so instead of a bar of disabled buttons. */}
+          {showActions ? (
+            <Box
+              sx={{
+                px: 2,
+                py: 1.25,
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 2,
+                bgcolor: "background.paper",
+              }}
             >
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                {detail.unassignedCalls.length === 1
-                  ? `An earlier call with ${deal.accountName} isn't linked to this deal.`
-                  : `${detail.unassignedCalls.length} earlier calls with ${deal.accountName} aren't linked to this deal.`}
-              </Typography>
-              <Stack component="ul" spacing={0.5} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
-                {detail.unassignedCalls.map((call) => (
-                  <Stack
-                    component="li"
-                    key={call.meetingId}
-                    direction="row"
-                    spacing={1}
-                    sx={{ alignItems: "center", flexWrap: "wrap" }}
-                  >
-                    <Typography variant="body2">
-                      {call.title} · {formatDateTime(call.start)}
-                      {call.letters.length > 0 && ` · covers ${call.letters.map(letterLabel).join(", ")}`}
-                    </Typography>
-                    {!readOnly && (
+              <Stack spacing={1.25}>
+                {approveError && <Alert severity="error">{approveError}</Alert>}
+                {approveResult?.error && (
+                  <Alert severity="error">
+                    Salesforce refused the update: {approveResult.error.message}
+                    {approveResult.error.fields && approveResult.error.fields.length > 0 && (
+                      <> ({approveResult.error.fields.map(labelOf).join(", ")})</>
+                    )}
+                  </Alert>
+                )}
+                {approveResult && !approveResult.error && approveResult.skipped.length > 0 && (
+                  <Typography variant="caption" color="text.secondary">
+                    Not written: {approveResult.skipped.map((s) => `${labelOf(s.fieldKey)} (${s.reason})`).join(", ")}.
+                  </Typography>
+                )}
+
+                {moveFailure?.kind === "incomplete" && (
+                  <Alert severity="warning">
+                    {moveFailure.message}
+                    {moveFailure.incomplete.length > 0 && <> Still needed: {moveFailure.incomplete.map(labelOf).join(", ")}.</>}
+                  </Alert>
+                )}
+                {moveFailure?.kind === "refused" && (
+                  <Alert
+                    severity="error"
+                    action={
                       <Button
                         size="small"
-                        variant="outlined"
                         color="inherit"
-                        disabled={includeCalls.isPending}
-                        onClick={() => void include([call.meetingId])}
-                        aria-label={`Include ${call.title}`}
+                        href={moveFailure.salesforceUrl ?? detail.salesforceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        endIcon={<ExternalLinkIcon size={14} />}
                       >
-                        Include
+                        Open in Salesforce
                       </Button>
+                    }
+                  >
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      Salesforce didn&apos;t change the stage.
+                    </Typography>
+                    <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                      {moveFailure.message}
+                    </Typography>
+                  </Alert>
+                )}
+                {moveFailure?.kind === "other" && <Alert severity="error">{moveFailure.message}</Alert>}
+
+                <Stack direction="row" spacing={2} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
+                  <Box sx={{ minWidth: 0, flex: "1 1 240px" }}>
+                    {approveHint && !readOnly ? (
+                      <Typography variant="body2" color="text.secondary" role="status">
+                        {approveHint}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2">
+                        {somethingToApprove
+                          ? "Approve all writes your reviewed answers to Salesforce."
+                          : `This stage is complete. Move the deal on when you're ready.`}
+                      </Typography>
                     )}
-                  </Stack>
-                ))}
+                    {lastApproved}
+                  </Box>
+
+                  {canMoveStage && (
+                    <Button
+                      variant="outlined"
+                      disabled={moveStage.isPending}
+                      onClick={() => void moveToNext()}
+                      endIcon={moveStage.isPending ? <CircularProgress size={14} /> : <ArrowRightIcon size={14} />}
+                    >
+                      Move to {detail.nextStage}
+                    </Button>
+                  )}
+
+                  {!readOnly && (
+                    <Tooltip title={approveHint ?? ""} arrow>
+                      {/* The span keeps the tooltip working on a disabled button. */}
+                      <Box component="span" sx={{ display: "inline-flex" }}>
+                        <Button
+                          variant="contained"
+                          disabled={approveHint !== null || approve.isPending}
+                          onClick={() => void approveAll()}
+                          startIcon={approve.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
+                        >
+                          Approve all{deal.pendingCount > 0 ? ` (${deal.pendingCount})` : ""}
+                        </Button>
+                      </Box>
+                    </Tooltip>
+                  )}
+                </Stack>
               </Stack>
-            </Alert>
-          )}
-          {includeError && <Alert severity="error">{includeError}</Alert>}
-
-          <StagePath stages={summaries} current={detail.currentStage} selected={letter ? null : gate} onSelect={pickGate} />
-
-          {letter && (
-            <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-              <Typography variant="body2" color="text.secondary">
-                Showing {letterLabel(letter)} across every stage
+            </Box>
+          ) : (
+            <Box>
+              <Typography variant="caption" color="text.secondary">
+                {readOnly ? "" : "Nothing is waiting for approval."}
+                {!readOnly && detail.lastApproval ? " · " : ""}
+                {detail.lastApproval &&
+                  `Last approved by ${detail.lastApproval.by}, ${formatDateTime(detail.lastApproval.at)}`}
               </Typography>
-              <Chip label="Back to stages" size="small" onClick={() => setLetter(null)} onDelete={() => setLetter(null)} />
-            </Stack>
+            </Box>
           )}
 
-          <FieldSection
-            title="Needs your review"
-            tone="warning"
-            count={sections.review.length}
-            description="Heard on calls and proposed by the AI. Approve all writes them to Salesforce; edit one first if it isn't right."
-            empty={`Nothing is waiting for review in ${scopeName}.`}
-          >
-            {sections.review.map((field) => renderField(field))}
-          </FieldSection>
+            {letter && (
+              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                <Typography variant="body2" color="text.secondary">
+                  Showing {letterLabel(letter)} across every stage
+                </Typography>
+                <Chip label="Back to stages" size="small" onClick={() => setLetter(null)} onDelete={() => setLetter(null)} />
+              </Stack>
+            )}
 
-          <FieldSection
-            title="Missing"
-            tone="info"
-            count={sections.missing.length}
-            description="This stage needs these, and nothing has been heard for them yet."
-            empty={
-              letter
-                ? `Nothing is missing for ${scopeName}.`
-                : deal.isClosed
-                  ? "This deal is closed."
-                  : `Nothing is missing in ${scopeName}.`
-            }
-          >
-            {sections.missing.map((field) => renderField(field))}
-          </FieldSection>
+            <FieldSection
+              title="Needs your review"
+              tone="warning"
+              count={sections.review.length}
+              description="Heard on calls and proposed by the AI. Approve all writes them to Salesforce; edit one first if it isn't right."
+              empty={`Nothing is waiting for review in ${scopeName}.`}
+            >
+              {sections.review.map((field) => renderField(field))}
+            </FieldSection>
 
-          <SalesforceSection
-            done={sections.done}
-            optional={sections.optional}
-            notNeeded={sections.notNeeded}
-            render={(field) => renderField(field, "compact")}
-          />
-        </Stack>
+            <FieldSection
+              title="Missing"
+              tone="info"
+              count={sections.missing.length}
+              description="This stage needs these, and nothing has been heard for them yet."
+              empty={
+                letter
+                  ? `Nothing is missing for ${scopeName}.`
+                  : deal.isClosed
+                    ? "This deal is closed."
+                    : `Nothing is missing in ${scopeName}.`
+              }
+            >
+              {sections.missing.map((field) => renderField(field))}
+            </FieldSection>
 
-        <Stack component="aside" spacing={2.5} sx={{ minWidth: 0 }} aria-label="About this deal">
+            <SalesforceSection
+              done={sections.done}
+              optional={sections.optional}
+              notNeeded={sections.notNeeded}
+              render={(field) => renderField(field, "compact")}
+            />
+          </Stack>
+
+        </>
+      ) : (
+        <Stack spacing={3} sx={{ minWidth: 0, maxWidth: 960 }}>
           {/* The deal's journey, as on the Deals list, for this deal alone. */}
           <Box component="section" aria-label="Journey">
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
@@ -481,110 +636,7 @@ export default function DealView({
             </Box>
           )}
         </Stack>
-      </Box>
-
-      {/* ---- Footer: the two actions, kept in view while the fields scroll ---- */}
-      <Box
-        sx={{
-          position: "sticky",
-          bottom: 0,
-          zIndex: 2,
-          mt: 3,
-          py: 1.5,
-          borderTop: 1,
-          borderColor: "divider",
-          bgcolor: "background.default",
-        }}
-      >
-        <Stack spacing={1}>
-          {approveError && <Alert severity="error">{approveError}</Alert>}
-          {approveResult?.error && (
-            <Alert severity="error">
-              Salesforce refused the update: {approveResult.error.message}
-              {approveResult.error.fields && approveResult.error.fields.length > 0 && (
-                <> ({approveResult.error.fields.map(labelOf).join(", ")})</>
-              )}
-            </Alert>
-          )}
-          {approveResult && !approveResult.error && approveResult.skipped.length > 0 && (
-            <Typography variant="caption" color="text.secondary">
-              Not written: {approveResult.skipped.map((s) => `${labelOf(s.fieldKey)} (${s.reason})`).join(", ")}.
-            </Typography>
-          )}
-
-          {moveFailure?.kind === "incomplete" && (
-            <Alert severity="warning">
-              {moveFailure.message}
-              {moveFailure.incomplete.length > 0 && <> Still needed: {moveFailure.incomplete.map(labelOf).join(", ")}.</>}
-            </Alert>
-          )}
-          {moveFailure?.kind === "refused" && (
-            <Alert
-              severity="error"
-              action={
-                <Button
-                  size="small"
-                  color="inherit"
-                  href={moveFailure.salesforceUrl ?? detail.salesforceUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  endIcon={<ExternalLinkIcon size={14} />}
-                >
-                  Open in Salesforce
-                </Button>
-              }
-            >
-              <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                Salesforce didn&apos;t change the stage.
-              </Typography>
-              <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-                {moveFailure.message}
-              </Typography>
-            </Alert>
-          )}
-          {moveFailure?.kind === "other" && <Alert severity="error">{moveFailure.message}</Alert>}
-
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
-            <Tooltip title={approveHint ?? ""} arrow>
-              {/* The span keeps the tooltip working on a disabled button. */}
-              <Box component="span" sx={{ display: "inline-flex" }}>
-                <Button
-                  variant="contained"
-                  disabled={approveHint !== null || approve.isPending}
-                  onClick={() => void approveAll()}
-                  startIcon={approve.isPending ? <CircularProgress size={14} color="inherit" /> : undefined}
-                >
-                  Approve all{deal.pendingCount > 0 ? ` (${deal.pendingCount})` : ""}
-                </Button>
-              </Box>
-            </Tooltip>
-
-            {detail.gateComplete && detail.nextStage && canEdit && (
-              <Button
-                variant="outlined"
-                disabled={moveStage.isPending}
-                onClick={() => void moveToNext()}
-                endIcon={moveStage.isPending ? <CircularProgress size={14} /> : <ArrowRightIcon size={14} />}
-              >
-                Move to {detail.nextStage}
-              </Button>
-            )}
-
-            {detail.lastApproval && (
-              <Typography variant="caption" color="text.secondary" sx={{ ml: "auto" }}>
-                Last approved by {detail.lastApproval.by}, {formatDateTime(detail.lastApproval.at)}
-              </Typography>
-            )}
-          </Stack>
-
-          {approveHint && !readOnly && (
-            <Typography variant="caption" color="text.secondary" role="status">
-              {approveHint}
-            </Typography>
-          )}
-        </Stack>
-      </Box>
-
+      )}
     </>
   );
 }

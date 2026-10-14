@@ -35,8 +35,19 @@ export function meetingPath(
   return `/sales/meetings/${meetingId}${query ? `?${query}` : ""}`;
 }
 
-/** Where a deal lives. `letter` opens it filtered to one Letter, as a clicked circle does. */
-export function dealPath(opportunityId: string, letter?: LetterKey | null): string {
-  const base = `/sales/deals/${encodeURIComponent(opportunityId)}`;
-  return letter ? `${base}?letter=${letter}` : base;
+/** The deal page's tabs. */
+export type DealTab = "meddpicc" | "journey";
+export const DEAL_TABS: readonly DealTab[] = ["meddpicc", "journey"];
+
+/**
+ * Where a deal lives. `letter` opens it filtered to one Letter, as a clicked circle does;
+ * `tab` opens it on one of its tabs (MEDDPICC when left out). A Letter only filters the
+ * MEDDPICC tab, so it is dropped on the Journey tab.
+ */
+export function dealPath(opportunityId: string, letter?: LetterKey | null, tab: DealTab = "meddpicc"): string {
+  const params = new URLSearchParams();
+  if (tab !== "meddpicc") params.set("tab", tab);
+  else if (letter) params.set("letter", letter);
+  const query = params.toString();
+  return `/sales/deals/${encodeURIComponent(opportunityId)}${query ? `?${query}` : ""}`;
 }
