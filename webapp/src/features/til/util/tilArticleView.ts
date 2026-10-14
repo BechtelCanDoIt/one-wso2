@@ -26,9 +26,13 @@ export function isTilArticleSearch(search: string | URLSearchParams): boolean {
   return params.get(TIL_VIEW_PARAM) === TIL_ARTICLE_VIEW;
 }
 
+/** The feed: Today I Learned, an app in the Knowledge perspective. The
+ * backend builds the article link under the same path. */
+export const TIL_FEED_PATH = "/knowledge/today-i-learned";
+
 /** The entry inside One WSO2. */
 export function tilEntryPath(id: string): string {
-  return `/knowledge-base/${id}`;
+  return `${TIL_FEED_PATH}/${id}`;
 }
 
 /** The same entry as a full-page article. */

@@ -26,7 +26,7 @@ import {
   useTilUserInfo,
 } from "../api/useTilData";
 import { useDeleteTilSubmission, useNotifyTilSubmission } from "../api/useTilMutations";
-import { tilArticlePath } from "../util/tilArticleView";
+import { TIL_FEED_PATH, tilArticlePath } from "../util/tilArticleView";
 import { describeError, isNotFound } from "../util/tilError";
 import SubmitEntryDialog from "../components/SubmitEntryDialog";
 import TilShell from "../components/TilShell";
@@ -64,7 +64,7 @@ export default function TilEntryPage() {
     deleteSubmission.mutate(id, {
       onSuccess: () => {
         showSuccess("Entry deleted");
-        navigate("/knowledge-base");
+        navigate(TIL_FEED_PATH);
       },
       onError: (err) => showError(describeError(err)),
     });
@@ -103,7 +103,7 @@ export default function TilEntryPage() {
   return (
     <TilShell title="Today I Learned" configured={configured} configKey="ONE_WSO2_TIL_BACKEND_URL">
       <Box sx={{ mt: 1.5, mb: 2 }}>
-        <Button size="small" startIcon={<ArrowLeftIcon size={16} />} component={RouterLink} to="/knowledge-base">
+        <Button size="small" startIcon={<ArrowLeftIcon size={16} />} component={RouterLink} to={TIL_FEED_PATH}>
           Back
         </Button>
       </Box>

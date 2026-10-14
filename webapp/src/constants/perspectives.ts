@@ -483,7 +483,7 @@ const ME_SECTIONS: PerspectiveSection[] = [
 // since "a company-wide learnings feed" is a destination in its own right,
 // not a personal-portal item — see KNOWLEDGE_BASE in PERSPECTIVES below.
 const KNOWLEDGE_BASE_SECTIONS: PerspectiveSection[] = [
-  { id: "knowledge-base-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge-base" },
+  { id: "knowledge-base-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge/today-i-learned" },
 ];
 
 // UMT, an app inside the Engineering perspective (see `engineering` in
@@ -769,7 +769,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
           label: "Knowledge",
           icon: BookOpenIcon,
           access: true,
-          path: "/knowledge-base",
+          path: "/knowledge",
           forwardsToFirstItem: true,
           sections: KNOWLEDGE_BASE_SECTIONS,
         },

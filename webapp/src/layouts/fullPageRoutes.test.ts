@@ -33,21 +33,21 @@ describe("isFullPageLocation", () => {
   });
 
   it("drops the shell for an entry read as an article", () => {
-    expect(isFullPageLocation({ pathname: "/knowledge-base/abc", search: "?view=article" })).toBe(true);
+    expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned/abc", search: "?view=article" })).toBe(true);
   });
 
   it("keeps it for the same entry read inside One WSO2", () => {
-    expect(isFullPageLocation({ pathname: "/knowledge-base/abc", search: "" })).toBe(false);
-    expect(isFullPageLocation({ pathname: "/knowledge-base/abc", search: "?view=other" })).toBe(false);
+    expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned/abc", search: "" })).toBe(false);
+    expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned/abc", search: "?view=other" })).toBe(false);
   });
 
   it("keeps it everywhere else, even with the same parameter", () => {
-    expect(isFullPageLocation({ pathname: "/knowledge-base", search: "?view=article" })).toBe(false);
+    expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned", search: "?view=article" })).toBe(false);
     expect(isFullPageLocation({ pathname: "/me", search: "?view=article" })).toBe(false);
   });
 
   it("keeps it while TIL's preview flag is off", () => {
     setTilFlag(false);
-    expect(isFullPageLocation({ pathname: "/knowledge-base/abc", search: "?view=article" })).toBe(false);
+    expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned/abc", search: "?view=article" })).toBe(false);
   });
 });

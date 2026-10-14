@@ -16,7 +16,7 @@
 
 import { matchPath } from "react-router";
 import { isPreviewEnabled } from "@config/previewFeatures";
-import { isTilArticleSearch } from "@features/til/util/tilArticleView";
+import { isTilArticleSearch, TIL_FEED_PATH } from "@features/til/util/tilArticleView";
 
 /**
  * Locations AppLayout renders without its shell (top bar, rail, footer,
@@ -25,13 +25,13 @@ import { isTilArticleSearch } from "@features/til/util/tilArticleView";
  * and the session-expired prompt.
  *
  * Today that is only a Today I Learned entry read as an article
- * (`/knowledge-base/<id>?view=article`), and only while TIL's preview flag
+ * (`/knowledge/today-i-learned/<id>?view=article`), and only while TIL's preview flag
  * is on, the same gate its routes sit behind.
  */
 export function isFullPageLocation(location: { pathname: string; search: string }): boolean {
   return (
     isPreviewEnabled("til") &&
-    matchPath("/knowledge-base/:id", location.pathname) !== null &&
+    matchPath(`${TIL_FEED_PATH}/:id`, location.pathname) !== null &&
     isTilArticleSearch(location.search)
   );
 }

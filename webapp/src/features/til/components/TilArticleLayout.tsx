@@ -19,12 +19,11 @@ import type { ReactNode } from "react";
 import { Box, Link, Typography } from "@wso2/oxygen-ui";
 import { Link as RouterLink } from "react-router";
 import { perspectiveHue } from "@config/perspectiveHues";
+import { TIL_FEED_PATH } from "../util/tilArticleView";
 import TilMark from "./TilMark";
 
 /** The article view's reading face, self-hosted (the CSP admits no font CDN). */
 export const TIL_SERIF = "'Newsreader Variable', Georgia, 'Times New Roman', serif";
-
-const FEED_PATH = "/knowledge-base";
 
 // The frame of an entry read as an article (?view=article): TIL's own
 // masthead and footer in place of the One WSO2 shell. It also sets the
@@ -65,7 +64,7 @@ export default function TilArticleLayout({ shellHref, children }: { shellHref: s
       >
         <Box
           component={RouterLink}
-          to={FEED_PATH}
+          to={TIL_FEED_PATH}
           sx={{ display: "flex", alignItems: "center", gap: 1.25, color: "inherit", textDecoration: "none", minWidth: 0 }}
         >
           <TilMark size={40} />
@@ -106,7 +105,7 @@ export default function TilArticleLayout({ shellHref, children }: { shellHref: s
         }}
       >
         <span>Shared inside WSO2 · sign-in required</span>
-        <Link component={RouterLink} to={FEED_PATH} sx={{ color: "var(--til-accent)", textUnderlineOffset: "3px" }}>
+        <Link component={RouterLink} to={TIL_FEED_PATH} sx={{ color: "var(--til-accent)", textUnderlineOffset: "3px" }}>
           Back to the feed in One WSO2
         </Link>
       </Box>
