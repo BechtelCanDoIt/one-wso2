@@ -15,18 +15,18 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Chip } from "@wso2/oxygen-ui";
 import type { SlaState } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { slaLabel } from "@features/sales/cado2/approvals/sla";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 
 /** A pending step's deadline: "Overdue by 6 h", "Due in 3 h", "Due Wed 10:00". */
 export default function SlaChip({ state, dueAt, now = new Date() }: { state: SlaState; dueAt: string; now?: Date }): JSX.Element {
   const s = slaLabel(state, dueAt, now);
   return (
-    <Chip
-      size="small"
+    // Filled only when overdue: the one thing that must shout (2026-10-14).
+    <StatusChip
       color={s.color}
-      variant={s.color === "default" ? "outlined" : "filled"}
+      urgent={s.color === "error"}
       label={s.label}
       title={s.title}
       aria-label={`${s.label} (${s.title})`}

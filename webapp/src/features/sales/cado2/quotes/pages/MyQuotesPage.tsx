@@ -67,6 +67,7 @@ import {
 import DeleteDraftDialog from "@features/sales/cado2/quotes/components/detail/DeleteDraftDialog";
 import PrimaryDialog from "@features/sales/cado2/quotes/components/detail/PrimaryDialog";
 import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import PrimaryStar from "@features/sales/cado2/components/primary-star/PrimaryStar";
 import type {
   QuoteListItem,
@@ -250,8 +251,7 @@ function QuoteCell({ q }: { q: QuoteListItem }): JSX.Element {
 
 function StatusCell({ q }: { q: QuoteListItem }): JSX.Element {
   return (
-    <Chip
-      size="small"
+    <StatusChip
       color={STATUS_COLOR[q.status]}
       label={quoteStatusLabel(q.status, q.versionNumber)}
     />

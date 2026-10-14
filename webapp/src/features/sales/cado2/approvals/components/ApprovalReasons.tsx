@@ -15,11 +15,12 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Box, ButtonBase, Chip, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, ButtonBase, Stack, Typography } from "@wso2/oxygen-ui";
 import type { ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { roleLabel, STEP_STATUS } from "@features/sales/cado2/approvals/model/approvalText";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import SlaChip from "@features/sales/cado2/approvals/components/SlaChip";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 
 interface ApprovalReasonsProps {
   readonly steps: readonly ApprovalStep[];
@@ -72,9 +73,9 @@ export default function ApprovalReasons({ steps, selected = null, onSelect }: Ap
                   </Typography>
                 ) : null}
                 {s.canAct ? (
-                  <Chip size="small" color="primary" label="Your turn" />
+                  <StatusChip color="primary" label="Your turn" />
                 ) : status ? (
-                  <Chip size="small" color={status.color} label={status.label} />
+                  <StatusChip color={status.color} label={status.label} />
                 ) : null}
                 {/* A pending step's deadline. */}
                 {s.status === "PENDING" && s.slaState && s.dueAt ? <SlaChip state={s.slaState} dueAt={s.dueAt} /> : null}

@@ -30,6 +30,7 @@ import {
   TrendingDownIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { deskSummary, reasonRows, type ReasonKind, type ReasonRow } from "@features/sales/cado2/approvals/model/myApprovals";
 
@@ -213,7 +214,7 @@ export default function YourApprovalPanel({
               key={s.role}
               title={deskReview ? "What's Non-Standard" : "Why Your Approval Is Needed"}
               icon={<ShieldCheckIcon size={18} />}
-              aside={<Chip size="small" color="primary" label={s.roleLabel} />}
+              aside={<StatusChip color="primary" label={s.roleLabel} />}
               label={`Your approval as ${s.roleLabel}`}
               stretch
             >

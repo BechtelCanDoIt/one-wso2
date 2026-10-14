@@ -42,6 +42,7 @@ import { STATUS_COLOR, STATUS_LABEL, compareVersions, type CompareRow } from "@f
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 
 const CHANGE_LABEL = { added: "Added", removed: "Removed", changed: "Changed", same: "" };
 
@@ -75,7 +76,7 @@ export default function VersionsTab({ quote, currency }: { quote: QuoteView; cur
               <TableRow key={v.versionNumber} hover>
                 <TableCell>v{v.versionNumber}</TableCell>
                 <TableCell>
-                  <Chip size="small" color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
+                  <StatusChip color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
                 </TableCell>
                 <TableCell>{v.submittedAt ? formatDate(v.submittedAt.slice(0, 10)) : "—"}</TableCell>
                 <TableCell align="right">{`${currency} ${formatMoney(v.tcv)}`.trim()}</TableCell>

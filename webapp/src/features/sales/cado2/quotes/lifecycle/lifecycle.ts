@@ -49,7 +49,7 @@ export const STATUS_COLOR: Record<VersionStatus, "default" | "primary" | "warnin
   DRAFT: "default",
   SUBMITTED: "primary",
   RECALLED: "warning",
-  CLOSED: "error",
+  CLOSED: "default", // an end, not an error (2026-10-14)
   APPROVED: "success",
   CHANGES_REQUESTED: "warning",
 };

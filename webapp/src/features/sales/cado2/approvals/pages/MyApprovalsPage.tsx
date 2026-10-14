@@ -20,6 +20,7 @@ import { Avatar, Box, Chip, Paper, Skeleton, Stack, Typography } from "@wso2/oxy
 import { ShieldCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import SlaChip from "@features/sales/cado2/approvals/components/SlaChip";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useApprovalInbox } from "@features/sales/cado2/approvals/api/useApprovalApi";
@@ -129,7 +130,7 @@ function InboxRow({ item, now }: { item: ApprovalInboxItem; now: Date }): JSX.El
         <Typography variant="body2" sx={{ fontWeight: 600, fontFamily: "monospace" }}>
           {item.quoteNumber}
         </Typography>
-        <Chip size="small" color="primary" label={`As ${item.roleLabel}`} />
+        <StatusChip color="primary" label={`As ${item.roleLabel}`} />
         <Typography variant="caption" color="text.secondary">
           v{item.versionNumber}
         </Typography>

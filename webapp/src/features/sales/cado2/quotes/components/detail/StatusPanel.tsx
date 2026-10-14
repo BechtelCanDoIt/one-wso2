@@ -16,7 +16,8 @@
 
 import type { JSX, ReactNode } from "react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
-import { Box, Chip, Divider, Stack, Typography } from "@wso2/oxygen-ui";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
+import { Box, Divider, Stack, Typography } from "@wso2/oxygen-ui";
 import { ActivityIcon, HourglassIcon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { AuditEvent, DraftResponse } from "@features/sales/cado2/quotes/api/quoteTypes";
@@ -60,7 +61,7 @@ export default function StatusPanel({
         {expiry ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
             <HourglassIcon size={16} />
-            <Chip size="small" color={TONE_COLOR[expiry.tone]} label={expiry.label} />
+            <StatusChip color={TONE_COLOR[expiry.tone]} label={expiry.label} />
           </Stack>
         ) : null}
         {eventsError ? (

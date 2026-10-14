@@ -15,9 +15,10 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Alert, Box, Chip, CircularProgress, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, CircularProgress, Typography } from "@wso2/oxygen-ui";
 import { ShieldCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { ApprovalPreview, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { WORKFLOW_STATUS } from "@features/sales/cado2/approvals/model/approvalText";
@@ -59,7 +60,7 @@ export default function QuoteApprovals({ isDraft, workflow, preview }: QuoteAppr
     <SectionCard
       title="Approvals"
       icon={<ShieldCheckIcon size={18} />}
-      aside={<Chip size="small" color={status.color} label={status.label} />}
+      aside={<StatusChip color={status.color} label={status.label} />}
     >
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Worked out from this exact version when it was submitted. Deal Desk goes first; the discount and commercial

@@ -16,11 +16,12 @@
 
 import type { JSX } from "react";
 import { Link as RouterLink } from "react-router";
-import { Box, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Link, Stack, Typography } from "@wso2/oxygen-ui";
 import { LayersIcon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useOpportunityQuotes } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import PrimaryStar from "@features/sales/cado2/components/primary-star/PrimaryStar";
 import {
   STATUS_COLOR,
@@ -88,8 +89,7 @@ export default function OpportunityQuotesPanel({
                   {q.quoteNumber ?? "Draft"}
                 </Link>
               )}
-              <Chip
-                size="small"
+              <StatusChip
                 color={STATUS_COLOR[q.status]}
                 label={quoteStatusLabel(q.status, q.versionNumber)}
               />

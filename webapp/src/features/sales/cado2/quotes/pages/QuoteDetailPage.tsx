@@ -53,6 +53,7 @@ import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/Quo
 import PrimaryStar from "@features/sales/cado2/components/primary-star/PrimaryStar";
 import { useCado2Me } from "@features/sales/cado2/api/useCado2Me";
 import { cado2Paths, type Cado2QuoteTab } from "@features/sales/cado2/cado2Paths";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 
 type Dialog = "recall" | "revise" | "close" | "delete" | "primary" | null;
@@ -219,7 +220,7 @@ export default function QuoteDetailPage(): JSX.Element {
               status: (
                 <Stack direction="row" spacing={1} alignItems="center">
                   {/* The version shown: the latest, or an older one in view mode. */}
-                  <Chip size="small" color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
+                  <StatusChip color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
                   {q.isPrimary ? <Chip size="small" variant="outlined" icon={<PrimaryStar label="" />} label="Primary" /> : null}
                 </Stack>
               ),
