@@ -121,7 +121,7 @@ describe("ProductsStep (Term & Products)", () => {
     render(<Harness />);
     const table = screen.getByRole("table", { name: "Products" });
     expect(within(table).queryByRole("combobox")).toBeNull(); // no dropdown on the line
-    expect(within(table).getByText("Not categorised")).toBeInTheDocument(); // its own section, first
+    expect(within(table).getByText("Not Categorised")).toBeInTheDocument(); // its own section, first
     expect(within(table).getByText("· Choose a category for 1 product")).toBeInTheDocument();
 
     const integrator = within(table)
@@ -148,6 +148,6 @@ describe("ProductsStep (Term & Products)", () => {
       }),
     ).toBeNull();
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
-    expect(within(table).queryByText("Not categorised")).toBeNull(); // gone once empty
+    expect(within(table).queryByText("Not Categorised")).toBeNull(); // gone once empty
   });
 });

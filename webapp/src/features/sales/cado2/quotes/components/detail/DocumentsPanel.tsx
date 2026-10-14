@@ -125,7 +125,7 @@ export default function DocumentsPanel({
   };
 
   return (
-    <SectionCard title="Order form" icon={<FileTextIcon size={18} />}>
+    <SectionCard title="Order Form" icon={<FileTextIcon size={18} />}>
       {error ? (
         <ErrorNotice error={error.cause} sx={{ mb: 1.5 }}>
           {error.what}

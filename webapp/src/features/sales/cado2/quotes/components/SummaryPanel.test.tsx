@@ -42,7 +42,7 @@ describe("SummaryPanel (F5 review)", () => {
     expect(customer.getByText("Acme Reseller")).toBeInTheDocument();
     expect(customer.queryByText(/contact/i)).toBeNull();
 
-    const terms = within(screen.getByRole("region", { name: "Deal terms" }));
+    const terms = within(screen.getByRole("region", { name: "Deal Terms" }));
     expect(terms.getByText("WSO2, LLC.")).toBeInTheDocument();
     expect(terms.getByText("USD")).toBeInTheDocument();
     expect(terms.queryByText(/uplift/i)).toBeNull(); // no uplift
@@ -98,7 +98,7 @@ describe("SummaryPanel — services only", () => {
     const t = { arr: null, acv: null, tcv: "720.00", payableNow: "720.00" };
     render(<SummaryPanel values={services} legalEntityName={null} totals={t} pricing={false} />);
     expect(screen.getAllByText("USD 720.00")).toHaveLength(2); // total order value, first invoice
-    const terms = within(screen.getByRole("region", { name: "Deal terms" }));
+    const terms = within(screen.getByRole("region", { name: "Deal Terms" }));
     expect(terms.getByText("No subscription term: no recurring products")).toBeInTheDocument();
     expect(terms.queryByText("Billing")).toBeNull();
   });

@@ -41,7 +41,7 @@ export default function PartnerCommissionCard({
   const { control } = useFormContext<DraftFormValues>();
   const issue = useFieldIssue("partnerCommissionPercent");
   return (
-    <SectionCard title="Partner commission" icon={<HandshakeIcon size={18} />}>
+    <SectionCard title="Partner Commission" icon={<HandshakeIcon size={18} />}>
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
         <Controller
           name="partnerCommissionPercent"

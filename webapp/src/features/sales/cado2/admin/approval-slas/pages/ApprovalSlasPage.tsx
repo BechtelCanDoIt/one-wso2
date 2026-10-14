@@ -63,7 +63,7 @@ export default function ApprovalSlasPage(): JSX.Element {
       ) : (
         <Skeleton variant="rounded" height={420} />
       )}
-      <SectionCard title="Change log" icon={<HistoryIcon size={16} />}>
+      <SectionCard title="Change Log" icon={<HistoryIcon size={16} />}>
         {changes.error ? (
           <ErrorNotice error={changes.error} onRetry={() => void changes.refetch()} retrying={changes.isFetching}>
             Couldn&apos;t load the change log.
@@ -123,7 +123,7 @@ function SlaForm({ policy, save }: { policy: ApprovalSlaPolicy; save: ReturnType
   };
 
   return (
-    <SectionCard title="Response time per role" icon={<TimerIcon size={16} />}>
+    <SectionCard title="Response Time per Role" icon={<TimerIcon size={16} />}>
       <Stack component="form" spacing={2.5} onSubmit={submit} noValidate>
         <Typography variant="body2" color="text.secondary">
           How long a role has to act once a quote reaches its step, in calendar hours (nights and weekends count). A change applies to

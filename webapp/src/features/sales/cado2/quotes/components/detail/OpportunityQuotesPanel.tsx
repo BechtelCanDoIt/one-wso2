@@ -17,10 +17,11 @@
 import type { JSX } from "react";
 import { Link as RouterLink } from "react-router";
 import { Box, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
-import { LayersIcon, StarIcon } from "@wso2/oxygen-ui-icons-react";
+import { LayersIcon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useOpportunityQuotes } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import PrimaryStar from "@features/sales/cado2/components/primary-star/PrimaryStar";
 import {
   STATUS_COLOR,
   quoteStatusLabel,
@@ -51,7 +52,7 @@ export default function OpportunityQuotesPanel({
   const hasPrimary = quotes.data.some((q) => q.isPrimary);
 
   return (
-    <SectionCard title="This opportunity's quotes" icon={<LayersIcon size={18} />}>
+    <SectionCard title="This Opportunity's Quotes" icon={<LayersIcon size={18} />}>
       <Typography
         variant="caption"
         color="text.secondary"
@@ -71,7 +72,7 @@ export default function OpportunityQuotesPanel({
           <Box component="li" key={q.quoteId}>
             <Stack direction="row" spacing={0.75} alignItems="center">
               {q.isPrimary ? (
-                <StarIcon size={14} fill="currentColor" aria-label="Primary" />
+                <PrimaryStar />
               ) : null}
               {q.quoteId === quoteId ? (
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>

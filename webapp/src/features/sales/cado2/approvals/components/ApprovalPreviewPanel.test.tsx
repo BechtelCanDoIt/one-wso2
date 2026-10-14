@@ -23,7 +23,7 @@ describe("ApprovalPreviewPanel", () => {
   it("says when the approvals can't be worked out, in a card of its own", () => {
     render(<ApprovalPreviewPanel preview={undefined} loading={false} error={new Error("Service unavailable")} />);
 
-    expect(screen.getByRole("region", { name: "Who approves if you submit now" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Who Approves If You Submit Now" })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent(/Couldn't work out the approvals right now\./);
   });
 });

@@ -67,6 +67,7 @@ import {
 import DeleteDraftDialog from "@features/sales/cado2/quotes/components/detail/DeleteDraftDialog";
 import PrimaryDialog from "@features/sales/cado2/quotes/components/detail/PrimaryDialog";
 import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
+import PrimaryStar from "@features/sales/cado2/components/primary-star/PrimaryStar";
 import type {
   QuoteListItem,
   QuoteScope,
@@ -222,11 +223,8 @@ function QuoteCell({ q }: { q: QuoteListItem }): JSX.Element {
     <Stack direction="row" spacing={0.75} alignItems="center">
       {q.isPrimary ? (
         <Tooltip title="Primary quote">
-          <Box
-            component="span"
-            sx={{ display: "inline-flex", color: "warning.main" }}
-          >
-            <StarIcon size={14} fill="currentColor" />
+          <Box component="span" sx={{ display: "inline-flex" }}>
+            <PrimaryStar />
           </Box>
         </Tooltip>
       ) : (

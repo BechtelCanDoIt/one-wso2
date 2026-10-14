@@ -84,7 +84,7 @@ describe("AddLineDialog", () => {
   it("groups the fields and shows the chosen product and its price-book price", async () => {
     const onSave = renderDialog();
     const user = userEvent.setup();
-    for (const group of ["Product", "Quantity & discount"]) {
+    for (const group of ["Product", "Quantity & Discount"]) {
       expect(screen.getByRole("region", { name: group })).toBeInTheDocument();
     }
     // Lines have no dates of their own: they cover the quote's term.
@@ -213,10 +213,6 @@ describe("AddLineDialog", () => {
 
     await user.click(option);
     expect(within(screen.getByLabelText("Chosen product")).getByText("Based on the number of production gateways.")).toBeInTheDocument();
-    // And again at the unit of measure, which the rep words from it.
-    expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveAccessibleDescription(
-      "Product description: Based on the number of production gateways.",
-    );
     await user.click(screen.getByRole("button", { name: "Add line" }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -225,10 +221,13 @@ describe("AddLineDialog", () => {
     );
   });
 
-  it("says nothing at the unit of measure for a product without a description", async () => {
+  // Locked until it comes from Salesforce (2026-10-14).
+  it("locks the unit of measure, saying it will come from Salesforce", async () => {
     renderDialog();
     await pick(/WSO2 API Manager/);
-    expect(screen.getByRole("textbox", { name: "Unit of measure" })).not.toHaveAccessibleDescription();
+    const uom = screen.getByRole("textbox", { name: "Unit of measure" });
+    expect(uom).toBeDisabled();
+    expect(uom).toHaveAccessibleDescription("Will come from Salesforce");
   });
 });
 

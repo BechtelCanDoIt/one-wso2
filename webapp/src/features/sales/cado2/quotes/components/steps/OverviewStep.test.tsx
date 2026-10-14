@@ -122,7 +122,7 @@ const deal = {
   recordTypeName: "Renewal", isRenewal: true,
 };
 // The start date is on Term & Products now (D73).
-const REST = ["Renewal", "WSO2 legal entity", "Primary quote"];
+const REST = ["Renewal", "WSO2 Legal Entity", "Primary Quote"];
 
 describe("OverviewStep — Salesforce first (2026-09-28)", () => {
   it("shows only the account search before anything is chosen", () => {
@@ -134,7 +134,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("ticks in what Salesforce has for the account, then offers its opportunities", async () => {
     render(<Harness values={account} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     // The opportunity list waits until every finding is showing (2026-10-09).
     expect(screen.queryByRole("listbox", { name: "Opportunity" })).toBeNull();
     expect(await within(found).findByText("2 found", {}, { timeout: 3000 })).toBeInTheDocument(); // contacts, the last line
@@ -146,7 +146,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("shows the account's location and sales region, not its name again", async () => {
     render(<Harness values={account} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     await within(found).findByText("2 found", {}, { timeout: 3000 });
     // The name is shown above the findings; no "Account" line repeats it.
     expect(within(found).queryByText("Account")).toBeNull();
@@ -167,7 +167,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     await user.click(await screen.findByRole("option", { name: /Northwind Logistics/ }));
 
     expect(screen.getByLabelText("Chosen account")).toHaveTextContent("Northwind Logistics");
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     await within(found).findByText("2 found", {}, { timeout: 3000 });
     expect(within(found).queryByText("Northwind Logistics")).toBeNull();
     expect(within(found).queryByText("Found")).toBeNull();
@@ -176,7 +176,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("says when Salesforce has no sub-region, without stopping the quote", async () => {
     render(<Harness values={{ ...account, accountSubRegion: "" }} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     await within(found).findByText("2 found", {}, { timeout: 3000 }); // the last line is in
     expect(within(found).getByText("NA")).toBeInTheDocument();
     expect(within(found).getByText("Not set in Salesforce")).toBeInTheDocument();
@@ -185,7 +185,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("stops the quote when the account has no sales region in Salesforce", async () => {
     render(<Harness values={{ ...account, accountSalesRegion: "", accountSubRegion: "" }} />);
-    const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     expect(await within(found).findByText("Not set in Salesforce", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("This account has no sales region in Salesforce");
     expect(screen.getByRole("alert")).toHaveTextContent("Sales_Regions__c");
@@ -193,7 +193,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
   it("shows the deal's findings, then the rest of the step", async () => {
     render(<Harness values={deal} />);
-    const found = await screen.findByLabelText("What Salesforce says about this deal", {}, { timeout: 3000 });
+    const found = await screen.findByLabelText("What Salesforce Says About This Deal", {}, { timeout: 3000 });
     expect(await within(found).findByText("USD 34,000.00", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(within(found).getByText("Renewal")).toBeInTheDocument();
     expect(within(found).getByText("Partner deal · Acme Reseller (Reseller)")).toBeInTheDocument();
@@ -207,14 +207,14 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     render(<Harness values={{ ...deal, dealType: null, isRenewal: false, dealKind: "FIRST_SALE" }} />);
     expect(await screen.findByText(/doesn't say whether this is direct or partner-led/, {}, { timeout: 3000 })).toBeInTheDocument();
     // Not a renewal: no Renewal section.
-    expect(await screen.findByRole("region", { name: "WSO2 legal entity" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "WSO2 Legal Entity" }, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Start date" })).toBeNull(); // on Term & Products (D73)
     expect(screen.queryByRole("region", { name: "Renewal" })).toBeNull();
   });
 
   it("shows everything at once on a saved draft", () => {
     render(<Harness values={deal} locked />);
-    expect(screen.getByLabelText("What Salesforce says about this deal")).toHaveTextContent("USD 34,000.00");
+    expect(screen.getByLabelText("What Salesforce Says About This Deal")).toHaveTextContent("USD 34,000.00");
     for (const r of REST) expect(screen.getByRole("region", { name: r })).toBeInTheDocument();
   });
 
@@ -293,7 +293,7 @@ describe("OverviewStep — Salesforce lookups that fail", () => {
     salesforceDown.on = true;
     try {
       render(<Harness values={account} />);
-      const found = await screen.findByLabelText("Found in Salesforce for this account", {}, { timeout: 3000 });
+      const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
       expect(await within(found).findByText("Couldn't load from Salesforce", {}, { timeout: 3000 })).toBeInTheDocument();
       expect(within(found).queryByText("None found")).toBeNull();
       expect(await screen.findByText(/^Couldn't load the account's opportunities from Salesforce\./)).toBeInTheDocument();

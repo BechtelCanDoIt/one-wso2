@@ -66,7 +66,7 @@ export default function QuoteAccessPage(): JSX.Element {
     <Stack spacing={3} sx={{ maxWidth: 900 }}>
       <PageHeader title="Quote Access" />
       <SectionCard
-        title="Quotes owned by someone else"
+        title="Quotes Owned by Someone Else"
         icon={<LockIcon size={16} />}
       >
         {setting.error ? (

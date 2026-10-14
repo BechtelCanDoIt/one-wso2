@@ -72,7 +72,7 @@ export default function CurrenciesPage(): JSX.Element {
     <Stack spacing={3} sx={{ maxWidth: 900 }}>
       <PageHeader title="Currencies" />
 
-      <SectionCard title="Add a currency" icon={<PlusIcon size={16} />}>
+      <SectionCard title="Add a Currency" icon={<PlusIcon size={16} />}>
         <Stack component="form" onSubmit={submit} direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "flex-start" }}>
           <TextField
             size="small"

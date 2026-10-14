@@ -170,7 +170,7 @@ export default function ProductCategoriesPage(): JSX.Element {
         </ErrorNotice>
       ) : null}
 
-      <SectionCard title="Map a product" icon={<SearchIcon size={16} />}>
+      <SectionCard title="Map a Product" icon={<SearchIcon size={16} />}>
         <Stack spacing={2}>
           <TextField
             size="small"

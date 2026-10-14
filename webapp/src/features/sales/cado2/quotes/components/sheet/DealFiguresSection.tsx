@@ -75,7 +75,7 @@ export default function DealFiguresSection({
   const plus = (parts: readonly string[]) => parts.join(" + ");
 
   return (
-    <SectionCard title="Deal figures" icon={<CalculatorIcon size={18} />}>
+    <SectionCard title="Deal Figures" icon={<CalculatorIcon size={18} />}>
       {!f ? (
         <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
           Appears once the quote can be priced

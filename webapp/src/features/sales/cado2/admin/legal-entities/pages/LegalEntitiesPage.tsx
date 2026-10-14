@@ -421,7 +421,7 @@ function EntityDetail({
           <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "text.secondary", mb: 1 }}>
             <MapPinIcon size={14} />
             <Typography variant="overline" sx={{ lineHeight: 1.4 }}>
-              Registered address
+              Registered Address
             </Typography>
           </Stack>
           {[e.addressLine1, e.addressLine2, cityLine, e.country].filter(Boolean).map((l) => (

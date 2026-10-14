@@ -144,7 +144,7 @@ describe("QuoteDetailPage — primary quote", () => {
     opportunityQuotes.data = [oq(3, true, "Q-26-00031"), oq(submitted.quote.id, false, "Q-26-00005")];
     show(submitted.quote, submitted);
 
-    const panel = screen.getByRole("region", { name: "This opportunity's quotes" });
+    const panel = screen.getByRole("region", { name: "This Opportunity's Quotes" });
     expect(within(panel).getByRole("link", { name: "Q-26-00031" })).toHaveAttribute("href", "/sales/cado2/quotes/3/quote");
     expect(within(panel).getByText("Q-26-00005 (this quote)")).toBeInTheDocument();
 
@@ -607,7 +607,7 @@ describe("QuoteDetailPage — order form", () => {
     version: { ...submitted.version, status: "APPROVED" },
   };
   const quoteOf = (r: DraftResponse): QuoteView => ({ ...r.quote, versions: [{ versionNumber: 1, status: r.version.status, tcv: "6480.00", submittedAt: null, updatedAt: r.version.updatedAt }] }) as unknown as QuoteView;
-  const panel = () => within(screen.getByRole("region", { name: "Order form" }));
+  const panel = () => within(screen.getByRole("region", { name: "Order Form" }));
 
   it("previews, then issues once, confirming the dates it will set", async () => {
     Object.assign(documents, { data: { canPreview: true, canIssue: true, issueDate: "2026-10-12", expiryDate: "2026-11-11", documents: [] } });
@@ -653,7 +653,7 @@ describe("QuoteDetailPage — order form", () => {
 
   it("shows no order form before approval", () => {
     show(quoteOf(submitted), submitted);
-    expect(screen.queryByRole("region", { name: "Order form" })).toBeNull();
+    expect(screen.queryByRole("region", { name: "Order Form" })).toBeNull();
   });
 });
 

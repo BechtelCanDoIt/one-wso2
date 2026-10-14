@@ -153,7 +153,7 @@ export default function CommercialStep(): JSX.Element {
       </Section>
 
       <Section
-        title="Bill to"
+        title="Bill To"
         icon={<MapPinIcon size={18} />}
         hint={partnerDeal ? "Partner deal: the partner is billed." : "Direct deal: the customer is billed."}
       >
@@ -170,7 +170,7 @@ export default function CommercialStep(): JSX.Element {
         />
       </Section>
 
-      <Section title="Ship to" icon={<TruckIcon size={18} />} hint={partnerDeal ? "Partner deal: shipped to the end customer." : undefined}>
+      <Section title="Ship To" icon={<TruckIcon size={18} />} hint={partnerDeal ? "Partner deal: shipped to the end customer." : undefined}>
         {!partnerDeal ? (
           <Controller
             name="shipToSameAsBillTo"

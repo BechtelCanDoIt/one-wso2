@@ -344,7 +344,7 @@ function GroupsEditor({ matrix, onChange }: { matrix: ApprovalMatrix; onChange: 
             </Box>
             <Box>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Always reviews every line
+                Always Reviews Every Line
               </Typography>
               <Stack direction="row" sx={{ flexWrap: "wrap" }}>
                 {reviewerRoles.map((r) => (

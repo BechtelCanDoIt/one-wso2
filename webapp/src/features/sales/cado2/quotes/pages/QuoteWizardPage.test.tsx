@@ -323,13 +323,13 @@ describe("QuoteWizardPage — review and submit", () => {
     // The line, the subscription subtotal and the total order value.
     expect(within(products).getAllByText("6,480.00")).toHaveLength(3);
     expect(within(products).getByText("10%")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Deal figures" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Deal Figures" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Internal view" })).toBeNull();
     expect(within(screen.getByRole("region", { name: "Deal" })).getByText("WSO2, LLC.")).toBeInTheDocument();
     // The live approval chain, inline above the sheet; no preview button on Review.
     expect(screen.queryByRole("button", { name: "Preview approvals" })).toBeNull();
-    const chain = within(screen.getByRole("region", { name: "Who approves if you submit now" }));
-    expect(chain.getByText("Who approves if you submit now")).toBeInTheDocument();
+    const chain = within(screen.getByRole("region", { name: "Who Approves If You Submit Now" }));
+    expect(chain.getByText("Who Approves If You Submit Now")).toBeInTheDocument();
     expect(chain.getByRole("listitem", { name: "Regional Director" })).toHaveTextContent("10% discount");
   });
 
@@ -456,7 +456,7 @@ describe("QuoteWizardPage — new quote", () => {
     expect(screen.getByRole("combobox", { name: /Account/ })).toBeInTheDocument();
     // Only the account search at first: everything else waits for the account and the deal.
     expect(screen.queryByRole("radiogroup", { name: "Opportunity" })).toBeNull();
-    for (const section of ["Renewal", "WSO2 legal entity", "Start date"]) {
+    for (const section of ["Renewal", "WSO2 Legal Entity", "Start date"]) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
   });

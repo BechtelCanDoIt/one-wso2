@@ -50,6 +50,7 @@ import { useCado2Toast } from "@features/sales/cado2/components/toast/toastConte
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
 import { ArrowDownIcon, ArrowLeftIcon, PencilIcon, RotateCcwIcon, StarIcon, Trash2Icon, Undo2Icon, XCircleIcon } from "@wso2/oxygen-ui-icons-react";
 import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
+import PrimaryStar from "@features/sales/cado2/components/primary-star/PrimaryStar";
 import { useCado2Me } from "@features/sales/cado2/api/useCado2Me";
 import { cado2Paths, type Cado2QuoteTab } from "@features/sales/cado2/cado2Paths";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
@@ -219,7 +220,7 @@ export default function QuoteDetailPage(): JSX.Element {
                 <Stack direction="row" spacing={1} alignItems="center">
                   {/* The version shown: the latest, or an older one in view mode. */}
                   <Chip size="small" color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
-                  {q.isPrimary ? <Chip size="small" variant="outlined" icon={<StarIcon size={14} />} label="Primary" /> : null}
+                  {q.isPrimary ? <Chip size="small" variant="outlined" icon={<PrimaryStar label="" />} label="Primary" /> : null}
                 </Stack>
               ),
               actions: (
@@ -282,7 +283,7 @@ export default function QuoteDetailPage(): JSX.Element {
                 sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 2, bgcolor: "action.hover", border: 1, borderColor: "divider" }}
               >
                 <Typography variant="overline" color="text.secondary" sx={{ display: "block", mb: 1.5, lineHeight: 1.6 }}>
-                  Your approval
+                  Your Approval
                 </Typography>
                 <YourApprovalPanel
                   steps={workflow.data?.steps ?? []}

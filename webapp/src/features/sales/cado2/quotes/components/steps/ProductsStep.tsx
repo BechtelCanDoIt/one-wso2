@@ -204,7 +204,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
       {fields.length > 0 ? <DealFiguresSection sheet={sheet} /> : null}
 
       {hasYearlySchedule(sheet) ? (
-        <SectionCard title="Yearly schedule" icon={<ChartColumnIcon size={18} />}>
+        <SectionCard title="Yearly Schedule" icon={<ChartColumnIcon size={18} />}>
           <ScheduleTable years={sheet.years} lines={sheet.lines} netOfCommission={sheet.partnerCommissionPercent !== null} />
         </SectionCard>
       ) : null}

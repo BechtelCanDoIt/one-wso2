@@ -299,7 +299,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
   return (
     <Stack spacing={2.5}>
       <Section
-        title="Customer & opportunity"
+        title="Customer & Opportunity"
         icon={<Building2Icon size={18} />}
         aside={locked ? <Chip size="small" variant="outlined" label="Fixed after first save" /> : undefined}
       >
@@ -319,7 +319,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
         {accountId ? (
           <SalesforceFindings
             key={accountId}
-            title="Found in Salesforce for this account"
+            title="Found in Salesforce for This Account"
             onDone={markAccountRevealed}
             loading={opportunities.isPending || contacts.isPending}
             findings={accountFindings(
@@ -389,7 +389,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
         {opportunityId ? (
           <SalesforceFindings
             key={opportunityId}
-            title="What Salesforce says about this deal"
+            title="What Salesforce Says About This Deal"
             loading={!locked && opportunities.isPending}
             findings={dealFindings(values, opportunities.data?.find((o) => o.id === opportunityId))}
             animate={!locked}
@@ -402,7 +402,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
       {showRest ? (
         <>
           {/* Which of the opportunity's quotes is synced to Salesforce (D68). */}
-          <Section title="Primary quote" icon={<StarIcon size={18} />}>
+          <Section title="Primary Quote" icon={<StarIcon size={18} />}>
             <PrimaryQuoteField quoteId={quoteId} opportunityId={opportunityId} />
           </Section>
           {/* Salesforce says it's a renewal: which opportunities does it renew? */}
@@ -445,7 +445,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
           ) : null}
 
           {/* The currency moved to Products & Pricing, next to the price book. */}
-          <Section title="WSO2 legal entity" icon={<LandmarkIcon size={18} />}>
+          <Section title="WSO2 Legal Entity" icon={<LandmarkIcon size={18} />}>
             {legalEntities.error ? (
               <ErrorNotice
                 error={legalEntities.error}

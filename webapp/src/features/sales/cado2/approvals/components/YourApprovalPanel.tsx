@@ -211,7 +211,7 @@ export default function YourApprovalPanel({
             // The shared card, like the rest of the page (2026-10-13; was its own card with a blue left bar).
             <SectionCard
               key={s.role}
-              title={deskReview ? "What's non-standard" : "Why your approval is needed"}
+              title={deskReview ? "What's Non-Standard" : "Why Your Approval Is Needed"}
               icon={<ShieldCheckIcon size={18} />}
               aside={<Chip size="small" color="primary" label={s.roleLabel} />}
               label={`Your approval as ${s.roleLabel}`}

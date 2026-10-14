@@ -94,7 +94,7 @@ export default function ApprovalPreviewPanel({ preview, loading, error, bare = f
   return (
     <Box aria-busy={loading}>
       <SectionCard
-        title="Who approves if you submit now"
+        title="Who Approves If You Submit Now"
         icon={<ShieldCheckIcon size={18} />}
         aside={loading && preview ? <CircularProgress size={14} aria-label="Updating the approvals" /> : undefined}
       >

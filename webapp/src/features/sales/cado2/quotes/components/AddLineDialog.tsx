@@ -223,7 +223,8 @@ export default function AddLineDialog({
   // blanks) only needs loading once.
   // The rep's choice, used only for a product without a mapping.
   const [category, setCategory] = useState<LineCategory | "">(line?.category ?? "");
-  const [uom, setUom] = useState(line?.unitOfMeasure ?? "");
+  // Locked for now (2026-10-14): a saved line keeps its value; a new one has none.
+  const uom = line?.unitOfMeasure ?? "";
   const [quantity, setQuantity] = useState(line?.quantity ?? "1");
   const [discount, setDiscount] = useState(line?.discount ?? "0");
   const [tried, setTried] = useState(false);
@@ -240,12 +241,6 @@ export default function AddLineDialog({
       : null;
   const source: CategorySource = mapped ? "MAPPED" : "REP";
   const chosen = product !== null || keepsExisting;
-  // Shown again at the unit of measure, which the rep often words from it.
-  const about = keepsExisting
-    ? descriptionAfterName(line.productName, line.productDescription)
-    : product
-      ? descriptionAfterName(product.name ?? "", product.description)
-      : null;
 
   const problems = lineProblems({
     pricebookEntryId: keepsExisting ? line.pricebookEntryId : entry ? entry.id : "",
@@ -441,7 +436,7 @@ export default function AddLineDialog({
               </>
             ) : null}
           </Group>
-          <Group icon={<PercentIcon size={14} />} title="Quantity & discount">
+          <Group icon={<PercentIcon size={14} />} title="Quantity & Discount">
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="Quantity"
@@ -468,13 +463,14 @@ export default function AddLineDialog({
               />
             </Stack>
             {/* Its own row: the description under it can be up to ~140 characters. */}
+            {/* Locked for now (2026-10-14): it will come from Salesforce. A saved line keeps what it has. */}
             <TextField
               label="Unit of measure"
               value={uom}
-              onChange={(e) => setUom(e.target.value)}
               size="small"
               fullWidth
-              helperText={about ? `Product description: ${about}` : undefined}
+              disabled
+              helperText="Will come from Salesforce"
             />
           </Group>
         </Stack>

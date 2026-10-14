@@ -36,9 +36,9 @@ describe("QuoteSheet", () => {
     expect(deal).toHaveTextContent("Sub-regionSouth Asia");
 
     // The contacts sit with the addresses, as in the order form's section 01.
-    const billTo = screen.getByLabelText("Bill to");
+    const billTo = screen.getByLabelText("Bill To");
     expect(within(billTo).getByLabelText("Billing contact")).toHaveTextContent("typed in");
-    const security = within(screen.getByLabelText("Ship to")).getByLabelText("Security contact");
+    const security = within(screen.getByLabelText("Ship To")).getByLabelText("Security contact");
     expect(within(security).getByText("Marco Ruiz")).toBeInTheDocument();
     expect(within(security).getByRole("link", { name: /marco@acme.example/ })).toHaveAttribute("href", "mailto:marco@acme.example");
     expect(security).not.toHaveTextContent("typed in");
@@ -46,7 +46,7 @@ describe("QuoteSheet", () => {
 
   it("prints the ship-to address in full when it is the bill-to address, and says so", () => {
     render(<QuoteSheet sheet={{ ...sheet, shipTo: null, shipToSameAsBillTo: true }} />);
-    const shipTo = screen.getByLabelText("Ship to");
+    const shipTo = screen.getByLabelText("Ship To");
     expect(within(shipTo).getByText("Same as bill to")).toBeInTheDocument();
     expect(within(shipTo).getByText(sheet.billTo!.companyName)).toBeInTheDocument();
     for (const line of sheet.billTo!.lines) expect(within(shipTo).getByText(line)).toBeInTheDocument();
@@ -77,7 +77,7 @@ describe("QuoteSheet", () => {
     expect(within(products).getByText("Subscription")).toBeInTheDocument();
     expect(within(products).getByText("Gateways")).toBeInTheDocument();
     // A one-year quote has no yearly schedule.
-    expect(screen.queryByRole("table", { name: "Yearly schedule" })).toBeNull();
+    expect(screen.queryByRole("table", { name: "Yearly Schedule" })).toBeNull();
   });
 
   it("shows one view with the internal details: price book, pricing rules, justification", () => {
@@ -190,7 +190,7 @@ describe("Partner commission", () => {
   it("leaves commission and net to the order form's totals; the figures note the first invoice is net", () => {
     render(<DealFiguresSection sheet={partner} />);
     // Shown once, in the order form (C2, 2026-10-14).
-    expect(screen.queryByLabelText("Partner commission")).toBeNull();
+    expect(screen.queryByLabelText("Partner Commission")).toBeNull();
     expect(screen.queryByLabelText("Net order value")).toBeNull();
     expect(within(screen.getByLabelText("First invoice")).getByText(/net of the partner's commission/)).toBeInTheDocument();
     expect(within(screen.getByRole("table", { name: "Figures by product" })).getByText("Commission")).toBeInTheDocument();

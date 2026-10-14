@@ -241,7 +241,7 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
           ) : null}
         </Group>
 
-        <Group title="Deal terms" icon={<LandmarkIcon size={14} />}>
+        <Group title="Deal Terms" icon={<LandmarkIcon size={14} />}>
           <Field label="WSO2 legal entity">{v.legalEntityId ? legalEntityName : null}</Field>
           <Field label="Currency">{v.currencyIsoCode}</Field>
           {recurring || v.lines.length === 0 ? (

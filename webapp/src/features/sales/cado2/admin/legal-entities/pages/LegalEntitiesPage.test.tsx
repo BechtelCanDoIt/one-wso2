@@ -130,7 +130,7 @@ describe("LegalEntitiesPage", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Edit WSO2, LLC." }));
 
     expect(await screen.findByRole("heading", { name: "Edit WSO2_LLC" })).toBeInTheDocument();
-    for (const section of ["Identity", "Registered address", "Registration", "Availability"]) {
+    for (const section of ["Identity", "Registered Address", "Registration", "Availability"]) {
       expect(screen.getByRole("region", { name: section })).toBeInTheDocument();
     }
   });

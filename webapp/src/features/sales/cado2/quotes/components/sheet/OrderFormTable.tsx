@@ -95,7 +95,7 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "warning.dark" }}>
           <TriangleAlertIcon size={16} aria-hidden />
           <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
-            Not categorised
+            Not Categorised
           </Typography>
           <Typography variant="body2" sx={{ color: "text.primary" }}>
             · Choose a category for {pending.length === 1 ? "1 product" : `${pending.length} products`}

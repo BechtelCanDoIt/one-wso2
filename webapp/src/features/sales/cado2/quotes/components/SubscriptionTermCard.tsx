@@ -164,7 +164,7 @@ export default function SubscriptionTermCard(): JSX.Element {
 
   return (
     <SectionCard
-      title="Subscription term"
+      title="Subscription Term"
       icon={<CalendarDaysIcon size={18} />}
       aside={
         startDate && end ? (
