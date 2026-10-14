@@ -208,7 +208,8 @@ describe("QuoteDetailPage — lifecycle", () => {
 
     expect(screen.getByText("Recalled")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Revise" }));
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Create version 2" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Revise to version 2?" }));
+    await user.click(dialog.getByRole("button", { name: "Revise" }));
 
     expect(revise.mutate).toHaveBeenCalledWith({ quoteId: 5 }, expect.anything());
     expect(await screen.findByText("wizard")).toBeInTheDocument();
@@ -389,7 +390,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     show({ ...submitted.quote, actions: [] }, allMapped);
     const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
     // The decision is its own full-width section above the deal; the account stays the page title.
-    expect(within(screen.getByRole("region", { name: "Your decision" })).getByRole("region", { name: "Your approval as Deal Desk" })).toBe(panel);
+    expect(within(screen.getByRole("region", { name: "Your approval" })).getByRole("region", { name: "Your approval as Deal Desk" })).toBe(panel);
     expect(within(screen.getByRole("region", { name: "The deal" })).queryByRole("region", { name: /Your approval/ })).toBeNull();
     expect(screen.getByRole("heading", { level: 1, name: "Acme Corp" })).toBeInTheDocument();
     expect(panel).not.toHaveTextContent("After you"); // who approves is in the Approvals tab

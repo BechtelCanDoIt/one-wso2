@@ -34,7 +34,7 @@ import {
   useSaveQuoteAccess,
 } from "@features/sales/cado2/admin/quote-access/api/useQuoteAccess";
 import type { QuoteAccess } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 
 const OPTIONS: readonly { value: QuoteAccess; label: string; help: string }[] =
   [
@@ -64,7 +64,7 @@ export default function QuoteAccessPage(): JSX.Element {
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 900 }}>
-      <PageHeader title="Quote access" />
+      <PageHeader title="Quote Access" />
       <SectionCard
         title="Quotes owned by someone else"
         icon={<LockIcon size={16} />}
@@ -141,8 +141,7 @@ export default function QuoteAccessPage(): JSX.Element {
               </Button>
               {setting.data.updatedByEmail && setting.data.updatedAt ? (
                 <Typography variant="caption" color="text.secondary">
-                  Last changed by {setting.data.updatedByEmail} on{" "}
-                  {formatDate(setting.data.updatedAt.slice(0, 10))}
+                  Last changed {changedText(setting.data.updatedAt, setting.data.updatedByEmail)}
                 </Typography>
               ) : null}
             </Stack>

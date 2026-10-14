@@ -51,6 +51,7 @@ import {
 import { isConflict, problemOf } from "@features/sales/cado2/quotes/api/errors";
 import type { DraftResponse, Issue, QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
+  formatDateTime,
   emptyDraftForm,
   fromVersion,
   STEPS,
@@ -91,13 +92,7 @@ const REVIEW_STEP = 3;
 /** "Last synced 13 Oct 2026, 10:42 (v1)", or "Not synced yet" (D77). */
 function lastSynced(q: QuoteView): string {
   if (!q.sfSyncedAt) return "Not synced yet";
-  const at = new Date(q.sfSyncedAt).toLocaleString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const at = formatDateTime(q.sfSyncedAt);
   return `Last synced ${at}${q.sfSyncedVersion ? ` (v${q.sfSyncedVersion})` : ""}`;
 }
 
@@ -138,7 +133,7 @@ export default function QuoteWizardPage(): JSX.Element {
   useDocumentTitle(
     saved
       ? quoteLabel(saved.quote.quoteNumber, saved.version.accountName, saved.version.opportunityName)
-      : "New quote",
+      : "New Quote",
   );
   const [stepChoice, setStepChoice] = useState<number | null>(null);
   // Where the wizard opens, decided once: a saved draft at its first
@@ -449,7 +444,7 @@ export default function QuoteWizardPage(): JSX.Element {
                   ) : null}
                 </>
               }
-              title={saved ? saved.version.accountName || "New quote" : "New quote"}
+              title={saved ? saved.version.accountName || "New Quote" : "New Quote"}
               chips={
                 <>
                   <Chip

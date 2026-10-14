@@ -264,7 +264,7 @@ export const discountedLines = (lines: readonly { discount: string }[]) => lines
 export const LINE_CATEGORIES: readonly { value: LineCategory; label: string }[] = [
   { value: "SUBSCRIPTION", label: "Subscription" },
   { value: "SUPPORT", label: "Support" },
-  { value: "PROFESSIONAL_SERVICE", label: "Professional Service (one-time)" },
+  { value: "PROFESSIONAL_SERVICE", label: "Professional Service" },
 ];
 
 /** Subscription and Support lines repeat yearly; a Professional Service doesn't. */
@@ -691,6 +691,23 @@ export function formatDate(date: string | null): string {
   const d = date ? parseDateString(date) : null;
   return d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 }
+
+/** A moment, "3 Oct 2026, 09:00", in the viewer's time zone: the one date-time format (D14, 2026-10-14). */
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Who last changed something, "3 Oct 2026 · admin@wso2.com": the one style (D15, 2026-10-14). */
+export function changedText(at: string, by: string | null): string {
+  const day = formatDate(at.slice(0, 10));
+  return by ? `${day} · ${by}` : day;
+}
+
+/** The billing choice, in the same words everywhere (D2, 2026-10-14). */
+export const BILLING_LABEL = { ANNUAL: "Annual billing", UPFRONT: "Upfront" } as const;
 
 // ---------------------------------------------------------------------------
 // Issues → wizard steps

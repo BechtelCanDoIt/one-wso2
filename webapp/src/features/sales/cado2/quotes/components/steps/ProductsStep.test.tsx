@@ -139,7 +139,7 @@ describe("ProductsStep (Term & Products)", () => {
     );
     await user.click(screen.getByRole("option", { name: "Support" }));
     await user.click(
-      within(dialog).getByRole("button", { name: "Update line" }),
+      within(dialog).getByRole("button", { name: "Save line" }),
     );
 
     expect(

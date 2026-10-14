@@ -26,7 +26,7 @@ import type {
   OpportunityQuote,
   VersionStatus,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { BILLING_LABEL, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { MODE_LABEL } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
@@ -133,7 +133,7 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
     v.termMode ? `${MODE_LABEL[v.termMode]}${v.termMode === "MULTI_YEAR" && v.termYears ? ` · ${v.termYears} years` : ""}` : DASH;
   add("Products", "Subscription term", termText(va), termText(vb));
   add("Products", "End date", formatDate(va.subscriptionEndDate), formatDate(vb.subscriptionEndDate));
-  add("Products", "Billing", text(va.billingFrequency), text(vb.billingFrequency));
+  add("Products", "Billing", text(va.billingFrequency && BILLING_LABEL[va.billingFrequency]), text(vb.billingFrequency && BILLING_LABEL[vb.billingFrequency]));
   const commission = (p: string | null | undefined) => (p ? `${Number(p)}%` : DASH);
   add("Products", "Partner commission", commission(va.partnerCommissionPercent), commission(vb.partnerCommissionPercent));
 

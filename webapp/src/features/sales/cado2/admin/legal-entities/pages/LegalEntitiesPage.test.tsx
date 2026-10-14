@@ -87,7 +87,7 @@ describe("LegalEntitiesPage", () => {
     expect(llc.getByText("787 Castro Street")).toBeInTheDocument();
     expect(llc.getByText("Active")).toBeInTheDocument();
     expect(llc.getAllByText("—")).toHaveLength(3); // no tax ID, registration or phone
-    expect(llc.getByText(/Last changed .* by admin@wso2.com/)).toBeInTheDocument();
+    expect(llc.getByText(/Last changed .* · admin@wso2.com/)).toBeInTheDocument();
 
     await userEvent.setup().click(screen.getByRole("button", { name: "WSO2 UK Ltd" }));
     const uk = within(screen.getByRole("region", { name: "WSO2 UK Ltd" }));

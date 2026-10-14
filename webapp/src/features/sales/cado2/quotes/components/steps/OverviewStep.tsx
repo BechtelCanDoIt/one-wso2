@@ -153,8 +153,8 @@ function dealFindings(v: DraftFormValues, o: Opportunity | undefined): Finding[]
   } else if (v.dealType === "PARTNER") {
     out.push(
       v.partner?.name
-        ? { key: "channel", label: "Channel", value: `Partner-led · ${v.partner.name}${v.partner.role ? ` (${v.partner.role})` : ""}` }
-        : { key: "channel", label: "Channel", value: "Partner-led, but no primary partner in Salesforce. Add it there.", warning: true },
+        ? { key: "channel", label: "Channel", value: `Partner deal · ${v.partner.name}${v.partner.role ? ` (${v.partner.role})` : ""}` }
+        : { key: "channel", label: "Channel", value: "Partner deal, but no primary partner in Salesforce. Add it there.", warning: true },
     );
   } else {
     out.push({

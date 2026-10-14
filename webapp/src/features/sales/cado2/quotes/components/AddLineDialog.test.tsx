@@ -159,7 +159,7 @@ describe("AddLineDialog", () => {
     // The product can't be changed on a line: remove it and add another (2026-10-12).
     expect(screen.queryByRole("combobox", { name: /Product/ })).toBeNull();
     expect(screen.getByText(/remove this line and add it/)).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Update line" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Save line" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }));
   });
 

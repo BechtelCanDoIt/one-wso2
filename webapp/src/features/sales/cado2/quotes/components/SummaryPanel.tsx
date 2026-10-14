@@ -19,6 +19,7 @@ import { Box, CircularProgress, Divider, Link, Paper, Stack, Typography } from "
 import { Building2Icon, ExternalLinkIcon, FileTextIcon, LandmarkIcon, PackageIcon } from "@wso2/oxygen-ui-icons-react";
 import type { Totals } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
+  BILLING_LABEL,
   effectiveBilling,
   formatDate,
   hasRecurring,
@@ -43,7 +44,6 @@ interface SummaryPanelProps {
   readonly approvals?: ReactNode;
 }
 
-const BILLING = { ANNUAL: "Annually in advance", UPFRONT: "Upfront" };
 const SHOWN_LINES = 4;
 
 /** A value, linked to its Salesforce record when a base URL is configured. */
@@ -209,7 +209,7 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
         {totals?.netOrderValue ? (
           <Stack direction="row" justifyContent="space-between" sx={{ mt: 1.25 }}>
             <Typography variant="body2" color="text.secondary">
-              Net of partner commission
+              Net order value
             </Typography>
             <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
               {money(totals.netOrderValue)}
@@ -278,10 +278,10 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
           <Field label="Currency">{v.currencyIsoCode}</Field>
           {recurring || v.lines.length === 0 ? (
             <>
-              <Field label="Term" detail={termLabel({ startDate: v.startDate, endDate: end, termMode: v.termMode || null }) || undefined}>
+              <Field label="Subscription term" detail={termLabel({ startDate: v.startDate, endDate: end, termMode: v.termMode || null }) || undefined}>
                 {v.startDate && end ? `${formatDate(v.startDate)} – ${formatDate(end)}` : null}
               </Field>
-              <Field label="Billing">{billing ? BILLING[billing] : null}</Field>
+              <Field label="Billing">{billing ? BILLING_LABEL[billing] : null}</Field>
             </>
           ) : (
             <Field label="Start date" detail="No subscription term: no recurring products">

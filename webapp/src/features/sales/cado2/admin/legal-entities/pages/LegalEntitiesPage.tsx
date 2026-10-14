@@ -54,6 +54,7 @@ import {
 } from "@features/sales/cado2/admin/legal-entities/api/useLegalEntities";
 import type { LegalEntity, LegalEntityFormValues } from "@features/sales/cado2/admin/legal-entities/api/legalEntityTypes";
 import { initialsOfName } from "@features/sales/cado2/utils/initials";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 
 /** The drawer's state: closed, adding, or editing one entity. */
 type DrawerState = { open: false } | { open: true; entity: LegalEntity | null };
@@ -383,7 +384,6 @@ function EntityDetail({
     ["Registration number", e.registrationNumber],
     ["Phone", e.phone],
   ];
-  const changed = new Date(e.updatedAt);
   // The shared card (2026-10-13; was its own record header with a big avatar
   // and a coloured top bar): the name as title, the switch and Edit beside it.
   return (
@@ -454,11 +454,7 @@ function EntityDetail({
       </Box>
 
       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 3 }}>
-        Last changed{" "}
-        {Number.isNaN(changed.getTime())
-          ? e.updatedAt
-          : changed.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}{" "}
-        by {e.updatedByEmail}
+        Last changed {changedText(e.updatedAt, e.updatedByEmail)}
       </Typography>
     </SectionCard>
   );

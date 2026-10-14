@@ -48,7 +48,7 @@ describe("SummaryPanel (F5 review)", () => {
     expect(terms.queryByText(/uplift/i)).toBeNull(); // no uplift
     expect(terms.getByText(/1 Oct 2026 – 30 Sept 2027/)).toBeInTheDocument();
     expect(terms.getByText("1 year")).toBeInTheDocument();
-    expect(terms.getByText("Annually in advance")).toBeInTheDocument();
+    expect(terms.getByText("Annual billing")).toBeInTheDocument();
 
     const products = within(screen.getByRole("region", { name: "Products" }));
     expect(products.getByText("WSO2 Gateway")).toBeInTheDocument();

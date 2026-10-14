@@ -54,10 +54,10 @@ describe("CurrenciesPage", () => {
     expect(table.getByText("The fullest prices 230 products")).toBeInTheDocument();
     expect(table.getByText("None: quotes can't be priced")).toBeInTheDocument();
     expect(table.getByText("Couldn't check")).toBeInTheDocument();
-    expect(table.getByRole("switch", { name: "Offer BRL to reps" })).not.toBeChecked();
+    expect(table.getByRole("switch", { name: "Offer BRL to AMs" })).not.toBeChecked();
 
     // Switching off asks first (2026-10-13); switching on is instant.
-    await user.click(table.getByRole("switch", { name: "Offer USD to reps" }));
+    await user.click(table.getByRole("switch", { name: "Offer USD to AMs" }));
     expect(toggle.mutate).not.toHaveBeenCalled();
     const dialog = within(screen.getByRole("dialog", { name: "Stop offering USD?" }));
     expect(dialog.getByText(/Drafts already in it can still be saved and submitted/)).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe("CurrenciesPage", () => {
     act(() => toggle.mutate.mock.calls[0][1].onSuccess());
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
 
-    await user.click(screen.getByRole("switch", { name: "Offer BRL to reps" }));
+    await user.click(screen.getByRole("switch", { name: "Offer BRL to AMs" }));
     expect(toggle.mutate).toHaveBeenLastCalledWith({ isoCode: "BRL", isActive: true }, expect.anything());
   });
 

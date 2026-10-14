@@ -66,7 +66,7 @@ describe("QuoteSheet", () => {
       "WSO2, LLC.",
       "787 Castro Street, Mountain View, CA, USA",
       "1 Oct 2026 – 30 Sept 2027",
-      "Annually in advance",
+      "Annual billing",
       "Acme renewal FY26",
       "Net 45",
       "PO-4471",

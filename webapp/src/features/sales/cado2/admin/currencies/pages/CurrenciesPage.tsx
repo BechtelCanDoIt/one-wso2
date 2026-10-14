@@ -37,7 +37,7 @@ import { useCado2Toast } from "@features/sales/cado2/components/toast/toastConte
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 import { useAddCurrency, useAdminCurrencies, useSetCurrencyActive } from "@features/sales/cado2/admin/currencies/api/useAdminCurrencies";
 
 /**
@@ -123,7 +123,7 @@ export default function CurrenciesPage(): JSX.Element {
                     <TableCell>Currency</TableCell>
                     <TableCell>Salesforce price books with prices in this currency</TableCell>
                     <TableCell>Last changed</TableCell>
-                    <TableCell align="right">Offered to reps</TableCell>
+                    <TableCell align="right">Offered to AMs</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -134,7 +134,7 @@ export default function CurrenciesPage(): JSX.Element {
                           <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: "monospace" }}>
                             {c.isoCode}
                           </Typography>
-                          <Chip size="small" color={c.isActive ? "success" : "default"} label={c.isActive ? "Active" : "Off"} />
+                          <Chip size="small" color={c.isActive ? "success" : "default"} label={c.isActive ? "Active" : "Inactive"} />
                         </Stack>
                       </TableCell>
                       <TableCell>
@@ -160,9 +160,8 @@ export default function CurrenciesPage(): JSX.Element {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{formatDate(c.updatedAt.slice(0, 10))}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {c.updatedByEmail}
+                        <Typography variant="body2" color="text.secondary">
+                          {changedText(c.updatedAt, c.updatedByEmail)}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
@@ -181,7 +180,7 @@ export default function CurrenciesPage(): JSX.Element {
                               { onSuccess: () => notify(`${c.isoCode} offered`) },
                             );
                           }}
-                          slotProps={{ input: { role: "switch", "aria-label": `Offer ${c.isoCode} to reps` } }}
+                          slotProps={{ input: { role: "switch", "aria-label": `Offer ${c.isoCode} to AMs` } }}
                         />
                       </TableCell>
                     </TableRow>

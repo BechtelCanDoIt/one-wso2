@@ -69,7 +69,7 @@ describe("ProductCategoriesPage", () => {
     expect(screen.getByText("Mapped products (2)")).toBeInTheDocument();
     const table = within(screen.getByRole("table", { name: "Mapped products" }));
     expect(table.getByText("WSO2 API Manager")).toBeInTheDocument();
-    expect(table.getAllByText("admin@wso2.com")).toHaveLength(2);
+    expect(table.getAllByText(/ · admin@wso2.com$/)).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "Support" }));
     expect(table.queryByText("WSO2 API Manager")).toBeNull();

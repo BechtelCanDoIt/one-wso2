@@ -278,11 +278,11 @@ export default function QuoteDetailPage(): JSX.Element {
             {hasDecision ? (
               <Box
                 component="section"
-                aria-label="Your decision"
+                aria-label="Your approval"
                 sx={{ p: { xs: 2, sm: 2.5 }, borderRadius: 2, bgcolor: "action.hover", border: 1, borderColor: "divider" }}
               >
                 <Typography variant="overline" color="text.secondary" sx={{ display: "block", mb: 1.5, lineHeight: 1.6 }}>
-                  Your decision
+                  Your approval
                 </Typography>
                 <YourApprovalPanel
                   steps={workflow.data?.steps ?? []}
@@ -381,8 +381,8 @@ export default function QuoteDetailPage(): JSX.Element {
       ) : null}
       {dialog === "revise" ? (
         <LifecycleDialog
-          title={`Start version ${v.versionNumber + 1}?`}
-          confirmLabel={`Create version ${v.versionNumber + 1}`}
+          title={`Revise to version ${v.versionNumber + 1}?`}
+          confirmLabel="Revise"
           pending={revise.isPending}
           error={revise.error}
           onClose={() => setDialog(null)}

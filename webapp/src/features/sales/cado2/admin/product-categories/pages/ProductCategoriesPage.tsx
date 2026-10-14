@@ -41,7 +41,7 @@ import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState"
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 import type { LineCategory } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   MIN_PRODUCT_SEARCH,
@@ -313,9 +313,8 @@ export default function ProductCategoriesPage(): JSX.Element {
                             />
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2">{formatDate(m.updatedAt.slice(0, 10))}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {m.updatedByEmail}
+                            <Typography variant="body2" color="text.secondary">
+                              {changedText(m.updatedAt, m.updatedByEmail)}
                             </Typography>
                           </TableCell>
                         </TableRow>

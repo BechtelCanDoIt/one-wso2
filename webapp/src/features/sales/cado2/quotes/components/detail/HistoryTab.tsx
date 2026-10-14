@@ -21,11 +21,9 @@ import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState"
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useAuditEvents } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { describeEvent, groupHistory } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
+import { formatDateTime } from "@features/sales/cado2/quotes/form/draftForm";
 
-const when = (iso: string) => {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? iso : d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-};
+const when = formatDateTime;
 
 /** History tab: the audit events as a timeline, newest first. */
 export default function HistoryTab({ quoteId }: { quoteId: number }): JSX.Element {

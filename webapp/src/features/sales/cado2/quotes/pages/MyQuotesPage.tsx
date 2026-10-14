@@ -635,7 +635,7 @@ export default function MyQuotesPage(): JSX.Element {
             to={cado2Paths.newQuote}
             startIcon={<PlusIcon size={18} />}
           >
-            Create Quote
+            New Quote
           </Button>
         }
       />

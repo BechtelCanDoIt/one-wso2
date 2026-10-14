@@ -36,7 +36,7 @@ import { useCado2Toast } from "@features/sales/cado2/components/toast/toastConte
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 import type { ApprovalSlaPolicy } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { useApprovalSlaChanges, useApprovalSlas, useSaveApprovalSlas } from "@features/sales/cado2/admin/approval-slas/api/useApprovalSlas";
 
@@ -83,7 +83,7 @@ export default function ApprovalSlasPage(): JSX.Element {
                   {unit}
                   <Typography component="span" variant="caption" color="text.secondary">
                     {" "}
-                    · {c.changedByEmail} · {formatDate(c.changedAt.slice(0, 10))}
+                    · {changedText(c.changedAt, c.changedByEmail)}
                   </Typography>
                 </Typography>
               );

@@ -115,7 +115,7 @@ export default function CommercialStep(): JSX.Element {
             name="netTermsDays"
             control={control}
             render={({ field }) => (
-              <TextField {...field} select label="Net terms" size="small" sx={{ minWidth: 200 }} required>
+              <TextField {...field} select label="Payment terms" size="small" sx={{ minWidth: 200 }} required>
                 <MenuItem value="30">30 days</MenuItem>
                 <MenuItem value="45">45 days</MenuItem>
                 <MenuItem value="60">60 days</MenuItem>

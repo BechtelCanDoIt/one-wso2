@@ -164,7 +164,7 @@ export default function SubscriptionTermCard(): JSX.Element {
 
   return (
     <SectionCard
-      title="Term"
+      title="Subscription term"
       icon={<CalendarDaysIcon size={18} />}
       aside={
         startDate && end ? (
@@ -290,7 +290,7 @@ export default function SubscriptionTermCard(): JSX.Element {
                       <FormControlLabel
                         value="UPFRONT"
                         control={<Radio />}
-                        label="Full amount upfront"
+                        label="Upfront"
                       />
                     </RadioGroup>
                   )}

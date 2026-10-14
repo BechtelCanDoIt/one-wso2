@@ -64,7 +64,7 @@ describe("QuoteAccessPage", () => {
     };
     render(<QuoteAccessPage />);
     expect(
-      screen.getByText("Last changed by admin@wso2.com on 12 Oct 2026"),
+      screen.getByText("Last changed 12 Oct 2026 · admin@wso2.com"),
     ).toBeInTheDocument();
   });
 });

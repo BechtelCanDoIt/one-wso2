@@ -196,7 +196,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     const found = await screen.findByLabelText("What Salesforce says about this deal", {}, { timeout: 3000 });
     expect(await within(found).findByText("USD 34,000.00", {}, { timeout: 3000 })).toBeInTheDocument();
     expect(within(found).getByText("Renewal")).toBeInTheDocument();
-    expect(within(found).getByText("Partner-led · Acme Reseller (Reseller)")).toBeInTheDocument();
+    expect(within(found).getByText("Partner deal · Acme Reseller (Reseller)")).toBeInTheDocument();
     // The subscription it covers, not its pipeline stage (2026-10-09).
     expect(within(found).getByText("No subscription dates in Salesforce")).toBeInTheDocument();
     expect(within(found).queryByText(/Negotiation/)).toBeNull();

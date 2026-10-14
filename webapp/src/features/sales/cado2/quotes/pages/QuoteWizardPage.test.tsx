@@ -444,7 +444,7 @@ describe("QuoteWizardPage — new quote", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole("heading", { level: 1, name: "New quote" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "New Quote" })).toBeInTheDocument();
     expect(screen.getByText("Editing")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
     expect(screen.queryByText(/Start by choosing/)).toBeNull(); // no hint in the title

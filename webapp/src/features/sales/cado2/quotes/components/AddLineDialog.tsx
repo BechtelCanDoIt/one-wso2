@@ -313,7 +313,7 @@ export default function AddLineDialog({
           </Box>
           <Box>
             <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
-              {line ? "Edit line" : "Add a product"}
+              {line ? "Edit line" : "Add line"}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Priced from {pricebook.name} in {currency}
@@ -482,7 +482,7 @@ export default function AddLineDialog({
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={save}>
-          {line ? "Update line" : "Add line"}
+          {line ? "Save line" : "Add line"}
         </Button>
       </DialogActions>
     </Dialog>
