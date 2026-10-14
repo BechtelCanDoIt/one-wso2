@@ -76,11 +76,11 @@ describe("SideRail's User Guide row", () => {
   });
 
   it("shows once the backend resolves a configured URL, while on Security and Compliance", async () => {
-    authFetch.mockReturnValueOnce(jsonOnce({ url: "https://docs.google.com/document/d/abc/" }));
+    authFetch.mockReturnValueOnce(jsonOnce({ url: "https://example.com/user-guide" }));
     renderSideRail();
 
     const link = await screen.findByRole("link", { name: /User Guide/i });
-    expect(link.getAttribute("href")).toBe("https://docs.google.com/document/d/abc/");
+    expect(link.getAttribute("href")).toBe("https://example.com/user-guide");
     expect(link.getAttribute("target")).toBe("_blank");
   });
 

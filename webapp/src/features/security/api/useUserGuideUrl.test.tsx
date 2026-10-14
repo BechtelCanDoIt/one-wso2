@@ -47,12 +47,12 @@ describe("useUserGuideUrl", () => {
   });
 
   it("fetches the configured URL from the meta endpoint when enabled", async () => {
-    authFetch.mockReturnValueOnce(jsonOnce({ url: "https://docs.google.com/document/d/abc/" }));
+    authFetch.mockReturnValueOnce(jsonOnce({ url: "https://example.com/user-guide" }));
 
     const { result } = renderHook(() => useUserGuideUrl(true), { wrapper: withQueryClient() });
 
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(result.current.data?.url).toBe("https://docs.google.com/document/d/abc/");
+    expect(result.current.data?.url).toBe("https://example.com/user-guide");
     expect(authFetch).toHaveBeenCalledWith("https://example.invalid/api/v1/meta/user-guide-url");
   });
 
