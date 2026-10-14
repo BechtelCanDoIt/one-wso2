@@ -63,10 +63,10 @@ import type { MisViewState } from "../util/useMisViewState";
 import type { MisFilterOptions } from "../api/misAppConfigs";
 import MisAppliedFilterChips from "./MisAppliedFilterChips";
 import {
-  faithfulApplySx,
-  faithfulChipSx,
-  faithfulOutlinedSx,
-  faithfulTextButtonSx,
+  applySx,
+  chipSx,
+  outlinedSx,
+  textButtonSx,
   gradientCardSx,
 } from "./misLookTokens";
 
@@ -278,7 +278,7 @@ export default function MisFilterBar({
                 size="small"
                 onClick={() => setExpanded((open) => !open)}
                 startIcon={expanded ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
-                sx={faithfulTextButtonSx}
+                sx={textButtonSx}
               >
                 {expanded ? "Less" : "More"}
               </Button>
@@ -288,7 +288,7 @@ export default function MisFilterBar({
               variant="contained"
               disabled={!hasPendingChanges}
               onClick={apply}
-              sx={faithfulApplySx}
+              sx={applySx}
             >
               Apply
             </Button>
@@ -297,7 +297,7 @@ export default function MisFilterBar({
               variant="outlined"
               startIcon={<EraserIcon size={14} />}
               onClick={clearAll}
-              sx={faithfulOutlinedSx}
+              sx={outlinedSx}
             >
               Clear All
             </Button>
@@ -360,7 +360,7 @@ export default function MisFilterBar({
           {hasPendingChanges ? CHANGE_MESSAGE : resetNotice}
         </Typography>
 
-        <Box sx={(theme) => ({ "& .MuiChip-root": faithfulChipSx(theme) })}>
+        <Box sx={(theme) => ({ "& .MuiChip-root": chipSx(theme) })}>
           <MisAppliedFilterChips
             chips={describeAppliedFilters(filters, filterView)}
             onRemove={removeChip}

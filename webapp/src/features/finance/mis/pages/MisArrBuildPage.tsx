@@ -252,8 +252,8 @@ function ArrBuild({ period }: { period: MisPeriod }) {
       </Box>
       {/* All BU Build is a fixed summary. It is drawn at its own height so the
           rows are on the page, and the content column scrolls if the window is
-          shorter. The other tables stay in the leftover height, with the
-          standalone 320px floor so they are not squashed to a single row. */}
+          shorter. The other tables stay in the leftover height, with a 320px
+          floor so they are not squashed to a single row. */}
       <Box
         sx={
           view.table === MIS_TABLES.SUBSCRIPTION

@@ -344,9 +344,9 @@ function SummaryCards({
         gridTemplateColumns: { xs: "1fr", md: "minmax(0, 0.9fr) minmax(0, 1.3fr)" },
       }}
     >
-      {/* The standalone pair: a large ARR figure with the trend mark, then
-          Logo count with its Live Filtered chip. The ARR tile still replaces
-          its figure with an error or a skeleton. */}
+      {/* A large ARR figure with the trend mark, then Logo count with its
+          Live Filtered chip. The ARR tile still replaces its figure with an
+          error or a skeleton. */}
       <Card sx={(theme) => ({ ...analysisSurfaceSx(theme), height: "100%" })}>
         <Box sx={{ p: 2 }}>
           <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>

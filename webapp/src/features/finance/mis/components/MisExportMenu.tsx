@@ -23,7 +23,7 @@ import { saveMisWorkbook, type MisWorkbookSpec } from "../export/misWorkbook";
 import { saveBlob } from "@utils/saveFile";
 import type { MisScale } from "../util/misViewVocabulary";
 import { MIS_SCALES } from "../util/misViewVocabulary";
-import { faithfulExportSx } from "./misLookTokens";
+import { exportSx } from "./misLookTokens";
 
 // ONE filled-primary "Export ▾" menu offering CSV · Excel · PDF, at every
 // export point on the ARR Dashboard and in its dialogs.
@@ -108,7 +108,7 @@ export default function MisExportMenu({
         aria-haspopup="menu"
         aria-expanded={Boolean(anchor)}
         onClick={(event: MouseEvent<HTMLElement>) => setAnchor(event.currentTarget)}
-        sx={faithfulExportSx}
+        sx={exportSx}
       >
         {working ? "Exporting…" : "Export"}
       </Button>

@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { Theme } from "@mui/material/styles";
-import { CHIP_INK, faithfulApplySx, faithfulChipSx, underlineTabSx } from "./misLookTokens";
+import { CHIP_INK, applySx, chipSx, underlineTabSx } from "./misLookTokens";
 
 function theme(): Theme {
   return {
@@ -42,12 +42,12 @@ describe("MIS chrome contrast", () => {
     const wash = [255, 115, 0].map((channel) => Math.round(channel * 0.12 + 250 * 0.88));
     const ink = [170, 76, 0];
     expect(CHIP_INK).toBe("#aa4c00");
-    expect(faithfulChipSx(theme()).color).toBe(CHIP_INK);
+    expect(chipSx(theme()).color).toBe(CHIP_INK);
     expect(contrast(ink, wash)).toBeGreaterThanOrEqual(4.5);
   });
 
   it("sets Apply and Export type to black, which the orange gradient can carry", () => {
-    const fill = faithfulApplySx["&&:not(:disabled), &&:hover:not(:disabled)"];
+    const fill = applySx["&&:not(:disabled), &&:hover:not(:disabled)"];
     expect(fill.color).toBe("#000 !important");
     // The two stops of Oxygen's contained-primary gradient.
     expect(contrast([0, 0, 0], [244, 123, 32])).toBeGreaterThanOrEqual(4.5);

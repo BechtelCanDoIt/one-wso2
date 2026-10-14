@@ -33,9 +33,9 @@ import {
 import { ChevronDownIcon, ChevronUpIcon, EraserIcon, ListFilterIcon } from "@wso2/oxygen-ui-icons-react";
 import {
   brandText,
-  faithfulChipSx,
-  faithfulOutlinedSx,
-  faithfulTextButtonSx,
+  chipSx,
+  outlinedSx,
+  textButtonSx,
   gradientCardSx,
   primaryTint,
 } from "./misLookTokens";
@@ -126,9 +126,8 @@ export default function MisAnalysisFilters({
   };
 
   return (
-    // The same card as the ARR Dashboard filter bar, which is the standalone
-    // panel: gradient surface, a header rule, then the controls. No clock —
-    // the standalone analysis screen does not carry one.
+    // The same card as the ARR Dashboard filter bar: gradient surface, a header
+    // rule, then the controls. No clock — this screen has no Period.
     <Box sx={(theme) => ({ ...gradientCardSx(theme), p: 0, mb: 0, overflow: "hidden" })}>
       <Stack
         direction="row"
@@ -150,14 +149,13 @@ export default function MisAnalysisFilters({
           <Typography component="h2" variant="subtitle2" sx={{ fontSize: 14, fontWeight: 600 }}>
             Filters
           </Typography>
-          {/* The count IS the number of narrowings. The standalone panel says
-              "3 active", and that is the phrase the finance team looks for. */}
+          {/* The count IS the number of narrowings, phrased "3 active". */}
           {tags.length > 0 && (
             <Chip
               size="small"
               variant="outlined"
               label={`${tags.length} active`}
-              sx={(theme) => ({ height: 22, fontWeight: 700, ...faithfulChipSx(theme) })}
+              sx={(theme) => ({ height: 22, fontWeight: 700, ...chipSx(theme) })}
             />
           )}
         </Stack>
@@ -168,7 +166,7 @@ export default function MisAnalysisFilters({
             aria-expanded={open}
             aria-controls={PANEL_ID}
             startIcon={open ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
-            sx={faithfulTextButtonSx}
+            sx={textButtonSx}
           >
             {open ? "Collapse" : "Expand"}
           </Button>
@@ -179,7 +177,7 @@ export default function MisAnalysisFilters({
               variant="outlined"
               startIcon={<EraserIcon size={14} />}
               onClick={() => onChange(defaultAnalysisFilters(today))}
-              sx={faithfulOutlinedSx}
+              sx={outlinedSx}
             >
               Clear all
             </Button>

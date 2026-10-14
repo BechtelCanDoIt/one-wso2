@@ -200,7 +200,7 @@ export const gradientCardSx = (theme: Theme) => ({
 });
 
 /** The card's text button (More / Less): uppercase 12px/700, letter-spacing .35px, 8px radius. */
-export const faithfulTextButtonSx = (theme: Theme) => ({
+export const textButtonSx = (theme: Theme) => ({
   textTransform: "uppercase",
   fontSize: 12,
   fontWeight: 700,
@@ -225,7 +225,7 @@ export const faithfulTextButtonSx = (theme: Theme) => ({
  * including the theme's 0.9 hover opacity. The `!important` is what it takes
  * to beat the theme's own.
  */
-export const faithfulApplySx = {
+export const applySx = {
   textTransform: "uppercase",
   fontSize: 12,
   fontWeight: 600,
@@ -240,7 +240,7 @@ export const faithfulApplySx = {
 } as const;
 
 /** The outlined button (Clear All, Reset): primary border, brand text, uppercase 12px/700, 8px radius. */
-export const faithfulOutlinedSx = (theme: Theme) => ({
+export const outlinedSx = (theme: Theme) => ({
   textTransform: "uppercase",
   fontSize: 12,
   fontWeight: 700,
@@ -262,7 +262,7 @@ export const faithfulOutlinedSx = (theme: Theme) => ({
  */
 export const CHIP_INK = "#aa4c00";
 
-export const faithfulChipSx = (theme: Theme) => ({
+export const chipSx = (theme: Theme) => ({
   height: 24,
   fontSize: 12,
   fontWeight: 700,
@@ -329,4 +329,4 @@ export const gridCaptionSx = {
 } as const;
 
 /** Export: the same filled primary as Apply. */
-export const faithfulExportSx = faithfulApplySx;
+export const exportSx = applySx;

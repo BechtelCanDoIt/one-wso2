@@ -179,7 +179,7 @@ describe("with the flag on", () => {
     show();
     expect(screen.getByRole("heading", { level: 1, name: "ARR Analysis" })).toBeInTheDocument();
     expect(screen.getByRole("grid")).toBeInTheDocument();
-    // The standalone pair, not an Accounts tile, and no clock on this screen.
+    // Logo count beside the ARR figure, and no clock on this screen.
     expect(screen.getByText("LOGO COUNT")).toBeInTheDocument();
     expect(screen.getByText("Live Filtered")).toBeInTheDocument();
     expect(screen.queryByRole("note", { name: /every period on this screen/i })).not.toBeInTheDocument();

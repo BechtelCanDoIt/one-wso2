@@ -19,7 +19,7 @@ import { RotateCcwIcon } from "@wso2/oxygen-ui-icons-react";
 import { MIS_UNITS_BY_CATEGORY, formatUnitLabel, unitCategoryOf } from "../util/misUnits";
 import { CUSTOM_UNIT } from "../util/misViewVocabulary";
 import type { MisUnitSelection } from "./MisUnitTabs";
-import { faithfulOutlinedSx, gradientCardSx, unitPillSx } from "./misLookTokens";
+import { outlinedSx, gradientCardSx, unitPillSx } from "./misLookTokens";
 
 // The Unit pills under a Build tab. The category itself lives in the seven
 // Table tabs above, so this row is only the units OF that category — or, under
@@ -69,7 +69,7 @@ export default function MisUnitPills({
             variant="outlined"
             startIcon={<RotateCcwIcon size={14} />}
             onClick={reset}
-            sx={faithfulOutlinedSx}
+            sx={outlinedSx}
           >
             Reset
           </Button>
