@@ -50,6 +50,19 @@ describe("the calendar popup", () => {
   });
 });
 
+describe("a value that is not a real date", () => {
+  // new Date(2025, 1, 31) is 3 March; the field must not show a different day.
+  it("shows as empty rather than rolling over", () => {
+    show({ value: "2025-02-31" });
+    expect(screen.getByLabelText("Last sabbatical")).toHaveValue("");
+  });
+
+  it("still shows a real date", () => {
+    show({ value: "2024-02-29" });
+    expect(screen.getByLabelText("Last sabbatical")).toHaveValue("2024-02-29");
+  });
+});
+
 describe("a typed date", () => {
   it("comes back as YYYY-MM-DD", () => {
     const onChange = show({ min: "2024-09-01", max: "2026-10-14" });

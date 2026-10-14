@@ -18,21 +18,24 @@
 
 import { AdapterDateFns, Box, DatePickers, Typography } from "@wso2/oxygen-ui";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
+import { localIsoDate } from "@utils/localDate";
 
 const { DatePicker, LocalizationProvider } = DatePickers;
 
-/** `YYYY-MM-DD` to a local Date, or null for empty or malformed input. */
+/** `YYYY-MM-DD` to a local Date, or null for empty, malformed or impossible input. */
 function fromIso(iso: string | undefined): Date | null {
   if (!iso) return null;
-  const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const day = iso.slice(0, 10);
+  const [y, m, d] = day.split("-").map(Number);
   if (!y || !m || !d) return null;
-  return new Date(y, m - 1, d);
+  const date = new Date(y, m - 1, d);
+  // Reject dates that roll over, e.g. 2025-02-31 → 2025-03-03.
+  return localIsoDate(date) === day ? date : null;
 }
 
 /** A local Date to `YYYY-MM-DD`, or "" when there is no complete date. */
 function toIso(d: Date | null): string {
-  if (!d || Number.isNaN(d.getTime())) return "";
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  return d && !Number.isNaN(d.getTime()) ? localIsoDate(d) : "";
 }
 
 // One date input, shared by every leave form and report.
