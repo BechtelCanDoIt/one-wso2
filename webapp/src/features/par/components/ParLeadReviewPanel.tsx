@@ -41,7 +41,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ChevronDownIcon, ExternalLinkIcon, FileDownIcon, Google, InfoIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, CircleAlertIcon, ExternalLinkIcon, FileDownIcon, Google, InfoIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
 import {
@@ -311,6 +311,7 @@ export default function ParLeadReviewPanel({
   // removed — an admin can force a rating through regardless of where the
   // employee's own side is.
   const employeeHasStarted = isAdminView || parRatingData.parEmployeeStatus !== "PENDING";
+  const autoAssigned = parRatingData.parRatingUpdatedBy === "SYSTEM";
   const canSaveDraft = !readOnly && !deadlinePassed && !ratingUpdate.isPending && dirty;
   const canShare =
     !readOnly &&
@@ -319,7 +320,7 @@ export default function ParLeadReviewPanel({
     employeeHasStarted &&
     Boolean(parRatingValue) &&
     !isEmptyHtml(leadComment) &&
-    !(parRatingValue === evidenceEnabledRating && (!evidenceConfirmed || driveFiles.length === 0));
+    !(parRatingValue === evidenceEnabledRating && !autoAssigned && (!evidenceConfirmed || driveFiles.length === 0));
 
   return (
     <Grid container spacing={2}>
@@ -402,8 +403,25 @@ export default function ParLeadReviewPanel({
                   below. */}
               <Stack spacing={1.5} sx={{ p: 1.75, borderRadius: 1.5, bgcolor: "action.hover" }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Typography id="lead-review-rating-label" variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                  <Typography
+                    id="lead-review-rating-label"
+                    variant="body2"
+                    sx={{ flexShrink: 0, minWidth: 96, display: "flex", alignItems: "center", gap: 0.75 }}
+                    color="text.secondary"
+                  >
                     Rating
+                    {!readOnly && autoAssigned && (
+                      <Tooltip title="This rating was automatically assigned after the PAR deadline was missed and can no longer be changed.">
+                        <Box
+                          component="span"
+                          tabIndex={0}
+                          aria-label="Rating auto-assigned and locked"
+                          sx={{ display: "flex", cursor: "help", color: "warning.main" }}
+                        >
+                          <CircleAlertIcon size={16} />
+                        </Box>
+                      </Tooltip>
+                    )}
                   </Typography>
                   {readOnly ? (
                     parRatingData.parRating ? (
@@ -421,7 +439,7 @@ export default function ParLeadReviewPanel({
                       fullWidth
                       value={parRatingValue}
                       onChange={(e) => setParRatingValue(e.target.value as string)}
-                      disabled={ratingUpdate.isPending}
+                      disabled={ratingUpdate.isPending || autoAssigned}
                       aria-labelledby="lead-review-rating-label"
                     >
                       {(cycle.parCycleConfigurations?.parRatings ?? [])
@@ -506,7 +524,7 @@ export default function ParLeadReviewPanel({
                         <Checkbox
                           checked={evidenceConfirmed}
                           onChange={(e) => setEvidenceConfirmed(e.target.checked)}
-                          disabled={ratingUpdate.isPending}
+                          disabled={ratingUpdate.isPending || autoAssigned}
                         />
                       }
                       label={`Performance gaps were discussed, and the employee has been informed of the "${evidenceEnabledRating}" rating, and at least two discussions were held.`}
