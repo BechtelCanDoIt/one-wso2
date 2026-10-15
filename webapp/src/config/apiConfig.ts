@@ -2181,9 +2181,12 @@ export function buildDealsUrl(params: {
   hideClosed: boolean;
   /** My deals: only the signed-in user's own (the backend reads who from the token). */
   mine?: boolean;
+  /** Only deals whose account is in this Sales Region, e.g. "EU". */
+  region?: string | null;
 }): string {
   const qs = new URLSearchParams();
   if (params.mine) qs.set("mine", "true");
+  if (params.region?.trim()) qs.set("region", params.region.trim());
   if (params.search?.trim()) qs.set("search", params.search.trim());
   if (params.owner?.trim()) qs.set("owner", params.owner.trim());
   if (params.stage?.trim()) qs.set("stage", params.stage.trim());

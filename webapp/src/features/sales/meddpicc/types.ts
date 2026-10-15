@@ -110,6 +110,8 @@ export interface DealSummary {
   name: string;
   accountId: string;
   accountName: string;
+  /** The account's Sales Region, e.g. "EU"; null when it has none. Absent from an older backend. */
+  salesRegion?: string | null;
   stage: string;
   recordType: string;
   amount: number | null;

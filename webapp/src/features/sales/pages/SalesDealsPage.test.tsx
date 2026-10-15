@@ -134,6 +134,23 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     spy.mockRestore();
   });
 
+  it("filters by the account's region", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(mockMeddpiccClient, "deals");
+    renderPage();
+    await screen.findByRole("button", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("combobox", { name: "Region" }));
+    await user.click(await screen.findByRole("option", { name: "APAC" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Brightwater – API Manager first sale" })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Harbourline – API platform" })).toBeInTheDocument();
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ region: "APAC", mine: true }));
+    spy.mockRestore();
+  });
+
   it("shows closed deals once Hide closed is turned off", async () => {
     const user = userEvent.setup();
     renderPage();

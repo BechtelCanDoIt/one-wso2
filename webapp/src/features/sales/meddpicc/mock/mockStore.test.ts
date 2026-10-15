@@ -26,7 +26,7 @@ const HARBOURLINE = "006MOCK0000HARB";
 const ASTERRA = "006MOCK0000ASTE";
 const OAKRIDGE = "006MOCK0000OAKR";
 
-const ALL = { search: null, owner: null, stage: null, hideClosed: false, mine: false };
+const ALL = { search: null, owner: null, stage: null, hideClosed: false, mine: false, region: null };
 
 async function statusOf(promise: Promise<unknown>): Promise<{ status: number; body: Record<string, unknown> }> {
   try {
@@ -166,5 +166,9 @@ describe("the test double", () => {
     const mine = (await client.deals({ ...ALL, mine: true })).items.map((d) => d.opportunityId);
     expect(mine.length).toBeLessThan(all.items.length);
     for (const id of mine) expect((await client.deal(id)).canEdit).toBe(true);
+    // A region: the deals whose account is in it.
+    const apac = (await client.deals({ ...ALL, region: "APAC" })).items;
+    expect(apac.length).toBeGreaterThan(0);
+    expect(apac.every((d) => d.salesRegion === "APAC")).toBe(true);
   });
 });
