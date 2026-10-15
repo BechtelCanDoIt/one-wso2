@@ -36,6 +36,7 @@ import {
   ArrowRightIcon,
   ChevronDownIcon,
   ExternalLinkIcon,
+  RefreshCwIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { formatDateTime, parseUtc } from "../../util/salesTime";
@@ -45,6 +46,7 @@ import {
   useApproveDeal,
   useIncludeCalls,
   useMoveStage,
+  useRefreshDeal,
   type MoveStageFailure,
 } from "../api/useMeddpiccMutations";
 import type {
@@ -103,10 +105,11 @@ export default function DealView({
   onTabChange?: (tab: DealTab) => void;
 }) {
   const { deal, fields, canEdit } = detail;
-  const { showSuccess } = useNotifications();
+  const { showSuccess, showError } = useNotifications();
   const approve = useApproveDeal(deal.opportunityId);
   const moveStage = useMoveStage(deal.opportunityId);
   const includeCalls = useIncludeCalls(deal.opportunityId);
+  const refresh = useRefreshDeal(deal.opportunityId);
 
   const [letter, setLetter] = useState<LetterKey | null>(initialLetter);
   // The stage whose fields are shown; null opens on the current stage.
@@ -350,6 +353,26 @@ export default function DealView({
               ))}
             </Stack>
           )}
+          {/* The backend keeps Salesforce's answer for ten minutes; this asks again, for
+              when a change made in Salesforce should show now. */}
+          <Tooltip title="Read this deal from Salesforce again" arrow>
+            <Box component="span" sx={{ ml: "auto !important", display: "inline-flex" }}>
+              <Button
+                size="small"
+                aria-label="Refresh from Salesforce"
+                disabled={refresh.isPending}
+                onClick={() =>
+                  refresh.mutate(undefined, {
+                    onError: (err) => showError(`Couldn't refresh from Salesforce: ${describeError(err)}`),
+                  })
+                }
+                startIcon={refresh.isPending ? <CircularProgress size={14} /> : <RefreshCwIcon size={14} />}
+                sx={{ textTransform: "none" }}
+              >
+                Refresh
+              </Button>
+            </Box>
+          </Tooltip>
           <Button
             size="small"
             variant="outlined"
@@ -357,7 +380,7 @@ export default function DealView({
             target="_blank"
             rel="noopener noreferrer"
             endIcon={<ExternalLinkIcon size={14} />}
-            sx={{ ml: "auto !important", textTransform: "none" }}
+            sx={{ textTransform: "none" }}
           >
             Open in Salesforce
           </Button>

@@ -80,6 +80,19 @@ export function useMoveStage(opportunityId: string) {
   });
 }
 
+/**
+ * GET /deals/{id}?refresh=true: the deal read from Salesforce again, rather than the
+ * backend's snapshot (kept for ten minutes), put in place of the cached one.
+ */
+export function useRefreshDeal(opportunityId: string) {
+  const { client, userSub } = useMeddpiccBasis();
+  const qc = useQueryClient();
+  return useMutation<DealDetail, Error, void>({
+    mutationFn: () => client.deal(opportunityId, { refresh: true }),
+    onSuccess: (detail) => afterDealChange(qc, ["meddpicc-deal", userSub, opportunityId], detail),
+  });
+}
+
 /** POST /deals/{id}/include-calls. Answers the new DealDetail. */
 export function useIncludeCalls(opportunityId: string) {
   const { client, userSub } = useMeddpiccBasis();

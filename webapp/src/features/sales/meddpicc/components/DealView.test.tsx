@@ -245,6 +245,37 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toHaveTextContent("Nothing is missing in Qualify.");
   });
 
+  it("leads with the deal's facts, its Letters in Salesforce and what is waiting for review", async () => {
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    for (const label of ["Account", "Amount", "Close date", "Owner", "Last activity"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText(/^\d of 8 in Salesforce/)).toBeInTheDocument();
+    // The review count rides on the MEDDPICC tab, so it shows from the Activity tab too.
+    expect(screen.getByRole("tab", { name: /^MEDDPICC, \d+ to review$/ })).toBeInTheDocument();
+  });
+
+  it("re-reads the deal from Salesforce on Refresh, and shows what came back", async () => {
+    const user = userEvent.setup();
+    const realDeal = mockMeddpiccClient.deal;
+    const spy = vi.spyOn(mockMeddpiccClient, "deal");
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    expect(spy).toHaveBeenCalledWith("006MOCK0000MERI");
+
+    // What Salesforce says now: the account was renamed there.
+    spy.mockImplementationOnce(async (id, options) => {
+      const fresh = await realDeal(id, options);
+      return { ...fresh, deal: { ...fresh.deal, accountName: "Meridian Bank plc" } };
+    });
+    await user.click(screen.getByRole("button", { name: "Refresh from Salesforce" }));
+
+    expect(spy).toHaveBeenLastCalledWith("006MOCK0000MERI", { refresh: true });
+    expect(await screen.findByText("Meridian Bank plc")).toBeInTheDocument();
+    spy.mockRestore();
+  });
+
   it("keeps the journey and activity on the Activity tab, away from the fields", async () => {
     const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
