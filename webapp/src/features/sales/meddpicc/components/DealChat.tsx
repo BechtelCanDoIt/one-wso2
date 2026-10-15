@@ -65,7 +65,8 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
   const followUps = ASK_SUGGESTIONS.filter((q) => !asked.has(q)).slice(0, 3);
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    if (event.key === "Enter" && !event.shiftKey) {
+    // Not while an input method is composing: there Enter confirms a character.
+    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       send(draft);
     }
