@@ -1886,6 +1886,7 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
   // What AMs may do with quotes they don't own (D69; Admin).
   adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
+  adminSalesforceSync: `${cado2BackendUrl}/admin/salesforce-sync`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>

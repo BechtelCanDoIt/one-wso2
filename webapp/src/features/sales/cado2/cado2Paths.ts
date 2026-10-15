@@ -28,6 +28,7 @@ export type Cado2AdminSection =
   | "currencies"
   | "product-categories"
   | "quote-access"
+  | "salesforce-sync"
   | "pricing-formulas";
 
 /** The quote page's tabs, each its own route. */

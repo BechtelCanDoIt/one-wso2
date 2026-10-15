@@ -33,6 +33,7 @@ import LegalEntitiesPage from "./admin/legal-entities/pages/LegalEntitiesPage";
 import CurrenciesPage from "./admin/currencies/pages/CurrenciesPage";
 import ProductCategoriesPage from "./admin/product-categories/pages/ProductCategoriesPage";
 import QuoteAccessPage from "./admin/quote-access/pages/QuoteAccessPage";
+import SalesforceSyncPage from "./admin/salesforce-sync/pages/SalesforceSyncPage";
 import PricingFormulasPage from "./admin/pricing-formulas/pages/PricingFormulasPage";
 import PricingFormulaHistoryPage from "./admin/pricing-formulas/pages/PricingFormulaHistoryPage";
 
@@ -90,6 +91,7 @@ export const cado2Routes = (
       <Route path="currencies" element={<CurrenciesPage />} />
       <Route path="product-categories" element={<ProductCategoriesPage />} />
       <Route path="quote-access" element={<QuoteAccessPage />} />
+      <Route path="salesforce-sync" element={<SalesforceSyncPage />} />
       <Route path="pricing-formulas" element={<PricingFormulasPage />} />
       <Route path="pricing-formulas/:productId" element={<PricingFormulaHistoryPage />} />
       <Route path="*" element={<Navigate to={cado2Paths.adminSection(FIRST_ADMIN_SECTION)} replace />} />
