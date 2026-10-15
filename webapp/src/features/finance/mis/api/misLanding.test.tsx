@@ -25,15 +25,6 @@ import { WalletIcon } from "@wso2/oxygen-ui-icons-react";
 import { PERSPECTIVES } from "@constants/perspectives";
 import { misPaths } from "@constants/misApps";
 
-// The flag has to be on before the registry is read, which is at import. See
-// misRail.test.tsx, whose setup this file shares line for line.
-vi.hoisted(() => {
-  window.config = {
-    ...(window.config ?? {}),
-    ONE_WSO2_PREVIEW_FEATURES: { mis: true },
-  } as Window["config"];
-});
-
 // Finance's landing must not advertise MIS to someone who cannot open it.
 //
 // Finance no longer HAS overview cards. Its landing forwards to the first item
@@ -97,7 +88,7 @@ vi.mock("@api/useUserInfo", () => ({
 // case from passing for the wrong reason — forwarding to a claim screen would
 // also leave MIS unopened — and the positive case below proves the setup is one
 // in which MIS WOULD be opened.
-const other = { canSee: () => false, isResolving: false };
+const other = { canSee: () => false, isResolving: false, itemAnswered: () => true };
 const noFailure = { isError: false, retry: () => {} };
 vi.mock("@features/finance/api/useFinanceGate", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@features/finance/api/useFinanceGate")>()),

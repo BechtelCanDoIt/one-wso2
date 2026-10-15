@@ -150,11 +150,10 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // things, so a MIS id reaching the capability check would show company-wide
   // revenue reporting to every signed-in employee.
   //
-  // And only while the `mis` preview flag is on. The flag holds MIS back as a
-  // whole, backend included: with the ARR URL set and the flag off, a gate that
-  // still asked would hold every Finance landing on /user-info, and report its
-  // failure as Finance's, for screens nobody can open.
-  const misGate = useMisGate(active.key === "finance" && isPreviewEnabled("mis"));
+  // Finance MIS is shipped, so this asks whenever Finance is open. A slow or
+  // failed /user-info holds or stops Finance with the other checks. Unconfigured,
+  // useMisGate asks nothing and never stays pending.
+  const misGate = useMisGate(active.key === "finance");
 
   // Leave is the same problem again: its backend numbers LEAD 879 /
   // PEOPLE_OPS_TEAM 789, unrelated to people-app's 993 / 999. Reading

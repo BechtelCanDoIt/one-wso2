@@ -24,16 +24,6 @@ import { MemoryRouter } from "react-router";
 import { HouseIcon } from "@wso2/oxygen-ui-icons-react";
 import { PERSPECTIVES } from "@constants/perspectives";
 
-// The MIS rail entries are behind the `mis` preview flag (previewFeatures.ts),
-// and the registry is read once, at import — so the flag has to be on before it
-// is. Its OFF half is pinned in perspectives.test.ts.
-vi.hoisted(() => {
-  window.config = {
-    ...(window.config ?? {}),
-    ONE_WSO2_PREVIEW_FEATURES: { mis: true },
-  } as Window["config"];
-});
-
 // What a person sees in the Finance rail.
 //
 // The gate suite proves the decision and the routing suite proves the screens
@@ -86,7 +76,7 @@ vi.mock("@context/perspective/PerspectiveContext", () => ({
 
 // The other perspectives' gates still get called — SideRail asks for every gate
 // on every render — so they need answers that do not reach a real useQuery.
-const other = { canSee: () => false, isResolving: false };
+const other = { canSee: () => false, isResolving: false, itemAnswered: () => true };
 vi.mock("@api/useUserInfo", () => ({
   useUserInfo: () => ({ data: { privileges: [] }, isLoading: false, isError: false }),
 }));

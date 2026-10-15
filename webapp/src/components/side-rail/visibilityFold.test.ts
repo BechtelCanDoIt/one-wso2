@@ -275,6 +275,14 @@ describe("foldVisibility", () => {
 });
 
 describe("claimsForPerspective", () => {
+  it("includes Finance MIS on Finance with no preview config", () => {
+    const previous = window.config;
+    window.config = { ...(previous ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
+    expect(claimsForPerspective("finance")).toContain("mis");
+    expect(claimsForPerspective("me")).not.toContain("mis");
+    window.config = previous;
+  });
+
   it("includes promotion on People Ops only while the preview flag is on", () => {
     const previous = window.config;
     window.config = { ...(previous ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
@@ -295,6 +303,7 @@ describe("claimsForPerspective", () => {
       "marketing",
       "due-diligence",
       "finance",
+      "mis",
       "leave",
       "banking",
       "banking-admin",
@@ -347,6 +356,7 @@ describe("claimsForPerspective", () => {
       "marketing",
       "due-diligence",
       "finance",
+      "mis",
       "leave",
       "banking",
       "banking-admin",

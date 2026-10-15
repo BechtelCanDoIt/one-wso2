@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { umt?: boolean; infra?: boolean; mis?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
+  preview: { umt?: boolean; infra?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -40,8 +40,9 @@ afterEach(() => {
 
 const keys = (perspectives: readonly { key: string }[]) => perspectives.map((p) => p.key);
 
-// Finance MIS has shown live figures on stage, but Finance has not yet verified
-// them, so it lands behind its own flag, as a whole.
+// Finance MIS shipped out of preview. The ARR Dashboard and ARR Analysis are
+// part of Finance with no preview config, which is what production looks like.
+// Quarterly and Monthly stay routes of the dashboard, not rows of their own.
 describe("Finance MIS's rail entries", () => {
   const misIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("finance")?.sections ?? [])
@@ -49,17 +50,8 @@ describe("Finance MIS's rail entries", () => {
       .map((section) => section.id)
       .filter((id) => id.startsWith("mis-"));
 
-  it("are there once staging switches the flag on", async () => {
-    expect(misIdsIn(await load({ mis: true }))).toContain("mis-arr-build");
-  });
-
-  it("are gone when the flag is off", async () => {
-    expect(misIdsIn(await load({ mis: false }))).toEqual([]);
-  });
-
-  // Production sets no preview config at all — absent has to mean off.
-  it("are gone when nobody has mentioned the flag", async () => {
-    expect(misIdsIn(await load({}))).toEqual([]);
+  it("are present with no preview flags set", async () => {
+    expect(misIdsIn(await load({}))).toEqual(["mis-arr-build", "mis-analysis"]);
   });
 });
 

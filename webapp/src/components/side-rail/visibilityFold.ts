@@ -228,10 +228,9 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   if (perspectiveKey === "marketing") names.push("marketing");
   if (perspectiveKey === "finance" || perspectiveKey === "legal") names.push("due-diligence");
   if (perspectiveKey === "finance" || perspectiveKey === "me") names.push("finance");
-  // The MIS sections exist only while the preview flag is on. Asking for
-  // /user-info when they are absent holds the Finance landing on a backend
-  // that has nothing to show.
-  if (perspectiveKey === "finance" && isPreviewEnabled("mis")) names.push("mis");
+  // Finance MIS is shipped. Its rows are always in Finance, so the ARR
+  // service is asked there and a failed read stops Finance with the other checks.
+  if (perspectiveKey === "finance") names.push("mis");
   if (perspectiveKey === "me") names.push("leave", "banking");
   if (perspectiveKey === "people" || perspectiveKey === "finance") names.push("banking-admin");
   if (perspectiveKey === "infra") names.push("infra");
@@ -245,7 +244,7 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   if (perspectiveKey === "people" && isPreviewEnabled("promotion")) names.push("promotion");
   if (perspectiveKey === "security") names.push("security");
   if (perspectiveKey === "engineering") names.push("engineering");
-  // UMT's rows exist only while its preview flag is on, same as MIS and CadO2.
+  // UMT's rows exist only while its preview flag is on, same as CadO2.
   // Asking its /update/user-info when they are absent holds the Engineering
   // landing on a backend that has nothing to show.
   if (perspectiveKey === "engineering" && isPreviewEnabled("umt")) names.push("umt");
