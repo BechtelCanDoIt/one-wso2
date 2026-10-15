@@ -45,7 +45,8 @@ export interface MeddpiccClient {
   meetingCoverage(meetingIds: number[]): Promise<MeetingCoverageList>;
   reanalyse(meetingId: number): Promise<void>;
   deals(query: DealsQuery): Promise<DealList>;
-  deal(opportunityId: string): Promise<DealDetail>;
+  /** `refresh` reads the deal from Salesforce again instead of the backend's snapshot. */
+  deal(opportunityId: string, options?: { refresh?: boolean }): Promise<DealDetail>;
   approve(opportunityId: string, request: ApproveRequest): Promise<ApproveResult>;
   moveStage(opportunityId: string, toStage: string): Promise<MoveStageResult>;
   includeCalls(opportunityId: string, meetingIds: number[]): Promise<DealDetail>;
@@ -76,8 +77,11 @@ export function httpMeddpiccClient(getAccessToken: () => Promise<string>): Meddp
       await authedPost<unknown>(echoServiceUrls.reanalyse(meetingId), await getAccessToken(), {});
     },
     deals: async (query) => authedGet<DealList>(buildDealsUrl(query), await getAccessToken()),
-    deal: async (opportunityId) =>
-      authedGet<DealDetail>(echoServiceUrls.deal(opportunityId), await getAccessToken()),
+    deal: async (opportunityId, options) =>
+      authedGet<DealDetail>(
+        echoServiceUrls.deal(opportunityId) + (options?.refresh ? "?refresh=true" : ""),
+        await getAccessToken(),
+      ),
     approve: async (opportunityId, request) => {
       const url = echoServiceUrls.approve(opportunityId);
       return required(url, await authedPost<ApproveResult>(url, await getAccessToken(), request));
