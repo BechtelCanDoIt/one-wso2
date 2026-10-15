@@ -697,8 +697,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // Gated on the MIS ARR backend's own privileges, not on `requires` —
       // see useMisGate. Privilege 987 is also this app's PRIVILEGE.EMPLOYEE,
       // so reading one for the other would show company revenue to everyone.
-      // Behind the `mis` preview flag. The routes carry the same flag.
-      ...(isPreviewEnabled("mis") ? appsToSections(MIS_APPS) : []),
+      ...appsToSections(MIS_APPS),
       // Master Data last, under everything else. It is reference data an
       // administrator edits occasionally — subsidiaries, departments, expense
       // types, the card register — not a screen anyone opens to do their day's

@@ -1380,10 +1380,9 @@ describe("the QRR and MRR Builds", () => {
   });
 
   it("narrows the customers table to a recent run plus today on a Delayed type", async () => {
-    // Delayed QRR is two historic quarters plus the current day, not the seven
-    // quarters the
-    // Build draws — a Delayed figure is revenue that has not landed, so a long
-    // tail of closed quarters says nothing.
+    // Delayed QRR is two historic quarters plus the current day, not the whole
+    // Quarterly Build — a Delayed figure is revenue that has not landed, so a
+    // long tail of closed quarters says nothing.
     renderPage("?table=customers&type=Delayed+QRR", MIS_PERIODS.QUARTERLY);
     expect(customers.lastRanges).toHaveLength(3);
     expect(buildColumnLabel(customers.lastRanges.at(-1)!)).toMatch(

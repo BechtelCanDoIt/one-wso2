@@ -131,9 +131,8 @@ window.config = {
   // Only ONE_WSO2_MIS_ARR_BACKEND_URL is configured. This app does not call
   // any other MIS service, so there is no key for one.
   //
-  // Configuring the URL is not enough to show MIS: every MIS screen is also
-  // behind the `mis` preview flag (ONE_WSO2_PREVIEW_FEATURES, below) until
-  // Finance has verified its figures.
+  // Who sees Finance MIS is the ARR privilege from this service's /user-info.
+  // ARR Analysis also stays hidden until this service turns that screen on.
   //
   // ONE_WSO2_MIS_ARR_BACKEND_URL: "<mis-arr-backend-url>",
 
@@ -206,6 +205,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, promotion: false, mis: false, cado2: false, nda: false, smartSearch: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, promotion: false, cado2: false, nda: false, smartSearch: false },
 
 };

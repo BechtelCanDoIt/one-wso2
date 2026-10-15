@@ -57,7 +57,7 @@ export type PreviewFeature =
   /**
    * Engineering → UMT, the whole app — its rail group and every route under
    * `/engineering/umt`. Engineering itself is shipped; this flag only hides
-   * UMT. Held back as a whole, the same way Finance MIS is inside Finance.
+   * UMT. Held back as a whole inside Engineering.
    * `useUmtGate`'s own role check against the UMT backend is unrelated and
    * keeps working the same regardless of this flag.
    */
@@ -77,13 +77,6 @@ export type PreviewFeature =
    * it's ready.
    */
   | "promotion"
-  /**
-   * Finance → Finance MIS — the ARR, QRR and MRR Builds and ARR Analysis,
-   * rail entries and routes alike. Held back as a whole until Finance has
-   * verified its figures. `useMisGate`'s own privilege check is unrelated and
-   * keeps working the same either way.
-   */
-  | "mis"
   /**
    * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
    * Approvals, Admin), every route under `/sales/cado2`, and its backend

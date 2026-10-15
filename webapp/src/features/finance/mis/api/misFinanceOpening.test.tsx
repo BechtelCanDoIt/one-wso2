@@ -23,15 +23,13 @@ import type { ReactNode } from "react";
 import { HouseIcon } from "@wso2/oxygen-ui-icons-react";
 import { PERSPECTIVES } from "@constants/perspectives";
 
-// The `mis` preview flag holds MIS back AS A WHOLE (previewFeatures.ts), and
-// that has to include its backend. ONE_WSO2_MIS_ARR_BACKEND_URL may be set
-// while the flag is off. A gate that still asked would hold every Finance
-// landing on a slow or failing /user-info for screens nobody can see, then
-// tell claim approvers "Couldn't work out what you can open in Finance".
+// Finance MIS is shipped, so opening Finance asks the ARR service whenever
+// that service is connected. A slow answer holds Finance. A failed answer
+// stops Finance with the same "Couldn't work out what you can open in Finance"
+// the other checks already produce.
 //
-// So this file leaves the flag OFF, which is the default (nothing here sets
-// ONE_WSO2_PREVIEW_FEATURES), and asks the hook the rail and the landing both
-// read. Its twin with the flag on is misRail.test.tsx.
+// Nothing here sets ONE_WSO2_PREVIEW_FEATURES. That is production's config.
+// The rail's twin, with a successful answer, is misRail.test.tsx.
 
 vi.mock("@config/apiConfig", async () => {
   const actual = await vi.importActual<typeof import("@config/apiConfig")>("@config/apiConfig");
@@ -82,7 +80,7 @@ vi.mock("@context/perspective/PerspectiveContext", () => ({
 
 // Every other gate answers settled and closed, so the only thing that could
 // hold the aggregate is MIS.
-const other = { canSee: () => false, isResolving: false };
+const other = { canSee: () => false, isResolving: false, itemAnswered: () => true };
 const noFailure = { isError: false, retry: () => {} };
 vi.mock("@api/useUserInfo", () => ({
   useUserInfo: () => ({ data: { privileges: [] }, isLoading: false, isError: false }),
@@ -170,23 +168,23 @@ beforeEach(() => {
   asked.appConfigs = false;
 });
 
-describe("Finance, with the mis preview flag off and the ARR URL set", () => {
-  it("asks the MIS backend nothing", () => {
+describe("Finance, with Finance MIS connected and no preview config", () => {
+  it("asks the ARR service", () => {
     renderHook(() => usePerspectiveVisibility(), { wrapper: withQueries() });
-    expect(asked.userInfo, "GET /user-info went out").toBe(false);
-    expect(asked.appConfigs, "GET /app-configs went out").toBe(false);
+    expect(asked.userInfo, "GET /user-info did not go out").toBe(true);
+    expect(asked.appConfigs, "GET /app-configs did not go out").toBe(true);
   });
 
-  it("is not held up while MIS's /user-info is in flight", () => {
+  it("holds Finance while the ARR service is in flight", () => {
     backend.value = "in-flight";
     const { result } = renderHook(() => usePerspectiveVisibility(), { wrapper: withQueries() });
-    expect(result.current.isResolving).toBe(false);
+    expect(result.current.isResolving).toBe(true);
   });
 
-  it("does not report MIS's failure as Finance's", () => {
+  it("stops Finance when the ARR service fails", () => {
     backend.value = "failed";
     const { result } = renderHook(() => usePerspectiveVisibility(), { wrapper: withQueries() });
-    expect(result.current.isError).toBe(false);
-    expect(result.current.error).toBeUndefined();
+    expect(result.current.isError).toBe(true);
+    expect(result.current.error).toBeTruthy();
   });
 });
