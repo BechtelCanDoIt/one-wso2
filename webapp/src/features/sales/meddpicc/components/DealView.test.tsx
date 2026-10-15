@@ -298,6 +298,47 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("button", { name: "Summarise where this deal stands." })).toBeInTheDocument();
   });
 
+  it("filters the activity list and the journey by source with the chips", async () => {
+    const user = userEvent.setup();
+    const realDeal = mockMeddpiccClient.deal;
+    const spy = vi.spyOn(mockMeddpiccClient, "deal").mockImplementation(async (id, options) => {
+      const d = await realDeal(id, options);
+      const extra = [
+        { type: "EMAIL" as const, kind: "EMAIL" as const, id: "02sA", title: "Re: pricing", occurredAt: "2026-09-20T09:00:00Z",
+          actor: "Ravi Kumar", letters: [], meetingId: null, url: "https://example.org/02sA" },
+        { type: "ACTIVITY" as const, kind: "ACTIVITY" as const, id: "00TA", title: "Sent the proposal", occurredAt: "2026-09-21T09:00:00Z",
+          actor: "Ravi Kumar", letters: [], meetingId: null, url: "https://example.org/00TA" },
+      ];
+      const calls = d.calls.map((c) => ({
+        type: "CALL" as const, kind: "CUSTOMER_CALL" as const, id: String(c.meetingId), title: c.title, occurredAt: c.start,
+        actor: c.host, letters: [], meetingId: c.meetingId, url: null,
+      }));
+      return {
+        ...d,
+        activity: [...extra, ...calls],
+        sources: { calls: calls.length, emails: 1, activities: 1, lastActivityAt: "2026-09-21T09:00:00Z" },
+      };
+    });
+    renderPanel("006MOCK0000MERI", "activity");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    const activity = () => screen.getByRole("region", { name: "Activity" });
+    const marks = () => within(screen.getByRole("list", { name: /^Deal journey/ })).getAllByRole("listitem");
+    const all = marks().length;
+    expect(within(activity()).getByText("Re: pricing")).toBeInTheDocument();
+    expect(within(activity()).getByText("Sent the proposal")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Emails" }));
+
+    expect(within(activity()).getByText("Re: pricing")).toBeInTheDocument();
+    expect(within(activity()).queryByText("Sent the proposal")).not.toBeInTheDocument();
+    expect(within(activity()).getByText(/^Activity \(1 of \d+\)$/)).toBeInTheDocument();
+    expect(marks()).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "All" }));
+    expect(marks()).toHaveLength(all);
+    spy.mockRestore();
+  });
+
   it("keeps the journey and activity on the Activity tab, away from the fields", async () => {
     const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
