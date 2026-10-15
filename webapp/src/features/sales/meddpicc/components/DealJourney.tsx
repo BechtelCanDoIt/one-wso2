@@ -145,7 +145,7 @@ export function DealJourneyLegend() {
       {swatch(<Box sx={{ width: "2px", height: 12, bgcolor: "currentColor" }} />, "Close date")}
       <Box sx={{ opacity: 0.8, maxWidth: 260 }}>
         The line is the deal, shaded by stage. Stages come from Salesforce&apos;s stage history when it can
-        be read, else from what Echo saw at each call.
+        be read, else from the stage recorded at each call.
       </Box>
     </Stack>
   );
