@@ -38,6 +38,8 @@ export interface DealsQuery {
   owner: string | null;
   stage: string | null;
   hideClosed: boolean;
+  /** Only the signed-in user's own deals. */
+  mine: boolean;
 }
 
 export interface MeddpiccClient {

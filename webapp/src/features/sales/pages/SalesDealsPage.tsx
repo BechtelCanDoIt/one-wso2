@@ -57,7 +57,7 @@ export default function SalesDealsPage() {
   const navigate = useNavigate();
 
   const gatesQuery = useMeddpiccGates();
-  const dealsQuery = useDeals({ search, owner, stage, hideClosed });
+  const dealsQuery = useDeals({ search, owner, stage, hideClosed, mine: false });
   const deals = dealsQuery.data?.items ?? [];
 
   // Adjusted during render rather than in an effect, as MeetingFilters does.
