@@ -117,4 +117,18 @@ describe("DealJourney", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
   });
+
+  it("marks the months along the line", () => {
+    const { container } = render(
+      <DealJourney
+        marks={[{ type: "CALL", kind: "CUSTOMER_CALL", at: "2026-07-20T10:00:00Z", title: "First call", meetingId: 1 }]}
+        journey={{ startedAt: "2026-07-01T00:00:00Z", stages: [] }}
+        sources={{ calls: 1, emails: 0, activities: 0, lastActivityAt: "2026-07-20T10:00:00Z" }}
+        closeDate="2026-10-31"
+        now={Date.parse("2026-09-15T00:00:00Z")}
+      />,
+    );
+    const labels = [...container.querySelectorAll("[data-month-label]")].map((n) => n.textContent);
+    expect(labels).toEqual(["Jul 2026", "Aug", "Sep", "Oct"]);
+  });
 });

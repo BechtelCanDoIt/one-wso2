@@ -37,7 +37,39 @@ function useKindColor(): (kind: TimelineKind) => string {
 /** Track geometry: one line, the stage bar, with every mark centred on it. */
 const LINE_Y = 13;
 const BAR_HEIGHT = 6;
-const TRACK_HEIGHT = 26;
+/** The month labels sit under the line. */
+const MONTHS_Y = 24;
+const TRACK_HEIGHT = 38;
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The start of each month the track spans, and which of them to label: every month when
+ * there are few, every other or every third when there are many, so labels never crowd.
+ */
+function monthTicks(start: number, end: number): { ms: number; label: string | null }[] {
+  const first = new Date(start);
+  let y = first.getUTCFullYear();
+  let m = first.getUTCMonth();
+  const ticks: number[] = [];
+  for (;;) {
+    if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+    const ms = Date.UTC(y, m, 1);
+    if (ms > end) break;
+    if (ms >= start) ticks.push(ms);
+    m += 1;
+  }
+  const step = ticks.length > 16 ? 3 : ticks.length > 8 ? 2 : 1;
+  return ticks.map((ms, i) => {
+    if (i % step !== 0) return { ms, label: null };
+    const d = new Date(ms);
+    const month = MONTH_NAMES[d.getUTCMonth()];
+    return { ms, label: i === 0 || d.getUTCMonth() === 0 ? `${month} ${d.getUTCFullYear()}` : month };
+  });
+}
 
 /**
  * One mark: a plain solid dot in its kind's hue. Something still to come is the same dot,
@@ -251,6 +283,41 @@ export default function DealJourney({
             </Tooltip>
           );
         })}
+
+        {/* Months: a notch through the line at each month's start, and its name under it. */}
+        {monthTicks(start, end).map(({ ms, label }) => (
+          <Box key={`month-${ms}`} aria-hidden>
+            <Box
+              sx={{
+                position: "absolute",
+                left: `${pct(ms)}%`,
+                top: LINE_Y - BAR_HEIGHT / 2 - 2,
+                height: BAR_HEIGHT + 4,
+                width: "1px",
+                bgcolor: "text.disabled",
+                opacity: 0.6,
+              }}
+            />
+            {label && (
+              <Typography
+                component="span"
+                data-month-label
+                sx={{
+                  position: "absolute",
+                  left: `${pct(ms)}%`,
+                  top: MONTHS_Y,
+                  transform: "translateX(-50%)",
+                  fontSize: "0.65rem",
+                  lineHeight: 1,
+                  color: "text.secondary",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </Typography>
+            )}
+          </Box>
+        ))}
 
         {/* Today, across the track. */}
         <Box
