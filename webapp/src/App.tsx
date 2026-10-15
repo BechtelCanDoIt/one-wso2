@@ -936,12 +936,11 @@ export default function App() {
           <Route path="marketing-ops/admin/events" element={<EventsSettingsPage />} />
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
-          {/* Event Platform — the agenda-organizer port, a different app from
-              Events above. The tree is deep enough that the feature owns it, as
-              the GRC modules own theirs. See event-platform/eventPlatformTabs.ts.
-              Behind the same preview flag as its rail group — hiding only the
-              rail would leave the routes reachable by URL. */}
-          {isPreviewEnabled("eventPlatform") && eventPlatformRoutes}
+          {/* Event Platform — event agendas, speakers and swag shops, a different
+              app from Events above. The tree is deep enough that the feature
+              owns it, as the GRC modules own theirs. See
+              event-platform/eventPlatformTabs.ts. */}
+          {eventPlatformRoutes}
           <Route
             path="marketing-ops/crm-upload/pipelines"
             element={<CrmUploadPipelinesPage />}
