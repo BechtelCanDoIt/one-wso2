@@ -33,6 +33,8 @@ import LegalEntitiesPage from "./admin/legal-entities/pages/LegalEntitiesPage";
 import CurrenciesPage from "./admin/currencies/pages/CurrenciesPage";
 import ProductCategoriesPage from "./admin/product-categories/pages/ProductCategoriesPage";
 import QuoteAccessPage from "./admin/quote-access/pages/QuoteAccessPage";
+import PricingFormulasPage from "./admin/pricing-formulas/pages/PricingFormulasPage";
+import PricingFormulaHistoryPage from "./admin/pricing-formulas/pages/PricingFormulaHistoryPage";
 
 // The heavy screens load on first use.
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
@@ -88,6 +90,8 @@ export const cado2Routes = (
       <Route path="currencies" element={<CurrenciesPage />} />
       <Route path="product-categories" element={<ProductCategoriesPage />} />
       <Route path="quote-access" element={<QuoteAccessPage />} />
+      <Route path="pricing-formulas" element={<PricingFormulasPage />} />
+      <Route path="pricing-formulas/:productId" element={<PricingFormulaHistoryPage />} />
       <Route path="*" element={<Navigate to={cado2Paths.adminSection(FIRST_ADMIN_SECTION)} replace />} />
     </Route>
     <Route path="*" element={<Navigate to={cado2Paths.home} replace />} />

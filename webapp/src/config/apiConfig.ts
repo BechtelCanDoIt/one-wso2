@@ -1928,6 +1928,20 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
+  // Pricing formulas (D81): read by AMs and Admins; changed by Admins.
+  pricingFormulas: `${cado2BackendUrl}/pricing-formulas`,
+  adminPricingFormula: (productId: string): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/${encodeSegment(productId)}`,
+  pricingFormulaTry: `${cado2BackendUrl}/admin/pricing-formulas/try`,
+  pricingFormulaVersions: (productId: string): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/${encodeSegment(productId)}/versions`,
+  // The formula editor's product list: every quote currency, a page at a time.
+  pricingFormulaProducts: (search: string, limit: number, offset: number): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/products?${new URLSearchParams({
+      ...(search ? { search } : {}),
+      limit: String(limit),
+      offset: String(offset),
+    }).toString()}`,
 };
 
 export const salesBackendUrl: string = window.config?.ONE_WSO2_REVOPS_BACKEND_URL ?? "";

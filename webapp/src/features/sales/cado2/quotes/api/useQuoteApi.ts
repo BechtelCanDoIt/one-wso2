@@ -42,6 +42,7 @@ import type {
   OpportunityProducts,
   OpportunityQuote,
   PricebookOption,
+  PricingFormula,
   PricingPreview,
   Product,
   AuditEvent,
@@ -152,6 +153,15 @@ export function useQuoteSettings() {
 
 export function useActiveLegalEntities() {
   return useAuthedQuery<ActiveLegalEntity[]>(["legal-entities", "active"], cado2ServiceUrls.legalEntities(true));
+}
+
+/**
+ * Every product's pricing formula (D81), by product Id: a formula product's
+ * line is priced by it, with no discount. Key: "pricing-formulas", which an
+ * Admin's save invalidates.
+ */
+export function usePricingFormulas(): UseQueryResult<PricingFormula[], Error> {
+  return useAuthedQuery<PricingFormula[]>(["pricing-formulas"], cado2ServiceUrls.pricingFormulas);
 }
 
 /** My Quotes: the caller's own quotes, filtered by the latest version's status. */

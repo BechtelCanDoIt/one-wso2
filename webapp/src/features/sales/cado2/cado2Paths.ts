@@ -27,7 +27,8 @@ export type Cado2AdminSection =
   | "legal-entities"
   | "currencies"
   | "product-categories"
-  | "quote-access";
+  | "quote-access"
+  | "pricing-formulas";
 
 /** The quote page's tabs, each its own route. */
 export type Cado2QuoteTab = "quote" | "approvals" | "versions" | "history";
@@ -54,4 +55,7 @@ export const cado2Paths = {
   approvals: `${CADO2_PATH}/approvals`,
   admin: `${CADO2_PATH}/admin`,
   adminSection: (section: Cado2AdminSection): string => `${CADO2_PATH}/admin/${section}`,
+  /** One product's pricing formula and its version history (D82). */
+  adminPricingFormula: (productId: string): string =>
+    `${CADO2_PATH}/admin/pricing-formulas/${encodeURIComponent(productId)}`,
 } as const;

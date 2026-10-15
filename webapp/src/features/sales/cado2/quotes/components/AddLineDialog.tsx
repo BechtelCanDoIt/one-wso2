@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { createContext, useContext, useEffect, useRef, useState, type JSX, type ReactNode, type UIEvent } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import {
   Alert,
   Autocomplete,
@@ -31,16 +31,29 @@ import {
   Stack,
   TextField,
   Typography,
-  type PaperProps,
 } from "@wso2/oxygen-ui";
 import { PackageIcon, PercentIcon } from "@wso2/oxygen-ui-icons-react";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { descriptionAfterName } from "@features/sales/cado2/utils/productDescription";
 import { lineProblems } from "@features/sales/cado2/quotes/components/lineProblems";
-import { useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
-import type { CategorySource, LineCategory, PricebookRef, Product } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { LINE_CATEGORIES, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
+import { usePricingFormulas, useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import type {
+  CategorySource,
+  LineCategory,
+  LineFormula,
+  PricebookRef,
+  PricingFormula,
+  Product,
+} from "@features/sales/cado2/quotes/api/quoteTypes";
+import { bindingsSummary, versionLabel } from "@features/sales/cado2/utils/pricingFormula";
+import {
+  ProductListContext,
+  productLabel,
+  useProductList,
+} from "@features/sales/cado2/components/product-list/productList";
+import { ProductListPaper, ProductOption } from "@features/sales/cado2/components/product-list/ProductListParts";
+import { formatDate, LINE_CATEGORIES, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
 
 /** A small heading for a group of fields in the dialog. */
 function Group({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }): JSX.Element {
@@ -70,7 +83,20 @@ function Group({ icon, title, children }: { icon: ReactNode; title: string; chil
   );
 }
 
-/** The chosen product and its price-book price, shown prominently (the price can't be edited). */
+/**
+ * How the card prices the line: the price book; a saved line's formula
+ * version, with the price it worked out (D82); or the formula in force, for a
+ * new or moved line, worked out on the quote (D81).
+ */
+type CardPricing =
+  | { kind: "PRICE_BOOK" }
+  | { kind: "KEPT_FORMULA"; formula: LineFormula }
+  | { kind: "FORMULA"; formula: PricingFormula };
+
+/**
+ * The chosen product and its price, shown prominently (the price can't be
+ * edited), with where the price comes from.
+ */
 function ProductCard(props: {
   name: string;
   /** The Salesforce description; shown without the name if it repeats it. */
@@ -79,8 +105,10 @@ function ProductCard(props: {
   pricebook: string;
   unitPrice: string;
   currency: string;
+  pricing: CardPricing;
   note?: string;
 }): JSX.Element {
+  const p = props.pricing;
   return (
     <Paper
       variant="outlined"
@@ -105,18 +133,47 @@ function ProductCard(props: {
           </Stack>
         </Box>
         <Box sx={{ textAlign: "right", flexShrink: 0 }}>
-          <Typography
-            variant="h6"
-            component="p"
-            sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}
-          >
-            {props.currency} {props.unitPrice ? formatMoney(props.unitPrice) : "—"}
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            per unit, from the price book
-          </Typography>
+          {p.kind === "FORMULA" ? (
+            <>
+              <Typography variant="h6" component="p" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
+                By formula
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                worked out on the quote
+              </Typography>
+            </>
+          ) : (
+            <>
+              <Typography
+                variant="h6"
+                component="p"
+                sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums", lineHeight: 1.2 }}
+              >
+                {props.currency} {props.unitPrice ? formatMoney(props.unitPrice) : "—"}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {p.kind === "KEPT_FORMULA" ? "per unit, by formula" : "per unit, from the price book"}
+              </Typography>
+            </>
+          )}
         </Box>
       </Stack>
+      {p.kind !== "PRICE_BOOK" ? (
+        <Box aria-label="Pricing formula" sx={{ mt: 1.5, p: 1.25, borderRadius: 1, bgcolor: "action.hover" }}>
+          <Typography variant="caption" color="text.secondary" display="block">
+            Formula{" "}
+            {p.kind === "KEPT_FORMULA"
+              ? versionLabel(p.formula.version, p.formula.versionDate)
+              : versionLabel(p.formula.version, p.formula.updatedAt)}
+          </Typography>
+          <Typography variant="body2" sx={{ fontFamily: "monospace", fontWeight: 600 }}>
+            {p.formula.expression}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" display="block">
+            {p.kind === "KEPT_FORMULA" ? `= ${p.formula.explanation}` : bindingsSummary(p.formula.bindings)}
+          </Typography>
+        </Box>
+      ) : null}
       {props.note ? (
         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
           {props.note}
@@ -142,39 +199,7 @@ const CATEGORIES = LINE_CATEGORIES;
 const categoryLabel = (c: LineCategory) => CATEGORIES.find((x) => x.value === c)?.label ?? c;
 
 /** The product as the list shows it; the code is shown because names repeat. */
-const getName = (p: Product) => `${p.name ?? p.id}${p.productCode ? ` (${p.productCode})` : ""}`;
-
-/** What the product list's popup shows below the options. */
-interface ProductListState {
-  /** "Loading more…", "Showing 50 · scroll for more", "All 182 products shown". */
-  status: string;
-}
-const ProductListContext = createContext<ProductListState | null>(null);
-
-/**
- * The product list's popup, with a status line below the options so a list
- * still loading isn't taken for all there is. A click on it doesn't take
- * the focus from the search box, which would close the popup.
- */
-function ProductListPaper({ children, ...props }: PaperProps): JSX.Element {
-  const list = useContext(ProductListContext);
-  return (
-    <Paper {...props}>
-      {children}
-      {list?.status ? (
-        <Typography
-          component="div"
-          variant="caption"
-          color="text.secondary"
-          onMouseDown={(e) => e.preventDefault()}
-          sx={{ px: 2, py: 0.75, borderTop: 1, borderColor: "divider" }}
-        >
-          {list.status}
-        </Typography>
-      ) : null}
-    </Paper>
-  );
-}
+const getName = (p: Product) => productLabel(p.name ?? p.id, p.productCode);
 
 /**
  * Add or edit a line. Products and prices come
@@ -195,28 +220,7 @@ export default function AddLineDialog({
   // Editing never searches: a line's product can't be changed, only removed (2026-10-12).
   const products = useProducts(open && !line ? currency : "", debounced, pricebook.id);
   const options = products.data ?? [];
-  // MUI scrolls the list back to the top when options are added and none is
-  // highlighted, so the position is kept here and put back after a page loads.
-  const listbox = useRef<HTMLElement | null>(null);
-  const scrolled = useRef(0);
-  useEffect(() => {
-    if (listbox.current && listbox.current.scrollTop < scrolled.current) listbox.current.scrollTop = scrolled.current;
-  }, [options.length]);
-  const onListScroll = (el: HTMLElement) => {
-    scrolled.current = el.scrollTop;
-    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80 && products.hasNextPage && !products.isFetchingNextPage) {
-      void products.fetchNextPage();
-    }
-  };
-  const listState: ProductListState = {
-    status: products.isFetchingNextPage
-      ? "Loading more…"
-      : options.length === 0 || products.isPending
-        ? ""
-        : products.hasNextPage
-          ? `Showing ${options.length} · scroll for more`
-          : `All ${options.length} ${options.length === 1 ? "product" : "products"} shown`,
-  };
+  const { state: listState, listboxProps } = useProductList(products, options.length);
 
   const [product, setProduct] = useState<Product | null>(null);
   // The parent mounts the dialog afresh for each add/edit, so the line (or
@@ -224,10 +228,10 @@ export default function AddLineDialog({
   // The rep's choice, used only for a product without a mapping.
   const [category, setCategory] = useState<LineCategory | "">(line?.category ?? "");
   // Locked for now (2026-10-14): a saved line keeps its value; a new one has none.
-  const uom = line?.unitOfMeasure ?? "";
   const [quantity, setQuantity] = useState(line?.quantity ?? "1");
   const [discount, setDiscount] = useState(line?.discount ?? "0");
   const [tried, setTried] = useState(false);
+  const formulas = usePricingFormulas();
 
   // A product carries one price: the quote's book's.
   const entry = product?.pricebookEntries[0];
@@ -241,12 +245,62 @@ export default function AddLineDialog({
       : null;
   const source: CategorySource = mapped ? "MAPPED" : "REP";
   const chosen = product !== null || keepsExisting;
+  // How the line is priced (D81, D82). A saved line keeps its pricing until
+  // the AM moves it to the product's pricing in force; a new line takes that.
+  const [moved, setMoved] = useState(line?.useLatestPricing ?? false);
+  const kept = keepsExisting && !moved ? line.keepPricing : undefined;
+  const productId = product ? product.id : keepsExisting ? line.productId : undefined;
+  const latest = productId ? formulas.data?.find((f) => f.productId === productId) : undefined;
+  const inForce = latest?.status === "ACTIVE" ? latest : undefined;
+  const pricing: CardPricing = kept
+    ? kept.method === "FORMULA" && kept.formula
+      ? { kind: "KEPT_FORMULA", formula: kept.formula }
+      : { kind: "PRICE_BOOK" }
+    : inForce
+      ? { kind: "FORMULA", formula: inForce }
+      : { kind: "PRICE_BOOK" };
+  // A formula line has no discount.
+  const formula = kept ? kept.method === "FORMULA" : Boolean(inForce);
+  // What the AM can move the kept line to, if the pricing in force differs.
+  const moveTo = !kept
+    ? null
+    : kept.method === "FORMULA"
+      ? latest && latest.versionId !== kept.formulaVersionId
+        ? latest.status === "ACTIVE"
+          ? {
+              text: `A newer version of this formula is in force: ${versionLabel(latest.version, latest.updatedAt)}.`,
+              action: `Use v${latest.version}`,
+            }
+          : {
+              text: `This formula was removed on ${formatDate(latest.updatedAt.slice(0, 10))}. New lines are priced from the price book.`,
+              action: "Use the price-book price",
+            }
+        : null
+      : inForce
+        ? { text: `This product now has a pricing formula: ${versionLabel(inForce.version, inForce.updatedAt)}.`, action: "Use the formula" }
+        : null;
+  // The unit of measure: a formula line's comes from its version (D83);
+  // otherwise it is locked until it comes from Salesforce (D79), and a line
+  // moved off a formula has none.
+  const uom =
+    pricing.kind === "FORMULA"
+      ? pricing.formula.unitOfMeasure
+      : pricing.kind === "KEPT_FORMULA"
+        ? (pricing.formula.unitOfMeasure ?? line?.unitOfMeasure ?? "")
+        : keepsExisting && moved && line.keepPricing?.method === "FORMULA"
+          ? ""
+          : (line?.unitOfMeasure ?? "");
+  const uomSource =
+    pricing.kind === "PRICE_BOOK" ? "Will come from Salesforce" : `From the pricing formula v${pricing.formula.version}`;
+  // A line moved off a formula goes back to the price-book price it was worked out from.
+  const keptUnitPrice =
+    keepsExisting && moved && line.keepPricing?.method === "FORMULA" ? (line.keepPricing.formula?.listPrice ?? line.unitPrice) : line?.unitPrice ?? "";
 
   const problems = lineProblems({
     pricebookEntryId: keepsExisting ? line.pricebookEntryId : entry ? entry.id : "",
     category: mapped ?? category,
     quantity,
-    discount,
+    discount: formula ? "0" : discount,
   });
   const show = (k: string) => (tried ? problems[k] : undefined);
 
@@ -264,6 +318,7 @@ export default function AddLineDialog({
       : {
           lineId: null,
           pricebookEntryId: entry!.id,
+          productId: product!.id,
           productName: product!.name ?? product!.id,
           productCode: product!.productCode ?? "",
           productDescription: product!.description ?? "",
@@ -283,7 +338,9 @@ export default function AddLineDialog({
       categorySource: source,
       unitOfMeasure: uom.trim(),
       quantity: String(Number(quantity)),
-      discount: discount.trim() || "0",
+      discount: formula ? "0" : discount.trim() || "0",
+      unitPrice: keepsExisting ? keptUnitPrice : base.unitPrice,
+      useLatestPricing: keepsExisting && moved ? true : undefined,
     });
   };
 
@@ -325,8 +382,9 @@ export default function AddLineDialog({
                 description={line.productDescription}
                 code={line.productCode}
                 pricebook={line.pricebookName}
-                unitPrice={line.unitPrice}
+                unitPrice={keptUnitPrice}
                 currency={currency}
+                pricing={pricing}
                 note="The product can't be changed. To use a different one, remove this line and add it."
               />
             ) : product && entry ? (
@@ -337,7 +395,20 @@ export default function AddLineDialog({
                 pricebook={entry.pricebook?.name ?? ""}
                 unitPrice={entry.unitPrice ?? ""}
                 currency={currency}
+                pricing={pricing}
               />
+            ) : null}
+            {moveTo ? (
+              <Alert
+                severity="info"
+                action={
+                  <Button color="inherit" size="small" onClick={() => setMoved(true)}>
+                    {moveTo.action}
+                  </Button>
+                }
+              >
+                {moveTo.text} This line keeps the pricing it was saved with until you change it.
+              </Alert>
             ) : null}
             {line ? null : (
               <ProductListContext.Provider value={listState}>
@@ -351,32 +422,10 @@ export default function AddLineDialog({
                   onChange={(_, p) => chooseProduct(p)}
                   onInputChange={(_, v) => setTerm(v)}
                   slots={{ paper: ProductListPaper }}
-                  slotProps={{
-                    listbox: {
-                      ref: (el: Element | null) => {
-                        listbox.current = el as HTMLElement | null;
-                      },
-                      onScroll: (e: UIEvent<HTMLElement>) => onListScroll(e.currentTarget),
-                    },
-                  }}
-                  // The name, then the description on one quiet line; in full on hover.
-                  renderOption={({ key, ...props }, p) => {
-                    const about = descriptionAfterName(p.name ?? "", p.description);
-                    return (
-                      <li key={key} {...props}>
-                        <Box sx={{ minWidth: 0 }}>
-                          <Typography variant="body2" noWrap title={getName(p)}>
-                            {getName(p)}
-                          </Typography>
-                          {about ? (
-                            <Typography variant="caption" color="text.secondary" component="div" noWrap title={about}>
-                              {about}
-                            </Typography>
-                          ) : null}
-                        </Box>
-                      </li>
-                    );
-                  }}
+                  slotProps={{ listbox: listboxProps }}
+                  renderOption={({ key, ...props }, p) => (
+                    <ProductOption key={key} liProps={props} name={p.name ?? p.id} code={p.productCode} description={p.description} />
+                  )}
                   noOptionsText={
                     products.error
                       ? "Couldn't load the products. Try again." // not "no matching" (2026-10-13)
@@ -450,11 +499,12 @@ export default function AddLineDialog({
               />
               <TextField
                 label="Discount"
-                value={discount}
+                value={formula ? "0" : discount}
                 onChange={(e) => setDiscount(e.target.value)}
                 size="small"
-                error={Boolean(show("discount"))}
-                helperText={show("discount")}
+                disabled={Boolean(formula)}
+                error={Boolean(show("discount")) && !formula}
+                helperText={formula ? "No discount on formula-priced products" : show("discount")}
                 slotProps={{
                   input: {
                     endAdornment: <InputAdornment position="end">%</InputAdornment>,
@@ -463,14 +513,14 @@ export default function AddLineDialog({
               />
             </Stack>
             {/* Its own row: the description under it can be up to ~140 characters. */}
-            {/* Locked for now (2026-10-14): it will come from Salesforce. A saved line keeps what it has. */}
+            {/* Locked (2026-10-14): from the pricing formula (D83), else it will come from Salesforce. */}
             <TextField
               label="Unit of measure"
               value={uom}
               size="small"
               fullWidth
               disabled
-              helperText="Will come from Salesforce"
+              helperText={uomSource}
             />
           </Group>
         </Stack>

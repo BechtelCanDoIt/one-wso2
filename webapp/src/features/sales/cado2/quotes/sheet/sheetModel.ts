@@ -29,6 +29,7 @@ import type {
   DealType,
   DraftResponse,
   LineCategory,
+  LineFormula,
   PricingPreview,
   PricingYear,
   ScheduleRow,
@@ -36,6 +37,7 @@ import type {
   Totals,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
+import { versionLabel } from "@features/sales/cado2/utils/pricingFormula";
 import {
   commissionProblem,
   effectiveBilling,
@@ -80,8 +82,13 @@ export interface SheetLine {
   readonly quantity: string;
   readonly unitOfMeasure: string | null;
   readonly unitPrice: string;
-  /** e.g. "10" for 10%; "0" when none. */
+  /** e.g. "10" for 10%; "0" when none, and always on a formula line. */
   readonly discountPercent: string;
+  /**
+   * A formula line's version and how it worked the unit price out (D81, D82):
+   * "v3 · 15 Oct 2026" and "max(25,000, 10% × 320,000)"; null on a price-book line.
+   */
+  readonly formula: { readonly version: string; readonly explanation: string } | null;
   /** Every line covers the quote's term; a service is dated at the start. */
   readonly startDate: string | null;
   readonly endDate: string | null;
@@ -154,6 +161,11 @@ export interface QuoteSheet {
 }
 
 const ROLES: readonly ContactRole[] = ["BILLING", "SECURITY"];
+
+/** A formula line's version label and explanation, for the order form. */
+function formulaOf(f: LineFormula | null | undefined): SheetLine["formula"] {
+  return f ? { version: versionLabel(f.version, f.versionDate), explanation: f.explanation } : null;
+}
 const blank = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
 
 function addressLines(a: {
@@ -223,6 +235,7 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
       unitOfMeasure: blank(l.unitOfMeasure),
       unitPrice: l.unitPrice,
       discountPercent: String(Number(l.discretionaryDiscountPercent)),
+      formula: l.pricingMethod === "FORMULA" ? formulaOf(l.formula) : null,
       startDate: l.startDate,
       endDate: l.endDate,
       annualList: pricing ? l.annualList : null,
@@ -297,6 +310,8 @@ export function sheetFromForm(
     contacts: [contacts[0], contacts[1]],
     lines: v.lines.map((l, i) => {
       const p = preview?.lines[i];
+      // A formula line's price is the preview's: worked out from the rest of the quote (D81).
+      const byFormula = p?.pricingMethod === "FORMULA";
       return {
         number: i + 1,
         productName: l.productName,
@@ -307,8 +322,9 @@ export function sheetFromForm(
         categoryByRep: l.categorySource !== "MAPPED",
         quantity: l.quantity,
         unitOfMeasure: blank(l.unitOfMeasure),
-        unitPrice: l.unitPrice,
-        discountPercent: String(Number(l.discount || "0")),
+        unitPrice: byFormula ? (p.unitPrice ?? l.unitPrice) : l.unitPrice,
+        discountPercent: byFormula ? "0" : String(Number(l.discount || "0")),
+        formula: byFormula ? formulaOf(p.formula) : null,
         startDate: v.startDate,
         endDate: l.category === "PROFESSIONAL_SERVICE" ? v.startDate : end,
         annualList: p?.annualList ?? null,

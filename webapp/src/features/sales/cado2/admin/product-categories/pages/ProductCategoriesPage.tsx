@@ -174,7 +174,7 @@ export default function ProductCategoriesPage(): JSX.Element {
         <Stack spacing={2}>
           <TextField
             size="small"
-            placeholder="Search Salesforce products by name"
+            placeholder="Search Salesforce products by name or product code"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             sx={{ maxWidth: 480 }}

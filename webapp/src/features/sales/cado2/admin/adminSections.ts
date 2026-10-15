@@ -39,7 +39,10 @@ export const ADMIN_SECTION_GROUPS: readonly AdminSectionGroup[] = [
   },
   {
     label: "Quotes",
-    sections: [{ id: "quote-access", label: "Quote Access" }],
+    sections: [
+      { id: "quote-access", label: "Quote Access" },
+      { id: "pricing-formulas", label: "Pricing Formulas" },
+    ],
   },
   {
     label: "Reference Data",
