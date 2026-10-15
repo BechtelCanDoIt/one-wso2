@@ -155,7 +155,7 @@ export default function MisAnalysisFilters({
               size="small"
               variant="outlined"
               label={`${tags.length} active`}
-              sx={(theme) => ({ height: 22, fontWeight: 700, ...chipSx(theme) })}
+              sx={chipSx}
             />
           )}
         </Stack>
