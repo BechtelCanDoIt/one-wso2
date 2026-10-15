@@ -28,6 +28,7 @@ import MeetingDetailPage from "@features/sales/pages/MeetingDetailPage";
 import SalesDealsPage from "@features/sales/pages/SalesDealsPage";
 import DealPage from "@features/sales/pages/DealPage";
 import PromotionHistoryPage from "@features/promotion/pages/PromotionHistoryPage";
+import PromotionRequiresEmployeeRoute from "@features/promotion/components/PromotionRequiresEmployeeRoute";
 import PromotionRequiresLeadRoute from "@features/promotion/components/PromotionRequiresLeadRoute";
 import LeadPortalPage, { LeadPortalIndex } from "@features/promotion/pages/LeadPortalPage";
 import LeadPendingRequestsTab from "@features/promotion/pages/LeadPendingRequestsTab";
@@ -534,11 +535,17 @@ export default function App() {
               </SriLankaRoute>
             }
           />
-          {/* Me → Promotion: promotion-app's own employee route ("Self
-              Promotion History"). Behind the same preview flag as every
-              other promotion-app route (People Ops → Promotion below) — the
-              whole app isn't released yet. */}
-          {isPreviewEnabled("promotion") && <Route path="me/promotion" element={<PromotionHistoryPage />} />}
+          {/* Me → Promotion: an employee's own promotion history, for the
+              employment types it applies to — PromotionRequiresEmployeeRoute
+              redirects the rest to /me. */}
+          <Route
+            path="me/promotion"
+            element={
+              <PromotionRequiresEmployeeRoute>
+                <PromotionHistoryPage />
+              </PromotionRequiresEmployeeRoute>
+            }
+          />
           {/* Me → PAR: the employee half of par-app, ported one screen at a
               time. Tab names match par-app's own OngoingCycleView tab bar
               (Employee Feedback / Request 360° Feedback / Provide 360°
@@ -716,115 +723,103 @@ export default function App() {
             />
           </Route>
           {/* People Ops → Promotion (Lead/Team History/Functional Lead/
-              Board/Admin/Cycle History portals). Behind the same preview
-              flag as the Me → Promotion route above and the rail's own
-              "Promotion" group (perspectives.ts) — hiding only the
-              rail/launcher entry would leave every route below reachable by
-              URL. Each portal's own role guard (PromotionRequires*Route)
-              keeps working the same regardless of this flag. */}
-          {isPreviewEnabled("promotion") && (
-            <>
-              {/* Lead Portal: promotion-app's own lead.tsx ("Time Based
-                  Promotions"). Reviewing/deciding on other people's
-                  promotions is People-Ops-team work, the same split PAR's own
-                  Lead Portal above already applies. Gated on
-                  PromotionRequiresLeadRoute (promotion-app's own Role.LEAD,
-                  read back from GET /employee-privileges). */}
-              <Route
-                path="people-ops/promotion/lead"
-                element={
-                  <PromotionRequiresLeadRoute>
-                    <LeadPortalPage />
-                  </PromotionRequiresLeadRoute>
-                }
-              >
-                <Route index element={<LeadPortalIndex />} />
-                <Route path="pending" element={<LeadPendingRequestsTab />} />
-                <Route path="history" element={<LeadHistoryTab />} />
-              </Route>
-              {/* Team Promotion History: a SEPARATE Lead-role screen from the
-                  Lead Portal above (source's own /lead-employee-history
-                  route, distinct from /time-based-promotions). */}
-              <Route
-                path="people-ops/promotion/team-history"
-                element={
-                  <PromotionRequiresLeadRoute>
-                    <TeamPromotionHistoryPage />
-                  </PromotionRequiresLeadRoute>
-                }
-              >
-                <Route index element={<TeamPromotionHistoryIndex />} />
-                <Route path="direct-reports" element={<TeamDirectReportsTab />} />
-                <Route path="indirect-reports" element={<TeamIndirectReportsTab />} />
-              </Route>
-              {/* Functional Lead Portal: promotion-app's own
-                  functionalLead.tsx. Gated on Role.FUNCTIONAL_LEAD via
-                  PromotionRequiresFunctionalLeadRoute. */}
-              <Route
-                path="people-ops/promotion/functional-lead"
-                element={
-                  <PromotionRequiresFunctionalLeadRoute>
-                    <FunctionalLeadPortalPage />
-                  </PromotionRequiresFunctionalLeadRoute>
-                }
-              >
-                <Route index element={<FunctionalLeadPortalIndex />} />
-                <Route path="active" element={<FLActiveRequestsTab />} />
-                <Route path="approved" element={<FLApprovedListTab />} />
-                <Route path="rejected" element={<FLRejectedListTab />} />
-                <Route path="time-based" element={<FLTimeBasedTab />} />
-              </Route>
-              {/* Promotion Board Portal: promotion-app's own
-                  promotionBoard.tsx. Gated on Role.PROMOTION_BOARD_MEMBER via
-                  PromotionRequiresPromotionBoardRoute. */}
-              <Route
-                path="people-ops/promotion/board"
-                element={
-                  <PromotionRequiresPromotionBoardRoute>
-                    <PromotionBoardPortalPage />
-                  </PromotionRequiresPromotionBoardRoute>
-                }
-              >
-                <Route index element={<PromotionBoardPortalIndex />} />
-                <Route path="active" element={<PBActiveRequestsTab />} />
-                <Route path="approved" element={<PBApprovedListTab />} />
-                <Route path="rejected" element={<PBRejectedListTab />} />
-                <Route path="fl-rejected" element={<PBFLRejectedListTab />} />
-              </Route>
-              {/* Admin Portal: promotion-app's own administration.tsx.
-                  Gated on Role.HR_ADMIN via PromotionRequiresHrAdminRoute. */}
-              <Route
-                path="people-ops/promotion/admin"
-                element={
-                  <PromotionRequiresHrAdminRoute>
-                    <PromotionAdminPortalPage />
-                  </PromotionRequiresHrAdminRoute>
-                }
-              >
-                <Route index element={<PromotionAdminPortalIndex />} />
-                <Route path="cycle" element={<AdminPromotionCycleTab />} />
-                <Route path="time-based" element={<AdminTimeBasedPromotionsTab />} />
-                <Route path="individual-contributor" element={<AdminIndividualContributorTab />} />
-                <Route path="withdrawal-requests" element={<AdminWithdrawalRequestsTab />} />
-                <Route path="users" element={<AdminUserManagementTab />} />
-              </Route>
-              {/* Promotion Cycle History: promotion-app's own
-                  promotionCycleHistory.tsx. Gated on Role.HR_ADMIN OR
-                  Role.FUNCTIONAL_LEAD via PromotionRequiresCycleHistoryRoute. */}
-              <Route
-                path="people-ops/promotion/cycle-history"
-                element={
-                  <PromotionRequiresCycleHistoryRoute>
-                    <PromotionCycleHistoryPage />
-                  </PromotionRequiresCycleHistoryRoute>
-                }
-              >
-                <Route index element={<PromotionCycleHistoryIndex />} />
-                <Route path="by-cycle" element={<CycleHistoryTab />} />
-                <Route path="people-hr-archive" element={<PeopleHrArchiveTab />} />
-              </Route>
-            </>
-          )}
+              Board/Admin/Cycle History portals). Each portal's own role guard
+              (PromotionRequires*Route) decides who can open it. */}
+          {/* Lead Portal ("Time Based Promotions"): reviewing and deciding on
+              other people's promotions is People-Ops-team work, the same
+              split PAR's Lead Portal above already applies. Gated on
+              PromotionRequiresLeadRoute (the lead privilege read back from
+              GET /employee-privileges). */}
+          <Route
+            path="people-ops/promotion/lead"
+            element={
+              <PromotionRequiresLeadRoute>
+                <LeadPortalPage />
+              </PromotionRequiresLeadRoute>
+            }
+          >
+            <Route index element={<LeadPortalIndex />} />
+            <Route path="pending" element={<LeadPendingRequestsTab />} />
+            <Route path="history" element={<LeadHistoryTab />} />
+          </Route>
+          {/* Team Promotion History: a separate screen from the Lead Portal
+              above, listing promotions received by a lead's direct and
+              indirect reports. Gated on PromotionRequiresLeadRoute. */}
+          <Route
+            path="people-ops/promotion/team-history"
+            element={
+              <PromotionRequiresLeadRoute>
+                <TeamPromotionHistoryPage />
+              </PromotionRequiresLeadRoute>
+            }
+          >
+            <Route index element={<TeamPromotionHistoryIndex />} />
+            <Route path="direct-reports" element={<TeamDirectReportsTab />} />
+            <Route path="indirect-reports" element={<TeamIndirectReportsTab />} />
+          </Route>
+          {/* Functional Lead Portal: gated on the functional lead privilege
+              via PromotionRequiresFunctionalLeadRoute. */}
+          <Route
+            path="people-ops/promotion/functional-lead"
+            element={
+              <PromotionRequiresFunctionalLeadRoute>
+                <FunctionalLeadPortalPage />
+              </PromotionRequiresFunctionalLeadRoute>
+            }
+          >
+            <Route index element={<FunctionalLeadPortalIndex />} />
+            <Route path="active" element={<FLActiveRequestsTab />} />
+            <Route path="approved" element={<FLApprovedListTab />} />
+            <Route path="rejected" element={<FLRejectedListTab />} />
+            <Route path="time-based" element={<FLTimeBasedTab />} />
+          </Route>
+          {/* Promotion Board Portal: gated on the promotion board member
+              privilege via PromotionRequiresPromotionBoardRoute. */}
+          <Route
+            path="people-ops/promotion/board"
+            element={
+              <PromotionRequiresPromotionBoardRoute>
+                <PromotionBoardPortalPage />
+              </PromotionRequiresPromotionBoardRoute>
+            }
+          >
+            <Route index element={<PromotionBoardPortalIndex />} />
+            <Route path="active" element={<PBActiveRequestsTab />} />
+            <Route path="approved" element={<PBApprovedListTab />} />
+            <Route path="rejected" element={<PBRejectedListTab />} />
+            <Route path="fl-rejected" element={<PBFLRejectedListTab />} />
+          </Route>
+          {/* Admin Portal: gated on the HR admin privilege via
+              PromotionRequiresHrAdminRoute. */}
+          <Route
+            path="people-ops/promotion/admin"
+            element={
+              <PromotionRequiresHrAdminRoute>
+                <PromotionAdminPortalPage />
+              </PromotionRequiresHrAdminRoute>
+            }
+          >
+            <Route index element={<PromotionAdminPortalIndex />} />
+            <Route path="cycle" element={<AdminPromotionCycleTab />} />
+            <Route path="time-based" element={<AdminTimeBasedPromotionsTab />} />
+            <Route path="individual-contributor" element={<AdminIndividualContributorTab />} />
+            <Route path="withdrawal-requests" element={<AdminWithdrawalRequestsTab />} />
+            <Route path="users" element={<AdminUserManagementTab />} />
+          </Route>
+          {/* Promotion Cycle History: gated on the HR admin or functional
+              lead privilege via PromotionRequiresCycleHistoryRoute. */}
+          <Route
+            path="people-ops/promotion/cycle-history"
+            element={
+              <PromotionRequiresCycleHistoryRoute>
+                <PromotionCycleHistoryPage />
+              </PromotionRequiresCycleHistoryRoute>
+            }
+          >
+            <Route index element={<PromotionCycleHistoryIndex />} />
+            <Route path="by-cycle" element={<CycleHistoryTab />} />
+            <Route path="people-hr-archive" element={<PeopleHrArchiveTab />} />
+          </Route>
           {/* People Ops reports. Admin-only, but enforced by the backend and
               explained by PeopleOpsShell — there is no route-level guard, so
               a non-admin reaching this URL gets the shell's "no access"

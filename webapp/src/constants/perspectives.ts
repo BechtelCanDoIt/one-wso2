@@ -231,74 +231,63 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
   // below, not `requires` — promotion-app's own Role.LEAD (read back from its
   // GET /employee-privileges) bears no fixed relationship to people-app's
   // generic "lead" capability `requires` would otherwise gate on.
-  //
-  // The whole group is additionally held behind a preview flag until
-  // promotion-app is ready for production (same flag as the Me → Promotion
-  // item above and every /people-ops/promotion/* route in App.tsx) — with
-  // the flag off, this group doesn't exist, so there's nothing here for
-  // resolveVisible's own PROMOTION_*_ITEM_ID checks to ever be asked about.
-  ...(isPreviewEnabled("promotion")
-    ? [
-        {
-          id: "people-promotion",
-          label: "Promotion",
-          icon: AwardIcon,
-          children: [
-            {
-              id: "promotion-lead-portal",
-              label: "Time Based Promotions",
-              path: "/people-ops/promotion/lead",
-            },
-            // A separate Lead-role screen from Time Based Promotions above
-            // (source's own /lead-employee-history route, distinct from
-            // /time-based-promotions) — same Role.LEAD gate, same
-            // PROMOTION_LEAD_PORTAL_ITEM_ID-style treatment, its own id
-            // (PROMOTION_TEAM_HISTORY_ITEM_ID below).
-            {
-              id: "promotion-team-history",
-              label: "Team Promotion History",
-              path: "/people-ops/promotion/team-history",
-            },
-            // A different role gate from the two above (Role.FUNCTIONAL_LEAD,
-            // not Role.LEAD) — its own id (PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID
-            // below), same presentation-only treatment.
-            {
-              id: "promotion-functional-lead-portal",
-              label: "Functional Lead Portal",
-              path: "/people-ops/promotion/functional-lead",
-            },
-            // A third role gate (Role.PROMOTION_BOARD_MEMBER, not Role.LEAD or
-            // Role.FUNCTIONAL_LEAD) — its own id
-            // (PROMOTION_BOARD_PORTAL_ITEM_ID below), same presentation-only
-            // treatment.
-            {
-              id: "promotion-board-portal",
-              label: "Promotion Board Portal",
-              path: "/people-ops/promotion/board",
-            },
-            // A fourth role gate (Role.HR_ADMIN) — its own id
-            // (PROMOTION_ADMIN_PORTAL_ITEM_ID below), same presentation-only
-            // treatment. Not people-app's generic "admin" capability — see the
-            // same reasoning the other three children's own comments give.
-            {
-              id: "promotion-admin-portal",
-              label: "Admin Portal",
-              path: "/people-ops/promotion/admin",
-            },
-            // The one screen two different role gates both reach directly —
-            // Role.HR_ADMIN OR Role.FUNCTIONAL_LEAD (unlike every child above,
-            // gated on exactly one role each). Its own id
-            // (PROMOTION_CYCLE_HISTORY_ITEM_ID below), same presentation-only
-            // treatment.
-            {
-              id: "promotion-cycle-history",
-              label: "Promotion Cycle History",
-              path: "/people-ops/promotion/cycle-history",
-            },
-          ],
-        },
-      ]
-    : []),
+  {
+    id: "people-promotion",
+    label: "Promotion",
+    icon: AwardIcon,
+    children: [
+      {
+        id: "promotion-lead-portal",
+        label: "Time Based Promotions",
+        path: "/people-ops/promotion/lead",
+      },
+      // A separate Lead-role screen from Time Based Promotions above,
+      // listing promotions received by a lead's direct and indirect reports —
+      // same lead gate, same PROMOTION_LEAD_PORTAL_ITEM_ID-style treatment,
+      // its own id (PROMOTION_TEAM_HISTORY_ITEM_ID below).
+      {
+        id: "promotion-team-history",
+        label: "Team Promotion History",
+        path: "/people-ops/promotion/team-history",
+      },
+      // A different role gate from the two above (Role.FUNCTIONAL_LEAD,
+      // not Role.LEAD) — its own id (PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID
+      // below), same presentation-only treatment.
+      {
+        id: "promotion-functional-lead-portal",
+        label: "Functional Lead Portal",
+        path: "/people-ops/promotion/functional-lead",
+      },
+      // A third role gate (Role.PROMOTION_BOARD_MEMBER, not Role.LEAD or
+      // Role.FUNCTIONAL_LEAD) — its own id
+      // (PROMOTION_BOARD_PORTAL_ITEM_ID below), same presentation-only
+      // treatment.
+      {
+        id: "promotion-board-portal",
+        label: "Promotion Board Portal",
+        path: "/people-ops/promotion/board",
+      },
+      // A fourth role gate (Role.HR_ADMIN) — its own id
+      // (PROMOTION_ADMIN_PORTAL_ITEM_ID below), same presentation-only
+      // treatment. Not people-app's generic "admin" capability — see the
+      // same reasoning the other three children's own comments give.
+      {
+        id: "promotion-admin-portal",
+        label: "Admin Portal",
+        path: "/people-ops/promotion/admin",
+      },
+      // The one screen two different role gates both reach directly —
+      // Role.HR_ADMIN OR Role.FUNCTIONAL_LEAD (unlike every child above,
+      // gated on exactly one role each). Its own id
+      // (PROMOTION_CYCLE_HISTORY_ITEM_ID below), same presentation-only
+      // treatment.
+      {
+        id: "promotion-cycle-history",
+        label: "Promotion Cycle History",
+        path: "/people-ops/promotion/cycle-history",
+      },
+    ],
+  },
   {
     id: "people-active-employee-report",
     label: "Active Employees",
@@ -474,10 +463,7 @@ const ME_SECTIONS: PerspectiveSection[] = [
   // par-app's employee portal.
   ...appsToSections(ME_PAR_APPS),
   // promotion-app's employee portal.
-  // Held behind a preview flag until the whole app (this item plus the
-  // "Promotion" group under People Ops) is ready for production — see
-  // isPreviewEnabled's own call in PEOPLE_OPS_SECTIONS below and in App.tsx.
-  ...(isPreviewEnabled("promotion") ? appsToSections(ME_PROMOTION_APPS) : []),
+  ...appsToSections(ME_PROMOTION_APPS),
 ];
 
 // Knowledge's one item so far. Its own perspective (not nested under Me)

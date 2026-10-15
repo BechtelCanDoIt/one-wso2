@@ -67,17 +67,6 @@ export type PreviewFeature =
    */
   | "infra"
   /**
-   * Every promotion-app screen: the Me → Promotion route/rail item, and
-   * the whole "Promotion" group under People Ops (Lead Portal, Team
-   * Promotion History, Functional Lead Portal, Promotion Board Portal,
-   * Admin Portal, Promotion Cycle History) — rail entries and routes
-   * alike. Unlike infra this isn't a whole perspective; it's a set of
-   * items nested inside Me and People Ops, gated the same way so the
-   * feature can ship to `main` without going live in production before
-   * it's ready.
-   */
-  | "promotion"
-  /**
    * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
    * Approvals, Admin), every route under `/sales/cado2`, and its backend
    * calls. Held back as a whole until every screen is in place. CadO2's own

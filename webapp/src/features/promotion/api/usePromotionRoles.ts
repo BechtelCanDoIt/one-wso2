@@ -23,6 +23,7 @@ import {
   PROMOTION_LEAD_PORTAL_ITEM_ID,
   PROMOTION_TEAM_HISTORY_ITEM_ID,
 } from "@constants/perspectives";
+import { PROMOTION_EMPLOYEE_ITEM_ID } from "@constants/promotionApps";
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet, defaultQueryRetry } from "@api/http";
@@ -84,15 +85,20 @@ export function usePromotionPrivileges(workEmail: string | undefined, enabled = 
 }
 
 /** Which promotion section a caller may see. A failed read leaves every role false and hides the sections. */
-export function promotionVisibility(privileges: {
-  isLead: boolean;
-  isFunctionalLead: boolean;
-  isPromotionBoardMember: boolean;
-  isHrAdmin: boolean;
-  isLoading: boolean;
-}): VisibilityAnswer {
+export function promotionVisibility(
+  privileges: {
+    isLead: boolean;
+    isFunctionalLead: boolean;
+    isPromotionBoardMember: boolean;
+    isHrAdmin: boolean;
+    isLoading: boolean;
+  },
+  employee: { canSee: boolean; isLoading: boolean },
+  profileFailed: boolean,
+): VisibilityAnswer {
   return {
     canSee: (id) => {
+      if (id === PROMOTION_EMPLOYEE_ITEM_ID) return employee.canSee && !employee.isLoading && !profileFailed;
       if (id === PROMOTION_LEAD_PORTAL_ITEM_ID || id === PROMOTION_TEAM_HISTORY_ITEM_ID) return privileges.isLead;
       if (id === PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID) return privileges.isFunctionalLead;
       if (id === PROMOTION_BOARD_PORTAL_ITEM_ID) return privileges.isPromotionBoardMember;
@@ -100,7 +106,7 @@ export function promotionVisibility(privileges: {
       if (id === PROMOTION_CYCLE_HISTORY_ITEM_ID) return privileges.isHrAdmin || privileges.isFunctionalLead;
       return false;
     },
-    resolving: privileges.isLoading,
+    resolving: privileges.isLoading || employee.isLoading,
     retry: () => undefined,
   };
 }

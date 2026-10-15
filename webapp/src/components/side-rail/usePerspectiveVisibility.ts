@@ -37,6 +37,7 @@ import { parVisibility } from "@features/par/api/parVisibility";
 import { useParCanSeeLeadPortal, useParEmployeeItemVisible } from "@features/par/api/useParData";
 import { useParIsAdmin } from "@features/par/api/useParIsAdmin";
 import { promotionVisibility, usePromotionPrivileges } from "@features/promotion/api/usePromotionRoles";
+import { promotionEmployeeAccess } from "@features/promotion/util/promotionEmployeeAccess";
 import { umtVisibility, useUmtGate } from "@features/umt/api/useUmtGate";
 import {
   engineeringAdminVisibility,
@@ -242,14 +243,19 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
     isMe && meProfile.isPending,
   );
 
+  // The employee-facing "Promotion" item under Me — promotionEmployeeAccess
+  // hides it for employment types it isn't for, from the same profile
+  // record as above.
+  const promotionEmployeeGate = promotionEmployeeAccess(
+    meProfile.data?.employee?.employmentType,
+    isMe && meProfile.isPending,
+  );
+
   // promotion-app's Lead Portal — same shape of problem as PAR's above: its
   // Role.LEAD comes from promotion-app's own backend and bears no fixed
   // relationship to people-app's generic "lead" privilege `caps` is built
   // from. Only fetched while People Ops is active.
-  const promotionLeadPortalGate = usePromotionPrivileges(
-    userInfo.data?.workEmail,
-    isPeopleOps && isPreviewEnabled("promotion"),
-  );
+  const promotionLeadPortalGate = usePromotionPrivileges(userInfo.data?.workEmail, isPeopleOps);
 
   // UMT is the same shape of problem again: Product Management is
   // UMT_ADMIN-only, decided by UMT's own /update/user-info roles, which bear
@@ -314,7 +320,7 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
       case "cado2":
         return cado2Visibility(cado2Gate);
       case "promotion":
-        return promotionVisibility(promotionLeadPortalGate);
+        return promotionVisibility(promotionLeadPortalGate, promotionEmployeeGate, meProfile.isError);
       case "security":
         return securityVisibility(securityGate);
       case "umt":

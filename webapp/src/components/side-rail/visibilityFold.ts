@@ -23,6 +23,7 @@ import { MIS_ITEM_IDS } from "@constants/misApps";
 import { INFRA_ITEM_IDS } from "@constants/infraApps";
 import { BANKING_ITEM_IDS, LEAVE_ITEM_IDS } from "@constants/meApps";
 import { PAR_EMPLOYEE_ITEM_ID } from "@constants/parApps";
+import { PROMOTION_EMPLOYEE_ITEM_ID } from "@constants/promotionApps";
 import {
   BANKING_ADMIN_ITEM_ID,
   PAR_ADMIN_PORTAL_ITEM_ID,
@@ -160,6 +161,7 @@ export interface FoldedVisibility {
 }
 
 const PROMOTION_SECTION_IDS: ReadonlySet<string> = new Set([
+  PROMOTION_EMPLOYEE_ITEM_ID,
   PROMOTION_LEAD_PORTAL_ITEM_ID,
   PROMOTION_TEAM_HISTORY_ITEM_ID,
   PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID,
@@ -238,10 +240,7 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   // CadO2's rows exist only while its preview flag is on. Asking its /me when
   // they are absent would hold the Sales landing on a backend with nothing to show.
   if (perspectiveKey === "sales" && isPreviewEnabled("cado2")) names.push("cado2");
-  // The promotion sections exist only while the preview flag is on. Asking
-  // for privileges when they are absent holds the People Ops landing on a
-  // backend that has nothing to show.
-  if (perspectiveKey === "people" && isPreviewEnabled("promotion")) names.push("promotion");
+  if (perspectiveKey === "people" || perspectiveKey === "me") names.push("promotion");
   if (perspectiveKey === "security") names.push("security");
   if (perspectiveKey === "engineering") names.push("engineering");
   // UMT's rows exist only while its preview flag is on, same as CadO2.
