@@ -16,6 +16,7 @@
  * under the License.
  */
 
+import { useState } from "react";
 import { AdapterDateFns, Box, DatePickers, Typography } from "@wso2/oxygen-ui";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { localIsoDate } from "@utils/localDate";
@@ -66,24 +67,38 @@ export default function LeaveDateField({
   helperText?: string;
   onChange?: (v: string) => void;
 }) {
+  // A complete date outside min/max is reported to the caller as "" (no date),
+  // but the field keeps showing it — in its error state — while the caller
+  // still holds that "". Handing MUI back an empty value instead would wipe
+  // what the user typed and drop the error, leaving no hint why it vanished.
+  const [outOfRange, setOutOfRange] = useState<Date | null>(null);
+  const shown = value === "" && outOfRange ? outOfRange : fromIso(value);
+
   return (
     <Box>
       <Typography sx={{ fontSize: 11, color: "text.secondary", mb: 0.375 }}>{label}</Typography>
       <LocalizationProvider dateAdapter={AdapterDateFns}>
         <DatePicker
-          value={fromIso(value)}
+          value={shown}
           minDate={fromIso(min) ?? undefined}
           maxDate={fromIso(max) ?? undefined}
           disabled={disabled}
           readOnly={!onChange}
           format="yyyy-MM-dd"
-          onChange={(d: Date | null, context: { validationError: unknown }) =>
-            onChange?.(context.validationError ? "" : toIso(d))
-          }
+          onChange={(
+            d: Date | null,
+            context: DatePickers.PickerChangeHandlerContext<DatePickers.DateValidationError>,
+          ) => {
+            const complete = d !== null && !Number.isNaN(d.getTime());
+            setOutOfRange(context.validationError && complete ? d : null);
+            onChange?.(context.validationError ? "" : toIso(d));
+          }}
           slotProps={{
             textField: {
               size: "small",
               fullWidth: true,
+              // undefined, not false: false would switch off the picker's own
+              // min/max error state.
               error: error || undefined,
               helperText,
               // The visible text above is a plain Typography, so the field

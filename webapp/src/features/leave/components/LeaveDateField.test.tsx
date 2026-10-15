@@ -18,6 +18,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
+import { useState } from "react";
 import LeaveDateField from "./LeaveDateField";
 
 function show(props: Partial<Parameters<typeof LeaveDateField>[0]> = {}) {
@@ -47,6 +48,40 @@ describe("the calendar popup", () => {
     show();
     await user.click(screen.getByRole("button", { name: /choose date/i }));
     expect(await screen.findByRole("dialog", { name: "Last sabbatical calendar" })).toBeInTheDocument();
+  });
+});
+
+/** A caller that holds the value, as every leave form does. */
+function Form({ initial }: { initial: string }) {
+  const [value, setValue] = useState(initial);
+  return (
+    <>
+      <LeaveDateField label="Start" value={value} min="2024-09-01" max="2026-10-14" onChange={setValue} />
+      <output aria-label="held">{value}</output>
+    </>
+  );
+}
+
+describe("an out-of-range date typed into a form", () => {
+  // Handing MUI back the "" the form now holds used to wipe the typed date and
+  // its error, so the date just vanished.
+  it("stays on screen, marked invalid, while the form holds no date", () => {
+    render(<Form initial="2025-03-04" />);
+    const field = screen.getByLabelText("Start");
+    fireEvent.change(field, { target: { value: "2020-01-01" } });
+    expect(screen.getByLabelText("held")).toHaveTextContent(/^$/);
+    expect(field).toHaveValue("2020-01-01");
+    expect(document.querySelector('[aria-invalid="true"]')).not.toBeNull();
+  });
+
+  it("gives way to the next allowed date", () => {
+    render(<Form initial="2025-03-04" />);
+    const field = screen.getByLabelText("Start");
+    fireEvent.change(field, { target: { value: "2020-01-01" } });
+    fireEvent.change(field, { target: { value: "2025-06-01" } });
+    expect(screen.getByLabelText("held")).toHaveTextContent("2025-06-01");
+    expect(field).toHaveValue("2025-06-01");
+    expect(document.querySelector('[aria-invalid="true"]')).toBeNull();
   });
 });
 
