@@ -63,11 +63,16 @@ function monthTicks(start: number, end: number): { ms: number; label: string | n
     m += 1;
   }
   const step = ticks.length > 16 ? 3 : ticks.length > 8 ? 2 : 1;
+  // The year rides on the first label shown in each year, January or not (a step can skip it).
+  let lastYear: number | null = null;
   return ticks.map((ms, i) => {
     if (i % step !== 0) return { ms, label: null };
     const d = new Date(ms);
     const month = MONTH_NAMES[d.getUTCMonth()];
-    return { ms, label: i === 0 || d.getUTCMonth() === 0 ? `${month} ${d.getUTCFullYear()}` : month };
+    const year = d.getUTCFullYear();
+    const label = year === lastYear ? month : `${month} ${year}`;
+    lastYear = year;
+    return { ms, label };
   });
 }
 
