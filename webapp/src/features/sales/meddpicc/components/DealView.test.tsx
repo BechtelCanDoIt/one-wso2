@@ -245,6 +245,17 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toHaveTextContent("Nothing is missing in Qualify.");
   });
 
+  it("leads with the deal's facts, its Letters in Salesforce and what is waiting for review", async () => {
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    for (const label of ["Account", "Amount", "Close date", "Owner", "Last activity"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByText(/^\d of 8 in Salesforce/)).toBeInTheDocument();
+    // The review count rides on the MEDDPICC tab, so it shows from the Activity tab too.
+    expect(screen.getByRole("tab", { name: /^MEDDPICC, \d+ to review$/ })).toBeInTheDocument();
+  });
+
   it("keeps the journey and activity on the Activity tab, away from the fields", async () => {
     const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
