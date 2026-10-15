@@ -80,7 +80,7 @@ describe("the smartSearch preview flag", () => {
   });
 
   it("is off when other features are on", async () => {
-    expect(await enabled({ ONE_WSO2_PREVIEW_FEATURES: { cado2: true, til: true } })).toBe(false);
+    expect(await enabled({ ONE_WSO2_PREVIEW_FEATURES: { cado2: true, nda: true } })).toBe(false);
   });
 
   it("is on only when this environment says so by name", async () => {

@@ -777,26 +777,19 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/sales",
     sections: SALES_SECTIONS,
   },
-  // Knowledge, so far just Today I Learned's feed. Held behind a preview
-  // flag until til-backend has a real Choreo deployment and the Chat App side
-  // is registered — see isPreviewEnabled("til")'s doc comment in
-  // previewFeatures.ts. Its own perspective rather than nested under Me or
-  // People Ops: a company-wide feed is a destination in its own right, same
-  // reasoning as Sales/Marketing Ops getting their own waffle tile instead of
-  // living under an existing one.
-  ...(isPreviewEnabled("til")
-    ? [
-        {
-          key: "knowledge",
-          label: "Knowledge",
-          icon: BookOpenIcon,
-          access: true,
-          path: "/knowledge",
-          forwardsToFirstItem: true,
-          sections: KNOWLEDGE_SECTIONS,
-        },
-      ]
-    : []),
+  // Knowledge, so far just Today I Learned's feed. Its own perspective rather
+  // than nested under Me or People Ops: a company-wide feed is a destination
+  // in its own right, same reasoning as Sales/Marketing Ops getting their own
+  // waffle tile instead of living under an existing one.
+  {
+    key: "knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    access: true,
+    path: "/knowledge",
+    forwardsToFirstItem: true,
+    sections: KNOWLEDGE_SECTIONS,
+  },
   // Download Stats is the first engineering tool (ADR 0001). It is not under
   // Infra Portal: Infra is GitHub administration, and this is release
   // downloads, package downloads, and repository stats. It is an app inside
