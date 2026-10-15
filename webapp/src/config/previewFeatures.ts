@@ -99,13 +99,6 @@ export type PreviewFeature =
    */
   | "nda"
   /**
-   * The whole Knowledge perspective — waffle tile, rail, and the
-   * `/knowledge` routes, currently just Today I Learned. Waiting on
-   * til-backend's first real Choreo deployment and the Google Chat App's
-   * Space/Dialog registration (outside this codebase) before going live.
-   */
-  | "til"
-  /**
    * Sales → Library, the Smart Search over Pitstop's content: its rail row and
    * the `/sales/library` route. Held back while it is built piece by piece.
    * With the flag on and `ONE_WSO2_SMART_SEARCH_BACKEND_URL` unset, the page

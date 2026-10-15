@@ -27,7 +27,7 @@ window.config = {
   // ONE_WSO2_MENU_BACKEND_URL: "<your-menu-backend-url>",
 
   // Today I Learned backend — the Knowledge perspective's learnings
-  // feed. Shown only while `til` is on in ONE_WSO2_PREVIEW_FEATURES below.
+  // feed.
   // ONE_WSO2_TIL_BACKEND_URL: "<your-til-backend-url>",
 
   // Subscriptions backend (PickMe Commute + LaaS opt-in/opt-out). The two
@@ -206,6 +206,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, promotion: false, mis: false, cado2: false, nda: false, til: false, smartSearch: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, promotion: false, mis: false, cado2: false, nda: false, smartSearch: false },
 
 };

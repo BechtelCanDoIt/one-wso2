@@ -14,24 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { isFullPageLocation } from "./fullPageRoutes";
 
-const originalConfig = window.config;
-
-function setTilFlag(on: boolean) {
-  window.config = {
-    ...(window.config ?? {}),
-    ONE_WSO2_PREVIEW_FEATURES: { til: on },
-  } as Window["config"];
-}
-
 describe("isFullPageLocation", () => {
-  beforeEach(() => setTilFlag(true));
-  afterEach(() => {
-    window.config = originalConfig;
-  });
-
   it("drops the shell for an entry read as an article", () => {
     expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned/abc", search: "?view=article" })).toBe(true);
   });
@@ -44,10 +30,5 @@ describe("isFullPageLocation", () => {
   it("keeps it everywhere else, even with the same parameter", () => {
     expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned", search: "?view=article" })).toBe(false);
     expect(isFullPageLocation({ pathname: "/me", search: "?view=article" })).toBe(false);
-  });
-
-  it("keeps it while TIL's preview flag is off", () => {
-    setTilFlag(false);
-    expect(isFullPageLocation({ pathname: "/knowledge/today-i-learned/abc", search: "?view=article" })).toBe(false);
   });
 });
