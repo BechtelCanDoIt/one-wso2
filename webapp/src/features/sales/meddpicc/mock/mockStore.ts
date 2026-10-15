@@ -399,6 +399,7 @@ function listDeals(query: DealsQuery): DealSummary[] {
     .filter((deal) => !query.hideClosed || !deal.summary.isClosed)
     // The demo's signed-in user owns exactly the deals they can edit.
     .filter((deal) => !query.mine || deal.canEdit)
+    .filter((deal) => !query.region || deal.summary.salesRegion === query.region)
     .filter((deal) => !query.stage || deal.summary.stage === query.stage)
     .filter(
       (deal) =>

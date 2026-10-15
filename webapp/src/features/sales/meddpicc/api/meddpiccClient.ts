@@ -40,6 +40,8 @@ export interface DealsQuery {
   hideClosed: boolean;
   /** Only the signed-in user's own deals. */
   mine: boolean;
+  /** Only deals whose account is in this Sales Region; null for every region. */
+  region: string | null;
 }
 
 export interface MeddpiccClient {

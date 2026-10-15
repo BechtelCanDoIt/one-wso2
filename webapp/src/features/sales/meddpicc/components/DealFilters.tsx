@@ -33,6 +33,9 @@ import { SearchIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 
 const ALL = "__all__";
 
+/** The Sales Regions an account can be in (Account.Sales_Regions__c). */
+const SALES_REGIONS = ["EU", "APAC", "ME", "LATAM", "AFRICA", "NA"];
+
 /** Whose deals: the signed-in user's own, or everyone's. */
 export type DealScope = "mine" | "all";
 
@@ -42,7 +45,7 @@ export interface OwnerOption {
 }
 
 /**
- * The filters above the deal list: whose deals, search, owner, stage and "hide closed".
+ * The filters above the deal list: whose deals, search, owner, stage, region and "hide closed".
  * The owner filter only means something across everyone's deals, so it rests while
  * My deals is on.
  *
@@ -60,6 +63,8 @@ export default function DealFilters({
   stage,
   onStageChange,
   stages,
+  region,
+  onRegionChange,
   hideClosed,
   onHideClosedChange,
 }: {
@@ -75,6 +80,9 @@ export default function DealFilters({
   stage: string | null;
   onStageChange: (stage: string | null) => void;
   stages: string[];
+  /** The account's Sales Region, or null for every region. */
+  region: string | null;
+  onRegionChange: (region: string | null) => void;
   hideClosed: boolean;
   onHideClosedChange: (hideClosed: boolean) => void;
 }) {
@@ -178,6 +186,26 @@ export default function DealFilters({
           {stages.map((s) => (
             <MenuItem key={s} value={s}>
               {s}
+            </MenuItem>
+          ))}
+        </Select>
+      </FormControl>
+
+      <FormControl size="small" sx={{ minWidth: 150 }}>
+        <InputLabel id="deals-region-label">Region</InputLabel>
+        <Select
+          labelId="deals-region-label"
+          label="Region"
+          value={region ?? ALL}
+          onChange={(event) => {
+            const value = event.target.value as string;
+            onRegionChange(value === ALL ? null : value);
+          }}
+        >
+          <MenuItem value={ALL}>All regions</MenuItem>
+          {SALES_REGIONS.map((r) => (
+            <MenuItem key={r} value={r}>
+              {r}
             </MenuItem>
           ))}
         </Select>

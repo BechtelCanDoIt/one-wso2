@@ -56,10 +56,18 @@ export default function SalesDealsPage() {
   const [hideClosed, setHideClosed] = useState(true);
   // My deals first: an AM opens Deals to work their own.
   const [scope, setScope] = useState<DealScope>("mine");
+  const [region, setRegion] = useState<string | null>(null);
   const navigate = useNavigate();
 
   const gatesQuery = useMeddpiccGates();
-  const dealsQuery = useDeals({ search, owner: scope === "mine" ? null : owner, stage, hideClosed, mine: scope === "mine" });
+  const dealsQuery = useDeals({
+    search,
+    owner: scope === "mine" ? null : owner,
+    stage,
+    hideClosed,
+    mine: scope === "mine",
+    region,
+  });
   const deals = dealsQuery.data?.items ?? [];
 
   // Adjusted during render rather than in an effect, as MeetingFilters does.
@@ -92,6 +100,8 @@ export default function SalesDealsPage() {
           owners={owners}
           stage={stage}
           onStageChange={setStage}
+          region={region}
+          onRegionChange={setRegion}
           stages={gatesQuery.data?.stages ?? []}
           hideClosed={hideClosed}
           onHideClosedChange={setHideClosed}
