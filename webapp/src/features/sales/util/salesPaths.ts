@@ -36,8 +36,8 @@ export function meetingPath(
 }
 
 /** The deal page's tabs. */
-export type DealTab = "meddpicc" | "activity";
-export const DEAL_TABS: readonly DealTab[] = ["meddpicc", "activity"];
+export type DealTab = "meddpicc" | "activity" | "ask";
+export const DEAL_TABS: readonly DealTab[] = ["meddpicc", "activity", "ask"];
 
 /**
  * Where a deal lives. `letter` opens it filtered to one Letter, as a clicked circle does;

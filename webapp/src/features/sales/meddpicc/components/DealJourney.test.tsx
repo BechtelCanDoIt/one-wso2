@@ -113,8 +113,37 @@ describe("DealJourney", () => {
 
   it("has a legend for every kind, the stages and the close date", () => {
     render(<DealJourneyLegend />);
-    for (const label of ["Customer call", "Internal discussion", "Email", "Salesforce activity", "Upcoming (hollow)", "Stage: darker further along", "Stage not recorded before the first call", "Today", "Close date"]) {
+    for (const label of ["Customer call", "Internal discussion", "Email", "Salesforce activity", "Upcoming (dashed outline)", "Stage: darker further along", "Stage not recorded before the first call", "Today", "Close date"]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
+  });
+
+  it("marks the months along the line", () => {
+    const { container } = render(
+      <DealJourney
+        marks={[{ type: "CALL", kind: "CUSTOMER_CALL", at: "2026-07-20T10:00:00Z", title: "First call", meetingId: 1 }]}
+        journey={{ startedAt: "2026-07-01T00:00:00Z", stages: [] }}
+        sources={{ calls: 1, emails: 0, activities: 0, lastActivityAt: "2026-07-20T10:00:00Z" }}
+        closeDate="2026-10-31"
+        now={Date.parse("2026-09-15T00:00:00Z")}
+      />,
+    );
+    const labels = [...container.querySelectorAll("[data-month-label]")].map((n) => n.textContent);
+    expect(labels).toEqual(["Jul 2026", "Aug", "Sep", "Oct"]);
+  });
+
+  it("names the year on the first label shown in each year, even when January is skipped", () => {
+    const { container } = render(
+      <DealJourney
+        marks={[{ type: "CALL", kind: "CUSTOMER_CALL", at: "2026-12-10T10:00:00Z", title: "First call", meetingId: 1 }]}
+        journey={{ startedAt: "2026-12-01T00:00:00Z", stages: [] }}
+        sources={{ calls: 1, emails: 0, activities: 0, lastActivityAt: "2026-12-10T10:00:00Z" }}
+        closeDate="2027-11-15"
+        now={Date.parse("2027-03-01T00:00:00Z")}
+      />,
+    );
+    const labels = [...container.querySelectorAll("[data-month-label]")].map((n) => n.textContent);
+    // Twelve months label every other one: January 2027 is skipped, so February carries the year.
+    expect(labels).toEqual(["Dec 2026", "Feb 2027", "Apr", "Jun", "Aug", "Oct"]);
   });
 });

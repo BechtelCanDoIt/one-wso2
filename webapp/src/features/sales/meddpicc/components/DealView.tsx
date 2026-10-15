@@ -37,6 +37,7 @@ import {
   ChevronDownIcon,
   ExternalLinkIcon,
   RefreshCwIcon,
+  SparklesIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { formatDateTime, parseUtc } from "../../util/salesTime";
@@ -65,6 +66,7 @@ import { useNow } from "../../util/useNow";
 import DealJourney, { KindMark, QUIET_AFTER_DAYS } from "./DealJourney";
 import { KINDS } from "../util/timelineKinds";
 import StagePath from "./StagePath";
+import DealChat, { type ChatEntry } from "./DealChat";
 import { meetingPath, type DealTab } from "../../util/salesPaths";
 import {
   EMPTY_DRAFT,
@@ -112,6 +114,8 @@ export default function DealView({
   const refresh = useRefreshDeal(deal.opportunityId);
 
   const [letter, setLetter] = useState<LetterKey | null>(initialLetter);
+  // The Ask AI thread lives here, so it survives switching tabs.
+  const [chat, setChat] = useState<ChatEntry[]>([]);
   // The stage whose fields are shown; null opens on the current stage.
   const [pickedGate, setPickedGate] = useState<string | null>(null);
   const pickGate = (next: string) => {
@@ -253,9 +257,12 @@ export default function DealView({
   const activity = activityOf(detail);
   const now = useNow();
   const navigate = useNavigate();
+  // The source chips (All / Calls / Emails / Activities) filter what this page shows of
+  // the deal's activity: the evidence quotes, the activity list and the journey's marks.
+  const shownActivity = sourceFilter ? activity.filter((a) => a.type === sourceFilter) : activity;
   // The journey's marks: the deal row's own timeline when the backend sends one, else
   // the activity list, oldest first.
-  const journeyMarks: TimelineMark[] =
+  const journeyMarks: TimelineMark[] = (
     deal.timeline ??
     [...activity]
       .map((a) => ({
@@ -265,7 +272,8 @@ export default function DealView({
         title: a.title,
         meetingId: a.meetingId,
       }))
-      .sort((x, y) => (parseUtc(x.at)?.getTime() ?? 0) - (parseUtc(y.at)?.getTime() ?? 0));
+      .sort((x, y) => (parseUtc(x.at)?.getTime() ?? 0) - (parseUtc(y.at)?.getTime() ?? 0))
+  ).filter((mark) => !sourceFilter || mark.type === sourceFilter);
   const coverageByMeeting = new Map(detail.calls.map((call) => [call.meetingId, call.coverage]));
   const sourceKinds = (
     [
@@ -413,6 +421,15 @@ export default function DealView({
           }
         />
         <Tab value="activity" label={`Activity (${activity.length})`} />
+        <Tab
+          value="ask"
+          label={
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+              <SparklesIcon size={14} aria-hidden />
+              <span>Ask AI</span>
+            </Stack>
+          }
+        />
       </Tabs>
 
       {tab === "meddpicc" ? (
@@ -644,7 +661,7 @@ export default function DealView({
           </Stack>
 
         </>
-      ) : (
+      ) : tab === "activity" ? (
         <Stack spacing={3} sx={{ minWidth: 0, maxWidth: 960 }}>
           {/* The deal's journey, as on the Deals list, for this deal alone. */}
           <Box component="section" aria-label="Journey">
@@ -675,14 +692,17 @@ export default function DealView({
             </Box>
           )}
 
-          {activity.length > 0 && (
+          {shownActivity.length > 0 && (
             <Box component="section" aria-label="Activity">
-              <Typography variant="subtitle2">Activity ({activity.length})</Typography>
+              <Typography variant="subtitle2">
+                Activity ({shownActivity.length}
+                {sourceFilter ? ` of ${activity.length}` : ""})
+              </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
                 Everything the deal's MEDDPICC is drawn from, newest first.
               </Typography>
               <Stack component="ul" spacing={0.75} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
-                {activity.map((entry) => (
+                {shownActivity.map((entry) => (
                   <ActivityRow
                     key={`${entry.type}-${entry.id}`}
                     entry={entry}
@@ -694,6 +714,8 @@ export default function DealView({
             </Box>
           )}
         </Stack>
+      ) : (
+        <DealChat entries={chat} onChange={setChat} />
       )}
     </>
   );
