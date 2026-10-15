@@ -159,12 +159,12 @@ describe("the Library's rail entry", () => {
     const row = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-library");
     expect(row?.label).toBe("Library");
     expect(row?.path).toBe("/sales/library");
-    expect(salesIdsIn(perspectives)).toEqual(["sales-meetings", "sales-deals", "sales-library"]);
+    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-deals", "sales-library"]);
   });
 
   it("sits before CadO2 when both flags are on", async () => {
     expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
-      "sales-meetings",
+      "sales-echo",
       "sales-deals",
       "sales-library",
       "sec-app-cado2",
@@ -173,14 +173,14 @@ describe("the Library's rail entry", () => {
 
   it("is gone when the flag is off, or never mentioned", async () => {
     for (const preview of [{ smartSearch: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-meetings", "sales-deals"]);
+      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo", "sales-deals"]);
     }
   });
 
-  it("never joins the Meetings gate's ids", async () => {
+  it("never joins the Echo gate's ids", async () => {
     const { SALES_ITEM_IDS } = await load({ smartSearch: true });
-    // Meetings and Deals are gated by the meet-app backend; the Library is decided by Pitstop's own backend.
-    expect([...SALES_ITEM_IDS]).toEqual(["sales-meetings", "sales-deals"]);
+    // Echo and Deals are gated through ONE_WSO2_REVOPS_BACKEND_URL; the Library is decided by its own backend.
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
   });
 });
 
