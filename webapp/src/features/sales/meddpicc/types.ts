@@ -147,8 +147,11 @@ export interface Journey {
 export interface StagePoint {
   stage: string;
   at: string;
-  /** CALL: a call's snapshot on its date; CURRENT: the stage now. */
-  source: "CALL" | "CURRENT";
+  /**
+   * SALESFORCE: a stage change in Salesforce's history; CALL: a call's snapshot on its
+   * date, when the history could not be read; CURRENT: the stage now.
+   */
+  source: "SALESFORCE" | "CALL" | "CURRENT";
 }
 
 /** One entry of a deal's activity, as little as a list row needs to draw it. */
