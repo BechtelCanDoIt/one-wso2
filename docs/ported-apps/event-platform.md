@@ -94,9 +94,6 @@ label becomes **Shop**, which is what its routes and backend already call it.
 - Code lives in `features/marketing-ops/event-platform/`, routes exported as an
   `eventPlatformRoutes` fragment spread into `App.tsx`. Menu ids use `mops-event-platform-*` so they
   cannot clash with the existing, unrelated `features/marketing-ops/events` (`mops-events-*`).
-- The whole app sits behind the `eventPlatform` preview flag (`@config/previewFeatures`). With
-  `ONE_WSO2_PREVIEW_FEATURES.eventPlatform` absent or false, neither the rail group nor any route
-  under `/marketing-ops/event-platform` exists. Delete the flag when the port ships.
 
 ---
 
@@ -371,6 +368,7 @@ One PR per phase, stacked.
 | 5 | Agenda | `AgendaBoard`, `useDragDrop`, `useAgendaEditor`, tracks, sections, footnotes, topics, rich text, session CSV import |
 | 6 | Shop | inventory (`ItemFormDialog`), orders + `ShopOrderDrawer` |
 | 7 | Export + polish | static HTML export (`?raw` runtime, `public/` template), dark-mode pass, Vitest for pure logic |
+| 8 | Release | flag on in prod `config.js` (no build), then a PR that deletes the `eventPlatform` preview flag — see §11 |
 
 Phases 3, 4 and 6 can run in parallel once 2 merges.
 
@@ -392,3 +390,51 @@ Phases 3, 4 and 6 can run in parallel once 2 merges.
 - **Oxygen 0.10 → 0.13.1:** `Sidebar` is dropped anyway; check every other `@wso2/oxygen-ui` import
   for API drift.
 - **Shipping PII** in orders: keep it out of logs and error messages.
+- **CSP on the backend URL:** the production build's `connect-src` trusts `*.wso2.com`, not
+  `*.choreoapis.dev`. A Choreo default URL in `ONE_WSO2_EVENT_PLATFORM_BACKEND_URL` is refused by
+  the browser before the request leaves (§11.1).
+
+---
+
+## 11. Release
+
+The app ships in two steps: switch it on in each environment's config, then delete the preview
+flag from the code. The flag stays until the second step merges, because until then it is the
+switch that turns the app off again without a build.
+
+### 11.1 Before switching on (per environment)
+
+- [ ] §6 is settled for that environment's backend: groups, token path, CORS.
+- [ ] `ONE_WSO2_EVENT_PLATFORM_BACKEND_URL` is the gateway's `wso2.com` domain
+      (`apis[-stg].wso2.com/qgpf/events-dashboard-backend/v1.0`), not the `*.choreoapis.dev`
+      default URL. The production build's CSP (`webapp/vite.config.ts`) only allows `connect-src`
+      to `*.wso2.com`, so the default URL fails with *"Refused to connect because it violates the
+      document's Content Security Policy"*. The agenda-organizer frontend sets no CSP, which is why
+      the same URL works there.
+- [ ] The backend's `eventplatform` and `eventplatform-shop` groups exist and have their members.
+
+### 11.2 Step 1 — switch on (config only, no build)
+
+- [ ] Stage: `ONE_WSO2_PREVIEW_FEATURES` has `eventPlatform: true` in `one-stg`'s `config.js`.
+- [ ] Stage smoke test: hard-reload, open Marketing Ops → Event Platform as an admin, a member and
+      a shop-only user; open an event, load the agenda, run an export.
+- [ ] Prod: add `eventPlatform: true` to prod's `config.js` and repeat the smoke test.
+- [ ] Rollback, if needed: set `eventPlatform: false` (or drop the key) and reload. The rail group
+      reads the flag at module load, so users need a full reload either way.
+- [ ] Let prod run on the flag for a few days before step 2.
+
+### 11.3 Step 2 — delete the flag (one PR)
+
+- [x] `webapp/src/App.tsx`: render `eventPlatformRoutes` without `isPreviewEnabled("eventPlatform")`.
+- [x] `webapp/src/constants/marketingOpsApps.ts`: make the Event Platform entry unconditional
+      (drop the `...(isPreviewEnabled(...) ? [...] : [])` spread and its comment).
+- [x] Same file, `MARKETING_OPS_EYEBROW.eventPlatform`: replace the literal with
+      `eyebrowFor("event-platform")`; the literal only existed because the entry could be absent.
+- [x] `webapp/src/config/previewFeatures.ts`: remove `"eventPlatform"` from `PreviewFeature`.
+- [x] `webapp/src/constants/marketingOpsApps.test.ts`: replace the flag on/off cases with a plain
+      "entry exists" case.
+- [x] `webapp/public/config.js` and `config.js.example`: drop `eventPlatform` from
+      `ONE_WSO2_PREVIEW_FEATURES`.
+- [x] §2.3 of this document: remove the preview-flag paragraph.
+- [ ] After merge and deploy: remove the now-ignored `eventPlatform` key from stage and prod
+      `config.js`.

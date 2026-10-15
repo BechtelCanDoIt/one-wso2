@@ -85,15 +85,6 @@ export type PreviewFeature =
    */
   | "mis"
   /**
-   * Marketing Ops → Event Platform, the whole app — its rail group and every
-   * route under `/marketing-ops/event-platform`. Held back as a whole, the
-   * same way Finance MIS is: the port lands screen by screen, and what must
-   * stay preview-only is the app's presence, not one route inside it. Its own
-   * backend roles (`eventplatform`, `eventplatform-shop`) still decide who
-   * sees what once this is on. See docs/ported-apps/event-platform.md.
-   */
-  | "eventPlatform"
-  /**
    * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
    * Approvals, Admin), every route under `/sales/cado2`, and its backend
    * calls. Held back as a whole until every screen is in place. CadO2's own

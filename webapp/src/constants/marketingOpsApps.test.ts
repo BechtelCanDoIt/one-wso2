@@ -14,52 +14,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-// Event Platform is behind a preview flag, so the registry depends on
-// `window.config` and has to be imported fresh per state rather than once at
-// the top of the file.
-type MarketingOpsApps = typeof import("./marketingOpsApps");
-
-async function load(preview: { eventPlatform?: boolean } = {}): Promise<MarketingOpsApps> {
-  vi.resetModules();
-  window.config = {
-    ...(window.config ?? {}),
-    ONE_WSO2_PREVIEW_FEATURES: preview,
-  } as Window["config"];
-  return import("./marketingOpsApps");
-}
-
-const originalConfig = window.config;
-beforeEach(() => vi.resetModules());
-afterEach(() => {
-  window.config = originalConfig;
-});
+import { MARKETING_OPS_APPS, MARKETING_OPS_EYEBROW } from "./marketingOpsApps";
 
 const keys = (apps: readonly { key: string }[]) => apps.map((a) => a.key);
 
 describe("the Event Platform rail group", () => {
-  // Production's config says nothing, so this is what production gets.
-  it("is absent when no flag is set", async () => {
-    const { MARKETING_OPS_APPS } = await load();
-    expect(keys(MARKETING_OPS_APPS)).not.toContain("event-platform");
-  });
-
-  it("is present, after Events, when the flag is on", async () => {
-    const { MARKETING_OPS_APPS } = await load({ eventPlatform: true });
+  it("sits right after Events", () => {
     const order = keys(MARKETING_OPS_APPS);
+    expect(order).toContain("event-platform");
     expect(order.indexOf("event-platform")).toBe(order.indexOf("events") + 1);
   });
 
-  // The eyebrow is a literal, so the module must still load with the app gone.
-  it("keeps its eyebrow when the flag is off", async () => {
-    const { MARKETING_OPS_EYEBROW } = await load();
+  it("names its eyebrow after the registry entry", () => {
     expect(MARKETING_OPS_EYEBROW.eventPlatform.label).toBe("Event Platform");
-  });
-
-  it("leaves the other apps alone", async () => {
-    const off = keys((await load()).MARKETING_OPS_APPS);
-    const on = keys((await load({ eventPlatform: true })).MARKETING_OPS_APPS);
-    expect(on.filter((k) => k !== "event-platform")).toEqual(off);
   });
 });
