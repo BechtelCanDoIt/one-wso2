@@ -54,7 +54,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
 import SalesDealsPage from "./SalesDealsPage";
-import { resetMockStore } from "../meddpicc/mock/mockStore";
+import { mockMeddpiccClient, resetMockStore } from "../meddpicc/mock/mockStore";
 
 function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>;
@@ -104,13 +104,34 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
       "Meridian Bank – integration platform",
       "Nordlys Energi – identity expansion",
       "Harbourline – API platform",
-      "Asterra Health – FHIR gateway",
       "Oakridge University – campus IAM",
     ]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
+    // My deals is the default: a deal someone else owns waits for All deals.
+    expect(screen.queryByRole("button", { name: "Asterra Health – FHIR gateway" })).not.toBeInTheDocument();
     // Closed deals are hidden by default.
     expect(screen.queryByRole("button", { name: "Kestrel Telecom – API Manager expansion" })).not.toBeInTheDocument();
+  });
+
+  it("opens on My deals, and All deals adds everyone else's", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(mockMeddpiccClient, "deals");
+    renderPage();
+    await screen.findByRole("button", { name: "Brightwater – API Manager first sale" });
+
+    expect(screen.getByRole("radio", { name: "My deals" })).toBeChecked();
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: true }));
+    expect(screen.queryByRole("button", { name: "Asterra Health – FHIR gateway" })).not.toBeInTheDocument();
+    // An owner filter means nothing on your own deals.
+    expect(screen.getByRole("combobox", { name: "Owner" })).toHaveAttribute("aria-disabled", "true");
+
+    await user.click(screen.getByRole("radio", { name: "All deals" }));
+
+    expect(await screen.findByRole("button", { name: "Asterra Health – FHIR gateway" })).toBeInTheDocument();
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: false }));
+    expect(screen.getByRole("combobox", { name: "Owner" })).not.toHaveAttribute("aria-disabled");
+    spy.mockRestore();
   });
 
   it("shows closed deals once Hide closed is turned off", async () => {

@@ -23,6 +23,8 @@ import {
   InputAdornment,
   InputLabel,
   MenuItem,
+  Radio,
+  RadioGroup,
   Select,
   Switch,
   TextField,
@@ -31,18 +33,25 @@ import { SearchIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 
 const ALL = "__all__";
 
+/** Whose deals: the signed-in user's own, or everyone's. */
+export type DealScope = "mine" | "all";
+
 export interface OwnerOption {
   email: string;
   name: string;
 }
 
 /**
- * The filters above the deal list: search, owner, stage and "hide closed".
+ * The filters above the deal list: whose deals, search, owner, stage and "hide closed".
+ * The owner filter only means something across everyone's deals, so it rests while
+ * My deals is on.
  *
  * Search submits as a form, like MeetingFilters, so each keystroke isn't a
  * request. The select filters apply at once — one change, one request.
  */
 export default function DealFilters({
+  scope,
+  onScopeChange,
   search,
   onSearchChange,
   owner,
@@ -54,6 +63,8 @@ export default function DealFilters({
   hideClosed,
   onHideClosedChange,
 }: {
+  scope: DealScope;
+  onScopeChange: (scope: DealScope) => void;
   /** The APPLIED search, not the draft. */
   search: string | null;
   onSearchChange: (search: string | null) => void;
@@ -84,6 +95,16 @@ export default function DealFilters({
 
   return (
     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "center", mb: 2 }}>
+      <RadioGroup
+        row
+        value={scope}
+        onChange={(event) => onScopeChange(event.target.value as DealScope)}
+        aria-label="Whose deals to show"
+      >
+        <FormControlLabel value="mine" control={<Radio size="small" />} label="My deals" />
+        <FormControlLabel value="all" control={<Radio size="small" />} label="All deals" />
+      </RadioGroup>
+
       <Box component="form" role="search" onSubmit={submit} sx={{ flex: 1, minWidth: 240 }}>
         <TextField
           fullWidth
@@ -122,12 +143,12 @@ export default function DealFilters({
         />
       </Box>
 
-      <FormControl size="small" sx={{ minWidth: 180 }}>
+      <FormControl size="small" sx={{ minWidth: 180 }} disabled={scope === "mine"}>
         <InputLabel id="deals-owner-label">Owner</InputLabel>
         <Select
           labelId="deals-owner-label"
           label="Owner"
-          value={owner ?? ALL}
+          value={scope === "mine" ? ALL : (owner ?? ALL)}
           onChange={(event) => {
             const value = event.target.value as string;
             onOwnerChange(value === ALL ? null : value);

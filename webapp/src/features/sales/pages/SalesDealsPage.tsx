@@ -20,7 +20,7 @@ import { Alert, Box } from "@wso2/oxygen-ui";
 import SalesShell from "../components/SalesShell";
 import { isSalesBackendConfigured } from "../api/useSalesData";
 import { describeError, isForbidden } from "../util/salesError";
-import DealFilters, { type OwnerOption } from "../meddpicc/components/DealFilters";
+import DealFilters, { type DealScope, type OwnerOption } from "../meddpicc/components/DealFilters";
 import DealsTable from "../meddpicc/components/DealsTable";
 import { dealPath, meetingPath } from "../util/salesPaths";
 import { isEchoBackendConfigured, useDeals, useMeddpiccGates } from "../meddpicc/api/useMeddpiccData";
@@ -54,10 +54,12 @@ export default function SalesDealsPage() {
   const [owner, setOwner] = useState<string | null>(null);
   const [stage, setStage] = useState<string | null>(null);
   const [hideClosed, setHideClosed] = useState(true);
+  // My deals first: an AM opens Deals to work their own.
+  const [scope, setScope] = useState<DealScope>("mine");
   const navigate = useNavigate();
 
   const gatesQuery = useMeddpiccGates();
-  const dealsQuery = useDeals({ search, owner, stage, hideClosed });
+  const dealsQuery = useDeals({ search, owner: scope === "mine" ? null : owner, stage, hideClosed, mine: scope === "mine" });
   const deals = dealsQuery.data?.items ?? [];
 
   // Adjusted during render rather than in an effect, as MeetingFilters does.
@@ -81,6 +83,8 @@ export default function SalesDealsPage() {
     >
       <Box>
         <DealFilters
+          scope={scope}
+          onScopeChange={setScope}
           search={search}
           onSearchChange={setSearch}
           owner={owner}
