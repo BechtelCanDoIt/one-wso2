@@ -18,7 +18,9 @@ import { Chip } from "@wso2/oxygen-ui";
 import { ClockIcon } from "@wso2/oxygen-ui-icons-react";
 import { pacificTimeLabel } from "../util/misPacificTime";
 
-// The permanent `Pacific Time (PST|PDT)` chip every MIS screen carries.
+// `Pacific Time (PST|PDT)`. It sits on the Period row of a Build, and with
+// the filters on ARR Analysis — the controls whose dates that clock cuts —
+// rather than above the page title.
 //
 // It is on screen always, not only when something looks odd, because the whole
 // point is that nothing ever looks odd: a reader in Colombo opening a Build at
@@ -46,8 +48,11 @@ export default function PacificTimeChip() {
       label={label}
       variant="outlined"
       size="small"
+      // A chip's root is a generic div, and aria-label on a generic div is
+      // dropped. `note` is what lets the longer name be the accessible name.
       // The label alone is a fact with no claim attached; what a reader needs
       // is what it applies TO.
+      role="note"
       aria-label={`Every Period on this screen is measured in ${label}`}
     />
   );
