@@ -177,10 +177,10 @@ export const MARKETING_OPS_APPS: readonly MenuApp[] = [
     ],
   },
   {
-    // The agenda-organizer port — a different app from Events above (attendee
-    // workbooks), which is why its ids are `mops-event-platform*` and never
-    // `mops-events-*`. Placed next to Events because the two are used by the
-    // same people around the same events.
+    // Event agendas, speakers and swag shops — a different app from Events
+    // above (attendee workbooks), which is why its ids are `mops-event-platform*`
+    // and never `mops-events-*`. Placed next to Events because the two are used
+    // by the same people around the same events.
     key: "event-platform",
     name: "Event Platform",
     icon: CalendarRangeIcon,
@@ -190,12 +190,12 @@ export const MARKETING_OPS_APPS: readonly MenuApp[] = [
     // operation's shape doesn't change with the caller's role.
     alwaysGroup: true,
     items: [
-      // The source's DashboardSideBar, as rail items rather than a tab row, so
-      // the operation reads as a group like its neighbours. Inside an event the
+      // The platform-wide pages, as rail items rather than a tab row, so the
+      // operation reads as a group like its neighbours. Inside an event the
       // tabs take over — see event-platform/eventPlatformTabs.ts.
       //
       // All Events opens for either role, so a shop-only user still has a way
-      // in; Speakers is admin-only, as in the source.
+      // in to an event's shop; Speakers is for admins only.
       {
         id: "mops-event-platform-events",
         label: "All Events",
