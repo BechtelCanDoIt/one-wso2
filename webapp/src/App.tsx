@@ -1006,15 +1006,16 @@ export default function App() {
           />
           {isPreviewEnabled("til") && (
             <>
-              {/* Knowledge Base → Today I Learned: a company-wide learnings feed.
+              {/* Knowledge → Today I Learned: a company-wide learnings feed.
                   No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
                   Colombo-office perk, every employee everywhere can use it. */}
-              <Route path="knowledge-base" element={<TilHomePage />} />
+              <Route path="knowledge" element={<PerspectiveLanding />} />
+              <Route path="knowledge/today-i-learned" element={<TilHomePage />} />
               {/* One entry's own page — what a feed card opens inside One
                   WSO2, or, with ?view=article, the full-page article a Chat
                   "Read more" link lands on (AppLayout drops its shell for
                   that; see layouts/fullPageRoutes). */}
-              <Route path="knowledge-base/:id" element={<TilEntryRoute />} />
+              <Route path="knowledge/today-i-learned/:id" element={<TilEntryRoute />} />
             </>
           )}
           {/* Legal perspective — currently just a second entry point into Due

@@ -37,8 +37,8 @@ describe("tilReadingMinutes", () => {
 
 describe("TIL article view paths", () => {
   it("builds the in-shell and article URLs for one entry", () => {
-    expect(tilEntryPath("abc")).toBe("/knowledge-base/abc");
-    expect(tilArticlePath("abc")).toBe("/knowledge-base/abc?view=article");
+    expect(tilEntryPath("abc")).toBe("/knowledge/today-i-learned/abc");
+    expect(tilArticlePath("abc")).toBe("/knowledge/today-i-learned/abc?view=article");
   });
 
   it("recognises the article view from a search string or params", () => {

@@ -48,7 +48,7 @@ describe("app marks", () => {
    *
    * Checked with every preview flag on: this is a completeness check on what
    * has been BUILT, not on what is currently released, so a perspective held
-   * back by a preview flag (Infra Portal, Knowledge Base) must not read as
+   * back by a preview flag (Infra Portal, Knowledge) must not read as
    * a dead tone here the way an unauthored mark would.
    */
   it("pairs every mark with its tones, both ways", async () => {

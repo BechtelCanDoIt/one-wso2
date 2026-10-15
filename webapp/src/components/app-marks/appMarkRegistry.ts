@@ -47,7 +47,7 @@ const APP_MARKS: Record<string, (p: MarkProps) => ReactElement> = {
   sales: SalesMark,
   engineering: EngineeringMark,
   infra: InfrastructureMark,
-  "knowledge-base": KnowledgeMark,
+  knowledge: KnowledgeMark,
 };
 
 /**

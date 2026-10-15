@@ -21,6 +21,7 @@
 // from cache.
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useCallback } from "react";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
@@ -64,20 +65,32 @@ export function useTilUserInfo() {
   return foldIdentityError(query, subState, retryIdentity);
 }
 
-/** The learning's length limit the backend enforces (GET /settings). `max`
- * is the backend's default until the answer arrives; `known` says whether it
- * has. The form holds Submit until then, and if the request fails it stays
- * held with a retry: guessing could let the form accept text the backend
- * rejects. */
-export function useTilWhatMaxLength(): { max: number; known: boolean; failed: boolean; retry: () => void } {
+// GET /settings, shared by every hook that reads one of its rules.
+function useTilSettings() {
   const { getAccessToken, userSub, ready } = useTilQueryBasis();
-  const query = useQuery<TilSettingsWire>({
+  return useQuery<TilSettingsWire>({
     queryKey: ["til-settings", userSub],
     enabled: ready,
     queryFn: async () => authedGet<TilSettingsWire>(tilServiceUrls.settings, await getAccessToken()),
     staleTime: 5 * 60 * 1000,
     retry: tilRetry,
   });
+}
+
+/** Whether entries are sent to Google Chat (GET /settings). False until the
+ * answer arrives, and from a backend that predates it, so an entry is only
+ * flagged as unsent when there's somewhere to send it. */
+export function useTilNotificationsEnabled(): boolean {
+  return useTilSettings().data?.notificationsEnabled ?? false;
+}
+
+/** The learning's length limit the backend enforces (GET /settings). `max`
+ * is the backend's default until the answer arrives; `known` says whether it
+ * has. The form holds Submit until then, and if the request fails it stays
+ * held with a retry: guessing could let the form accept text the backend
+ * rejects. */
+export function useTilWhatMaxLength(): { max: number; known: boolean; failed: boolean; retry: () => void } {
+  const query = useTilSettings();
   return {
     max: query.data?.whatMaxLength ?? TIL_WHAT_DEFAULT_MAX_LENGTH,
     known: query.data !== undefined,
@@ -91,8 +104,48 @@ function submissionsUrl(q: TilSubmissionsQuery): string {
   if (q.search) params.set("q", q.search);
   if (q.createdFrom) params.set("createdFrom", q.createdFrom);
   if (q.createdBefore) params.set("createdBefore", q.createdBefore);
+  if (q.author) params.set("author", q.author);
+  if (q.source) params.set("source", q.source);
   if (q.mine) params.set("mine", "true");
   return `${tilServiceUrls.submissions}?${params}`;
+}
+
+// The backend's largest page, so an export takes as few requests as it can.
+export const TIL_EXPORT_PAGE_SIZE = 100;
+
+/** Every entry, page by page from `fetchPage` (given an offset), until a page
+ * comes back short or the total is reached. An entry shared mid-export can
+ * shift the pages, so each entry is kept once. */
+export async function collectTilPages(
+  fetchPage: (offset: number) => Promise<TilSubmissionsPageWire>,
+): Promise<TilSubmission[]> {
+  const entries: TilSubmission[] = [];
+  const seen = new Set<string>();
+  for (let offset = 0; ; offset += TIL_EXPORT_PAGE_SIZE) {
+    const page = await fetchPage(offset);
+    for (const wire of page.items) {
+      if (seen.has(wire.id)) continue;
+      seen.add(wire.id);
+      entries.push(normalizeSubmission(wire));
+    }
+    if (page.items.length < TIL_EXPORT_PAGE_SIZE || offset + TIL_EXPORT_PAGE_SIZE >= page.total) return entries;
+  }
+}
+
+/** Every entry a feed query selects, newest first, for the CSV export: the
+ * query's search, dates and "mine" apply, its paging doesn't. */
+export function useTilExportEntries(): (q: TilSubmissionsQuery) => Promise<TilSubmission[]> {
+  const getAccessToken = useAccessToken();
+  return useCallback(
+    (q) =>
+      collectTilPages(async (offset) =>
+        authedGet<TilSubmissionsPageWire>(
+          submissionsUrl({ ...q, limit: TIL_EXPORT_PAGE_SIZE, offset }),
+          await getAccessToken(),
+        ),
+      ),
+    [getAccessToken],
+  );
 }
 
 /** One page of submissions, newest first, with how many match in total. The

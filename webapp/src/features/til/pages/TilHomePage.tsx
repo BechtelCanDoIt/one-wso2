@@ -20,6 +20,7 @@ import {
   Button,
   IconButton,
   InputAdornment,
+  MenuItem,
   Pagination,
   Skeleton,
   Stack,
@@ -28,17 +29,19 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
+import { DownloadIcon, PlusIcon, SearchIcon, SlidersHorizontalIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNavigate } from "react-router";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
-import { isTilBackendConfigured, useTilSubmissions, useTilUserInfo } from "../api/useTilData";
+import { isTilBackendConfigured, useTilExportEntries, useTilSubmissions, useTilUserInfo } from "../api/useTilData";
 import { useDeleteTilSubmission } from "../api/useTilMutations";
-import type { TilSubmission } from "../api/tilTypes";
+import { TIL_WHERE_OPTIONS, type TilSubmission, type TilWhere } from "../api/tilTypes";
 import { tilEntryPath } from "../util/tilArticleView";
+import { downloadTilCsv } from "../util/tilExportCsv";
 import { describeError } from "../util/tilError";
 import {
   TIL_FEED_PAGE_SIZES,
@@ -82,8 +85,11 @@ export default function TilHomePage() {
   const search = useDebouncedValue(searchQuery.trim(), 300);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
+  const [authorQuery, setAuthorQuery] = useState("");
+  const author = useDebouncedValue(authorQuery.trim(), 300);
+  const [source, setSource] = useState<TilWhere | "">("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const hasActiveDateFilter = Boolean(dateFrom || dateTo);
+  const hasActiveAdvancedFilter = Boolean(dateFrom || dateTo || authorQuery.trim() || source);
   // Defaults to "all" -- the database already holds entries from many other
   // people (not just the signed-in employee), and that shared feed is the
   // whole point of this page, so it's the view people should land on
@@ -93,16 +99,20 @@ export default function TilHomePage() {
   const [layout, setLayout] = useState<TilFeedLayout>(readTilFeedLayout);
   const [pageSize, setPageSize] = useState<TilFeedPageSize>(readTilFeedPageSize);
 
-  const submissions = useTilSubmissions(
-    tilFeedQuery({ search, dateFrom, dateTo, mine: tab === "mine" }, page, pageSize),
-  );
+  // What the feed shows, shared by the page in view and the export.
+  const filters = { search, dateFrom, dateTo, author, source, mine: tab === "mine" };
+  const submissions = useTilSubmissions(tilFeedQuery(filters, page, pageSize));
+  const exportEntries = useTilExportEntries();
+  const [exporting, setExporting] = useState(false);
   const items = submissions.data?.items ?? [];
   const total = submissions.data?.total ?? 0;
 
   const canModerate = userInfo.data?.canModerate ?? false;
   const myEmail = userInfo.data?.email;
 
-  const isFiltering = Boolean(search || dateFrom || dateTo || tab === "mine");
+  // Whether anything beyond the tab narrows the feed.
+  const narrowed = Boolean(search || dateFrom || dateTo || author || source);
+  const isFiltering = narrowed || tab === "mine";
   // The controls stay while filtering, even when nothing matches, so a search
   // that finds nothing can still be changed. Hidden only for an empty feed.
   const showControls = Boolean(submissions.data) && (isFiltering || total > 0);
@@ -127,6 +137,20 @@ export default function TilHomePage() {
     setPage(pageContaining((shownPage - 1) * pageSize, next));
     setPageSize(next);
     writeTilFeedPageSize(next);
+  };
+
+  // Every entry the search, dates and tab select, not just this page.
+  const runExport = async () => {
+    setExporting(true);
+    try {
+      const entries = await exportEntries(tilFeedQuery(filters, 1, pageSize));
+      downloadTilCsv(entries, window.location.origin, new Date());
+      showSuccess(`Exported ${entries.length} ${entries.length === 1 ? "entry" : "entries"}`);
+    } catch (err) {
+      showError(`Couldn't export the entries. ${describeError(err)}`);
+    } finally {
+      setExporting(false);
+    }
   };
 
   const runDelete = (id: string) => {
@@ -224,22 +248,91 @@ export default function TilHomePage() {
             />
             <Button
               size="small"
-              // Stays visually active even when collapsed if a date filter
-              // is still silently applied -- closing this panel used to
-              // just hide the date fields without clearing them, so the
-              // feed stayed filtered with no indication why.
-              variant={showAdvanced || hasActiveDateFilter ? "contained" : "outlined"}
+              // Stays visually active even when collapsed if a filter in it
+              // is still applied -- closing this panel only hides its
+              // fields, so without this the feed would stay filtered with
+              // no indication why.
+              variant={showAdvanced || hasActiveAdvancedFilter ? "contained" : "outlined"}
               startIcon={<SlidersHorizontalIcon size={14} />}
               onClick={() => setShowAdvanced((v) => !v)}
               sx={{ flex: "none", textTransform: "none", fontWeight: 500, px: 1.5, minWidth: "auto", height: "37.125px" }}
             >
-              Advanced Search{!showAdvanced && hasActiveDateFilter ? " •" : ""}
+              Advanced Search{!showAdvanced && hasActiveAdvancedFilter ? " •" : ""}
             </Button>
+            <Tooltip title="Every entry matching the search, filters and tab, for Google Sheets or Excel">
+              <span>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<DownloadIcon size={14} />}
+                  onClick={() => void runExport()}
+                  disabled={exporting || total === 0}
+                  sx={{ flex: "none", textTransform: "none", fontWeight: 500, px: 1.5, minWidth: "auto", height: "37.125px" }}
+                >
+                  {exporting ? "Exporting…" : "Export CSV"}
+                </Button>
+              </span>
+            </Tooltip>
             <TilFeedLayoutSwitch value={layout} onChange={changeLayout} />
           </Stack>
 
           {showAdvanced && (
             <Stack direction="row" spacing={1.5} alignItems="flex-end" sx={{ flexWrap: "wrap", rowGap: 1.5 }}>
+              <TextField
+                size="small"
+                label="Author"
+                // The author's name alone, by the start of each word, so
+                // "ale" finds Alex without also finding entries that only
+                // mention Alex, as the search box would.
+                placeholder="Name"
+                value={authorQuery}
+                onChange={(e) => {
+                  setAuthorQuery(e.target.value);
+                  setPage(1);
+                }}
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                slotProps={{
+                  inputLabel: { shrink: true },
+                  input: {
+                    endAdornment: authorQuery && (
+                      <InputAdornment position="end">
+                        <IconButton
+                          size="small"
+                          onClick={() => {
+                            setAuthorQuery("");
+                            setPage(1);
+                          }}
+                          aria-label="Clear author"
+                        >
+                          <XIcon size={16} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{ width: 200, "& .MuiInputBase-root": { height: "37.125px" } }}
+              />
+              <TextField
+                select
+                size="small"
+                label="Source"
+                value={source}
+                onChange={(e) => {
+                  setSource(e.target.value as TilWhere | "");
+                  setPage(1);
+                }}
+                slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
+                sx={{ width: 170, "& .MuiInputBase-root": { height: "37.125px" } }}
+              >
+                <MenuItem value="">Any source</MenuItem>
+                {TIL_WHERE_OPTIONS.map((opt) => (
+                  <MenuItem key={opt} value={opt}>
+                    {opt}
+                  </MenuItem>
+                ))}
+              </TextField>
               <TextField
                 size="small"
                 type="date"
@@ -372,7 +465,7 @@ export default function TilHomePage() {
       ) : (
         <Box sx={{ py: 4, textAlign: "center" }}>
           <Typography sx={{ fontSize: 13, color: "text.secondary" }}>
-            {tab === "mine" && !search && !dateFrom && !dateTo
+            {tab === "mine" && !narrowed
               ? "You haven't shared an entry yet."
               : isFiltering
                 ? "No entries match your search."

@@ -15,13 +15,18 @@
 // under the License.
 import { Alert, Box, Button, Chip, Divider, Paper, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { useState } from "react";
-import { ArrowLeftIcon, NewspaperIcon, PencilIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowLeftIcon, NewspaperIcon, PencilIcon, SendIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { isTilBackendConfigured, useTilSubmission, useTilUserInfo } from "../api/useTilData";
-import { useDeleteTilSubmission } from "../api/useTilMutations";
-import { tilArticlePath } from "../util/tilArticleView";
+import {
+  isTilBackendConfigured,
+  useTilNotificationsEnabled,
+  useTilSubmission,
+  useTilUserInfo,
+} from "../api/useTilData";
+import { useDeleteTilSubmission, useNotifyTilSubmission } from "../api/useTilMutations";
+import { TIL_FEED_PATH, tilArticlePath } from "../util/tilArticleView";
 import { describeError, isNotFound } from "../util/tilError";
 import SubmitEntryDialog from "../components/SubmitEntryDialog";
 import TilShell from "../components/TilShell";
@@ -38,12 +43,18 @@ export default function TilEntryPage() {
   const submission = useTilSubmission(id);
   const userInfo = useTilUserInfo();
   const deleteSubmission = useDeleteTilSubmission();
+  const notifySubmission = useNotifyTilSubmission();
+  const notificationsEnabled = useTilNotificationsEnabled();
   const { showSuccess, showError } = useNotifications();
 
   const canModerate = userInfo.data?.canModerate ?? false;
   const isOwner = Boolean(userInfo.data?.email) && submission.data?.submittedByEmail === userInfo.data?.email;
   // Edit and delete share one rule, same as the backend's.
   const canChange = canModerate || isOwner;
+  // An entry whose Google Chat announcement failed. Only moderators see it,
+  // and only they can send it, once (checked server-side too).
+  const unsent = canModerate && notificationsEnabled && submission.data?.notifiedAt === null;
+  const busy = deleteSubmission.isPending || notifySubmission.isPending;
   const notFound = isNotFound(submission.error);
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
   const [editing, setEditing] = useState(false);
@@ -53,7 +64,7 @@ export default function TilEntryPage() {
     deleteSubmission.mutate(id, {
       onSuccess: () => {
         showSuccess("Entry deleted");
-        navigate("/knowledge-base");
+        navigate(TIL_FEED_PATH);
       },
       onError: (err) => showError(describeError(err)),
     });
@@ -69,10 +80,30 @@ export default function TilEntryPage() {
     });
   };
 
+  const runSend = () => {
+    if (!id) return;
+    notifySubmission.mutate(id, {
+      onSuccess: () => showSuccess("Sent to Google Chat"),
+      onError: (err) => showError(describeError(err)),
+    });
+  };
+
+  const confirmSend = () => {
+    setConfirmContent({
+      title: "Send this entry to Google Chat?",
+      text: "Its announcement didn't go out when it was shared. Everyone who has added Novera will get it as a card. It can only be sent once.",
+      confirmLabel: "Send",
+      confirmColor: "primary",
+      confirmAction: runSend,
+    });
+  };
+
+  const unsentChip = unsent && <Chip label="Not sent to Google Chat" size="small" color="warning" variant="outlined" />;
+
   return (
     <TilShell title="Today I Learned" configured={configured} configKey="ONE_WSO2_TIL_BACKEND_URL">
       <Box sx={{ mt: 1.5, mb: 2 }}>
-        <Button size="small" startIcon={<ArrowLeftIcon size={16} />} component={RouterLink} to="/knowledge-base">
+        <Button size="small" startIcon={<ArrowLeftIcon size={16} />} component={RouterLink} to={TIL_FEED_PATH}>
           Back
         </Button>
       </Box>
@@ -110,6 +141,7 @@ export default function TilEntryPage() {
                       size="small"
                       variant="outlined"
                     />
+                    {unsentChip}
                   </Stack>
                 </>
               ) : (
@@ -125,6 +157,7 @@ export default function TilEntryPage() {
                     }
                     variant="outlined"
                   />
+                  {unsentChip}
                 </Stack>
               )}
             </Box>
@@ -138,13 +171,18 @@ export default function TilEntryPage() {
               >
                 Open as article
               </Button>
+              {unsent && (
+                <Button size="small" startIcon={<SendIcon size={16} />} onClick={confirmSend} disabled={busy}>
+                  {notifySubmission.isPending ? "Sending…" : "Send to Google Chat"}
+                </Button>
+              )}
               {canChange && (
                 <>
                   <Button
                     size="small"
                     startIcon={<PencilIcon size={16} />}
                     onClick={() => setEditing(true)}
-                    disabled={deleteSubmission.isPending}
+                    disabled={busy}
                   >
                     Edit
                   </Button>
@@ -153,7 +191,7 @@ export default function TilEntryPage() {
                     color="error"
                     startIcon={<TrashIcon size={16} />}
                     onClick={confirmDelete}
-                    disabled={deleteSubmission.isPending}
+                    disabled={busy}
                   >
                     {deleteSubmission.isPending ? "Deleting…" : "Delete"}
                   </Button>

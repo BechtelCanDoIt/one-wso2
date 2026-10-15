@@ -108,8 +108,8 @@ export type PreviewFeature =
    */
   | "nda"
   /**
-   * The whole Knowledge Base perspective — waffle tile, rail, and the
-   * `/knowledge-base` route, currently just Today I Learned. Waiting on
+   * The whole Knowledge perspective — waffle tile, rail, and the
+   * `/knowledge` routes, currently just Today I Learned. Waiting on
    * til-backend's first real Choreo deployment and the Google Chat App's
    * Space/Dialog registration (outside this codebase) before going live.
    */

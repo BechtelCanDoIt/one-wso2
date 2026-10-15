@@ -22,7 +22,7 @@ import type { TilSubmission } from "../api/tilTypes";
 import TilArticleBody from "../components/TilArticleBody";
 import TilArticleLayout, { TIL_SERIF } from "../components/TilArticleLayout";
 import TilMark from "../components/TilMark";
-import { tilArticlePath, tilEntryPath } from "../util/tilArticleView";
+import { TIL_FEED_PATH, tilArticlePath, tilEntryPath } from "../util/tilArticleView";
 import { describeError, isNotFound } from "../util/tilError";
 import { tilInitials, tilShortDate } from "../util/tilFormat";
 import { tilReadingMinutes } from "../util/tilRichText";
@@ -75,7 +75,7 @@ export default function TilArticlePage() {
   const more = (submissions.data?.items ?? []).filter((s) => s.id !== id).slice(0, MORE_COUNT);
 
   return (
-    <TilArticleLayout shellHref={id ? tilEntryPath(id) : "/knowledge-base"}>
+    <TilArticleLayout shellHref={id ? tilEntryPath(id) : TIL_FEED_PATH}>
       {!configured ? (
         <ArticleNotice>Today I Learned isn&apos;t connected in this environment yet.</ArticleNotice>
       ) : submission.isLoading ? (

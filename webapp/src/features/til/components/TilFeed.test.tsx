@@ -32,6 +32,7 @@ const MINE: TilSubmission = {
   submittedByEmail: "dana@example.com",
   createdAt: new Date("2026-10-07T14:34:13Z"),
   updatedAt: new Date("2026-10-08T09:00:00Z"),
+  notifiedAt: new Date("2026-10-07T14:34:14Z"),
 };
 
 const THEIRS: TilSubmission = {
@@ -44,6 +45,7 @@ const THEIRS: TilSubmission = {
   submittedByEmail: "alex@example.com",
   createdAt: new Date("2026-10-04T15:34:13Z"),
   updatedAt: null,
+  notifiedAt: null,
 };
 
 function renderFeed(layout: TilFeedLayout) {

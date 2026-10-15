@@ -26,7 +26,7 @@ import { appMarkTones } from "@components/app-marks/appMarkTones";
 // sit back in the pale tone. Scaled so it weighs the same as the launcher
 // marks: 32% coverage and L* 66 at 64px.
 export default function TilMark({ size = 48 }: { size?: number }) {
-  const t = appMarkTones("knowledge-base")!;
+  const t = appMarkTones("knowledge")!;
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"

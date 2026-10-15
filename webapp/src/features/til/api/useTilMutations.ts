@@ -70,6 +70,30 @@ export function useUpdateTilSubmission() {
   });
 }
 
+/** POST /submissions/{id}/notify: sends an entry whose Google Chat
+ * announcement failed. The backend re-checks canModerate and refuses an entry
+ * that's already been sent (409), so a card never goes out twice. */
+export function useNotifyTilSubmission() {
+  const getAccessToken = useAccessToken();
+  const qc = useQueryClient();
+  const submissionsKey = useTilSubmissionsKey();
+  return useMutation<TilSubmission | null, Error, string>({
+    mutationFn: async (id) => {
+      const wire = await authedPost<TilSubmissionWire>(tilServiceUrls.notify(id), await getAccessToken(), {});
+      return wire ? normalizeSubmission(wire) : null;
+    },
+    onSuccess: (sent, id) => {
+      if (sent) qc.setQueryData(["til-submission", submissionsKey[1], id], sent);
+    },
+    // Also after a failure: a 409 means someone else sent it, and the page
+    // should stop offering to.
+    onSettled: async (_data, _error, id) => {
+      await qc.invalidateQueries({ queryKey: ["til-submission", submissionsKey[1], id] });
+      await qc.invalidateQueries({ queryKey: submissionsKey });
+    },
+  });
+}
+
 /** DELETE /submissions/{id}. The backend re-checks canModerate — this is presentation-only gating. */
 export function useDeleteTilSubmission() {
   const getAccessToken = useAccessToken();

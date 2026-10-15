@@ -26,7 +26,7 @@ window.config = {
   // Cafeteria menu backend (daily menu, lunch feedback, dinner orders).
   // ONE_WSO2_MENU_BACKEND_URL: "<your-menu-backend-url>",
 
-  // Today I Learned backend — the Knowledge Base perspective's learnings
+  // Today I Learned backend — the Knowledge perspective's learnings
   // feed. Shown only while `til` is on in ONE_WSO2_PREVIEW_FEATURES below.
   // ONE_WSO2_TIL_BACKEND_URL: "<your-til-backend-url>",
 

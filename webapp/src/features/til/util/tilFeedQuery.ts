@@ -16,13 +16,17 @@
 
 // Turns the feed's controls into a GET /submissions query.
 
-import type { TilSubmissionsQuery } from "../api/tilTypes";
+import type { TilSubmissionsQuery, TilWhere } from "../api/tilTypes";
 
 export interface TilFeedFilters {
   search: string;
   /** Local calendar days as a date input gives them ("2026-10-31"); "" when unset. */
   dateFrom: string;
   dateTo: string;
+  /** The author's name, as typed; "" when unset. */
+  author?: string;
+  /** "" for every source. */
+  source?: TilWhere | "";
   mine: boolean;
 }
 
@@ -36,8 +40,11 @@ export function startOfLocalDay(day: string, addDays = 0): string {
 
 export function tilFeedQuery(filters: TilFeedFilters, page: number, pageSize: number): TilSubmissionsQuery {
   const search = filters.search.trim();
+  const author = filters.author?.trim();
   return {
     ...(search ? { search } : {}),
+    ...(author ? { author } : {}),
+    ...(filters.source ? { source: filters.source } : {}),
     ...(filters.dateFrom ? { createdFrom: startOfLocalDay(filters.dateFrom) } : {}),
     // The start of the day after: createdBefore is exclusive, so the whole of
     // the last day counts.
