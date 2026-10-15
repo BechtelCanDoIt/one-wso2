@@ -43,7 +43,7 @@ import TemplateFields, { CustomerField } from "./TemplateFields";
 import type { TemplateLookups } from "./TemplateFields";
 import { hasComplianceReferences, riskCodePreview, templateOf } from "./templates";
 import { fetchRiskAssignerCandidates, searchEmployees } from "../../api/riskApi";
-import type { ComplianceReference, EmployeeOption, RiskCategory, RiskTeam, UserOption } from "../../api/riskApi";
+import type { ComplianceReference, EmployeeOption, LookupOption, RiskCategory, RiskTeam, UserOption } from "../../api/riskApi";
 import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
 import { BACKEND_BASE_URL } from "@features/security/grc/shim/apiConfig";
 
@@ -74,6 +74,8 @@ interface BasicInformationStepProps {
   // Values for the register-template fields (Platform, Customer, Product,
   // Deployment Type), fetched once by the page.
   lookups: TemplateLookups;
+  // A customer the user added from the Customer Name field.
+  onCustomerAdded: (customer: LookupOption) => void;
 }
 
 export default function BasicInformationStep({
@@ -82,6 +84,7 @@ export default function BasicInformationStep({
   complianceRefs,
   riskCategories,
   lookups,
+  onCustomerAdded,
 }: BasicInformationStepProps): JSX.Element {
   const { control, clearErrors, setValue } = useFormContext<AddRiskFormValues>();
   const authFetch = useAuthApiClient();
@@ -333,7 +336,7 @@ export default function BasicInformationStep({
 
           {/* Managed Services: the customer comes before the risk code, which
               contains its code and counts per customer. */}
-          {template === "MANAGED_SERVICES" && <CustomerField lookups={lookups} />}
+          {template === "MANAGED_SERVICES" && <CustomerField lookups={lookups} onCustomerAdded={onCustomerAdded} />}
 
           {/* Risk Code (auto-generated preview — not a user-editable field) */}
           <Box

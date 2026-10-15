@@ -635,21 +635,18 @@ export async function fetchLookupOptions(
   return handleResponse<LookupOption[]>(res);
 }
 
-export interface CustomerRequest {
-  customer_name: string;
-  suggested_code?: string;
-  note?: string;
-}
-
-// Asks the platform admins to add a customer that is missing from the Customer
-// Name list. Nothing is stored: it is an email to the admins, with the caller
-// copied. The risk cannot be saved until the customer exists.
-export async function requestCustomer(authFetch: AuthFetch, payload: CustomerRequest): Promise<void> {
-  const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks/customer-requests`, {
+// Adds a customer to the Customer Name list. No approval: anyone who can raise
+// a Managed Services risk may add one, so a missing customer never blocks Add
+// Risk. The code goes into the risk code and is frozen once a risk uses it.
+export async function createCustomer(
+  authFetch: AuthFetch,
+  payload: { name: string; code: string },
+): Promise<LookupOption> {
+  const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks/customers`, {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  await handleResponse(res);
+  return handleResponse<LookupOption>(res);
 }
 
 export async function fetchRiskScores(authFetch: AuthFetch): Promise<RiskScore[]> {
