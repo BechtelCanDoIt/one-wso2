@@ -887,6 +887,10 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     access: true,
     path: "/security",
     forwardsToFirstItem: true,
+    // The "User Guide" row is NOT here: it covers Risk Hub AND Audit Hub, so
+    // it belongs to neither one's group, and it's fetched from the GRC
+    // backend (GET_USER_GUIDE_URL) rather than carried as registry data — see
+    // useUserGuideUrl and SideRail's own pinned-to-bottom category.
     sections: [...appsToSections(SECURITY_APPS)],
   },
   // "Me" is the Home landing: the person's own profile plus everyday apps —

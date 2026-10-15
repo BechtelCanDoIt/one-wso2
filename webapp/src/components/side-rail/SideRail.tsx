@@ -16,10 +16,11 @@
 
 import { useMemo, useState, type JSX } from "react";
 import { Box, Link, Sidebar, Typography } from "@wso2/oxygen-ui";
-import { ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
+import { BookOpenIcon, ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, matchPath, useLocation, useNavigate } from "react-router";
 import { useActivePerspective } from "@context/perspective/PerspectiveContext";
 import type { PerspectiveSection } from "@constants/perspectives";
+import { useUserGuideUrl } from "@features/security/api/useUserGuideUrl";
 import {
   activeGroupIds as activeGroupIdsFor,
   activeItemId as activeItemIdFor,
@@ -101,6 +102,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
   // Memoised because `?? []` would otherwise hand a fresh array to the
   // dependency lists below on every render, defeating both useMemos.
   const sections = useMemo(() => active.sections ?? [], [active.sections]);
+
+  // The GRC user guide link, served by the GRC backend rather than carried in
+  // this perspective's own registry data — see useUserGuideUrl. Fetched only
+  // while Security and Compliance is active, same as every other
+  // perspective-scoped gate in usePerspectiveVisibility.
+  const userGuide = useUserGuideUrl(active.key === "security");
 
   // Manual open/close choices for groups the user has explicitly clicked.
   // These win: navigating into a group opens it, and closing it again is
@@ -230,7 +237,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
       onSelect={onSelect}
       onToggleExpand={onToggleExpand}
     >
-      <Sidebar.Nav>
+      {/* flex column: lets the pinned-to-bottom category below push itself to
+          the foot of this scroll area with `mt: auto`, rather than flowing
+          directly under the main one. showDividers off: Nav would otherwise
+          draw its own rule between the two categories, on top of the gap
+          `mt: auto` already opens up. */}
+      <Sidebar.Nav showDividers={false} sx={{ display: "flex", flexDirection: "column" }}>
         <Sidebar.Category>
           <Sidebar.CategoryLabel>{active.label}</Sidebar.CategoryLabel>
 
@@ -272,6 +284,17 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
           )}
         </Sidebar.Category>
 
+        {/* A second top-level child of Sidebar.Nav, not a row joining the
+            list inside the first Category — that's what lets `mt: "auto"`
+            push it down the flex column to the foot of the scroll area,
+            opening a gap from the groups above. showDividers is off, so no
+            rule is drawn between the two; the gap alone is the separation.
+            Only Security and Compliance has anything to put here today. */}
+        {active.key === "security" && userGuide.data?.url && (
+          <Sidebar.Category sx={{ mt: "auto" }}>
+            <LeafItem id="security-user-guide" label="User Guide" icon={BookOpenIcon} href={userGuide.data.url} />
+          </Sidebar.Category>
+        )}
       </Sidebar.Nav>
 
       <Sidebar.Footer showDivider>
@@ -481,7 +504,15 @@ function LeafItem({
           outbound item is indistinguishable from a route until it has already
           opened a tab. */}
       {href ? (
-        <Sidebar.ItemBadge color="default">
+        <Sidebar.ItemBadge
+          color="default"
+          sx={{
+            mr: -0.75,
+            // The chip's default label padding is sized for text; an
+            // icon-only badge this small just wants to fill the pill.
+            "& .MuiChip-label": { display: "flex", px: "4px" },
+          }}
+        >
           <ExternalLinkIcon size={11} />
         </Sidebar.ItemBadge>
       ) : null}
