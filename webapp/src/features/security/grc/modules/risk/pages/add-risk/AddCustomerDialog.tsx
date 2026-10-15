@@ -31,10 +31,7 @@ import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
 import { createCustomer } from "../../api/riskApi";
 import type { LookupOption } from "../../api/riskApi";
 import { dialogPaperSx } from "../cardStyles";
-
-// Mirrors the backend's rule for a customer code, so a bad code is caught here
-// rather than by a 400.
-const CODE_PATTERN = /^[A-Z0-9]{1,12}$/;
+import { CUSTOMER_CODE_MAX, LOOKUP_NAME_MAX, customerCodeError } from "../../../admin/components/lookupValidation";
 
 interface AddCustomerDialogProps {
   open: boolean;
@@ -67,8 +64,9 @@ export default function AddCustomerDialog({ open, onClose, onCreated }: AddCusto
       setError("Customer name is required.");
       return;
     }
-    if (!CODE_PATTERN.test(code)) {
-      setError("The customer code must be 1–12 capital letters or digits.");
+    const codeError = customerCodeError(code);
+    if (codeError) {
+      setError(codeError);
       return;
     }
     setSaving(true);
@@ -108,7 +106,7 @@ export default function AddCustomerDialog({ open, onClose, onCreated }: AddCusto
             label="Customer name"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            slotProps={{ htmlInput: { maxLength: 255 } }}
+            slotProps={{ htmlInput: { maxLength: LOOKUP_NAME_MAX } }}
             disabled={saving}
           />
           <TextField
@@ -118,8 +116,8 @@ export default function AddCustomerDialog({ open, onClose, onCreated }: AddCusto
             label="Customer code"
             value={code}
             onChange={(e) => setCode(e.target.value.toUpperCase())}
-            slotProps={{ htmlInput: { maxLength: 12 } }}
-            helperText="Capital letters and digits, up to 12, e.g. BANKONESUB."
+            slotProps={{ htmlInput: { maxLength: CUSTOMER_CODE_MAX } }}
+            helperText={`Capital letters and digits, up to ${CUSTOMER_CODE_MAX}, e.g. BANKONESUB.`}
             disabled={saving}
           />
         </Stack>
