@@ -96,6 +96,12 @@ export interface PerspectiveVisibility {
    * answer ahead of a slow higher one. A caller that redirects (PerspectiveLanding)
    * needs the rail-order-correct answer; the rail itself, which only ever
    * draws what it knows and fills the rest in, keeps using `visibleLeaves`.
+   *
+   * Finance waits one step longer. Overview ranks above the MIS rows, so this
+   * stays unset until the ARR read has settled, even when Overview has already
+   * answered. A failed read is the Retry notice on the opening screen, and
+   * leaving for Overview before that read finishes never shows it. The rail
+   * and a direct address do not read this field.
    */
   firstVisibleLeaf: PerspectiveSection | undefined;
   /**
@@ -151,7 +157,7 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // revenue reporting to every signed-in employee.
   //
   // Finance MIS is shipped, so this asks whenever Finance is open. A slow or
-  // failed /user-info holds or stops Finance with the other checks. Unconfigured,
+  // failed /user-info holds or stops the Finance opening screen. Unconfigured,
   // useMisGate asks nothing and never stays pending.
   const misGate = useMisGate(active.key === "finance");
 
@@ -352,7 +358,15 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
 
   const resolveVisible = (section: PerspectiveSection): boolean => folded.canSee(section);
   const visibleLeaves = visibleLeavesOf(sections, resolveVisible);
-  const firstVisibleLeaf = firstVisibleLeafOf(sections, resolveVisible, folded.sectionAnswered);
+  // Overview ranks above the MIS rows, so the walk can name it while the ARR
+  // read is still in flight or has already failed. The opening screen stays
+  // here until that read settles. `resolveVisible` is unchanged, so the rail
+  // keeps the other Finance rows, and a typed address never comes through here.
+  const arrReadSettled = !misGate.isResolving && !misGate.isError;
+  const firstVisibleLeaf =
+    active.key === "finance" && !arrReadSettled
+      ? undefined
+      : firstVisibleLeafOf(sections, resolveVisible, folded.sectionAnswered);
 
   return {
     resolveVisible,
