@@ -34,6 +34,11 @@ function useKindColor(): (kind: TimelineKind) => string {
   return (kind) => (dark ? KINDS[kind].dark : KINDS[kind].light);
 }
 
+/** Track geometry: one line, the stage bar, with every mark centred on it. */
+const LINE_Y = 13;
+const BAR_HEIGHT = 6;
+const TRACK_HEIGHT = 26;
+
 /**
  * One mark: a plain solid dot in its kind's hue. Something still to come is the same dot,
  * hollow, with a dashed outline. A ring of the surface keeps marks on the same day apart.
@@ -102,7 +107,8 @@ export function DealJourneyLegend() {
       {swatch(<Box sx={{ width: "1px", height: 12, bgcolor: "currentColor", opacity: 0.6 }} />, "Today")}
       {swatch(<Box sx={{ width: "2px", height: 12, bgcolor: "currentColor" }} />, "Close date")}
       <Box sx={{ opacity: 0.8, maxWidth: 260 }}>
-        Stages are what Echo saw at each call and today, not Salesforce&apos;s stage history.
+        The line is the deal, shaded by stage. Stages come from Salesforce&apos;s stage history when it can
+        be read, else from what Echo saw at each call.
       </Box>
     </Stack>
   );
@@ -198,12 +204,23 @@ export default function DealJourney({
       <Box
         role="list"
         aria-label="Deal journey, from its start to its close"
-        sx={{ position: "relative", height: 32, minWidth: 160 }}
+        sx={{ position: "relative", height: TRACK_HEIGHT, minWidth: 160 }}
       >
         {/* The axis, a recessive hairline. */}
-        <Box aria-hidden sx={{ position: "absolute", left: 0, right: 0, top: 11, height: "1px", bgcolor: "divider" }} />
+        <Box
+          aria-hidden
+          sx={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: LINE_Y - BAR_HEIGHT / 2,
+            height: BAR_HEIGHT,
+            borderRadius: BAR_HEIGHT / 2,
+            bgcolor: "action.hover",
+          }}
+        />
 
-        {/* Stage bands along the bottom, each with its own tooltip. */}
+        {/* The line itself: the stage bands, each with its own tooltip. */}
         {segments.map((s, i) => {
           const label =
             s.stage === null
@@ -217,8 +234,8 @@ export default function DealJourney({
                 aria-label={label}
                 sx={{
                   position: "absolute",
-                  top: 24,
-                  height: 6,
+                  top: LINE_Y - BAR_HEIGHT / 2,
+                  height: BAR_HEIGHT,
                   left: `${pct(s.from)}%`,
                   width: `${pct(s.to) - pct(s.from)}%`,
                   borderRadius: 0.5,
@@ -271,7 +288,14 @@ export default function DealJourney({
               <Box
                 key={`${mark.type}-${mark.at}-${i}`}
                 role="listitem"
-                sx={{ position: "absolute", top: 0, left: `${pct(ms)}%`, transform: "translateX(-50%)" }}
+                data-kind={kind}
+                sx={{
+                  position: "absolute",
+                  // Each mark's 22px box is centred on its row.
+                  top: LINE_Y - 11,
+                  left: `${pct(ms)}%`,
+                  transform: "translateX(-50%)",
+                }}
               >
                 <Tooltip title={label} arrow disableInteractive>
                   {/* The hit target is wider than the mark, so a 7px mark is easy to hover. */}
