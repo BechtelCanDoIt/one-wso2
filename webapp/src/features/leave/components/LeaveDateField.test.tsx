@@ -85,6 +85,32 @@ describe("an out-of-range date typed into a form", () => {
   });
 });
 
+/** A From/To pair whose To can't be earlier than From, like the report toolbars. */
+function Range() {
+  const [from, setFrom] = useState("2026-06-01");
+  const [to, setTo] = useState("2026-10-15");
+  return (
+    <>
+      <LeaveDateField label="From" value={from} onChange={setFrom} />
+      <LeaveDateField label="To" value={to} min={from} onChange={setTo} />
+      <output aria-label="held to">{to}</output>
+    </>
+  );
+}
+
+describe("a red date whose bounds move to allow it", () => {
+  // Typed To before From, then moved From earlier: the To date is now allowed
+  // and shown without error, so the form must hold it too.
+  it("is handed to the form once it is allowed", () => {
+    render(<Range />);
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-03-01" } });
+    expect(screen.getByLabelText("held to")).toHaveTextContent(/^$/);
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-02-01" } });
+    expect(screen.getByLabelText("held to")).toHaveTextContent("2026-03-01");
+    expect(document.querySelector('[aria-invalid="true"]')).toBeNull();
+  });
+});
+
 describe("a value that is not a real date", () => {
   // new Date(2025, 1, 31) is 3 March; the field must not show a different day.
   it("shows as empty rather than rolling over", () => {

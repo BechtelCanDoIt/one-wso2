@@ -16,7 +16,7 @@
  * under the License.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AdapterDateFns, Box, DatePickers, Typography } from "@wso2/oxygen-ui";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { localIsoDate } from "@utils/localDate";
@@ -72,7 +72,20 @@ export default function LeaveDateField({
   // still holds that "". Handing MUI back an empty value instead would wipe
   // what the user typed and drop the error, leaving no hint why it vanished.
   const [outOfRange, setOutOfRange] = useState<Date | null>(null);
+  // Once the caller holds a date again, the remembered one is spent.
+  if (outOfRange && value !== "") setOutOfRange(null);
   const shown = value === "" && outOfRange ? outOfRange : fromIso(value);
+
+  // The bounds can move without this field changing — a To whose min follows
+  // From. Once the date on screen is allowed again, hand it to the caller, or
+  // the field shows a valid date while the form still holds none.
+  useEffect(() => {
+    if (!outOfRange || value !== "") return;
+    const lo = fromIso(min);
+    const hi = fromIso(max);
+    if ((lo && outOfRange < lo) || (hi && outOfRange > hi)) return;
+    onChange?.(toIso(outOfRange));
+  }, [min, max, outOfRange, value, onChange]);
 
   return (
     <Box>
