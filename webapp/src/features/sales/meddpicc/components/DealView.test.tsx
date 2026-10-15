@@ -276,6 +276,28 @@ describe("DealView", { timeout: 20000 }, () => {
     spy.mockRestore();
   });
 
+  it("asks about the deal on the Ask AI tab, saying it is not connected yet", async () => {
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI", "ask");
+    await screen.findByRole("heading", { name: "Ask about this deal" });
+    expect(screen.getByText("Preview")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "What's blocking the next stage?" }));
+
+    const log = screen.getByRole("log", { name: "Conversation about this deal" });
+    expect(within(log).getByText("What's blocking the next stage?")).toBeInTheDocument();
+    expect(within(log).getByText(/Ask AI isn't connected yet/)).toBeInTheDocument();
+
+    // A typed follow-up, sent with Enter.
+    await user.type(screen.getByRole("textbox", { name: "Your question" }), "Who signs the contract?{Enter}");
+    expect(within(log).getByText("Who signs the contract?")).toBeInTheDocument();
+    expect(within(log).getAllByText(/Ask AI isn't connected yet/)).toHaveLength(2);
+
+    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    expect(within(log).queryByText("Who signs the contract?")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Summarise where this deal stands." })).toBeInTheDocument();
+  });
+
   it("keeps the journey and activity on the Activity tab, away from the fields", async () => {
     const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });

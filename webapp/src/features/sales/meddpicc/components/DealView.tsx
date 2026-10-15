@@ -37,6 +37,7 @@ import {
   ChevronDownIcon,
   ExternalLinkIcon,
   RefreshCwIcon,
+  SparklesIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { formatDateTime, parseUtc } from "../../util/salesTime";
@@ -65,6 +66,7 @@ import { useNow } from "../../util/useNow";
 import DealJourney, { KindMark, QUIET_AFTER_DAYS } from "./DealJourney";
 import { KINDS } from "../util/timelineKinds";
 import StagePath from "./StagePath";
+import DealChat, { type ChatEntry } from "./DealChat";
 import { meetingPath, type DealTab } from "../../util/salesPaths";
 import {
   EMPTY_DRAFT,
@@ -112,6 +114,8 @@ export default function DealView({
   const refresh = useRefreshDeal(deal.opportunityId);
 
   const [letter, setLetter] = useState<LetterKey | null>(initialLetter);
+  // The Ask AI thread lives here, so it survives switching tabs.
+  const [chat, setChat] = useState<ChatEntry[]>([]);
   // The stage whose fields are shown; null opens on the current stage.
   const [pickedGate, setPickedGate] = useState<string | null>(null);
   const pickGate = (next: string) => {
@@ -413,6 +417,15 @@ export default function DealView({
           }
         />
         <Tab value="activity" label={`Activity (${activity.length})`} />
+        <Tab
+          value="ask"
+          label={
+            <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+              <SparklesIcon size={14} aria-hidden />
+              <span>Ask AI</span>
+            </Stack>
+          }
+        />
       </Tabs>
 
       {tab === "meddpicc" ? (
@@ -644,7 +657,7 @@ export default function DealView({
           </Stack>
 
         </>
-      ) : (
+      ) : tab === "activity" ? (
         <Stack spacing={3} sx={{ minWidth: 0, maxWidth: 960 }}>
           {/* The deal's journey, as on the Deals list, for this deal alone. */}
           <Box component="section" aria-label="Journey">
@@ -694,6 +707,8 @@ export default function DealView({
             </Box>
           )}
         </Stack>
+      ) : (
+        <DealChat entries={chat} onChange={setChat} />
       )}
     </>
   );

@@ -104,6 +104,17 @@ describe("DealPage", { timeout: 20000 }, () => {
     expect(screen.queryByText(/across every stage/)).not.toBeInTheDocument();
   });
 
+  it("opens on the Ask AI tab from ?tab=ask, and keeps the conversation across tabs", async () => {
+    const user = userEvent.setup();
+    renderAt(dealPath("006MOCK0000MERI", null, "ask"));
+    await user.click(await screen.findByRole("button", { name: "Summarise where this deal stands." }));
+
+    await user.click(screen.getByRole("tab", { name: /^MEDDPICC/ }));
+    await user.click(screen.getByRole("tab", { name: "Ask AI" }));
+
+    expect(screen.getByRole("log", { name: "Conversation about this deal" })).toHaveTextContent("Summarise where this deal stands.");
+  });
+
   it("builds deal paths, escaping the id", () => {
     expect(dealPath("006A")).toBe("/sales/deals/006A");
     expect(dealPath("006A", "DC")).toBe("/sales/deals/006A?letter=DC");
