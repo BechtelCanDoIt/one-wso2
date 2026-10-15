@@ -18,6 +18,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import type { CcTransaction } from "./ccTypes";
@@ -57,7 +58,14 @@ const jobDetails = {
   ],
 };
 
-const state = { details: jobDetails as unknown, jobQueries: [] as (string | undefined)[] };
+const state = {
+  details: jobDetails as unknown,
+  jobQueries: [] as (string | undefined)[],
+  /** Makes the next lookup fail, as it does for a job that does not exist. */
+  fail: false,
+  /** Makes the next lookup never settle, as it does while still in flight. */
+  pending: false,
+};
 
 vi.mock("./useCc", () => ({
   useCcMenus: () => ({
@@ -71,6 +79,12 @@ vi.mock("./useCc", () => ({
   }),
   useCcJobNumberDetails: (jobNumber: string | undefined) => {
     state.jobQueries.push(jobNumber);
+    if (jobNumber && state.fail) {
+      return { data: undefined, isLoading: false, isError: true };
+    }
+    if (jobNumber && state.pending) {
+      return { data: undefined, isLoading: true, isError: false };
+    }
     return { data: jobNumber ? state.details : undefined, isLoading: false, isError: false };
   },
 }));
@@ -116,6 +130,8 @@ const txn = {
 const onSave = vi.fn();
 
 beforeEach(() => {
+  state.fail = false;
+  state.pending = false;
   onSave.mockClear();
   state.details = jobDetails;
   state.jobQueries.length = 0;
@@ -155,10 +171,46 @@ describe("a travel job number supplies the units", () => {
     await waitFor(() => expect(state.jobQueries).toContain("JOB-1"));
   });
 
-  it("shows the engagement the spend is charged to", async () => {
+  it("shows the engagement the spend is charged to, behind the info icon", async () => {
+    const user = userEvent.setup();
     await categoriseAsTravel();
-    expect(await screen.findByText(/ENG-1/)).toBeInTheDocument();
-    expect(screen.getByText(/Integration — Platform/)).toBeInTheDocument();
+
+    await user.hover(await screen.findByRole("button", { name: "Job number details" }));
+
+    // By their labelled rows: "Integration" alone also names a product unit
+    // in the funding table below, so a bare match finds more than one.
+    expect(await screen.findByText(/Engagement Code: ENG-1/)).toBeInTheDocument();
+    expect(screen.getByText(/Engagement Type: T&M/)).toBeInTheDocument();
+    expect(screen.getByText(/Product Unit: Integration/)).toBeInTheDocument();
+    expect(screen.getByText(/Business Unit: Platform/)).toBeInTheDocument();
+  });
+
+  // A well-formed number has no error while its lookup is still in flight, so
+  // Save stayed enabled for the whole window between picking a job and its
+  // details arriving.
+  it("keeps Save disabled while the job number's lookup is still pending", async () => {
+    state.pending = true;
+    await categoriseAsTravel();
+
+    expect(await screen.findByText("Checking the job number…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  // A job number whose lookup failed would be saved with the PREVIOUS job's
+  // units still attached, since the row keeps them until details arrive.
+  it("refuses to save when the job number could not be verified", async () => {
+    const user = userEvent.setup();
+    await categoriseAsTravel();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save" })).toBeEnabled());
+
+    state.fail = true;
+    const field = screen.getByRole("combobox", { name: "Travel job number" });
+    await user.clear(field);
+    await user.type(field, "TRV-2016-07-0004");
+    await user.tab();
+
+    expect(await screen.findByText("Could not verify this job number")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   });
 
   it("saves the job's units, which the user never picks", async () => {
@@ -218,7 +270,7 @@ describe("marketing sub-categories still need a sub-region", () => {
     await pick("Expense category", "Marketing - Digital");
     await pick("Expense type", "Ads");
     fireEvent.change(screen.getByLabelText("Comment"), { target: { value: "Campaign" } });
-    await pick("Product unit", "Integration — Platform");
+    await pick("Product unit", "Integration");
 
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     await pick("Sub region", "South Asia");

@@ -94,9 +94,6 @@ label becomes **Shop**, which is what its routes and backend already call it.
 - Code lives in `features/marketing-ops/event-platform/`, routes exported as an
   `eventPlatformRoutes` fragment spread into `App.tsx`. Menu ids use `mops-event-platform-*` so they
   cannot clash with the existing, unrelated `features/marketing-ops/events` (`mops-events-*`).
-- The whole app sits behind the `eventPlatform` preview flag (`@config/previewFeatures`). With
-  `ONE_WSO2_PREVIEW_FEATURES.eventPlatform` absent or false, neither the rail group nor any route
-  under `/marketing-ops/event-platform` exists. Delete the flag when the port ships.
 
 ---
 
@@ -392,3 +389,11 @@ Phases 3, 4 and 6 can run in parallel once 2 merges.
 - **Oxygen 0.10 → 0.13.1:** `Sidebar` is dropped anyway; check every other `@wso2/oxygen-ui` import
   for API drift.
 - **Shipping PII** in orders: keep it out of logs and error messages.
+- **Backend URL:** `ONE_WSO2_EVENT_PLATFORM_BACKEND_URL` must be the organisation's gateway URL.
+
+---
+
+## 11. After deploy
+
+`eventPlatform` is no longer read from `ONE_WSO2_PREVIEW_FEATURES`. Once this is deployed, delete the
+key from each environment's `config.js`.

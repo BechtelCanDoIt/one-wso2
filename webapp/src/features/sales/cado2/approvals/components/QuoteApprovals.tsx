@@ -15,9 +15,11 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Alert, Box, Button, Chip, CircularProgress, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, CircularProgress, Typography } from "@wso2/oxygen-ui";
 import { ShieldCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import type { ApprovalPreview, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { WORKFLOW_STATUS } from "@features/sales/cado2/approvals/model/approvalText";
 import LazyApprovalDiagram from "./LazyApprovalDiagram";
@@ -33,11 +35,7 @@ interface QuoteApprovalsProps {
 /** The quote page's Approvals tab. */
 export default function QuoteApprovals({ isDraft, workflow, preview }: QuoteApprovalsProps): JSX.Element {
   if (isDraft) {
-    return (
-      <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-        <ApprovalPreviewPanel preview={preview.data} loading={preview.isFetching} error={preview.error} />
-      </Paper>
-    );
+    return <ApprovalPreviewPanel preview={preview.data} loading={preview.isFetching} error={preview.error} />;
   }
   if (workflow.isPending) {
     return (
@@ -59,64 +57,16 @@ export default function QuoteApprovals({ isDraft, workflow, preview }: QuoteAppr
   }
   const status = WORKFLOW_STATUS[wf.status];
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }}>
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-        <ShieldCheckIcon size={18} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
-          Approvals
-        </Typography>
-        <Chip size="small" color={status.color} label={status.label} />
-      </Stack>
+    <SectionCard
+      title="Approvals"
+      icon={<ShieldCheckIcon size={18} />}
+      aside={<StatusChip color={status.color} label={status.label} />}
+    >
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
         Worked out from this exact version when it was submitted. Deal Desk goes first; the discount and commercial
         approvals then run in parallel. Click a role to see why it is needed.
       </Typography>
       <LazyApprovalDiagram steps={wf.steps} />
-    </Paper>
-  );
-}
-
-/** The status panel's short version: where the approval stands. */
-export function ApprovalSummary({
-  isDraft,
-  workflow,
-  preview,
-  onOpen,
-}: QuoteApprovalsProps & { onOpen: () => void }): JSX.Element | null {
-  const wf = workflow.data;
-  let line: string | null = null;
-  let chip: { label: string; color: "default" | "primary" | "success" | "warning" | "error" | "info" } | null = null;
-  if (isDraft) {
-    const steps = preview.data?.steps ?? [];
-    if (preview.data?.blockers.length) line = "Can't be submitted until the approval blockers are fixed.";
-    else if (steps.length) line = `Needs ${steps.length} approval${steps.length === 1 ? "" : "s"}: ${steps.map((s) => s.roleLabel).join(", ")}.`;
-  } else if (wf) {
-    chip = WORKFLOW_STATUS[wf.status];
-    const waiting = wf.steps.filter((s) => s.status === "PENDING");
-    const done = wf.steps.filter((s) => s.status === "APPROVED").length;
-    line =
-      wf.status === "IN_PROGRESS"
-        ? `Waiting on ${waiting.map((s) => s.roleLabel).join(" and ")} · ${done} of ${wf.steps.length} approved`
-        : `${done} of ${wf.steps.length} approved`;
-  }
-  if (!line && !chip) return null;
-  return (
-    <Paper component="section" variant="outlined" sx={{ p: 2.5, borderRadius: 2 }} aria-label="Approval summary">
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-        <ShieldCheckIcon size={16} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600, flexGrow: 1 }}>
-          Approvals
-        </Typography>
-        {chip ? <Chip size="small" color={chip.color} label={chip.label} /> : null}
-      </Stack>
-      {line ? (
-        <Typography variant="body2" sx={{ mb: 1 }}>
-          {line}
-        </Typography>
-      ) : null}
-      <Button size="small" onClick={onOpen}>
-        See who approves and why
-      </Button>
-    </Paper>
+    </SectionCard>
   );
 }

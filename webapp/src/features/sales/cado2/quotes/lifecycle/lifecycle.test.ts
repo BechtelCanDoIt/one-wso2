@@ -113,3 +113,15 @@ describe("quoteLabel", () => {
   });
 });
 
+
+// D77: each sync to Salesforce, and each refusal with its reason.
+describe("Salesforce sync history", () => {
+  it("says what changed in Salesforce, or why it refused", () => {
+    const synced = event({ eventType: "QUOTE_SYNCED", metadata: { version: 1, added: 1, updated: 2, removed: 0 } });
+    expect(describeEvent({ event: synced, count: 1 })).toBe("Version 1 synced to Salesforce · 2 updated, 1 added, 0 removed");
+    const refused = event({ eventType: "QUOTE_SYNC_FAILED", metadata: { reasons: ["Closed Won opportunities can't be edited"] } });
+    expect(describeEvent({ event: refused, count: 1 })).toBe(
+      "Salesforce refused the sync of version 1: Closed Won opportunities can't be edited",
+    );
+  });
+});

@@ -24,7 +24,7 @@ import ScheduleTable from "./ScheduleTable";
 export default function ScheduleSection({ sheet }: { sheet: QuoteSheet }): JSX.Element | null {
   if (!hasYearlySchedule(sheet)) return null;
   return (
-    <SheetCard title="Yearly schedule" icon={<ChartColumnIcon size={18} />}>
+    <SheetCard title="Yearly Schedule" icon={<ChartColumnIcon size={18} />}>
       <ScheduleTable years={sheet.years} lines={sheet.lines} netOfCommission={sheet.partnerCommissionPercent !== null} />
     </SheetCard>
   );

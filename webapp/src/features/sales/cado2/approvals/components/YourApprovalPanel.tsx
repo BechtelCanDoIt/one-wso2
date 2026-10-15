@@ -15,7 +15,7 @@
 // under the License.
 
 import { useState, type JSX, type ReactNode } from "react";
-import { Alert, Box, Button, Chip, Paper, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Chip, Stack, Typography } from "@wso2/oxygen-ui";
 import {
   BadgePercentIcon,
   CalendarClockIcon,
@@ -29,6 +29,8 @@ import {
   TagIcon,
   TrendingDownIcon,
 } from "@wso2/oxygen-ui-icons-react";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { deskSummary, reasonRows, type ReasonKind, type ReasonRow } from "@features/sales/cado2/approvals/model/myApprovals";
 
@@ -37,8 +39,6 @@ interface YourApprovalPanelProps {
   readonly steps: readonly ApprovalStep[];
   /** The steps the viewer may decide now; usually one. */
   readonly actionable: readonly ApprovalStep[];
-  /** After a decision: what was recorded, e.g. "Approved as CRO." */
-  readonly note: string | null;
   /**
    * Deal Desk: what they verify themselves: the lines whose category the rep
    * chose (repCategoryPoints) and a renewal starting another day (renewalStartPoints).
@@ -185,24 +185,18 @@ function OwnReasons({ step }: { readonly step: ApprovalStep }): JSX.Element {
 /**
  * When it's the viewer's turn: which role they act as and why it's asked.
  * Deal Desk reviews every quote, so they see what's non-standard about it.
- * Kept short, so the quote stays in view. Nothing when there is neither a
- * turn nor a note.
+ * Kept short, so the quote stays in view. Nothing when it isn't their turn;
+ * what was just decided shows as a toast (2026-10-13).
  */
 export default function YourApprovalPanel({
   steps,
   actionable,
-  note,
   repCategories = [],
   onDecide,
 }: YourApprovalPanelProps): JSX.Element | null {
-  if (!note && actionable.length === 0) return null;
+  if (actionable.length === 0) return null;
   return (
     <Stack spacing={1.5} id={YOUR_APPROVAL_ANCHOR} sx={{ scrollMarginTop: 16 }}>
-      {note ? (
-        <Alert severity="success" role="status">
-          {note}
-        </Alert>
-      ) : null}
       {/* Several roles sit side by side, so they cost one card's height, not several. */}
       <Box
         sx={{
@@ -215,20 +209,15 @@ export default function YourApprovalPanel({
         {actionable.map((s) => {
           const deskReview = s.role === "DEAL_DESK";
           return (
-            <Paper
+            // The shared card, like the rest of the page (2026-10-13; was its own card with a blue left bar).
+            <SectionCard
               key={s.role}
-              component="section"
-              variant="outlined"
-              aria-label={`Your approval as ${s.roleLabel}`}
-              sx={{ p: 2, borderRadius: 2, borderLeft: 4, borderLeftColor: "primary.main", display: "flex", flexDirection: "column" }}
+              title={deskReview ? "What's Non-Standard" : "Why Your Approval Is Needed"}
+              icon={<ShieldCheckIcon size={18} />}
+              aside={<StatusChip color="primary" label={s.roleLabel} />}
+              label={`Your approval as ${s.roleLabel}`}
+              stretch
             >
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75 }}>
-                <ShieldCheckIcon size={18} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                  {deskReview ? "What's non-standard" : "Why your approval is needed"}
-                </Typography>
-                <Chip size="small" color="primary" label={s.roleLabel} />
-              </Stack>
               {deskReview ? <DeskReview steps={steps} step={s} repCategories={repCategories} /> : <OwnReasons step={s} />}
               {/* The decision sits with its reasons; the card already names the role. */}
               {/* Under the reasons, Approve first: where the eye ends after reading. Pushed
@@ -237,14 +226,11 @@ export default function YourApprovalPanel({
                 <Button variant="contained" color="success" onClick={() => onDecide("approve", s)}>
                   Approve
                 </Button>
-                <Button variant="outlined" onClick={() => onDecide("request-changes", s)}>
-                  Request changes
-                </Button>
-                <Button variant="outlined" color="error" onClick={() => onDecide("reject", s)}>
-                  Reject
+                <Button variant="outlined" onClick={() => onDecide("return", s)}>
+                  Return
                 </Button>
               </Stack>
-            </Paper>
+            </SectionCard>
           );
         })}
       </Box>

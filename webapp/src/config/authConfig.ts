@@ -64,6 +64,11 @@ declare global {
       // Optional — when absent (and the `cado2` preview flag is on) CadO2's
       // pages show a not-connected state and make no requests.
       ONE_WSO2_CADO2_BACKEND_URL?: string;
+      // Base URL for the Pitstop backend that serves Smart Search, version
+      // segment included. Optional — when absent (and the `smartSearch` preview
+      // flag is on) Sales → Library shows a not-connected state and makes no
+      // requests.
+      ONE_WSO2_SMART_SEARCH_BACKEND_URL?: string;
       // Base URL for the MEDDPICC backend (digiops-sales echo-backend), which
       // powers the Deals tab and the MEDDPICC column under Sales. Optional —
       // when absent Deals shows a not-connected state and the column is left out.
@@ -98,7 +103,10 @@ declare global {
       // "not configured" state. Leave-app has its own /user-info +
       // privileges, distinct from people-app.
       ONE_WSO2_LEAVE_BACKEND_URL?: string;
-      // Base URLs for the digiops-finance backends surfaced in the
+      ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
+      ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
+      ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;
+      // Base URLs for the three digiops-finance backends surfaced in the
       // Finance perspective. Each is its own service with its own
       // /user-info + role scheme. Optional — when a URL is absent, that
       // app's screens show a "not connected" state instead of firing
@@ -128,10 +136,9 @@ declare global {
       // absent, UmtShell shows a not-connected state and makes no UMT requests.
       // Its /update/user-info roles are local to UMT, not People capabilities.
       ONE_WSO2_UMT_BACKEND_URL?: string;
-      // Finance MIS's ARR service, which also serves its /user-info. Take the
-      // *.wso2.com gateway URL, never the *.choreoapis.dev one Choreo advertises
-      // beside it — the CSP blocks the latter and the failure is silent in a
-      // production build. The version segment is part of the URL and differs by
+      // Finance MIS's ARR service, which also serves its /user-info. Prefer the
+      // *.wso2.com gateway URL over the *.choreoapis.dev one Choreo advertises
+      // beside it; the CSP allows both. The version segment is part of the URL and differs by
       // environment: /v1 in production, /v1.0 in staging. MIS's Flash and Admin
       // services have no key here: they serve only the Flash Dashboard, which
       // stays in the MIS app.

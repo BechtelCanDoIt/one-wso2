@@ -16,14 +16,12 @@
 
 import { useState, type JSX } from "react";
 import {
-  Alert,
   Box,
   Button,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  Paper,
   Stack,
   Typography,
 } from "@wso2/oxygen-ui";
@@ -31,7 +29,9 @@ import { DownloadIcon, EyeIcon, FileTextIcon, SendIcon } from "@wso2/oxygen-ui-i
 import type { DocumentView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { useDocumentFiles, useDocuments, useIssueOrderForm } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
-import { describeError } from "@api/errors";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
+import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 
 /** Saves a Blob under a file name (a click on a temporary link). */
 function saveBlob(blob: Blob, name: string): void {
@@ -62,12 +62,23 @@ export default function DocumentsPanel({
 }): JSX.Element | null {
   const docs = useDocuments(quoteId, version, approved);
   const issue = useIssueOrderForm();
+  const notify = useCado2Toast();
   const files = useDocumentFiles();
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // What failed and why, shown as the shared ErrorNotice (2026-10-13).
+  const [error, setError] = useState<{ what: string; cause: unknown } | null>(null);
 
-  if (!approved || !docs.data) return null;
+  if (!approved) return null;
+  // A failed load says so, rather than the card vanishing (2026-10-13).
+  if (docs.error) {
+    return (
+      <ErrorNotice error={docs.error} onRetry={() => void docs.refetch()} retrying={docs.isFetching}>
+        Couldn&apos;t load the order form.
+      </ErrorNotice>
+    );
+  }
+  if (!docs.data) return null;
   const d = docs.data;
   const active = d.documents.find((x) => x.status === "ACTIVE") ?? d.documents[0];
 
@@ -83,7 +94,7 @@ export default function DocumentsPanel({
       else saveBlob(blob, `PREVIEW-v${version}.pdf`);
     } catch (e) {
       tab?.close();
-      setError(describeError(e));
+      setError({ what: "Couldn't open the preview.", cause: e });
     } finally {
       setBusy(null);
     }
@@ -95,7 +106,7 @@ export default function DocumentsPanel({
     try {
       saveBlob(await files.download(quoteId, doc.id), doc.fileName);
     } catch (e) {
-      setError(describeError(e));
+      setError({ what: "Couldn't download the order form.", cause: e });
     } finally {
       setBusy(null);
     }
@@ -106,25 +117,19 @@ export default function DocumentsPanel({
     try {
       await issue.mutateAsync({ quoteId, version });
       setConfirming(false);
+      notify("Order form issued");
     } catch (e) {
-      setError(describeError(e));
+      setError({ what: "Couldn't issue the order form.", cause: e });
       setConfirming(false);
     }
   };
 
   return (
-    <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 2 }} component="section" aria-label="Order form">
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
-        <FileTextIcon size={18} />
-        <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-          Order form
-        </Typography>
-      </Stack>
-
+    <SectionCard title="Order Form" icon={<FileTextIcon size={18} />}>
       {error ? (
-        <Alert severity="error" sx={{ mb: 1.5 }}>
-          {error}
-        </Alert>
+        <ErrorNotice error={error.cause} sx={{ mb: 1.5 }}>
+          {error.what}
+        </ErrorNotice>
       ) : null}
 
       {active ? (
@@ -134,7 +139,7 @@ export default function DocumentsPanel({
               Issued {formatDate(active.issueDate)}
             </Typography>
             <Typography variant="caption" color="text.secondary" component="div">
-              Expires {formatDate(active.expiryDate)} · {active.fileName}
+              {active.fileName}
             </Typography>
           </Box>
           <Button
@@ -188,6 +193,6 @@ export default function DocumentsPanel({
           </Button>
         </DialogActions>
       </Dialog>
-    </Paper>
+    </SectionCard>
   );
 }

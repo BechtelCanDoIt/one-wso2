@@ -24,15 +24,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { WalletIcon } from "@wso2/oxygen-ui-icons-react";
 import { PERSPECTIVES } from "@constants/perspectives";
 import { misPaths } from "@constants/misApps";
-
-// The flag has to be on before the registry is read, which is at import. See
-// misRail.test.tsx, whose setup this file shares line for line.
-vi.hoisted(() => {
-  window.config = {
-    ...(window.config ?? {}),
-    ONE_WSO2_PREVIEW_FEATURES: { mis: true },
-  } as Window["config"];
-});
+import { FINANCE_OVERVIEW_PATH } from "@features/finance/overview/financeOverviewPaths";
 
 // Finance's landing must not advertise MIS to someone who cannot open it.
 //
@@ -49,6 +41,13 @@ vi.hoisted(() => {
 
 /** What the MIS ARR backend's own /user-info says this reader holds. */
 const misPrivileges = { value: [] as number[] };
+/**
+ * Overview is the first Finance row. While it is open, it is where the
+ * landing goes once the ARR read has settled.
+ */
+const overviewOpen = { value: false };
+type ArrRead = "settled" | "pending" | "failed";
+const arrRead = { value: "settled" as ArrRead };
 
 vi.mock("@config/apiConfig", async () => {
   const actual = await vi.importActual<typeof import("@config/apiConfig")>("@config/apiConfig");
@@ -61,13 +60,27 @@ vi.mock("@features/finance/mis/api/useMisAppConfigs", () => ({
   useMisAppConfigs: () => ({ analysisEnabled: true }),
 }));
 vi.mock("@features/finance/mis/api/useMisUserInfo", () => ({
-  useMisUserInfo: () => ({
-    data: { privileges: misPrivileges.value },
-    isPending: false,
-    isError: false,
-    error: null,
-    refetch: () => {},
-  }),
+  useMisUserInfo: () => {
+    if (arrRead.value === "pending") {
+      return { data: undefined, isPending: true, isError: false, error: null, refetch: () => {} };
+    }
+    if (arrRead.value === "failed") {
+      return {
+        data: undefined,
+        isPending: false,
+        isError: true,
+        error: new Error("Unable to retrieve employee information"),
+        refetch: () => {},
+      };
+    }
+    return {
+      data: { privileges: misPrivileges.value },
+      isPending: false,
+      isError: false,
+      error: null,
+      refetch: () => {},
+    };
+  },
 }));
 
 const financePerspective = PERSPECTIVES.find((p) => p.key === "finance")!;
@@ -97,11 +110,15 @@ vi.mock("@api/useUserInfo", () => ({
 // case from passing for the wrong reason — forwarding to a claim screen would
 // also leave MIS unopened — and the positive case below proves the setup is one
 // in which MIS WOULD be opened.
-const other = { canSee: () => false, isResolving: false };
+const other = { canSee: () => false, isResolving: false, itemAnswered: () => true };
 const noFailure = { isError: false, retry: () => {} };
 vi.mock("@features/finance/api/useFinanceGate", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@features/finance/api/useFinanceGate")>()),
-  useFinanceGate: () => other,
+  useFinanceGate: () => ({
+    canSee: (id: string) => overviewOpen.value && id === "finance-overview",
+    isResolving: false,
+    itemAnswered: () => true,
+  }),
 }));
 vi.mock("@features/leave/api/useLeaveGate", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@features/leave/api/useLeaveGate")>()),
@@ -177,9 +194,21 @@ function withQueries() {
 const { default: PerspectiveLanding } = await import(
   "@components/perspective-landing/PerspectiveLanding"
 );
+const { usePerspectiveVisibility } = await import("@components/side-rail/usePerspectiveVisibility");
 
 function Address() {
   return <div data-testid="address">{useLocation().pathname}</div>;
+}
+
+/** The rail's question for Overview, asked beside the landing. */
+function OverviewRow() {
+  const { resolveVisible } = usePerspectiveVisibility();
+  const shown = resolveVisible({
+    id: "finance-overview",
+    label: "Overview",
+    path: FINANCE_OVERVIEW_PATH,
+  });
+  return <div data-testid="overview-row">{shown ? "shown" : "hidden"}</div>;
 }
 
 /** The Finance landing, reached the way switching to Finance reaches it. */
@@ -187,6 +216,7 @@ function openFinance() {
   return render(
     <MemoryRouter initialEntries={["/finance"]}>
       <Address />
+      <OverviewRow />
       <Routes>
         <Route path="/finance" element={<PerspectiveLanding />} />
         <Route path="*" element={<div>somewhere else</div>} />
@@ -200,6 +230,8 @@ const address = () => screen.getByTestId("address").textContent;
 
 beforeEach(() => {
   misPrivileges.value = [];
+  overviewOpen.value = false;
+  arrRead.value = "settled";
 });
 
 describe("the Finance landing", () => {
@@ -220,5 +252,35 @@ describe("the Finance landing", () => {
     // "couldn't work out what you can open" would send them chasing a grant.
     expect(screen.getByRole("heading", { name: "Nothing here for you yet" })).toBeInTheDocument();
     expect(screen.queryByText(/\bMIS\b|\bARR\b/)).not.toBeInTheDocument();
+  });
+
+  // Overview is the first Finance row, so a landing that trusts the first
+  // answered leaf would open it while the ARR read is still in flight, and a
+  // later failure would never reach this screen's Retry notice. The row stays
+  // in the rail the whole time.
+  it("waits, with Overview still shown, while the ARR read is in flight", () => {
+    overviewOpen.value = true;
+    arrRead.value = "pending";
+    openFinance();
+    expect(address()).toBe("/finance");
+    expect(screen.getByText(/Opening Finance/)).toBeInTheDocument();
+    expect(screen.getByTestId("overview-row")).toHaveTextContent("shown");
+  });
+
+  it("offers Retry, with Overview still shown, when the ARR read fails", () => {
+    overviewOpen.value = true;
+    arrRead.value = "failed";
+    openFinance();
+    expect(address()).toBe("/finance");
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.getByText(/Couldn't work out what you can open in Finance/)).toBeInTheDocument();
+    expect(screen.getByTestId("overview-row")).toHaveTextContent("shown");
+  });
+
+  it("opens Overview once the ARR read has settled", () => {
+    overviewOpen.value = true;
+    openFinance();
+    expect(address()).toBe(FINANCE_OVERVIEW_PATH);
+    expect(screen.getByTestId("overview-row")).toHaveTextContent("shown");
   });
 });

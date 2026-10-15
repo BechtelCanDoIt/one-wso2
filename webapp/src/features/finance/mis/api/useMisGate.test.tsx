@@ -201,7 +201,7 @@ describe("a failed authorization check", () => {
   // A switched-off gate asked nothing, but it can still be handed a failure: an
   // identity error is folded into the query's result whether or not the query
   // was enabled (foldIdentityError). Reported, it would put a MIS failure on
-  // every Finance landing while the `mis` flag is off.
+  // a perspective that is not Finance.
   it("is not reported while the gate is switched off", () => {
     state.isError = true;
     const off = renderHook(() => useMisGate(false)).result.current;

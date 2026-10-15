@@ -14,7 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
 import {
   EVENT_PLATFORM_ITEM_IDS,
   EVENT_TABS,
@@ -29,22 +30,7 @@ import {
   visibleTabs,
 } from "./eventPlatformTabs";
 
-// The rail group sits behind the `eventPlatform` preview flag, so the registry
-// is imported fresh with the flag on rather than once at the top of the file.
-async function eventPlatformApp() {
-  vi.resetModules();
-  window.config = {
-    ...(window.config ?? {}),
-    ONE_WSO2_PREVIEW_FEATURES: { eventPlatform: true },
-  } as Window["config"];
-  const { MARKETING_OPS_APPS } = await import("@constants/marketingOpsApps");
-  return MARKETING_OPS_APPS.find((a) => a.key === "event-platform");
-}
-
-const originalConfig = window.config;
-afterEach(() => {
-  window.config = originalConfig;
-});
+const eventPlatformApp = () => MARKETING_OPS_APPS.find((a) => a.key === "event-platform");
 
 /** A gate that allows exactly the ids given. */
 const allowing = (...ids: string[]) => (id: string) => ids.includes(id);
@@ -61,8 +47,8 @@ const SHOP_ONLY = allowing("mops-event-platform-events", "mops-event-platform-sh
 const NOBODY = allowing();
 
 describe("the shape of the Event Platform", () => {
-  it("is a rail group with one item per top-level tab", async () => {
-    const app = await eventPlatformApp();
+  it("is a rail group with one item per top-level tab", () => {
+    const app = eventPlatformApp();
     expect(app?.alwaysGroup).toBe(true);
     expect(app?.items.map((i) => [i.id, i.path])).toEqual([
       [EVENT_PLATFORM_ITEM_IDS.events, eventPlatformPath(topLevelTab("events")!)],
@@ -71,8 +57,8 @@ describe("the shape of the Event Platform", () => {
   });
 
   // The existing Events operation (attendee workbooks) owns `mops-events-*`.
-  it("never claims an id from the Events operation", async () => {
-    const ids = (await eventPlatformApp())!.items.map((i) => i.id);
+  it("never claims an id from the Events operation", () => {
+    const ids = eventPlatformApp()!.items.map((i) => i.id);
     for (const id of ids) expect(id.startsWith("mops-events-")).toBe(false);
   });
 
@@ -83,13 +69,22 @@ describe("the shape of the Event Platform", () => {
     }
   });
 
-  it("gives every kind of every tab a gate and a subtitle", () => {
+  it("gives every kind of every tab a gate", () => {
     for (const tab of [...TOP_LEVEL_TABS, ...EVENT_TABS]) {
       expect(tab.kinds.length, `${tab.segment} has no kinds`).toBeGreaterThan(0);
       for (const kind of tab.kinds) {
         expect(kind.gateId, `${tab.segment}/${kind.kind}`).toBeTruthy();
-        expect(kind.subtitle.length, `${tab.segment}/${kind.kind}`).toBeGreaterThan(0);
       }
+    }
+  });
+
+  // Only the top-level pages show a header; inside an event it is hidden.
+  it("gives every top-level kind a subtitle and no in-event kind one", () => {
+    for (const tab of TOP_LEVEL_TABS) {
+      for (const kind of tab.kinds) expect(kind.subtitle, `${tab.segment}/${kind.kind}`).toBeTruthy();
+    }
+    for (const tab of EVENT_TABS) {
+      for (const kind of tab.kinds) expect(kind.subtitle, `${tab.segment}/${kind.kind}`).toBeUndefined();
     }
   });
 

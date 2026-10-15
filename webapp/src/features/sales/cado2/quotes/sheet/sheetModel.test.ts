@@ -141,8 +141,8 @@ describe("lifecycleSteps", () => {
 
   it("shows what happened, then what comes next", () => {
     const steps = lifecycleSteps(fullPartnerQuote, [ev("QUOTE_CREATED"), ev("DRAFT_SAVED"), ev("VERSION_SUBMITTED")]);
-    expect(steps.map((s) => s.label)).toEqual(["Quote created", "Submitted", "In approval", "Expires"]);
-    expect(steps[3]).toMatchObject({ when: "31 Oct 2026", done: false });
+    // The expiry is the chip above the timeline, not a step (C4, 2026-10-14).
+    expect(steps.map((s) => s.label)).toEqual(["Quote created", "Submitted", "In approval"]);
   });
 
   it("shows a closure from the version even without the history", () => {

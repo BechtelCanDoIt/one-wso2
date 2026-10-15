@@ -22,7 +22,7 @@ import ProductCategoriesPage from "./ProductCategoriesPage";
 const query = () => ({ data: undefined as unknown, error: null as unknown, isPending: true, isFetching: false, refetch: vi.fn() });
 const mapped = query();
 const search = query();
-const set = { mutate: vi.fn(), isPending: false, error: null as unknown, variables: undefined as unknown };
+const set = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null as unknown, variables: undefined as unknown };
 const searchedFor: string[] = [];
 
 // Mocked so the page is tested without Asgardeo, the network or window.config.
@@ -58,7 +58,7 @@ describe("ProductCategoriesPage", () => {
     Object.assign(mapped, { isPending: false, data: [] });
     render(<ProductCategoriesPage />);
     expect(screen.getByText("No products mapped yet")).toBeInTheDocument();
-    expect(screen.getByText(/reps choose its category on each line and Deal Desk checks it/)).toBeInTheDocument();
+    expect(screen.getByText(/AMs choose its category on each line and Deal Desk checks it/)).toBeInTheDocument();
   });
 
   it("lists the mapped products, filters them, and re-maps or unmaps one", async () => {
@@ -69,7 +69,7 @@ describe("ProductCategoriesPage", () => {
     expect(screen.getByText("Mapped products (2)")).toBeInTheDocument();
     const table = within(screen.getByRole("table", { name: "Mapped products" }));
     expect(table.getByText("WSO2 API Manager")).toBeInTheDocument();
-    expect(table.getAllByText("admin@wso2.com")).toHaveLength(2);
+    expect(table.getAllByText(/ · admin@wso2.com$/)).toHaveLength(2);
 
     await user.click(screen.getByRole("button", { name: "Support" }));
     expect(table.queryByText("WSO2 API Manager")).toBeNull();
@@ -77,11 +77,15 @@ describe("ProductCategoriesPage", () => {
 
     await user.click(table.getByRole("combobox", { name: "Category of WSO2 API Manager" }));
     await user.click(screen.getByRole("option", { name: "Professional Service" }));
-    expect(set.mutate).toHaveBeenLastCalledWith({ productId: apim.productId, category: "PROFESSIONAL_SERVICE" });
+    expect(set.mutate).toHaveBeenLastCalledWith({ productId: apim.productId, category: "PROFESSIONAL_SERVICE" }, expect.anything());
 
     await user.click(table.getByRole("combobox", { name: "Category of WSO2 Enterprise Support Plan - APIM" }));
     await user.click(screen.getByRole("option", { name: "Not mapped" }));
-    expect(set.mutate).toHaveBeenLastCalledWith({ productId: support.productId, category: null });
+    // Removing a mapping asks first (2026-10-13).
+    expect(set.mutate).toHaveBeenCalledTimes(1);
+    const dialog = within(screen.getByRole("dialog", { name: "Remove the category of WSO2 Enterprise Support Plan - APIM?" }));
+    await user.click(dialog.getByRole("button", { name: "Remove category" }));
+    expect(set.mutate).toHaveBeenLastCalledWith({ productId: support.productId, category: null }, expect.anything());
   });
 
   it("finds a Salesforce product and maps it", async () => {
@@ -102,6 +106,6 @@ describe("ProductCategoriesPage", () => {
     expect(select).toHaveTextContent("Not mapped");
     await user.click(select);
     await user.click(screen.getByRole("option", { name: "Subscription" }));
-    expect(set.mutate).toHaveBeenLastCalledWith({ productId: "01t000000000003AAA", category: "SUBSCRIPTION" });
+    expect(set.mutate).toHaveBeenLastCalledWith({ productId: "01t000000000003AAA", category: "SUBSCRIPTION" }, expect.anything());
   });
 });

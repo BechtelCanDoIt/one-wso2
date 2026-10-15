@@ -54,6 +54,7 @@ describe("the permanent Pacific Time chip", () => {
 
   it("says what the chip is for, not just what it says", () => {
     renderAt("2026-07-15T12:00:00Z");
-    expect(screen.getByLabelText(/every period on this screen/i)).toBeInTheDocument();
+    // A note, not a generic div: aria-label on a div with no role is dropped.
+    expect(screen.getByRole("note", { name: /every period on this screen/i })).toBeInTheDocument();
   });
 });

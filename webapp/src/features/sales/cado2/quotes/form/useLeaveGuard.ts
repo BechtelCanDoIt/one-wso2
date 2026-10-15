@@ -14,22 +14,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Keeps the wizard's unsaved changes when it is left by a way it doesn't
-// control. The rail, the launcher and the browser's Back button know nothing
-// about this form, and the router here has no blocker, so instead of stopping
-// the navigation the changes are kept aside and offered back on return:
+// Warns before the wizard's unsaved changes are lost:
 //
-//   rail click, Back            → unmount  ─┐
-//   reload, closed tab, sign-in → pagehide ─┼─► stashUnsavedDraft(page, values)
-//                                           │
-//   reopen the same page ◄──────────────────┘   "Restore your unsaved changes?"
+//   the wizard's own Close     → "Leave without saving?" (confirmLeave)
+//   a reload or a closed tab   → the browser's own warning
 //
-// The wizard's own Close asks first, as before. A reload or closed tab also
-// gets the browser's warning.
+// Nothing is kept aside: moving between steps saves the draft (D45), and
+// "Save draft" saves at any time. (Keeping unsaved changes to offer them back
+// was removed on 2026-10-12: it confused more than it helped.)
 
 import { useCallback, useEffect, useRef } from "react";
-import { stashUnsavedDraft } from "./unsavedDraftStash";
-import type { DraftFormValues } from "./draftForm";
 
 /** The message shown before unsaved work is thrown away. */
 export const UNSAVED_MESSAGE = "You have unsaved changes. Leave without saving?";
@@ -41,19 +35,13 @@ export interface LeaveGuard {
   allowLeave: () => void;
 }
 
-export function useLeaveGuard(dirty: boolean, page: string, values: () => DraftFormValues): LeaveGuard {
-  // Refs, so the unmount and pagehide handlers read the latest answer without re-subscribing.
+export function useLeaveGuard(dirty: boolean): LeaveGuard {
+  // A ref, so confirmLeave reads the latest answer.
   const dirtyRef = useRef(dirty);
   const leaving = useRef(false);
-  const read = useRef(values);
   useEffect(() => {
     dirtyRef.current = dirty;
-    read.current = values;
   });
-
-  const keep = useCallback(() => {
-    if (dirtyRef.current && !leaving.current) stashUnsavedDraft(page, read.current());
-  }, [page]);
 
   useEffect(() => {
     if (!dirty) return;
@@ -63,14 +51,6 @@ export function useLeaveGuard(dirty: boolean, page: string, values: () => DraftF
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
-
-  useEffect(() => {
-    window.addEventListener("pagehide", keep);
-    return () => {
-      window.removeEventListener("pagehide", keep);
-      keep(); // the wizard is going away inside the app
-    };
-  }, [keep]);
 
   const allowLeave = useCallback(() => {
     leaving.current = true;

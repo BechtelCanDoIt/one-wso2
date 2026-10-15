@@ -258,6 +258,24 @@ export function LegalMark({ size }: MarkProps) {
   );
 }
 
+/** Infrastructure — two stacked server units. */
+export function InfrastructureMark({ size }: MarkProps) {
+  const t = appMarkTones("infra")!;
+
+  return (
+    <Svg size={size}>
+      <rect x="5" y="7" width="38" height="15" rx="4" fill={t.field} />
+      <rect x="5" y="26" width="38" height="15" rx="4" fill={t.field} />
+
+      <rect x="10" y="12" width="19" height="5" rx="2.5" fill={t.lead} />
+      <rect x="10" y="31" width="19" height="5" rx="2.5" fill={t.lead} />
+
+      <circle cx="36" cy="14.5" r="2.5" fill={t.lead} />
+      <circle cx="36" cy="33.5" r="2.5" fill={t.lead} />
+    </Svg>
+  );
+}
+
 /**
  * Engineering — a terminal window: the body in `field`, the title bar in
  * `lead`, and a `>_` prompt in `detail`.
@@ -284,6 +302,34 @@ export function EngineeringMark({ size }: MarkProps) {
         strokeLinejoin="round"
       />
       <rect x="22" y="30.9" width="12" height="4.2" rx="2.1" fill={t.detail} />
+    </Svg>
+  );
+}
+
+/**
+ * Knowledge — an open book, traced from the same silhouette as the rail's line
+ * icon (lucide's BookOpen, scaled 2x for this 48-unit grid) and split at the
+ * spine into two pages. The left page carries the hue and the right one sits
+ * back in `field`, the same split People uses for its two figures. Field + lead
+ * only, like Me.
+ *
+ * Scaled to 0.88 about its centre so its weight sits with the rest of the set:
+ * 40% coverage and L* 64.0 at 64px.
+ */
+export function KnowledgeMark({ size }: MarkProps) {
+  const t = appMarkTones("knowledge")!;
+  return (
+    <Svg size={size}>
+      <g transform="translate(24 24) scale(0.88) translate(-24 -24)">
+        <path
+          d="M42 36a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H32a8 8 0 0 0-8 8v28a6 6 0 0 1 6-6z"
+          fill={t.field}
+        />
+        <path
+          d="M6 36a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h10a8 8 0 0 1 8 8v28a6 6 0 0 0-6-6z"
+          fill={t.lead}
+        />
+      </g>
     </Svg>
   );
 }

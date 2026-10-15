@@ -73,7 +73,8 @@ export interface SheetLine {
   /** The product's description, without the name if it repeats it. */
   readonly productDescription: string | null;
   readonly pricebookName: string;
-  readonly category: LineCategory;
+  /** "" = not chosen yet (D72): listed under "Not categorised". */
+  readonly category: LineCategory | "";
   /** The rep chose the category, because the product isn't mapped: Deal Desk verifies it. */
   readonly categoryByRep: boolean;
   readonly quantity: string;
@@ -82,8 +83,8 @@ export interface SheetLine {
   /** e.g. "10" for 10%; "0" when none. */
   readonly discountPercent: string;
   /** Every line covers the quote's term; a service is dated at the start. */
-  readonly startDate: string;
-  readonly endDate: string;
+  readonly startDate: string | null;
+  readonly endDate: string | null;
   /** From the pricing, when the quote can be priced. */
   readonly annualList: string | null;
   readonly annualNet: string | null;
@@ -98,6 +99,9 @@ export interface SheetLine {
 }
 
 export interface QuoteSheet {
+  /** Salesforce ids, for links to the records; "" when not chosen yet. */
+  readonly accountId: string;
+  readonly opportunityId: string;
   readonly accountName: string;
   /** Salesforce sales region, e.g. "APAC"; "" when none. */
   readonly salesRegion: string;
@@ -182,6 +186,8 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
   };
   const le = v.legalEntity;
   return {
+    accountId: res.quote.sfAccountId ?? "",
+    opportunityId: res.quote.sfOpportunityId ?? "",
     accountName: v.accountName ?? "",
     salesRegion: v.accountSalesRegion ?? "",
     subRegion: v.accountSubRegion ?? "",
@@ -265,6 +271,8 @@ export function sheetFromForm(
   const end = recurring ? termEnd(v) : "";
   const contacts = [v.billingContact, v.securityContact].map((c, i) => formContact(ROLES[i], c));
   return {
+    accountId: v.accountId,
+    opportunityId: v.opportunityId,
     accountName: v.accountName,
     salesRegion: v.accountSalesRegion,
     subRegion: v.accountSubRegion,

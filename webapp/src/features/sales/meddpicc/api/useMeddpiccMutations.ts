@@ -20,7 +20,7 @@
 // 409 Gate incomplete, 422 Salesforce said no) is an answer, not a blip, and a
 // retried write to Salesforce is a second write.
 //
-// No toasts either. The panel owns the wording, and the 409/422 answers belong
+// No toasts either. The deal page owns the wording, and the 409/422 answers belong
 // next to the button that produced them.
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
@@ -36,7 +36,7 @@ import type {
 } from "../types";
 import { useMeddpiccBasis } from "./useMeddpiccData";
 
-/** Put a fresh DealDetail in the panel's cache, and mark every list stale. */
+/** Put a fresh DealDetail in the deal page's cache, and mark every list stale. */
 async function afterDealChange(
   qc: QueryClient,
   key: readonly unknown[],
@@ -77,6 +77,19 @@ export function useMoveStage(opportunityId: string) {
     mutationFn: (toStage) => client.moveStage(opportunityId, toStage),
     // The response carries only the new stage, so the deal is fetched again.
     onSuccess: () => afterDealChange(qc, ["meddpicc-deal", userSub, opportunityId], null),
+  });
+}
+
+/**
+ * GET /deals/{id}?refresh=true: the deal read from Salesforce again, rather than the
+ * backend's snapshot (kept for ten minutes), put in place of the cached one.
+ */
+export function useRefreshDeal(opportunityId: string) {
+  const { client, userSub } = useMeddpiccBasis();
+  const qc = useQueryClient();
+  return useMutation<DealDetail, Error, void>({
+    mutationFn: () => client.deal(opportunityId, { refresh: true }),
+    onSuccess: (detail) => afterDealChange(qc, ["meddpicc-deal", userSub, opportunityId], detail),
   });
 }
 

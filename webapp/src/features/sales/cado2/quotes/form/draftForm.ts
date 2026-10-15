@@ -33,6 +33,7 @@ import type {
   LineCategory,
   Partner,
   PricingPreview,
+  Product,
   TermMode,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
@@ -72,9 +73,16 @@ export interface LineValue {
   pricebookId: string;
   pricebookName: string;
   unitPrice: string;
-  category: LineCategory;
+  /** "" = a product pulled from the opportunity that waits for the AM's category (D72). */
+  category: LineCategory | "";
   /** MAPPED: set by the Admin's product mapping and locked; REP: the rep chose. */
   categorySource: CategorySource;
+  /**
+   * Charged every year (else once), from the product's Salesforce
+   * classification, as the backend says (D76). The category only places the
+   * line in an order-form section.
+   */
+  recurring: boolean;
   unitOfMeasure: string;
   quantity: string;
   discount: string;
@@ -94,6 +102,8 @@ export interface DraftFormValues {
   accountSubRegion: string;
   opportunityId: string;
   opportunityName: string;
+  /** The opportunity's primary quote, synced to Salesforce (D68): a setting of the quote. */
+  isPrimary: boolean;
   dealType: DealType | null;
   partner: Pick<Partner, "id" | "name" | "role" | "billingAddress"> | null;
   /**
@@ -116,8 +126,13 @@ export interface DraftFormValues {
   termMode: TermMode | "";
   /** Multi-year only. */
   termYears: string;
-  /** Co-termed and Shorter term only: the end date the AM types. */
+  /** Shorter term: the end date the AM types. Co-termed: the chosen opportunity's end (D73). */
   termEndDate: string;
+  /** A co-termed expansion: the opportunity it ends with (D73); "" otherwise. */
+  coTermOpportunityId: string;
+  coTermOpportunityName: string;
+  /** The opportunity's products that couldn't be brought in, and why (D72). Shown once; never saved. */
+  notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
   /** Multi-year only; every other term is billed annually. */
   billingFrequency: BillingFrequency | "";
   /** Partner-led quotes only: the partner's commission %, "" until entered. */
@@ -167,6 +182,7 @@ export function emptyDraftForm(): DraftFormValues {
     accountSubRegion: "",
     opportunityId: "",
     opportunityName: "",
+    isPrimary: false,
     dealType: null,
     partner: null,
     dealKind: "",
@@ -181,6 +197,9 @@ export function emptyDraftForm(): DraftFormValues {
     termMode: "ONE_YEAR", // T1
     termYears: "2",
     termEndDate: "",
+    coTermOpportunityId: "",
+    coTermOpportunityName: "",
+    notBroughtIn: [],
     billingFrequency: "",
     partnerCommissionPercent: "",
     lines: [],
@@ -241,23 +260,45 @@ export function endDateFor(start: string, years: number): string {
 /** Lines with a discount above 0%; any makes the justification required. */
 export const discountedLines = (lines: readonly { discount: string }[]) => lines.filter((l) => Number(l.discount) > 0).length;
 
+/** The line categories, as the AM chooses them (D46, D72). */
+export const LINE_CATEGORIES: readonly { value: LineCategory; label: string }[] = [
+  { value: "SUBSCRIPTION", label: "Subscription" },
+  { value: "SUPPORT", label: "Support" },
+  { value: "PROFESSIONAL_SERVICE", label: "Professional Service" },
+];
+
 /** Subscription and Support lines repeat yearly; a Professional Service doesn't. */
-export const isRecurring = (category: LineCategory) => category !== "PROFESSIONAL_SERVICE";
+
 
 /** Whether the quote needs a subscription term: any recurring line. */
-export const hasRecurring = (lines: readonly { category: LineCategory }[]) => lines.some((l) => isRecurring(l.category));
+/** Whether any line is charged every year, so a subscription term is needed (D37, D76). */
+export const hasRecurring = (lines: readonly { readonly recurring: boolean }[]) => lines.some((l) => l.recurring);
 
 /** Whether the AM types the end date (Co-termed, Shorter term). */
 export const isShortMode = (mode: TermMode | "" | null) => mode === "CO_TERMED" || mode === "SHORTER";
 
-/** The latest end date a Co-termed or Shorter term may have: within a year. */
-export const shortTermLatestEnd = (start: string) => endDateFor(start, 1);
+/**
+ * The latest end date "Less than a year" may have: the day before a full year
+ * would end (2026-10-12), e.g. 30 Dec 2027 from 1 Jan 2027. A full year is "1 year".
+ */
+export function shortTermLatestEnd(start: string): string {
+  const d = parseDateString(endDateFor(start, 1));
+  if (!d) return "";
+  d.setDate(d.getDate() - 1);
+  return toDateString(d);
+}
 
-/** Why a typed short-term end date is not allowed, or "" when it is. */
-export function shortTermProblem(start: string, end: string): string {
+/**
+ * Why a Co-termed or Shorter term end date is not allowed, or "" when it is.
+ * A co-termed end comes from the other contract, so it may fall on the full year.
+ */
+export function shortTermProblem(start: string, end: string, mode: "CO_TERMED" | "SHORTER"): string {
   if (!start || !end) return "";
   if (end < start) return "The end date must not be before the start date";
-  if (end > shortTermLatestEnd(start)) return "Ends within a year of the start. For longer, choose 1 year or Multi-year";
+  if (mode === "SHORTER" && end > shortTermLatestEnd(start)) {
+    return `Less than a year must end before ${formatDate(endDateFor(start, 1))}. For a full year, choose 1 year`;
+  }
+  if (end > endDateFor(start, 1)) return "Ends within a year of the start. For longer, choose 1 year or Multi-year";
   return "";
 }
 
@@ -331,6 +372,7 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
   return {
     ...emptyDraftForm(),
     accountId: res.quote.sfAccountId,
+    isPrimary: res.quote.isPrimary,
     accountName: v.accountName ?? "",
     accountSalesRegion: v.accountSalesRegion ?? "",
     accountSubRegion: v.accountSubRegion ?? "",
@@ -359,6 +401,8 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
     termMode: v.termMode ?? (hasRecurring(v.lines) ? "" : "ONE_YEAR"),
     termYears: String(v.termYears ?? 2),
     termEndDate: isShortMode(v.termMode) ? end : "",
+    coTermOpportunityId: v.coTermOpportunity?.id ?? "",
+    coTermOpportunityName: v.coTermOpportunity?.name ?? "",
     billingFrequency: v.termMode === "MULTI_YEAR" ? (v.billingFrequency ?? "") : "",
     partnerCommissionPercent: v.partnerCommissionPercent ? String(Number(v.partnerCommissionPercent)) : "",
     lines: v.lines.map((l) => ({
@@ -372,6 +416,7 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
       unitPrice: l.unitPrice,
       category: l.category,
       categorySource: l.categorySource ?? "REP",
+      recurring: l.recurring,
       unitOfMeasure: l.unitOfMeasure ?? "",
       quantity: String(l.quantity),
       discount: String(Number(l.discretionaryDiscountPercent)),
@@ -470,7 +515,8 @@ function termInput(v: DraftFormValues) {
   return {
     termMode: v.termMode,
     termYears: v.termMode === "MULTI_YEAR" ? Number(v.termYears) : undefined,
-    subscriptionEndDate: isShortMode(v.termMode) ? opt(v.termEndDate) : undefined,
+    subscriptionEndDate: v.termMode === "SHORTER" ? opt(v.termEndDate) : undefined,
+    coTermOpportunityId: v.termMode === "CO_TERMED" ? opt(v.coTermOpportunityId) : undefined,
     billingFrequency: v.termMode === "MULTI_YEAR" ? v.billingFrequency || undefined : undefined,
   };
 }
@@ -481,6 +527,7 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
     sfOpportunityId: v.opportunityId,
     sfAccountId: v.accountId,
     expectedUpdatedAt,
+    isPrimary: v.isPrimary,
     previousOpportunityIds: v.isRenewal ? v.previousOpportunityIds : [],
     legalEntityId: v.legalEntityId ? Number(v.legalEntityId) : undefined,
     currencyIsoCode: opt(v.currencyIsoCode),
@@ -523,18 +570,20 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
  * term and (for Multi-year) a billing frequency.
  */
 export function toPreviewBody(v: DraftFormValues): object | null {
-  if (!v.startDate || !v.currencyIsoCode || v.lines.length === 0) return null;
+  // Every line, a line waiting for its category included: it is priced once, like a service (D75, WIP for multi-year).
+  const lines = v.lines;
+  if (!v.startDate || !v.currencyIsoCode || lines.length === 0) return null;
   const recurring = hasRecurring(v.lines);
   const end = termEnd(v);
   const billing = effectiveBilling(v);
-  if (recurring && (!end || !billing || (isShortMode(v.termMode) && shortTermProblem(v.startDate, end)))) return null;
+  if (recurring && (!end || !billing || (isShortMode(v.termMode) && shortTermProblem(v.startDate, end, v.termMode as "CO_TERMED" | "SHORTER")))) return null;
   return {
     currencyIsoCode: v.currencyIsoCode,
     subscriptionStartDate: v.startDate,
     subscriptionEndDate: recurring ? end : undefined,
     billingFrequency: recurring ? billing : "ANNUAL",
     partnerCommissionPercent: commissionInput(v),
-    lines: v.lines.map((l) => ({
+    lines: lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,
       quantity: Number(l.quantity),
       category: l.category,
@@ -558,8 +607,11 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
   const start = v.subscriptionStartDate;
   // A services-only quote has no end date: its one "year" is the start day.
   const end = v.subscriptionEndDate ?? (hasRecurring(v.lines) ? null : start);
-  if (!start || !end || v.lines.length === 0 || v.lines.some((l) => l.schedule.length === 0)) return null;
-  const yearCount = Math.max(...v.lines.flatMap((l) => l.schedule.map((r) => r.yearNumber)));
+  // Every line is priced, a line waiting for its category included (D75); one
+  // unpriced (e.g. saved before D75) means the quote isn't priced.
+  const pricedLines = v.lines;
+  if (!start || !end || pricedLines.length === 0 || pricedLines.some((l) => l.schedule.length === 0)) return null;
+  const yearCount = Math.max(...pricedLines.flatMap((l) => l.schedule.map((r) => r.yearNumber)));
   const years = [];
   for (let n = 1; n <= yearCount; n++) {
     const rows = v.lines.flatMap((l) => l.schedule.filter((r) => r.yearNumber === n));
@@ -579,6 +631,7 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
     termMonths: "",
     totals: v.totals,
     years,
+    // Aligned with the version's lines, one for one (a line waiting for its category is priced too, D75).
     lines: v.lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,
       annualList: l.annualList,
@@ -589,6 +642,26 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
       schedule: l.schedule,
     })),
   };
+}
+
+/**
+ * Lines the live preview's prices up with the form's lines, product by product
+ * in order, leaving a gap where the preview hasn't caught up with a change yet,
+ * so no line shows another's amount.
+ */
+export function alignPreview(
+  p: PricingPreview | null,
+  lines: readonly { readonly category: LineCategory | ""; readonly pricebookEntryId: string }[],
+): PricingPreview | null {
+  if (!p) return null;
+  let k = 0;
+  const aligned = lines.map((l) => {
+    const next = p.lines[k];
+    if (!next || next.pricebookEntryId !== l.pricebookEntryId) return undefined;
+    k++;
+    return next;
+  });
+  return { ...p, lines: aligned as unknown as PricingPreview["lines"] };
 }
 
 function dayAfter(date: string): string {
@@ -619,15 +692,35 @@ export function formatDate(date: string | null): string {
   return d ? d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
 }
 
+/** A moment, "3 Oct 2026, 09:00", in the viewer's time zone: the one date-time format (D14, 2026-10-14). */
+export function formatDateTime(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime())
+    ? iso
+    : d.toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Who last changed something, "3 Oct 2026 · admin@wso2.com": the one style (D15, 2026-10-14). */
+export function changedText(at: string, by: string | null): string {
+  const day = formatDate(at.slice(0, 10));
+  return by ? `${day} · ${by}` : day;
+}
+
+/** The billing choice, in the same words everywhere (D2, 2026-10-14). */
+export const BILLING_LABEL = { ANNUAL: "Annual billing", UPFRONT: "Upfront" } as const;
+
 // ---------------------------------------------------------------------------
 // Issues → wizard steps
 // ---------------------------------------------------------------------------
 
 /** Wizard steps, in order. */
-export const STEPS = ["Overview", "Products & Pricing", "Commercial", "Review"] as const;
+export const STEPS = ["Overview", "Term & Products", "Commercial", "Review"] as const;
 
-/** Fields on Products & Pricing besides the lines: currency and price book, the term card, commission. */
+/** Fields on Term & Products besides the lines: the start date and term, currency and price book, commission. */
 const TERM_FIELDS = [
+  // The start date is on step 2 with the term (D73).
+  "subscriptionStartDate",
+  "coTermOpportunityId",
   "currencyIsoCode",
   "defaultPricebookId",
   "termMode",
@@ -651,7 +744,38 @@ const STEP_3_FIELDS = [
 
 /** The step (0-based) where an issue's field lives, so the summary panel can jump there. */
 export function stepOfField(field: string): number {
-  if (field === "lines" || field.startsWith("lines[") || TERM_FIELDS.includes(field)) return 1;
+  // "salesforce": a refused sync (D77), done from Term & Products.
+  if (field === "lines" || field.startsWith("lines[") || field === "salesforce" || TERM_FIELDS.includes(field)) return 1;
   if (STEP_3_FIELDS.some((f) => field === f || field.startsWith(f + ".") || field.startsWith(f + "["))) return 2;
   return 0;
+}
+
+/**
+ * The lines a new quote starts with (D72): one per product on the Salesforce
+ * opportunity, priced from the price book, 1 unit each (the AM changes it), no
+ * discount, the Admin's category if mapped, else "" for the AM to choose.
+ */
+export function pulledLines(products: readonly Product[]): LineValue[] {
+  return products.flatMap((p) => {
+    const entry = p.pricebookEntries.find((e) => e.isActive);
+    if (!entry) return [];
+    return [
+      {
+        lineId: null,
+        pricebookEntryId: entry.id,
+        productName: p.name ?? p.id,
+        productCode: p.productCode ?? "",
+        productDescription: p.description ?? "",
+        pricebookId: entry.pricebook?.id ?? "",
+        pricebookName: entry.pricebook?.name ?? "",
+        unitPrice: entry.unitPrice ?? "",
+        category: p.category ?? "",
+        categorySource: p.category ? "MAPPED" : "REP",
+        recurring: p.recurring,
+        unitOfMeasure: "",
+        quantity: "1",
+        discount: "",
+      } satisfies LineValue,
+    ];
+  });
 }

@@ -27,6 +27,7 @@ const gateway = {
   productCode: "APIM-GW",
   family: null,
   unitOfMeasure: "Gateways",
+  recurring: true, // from its Salesforce classification (D76)
   pricebookEntries: [
     { id: "01u000000000001", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01s1", name: "FY26 USD" } },
   ],
@@ -83,7 +84,7 @@ describe("AddLineDialog", () => {
   it("groups the fields and shows the chosen product and its price-book price", async () => {
     const onSave = renderDialog();
     const user = userEvent.setup();
-    for (const group of ["Product", "Quantity & discount"]) {
+    for (const group of ["Product", "Quantity & Discount"]) {
       expect(screen.getByRole("region", { name: group })).toBeInTheDocument();
     }
     // Lines have no dates of their own: they cover the quote's term.
@@ -117,6 +118,7 @@ describe("AddLineDialog", () => {
         unitOfMeasure: "",
         category: "SUBSCRIPTION",
         categorySource: "REP",
+        recurring: true,
       }),
     );
   });
@@ -146,6 +148,7 @@ describe("AddLineDialog", () => {
       unitPrice: "25000",
       category: "SUPPORT",
       categorySource: "MAPPED",
+      recurring: true,
       unitOfMeasure: "",
       quantity: "1",
       discount: "0",
@@ -153,7 +156,10 @@ describe("AddLineDialog", () => {
     const onSave = renderDialog(vi.fn(), line);
 
     expect(screen.queryByRole("combobox", { name: /Category/ })).toBeNull();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Update line" }));
+    // The product can't be changed on a line: remove it and add another (2026-10-12).
+    expect(screen.queryByRole("combobox", { name: /Product/ })).toBeNull();
+    expect(screen.getByText(/remove this line and add it/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Save line" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }));
   });
 
@@ -207,10 +213,6 @@ describe("AddLineDialog", () => {
 
     await user.click(option);
     expect(within(screen.getByLabelText("Chosen product")).getByText("Based on the number of production gateways.")).toBeInTheDocument();
-    // And again at the unit of measure, which the rep words from it.
-    expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveAccessibleDescription(
-      "Product description: Based on the number of production gateways.",
-    );
     await user.click(screen.getByRole("button", { name: "Add line" }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -219,9 +221,30 @@ describe("AddLineDialog", () => {
     );
   });
 
-  it("says nothing at the unit of measure for a product without a description", async () => {
+  // Locked until it comes from Salesforce (2026-10-14).
+  it("locks the unit of measure, saying it will come from Salesforce", async () => {
     renderDialog();
     await pick(/WSO2 API Manager/);
-    expect(screen.getByRole("textbox", { name: "Unit of measure" })).not.toHaveAccessibleDescription();
+    const uom = screen.getByRole("textbox", { name: "Unit of measure" });
+    expect(uom).toBeDisabled();
+    expect(uom).toHaveAccessibleDescription("Will come from Salesforce");
+  });
+});
+
+// A click outside the dialog doesn't throw the typed line away (2026-10-13).
+describe("AddLineDialog — closing", () => {
+  it("stays open on a click outside it; Cancel closes it", async () => {
+    const onClose = vi.fn();
+    render(
+      <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
+        <AddLineDialog open line={null} currency="USD" pricebook={quoteBook} onSave={vi.fn()} onClose={onClose} />
+      </DatePickers.LocalizationProvider>,
+    );
+    const user = userEvent.setup();
+    const backdrop = document.querySelector(".MuiBackdrop-root") as HTMLElement;
+    await user.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalled();
   });
 });

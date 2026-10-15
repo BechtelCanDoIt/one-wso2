@@ -17,6 +17,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -37,9 +38,10 @@ import { money, todayIso, daysAgoIso, toIso } from "../util/financeFormat";
 import { RECEIPT_ACCEPT, EXPENSE_RECEIPT_MAX_BYTES, maxSizeLabel } from "../util/financeReceipts";
 import { useExchangeRates, useExpenseTypes } from "./useExpense";
 import type { ExpenseAppData, ExpenseTransactionPayload } from "./expenseTypes";
+import { formatJobOption, formatJobOptionParts, jobSearchText, NO_JOB_OPTION, type JobOption } from "./expenseJobOption";
 
 export const COMMENT_MAX = 100;
-export const NO_JOB = "N/A";
+export const NO_JOB = NO_JOB_OPTION.jobNumber;
 
 /**
  * A line as the form holds it: the wire payload plus the figures the form
@@ -120,6 +122,16 @@ export function AddExpenseDialog({
 
   const rates = useExchangeRates(reimbursementCurrency, date);
   const expenseTypes = useExpenseTypes(jobNumber === NO_JOB ? undefined : jobNumber);
+  const expenseTypeOptions = useMemo(
+    () => [...(expenseTypes.data ?? [])].sort((a, b) => a.type.localeCompare(b.type)),
+    [expenseTypes.data],
+  );
+
+  // "N/A (non-travel)" first, then every job this employee travelled on —
+  // the Job Number field's full option list, shared between its display
+  // label and its search.
+  const jobOptions = useMemo<JobOption[]>(() => [NO_JOB_OPTION, ...appData.travels], [appData.travels]);
+  const selectedJob = jobOptions.find((t) => t.jobNumber === jobNumber) ?? null;
 
   // Conversion rate for the chosen currency: 1 when it's already the
   // reimbursement currency; null when a foreign currency has no rate in the
@@ -174,48 +186,84 @@ export function AddExpenseDialog({
       <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>{editing ? "Edit expense" : "Add an expense"}</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ pt: 0.5 }}>
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
-            <Box>
-              <FieldLabel>Bill date</FieldLabel>
-              <TextField
-                type="date"
-                size="small"
-                fullWidth
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                error={!dateWithinLimit}
-                helperText={
-                  dateWithinLimit
-                    ? undefined
-                    : date > today
-                      ? "Bill date cannot be in the future"
-                      : `Date within last ${restrictionDays} days required`
-                }
-                // aria-label on the input: the caption above is a plain
-                // Typography, so without it the field has no accessible name.
-                inputProps={{ min: minDate, max: today, "aria-label": "Bill date" }}
-              />
-            </Box>
-            <Box>
-              <FieldLabel>Job number</FieldLabel>
-              <FormControl size="small" fullWidth>
-                <Select
-                  value={jobNumber}
-                  onChange={(e) => {
-                    setJobNumber(String(e.target.value));
-                    setExpenseTypeId(""); // type list depends on the job number
-                  }}
-                >
-                  <MenuItem value={NO_JOB}>N/A (non-travel)</MenuItem>
-                  {appData.travels.map((t) => (
-                    <MenuItem key={t.jobNumber} value={t.jobNumber}>
-                      {t.jobNumber}
-                      {t.customerName ? ` — ${t.customerName}` : ""}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </Box>
+          {/* Bill date gets a fixed column wide enough for its value, the
+              native picker icon, and the open calendar popover without
+              clipping — 220px — so it stays fully visible while Job number
+              still gets the rest of the row. */}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "220px 1fr" }, gap: 1.5 }}>
+          <Box>
+            <FieldLabel>Bill date</FieldLabel>
+            <TextField
+              type="date"
+              size="small"
+              fullWidth
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              error={!dateWithinLimit}
+              helperText={
+                dateWithinLimit
+                  ? undefined
+                  : date > today
+                    ? "Bill date cannot be in the future"
+                    : `Date within last ${restrictionDays} days required`
+              }
+              // aria-label on the input: the caption above is a plain
+              // Typography, so without it the field has no accessible name.
+              inputProps={{ min: minDate, max: today, "aria-label": "Bill date" }}
+            />
+          </Box>
+          <Box>
+            <FieldLabel>Job number</FieldLabel>
+            <Autocomplete
+              size="small"
+              fullWidth
+              disableClearable
+              options={jobOptions}
+              value={selectedJob ?? undefined}
+              getOptionLabel={formatJobOption}
+              isOptionEqualToValue={(a, b) => a.jobNumber === b.jobNumber}
+              // Matches on job number, customer, or country — not just
+              // whatever MUI's default label-prefix match would catch — so
+              // typing a country finds every job run out of it.
+              filterOptions={(options, { inputValue }) => {
+                const q = inputValue.trim().toLowerCase();
+                return q.length === 0 ? options : options.filter((o) => jobSearchText(o).includes(q));
+              }}
+              onChange={(_e, v) => {
+                setJobNumber(v ? v.jobNumber : NO_JOB);
+                setExpenseTypeId(""); // type list depends on the job number
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select…"
+                  // The caption above is a plain Typography, so without this
+                  // the field has no accessible name at all.
+                  slotProps={{ htmlInput: { ...params.inputProps, "aria-label": "Job number" } }}
+                />
+              )}
+              // Given the field's own full-width row (not squeezed into a
+              // half column next to Bill date), a normal-size label fits one
+              // line for virtually every job/country combination; noWrap plus
+              // the title attribute is only a fallback for the rare outlier.
+              renderOption={(props, option) => {
+                const { main, country } = formatJobOptionParts(option);
+                return (
+                  <Box component="li" {...props} key={option.jobNumber} sx={{ minWidth: 0 }}>
+                    <Typography noWrap title={formatJobOption(option)} sx={{ fontSize: "inherit" }}>
+                      {main}
+                      {country && (
+                        <Box component="span" sx={{ color: "text.secondary", fontSize: 12 }}>
+                          {" "}
+                          ({country})
+                        </Box>
+                      )}
+                    </Typography>
+                  </Box>
+                );
+              }}
+            />
+          </Box>
           </Box>
 
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr 1fr" }, gap: 1.5, alignItems: "end" }}>
@@ -262,21 +310,37 @@ export function AddExpenseDialog({
 
           <Box>
             <FieldLabel>Expense type</FieldLabel>
-            <FormControl size="small" fullWidth>
-              <Select<number | "">
-                value={expenseTypeId}
-                onChange={(e) => setExpenseTypeId(e.target.value === "" ? "" : Number(e.target.value))}
-                disabled={expenseTypes.isLoading}
-                displayEmpty
-                renderValue={(v) => (v === "" ? <span style={{ opacity: 0.6 }}>Select a type…</span> : selectedType?.type ?? String(v))}
-              >
-                {(expenseTypes.data ?? []).map((t) => (
-                  <MenuItem key={t.id} value={t.id}>
-                    {t.type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              // The job number resetting this field externally (see below)
+              // only clears its VALUE — MUI keeps typed search text as
+              // separate internal state, which survives that reset while
+              // the dropdown happens to be open, leaving stale text next to
+              // an empty "No options" list. Remounting on job number is the
+              // reliable fix: a fresh instance has no leftover typed text.
+              key={jobNumber}
+              size="small"
+              fullWidth
+              disableClearable
+              options={expenseTypeOptions}
+              value={selectedType}
+              // The source (ExpenseForm.tsx:307) shows a spinner during the
+              // refetch a new job number triggers, but never locks the field
+              // over it — only `loading`, never `disabled`, here too.
+              loading={expenseTypes.isLoading}
+              getOptionLabel={(t) => t.type}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              onChange={(_e, v) => setExpenseTypeId(v ? v.id : "")}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select a type…"
+                  // The caption above is a plain Typography, so without this
+                  // the field — required, per `valid` above — has no
+                  // accessible name at all.
+                  slotProps={{ htmlInput: { ...params.inputProps, "aria-label": "Expense type" } }}
+                />
+              )}
+            />
           </Box>
 
           <Box>

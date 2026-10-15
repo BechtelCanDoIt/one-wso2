@@ -18,6 +18,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DataGrid } from "@wso2/oxygen-ui";
 import AnalysisAccountGrid, { analysisAccountColumns } from "./AnalysisAccountGrid";
 import { analysisAccountRows, type AnalysisAccountsResponse } from "./analysisAccountRows";
@@ -117,6 +118,15 @@ describe("the account table", () => {
     expect(screen.getAllByText("1,235").length).toBeGreaterThan(0);
   });
 
+  it("keeps a number column's name clear of its filter icon", () => {
+    // `number` right-aligns the header, and the filter icon sits on that same
+    // side, so the name would run underneath it.
+    const columns = analysisAccountColumns(MIS_SCALES.UNITS);
+    for (const column of columns) {
+      if (column.type === "number") expect(column.headerAlign).toBe("left");
+    }
+  });
+
   it("names each product the account runs", () => {
     showGrid([account({ productsInUse: "IAM,Choreo" })]);
     expect(screen.getByText("IAM")).toBeInTheDocument();
@@ -192,5 +202,25 @@ describe("the community tier's limits", () => {
   it("renders a hundred accounts without throwing at its largest page size", () => {
     const many = Array.from({ length: 100 }, (_, i) => account({ id: `acct-${i}` }));
     expect(() => showGrid(many)).not.toThrow();
+  });
+});
+
+describe("the account table's accessibility", () => {
+  it("names the search field on the input, not on its wrapper", async () => {
+    const { container } = showGrid([account()]);
+    const trigger = container.querySelector('[class*="toolbarQuickFilterTrigger"]');
+    expect(trigger).toHaveAttribute("aria-label", "Search");
+    await userEvent.click(trigger as HTMLElement);
+    const control = container.querySelector('[class*="toolbarQuickFilterControl"]');
+    const input = control?.querySelector("input");
+    expect(input).toHaveAttribute("aria-label", "Search");
+    expect(control).not.toHaveAttribute("aria-label");
+  });
+
+  it("hides the empty row group when there are no accounts", () => {
+    const { container } = showGrid([]);
+    const zone = container.querySelector(".MuiDataGrid-virtualScrollerRenderZone");
+    expect(zone).not.toBeNull();
+    expect(zone).toHaveAttribute("aria-hidden", "true");
   });
 });

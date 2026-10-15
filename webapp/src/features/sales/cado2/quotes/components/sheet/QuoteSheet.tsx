@@ -17,7 +17,6 @@
 import type { JSX } from "react";
 import { Stack } from "@wso2/oxygen-ui";
 import type { QuoteSheet as Sheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
-import CustomerBand from "./CustomerBand";
 import DealFiguresSection from "./DealFiguresSection";
 import DealSection from "./DealSection";
 import ProductsSection from "./ProductsSection";
@@ -29,11 +28,10 @@ import { AddressesSection, JustificationSection, TermsSection } from "./TermsSec
  * and the Review step. One view for WSO2 staff (2026-09-28); the customer's
  * copy is the generated order form (Document Generation, later).
  */
-export default function QuoteSheet({ sheet, withCustomer = true }: { sheet: Sheet; withCustomer?: boolean }): JSX.Element {
+export default function QuoteSheet({ sheet }: { sheet: Sheet }): JSX.Element {
   return (
     <Stack spacing={2.5} sx={{ minWidth: 0 }}>
-      {/* On the quote page the customer is in the page header instead. */}
-      {withCustomer ? <CustomerBand sheet={sheet} /> : null}
+      {/* Who it's for is in the page header (quote page and wizard), not here (C1, 2026-10-14). */}
       <DealSection sheet={sheet} />
       <ProductsSection sheet={sheet} />
       <DealFiguresSection sheet={sheet} />

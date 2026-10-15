@@ -39,13 +39,16 @@ import path from "path";
 // /meetings/{id}/playback). That URL's host differs per environment, so media-src takes
 // wildcards: *.choreoapis.dev for a Choreo default URL, and *.wso2.com for the API
 // gateway's wso2.com domain (the same *.wso2.com connect-src already trusts).
+//
+// connect-src also allows *.choreoapis.dev so the app can call a backend
+// through its Choreo default URL, not only through a *.wso2.com gateway URL.
 const CSP = [
   "default-src 'self'",
   "script-src 'self' https://accounts.google.com https://apis.google.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net",
   "font-src 'self' data: https://wso2.cachefly.net",
-  "connect-src 'self' https://*.wso2.com https://*.asgardeo.io https://*.googleapis.com https://accounts.google.com",
+  "connect-src 'self' https://*.wso2.com https://*.choreoapis.dev https://*.asgardeo.io https://*.googleapis.com https://accounts.google.com",
   "media-src 'self' https://*.choreoapis.dev https://*.wso2.com",
   "frame-src 'self' blob: data: https://*.asgardeo.io https://docs.google.com https://accounts.google.com",
   "object-src 'none'",

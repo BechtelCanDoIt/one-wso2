@@ -45,8 +45,7 @@ const isSubTab = (v: string | null): v is SubTab => SUB_TABS.some((t) => t === v
 // Hub / Manage Audit Hub to three top-level Admin Console sections, with the
 // Risk Hub's own reference-data screens living inside this one as tabs.
 //
-// The tab lives in ?tab= so it can be linked to: the "request a customer"
-// email sends admins to /admin/risk-hub?tab=customers.
+// The tab lives in ?tab= so it can be linked to, e.g. /admin/risk-hub?tab=customers.
 export default function ManageRiskHubPage(): JSX.Element {
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("tab");

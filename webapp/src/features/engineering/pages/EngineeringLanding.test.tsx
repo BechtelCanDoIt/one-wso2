@@ -180,12 +180,15 @@ describe("the Engineering landing", () => {
     await waitFor(() => expect(address()).toBe(downloadStatsPaths.overview));
   });
 
-  // A redirect decided on an unresolved gate bounces a deep link and is not
-  // undone when the answer arrives, so the landing holds instead.
-  it("holds, and forwards nowhere, while the Admin check is in flight", () => {
+  // Download Stats → Overview is the first row for EVERYONE (see the two
+  // cases above) — the Admin check decides a DIFFERENT, narrower row, not
+  // this one. `firstVisibleLeaf` only waits on sections ranked above the one
+  // it is about to return; nothing ranks above the very first row, so this
+  // redirects immediately rather than waiting on a gate its own answer does
+  // not depend on.
+  it("opens Download Stats → Overview without waiting on the Admin check", async () => {
     vi.stubGlobal("fetch", () => new Promise<Response>(() => {}));
     openEngineering();
-    expect(screen.getByText("Opening Engineering…")).toBeInTheDocument();
-    expect(address()).toBe("/engineering");
+    await waitFor(() => expect(address()).toBe(downloadStatsPaths.overview));
   });
 });

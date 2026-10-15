@@ -22,11 +22,12 @@
 // transient failure worth retrying.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authedDelete, authedPost, authedUpload } from "@api/http";
+import { authedDelete, authedPost, authedPut } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { tilServiceUrls } from "@config/apiConfig";
 import { useAsgardeoSub } from "@hooks/useAsgardeoSub";
-import type { TilSubmissionPayload } from "./tilTypes";
+import { normalizeSubmission } from "./tilTypes";
+import type { TilSubmission, TilSubmissionPayload, TilSubmissionUpdatePayload, TilSubmissionWire } from "./tilTypes";
 
 function useTilSubmissionsKey(): unknown[] {
   const { state } = useAsgardeoSub();
@@ -48,20 +49,49 @@ export function useCreateTilSubmission() {
   });
 }
 
-/** POST /uploads — an image pasted or picked in the "What did you learn?"
- * editor. Returns the stored image's absolute URL, which the editor inserts
- * directly as an <img src>. Not a React Query mutation hook in the usual
- * sense (no cache to invalidate, nothing in the submissions list changes) —
- * just the auth/upload plumbing, called directly from the editor's own
- * image/paste handlers rather than via `.mutate(...)`. */
-export function useUploadTilImage() {
+/** PUT /submissions/{id}. The backend re-checks author-or-canModerate — this is presentation-only gating. */
+export function useUpdateTilSubmission() {
   const getAccessToken = useAccessToken();
-  return async (file: File): Promise<string> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    const result = await authedUpload<{ url: string }>(tilServiceUrls.uploads, await getAccessToken(), formData);
-    return result.url;
-  };
+  const qc = useQueryClient();
+  const submissionsKey = useTilSubmissionsKey();
+  return useMutation<TilSubmission | null, Error, { id: string; payload: TilSubmissionUpdatePayload }>({
+    mutationFn: async ({ id, payload }) => {
+      const wire = await authedPut<TilSubmissionWire>(tilServiceUrls.submission(id), await getAccessToken(), payload);
+      return wire ? normalizeSubmission(wire) : null;
+    },
+    onSuccess: async (updated, { id }) => {
+      // The entry's own page reads the detail query, not the feed list, so
+      // both have to pick up the edit.
+      const detailKey = ["til-submission", submissionsKey[1], id];
+      if (updated) qc.setQueryData(detailKey, updated);
+      else await qc.invalidateQueries({ queryKey: detailKey });
+      await qc.invalidateQueries({ queryKey: submissionsKey });
+    },
+  });
+}
+
+/** POST /submissions/{id}/notify: sends an entry whose Google Chat
+ * announcement failed. The backend re-checks canModerate and refuses an entry
+ * that's already been sent (409), so a card never goes out twice. */
+export function useNotifyTilSubmission() {
+  const getAccessToken = useAccessToken();
+  const qc = useQueryClient();
+  const submissionsKey = useTilSubmissionsKey();
+  return useMutation<TilSubmission | null, Error, string>({
+    mutationFn: async (id) => {
+      const wire = await authedPost<TilSubmissionWire>(tilServiceUrls.notify(id), await getAccessToken(), {});
+      return wire ? normalizeSubmission(wire) : null;
+    },
+    onSuccess: (sent, id) => {
+      if (sent) qc.setQueryData(["til-submission", submissionsKey[1], id], sent);
+    },
+    // Also after a failure: a 409 means someone else sent it, and the page
+    // should stop offering to.
+    onSettled: async (_data, _error, id) => {
+      await qc.invalidateQueries({ queryKey: ["til-submission", submissionsKey[1], id] });
+      await qc.invalidateQueries({ queryKey: submissionsKey });
+    },
+  });
 }
 
 /** DELETE /submissions/{id}. The backend re-checks canModerate — this is presentation-only gating. */

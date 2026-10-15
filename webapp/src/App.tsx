@@ -20,12 +20,13 @@ import { Navigate, Route, Routes } from "react-router";
 import { landingPath } from "@config/landingConfig";
 import SettingsPage from "@features/settings/pages/SettingsPage";
 import MenuHomePage from "@features/menu/pages/MenuHomePage";
-import TilEntryPage from "@features/til/pages/TilEntryPage";
+import TilEntryRoute from "@features/til/pages/TilEntryRoute";
 import TilHomePage from "@features/til/pages/TilHomePage";
 import OrgChartPage from "@features/org-chart/pages/OrgChartPage";
 import SalesMeetingsPage from "@features/sales/pages/SalesMeetingsPage";
 import MeetingDetailPage from "@features/sales/pages/MeetingDetailPage";
 import SalesDealsPage from "@features/sales/pages/SalesDealsPage";
+import DealPage from "@features/sales/pages/DealPage";
 import PromotionHistoryPage from "@features/promotion/pages/PromotionHistoryPage";
 import PromotionRequiresEmployeeRoute from "@features/promotion/components/PromotionRequiresEmployeeRoute";
 import PromotionRequiresLeadRoute from "@features/promotion/components/PromotionRequiresLeadRoute";
@@ -165,6 +166,8 @@ const GeneralReportTab = lazy(() => import("@features/leave/pages/LeaveReportsPa
 const SabbaticalReportTab = lazy(
   () => import("@features/leave/components/SabbaticalReportTab"),
 );
+// Sales Library: only routed when the `smartSearch` preview flag is on.
+const LibraryPage = lazy(() => import("@features/sales/smartSearch/pages/LibraryPage"));
 
 import SabbaticalApplyTab from "@features/leave/pages/LeaveSabbaticalPage";
 import ClaimsPage, { ClaimsIndex } from "@features/finance/claims/ClaimsPage";
@@ -226,6 +229,8 @@ import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
 import { engineeringRoutes } from "@features/engineering/routes";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
+import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPage";
+import InfraRepositoryAccessPage from "@features/infra/pages/InfraRepositoryAccessPage";
 
 export default function App() {
   return (
@@ -263,6 +268,11 @@ export default function App() {
               <Route
                   path="infra/github/repository-requests"
                   element={<InfraNewRepositoryPage />}
+              />
+              <Route path="infra/github/callback" element={<InfraGitHubCallbackPage />} />
+              <Route
+                path="infra/github/repository-access-requests"
+                element={<InfraRepositoryAccessPage />}
               />
             </>
           )}
@@ -346,7 +356,7 @@ export default function App() {
               <Route
                 path="general"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-general">
                     {/* Skeleton rather than null: the chunk is fetched on
                         navigation, and a blank frame reads as a broken link. */}
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
@@ -358,7 +368,7 @@ export default function App() {
               <Route
                 path="sabbatical"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-sabbatical">
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
                       <SabbaticalReportTab />
                     </Suspense>
@@ -462,41 +472,34 @@ export default function App() {
               than who may read it, so with the flag off its route redirects to
               ARR Build — see MisArrAnalysisPage, which holds the redirect
               itself so that a flag not yet known is neither. */}
-          {/* Behind the same preview flag as its rail entries — hiding only the
-              entries would leave every MIS screen reachable by URL. See
-              previewFeatures.ts for what the flag is waiting on. */}
-          {isPreviewEnabled("mis") && (
-            <>
-              {/* A layout route for one reason: the session Years Back. A reader
-                  who has set three years keeps three years across MIS screens, and
-                  it is held in memory alone (it dies with the tab) — so its provider
-                  has to outlive any one
-                  screen. Inside MisShell it would be remounted on every navigation
-                  between these two. See YearsBackSessionContext. */}
-              {/* All three Builds INSIDE `MisSession`, not beside it. The session
-                  Years Back lives in that layout route, and a Period switch is a
-                  NAVIGATION rather than a tab — so a Build mounted outside it would
-                  lose the reader's Years Back on the way over, which is precisely
-                  the journey the value exists for. Quarterly and Monthly default to
-                  1 where Annually defaults to 5, so a missed route shows up as a
-                  Build that silently re-narrows itself. */}
-              <Route element={<MisSession />}>
-                <Route
-                  path="finance/mis/arr-build"
-                  element={<MisArrBuildPage period={MIS_PERIODS.ANNUALLY} />}
-                />
-                <Route
-                  path="finance/mis/qrr-build"
-                  element={<MisArrBuildPage period={MIS_PERIODS.QUARTERLY} />}
-                />
-                <Route
-                  path="finance/mis/mrr-build"
-                  element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
-                />
-                <Route path="finance/mis/analysis" element={<MisArrAnalysisPage />} />
-              </Route>
-            </>
-          )}
+          {/* A layout route for one reason: the session Years Back. A reader
+              who has set three years keeps three years across MIS screens, and
+              it is held in memory alone (it dies with the tab) — so its provider
+              has to outlive any one
+              screen. Inside MisShell it would be remounted on every navigation
+              between these two. See YearsBackSessionContext. */}
+          {/* All three Builds INSIDE `MisSession`, not beside it. The session
+              Years Back lives in that layout route, and a Period switch is a
+              NAVIGATION rather than a tab — so a Build mounted outside it would
+              lose the reader's Years Back on the way over, which is precisely
+              the journey the value exists for. Quarterly and Monthly default to
+              1 where Annually defaults to 5, so a missed route shows up as a
+              Build that silently re-narrows itself. */}
+          <Route element={<MisSession />}>
+            <Route
+              path="finance/mis/arr-build"
+              element={<MisArrBuildPage period={MIS_PERIODS.ANNUALLY} />}
+            />
+            <Route
+              path="finance/mis/qrr-build"
+              element={<MisArrBuildPage period={MIS_PERIODS.QUARTERLY} />}
+            />
+            <Route
+              path="finance/mis/mrr-build"
+              element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
+            />
+            <Route path="finance/mis/analysis" element={<MisArrAnalysisPage />} />
+          </Route>
           <Route path="people-ops" element={<PerspectiveLanding />} />
           {/* People Ops → Org Chart: the company's reporting hierarchy, ported
               from the standalone org-chart app. Unlike every other People Ops
@@ -921,12 +924,11 @@ export default function App() {
           <Route path="marketing-ops/admin/events" element={<EventsSettingsPage />} />
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
-          {/* Event Platform — the agenda-organizer port, a different app from
-              Events above. The tree is deep enough that the feature owns it, as
-              the GRC modules own theirs. See event-platform/eventPlatformTabs.ts.
-              Behind the same preview flag as its rail group — hiding only the
-              rail would leave the routes reachable by URL. */}
-          {isPreviewEnabled("eventPlatform") && eventPlatformRoutes}
+          {/* Event Platform — event agendas, speakers and swag shops, a different
+              app from Events above. The tree is deep enough that the feature
+              owns it, as the GRC modules own theirs. See
+              event-platform/eventPlatformTabs.ts. */}
+          {eventPlatformRoutes}
           <Route
             path="marketing-ops/crm-upload/pipelines"
             element={<CrmUploadPipelinesPage />}
@@ -940,14 +942,17 @@ export default function App() {
             path="marketing-ops/design-studio/post-builder"
             element={<PostBuilderPage />}
           />
-          {/* Sales — auto-recorded meetings. The meeting history ported from
-              meet-app; scheduling stays in the calendar add-on and the
-              analytics dashboard was out of scope. No route-level guard: the
-              meet-app backend refuses a caller in no authorised group on
-              every endpoint, and SalesShell turns that 403 into an
+          {/* Sales opens on the first rail row the caller can see, which is
+              Echo → Meetings (`forwardsToFirstItem`); someone the backend
+              refuses is told so here, by PerspectiveLanding. */}
+          <Route path="sales" element={<PerspectiveLanding />} />
+          {/* Echo → Meetings: the recorded meetings. Scheduling stays in the
+              calendar add-on. No route-level guard: the backend behind
+              ONE_WSO2_REVOPS_BACKEND_URL refuses a caller in no authorised
+              group on every endpoint, and SalesShell turns that 403 into an
               explanation, so someone reaching this URL gets an answer rather
               than a blank page. */}
-          <Route path="sales" element={<SalesMeetingsPage />} />
+          <Route path="sales/meetings" element={<SalesMeetingsPage />} />
           {/* One meeting: the recording, and the call's details. A route rather than a
               dialog because a recording is something people send each other, and a dialog
               has no address — this survives a refresh, a bookmark and a paste into Slack.
@@ -960,6 +965,21 @@ export default function App() {
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />
+          {/* One deal, as a page rather than a drawer: it can be linked, refreshed and
+              returned to with Back. ?letter= opens it filtered to one MEDDPICC Letter. */}
+          <Route path="sales/deals/:opportunityId" element={<DealPage />} />
+          {/* Sales → Library, Smart Search over Pitstop's content. Behind the `smartSearch` preview
+              flag, and loaded lazily so nothing of it is downloaded while the flag is off. */}
+          {isPreviewEnabled("smartSearch") && (
+            <Route
+              path="sales/library"
+              element={
+                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                  <LibraryPage />
+                </Suspense>
+              }
+            />
+          )}
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
               menu app. One page, as the original was. */}
@@ -971,17 +991,16 @@ export default function App() {
               </SriLankaRoute>
             }
           />
-          {isPreviewEnabled("til") && (
-            <>
-              {/* Knowledge Base → Today I Learned: a company-wide learnings feed.
-                  No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
-                  Colombo-office perk, every employee everywhere can use it. */}
-              <Route path="knowledge-base" element={<TilHomePage />} />
-              {/* One entry's own page — what a Chat "View entry" button and a
-                  feed card's own link both land on. */}
-              <Route path="knowledge-base/:id" element={<TilEntryPage />} />
-            </>
-          )}
+          {/* Knowledge → Today I Learned: a company-wide learnings feed.
+              No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
+              Colombo-office perk, every employee everywhere can use it. */}
+          <Route path="knowledge" element={<PerspectiveLanding />} />
+          <Route path="knowledge/today-i-learned" element={<TilHomePage />} />
+          {/* One entry's own page — what a feed card opens inside One
+              WSO2, or, with ?view=article, the full-page article a Chat
+              "Read more" link lands on (AppLayout drops its shell for
+              that; see layouts/fullPageRoutes). */}
+          <Route path="knowledge/today-i-learned/:id" element={<TilEntryRoute />} />
           {/* Legal perspective — currently just a second entry point into Due
               Diligence, alongside Finance (see the finance/ routes below and
               DUE_DILIGENCE_APPS). */}

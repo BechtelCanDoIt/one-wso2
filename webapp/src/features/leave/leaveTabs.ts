@@ -42,7 +42,8 @@ export const LEAVE_PATH = "/me/leave";
 export type LeaveGateId =
   | "leave-apply"
   | "leave-history"
-  | "leave-reports"
+  | "leave-reports-general"
+  | "leave-reports-sabbatical"
   | "leave-approve"
   /** May take a sabbatical at all: employee or lead, never an intern. */
   | "leave-sabbatical-own";
@@ -158,15 +159,16 @@ export const LEAVE_TABS: readonly LeaveTabDef[] = [
       {
         kind: "general",
         label: "General",
-        // route.ts:136-142 — LEAD or People Ops.
-        gateId: "leave-reports",
+        // Lead (their team), People Ops or the general report role (everyone).
+        gateId: "leave-reports-general",
         subtitle: "Leave taken across your team.",
       },
       {
         kind: "sabbatical",
         label: "Sabbatical",
-        // route.ts:143-148 — same rule as the general report.
-        gateId: "leave-reports",
+        // Lead (their team), People Ops or the sabbatical report role (everyone).
+        // Granted independently of the general report.
+        gateId: "leave-reports-sabbatical",
         subtitle: "Sabbaticals across your team.",
       },
     ],

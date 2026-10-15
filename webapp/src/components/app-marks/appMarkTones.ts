@@ -80,6 +80,15 @@ export const APP_MARK_TONES: Record<string, AppMarkTones> = {
   // 3.46:1 and 5.04:1 for lead, 4.89:1 and 3.57:1 for detail, against the
   // light and dark tiles.
   engineering: { field: "#ECB588", lead: "#D96B12", detail: "#B2580F" },
+  // Knowledge. Same rule — field 50% toward white, detail at 82%. Measured
+  // 4.01:1 and 4.36:1 for lead, 5.58:1 and 3.13:1 for detail, against the
+  // light and dark tiles. `detail` is unused by KnowledgeMark (field + lead
+  // only, like Me) but kept so the contrast tests check the full set.
+  knowledge: { field: "#EEA5AE", lead: "#DD4B5E", detail: "#B53E4D" },
+  // Infrastructure. Same rule — field 50% toward white, detail at 82%. Measured
+  // 3.46:1 and 5.04:1 for lead, 4.89:1 and 3.57:1 for detail, against the
+  // light and dark tiles.
+  infra: { field: "#87CDD3", lead: "#0E9AA7", detail: "#0B7E89" },
 };
 
 /**

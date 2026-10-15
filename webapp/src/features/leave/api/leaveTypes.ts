@@ -60,6 +60,10 @@ export const LEAVE_PRIVILEGE = {
   INTERN: 678,
   LEAD: 879,
   PEOPLE_OPS_TEAM: 789,
+  /** General leave report across all employees. Sent to People Ops too. */
+  GENERAL_REPORT: 456,
+  /** Sabbatical report across all employees. Sent to People Ops too. */
+  SABBATICAL_REPORT: 654,
 } as const;
 
 // ---- user / config ---------------------------------------------------------
@@ -204,6 +208,7 @@ export interface LeaveFilter {
   orderBy?: OrderBy;
   employeeStatuses?: EmployeeStatus[];
   subordinatesLeaves?: boolean;
+  excludedLeaveCategory?: LeaveType[];
 }
 
 // ---- display helpers -------------------------------------------------------

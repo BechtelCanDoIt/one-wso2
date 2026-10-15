@@ -40,7 +40,7 @@ import { descriptionAfterName } from "@features/sales/cado2/utils/productDescrip
 import { lineProblems } from "@features/sales/cado2/quotes/components/lineProblems";
 import { useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { CategorySource, LineCategory, PricebookRef, Product } from "@features/sales/cado2/quotes/api/quoteTypes";
-import type { LineValue } from "@features/sales/cado2/quotes/form/draftForm";
+import { LINE_CATEGORIES, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
 
 /** A small heading for a group of fields in the dialog. */
 function Group({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }): JSX.Element {
@@ -137,11 +137,7 @@ interface AddLineDialogProps {
   readonly onClose: () => void;
 }
 
-const CATEGORIES: readonly { value: LineCategory; label: string }[] = [
-  { value: "SUBSCRIPTION", label: "Subscription" },
-  { value: "SUPPORT", label: "Support" },
-  { value: "PROFESSIONAL_SERVICE", label: "Professional Service (one-time)" },
-];
+const CATEGORIES = LINE_CATEGORIES;
 
 const categoryLabel = (c: LineCategory) => CATEGORIES.find((x) => x.value === c)?.label ?? c;
 
@@ -196,7 +192,8 @@ export default function AddLineDialog({
   const [term, setTerm] = useState("");
   const debounced = useDebouncedValue(term, 300);
   // The quote's price book only, a page at a time as the rep scrolls.
-  const products = useProducts(open ? currency : "", debounced, pricebook.id);
+  // Editing never searches: a line's product can't be changed, only removed (2026-10-12).
+  const products = useProducts(open && !line ? currency : "", debounced, pricebook.id);
   const options = products.data ?? [];
   // MUI scrolls the list back to the top when options are added and none is
   // highlighted, so the position is kept here and put back after a page loads.
@@ -226,7 +223,8 @@ export default function AddLineDialog({
   // blanks) only needs loading once.
   // The rep's choice, used only for a product without a mapping.
   const [category, setCategory] = useState<LineCategory | "">(line?.category ?? "");
-  const [uom, setUom] = useState(line?.unitOfMeasure ?? "");
+  // Locked for now (2026-10-14): a saved line keeps its value; a new one has none.
+  const uom = line?.unitOfMeasure ?? "";
   const [quantity, setQuantity] = useState(line?.quantity ?? "1");
   const [discount, setDiscount] = useState(line?.discount ?? "0");
   const [tried, setTried] = useState(false);
@@ -238,17 +236,11 @@ export default function AddLineDialog({
   // A mapped product's category is the Admin's and can't be changed.
   const mapped: LineCategory | null = product
     ? (product.category ?? null)
-    : keepsExisting && line.categorySource === "MAPPED"
+    : keepsExisting && line.categorySource === "MAPPED" && line.category
       ? line.category
       : null;
   const source: CategorySource = mapped ? "MAPPED" : "REP";
   const chosen = product !== null || keepsExisting;
-  // Shown again at the unit of measure, which the rep often words from it.
-  const about = keepsExisting
-    ? descriptionAfterName(line.productName, line.productDescription)
-    : product
-      ? descriptionAfterName(product.name ?? "", product.description)
-      : null;
 
   const problems = lineProblems({
     pricebookEntryId: keepsExisting ? line.pricebookEntryId : entry ? entry.id : "",
@@ -280,6 +272,7 @@ export default function AddLineDialog({
           unitPrice: entry!.unitPrice ?? "",
           category: mapped ?? (category as LineCategory),
           categorySource: source,
+          recurring: product!.recurring,
           unitOfMeasure: "",
           quantity: "",
           discount: "",
@@ -295,7 +288,8 @@ export default function AddLineDialog({
   };
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    // A click outside doesn't throw the typed line away (2026-10-13); Cancel, X or Escape close it.
+    <Dialog open={open} onClose={(_, reason) => reason !== "backdropClick" && onClose()} fullWidth maxWidth="sm">
       <DialogTitle component="div">
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box
@@ -314,7 +308,7 @@ export default function AddLineDialog({
           </Box>
           <Box>
             <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
-              {line ? "Edit line" : "Add a product"}
+              {line ? "Edit line" : "Add line"}
             </Typography>
             <Typography variant="caption" color="text.secondary">
               Priced from {pricebook.name} in {currency}
@@ -333,7 +327,7 @@ export default function AddLineDialog({
                 pricebook={line.pricebookName}
                 unitPrice={line.unitPrice}
                 currency={currency}
-                note="The saved price is kept. Choose the product again below to price it again."
+                note="The product can't be changed. To use a different one, remove this line and add it."
               />
             ) : product && entry ? (
               <ProductCard
@@ -345,57 +339,63 @@ export default function AddLineDialog({
                 currency={currency}
               />
             ) : null}
-            <ProductListContext.Provider value={listState}>
-              <Autocomplete
-                options={options}
-                getOptionLabel={getName}
-                isOptionEqualToValue={(a, b) => a.id === b.id}
-                filterOptions={(x) => x}
-                loading={products.isPending && products.fetchStatus !== "idle"}
-                value={product}
-                onChange={(_, p) => chooseProduct(p)}
-                onInputChange={(_, v) => setTerm(v)}
-                slots={{ paper: ProductListPaper }}
-                slotProps={{
-                  listbox: {
-                    ref: (el: Element | null) => {
-                      listbox.current = el as HTMLElement | null;
+            {line ? null : (
+              <ProductListContext.Provider value={listState}>
+                <Autocomplete
+                  options={options}
+                  getOptionLabel={getName}
+                  isOptionEqualToValue={(a, b) => a.id === b.id}
+                  filterOptions={(x) => x}
+                  loading={products.isPending && products.fetchStatus !== "idle"}
+                  value={product}
+                  onChange={(_, p) => chooseProduct(p)}
+                  onInputChange={(_, v) => setTerm(v)}
+                  slots={{ paper: ProductListPaper }}
+                  slotProps={{
+                    listbox: {
+                      ref: (el: Element | null) => {
+                        listbox.current = el as HTMLElement | null;
+                      },
+                      onScroll: (e: UIEvent<HTMLElement>) => onListScroll(e.currentTarget),
                     },
-                    onScroll: (e: UIEvent<HTMLElement>) => onListScroll(e.currentTarget),
-                  },
-                }}
-                // The name, then the description on one quiet line; in full on hover.
-                renderOption={({ key, ...props }, p) => {
-                  const about = descriptionAfterName(p.name ?? "", p.description);
-                  return (
-                    <li key={key} {...props}>
-                      <Box sx={{ minWidth: 0 }}>
-                        <Typography variant="body2" noWrap title={getName(p)}>
-                          {getName(p)}
-                        </Typography>
-                        {about ? (
-                          <Typography variant="caption" color="text.secondary" component="div" noWrap title={about}>
-                            {about}
+                  }}
+                  // The name, then the description on one quiet line; in full on hover.
+                  renderOption={({ key, ...props }, p) => {
+                    const about = descriptionAfterName(p.name ?? "", p.description);
+                    return (
+                      <li key={key} {...props}>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography variant="body2" noWrap title={getName(p)}>
+                            {getName(p)}
                           </Typography>
-                        ) : null}
-                      </Box>
-                    </li>
-                  );
-                }}
-                noOptionsText={`No matching products in ${pricebook.name}`}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label={line ? "Change product" : "Product"}
-                    placeholder="Search by name or product code"
-                    size="small"
-                    required={!line}
-                    error={Boolean(show("product")) && !product}
-                    helperText={show("product") && !product ? show("product") : `Products in ${pricebook.name}, priced in ${currency}`}
-                  />
-                )}
-              />
-            </ProductListContext.Provider>
+                          {about ? (
+                            <Typography variant="caption" color="text.secondary" component="div" noWrap title={about}>
+                              {about}
+                            </Typography>
+                          ) : null}
+                        </Box>
+                      </li>
+                    );
+                  }}
+                  noOptionsText={
+                    products.error
+                      ? "Couldn't load the products. Try again." // not "no matching" (2026-10-13)
+                      : `No matching products in ${pricebook.name}`
+                  }
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Product"
+                      placeholder="Search by name or product code"
+                      size="small"
+                      required
+                      error={Boolean(show("product")) && !product}
+                      helperText={show("product") && !product ? show("product") : `Products in ${pricebook.name}, priced in ${currency}`}
+                    />
+                  )}
+                />
+              </ProductListContext.Provider>
+            )}
             {chosen && mapped ? (
               <Stack
                 direction="row"
@@ -436,7 +436,7 @@ export default function AddLineDialog({
               </>
             ) : null}
           </Group>
-          <Group icon={<PercentIcon size={14} />} title="Quantity & discount">
+          <Group icon={<PercentIcon size={14} />} title="Quantity & Discount">
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="Quantity"
@@ -463,13 +463,14 @@ export default function AddLineDialog({
               />
             </Stack>
             {/* Its own row: the description under it can be up to ~140 characters. */}
+            {/* Locked for now (2026-10-14): it will come from Salesforce. A saved line keeps what it has. */}
             <TextField
               label="Unit of measure"
               value={uom}
-              onChange={(e) => setUom(e.target.value)}
               size="small"
               fullWidth
-              helperText={about ? `Product description: ${about}` : undefined}
+              disabled
+              helperText="Will come from Salesforce"
             />
           </Group>
         </Stack>
@@ -477,7 +478,7 @@ export default function AddLineDialog({
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={save}>
-          {line ? "Update line" : "Add line"}
+          {line ? "Save line" : "Add line"}
         </Button>
       </DialogActions>
     </Dialog>

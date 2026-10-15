@@ -115,7 +115,7 @@ export default function CommercialStep(): JSX.Element {
             name="netTermsDays"
             control={control}
             render={({ field }) => (
-              <TextField {...field} select label="Net terms" size="small" sx={{ minWidth: 200 }} required>
+              <TextField {...field} select label="Payment terms" size="small" sx={{ minWidth: 200 }} required>
                 <MenuItem value="30">30 days</MenuItem>
                 <MenuItem value="45">45 days</MenuItem>
                 <MenuItem value="60">60 days</MenuItem>
@@ -153,7 +153,7 @@ export default function CommercialStep(): JSX.Element {
       </Section>
 
       <Section
-        title="Bill to"
+        title="Bill To"
         icon={<MapPinIcon size={18} />}
         hint={partnerDeal ? "Partner deal: the partner is billed." : "Direct deal: the customer is billed."}
       >
@@ -164,11 +164,13 @@ export default function CommercialStep(): JSX.Element {
           label="Billing contact"
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
+          loadError={contacts.error}
+          onRetry={() => void contacts.refetch()}
           helperText="Receives invoices"
         />
       </Section>
 
-      <Section title="Ship to" icon={<TruckIcon size={18} />} hint={partnerDeal ? "Partner deal: shipped to the end customer." : undefined}>
+      <Section title="Ship To" icon={<TruckIcon size={18} />} hint={partnerDeal ? "Partner deal: shipped to the end customer." : undefined}>
         {!partnerDeal ? (
           <Controller
             name="shipToSameAsBillTo"
@@ -188,6 +190,8 @@ export default function CommercialStep(): JSX.Element {
           label="Security contact (optional)"
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
+          loadError={contacts.error}
+          onRetry={() => void contacts.refetch()}
           helperText="Receives WSO2 security bulletins"
         />
       </Section>

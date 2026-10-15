@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { JSX } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { render, screen, within } from "@testing-library/react";
@@ -89,5 +89,27 @@ describe("ContactPicker", () => {
     expect(screen.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Pick from Salesforce instead" }));
     expect(screen.getByRole("radiogroup", { name: "Billing contact" })).toBeInTheDocument();
+  });
+});
+
+// A failed load is an error, never "no contacts" (2026-10-13).
+describe("ContactPicker — contacts that fail to load", () => {
+  it("says the contacts couldn't be loaded, with a retry", async () => {
+    const retry = vi.fn();
+    function Failing(): JSX.Element {
+      const form = useForm<DraftFormValues>({ defaultValues: emptyDraftForm() });
+      return (
+        <FormProvider {...form}>
+          <ContactPicker name="billingContact" issueField="contacts.billing" label="Billing contact" contacts={[]} loading={false} loadError={new Error("down")} onRetry={retry} />
+        </FormProvider>
+      );
+    }
+    render(<Failing />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Choose from Salesforce" }));
+    expect(screen.getByText(/^Couldn't load the account's contacts from Salesforce\./)).toBeInTheDocument();
+    expect(screen.queryByText("This account has no contacts in Salesforce.")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalled();
   });
 });

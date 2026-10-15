@@ -16,7 +16,8 @@
 
 import { useMemo, useState } from "react";
 import { Navigate } from "react-router";
-import { Box, Card, Checkbox, FormControlLabel, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Card, Checkbox, Chip, Divider, FormControlLabel, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { TrendingUpIcon } from "@wso2/oxygen-ui-icons-react";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { misPaths } from "@constants/misApps";
@@ -54,6 +55,7 @@ import {
 } from "../util/misMoney";
 import { useScalePreference } from "../util/ScalePreferenceContext";
 import { MIS_SCALES, type MisScale } from "../util/misViewVocabulary";
+import { analysisSurfaceSx, brandText, primaryTint } from "../components/misLookTokens";
 
 // ARR Analysis — current ARR over an account-level table, behind a server-side
 // flag.
@@ -102,7 +104,6 @@ export default function MisArrAnalysisPage() {
     <MisShell
       gateId="mis-analysis"
       title={TITLE}
-      subtitle="Current recurring revenue across the customer book, account by account."
       prerequisite={{
         isLoading: configs.isLoading,
         isError: configs.isError,
@@ -165,7 +166,7 @@ function ArrAnalysis() {
   const { preference: scale, setPreference: setScale } = useScalePreference();
 
   return (
-    <Box>
+    <Stack spacing={3} sx={{ position: "relative" }}>
       <MisAnalysisFilters
         filters={filters}
         today={today}
@@ -201,8 +202,17 @@ function ArrAnalysis() {
         role="status"
         variant="caption"
         component="p"
-        color="text.secondary"
-        sx={{ minHeight: 18, mb: 0.25 }}
+        sx={{
+          position: "absolute",
+          width: "1px",
+          height: "1px",
+          p: 0,
+          m: "-1px",
+          overflow: "hidden",
+          clip: "rect(0, 0, 0, 0)",
+          whiteSpace: "nowrap",
+          border: 0,
+        }}
       >
         {accounts.isLoading
           ? "Loading accounts…"
@@ -217,9 +227,8 @@ function ArrAnalysis() {
       <Box
         sx={{
           display: "grid",
-          gap: 1.5,
-          mb: 1.5,
-          gridTemplateColumns: { xs: "1fr", lg: "minmax(0, 0.8fr) minmax(0, 1.2fr)" },
+          gap: 2,
+          gridTemplateColumns: { xs: "1fr", md: "minmax(0, 0.9fr) minmax(0, 1.3fr)" },
         }}
       >
         <AnalysisPartnerModelChart breakdown={partnerModels} scale={scale} />
@@ -230,44 +239,67 @@ function ArrAnalysis() {
         />
       </Box>
 
-      <Stack
-        direction="row"
-        sx={{ alignItems: "baseline", justifyContent: "space-between", flexWrap: "wrap", mb: 0.75 }}
-      >
-        <Typography variant="subtitle2">Account performance detail</Typography>
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
-          {/* The caption travels with the TABLE rather than with the control,
-              because Finance's workflow is to crop a table into a deck — see
-              `amountUnitCaption`. */}
-          <Typography variant="caption" color="text.secondary">
-            {amountUnitCaption(scale)}
-          </Typography>
-          {/* The same label and the same preference as the Build's bar, so
-              switching screens does not switch units under the reader. */}
-          <FormControlLabel
-            sx={{ m: 0 }}
-            control={
-              <Checkbox
-                size="small"
-                checked={scale === MIS_SCALES.THOUSANDS}
-                onChange={(event) =>
-                  setScale(event.target.checked ? MIS_SCALES.THOUSANDS : MIS_SCALES.UNITS)
-                }
-              />
-            }
-            label={<Typography variant="body2">Values in &apos;000</Typography>}
-          />
+      <Card sx={(theme) => ({ ...analysisSurfaceSx(theme), overflow: "hidden" })}>
+        <Stack
+          direction={{ xs: "column", sm: "row" }}
+          spacing={1}
+          sx={{
+            alignItems: { xs: "flex-start", sm: "center" },
+            justifyContent: "space-between",
+            px: 2,
+            pt: 1.5,
+            pb: 1.25,
+          }}
+        >
+          <Box>
+            <Typography component="h2" variant="h6" sx={{ fontWeight: 700 }}>
+              Account Performance Detail
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Detailed ARR contribution by business unit and product footprint
+            </Typography>
+            {/* The caption travels with the TABLE rather than with the control,
+                because Finance's workflow is to crop a table into a deck — see
+                `amountUnitCaption`. */}
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+              {amountUnitCaption(scale)}
+            </Typography>
+          </Box>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
+            {/* The same label and the same preference as the Build's bar, so
+                switching screens does not switch units under the reader. */}
+            <FormControlLabel
+              sx={{ m: 0 }}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={scale === MIS_SCALES.THOUSANDS}
+                  onChange={(event) =>
+                    setScale(event.target.checked ? MIS_SCALES.THOUSANDS : MIS_SCALES.UNITS)
+                  }
+                />
+              }
+              label={<Typography variant="body2">Values in &apos;000</Typography>}
+            />
+            <Chip
+              size="small"
+              variant="outlined"
+              label={`${accounts.rows.length} Accounts`}
+              sx={(theme) => ({ fontWeight: 600, borderColor: "primary.main", ...brandText(theme) })}
+            />
+          </Stack>
         </Stack>
-      </Stack>
+        <Divider />
 
-      {accounts.isError ? (
-        <ErrorNotice onRetry={accounts.retry} sx={{ mt: 1.5 }}>
-          Couldn&apos;t load the accounts. {accounts.errorMessage}
-        </ErrorNotice>
-      ) : (
-        <AnalysisAccountGrid rows={accounts.rows} scale={scale} isLoading={accounts.isLoading} />
-      )}
-    </Box>
+        {accounts.isError ? (
+          <ErrorNotice onRetry={accounts.retry} sx={{ m: 2 }}>
+            Couldn&apos;t load the accounts. {accounts.errorMessage}
+          </ErrorNotice>
+        ) : (
+          <AnalysisAccountGrid rows={accounts.rows} scale={scale} isLoading={accounts.isLoading} />
+        )}
+      </Card>
+    </Stack>
   );
 }
 
@@ -308,53 +340,98 @@ function SummaryCards({
     <Box
       sx={{
         display: "grid",
-        gap: 1.5,
-        mb: 1.5,
-        gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" },
-        maxWidth: 640,
+        gap: 2,
+        gridTemplateColumns: { xs: "1fr", md: "minmax(0, 0.9fr) minmax(0, 1.3fr)" },
       }}
     >
-      {/* Not Oxygen's StatCard. The ARR tile replaces its figure with an
-          error that offers a retry, or with a skeleton, and StatCard only
-          takes a label and a value. The Accounts tile beside it stays in the
-          same shape. */}
-      <Card variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="overline" color="text.secondary">
-          ARR as of {label}
-        </Typography>
-        {isError ? (
-          <ErrorNotice onRetry={retry} sx={{ mt: 1 }}>
-            Couldn&apos;t load this figure. {errorMessage}
-          </ErrorNotice>
-        ) : isLoading ? (
-          <Skeleton variant="text" width={160} height={44} />
-        ) : (
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {/* A HEADLINE, so it is compact, in dollars, and NOT scaled —
-                `misHeadlineAmount` has no Scale parameter to break it with. An
-                em dash rather than a zero when the figure never arrived: `$0`
-                would state something. */}
-            {arr == null ? "—" : misHeadlineAmount(arr)}
+      {/* A large ARR figure with the trend mark, then Logo count with its
+          Live Filtered chip. The ARR tile still replaces its figure with an
+          error or a skeleton. */}
+      <Card sx={(theme) => ({ ...analysisSurfaceSx(theme), height: "100%" })}>
+        <Box sx={{ p: 2 }}>
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+            ARR AS OF {label}
           </Typography>
-        )}
+          {isError ? (
+            <ErrorNotice onRetry={retry} sx={{ mt: 1 }}>
+              Couldn&apos;t load this figure. {errorMessage}
+            </ErrorNotice>
+          ) : isLoading ? (
+            <Skeleton variant="text" width={160} height={44} sx={{ mt: 1 }} />
+          ) : (
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mt: 1 }}>
+              <Typography
+                component="p"
+                variant="h5"
+                sx={(theme) => ({
+                  fontWeight: 900,
+                  fontSize: { xs: "1.9rem", md: "2.3rem" },
+                  ...brandText(theme),
+                })}
+              >
+                {/* A HEADLINE, so it is compact, in dollars, and NOT scaled —
+                    `misHeadlineAmount` has no Scale parameter to break it with. An
+                    em dash rather than a zero when the figure never arrived: `$0`
+                    would state something. */}
+                {arr == null ? "—" : misHeadlineAmount(arr)}
+              </Typography>
+              <Box
+                aria-hidden
+                sx={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 1.5,
+                  display: "grid",
+                  placeItems: "center",
+                  color: "primary.main",
+                  background: `linear-gradient(135deg, ${primaryTint(0.22)}, ${primaryTint(0.08)})`,
+                  border: `1px solid ${primaryTint(0.24)}`,
+                  flexShrink: 0,
+                }}
+              >
+                <TrendingUpIcon size={18} />
+              </Box>
+            </Stack>
+          )}
+          {!isError && !isLoading && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
+              Total annual recurring revenue across filtered accounts
+            </Typography>
+          )}
+        </Box>
       </Card>
 
-      <Card variant="outlined" sx={{ p: 2 }}>
-        <Typography variant="overline" color="text.secondary">
-          Accounts
-        </Typography>
-        {accountsLoading ? (
-          <Skeleton variant="text" width={80} height={44} />
-        ) : (
-          <Typography variant="h5" sx={{ fontWeight: 700 }}>
-            {/* The reader's Scale IS handed over here, and makes no
-                difference: `formatMisValue` reads it in the currency branch
-                and nowhere else, so a count cannot be divided by a thousand
-                however it is called. That is why this component still takes
-                `scale` now that the figure above is a headline. */}
-            {formatMisValue(accountCount, MIS_VALUE_TYPES.COUNT, { scale })}
+      <Card sx={(theme) => ({ ...analysisSurfaceSx(theme), height: "100%" })}>
+        <Box sx={{ p: 2 }}>
+          <Typography variant="overline" color="text.secondary" sx={{ fontWeight: 700 }}>
+            LOGO COUNT
           </Typography>
-        )}
+          {accountsLoading ? (
+            <Skeleton variant="text" width={80} height={44} sx={{ mt: 1 }} />
+          ) : (
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mt: 1 }}>
+              <Typography component="p" variant="h5" sx={{ fontWeight: 900, fontSize: { xs: "1.9rem", md: "2.3rem" } }}>
+                {/* The reader's Scale IS handed over here, and makes no
+                    difference: `formatMisValue` reads it in the currency branch
+                    and nowhere else, so a count cannot be divided by a thousand
+                    however it is called. That is why this component still takes
+                    `scale` now that the figure above is a headline. */}
+                {formatMisValue(accountCount, MIS_VALUE_TYPES.COUNT, { scale })}
+              </Typography>
+              <Chip
+                size="small"
+                variant="outlined"
+                label="Live Filtered"
+                sx={(theme) => ({ fontWeight: 600, borderColor: "primary.main", ...brandText(theme) })}
+              />
+            </Stack>
+          )}
+          {!accountsLoading && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1.5 }}>
+              Active enterprise customer accounts currently matching filters
+            </Typography>
+          )}
+        </Box>
       </Card>
     </Box>
   );

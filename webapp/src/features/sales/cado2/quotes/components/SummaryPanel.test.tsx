@@ -42,13 +42,13 @@ describe("SummaryPanel (F5 review)", () => {
     expect(customer.getByText("Acme Reseller")).toBeInTheDocument();
     expect(customer.queryByText(/contact/i)).toBeNull();
 
-    const terms = within(screen.getByRole("region", { name: "Deal terms" }));
+    const terms = within(screen.getByRole("region", { name: "Deal Terms" }));
     expect(terms.getByText("WSO2, LLC.")).toBeInTheDocument();
     expect(terms.getByText("USD")).toBeInTheDocument();
     expect(terms.queryByText(/uplift/i)).toBeNull(); // no uplift
     expect(terms.getByText(/1 Oct 2026 – 30 Sept 2027/)).toBeInTheDocument();
     expect(terms.getByText("1 year")).toBeInTheDocument();
-    expect(terms.getByText("Annually in advance")).toBeInTheDocument();
+    expect(terms.getByText("Annual billing")).toBeInTheDocument();
 
     const products = within(screen.getByRole("region", { name: "Products" }));
     expect(products.getByText("WSO2 Gateway")).toBeInTheDocument();
@@ -94,12 +94,12 @@ describe("SummaryPanel (F5 review)", () => {
 
 describe("SummaryPanel — services only", () => {
   it("shows the start date without a term", () => {
-    const services = { ...values, lines: values.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) };
+    const services = { ...values, lines: values.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const, recurring: false })) };
     const t = { arr: null, acv: null, tcv: "720.00", payableNow: "720.00" };
     render(<SummaryPanel values={services} legalEntityName={null} totals={t} pricing={false} />);
     expect(screen.getAllByText("USD 720.00")).toHaveLength(2); // total order value, first invoice
-    const terms = within(screen.getByRole("region", { name: "Deal terms" }));
-    expect(terms.getByText("No subscription term: services only")).toBeInTheDocument();
+    const terms = within(screen.getByRole("region", { name: "Deal Terms" }));
+    expect(terms.getByText("No subscription term: no recurring products")).toBeInTheDocument();
     expect(terms.queryByText("Billing")).toBeNull();
   });
 });

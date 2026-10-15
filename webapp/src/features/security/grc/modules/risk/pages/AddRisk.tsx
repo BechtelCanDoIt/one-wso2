@@ -435,6 +435,9 @@ export default function AddRisk(): JSX.Element {
       complianceRefs={complianceRefs}
       riskCategories={riskCategories}
       lookups={{ platforms, customers, products, deploymentTypes }}
+      onCustomerAdded={(c) =>
+        setCustomers((prev) => [...prev, c].sort((a, b) => a.name.localeCompare(b.name)))
+      }
     />,
     <RiskAssessmentStep riskScores={riskScores} />,
     <ActionPlanStep

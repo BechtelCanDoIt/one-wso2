@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { umt?: boolean; infra?: boolean; mis?: boolean; cado2?: boolean } = {},
+  preview: { umt?: boolean; infra?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -40,8 +40,9 @@ afterEach(() => {
 
 const keys = (perspectives: readonly { key: string }[]) => perspectives.map((p) => p.key);
 
-// Finance MIS has shown live figures on stage, but Finance has not yet verified
-// them, so it lands behind its own flag, as a whole.
+// Finance MIS shipped out of preview. The ARR Dashboard and ARR Analysis are
+// part of Finance with no preview config, which is what production looks like.
+// Quarterly and Monthly stay routes of the dashboard, not rows of their own.
 describe("Finance MIS's rail entries", () => {
   const misIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("finance")?.sections ?? [])
@@ -49,17 +50,8 @@ describe("Finance MIS's rail entries", () => {
       .map((section) => section.id)
       .filter((id) => id.startsWith("mis-"));
 
-  it("are there once staging switches the flag on", async () => {
-    expect(misIdsIn(await load({ mis: true }))).toContain("mis-arr-build");
-  });
-
-  it("are gone when the flag is off", async () => {
-    expect(misIdsIn(await load({ mis: false }))).toEqual([]);
-  });
-
-  // Production sets no preview config at all — absent has to mean off.
-  it("are gone when nobody has mentioned the flag", async () => {
-    expect(misIdsIn(await load({}))).toEqual([]);
+  it("are present with no preview flags set", async () => {
+    expect(misIdsIn(await load({}))).toEqual(["mis-arr-build", "mis-analysis"]);
   });
 });
 
@@ -100,9 +92,19 @@ describe("the Sales perspective", () => {
   it("brings its rail, not just the tile", async () => {
     // The rail is what a deep link lands beside.
     const { findPerspectiveByKey } = await load();
-    expect(findPerspectiveByKey("sales")?.sections?.map((section) => section.id)).toContain(
-      "sales-meetings",
-    );
+    expect(findPerspectiveByKey("sales")?.sections?.map((section) => section.id)).toContain("sales-echo");
+  });
+
+  // Echo is a group of its screens, like CadO2: Meetings is the one so far, and the group
+  // stays a group so its name and the screen's both show in the rail.
+  it("lists Echo as a group with Meetings inside it", async () => {
+    const { findPerspectiveByKey } = await load();
+    const echo = findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-echo");
+    expect(echo?.label).toBe("Echo");
+    expect(echo?.alwaysGroup).toBe(true);
+    expect(echo?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
+      ["sales-meetings", "Meetings", "/sales/meetings"],
+    ]);
   });
 });
 
@@ -119,7 +121,7 @@ describe("CadO2's rail entries", () => {
     expect(group?.label).toBe("CadO2");
     expect(group?.alwaysGroup).toBe(true);
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
-      ["My Quotes", "/sales/cado2/quotes"],
+      ["Quotes", "/sales/cado2/quotes"],
       ["My Approvals", "/sales/cado2/approvals"],
       ["Admin", "/sales/cado2/admin"],
     ]);
@@ -127,14 +129,50 @@ describe("CadO2's rail entries", () => {
 
   it("are gone when the flag is off, or never mentioned", async () => {
     for (const preview of [{ cado2: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-meetings", "sales-deals"]);
+      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
     }
   });
 
-  it("never join the Meetings gate's ids", async () => {
+  it("never join the Echo gate's ids", async () => {
     const { SALES_ITEM_IDS } = await load({ cado2: true });
-    // Meetings and Deals are the meet-app-gated rows; nothing of CadO2's joins them.
-    expect([...SALES_ITEM_IDS]).toEqual(["sales-meetings", "sales-deals"]);
+    // Echo and Deals are the Sales rows gated through ONE_WSO2_REVOPS_BACKEND_URL;
+    // nothing of CadO2's joins them.
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
+  });
+});
+
+// The Library lands behind its own flag, as one row inside the Sales perspective.
+describe("the Library's rail entry", () => {
+  const salesIdsIn = (perspectives: Perspectives) =>
+    (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
+
+  it("is a Library row under Sales, after Deals, once the flag is on", async () => {
+    const perspectives = await load({ smartSearch: true });
+    const row = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-library");
+    expect(row?.label).toBe("Library");
+    expect(row?.path).toBe("/sales/library");
+    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-deals", "sales-library"]);
+  });
+
+  it("sits before CadO2 when both flags are on", async () => {
+    expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
+      "sales-echo",
+      "sales-deals",
+      "sales-library",
+      "sec-app-cado2",
+    ]);
+  });
+
+  it("is gone when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ smartSearch: false }, {}]) {
+      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo", "sales-deals"]);
+    }
+  });
+
+  it("never joins the Echo gate's ids", async () => {
+    const { SALES_ITEM_IDS } = await load({ smartSearch: true });
+    // Echo and Deals are gated through ONE_WSO2_REVOPS_BACKEND_URL; the Library is decided by its own backend.
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
   });
 });
 
@@ -235,6 +273,7 @@ describe("perspectives whose landing forwards to the first rail item", () => {
       expect(keys(PERSPECTIVES)).toContain("infra");
       expect(keys(reachablePerspectives())).toContain("infra");
       expect(findPerspectiveByPath("/infra")?.key).toBe("infra");
+      expect(findPerspectiveByPath("/infra")?.label).toBe("Infrastructure");
     });
   });
 

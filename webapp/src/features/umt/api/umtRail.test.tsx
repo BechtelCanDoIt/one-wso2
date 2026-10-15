@@ -23,8 +23,7 @@ import { HouseIcon } from "@wso2/oxygen-ui-icons-react";
 // When the rail asks UMT for the caller's roles. UMT's rows live inside
 // Engineering behind the `umt` flag, so its /update/user-info is asked only
 // while Engineering is open and the `umt` flag is on — never with UMT
-// switched off, and never from another perspective. Same contract as Finance MIS
-// (misPreviewFlagOff.test.tsx).
+// switched off, and never from another perspective.
 
 const asked = { enabled: [] as boolean[] };
 vi.mock("@features/umt/api/useUmtGate", async (importOriginal) => ({

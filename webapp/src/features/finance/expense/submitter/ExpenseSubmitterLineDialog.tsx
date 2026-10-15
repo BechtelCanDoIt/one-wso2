@@ -16,6 +16,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import {
+  Autocomplete,
   Box,
   Button,
   Dialog,
@@ -36,13 +37,14 @@ import { money, todayIso, daysAgoIso, toIso } from "../../util/financeFormat";
 import { RECEIPT_ACCEPT, EXPENSE_RECEIPT_MAX_BYTES, maxSizeLabel } from "../../util/financeReceipts";
 import { useExchangeRates } from "../useExpense";
 import type { ExpenseAppData } from "../expenseTypes";
+import { formatJobOption, formatJobOptionParts, jobSearchText, NO_JOB_OPTION, type JobOption } from "../expenseJobOption";
 import { useSubmitterExpenseTypes } from "./useExpenseSubmitter";
 import type { SubmitterDraftLine, SubmitterTravel } from "./expenseSubmitterTypes";
 
 const RECEIPT_TYPES = new Set(RECEIPT_ACCEPT.split(","));
 
 export const COMMENT_MAX = 100;
-export const NO_JOB = "N/A";
+export const NO_JOB = NO_JOB_OPTION.jobNumber;
 
 // One expense line on a claim being filed from the Finance side. Unlike the
 // Me-side form's dialog, the job numbers and expense types it offers belong to
@@ -123,6 +125,16 @@ export function SubmitterLineDialog({
     jobNumber === NO_JOB ? undefined : jobNumber,
     onBehalfOfEmail,
   );
+  const expenseTypeOptions = useMemo(
+    () => [...(expenseTypes.data ?? [])].sort((a, b) => a.type.localeCompare(b.type)),
+    [expenseTypes.data],
+  );
+
+  // "N/A (non-travel)" first, then every job the claim owner travelled on —
+  // the Job Number field's full option list, shared between its display
+  // label and its search.
+  const jobOptions = useMemo<JobOption[]>(() => [NO_JOB_OPTION, ...travels], [travels]);
+  const selectedJob = jobOptions.find((t) => t.jobNumber === jobNumber) ?? null;
 
   // Conversion rate for the chosen currency: 1 when it's already the
   // reimbursement currency; null when a foreign currency has no rate in the
@@ -191,7 +203,11 @@ export function SubmitterLineDialog({
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2} sx={{ pt: 0.5 }}>
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
+          {/* Bill date gets a fixed column wide enough for its value, the
+              native picker icon, and the open calendar popover without
+              clipping — 220px — so it stays fully visible while Job number
+              still gets the rest of the row. */}
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "220px 1fr" }, gap: 1.5 }}>
             <Box>
               <SubmitterFieldLabel>Bill date</SubmitterFieldLabel>
               <TextField
@@ -215,25 +231,54 @@ export function SubmitterLineDialog({
             </Box>
             <Box>
               <SubmitterFieldLabel>Job number</SubmitterFieldLabel>
-              <FormControl size="small" fullWidth>
-                <Select
-                  value={jobNumber}
-                  disabled={travelsLoading}
-                  inputProps={{ "aria-label": "Job number" }}
-                  onChange={(e) => {
-                    setJobNumber(String(e.target.value));
-                    setExpenseTypeId(""); // type list depends on the job number
-                  }}
-                >
-                  <MenuItem value={NO_JOB}>N/A (non-travel)</MenuItem>
-                  {travels.map((t) => (
-                    <MenuItem key={t.jobNumber} value={t.jobNumber}>
-                      {t.jobNumber}
-                      {t.customerName ? ` — ${t.customerName}` : ""}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+              <Autocomplete
+                size="small"
+                fullWidth
+                options={jobOptions}
+                value={selectedJob ?? undefined}
+                disabled={travelsLoading}
+                disableClearable
+                getOptionLabel={formatJobOption}
+                isOptionEqualToValue={(a, b) => a.jobNumber === b.jobNumber}
+                // Matches on job number, customer, or country — not just
+                // whatever MUI's default label-prefix match would catch — so
+                // typing a country finds every job run out of it.
+                filterOptions={(options, { inputValue }) => {
+                  const q = inputValue.trim().toLowerCase();
+                  return q.length === 0 ? options : options.filter((o) => jobSearchText(o).includes(q));
+                }}
+                onChange={(_e, v) => {
+                  setJobNumber(v ? v.jobNumber : NO_JOB);
+                  setExpenseTypeId(""); // type list depends on the job number
+                }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    placeholder="Select…"
+                    slotProps={{ htmlInput: { ...params.inputProps, "aria-label": "Job number" } }}
+                  />
+                )}
+                // Bill date's column is capped at 150px, so this one gets
+                // most of the row's width even though they sit side by side;
+                // noWrap plus the title attribute is only a fallback for the
+                // rare job/country combination still too long for that.
+                renderOption={(props, option) => {
+                  const { main, country } = formatJobOptionParts(option);
+                  return (
+                    <Box component="li" {...props} key={option.jobNumber} sx={{ minWidth: 0 }}>
+                      <Typography noWrap title={formatJobOption(option)} sx={{ fontSize: "inherit" }}>
+                        {main}
+                        {country && (
+                          <Box component="span" sx={{ color: "text.secondary", fontSize: 12 }}>
+                            {" "}
+                            ({country})
+                          </Box>
+                        )}
+                      </Typography>
+                    </Box>
+                  );
+                }}
+              />
             </Box>
           </Box>
 
@@ -291,24 +336,34 @@ export function SubmitterLineDialog({
 
           <Box>
             <SubmitterFieldLabel>Expense type</SubmitterFieldLabel>
-            <FormControl size="small" fullWidth>
-              <Select<number | "">
-                value={expenseTypeId}
-                onChange={(e) => setExpenseTypeId(e.target.value === "" ? "" : Number(e.target.value))}
-                disabled={expenseTypes.isLoading}
-                displayEmpty
-                inputProps={{ "aria-label": "Expense type" }}
-                renderValue={(v) =>
-                  v === "" ? <span style={{ opacity: 0.6 }}>Select a type…</span> : selectedType?.type ?? String(v)
-                }
-              >
-                {(expenseTypes.data ?? []).map((t) => (
-                  <MenuItem key={t.id} value={t.id}>
-                    {t.type}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Autocomplete
+              // The job number resetting this field externally (see below)
+              // only clears its VALUE — MUI keeps typed search text as
+              // separate internal state, which survives that reset while
+              // the dropdown happens to be open, leaving stale text next to
+              // an empty "No options" list. Remounting on job number is the
+              // reliable fix: a fresh instance has no leftover typed text.
+              key={jobNumber}
+              size="small"
+              fullWidth
+              disableClearable
+              options={expenseTypeOptions}
+              value={selectedType}
+              // The source (ExpenseForm.tsx:307) shows a spinner during the
+              // refetch a new job number triggers, but never locks the field
+              // over it — only `loading`, never `disabled`, here too.
+              loading={expenseTypes.isLoading}
+              getOptionLabel={(t) => t.type}
+              isOptionEqualToValue={(a, b) => a.id === b.id}
+              onChange={(_e, v) => setExpenseTypeId(v ? v.id : "")}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select a type…"
+                  slotProps={{ htmlInput: { ...params.inputProps, "aria-label": "Expense type" } }}
+                />
+              )}
+            />
           </Box>
 
           <Box>

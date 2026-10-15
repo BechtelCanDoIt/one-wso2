@@ -68,6 +68,7 @@ import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
+import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 
 export interface PerspectiveSection {
   id: string; // anchor id on the perspective's page (leaf sections)
@@ -465,11 +466,11 @@ const ME_SECTIONS: PerspectiveSection[] = [
   ...appsToSections(ME_PROMOTION_APPS),
 ];
 
-// Knowledge Base's one item so far. Its own perspective (not nested under Me)
+// Knowledge's one item so far. Its own perspective (not nested under Me)
 // since "a company-wide learnings feed" is a destination in its own right,
-// not a personal-portal item — see KNOWLEDGE_BASE in PERSPECTIVES below.
-const KNOWLEDGE_BASE_SECTIONS: PerspectiveSection[] = [
-  { id: "knowledge-base-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge-base" },
+// not a personal-portal item — see `knowledge` in PERSPECTIVES below.
+const KNOWLEDGE_SECTIONS: PerspectiveSection[] = [
+  { id: "knowledge-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge/today-i-learned" },
 ];
 
 // UMT, an app inside the Engineering perspective (see `engineering` in
@@ -516,30 +517,50 @@ export const UMT_ITEM_IDS: ReadonlySet<string> = new Set([
   UMT_SECTION.id,
   ...(UMT_SECTION.children ?? []).map((child) => child.id),
 ]);
-// Sales's rail: the meeting history, and CadO2 while its preview flag is on.
-const SALES_MEETINGS_SECTION: PerspectiveSection = {
-  id: "sales-meetings",
-  label: "Meetings",
+// Sales's rail: Echo, the meeting-intelligence product, as a group of its screens (Meetings so
+// far); Deals; and CadO2 while its preview flag is on.
+const SALES_ECHO_SECTION: PerspectiveSection = {
+  id: "sales-echo",
+  label: "Echo",
   // NOT RadioIcon, which belongs to the perspective itself. SideRail renders
   // the Overview row with `active.icon`, so a section reusing the perspective
   // icon puts the same glyph on two adjacent rows and the rail stops being
   // scannable. Video reads as "recorded call" and its solid rectangle is the
   // strongest silhouette contrast against Radio's arcs at 20px.
   icon: VideoIcon,
-  path: "/sales",
+  // A group even while Meetings is its only screen, the way CadO2 is: collapsed
+  // to a leaf the row would read "Echo" and the word Meetings would vanish from
+  // the rail until a second screen arrives -- see MenuApp.alwaysGroup.
+  alwaysGroup: true,
+  children: [
+    // The recordings Echo captured, with their transcripts and MEDDPICC evidence.
+    // The id is an internal key and does not need to match the label.
+    { id: "sales-meetings", label: "Meetings", path: "/sales/meetings" },
+  ],
+};
+
+// Sales's Library: Smart Search over Pitstop's content. A plain row with no `requires`, and not in
+// SALES_ITEM_IDS: it is not gated by the meet-app backend (ONE_WSO2_REVOPS_BACKEND_URL) that owns Meetings
+// and Deals. Pitstop's own backend decides what each caller may see. Held back by the `smartSearch` flag.
+const SALES_LIBRARY_SECTION: PerspectiveSection = {
+  id: "sales-library",
+  label: "Library",
+  icon: BookOpenIcon,
+  path: SMART_SEARCH_LIBRARY_PATH,
 };
 
 const SALES_SECTIONS: PerspectiveSection[] = [
-  SALES_MEETINGS_SECTION,
+  SALES_ECHO_SECTION,
   {
     // One row per Opportunity with its MEDDPICC state, beside the calls it came from.
-    // Served by the MEDDPICC backend rather than meet-app, but gated like Meetings: it is
+    // Served by the MEDDPICC backend rather than meet-app, but gated like Echo: it is
     // the same sales team, and meet-app's answer is the one the rail already has.
     id: "sales-deals",
     label: "Deals",
     icon: HandshakeIcon,
     path: "/sales/deals",
   },
+  ...(isPreviewEnabled("smartSearch") ? [SALES_LIBRARY_SECTION] : []),
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
   ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS) : []),
@@ -549,12 +570,20 @@ const SALES_SECTIONS: PerspectiveSection[] = [
  * Sales rail ids, which the rail must route through useSalesRailGate rather than `requires`
  * -- the same shape as SECURITY_ITEM_IDS. Access is decided by the meet-app backend's own
  * groups, so the only way to know a caller has none is its 403; until this gate existed the
- * Meetings row stayed in the rail beside a "Nothing here for you yet" card.
+ * Echo row stayed in the rail beside a "Nothing here for you yet" card.
  *
- * Meetings and Deals: CadO2's rows sit in the same perspective but belong to its own adapter, and
+ * The Echo group is here as well as its screens, the way UMT_ITEM_IDS carries its group: an
+ * id no adapter claims falls through to the capability check, and a group with no `requires`
+ * would pass it for everyone.
+ *
+ * Echo and Deals: CadO2's rows sit in the same perspective but belong to its own adapter, and
  * two adapters claiming one id is a test failure (claimConflicts).
  */
-export const SALES_ITEM_IDS: ReadonlySet<string> = new Set([SALES_MEETINGS_SECTION.id, "sales-deals"]);
+export const SALES_ITEM_IDS: ReadonlySet<string> = new Set([
+  SALES_ECHO_SECTION.id,
+  ...(SALES_ECHO_SECTION.children ?? []).map((child) => child.id),
+  "sales-deals",
+]);
 
 export interface PerspectiveDef {
   key: string;
@@ -598,13 +627,6 @@ export interface PerspectiveDef {
    *
    * Me is the one perspective that does not carry this: its landing is the
    * person's own profile, which is a page someone stops and reads.
-   *
-   * ALSO covers the near case where the landing does not forward because it
-   * already IS the first row's destination -- Sales, whose Meetings row points
-   * at `/sales` itself. The reason differs (nothing bounces) but the rail
-   * problem is identical: two rows, one destination, and the reader has to work
-   * out that they are the same place. The name is kept rather than split into a
-   * second near-identical flag.
    */
   forwardsToFirstItem?: boolean;
   sections?: PerspectiveSection[];
@@ -661,8 +683,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // Gated on the MIS ARR backend's own privileges, not on `requires` —
       // see useMisGate. Privilege 987 is also this app's PRIVILEGE.EMPLOYEE,
       // so reading one for the other would show company revenue to everyone.
-      // Behind the `mis` preview flag. The routes carry the same flag.
-      ...(isPreviewEnabled("mis") ? appsToSections(MIS_APPS) : []),
+      ...appsToSections(MIS_APPS),
       // Master Data last, under everything else. It is reference data an
       // administrator edits occasionally — subsidiaries, departments, expense
       // types, the card register — not a screen anyone opens to do their day's
@@ -741,26 +762,19 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/sales",
     sections: SALES_SECTIONS,
   },
-  // Knowledge Base, so far just Today I Learned's feed. Held behind a preview
-  // flag until til-backend has a real Choreo deployment and the Chat App side
-  // is registered — see isPreviewEnabled("til")'s doc comment in
-  // previewFeatures.ts. Its own perspective rather than nested under Me or
-  // People Ops: a company-wide feed is a destination in its own right, same
-  // reasoning as Sales/Marketing Ops getting their own waffle tile instead of
-  // living under an existing one.
-  ...(isPreviewEnabled("til")
-    ? [
-        {
-          key: "knowledge-base",
-          label: "Knowledge",
-          icon: BookOpenIcon,
-          access: true,
-          path: "/knowledge-base",
-          forwardsToFirstItem: true,
-          sections: KNOWLEDGE_BASE_SECTIONS,
-        },
-      ]
-    : []),
+  // Knowledge, so far just Today I Learned's feed. Its own perspective rather
+  // than nested under Me or People Ops: a company-wide feed is a destination
+  // in its own right, same reasoning as Sales/Marketing Ops getting their own
+  // waffle tile instead of living under an existing one.
+  {
+    key: "knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    access: true,
+    path: "/knowledge",
+    forwardsToFirstItem: true,
+    sections: KNOWLEDGE_SECTIONS,
+  },
   // Download Stats is the first engineering tool (ADR 0001). It is not under
   // Infra Portal: Infra is GitHub administration, and this is release
   // downloads, package downloads, and repository stats. It is an app inside
@@ -788,7 +802,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
   ? [
       {
         key: "infra",
-        label: "Infra Portal",
+        label: "Infrastructure",
         icon: ServerIcon,
         access: true,
         path: "/infra",
@@ -851,6 +865,10 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     access: true,
     path: "/security",
     forwardsToFirstItem: true,
+    // The "User Guide" row is NOT here: it covers Risk Hub AND Audit Hub, so
+    // it belongs to neither one's group, and it's fetched from the GRC
+    // backend (GET_USER_GUIDE_URL) rather than carried as registry data — see
+    // useUserGuideUrl and SideRail's own pinned-to-bottom category.
     sections: [...appsToSections(SECURITY_APPS)],
   },
   // "Me" is the Home landing: the person's own profile plus everyday apps —

@@ -100,16 +100,8 @@ export interface MeetingsQueryParams {
   search: string | null;
   /** Region name, or null for every region. */
   region: string | null;
-  /**
-   * True for the Past scope, which asks for meetings that have already ended.
-   *
-   * A boolean rather than the timestamp itself, deliberately. The cutoff is "now", and
-   * "now" has to advance -- a caller that computes it once and passes it in freezes the
-   * list at the moment the scope was chosen, and because the value would also be part of
-   * the query key, every later refetch reuses the stale key and cannot recover. So the
-   * instant is produced inside the fetch below, where it is fresh every time.
-   */
-  pastOnly: boolean;
+  /** True for the Echo scope: only meetings the calendar add-on registered. */
+  echoOnly: boolean;
   page: number;
   pageSize: number;
 }
@@ -127,20 +119,23 @@ export interface MeetingsQueryParams {
  */
 export function useMeetings(params: MeetingsQueryParams) {
   const { getAccessToken, subState, retryIdentity, userSub, ready } = useSalesQueryBasis();
-  const { search, region, pastOnly, page, pageSize } = params;
+  const { search, region, echoOnly, page, pageSize } = params;
 
   const query = useQuery<MeetingList>({
-    // `pastOnly`, not the instant it resolves to: an exact timestamp in the key would
-    // make every render a new key. Freshness comes from staleTime instead -- each refetch
-    // recomputes the cutoff below.
-    queryKey: ["sales-meetings", userSub, search, region, pastOnly, page, pageSize],
+    // Every scope lists only meetings that have already ended. The cutoff is "now", and
+    // it is produced inside the fetch rather than passed in: a caller computing it once
+    // would freeze the list at the moment the scope was chosen, and as part of the key it
+    // would make every render a new key. Each fetch recomputes the cutoff below. There is
+    // no polling: an open page refreshes on a filter, page or search change, or on remount.
+    queryKey: ["sales-meetings", userSub, search, region, echoOnly, page, pageSize],
     enabled: ready,
     queryFn: async () =>
       authedGet<MeetingList>(
         buildMeetingsUrl({
           searchString: search,
           region,
-          endTime: pastOnly ? new Date().toISOString() : null,
+          endTime: new Date().toISOString(),
+          source: echoOnly ? "echo" : null,
           limit: pageSize,
           offset: page * pageSize,
         }),

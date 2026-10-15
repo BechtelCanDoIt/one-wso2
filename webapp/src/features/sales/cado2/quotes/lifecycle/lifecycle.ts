@@ -18,8 +18,15 @@
 // comparison (worked out in the browser) and the history timeline.
 // Pure functions only, so each is unit-tested without rendering.
 
-import type { AuditEvent, ContactView, AddressView, DraftResponse, VersionStatus } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import type {
+  AuditEvent,
+  ContactView,
+  AddressView,
+  DraftResponse,
+  OpportunityQuote,
+  VersionStatus,
+} from "@features/sales/cado2/quotes/api/quoteTypes";
+import { BILLING_LABEL, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { MODE_LABEL } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
@@ -35,18 +42,16 @@ export const STATUS_LABEL: Record<VersionStatus, string> = {
   RECALLED: "Recalled",
   CLOSED: "Closed",
   APPROVED: "Approved",
-  REJECTED: "Rejected",
-  CHANGES_REQUESTED: "Changes requested",
+  RETURNED: "Returned",
 };
 
 export const STATUS_COLOR: Record<VersionStatus, "default" | "primary" | "warning" | "error" | "success"> = {
   DRAFT: "default",
   SUBMITTED: "primary",
   RECALLED: "warning",
-  CLOSED: "error",
+  CLOSED: "default", // an end, not an error (2026-10-14)
   APPROVED: "success",
-  REJECTED: "error",
-  CHANGES_REQUESTED: "warning",
+  RETURNED: "warning",
 };
 
 /** The label for a quote's status, which is its latest version's. */
@@ -128,7 +133,7 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
     v.termMode ? `${MODE_LABEL[v.termMode]}${v.termMode === "MULTI_YEAR" && v.termYears ? ` · ${v.termYears} years` : ""}` : DASH;
   add("Products", "Subscription term", termText(va), termText(vb));
   add("Products", "End date", formatDate(va.subscriptionEndDate), formatDate(vb.subscriptionEndDate));
-  add("Products", "Billing", text(va.billingFrequency), text(vb.billingFrequency));
+  add("Products", "Billing", text(va.billingFrequency && BILLING_LABEL[va.billingFrequency]), text(vb.billingFrequency && BILLING_LABEL[vb.billingFrequency]));
   const commission = (p: string | null | undefined) => (p ? `${Number(p)}%` : DASH);
   add("Products", "Partner commission", commission(va.partnerCommissionPercent), commission(vb.partnerCommissionPercent));
 
@@ -208,6 +213,11 @@ export function groupHistory(events: readonly AuditEvent[]): HistoryEntry[] {
 
 const roleOf = (meta: Record<string, unknown>) => (typeof meta.role === "string" ? roleLabel(meta.role) : "An approver");
 
+/** A primary quote named for others (D68): "Q-26-00031 (nimesha@wso2.com)", or "A draft by …" before its first submit. */
+export function primaryLabel(q: Pick<OpportunityQuote, "quoteNumber" | "ownerEmail">): string {
+  return q.quoteNumber ? `${q.quoteNumber} (${q.ownerEmail})` : `A draft by ${q.ownerEmail}`;
+}
+
 /**
  * A quote's name: its number once it has been submitted, otherwise its
  * customer and deal, e.g. "Acme Corp · APIM renewal 2026".
@@ -236,6 +246,26 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `${v} created${typeof meta.copiedFromVersion === "number" ? ` (revised from v${meta.copiedFromVersion})` : ""}`;
     case "QUOTE_CLOSED":
       return "Quote closed";
+    // Salesforce sync (D77): what changed there, or why it was refused.
+    case "QUOTE_SYNCED": {
+      const n = (k: string) => (typeof meta[k] === "number" ? (meta[k] as number) : 0);
+      return `${v} synced to Salesforce · ${n("updated")} updated, ${n("added")} added, ${n("removed")} removed`;
+    }
+    case "QUOTE_SYNC_FAILED":
+      return `Salesforce refused the sync of ${v.toLowerCase()}${
+        Array.isArray(meta.reasons) && meta.reasons.length ? `: ${meta.reasons.join("; ")}` : ""
+      }`;
+    // Primary quote (D68): metadata names the other quote involved, if any.
+    case "QUOTE_MADE_PRIMARY":
+      return typeof meta.releasedQuoteNumber === "string"
+        ? `Made the primary quote, releasing ${meta.releasedQuoteNumber}`
+        : "Made the primary quote";
+    case "QUOTE_PRIMARY_RELEASED":
+      return typeof meta.byQuoteNumber === "string"
+        ? `No longer the primary quote: ${meta.byQuoteNumber} was made primary`
+        : typeof meta.byQuoteId === "number"
+          ? "No longer the primary quote: another quote was made primary"
+          : "No longer the primary quote";
     case "APPROVAL_WORKFLOW_CREATED": {
       const n = Array.isArray(meta.steps) ? meta.steps.length : 0;
       return `${v} approval started${n ? ` · ${n} approval${n === 1 ? "" : "s"} needed` : ""}`;
@@ -244,10 +274,10 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `Waiting on ${roleOf(meta)}`;
     case "APPROVAL_APPROVED":
       return `${roleOf(meta)} approved ${v.toLowerCase()}`;
-    case "APPROVAL_REJECTED":
+    case "APPROVAL_REJECTED": // history from before Reject was merged into Return (2026-10-12)
       return `${roleOf(meta)} rejected ${v.toLowerCase()}`;
-    case "APPROVAL_CHANGES_REQUESTED":
-      return `${roleOf(meta)} asked for changes to ${v.toLowerCase()}`;
+    case "APPROVAL_RETURNED":
+      return `${roleOf(meta)} returned ${v.toLowerCase()}`;
     case "VERSION_APPROVED":
       return `${v} fully approved`;
     case "ORDER_FORM_PREVIEWED":

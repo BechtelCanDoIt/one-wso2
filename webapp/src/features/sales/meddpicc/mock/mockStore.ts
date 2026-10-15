@@ -296,7 +296,7 @@ function coverageFor(meetingId: number): MeetingCoverage {
 
 function approve(deal: MockDeal, request: ApproveRequest): ApproveResult {
   const path = `/deals/${deal.summary.opportunityId}/approve`;
-  if (!deal.canEdit) fail(path, 403, { message: "Only the Opportunity owner, a call host or a Sales admin can approve." });
+  if (!deal.canEdit) fail(path, 403, { message: "Only the Opportunity owner can approve." });
 
   const edits = request.edits ?? {};
   const matches = request.roleMatches ?? {};
@@ -358,7 +358,7 @@ function approve(deal: MockDeal, request: ApproveRequest): ApproveResult {
 
 function moveStage(deal: MockDeal, toStage: string): { stage: string } {
   const path = `/deals/${deal.summary.opportunityId}/move-stage`;
-  if (!deal.canEdit) fail(path, 403, { message: "Only the Opportunity owner, a call host or a Sales admin can move the stage." });
+  if (!deal.canEdit) fail(path, 403, { message: "Only the Opportunity owner can move the stage." });
   const incomplete = incompleteFields(deal);
   if (incomplete.length > 0) {
     fail(path, 409, { message: `The ${deal.summary.stage} Gate isn't complete yet.`, incomplete });
@@ -375,7 +375,7 @@ function moveStage(deal: MockDeal, toStage: string): { stage: string } {
 
 function includeCalls(deal: MockDeal, meetingIds: number[]): DealDetail {
   const path = `/deals/${deal.summary.opportunityId}/include-calls`;
-  if (!deal.canEdit) fail(path, 403, { message: "Only the Opportunity owner, a call host or a Sales admin can include calls." });
+  if (!deal.canEdit) fail(path, 403, { message: "Only the Opportunity owner can include calls." });
   const taken = deal.unassigned.filter((u) => meetingIds.includes(u.call.meetingId));
   for (const { call, coverage, proposals } of taken) {
     deal.calls.push({ meetingId: call.meetingId, title: call.title, start: call.start, host: call.host, coverage });

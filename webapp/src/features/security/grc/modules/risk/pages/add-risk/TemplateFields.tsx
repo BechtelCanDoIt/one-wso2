@@ -21,7 +21,7 @@ import type { JSX } from "react";
 import type { LookupOption, RegisterTemplate } from "../../api/riskApi";
 import FieldLabel from "./FieldLabel";
 import PillMultiSelect from "./PillMultiSelect";
-import RequestCustomerDialog from "./RequestCustomerDialog";
+import AddCustomerDialog from "./AddCustomerDialog";
 import { ENVIRONMENTS } from "./templates";
 import type { AddRiskFormValues } from "./types";
 
@@ -39,6 +39,9 @@ interface TemplateFieldsProps {
 
 interface CustomerFieldProps {
   lookups: Pick<TemplateLookups, "customers">;
+  // Called when the user adds a customer from here, so the page can add it to
+  // the list this field renders.
+  onCustomerAdded: (customer: LookupOption) => void;
 }
 
 // The Managed Services customer. It sits directly under the Source Register,
@@ -46,9 +49,9 @@ interface CustomerFieldProps {
 // number after it counts per customer: until a customer is chosen there is no
 // code to preview. It can't come before the register — the register's template
 // decides whether a risk has a customer at all.
-export function CustomerField({ lookups }: CustomerFieldProps): JSX.Element {
-  const { control, clearErrors } = useFormContext<AddRiskFormValues>();
-  const [requesting, setRequesting] = useState(false);
+export function CustomerField({ lookups, onCustomerAdded }: CustomerFieldProps): JSX.Element {
+  const { control, clearErrors, setValue } = useFormContext<AddRiskFormValues>();
+  const [adding, setAdding] = useState(false);
 
   return (
     <Box sx={{ maxWidth: { sm: "50%" } }}>
@@ -81,15 +84,23 @@ export function CustomerField({ lookups }: CustomerFieldProps): JSX.Element {
             {fieldState.error && <FormHelperText error>{fieldState.error.message}</FormHelperText>}
             <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
               Can't find the customer?{" "}
-              <Link component="button" type="button" variant="caption" onClick={() => setRequesting(true)}>
-                Request it
+              <Link component="button" type="button" variant="caption" onClick={() => setAdding(true)}>
+                Add new customer
               </Link>
               . Its code goes into the risk code and can't be changed after the risk is created.
             </Typography>
           </Box>
         )}
       />
-      <RequestCustomerDialog open={requesting} onClose={() => setRequesting(false)} />
+      <AddCustomerDialog
+        open={adding}
+        onClose={() => setAdding(false)}
+        onCreated={(customer) => {
+          onCustomerAdded(customer);
+          setValue("customer", customer.id, { shouldValidate: true, shouldDirty: true });
+          clearErrors("customer");
+        }}
+      />
     </Box>
   );
 }
