@@ -2081,10 +2081,8 @@ export const smartSearchServiceUrls = {
 //     the kind of value an operator pastes with a slash on the end; unstripped
 //     it yields `//user-info` and whether that 404s is up to the gateway.
 //
-// A *.choreoapis.dev URL here is a DEFECT, not an alternative. Choreo
-// advertises one for every endpoint beside the vanity URL, and the CSP in
-// vite.config.ts allows only *.wso2.com and *.asgardeo.io — so a production
-// build fails those calls with nothing in the console.
+// Prefer the *.wso2.com vanity URL over the *.choreoapis.dev one Choreo
+// advertises beside it. The CSP in vite.config.ts's connect-src allows both.
 export const misArrBackendUrl: string = stripTrailingSlashes(
   window.config?.ONE_WSO2_MIS_ARR_BACKEND_URL ?? "",
 );

@@ -136,10 +136,9 @@ declare global {
       // absent, UmtShell shows a not-connected state and makes no UMT requests.
       // Its /update/user-info roles are local to UMT, not People capabilities.
       ONE_WSO2_UMT_BACKEND_URL?: string;
-      // Finance MIS's ARR service, which also serves its /user-info. Take the
-      // *.wso2.com gateway URL, never the *.choreoapis.dev one Choreo advertises
-      // beside it — the CSP blocks the latter and the failure is silent in a
-      // production build. The version segment is part of the URL and differs by
+      // Finance MIS's ARR service, which also serves its /user-info. Prefer the
+      // *.wso2.com gateway URL over the *.choreoapis.dev one Choreo advertises
+      // beside it; the CSP allows both. The version segment is part of the URL and differs by
       // environment: /v1 in production, /v1.0 in staging. MIS's Flash and Admin
       // services have no key here: they serve only the Flash Dashboard, which
       // stays in the MIS app.
