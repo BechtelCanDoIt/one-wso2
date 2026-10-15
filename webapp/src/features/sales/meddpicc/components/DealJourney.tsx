@@ -31,32 +31,29 @@ const DAY = 86_400_000;
 function useKindColor(): (kind: TimelineKind) => string {
   const theme = useTheme();
   const dark = theme.palette.mode === "dark";
-  return (kind) => {
-    const k = KINDS[kind];
-    return (dark ? k.dark : k.light) ?? theme.palette.text.secondary;
-  };
+  return (kind) => (dark ? KINDS[kind].dark : KINDS[kind].light);
 }
 
+/**
+ * One mark: a plain solid dot in its kind's hue. Something still to come is the same dot,
+ * hollow, with a dashed outline. A ring of the surface keeps marks on the same day apart.
+ */
 export function KindMark({ kind, upcoming, scale = 1 }: { kind: TimelineKind; upcoming: boolean; scale?: number }) {
   const color = useKindColor()(kind);
-  const k = KINDS[kind];
-  const size = Math.round(k.size * scale);
-  const hollow = upcoming || k.shape === "ring";
+  const size = Math.round(KINDS[kind].size * scale);
   return (
     <Box
       component="span"
       aria-hidden
+      data-kind-mark={kind}
       sx={{
         display: "block",
         width: size,
         height: size,
         boxSizing: "border-box",
-        border: 2,
-        borderColor: color,
-        bgcolor: hollow ? "background.paper" : color,
-        borderRadius: k.shape === "diamond" ? 0.25 : "50%",
-        transform: k.shape === "diamond" ? "rotate(45deg) scale(0.85)" : undefined,
-        // A ring of the surface, so marks on the same day stay separate.
+        borderRadius: "50%",
+        bgcolor: upcoming ? "background.paper" : color,
+        border: upcoming ? `1.5px dashed ${color}` : "none",
         boxShadow: (theme) => `0 0 0 2px ${theme.palette.background.paper}`,
       }}
     />
@@ -85,7 +82,7 @@ export function DealJourneyLegend() {
     <Stack spacing={0.5} sx={{ typography: "caption", color: "inherit", py: 0.25 }}>
       <Box sx={{ fontWeight: 700 }}>Each deal, from its start to its close</Box>
       {KIND_ORDER.map((kind) => swatch(<KindMark kind={kind} upcoming={false} />, KINDS[kind].label))}
-      {swatch(<KindMark kind="CUSTOMER_CALL" upcoming scale={0.8} />, "Upcoming (hollow)")}
+      {swatch(<KindMark kind="CUSTOMER_CALL" upcoming scale={0.8} />, "Upcoming (dashed outline)")}
       {swatch(
         <Box sx={{ width: 14, height: 6, borderRadius: 0.5, bgcolor: "currentColor", opacity: 0.45 }} />,
         "Stage: darker further along",
