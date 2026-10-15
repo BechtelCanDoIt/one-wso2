@@ -218,11 +218,9 @@ describe("a People Ops report", () => {
 
   it("does not apply an unfetched date along with the switch", async () => {
     const user = (await import("@testing-library/user-event")).default.setup();
-    const { container } = show();
+    show();
     const appliedFrom = lastFilter().startDate;
-    // The From field: its caption is a sibling Typography, not a <label>.
-    const from = container.querySelector<HTMLInputElement>('input[type="date"]')!;
-    fireEvent.change(from, { target: { value: "2020-01-01" } });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2020-01-01" } });
     await user.click(screen.getByRole("switch", { name: /Subordinates only/ }));
     expect(lastFilter().startDate).toBe(appliedFrom);
   });

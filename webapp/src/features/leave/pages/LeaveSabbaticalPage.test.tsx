@@ -685,11 +685,14 @@ describe("the sabbatical report tab", () => {
     expect(screen.queryByLabelText(/Employee status/i)).not.toBeInTheDocument();
   });
 
+  // The To picker refuses a date before From, but From can still be moved past
+  // a To that is already set, so Fetch keeps its own check.
   it("refuses a range that ends before it starts", async () => {
     state.isLead = true;
     show(<SabbaticalReportTab />);
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2027-05-01" } });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2027-03-01" } });
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "2027-04-01" } });
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2027-05-01" } });
     fireEvent.click(screen.getByRole("button", { name: /Fetch report/ }));
     expect(await screen.findByText("End date must be after start date")).toBeInTheDocument();
   });
