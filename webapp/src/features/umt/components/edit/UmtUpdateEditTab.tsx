@@ -15,7 +15,7 @@
 // under the License.
 
 import { useEffect, useState } from "react";
-import { Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtLifecycleState } from "../../api/umtTypes";
@@ -240,6 +240,12 @@ export default function UmtUpdateEditTab({
         <Typography variant="h6">Demoting from Staging...</Typography>
       </Stack>
     );
+  }
+
+  // Duplicate is a dead end: no lifecycle state leads out of it, so there is
+  // no workflow left to step through.
+  if (lifecycleState === "Duplicate") {
+    return <Alert severity="info">This update is a duplicate, so it has no update flow to edit.</Alert>;
   }
 
   return (
