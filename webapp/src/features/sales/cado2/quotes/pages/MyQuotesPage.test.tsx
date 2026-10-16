@@ -155,7 +155,7 @@ beforeEach(() => {
 });
 
 describe("Quotes page", () => {
-  it("shows my quotes as compact rows, with each tab's count and the status chips' counts", async () => {
+  it("shows my quotes as compact rows, with each tab's count", async () => {
     renderPage();
 
     expect(screen.getByRole("heading", { name: "Quotes" })).toBeInTheDocument();
@@ -166,19 +166,9 @@ describe("Quotes page", () => {
     expect(
       screen.getByRole("tab", { name: "All quotes 6" }),
     ).toBeInTheDocument();
-    const chips = within(
-      screen.getByRole("group", { name: "Filter by status" }),
-    );
-    for (const name of [
-      "All 5",
-      "Draft 1",
-      "In approval 1",
-      "Approved 2",
-      "To revise 1",
-      "Closed 0",
-    ]) {
-      expect(chips.getByRole("button", { name })).toBeInTheDocument();
-    }
+    // Gone (2026-10-15 feedback): the status chips; the Status column stays.
+    expect(screen.queryByRole("group", { name: "Filter by status" })).toBeNull();
+    expect(within(table()).getByRole("columnheader", { name: /Status/ })).toBeInTheDocument();
     // Gone (2026-10-12 feedback): the big cards, "Needs your attention", "Expiring within 7 days".
     expect(screen.queryByRole("group", { name: "Quote counts" })).toBeNull();
     expect(
@@ -209,13 +199,10 @@ describe("Quotes page", () => {
     ); // the whole row opens it
   });
 
-  it("filters by a status chip, searches, and clears", async () => {
+  it("searches, and clears the search", async () => {
     renderPage();
     const user = userEvent.setup();
 
-    await user.click(screen.getByRole("button", { name: "Approved 2" }));
-    expect(bodyRows()).toHaveLength(2);
-    await user.click(screen.getByRole("button", { name: "All 5" }));
     await user.type(
       screen.getByRole("textbox", { name: "Search quotes" }),
       "northwind",
@@ -227,9 +214,21 @@ describe("Quotes page", () => {
       "zzz",
     );
     expect(screen.getByText("No quotes match")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await user.click(screen.getByRole("button", { name: "Clear search" }));
     expect(bodyRows()).toHaveLength(5);
+    expect(screen.getByRole("textbox", { name: "Search quotes" })).toHaveValue("");
   });
+
+  // 2026-10-15: the tabs, search and layout are the table's own toolbar.
+  it("puts the tabs, search and layout on the table's card", () => {
+    renderPage();
+    const card = table().closest(".MuiPaper-root") as HTMLElement;
+    expect(within(card).getByRole("tablist", { name: "Whose quotes" })).toBeInTheDocument();
+    expect(within(card).getByRole("textbox", { name: "Search quotes" })).toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: "List" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(card).getByRole("button", { name: "Tree" })).toBeInTheDocument();
+  });
+
 
   it("shows everyone's quotes on All quotes, with an Owner column, found by search; others' rows are read-only", async () => {
     renderPage();

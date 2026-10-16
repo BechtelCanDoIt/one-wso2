@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { QuoteListItem } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { changedAgo, countQuotes, filterQuotes, groupQuotes, sortQuotes } from "./quoteListModel";
+import { changedAgo, filterQuotes, groupQuotes, sortQuotes } from "./quoteListModel";
 
 const now = new Date("2026-10-01T12:00:00Z");
 const q = (id: number, over: Partial<QuoteListItem>): QuoteListItem => ({
@@ -50,22 +50,11 @@ const items = [
 ];
 
 describe("My Quotes model", () => {
-  it("counts by status", () => {
-    expect(countQuotes(items)).toEqual({ all: 8, drafts: 1, submitted: 3, approved: 1, toRevise: 2, recalled: 1, closed: 1 });
-    // "To revise" gathers what is back with the owner.
-    expect(filterQuotes(items, "TO_REVISE", "").map((x) => x.id)).toEqual([5, 8]);
-  });
-
-  it("filters by status", () => {
-    expect(filterQuotes(items, "SUBMITTED", "").map((x) => x.id)).toEqual([2, 3, 4]);
-    expect(filterQuotes(items, "", "")).toHaveLength(8);
-  });
-
   it("searches quote number, account and opportunity, ignoring case", () => {
-    expect(filterQuotes(items, "", "northWIND").map((x) => x.id)).toEqual([2]);
-    expect(filterQuotes(items, "", "api platform").map((x) => x.id)).toEqual([2]);
-    expect(filterQuotes(items, "", "Q-26-00005").map((x) => x.id)).toEqual([5]);
-    expect(filterQuotes(items, "DRAFT", "northwind")).toEqual([]);
+    expect(filterQuotes(items, "northWIND").map((x) => x.id)).toEqual([2]);
+    expect(filterQuotes(items, "api platform").map((x) => x.id)).toEqual([2]);
+    expect(filterQuotes(items, "Q-26-00005").map((x) => x.id)).toEqual([5]);
+    expect(filterQuotes(items, "  ")).toHaveLength(8);
   });
 
   it("says when a quote last changed", () => {
@@ -81,7 +70,7 @@ describe("My Quotes model", () => {
 describe("Quotes page model", () => {
   it("searches owners too", () => {
     const mixed = [q(1, {}), q(2, { ownerEmail: "nimesha@wso2.com" })];
-    expect(filterQuotes(mixed, "", "nimesha").map((x) => x.id)).toEqual([2]);
+    expect(filterQuotes(mixed, "nimesha").map((x) => x.id)).toEqual([2]);
   });
 
   it("groups by account, then opportunity, in list order, naming each opportunity's primary quote", () => {

@@ -126,6 +126,15 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
                 {l.productCode}
               </Typography>
             ) : null}
+            {/* How a formula line's unit price was worked out (D81); it has no discount. */}
+            {l.formula ? (
+              <Typography variant="caption" color="text.secondary" display="block" aria-label="Priced by formula">
+                Formula {l.formula.version}:{" "}
+                <Box component="span" sx={{ fontFamily: "monospace" }}>
+                  {l.formula.explanation}
+                </Box>
+              </Typography>
+            ) : null}
             {!l.category ? categoryNote?.(index) : null}
             {l.categoryByRep && l.category ? (
               <Chip
