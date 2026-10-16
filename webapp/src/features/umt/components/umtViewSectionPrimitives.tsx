@@ -177,6 +177,7 @@ export function SectionError({ title, onRetry }: { title: string; onRetry: () =>
 
 export interface ViewQueryState<Data> {
   data: Data | undefined;
+  error?: unknown;
   isError: boolean;
   isPending: boolean;
   refetch: () => unknown;
