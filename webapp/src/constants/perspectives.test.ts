@@ -146,19 +146,23 @@ describe("the Library's rail entry", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
 
-  it("is a Library row under Sales, after Deals, once the flag is on", async () => {
+  it("is a Library row inside a Sales Pitstop group, after Deals, once the flag is on", async () => {
     const perspectives = await load({ smartSearch: true });
-    const row = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-library");
+    const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-pitstop");
+    expect(group?.label).toBe("Sales Pitstop");
+    expect(group?.alwaysGroup).toBe(true);
+    expect(group?.children?.map((child) => child.id)).toEqual(["sales-library"]);
+    const row = group?.children?.[0];
     expect(row?.label).toBe("Library");
     expect(row?.path).toBe("/sales/library");
-    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-deals", "sales-library"]);
+    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-deals", "sales-pitstop"]);
   });
 
   it("sits before CadO2 when both flags are on", async () => {
     expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
       "sales-echo",
       "sales-deals",
-      "sales-library",
+      "sales-pitstop",
       "sec-app-cado2",
     ]);
   });
