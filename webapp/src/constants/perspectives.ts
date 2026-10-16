@@ -50,6 +50,7 @@ import {
   ServerIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
+import type { ComponentType } from "react";
 import type { Capability, MenuApp } from "@constants/appMenu";
 import {
   FINANCE_OVERVIEW_APPS,
@@ -69,6 +70,7 @@ import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
+import type { RailIconProps } from "@features/sales/components/SalesBrandIcons";
 
 export interface PerspectiveSection {
   id: string; // anchor id on the perspective's page (leaf sections)
@@ -76,7 +78,8 @@ export interface PerspectiveSection {
   // App groups (Leave, Menu, Finance) carry an icon + nested children.
   // A section with `children` renders as a collapsible group in the rail; a
   // leaf section scrolls to its `id`.
-  icon?: LucideIcon;
+  // A line icon, or a product's own logo (see SalesBrandIcons) -- the rail only renders it.
+  icon?: LucideIcon | ComponentType<RailIconProps>;
   // Visible when the caller has ANY of these capabilities (OR semantics).
   // Omitted = visible to everyone. Only app-menu registries (Leave, Finance,
   // Finance) use this.
