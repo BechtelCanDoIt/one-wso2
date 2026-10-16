@@ -404,6 +404,8 @@ const updatesGridSx = {
     zIndex: 2,
     boxShadow: "-2px 0 4px rgba(0, 0, 0, 0.15)",
   },
+  "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": { outline: "none" },
+  "& .MuiDataGrid-cell:focus-visible": { outline: "auto 1px" },
 } as const;
 function renderCell(row: UmtUpdateSummary, key: ColumnKey): ReactNode {
   switch (key) {

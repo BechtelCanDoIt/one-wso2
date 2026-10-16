@@ -47,6 +47,11 @@ export function useUmtUpdates(request: UmtUpdateSearchRequest) {
       return response;
     },
     placeholderData: keepPreviousData,
+    // Opted back in because the app-wide client disables it. Changes such as
+    // On Hold or Mark as Duplicate are made on the update's own page, while
+    // this list is unmounted, and invalidating an unmounted query only marks
+    // it stale; without this, returning to the table showed the old state.
+    refetchOnMount: true,
     retry: httpRetry,
   });
 
