@@ -20,11 +20,9 @@ import { describe, expect, it } from "vitest";
 import {
   breakdownDateRange,
   buildBreakdown,
-  buildManagerReminderMessage,
   reportingWindowLabel,
   summaryDateFrom,
 } from "./ccDashboard";
-import type { CcManagerCompliance } from "./ccTypes";
 
 // The dashboard's arithmetic, from view/dashboard/utils.ts. Expected values are
 // worked out from the rules, not read off a run.
@@ -115,82 +113,5 @@ describe("the category breakdown", () => {
       now,
     );
     expect(b.grandTotal).toBe(1500);
-  });
-});
-
-// ccDashboard.ts:182 — the reminder a manager is sent, copied from the
-// manager-compliance table. Its greeting uses the manager's first name.
-describe("the manager reminder", () => {
-  const manager: CcManagerCompliance = {
-    managerEmail: "lead@wso2.com",
-    managerName: "Lead Person",
-    reportCount: 2,
-    outstandingAmount: 1200,
-    transactionCount: 5,
-    avgPendingDays: 20,
-    bucket0To7: 1,
-    bucket8To14: 1,
-    bucket15To30: 2,
-    bucket30Plus: 1,
-    reports: [
-      {
-        employeeEmail: "late@wso2.com",
-        cardHolderName: "Late Filer",
-        outstandingAmount: 700,
-        transactionCount: 2,
-        avgDaysToSubmit: 41.5,
-        bucket0To7: 0,
-        bucket8To14: 0,
-        bucket15To30: 1,
-        bucket30Plus: 1,
-      },
-      {
-        employeeEmail: "quiet@wso2.com",
-        cardHolderName: "",
-        outstandingAmount: 500,
-        transactionCount: 1,
-        avgDaysToSubmit: 5,
-        bucket0To7: 1,
-        bucket8To14: 0,
-        bucket15To30: 0,
-        bucket30Plus: 0,
-      },
-    ],
-  };
-
-  it("greets the manager by first name and lists each report with their own figures", () => {
-    const message = buildManagerReminderMessage(manager, "USD");
-    expect(message.split("\n")).toEqual([
-      "Hi Lead, 2 of your direct reports have unsubmitted credit card transactions:",
-      "- Late Filer: 2 items, USD 700, avg 41.5 days pending",
-      "- quiet@wso2.com: 1 item, USD 500, avg 5.0 days pending",
-      "Total unsubmitted across your team: 5 transactions, USD 1,200, avg 20.0 days outstanding.",
-      "Unsubmitted by age:",
-      "- 0-7 days: 1",
-      "- 8-14 days: 1",
-      "- 15-30 days: 2",
-      "- 30+ days: 1",
-      "Please remind them to submit their claims promptly.",
-    ]);
-  });
-
-  it("leaves the average off a report that has no submit history to average", () => {
-    const noHistory = { ...manager.reports[0], avgDaysToSubmit: null };
-    const message = buildManagerReminderMessage({ ...manager, reports: [noHistory] }, "USD");
-
-    expect(message).toContain("- Late Filer: 2 items, USD 700\n");
-    expect(message).not.toContain("avg null");
-  });
-
-  it("uses a single report's wording when only one is outstanding", () => {
-    const message = buildManagerReminderMessage({ ...manager, reports: [manager.reports[0]] }, "USD");
-    expect(message).toContain("Hi Lead, 1 of your direct reports has unsubmitted credit card transactions:");
-  });
-
-  it("still greets a manager with no name on record, rather than 'Hi ,'", () => {
-    const message = buildManagerReminderMessage({ ...manager, managerName: "" }, "USD");
-    expect(message.split("\n")[0]).toBe(
-      "Hi there, 2 of your direct reports have unsubmitted credit card transactions:",
-    );
   });
 });

@@ -523,6 +523,11 @@ export const ccServiceUrls = {
   // Admin view's "Group by: Reporting Manager" — the same backlog rolled up
   // under each report's manager. Finance only, enforced server-side.
   managerCompliance: `${ccBackendUrl}/transactions/manager-compliance-summary`,
+  // POST — emails one reporting manager their team's unsubmitted backlog, copying
+  // the caller. Takes only the manager and the date range: the backend reads the
+  // figures itself at send time, so a reminder never carries what this page last
+  // fetched. Finance only, enforced server-side.
+  managerReminder: `${ccBackendUrl}/transactions/manager-reminder`,
   // Lead view: every lead's approval backlog, and one lead's team within it.
   leadApprovalSummary: `${ccBackendUrl}/transactions/lead-approval-summary`,
   leadTeamCardHolders: `${ccBackendUrl}/transactions/lead-team-card-holder-summary`,

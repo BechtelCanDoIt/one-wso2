@@ -22,6 +22,7 @@ import {
   Alert,
   Box,
   Card,
+  CircularProgress,
   Collapse,
   IconButton,
   MenuItem,
@@ -63,7 +64,6 @@ import {
   asOfDate,
   breakdownDateRange,
   buildBreakdown,
-  buildManagerReminderMailto,
   reportingWindowLabel,
   summarizeTeamUnsubmitted,
   summaryDateFrom,
@@ -73,6 +73,7 @@ import {
 import { FINANCE_EYEBROW } from "@constants/financeApps";
 import { CcLeadOverviewTable, CcLeadTeamTable, CcLeadTeamUnsubmittedTable } from "../CcLeadViewTables";
 import { useCcLeadApprovalSummary, useCcLeadTeamCardHolders, useCcLeadTeamUnsubmittedSummary } from "../useCc";
+import { useCcManagerReminder } from "../useCcMutations";
 import type { CcLeadApprovalSummary } from "../ccTypes";
 import { ccPaths } from "../ccPaths";
 
@@ -417,6 +418,7 @@ function DashboardBody() {
           managerQuery={managerCompliance}
           groupBy={complianceGroupBy}
           onGroupByChange={setComplianceGroupBy}
+          dateFrom={dateFrom}
         />
       )}
 
@@ -649,6 +651,7 @@ function ComplianceTable({
   managerQuery,
   groupBy,
   onGroupByChange,
+  dateFrom,
 }: {
   query: {
     data?: CcCardHolderCompliance[];
@@ -664,6 +667,8 @@ function ComplianceTable({
   };
   groupBy: "cardHolder" | "manager";
   onGroupByChange: (groupBy: "cardHolder" | "manager") => void;
+  /** The range the table was built from, so a reminder counts the same rows. */
+  dateFrom?: string;
 }) {
   const items = query.data ?? [];
   // Client-side paging for the Card Holder view only — this list can run into
@@ -699,7 +704,7 @@ function ComplianceTable({
       </Stack>
 
       {groupBy === "manager" ? (
-        <ManagerComplianceTable query={managerQuery} />
+        <ManagerComplianceTable query={managerQuery} dateFrom={dateFrom} />
       ) : query.isLoading ? (
         <Note>Loading card holder compliance summary...</Note>
       ) : query.isError ? (
@@ -779,6 +784,7 @@ function ComplianceTable({
  */
 function ManagerComplianceTable({
   query,
+  dateFrom,
 }: {
   query: {
     data?: CcManagerCompliance[];
@@ -786,11 +792,17 @@ function ManagerComplianceTable({
     isError: boolean;
     error?: unknown;
   };
+  /** Passed through to the reminder so it counts the range on screen. */
+  dateFrom?: string;
 }) {
   const items = query.data ?? [];
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
-  const { showError } = useNotifications();
+  const { showSuccess, showError } = useNotifications();
+  const reminder = useCcManagerReminder();
+  // Which manager's reminder is in flight, so that row's button can hold while
+  // it sends. A second press would be a second email the manager cannot unsee.
+  const [sendingTo, setSendingTo] = useState<string | null>(null);
 
   // Same client-side paging as the Card Holder view — a manager list can also
   // run long, and scrolling through all of it at once was the same complaint.
@@ -800,12 +812,19 @@ function ManagerComplianceTable({
   const currentPage = Math.min(page, maxPage);
   const pagedItems = items.slice(currentPage * rowsPerPage, currentPage * rowsPerPage + rowsPerPage);
 
-  const emailReminder = (manager: CcManagerCompliance) => {
-    // Opens in a new tab/window so the SPA itself never navigates away. Most
-    // browsers hand this straight to the OS's mail client instead.
-    const opened = window.open(buildManagerReminderMailto(manager, CURRENCY), "_blank");
-    if (!opened) {
-      showError("Unable to open your email client — check your browser's popup settings.");
+  // Sends from the backend rather than opening a draft here, so the mail
+  // carries the One WSO2 banner the rest of the finance notifications use and
+  // the figures are read at send time instead of coming from this page's
+  // five-minute cache. Only the manager and the range go up — never the body.
+  const emailReminder = async (manager: CcManagerCompliance) => {
+    setSendingTo(manager.managerEmail);
+    try {
+      const sent = await reminder.mutateAsync({ managerEmail: manager.managerEmail, dateFrom });
+      showSuccess(sent || `Reminder sent to ${manager.managerName || manager.managerEmail}.`);
+    } catch (error) {
+      showError(describeError(error));
+    } finally {
+      setSendingTo(null);
     }
   };
 
@@ -844,6 +863,7 @@ function ManagerComplianceTable({
             const key = manager.managerEmail || "unassigned";
             const isOpen = !!expanded[key];
             const isUnassigned = manager.managerEmail === "";
+            const sending = sendingTo === manager.managerEmail;
             return (
               <Fragment key={key}>
                 <TableRow hover>
@@ -870,16 +890,24 @@ function ManagerComplianceTable({
                     {manager.bucket30Plus}
                   </Cell>
                   <Cell align="right">
-                    <Tooltip title={isUnassigned ? "No reporting manager to remind" : "Email this manager a reminder"}>
+                    <Tooltip
+                      title={
+                        isUnassigned
+                          ? "No reporting manager to remind"
+                          : sending
+                            ? "Sending the reminder..."
+                            : "Email this manager a reminder"
+                      }
+                    >
                       <span>
                         <IconButton
                           size="small"
                           aria-label="Email reminder"
-                          disabled={isUnassigned}
-                          onClick={() => emailReminder(manager)}
+                          disabled={isUnassigned || sending}
+                          onClick={() => void emailReminder(manager)}
                           sx={{ p: 0.5 }}
                         >
-                          <MailIcon size={14} />
+                          {sending ? <CircularProgress size={14} /> : <MailIcon size={14} />}
                         </IconButton>
                       </span>
                     </Tooltip>

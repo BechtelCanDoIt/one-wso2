@@ -70,6 +70,17 @@ const leadFixtures = {
   ],
 };
 
+// The reminder's only side effect. Recorded so a test can prove WHAT went up:
+// the manager and the range, never a message body built on this side.
+const reminderCalls: { managerEmail: string; dateFrom?: string }[] = [];
+const sendReminder = vi.fn(async (args: { managerEmail: string; dateFrom?: string }) => {
+  reminderCalls.push(args);
+  return "Reminder sent to Lead Person.";
+});
+vi.mock("../useCcMutations", () => ({
+  useCcManagerReminder: () => ({ mutateAsync: sendReminder }),
+}));
+
 vi.mock("../useCc", () => ({
   useCcUserInfo: () => ({
     data: { workEmail: "me@wso2.com", privileges: role.privileges },
@@ -202,6 +213,8 @@ beforeEach(() => {
   asked.leadTeam.length = 0;
   notify.showSuccess.mockClear();
   notify.showError.mockClear();
+  sendReminder.mockClear();
+  reminderCalls.length = 0;
 });
 
 // index.tsx:63-65 — only a lead or finance gets the company-wide view and the
@@ -424,29 +437,34 @@ describe("the reporting-manager grouping", () => {
     expect(screen.getByText("Late Filer")).toBeInTheDocument();
   });
 
-  it("opens a mailto reminder for the manager instead of sending it from the app", async () => {
-    const openSpy = vi.spyOn(window, "open").mockReturnValue({} as Window);
+  // The figures are deliberately NOT sent: the dashboard caches its summary for
+  // five minutes, so a body built here could chase a card holder who has since
+  // submitted. The backend reads the backlog itself at send time.
+  it("asks the backend to send, passing only the manager and the range", async () => {
     await groupByManager();
 
     await userEvent.click(screen.getByRole("button", { name: "Email reminder" }));
 
-    expect(openSpy).toHaveBeenCalledTimes(1);
-    const [url, target] = openSpy.mock.calls[0];
-    expect(target).toBe("_blank");
-    expect(url).toContain("mailto:lead%40wso2.com");
-    const decoded = decodeURIComponent(url as string);
-    expect(decoded).toContain("Hi Lead, 1 of your direct reports has unsubmitted credit card transactions:");
-    expect(decoded).toContain("- Late Filer: 2 items, USD 700");
+    await waitFor(() => expect(sendReminder).toHaveBeenCalledTimes(1));
+    expect(reminderCalls[0].managerEmail).toBe("lead@wso2.com");
+    expect(Object.keys(reminderCalls[0])).toEqual(["managerEmail", "dateFrom"]);
   });
 
-  it("warns when the browser blocks the mailto popup", async () => {
-    vi.spyOn(window, "open").mockReturnValue(null);
+  it("confirms the send with the sentence the backend returned", async () => {
     await groupByManager();
 
     await userEvent.click(screen.getByRole("button", { name: "Email reminder" }));
 
-    expect(notify.showError).toHaveBeenCalledWith(
-      "Unable to open your email client — check your browser's popup settings.",
-    );
+    await waitFor(() => expect(notify.showSuccess).toHaveBeenCalledWith("Reminder sent to Lead Person."));
+  });
+
+  it("reports a failed send rather than leaving the reader thinking it went", async () => {
+    sendReminder.mockRejectedValueOnce(new Error("boom"));
+    await groupByManager();
+
+    await userEvent.click(screen.getByRole("button", { name: "Email reminder" }));
+
+    await waitFor(() => expect(notify.showError).toHaveBeenCalled());
+    expect(notify.showSuccess).not.toHaveBeenCalled();
   });
 });

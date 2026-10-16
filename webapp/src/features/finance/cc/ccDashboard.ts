@@ -16,13 +16,11 @@
  * under the License.
  */
 
-import { wholeAmount } from "../util/financeFormat";
 import type {
   CcAgeBucketAmount,
   CcCategoryMonthAmount,
   CcLeadTeamCardHolder,
   CcLeadTeamUnsubmittedSummary,
-  CcManagerCompliance,
 } from "./ccTypes";
 
 // The dashboard's date arithmetic and bucketing, as pure functions —
@@ -207,61 +205,3 @@ export function summarizeTeamUnsubmitted(
   };
 }
 
-/**
- * Reminder text for a reporting manager about their direct reports' unsubmitted
- * credit card transactions, used as the body of the manager-compliance table's
- * "Email reminder" button. Each report line carries the same three figures the
- * manager compliance table shows per card holder: how many transactions are
- * pending, their total value, and the average days those transactions have
- * gone unsubmitted — so the manager doesn't have to open the app to see what
- * they're being asked to chase.
- */
-export function buildManagerReminderMessage(manager: CcManagerCompliance, currency: string): string {
-  // A manager with no name on record still gets a greeting, not "Hi ,".
-  const firstName = manager.managerName.split(" ")[0] || "there";
-  const count = manager.reports.length;
-  const reportLines = manager.reports.map((report) => {
-    // No pending transactions have a submit date to average yet, so there is
-    // nothing to show — not a 0, which would misleadingly read as "on time".
-    const avgDays = report.avgDaysToSubmit === null ? "" : `, avg ${report.avgDaysToSubmit.toFixed(1)} days pending`;
-    return `- ${report.cardHolderName || report.employeeEmail}: ` +
-      `${report.transactionCount} ${report.transactionCount === 1 ? "item" : "items"}, ` +
-      `${currency} ${wholeAmount(report.outstandingAmount)}${avgDays}`;
-  });
-  // Same age-bucket shape the dashboard's "Unsubmitted by Age" tile uses, so the
-  // manager sees the same breakdown finance is looking at — just as plain text.
-  const ageBucketLines = [
-    `- 0-7 days: ${manager.bucket0To7}`,
-    `- 8-14 days: ${manager.bucket8To14}`,
-    `- 15-30 days: ${manager.bucket15To30}`,
-    `- 30+ days: ${manager.bucket30Plus}`,
-  ];
-  return [
-    `Hi ${firstName}, ${count} of your direct reports ${count === 1 ? "has" : "have"} `
-      + "unsubmitted credit card transactions:",
-    ...reportLines,
-    // The roll-up the manager is actually accountable for, so the figure they
-    // act on is in the mail itself rather than left to them to add up.
-    `Total unsubmitted across your team: ${manager.transactionCount} `
-      + `${manager.transactionCount === 1 ? "transaction" : "transactions"}, `
-      + `${currency} ${wholeAmount(manager.outstandingAmount)}, `
-      + `avg ${manager.avgPendingDays.toFixed(1)} days outstanding.`,
-    "Unsubmitted by age:",
-    ...ageBucketLines,
-    "Please remind them to submit their claims promptly.",
-  ].join("\n");
-}
-
-/**
- * A `mailto:` link that opens the viewer's own email client with a reminder
- * to a reporting manager pre-filled, used by the manager-compliance table's
- * "Email reminder" button. The admin reviews and sends it themselves — this
- * app never sends mail on their behalf.
- */
-export function buildManagerReminderMailto(manager: CcManagerCompliance, currency: string): string {
-  const subject = "Pending credit card expense submissions";
-  const body = buildManagerReminderMessage(manager, currency);
-  return `mailto:${encodeURIComponent(manager.managerEmail)}`
-    + `?subject=${encodeURIComponent(subject)}`
-    + `&body=${encodeURIComponent(body)}`;
-}
