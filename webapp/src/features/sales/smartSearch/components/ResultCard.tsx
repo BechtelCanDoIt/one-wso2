@@ -18,6 +18,7 @@ import type { JSX } from "react";
 import { Box, ButtonBase, Chip, Link, Paper, Stack, Typography, alpha } from "@wso2/oxygen-ui";
 import { ExternalLinkIcon } from "@wso2/oxygen-ui-icons-react";
 import { highlightParts, snippetOf } from "../util/libraryHighlight";
+import { rise } from "../util/libraryMotion";
 import { KIND_NAME, freshnessOf, strengthOf, type ResultGroup } from "../util/libraryResults";
 import { KIND_ICON } from "./kindIcon";
 
@@ -31,6 +32,8 @@ interface ResultCardProps {
   readonly query: string;
   /** The moment "added" is measured from, fixed for the page's life so a render is repeatable. */
   readonly now: Date;
+  /** Set on the best match when there are several, to say so. */
+  readonly top?: boolean;
   readonly onSelect: (key: string, passage: number) => void;
 }
 
@@ -60,6 +63,7 @@ export default function ResultCard({
   selectedPassage,
   query,
   now,
+  top = false,
   onSelect,
 }: ResultCardProps): JSX.Element {
   const Icon = KIND_ICON[group.kind];
@@ -70,12 +74,18 @@ export default function ResultCard({
   return (
     <Paper
       variant="outlined"
+      id={`library-result-${number}`}
       data-testid="library-result"
       sx={(theme) => ({
         borderRadius: 1.5,
         p: 2,
         borderColor: selected ? "primary.main" : "divider",
         bgcolor: selected ? alpha(theme.palette.primary.main, 0.06) : undefined,
+        "@media (prefers-reduced-motion: no-preference)": {
+          transition: "transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease",
+          "&:hover": { transform: "translateY(-1px)", boxShadow: `0 6px 20px ${alpha(theme.palette.common.black, 0.18)}` },
+        },
+        ...rise(Math.min(number - 1, 6) * 60),
       })}
     >
       <ButtonBase
@@ -101,7 +111,8 @@ export default function ResultCard({
         </Box>
         <Box sx={{ minWidth: 0, flex: 1 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            <Chip size="small" label={number} sx={{ height: 20, minWidth: 20, fontSize: 11 }} />
+            <Chip size="small" label={number} sx={{ height: 20, minWidth: 20, flexShrink: 0, fontSize: 11 }} />
+            {top && <Chip size="small" color="primary" label="Top match" sx={{ height: 20, fontSize: 11, fontWeight: 600 }} />}
             <Typography variant="subtitle2" component="span">
               {group.title}
             </Typography>

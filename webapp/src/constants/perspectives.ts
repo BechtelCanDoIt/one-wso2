@@ -539,14 +539,15 @@ const SALES_ECHO_SECTION: PerspectiveSection = {
   ],
 };
 
-// Sales's Library: Smart Search over Pitstop's content. A plain row with no `requires`, and not in
-// SALES_ITEM_IDS: it is not gated by the meet-app backend (ONE_WSO2_REVOPS_BACKEND_URL) that owns Meetings
-// and Deals. Pitstop's own backend decides what each caller may see. Held back by the `smartSearch` flag.
-const SALES_LIBRARY_SECTION: PerspectiveSection = {
-  id: "sales-library",
-  label: "Library",
+// Sales Pitstop, a group like Echo, holding the Library (Smart Search over Pitstop's content). Plain rows with no
+// `requires`, and not in SALES_ITEM_IDS: they are not gated by the meet-app backend (ONE_WSO2_REVOPS_BACKEND_URL)
+// that owns Echo and Deals. Pitstop's own backend decides what each caller may see. Held back by the `smartSearch` flag.
+const SALES_PITSTOP_SECTION: PerspectiveSection = {
+  id: "sales-pitstop",
+  label: "Sales Pitstop",
   icon: BookOpenIcon,
-  path: SMART_SEARCH_LIBRARY_PATH,
+  alwaysGroup: true,
+  children: [{ id: "sales-library", label: "Library", path: SMART_SEARCH_LIBRARY_PATH }],
 };
 
 const SALES_SECTIONS: PerspectiveSection[] = [
@@ -560,7 +561,7 @@ const SALES_SECTIONS: PerspectiveSection[] = [
     icon: HandshakeIcon,
     path: "/sales/deals",
   },
-  ...(isPreviewEnabled("smartSearch") ? [SALES_LIBRARY_SECTION] : []),
+  ...(isPreviewEnabled("smartSearch") ? [SALES_PITSTOP_SECTION] : []),
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
   ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS) : []),

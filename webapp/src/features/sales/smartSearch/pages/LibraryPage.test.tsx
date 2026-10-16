@@ -70,6 +70,7 @@ vi.mock("../util/useLibraryStorage", () => ({
   useIntroCard: () => ({ show: mocks.state.showIntro, dismiss: mocks.introDismiss }),
 }));
 
+import { resetRefreshForTests } from "../util/libraryReload";
 import LibraryPage from "./LibraryPage";
 
 const query = (overrides: Record<string, unknown>) => ({
@@ -435,7 +436,7 @@ describe("copying the answer", () => {
   it("shows exactly what will be copied, as an email to begin with", () => {
     renderAt(RESULTS_PATH);
     const text = screen.getByLabelText("What will be copied").textContent ?? "";
-    expect(text.startsWith("Subject: wso2con\n\nHi [Name],\n\n")).toBe(true);
+    expect(text.startsWith("Subject: Wso2con\n\nHi [Name],\n\n")).toBe(true);
     expect(text).toContain(ANSWER_TEXT);
     expect(screen.getByRole("button", { name: "Email" })).toHaveAttribute("aria-pressed", "true");
   });
@@ -470,6 +471,48 @@ describe("copying the answer", () => {
     await user.click(screen.getByRole("button", { name: "Copy" }));
     expect(mocks.showWarning).toHaveBeenCalledWith(expect.stringMatching(/Couldn.t copy/));
     expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
+  });
+});
+
+describe("copying the email with clickable links", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  function setupRichClipboard() {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    const write = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText, write } });
+    vi.stubGlobal("ClipboardItem", class { constructor(public items: Record<string, Blob>) {} });
+    return { user, writeText, write };
+  }
+
+  it("copies the email as formatted text too, and says the links will be clickable", async () => {
+    const { user, write, writeText } = setupRichClipboard();
+    renderAt(RESULTS_PATH);
+    expect(screen.getByText(/Pasted into Gmail or Outlook, the links come out clickable/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+    expect(write).toHaveBeenCalledTimes(1);
+    const item = write.mock.calls[0]?.[0][0] as { items: Record<string, Blob> };
+    const read = (blob?: Blob) =>
+      new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.readAsText(blob ?? new Blob([]));
+      });
+    expect(await read(item.items["text/html"])).toContain('<a href="https://drive.google.com/file/d/');
+    expect(await read(item.items["text/plain"])).toContain("Hi [Name],");
+    expect(writeText).not.toHaveBeenCalled();
+    expect(await screen.findByRole("button", { name: "Copied" })).toBeInTheDocument();
+  });
+
+  it("copies the chat and plain versions as plain text only, with no note about links", async () => {
+    const { user, write, writeText } = setupRichClipboard();
+    renderAt(RESULTS_PATH);
+    await user.click(screen.getByRole("button", { name: "Chat" }));
+    expect(screen.queryByText(/come out clickable/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Copy" }));
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(write).not.toHaveBeenCalled();
   });
 });
 
@@ -596,5 +639,162 @@ describe("when the search does not give results", () => {
     renderAt(RESULTS_PATH);
     expect(screen.getByText("No results found")).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "AI-generated answer" })).not.toBeInTheDocument();
+  });
+});
+
+describe("the touches that make it feel alive", () => {
+  it("says which document is the top match, only when there is more than one to choose from", async () => {
+    const user = userEvent.setup();
+    renderAt(RESULTS_PATH);
+    expect(screen.getAllByText("Top match")).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: /^Decks/ }));
+    expect(screen.queryByText("Top match")).not.toBeInTheDocument();
+  });
+
+  it("says what it is doing while the documents are found and the answer is written", () => {
+    mocks.state.sources = loading();
+    const first = renderAt(RESULTS_PATH);
+    expect(screen.getByText("Searching Pitstop…")).toBeInTheDocument();
+    first.unmount();
+
+    mocks.state.sources = success(SOURCES_RESPONSE);
+    mocks.state.answer = query({ isPending: true, isLoading: true });
+    renderAt(RESULTS_PATH);
+    expect(screen.getByText("Found 5 documents. Writing your answer…")).toBeInTheDocument();
+  });
+
+  it("suggests where to start when nothing matched, and a suggestion runs as a search", async () => {
+    const user = userEvent.setup();
+    mocks.state.sources = success({ answer: null, sources: [], contents: [] });
+    renderAt(RESULTS_PATH);
+    await user.click(screen.getByRole("button", { name: "What is the latest pricing one-pager?" }));
+    expect(where()).toBe("/sales/library?q=What%20is%20the%20latest%20pricing%20one-pager%3F");
+  });
+
+  it("moves through the results with the arrow keys and opens the one picked with Enter", async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderAt(RESULTS_PATH);
+    const decks = () => screen.getByRole("button", { name: /^Preview WSO2Con 2025 - Regional Presentation/ });
+    expect(decks()).toHaveAttribute("aria-pressed", "false");
+    await user.keyboard("{ArrowDown}");
+    expect(decks()).toHaveAttribute("aria-pressed", "true");
+    await user.keyboard("{Enter}");
+    expect(open).toHaveBeenCalledWith(expect.stringContaining("docs.google.com/presentation"), "_blank", "noopener,noreferrer");
+    await user.keyboard("{ArrowUp}");
+    expect(decks()).toHaveAttribute("aria-pressed", "false");
+    open.mockRestore();
+  });
+
+  it("opens the result picked with the arrow keys, even after a card was clicked", async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderAt(RESULTS_PATH);
+    await user.click(screen.getByRole("button", { name: /^Preview TEST/ }));
+    await user.keyboard("{ArrowDown}{ArrowDown}{Enter}");
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(open).toHaveBeenCalledWith(expect.stringContaining("docs.google.com/document"), "_blank", "noopener,noreferrer");
+    open.mockRestore();
+  });
+
+  it("does not open anything when Enter is pressed on a button or a chip", async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderAt(RESULTS_PATH);
+    screen.getByRole("button", { name: /^Decks/ }).focus();
+    await user.keyboard("{Enter}");
+    expect(open).not.toHaveBeenCalled();
+    open.mockRestore();
+  });
+
+  it("leaves the keys alone while a dialog elsewhere on the screen has focus", async () => {
+    const user = userEvent.setup();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    renderAt(RESULTS_PATH);
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    dialog.innerHTML = "<button>Close</button>";
+    document.body.append(dialog);
+    dialog.querySelector("button")?.focus();
+    await user.keyboard("{ArrowDown}{Enter}/");
+    expect(screen.getByRole("button", { name: /^Preview WSO2Con 2025 - Regional Presentation/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(open).not.toHaveBeenCalled();
+    expect(screen.getByRole("textbox", { name: "Ask a question" })).not.toHaveFocus();
+    dialog.remove();
+    open.mockRestore();
+  });
+
+  it("leaves the arrow keys alone while a question is being typed", async () => {
+    const user = userEvent.setup();
+    renderAt(RESULTS_PATH);
+    await user.click(screen.getByRole("textbox", { name: "Ask a question" }));
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("button", { name: /^Preview WSO2Con 2025 - Regional Presentation/ })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("jumps to the search box on a slash, on both screens, but not while typing in it", async () => {
+    const user = userEvent.setup();
+    const first = renderAt("/sales/library");
+    const box = () => screen.getByRole("textbox", { name: "Ask a question" });
+    box().blur();
+    await user.keyboard("/");
+    expect(box()).toHaveFocus();
+    await user.keyboard("a/b");
+    expect(box()).toHaveValue("a/b");
+    first.unmount();
+
+    renderAt(RESULTS_PATH);
+    await user.click(document.body);
+    await user.keyboard("/");
+    expect(box()).toHaveFocus();
+  });
+});
+
+describe("refreshing the page", () => {
+  const loadedAs = (type: string, name = window.location.href) =>
+    vi.spyOn(performance, "getEntriesByType").mockReturnValue([{ type, name }] as unknown as PerformanceEntryList);
+
+  beforeEach(() => resetRefreshForTests());
+  afterEach(() => vi.restoreAllMocks());
+
+  it("lands on the start screen when a search address is refreshed", () => {
+    loadedAs("reload");
+    renderAt(RESULTS_PATH);
+    expect(screen.queryAllByTestId("library-result")).toHaveLength(0);
+    expect(screen.getByRole("textbox", { name: "Ask a question" })).toHaveValue("");
+    expect(screen.getByText("Start with a topic")).toBeInTheDocument();
+    expect(where()).toBe("/sales/library");
+  });
+
+  it("runs searches as usual afterwards", async () => {
+    const user = userEvent.setup();
+    loadedAs("reload");
+    renderAt(RESULTS_PATH);
+    await user.type(screen.getByRole("textbox", { name: "Ask a question" }), "pricing{Enter}");
+    expect(where()).toBe("/sales/library?q=pricing");
+    expect(screen.getAllByTestId("library-result")).toHaveLength(5);
+  });
+
+  it("opens the search when the address is opened as a link, a pin or with the back button", () => {
+    for (const type of ["navigate", "back_forward"]) {
+      resetRefreshForTests();
+      loadedAs(type);
+      const view = renderAt(RESULTS_PATH);
+      expect(screen.getAllByTestId("library-result")).toHaveLength(5);
+      expect(where()).toBe(RESULTS_PATH);
+      view.unmount();
+    }
+  });
+
+  it("leaves a search alone when the refresh was of some other page", () => {
+    loadedAs("reload", "http://localhost:3000/somewhere-else");
+    renderAt(RESULTS_PATH);
+    expect(screen.getAllByTestId("library-result")).toHaveLength(5);
   });
 });
