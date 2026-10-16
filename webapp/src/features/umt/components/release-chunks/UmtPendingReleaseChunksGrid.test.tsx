@@ -57,7 +57,7 @@ vi.mock("../../api/useUmtGate", () => ({
 
 vi.mock("../../api/useUmtReleaseChunks", () => ({
   useUmtReleaseChunks: () => ({
-    data: [CHUNK],
+    data: { chunks: [CHUNK], totalCount: 1 },
     isError: false,
     isFetching: false,
     isPending: false,

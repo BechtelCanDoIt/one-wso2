@@ -174,6 +174,29 @@ export function mapUmtReleasedChunk(raw: RawUmtReleasedChunk): UmtReleasedChunk 
   };
 }
 
+// One page of GET /update/releaseChunk?page=&pageSize=, for either list.
+export interface RawUmtReleaseChunksPage<T> {
+  releaseChunks: T[];
+  totalPages: number;
+  pageSize: number;
+  totalCount: number;
+}
+
+export interface UmtReleaseChunksPage<T> {
+  chunks: T[];
+  totalCount: number;
+}
+
+export function mapUmtReleaseChunksPage<Raw, T>(
+  raw: RawUmtReleaseChunksPage<Raw>,
+  mapChunk: (chunk: Raw) => T,
+): UmtReleaseChunksPage<T> {
+  return {
+    chunks: raw.releaseChunks.map(mapChunk),
+    totalCount: raw.totalCount,
+  };
+}
+
 // One update level as GET /update/releaseChunk/{id}/buildStatus returns it: a
 // larger set of fields than the chunk list above, in the same kebab-case. The
 // response also carries a "dependant-repo-build-details" array that nothing

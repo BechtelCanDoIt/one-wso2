@@ -15,8 +15,9 @@
 // under the License.
 
 import { useMemo } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
+import type { DataGrid } from "@wso2/oxygen-ui";
 import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
@@ -26,54 +27,62 @@ import {
   mapUmtReleaseChunk,
   mapUmtReleaseChunkBuildStatus,
   mapUmtReleasedChunk,
+  mapUmtReleaseChunksPage,
   type RawUmtReleaseChunk,
   type RawUmtReleaseChunkBuildStatus,
+  type RawUmtReleaseChunksPage,
   type RawUmtReleasedChunk,
   type UmtDockerBuildStatus,
   type UmtReleaseChunk,
   type UmtReleaseChunkBuildStatus,
+  type UmtReleaseChunksPage,
   type UmtReleaseChunkStatus,
   type UmtReleasedChunk,
 } from "./umtReleaseChunks";
 
-export function useUmtReleaseChunks() {
+// Both lists take the grid's own pagination model, and keep the previous page
+// on screen while the next one loads, so paging doesn't blank the grid
+// between requests.
+export function useUmtReleaseChunks({ page, pageSize }: DataGrid.GridPaginationModel) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
   const userSub = subState.status === "ready" ? subState.sub : undefined;
 
-  const query = useQuery<UmtReleaseChunk[]>({
-    queryKey: ["umt-release-chunks", userSub],
+  const query = useQuery<UmtReleaseChunksPage<UmtReleaseChunk>>({
+    queryKey: ["umt-release-chunks", userSub, page, pageSize],
     enabled: isSignedIn && isUmtBackendConfigured() && Boolean(userSub),
     queryFn: async () => {
-      const raw = await authedGet<RawUmtReleaseChunk[]>(
-        umtServiceUrls.releaseChunks,
+      const raw = await authedGet<RawUmtReleaseChunksPage<RawUmtReleaseChunk>>(
+        umtServiceUrls.releaseChunksPage({ page, pageSize }),
         await getAccessToken(),
       );
-      return raw.map(mapUmtReleaseChunk);
+      return mapUmtReleaseChunksPage(raw, mapUmtReleaseChunk);
     },
+    placeholderData: keepPreviousData,
     retry: httpRetry,
   });
 
   return foldIdentityError(query, subState, retryIdentity);
 }
 
-export function useUmtReleasedChunks() {
+export function useUmtReleasedChunks({ page, pageSize }: DataGrid.GridPaginationModel) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
   const userSub = subState.status === "ready" ? subState.sub : undefined;
 
-  const query = useQuery<UmtReleasedChunk[]>({
-    queryKey: ["umt-released-chunks", userSub],
+  const query = useQuery<UmtReleaseChunksPage<UmtReleasedChunk>>({
+    queryKey: ["umt-released-chunks", userSub, page, pageSize],
     enabled: isSignedIn && isUmtBackendConfigured() && Boolean(userSub),
     queryFn: async () => {
-      const raw = await authedGet<RawUmtReleasedChunk[]>(
-        umtServiceUrls.releasedChunks,
+      const raw = await authedGet<RawUmtReleaseChunksPage<RawUmtReleasedChunk>>(
+        umtServiceUrls.releaseChunksPage({ states: "released", page, pageSize }),
         await getAccessToken(),
       );
-      return raw.map(mapUmtReleasedChunk);
+      return mapUmtReleaseChunksPage(raw, mapUmtReleasedChunk);
     },
+    placeholderData: keepPreviousData,
     retry: httpRetry,
   });
 

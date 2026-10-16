@@ -17,6 +17,10 @@
 import type { UmtReleaseChunkBuildStatus } from "../api/umtReleaseChunks";
 import type { UmtUpdateSummary } from "../api/umtUpdates";
 
+// The page sizes offered by the pending and released grids, which page on the
+// server alike. The first is the size each opens at.
+export const UMT_CHUNK_PAGE_SIZE_OPTIONS = [20, 30, 50];
+
 // How a build status reads on screen. The backend's vocabulary is open-ended,
 // so anything not listed below — including a status that never arrived — is
 // reported as a failure rather than silently rendering as blank.
