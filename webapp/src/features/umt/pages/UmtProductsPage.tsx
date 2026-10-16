@@ -34,7 +34,7 @@ const { DataGrid: DataGridComponent } = DataGrid;
 // — but per the functional spec, hiding the rail item alone is not enough).
 export default function UmtProductsPage() {
   return (
-    <UmtShell title="Product Management" requireAdmin>
+    <UmtShell title="Products" requireAdmin>
       <UmtProductsBody />
     </UmtShell>
   );
