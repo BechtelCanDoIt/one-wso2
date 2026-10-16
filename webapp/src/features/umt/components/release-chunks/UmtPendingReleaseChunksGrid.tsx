@@ -286,8 +286,12 @@ export default function UmtPendingReleaseChunksGrid() {
           break;
         }
         case "release":
+          // The service only accepts the request here; the release itself
+          // runs afterwards and can still fail, which the chunk's row shows.
           await releaseMutation.mutateAsync();
-          showSuccess("Chunks released successfully.");
+          showSuccess(
+            `Release of release chunk ${actionTarget.chunkId} has started. Reload the page later to see whether it completed.`,
+          );
           break;
       }
       setActionTarget(null);
