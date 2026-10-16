@@ -53,3 +53,12 @@ it("resolves brace-expansion outside the denial-of-service advisory range", () =
   expect(archiveChain?.version).toBeDefined();
   expect(resolved.filter((entry) => !isPatchedRelease(entry.version ?? ""))).toEqual([]);
 });
+
+it("treats the first release outside each advisory range as patched", () => {
+  expect(isPatchedRelease("1.1.20")).toBe(false);
+  expect(isPatchedRelease("1.1.21")).toBe(true);
+  expect(isPatchedRelease("2.1.6")).toBe(false);
+  expect(isPatchedRelease("2.1.7")).toBe(true);
+  expect(isPatchedRelease("5.0.11")).toBe(false);
+  expect(isPatchedRelease("5.0.12")).toBe(true);
+});
