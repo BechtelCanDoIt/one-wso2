@@ -14,9 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { JSX } from "react";
+import { useEffect, useRef, type JSX } from "react";
 import { useNavigate } from "react-router";
-import { Box, ButtonBase, IconButton, Link, Paper, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Box, ButtonBase, IconButton, Link, Paper, Stack, Tooltip, Typography, alpha } from "@wso2/oxygen-ui";
 import {
   CompassIcon,
   HistoryIcon,
@@ -32,6 +32,8 @@ import {
 import PerspectiveHeader from "@components/perspective-header/PerspectiveHeader";
 import { usePinnedEntries, useTogglePin } from "@features/pinned/usePinned";
 import { LIBRARY_TOPICS, type LibraryTopic } from "../util/libraryTopics";
+import { belongsToSomethingElse } from "../util/libraryKeys";
+import { rise } from "../util/libraryMotion";
 import { useRecentSearches } from "../util/useLibraryStorage";
 import { SMART_SEARCH_LIBRARY_PATH } from "../smartSearchPaths";
 import SearchBox from "./SearchBox";
@@ -60,6 +62,19 @@ function SectionLabel({ children }: { readonly children: string }): JSX.Element 
 /** The Library before anyone has asked anything: the box, a few topics to start from, and what they left behind. */
 export default function LibraryStart({ onSearch }: LibraryStartProps): JSX.Element {
   const navigate = useNavigate();
+  const page = useRef<HTMLDivElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+
+  // "/" jumps to the box from anywhere on the page, unless something else is being typed in.
+  useEffect(() => {
+    const jump = (event: KeyboardEvent) => {
+      if (event.key !== "/" || belongsToSomethingElse(event, page.current)) return;
+      event.preventDefault();
+      searchInput.current?.focus();
+    };
+    window.addEventListener("keydown", jump);
+    return () => window.removeEventListener("keydown", jump);
+  }, []);
   const recent = useRecentSearches();
   const togglePin = useTogglePin();
   const pinnedSearches = usePinnedEntries().filter(
@@ -67,13 +82,35 @@ export default function LibraryStart({ onSearch }: LibraryStartProps): JSX.Eleme
   );
 
   return (
-    <Box>
+    <Box ref={page}>
       <PerspectiveHeader
         title="Library"
         subtitle="Ask a question in plain language. The Library finds the exact page, slide, sheet or video moment in Pitstop content that answers it."
       />
-      <Box sx={{ maxWidth: 1040 }}>
-        <SearchBox autoFocus onSubmit={onSearch} />
+      <Box>
+        <Box
+          sx={(theme) => ({
+            position: "relative",
+            isolation: "isolate",
+            "&::before": {
+              content: '""',
+              position: "absolute",
+              inset: "-48px -24px -16px",
+              zIndex: -1,
+              pointerEvents: "none",
+              background: `radial-gradient(60% 90% at 50% 0%, ${alpha(theme.palette.primary.main, 0.14)}, transparent 70%)`,
+            },
+          })}
+        >
+          <SearchBox
+            autoFocus
+            large
+            shortcut="/"
+            inputRef={searchInput}
+            examples={LIBRARY_TOPICS.map((topic) => topic.question)}
+            onSubmit={onSearch}
+          />
+        </Box>
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mt: 1, ml: 1, color: "text.secondary" }}>
           <LockIcon size={13} />
           <Typography variant="caption">
@@ -86,9 +123,9 @@ export default function LibraryStart({ onSearch }: LibraryStartProps): JSX.Eleme
         <Box sx={{ mt: 4 }}>
           <SectionLabel>Start with a topic</SectionLabel>
           <Box
-            sx={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 1.5 }}
+            sx={{ display: "grid", gap: 1.5, gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))" }}
           >
-            {LIBRARY_TOPICS.map((topic) => {
+            {LIBRARY_TOPICS.map((topic, index) => {
               const Icon = TOPIC_ICON[topic.id];
               return (
                 <Paper
@@ -99,15 +136,19 @@ export default function LibraryStart({ onSearch }: LibraryStartProps): JSX.Eleme
                   sx={{
                     borderRadius: 1.5,
                     p: 2,
-                    flex: "1 1 180px",
-                    maxWidth: { sm: 280 },
                     minWidth: 0,
                     display: "flex",
                     flexDirection: "column",
                     alignItems: "flex-start",
+                    justifyContent: "flex-start",
                     textAlign: "left",
                     gap: 1,
                     "&:hover": { borderColor: "text.secondary" },
+                    "@media (prefers-reduced-motion: no-preference)": {
+                      transition: "transform 160ms ease, border-color 160ms ease",
+                      "&:hover": { transform: "translateY(-2px)" },
+                    },
+                    ...rise(120 + index * 70),
                   }}
                 >
                   <Box sx={{ color: "primary.main", display: "flex" }}>

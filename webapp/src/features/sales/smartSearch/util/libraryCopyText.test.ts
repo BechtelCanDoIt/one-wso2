@@ -14,10 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { SmartSearchSource } from "../api/smartSearchTypes";
 import { ANSWER_TEXT, CONTENTS, EMAIL_SOURCE, SOURCES_RESPONSE } from "../testing/fixtures";
-import { buildCopyText } from "./libraryCopyText";
+import { buildCopyHtml, buildCopyText, canCopyRich, writeToClipboard } from "./libraryCopyText";
 import { groupResults } from "./libraryResults";
 
 const groups = groupResults(SOURCES_RESPONSE.sources, CONTENTS, "wso2con");
@@ -66,25 +66,47 @@ describe("buildCopyText as a chat message", () => {
     expect(buildCopyText("chat", { query: "wso2con", answer: null, groups }).split("\n")[0]).toBe("wso2con");
   });
 
-  it("keeps a long answer to a chat-sized message", () => {
-    const first = buildCopyText("chat", { query: "q", answer: "word ".repeat(200), groups }).split("\n")[0] ?? "";
-    expect(first.length).toBeLessThanOrEqual(280);
+  it("keeps the whole answer, however long an ordinary one is", () => {
+    const answer = `${"A full sentence of the answer. ".repeat(40)}The last sentence.`;
+    expect(answer.length).toBeGreaterThan(1200);
+    expect(buildCopyText("chat", { query: "q", answer, groups }).split("\n")[0]).toBe(answer);
+  });
+
+  it("only shortens an answer too long for any chat app", () => {
+    const first = buildCopyText("chat", { query: "q", answer: "word ".repeat(2000), groups }).split("\n")[0] ?? "";
+    expect(first.length).toBeLessThanOrEqual(3000);
     expect(first.endsWith("…")).toBe(true);
   });
 });
 
 describe("buildCopyText as an email", () => {
-  it("has a subject, a greeting to fill in, the answer, the sources and a sign-off", () => {
+  it("has a subject, a greeting to fill in, the answer, the sources and a sign-off to fill in", () => {
     const text = buildCopyText("email", { query: "wso2con", answer: ANSWER_TEXT, groups });
-    expect(text.startsWith(`Subject: wso2con\n\nHi [Name],\n\n${ANSWER_TEXT}\n\nWhere to find more:\n- ${TEST_LINE}: ${TEST_LINK}\n`)).toBe(true);
-    expect(text.endsWith("\n\nBest regards,")).toBe(true);
+    expect(
+      text.startsWith(`Subject: Wso2con\n\nHi [Name],\n\n${ANSWER_TEXT}\n\nWhere to find more:\n1. ${TEST_LINE}\n   ${TEST_LINK}\n`),
+    ).toBe(true);
+    expect(text.endsWith("\n\nBest regards,\n[Your name]")).toBe(true);
+  });
+
+  it("puts each address on its own line under its title, so nothing wraps awkwardly", () => {
+    const lines = buildCopyText("email", { query: "wso2con", answer: ANSWER_TEXT, groups }).split("\n");
+    const first = lines.indexOf(`1. ${TEST_LINE}`);
+    expect(lines[first + 1]).toBe(`   ${TEST_LINK}`);
+    expect(lines[first + 2]).toBe(`2. ${DECK_LINE}`);
+  });
+
+  it("makes the question a proper subject: a capital, and no closing punctuation", () => {
+    const subject = (query: string) =>
+      buildCopyText("email", { query, answer: null, groups }).split("\n")[0];
+    expect(subject("how do we handle a customer escalation?")).toBe("Subject: How do we handle a customer escalation");
+    expect(subject("  pricing   one-pager ?! ")).toBe("Subject: Pricing one-pager");
   });
 
   it("offers a place to start when there is no answer", () => {
     const text = buildCopyText("email", { query: "wso2con", answer: null, groups });
-    expect(text).toContain("Here is where to start:");
+    expect(text).toContain("Here are the best places to start:");
     expect(text).not.toContain("Where to find more:");
-    expect(text).toContain(`- ${DECK_LINE}: ${DECK_LINK}`);
+    expect(text).toContain(`2. ${DECK_LINE}\n   ${DECK_LINK}`);
   });
 
   it("shortens a long question to fit a subject line", () => {
@@ -114,5 +136,94 @@ describe("what gets pointed to", () => {
     const secondSafe: SmartSearchSource = { ...EMAIL_SOURCE, page: 4 };
     const [group] = groupResults([firstUnsafe, secondSafe], [], "q");
     expect(buildCopyText("plain", { query: "q", answer: null, groups: group ? [group] : [] })).toContain("(Section 4)");
+  });
+});
+
+describe("an answer too long even for a chat app", () => {
+  it("is cut at the end of a sentence that fits, not in the middle of one", () => {
+    const answer = `${"First sentence here. ".repeat(200)}${"x".repeat(200)}`;
+    const first = buildCopyText("chat", { query: "q", answer, groups }).split("\n")[0] ?? "";
+    expect(first.length).toBeLessThanOrEqual(3000);
+    expect(first.endsWith("here.")).toBe(true);
+    expect(first).not.toContain("…");
+  });
+});
+
+describe("buildCopyHtml", () => {
+  const html = buildCopyHtml({ query: "wso2con", answer: ANSWER_TEXT, groups });
+
+  it("makes each source a clickable title, in a numbered list", () => {
+    expect(html).toContain(`<li><a href="${TEST_LINK}">${TEST_LINE}</a></li>`);
+    expect(html).toContain(`<a href="${DECK_LINK}">${DECK_LINE}</a>`);
+    expect(html).toContain("<ol>");
+    expect(html).toContain(`<p>${ANSWER_TEXT.replace(/'/g, "&#39;")}</p>`);
+    expect(html.endsWith("<p>Best regards,<br>[Your name]</p>")).toBe(true);
+  });
+
+  it("escapes anything that could be read as markup, in the answer, the title and the address", () => {
+    const nasty = groupResults(
+      [{ ...EMAIL_SOURCE, title: '<img src=x onerror="alert(1)"> & more', page: null }],
+      [],
+      "q",
+    );
+    const out = buildCopyHtml({ query: "<script>alert(1)</script>", answer: "<b>bold</b> & \"quoted\"", groups: nasty });
+    expect(out).not.toMatch(/<script|<img|<b>/);
+    expect(out).toContain("&lt;script&gt;alert(1)&lt;/script&gt;");
+    expect(out).toContain("&lt;b&gt;bold&lt;/b&gt; &amp; &quot;quoted&quot;");
+    expect(out).toContain("&lt;img src=x onerror=&quot;alert(1)&quot;&gt; &amp; more");
+  });
+
+  it("keeps line breaks in the answer", () => {
+    const out = buildCopyHtml({ query: "q", answer: "One.\nTwo.", groups });
+    expect(out).toContain("<p>One.<br>Two.</p>");
+  });
+});
+
+describe("writeToClipboard", () => {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  const write = vi.fn().mockResolvedValue(undefined);
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    writeText.mockClear();
+    write.mockClear();
+  });
+
+  function setup(rich: boolean) {
+    Object.defineProperty(navigator, "clipboard", { configurable: true, value: rich ? { writeText, write } : { writeText } });
+    if (rich) {
+      vi.stubGlobal("ClipboardItem", class { constructor(public items: Record<string, Blob>) {} });
+    }
+  }
+
+  it("copies the text and the formatted version together when the browser can", async () => {
+    setup(true);
+    expect(canCopyRich()).toBe(true);
+    await writeToClipboard("plain", "<p>rich</p>");
+    expect(write).toHaveBeenCalledTimes(1);
+    const item = write.mock.calls[0]?.[0][0] as { items: Record<string, Blob> };
+    expect(Object.keys(item.items).sort()).toEqual(["text/html", "text/plain"]);
+    expect(writeText).not.toHaveBeenCalled();
+  });
+
+  it("copies plain text when there is nothing formatted to add", async () => {
+    setup(true);
+    await writeToClipboard("plain");
+    expect(writeText).toHaveBeenCalledWith("plain");
+    expect(write).not.toHaveBeenCalled();
+  });
+
+  it("copies plain text when the browser can't do formatted", async () => {
+    setup(false);
+    expect(canCopyRich()).toBe(false);
+    await writeToClipboard("plain", "<p>rich</p>");
+    expect(writeText).toHaveBeenCalledWith("plain");
+  });
+
+  it("falls back to plain text when the formatted copy is refused", async () => {
+    setup(true);
+    write.mockRejectedValueOnce(new Error("refused"));
+    await writeToClipboard("plain", "<p>rich</p>");
+    expect(writeText).toHaveBeenCalledWith("plain");
   });
 });
