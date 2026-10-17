@@ -94,13 +94,16 @@ export default function AmplifyShell({
 }
 
 function roleSatisfied(gate: AmplifyGate, role: NonNullable<Parameters<typeof AmplifyShell>[0]["requireRole"]>): boolean {
+  // Each Amplify role is its own column in the backend's activity matrix — ADM
+  // is not a superset of PO/MKT/SLT, so it is not accepted here either. A
+  // typed-in URL for a screen you don't hold gets the sentence, not a 403 wall.
   switch (role) {
     case "po":
-      return gate.isPo || gate.isAdmin;
+      return gate.isPo;
     case "marketing":
-      return gate.isMarketing || gate.isAdmin;
+      return gate.isMarketing;
     case "slt":
-      return gate.isSlt || gate.isAdmin;
+      return gate.isSlt;
     case "admin":
       return gate.isAdmin;
   }

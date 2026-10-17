@@ -85,16 +85,19 @@ export function useAmplifyGate(enabled = true): AmplifyGate {
       case "amplify-my-campaign":
       case "amplify-team":
         return true;
-      // Marketing owns campaign creation and editing.
+      // Marketing owns campaign creation and editing; PO shares the tools
+      // (`CAMPAIGN_EDITORS = [PO, MKT]` in the backend activity matrix). ADM is
+      // not in that column, so it is not offered the screen.
       case "amplify-campaigns":
-        return isMarketing || isAdmin;
-      // PO owns the external-share queue, point rules and dashboard.
+        return isMarketing || isPo;
+      // PO owns the external-share queue, point rules and dashboard
+      // (`x-roles: [PO]` throughout; ADM is not a superset).
       case "amplify-po-review":
-        return isPo || isAdmin;
+        return isPo;
       // SLT reporting — Phase 2, and hidden from the rail regardless (its item
       // carries no path); this only decides the route's own state.
       case "amplify-reports":
-        return isSlt || isAdmin;
+        return isSlt;
       case "amplify-admin":
         return isAdmin;
       // An unknown id must not fall open.

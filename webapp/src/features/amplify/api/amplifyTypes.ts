@@ -390,9 +390,16 @@ export interface Announcement {
 
 export type SchedulerSync = "SYNCED" | "PENDING" | "NOT_CONFIGURED";
 
+/**
+ * A setting's value is a raw JSON value, not a string: `PUT /admin/settings`
+ * validates it per key (`leaderboard.top_n` must be a JSON int, `run.schedule` a
+ * schedule string). Sending the int as a string comes back `INVALID_SETTING`.
+ */
+export type SettingValue = number | boolean | string;
+
 export interface Setting {
   key: string;
-  value: string;
+  value: SettingValue;
   version: number;
   updatedBy: string;
   updatedAt: string;
@@ -405,7 +412,7 @@ export interface SettingList {
 
 export interface SettingChange {
   key: string;
-  value: string;
+  value: SettingValue;
   version: number;
 }
 
@@ -418,12 +425,19 @@ export interface SchedulerSyncResult {
   jobs: { id: string; schedule: string; enabled: boolean; result: string }[];
 }
 
-/** The Amplify setting keys the Admin screen reads and writes. */
+/**
+ * The setting keys the Admin screen reads and writes — the contract's own key
+ * strings (`amplify-api/constants.bal`; any other key comes back
+ * `UNKNOWN_SETTING`). Value kinds, from `settings.bal`:
+ * `leaderboard.top_n` int 1–50, `run.schedule` a schedule string (min 60s,
+ * default `@every 5m`), `connection.reminder_days` int 1–30,
+ * `campaign.default_window_days` int 1–365. Coin settings stay hidden server-side.
+ */
 export const AMPLIFY_SETTING_KEYS = {
-  topN: "amplify.leaderboard.topN",
-  runInterval: "amplify.scheduler.runInterval",
-  reminderDays: "amplify.reminders.daysBeforeClose",
-  campaignDefaultWindow: "amplify.campaign.defaultWindow",
+  topN: "leaderboard.top_n",
+  runSchedule: "run.schedule",
+  reminderDays: "connection.reminder_days",
+  campaignDefaultWindow: "campaign.default_window_days",
 } as const;
 
 /** RFC-9457 problem `code`s the client branches on — never the `detail`. */

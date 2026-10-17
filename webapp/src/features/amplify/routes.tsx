@@ -64,16 +64,16 @@ export const amplifyRoutes = (
       <Route index element={<AmplifyAdminIndex />} />
       <Route path="settings" element={<AmplifyAdminSettingsTab />} />
       <Route path="announcements" element={<AmplifyAdminAnnouncementsTab />} />
-      {/* The same rules screen the PO sees — one component, two doors, so the
-          two views cannot drift. */}
-      <Route path="point-rules" element={<AmplifyPoPointRulesTab />} />
     </Route>
 
     {/* Phase 2. Hidden from the rail (its registry item carries no path); the
         route exists so the address answers honestly rather than 404s. */}
     <Route path="amplify/reports" element={<AmplifyReportsPage />} />
 
-    {/* Where LinkedIn returns the reader after consent. */}
+    {/* Where LinkedIn returns the reader after consent. The redirect URI is a
+        deployment configurable (`linkedinRedirectUri`), so both the path the
+        milestone names and the one the Connections screen uses are served. */}
+    <Route path="amplify/connect/callback" element={<AmplifyConnectCallbackPage />} />
     <Route path="amplify/connections/callback" element={<AmplifyConnectCallbackPage />} />
 
     {/* Me → Settings → My Connections. Rendered under the Me perspective (the

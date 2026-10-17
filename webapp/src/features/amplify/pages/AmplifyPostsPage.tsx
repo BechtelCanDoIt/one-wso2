@@ -57,7 +57,7 @@ export default function AmplifyPostsPage() {
   const [page, setPage] = useState(1);
 
   const tags = useAmplifyTags();
-  const query = useAmplifyCampaigns({ status: "OPEN", tag: tag || undefined, page, size: PAGE_SIZE });
+  const query = useAmplifyCampaigns({ status: "open", tag: tag || undefined, page, size: PAGE_SIZE });
 
   return (
     <AmplifyShell

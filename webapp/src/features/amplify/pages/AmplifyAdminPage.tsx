@@ -24,19 +24,21 @@ const BASE = "/amplify/admin";
 const TABS: readonly RoutedTabDef[] = [
   { segment: "settings", label: "Settings" },
   { segment: "announcements", label: "Announcements" },
-  { segment: "point-rules", label: "Point rules" },
 ];
 
 /**
- * Admin's frame. Three concerns that used to be three rail rows collapse into
- * one screen with tabs, so the rail stays a list of places rather than a list
- * of settings.
+ * Admin's frame. The two admin concerns collapse into one screen with tabs, so
+ * the rail stays a list of places rather than a list of settings.
+ *
+ * Point rules are NOT here: `/po/point-rules` is `x-roles: [PO]` in the backend
+ * activity matrix, so an admin tab for them would only 403. They live on PO
+ * Review, where the role actually holds them.
  */
 export default function AmplifyAdminPage() {
   return (
     <AmplifyShell
       title="Admin"
-      subtitle="Module-wide settings, the announcement queue, and the point rules."
+      subtitle="Module-wide settings and the announcement queue."
       requireRole="admin"
     >
       {() => (

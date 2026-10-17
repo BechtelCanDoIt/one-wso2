@@ -21,14 +21,12 @@ import {
   Chip,
   CircularProgress,
   Divider,
-  MenuItem,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
   TableRow,
-  TextField,
   Typography,
 } from "@wso2/oxygen-ui";
 import { MedalIcon, TrophyIcon } from "@wso2/oxygen-ui-icons-react";
@@ -37,14 +35,8 @@ import { useAmplifyLeaderboard, useAmplifyMyPoints, useAmplifyMyShares } from ".
 import type { LeaderboardEntry, PersonalStanding, TeamEntry } from "../api/amplifyTypes";
 import AmplifyShell, { AmplifyEmpty, AmplifyStat } from "../components/AmplifyShell";
 import AmplifySectionCard from "../components/AmplifySectionCard";
-import { formatDateTime, formatMonthLabel, rankDelta } from "../components/amplifyUi";
-
-const PERIODS = [
-  { value: "ALL", label: "All time" },
-  { value: "MONTH", label: "This month" },
-  { value: "QUARTER", label: "This quarter" },
-  { value: "YEAR", label: "This year" },
-];
+import AmplifyPeriodPicker from "../components/AmplifyPeriodPicker";
+import { formatDateTime, formatMonthLabel, formatPeriodLabel, rankDelta } from "../components/amplifyUi";
 
 /**
  * The Leaderboard: the company podium, where you stand, your team, and your
@@ -62,21 +54,8 @@ export default function AmplifyLeaderboardPage() {
     <AmplifyShell title="Leaderboard" subtitle="How the company is doing, and where you stand.">
       {(gate) => (
         <Box>
-          <Box sx={{ maxWidth: 220, mb: 2.5 }}>
-            <TextField
-              select
-              fullWidth
-              size="small"
-              label="Period"
-              value={period}
-              onChange={(e) => setPeriod(e.target.value)}
-            >
-              {PERIODS.map((p) => (
-                <MenuItem key={p.value} value={p.value}>
-                  {p.label}
-                </MenuItem>
-              ))}
-            </TextField>
+          <Box sx={{ mb: 2.5 }}>
+            <AmplifyPeriodPicker value={period} onChange={setPeriod} />
           </Box>
 
           {board.isError ? (
@@ -87,7 +66,7 @@ export default function AmplifyLeaderboardPage() {
             <Spinner label="Loading the leaderboard…" />
           ) : board.data ? (
             <Stack spacing={2.5}>
-              <Podium entries={board.data.company} topN={board.data.topN} />
+              <Podium entries={board.data.company} topN={board.data.topN} period={formatPeriodLabel(period)} />
               <MyStanding standing={board.data.me} displayName={gate.me?.employee.display_name} />
 
               <AmplifySectionCard
@@ -190,14 +169,14 @@ function Spinner({ label }: { label: string }) {
   );
 }
 
-function Podium({ entries, topN }: { entries: LeaderboardEntry[]; topN: number }) {
+function Podium({ entries, topN, period }: { entries: LeaderboardEntry[]; topN: number; period: string }) {
   if (entries.length === 0) {
     return <AmplifyEmpty>No standings yet for this period.</AmplifyEmpty>;
   }
   return (
     <AmplifySectionCard
       title={`Company top ${topN}`}
-      caption="Everyone chasing the same campaigns."
+      caption={`Everyone chasing the same campaigns · ${period}.`}
       action={<TrophyIcon size={18} />}
     >
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ alignItems: "stretch" }}>

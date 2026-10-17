@@ -58,7 +58,8 @@ export default function AmplifyMyCampaignPage() {
   const queryClient = useQueryClient();
   const { showSuccess } = useNotifications();
 
-  const campaigns = useAmplifyCampaigns({ status: "OPEN", size: 100 });
+  // The campaign picker offers open campaigns only (the API caps `size` at 50).
+  const campaigns = useAmplifyCampaigns({ status: "open", size: 50 });
   const portfolio = useAmplifyMyExternalShares();
 
   const [evidenceUrl, setEvidenceUrl] = useState("");

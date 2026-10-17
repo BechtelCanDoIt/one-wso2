@@ -26,12 +26,15 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
+  MenuItem,
   Stack,
   Table,
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
+  TextField,
   Typography,
 } from "@wso2/oxygen-ui";
 import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
@@ -48,17 +51,37 @@ import CampaignFormDialog from "../components/CampaignFormDialog";
 import { amplifyBtnSx, campaignStatusColor, formatDate } from "../components/amplifyUi";
 
 /**
+ * The contract's `status` values for `GET /campaigns` (lower case), plus `all`.
+ * PO and Marketing may ask for any status; everyone else only ever sees `open`.
+ */
+const STATUS_FILTERS = [
+  { value: "all", label: "All statuses" },
+  { value: "open", label: "Open" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "closed", label: "Closed" },
+  { value: "archived", label: "Archived" },
+];
+
+const ROWS_PER_PAGE = [10, 25, 50];
+
+/**
  * Campaigns — the marketing team's list, with create, edit and archive.
  *
  * Archive is a warning, not a checkbox: it takes a campaign out of the feed
  * everyone was amplifying, so the dialog says so in plain words and asks again.
+ * The list opens on all statuses so the closed and archived rows are reachable
+ * (the API's own default is `open` only, which would hide the ones you most
+ * often need to fix).
  */
 export default function AmplifyCampaignsPage() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Campaign | undefined>(undefined);
   const [archiving, setArchiving] = useState<Campaign | undefined>(undefined);
+  const [status, setStatus] = useState("all");
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(25);
 
-  const query = useAmplifyCampaigns({ size: 100 });
+  const query = useAmplifyCampaigns({ status, page, size });
 
   const openCreate = () => {
     setEditing(undefined);
@@ -80,9 +103,28 @@ export default function AmplifyCampaignsPage() {
           <AmplifySectionCard
             title="All campaigns"
             action={
-              <Button variant="contained" size="small" startIcon={<PlusIcon size={16} />} onClick={openCreate} sx={amplifyBtnSx}>
-                New campaign
-              </Button>
+              <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
+                <TextField
+                  select
+                  size="small"
+                  label="Status"
+                  value={status}
+                  onChange={(e) => {
+                    setStatus(e.target.value);
+                    setPage(0);
+                  }}
+                  sx={{ minWidth: 160 }}
+                >
+                  {STATUS_FILTERS.map((s) => (
+                    <MenuItem key={s.value} value={s.value}>
+                      {s.label}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <Button variant="contained" size="small" startIcon={<PlusIcon size={16} />} onClick={openCreate} sx={amplifyBtnSx}>
+                  New campaign
+                </Button>
+              </Stack>
             }
           >
             {query.isError ? (
@@ -95,59 +137,80 @@ export default function AmplifyCampaignsPage() {
                 </Typography>
               </Stack>
             ) : (query.data?.items.length ?? 0) === 0 ? (
-              <AmplifyEmpty>No campaigns yet. Create the first one.</AmplifyEmpty>
+              <AmplifyEmpty>No campaigns match that filter.</AmplifyEmpty>
             ) : (
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Title</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Window</TableCell>
-                    <TableCell align="right">Actions</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {(query.data?.items ?? []).map((c) => (
-                    <TableRow key={c.id} hover>
-                      <TableCell>
-                        <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
-                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                            {c.title}
-                          </Typography>
-                          {c.isPriority && <Chip size="small" color="warning" label="Priority" />}
-                        </Stack>
-                        <Typography variant="caption" color="text.secondary">
-                          {c.categoryCode}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Chip size="small" color={campaignStatusColor(c.status)} label={c.status} />
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="caption">
-                          {formatDate(c.opensAt)} → {formatDate(c.closesAt)}
-                        </Typography>
-                      </TableCell>
-                      <TableCell align="right">
-                        <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
-                          <Button size="small" variant="outlined" onClick={() => openEdit(c)} sx={amplifyBtnSx}>
-                            Edit
-                          </Button>
-                          <Button
-                            size="small"
-                            color="error"
-                            onClick={() => setArchiving(c)}
-                            disabled={c.status === "ARCHIVED"}
-                            sx={amplifyBtnSx}
-                          >
-                            Archive
-                          </Button>
-                        </Stack>
-                      </TableCell>
+              <>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Title</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Window</TableCell>
+                      <TableCell align="right">Actions</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHead>
+                  <TableBody>
+                    {(query.data?.items ?? []).map((c) => (
+                      <TableRow key={c.id} hover>
+                        <TableCell>
+                          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                              {c.title}
+                            </Typography>
+                            {c.isPriority && <Chip size="small" color="warning" label="Priority" />}
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary">
+                            {c.categoryCode}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip size="small" color={campaignStatusColor(c.status)} label={c.status} />
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="caption">
+                            {formatDate(c.opensAt)} → {formatDate(c.closesAt)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell align="right">
+                          <Stack direction="row" spacing={1} sx={{ justifyContent: "flex-end" }}>
+                            {/* PATCH refuses an archived campaign, so Edit is closed on one too. */}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => openEdit(c)}
+                              disabled={c.status === "ARCHIVED"}
+                              sx={amplifyBtnSx}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              onClick={() => setArchiving(c)}
+                              disabled={c.status === "ARCHIVED"}
+                              sx={amplifyBtnSx}
+                            >
+                              Archive
+                            </Button>
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+                <TablePagination
+                  component="div"
+                  count={query.data?.total ?? 0}
+                  page={page}
+                  rowsPerPage={size}
+                  rowsPerPageOptions={ROWS_PER_PAGE}
+                  onPageChange={(_, next) => setPage(next)}
+                  onRowsPerPageChange={(e) => {
+                    setSize(Number(e.target.value));
+                    setPage(0);
+                  }}
+                />
+              </>
             )}
           </AmplifySectionCard>
 

@@ -123,6 +123,42 @@ export function formatMonthLabel(month: string): string {
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
+// ---- Period -----------------------------------------------------------------
+// The `period` query value is NOT an enum. Per the openapi `Period` parameter
+// (enforced server-side by `checkPeriod`) it is exactly one of `ALL`, `YYYY-MM`
+// (`2026-10`) or `YYYY-Qn` (`2026-Q4`), default `ALL`. Never send
+// `MONTH`/`QUARTER`/`YEAR`: the backend answers `400 VALIDATION_FAILED`.
+
+/** The full wire pattern, for validating anything handed to the query string. */
+export const AMPLIFY_PERIOD_PATTERN = /^(ALL|\d{4}-(0[1-9]|1[0-2])|\d{4}-Q[1-4])$/;
+
+/** Which picker a period value needs: everything, one month, or one quarter. */
+export type PeriodKind = "ALL" | "MONTH" | "QUARTER";
+
+export function periodKind(period: string): PeriodKind {
+  if (/^\d{4}-Q[1-4]$/.test(period)) return "QUARTER";
+  if (/^\d{4}-(0[1-9]|1[0-2])$/.test(period)) return "MONTH";
+  return "ALL";
+}
+
+/** The current month as a period value (`2026-10`). */
+export function currentPeriodMonth(now: Date = new Date()): string {
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** The current quarter as a period value (`2026-Q4`). */
+export function currentPeriodQuarter(now: Date = new Date()): string {
+  return `${now.getFullYear()}-Q${Math.floor(now.getMonth() / 3) + 1}`;
+}
+
+/** A period value as a human label: `All time` / `Oct 2026` / `Q4 2026`. */
+export function formatPeriodLabel(period: string): string {
+  if (period === "ALL") return "All time";
+  const q = /^(\d{4})-Q([1-4])$/.exec(period);
+  if (q) return `Q${q[2]} ${q[1]}`;
+  return formatMonthLabel(period);
+}
+
 /** "in 3 days" / "2 days ago" — for "closes" and "last activity". */
 export function relativeTime(iso?: string): string {
   if (!iso) return "—";

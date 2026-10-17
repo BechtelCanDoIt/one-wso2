@@ -29,6 +29,7 @@ import {
   TableBody,
   TableCell,
   TableHead,
+  TablePagination,
   TableRow,
   TextField,
   Typography,
@@ -43,59 +44,83 @@ import type { LedgerEntry, TeamPageEntry } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyTeam, useAmplifyTeamHistory } from "../api/amplifyHooks";
 import AmplifyShell, { AmplifyEmpty, AmplifyStat } from "../components/AmplifyShell";
 import AmplifySectionCard from "../components/AmplifySectionCard";
+import AmplifyPeriodPicker from "../components/AmplifyPeriodPicker";
 import PointsAdjustDialog from "../components/PointsAdjustDialog";
 import { amplifyBtnSx, formatDate, relativeTime } from "../components/amplifyUi";
 
+/** The backend's `sort` enum (`service.bal`: `rank | points | name`). */
 const SORTS = [
+  { value: "rank", label: "Rank (best first)" },
   { value: "points", label: "Points (high to low)" },
-  { value: "recent", label: "Most recent activity" },
-  { value: "name", label: "Name" },
+  { value: "name", label: "Name (A–Z)" },
 ];
+
+const ROWS_PER_PAGE = [10, 25, 50, 100];
 
 /**
  * Team — the roster with points, and the PO's correction tools on it.
  *
- * Adjust and Reverse are shown only when the backend says the caller may do
- * them (`entry.actions`) AND the gate says they hold a reviewing role — the
- * two must agree, and the backend is the enforcer either way. A row expands to
- * its ledger, because a correction is almost always "you gave me the wrong
+ * Adjust and Reverse are gated on the backend's own per-row `actions` field
+ * (only `amplify_po` gets `true`), never on the role alone — the backend is the
+ * enforcer, and a row it would refuse must not offer the button. A row expands
+ * to its ledger, because a correction is almost always "you gave me the wrong
  * points on that one", which needs the entry, not just the total.
  */
 export default function AmplifyTeamPage() {
   const [q, setQ] = useState("");
-  const [sort, setSort] = useState("points");
+  const [sort, setSort] = useState("rank");
   const [period, setPeriod] = useState("ALL");
-  const query = useAmplifyTeam({ period, q: q || undefined, sort, size: 50 });
+  const [page, setPage] = useState(0);
+  const [size, setSize] = useState(25);
+  const query = useAmplifyTeam({ period, q: q || undefined, sort, page, size });
 
   return (
     <AmplifyShell title="Team" subtitle="Who's amplifying, and how much.">
-      {(gate) => {
-        const canReview = gate.isPo || gate.isAdmin;
+      {() => {
         const data = query.data;
 
         return (
           <Box>
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2} sx={{ mb: 2 }}>
+            <Stack
+              direction={{ xs: "column", sm: "row" }}
+              spacing={2}
+              sx={{ mb: 2, flexWrap: "wrap", rowGap: 2 }}
+            >
               <TextField
                 size="small"
                 placeholder="Search by name or email"
                 value={q}
-                onChange={(e) => setQ(e.target.value)}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setPage(0);
+                }}
                 slotProps={{ input: { startAdornment: <SearchIcon size={16} /> } }}
                 sx={{ minWidth: 260 }}
               />
-              <TextField select size="small" label="Sort" value={sort} onChange={(e) => setSort(e.target.value)} sx={{ minWidth: 200 }}>
+              <TextField
+                select
+                size="small"
+                label="Sort"
+                value={sort}
+                onChange={(e) => {
+                  setSort(e.target.value);
+                  setPage(0);
+                }}
+                sx={{ minWidth: 200 }}
+              >
                 {SORTS.map((s) => (
                   <MenuItem key={s.value} value={s.value}>
                     {s.label}
                   </MenuItem>
                 ))}
               </TextField>
-              <TextField select size="small" label="Period" value={period} onChange={(e) => setPeriod(e.target.value)} sx={{ minWidth: 160 }}>
-                <MenuItem value="ALL">All time</MenuItem>
-                <MenuItem value="MONTH">This month</MenuItem>
-                <MenuItem value="QUARTER">This quarter</MenuItem>
-              </TextField>
+              <AmplifyPeriodPicker
+                value={period}
+                onChange={(p) => {
+                  setPeriod(p);
+                  setPage(0);
+                }}
+              />
             </Stack>
 
             {query.isError ? (
@@ -127,23 +152,37 @@ export default function AmplifyTeamPage() {
                 {(data?.entries.length ?? 0) === 0 ? (
                   <AmplifyEmpty>Nobody matches that search.</AmplifyEmpty>
                 ) : (
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ width: 40 }} />
-                        <TableCell>Name</TableCell>
-                        <TableCell align="right">Points</TableCell>
-                        <TableCell align="right">Rank</TableCell>
-                        <TableCell>Last activity</TableCell>
-                        <TableCell align="right">Actions</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {(data?.entries ?? []).map((entry) => (
-                        <TeamRow key={entry.employeeId} entry={entry} canReview={canReview} />
-                      ))}
-                    </TableBody>
-                  </Table>
+                  <>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell sx={{ width: 40 }} />
+                          <TableCell>Name</TableCell>
+                          <TableCell align="right">Points</TableCell>
+                          <TableCell align="right">Rank</TableCell>
+                          <TableCell>Last activity</TableCell>
+                          <TableCell align="right">Actions</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {(data?.entries ?? []).map((entry) => (
+                          <TeamRow key={entry.employeeId} entry={entry} />
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <TablePagination
+                      component="div"
+                      count={data?.total ?? 0}
+                      page={page}
+                      rowsPerPage={size}
+                      rowsPerPageOptions={ROWS_PER_PAGE}
+                      onPageChange={(_, next) => setPage(next)}
+                      onRowsPerPageChange={(e) => {
+                        setSize(Number(e.target.value));
+                        setPage(0);
+                      }}
+                    />
+                  </>
                 )}
               </AmplifySectionCard>
             )}
@@ -154,13 +193,15 @@ export default function AmplifyTeamPage() {
   );
 }
 
-function TeamRow({ entry, canReview }: { entry: TeamPageEntry; canReview: boolean }) {
+function TeamRow({ entry }: { entry: TeamPageEntry }) {
   const [open, setOpen] = useState(false);
   const [adjustOpen, setAdjustOpen] = useState(false);
   const history = useAmplifyTeamHistory(entry.employeeId, { enabled: open });
 
-  const showAdjust = canReview && entry.actions.canAdjust;
-  const showReverse = canReview && entry.actions.canReverse;
+  // The backend's per-row `actions` is the source of truth (PO only), not the
+  // role alone: a row the backend would refuse must not offer the button.
+  const showAdjust = entry.actions.canAdjust;
+  const showReverse = entry.actions.canReverse;
 
   return (
     <>
