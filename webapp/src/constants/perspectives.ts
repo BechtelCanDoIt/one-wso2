@@ -48,6 +48,7 @@ import {
   HandshakeIcon,
   WalletIcon,
   ServerIcon,
+  RocketIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { Capability, MenuApp } from "@constants/appMenu";
@@ -67,6 +68,7 @@ import { ME_APPS } from "@constants/meApps";
 import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
+import { AMPLIFY_APPS } from "@constants/amplifyApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 
@@ -796,6 +798,37 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       ...(isPreviewEnabled("umt") ? [UMT_SECTION] : []),
     ],
   },
+  // Amplify — the company advocacy/engagement module, held behind its own
+  // preview flag, whole perspective and all, until it is ready for production.
+  // With the flag off the entry does not exist, so the waffle, landing options
+  // and favourites stay clean.
+  //
+  // `externallyGated` because `access: true` only says the module is built: its
+  // rows are decided by Amplify's OWN `GET /me` roles, not the people-app
+  // capability model. That flag keeps someone from being LANDED here at sign-in
+  // only to meet an authorization notice — the rail and launcher still show it,
+  // where the notice is the right answer.
+  //
+  // `forwardsToFirstItem` because Amplify has no overview of its own worth
+  // stopping on (see the rail review): clicking the parent opens the group and
+  // lands on Posts.
+  //
+  // The whole rail is ONE group (AMPLIFY_APPS → appsToSections), so the left
+  // panel never changes shape between screens.
+  ...(isPreviewEnabled("amplify")
+    ? [
+        {
+          key: "amplify",
+          label: "Amplify",
+          icon: RocketIcon,
+          access: true,
+          externallyGated: true,
+          path: "/amplify",
+          forwardsToFirstItem: true,
+          sections: appsToSections(AMPLIFY_APPS),
+        },
+      ]
+    : []),
   // Held behind a preview flag, whole perspective and all, until it's ready
   // for production. With the flag off the entry does not exist, so the waffle,
   // landing options, and favourites stay clean.

@@ -21,6 +21,7 @@ import { DUE_DILIGENCE_ITEM_IDS } from "@constants/dueDiligenceApps";
 import { FINANCE_ITEM_IDS } from "@constants/financeApps";
 import { MIS_ITEM_IDS } from "@constants/misApps";
 import { INFRA_ITEM_IDS } from "@constants/infraApps";
+import { AMPLIFY_ITEM_IDS } from "@constants/amplifyApps";
 import { BANKING_ITEM_IDS, LEAVE_ITEM_IDS } from "@constants/meApps";
 import { PAR_EMPLOYEE_ITEM_ID } from "@constants/parApps";
 import { PROMOTION_EMPLOYEE_ITEM_ID } from "@constants/promotionApps";
@@ -94,6 +95,7 @@ export type AdapterName =
   | "security"
   | "umt"
   | "subscriptions"
+  | "amplify"
   | "engineering";
 
 const ADAPTER_NAMES: readonly AdapterName[] = [
@@ -112,6 +114,7 @@ const ADAPTER_NAMES: readonly AdapterName[] = [
   "security",
   "umt",
   "subscriptions",
+  "amplify",
   "engineering",
 ];
 
@@ -207,6 +210,12 @@ export function claimOf(name: AdapterName): SectionClaim {
       return { kind: "sections", ids: UMT_ITEM_IDS };
     case "subscriptions":
       return { kind: "sections", ids: SUBSCRIPTION_ITEM_IDS };
+    case "amplify":
+      // Amplify's own `GET /me` roles decide every row, group included — see
+      // useAmplifyGate. Reading these against people-app capabilities would
+      // show the PO/Admin rows to a people-app admin who holds no Amplify role,
+      // and hide them from an Amplify PO who isn't one.
+      return { kind: "sections", ids: AMPLIFY_ITEM_IDS };
     case "engineering":
       return ids([ENGINEERING_ADMIN_ITEM_ID]);
     default: {
@@ -247,6 +256,10 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   // Asking its /update/user-info when they are absent holds the Engineering
   // landing on a backend that has nothing to show.
   if (perspectiveKey === "engineering" && isPreviewEnabled("umt")) names.push("umt");
+  // Amplify's rows exist only while its own preview flag is on. Asking its /me
+  // when they are absent would hold the landing on a backend with nothing to
+  // show — same treatment as CadO2 and UMT.
+  if (perspectiveKey === "amplify" && isPreviewEnabled("amplify")) names.push("amplify");
   names.push("subscriptions");
   return names;
 }

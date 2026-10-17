@@ -25,6 +25,8 @@ import SectionHeader from "../../people-ops/components/SectionHeader";
 import { isPeopleBackendConfigured, useMeProfile, useMePersonalInfo } from "../api/useMeProfile";
 import CollapsibleSection from "../components/CollapsibleSection";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { isPreviewEnabled } from "@config/previewFeatures";
+import AmplifyOverviewBar from "@features/amplify/components/AmplifyOverviewBar";
 
 // The Me home landing: own profile + the cross-app "More about you"
 // aggregation.
@@ -68,6 +70,10 @@ export default function MyProfilePage() {
           Couldn't load your profile from the people-app backend.
         </ErrorNotice>
       )}
+
+      {/* Amplify's slim row on the Me landing. Renders nothing at all when the
+          module's preview flag is off or the backend isn't configured. */}
+      {isPreviewEnabled("amplify") && <AmplifyOverviewBar />}
 
       <ProfileHero userInfo={userInfo} employee={employee} isLoading={isLoading} />
 

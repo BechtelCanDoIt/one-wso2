@@ -14,9 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, MenuItem, TextField, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, MenuItem, TextField, Typography } from "@wso2/oxygen-ui";
 import { useState, type JSX } from "react";
+import { Link as RouterLink } from "react-router";
+import { LinkedinIcon } from "@wso2/oxygen-ui-icons-react";
 import PerspectiveHeader from "@components/perspective-header/PerspectiveHeader";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import {
   landingOptions,
   landingPreference,
@@ -65,6 +68,29 @@ export default function SettingsPage(): JSX.Element {
           the address bar.
         </Typography>
       </Box>
+
+      {/* Me → Settings → My Connections. Only shown while Amplify is on — the
+          link would point at a route that does not exist otherwise. */}
+      {isPreviewEnabled("amplify") && (
+        <Box sx={{ maxWidth: 420 }}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>
+            My Connections
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            The accounts Amplify uses on your behalf.
+          </Typography>
+          <Button
+            component={RouterLink}
+            to="/settings/connections"
+            variant="outlined"
+            size="small"
+            startIcon={<LinkedinIcon size={16} />}
+            sx={{ textTransform: "none", fontWeight: 600 }}
+          >
+            Manage connections
+          </Button>
+        </Box>
+      )}
     </Box>
   );
 }

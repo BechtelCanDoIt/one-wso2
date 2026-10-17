@@ -1,0 +1,318 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import { useEffect, useState } from "react";
+import {
+  Alert,
+  Button,
+  Checkbox,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  MenuItem,
+  Stack,
+  TextField,
+} from "@wso2/oxygen-ui";
+import { useQueryClient } from "@tanstack/react-query";
+import { describeError } from "@api/errors";
+import { useAccessToken } from "@hooks/useAccessToken";
+import { useNotifications } from "@context/notifications/NotificationsContext";
+import { createCampaign, patchCampaign } from "../api/amplifyClient";
+import type { Campaign, CampaignDraft } from "../api/amplifyTypes";
+import { AMPLIFY_QUERY_KEYS, useAmplifyCategories } from "../api/amplifyHooks";
+import { amplifyBtnSx } from "./amplifyUi";
+
+interface FormState {
+  resourceUrn: string;
+  ownerUrn: string;
+  resourceUrl: string;
+  title: string;
+  summary: string;
+  imageUrl: string;
+  categoryCode: string;
+  isPriority: boolean;
+  tags: string;
+  opensAt: string;
+  closesAt: string;
+}
+
+const BLANK: FormState = {
+  resourceUrn: "",
+  ownerUrn: "",
+  resourceUrl: "",
+  title: "",
+  summary: "",
+  imageUrl: "",
+  categoryCode: "",
+  isPriority: false,
+  tags: "",
+  opensAt: "",
+  closesAt: "",
+};
+
+function fromCampaign(c: Campaign): FormState {
+  return {
+    resourceUrn: c.resourceUrn,
+    ownerUrn: c.ownerUrn,
+    resourceUrl: c.resourceUrl ?? "",
+    title: c.title,
+    summary: c.summary ?? "",
+    imageUrl: c.imageUrl ?? "",
+    categoryCode: c.categoryCode,
+    isPriority: c.isPriority,
+    tags: c.tags.join(", "),
+    opensAt: c.opensAt,
+    closesAt: c.closesAt,
+  };
+}
+
+// datetime-local wants `YYYY-MM-DDTHH:mm`, the contract uses ISO with a Z. The
+// two conversions live together so they cannot drift.
+function toLocalInput(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromLocalInput(local: string): string | undefined {
+  if (!local) return undefined;
+  const d = new Date(local);
+  if (Number.isNaN(d.getTime())) return undefined;
+  return d.toISOString();
+}
+
+/**
+ * Create or edit a campaign. `shareNow` only matters on create — it asks the
+ * backend to kick off the announcement run immediately rather than at the next
+ * scheduled tick.
+ */
+export default function CampaignFormDialog({
+  open,
+  campaign,
+  onClose,
+}: {
+  open: boolean;
+  /** Present for edit; absent for create. */
+  campaign?: Campaign;
+  onClose: () => void;
+}) {
+  const getAccessToken = useAccessToken();
+  const queryClient = useQueryClient();
+  const { showSuccess } = useNotifications();
+  const categories = useAmplifyCategories();
+
+  const isEdit = Boolean(campaign);
+  const [form, setForm] = useState<FormState>(BLANK);
+  const [shareNow, setShareNow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setForm(campaign ? fromCampaign(campaign) : BLANK);
+    setShareNow(false);
+    setError(null);
+  }, [open, campaign]);
+
+  const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
+    setForm((f) => ({ ...f, [key]: value }));
+
+  const handleSubmit = async () => {
+    setError(null);
+    if (!form.title.trim()) {
+      setError("A title is required.");
+      return;
+    }
+    if (!form.categoryCode) {
+      setError("Pick a category.");
+      return;
+    }
+    const tags = form.tags
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean);
+
+    setBusy(true);
+    try {
+      const token = await getAccessToken();
+      if (isEdit && campaign) {
+        await patchCampaign(token, campaign.id, {
+          version: campaign.version,
+          title: form.title.trim(),
+          summary: form.summary.trim() || undefined,
+          imageUrl: form.imageUrl.trim() || undefined,
+          categoryCode: form.categoryCode,
+          isPriority: form.isPriority,
+          tags,
+          opensAt: fromLocalInput(form.opensAt),
+          closesAt: fromLocalInput(form.closesAt),
+        });
+        showSuccess(`Updated “${form.title.trim()}”.`);
+      } else {
+        const draft: CampaignDraft = {
+          resourceUrn: form.resourceUrn.trim(),
+          ownerUrn: form.ownerUrn.trim(),
+          resourceUrl: form.resourceUrl.trim() || undefined,
+          title: form.title.trim(),
+          summary: form.summary.trim() || undefined,
+          imageUrl: form.imageUrl.trim() || undefined,
+          categoryCode: form.categoryCode,
+          isPriority: form.isPriority,
+          tags,
+          opensAt: fromLocalInput(form.opensAt),
+          closesAt: fromLocalInput(form.closesAt),
+        };
+        await createCampaign(token, draft, { shareNow });
+        showSuccess(
+          shareNow ? `Created “${draft.title}” and queued the announcement.` : `Created “${draft.title}”.`,
+        );
+      }
+      void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.campaigns });
+      onClose();
+    } catch (err) {
+      setError(describeError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={busy ? undefined : onClose} fullWidth maxWidth="sm">
+      <DialogTitle>{isEdit ? "Edit campaign" : "New campaign"}</DialogTitle>
+      <DialogContent>
+        <Stack spacing={2} sx={{ mt: 1 }}>
+          {error && <Alert severity="error">{error}</Alert>}
+          <TextField
+            fullWidth
+            size="small"
+            label="Title"
+            value={form.title}
+            onChange={(e) => set("title", e.target.value)}
+          />
+          <TextField
+            fullWidth
+            size="small"
+            multiline
+            minRows={2}
+            label="Summary"
+            value={form.summary}
+            onChange={(e) => set("summary", e.target.value)}
+          />
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Category"
+              value={form.categoryCode}
+              onChange={(e) => set("categoryCode", e.target.value)}
+            >
+              {(categories.data?.categories ?? []).map((c) => (
+                <MenuItem key={c.code} value={c.code}>
+                  {c.label}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              size="small"
+              label="Image URL"
+              value={form.imageUrl}
+              onChange={(e) => set("imageUrl", e.target.value)}
+            />
+          </Stack>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField
+              fullWidth
+              size="small"
+              type="datetime-local"
+              label="Opens"
+              value={toLocalInput(form.opensAt)}
+              onChange={(e) => set("opensAt", e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              type="datetime-local"
+              label="Closes"
+              value={toLocalInput(form.closesAt)}
+              onChange={(e) => set("closesAt", e.target.value)}
+              slotProps={{ inputLabel: { shrink: true } }}
+            />
+          </Stack>
+          <TextField
+            fullWidth
+            size="small"
+            label="Tags"
+            placeholder="comma, separated, tags"
+            value={form.tags}
+            onChange={(e) => set("tags", e.target.value)}
+          />
+          {!isEdit && (
+            <>
+              <TextField
+                fullWidth
+                size="small"
+                label="Resource URN"
+                value={form.resourceUrn}
+                onChange={(e) => set("resourceUrn", e.target.value)}
+                helperText="The URN of the content being amplified."
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Owner URN"
+                value={form.ownerUrn}
+                onChange={(e) => set("ownerUrn", e.target.value)}
+                helperText="Who owns the underlying resource."
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Resource URL"
+                value={form.resourceUrl}
+                onChange={(e) => set("resourceUrl", e.target.value)}
+              />
+            </>
+          )}
+          <FormControlLabel
+            control={<Checkbox checked={form.isPriority} onChange={(e) => set("isPriority", e.target.checked)} />}
+            label="Priority campaign"
+          />
+          {!isEdit && (
+            <FormControlLabel
+              control={<Checkbox checked={shareNow} onChange={(e) => setShareNow(e.target.checked)} />}
+              label="Announce immediately (otherwise at the next scheduler tick)"
+            />
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={busy} sx={amplifyBtnSx}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit} variant="contained" disabled={busy} sx={amplifyBtnSx}>
+          {busy ? "Saving…" : isEdit ? "Save changes" : "Create"}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}

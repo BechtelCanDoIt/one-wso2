@@ -305,6 +305,7 @@ describe("claimsForPerspective", () => {
       "security",
       "umt",
       "subscriptions",
+      "amplify",
     ] as const;
     for (const perspective of PERSPECTIVES) {
       const sectionIds = sectionIdsIn(perspective.sections ?? []);
@@ -359,6 +360,7 @@ describe("claimsForPerspective", () => {
       "umt",
       "subscriptions",
       "engineering",
+      "amplify",
     ] as const;
     for (const perspective of flagged) {
       const sectionIds = fold.sectionIdsIn(perspective.sections ?? []);
@@ -426,6 +428,7 @@ describe("claimOf", () => {
       "umt",
       "subscriptions",
       "engineering",
+      "amplify",
     ];
     for (const name of names) {
       expect(claimOf(name)).toBeTruthy();

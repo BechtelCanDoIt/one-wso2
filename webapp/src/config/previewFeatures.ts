@@ -86,7 +86,20 @@ export type PreviewFeature =
    * With the flag on and `ONE_WSO2_SMART_SEARCH_BACKEND_URL` unset, the page
    * says "not connected" and makes no requests.
    */
-  | "smartSearch";
+  | "smartSearch"
+  /**
+   * The whole Amplify module — a company advocacy/engagement app (post
+   * campaigns onto social media, earn points, see the leaderboard). Its rail
+   * group and every route under `/amplify` stay hidden until this is on, so
+   * the waffle, landing options and favourites stay clean.
+   *
+   * Once on, Amplify's own `GET /me` roles (amplify_po / amplify_marketing /
+   * amplify_slt / amplify_admin, plus every signed-in employee) decide which
+   * of its rail rows each caller sees. With the flag on and
+   * `ONE_WSO2_AMPLIFY_BACKEND_URL` unset, the module shows a not-connected
+   * notice and makes no requests.
+   */
+  | "amplify";
 
 /**
  * Whether a preview feature should be shown.

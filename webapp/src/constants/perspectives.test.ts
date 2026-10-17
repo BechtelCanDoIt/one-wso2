@@ -22,7 +22,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { umt?: boolean; infra?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
+  preview: {
+    umt?: boolean;
+    infra?: boolean;
+    cado2?: boolean;
+    smartSearch?: boolean;
+    amplify?: boolean;
+  } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -303,6 +309,49 @@ describe("perspectives whose landing forwards to the first rail item", () => {
       expect(labels).toContain("Packages");
       expect(labels).toContain("Repository Stats");
       expect(labels).toContain("Admin");
+    });
+  });
+
+  // Amplify lands behind its own flag, as a whole perspective. Its rail is ONE
+  // group so the left panel never changes shape between screens, and the
+  // Reports row deliberately carries no path (Phase 2).
+  describe("the Amplify perspective", () => {
+    it("does not exist when the flag is off, or was never mentioned", async () => {
+      for (const preview of [{ amplify: false }, {}]) {
+        const { PERSPECTIVES } = await load(preview);
+        expect(keys(PERSPECTIVES)).not.toContain("amplify");
+      }
+    });
+
+    it("is present, built and routable when the preview flag is on", async () => {
+      const { PERSPECTIVES, reachablePerspectives, findPerspectiveByPath, findPerspectiveByKey } =
+        await load({ amplify: true });
+      expect(keys(PERSPECTIVES)).toContain("amplify");
+      expect(keys(reachablePerspectives())).toContain("amplify");
+      expect(findPerspectiveByPath("/amplify")?.key).toBe("amplify");
+      const amplify = findPerspectiveByKey("amplify");
+      expect(amplify?.label).toBe("Amplify");
+      // No overview of its own — it forwards to Posts.
+      expect(amplify?.forwardsToFirstItem).toBe(true);
+      expect(amplify?.externallyGated).toBe(true);
+    });
+
+    it("is one alwaysGroup rail group with the everyday rows", async () => {
+      const { findPerspectiveByKey } = await load({ amplify: true });
+      const group = findPerspectiveByKey("amplify")?.sections?.find((s) => s.id === "sec-app-amplify");
+      expect(group?.label).toBe("Amplify");
+      expect(group?.alwaysGroup).toBe(true);
+      expect(group?.children?.map((child) => [child.id, child.path ?? null])).toEqual([
+        ["amplify-posts", "/amplify/posts"],
+        ["amplify-leaderboard", "/amplify/leaderboard"],
+        ["amplify-my-campaign", "/amplify/my-campaign"],
+        ["amplify-team", "/amplify/team"],
+        ["amplify-campaigns", "/amplify/campaigns"],
+        ["amplify-po-review", "/amplify/po"],
+        // Phase 2: hidden from the rail by having no path at all.
+        ["amplify-reports", null],
+        ["amplify-admin", "/amplify/admin"],
+      ]);
     });
   });
 });

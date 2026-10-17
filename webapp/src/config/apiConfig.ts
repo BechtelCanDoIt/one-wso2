@@ -2208,3 +2208,112 @@ export function buildDealsUrl(params: {
   qs.set("hideClosed", String(params.hideClosed));
   return `${echoServiceUrls.deals}?${qs.toString()}`;
 }
+
+// ---------------------------------------------------------------------------
+// Amplify backend (apps/amplify-api). Reached through the API proxy at the cell
+// edge (ADR-004), so the base URL IS the proxy URL and every path below is the
+// contract's own relative path. The proxy turns our Bearer token into the
+// x-jwt-assertion the backend checks (ADR-022).
+//
+// Blank means "not connected", as for every other key in this file: the module
+// shows the not-connected notice and fires no requests. Only reachable while
+// the `amplify` preview flag is on.
+export const amplifyBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_AMPLIFY_BACKEND_URL ?? "",
+);
+
+export function isAmplifyBackendConfigured(): boolean {
+  return Boolean(amplifyBackendUrl);
+}
+
+// Query-string builders for the two list endpoints whose filters are optional.
+// Kept here next to the URLs so a screen cannot invent its own parameter names.
+
+/** `GET /campaigns` — status/window/tag/page/size. Absent keys are omitted. */
+export function buildAmplifyCampaignsUrl(params: {
+  status?: string;
+  window?: string;
+  tag?: string;
+  page?: number;
+  size?: number;
+} = {}): string {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set("status", params.status);
+  if (params.window) qs.set("window", params.window);
+  if (params.tag) qs.set("tag", params.tag);
+  if (params.page !== undefined) qs.set("page", String(params.page));
+  if (params.size !== undefined) qs.set("size", String(params.size));
+  const query = qs.toString();
+  return query ? `${amplifyServiceUrls.campaigns}?${query}` : amplifyServiceUrls.campaigns;
+}
+
+/** `GET /team` — period/q/sort/page/size. Absent keys are omitted. */
+export function buildAmplifyTeamUrl(params: {
+  period?: string;
+  q?: string;
+  sort?: string;
+  page?: number;
+  size?: number;
+} = {}): string {
+  const qs = new URLSearchParams();
+  if (params.period) qs.set("period", params.period);
+  if (params.q) qs.set("q", params.q);
+  if (params.sort) qs.set("sort", params.sort);
+  if (params.page !== undefined) qs.set("page", String(params.page));
+  if (params.size !== undefined) qs.set("size", String(params.size));
+  const query = qs.toString();
+  return query ? `${amplifyServiceUrls.team}?${query}` : amplifyServiceUrls.team;
+}
+
+export const amplifyServiceUrls = {
+  /** GET /me — the caller's employee record, roles, capabilities, LinkedIn state. */
+  me: `${amplifyBackendUrl}/me`,
+  // ---- Campaigns ----------------------------------------------------------
+  /** GET (list) + POST (create, `?shareNow=`) */
+  campaigns: `${amplifyBackendUrl}/campaigns`,
+  campaign: (id: string) => `${amplifyBackendUrl}/campaigns/${encodeURIComponent(id)}`,
+  campaignShares: (id: string) =>
+    `${amplifyBackendUrl}/campaigns/${encodeURIComponent(id)}/shares`,
+  /** GET /tags — the tag catalogue behind the Posts filter. */
+  tags: `${amplifyBackendUrl}/tags`,
+  /** GET /categories — category code + label, for the campaign form. */
+  categories: `${amplifyBackendUrl}/categories`,
+  // ---- LinkedIn connection ------------------------------------------------
+  connectStart: `${amplifyBackendUrl}/connections/linkedin/start`,
+  connectComplete: `${amplifyBackendUrl}/connections/linkedin/complete`,
+  disconnect: `${amplifyBackendUrl}/connections/linkedin`,
+  // ---- Shares -------------------------------------------------------------
+  myShares: `${amplifyBackendUrl}/me/shares`,
+  // ---- External shares ----------------------------------------------------
+  externalShares: `${amplifyBackendUrl}/external-shares`,
+  myExternalShares: `${amplifyBackendUrl}/me/external-shares`,
+  /** GET /po/external-shares?status=&page=&size= — the PO review queue. */
+  poExternalShares: `${amplifyBackendUrl}/po/external-shares`,
+  poExternalShareApprove: (id: string) =>
+    `${amplifyBackendUrl}/po/external-shares/${encodeURIComponent(id)}/approve`,
+  poExternalShareReject: (id: string) =>
+    `${amplifyBackendUrl}/po/external-shares/${encodeURIComponent(id)}/reject`,
+  poExternalShareAmplified: (id: string) =>
+    `${amplifyBackendUrl}/po/external-shares/${encodeURIComponent(id)}/amplified`,
+  // ---- Points -------------------------------------------------------------
+  pointRules: `${amplifyBackendUrl}/po/point-rules`,
+  pointAdjustments: `${amplifyBackendUrl}/po/points/adjustments`,
+  pointReverse: (reference: string) =>
+    `${amplifyBackendUrl}/po/points/${encodeURIComponent(reference)}/reverse`,
+  // ---- Leaderboard / Team -------------------------------------------------
+  leaderboard: `${amplifyBackendUrl}/leaderboard`,
+  myPoints: `${amplifyBackendUrl}/me/points`,
+  team: `${amplifyBackendUrl}/team`,
+  teamHistory: (employeeId: string) =>
+    `${amplifyBackendUrl}/team/${encodeURIComponent(employeeId)}/history`,
+  // ---- PO dashboard -------------------------------------------------------
+  /** GET /po/dashboard?month= (YYYY-MM). */
+  poDashboard: (month?: string) =>
+    month ? `${amplifyBackendUrl}/po/dashboard?month=${encodeURIComponent(month)}` : `${amplifyBackendUrl}/po/dashboard`,
+  // ---- Admin --------------------------------------------------------------
+  adminAnnouncements: `${amplifyBackendUrl}/admin/announcements`,
+  adminAnnouncementRetry: (id: string) =>
+    `${amplifyBackendUrl}/admin/announcements/${encodeURIComponent(id)}/retry`,
+  adminSettings: `${amplifyBackendUrl}/admin/settings`,
+  adminSchedulerSync: `${amplifyBackendUrl}/admin/scheduler/sync`,
+};

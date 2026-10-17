@@ -227,6 +227,7 @@ import UmtStatisticsPage from "@features/umt/pages/UmtStatisticsPage";
 import UmtUpdateView from "@features/umt/pages/UmtUpdateView";
 import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
 import { engineeringRoutes } from "@features/engineering/routes";
+import { amplifyRoutes } from "@features/amplify/routes";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
 import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPage";
@@ -245,6 +246,12 @@ export default function App() {
               with the earlier addresses forwarding. The feature owns the
               tree, as CadO2 and the GRC modules own theirs. */}
           {engineeringRoutes}
+          {/* Amplify — the company advocacy module, whole perspective and all,
+              behind its own preview flag (see @constants/perspectives and
+              @config/previewFeatures). AmplifyShell owns the per-screen role
+              gate; App.tsx's flag decides whether the routes exist at all, so
+              the rail and the router agree. */}
+          {isPreviewEnabled("amplify") && amplifyRoutes}
           {/* Engineering → UMT. UmtShell owns its role gate. Behind the same
               preview flag as its rail group — hiding only the rail entries
               would leave the routes reachable by URL. Nested under

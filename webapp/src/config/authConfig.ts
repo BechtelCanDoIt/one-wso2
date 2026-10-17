@@ -103,6 +103,14 @@ declare global {
       // "not configured" state. Leave-app has its own /user-info +
       // privileges, distinct from people-app.
       ONE_WSO2_LEAVE_BACKEND_URL?: string;
+      // Base URL for the Amplify backend, reached through the API proxy at the
+      // cell edge (ADR-004) — every path in Amplify's own OpenAPI contract is
+      // relative to it. Optional — when absent, the module shows a
+      // "not connected" state and makes no requests. Only reachable while the
+      // `amplify` preview flag is on. Amplify's own /me roles
+      // (amplify_po / amplify_marketing / amplify_slt / amplify_admin) decide
+      // which rail rows each caller sees.
+      ONE_WSO2_AMPLIFY_BACKEND_URL?: string;
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;

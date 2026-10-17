@@ -39,6 +39,7 @@ import { useParIsAdmin } from "@features/par/api/useParIsAdmin";
 import { promotionVisibility, usePromotionPrivileges } from "@features/promotion/api/usePromotionRoles";
 import { promotionEmployeeAccess } from "@features/promotion/util/promotionEmployeeAccess";
 import { umtVisibility, useUmtGate } from "@features/umt/api/useUmtGate";
+import { amplifyVisibility, useAmplifyGate } from "@features/amplify/api/useAmplifyGate";
 import {
   engineeringAdminVisibility,
   useEngineeringAdminGate,
@@ -266,6 +267,15 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   const umtGate = useUmtGate(isEngineering && isPreviewEnabled("umt"));
   const engineeringAdminGate = useEngineeringAdminGate(isEngineering);
 
+  // Amplify's rows are decided by Amplify's OWN /me roles
+  // (amplify_po / amplify_marketing / amplify_slt / amplify_admin), which bear
+  // no relation to the people-app capability numbers `caps` is built from. Only
+  // fetched while Amplify is the active perspective, and only while its preview
+  // flag is on — with the rows absent, asking its /me would hold the landing on
+  // a backend with nothing to show. Same treatment as CadO2 and UMT.
+  const isAmplify = active.key === "amplify";
+  const amplifyGate = useAmplifyGate(isAmplify && isPreviewEnabled("amplify"));
+
   // Both services are a Colombo-office perk, so both screens are Sri-Lanka-only
   // — see isSriLankaWorkLocation. They now sit in different perspectives (self
   // service under Me, manage-on-behalf under People Ops), which is why the ids
@@ -325,6 +335,8 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
         return securityVisibility(securityGate);
       case "umt":
         return umtVisibility(umtGate);
+      case "amplify":
+        return amplifyVisibility(amplifyGate);
       case "subscriptions":
         return subscriptionVisibility(subscriptionGate);
       case "mis":
