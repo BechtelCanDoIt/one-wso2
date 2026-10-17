@@ -42,6 +42,7 @@ import { amplifyBtnSx, connectionStatusColor, connectionStatusLabel, formatDateT
 import { openLinkedInConsent, POPUP_BLOCKED_MESSAGE } from "../components/openLinkedInConsent";
 import {
   clearPendingShare,
+  connectReturnTo,
   consumeConnectResult,
   loadPendingShare,
   CONNECT_RESULT_STORAGE_KEY,
@@ -93,7 +94,7 @@ export default function AmplifyConnectionsPage() {
           clearPendingShare();
           void openLinkedInConsent(async () => {
             const token = await getAccessToken();
-            const auth = await startLinkedInConnect(token, { returnTo: window.location.pathname });
+            const auth = await startLinkedInConnect(token, { returnTo: connectReturnTo(window.location.pathname) });
             return auth.authorizationUrl;
           }).then((outcome) => {
             if (outcome.status === "blocked") showError(POPUP_BLOCKED_MESSAGE);

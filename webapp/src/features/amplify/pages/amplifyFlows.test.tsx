@@ -26,6 +26,7 @@ import {
   clearConnectResult,
   clearPendingShare,
   consumeConnectResult,
+  OAUTH_REDIRECT_MISMATCH_MESSAGE,
   savePendingShare,
 } from "../components/shareFlow";
 
@@ -123,9 +124,60 @@ describe("the connect callback", () => {
     savePendingShare({ campaignId: "c-1", kind: "REPOST", returnTo: "/amplify/leaderboard" });
     renderAt(<AmplifyConnectCallbackPage />, "/amplify/connect/callback?code=abc&state=" + "s".repeat(32));
     expect(await screen.findByRole("link", { name: "Back to Amplify" })).toHaveAttribute("href", "/amplify/leaderboard");
-    expect(completeLinkedInConnect).toHaveBeenCalledWith("token", { code: "abc", state: "s".repeat(32) });
+    expect(completeLinkedInConnect).toHaveBeenCalledWith("token", {
+      code: "abc",
+      state: "s".repeat(32),
+      redirectUri: window.location.origin + window.location.pathname,
+    });
     expect(consumeConnectResult()).toMatchObject({ status: "ok" });
     await waitFor(() => expect(closeSpy).toHaveBeenCalled(), { timeout: 3000 });
+  });
+
+  describe("redirectUri", () => {
+    const originalUrl = window.location.href;
+    afterEach(() => window.history.replaceState(null, "", originalUrl));
+
+    it("sends the callback page's own URL, without query or fragment", async () => {
+      completeLinkedInConnect.mockResolvedValue({ status: "ACTIVE", memberUrn: "m", connectedAt: "x", expiresAt: "y" });
+      const query = "?code=abc&state=" + "s".repeat(32);
+      window.history.replaceState(null, "", "/amplify/connect/callback" + query + "#frag");
+      renderAt(<AmplifyConnectCallbackPage />, "/amplify/connect/callback" + query);
+      await screen.findByRole("link", { name: "Back to Amplify" });
+      const body = completeLinkedInConnect.mock.calls[0][1] as { redirectUri: string };
+      expect(body.redirectUri).toBe(`${window.location.origin}/amplify/connect/callback`);
+      expect(body.redirectUri).not.toMatch(/[?#]/);
+    });
+
+    it("maps 422 OAUTH_REDIRECT_MISMATCH to fixed copy and reports it to the origin tab", async () => {
+      completeLinkedInConnect.mockRejectedValue(
+        new HttpError(
+          "https://amplify/connections/linkedin/complete",
+          422,
+          JSON.stringify({
+            type: "urn:wso2:amplify:problem:OAUTH_REDIRECT_MISMATCH",
+            title: "Redirect mismatch",
+            status: 422,
+            code: "OAUTH_REDIRECT_MISMATCH",
+            message: "redirect_uri https://evil.example differs",
+          }),
+        ),
+      );
+      renderAt(<AmplifyConnectCallbackPage />, "/amplify/connect/callback?code=abc&state=" + "s".repeat(32));
+      const alert = await screen.findByRole("alert");
+      expect(alert).toHaveTextContent(OAUTH_REDIRECT_MISMATCH_MESSAGE);
+      expect(alert.textContent).not.toContain("evil.example");
+      expect(consumeConnectResult()).toMatchObject({ status: "error", message: OAUTH_REDIRECT_MISMATCH_MESSAGE });
+      expect(closeSpy).not.toHaveBeenCalled();
+    });
+
+    it("still uses the server's message for other failures", async () => {
+      completeLinkedInConnect.mockRejectedValue(
+        new HttpError("u", 400, JSON.stringify({ status: 400, code: "OAUTH_STATE_INVALID", message: "State expired." })),
+      );
+      renderAt(<AmplifyConnectCallbackPage />, "/amplify/connect/callback?code=abc&state=" + "s".repeat(32));
+      expect(await screen.findByRole("alert")).toHaveTextContent("State expired.");
+      expect(consumeConnectResult()).toMatchObject({ status: "error", message: "State expired." });
+    });
   });
 });
 

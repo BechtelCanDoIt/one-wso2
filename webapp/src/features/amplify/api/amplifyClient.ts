@@ -35,6 +35,7 @@
 
 import { authedDelete, authedGet, authedPatch, authedPost, authedPut, HttpError } from "@api/http";
 import { amplifyServiceUrls, buildAmplifyCampaignsUrl, buildAmplifyTeamUrl } from "@config/apiConfig";
+import { connectReturnTo } from "../components/shareFlow";
 import type {
   AmplifyMe,
   Announcement,
@@ -46,6 +47,7 @@ import type {
   CategoryRef,
   ConnectAuthorization,
   ConnectComplete,
+  ConnectStart,
   ExternalShare,
   ExternalShareClaim,
   ExternalSharePage,
@@ -160,9 +162,13 @@ export function fetchCategories(accessToken: string): Promise<{ categories: Cate
 
 export function startLinkedInConnect(
   accessToken: string,
-  body: { returnTo?: string; pendingCampaignId?: string },
+  body: ConnectStart,
 ): Promise<ConnectAuthorization> {
-  return authedPost<ConnectAuthorization>(amplifyServiceUrls.connectStart, accessToken, body, {
+  // Last line of defence: every returnTo leaving the UI matches the server's
+  // pattern, whichever caller built it.
+  const safeBody: ConnectStart =
+    body.returnTo === undefined ? body : { ...body, returnTo: connectReturnTo(body.returnTo) };
+  return authedPost<ConnectAuthorization>(amplifyServiceUrls.connectStart, accessToken, safeBody, {
     "X-Correlation-ID": newCorrelationId(),
     "Idempotency-Key": newIdempotencyKey(),
   }).then((r) => r as ConnectAuthorization);

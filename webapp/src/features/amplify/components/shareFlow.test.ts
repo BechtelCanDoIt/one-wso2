@@ -19,6 +19,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   clearConnectResult,
   clearPendingShare,
+  CONNECT_RETURN_TO_PATTERN,
+  connectReturnTo,
   consumeConnectResult,
   DEFAULT_RETURN_PATH,
   describeOAuthError,
@@ -116,5 +118,46 @@ describe("describeOAuthError", () => {
 
   it("explains a missing code", () => {
     expect(describeOAuthError(null)).toMatch(/authorization code/);
+  });
+});
+
+// Every returnTo sent to POST /connections/linkedin/start must match the
+// server's ConnectStart.returnTo pattern, or the start call is refused.
+describe("connectReturnTo", () => {
+  it.each([["/"], ["/amplify/posts"], ["/amplify/leaderboard?period=2026-10"], ["/amplify/posts#top"]])(
+    "keeps %s",
+    (raw) => {
+      expect(connectReturnTo(raw)).toBe(raw);
+      expect(CONNECT_RETURN_TO_PATTERN.test(raw)).toBe(true);
+    },
+  );
+
+  it.each([
+    ["/amplify/a b"],
+    ["/amplify/posts "],
+    ["/amplify\\posts"],
+    ["/\\evil.example"],
+    ["/amplify/\nposts"],
+    ["//evil.example"],
+    ["https://evil.example/x"],
+    ["amplify/posts"],
+    [""],
+    [undefined],
+    [null],
+  ])("falls back to the default for %j", (raw) => {
+    expect(connectReturnTo(raw)).toBe(DEFAULT_RETURN_PATH);
+  });
+
+  it("always returns a value the server pattern accepts", () => {
+    for (const raw of ["/a b", "/x\\y", "//e", "/ok", "/", "nope", "/%20"]) {
+      expect(CONNECT_RETURN_TO_PATTERN.test(connectReturnTo(raw))).toBe(true);
+    }
+  });
+
+  it("mirrors the server pattern on its own", () => {
+    expect(CONNECT_RETURN_TO_PATTERN.test("//x")).toBe(false);
+    expect(CONNECT_RETURN_TO_PATTERN.test("/\\x")).toBe(false);
+    expect(CONNECT_RETURN_TO_PATTERN.test("/a\tb")).toBe(false);
+    expect(CONNECT_RETURN_TO_PATTERN.test("/a/b")).toBe(true);
   });
 });

@@ -160,6 +160,33 @@ export function safeReturnPath(raw: unknown): string {
 }
 
 /**
+ * The `ConnectStart.returnTo` pattern from amplify-api's openapi: a relative
+ * path, no `//`, backslash or whitespace (`/` alone is allowed).
+ */
+export const CONNECT_RETURN_TO_PATTERN = /^\/([^/\\\s][^\\\s]*)?$/;
+
+/**
+ * A `returnTo` that is safe to send to `POST /connections/linkedin/start`.
+ * The server rejects anything off its pattern, so whitespace and backslashes
+ * are refused up front (the URL parser would otherwise quietly turn a
+ * backslash into a slash), the rest goes through safeReturnPath, and the
+ * result is checked against the server pattern. Anything else falls back to
+ * the default Amplify page.
+ */
+export function connectReturnTo(raw: unknown): string {
+  if (typeof raw !== "string" || /[\s\\]/.test(raw)) return DEFAULT_RETURN_PATH;
+  const safe = safeReturnPath(raw);
+  return CONNECT_RETURN_TO_PATTERN.test(safe) ? safe : DEFAULT_RETURN_PATH;
+}
+
+/**
+ * Fixed copy for amplify-api's 422 `OAUTH_REDIRECT_MISMATCH`: the callback URL
+ * that received the code is not the redirect URI Amplify is configured with.
+ */
+export const OAUTH_REDIRECT_MISMATCH_MESSAGE =
+  "This sign-in link doesn't match Amplify's configuration. Please start the LinkedIn connection again from Amplify.";
+
+/**
  * Fixed copy for LinkedIn's OAuth `error` query parameter. The raw value (and
  * its `error_description`) is attacker-controllable text in our URL, so it is
  * never rendered — only mapped.

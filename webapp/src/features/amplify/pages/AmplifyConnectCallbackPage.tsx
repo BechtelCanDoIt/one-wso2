@@ -20,12 +20,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router";
 import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
-import { completeLinkedInConnect } from "../api/amplifyClient";
+import { amplifyProblemCode, completeLinkedInConnect } from "../api/amplifyClient";
 import { AMPLIFY_QUERY_KEYS } from "../api/amplifyHooks";
 import { amplifyBtnSx } from "../components/amplifyUi";
 import {
   describeOAuthError,
   loadPendingShare,
+  OAUTH_REDIRECT_MISMATCH_MESSAGE,
   safeReturnPath,
   saveConnectResult,
 } from "../components/shareFlow";
@@ -74,7 +75,10 @@ export default function AmplifyConnectCallbackPage() {
     void (async () => {
       try {
         const token = await getAccessToken();
-        const connection = await completeLinkedInConnect(token, { code, state: stateParam });
+        // The page's own URL without query or fragment: the server checks it
+        // against the redirect URI it put on the authorize request.
+        const redirectUri = window.location.origin + window.location.pathname;
+        const connection = await completeLinkedInConnect(token, { code, state: stateParam, redirectUri });
         if (!loadPendingShare() && connection.returnTo) setReturnTo(safeReturnPath(connection.returnTo));
         void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.me });
         saveConnectResult({ status: "ok" });
@@ -83,7 +87,10 @@ export default function AmplifyConnectCallbackPage() {
         // to close. If we opened as a script-opened tab this succeeds.
         window.setTimeout(() => window.close(), 1200);
       } catch (err) {
-        const text = describeError(err);
+        const text =
+          amplifyProblemCode(err) === "OAUTH_REDIRECT_MISMATCH"
+            ? OAUTH_REDIRECT_MISMATCH_MESSAGE
+            : describeError(err);
         saveConnectResult({ status: "error", message: text });
         setMessage(text);
         setState("error");

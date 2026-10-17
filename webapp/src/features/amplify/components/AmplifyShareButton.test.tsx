@@ -25,6 +25,8 @@ import {
   clearConnectResult,
   clearPendingShare,
   CONNECT_RESULT_STORAGE_KEY,
+  CONNECT_RETURN_TO_PATTERN,
+  connectReturnTo,
   loadPendingShare,
   saveConnectResult,
   savePendingShare,
@@ -126,6 +128,17 @@ describe("AmplifyShareButton connect flow", () => {
     expect(screen.queryByText(/blocked/)).toBeNull();
     expect(startLinkedInConnect).toHaveBeenCalledWith("token", expect.objectContaining({ pendingCampaignId: "c-a" }));
     expect(loadPendingShare()?.campaignId).toBe("c-a");
+  });
+
+  it("sends a returnTo that matches the server's ConnectStart pattern", async () => {
+    const user = userEvent.setup();
+    renderButtons();
+    await startShareOnA(user);
+    await user.click(screen.getByRole("button", { name: "Connect LinkedIn" }));
+    await waitFor(() => expect(startLinkedInConnect).toHaveBeenCalled());
+    const body = startLinkedInConnect.mock.calls[0][1] as { returnTo: string };
+    expect(body.returnTo).toMatch(CONNECT_RETURN_TO_PATTERN);
+    expect(body.returnTo).toBe(connectReturnTo(window.location.pathname));
   });
 
   it("shows the blocked error only when the browser really blocked the tab", async () => {

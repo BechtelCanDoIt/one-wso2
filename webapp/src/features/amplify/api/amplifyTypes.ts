@@ -157,6 +157,8 @@ export interface ConnectAuthorization {
 export interface ConnectComplete {
   code: string;
   state: string;
+  /** The callback page that received the code, without query or fragment. */
+  redirectUri?: string;
 }
 
 export interface LinkedInConnection {

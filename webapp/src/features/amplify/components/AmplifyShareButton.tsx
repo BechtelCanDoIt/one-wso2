@@ -36,6 +36,7 @@ import ShareDialog from "./ShareDialog";
 import { openLinkedInConsent, POPUP_BLOCKED_MESSAGE } from "./openLinkedInConsent";
 import {
   clearPendingShare,
+  connectReturnTo,
   consumeConnectResult,
   loadPendingShare,
   savePendingShare,
@@ -170,7 +171,7 @@ export default function AmplifyShareButton({
     void openLinkedInConsent(async () => {
       const token = await getAccessToken();
       const auth = await startLinkedInConnect(token, {
-        returnTo: pending?.returnTo ?? window.location.pathname,
+        returnTo: connectReturnTo(pending?.returnTo ?? window.location.pathname),
         pendingCampaignId: pending?.campaignId ?? campaign.id,
       });
       return auth.authorizationUrl;
