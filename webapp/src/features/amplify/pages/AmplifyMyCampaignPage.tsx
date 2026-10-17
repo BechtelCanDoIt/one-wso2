@@ -38,20 +38,25 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { amplifyProblemCode, claimExternalShare } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
 import { AMPLIFY_PROBLEM, type ExternalShareStatus } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyCampaigns, useAmplifyMyExternalShares } from "../api/amplifyHooks";
 import AmplifyShell, { AmplifyEmpty } from "../components/AmplifyShell";
 import AmplifySectionCard from "../components/AmplifySectionCard";
 import { amplifyBtnSx, externalShareStatusColor, formatDateTime } from "../components/amplifyUi";
+import EvidenceLink from "../components/EvidenceLink";
 
 /**
  * My Campaign — post on LinkedIn yourself, then claim it here for points.
  *
  * The claim is the whole point, so it is one small form: paste the post's URL,
  * tick the certification, optionally attach it to a campaign. The
- * `EVIDENCE_ALREADY_CLAIMED` problem code gets its own sentence because it is
- * the one failure a reader can act on ("you already claimed this") and the one
- * they are most likely to hit by pasting twice.
+ * `EVIDENCE_ALREADY_CLAIMED` problem code gets its own sentence (C5): a URL can
+ * be claimed once across EVERYONE, so the likely story is that someone else
+ * submitted it first, and the PO team is who sorts that out.
+ *
+ * One Idempotency-Key per claim body: a retry after a timeout replays instead
+ * of tripping the duplicate check on its own first attempt.
  */
 export default function AmplifyMyCampaignPage() {
   const getAccessToken = useAccessToken();
@@ -67,26 +72,26 @@ export default function AmplifyMyCampaignPage() {
   const [certified, setCertified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const idempotency = useIdempotencyKey();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     if (!evidenceUrl.trim()) {
-      setError("Paste the URL of your LinkedIn post.");
+      setError("Paste the URL of your post.");
       return;
     }
     if (!certified) {
-      setError("Tick the box to certify that this post is yours and is public.");
+      setError("Tick the box to certify that this post is related to WSO2.");
       return;
     }
     setSubmitting(true);
+    const claim = { evidenceUrl: evidenceUrl.trim(), certified: true, campaignId: campaignId || undefined };
+    const key = idempotency.keyFor(claim);
     try {
       const token = await getAccessToken();
-      const created = await claimExternalShare(token, {
-        evidenceUrl: evidenceUrl.trim(),
-        certified: true,
-        campaignId: campaignId || undefined,
-      });
+      const created = await claimExternalShare(token, claim, key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.myExternalShares });
       showSuccess(
         created.status === "PENDING"
@@ -96,6 +101,7 @@ export default function AmplifyMyCampaignPage() {
       setEvidenceUrl("");
       setCertified(false);
     } catch (err) {
+      idempotency.settle(err);
       setError(claimErrorMessage(err));
     } finally {
       setSubmitting(false);
@@ -109,7 +115,10 @@ export default function AmplifyMyCampaignPage() {
     >
       {() => (
         <Box>
-          <AmplifySectionCard title="Submit a post" caption="Your own LinkedIn post, published publicly.">
+          <AmplifySectionCard
+            title="Submit a post"
+            caption="Your own public post about WSO2 — LinkedIn, Medium, a blog."
+          >
             <Box component="form" onSubmit={handleSubmit}>
               <Stack spacing={2}>
                 {error && <Alert severity="error">{error}</Alert>}
@@ -117,7 +126,8 @@ export default function AmplifyMyCampaignPage() {
                   fullWidth
                   size="small"
                   label="Post URL"
-                  placeholder="https://www.linkedin.com/posts/…"
+                  placeholder="https://…"
+                  slotProps={{ htmlInput: { maxLength: 2048 } }}
                   value={evidenceUrl}
                   onChange={(e) => setEvidenceUrl(e.target.value)}
                 />
@@ -144,7 +154,7 @@ export default function AmplifyMyCampaignPage() {
                       onChange={(e) => setCertified(e.target.checked)}
                     />
                   }
-                  label="I certify this post is mine and visible to everyone."
+                  label="I certify this is related to WSO2."
                 />
                 <Box>
                   <Button type="submit" variant="contained" disabled={submitting} sx={amplifyBtnSx}>
@@ -158,6 +168,10 @@ export default function AmplifyMyCampaignPage() {
           <AmplifySectionCard title="Your posts" caption="Everything you have claimed.">
             {portfolio.isError ? (
               <Alert severity="error">{describeError(portfolio.error)}</Alert>
+            ) : portfolio.isPending ? (
+              <Typography variant="body2" color="text.secondary">
+                Loading your posts…
+              </Typography>
             ) : (portfolio.data?.items.length ?? 0) === 0 ? (
               <AmplifyEmpty>You haven't claimed any posts yet.</AmplifyEmpty>
             ) : (
@@ -175,21 +189,7 @@ export default function AmplifyMyCampaignPage() {
                       <TableCell sx={{ maxWidth: 320 }}>
                         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
                           <ExternalLinkIcon size={14} />
-                          <Typography
-                            variant="body2"
-                            component="a"
-                            href={s.evidenceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            sx={{
-                              overflow: "hidden",
-                              textOverflow: "ellipsis",
-                              whiteSpace: "nowrap",
-                              color: "inherit",
-                            }}
-                          >
-                            {s.evidenceUrl}
-                          </Typography>
+                          <EvidenceLink url={s.evidenceUrl} />
                         </Stack>
                         {s.decisionReason && (
                           <Typography variant="caption" color="text.secondary">
@@ -230,7 +230,7 @@ function statusLabel(status: ExternalShareStatus): string {
 function claimErrorMessage(err: unknown): string {
   switch (amplifyProblemCode(err)) {
     case AMPLIFY_PROBLEM.evidenceAlreadyClaimed:
-      return "You've already claimed this post. Points have been counted once — you don't need to submit it again.";
+      return "Someone else already submitted this url, contact PO Team for review.";
     case AMPLIFY_PROBLEM.notWso2Resource:
       return "That post doesn't look like it's about WSO2. Check you pasted the right link.";
     case AMPLIFY_PROBLEM.certificationRequired:

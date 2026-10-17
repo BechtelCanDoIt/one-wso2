@@ -21,6 +21,10 @@
 // snake_case. They are not normalised here on purpose — a mapping layer would
 // be one more place for the two to drift, and a field rename in the contract
 // should be a compile error, not a silent `undefined` at runtime.
+//
+// Fields the contract marks `nullable` arrive as JSON `null` (Ballerina emits
+// `()` as null rather than omitting it), so they are typed `?: T | null` and
+// every reader must treat null and undefined alike (`== null`, `??`).
 
 export type AmplifyRole =
   | "amplify_po"
@@ -43,7 +47,7 @@ export interface AmplifyEmployee {
 
 export interface AmplifyLinkedIn {
   status: ConnectionStatus;
-  expires_at?: string;
+  expires_at?: string | null;
 }
 
 export interface AmplifyMe {
@@ -240,13 +244,13 @@ export interface LedgerEntry {
 
 export interface PersonalStanding {
   employeeId: string;
-  points?: number;
-  rank?: number;
-  previousRank?: number;
-  pointsToNextRank?: number;
-  pointsToTopN?: number;
+  points?: number | null;
+  rank?: number | null;
+  previousRank?: number | null;
+  pointsToNextRank?: number | null;
+  pointsToTopN?: number | null;
   inTopN: boolean;
-  lastActivityAt?: string;
+  lastActivityAt?: string | null;
 }
 
 export interface LeaderboardEntry {
@@ -255,7 +259,7 @@ export interface LeaderboardEntry {
   email: string;
   points: number;
   rank: number;
-  previousRank?: number;
+  previousRank?: number | null;
 }
 
 export interface TeamEntry {
@@ -276,7 +280,7 @@ export interface Leaderboard {
   generatedAt: string;
   company: LeaderboardEntry[];
   me: PersonalStanding;
-  myTeam?: { teamName: string; headcount: number; activeCount: number; entries: TeamEntry[] };
+  myTeam?: { teamName: string; headcount: number; activeCount: number; entries: TeamEntry[] } | null;
   teamStatus: TeamStatus;
 }
 
@@ -299,8 +303,8 @@ export interface TeamPageEntry {
   points: number;
   rank: number;
   teamRank: number;
-  previousRank?: number;
-  lastActivityAt?: string;
+  previousRank?: number | null;
+  lastActivityAt?: string | null;
   actions: { canAdjust: boolean; canReverse: boolean };
 }
 
@@ -311,7 +315,7 @@ export interface TeamPage {
   size: number;
   total: number;
   teamStatus: TeamStatus;
-  summary: { headcount?: number; activeCount?: number };
+  summary: { headcount?: number | null; activeCount: number };
   entries: TeamPageEntry[];
 }
 
@@ -326,13 +330,13 @@ export interface PointsHistory {
 export interface PoDashboard {
   asOf: string;
   month: string;
-  reviewQueue: { pending: number; oldestPendingAt?: string; overSla: number; slaHours: number };
+  reviewQueue: { pending: number; oldestPendingAt?: string | null; overSla: number; slaHours: number };
   reviewThroughput: {
     windowDays: number;
     approved: number;
     rejected: number;
     amplified: number;
-    medianHoursToDecision?: number;
+    medianHoursToDecision?: number | null;
   };
   actionRequired: { count: number };
   points: {
@@ -355,14 +359,15 @@ export interface PoDashboard {
     reposters: number;
     externalSharesApproved: number;
     points: number;
-    announcement?: string;
+    announcement?: AnnouncementStatus | null;
   }[];
   shareHealth: {
     windowDays: number;
     queued: number;
     published: number;
     failed: number;
-    failedByReason: { reason: string; count: number }[];
+    /** A map, reason → count (`additionalProperties: integer`), not an array. */
+    failedByReason: Record<string, number>;
   };
   recentCorrections: {
     reference: string;
@@ -386,6 +391,11 @@ export interface Announcement {
   sentAt?: string;
   failedAt?: string;
   lastError?: string;
+}
+
+/** `GET /po/point-rules` — the list is under `rules`, not `items`. */
+export interface PointRuleList {
+  rules: PointRule[];
 }
 
 export type SchedulerSync = "SYNCED" | "PENDING" | "NOT_CONFIGURED";

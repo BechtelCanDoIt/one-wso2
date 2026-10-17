@@ -17,6 +17,9 @@
 import { describe, expect, it } from "vitest";
 import {
   AMPLIFY_PERIOD_PATTERN,
+  canPostWith,
+  rankDelta,
+  safeHttpUrl,
   currentPeriodMonth,
   currentPeriodQuarter,
   formatPeriodLabel,
@@ -64,5 +67,43 @@ describe("the Amplify period wire format", () => {
     expect(formatPeriodLabel("ALL")).toBe("All time");
     expect(formatPeriodLabel("2026-Q4")).toBe("Q4 2026");
     expect(formatPeriodLabel("2026-10")).toMatch(/Oct/);
+  });
+});
+
+describe("nullable contract fields", () => {
+  // The backend emits `previousRank: null` (not an absent field) for a first
+  // ranking; that once rendered as "▼ <rank>".
+  it("reads a null or absent previous rank as no movement", () => {
+    expect(rankDelta(4, null)).toEqual({ label: "—", dir: "same" });
+    expect(rankDelta(4, undefined)).toEqual({ label: "—", dir: "same" });
+    expect(rankDelta(null, 3)).toEqual({ label: "—", dir: "same" });
+  });
+
+  it("still reports real movement", () => {
+    expect(rankDelta(2, 5)).toEqual({ label: "▲ 3", dir: "up" });
+    expect(rankDelta(5, 2)).toEqual({ label: "▼ 3", dir: "down" });
+  });
+});
+
+describe("safeHttpUrl", () => {
+  it("passes http(s) and blocks every other scheme", () => {
+    expect(safeHttpUrl("https://www.linkedin.com/posts/x")).toBe("https://www.linkedin.com/posts/x");
+    expect(safeHttpUrl("http://medium.com/@a/b")).toBe("http://medium.com/@a/b");
+    expect(safeHttpUrl("javascript:alert(1)")).toBeUndefined();
+    expect(safeHttpUrl(" JavaScript:alert(1)")).toBeUndefined();
+    expect(safeHttpUrl("data:text/html,<script>")).toBeUndefined();
+    expect(safeHttpUrl("/relative")).toBeUndefined();
+    expect(safeHttpUrl(null)).toBeUndefined();
+  });
+});
+
+describe("canPostWith", () => {
+  it("mirrors the backend: ACTIVE and EXPIRING can post", () => {
+    expect(canPostWith("ACTIVE")).toBe(true);
+    expect(canPostWith("EXPIRING")).toBe(true);
+    expect(canPostWith("NEEDS_RECONNECT")).toBe(false);
+    expect(canPostWith("REMOVED")).toBe(false);
+    expect(canPostWith("NOT_CONNECTED")).toBe(false);
+    expect(canPostWith(undefined)).toBe(false);
   });
 });

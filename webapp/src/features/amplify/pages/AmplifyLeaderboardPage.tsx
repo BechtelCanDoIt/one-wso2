@@ -83,11 +83,13 @@ export default function AmplifyLeaderboardPage() {
                 />
               </AmplifySectionCard>
 
-              <AmplifySectionCard title="My monthly history" caption={points.data ? undefined : "Loading…"}>
+              <AmplifySectionCard title="My monthly history">
                 {points.isError ? (
                   <ErrorNotice error={points.error} onRetry={() => points.refetch()}>
                     Couldn't load your monthly points.
                   </ErrorNotice>
+                ) : points.isPending ? (
+                  <Spinner label="Loading your monthly points…" />
                 ) : (points.data?.monthly.length ?? 0) === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     No points history yet.
@@ -119,6 +121,8 @@ export default function AmplifyLeaderboardPage() {
                   <ErrorNotice error={shares.error} onRetry={() => shares.refetch()}>
                     Couldn't load your shares.
                   </ErrorNotice>
+                ) : shares.isPending ? (
+                  <Spinner label="Loading your shares…" />
                 ) : (shares.data?.items.length ?? 0) === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     You haven't amplified anything yet.
@@ -254,7 +258,7 @@ function LeaderRow({ entry }: { entry: LeaderboardEntry }) {
 }
 
 function MyStanding({ standing, displayName }: { standing: PersonalStanding; displayName?: string }) {
-  const delta = rankDelta(standing.rank ?? 0, standing.previousRank);
+  const delta = rankDelta(standing.rank, standing.previousRank);
   return (
     <AmplifySectionCard title="Your standing" caption={displayName}>
       <Stack direction="row" spacing={4} sx={{ flexWrap: "wrap", rowGap: 2 }}>
@@ -263,11 +267,11 @@ function MyStanding({ standing, displayName }: { standing: PersonalStanding; dis
         <AmplifyStat label="Movement" value={delta.label} />
         <AmplifyStat
           label="To next rank"
-          value={standing.pointsToNextRank !== undefined ? standing.pointsToNextRank : "—"}
+          value={standing.pointsToNextRank ?? "—"}
         />
         <AmplifyStat
           label="To top of board"
-          value={standing.pointsToTopN !== undefined ? standing.pointsToTopN : "—"}
+          value={standing.pointsToTopN ?? "—"}
         />
       </Stack>
       {standing.inTopN && (

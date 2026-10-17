@@ -94,15 +94,25 @@ export function connectionStatusLabel(status: ConnectionStatus): string {
   }
 }
 
+/**
+ * Whether Amplify can post with this LinkedIn status. Mirrors the backend's
+ * `connection:canPost` (`ACTIVE || EXPIRING`): an EXPIRING token still works,
+ * so it shares — it only earns a reconnect nudge. Unknown (no connection
+ * record) goes through the connect flow.
+ */
+export function canPostWith(status: ConnectionStatus | undefined): boolean {
+  return status === "ACTIVE" || status === "EXPIRING";
+}
+
 /** `2026-10-17T09:00:00Z` → `17 Oct 2026`. Invalid input is passed through. */
-export function formatDate(iso?: string): string {
+export function formatDate(iso?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 }
 
-export function formatDateTime(iso?: string): string {
+export function formatDateTime(iso?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -160,7 +170,7 @@ export function formatPeriodLabel(period: string): string {
 }
 
 /** "in 3 days" / "2 days ago" — for "closes" and "last activity". */
-export function relativeTime(iso?: string): string {
+export function relativeTime(iso?: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -173,9 +183,34 @@ export function relativeTime(iso?: string): string {
   return formatDate(iso);
 }
 
-/** Rank movement, as a chip-ready label. `0`/undefined reads as "no change". */
-export function rankDelta(rank: number, previousRank?: number): { label: string; dir: "up" | "down" | "same" } {
-  if (previousRank === undefined || previousRank === rank) return { label: "—", dir: "same" };
+/**
+ * Rank movement, as a chip-ready label. No previous rank (null — the contract
+ * field is nullable and arrives as JSON null — or undefined), no current rank,
+ * or no change all read as "—".
+ */
+export function rankDelta(
+  rank: number | null | undefined,
+  previousRank?: number | null,
+): { label: string; dir: "up" | "down" | "same" } {
+  if (rank == null || rank <= 0 || previousRank == null || previousRank <= 0 || previousRank === rank) {
+    return { label: "—", dir: "same" };
+  }
   if (previousRank > rank) return { label: `▲ ${previousRank - rank}`, dir: "up" };
   return { label: `▼ ${rank - previousRank}`, dir: "down" };
+}
+
+/**
+ * The URL, if it is an absolute http(s) URL — else undefined. Every `href` and
+ * `src` built from API data goes through this: a claim's evidence URL is typed
+ * by an employee, and a `javascript:` or `data:` value there must not become a
+ * clickable link in the PO's queue.
+ */
+export function safeHttpUrl(raw: string | null | undefined): string | undefined {
+  if (!raw) return undefined;
+  try {
+    const u = new URL(raw);
+    return u.protocol === "https:" || u.protocol === "http:" ? u.href : undefined;
+  } catch {
+    return undefined;
+  }
 }

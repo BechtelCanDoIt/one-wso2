@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -41,6 +41,8 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { createPointRule } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
+import { pointRuleBody } from "../components/amplifyForms";
 import type { PointAction } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyPointRules } from "../api/amplifyHooks";
 import AmplifySectionCard from "../components/AmplifySectionCard";
@@ -84,7 +86,7 @@ export default function AmplifyPoPointRulesTab() {
               Loading point rules…
             </Typography>
           </Stack>
-        ) : (query.data?.items.length ?? 0) === 0 ? (
+        ) : (query.data?.rules.length ?? 0) === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No point rules defined.
           </Typography>
@@ -100,7 +102,7 @@ export default function AmplifyPoPointRulesTab() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {(query.data?.items ?? []).map((r) => (
+              {(query.data?.rules ?? []).map((r) => (
                 <TableRow key={r.id}>
                   <TableCell>{r.action.replace(/_/g, " ")}</TableCell>
                   <TableCell align="right">{r.points}</TableCell>
@@ -135,30 +137,33 @@ function PointRuleDialog({ open, onClose }: { open: boolean; onClose: () => void
   const [effectiveFrom, setEffectiveFrom] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const idempotency = useIdempotencyKey();
+
+  useEffect(() => {
+    if (!open) return;
+    setError(null);
+    idempotency.reset();
+  }, [open, idempotency]);
 
   const handleSubmit = async () => {
-    const value = Number(points);
-    if (!Number.isFinite(value) || value <= 0) {
-      setError("Points must be a positive number.");
-      return;
-    }
-    if (!effectiveFrom) {
-      setError("Pick the date this rule takes effect from.");
+    const built = pointRuleBody(action, points, effectiveFrom);
+    if (!built.ok) {
+      setError(built.error);
       return;
     }
     setBusy(true);
     setError(null);
+    const key = idempotency.keyFor(built.body);
     try {
       const token = await getAccessToken();
-      await createPointRule(token, {
-        action,
-        points: value,
-        effectiveFrom: new Date(effectiveFrom).toISOString(),
-      });
+      await createPointRule(token, built.body, key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.pointRules });
       showSuccess("Point rule added.");
+      setEffectiveFrom("");
       onClose();
     } catch (err) {
+      idempotency.settle(err);
       setError(describeError(err));
     } finally {
       setBusy(false);
@@ -196,8 +201,9 @@ function PointRuleDialog({ open, onClose }: { open: boolean; onClose: () => void
           <TextField
             fullWidth
             size="small"
-            type="date"
+            type="datetime-local"
             label="Effective from"
+            helperText="Leave blank to start now. Past points are never recalculated."
             value={effectiveFrom}
             onChange={(e) => setEffectiveFrom(e.target.value)}
             slotProps={{ inputLabel: { shrink: true } }}

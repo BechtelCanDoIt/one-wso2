@@ -30,13 +30,22 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { adjustPoints } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
 import { AMPLIFY_QUERY_KEYS } from "../api/amplifyHooks";
 import { amplifyBtnSx } from "./amplifyUi";
+
+/** `PointsAdjustment.points`: a signed integer, not zero, within ±10000. */
+export const ADJUST_LIMIT = 10000;
 
 /**
  * The PO's manual point correction. Points are signed and a reason is
  * mandatory — an adjustment with no reason is indistinguishable from a bug six
  * months later, and the ledger keeps both forever.
+ *
+ * One Idempotency-Key per dialog-open and body: a re-click after a timeout
+ * (the server may already have written the row) replays rather than writing a
+ * second ledger row; editing the points or the reason mints a fresh key, as
+ * does a success.
  */
 export default function PointsAdjustDialog({
   open,
@@ -56,18 +65,20 @@ export default function PointsAdjustDialog({
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const idempotency = useIdempotencyKey();
 
   useEffect(() => {
     if (!open) return;
     setPoints("10");
     setReason("");
     setError(null);
-  }, [open]);
+    idempotency.reset();
+  }, [open, idempotency]);
 
   const handleSubmit = async () => {
     const value = Number(points);
-    if (!Number.isFinite(value) || value === 0) {
-      setError("Enter a non-zero number of points (negative to deduct).");
+    if (!Number.isInteger(value) || value === 0 || Math.abs(value) > ADJUST_LIMIT) {
+      setError(`Enter a whole, non-zero number of points up to ±${ADJUST_LIMIT} (negative to deduct).`);
       return;
     }
     if (!reason.trim()) {
@@ -76,15 +87,19 @@ export default function PointsAdjustDialog({
     }
     setBusy(true);
     setError(null);
+    const adjustment = { employeeId, points: value, reason: reason.trim() };
+    const key = idempotency.keyFor(adjustment);
     try {
       const token = await getAccessToken();
-      await adjustPoints(token, { employeeId, points: value, reason: reason.trim() });
+      await adjustPoints(token, adjustment, key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.team });
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.poDashboard });
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.leaderboard });
       showSuccess(`Adjusted ${employeeName} by ${value > 0 ? "+" : ""}${value}.`);
       onClose();
     } catch (err) {
+      idempotency.settle(err);
       setError(describeError(err));
     } finally {
       setBusy(false);
@@ -112,6 +127,7 @@ export default function PointsAdjustDialog({
             multiline
             minRows={2}
             label="Reason"
+            slotProps={{ htmlInput: { maxLength: 1000 } }}
             value={reason}
             onChange={(e) => setReason(e.target.value)}
           />

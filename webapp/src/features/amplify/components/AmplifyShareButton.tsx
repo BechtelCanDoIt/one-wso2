@@ -33,12 +33,14 @@ import type { AmplifyGate } from "../api/useAmplifyGate";
 import type { Campaign, ShareKind } from "../api/amplifyTypes";
 import { amplifyBtnSx } from "./amplifyUi";
 import ShareDialog from "./ShareDialog";
+import { openLinkedInConsent, POPUP_BLOCKED_MESSAGE } from "./openLinkedInConsent";
 import {
   clearPendingShare,
   consumeConnectResult,
   loadPendingShare,
   savePendingShare,
   CONNECT_RESULT_STORAGE_KEY,
+  type ConnectResult,
   type PendingShare,
 } from "./shareFlow";
 
@@ -48,14 +50,19 @@ import {
  *
  * The flow, end to end:
  *
- *   1. Share → ShareDialog. If LinkedIn is connected, it publishes.
+ *   1. Share → ShareDialog. If LinkedIn can post (ACTIVE or EXPIRING), it
+ *      publishes.
  *   2. Not connected → this component swaps to a connect prompt. "Connect"
- *      asks the backend for an authorization URL and opens it in a NEW TAB,
- *      remembering the half-finished share first.
+ *      opens a tab inside the click, asks the backend for an authorization URL
+ *      and points the tab at it, remembering the half-finished share first.
  *   3. That tab finishes the handshake, writes a result, and closes.
- *   4. This tab hears the storage event, refreshes /me, and — once LinkedIn
- *      reads ACTIVE — reopens the SAME share dialog with the reader's kind and
- *      commentary intact. They press Share once and it lands.
+ *   4. This tab hears the storage event, refreshes /me, and reopens the SAME
+ *      share dialog with the reader's kind and commentary intact. They press
+ *      Share once and it lands.
+ *
+ * Only the button whose campaign the pending share names reacts — the Posts
+ * page renders one of these per card, and every one of them hears the same
+ * storage event. Without that check each card reopened its own dialog.
  *
  * The dialog is reopened rather than auto-published on purpose: the reader
  * walked away mid-action, and completing a share they did not press the button
@@ -80,63 +87,69 @@ export default function AmplifyShareButton({
   const [connectOpen, setConnectOpen] = useState(false);
   const [pending, setPending] = useState<PendingShare | null>(null);
   const [resume, setResume] = useState<{ kind: ShareKind; commentary?: string } | undefined>(undefined);
+  // True right after a successful connect: /me may not have caught up yet, so
+  // the dialog lets the server decide rather than bouncing back to connect.
+  const [justConnected, setJustConnected] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState<string | null>(null);
 
+  // Set while this button's connect tab is out; arms the focus fallback.
+  const wasConnecting = useRef(false);
+
   const linkedInStatus = gate.me?.linkedin.status;
+  const { retry: refreshGate } = gate;
 
-  // Reopen the interrupted share once LinkedIn lands. Reads the handoff the
-  // callback tab wrote, then clears it so a later mount does not replay it.
-  const resumeFromPending = useCallback(
-    (result: { status: "ok" | "error"; message?: string } | null) => {
-      const saved = loadPendingShare();
-      gate.retry();
-      if (result?.status === "error") {
-        clearPendingShare();
-        setConnectError(result.message ?? "LinkedIn connection failed.");
-        setConnectOpen(true);
-        return;
-      }
-      if (!saved) return;
-      setResume({ kind: saved.kind, commentary: saved.commentary });
-      setPending(saved);
-      setConnectOpen(false);
-      setShareOpen(true);
-    },
-    [gate],
-  );
+  // Reopen the interrupted share once LinkedIn lands. Acts only when the
+  // pending share is THIS button's campaign; consumes the one-shot result.
+  const tryResume = useCallback((): boolean => {
+    const saved = loadPendingShare();
+    if (!saved || saved.campaignId !== campaign.id) return false;
+    const result: ConnectResult | null = consumeConnectResult();
+    if (!result) return false;
+    refreshGate();
+    if (result.status === "error") {
+      clearPendingShare();
+      setConnectError(result.message ?? "LinkedIn connection failed.");
+      setConnectOpen(true);
+      return true;
+    }
+    setResume({ kind: saved.kind, commentary: saved.commentary });
+    setPending(saved);
+    setJustConnected(true);
+    setConnectOpen(false);
+    setShareOpen(true);
+    return true;
+  }, [campaign.id, refreshGate]);
 
+  // A reload of the original tab while the connect tab was finishing.
   useEffect(() => {
-    const result = consumeConnectResult();
-    if (result) resumeFromPending(result);
-    // Only on mount for this button; the storage listener below covers later
-    // handoffs.
+    tryResume();
+    // Only on mount; the listeners below cover later handoffs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
-      if (e.key !== CONNECT_RESULT_STORAGE_KEY) return;
-      resumeFromPending(consumeConnectResult());
+      if (e.key !== CONNECT_RESULT_STORAGE_KEY || e.newValue === null) return;
+      if (tryResume()) wasConnecting.current = false;
     };
     window.addEventListener("storage", onStorage);
     return () => window.removeEventListener("storage", onStorage);
-  }, [resumeFromPending]);
+  }, [tryResume]);
 
-  // The connect tab cannot always reach this tab (some browsers only fire
-  // `storage` on other tabs, not always reliably); focus is the backstop — the
-  // reader comes back to this window and we re-read.
-  const wasConnecting = useRef(false);
+  // `storage` is the main signal; focus is the backstop for a browser that
+  // drops it — the reader comes back to this window and we re-read. A focus
+  // with no result yet (they came back before finishing) just refreshes /me
+  // and keeps waiting.
   useEffect(() => {
     const onFocus = () => {
       if (!wasConnecting.current) return;
-      const result = consumeConnectResult();
-      wasConnecting.current = false;
-      resumeFromPending(result);
+      if (tryResume()) wasConnecting.current = false;
+      else refreshGate();
     };
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [resumeFromPending]);
+  }, [tryResume, refreshGate]);
 
   const handleNeedConnect = (share: PendingShare) => {
     setPending(share);
@@ -146,28 +159,31 @@ export default function AmplifyShareButton({
     setConnectOpen(true);
   };
 
-  const handleConnect = async () => {
+  // Not async on purpose: openLinkedInConsent opens the tab synchronously,
+  // inside this click, before any await.
+  const handleConnect = () => {
     setConnecting(true);
     setConnectError(null);
     wasConnecting.current = true;
-    try {
+    // Re-save so the TTL counts from the moment LinkedIn opens.
+    if (pending) savePendingShare(pending);
+    void openLinkedInConsent(async () => {
       const token = await getAccessToken();
       const auth = await startLinkedInConnect(token, {
-        returnTo: window.location.pathname,
-        pendingCampaignId: pending?.campaignId,
+        returnTo: pending?.returnTo ?? window.location.pathname,
+        pendingCampaignId: pending?.campaignId ?? campaign.id,
       });
-      const opened = window.open(auth.authorizationUrl, "_blank", "noopener,noreferrer");
-      if (!opened) {
-        // Popup blocked — tell the reader rather than leaving them waiting.
-        setConnectError("Your browser blocked the LinkedIn window. Allow pop-ups for One WSO2 and try again.");
+      return auth.authorizationUrl;
+    }).then((outcome) => {
+      if (outcome.status === "blocked") {
+        setConnectError(POPUP_BLOCKED_MESSAGE);
+        wasConnecting.current = false;
+      } else if (outcome.status === "failed") {
+        setConnectError(describeError(outcome.error));
         wasConnecting.current = false;
       }
-    } catch (err) {
-      setConnectError(describeError(err));
-      wasConnecting.current = false;
-    } finally {
       setConnecting(false);
-    }
+    });
   };
 
   return (
@@ -179,6 +195,7 @@ export default function AmplifyShareButton({
         startIcon={<Share2Icon size={16} />}
         onClick={() => {
           setResume(undefined);
+          setJustConnected(false);
           setShareOpen(true);
         }}
         sx={amplifyBtnSx}
@@ -190,15 +207,21 @@ export default function AmplifyShareButton({
         open={shareOpen}
         campaign={campaign}
         linkedInStatus={linkedInStatus}
+        linkedInExpiresAt={gate.me?.linkedin.expires_at}
         initial={resume}
-        onClose={() => setShareOpen(false)}
+        skipConnectionCheck={justConnected}
+        onClose={() => {
+          setShareOpen(false);
+          setJustConnected(false);
+        }}
         onNeedConnect={handleNeedConnect}
         onShared={() => {
           clearPendingShare();
           setPending(null);
           setResume(undefined);
+          setJustConnected(false);
           setShareOpen(false);
-          gate.retry();
+          refreshGate();
         }}
       />
 

@@ -36,6 +36,7 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { retryAnnouncement } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
 import type { Announcement, AnnouncementStatus } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyAdminAnnouncements } from "../api/amplifyHooks";
 import AmplifySectionCard from "../components/AmplifySectionCard";
@@ -122,15 +123,19 @@ function AnnouncementRow({ announcement }: { announcement: Announcement }) {
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useNotifications();
   const [busy, setBusy] = useState(false);
+  const idempotency = useIdempotencyKey();
 
   const handleRetry = async () => {
     setBusy(true);
+    const key = idempotency.keyFor({ campaignId: announcement.campaignId, queuedAt: announcement.queuedAt });
     try {
       const token = await getAccessToken();
-      await retryAnnouncement(token, announcement.campaignId);
+      await retryAnnouncement(token, announcement.campaignId, key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.adminAnnouncements });
       showSuccess("Announcement re-queued.");
     } catch (err) {
+      idempotency.settle(err);
       showError(describeError(err));
     } finally {
       setBusy(false);

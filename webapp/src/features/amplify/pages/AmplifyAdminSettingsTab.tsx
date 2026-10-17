@@ -13,7 +13,7 @@
 // KIND, either express or implied. See the License for the specific
 // language governing permissions and limitations under the License.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Alert,
   Box,
@@ -29,67 +29,26 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { putAdminSettings, syncScheduler } from "../api/amplifyClient";
-import { AMPLIFY_SETTING_KEYS, type Setting, type SchedulerSync, type SettingValue } from "../api/amplifyTypes";
+import { useIdempotencyKey } from "../api/idempotency";
+import type { Setting, SchedulerSync, SettingChange } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyAdminSettings } from "../api/amplifyHooks";
 import AmplifySectionCard from "../components/AmplifySectionCard";
 import { amplifyBtnSx } from "../components/amplifyUi";
-
-/**
- * The four settings the milestone names. Editing happens on strings, but the
- * backend validates the JSON type per key, so each field declares how its draft
- * becomes a wire value: `leaderboard.top_n` must go out as a JSON number, the
- * schedule as the scheduler's own string (`@every 30m`, or a 5-field cron).
- */
-const FIELDS: {
-  key: string;
-  label: string;
-  helper: string;
-  kind: "int" | "schedule";
-  inputType: "number" | "text";
-}[] = [
-  {
-    key: AMPLIFY_SETTING_KEYS.topN,
-    label: "Leaderboard top N",
-    helper: "How many people the company board shows (1–50).",
-    kind: "int",
-    inputType: "number",
-  },
-  {
-    key: AMPLIFY_SETTING_KEYS.runSchedule,
-    label: "Reminder run schedule",
-    helper: "When the campaign reminder job runs: @every 30m, or a 5-field cron in UTC (minimum 60s).",
-    kind: "schedule",
-    inputType: "text",
-  },
-  {
-    key: AMPLIFY_SETTING_KEYS.reminderDays,
-    label: "Reminder days before close",
-    helper: "How many days before a campaign closes to nudge people (1–30).",
-    kind: "int",
-    inputType: "number",
-  },
-  {
-    key: AMPLIFY_SETTING_KEYS.campaignDefaultWindow,
-    label: "Default campaign window (days)",
-    helper: "Default length of a campaign when no close date is given (1–365).",
-    kind: "int",
-    inputType: "number",
-  },
-];
-
-/** The wire value for a draft string: numbers must go out as JSON numbers. */
-function toSettingValue(field: (typeof FIELDS)[number], draft: string): SettingValue {
-  if (field.kind === "int") {
-    const n = Number(draft);
-    return Number.isFinite(n) ? n : draft;
-  }
-  return draft;
-}
+import {
+  mergeSettingDrafts,
+  SETTING_FIELDS,
+  settingDraft,
+  toSettingValue,
+} from "../components/amplifyForms";
 
 /**
  * Admin settings. Each value is versioned (ADR-024 optimistic locking), so a
  * save sends the version it read — and a save that raced someone else's gets
  * told rather than silently clobbering them.
+ *
+ * Values are raw JSON on the wire: ints go out as JSON numbers (an int sent as
+ * a string is `INVALID_SETTING`), and a draft that isn't a valid value for its
+ * key is refused here, before a request is spent on it.
  *
  * The `schedulerSync` states surface here because the interval setting is only
  * half-applied until the job scheduler has been told the new value: PENDING
@@ -105,45 +64,66 @@ export default function AmplifyAdminSettingsTab() {
   // (ADR-026) and on the manual sync — the GET never carries it — so the banner
   // is fed from the write's own answer, not from the read.
   const [schedulerSync, setSchedulerSync] = useState<SchedulerSync | undefined>();
+  const saveKey = useIdempotencyKey();
+  const syncKey = useIdempotencyKey();
 
+  // The server values the drafts were last seeded from, so a refetch only
+  // moves the keys the reader hasn't touched.
+  const seededFrom = useRef<readonly Setting[] | undefined>(undefined);
   useEffect(() => {
-    if (query.data) {
-      // Values arrive as raw JSON (numbers included); the form edits strings.
-      setDraft(Object.fromEntries(query.data.settings.map((s) => [s.key, String(s.value)])));
-    }
+    if (!query.data) return;
+    const next = query.data.settings;
+    setDraft((d) => mergeSettingDrafts(d, seededFrom.current, next));
+    seededFrom.current = next;
   }, [query.data]);
 
   const byKey = new Map<string, Setting>((query.data?.settings ?? []).map((s) => [s.key, s]));
-  const dirty = FIELDS.some((f) => {
+  const changedFields = SETTING_FIELDS.filter((f) => {
     const current = byKey.get(f.key);
-    return draft[f.key] !== undefined && current !== undefined && draft[f.key] !== String(current.value);
+    return current !== undefined && draft[f.key] !== undefined && draft[f.key] !== settingDraft(current.value);
   });
+  const dirty = changedFields.length > 0;
 
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useNotifications();
 
   const save = async () => {
-    const changes = FIELDS.filter((f) => {
-      const current = byKey.get(f.key);
-      return current && draft[f.key] !== undefined && draft[f.key] !== String(current.value);
-    }).map((f) => ({
-      key: f.key,
-      value: toSettingValue(f, draft[f.key]),
-      version: byKey.get(f.key)!.version,
-    }));
+    const changes: SettingChange[] = [];
+    for (const f of changedFields) {
+      const parsed = toSettingValue(f, draft[f.key]);
+      if (!parsed.ok) {
+        setError(parsed.error);
+        return;
+      }
+      changes.push({ key: f.key, value: parsed.value, version: byKey.get(f.key)!.version });
+    }
     if (changes.length === 0) return;
     setSaving(true);
     setError(null);
+    const body = { changes };
+    const key = saveKey.keyFor(body);
     try {
       const token = await getAccessToken();
-      const result = await putAdminSettings(token, { changes });
+      const result = await putAdminSettings(token, body, key);
+      saveKey.settle();
       if (result?.schedulerSync) setSchedulerSync(result.schedulerSync);
+      if (result?.settings) {
+        // Seed straight from the write's answer (it is the post-change state),
+        // so the saved fields read clean even if the server normalised them.
+        setDraft((d) => {
+          const next = { ...d };
+          for (const s of result.settings) next[s.key] = settingDraft(s.value);
+          return next;
+        });
+        seededFrom.current = result.settings;
+      }
       // Invalidate rather than setQueryData: the query key carries the caller's
       // `sub` as its last element, so a prefix write would not match it.
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.adminSettings });
       showSuccess("Settings saved.");
     } catch (err) {
+      saveKey.settle(err);
       setError(describeError(err));
     } finally {
       setSaving(false);
@@ -152,13 +132,16 @@ export default function AmplifyAdminSettingsTab() {
 
   const syncNow = async () => {
     setSyncing(true);
+    const key = syncKey.keyFor({ sync: true });
     try {
       const token = await getAccessToken();
-      const result = await syncScheduler(token);
+      const result = await syncScheduler(token, key);
+      syncKey.settle();
       setSchedulerSync(result.schedulerSync);
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.adminSettings });
       showSuccess(`Scheduler sync: ${result.schedulerSync.toLowerCase()}.`);
     } catch (err) {
+      syncKey.settle(err);
       showError(describeError(err));
     } finally {
       setSyncing(false);
@@ -208,7 +191,7 @@ export default function AmplifyAdminSettingsTab() {
           >
             <Stack spacing={2} sx={{ maxWidth: 460 }}>
               {error && <Alert severity="error">{error}</Alert>}
-              {FIELDS.map((f) => (
+              {SETTING_FIELDS.map((f) => (
                 <TextField
                   key={f.key}
                   fullWidth
@@ -217,7 +200,7 @@ export default function AmplifyAdminSettingsTab() {
                   helperText={f.helper}
                   value={draft[f.key] ?? ""}
                   onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-                  type={f.inputType}
+                  type={f.kind === "int" ? "number" : "text"}
                   slotProps={{ inputLabel: { shrink: true } }}
                 />
               ))}

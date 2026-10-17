@@ -34,7 +34,7 @@ import { amplifyBtnSx, relativeTime } from "./amplifyUi";
 export default function AmplifyOverviewBar() {
   const enabled = isPreviewEnabled("amplify") && isAmplifyBackendConfigured();
   const navigate = useNavigate();
-  const query = useAmplifyCampaigns({ status: "OPEN", size: 10 });
+  const query = useAmplifyCampaigns({ status: "open", size: 10 });
 
   useAmplifyDependencyNotice(
     enabled && query.isError,

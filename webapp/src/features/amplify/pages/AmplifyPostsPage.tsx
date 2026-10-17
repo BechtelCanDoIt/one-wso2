@@ -16,6 +16,7 @@
 
 import { useState } from "react";
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -29,7 +30,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { LayoutGridIcon, ListIcon, PlusIcon } from "@wso2/oxygen-ui-icons-react";
-import { useNavigate } from "react-router";
+import { Link as RouterLink } from "react-router";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { AMPLIFY_PATHS } from "@constants/amplifyApps";
 import { useAmplifyCampaigns, useAmplifyTags } from "../api/amplifyHooks";
@@ -37,9 +38,21 @@ import type { Campaign } from "../api/amplifyTypes";
 import type { AmplifyGate } from "../api/useAmplifyGate";
 import AmplifyShell, { AmplifyEmpty } from "../components/AmplifyShell";
 import AmplifyShareButton from "../components/AmplifyShareButton";
-import { amplifyBtnSx, formatDate, relativeTime } from "../components/amplifyUi";
+import { amplifyBtnSx, formatDate, relativeTime, safeHttpUrl } from "../components/amplifyUi";
 
 const PAGE_SIZE = 9;
+
+/** LinkedIn's own compose box — "Make a post" is a post of your own, on LinkedIn. */
+export const LINKEDIN_COMPOSE_URL = "https://www.linkedin.com/feed/?shareActive=true";
+
+/**
+ * Opens LinkedIn compose in a new tab. `noopener` means the return value is
+ * always null, so it is deliberately not checked (it says nothing about a
+ * popup blocker).
+ */
+function openLinkedInCompose(): void {
+  window.open(LINKEDIN_COMPOSE_URL, "_blank", "noopener,noreferrer");
+}
 
 /**
  * The Posts feed — every open campaign, as thumbnails or a compact list.
@@ -51,7 +64,6 @@ const PAGE_SIZE = 9;
  * finished, not as broken.
  */
 export default function AmplifyPostsPage() {
-  const navigate = useNavigate();
   const [view, setView] = useState<"grid" | "list">("grid");
   const [tag, setTag] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -69,8 +81,25 @@ export default function AmplifyPostsPage() {
         const total = query.data?.total ?? 0;
         const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
+        const linkedInStatus = gate.me?.linkedin.status;
+
         return (
           <Box>
+            {(linkedInStatus === "NEEDS_RECONNECT" || linkedInStatus === "EXPIRING") && (
+              <Alert
+                severity="warning"
+                sx={{ mb: 2 }}
+                action={
+                  <Button color="inherit" size="small" component={RouterLink} to={AMPLIFY_PATHS.connections} sx={amplifyBtnSx}>
+                    Reconnect
+                  </Button>
+                }
+              >
+                {linkedInStatus === "NEEDS_RECONNECT"
+                  ? "Your LinkedIn connection needs renewing before Amplify can share for you."
+                  : "Your LinkedIn connection expires soon. Sharing still works — reconnect so it keeps working."}
+              </Alert>
+            )}
             <Stack
               direction={{ xs: "column", sm: "row" }}
               spacing={2}
@@ -123,7 +152,7 @@ export default function AmplifyPostsPage() {
                   variant="outlined"
                   size="small"
                   startIcon={<PlusIcon size={16} />}
-                  onClick={() => navigate(AMPLIFY_PATHS.myCampaign)}
+                  onClick={openLinkedInCompose}
                   sx={amplifyBtnSx}
                 >
                   Make a post
@@ -222,11 +251,12 @@ function Grid({ items, gate }: { items: Campaign[]; gate: AmplifyGate }) {
 }
 
 function Thumbnail({ campaign }: { campaign: Campaign }) {
-  if (campaign.imageUrl) {
+  const image = safeHttpUrl(campaign.imageUrl);
+  if (image) {
     return (
       <Box
         component="img"
-        src={campaign.imageUrl}
+        src={image}
         alt=""
         sx={{ width: "100%", height: 150, objectFit: "cover", display: "block" }}
       />

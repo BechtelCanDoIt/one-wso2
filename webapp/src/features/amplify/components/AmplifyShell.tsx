@@ -27,8 +27,8 @@ import { useAmplifyGate, type AmplifyGate } from "../api/useAmplifyGate";
  * four shared states are handled: not connected, checking access, access check
  * failed, and no access.
  *
- * `requireRole` lets a screen declare which Amplify role it needs beyond being
- * signed in — the route/rail already hide it, but a typed URL must still get a
+ * `requireRole` lets a screen declare which Amplify role(s) it needs beyond
+ * being signed in (any one of a list will do) — the route/rail already hide it, but a typed URL must still get a
  * sentence rather than a blank page or a wall of failed requests. The backend
  * enforces it regardless; this is the legible answer for someone who typed it.
  */
@@ -40,14 +40,16 @@ export default function AmplifyShell({
 }: {
   title: string;
   subtitle?: string;
-  requireRole?: "po" | "marketing" | "slt" | "admin";
+  requireRole?: AmplifyScreenRole | readonly AmplifyScreenRole[];
   children: (gate: AmplifyGate) => ReactNode;
 }) {
   const configured = isAmplifyBackendConfigured();
   const gate = useAmplifyGate(configured);
 
+  const required: readonly AmplifyScreenRole[] =
+    requireRole === undefined ? [] : typeof requireRole === "string" ? [requireRole] : requireRole;
   const missingRole =
-    gate.isAuthorized && requireRole !== undefined && !roleSatisfied(gate, requireRole);
+    gate.isAuthorized && required.length > 0 && !required.some((r) => roleSatisfied(gate, r));
 
   return (
     <Box>
@@ -83,8 +85,8 @@ export default function AmplifyShell({
         </Alert>
       ) : missingRole ? (
         <Alert severity="warning" sx={{ mt: 1.5 }}>
-          This screen is for the Amplify {requireRole} role. You can still use the
-          rest of Amplify.
+          This screen is for the Amplify {required.map((r) => ROLE_LABEL[r]).join(" or ")} role. You
+          can still use the rest of Amplify.
         </Alert>
       ) : (
         <>{children(gate)}</>
@@ -93,7 +95,16 @@ export default function AmplifyShell({
   );
 }
 
-function roleSatisfied(gate: AmplifyGate, role: NonNullable<Parameters<typeof AmplifyShell>[0]["requireRole"]>): boolean {
+export type AmplifyScreenRole = "po" | "marketing" | "slt" | "admin";
+
+const ROLE_LABEL: Record<AmplifyScreenRole, string> = {
+  po: "PO",
+  marketing: "Marketing",
+  slt: "SLT",
+  admin: "Admin",
+};
+
+function roleSatisfied(gate: AmplifyGate, role: AmplifyScreenRole): boolean {
   // Each Amplify role is its own column in the backend's activity matrix — ADM
   // is not a superset of PO/MKT/SLT, so it is not accepted here either. A
   // typed-in URL for a screen you don't hold gets the sentence, not a 403 wall.

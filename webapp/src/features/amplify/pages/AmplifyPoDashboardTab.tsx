@@ -42,6 +42,15 @@ function currentMonth(): string {
 }
 
 /**
+ * `shareHealth.failedByReason` is a reason → count MAP in the contract (the
+ * backend seeds every reason with 0). Only the reasons that actually failed
+ * are worth a chip.
+ */
+function failedReasons(byReason: Record<string, number> | null | undefined): [string, number][] {
+  return Object.entries(byReason ?? {}).filter(([, n]) => typeof n === "number" && n > 0);
+}
+
+/**
  * The PO's numbers: what's waiting, what's gone out, what it's costing, and
  * what's broken. One request (`GET /po/dashboard`), one month at a time.
  */
@@ -146,10 +155,10 @@ export default function AmplifyPoDashboardTab() {
               <AmplifyStat label="Published" value={query.data.shareHealth.published} />
               <AmplifyStat label="Failed" value={query.data.shareHealth.failed} />
             </Stack>
-            {query.data.shareHealth.failedByReason.length > 0 && (
+            {failedReasons(query.data.shareHealth.failedByReason).length > 0 && (
               <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap", rowGap: 1 }}>
-                {query.data.shareHealth.failedByReason.map((r) => (
-                  <Chip key={r.reason} size="small" color="error" variant="outlined" label={`${r.reason}: ${r.count}`} />
+                {failedReasons(query.data.shareHealth.failedByReason).map(([reason, count]) => (
+                  <Chip key={reason} size="small" color="error" variant="outlined" label={`${reason}: ${count}`} />
                 ))}
               </Stack>
             )}

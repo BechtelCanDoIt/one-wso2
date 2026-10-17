@@ -43,6 +43,7 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { archiveCampaign } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
 import type { Campaign } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyCampaigns } from "../api/amplifyHooks";
 import AmplifyShell, { AmplifyEmpty } from "../components/AmplifyShell";
@@ -96,7 +97,8 @@ export default function AmplifyCampaignsPage() {
     <AmplifyShell
       title="Campaigns"
       subtitle="What the company is asking people to amplify, and when."
-      requireRole="marketing"
+      // Campaign editing is PO and Marketing alike (A6, `CAMPAIGN_EDITORS`).
+      requireRole={["marketing", "po"]}
     >
       {() => (
         <Box>
@@ -227,17 +229,21 @@ function ArchiveDialog({ campaign, onClose }: { campaign?: Campaign; onClose: ()
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useNotifications();
   const [busy, setBusy] = useState(false);
+  const idempotency = useIdempotencyKey();
 
   const handleArchive = async () => {
     if (!campaign) return;
     setBusy(true);
+    const key = idempotency.keyFor({ archive: campaign.id });
     try {
       const token = await getAccessToken();
-      await archiveCampaign(token, campaign.id);
+      await archiveCampaign(token, campaign.id, key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.campaigns });
       showSuccess(`Archived “${campaign.title}”.`);
       onClose();
     } catch (err) {
+      idempotency.settle(err);
       showError(describeError(err));
     } finally {
       setBusy(false);

@@ -33,38 +33,43 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { createCampaign, patchCampaign } from "../api/amplifyClient";
-import type { Campaign, CampaignDraft } from "../api/amplifyTypes";
+import { useIdempotencyKey } from "../api/idempotency";
+import type { Campaign, CampaignDraft, CampaignPatch } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyCategories } from "../api/amplifyHooks";
 import { amplifyBtnSx } from "./amplifyUi";
+import {
+  campaignFormError,
+  defaultClosesAt,
+  DEFAULT_CAMPAIGN_WINDOW_DAYS,
+  fromLocalInput,
+  parseTags,
+  toLocalInput,
+  type CampaignFormValues,
+} from "./amplifyForms";
 
-interface FormState {
-  resourceUrn: string;
-  ownerUrn: string;
-  resourceUrl: string;
-  title: string;
-  summary: string;
-  imageUrl: string;
-  categoryCode: string;
+interface FormState extends CampaignFormValues {
   isPriority: boolean;
-  tags: string;
-  opensAt: string;
-  closesAt: string;
 }
 
-const BLANK: FormState = {
-  resourceUrn: "",
-  ownerUrn: "",
-  resourceUrl: "",
-  title: "",
-  summary: "",
-  imageUrl: "",
-  categoryCode: "",
-  isPriority: false,
-  tags: "",
-  opensAt: "",
-  closesAt: "",
-};
+/** A fresh create form: opens now, closes 30 days later (C7). */
+function blankForm(now: Date = new Date()): FormState {
+  const opensAt = toLocalInput(now.toISOString());
+  return {
+    resourceUrn: "",
+    ownerUrn: "",
+    resourceUrl: "",
+    title: "",
+    summary: "",
+    imageUrl: "",
+    categoryCode: "",
+    isPriority: false,
+    tags: "",
+    opensAt,
+    closesAt: defaultClosesAt(opensAt),
+  };
+}
 
+// The form edits `datetime-local` strings throughout; ISO only on the wire.
 function fromCampaign(c: Campaign): FormState {
   return {
     resourceUrn: c.resourceUrn,
@@ -76,32 +81,19 @@ function fromCampaign(c: Campaign): FormState {
     categoryCode: c.categoryCode,
     isPriority: c.isPriority,
     tags: c.tags.join(", "),
-    opensAt: c.opensAt,
-    closesAt: c.closesAt,
+    opensAt: toLocalInput(c.opensAt),
+    closesAt: toLocalInput(c.closesAt),
   };
 }
 
-// datetime-local wants `YYYY-MM-DDTHH:mm`, the contract uses ISO with a Z. The
-// two conversions live together so they cannot drift.
-function toLocalInput(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
-
-function fromLocalInput(local: string): string | undefined {
-  if (!local) return undefined;
-  const d = new Date(local);
-  if (Number.isNaN(d.getTime())) return undefined;
-  return d.toISOString();
-}
-
 /**
- * Create or edit a campaign. `shareNow` only matters on create — it asks the
- * backend to kick off the announcement run immediately rather than at the next
- * scheduled tick.
+ * Create or edit a campaign. On create the window opens now and closes 30 days
+ * later (C7); moving the open date carries the close with it until the close is
+ * set by hand. "Save & share now" asks the backend to start the announcement
+ * run immediately rather than at the next scheduled tick.
+ *
+ * Idempotency: one key per (dialog-open, draft) — a retried create after a
+ * timeout replays instead of registering twice; an edited draft gets a new key.
  */
 export default function CampaignFormDialog({
   open,
@@ -117,53 +109,56 @@ export default function CampaignFormDialog({
   const queryClient = useQueryClient();
   const { showSuccess } = useNotifications();
   const categories = useAmplifyCategories();
+  const idempotency = useIdempotencyKey();
 
   const isEdit = Boolean(campaign);
-  const [form, setForm] = useState<FormState>(BLANK);
-  const [shareNow, setShareNow] = useState(false);
+  const [form, setForm] = useState<FormState>(() => blankForm());
+  const [closesTouched, setClosesTouched] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setForm(campaign ? fromCampaign(campaign) : BLANK);
-    setShareNow(false);
+    setForm(campaign ? fromCampaign(campaign) : blankForm());
+    setClosesTouched(Boolean(campaign));
     setError(null);
-  }, [open, campaign]);
+    idempotency.reset();
+  }, [open, campaign, idempotency]);
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
-  const handleSubmit = async () => {
+  const setOpensAt = (opensAt: string) =>
+    setForm((f) => ({ ...f, opensAt, closesAt: closesTouched ? f.closesAt : defaultClosesAt(opensAt) }));
+
+  const handleSubmit = async (shareNow: boolean) => {
     setError(null);
-    if (!form.title.trim()) {
-      setError("A title is required.");
+    const problem = campaignFormError(form, isEdit);
+    if (problem) {
+      setError(problem);
       return;
     }
-    if (!form.categoryCode) {
-      setError("Pick a category.");
-      return;
-    }
-    const tags = form.tags
-      .split(",")
-      .map((t) => t.trim())
-      .filter(Boolean);
+    const tags = parseTags(form.tags);
 
     setBusy(true);
     try {
       const token = await getAccessToken();
       if (isEdit && campaign) {
-        await patchCampaign(token, campaign.id, {
+        // Blank strings are sent, not dropped: the backend trims "" to null,
+        // which is how a summary or image is cleared.
+        const patch: CampaignPatch = {
           version: campaign.version,
           title: form.title.trim(),
-          summary: form.summary.trim() || undefined,
-          imageUrl: form.imageUrl.trim() || undefined,
+          summary: form.summary.trim(),
+          imageUrl: form.imageUrl.trim(),
           categoryCode: form.categoryCode,
           isPriority: form.isPriority,
           tags,
           opensAt: fromLocalInput(form.opensAt),
           closesAt: fromLocalInput(form.closesAt),
-        });
+        };
+        await patchCampaign(token, campaign.id, patch, idempotency.keyFor({ id: campaign.id, patch }));
+        idempotency.settle();
         showSuccess(`Updated “${form.title.trim()}”.`);
       } else {
         const draft: CampaignDraft = {
@@ -179,7 +174,11 @@ export default function CampaignFormDialog({
           opensAt: fromLocalInput(form.opensAt),
           closesAt: fromLocalInput(form.closesAt),
         };
-        await createCampaign(token, draft, { shareNow });
+        await createCampaign(token, draft, {
+          shareNow,
+          idempotencyKey: idempotency.keyFor({ shareNow, draft }),
+        });
+        idempotency.settle();
         showSuccess(
           shareNow ? `Created “${draft.title}” and queued the announcement.` : `Created “${draft.title}”.`,
         );
@@ -187,6 +186,7 @@ export default function CampaignFormDialog({
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.campaigns });
       onClose();
     } catch (err) {
+      idempotency.settle(err);
       setError(describeError(err));
     } finally {
       setBusy(false);
@@ -244,8 +244,8 @@ export default function CampaignFormDialog({
               size="small"
               type="datetime-local"
               label="Opens"
-              value={toLocalInput(form.opensAt)}
-              onChange={(e) => set("opensAt", e.target.value)}
+              value={form.opensAt}
+              onChange={(e) => setOpensAt(e.target.value)}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
@@ -253,8 +253,12 @@ export default function CampaignFormDialog({
               size="small"
               type="datetime-local"
               label="Closes"
-              value={toLocalInput(form.closesAt)}
-              onChange={(e) => set("closesAt", e.target.value)}
+              value={form.closesAt}
+              onChange={(e) => {
+                setClosesTouched(true);
+                set("closesAt", e.target.value);
+              }}
+              helperText={isEdit ? undefined : `Defaults to ${DEFAULT_CAMPAIGN_WINDOW_DAYS} days after it opens.`}
               slotProps={{ inputLabel: { shrink: true } }}
             />
           </Stack>
@@ -297,20 +301,19 @@ export default function CampaignFormDialog({
             control={<Checkbox checked={form.isPriority} onChange={(e) => set("isPriority", e.target.checked)} />}
             label="Priority campaign"
           />
-          {!isEdit && (
-            <FormControlLabel
-              control={<Checkbox checked={shareNow} onChange={(e) => setShareNow(e.target.checked)} />}
-              label="Announce immediately (otherwise at the next scheduler tick)"
-            />
-          )}
         </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} disabled={busy} sx={amplifyBtnSx}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} variant="contained" disabled={busy} sx={amplifyBtnSx}>
-          {busy ? "Saving…" : isEdit ? "Save changes" : "Create"}
+        {!isEdit && (
+          <Button onClick={() => handleSubmit(true)} variant="outlined" disabled={busy} sx={amplifyBtnSx}>
+            Save &amp; share now
+          </Button>
+        )}
+        <Button onClick={() => handleSubmit(false)} variant="contained" disabled={busy} sx={amplifyBtnSx}>
+          {busy ? "Saving…" : isEdit ? "Save changes" : "Save"}
         </Button>
       </DialogActions>
     </Dialog>

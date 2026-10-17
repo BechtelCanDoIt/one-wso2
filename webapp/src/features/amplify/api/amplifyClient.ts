@@ -57,6 +57,7 @@ import type {
   PointsAdjustment,
   PointsHistory,
   PointRule,
+  PointRuleList,
   PoDashboard,
   SchedulerSyncResult,
   SettingChanges,
@@ -274,15 +275,15 @@ export function markExternalShareAmplified(accessToken: string, id: string, idem
 
 // ---- Points ---------------------------------------------------------------
 
-export function fetchPointRules(accessToken: string): Promise<{ items: PointRule[] }> {
-  return authedGet<{ items: PointRule[] }>(amplifyServiceUrls.pointRules, accessToken, {
+export function fetchPointRules(accessToken: string): Promise<PointRuleList> {
+  return authedGet<PointRuleList>(amplifyServiceUrls.pointRules, accessToken, {
     "X-Correlation-ID": newCorrelationId(),
   });
 }
 
 export function createPointRule(
   accessToken: string,
-  rule: { action: PointRule["action"]; points: number; effectiveFrom: string },
+  rule: { action: PointRule["action"]; points: number; effectiveFrom?: string },
   idempotencyKey?: string,
 ): Promise<PointRule> {
   return authedPost<PointRule>(amplifyServiceUrls.pointRules, accessToken, rule, {

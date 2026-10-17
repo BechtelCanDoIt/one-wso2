@@ -61,19 +61,24 @@ export function useAmplifyGate(enabled = true): AmplifyGate {
   });
 
   const folded = foldIdentityError(query, subState, retryIdentity);
-  const me = folded.data;
+  // A 403 from /me is a terminal "not for you": folded into "not allowed"
+  // (hidden), never a landing failure — and it wins over any cached roles.
+  const forbidden = folded.error instanceof HttpError && folded.error.status === 403;
+  const me = forbidden || !effectiveEnabled ? undefined : folded.data;
   const roles = me?.roles ?? [];
   const isPo = roles.includes("amplify_po");
   const isMarketing = roles.includes("amplify_marketing");
   const isSlt = roles.includes("amplify_slt");
   const isAdmin = roles.includes("amplify_admin");
 
-  // /me answered ⇒ the caller is a signed-in employee Amplify knows. Any 403
-  // here is a terminal "not for you", folded into "not allowed" (hidden), not
-  // a landing failure.
-  const isAuthorized = effectiveEnabled && folded.isSuccess && Boolean(me);
+  // /me answered ⇒ the caller is a signed-in employee Amplify knows. The last
+  // good answer is kept through a failing BACKGROUND refetch (TanStack keeps
+  // `data` while `status` goes to "error"), so a blip on window focus does not
+  // throw a reader out of the screen they are on.
+  const isAuthorized = effectiveEnabled && Boolean(me) && !forbidden;
 
-  const isError = effectiveEnabled && folded.isError && !(folded.error instanceof HttpError && folded.error.status === 403);
+  // Only a failure with nothing to fall back on is a landing error.
+  const isError = effectiveEnabled && folded.isError && !forbidden && !me;
 
   const canSee = (itemId: string): boolean => {
     if (!isAuthorized) return false;

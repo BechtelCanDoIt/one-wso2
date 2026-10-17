@@ -23,7 +23,12 @@ import { useAccessToken } from "@hooks/useAccessToken";
 import { completeLinkedInConnect } from "../api/amplifyClient";
 import { AMPLIFY_QUERY_KEYS } from "../api/amplifyHooks";
 import { amplifyBtnSx } from "../components/amplifyUi";
-import { loadPendingShare, saveConnectResult } from "../components/shareFlow";
+import {
+  describeOAuthError,
+  loadPendingShare,
+  safeReturnPath,
+  saveConnectResult,
+} from "../components/shareFlow";
 
 /**
  * Where LinkedIn sends the reader back after consent.
@@ -44,7 +49,9 @@ export default function AmplifyConnectCallbackPage() {
   const [message, setMessage] = useState<string | null>(null);
   const ran = useRef(false);
 
-  const returnTo = loadPendingShare()?.returnTo ?? "/amplify/posts";
+  // Validated: it comes from storage (and, after completion, the backend's
+  // echo), and is used as a navigation target and an href.
+  const [returnTo, setReturnTo] = useState(() => safeReturnPath(loadPendingShare()?.returnTo));
 
   useEffect(() => {
     if (ran.current) return;
@@ -55,7 +62,9 @@ export default function AmplifyConnectCallbackPage() {
     const errorParam = params.get("error");
 
     if (errorParam || !code || !stateParam) {
-      const reason = errorParam ?? "LinkedIn did not return an authorization code.";
+      // LinkedIn's `error` (and `error_description`) are attacker-controllable
+      // text in our address bar — mapped to fixed copy, never rendered.
+      const reason = describeOAuthError(errorParam);
       saveConnectResult({ status: "error", message: reason });
       setMessage(reason);
       setState("error");
@@ -65,7 +74,8 @@ export default function AmplifyConnectCallbackPage() {
     void (async () => {
       try {
         const token = await getAccessToken();
-        await completeLinkedInConnect(token, { code, state: stateParam });
+        const connection = await completeLinkedInConnect(token, { code, state: stateParam });
+        if (!loadPendingShare() && connection.returnTo) setReturnTo(safeReturnPath(connection.returnTo));
         void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.me });
         saveConnectResult({ status: "ok" });
         setState("done");
@@ -96,6 +106,19 @@ export default function AmplifyConnectCallbackPage() {
         <Alert severity="success">
           LinkedIn connected. You can close this tab — the page you came from has
           picked up the connection.
+          <Box sx={{ mt: 1 }}>
+            <Button
+              size="small"
+              href={returnTo}
+              onClick={(e) => {
+                e.preventDefault();
+                navigate(returnTo);
+              }}
+              sx={amplifyBtnSx}
+            >
+              Back to Amplify
+            </Button>
+          </Box>
         </Alert>
       )}
       {state === "error" && (

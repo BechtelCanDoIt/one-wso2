@@ -32,6 +32,17 @@ import type { ShareKind } from "../api/amplifyTypes";
 const PENDING_SHARE_KEY = "amplify.pendingShare";
 const CONNECT_RESULT_KEY = "amplify.connect.result";
 
+/**
+ * How long a half-finished share (or an unread connect result) is honoured.
+ * The OAuth `state` itself dies after 10 minutes; past half an hour the reader
+ * has moved on, and reopening a share dialog they abandoned yesterday would be
+ * a surprise, not a convenience.
+ */
+export const HANDOFF_TTL_MS = 30 * 60 * 1000;
+
+/** Where the reader lands when no safe return path is known. */
+export const DEFAULT_RETURN_PATH = "/amplify/posts";
+
 export interface PendingShare {
   campaignId: string;
   campaignTitle?: string;
@@ -39,11 +50,14 @@ export interface PendingShare {
   commentary?: string;
   /** Where to send the reader once LinkedIn is done — the page they left. */
   returnTo: string;
+  /** Epoch ms when it was saved; older than HANDOFF_TTL_MS is ignored. */
+  savedAt?: number;
 }
 
 export interface ConnectResult {
   status: "ok" | "error";
   message?: string;
+  savedAt?: number;
 }
 
 // localStorage can throw in a locked-down browser or a private window; a share
@@ -73,26 +87,46 @@ function remove(key: string): void {
   }
 }
 
-export function savePendingShare(share: PendingShare): void {
-  write(PENDING_SHARE_KEY, share);
+function isFresh(savedAt: unknown, now: number): boolean {
+  return typeof savedAt === "number" && now - savedAt >= 0 && now - savedAt <= HANDOFF_TTL_MS;
 }
 
-export function loadPendingShare(): PendingShare | null {
-  return read<PendingShare>(PENDING_SHARE_KEY);
+export function savePendingShare(share: PendingShare, now: number = Date.now()): void {
+  write(PENDING_SHARE_KEY, { ...share, savedAt: now });
+}
+
+/**
+ * The pending share, or null when there is none, it is malformed, or it is
+ * stale (older than HANDOFF_TTL_MS, or saved before `savedAt` existed). A stale
+ * or malformed entry is cleared as it is read.
+ */
+export function loadPendingShare(now: number = Date.now()): PendingShare | null {
+  const share = read<PendingShare>(PENDING_SHARE_KEY);
+  if (!share) return null;
+  if (typeof share.campaignId !== "string" || typeof share.kind !== "string" || !isFresh(share.savedAt, now)) {
+    remove(PENDING_SHARE_KEY);
+    return null;
+  }
+  return share;
 }
 
 export function clearPendingShare(): void {
   remove(PENDING_SHARE_KEY);
 }
 
-export function saveConnectResult(result: ConnectResult): void {
-  write(CONNECT_RESULT_KEY, result);
+export function saveConnectResult(result: ConnectResult, now: number = Date.now()): void {
+  write(CONNECT_RESULT_KEY, { ...result, savedAt: now });
 }
 
-/** Reads the result and clears it — a one-shot signal, not a sticky flag. */
-export function consumeConnectResult(): ConnectResult | null {
+/**
+ * Reads the result and clears it — a one-shot signal, not a sticky flag. A
+ * stale or malformed result is cleared and reads as null.
+ */
+export function consumeConnectResult(now: number = Date.now()): ConnectResult | null {
   const result = read<ConnectResult>(CONNECT_RESULT_KEY);
-  if (result) remove(CONNECT_RESULT_KEY);
+  if (!result) return null;
+  remove(CONNECT_RESULT_KEY);
+  if ((result.status !== "ok" && result.status !== "error") || !isFresh(result.savedAt, now)) return null;
   return result;
 }
 
@@ -101,3 +135,47 @@ export function clearConnectResult(): void {
 }
 
 export const CONNECT_RESULT_STORAGE_KEY = CONNECT_RESULT_KEY;
+
+/**
+ * A return path that is safe to navigate to: a same-origin absolute path
+ * (`/amplify/posts`). Anything else — a full URL, a protocol-relative `//host`,
+ * a backslash trick (`/\\host`, which browsers normalise to `//host`), a
+ * `javascript:` string — falls back to DEFAULT_RETURN_PATH. The value comes
+ * from storage and from the backend's echo, so it is treated as untrusted.
+ */
+export function safeReturnPath(raw: unknown): string {
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > 512) return DEFAULT_RETURN_PATH;
+  if (!raw.startsWith("/") || raw.startsWith("//") || raw.startsWith("/\\")) return DEFAULT_RETURN_PATH;
+  // Control characters (tab/newline are stripped by URL parsers) could smuggle
+  // a second slash past the checks above.
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u001f\u007f]/.test(raw)) return DEFAULT_RETURN_PATH;
+  try {
+    const resolved = new URL(raw, window.location.origin);
+    if (resolved.origin !== window.location.origin) return DEFAULT_RETURN_PATH;
+    return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+  } catch {
+    return DEFAULT_RETURN_PATH;
+  }
+}
+
+/**
+ * Fixed copy for LinkedIn's OAuth `error` query parameter. The raw value (and
+ * its `error_description`) is attacker-controllable text in our URL, so it is
+ * never rendered — only mapped.
+ */
+export function describeOAuthError(code: string | null | undefined): string {
+  switch (code) {
+    case "user_cancelled_login":
+    case "user_cancelled_authorize":
+      return "You cancelled the LinkedIn sign-in, so nothing was connected. You can try again whenever you're ready.";
+    case "access_denied":
+      return "LinkedIn didn't grant Amplify access, so nothing was connected.";
+    case undefined:
+    case null:
+    case "":
+      return "LinkedIn did not return an authorization code.";
+    default:
+      return "LinkedIn couldn't complete the connection. Please try again.";
+  }
+}

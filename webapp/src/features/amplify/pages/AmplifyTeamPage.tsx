@@ -40,6 +40,7 @@ import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { reversePoints } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
 import type { LedgerEntry, TeamPageEntry } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyTeam, useAmplifyTeamHistory } from "../api/amplifyHooks";
 import AmplifyShell, { AmplifyEmpty, AmplifyStat } from "../components/AmplifyShell";
@@ -94,7 +95,10 @@ export default function AmplifyTeamPage() {
                   setQ(e.target.value);
                   setPage(0);
                 }}
-                slotProps={{ input: { startAdornment: <SearchIcon size={16} /> } }}
+                slotProps={{
+                  input: { startAdornment: <SearchIcon size={16} /> },
+                  htmlInput: { maxLength: 100, "aria-label": "Search the team by name or email" },
+                }}
                 sx={{ minWidth: 260 }}
               />
               <TextField
@@ -299,19 +303,30 @@ function LedgerRow({
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useNotifications();
   const [busy, setBusy] = useState(false);
+  // Same reference + same reason after a timeout replays; a reversal is
+  // once-per-row server-side, but a replay reads as success, not ALREADY_REVERSED.
+  const idempotency = useIdempotencyKey();
+
+  // A reversal row cannot itself be reversed (CANNOT_REVERSE_REVERSAL), and a
+  // row that has been reversed already says so on its reversal — offer the
+  // button only where the backend would accept it.
+  const reversible = showReverse && entry.sourceType !== "REVERSAL";
 
   const handleReverse = async () => {
     const reason = window.prompt(`Why are you reversing ${entry.points} points?`);
     if (!reason || !reason.trim()) return;
     setBusy(true);
+    const key = idempotency.keyFor({ reference: entry.reference, reason: reason.trim() });
     try {
       const token = await getAccessToken();
-      await reversePoints(token, entry.reference, reason.trim());
+      await reversePoints(token, entry.reference, reason.trim(), key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.team });
       void queryClient.invalidateQueries({ queryKey: ["amplify-team-history", employeeId] });
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.poDashboard });
       showSuccess("Reversal recorded.");
     } catch (err) {
+      idempotency.settle(err);
       showError(describeError(err));
     } finally {
       setBusy(false);
@@ -328,9 +343,11 @@ function LedgerRow({
       <TableCell align="right">{entry.points > 0 ? `+${entry.points}` : entry.points}</TableCell>
       {showReverse && (
         <TableCell align="right">
-          <Button size="small" onClick={handleReverse} disabled={busy} sx={amplifyBtnSx}>
-            Reverse
-          </Button>
+          {reversible && (
+            <Button size="small" onClick={handleReverse} disabled={busy} sx={amplifyBtnSx}>
+              Reverse
+            </Button>
+          )}
         </TableCell>
       )}
     </TableRow>

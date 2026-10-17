@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -39,6 +39,13 @@ import { AMPLIFY_QUERY_KEYS } from "../api/amplifyHooks";
 import AmplifyShell from "../components/AmplifyShell";
 import AmplifySectionCard from "../components/AmplifySectionCard";
 import { amplifyBtnSx, connectionStatusColor, connectionStatusLabel, formatDateTime } from "../components/amplifyUi";
+import { openLinkedInConsent, POPUP_BLOCKED_MESSAGE } from "../components/openLinkedInConsent";
+import {
+  clearPendingShare,
+  consumeConnectResult,
+  loadPendingShare,
+  CONNECT_RESULT_STORAGE_KEY,
+} from "../components/shareFlow";
 
 /**
  * My Connections — the LinkedIn account Amplify posts from, and the one place
@@ -55,6 +62,22 @@ export default function AmplifyConnectionsPage() {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
 
+  // The connect tab reports back through localStorage. Refresh /me when it
+  // does, so the card flips to Connected without a reload. A result that
+  // belongs to a pending share is left for that share's button to pick up.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== CONNECT_RESULT_STORAGE_KEY || e.newValue === null) return;
+      void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.me });
+      if (loadPendingShare()) return;
+      const result = consumeConnectResult();
+      if (result?.status === "ok") showSuccess("LinkedIn connected.");
+      else if (result?.status === "error") showError(result.message ?? "LinkedIn connection failed.");
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, [queryClient, showError, showSuccess]);
+
   return (
     <AmplifyShell title="My Connections" subtitle="The accounts Amplify uses on your behalf.">
       {(gate) => {
@@ -62,18 +85,21 @@ export default function AmplifyConnectionsPage() {
         const status = linkedin?.status ?? "NOT_CONNECTED";
         const connected = status === "ACTIVE" || status === "EXPIRING";
 
-        const handleConnect = async () => {
+        // Not async: the tab must open inside the click (see openLinkedInConsent).
+        const handleConnect = () => {
           setConnecting(true);
-          try {
+          // A connect started here is not finishing anyone's share; a stale
+          // pending one must not hijack the return trip.
+          clearPendingShare();
+          void openLinkedInConsent(async () => {
             const token = await getAccessToken();
             const auth = await startLinkedInConnect(token, { returnTo: window.location.pathname });
-            const opened = window.open(auth.authorizationUrl, "_blank", "noopener,noreferrer");
-            if (!opened) showError("Your browser blocked the LinkedIn window. Allow pop-ups and try again.");
-          } catch (err) {
-            showError(describeError(err));
-          } finally {
+            return auth.authorizationUrl;
+          }).then((outcome) => {
+            if (outcome.status === "blocked") showError(POPUP_BLOCKED_MESSAGE);
+            else if (outcome.status === "failed") showError(describeError(outcome.error));
             setConnecting(false);
-          }
+          });
         };
 
         const handleDisconnect = async () => {
@@ -100,12 +126,19 @@ export default function AmplifyConnectionsPage() {
                 connecting ? (
                   <CircularProgress size={18} />
                 ) : connected ? (
-                  <Button size="small" color="error" variant="outlined" onClick={() => setConfirmDisconnect(true)} sx={amplifyBtnSx}>
-                    Disconnect
-                  </Button>
+                  <Stack direction="row" spacing={1}>
+                    {status === "EXPIRING" && (
+                      <Button size="small" variant="contained" startIcon={<LinkedinIcon size={16} />} onClick={handleConnect} sx={amplifyBtnSx}>
+                        Reconnect
+                      </Button>
+                    )}
+                    <Button size="small" color="error" variant="outlined" onClick={() => setConfirmDisconnect(true)} sx={amplifyBtnSx}>
+                      Disconnect
+                    </Button>
+                  </Stack>
                 ) : (
                   <Button size="small" variant="contained" startIcon={<LinkedinIcon size={16} />} onClick={handleConnect} sx={amplifyBtnSx}>
-                    {status === "NEEDS_RECONNECT" ? "Reconnect" : "Connect"}
+                    {status === "NEEDS_RECONNECT" || status === "REMOVED" ? "Reconnect" : "Connect"}
                   </Button>
                 )
               }
@@ -123,6 +156,11 @@ export default function AmplifyConnectionsPage() {
                 {status === "NEEDS_RECONNECT" && (
                   <Alert severity="warning">
                     Your LinkedIn access expired or was revoked. Reconnect to keep amplifying.
+                  </Alert>
+                )}
+                {status === "EXPIRING" && (
+                  <Alert severity="warning">
+                    Your LinkedIn access expires soon. Sharing still works — reconnect now so it doesn't stop.
                   </Alert>
                 )}
                 {status === "NOT_CONNECTED" && (

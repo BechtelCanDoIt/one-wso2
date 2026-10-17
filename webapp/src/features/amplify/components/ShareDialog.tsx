@@ -24,22 +24,27 @@ import {
   DialogTitle,
   MenuItem,
   TextField,
+  Typography,
 } from "@wso2/oxygen-ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { describeError } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { amplifyProblemCode, newIdempotencyKey, shareCampaign } from "../api/amplifyClient";
+import { amplifyProblemCode, shareCampaign } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
 import { AMPLIFY_PROBLEM, type ConnectionStatus, type ShareKind } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS } from "../api/amplifyHooks";
-import { amplifyBtnSx } from "./amplifyUi";
+import { amplifyBtnSx, canPostWith, formatDate } from "./amplifyUi";
 import type { PendingShare } from "./shareFlow";
+
+/** `ShareCommand.commentary` maxLength in the contract. */
+export const COMMENTARY_MAX = 3000;
 
 const KIND_OPTIONS: { value: ShareKind; label: string; needsCommentary: boolean }[] = [
   { value: "REPOST", label: "Repost", needsCommentary: false },
-  { value: "REPOST_COMMENTARY", label: "Repost with commentary", needsCommentary: true },
+  { value: "REPOST_COMMENTARY", label: "Repost with your thoughts", needsCommentary: true },
   { value: "SHARE", label: "Share", needsCommentary: false },
-  { value: "SHARE_COMMENTARY", label: "Share with commentary", needsCommentary: true },
+  { value: "SHARE_COMMENTARY", label: "Share with your thoughts", needsCommentary: true },
 ];
 
 /**
@@ -51,23 +56,32 @@ const KIND_OPTIONS: { value: ShareKind; label: string; needsCommentary: boolean 
  * is the belt to that braces — a status that read ACTIVE a second ago can
  * still come back NEEDS_RECONNECT, and that must route into the same connect
  * flow rather than surface as a raw error.
+ *
+ * Idempotency: one key per (dialog-open, request body). A retry of the same
+ * share after a timeout reuses it; changing the kind or the commentary, or a
+ * 4xx answer (which the backend stores against the key), mints a new one.
  */
 export default function ShareDialog({
   open,
   campaign,
   linkedInStatus,
+  linkedInExpiresAt,
   onClose,
   onNeedConnect,
   onShared,
   initial,
+  skipConnectionCheck = false,
 }: {
   open: boolean;
   campaign: { id: string; title: string };
   linkedInStatus: ConnectionStatus | undefined;
+  linkedInExpiresAt?: string | null;
   onClose: () => void;
   onNeedConnect: (pending: PendingShare) => void;
   onShared: () => void;
   initial?: { kind: ShareKind; commentary?: string };
+  /** Right after a connect, before /me catches up: let the server decide. */
+  skipConnectionCheck?: boolean;
 }) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
@@ -76,17 +90,14 @@ export default function ShareDialog({
   const [commentary, setCommentary] = useState(initial?.commentary ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // The same logical share may be retried after a transient failure, so its
-  // key is minted once per dialog-open (ADR-024) rather than per attempt.
-  const [idempotencyKey, setIdempotencyKey] = useState(newIdempotencyKey);
+  const idempotency = useIdempotencyKey();
 
   useEffect(() => {
     if (!open) return;
     setKind(initial?.kind ?? "REPOST");
     setCommentary(initial?.commentary ?? "");
     setError(null);
-    setIdempotencyKey(newIdempotencyKey());
+    idempotency.reset();
     // `initial` is intentionally not a dependency: it seeds the dialog on open,
     // it does not drive it while open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -94,35 +105,37 @@ export default function ShareDialog({
 
   const needsCommentary = KIND_OPTIONS.find((o) => o.value === kind)?.needsCommentary ?? false;
   const blocked = needsCommentary && commentary.trim().length === 0;
+  const expiring = linkedInStatus === "EXPIRING";
+
+  const pendingShare = (): PendingShare => ({
+    campaignId: campaign.id,
+    campaignTitle: campaign.title,
+    kind,
+    commentary: needsCommentary ? commentary.trim() : undefined,
+    returnTo: window.location.pathname,
+  });
 
   const handleSubmit = async () => {
-    const pending: PendingShare = {
-      campaignId: campaign.id,
-      campaignTitle: campaign.title,
-      kind,
-      commentary: needsCommentary ? commentary.trim() : undefined,
-      returnTo: window.location.pathname,
-    };
+    const pending = pendingShare();
 
-    if (linkedInStatus && linkedInStatus !== "ACTIVE") {
+    if (!skipConnectionCheck && !canPostWith(linkedInStatus)) {
       onNeedConnect(pending);
       return;
     }
 
     setSubmitting(true);
     setError(null);
+    const command = { kind, commentary: pending.commentary };
+    const key = idempotency.keyFor({ campaignId: campaign.id, ...command });
     try {
       const token = await getAccessToken();
-      await shareCampaign(
-        token,
-        campaign.id,
-        { kind, commentary: pending.commentary },
-        idempotencyKey,
-      );
+      await shareCampaign(token, campaign.id, command, key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.myShares });
       showSuccess(`Share queued for “${campaign.title}”.`);
       onShared();
     } catch (err) {
+      idempotency.settle(err);
       const code = amplifyProblemCode(err);
       if (code === AMPLIFY_PROBLEM.linkedinNotConnected || code === AMPLIFY_PROBLEM.needsReconnect) {
         onNeedConnect(pending);
@@ -130,6 +143,14 @@ export default function ShareDialog({
       }
       if (code === AMPLIFY_PROBLEM.commentaryRequired) {
         setError("This share needs a comment. Add one and try again.");
+        return;
+      }
+      if (code === AMPLIFY_PROBLEM.duplicateAction) {
+        setError("You've already amplified this campaign.");
+        return;
+      }
+      if (code === AMPLIFY_PROBLEM.campaignClosed) {
+        setError("This campaign has closed, so it can't be shared any more.");
         return;
       }
       setError(describeError(err));
@@ -142,11 +163,29 @@ export default function ShareDialog({
     <Dialog open={open} onClose={submitting ? undefined : onClose} fullWidth maxWidth="sm">
       <DialogTitle>Amplify “{campaign.title}”</DialogTitle>
       <DialogContent>
+        {expiring && (
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" size="small" onClick={() => onNeedConnect(pendingShare())} sx={amplifyBtnSx}>
+                Reconnect
+              </Button>
+            }
+          >
+            Your LinkedIn connection expires
+            {linkedInExpiresAt ? ` on ${formatDate(linkedInExpiresAt)}` : " soon"}. You can still share now —
+            reconnect when you have a moment so it keeps working.
+          </Alert>
+        )}
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
           </Alert>
         )}
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          This posts on your LinkedIn, as you. Adding your own thoughts earns more points.
+        </Typography>
         <TextField
           select
           fullWidth
@@ -167,13 +206,14 @@ export default function ShareDialog({
           multiline
           minRows={3}
           size="small"
-          label={needsCommentary ? "Commentary (required)" : "Commentary (optional)"}
+          label={needsCommentary ? "Your thoughts (required)" : "Your thoughts (optional)"}
           value={commentary}
           onChange={(e) => setCommentary(e.target.value)}
+          slotProps={{ htmlInput: { maxLength: COMMENTARY_MAX } }}
           helperText={
             needsCommentary
-              ? "This share type must carry a comment."
-              : "Only used by the “with commentary” share types."
+              ? `This share type must carry a comment. ${commentary.length}/${COMMENTARY_MAX}`
+              : "Only used by the “with your thoughts” share types."
           }
           sx={{ mt: 2 }}
         />

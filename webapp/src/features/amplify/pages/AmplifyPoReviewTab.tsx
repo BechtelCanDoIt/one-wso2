@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -46,9 +46,11 @@ import {
   markExternalShareAmplified,
   rejectExternalShare,
 } from "../api/amplifyClient";
+import { useIdempotencyKey } from "../api/idempotency";
 import type { ExternalShare, ExternalShareStatus } from "../api/amplifyTypes";
 import { AMPLIFY_QUERY_KEYS, useAmplifyPoExternalShares } from "../api/amplifyHooks";
 import AmplifySectionCard from "../components/AmplifySectionCard";
+import EvidenceLink from "../components/EvidenceLink";
 import { amplifyBtnSx, externalShareStatusColor, formatDateTime } from "../components/amplifyUi";
 
 const FILTERS: { value: ExternalShareStatus | "ALL"; label: string }[] = [
@@ -151,6 +153,10 @@ function ReviewRow({ share, onReject }: { share: ExternalShare; onReject: () => 
   const queryClient = useQueryClient();
   const { showSuccess, showError } = useNotifications();
   const [busy, setBusy] = useState(false);
+  // One key per (row, decision): re-clicking Approve after a timeout replays
+  // the first approval instead of racing it (points are awarded in the same
+  // transaction as the approval).
+  const idempotency = useIdempotencyKey();
 
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.poExternalShares });
@@ -158,14 +164,21 @@ function ReviewRow({ share, onReject }: { share: ExternalShare; onReject: () => 
     void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.leaderboard });
   };
 
-  const run = async (action: (token: string) => Promise<unknown>, message: string) => {
+  const run = async (
+    decision: "approve" | "amplified",
+    action: (token: string, key: string) => Promise<unknown>,
+    message: string,
+  ) => {
     setBusy(true);
+    const key = idempotency.keyFor({ id: share.id, decision });
     try {
       const token = await getAccessToken();
-      await action(token);
+      await action(token, key);
+      idempotency.settle();
       refresh();
       showSuccess(message);
     } catch (err) {
+      idempotency.settle(err);
       showError(describeError(err));
     } finally {
       setBusy(false);
@@ -183,16 +196,7 @@ function ReviewRow({ share, onReject }: { share: ExternalShare; onReject: () => 
       <TableCell sx={{ maxWidth: 300 }}>
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", minWidth: 0 }}>
           <ExternalLinkIcon size={14} />
-          <Typography
-            variant="body2"
-            component="a"
-            href={share.evidenceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            sx={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "inherit" }}
-          >
-            {share.evidenceUrl}
-          </Typography>
+          <EvidenceLink url={share.evidenceUrl} />
         </Stack>
       </TableCell>
       <TableCell>
@@ -207,7 +211,7 @@ function ReviewRow({ share, onReject }: { share: ExternalShare; onReject: () => 
                 size="small"
                 variant="contained"
                 disabled={busy}
-                onClick={() => run((t) => approveExternalShare(t, share.id), "Approved.")}
+                onClick={() => run("approve", (t, k) => approveExternalShare(t, share.id, k), "Approved.")}
                 sx={amplifyBtnSx}
               >
                 Approve
@@ -222,7 +226,9 @@ function ReviewRow({ share, onReject }: { share: ExternalShare; onReject: () => 
               size="small"
               variant="outlined"
               disabled={busy}
-              onClick={() => run((t) => markExternalShareAmplified(t, share.id), "Marked amplified.")}
+              onClick={() =>
+                run("amplified", (t, k) => markExternalShareAmplified(t, share.id, k), "Marked amplified.")
+              }
               sx={amplifyBtnSx}
             >
               Mark amplified
@@ -240,19 +246,30 @@ function RejectDialog({ share, onClose }: { share?: ExternalShare; onClose: () =
   const { showSuccess, showError } = useNotifications();
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const idempotency = useIdempotencyKey();
+
+  // A fresh reason (and key) for each claim the dialog opens on — the last
+  // claim's reason must not be pre-filled onto the next one.
+  useEffect(() => {
+    setReason("");
+    idempotency.reset();
+  }, [share?.id, idempotency]);
 
   const handleReject = async () => {
     if (!share) return;
     if (!reason.trim()) return;
     setBusy(true);
+    const key = idempotency.keyFor({ id: share.id, reason: reason.trim() });
     try {
       const token = await getAccessToken();
-      await rejectExternalShare(token, share.id, reason.trim());
+      await rejectExternalShare(token, share.id, reason.trim(), key);
+      idempotency.settle();
       void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.poExternalShares });
+      void queryClient.invalidateQueries({ queryKey: AMPLIFY_QUERY_KEYS.poDashboard });
       showSuccess("Rejected.");
-      setReason("");
       onClose();
     } catch (err) {
+      idempotency.settle(err);
       showError(describeError(err));
     } finally {
       setBusy(false);
@@ -272,6 +289,7 @@ function RejectDialog({ share, onClose }: { share?: ExternalShare; onClose: () =
           multiline
           minRows={2}
           label="Reason"
+          slotProps={{ htmlInput: { maxLength: 1000 } }}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
         />
