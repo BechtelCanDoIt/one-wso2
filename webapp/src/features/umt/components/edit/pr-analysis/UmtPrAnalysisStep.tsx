@@ -72,12 +72,23 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
   const { showSuccess, showError } = useNotifications();
   const pullRequestAnalysis = useUmtPullRequestAnalysis(id, update.lifecycleState, { alwaysEnabled: true });
   const isDevelopment = update.lifecycleState === "Development";
+  // PRAnalyzed still shows the whole PR analysis, disabled: the backend only
+  // accepts a new analysis in Development, so changing it means demoting.
+  const isPrAnalyzed = update.lifecycleState === "PRAnalyzed";
   const status = useUmtPrAnalysisStatus(id, update.praStatus, isDevelopment);
   const startAnalysis = useUmtStartPullRequestAnalysis(id);
   const proceed = useUmtProceedFromPrAnalysis(id);
   const [isProceedWarningOpen, setIsProceedWarningOpen] = useState(false);
 
-  const [updateType, setUpdateType] = useState<UmtUpdateType>("generalUpdate");
+  // The type the last analysis was submitted with, as the backend recorded it.
+  const submittedUpdateType: UmtUpdateType = update.isInstructionsOnly
+    ? "instructionsOnlyUpdate"
+    : update.isContainerizedUpdate
+      ? "containerizedProductUpdate"
+      : "generalUpdate";
+  const [selectedUpdateType, setUpdateType] = useState<UmtUpdateType>(submittedUpdateType);
+  // Locked in PRAnalyzed, so it shows what was actually analyzed there.
+  const updateType = isPrAnalyzed ? submittedUpdateType : selectedUpdateType;
   // Drafts are persisted to localStorage scoped by update id, so rows from
   // one update's PR Analysis step never leak into another's.
   const [pullRequests, setPullRequestsState] = useState<UmtPullRequestAnalysisItem[]>(() =>
@@ -99,6 +110,14 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
     setBundlesInfoChangesState(rows);
     writePersistedBundleInfoChanges(id, rows);
   };
+  // In PRAnalyzed the locked inputs show what the backend analyzed rather
+  // than this browser's drafts, which may be stale or missing entirely.
+  const analyzed = pullRequestAnalysis.data;
+  const shownPullRequests = isPrAnalyzed ? (analyzed?.pullRequests ?? []) : pullRequests;
+  const shownManualFiles = isPrAnalyzed ? (analyzed?.additionalFileOperations ?? []) : manualFiles;
+  const shownBundlesInfoChanges: UmtBundleInfoChange[] = isPrAnalyzed
+    ? (analyzed?.bundlesInfoChanges ?? []).map((row) => ({ ...row, entryType: row.changeType }))
+    : bundlesInfoChanges;
   const [hasNewInputs, setHasNewInputs] = useState(true);
 
   const [isPrDialogOpen, setIsPrDialogOpen] = useState(false);
@@ -122,7 +141,7 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
   // status — isInFlight picks it up immediately, no race to bridge.
   const isBusy = isInFlight || startAnalysis.isPending;
 
-  if (!isDevelopment && !isCompleted) {
+  if (!isDevelopment && !isPrAnalyzed) {
     return <Alert severity="info">PR Analysis can only be done in Development.</Alert>;
   }
 
@@ -242,150 +261,150 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
   });
 
   return (
-    <Stack spacing={3}>
-      {isDevelopment && (
-        <Box>
-          <Typography variant="h6">Update Type</Typography>
-          <RadioGroup
-            row
-            value={updateType}
-            onChange={(e) => {
-              setUpdateType(e.target.value as UmtUpdateType);
-              markDirty();
-            }}
-            sx={{ opacity: isBusy ? 0.5 : 1, pointerEvents: isBusy ? "none" : "auto" }}
-          >
-            <FormControlLabel value="generalUpdate" control={<Radio />} label="General Update" />
-            <FormControlLabel value="instructionsOnlyUpdate" control={<Radio />} label="Instructions Only Update" />
-            <FormControlLabel
-              value="containerizedProductUpdate"
-              control={<Radio />}
-              label="Containerized Product Update"
-            />
-          </RadioGroup>
-          <Divider sx={{ mt: 2 }} />
+    // Everything here, results included, is disabled once PRAnalyzed: inert
+    // takes it out of pointer and keyboard interaction alike.
+    <Stack spacing={3} inert={isPrAnalyzed} sx={{ opacity: isPrAnalyzed ? 0.5 : 1 }}>
+      <Box>
+        <Typography variant="h6">Update Type</Typography>
+        <RadioGroup
+          row
+          value={updateType}
+          onChange={(e) => {
+            setUpdateType(e.target.value as UmtUpdateType);
+            markDirty();
+          }}
+          sx={{ opacity: isBusy ? 0.5 : 1, pointerEvents: isBusy ? "none" : "auto" }}
+        >
+          <FormControlLabel value="generalUpdate" control={<Radio />} label="General Update" />
+          <FormControlLabel value="instructionsOnlyUpdate" control={<Radio />} label="Instructions Only Update" />
+          <FormControlLabel
+            value="containerizedProductUpdate"
+            control={<Radio />}
+            label="Containerized Product Update"
+          />
+        </RadioGroup>
+        <Divider sx={{ mt: 2 }} />
 
-          {updateType !== "instructionsOnlyUpdate" && (
-            <Box sx={{ opacity: isBusy ? 0.5 : 1, pointerEvents: isBusy ? "none" : "auto" }}>
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 2 }}>
-                <Typography variant="h6">Pull Requests</Typography>
-                <IconButton aria-label="Add pull request" size="small" onClick={() => setIsPrDialogOpen(true)}>
-                  <PlusIcon size={18} />
-                </IconButton>
-              </Stack>
-              {pullRequests.length > 0 ? (
-                <DataGridComponent
-                  autoHeight
-                  columnHeaderHeight={40}
-                  disableColumnMenu
-                  disableRowSelectionOnClick
-                  getRowHeight={() => "auto"}
-                  getRowId={(row: UmtPullRequestAnalysisItem) => row.pr ?? ""}
-                  hideFooter
-                  rows={pullRequests}
-                  sx={{ mt: 2 }}
-                  columns={[
-                    {
-                      field: "pr",
-                      headerName: "Pull Request",
-                      flex: 3,
-                      sortable: false,
-                      renderCell: (params: { row: UmtPullRequestAnalysisItem }) => (
-                        <Stack sx={{ justifyContent: "center", minHeight: "100%", py: 0.75, width: "100%" }}>
-                          {params.row.pr && (
-                            <Link href={params.row.pr} target="_blank" rel="noopener noreferrer" underline="hover">
-                              {params.row.pr}
-                            </Link>
-                          )}
-                        </Stack>
-                      ),
-                    },
-                    {
-                      field: "preferredVersion",
-                      headerName: "Preferred Version",
-                      flex: 1,
-                      sortable: false,
-                      renderCell: (params: { row: UmtPullRequestAnalysisItem }) => (
-                        <Stack sx={{ justifyContent: "center", minHeight: "100%", py: 0.75, width: "100%" }}>
-                          {params.row.preferredVersion}
-                        </Stack>
-                      ),
-                    },
-                    {
-                      field: "delete",
-                      headerName: "",
-                      width: 52,
-                      sortable: false,
-                      renderCell: (params: { row: UmtPullRequestAnalysisItem }) => (
-                        <Stack sx={{ justifyContent: "center", minHeight: "100%", width: "100%" }}>
-                          <IconButton
-                            aria-label="Delete pull request"
-                            size="small"
-                            onClick={() => setDeletePr(params.row.pr ?? null)}
-                          >
-                            <TrashIcon size={16} />
-                          </IconButton>
-                        </Stack>
-                      ),
-                    },
-                  ]}
-                />
-              ) : (
-                <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                  Add a pull request to analyze.
-                </Typography>
-              )}
-            </Box>
-          )}
-
-          {updateType === "generalUpdate" && (
-            <>
-              <Divider sx={{ my: 2 }} />
-              <UmtAddManualFilesSection
-                updateId={id}
-                disabled={isBusy}
-                files={manualFiles}
-                onFilesChange={setManualFiles}
-                bundlesInfoChanges={bundlesInfoChanges}
-                onBundlesInfoChanged={setBundlesInfoChanges}
-                onDirty={markDirty}
+        {updateType !== "instructionsOnlyUpdate" && (
+          <Box sx={{ opacity: isBusy ? 0.5 : 1, pointerEvents: isBusy ? "none" : "auto" }}>
+            <Stack direction="row" spacing={1} sx={{ alignItems: "center", mt: 2 }}>
+              <Typography variant="h6">Pull Requests</Typography>
+              <IconButton aria-label="Add pull request" size="small" onClick={() => setIsPrDialogOpen(true)}>
+                <PlusIcon size={18} />
+              </IconButton>
+            </Stack>
+            {shownPullRequests.length > 0 ? (
+              <DataGridComponent
+                autoHeight
+                columnHeaderHeight={40}
+                disableColumnMenu
+                disableRowSelectionOnClick
+                getRowHeight={() => "auto"}
+                getRowId={(row: UmtPullRequestAnalysisItem) => row.pr ?? ""}
+                hideFooter
+                rows={shownPullRequests}
+                sx={{ mt: 2 }}
+                columns={[
+                  {
+                    field: "pr",
+                    headerName: "Pull Request",
+                    flex: 3,
+                    sortable: false,
+                    renderCell: (params: { row: UmtPullRequestAnalysisItem }) => (
+                      <Stack sx={{ justifyContent: "center", minHeight: "100%", py: 0.75, width: "100%" }}>
+                        {params.row.pr && (
+                          <Link href={params.row.pr} target="_blank" rel="noopener noreferrer" underline="hover">
+                            {params.row.pr}
+                          </Link>
+                        )}
+                      </Stack>
+                    ),
+                  },
+                  {
+                    field: "preferredVersion",
+                    headerName: "Preferred Version",
+                    flex: 1,
+                    sortable: false,
+                    renderCell: (params: { row: UmtPullRequestAnalysisItem }) => (
+                      <Stack sx={{ justifyContent: "center", minHeight: "100%", py: 0.75, width: "100%" }}>
+                        {params.row.preferredVersion}
+                      </Stack>
+                    ),
+                  },
+                  {
+                    field: "delete",
+                    headerName: "",
+                    width: 52,
+                    sortable: false,
+                    renderCell: (params: { row: UmtPullRequestAnalysisItem }) => (
+                      <Stack sx={{ justifyContent: "center", minHeight: "100%", width: "100%" }}>
+                        <IconButton
+                          aria-label="Delete pull request"
+                          size="small"
+                          onClick={() => setDeletePr(params.row.pr ?? null)}
+                        >
+                          <TrashIcon size={16} />
+                        </IconButton>
+                      </Stack>
+                    ),
+                  },
+                ]}
               />
-            </>
-          )}
-
-          <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "flex-end", mt: 3 }}>
-            {isBusy && <CircularProgress size={22} />}
-            {updateType !== "instructionsOnlyUpdate" && (
-              <Stack sx={{ flex: 1, minWidth: 0 }}>
-                {startAnalysis.isPending ? (
-                  <Typography variant="body2" color="text.primary">
-                    Starting analysis…
-                  </Typography>
-                ) : (
-                  statusMessage.lines.map((line, index) => (
-                    <Typography key={index} variant="body2" color={statusColor} sx={{ wordBreak: "break-word" }}>
-                      {line}
-                    </Typography>
-                  ))
-                )}
-              </Stack>
+            ) : (
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                Add a pull request to analyze.
+              </Typography>
             )}
-            <Button
-              variant="contained"
-              disabled={analyzeDisabled}
-              loading={startAnalysis.isPending}
-              onClick={handleAnalyzeClick}
-            >
-              Analyze
-            </Button>
-          </Stack>
-          <Divider sx={{ mt: 3 }} />
-        </Box>
-      )}
+          </Box>
+        )}
+
+        {updateType === "generalUpdate" && (
+          <>
+            <Divider sx={{ my: 2 }} />
+            <UmtAddManualFilesSection
+              updateId={id}
+              disabled={isBusy}
+              files={shownManualFiles}
+              onFilesChange={setManualFiles}
+              bundlesInfoChanges={shownBundlesInfoChanges}
+              onBundlesInfoChanged={setBundlesInfoChanges}
+              onDirty={markDirty}
+            />
+          </>
+        )}
+
+        <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "flex-end", mt: 3 }}>
+          {isBusy && <CircularProgress size={22} />}
+          {updateType !== "instructionsOnlyUpdate" && (
+            <Stack sx={{ flex: 1, minWidth: 0 }}>
+              {startAnalysis.isPending ? (
+                <Typography variant="body2" color="text.primary">
+                  Starting analysis…
+                </Typography>
+              ) : (
+                statusMessage.lines.map((line, index) => (
+                  <Typography key={index} variant="body2" color={statusColor} sx={{ wordBreak: "break-word" }}>
+                    {line}
+                  </Typography>
+                ))
+              )}
+            </Stack>
+          )}
+          <Button
+            variant="contained"
+            disabled={analyzeDisabled || isPrAnalyzed}
+            loading={startAnalysis.isPending}
+            onClick={handleAnalyzeClick}
+          >
+            Analyze
+          </Button>
+        </Stack>
+        <Divider sx={{ mt: 3 }} />
+      </Box>
 
       {isCompleted && pullRequestAnalysis.data && <UmtPrAnalysisResults result={pullRequestAnalysis.data} />}
 
-      {isCompleted && (
+      {isDevelopment && isCompleted && (
         <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
           <Button variant="contained" loading={proceed.isPending} onClick={handleProceedClick}>
             Proceed

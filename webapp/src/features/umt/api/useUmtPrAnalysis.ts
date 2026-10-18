@@ -122,17 +122,16 @@ export function useUmtStartPullRequestAnalysis(id: string) {
 // state is not a transition this app otherwise performs — it risks either
 // being rejected by the backend's own transition rules or silently hiding
 // that the update genuinely advanced. Instead the caller is told plainly what
-// happened, and how to actually recover: PR Analysis's own Proceed button is
-// gone as soon as the promotion commits (the stepper follows the now-real
-// PRAnalyzed lifecycleState straight to Product Analysis), so there is no
-// same-screen retry — the only path back to a retry is demoting the update
-// (Product Analysis's "Demote to Development") and running Proceed again
-// from PR Analysis.
+// happened, and how to actually recover: the PR analysis's own Proceed button
+// is gone as soon as the promotion commits (it only shows in Development), so
+// there is no same-screen retry — the only path back to a retry is demoting
+// the update (Files Analysis's "Demote to Development") and running Proceed
+// again.
 export class UmtPartialProceedError extends Error {
   constructor(public readonly analysisStartError: unknown) {
     super(
-      "Advanced to PRAnalyzed, but starting product analysis failed. Use Product Analysis's " +
-        "\"Demote to Development\" button, then Proceed again from PR Analysis to retry.",
+      "Advanced to PRAnalyzed, but starting product analysis failed. Use Files Analysis's " +
+        "\"Demote to Development\" button, then Proceed again to retry.",
     );
     this.name = "UmtPartialProceedError";
   }
