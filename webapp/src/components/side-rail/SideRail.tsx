@@ -198,6 +198,19 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
     return map;
   }, [sections]);
 
+  // Every row that runs an action instead of navigating — see
+  // PerspectiveSection.onSelect.
+  const actionById = useMemo(() => {
+    const map = new Map<string, () => void>();
+    for (const s of sections) {
+      if (s.onSelect) map.set(s.id, s.onSelect);
+      for (const c of s.children ?? []) {
+        if (c.onSelect) map.set(c.id, c.onSelect);
+      }
+    }
+    return map;
+  }, [sections]);
+
   // Top-level route rows navigate through their own wrapping anchor; nested
   // rows and scroll-anchors arrive here.
   const onSelect = (id: string) => {
@@ -213,6 +226,11 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
       return;
     }
     if (id === OVERVIEW_ID) return;
+    const action = actionById.get(id);
+    if (action) {
+      action();
+      return;
+    }
     const path = pathById.get(id);
     if (path) {
       // Carry the perspective along, same as the Settings navigation above.

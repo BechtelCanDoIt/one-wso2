@@ -635,6 +635,8 @@ export const umtServiceUrls = {
   // GET — products, versions, issue types, lifecycles and user emails shared
   // by the update workflows. This endpoint deliberately sits outside /update.
   meta: `${umtBackendUrl}/meta`,
+  // GET — the environment's Update Manager documentation link, as `{ url }`.
+  documentation: `${umtBackendUrl}/update/documentation`,
   // GET — aggregate update lifecycle and release-chunk build counts.
   updatesStats: `${umtBackendUrl}/update/stats`,
   // GET — Statistics page's monthly stacked-bar chart data, one endpoint per

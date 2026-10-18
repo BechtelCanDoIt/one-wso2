@@ -23,6 +23,7 @@ import { CADO2_APPS } from "@constants/cado2Apps";
 import {
   AwardIcon,
   BarChart3,
+  Book,
   BookOpenIcon,
   CheckCheckIcon,
   ClipboardCheckIcon,
@@ -68,6 +69,7 @@ import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
+import { UMT_DOCUMENTATION_ITEM_ID, openUmtDocumentation } from "@features/umt/lib/umtDocumentation";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 
 export interface PerspectiveSection {
@@ -96,6 +98,9 @@ export interface PerspectiveSection {
   // of ours is active while the user is over there. Mutually exclusive with
   // `path` — a section is either somewhere we host or somewhere we don't.
   externalUrl?: string;
+  // When set, choosing the row runs this instead of navigating — for a row
+  // whose destination is only known at runtime. Mutually exclusive with `path`.
+  onSelect?: () => void;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group
@@ -493,6 +498,10 @@ const UMT_SECTION: PerspectiveSection = {
     { id: "umt-products", label: "Product Management", path: umtPaths.products },
     { id: "umt-release-chunks", label: "Release Chunks", path: umtPaths.releaseChunks },
     { id: "umt-statistics", label: "Statistics", path: umtPaths.statistics },
+    // Opens the documentation site in a new tab. The address is UMT backend
+    // configuration (/update/documentation), not a build-time value, so the
+    // row runs an action that reads it at click time.
+    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Documentation", icon: Book, onSelect: openUmtDocumentation },
   ],
 };
 

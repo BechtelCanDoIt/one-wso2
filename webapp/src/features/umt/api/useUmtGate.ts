@@ -21,6 +21,8 @@ import { isUmtBackendConfigured } from "@config/apiConfig";
 import { SIGNING_OUT_EVENT } from "@constants/appEvents";
 import { UMT_ADMIN_ITEM_IDS } from "@constants/perspectives";
 import { UMT_ROLE_ID, type UmtRole } from "./umtTypes";
+import { UMT_DOCUMENTATION_ITEM_ID } from "../lib/umtDocumentation";
+import { useUmtDocumentationUrl } from "./useUmtDocumentationUrl";
 import { useUmtUserInfo } from "./useUmtUserInfo";
 
 export interface UmtGate {
@@ -36,6 +38,8 @@ export interface UmtGate {
   isError: boolean;
   errorMessage?: string;
   retry: () => void;
+  /** The environment's documentation link; undefined until fetched, or when none is configured. */
+  documentationUrl?: string;
 }
 
 // `/update/user-info` deliberately exposes numeric privileges. Convert them at
@@ -131,6 +135,8 @@ export function useUmtGate(enabled = true): UmtGate {
       ? new Set<UmtRole>()
       : (lastKnownRoles ?? new Set<UmtRole>());
   const hasRole = (role: UmtRole): boolean => roles.has(role);
+  // Only someone UMT gives a role sees the Documentation row, so nobody else asks.
+  const documentationUrl = useUmtDocumentationUrl(enabled && roles.size > 0);
 
   return {
     isAuthorized: roles.size > 0,
@@ -154,6 +160,7 @@ export function useUmtGate(enabled = true): UmtGate {
     isError: userInfo.isError && !hasData,
     errorMessage: userInfo.isError && !hasData ? describeError(userInfo.error) : undefined,
     retry: () => void userInfo.refetch(),
+    documentationUrl,
   };
 }
 
@@ -162,11 +169,13 @@ export function useUmtGate(enabled = true): UmtGate {
  * failed read hides them; the landing does not retry. With no backend URL
  * there is no role to ask for, so the rows stay and lead to UmtShell's "not
  * connected" notice — all but Product Management, which needs a confirmed admin.
+ * Documentation also needs the link it opens, which only the backend has.
  */
 export function umtVisibility(gate: UmtGate): VisibilityAnswer {
   const configured = isUmtBackendConfigured();
   return {
     canSee: (id) => {
+      if (id === UMT_DOCUMENTATION_ITEM_ID && !gate.documentationUrl) return false;
       const adminOnly = UMT_ADMIN_ITEM_IDS.has(id);
       if (!configured) return !adminOnly;
       if (gate.isResolving) return false;
