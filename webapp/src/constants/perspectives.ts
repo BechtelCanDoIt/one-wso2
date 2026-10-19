@@ -543,9 +543,9 @@ const SALES_ECHO_SECTION: PerspectiveSection = {
 };
 
 // Sales Pitstop's Library: Smart Search over Pitstop's content. No `requires`, and not in
-// SALES_ITEM_IDS: it is not gated by the meet-app backend (ONE_WSO2_REVOPS_BACKEND_URL) that owns
-// Calls and Deals. Pitstop's own backend decides what each caller may see. A group even with one
-// screen, so the rail names both the product and the screen. Held back by the `smartSearch` flag.
+// SALES_ITEM_IDS: it is not gated by the ONE_WSO2_REVOPS_BACKEND_URL backend that gates Calls and
+// Deals. The ONE_WSO2_SMART_SEARCH_BACKEND_URL backend decides what each caller may see. A group even
+// with one screen, so the rail names both the product and the screen. Held back by the `smartSearch` flag.
 const SALES_PITSTOP_SECTION: PerspectiveSection = {
   id: "sales-pitstop",
   label: "Sales Pitstop",
