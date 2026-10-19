@@ -31,7 +31,9 @@ import type {
   DraftInput,
   DraftResponse,
   LineCategory,
+  LineFormula,
   Partner,
+  PricingMethod,
   PricingPreview,
   Product,
   TermMode,
@@ -61,10 +63,27 @@ export interface AddressValue {
 }
 
 /** One line; product fields are for display and come from the price book. */
+/** A saved line's pricing (D82): the price book, or a formula version with how it worked the price out. */
+export interface KeptPricing {
+  method: PricingMethod;
+  formulaVersionId: number | null;
+  formula: LineFormula | null;
+}
+
 export interface LineValue {
   /** Id of the saved line this came from; keeps its stored price. */
   lineId: number | null;
   pricebookEntryId: string;
+  /** The Salesforce product: tells a formula-priced one (D81). Absent on lines from before it was kept. */
+  productId?: string;
+  /** How a saved line was priced (D82); absent on a new line. */
+  keepPricing?: KeptPricing;
+  /**
+   * The AM moved this saved line to its product's pricing in force: the
+   * latest formula version, or the price book (D82). Set only by the line
+   * dialog; without it a saved line keeps its pricing.
+   */
+  useLatestPricing?: boolean;
   productName: string;
   productCode: string;
   /** The product's Salesforce description; "" when it has none. */
@@ -408,6 +427,12 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
     lines: v.lines.map((l) => ({
       lineId: l.id,
       pricebookEntryId: l.pricebookEntryId,
+      productId: l.sfProductId,
+      keepPricing: {
+        method: l.pricingMethod ?? "PRICE_BOOK",
+        formulaVersionId: l.formula?.versionId ?? null,
+        formula: l.formula ?? null,
+      },
       productName: l.productName,
       productCode: l.productCode ?? "",
       productDescription: l.productDescription ?? "",
@@ -560,6 +585,8 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
       category: l.category,
       discretionaryDiscountPercent: l.discount.trim() || "0",
       unitOfMeasure: opt(l.unitOfMeasure),
+      // A saved line the AM moved to the pricing in force (D82).
+      useLatestFormula: l.lineId !== null && l.useLatestPricing ? true : undefined,
     })),
   };
 }
@@ -588,6 +615,10 @@ export function toPreviewBody(v: DraftFormValues): object | null {
       quantity: Number(l.quantity),
       category: l.category,
       discretionaryDiscountPercent: l.discount.trim() || "0",
+      keepPricing:
+        l.keepPricing && !l.useLatestPricing
+          ? { method: l.keepPricing.method, formulaVersionId: l.keepPricing.formulaVersionId }
+          : undefined,
     })),
   };
 }
@@ -763,6 +794,7 @@ export function pulledLines(products: readonly Product[]): LineValue[] {
       {
         lineId: null,
         pricebookEntryId: entry.id,
+        productId: p.id,
         productName: p.name ?? p.id,
         productCode: p.productCode ?? "",
         productDescription: p.description ?? "",

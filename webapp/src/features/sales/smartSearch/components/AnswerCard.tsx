@@ -29,8 +29,18 @@ import {
 } from "@wso2/oxygen-ui";
 import { CheckIcon, CopyIcon, SparklesIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { COPY_FORMATS, buildCopyText, type CopyFormat } from "../util/libraryCopyText";
+import {
+  COPY_FORMATS,
+  buildCopyHtml,
+  buildCopyText,
+  canCopyRich,
+  writeToClipboard,
+  type CopyFormat,
+} from "../util/libraryCopyText";
+import { canAnimate, pop, useTypedText } from "../util/libraryMotion";
 import type { ResultGroup } from "../util/libraryResults";
+
+const visuallyHidden = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" } as const;
 
 /** A long answer is cut to this many lines until "Show more" is pressed. */
 const COLLAPSED_LINES = 7;
@@ -68,6 +78,9 @@ export default function AnswerCard({
   // The text last copied; "Copied" shows only while it is still what the box says.
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  // Only an answer that arrives while the card is open is typed out; one that was already there (back to a search) is not.
+  const [animate] = useState(() => status !== "ready" && canAnimate());
+  const typed = useTypedText(text ?? "", animate);
   const isLong = (text?.length ?? 0) > LONG_ANSWER_LENGTH;
 
   const copyText = buildCopyText(format, { query, answer: text, groups });
@@ -75,7 +88,7 @@ export default function AnswerCard({
 
   const copy = async () => {
     try {
-      await navigator.clipboard.writeText(copyText);
+      await writeToClipboard(copyText, format === "email" ? buildCopyHtml({ query, answer: text, groups }) : undefined);
       setCopiedText(copyText);
     } catch {
       showWarning("Couldn't copy. Select the text in the box and copy it yourself.");
@@ -94,7 +107,7 @@ export default function AnswerCard({
         bgcolor: alpha(theme.palette.primary.main, 0.07),
       })}
     >
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
         <Box sx={{ color: "primary.main", display: "flex" }}>
           <SparklesIcon size={16} />
         </Box>
@@ -111,6 +124,11 @@ export default function AnswerCard({
       <Box aria-live="polite" sx={{ mt: 1 }}>
         {status === "loading" && (
           <Box role="status" aria-label="Writing an answer">
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+              {groups.length > 0
+                ? `Found ${groups.length} ${groups.length === 1 ? "document" : "documents"}. Writing your answer…`
+                : "Writing your answer…"}
+            </Typography>
             <Skeleton variant="text" width="95%" />
             <Skeleton variant="text" width="88%" />
             <Skeleton variant="text" width="60%" />
@@ -119,6 +137,7 @@ export default function AnswerCard({
         {status === "ready" && text && (
           <>
             <Typography
+              aria-hidden={typed.typing || undefined}
               sx={{
                 whiteSpace: "pre-wrap",
                 fontSize: "0.9375rem",
@@ -131,9 +150,19 @@ export default function AnswerCard({
                 }),
               }}
             >
-              {text}
+              {typed.shown}
             </Typography>
-            {isLong && (
+            {typed.typing && (
+              <>
+                <Box component="span" sx={visuallyHidden}>
+                  {text}
+                </Box>
+                <Button size="small" onClick={typed.skip} sx={{ mt: 0.5, ml: -1 }}>
+                  Skip
+                </Button>
+              </>
+            )}
+            {isLong && !typed.typing && (
               <Button size="small" onClick={() => setExpanded((open) => !open)} sx={{ mt: 0.5, ml: -1 }}>
                 {expanded ? "Show less" : "Show more"}
               </Button>
@@ -156,7 +185,7 @@ export default function AnswerCard({
               variant="outlined"
               label={`${index + 1} · ${group.title}`}
               onClick={() => onSelectGroup(group.key)}
-              sx={{ maxWidth: 260 }}
+              sx={{ maxWidth: "100%" }}
             />
           ))}
         </Stack>
@@ -187,7 +216,15 @@ export default function AnswerCard({
               size="small"
               variant="contained"
               onClick={() => void copy()}
-              startIcon={copied ? <CheckIcon size={14} /> : <CopyIcon size={14} />}
+              startIcon={
+                copied ? (
+                  <Box component="span" sx={{ display: "flex", ...pop }}>
+                    <CheckIcon size={14} />
+                  </Box>
+                ) : (
+                  <CopyIcon size={14} />
+                )
+              }
             >
               {copied ? "Copied" : "Copy"}
             </Button>
@@ -210,12 +247,15 @@ export default function AnswerCard({
               whiteSpace: "pre-wrap",
               overflowWrap: "anywhere",
               userSelect: "text",
+              maxHeight: 240,
+              overflow: "auto",
             }}
           >
             {copyText}
           </Box>
           <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
             Links point to the exact spot. Check the source before sending anything to a customer.
+            {format === "email" && canCopyRich() && " Pasted into Gmail or Outlook, the links come out clickable."}
           </Typography>
         </Box>
       )}

@@ -214,6 +214,62 @@ export interface PricingYear {
   readonly netBilling?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Pricing formulas (D81)
+// ---------------------------------------------------------------------------
+
+/** A Salesforce product in a formula, named as Salesforce had it when saved. */
+export interface FormulaProduct {
+  readonly id: string;
+  readonly name: string;
+  readonly code: string | null;
+}
+
+/** One placeholder's value: a fixed VALUE ("25000", "10%"), or PRODUCTS whose lines it adds up. */
+export interface FormulaBinding {
+  readonly name: string;
+  readonly kind: "VALUE" | "PRODUCTS";
+  readonly value?: string;
+  readonly products?: readonly FormulaProduct[];
+}
+
+/**
+ * One version of a product's pricing formula (D82). Every change is a new
+ * version; REMOVED means the product has no formula from then on (no
+ * expression or bindings). GET /pricing-formulas lists each product's latest.
+ */
+export interface PricingFormula {
+  readonly versionId: number;
+  readonly version: number;
+  readonly status: "ACTIVE" | "REMOVED";
+  readonly productId: string;
+  readonly productName: string;
+  readonly productCode: string | null;
+  readonly expression: string;
+  readonly bindings: readonly FormulaBinding[];
+  /** What a line priced with this version shows as its unit of measure (D83); "" when REMOVED. */
+  readonly unitOfMeasure: string;
+  readonly updatedByEmail: string;
+  readonly updatedAt: string;
+}
+
+/** How a formula line's unit price was worked out, and with which version: v2 of 2026-10-20, "max(25,000, 10% × 320,000)". */
+export interface LineFormula {
+  readonly versionId: number;
+  readonly version: number;
+  /** "2026-10-20": the day the version was made. */
+  readonly versionDate: string;
+  /** The version's unit of measure (D83). */
+  readonly unitOfMeasure?: string;
+  readonly expression: string;
+  readonly explanation: string;
+  readonly listPrice: string;
+  readonly values: readonly { readonly name: string; readonly value: string; readonly products?: readonly FormulaProduct[] }[];
+}
+
+/** How a line's unit price was worked out: the price book, or an Admin's formula (D81). */
+export type PricingMethod = "PRICE_BOOK" | "FORMULA";
+
 export interface PricingPreview {
   readonly rulesVersion: string;
   readonly termMonths: string;
@@ -224,6 +280,11 @@ export interface PricingPreview {
     /** The category priced: a mapped product's comes from its mapping. */
     readonly category?: LineCategory;
     readonly categorySource?: CategorySource;
+    /** The unit price priced: a formula line's is worked out (D81). */
+    readonly unitPrice?: string;
+    readonly pricingMethod?: PricingMethod;
+    readonly formula?: LineFormula | null;
+    readonly discretionaryDiscountPercent?: string;
     readonly annualList: string;
     readonly annualNet: string;
     readonly arr: string;
@@ -264,6 +325,8 @@ export interface DraftLineInput {
   readonly category: LineCategory | "";
   readonly discretionaryDiscountPercent: string;
   readonly unitOfMeasure?: string;
+  /** A kept line moved to its product's pricing in force: the latest formula version, or the price book (D82). */
+  readonly useLatestFormula?: boolean;
 }
 
 /** POST /quotes and PUT /quotes/{id}/versions/{n} body. */
@@ -321,6 +384,9 @@ export interface LineView {
   readonly pricebookId?: string;
   readonly pricebookName: string;
   readonly unitPrice: string;
+  /** PRICE_BOOK, or FORMULA: worked out by an Admin's formula, with no discount (D81). */
+  readonly pricingMethod?: PricingMethod;
+  readonly formula?: LineFormula | null;
   readonly unitOfMeasure: string | null;
   readonly productUnit: string | null;
   readonly classification: string | null;

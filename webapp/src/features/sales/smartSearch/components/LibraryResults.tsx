@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMemo, useState, type JSX } from "react";
+import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { Box, Button, Chip, IconButton, Paper, Skeleton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ArrowLeftIcon, CopyIcon, PinIcon, PinOffIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import { HttpError } from "@api/http";
@@ -31,11 +31,22 @@ import {
   sameDocuments,
   type ResultKind,
 } from "../util/libraryResults";
+import { belongsToSomethingElse } from "../util/libraryKeys";
+import { canAnimate, pop, rise } from "../util/libraryMotion";
+import { LIBRARY_TOPICS } from "../util/libraryTopics";
 import { libraryPath } from "../smartSearchPaths";
 import AnswerCard from "./AnswerCard";
 import PreviewPanel from "./PreviewPanel";
 import ResultCard from "./ResultCard";
 import SearchBox from "./SearchBox";
+
+// The results and their loading placeholder share one shape, so nothing jumps when the results arrive.
+const RESULTS_GRID_SX = {
+  display: "grid",
+  gap: 3,
+  alignItems: "start",
+  gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1.15fr) minmax(0, 1fr)" },
+};
 
 const RATE_LIMIT_MESSAGE = "You've searched a lot in a short time. Wait a minute, then try again.";
 const PIN_LABEL_MAX_LENGTH = 36;
@@ -87,6 +98,41 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
       : 0;
   const selectedPassage = selectedGroup?.passages[passageIndex];
 
+  const page = useRef<HTMLDivElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const selectedKey = selectedGroup?.key;
+  const selectedUrl = selectedPassage?.openUrl;
+
+  // Arrow keys browse the results, Enter opens the one selected and "/" jumps to the box; none of it while typing elsewhere.
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (belongsToSomethingElse(event, page.current)) return;
+      if (event.key === "/") {
+        event.preventDefault();
+        searchInput.current?.focus();
+        return;
+      }
+      // Only with nothing focused: on a button or chip, Enter already does that control's own job.
+      if (event.key === "Enter") {
+        if (event.target === document.body && selectedUrl) window.open(selectedUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      const at = visible.findIndex((group) => group.key === selectedKey);
+      const next = visible[Math.min(visible.length - 1, Math.max(0, at + (event.key === "ArrowDown" ? 1 : -1)))];
+      if (!next) return;
+      event.preventDefault();
+      // So that Enter then opens this result, and not the button that happened to have focus.
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+      setSelection({ key: next.key, passage: 0 });
+      document
+        .getElementById(`library-result-${visible.indexOf(next) + 1}`)
+        ?.scrollIntoView?.({ block: "nearest", behavior: canAnimate() ? "smooth" : "auto" });
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [visible, selectedKey, selectedUrl]);
+
   const href = libraryPath(query);
   const isPinned = pinned.some((entry) => entry.kind === "search" && entry.id === href);
 
@@ -113,10 +159,21 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   let body: JSX.Element;
   if (sources.isPending || sources.isLoading) {
     body = (
-      <Stack spacing={2} role="status" aria-label="Searching">
-        <Skeleton variant="rounded" height={140} />
-        <Skeleton variant="rounded" height={120} />
-        <Skeleton variant="rounded" height={120} />
+      <Stack spacing={2} role="status" aria-label="Searching" sx={rise()}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", color: "text.secondary" }}>
+          <SearchIcon size={16} />
+          <Typography variant="body2">Searching Pitstop…</Typography>
+        </Stack>
+        <Box sx={RESULTS_GRID_SX}>
+          <Stack spacing={3} sx={{ minWidth: 0 }}>
+            <Skeleton variant="rounded" height={190} sx={{ borderRadius: 1.5 }} />
+            <Stack spacing={1.5}>
+              <Skeleton variant="rounded" height={132} sx={{ borderRadius: 1.5 }} />
+              <Skeleton variant="rounded" height={132} sx={{ borderRadius: 1.5 }} />
+            </Stack>
+          </Stack>
+          <Skeleton variant="rounded" height={420} sx={{ borderRadius: 1.5, display: { xs: "none", lg: "block" } }} />
+        </Box>
       </Stack>
     );
   } else if (isStatus(sources.error, 403)) {
@@ -144,6 +201,20 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
           We couldn&apos;t find anything matching your question. Try different words, or a more specific question.
         </Typography>
+        <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 3, mb: 1 }}>
+          Or try one of these
+        </Typography>
+        <Stack direction="row" spacing={1} sx={{ justifyContent: "center", flexWrap: "wrap", rowGap: 1 }}>
+          {LIBRARY_TOPICS.slice(0, 3).map((topic) => (
+            <Chip
+              key={topic.id}
+              variant="outlined"
+              label={topic.question}
+              onClick={() => onSearch(topic.question)}
+              sx={{ maxWidth: "100%" }}
+            />
+          ))}
+        </Stack>
       </Paper>
     );
   } else {
@@ -170,14 +241,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
           </Stack>
         )}
 
-        <Box
-          sx={{
-            display: "grid",
-            gap: 3,
-            alignItems: "start",
-            gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1.15fr) minmax(0, 1fr)" },
-          }}
-        >
+        <Box sx={RESULTS_GRID_SX}>
           <Stack spacing={3} sx={{ minWidth: 0 }}>
             <AnswerCard
               status={answerStatus}
@@ -188,9 +252,14 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
               onSelectGroup={(key) => setSelection({ key, passage: 0 })}
             />
             <Box component="section" aria-label="Sources">
-              <Typography variant="overline" color="text.secondary" component="h2" sx={{ display: "block", mb: 1 }}>
-                Sources
-              </Typography>
+              <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between", mb: 1 }}>
+                <Typography variant="overline" color="text.secondary" component="h2">
+                  Sources
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
+                  ↑ ↓ to browse · Enter to open · / to search
+                </Typography>
+              </Stack>
               <Stack spacing={1.5}>
                 {visible.map((group, index) => (
                   <ResultCard
@@ -201,6 +270,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
                     selectedPassage={passageIndex}
                     query={query}
                     now={now}
+                    top={index === 0 && visible.length > 1}
                     onSelect={(key, passage) => setSelection({ key, passage })}
                   />
                 ))}
@@ -219,7 +289,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   }
 
   return (
-    <Box>
+    <Box ref={page} sx={rise()}>
       <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
         Library
       </Typography>
@@ -230,14 +300,18 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
           </IconButton>
         </Tooltip>
         <Box sx={{ flex: "1 1 360px", minWidth: 0 }}>
-          <SearchBox key={query} initialValue={query} onSubmit={onSearch} onClear={onBack} />
+          <SearchBox key={query} initialValue={query} onSubmit={onSearch} onClear={onBack} inputRef={searchInput} />
         </Box>
         <Button
           size="small"
           variant={isPinned ? "contained" : "outlined"}
           aria-pressed={isPinned}
           onClick={pinSearch}
-          startIcon={isPinned ? <PinOffIcon size={14} /> : <PinIcon size={14} />}
+          startIcon={
+            <Box key={String(isPinned)} component="span" sx={{ display: "flex", ...pop }}>
+              {isPinned ? <PinOffIcon size={14} /> : <PinIcon size={14} />}
+            </Box>
+          }
         >
           {isPinned ? "Pinned" : "Pin search"}
         </Button>

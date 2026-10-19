@@ -57,6 +57,26 @@ describe("sheetFromVersion", () => {
     expect(s.totals?.tcv).toBe("6480.00");
   });
 
+  it("shows how a saved formula line was priced (D81)", () => {
+    const line = fullPartnerQuote.version.lines[0];
+    const withFormula = {
+      ...fullPartnerQuote,
+      version: {
+        ...fullPartnerQuote.version,
+        lines: [
+          {
+            ...line,
+            discretionaryDiscountPercent: "0",
+            pricingMethod: "FORMULA" as const,
+            formula: { versionId: 6, version: 3, versionDate: "2026-10-15", expression: "max($1, $2)", explanation: "max(25,000, 648)", listPrice: "0", values: [] },
+          },
+        ],
+      },
+    };
+    expect(sheetFromVersion(withFormula).lines[0].formula).toEqual({ version: "v3 · 15 Oct 2026", explanation: "max(25,000, 648)" });
+    expect(s.lines[0].formula).toBeNull();
+  });
+
   it("leaves unpriced drafts without totals", () => {
     const d = sheetFromVersion(draft);
     expect(d.totals).toBeNull();
@@ -75,6 +95,39 @@ describe("sheetFromForm", () => {
     }
     expect(fromForm.contacts.map((c) => c?.name ?? null)).toEqual(["Jane Payables", "Marco Ruiz"]);
     expect(fromForm.previousOpportunityCount).toBe(1);
+  });
+
+  it("takes a formula line's price and explanation from the preview, with no discount (D81)", () => {
+    const form = fromVersion(fullPartnerQuote);
+    const preview = {
+      rulesVersion: "2026-09-M9",
+      termMonths: "12",
+      totals: null as never,
+      years: [],
+      lines: [
+        {
+          pricebookEntryId: form.lines[0].pricebookEntryId,
+          unitPrice: "25000.00",
+          pricingMethod: "FORMULA" as const,
+          formula: { versionId: 6, version: 3, versionDate: "2026-10-15", expression: "max($1, $2)", explanation: "max(25,000, 648)", listPrice: "0", values: [] },
+          annualList: "25000.00",
+          annualNet: "25000.00",
+          arr: "25000.00",
+          tcv: "25000.00",
+          schedule: [],
+        },
+      ],
+    };
+    const line = sheetFromForm(form, preview, null).lines[0];
+    expect(line).toMatchObject({
+      unitPrice: "25000.00",
+      discountPercent: "0",
+      formula: { version: "v3 · 15 Oct 2026", explanation: "max(25,000, 648)" },
+    });
+
+    const plain = sheetFromForm(form, null, null).lines[0];
+    expect(plain.formula).toBeNull();
+    expect(plain.discountPercent).toBe("10");
   });
 
   it("marks what isn't chosen yet", () => {

@@ -38,6 +38,7 @@ const empty = {
 };
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useAccountOpportunities: () => empty,
+  usePricingFormulas: () => empty,
   useCurrencies: () => ({ ...empty, data: ["USD"] }),
   usePricebooks: () => empty,
   useProducts: () => ({

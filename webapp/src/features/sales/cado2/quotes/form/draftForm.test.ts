@@ -191,6 +191,22 @@ describe("toDraftInput", () => {
     expect(JSON.stringify(input)).not.toContain("unitPrice");
   });
 
+  // D82: a saved line keeps its pricing; only a line the AM moved asks for the pricing in force.
+  it("keeps a saved line's pricing unless the AM moved it", () => {
+    const v = filled();
+    const keepPricing = { method: "FORMULA" as const, formulaVersionId: 6, formula: null };
+    const kept = { ...v, lines: [{ ...v.lines[0], keepPricing }] };
+    expect(toDraftInput(kept).lines[0].useLatestFormula).toBeUndefined();
+    expect((toPreviewBody(kept) as { lines: { keepPricing?: unknown }[] }).lines[0].keepPricing).toEqual({
+      method: "FORMULA",
+      formulaVersionId: 6,
+    });
+
+    const moved = { ...v, lines: [{ ...v.lines[0], keepPricing, useLatestPricing: true }] };
+    expect(toDraftInput(moved).lines[0].useLatestFormula).toBe(true);
+    expect((toPreviewBody(moved) as { lines: { keepPricing?: unknown }[] }).lines[0].keepPricing).toBeUndefined();
+  });
+
   it("maps contacts, addresses and switched-off terms", () => {
     const input = toDraftInput(filled());
 

@@ -15,65 +15,28 @@
 // under the License.
 
 // The Quotes page (My Quotes 2026-09-25; tabs, list and tree layouts, D70):
-// the list is loaded once and counted, filtered, searched and grouped in the
-// browser. Pure functions, unit-tested.
+// the list is loaded once and searched, sorted and grouped in the browser
+// (the status chips were removed on 2026-10-15). Pure functions, unit-tested.
 //
 // A list, not a report (D70): one row per quote with its own figures; groups
 // only organise rows, with no totals.
 //
 // Known limit: the list endpoint returns at most 200 quotes per call; past
-// that, filtering and search need server-side paging.
+// that, search needs server-side paging.
 
-import type { QuoteListItem, VersionStatus } from "@features/sales/cado2/quotes/api/quoteTypes";
+import type { QuoteListItem } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { quoteStatusLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
-
-/**
- * A status, or quotes back with the owner to revise or close (recalled,
- * returned). "" = all.
- */
-export type QuoteFilter = "" | VersionStatus | "TO_REVISE";
 
 /** How the quotes are laid out (D70): one row each, or the account › opportunity › quote tree. */
 export type QuoteLayout = "list" | "tree";
 
-export interface QuoteCounts {
-  readonly all: number;
-  readonly drafts: number;
-  readonly submitted: number;
-  readonly approved: number;
-  readonly toRevise: number;
-  readonly recalled: number;
-  readonly closed: number;
-}
-
-/** Back with the owner: in none of these is anything in flight. */
-export const TO_REVISE: readonly VersionStatus[] = ["RECALLED", "RETURNED"];
-
-export function countQuotes(items: readonly QuoteListItem[]): QuoteCounts {
-  const by = (s: VersionStatus) => items.filter((q) => q.status === s).length;
-  return {
-    all: items.length,
-    drafts: by("DRAFT"),
-    submitted: by("SUBMITTED"),
-    approved: by("APPROVED"),
-    toRevise: items.filter((q) => TO_REVISE.includes(q.status)).length,
-    recalled: by("RECALLED"),
-    closed: by("CLOSED"),
-  };
-}
-
 /** Case-insensitive match on quote number, account, opportunity or owner. */
-export function filterQuotes(items: readonly QuoteListItem[], filter: QuoteFilter, search: string): QuoteListItem[] {
+export function filterQuotes(items: readonly QuoteListItem[], search: string): QuoteListItem[] {
   const term = search.trim().toLowerCase();
-  return items.filter((q) => {
-    if (filter === "TO_REVISE") {
-      if (!TO_REVISE.includes(q.status)) return false;
-    } else if (filter && q.status !== filter) {
-      return false;
-    }
-    if (!term) return true;
-    return [q.quoteNumber, q.accountName, q.opportunityName, q.ownerEmail].some((f) => f?.toLowerCase().includes(term));
-  });
+  if (!term) return [...items];
+  return items.filter((q) =>
+    [q.quoteNumber, q.accountName, q.opportunityName, q.ownerEmail].some((f) => f?.toLowerCase().includes(term)),
+  );
 }
 
 export interface OpportunityGroup {
