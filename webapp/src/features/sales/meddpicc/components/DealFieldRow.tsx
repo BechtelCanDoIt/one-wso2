@@ -47,21 +47,6 @@ import FieldEditor from "./FieldEditor";
 
 const NOT_KNOWN = "__not_known__";
 
-/** A small "AI" marker for anything the model proposed rather than someone typed. */
-export function AiMarker({ confidence }: { confidence?: number }) {
-  return (
-    <Chip
-      icon={<SparklesIcon size={12} />}
-      label="AI"
-      size="small"
-      color="warning"
-      variant="outlined"
-      title={confidence !== undefined ? `AI proposal, confidence ${Math.round(confidence * 100)}%` : "AI proposal"}
-      sx={{ height: 18, fontSize: "0.65rem", fontWeight: 700, "& .MuiChip-icon": { ml: 0.5 } }}
-    />
-  );
-}
-
 /**
  * What Salesforce has against what the AI heard, as two rows of one box: the reader sees
  * both values side by side, the suggestion tinted while it waits for review, and under

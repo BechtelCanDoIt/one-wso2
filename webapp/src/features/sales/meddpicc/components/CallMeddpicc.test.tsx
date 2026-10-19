@@ -108,8 +108,10 @@ describe("CallMeddpiccTab", () => {
     const section = screen.getByRole("region", { name: "Economic Buyer" });
     expect(section).toHaveTextContent("Anything over 200k goes to Ingrid.");
     expect(section).toHaveTextContent("Lars Haugen");
-    expect(section).toHaveTextContent("Proposes Economic buyer: Ingrid Solberg");
-    expect(section).toHaveTextContent("awaiting review");
+    // The proposal shows once, above its quotes, with where it stands.
+    expect(section).toHaveTextContent("Economic buyer");
+    expect(section).toHaveTextContent("Ingrid Solberg");
+    expect(section).toHaveTextContent("To review");
     await userEvent.click(within(section).getByRole("button", { name: "Play from 12:40, Lars Haugen" }));
     expect(onSeek).toHaveBeenCalledWith(760);
   });

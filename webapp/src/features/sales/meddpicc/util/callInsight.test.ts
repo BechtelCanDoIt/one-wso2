@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { callInsight } from "./callInsight";
+import { callInsight, groupEvidence, type CallEvidence } from "./callInsight";
 import { coverage, detail, field, quote } from "./callInsight.fixtures";
 
 describe("callInsight", () => {
@@ -112,3 +112,26 @@ describe("callInsight", () => {
   });
 });
 
+describe("groupEvidence", () => {
+  const item = (quoteText: string, offsetSeconds: number, fieldKey?: string): CallEvidence => ({
+    quote: quoteText,
+    speaker: "Lars Haugen",
+    offsetSeconds,
+    original: quote({ quote: quoteText, offsetSeconds }),
+    proposal: fieldKey
+      ? { fieldKey, fieldLabel: fieldKey, value: "x", confidence: 0.8, pending: true }
+      : undefined,
+  });
+
+  it("shows each proposal and quote once per Letter, and merges Letters with the same evidence", () => {
+    const groups = groupEvidence([
+      { letter: "M", items: [item("pain one", 10, "successCriteriaPain"), item("pain two", 20, "successCriteriaPain")] },
+      { letter: "I", items: [item("pain one", 10, "successCriteriaPain"), item("pain two", 20, "successCriteriaPain")] },
+      { letter: "E", items: [item("budget", 30, "economicBuyer"), item("budget", 30, "economicBuyer")] },
+    ]);
+    expect(groups.map((g) => g.letters)).toEqual([["M", "I"], ["E"]]);
+    expect(groups[0].proposals.map((p) => p.fieldKey)).toEqual(["successCriteriaPain"]);
+    expect(groups[0].quotes.map((q) => q.quote)).toEqual(["pain one", "pain two"]);
+    expect(groups[1].quotes).toHaveLength(1);
+  });
+});
