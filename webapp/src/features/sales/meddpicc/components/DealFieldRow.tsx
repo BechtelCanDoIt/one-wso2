@@ -16,6 +16,7 @@
 
 import { useState } from "react";
 import {
+  alpha,
   Box,
   Button,
   Chip,
@@ -40,7 +41,7 @@ import {
 import type { DealField, EvidenceSourceType, FieldValue } from "../types";
 import type { ApprovalDraft } from "../util/approval";
 import { formatFieldValue, isEmptyValue, isRoleProposal, letterLabel } from "../util/meddpiccFormat";
-import { hasCustomerEvidence } from "../util/evidenceSource";
+import { describeEvidenceSources, hasCustomerEvidence } from "../util/evidenceSource";
 import EvidenceList from "./EvidenceList";
 import FieldEditor from "./FieldEditor";
 
@@ -58,6 +59,69 @@ export function AiMarker({ confidence }: { confidence?: number }) {
       title={confidence !== undefined ? `AI proposal, confidence ${Math.round(confidence * 100)}%` : "AI proposal"}
       sx={{ height: 18, fontSize: "0.65rem", fontWeight: 700, "& .MuiChip-icon": { ml: 0.5 } }}
     />
+  );
+}
+
+/**
+ * What Salesforce has against what the AI heard, as two rows of one box: the reader sees
+ * both values side by side, the suggestion tinted while it waits for review, and under
+ * it where it was heard and how sure the AI is.
+ */
+function ProposalCompare({
+  salesforceValue,
+  proposedValue,
+  pending,
+  confidence,
+  from,
+}: {
+  /** Absent when the field isn't in Salesforce yet. */
+  salesforceValue?: string;
+  proposedValue: string;
+  pending: boolean;
+  confidence: number;
+  from: string;
+}) {
+  const row = { display: "grid", gridTemplateColumns: { xs: "1fr", sm: "120px 1fr" }, columnGap: 1.5, rowGap: 0.25, px: 1.25, py: 0.75 };
+  return (
+    <Box
+      sx={{ border: 1, borderColor: pending ? "warning.light" : "divider", borderRadius: "10px", overflow: "hidden" }}
+      aria-label="Salesforce and the AI's suggestion"
+    >
+      {salesforceValue !== undefined && (
+        <Box sx={{ ...row, borderBottom: 1, borderColor: "divider" }}>
+          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, pt: "2px" }}>
+            In Salesforce
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
+            {salesforceValue}
+          </Typography>
+        </Box>
+      )}
+      <Box
+        sx={(theme) => ({
+          ...row,
+          bgcolor: pending ? alpha(theme.palette.warning.main, 0.08) : "transparent",
+        })}
+      >
+        <Typography
+          variant="caption"
+          sx={{ fontWeight: 600, pt: "2px", color: pending ? "warning.dark" : "text.secondary", display: "inline-flex", alignItems: "center", gap: 0.5 }}
+        >
+          <SparklesIcon size={12} aria-hidden />
+          {pending ? "AI suggests" : "AI heard"}
+        </Typography>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
+            {proposedValue}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" component="div">
+            {from && `From ${from} · `}
+            {Math.round(confidence * 100)}% confident
+            {!pending && " · matches Salesforce"}
+          </Typography>
+        </Box>
+      </Box>
+    </Box>
   );
 }
 
@@ -254,8 +318,9 @@ export default function DealFieldRow({
       )}
 
       <Box sx={{ pl: 3, mt: 0.75 }}>
-        {/* Salesforce's value. Absent for fields that don't exist there yet. */}
-        {!field.notInSalesforce && (
+        {/* Salesforce's value on its own line, when there is no proposal to set it
+            against. With a proposal, the comparison below shows both. */}
+        {!field.notInSalesforce && !proposal && (
           <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
             <Box component="span" sx={{ fontWeight: 600 }}>
               Salesforce:
@@ -277,41 +342,34 @@ export default function DealFieldRow({
         )}
 
         {proposal && (
-          <Box sx={{ mt: 1 }}>
-            <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start" }}>
-              <AiMarker confidence={proposal.confidence} />
-              <Typography variant="body2" sx={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
-                {proposal.pending ? "Proposed: " : "Heard on calls: "}
-                <Box component="span" sx={{ fontWeight: 600 }}>
-                  {formatFieldValue(proposal.value)}
-                </Box>
-              </Typography>
-            </Stack>
-
-            {/* The diff, only when there is something to differ from. */}
-            {proposal.pending && !sfEmpty && !field.notInSalesforce && (
-              <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "warning.dark" }}>
-                Salesforce: {formatFieldValue(field.salesforceValue)} → proposed:{" "}
-                {formatFieldValue(proposal.value)}
-              </Typography>
-            )}
+          <Box sx={{ mt: salesforceOnly ? 1 : 0 }}>
+            <ProposalCompare
+              salesforceValue={field.notInSalesforce ? undefined : formatFieldValue(field.salesforceValue)}
+              proposedValue={formatFieldValue(proposal.value)}
+              pending={proposal.pending}
+              confidence={proposal.confidence}
+              from={describeEvidenceSources(proposal.evidence)}
+            />
 
             {/* An attest field backed only by WSO2's words, or by words nobody could
                 attribute, is a claim about the customer rather than the customer's own
                 position: said plainly, before anyone approves it. */}
             {field.attest && !hasCustomerEvidence(proposal.evidence) && (
-              <Typography variant="caption" sx={{ display: "block", mt: 0.5, color: "warning.dark", fontWeight: 600 }}>
+              <Typography variant="caption" sx={{ display: "block", mt: 0.75, color: "warning.dark", fontWeight: 600 }}>
                 Needs customer evidence: no quote from the customer backs this yet.
               </Typography>
             )}
 
             {proposal.rationale && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+                <Box component="span" sx={{ fontWeight: 600 }}>
+                  Why:
+                </Box>{" "}
                 {proposal.rationale}
               </Typography>
             )}
 
-            <Box sx={{ mt: 1 }}>
+            <Box sx={{ mt: 1.25 }}>
               <EvidenceList evidence={proposal.evidence} sourceFilter={sourceFilter} limit={2} />
             </Box>
           </Box>
