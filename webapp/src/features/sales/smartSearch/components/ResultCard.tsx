@@ -30,7 +30,7 @@ interface ResultCardProps {
   /** Which of its passages the preview is showing, when it is the selected card. */
   readonly selectedPassage: number;
   readonly query: string;
-  /** The moment "added" is measured from, fixed for the page's life so a render is repeatable. */
+  /** The moment the item's age is measured from, fixed for the page's life so a render is repeatable. */
   readonly now: Date;
   /** Set on the best match when there are several, to say so. */
   readonly top?: boolean;
@@ -55,7 +55,7 @@ function StrengthDots({ level }: { readonly level: 1 | 2 | 3 }): JSX.Element {
   );
 }
 
-/** One document that matched: what it is, how well, how old, and the passages that answered. */
+/** One document that matched: what it is, how well, when it was last verified, and the passages that answered. */
 export default function ResultCard({
   group,
   number,
@@ -68,7 +68,7 @@ export default function ResultCard({
 }: ResultCardProps): JSX.Element {
   const Icon = KIND_ICON[group.kind];
   const strength = strengthOf(group.score);
-  const freshness = freshnessOf(group.content?.createdOn, now);
+  const freshness = freshnessOf(group.content?.createdOn, now, group.content?.lastVerifiedOn);
   const tags = (group.content?.tags ?? []).filter((tag) => tag.trim() !== "");
 
   return (

@@ -66,11 +66,11 @@ interface LibraryResultsProps {
  */
 export default function LibraryResults({ query, onSearch, onBack }: LibraryResultsProps): JSX.Element {
   const sources = useSmartSearchSources(query);
-  const { showWarning } = useNotifications();
+  const { showSuccess, showWarning } = useNotifications();
   const pinned = usePinnedEntries();
   const togglePin = useTogglePin();
 
-  // Fixed for the page's life, so every "Added ..." label is measured from the same moment.
+  // Fixed for the page's life, so every "Last verified ..." label is measured from the same moment.
   const [now] = useState(() => new Date());
   const [kind, setKind] = useState<ResultKind | "all">("all");
   const [selection, setSelection] = useState<{ key: string; passage: number } | null>(null);
@@ -146,6 +146,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   const copyLink = async () => {
     try {
       await navigator.clipboard.writeText(new URL(href, window.location.origin).toString());
+      showSuccess("Link copied.");
     } catch {
       showWarning("Couldn't copy the link. Copy it from the address bar instead.");
     }
