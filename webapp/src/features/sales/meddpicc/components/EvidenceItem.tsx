@@ -16,8 +16,8 @@
 
 import type { ReactNode } from "react";
 import { Link as RouterLink } from "react-router";
-import { Box, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
-import { ExternalLinkIcon, MailIcon, NotebookPenIcon, PlayIcon, VideoIcon } from "@wso2/oxygen-ui-icons-react";
+import { alpha, Avatar, Box, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
+import { ExternalLinkIcon, MailIcon, NotebookPenIcon, PlayIcon, UserRoundIcon, VideoIcon } from "@wso2/oxygen-ui-icons-react";
 import { formatOffset } from "../../api/salesTypes";
 import { formatDateTime } from "../../util/salesTime";
 import type { EvidenceQuote, EvidenceSourceType } from "../types";
@@ -34,6 +34,9 @@ const SOURCE_NAME: Record<EvidenceSourceType, string> = { CALL: "Call", EMAIL: "
 /**
  * One quote, wherever evidence is shown: what was said, who said it and whether they are
  * the customer, where it came from, and a way back to it.
+ *
+ * Drawn as a chat message: the speaker's initials beside a bubble holding their words,
+ * then who they are and where it was said. The customer's bubble is tinted.
  *
  * The customer's own words read at full strength. A WSO2 person's words are drawn lighter
  * and tagged WSO2, and a rep's note says "reported by the rep": they are WSO2's claim about
@@ -113,52 +116,90 @@ export default function EvidenceItem({
     );
   }
 
+  const customer = role === "CUSTOMER";
   return (
-    <Box
+    <Stack direction="row" spacing={1} sx={{ alignItems: "flex-start", opacity: fromWso2 ? 0.8 : 1, minWidth: 0 }}>
+      <SpeakerAvatar name={quote.speaker} role={role} />
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Box
+          sx={(theme) => ({
+            display: "inline-block",
+            maxWidth: "100%",
+            px: 1.25,
+            py: 0.75,
+            borderRadius: "4px 14px 14px 14px",
+            border: 1,
+            borderColor: customer ? alpha(theme.palette.success.main, 0.35) : "divider",
+            bgcolor: customer ? alpha(theme.palette.success.main, 0.08) : "action.hover",
+          })}
+        >
+          <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+            “{quote.quote}”
+          </Typography>
+        </Box>
+        <Stack
+          direction="row"
+          spacing={0.75}
+          sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.25, color: "text.secondary", mt: 0.25, pl: 0.5 }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 600, color: "text.primary" }}>
+            {quote.speaker}
+          </Typography>
+          {role !== "UNKNOWN" && (
+            <Chip
+              label={customer ? "Customer" : "WSO2"}
+              size="small"
+              variant="outlined"
+              color={customer ? "success" : "default"}
+              sx={{ height: 16, fontSize: "0.6rem", fontWeight: 600 }}
+            />
+          )}
+          <Box
+            component="span"
+            title={SOURCE_NAME[source.type]}
+            aria-label={SOURCE_NAME[source.type]}
+            sx={{ display: "inline-flex" }}
+          >
+            <Icon size={12} aria-hidden />
+          </Box>
+          {parts.map((part, i) => (
+            <Typography key={i} variant="caption" component="span">
+              {i > 0 ? "· " : ""}
+              {part}
+            </Typography>
+          ))}
+          {fromWso2 && source.type === "ACTIVITY" && (
+            <Typography variant="caption" sx={{ fontStyle: "italic" }}>
+              · reported by the rep
+            </Typography>
+          )}
+        </Stack>
+      </Box>
+    </Stack>
+  );
+}
+
+/** The speaker's initials, coloured by side: green for the customer, blue for WSO2. */
+function SpeakerAvatar({ name, role }: { name: string; role: string }) {
+  const initials = name
+    .split(/\s+/)
+    .filter((w) => /^[\p{L}]/u.test(w))
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join("");
+  return (
+    <Avatar
+      aria-hidden
       sx={{
-        borderLeft: 2,
-        borderColor: role === "CUSTOMER" ? "success.light" : "divider",
-        pl: 1.25,
-        opacity: fromWso2 ? 0.75 : 1,
+        width: 26,
+        height: 26,
+        mt: 0.25,
+        fontSize: "0.65rem",
+        fontWeight: 700,
+        bgcolor: role === "CUSTOMER" ? "success.main" : role === "WSO2" ? "primary.main" : "action.disabled",
       }}
     >
-      <Typography variant="body2" sx={{ fontStyle: "italic", overflowWrap: "anywhere" }}>
-        “{quote.quote}”
-      </Typography>
-      <Stack
-        direction="row"
-        spacing={0.75}
-        sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.25, color: "text.secondary" }}
-      >
-        <Box
-          component="span"
-          title={SOURCE_NAME[source.type]}
-          aria-label={SOURCE_NAME[source.type]}
-          sx={{ display: "inline-flex" }}
-        >
-          <Icon size={13} aria-hidden />
-        </Box>
-        <Typography variant="caption">{quote.speaker}</Typography>
-        {role !== "UNKNOWN" && (
-          <Chip
-            label={role === "CUSTOMER" ? "Customer" : "WSO2"}
-            size="small"
-            variant="outlined"
-            color={role === "CUSTOMER" ? "success" : "default"}
-            sx={{ height: 16, fontSize: "0.6rem", fontWeight: 600 }}
-          />
-        )}
-        {parts.map((part, i) => (
-          <Typography key={i} variant="caption" component="span">
-            · {part}
-          </Typography>
-        ))}
-        {fromWso2 && source.type === "ACTIVITY" && (
-          <Typography variant="caption" sx={{ fontStyle: "italic" }}>
-            · reported by the rep
-          </Typography>
-        )}
-      </Stack>
-    </Box>
+      {initials || <UserRoundIcon size={14} />}
+    </Avatar>
   );
 }
