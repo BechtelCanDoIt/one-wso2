@@ -259,20 +259,22 @@ export default function TilHomePage() {
             >
               Advanced Search{!showAdvanced && hasActiveAdvancedFilter ? " •" : ""}
             </Button>
-            <Tooltip title="Every entry matching the search, filters and tab, for Google Sheets or Excel">
-              <span>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  startIcon={<DownloadIcon size={14} />}
-                  onClick={() => void runExport()}
-                  disabled={exporting || total === 0}
-                  sx={{ flex: "none", textTransform: "none", fontWeight: 500, px: 1.5, minWidth: "auto", height: "37.125px" }}
-                >
-                  {exporting ? "Exporting…" : "Export CSV"}
-                </Button>
-              </span>
-            </Tooltip>
+            {canModerate && (
+              <Tooltip title="Every entry matching the search, filters and tab, for Google Sheets or Excel">
+                <span>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<DownloadIcon size={14} />}
+                    onClick={() => void runExport()}
+                    disabled={exporting || total === 0}
+                    sx={{ flex: "none", textTransform: "none", fontWeight: 500, px: 1.5, minWidth: "auto", height: "37.125px" }}
+                  >
+                    {exporting ? "Exporting…" : "Export CSV"}
+                  </Button>
+                </span>
+              </Tooltip>
+            )}
             <TilFeedLayoutSwitch value={layout} onChange={changeLayout} />
           </Stack>
 
