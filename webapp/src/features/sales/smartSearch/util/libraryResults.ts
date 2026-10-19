@@ -70,13 +70,14 @@ export function kindOf(source: SmartSearchSource): ResultKind {
   }
 }
 
-// The video moment is already in the link's query string or hash (?t=90 or #t=90s). Anything else, such as -5 or 1h2m, is not a moment we can show.
+// The video moment is already in the link's query string or hash (?t=90 or #t=90s). Anything else, such as -5, 1h2m or a number too big to count, is not a moment we can show.
 export function parseVideoTimestampSeconds(nativeLink: string): number | null {
   try {
     const url = new URL(nativeLink);
     const raw = url.searchParams.get("t") ?? url.hash.match(/t=([^&]*)/)?.[1] ?? "";
     const match = raw.match(/^(\d+)s?$/);
-    return match ? parseInt(match[1], 10) : null;
+    const seconds = match ? parseInt(match[1], 10) : NaN;
+    return Number.isSafeInteger(seconds) ? seconds : null;
   } catch {
     return null;
   }

@@ -73,6 +73,8 @@ describe("video timestamps", () => {
     expect(parseVideoTimestampSeconds("https://x.test/v?t=-5")).toBeNull();
     expect(parseVideoTimestampSeconds("https://x.test/v?t=1h2m")).toBeNull();
     expect(parseVideoTimestampSeconds("https://x.test/v?t=")).toBeNull();
+    expect(parseVideoTimestampSeconds(`https://x.test/v?t=${"9".repeat(30)}`)).toBeNull();
+    expect(parseVideoTimestampSeconds(`https://x.test/v?t=${"9".repeat(400)}`)).toBeNull();
   });
 
   it("formats minutes and seconds, and hours when there are any", () => {
