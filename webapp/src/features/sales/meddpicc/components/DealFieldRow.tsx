@@ -320,10 +320,15 @@ export default function DealFieldRow({
         {/* The contact picker, for a role Proposal waiting on a match. */}
         {rolePending && isRoleProposal(proposal?.value) && (
           <FormControl size="small" fullWidth sx={{ mt: 1.5 }} disabled={readOnly}>
-            <InputLabel id={`meddpicc-role-${field.key}`}>Matching contact</InputLabel>
+            {/* Shrunk and notched for good: with displayEmpty the box shows "Pick a
+                contact" while nothing is chosen, and a resting label would sit on it. */}
+            <InputLabel id={`meddpicc-role-${field.key}`} shrink>
+              Matching contact
+            </InputLabel>
             <Select
               labelId={`meddpicc-role-${field.key}`}
               label="Matching contact"
+              notched
               value={
                 edited && editValue === null ? NOT_KNOWN : (draft.roleMatches[field.key] ?? "")
               }
