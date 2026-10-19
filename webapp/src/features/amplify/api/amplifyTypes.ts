@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Wire shapes from amplify-api's OpenAPI (projects/wso2-amplify/apps/amplify-api/openapi.yaml).
+// Wire shapes from amplify-api's OpenAPI (marketing-tools apps/amplify/apps/amplify-api/openapi.yaml).
 // Only the fields these screens read are typed; the rest pass through untouched.
 
 export type AmplifyRole = "amplify_po" | "amplify_marketing" | "amplify_slt" | "amplify_admin";
