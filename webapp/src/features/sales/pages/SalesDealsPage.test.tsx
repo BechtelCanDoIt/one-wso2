@@ -99,6 +99,9 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(row.getByRole("group", { name: /^MEDDPICC for Brightwater/ })).toBeInTheDocument();
     expect(row.getByRole("button", { name: "Champion: AI suggestion waiting for approval" })).toBeInTheDocument();
     expect(row.getByLabelText(/AI proposals waiting for approval/)).toBeInTheDocument();
+    // The stage rides in the Opportunity cell; its own column made way for the deal score.
+    expect(screen.getByRole("columnheader", { name: "Opportunity" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Stage" })).not.toBeInTheDocument();
 
     for (const name of [
       "Meridian Bank – integration platform",

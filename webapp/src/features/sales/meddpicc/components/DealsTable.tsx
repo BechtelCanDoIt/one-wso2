@@ -25,12 +25,11 @@ import StageChip from "./StageChip";
 import { useNow } from "../../util/useNow";
 
 /**
- * Four columns. Amount and close date ride under the deal's name, and the pending count
- * beside the circles, so the deal's journey gets the width.
+ * Three columns. The stage, amount and close date ride under the opportunity's name, and
+ * the pending count beside the circles, so the deal's journey gets the width.
  */
 const COLUMNS = [
-  { key: "deal", label: "Deal", width: 280 },
-  { key: "stage", label: "Stage", width: 130 },
+  { key: "deal", label: "Opportunity", width: 300 },
   { key: "activity", label: "Journey", width: "auto" },
   { key: "meddpicc", label: "MEDDPICC", width: 250 },
 ] as const;
@@ -109,7 +108,7 @@ export default function DealsTable({
                     onClick={() => onOpenDeal(deal.opportunityId)}
                     sx={{ cursor: "pointer" }}
                   >
-                    <ListingTable.Cell sx={{ maxWidth: 280 }}>
+                    <ListingTable.Cell sx={{ maxWidth: 300 }}>
                       <Typography
                         variant="caption"
                         color="text.secondary"
@@ -130,14 +129,14 @@ export default function DealsTable({
                       >
                         {deal.name}
                       </Link>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", whiteSpace: "nowrap" }}>
-                        {formatAmount(deal.amount, deal.currencyIsoCode)}
-                        {" · closes "}
-                        {formatSalesforceDate(deal.closeDate)}
-                      </Typography>
-                    </ListingTable.Cell>
-                    <ListingTable.Cell>
-                      <StageChip stage={deal.stage} />
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.25, mt: 0.5 }}>
+                        <StageChip stage={deal.stage} />
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                          {formatAmount(deal.amount, deal.currencyIsoCode)}
+                          {" · closes "}
+                          {formatSalesforceDate(deal.closeDate)}
+                        </Typography>
+                      </Box>
                     </ListingTable.Cell>
                     <ListingTable.Cell>
                       <DealJourney
