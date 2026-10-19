@@ -43,6 +43,7 @@ import {
   engineeringAdminVisibility,
   useEngineeringAdminGate,
 } from "@features/engineering/api/engineeringAdminVisibility";
+import { amplifyEditorVisibility, useAmplifyEditorAccess } from "@features/amplify/api/useAmplifyEditorAccess";
 import { isSriLankaWorkLocation } from "@utils/locationGate";
 import { firstVisibleLeaf as firstVisibleLeafOf, visibleLeavesOf } from "./railActive";
 import {
@@ -266,6 +267,10 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   const umtGate = useUmtGate(isEngineering && isPreviewEnabled("umt"));
   const engineeringAdminGate = useEngineeringAdminGate(isEngineering);
 
+  // Amplify → New Post and Current Posts are limited to the amplify_po and
+  // amplify_marketing groups (id_token groups claim), same shape as Hello → Sarah.
+  const amplifyEditorGate = useAmplifyEditorAccess(active.key === "amplify");
+
   // Both services are a Colombo-office perk, so both screens are Sri-Lanka-only
   // — see isSriLankaWorkLocation. They now sit in different perspectives (self
   // service under Me, manage-on-behalf under People Ops), which is why the ids
@@ -334,6 +339,8 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
           isAdmin: engineeringAdminGate.isAdmin,
           resolving: engineeringAdminGate.isResolving,
         });
+      case "amplify":
+        return amplifyEditorVisibility(amplifyEditorGate);
       default: {
         const neverName: never = name;
         return neverName;

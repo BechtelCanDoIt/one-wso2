@@ -34,6 +34,9 @@ import {
   LightbulbIcon,
   RefreshCw,
   MegaphoneIcon,
+  CirclePlusIcon,
+  TrophyIcon,
+  Volume2Icon,
   NetworkIcon,
   RadioIcon,
   SatelliteDishIcon,
@@ -466,6 +469,31 @@ const ME_SECTIONS: PerspectiveSection[] = [
   ...appsToSections(ME_PROMOTION_APPS),
 ];
 
+// Amplify — employees share official WSO2 LinkedIn posts and earn points;
+// PO and Marketing register those posts. Phase 1 screens only (see
+// docs/requirements "Phase 1 - WSO2 Amplify User Experience").
+//
+// New Post and Current Posts are for the amplify_po and amplify_marketing
+// groups only — see useAmplifyEditorAccess and AmplifyEditorRoute. Everyone
+// else neither sees the rows nor opens the routes.
+export const AMPLIFY_CELEBRATE_PATH = "/amplify/celebrate";
+export const AMPLIFY_NEW_POST_PATH = "/amplify/new-post";
+export const AMPLIFY_CURRENT_POSTS_PATH = "/amplify/current-posts";
+export const AMPLIFY_NEW_POST_ITEM_ID = "amplify-new-post";
+export const AMPLIFY_CURRENT_POSTS_ITEM_ID = "amplify-current-posts";
+export const AMPLIFY_EDITOR_ITEM_IDS: ReadonlySet<string> = new Set([
+  AMPLIFY_NEW_POST_ITEM_ID,
+  AMPLIFY_CURRENT_POSTS_ITEM_ID,
+]);
+
+// Flat rows, like Knowledge: the rail is always open on Amplify's screens,
+// with no collapsible group to click through.
+const AMPLIFY_SECTIONS: PerspectiveSection[] = [
+  { id: "amplify-celebrate", label: "Celebrate", icon: TrophyIcon, path: AMPLIFY_CELEBRATE_PATH },
+  { id: AMPLIFY_NEW_POST_ITEM_ID, label: "New Post", icon: CirclePlusIcon, path: AMPLIFY_NEW_POST_PATH },
+  { id: AMPLIFY_CURRENT_POSTS_ITEM_ID, label: "Current Posts", icon: Volume2Icon, path: AMPLIFY_CURRENT_POSTS_PATH },
+];
+
 // Knowledge's one item so far. Its own perspective (not nested under Me)
 // since "a company-wide learnings feed" is a destination in its own right,
 // not a personal-portal item — see `knowledge` in PERSPECTIVES below.
@@ -776,6 +804,21 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     forwardsToFirstItem: true,
     sections: KNOWLEDGE_SECTIONS,
   },
+  // Amplify, held behind its preview flag until the phase 1 pilot. Its landing
+  // forwards to Celebrate, the first row everyone can see.
+  ...(isPreviewEnabled("amplify")
+    ? [
+        {
+          key: "amplify",
+          label: "Amplify",
+          icon: TrophyIcon,
+          access: true,
+          path: "/amplify",
+          forwardsToFirstItem: true,
+          sections: AMPLIFY_SECTIONS,
+        },
+      ]
+    : []),
   // Download Stats is the first engineering tool (ADR 0001). It is not under
   // Infra Portal: Infra is GitHub administration, and this is release
   // downloads, package downloads, and repository stats. It is an app inside

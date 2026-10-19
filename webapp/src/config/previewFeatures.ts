@@ -86,7 +86,15 @@ export type PreviewFeature =
    * With the flag on and `ONE_WSO2_SMART_SEARCH_BACKEND_URL` unset, the page
    * says "not connected" and makes no requests.
    */
-  | "smartSearch";
+  | "smartSearch"
+  /**
+   * Amplify, the whole app: its launcher tile, its rail group (Celebrate,
+   * New Post, Current Posts) and every route under `/amplify`. Held back until
+   * the Amplify API proxy is live for the phase 1 pilot. Who sees New Post and
+   * Current Posts is still decided by the `amplify_po` / `amplify_marketing`
+   * groups once this is on.
+   */
+  | "amplify";
 
 /**
  * Whether a preview feature should be shown.

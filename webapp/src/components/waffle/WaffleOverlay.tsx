@@ -350,14 +350,8 @@ function WaffleGroup({
                         color: tint?.dark.fg ?? theme.palette.text.primary,
                       }),
                     }),
-                // Selection is a neutral ring, never the brand accent: an orange
-                // ring around Me's orange wash measures 3.00:1 and disappears.
-                // Ink against the washes holds at 12.9-14.5:1.
-                ...(isActive && {
-                  outline: "2px solid",
-                  outlineColor: "text.primary",
-                  outlineOffset: 2,
-                }),
+                // No selection ring on the badge: the bold label below marks the
+                // app you're in. A ring read as a border drawn around the mark.
               })}
             >
               {Mark ? <Mark size={48} /> : <p.icon size={24} />}
