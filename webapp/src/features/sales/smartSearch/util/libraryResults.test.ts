@@ -229,6 +229,25 @@ describe("freshnessOf", () => {
     expect(freshnessOf("2026-13-01", TEST_NOW)).toBeNull();
   });
 
+  it("ignores a timestamp whose time is not real, and uses the added date instead", () => {
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "2026-09-02 99:99:99")?.label).toBe("Added Oct 2026");
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "2026-09-02 24:00:00")?.label).toBe("Added Oct 2026");
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "2026-09-02xyz")?.label).toBe("Added Oct 2026");
+  });
+
+  it("reads the usual shapes of a timestamp", () => {
+    for (const stamp of [
+      "2026-09-02",
+      "2026-09-02 08:00:00",
+      "2026-09-02 08:00:00.123456",
+      "2026-09-02T08:00:00Z",
+      "2026-09-02T08:00:00.000+05:30",
+      "2026-09-02 08:00",
+    ]) {
+      expect(freshnessOf(undefined, TEST_NOW, stamp)?.label).toBe("Last verified Sep 2026");
+    }
+  });
+
   it("says nothing when the date can't be read", () => {
     expect(freshnessOf(undefined, TEST_NOW)).toBeNull();
     expect(freshnessOf("", TEST_NOW)).toBeNull();

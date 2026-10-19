@@ -191,11 +191,16 @@ export interface Freshness {
   stale: boolean;
 }
 
-/** The date part of a Pitstop timestamp, or null when it can't be read or isn't a real date (2026-02-30, 0000-00-00). */
+// A date, optionally followed by a time ("2026-09-02", "2026-09-02 08:00:00.123456", "2026-09-02T08:00:00Z"). Anything after the seconds is ignored.
+const TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:[.,Z+-].*)?)?$/;
+
+/** The date of a Pitstop timestamp, or null when it can't be read or isn't a real date and time (2026-02-30, 0000-00-00, 08:99:99). */
 function dateOf(timestamp: string | null | undefined): Date | null {
-  const match = timestamp?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const match = timestamp?.match(TIMESTAMP);
   if (!match) return null;
   const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const [hour, minute, second] = [match[4], match[5], match[6]].map((part) => (part === undefined ? 0 : Number(part)));
+  if (hour > 23 || minute > 59 || second > 59) return null;
   const date = new Date(Date.UTC(year, month - 1, day));
   const real = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
   return real && year >= 2000 ? date : null;
