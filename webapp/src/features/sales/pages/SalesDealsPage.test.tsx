@@ -79,7 +79,7 @@ beforeEach(() => resetMockStore());
 // A page full of MUI selects and tooltips, driven by userEvent: well under a
 // second each on an idle machine, but the default 5s is too tight on a busy runner.
 describe("SalesDealsPage", { timeout: 20000 }, () => {
-  it("lists the demo deals, one row each, with their stage, activity, circles and pending count", async () => {
+  it("lists the demo deals, one row each, with their stage, activity, circles and count to review", async () => {
     renderPage();
 
     const brightwater = (await screen.findByRole("button", { name: "Brightwater – API Manager first sale" })).closest("tr");
@@ -98,7 +98,7 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(await screen.findByText("Internal discussion")).toBeInTheDocument();
     expect(row.getByRole("group", { name: /^MEDDPICC for Brightwater/ })).toBeInTheDocument();
     expect(row.getByRole("button", { name: "Champion: AI suggestion waiting for approval" })).toBeInTheDocument();
-    expect(row.getByLabelText(/AI proposals waiting for approval/)).toBeInTheDocument();
+    expect(row.getByLabelText(/AI proposals waiting for approval/)).toHaveTextContent(/to review$/);
     // The stage rides in the Opportunity cell; its own column made way for the deal score.
     expect(screen.getByRole("columnheader", { name: "Opportunity" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Stage" })).not.toBeInTheDocument();

@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Chip, IconButton, Link, ListingTable, Skeleton, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { InfoIcon, SparklesIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, IconButton, Link, ListingTable, Skeleton, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import type { DealSummary, LetterKey } from "../types";
 import { journeyOf, rowSourcesOf, timelineOf } from "../util/evidenceSource";
 import { formatAmount, formatSalesforceDate } from "../util/meddpiccFormat";
@@ -26,7 +26,7 @@ import { useNow } from "../../util/useNow";
 
 /**
  * Three columns. The stage, amount and close date ride under the opportunity's name, and
- * the pending count beside the circles, so the deal's journey gets the width.
+ * the count to review under the circles, so the deal's journey gets the width.
  */
 const COLUMNS = [
   { key: "deal", label: "Opportunity", width: 300 },
@@ -150,25 +150,24 @@ export default function DealsTable({
                       />
                     </ListingTable.Cell>
                     <ListingTable.Cell>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.25, flexWrap: "wrap" }}>
-                        <MeddpiccCircles
-                          variant="dealState"
-                          values={deal.dealState}
-                          onLetterClick={(letter) => onOpenDeal(deal.opportunityId, letter)}
-                          label={`MEDDPICC for ${deal.name}`}
-                        />
-                        {deal.pendingCount > 0 && (
-                          <Chip
-                            icon={<SparklesIcon size={12} />}
-                            label={`${deal.pendingCount} pending`}
-                            size="small"
-                            color="warning"
-                            variant="outlined"
-                            aria-label={`${deal.pendingCount} AI proposals waiting for approval`}
-                            sx={{ height: 20, fontWeight: 700 }}
-                          />
-                        )}
-                      </Box>
+                      <MeddpiccCircles
+                        variant="dealState"
+                        values={deal.dealState}
+                        onLetterClick={(letter) => onOpenDeal(deal.opportunityId, letter)}
+                        label={`MEDDPICC for ${deal.name}`}
+                      />
+                      {/* The circles already mark which Letters hold a suggestion; this
+                          only says how many fields wait, quietly, under them. */}
+                      {deal.pendingCount > 0 && (
+                        <Typography
+                          variant="caption"
+                          aria-label={`${deal.pendingCount} AI proposals waiting for approval`}
+                          sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, color: "warning.dark", fontWeight: 600 }}
+                        >
+                          <Box component="span" aria-hidden sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "warning.main" }} />
+                          {deal.pendingCount} to review
+                        </Typography>
+                      )}
                     </ListingTable.Cell>
                   </ListingTable.Row>
                 ))}
