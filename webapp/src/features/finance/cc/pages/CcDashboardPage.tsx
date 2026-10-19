@@ -896,7 +896,7 @@ function ManagerComplianceTable({
                           ? "No reporting manager to remind"
                           : sending
                             ? "Sending the reminder..."
-                            : "Email this manager a reminder"
+                            : "Email this manager a reminder about unsubmitted transactions"
                       }
                     >
                       <span>
