@@ -62,7 +62,7 @@ export default function PricingSetupCard(): JSX.Element {
     : !sfCurrency
       ? "The opportunity has no currency in Salesforce. Set it there, then reload this quote."
       : currencies.data && !offered
-        ? `The opportunity is in ${sfCurrency}, which CadO2 doesn't offer. Ask an Admin to add ${sfCurrency}, or change the opportunity's currency in Salesforce, then reload this quote.`
+        ? `The opportunity is in ${sfCurrency}, which CADO2 doesn't offer. Ask an Admin to add ${sfCurrency}, or change the opportunity's currency in Salesforce, then reload this quote.`
         : !sfBook
           ? "The opportunity has no price book in Salesforce. Set its price book there, then reload this quote."
           : books.data && !usable

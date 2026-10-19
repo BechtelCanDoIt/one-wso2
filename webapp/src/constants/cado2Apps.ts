@@ -41,7 +41,7 @@ export const CADO2_ITEM = {
 export const CADO2_APPS: readonly MenuApp[] = [
   {
     key: "cado2",
-    name: "CadO2",
+    name: "CADO2",
     // Not the perspective's Radio or Meetings' Video: three different
     // silhouettes keep the Sales rail scannable.
     icon: ReceiptTextIcon,
@@ -66,7 +66,7 @@ export const CADO2_APPS: readonly MenuApp[] = [
       {
         id: CADO2_ITEM.admin,
         label: "Admin",
-        desc: "The approval matrix, approval SLAs and CadO2's reference data.",
+        desc: "The approval matrix, approval SLAs and CADO2's reference data.",
         requires: ["admin"],
         path: cado2Paths.admin,
       },

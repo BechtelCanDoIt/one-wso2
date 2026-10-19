@@ -100,14 +100,14 @@ describe("the CadO2 access ladder", () => {
   it("holds the page, and redirects nothing, while access is being checked", () => {
     state.me = { ...state.me, data: undefined, isPending: true };
     open("/sales/cado2/admin/currencies");
-    expect(screen.getByText("Checking your CadO2 access…")).toBeInTheDocument();
+    expect(screen.getByText("Checking your CADO2 access…")).toBeInTheDocument();
     expect(where()).toBe("/sales/cado2/admin/currencies");
   });
 
   it("offers Retry when the check itself failed, rather than claiming no access", () => {
     state.me = { ...state.me, data: undefined, isError: true, error: new Error("timeout") };
     open("/sales/cado2/quotes");
-    expect(screen.getByText(/Couldn't check your CadO2 access\./)).toBeInTheDocument();
+    expect(screen.getByText(/Couldn't check your CADO2 access\./)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
     expect(screen.queryByText("Nothing here for you yet")).toBeNull();
   });

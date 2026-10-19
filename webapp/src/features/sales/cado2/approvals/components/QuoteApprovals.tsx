@@ -53,7 +53,7 @@ export default function QuoteApprovals({ isDraft, workflow, preview }: QuoteAppr
   }
   const wf = workflow.data;
   if (!wf) {
-    return <Alert severity="info">This version was submitted before approvals were tracked in CadO2.</Alert>;
+    return <Alert severity="info">This version was submitted before approvals were tracked in CADO2.</Alert>;
   }
   const status = WORKFLOW_STATUS[wf.status];
   return (

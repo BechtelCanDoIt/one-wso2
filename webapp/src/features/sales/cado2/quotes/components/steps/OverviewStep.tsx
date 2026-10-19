@@ -339,7 +339,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
         {accountId && !accountSalesRegion ? (
           <Alert severity="error" role="alert">
             <AlertTitle>This account has no sales region in Salesforce</AlertTitle>
-            CadO2 needs the account&apos;s Sales Region (<code>Sales_Regions__c</code>) to route approvals. Ask your
+            CADO2 needs the account&apos;s Sales Region (<code>Sales_Regions__c</code>) to route approvals. Ask your
             Salesforce admin to set it on the account, then choose the account again
             {locked ? " (or save the draft to refresh it)" : ""}.
           </Alert>
