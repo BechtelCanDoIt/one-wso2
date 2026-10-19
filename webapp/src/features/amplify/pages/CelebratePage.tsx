@@ -28,6 +28,7 @@ import {
   useAmplifyMe,
   useMyShares,
 } from "../api/useAmplifyData";
+import { useAmplifyPeople } from "../api/useAmplifyPeople";
 import AmplifyShell from "../components/AmplifyShell";
 import { MyPositionPanel, TeamLeaderboardPanel, TopThreePanel } from "../components/LeaderboardPanels";
 import LinkLinkedInDialog from "../components/LinkLinkedInDialog";
@@ -48,6 +49,7 @@ export default function CelebratePage() {
   const shares = useMyShares();
   const board = useAmplifyLeaderboard();
   const categories = useAmplifyCategories();
+  const people = useAmplifyPeople();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [linking, setLinking] = useState<Campaign | null>(null);
@@ -148,9 +150,9 @@ export default function CelebratePage() {
         </ErrorNotice>
       ) : (
         <>
-          <TopThreePanel board={board.data} />
+          <TopThreePanel board={board.data} people={people} />
           <MyPositionPanel board={board.data} />
-          <TeamLeaderboardPanel board={board.data} />
+          <TeamLeaderboardPanel board={board.data} people={people} />
         </>
       )}
 

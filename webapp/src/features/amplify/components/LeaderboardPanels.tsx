@@ -16,11 +16,37 @@
 
 import { Avatar, Box, Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import type { Leaderboard } from "../api/amplifyTypes";
+import type { PeopleByEmail } from "../api/useAmplifyPeople";
 import { AmplifyPanel } from "./AmplifyShell";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "")).toUpperCase() || "?";
+}
+
+/** Name and photo from One WSO2's employee data when it has the person; amplify-api's name otherwise. */
+function PersonAvatar({
+  email,
+  fallbackName,
+  people,
+  size,
+}: {
+  email: string;
+  fallbackName: string;
+  people: PeopleByEmail;
+  size: number;
+}) {
+  const person = people.get(email.toLowerCase());
+  const name = person?.name || fallbackName;
+  return (
+    <Avatar src={person?.photoUrl ?? undefined} alt="" sx={{ width: size, height: size, fontSize: size * 0.36 }}>
+      {initials(name)}
+    </Avatar>
+  );
+}
+
+function nameOf(email: string, fallbackName: string, people: PeopleByEmail): string {
+  return people.get(email.toLowerCase())?.name || fallbackName;
 }
 
 function pts(n: number | null | undefined): string {
@@ -50,7 +76,7 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 /** The company's top three, one card each. */
-export function TopThreePanel({ board }: { board: Leaderboard }) {
+export function TopThreePanel({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
   const leaders = board.company.slice(0, 3);
   return (
     <AmplifyPanel title="Top three">
@@ -67,10 +93,10 @@ export function TopThreePanel({ board }: { board: Leaderboard }) {
               sx={{ p: 1.5, display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}
             >
               <RankBadge rank={leader.rank} />
-              <Avatar sx={{ width: 40, height: 40, fontSize: 14 }}>{initials(leader.displayName)}</Avatar>
+              <PersonAvatar email={leader.email} fallbackName={leader.displayName} people={people} size={40} />
               <Box sx={{ minWidth: 0 }}>
                 <Typography sx={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {leader.displayName}
+                  {nameOf(leader.email, leader.displayName, people)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   {pts(leader.points)}
@@ -121,7 +147,7 @@ export function MyPositionPanel({ board }: { board: Leaderboard }) {
 }
 
 /** My Team, ranked within the caller's team. */
-export function TeamLeaderboardPanel({ board }: { board: Leaderboard }) {
+export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
   const team = board.myTeam;
   return (
     <AmplifyPanel title={team ? `Team leaderboard · ${team.teamName}` : "Team leaderboard"}>
@@ -155,8 +181,8 @@ export function TeamLeaderboardPanel({ board }: { board: Leaderboard }) {
                   <TableCell>{entry.teamRank}</TableCell>
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <Avatar sx={{ width: 24, height: 24, fontSize: 11 }}>{initials(entry.displayName)}</Avatar>
-                      {entry.displayName}
+                      <PersonAvatar email={entry.email} fallbackName={entry.displayName} people={people} size={24} />
+                      {nameOf(entry.email, entry.displayName, people)}
                       {entry.isMe && <Chip size="small" color="primary" label="You" />}
                     </Box>
                   </TableCell>
