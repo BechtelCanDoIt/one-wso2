@@ -1,0 +1,172 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import { Avatar, Box, Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import type { Leaderboard } from "../api/amplifyTypes";
+import { AmplifyPanel } from "./AmplifyShell";
+
+function initials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts.length > 1 ? (parts[parts.length - 1][0] ?? "") : "")).toUpperCase() || "?";
+}
+
+function pts(n: number | null | undefined): string {
+  return `${(n ?? 0).toLocaleString()} pts`;
+}
+
+function RankBadge({ rank }: { rank: number }) {
+  return (
+    <Box
+      sx={{
+        width: 28,
+        height: 28,
+        borderRadius: "50%",
+        bgcolor: "primary.main",
+        color: "primary.contrastText",
+        fontWeight: 700,
+        fontSize: 13,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      {rank}
+    </Box>
+  );
+}
+
+/** The company's top three, one card each. */
+export function TopThreePanel({ board }: { board: Leaderboard }) {
+  const leaders = board.company.slice(0, 3);
+  return (
+    <AmplifyPanel title="Top three">
+      {leaders.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          No points yet. Amplify a post and be first on the board.
+        </Typography>
+      ) : (
+        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" } }}>
+          {leaders.map((leader) => (
+            <Paper
+              key={leader.employeeId}
+              variant="outlined"
+              sx={{ p: 1.5, display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}
+            >
+              <RankBadge rank={leader.rank} />
+              <Avatar sx={{ width: 40, height: 40, fontSize: 14 }}>{initials(leader.displayName)}</Avatar>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography sx={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {leader.displayName}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {pts(leader.points)}
+                </Typography>
+              </Box>
+            </Paper>
+          ))}
+        </Box>
+      )}
+    </AmplifyPanel>
+  );
+}
+
+/** The caller's own rank, points and gap. Points only; no Coin value in phase 1. */
+export function MyPositionPanel({ board }: { board: Leaderboard }) {
+  const me = board.me;
+  const ranked = me.rank != null;
+  let tagline = "Amplify your first post to get on the board.";
+  if (ranked && me.inTopN) tagline = `You're in the top ${board.topN}. Keep it up!`;
+  else if (ranked && me.pointsToTopN != null) tagline = `${pts(me.pointsToTopN)} to the top ${board.topN}.`;
+  else if (ranked && me.pointsToNextRank != null) tagline = `${pts(me.pointsToNextRank)} to the next rank.`;
+
+  return (
+    <AmplifyPanel title="My position">
+      <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 2, sm: 4 } }}>
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Rank
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {ranked ? `#${me.rank}` : "—"}
+          </Typography>
+        </Box>
+        <Box>
+          <Typography variant="caption" color="text.secondary">
+            Points
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 700 }}>
+            {(me.points ?? 0).toLocaleString()}
+          </Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ flex: "1 1 220px" }}>
+          {tagline}
+        </Typography>
+      </Box>
+    </AmplifyPanel>
+  );
+}
+
+/** My Team, ranked within the caller's team. */
+export function TeamLeaderboardPanel({ board }: { board: Leaderboard }) {
+  const team = board.myTeam;
+  return (
+    <AmplifyPanel title={team ? `Team leaderboard · ${team.teamName}` : "Team leaderboard"}>
+      {board.teamStatus === "UNAVAILABLE" && (
+        <Typography variant="body2" color="text.secondary">
+          Your team&apos;s board isn&apos;t available right now. Try again later.
+        </Typography>
+      )}
+      {board.teamStatus === "NO_TEAM" && (
+        <Typography variant="body2" color="text.secondary">
+          We couldn&apos;t find your team.
+        </Typography>
+      )}
+      {board.teamStatus === "OK" && team && (
+        <Box sx={{ overflowX: "auto" }}>
+          <Table size="small" aria-label="Team leaderboard">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ width: 56 }}>#</TableCell>
+                <TableCell>Team member</TableCell>
+                <TableCell align="right">Points</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {team.entries.map((entry) => (
+                <TableRow
+                  key={entry.employeeId}
+                  selected={entry.isMe}
+                  sx={entry.isMe ? { "& td": { fontWeight: 700 } } : undefined}
+                >
+                  <TableCell>{entry.teamRank}</TableCell>
+                  <TableCell>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <Avatar sx={{ width: 24, height: 24, fontSize: 11 }}>{initials(entry.displayName)}</Avatar>
+                      {entry.displayName}
+                      {entry.isMe && <Chip size="small" color="primary" label="You" />}
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right">{pts(entry.points)}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Box>
+      )}
+    </AmplifyPanel>
+  );
+}

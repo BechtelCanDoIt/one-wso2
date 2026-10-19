@@ -1677,6 +1677,42 @@ export const menuServiceUrls = {
 };
 
 // ---------------------------------------------------------------------------
+// Amplify API (amplify-api, reached only through its API proxy at the cell
+// edge). Employees share official WSO2 LinkedIn posts and earn points; PO and
+// Marketing register those posts.
+//
+// Trailing slashes stripped for the same reason as tilBackendUrl.
+export const amplifyBackendUrl: string = (
+  window.config?.ONE_WSO2_AMPLIFY_BACKEND_URL ?? ""
+).replace(/\/+$/, "");
+
+export function isAmplifyBackendConfigured(): boolean {
+  return Boolean(amplifyBackendUrl);
+}
+
+/** WSO2's LinkedIn organization URN, the owner New Post sends. Empty when unset. */
+export const amplifyLinkedInOrgUrn: string = (window.config?.ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN ?? "").trim();
+
+export const amplifyServiceUrls = {
+  // The caller, their amplify_* roles and LinkedIn connection status.
+  me: `${amplifyBackendUrl}/me`,
+  // GET a page (status, window, tag, page, size), priority first then newest.
+  // POST to register (PO/Marketing only, checked server-side); ?shareNow=true
+  // also starts a Run.
+  campaigns: `${amplifyBackendUrl}/campaigns`,
+  // PATCH with the version that was read (PO/Marketing only).
+  campaign: (id: string) => `${amplifyBackendUrl}/campaigns/${encodeURIComponent(id)}`,
+  // POST "share this for me" — one per campaign per employee.
+  shares: (id: string) => `${amplifyBackendUrl}/campaigns/${encodeURIComponent(id)}/shares`,
+  myShares: `${amplifyBackendUrl}/me/shares`,
+  categories: `${amplifyBackendUrl}/categories`,
+  // Company top N, the caller's standing and My Team.
+  leaderboard: `${amplifyBackendUrl}/leaderboard`,
+  connectStart: `${amplifyBackendUrl}/connections/linkedin/start`,
+  connectComplete: `${amplifyBackendUrl}/connections/linkedin/complete`,
+};
+
+// ---------------------------------------------------------------------------
 // Today I Learned backend (til-backend) — a company-wide feed of learnings
 // from customers, partners, and internal sources.
 //
