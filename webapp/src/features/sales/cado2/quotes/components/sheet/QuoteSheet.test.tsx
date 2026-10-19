@@ -58,7 +58,7 @@ describe("QuoteSheet", () => {
       "WSO2, LLC.",
       "787 Castro Street, Mountain View, CA, USA",
       "1 Oct 2026 – 30 Sept 2027",
-      "Annual billing",
+      "Annually in Advance",
       "Acme renewal FY26",
       "Net 45",
       "PO-4471",
@@ -74,6 +74,9 @@ describe("QuoteSheet", () => {
     }
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
+    // The Duration column (D85): the term on a recurring line.
+    expect(within(products).getByRole("columnheader", { name: "Duration" })).toBeInTheDocument();
+    expect(within(products).getAllByText("1 year").length).toBeGreaterThan(0);
     expect(within(products).getByText("Subscription")).toBeInTheDocument();
     expect(within(products).getByText("Gateways")).toBeInTheDocument();
     // A one-year quote has no yearly schedule.
@@ -100,13 +103,13 @@ describe("QuoteSheet", () => {
 
 // A 3-year quote: two subscriptions, support and a one-time service.
 const line = (number: number, productName: string, category: SheetLine["category"], tcv: string, arr: string): SheetLine => ({
-  number, productName, productCode: null, productDescription: null, pricebookName: "FY26 USD", category, categoryByRep: false, quantity: "1", unitOfMeasure: null, unitPrice: "1",
+  number, productName, productCode: null, productDescription: null, pricebookName: "FY26 USD", category, categoryByRep: false, recurring: category !== "PROFESSIONAL_SERVICE", quantity: "1", unitOfMeasure: null, unitPrice: "1",
   discountPercent: "0", formula: null, startDate: "2027-01-01", endDate: "2029-12-31", annualList: null, annualNet: null, arr, acv: null, tcv, commission: "0.00",
   schedule: [1, 2, 3].map((y) => ({ yearNumber: y, periodStart: "", periodEnd: "", yearFraction: "1.0000", gross: "1.00", discount: "0.00", net: "1.00", billing: "1.00" })),
 });
 const threeYears: Sheet = {
   ...sheet,
-  termMode: "MULTI_YEAR",
+  termMode: "YEARS",
   termYears: 3,
   endDate: "2029-12-31",
   lines: [
@@ -120,7 +123,7 @@ const threeYears: Sheet = {
     { yearNumber: 2, periodStart: "2028-01-01", periodEnd: "2028-12-31", net: "36280.00", billing: "36280.00" },
     { yearNumber: 3, periodStart: "2029-01-01", periodEnd: "2029-12-31", net: "36280.00", billing: "36280.00" },
   ],
-  totals: { arr: "36280.00", acv: "39846.67", tcv: "119540.00", payableNow: "46980.00" },
+  totals: { arr: "36280.00", acv: "39846.67", tcv: "119540.00" },
 };
 
 describe("Order form", () => {
@@ -174,7 +177,7 @@ describe("Partner commission", () => {
       withCommission(threeYears.lines[2], "11250.00"),
       withCommission(threeYears.lines[3], "1605.00"),
     ],
-    totals: { ...threeYears.totals!, payableNow: "39933.00", partnerCommission: "17931.00", netOrderValue: "101609.00" },
+    totals: { ...threeYears.totals!, partnerCommission: "17931.00", netOrderValue: "101609.00" },
   };
 
   it("adds the commission and the net order value under the total order value", () => {
@@ -187,18 +190,25 @@ describe("Partner commission", () => {
     expect(at("Total order value")).toBeLessThan(at("Net order value"));
   });
 
-  it("leaves commission and net to the order form's totals; the figures note the first invoice is net", () => {
+  it("leaves commission and net to the order form's totals", () => {
     render(<DealFiguresSection sheet={partner} />);
     // Shown once, in the order form (C2, 2026-10-14).
     expect(screen.queryByLabelText("Partner Commission")).toBeNull();
     expect(screen.queryByLabelText("Net order value")).toBeNull();
-    expect(within(screen.getByLabelText("First invoice")).getByText(/net of the partner's commission/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("First invoice")).toBeNull(); // removed (D85)
     expect(within(screen.getByRole("table", { name: "Figures by product" })).getByText("Commission")).toBeInTheDocument();
   });
 
   it("shows the schedule's billing net of commission", () => {
     render(<QuoteSheet sheet={{ ...partner, years: partner.years.map((y) => ({ ...y, netBilling: "1.00" })) }} />);
     expect(within(screen.getByRole("table", { name: "Yearly schedule" })).getByText("Billed, net of commission")).toBeInTheDocument();
+  });
+
+  it("says a one-off line is one-time in the Duration column (D85)", () => {
+    render(<QuoteSheet sheet={{ ...threeYears, startDate: "2027-01-01" }} />);
+    const products = within(screen.getByRole("table", { name: "Products" }));
+    expect(products.getAllByText("3 years")).toHaveLength(3); // two subscriptions and support
+    expect(products.getByText("One-time")).toBeInTheDocument(); // the onboarding service
   });
 
   it("shows no commission rows on a direct deal", () => {
@@ -216,10 +226,22 @@ describe("DealFiguresSection", () => {
     expect(arr.getByText(/Left out, one-time: Onboarding/)).toBeInTheDocument();
     expect(within(screen.getByLabelText("TCV · total contract value")).getByText(/Year 1 46,980.00 \+ Year 2 36,280.00 \+ Year 3 36,280.00/)).toBeInTheDocument();
     expect(within(screen.getByLabelText("ACV · average per contract year")).getByText("TCV ÷ 3 contract years")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("First invoice")).getByText("Year 1, billed annually in advance")).toBeInTheDocument();
     const byProduct = within(screen.getByRole("table", { name: "Figures by product" }));
     expect(byProduct.getByText("One-time")).toBeInTheDocument();
     expect(byProduct.getByText("19,440.00")).toBeInTheDocument();
+  });
+
+  // D86: billing sits with the payment terms, as on the Commercials step.
+  it("shows the billing frequency under Commercial Terms, not in Deal", () => {
+    render(<QuoteSheet sheet={{ ...sheet, recurring: true, billingFrequency: "SPECIAL_TERMS" }} />);
+    const terms = screen.getByRole("region", { name: "Commercial Terms" });
+    expect(terms).toHaveTextContent("Billing frequencySee Special Terms");
+    expect(screen.getByRole("region", { name: "Deal" })).not.toHaveTextContent("Billing");
+  });
+
+  it("shows no billing frequency on a services-only quote", () => {
+    render(<QuoteSheet sheet={{ ...sheet, recurring: false }} />);
+    expect(screen.getByRole("region", { name: "Commercial Terms" })).not.toHaveTextContent("Billing frequency");
   });
 
   it("shows ARR and ACV as not applicable on a services-only quote", () => {
@@ -228,11 +250,10 @@ describe("DealFiguresSection", () => {
       recurring: false,
       lines: [line(1, "Onboarding", "PROFESSIONAL_SERVICE", "720.00", "0.00")],
       years: [{ yearNumber: 1, periodStart: "2027-01-01", periodEnd: "2027-01-01", net: "720.00", billing: "720.00" }],
-      totals: { arr: null, acv: null, tcv: "720.00", payableNow: "720.00" },
+      totals: { arr: null, acv: null, tcv: "720.00" },
     };
     render(<DealFiguresSection sheet={services} />);
     expect(within(screen.getByLabelText("ARR · annual recurring revenue")).getByText("Not applicable")).toBeInTheDocument();
     expect(within(screen.getByLabelText("ACV · average per contract year")).getByText("Not applicable")).toBeInTheDocument();
-    expect(within(screen.getByLabelText("First invoice")).getByText("Everything, billed once")).toBeInTheDocument();
   });
 });

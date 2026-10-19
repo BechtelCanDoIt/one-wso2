@@ -40,8 +40,7 @@ import { sumMoney } from "@features/sales/cado2/utils/money";
 import { versionLabel } from "@features/sales/cado2/utils/pricingFormula";
 import {
   commissionProblem,
-  effectiveBilling,
-  endDateFor,
+  durationText,
   hasRecurring,
   isPartnerLed,
   storedPricing,
@@ -79,6 +78,8 @@ export interface SheetLine {
   readonly category: LineCategory | "";
   /** The rep chose the category, because the product isn't mapped: Deal Desk verifies it. */
   readonly categoryByRep: boolean;
+  /** Charged every year of the term, from its product's Salesforce classification (D76). */
+  readonly recurring: boolean;
   readonly quantity: string;
   readonly unitOfMeasure: string | null;
   readonly unitPrice: string;
@@ -231,6 +232,7 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
       pricebookName: l.pricebookName,
       category: l.category,
       categoryByRep: l.categorySource !== "MAPPED",
+      recurring: l.recurring,
       quantity: String(l.quantity),
       unitOfMeasure: blank(l.unitOfMeasure),
       unitPrice: l.unitPrice,
@@ -302,9 +304,9 @@ export function sheetFromForm(
     startDate: v.startDate,
     endDate: end,
     termMode: recurring && v.termMode ? v.termMode : null,
-    termYears: recurring && v.termMode === "MULTI_YEAR" ? Number(v.termYears) : null,
+    termYears: recurring && v.termMode === "YEARS" ? Number(v.termYears) : null,
     recurring,
-    billingFrequency: recurring ? effectiveBilling(v) || null : null,
+    billingFrequency: recurring ? v.billingFrequency || null : null,
     partnerCommissionPercent:
       isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? String(Number(v.partnerCommissionPercent)) : null,
     contacts: [contacts[0], contacts[1]],
@@ -320,6 +322,7 @@ export function sheetFromForm(
         pricebookName: l.pricebookName,
         category: l.category,
         categoryByRep: l.categorySource !== "MAPPED",
+        recurring: l.recurring,
         quantity: l.quantity,
         unitOfMeasure: blank(l.unitOfMeasure),
         unitPrice: byFormula ? (p.unitPrice ?? l.unitPrice) : l.unitPrice,
@@ -354,32 +357,8 @@ export function sheetFromForm(
 // Labels
 // ---------------------------------------------------------------------------
 
-/** "3 years" when the term is whole years, else "18 months" (rounded), else "". */
-export function termLength(start: string, end: string): string {
-  if (!start || !end) return "";
-  for (let y = 1; y <= 10; y++) if (endDateFor(start, y) === end) return y === 1 ? "1 year" : `${y} years`;
-  const [sy, sm, sd] = start.split("-").map(Number);
-  const [ey, em, ed] = end.split("-").map(Number);
-  const months = (ey - sy) * 12 + (em - sm) + (ed + 1 >= sd ? 1 : 0);
-  return months > 0 ? `${months} month${months === 1 ? "" : "s"}` : "";
-}
-
-export const MODE_LABEL: Record<TermMode, string> = {
-  ONE_YEAR: "1 year",
-  MULTI_YEAR: "Multi-year",
-  CO_TERMED: "Co-termed",
-  SHORTER: "Shorter term",
-};
-
-/**
- * How the term reads: "3 years · Multi-year", "5 months · Co-termed",
- * "1 year". A version submitted before term modes shows its length only.
- */
-export function termLabel(s: Pick<QuoteSheet, "startDate" | "endDate" | "termMode">): string {
-  const length = termLength(s.startDate, s.endDate);
-  if (!s.termMode || s.termMode === "ONE_YEAR") return length;
-  return [length, MODE_LABEL[s.termMode]].filter(Boolean).join(" · ");
-}
+/** How long the term is, in words (D85): "3 years", "1 year + 1 day", or "". */
+export const termLabel = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationText(s.startDate, s.endDate);
 
 /** The yearly schedule is shown only when the term runs over more than one contract year. */
 export const hasYearlySchedule = (s: Pick<QuoteSheet, "years">) => s.years.length > 1;
@@ -465,7 +444,6 @@ export interface DealFigures {
   readonly arr: string | null;
   readonly tcv: string;
   readonly acv: string | null;
-  readonly payableNow: string;
   /** The lines that make up ARR: one year of each Subscription and Support line. */
   readonly arrParts: readonly { readonly productName: string; readonly amount: string }[];
   /** Lines left out of ARR (one-time services). */
@@ -502,7 +480,6 @@ export function dealFigures(
     arr: t.arr,
     tcv: t.tcv,
     acv: t.acv,
-    payableNow: t.payableNow,
     arrParts: recurring.map((l) => ({ productName: l.productName, amount: l.arr ?? "0.00" })),
     arrExcluded: s.lines.filter((l) => l.category === "PROFESSIONAL_SERVICE").map((l) => l.productName),
     tcvParts: s.years.map((y) => ({ yearNumber: y.yearNumber, amount: y.net })),

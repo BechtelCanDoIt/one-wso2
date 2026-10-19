@@ -32,6 +32,8 @@ const renewal: Opportunity = {
 };
 /** What the account search finds (set by one test). */
 let searchResults: unknown[] = [];
+/** The opportunity's subscription dates in Salesforce (set by some tests, D85). */
+let oppDates: Pick<Opportunity, "subsStartDate" | "subsEndDate"> = {};
 /** The opportunity's currency in Salesforce (changed by one test). */
 let oppCurrency = "USD";
 /** The account's closed-won opportunities, for a renewal (2026-10-09). */
@@ -71,14 +73,14 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useAccountOpportunities: (id: string | null, status = "open") => {
     if (id) asked.push(status);
     if (salesforceDown.on) return { ...lookup(undefined), error: new Error("down"), refetch: () => undefined };
-    return lookup(status === "won" ? wonList : [{ ...renewal, currencyIsoCode: oppCurrency }]);
+    return lookup(status === "won" ? wonList : [{ ...renewal, currencyIsoCode: oppCurrency, ...oppDates }]);
   },
   useAccountContacts: () => lookup([{ id: "003A", name: "Marco Ruiz" }, { id: "003B", name: "Ana" }]),
   useActiveLegalEntities: () => lookup([]),
   useCurrencies: () => lookup(["USD"]),
 }));
 
-/** What Term & Products will start from. */
+/** What Products & Pricing will start from. */
 function Pricing() {
   const [currency, book] = useWatch<DraftFormValues, ["currencyIsoCode", "defaultPricebookName"]>({
     name: ["currencyIsoCode", "defaultPricebookName"],
@@ -90,6 +92,14 @@ function Pricing() {
 function Start() {
   const start = useWatch<DraftFormValues, "startDate">({ name: "startDate" });
   return <p>start: {start || "none"}</p>;
+}
+
+/** The term the form holds. */
+function Term() {
+  const [mode, years, end] = useWatch<DraftFormValues, ["termMode", "termYears", "termEndDate"]>({
+    name: ["termMode", "termYears", "termEndDate"],
+  });
+  return <p>term: {`${mode} ${years} ${end || "no end"}`}</p>;
 }
 
 /** The lines the form holds. */
@@ -106,6 +116,7 @@ function Harness({ values, locked = false }: { values: Partial<DraftFormValues>;
         <OverviewStep locked={locked} />
         <Pricing />
         <Start />
+        <Term />
         <Lines />
       </FormProvider>
     </DatePickers.LocalizationProvider>
@@ -121,7 +132,7 @@ const deal = {
   partner: { id: "001P", name: "Acme Reseller", role: "Reseller", billingAddress: null }, dealKind: "RENEWAL" as const,
   recordTypeName: "Renewal", isRenewal: true,
 };
-// The start date is on Term & Products now (D73).
+// The start date is on Products & Pricing now (D73).
 const REST = ["Renewal", "WSO2 Legal Entity", "Primary Quote"];
 
 describe("OverviewStep — Salesforce first (2026-09-28)", () => {
@@ -208,7 +219,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     expect(await screen.findByText(/doesn't say whether this is direct or partner-led/, {}, { timeout: 3000 })).toBeInTheDocument();
     // Not a renewal: no Renewal section.
     expect(await screen.findByRole("region", { name: "WSO2 Legal Entity" }, { timeout: 3000 })).toBeInTheDocument();
-    expect(screen.queryByRole("region", { name: "Start date" })).toBeNull(); // on Term & Products (D73)
+    expect(screen.queryByRole("region", { name: "Start date" })).toBeNull(); // on Products & Pricing (D73)
     expect(screen.queryByRole("region", { name: "Renewal" })).toBeNull();
   });
 
@@ -218,7 +229,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     for (const r of REST) expect(screen.getByRole("region", { name: r })).toBeInTheDocument();
   });
 
-  it("asks for no currency: it is chosen with the price book on Term & Products", () => {
+  it("asks for no currency: it is chosen with the price book on Products & Pricing", () => {
     render(<Harness values={deal} locked />);
     expect(screen.queryByRole("combobox", { name: /Currency/ })).toBeNull();
   });
@@ -252,6 +263,47 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
       expect(screen.getByText("pricing: none · none")).toBeInTheDocument();
     } finally {
       oppCurrency = "USD";
+    }
+  });
+
+  // D85: the term starts from the opportunity's own subscription dates.
+  it.each([
+    ["whole years", { subsStartDate: "2027-02-01", subsEndDate: "2030-01-31" }, "start: 2027-02-01", "term: YEARS 3 no end"],
+    ["a year and a day", { subsStartDate: "2027-02-01", subsEndDate: "2028-02-01" }, "start: 2027-02-01", "term: END_DATE 1 2028-02-01"],
+    ["no dates", {}, "start: none", "term: YEARS 1 no end"],
+  ])("pre-fills the term from the chosen opportunity: %s", async (_, dates, start, term) => {
+    oppDates = dates;
+    try {
+      render(<Harness values={account} />);
+      const user = userEvent.setup();
+      await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
+      expect(screen.getByText(start)).toBeInTheDocument();
+      expect(screen.getByText(term)).toBeInTheDocument();
+    } finally {
+      oppDates = {};
+    }
+  });
+
+  it("keeps a renewal's own start date when the renewed opportunities are chosen (D85)", async () => {
+    oppDates = { subsStartDate: "2027-02-15" };
+    try {
+      render(<Harness values={deal} locked />);
+      await userEvent.click(await screen.findByRole("option", { name: "APIM Subs 2026" }));
+      expect(screen.getByText("start: 2027-02-15")).toBeInTheDocument(); // not the day after it ends
+    } finally {
+      oppDates = {};
+    }
+  });
+
+  it("reads the opportunity's end against a start from the renewed one (D85)", async () => {
+    oppDates = { subsEndDate: "2028-02-01" };
+    try {
+      render(<Harness values={deal} locked />);
+      await userEvent.click(await screen.findByRole("option", { name: "APIM Subs 2026" }));
+      expect(screen.getByText("start: 2027-02-01")).toBeInTheDocument();
+      expect(screen.getByText("term: END_DATE 1 2028-02-01")).toBeInTheDocument(); // 1 Feb 2027 → 1 Feb 2028: a year and a day
+    } finally {
+      oppDates = {};
     }
   });
 

@@ -15,12 +15,12 @@
 // under the License.
 
 /** Short descriptions shown under each step's name when browsing a read-only version. */
-export const STEP_HINTS = ["Customer & opportunity", "Term, products & yearly schedule", "Terms, addresses & contacts", "Check & submit"] as const;
+export const STEP_HINTS = ["Customer & opportunity", "Products, term & figures", "Billing, terms, addresses & contacts", "Check & submit"] as const;
 
 /** What each wizard step is for, shown in its intro. */
 export const STEP_HINTS_LONG = [
   "Who the quote is for and which WSO2 entity issues it.",
-  "When it starts and how long it runs, then the products: brought in from the opportunity, priced from its price book.",
-  "Payment terms, any special terms, addresses and contacts.",
+  "The products, brought in from the opportunity and priced from its price book, then how long the subscription runs.",
+  "Billing, payment terms, any special terms, and who is billed and receives it, with their contacts.",
   "Check everything, then submit. A submitted version is frozen.",
 ] as const;

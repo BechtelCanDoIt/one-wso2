@@ -32,6 +32,11 @@ interface OrderFormTableProps {
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
   /**
+   * The term in words, e.g. "1 year + 1 day" (D85), shown on every recurring
+   * line; a one-off line says "One-time". "" while there is no term yet.
+   */
+  readonly duration: string;
+  /**
    * The wizard's note on a line without a category yet (D72), by position in
    * `lines`, shown under the product. Such lines are listed first.
    */
@@ -42,16 +47,25 @@ interface OrderFormTableProps {
  * The products as an order form (misc/WSO2_Order_Form_Sample.docx): grouped
  * into Subscription, Support and Professional Services, each with its own
  * subtotal, then the total order value. Each amount is the line's cost over
- * the whole term. On a partner-led quote, the partner's commission and the
+ * the whole term, which the Duration column shows (D85). On a partner-led
+ * quote, the partner's commission and the
  * net order value follow:
  *
  *   Total order value              88,700.00
  *   Partner commission (15%)     − 13,305.00
  *   Net order value                75,395.00
  */
-export default function OrderFormTable({ lines, currency, actions, below, commissionPercent = null, categoryNote }: OrderFormTableProps): JSX.Element {
+export default function OrderFormTable({
+  lines,
+  currency,
+  actions,
+  below,
+  commissionPercent = null,
+  categoryNote,
+  duration,
+}: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
-  const cols = actions ? 7 : 6;
+  const cols = actions ? 8 : 7;
   // Products brought in from Salesforce whose category isn't chosen yet (D72).
   const pending = categoryNote ? lines.filter((l) => !l.category) : [];
   const cur = currency ? ` (${currency})` : "";
@@ -59,7 +73,7 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
 
   const totalRow = (label: string, value: string | null, strong = false, prefix = "") => (
     <TableRow sx={strong ? { bgcolor: "action.hover" } : undefined}>
-      <TableCell colSpan={5} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
+      <TableCell colSpan={6} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
         {label}
         {cur}
       </TableCell>
@@ -157,6 +171,7 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
           <TableCell align="right" sx={num}>
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
           </TableCell>
+          <TableCell sx={{ whiteSpace: "nowrap" }}>{l.recurring ? duration || "–" : "One-time"}</TableCell>
           <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
             {money(l.tcv)}
           </TableCell>
@@ -181,6 +196,7 @@ export default function OrderFormTable({ lines, currency, actions, below, commis
             <TableCell align="right">Unit list</TableCell>
             <TableCell align="right">Qty</TableCell>
             <TableCell align="right">Disc.</TableCell>
+            <TableCell>Duration</TableCell>
             <TableCell align="right">Amount{cur}</TableCell>
             {actions ? (
               <TableCell align="right">

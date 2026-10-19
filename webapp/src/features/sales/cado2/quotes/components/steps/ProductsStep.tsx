@@ -34,7 +34,7 @@ import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState"
 import OrderFormTable from "@features/sales/cado2/quotes/components/sheet/OrderFormTable";
 import DealFiguresSection from "@features/sales/cado2/quotes/components/sheet/DealFiguresSection";
 import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/ScheduleTable";
-import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import { hasYearlySchedule, orderForm, sheetFromForm, termLabel } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   hasRecurring,
@@ -74,8 +74,15 @@ function LineIssue({ index }: { index: number }) {
 }
 
 /**
- * Step ② Term & Products (D73): when the quote starts and how long it runs,
- * then the products, priced from the opportunity's price book. A new quote's
+ * Step ② Products & Pricing (D86): the products, priced from the
+ * opportunity's price book, then each section that changes the amounts, top
+ * to bottom, with the figures last:
+ *
+ *   Products → Subscription Term → Partner Commission → Deal Figures → Yearly Schedule
+ *
+ * Billing and payment terms are on Commercials.
+ *
+ * A new quote's
  * products are brought in from the opportunity (D72); one not mapped to a
  * category says so on its line, and is chosen in the line's dialog.
  */
@@ -129,9 +136,6 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
     <Stack spacing={2.5}>
       {linesIssue ? <Alert severity="error">{linesIssue}</Alert> : null}
 
-      {/* When it starts and how long it runs: the term comes first (D73). */}
-      <SubscriptionTermCard />
-
       {/* The opportunity's currency and price book, locked. */}
       <PricingSetupCard />
 
@@ -157,6 +161,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
             lines={sheet.lines}
             currency={currency}
             commissionPercent={sheet.partnerCommissionPercent}
+            duration={termLabel(sheet)}
             actions={(i) => (
               <>
                 <Tooltip title="Edit">
@@ -191,6 +196,10 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           </Typography>
         ) : null}
       </SectionCard>
+
+      {/* When it starts and how long it runs, under the products it depends on;
+          the figures below depend on it (D85). */}
+      <SubscriptionTermCard />
 
       {/* Partner-led: the partner's commission. */}
       {isPartnerLed(values) && fields.length > 0 ? (

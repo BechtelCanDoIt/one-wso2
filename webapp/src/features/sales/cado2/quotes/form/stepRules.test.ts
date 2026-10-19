@@ -33,6 +33,7 @@ describe("stepChecks", () => {
     expect(overview.map((c) => c.field)).toEqual(["sfAccountId", "sfOpportunityId", "legalEntityId"]);
     // The start date is chosen with the term (D73); the currency with the price book.
     expect(products.map((c) => c.field)).toEqual(["subscriptionStartDate", "currencyIsoCode", "lines"]);
+    // Commercials opens with the payment terms (D86); no line yet, so no billing.
     expect(commercial.map((c) => c.field)).toEqual(["netTermsDays", "billTo", "shipTo", "contacts.billing"]);
     expect(reachableStep(stepChecks(emptyDraftForm()))).toBe(0);
   });
@@ -63,18 +64,37 @@ describe("stepChecks", () => {
     expect(stepChecks(v)[2].map((c) => c.field)).toEqual(["governingTerms.text"]);
   });
 
-  it("checks the subscription term on Term & Products", () => {
+  it("checks the subscription term on Products & Pricing", () => {
     const products = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[1];
     expect(products({ termMode: "" }).map((c) => c.field)).toEqual(["termMode"]);
-    expect(products({ termMode: "MULTI_YEAR", billingFrequency: "" }).map((c) => c.field)).toEqual(["billingFrequency"]);
-    expect(products({ termMode: "ONE_YEAR", billingFrequency: "" })).toEqual([]);
-    expect(products({ termMode: "SHORTER", termEndDate: "" })[0].message).toBe("Choose the end date");
-    // Co-termed: ends with the chosen opportunity (D73).
-    expect(products({ termMode: "CO_TERMED", coTermOpportunityId: "", termEndDate: "" })[0].message).toBe(
-      "Choose the opportunity it co-terminates with",
-    );
-    expect(products({ termMode: "CO_TERMED", coTermOpportunityId: "006CO", termEndDate: "2027-09-30" })).toEqual([]);
-    expect(products({ termMode: "CO_TERMED", coTermOpportunityId: "006CO", termEndDate: "2027-10-01" })[0].message).toMatch(/within a year/);
+    // Billing is chosen on Commercials (D86).
+    expect(products({ termMode: "YEARS", billingFrequency: "" })).toEqual([]);
+    expect(products({ termMode: "YEARS", termYears: "3" })).toEqual([]);
+    expect(products({ termMode: "END_DATE", termEndDate: "" })[0].message).toBe("Choose the end date");
+    // Any length up to 10 years, a year and a day included (from 1 Oct 2026).
+    expect(products({ termMode: "END_DATE", termEndDate: "2027-10-01" })).toEqual([]);
+    expect(products({ termMode: "END_DATE", termEndDate: "2036-10-01" })[0].message).toMatch(/at most 10 years/);
+  });
+
+  // D85, D86: every recurring quote chooses its billing, on Commercials.
+  it("checks the billing on Commercials, only when a line recurs", () => {
+    const step3 = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[2];
+    expect(step3({ billingFrequency: "" }).map((c) => c.field)).toEqual(["billingFrequency"]);
+    const services = complete().lines.map((l) => ({ ...l, recurring: false }));
+    expect(step3({ billingFrequency: "", lines: services })).toEqual([]);
+  });
+
+  // D86: "See Special Terms" billing points at the special terms.
+  it("needs the special terms on when the billing says See Special Terms", () => {
+    const step3 = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), billingFrequency: "SPECIAL_TERMS", ...v })[2];
+    expect(step3({ specialTermsEnabled: false })).toEqual([
+      { field: "specialTerms.billing", message: "Billing says See Special Terms: switch on special terms and describe the billing" },
+    ]);
+    expect(step3({ specialTermsEnabled: true, specialTerms: "40% on signing, 60% on go-live" })).toEqual([]);
+    expect(step3({ specialTermsEnabled: true, specialTerms: " " }).map((c) => c.field)).toEqual(["specialTerms.text"]);
+    // No recurring product: no billing, so nothing to point at.
+    const services = complete().lines.map((l) => ({ ...l, recurring: false }));
+    expect(step3({ specialTermsEnabled: false, lines: services })).toEqual([]);
   });
 
   it("needs the partner's commission on a partner-led quote", () => {

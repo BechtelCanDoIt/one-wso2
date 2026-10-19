@@ -37,7 +37,9 @@ import {
   addressFrom,
   emptyAddress,
   emptyContact,
+  parseDateString,
   pulledLines,
+  termFromDates,
   type DraftFormValues,
 } from "@features/sales/cado2/quotes/form/draftForm";
 import SalesforceFindings, { type Finding } from "@features/sales/cado2/quotes/components/SalesforceFindings";
@@ -45,7 +47,7 @@ import { formatMoney } from "@features/sales/cado2/utils/money";
 import AccountPicker from "@features/sales/cado2/quotes/components/pickers/AccountPicker";
 import OpportunityPicker from "@features/sales/cado2/quotes/components/pickers/OpportunityPicker";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import { expectedRenewalStart } from "@features/sales/cado2/quotes/form/renewalStart";
+import { lockedRenewalStart } from "@features/sales/cado2/quotes/form/renewalStart";
 import { subscriptionPeriod } from "@features/sales/cado2/utils/subscription";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
 import PrimaryQuoteField from "@features/sales/cado2/quotes/components/PrimaryQuoteField";
@@ -255,6 +257,14 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
     setValue("recordTypeName", o.recordTypeName ?? "", { shouldDirty: true });
     setValue("isRenewal", o.dealKind === "RENEWAL", { shouldDirty: true });
     if (o.dealKind !== "RENEWAL") setValue("previousOpportunityIds", [], { shouldDirty: true });
+    // The term from the opportunity's subscription dates (D85): its start,
+    // and its end as a number of years when it makes one, else as a date.
+    const start = o.subsStartDate && parseDateString(o.subsStartDate) ? o.subsStartDate : "";
+    setValue("startDate", start, { shouldDirty: true });
+    const term = termFromDates(start, o.subsEndDate);
+    setValue("termMode", term.termMode, { shouldDirty: true });
+    setValue("termYears", term.termYears, { shouldDirty: true });
+    setValue("termEndDate", term.termEndDate, { shouldDirty: true });
     // Pre-fill addresses: partner deals bill the partner and ship
     // to the customer; direct deals bill and ship to the customer.
     const v = getValues();
@@ -281,14 +291,22 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
 
   const previousOptions = (wonOpportunities.data ?? []).filter((o) => o.id !== opportunityId);
 
-  // A renewal starts the day after the renewed opportunity ends, locked (D73):
-  // set when it is chosen; shown on Term & Products. Without an end date in
-  // Salesforce, the AM chooses it there.
+  // A renewal's start is locked (D85): its own opportunity's start date, else
+  // the day after the renewed opportunity ends, set when that is chosen;
+  // shown on Products & Pricing. Without either in Salesforce, the AM chooses it there.
   const renewedOf = (ids: readonly string[]) => (wonOpportunities.data ?? []).filter((o) => ids.includes(o.id));
   const chooseRenewed = (ids: string[]) => {
     setValue("previousOpportunityIds", ids, { shouldDirty: true });
-    const expected = expectedRenewalStart(renewedOf(ids));
-    setValue("startDate", expected?.date ?? "", { shouldDirty: true });
+    const own = opportunities.data?.find((o) => o.id === opportunityId);
+    const locked = lockedRenewalStart(own, renewedOf(ids));
+    setValue("startDate", locked?.date ?? "", { shouldDirty: true });
+    // The end is still the opportunity's own, now read against this start (D85).
+    if (own?.subsEndDate && locked && locked.source === "RENEWED") {
+      const term = termFromDates(locked.date, own.subsEndDate);
+      setValue("termMode", term.termMode, { shouldDirty: true });
+      setValue("termYears", term.termYears, { shouldDirty: true });
+      setValue("termEndDate", term.termEndDate, { shouldDirty: true });
+    }
   };
 
   // Watched, not read once: picking an account re-renders on its id before

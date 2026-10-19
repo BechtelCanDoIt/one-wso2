@@ -24,7 +24,10 @@
 // get stuck on bad Salesforce data; revisit if it is reported.
 
 import type { AddressValue, ContactValue, DraftFormValues } from "./draftForm";
-import { commissionProblem, hasRecurring, isPartnerLed, isShortMode, shortTermProblem } from "./draftForm";
+import { commissionProblem, endDateProblem, hasRecurring, isPartnerLed } from "./draftForm";
+
+/** The to-do when the billing says "See Special Terms" and they are off (D86), as the backend words it. */
+export const SPECIAL_TERMS_BILLING = "Billing says See Special Terms: switch on special terms and describe the billing";
 
 export interface StepCheck {
   /** The backend field it corresponds to, so the step can mark it. */
@@ -38,7 +41,7 @@ const hasContact = (c: ContactValue) =>
 const addressComplete = (a: AddressValue) =>
   Boolean(a.companyName.trim() && a.addressLine1.trim() && a.city.trim() && a.country.trim());
 
-/** Missing items per step: [Overview, Term & Products, Commercial]. Review has none of its own. */
+/** Missing items per step: [Overview, Products & Pricing, Commercials]. Review has none of its own. */
 export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepCheck[]] {
   const overview: StepCheck[] = [];
   const need = (list: StepCheck[], ok: boolean, field: string, message: string) => {
@@ -55,9 +58,9 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
   need(overview, Boolean(v.legalEntityId), "legalEntityId", "Choose the WSO2 legal entity");
 
   const products: StepCheck[] = [];
-  // The term comes first on Term & Products (D73).
+  // The start date comes first on Products & Pricing (D73).
   need(products, Boolean(v.startDate), "subscriptionStartDate", "Choose the start date");
-  // The currency sits with the price book on Term & Products.
+  // The currency sits with the price book on Products & Pricing.
   need(products, Boolean(v.currencyIsoCode), "currencyIsoCode", "Choose the currency");
   need(products, v.lines.length > 0, "lines", "Add at least one product");
   // Products brought in from the opportunity wait for a category when unmapped (D72).
@@ -68,22 +71,12 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
     "lines",
     uncategorised === 1 ? "Choose the category of 1 product" : `Choose the category of ${uncategorised} products`,
   );
-  // The Subscription term card, only when a line recurs.
-  if (hasRecurring(v.lines)) {
+  // The Subscription Term card's duration, only when a line recurs.
+  const recurring = hasRecurring(v.lines);
+  if (recurring) {
     need(products, Boolean(v.termMode), "termMode", "Choose the subscription term");
-    if (v.termMode === "MULTI_YEAR") {
-      need(products, Boolean(v.billingFrequency), "billingFrequency", "Choose how the multi-year term is billed");
-    }
-    if (v.termMode === "CO_TERMED") {
-      // Ends with the opportunity it co-terminates with (D73).
-      const problem = !v.coTermOpportunityId
-        ? "Choose the opportunity it co-terminates with"
-        : !v.termEndDate
-          ? "That opportunity has no subscription end date in Salesforce"
-          : shortTermProblem(v.startDate, v.termEndDate, "CO_TERMED");
-      need(products, !problem, "coTermOpportunityId", problem);
-    } else if (isShortMode(v.termMode)) {
-      const problem = v.termEndDate ? shortTermProblem(v.startDate, v.termEndDate, "SHORTER") : "Choose the end date";
+    if (v.termMode === "END_DATE") {
+      const problem = v.termEndDate ? endDateProblem(v.startDate, v.termEndDate) : "Choose the end date";
       need(products, !problem, "subscriptionEndDate", problem);
     }
   }
@@ -93,9 +86,17 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
     const problem = commissionProblem(v.partnerCommissionPercent);
     need(products, !problem, "partnerCommissionPercent", problem);
   }
-
   const commercial: StepCheck[] = [];
+  // Commercials opens with billing (only when a line recurs) and payment terms (D86).
+  if (recurring) need(commercial, Boolean(v.billingFrequency), "billingFrequency", "Choose the billing frequency");
   need(commercial, Boolean(v.netTermsDays), "netTermsDays", "Choose the payment terms");
+  // D86: "See Special Terms" billing points at the special terms.
+  need(
+    commercial,
+    !recurring || v.billingFrequency !== "SPECIAL_TERMS" || v.specialTermsEnabled,
+    "specialTerms.billing",
+    SPECIAL_TERMS_BILLING,
+  );
   need(commercial, !v.specialTermsEnabled || v.specialTerms.trim() !== "", "specialTerms.text", "Write the special terms, or switch them off");
   need(commercial, !v.governingTermsEnabled || v.governingTerms.trim() !== "", "governingTerms.text", "Write the governing terms, or switch them off");
   need(commercial, addressComplete(v.billTo), "billTo", "Complete the bill-to address (company, street, city, country)");
