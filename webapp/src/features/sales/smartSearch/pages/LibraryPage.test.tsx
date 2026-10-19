@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => {
     refetch,
     togglePin: vi.fn(),
     showWarning: vi.fn(),
+    showSuccess: vi.fn(),
     recentAdd: vi.fn(),
     recentClear: vi.fn(),
     introDismiss: vi.fn(),
@@ -63,7 +64,7 @@ vi.mock("@features/pinned/usePinned", () => ({
   useTogglePin: () => mocks.togglePin,
 }));
 vi.mock("@context/notifications/NotificationsContext", () => ({
-  useNotifications: () => ({ showWarning: mocks.showWarning, showError: vi.fn(), showSuccess: vi.fn() }),
+  useNotifications: () => ({ showWarning: mocks.showWarning, showError: vi.fn(), showSuccess: mocks.showSuccess }),
 }));
 vi.mock("../util/useLibraryStorage", () => ({
   useRecentSearches: () => ({ items: mocks.state.recent, add: mocks.recentAdd, clear: mocks.recentClear }),
@@ -566,6 +567,7 @@ describe("pinning and sharing a search", () => {
     renderAt(RESULTS_PATH);
     await user.click(screen.getByRole("button", { name: "Copy link" }));
     expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/sales/library?q=wso2con`);
+    expect(mocks.showSuccess).toHaveBeenCalledWith("Link copied.");
   });
 });
 
