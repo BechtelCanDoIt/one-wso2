@@ -16,16 +16,19 @@
 
 import { Divider, Stack } from "@wso2/oxygen-ui";
 import type { UmtUpdateSummary } from "../../../api/umtUpdates";
+import { useUmtIsAdvancingToPrAnalyzed } from "../../../api/useUmtPrAnalysis";
 import UmtPrAnalysisStep from "../pr-analysis/UmtPrAnalysisStep";
 import UmtProductAnalysisStep from "../product-analysis/UmtProductAnalysisStep";
 
 // Development shows the PR analysis alone; PRAnalyzed adds the product
-// analysis below it.
+// analysis below it, once the run that got it there has finished.
 export default function UmtFilesAnalysisStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
+  const isAdvancing = useUmtIsAdvancingToPrAnalyzed(id);
+
   return (
     <Stack spacing={3}>
       <UmtPrAnalysisStep id={id} update={update} />
-      {update.lifecycleState === "PRAnalyzed" && (
+      {update.lifecycleState === "PRAnalyzed" && !isAdvancing && (
         <>
           <Divider />
           <UmtProductAnalysisStep id={id} update={update} />

@@ -21,6 +21,7 @@ import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtUpdateSummary } from "../../api/umtUpdates";
 import { useUmtGate } from "../../api/useUmtGate";
 import { useUmtLifecycleTransition } from "../../api/useUmtLifecycleTransition";
+import { useUmtIsAdvancingToPrAnalyzed } from "../../api/useUmtPrAnalysis";
 import { useUmtProductAnalysis, useUmtPullRequestAnalysis } from "../../api/useUmtUpdateViewData";
 import {
   computeUmtEditSteps,
@@ -60,6 +61,7 @@ export default function UmtUpdateEditTab({
   const stagingTestResults = useUmtStagingTestResults(id, update.lifecycleState);
   const gate = useUmtGate();
   const transition = useUmtLifecycleTransition(id);
+  const isAdvancingToPrAnalyzed = useUmtIsAdvancingToPrAnalyzed(id);
   const { showSuccess, showError } = useNotifications();
 
   const hasFileOps = umtHasAdditionalFileOperations(pullRequestAnalysis.data, update.lifecycleState);
@@ -107,8 +109,9 @@ export default function UmtUpdateEditTab({
   const isCloudDevelopment = currentStep.id === "cloud-development";
   const isFilesAnalysis = currentStep.id === "files-analysis";
   // Files Analysis spans Development and PRAnalyzed; the product analysis
-  // (and the shared step actions under it) only exists once PRAnalyzed.
-  const isProductAnalysis = isFilesAnalysis && update.lifecycleState === "PRAnalyzed";
+  // (and the shared step actions under it) only exists once PRAnalyzed, and
+  // only once the run that promoted the update has finished its analysis.
+  const isProductAnalysis = isFilesAnalysis && update.lifecycleState === "PRAnalyzed" && !isAdvancingToPrAnalyzed;
   const isDescriptionInstruction = currentStep.id === "description-instruction";
   const isIntegrationTests = currentStep.id === "integration-tests";
   const isSecurityAdvisory = currentStep.id === "security-advisory";

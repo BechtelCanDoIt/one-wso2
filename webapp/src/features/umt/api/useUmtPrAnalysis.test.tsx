@@ -6,7 +6,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, renderHook } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 
@@ -42,6 +42,8 @@ function textResponse(body: string, ok = true, status = 200) {
 };
 
 const {
+  UmtProductAnalysisFailedError,
+  useUmtIsAdvancingToPrAnalyzed,
   useUmtPrAnalysisStatus,
   useUmtStartPullRequestAnalysis,
   useUmtProceedFromPrAnalysis,
@@ -93,6 +95,21 @@ describe("useUmtPrAnalysisStatus", () => {
     expect(client.getQueryData(queryKey)).toBe("COMPLETED");
   });
 
+  it("refreshes the results and the update once an analysis first completes", async () => {
+    fetchWithReauth.mockResolvedValue(textResponse("COMPLETED"));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const invalidateQueries = vi.spyOn(client, "invalidateQueries");
+    const queryKey = ["umt-update-pr-analysis-status", "user-under-test", "42"];
+
+    renderHook(() => useUmtPrAnalysisStatus("42", "PROCESSING", true), { wrapper: wrapper(client) });
+    await act(async () => {
+      await client.refetchQueries({ queryKey });
+    });
+
+    const invalidatedKeys = invalidateQueries.mock.calls.map((call) => call[0]?.queryKey?.[0]);
+    expect(invalidatedKeys).toEqual(expect.arrayContaining(["umt-update-pull-request-analysis", "umt-update"]));
+  });
+
   it("computes a 3s refetch interval while queued or processing, and stops once terminal — purely from the current status, with no other state to get stuck", () => {
     fetchWithReauth.mockResolvedValue(textResponse("QUEUED"));
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -112,7 +129,7 @@ describe("useUmtPrAnalysisStatus", () => {
 });
 
 describe("useUmtStartPullRequestAnalysis", () => {
-  it("POSTs the analysis payload and invalidates status + results", async () => {
+  it("POSTs the analysis payload and invalidates status, results and the update", async () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     const invalidateQueries = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(() => useUmtStartPullRequestAnalysis("42"), { wrapper: wrapper(client) });
@@ -133,7 +150,7 @@ describe("useUmtStartPullRequestAnalysis", () => {
     expect(authedPost).toHaveBeenCalledWith(umtServiceUrls.updatePullRequestAnalysis("42"), "token", payload);
     const invalidatedKeys = invalidateQueries.mock.calls.map((call) => call[0]?.queryKey?.[0]);
     expect(invalidatedKeys).toEqual(
-      expect.arrayContaining(["umt-update-pr-analysis-status", "umt-update-pull-request-analysis"]),
+      expect.arrayContaining(["umt-update-pr-analysis-status", "umt-update-pull-request-analysis", "umt-update"]),
     );
   });
 });
@@ -162,6 +179,77 @@ describe("useUmtProceedFromPrAnalysis", () => {
         "umt-update-product-analysis",
       ]),
     );
+  });
+
+  it("rolls the update back to Development when the product analysis fails", async () => {
+    authedPost.mockRejectedValueOnce(new Error("analysis down"));
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const { result } = renderHook(() => useUmtProceedFromPrAnalysis("42"), { wrapper: wrapper(client) });
+
+    let thrown: unknown;
+    await act(async () => {
+      await result.current.mutateAsync().catch((error: unknown) => (thrown = error));
+    });
+
+    expect(authedPut.mock.calls.map((call) => (call as unknown[])[2])).toEqual([
+      { lifecycleState: "PRAnalyzed" },
+      { lifecycleState: "Development" },
+    ]);
+    expect(thrown).toBeInstanceOf(UmtProductAnalysisFailedError);
+    expect((thrown as InstanceType<typeof UmtProductAnalysisFailedError>).rolledBack).toBe(true);
+  });
+
+  it("says so when the rollback to Development fails too", async () => {
+    authedPost.mockRejectedValueOnce(new Error("analysis down"));
+    authedPut.mockResolvedValueOnce(null).mockRejectedValueOnce(new Error("rollback refused"));
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const { result } = renderHook(() => useUmtProceedFromPrAnalysis("42"), { wrapper: wrapper(client) });
+
+    let thrown: unknown;
+    await act(async () => {
+      await result.current.mutateAsync().catch((error: unknown) => (thrown = error));
+    });
+
+    expect(thrown).toBeInstanceOf(UmtProductAnalysisFailedError);
+    expect((thrown as InstanceType<typeof UmtProductAnalysisFailedError>).rolledBack).toBe(false);
+  });
+
+  it("neither analyzes nor rolls back when the promotion to PRAnalyzed fails", async () => {
+    authedPut.mockRejectedValueOnce(new Error("promotion refused"));
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const { result } = renderHook(() => useUmtProceedFromPrAnalysis("42"), { wrapper: wrapper(client) });
+
+    let thrown: unknown;
+    await act(async () => {
+      await result.current.mutateAsync().catch((error: unknown) => (thrown = error));
+    });
+
+    expect(thrown).not.toBeInstanceOf(UmtProductAnalysisFailedError);
+    expect(authedPost).not.toHaveBeenCalled();
+    expect(authedPut).toHaveBeenCalledTimes(1);
+  });
+
+  it("is reported as advancing while it runs", async () => {
+    let finishPromotion: () => void = () => {};
+    authedPut.mockImplementationOnce(() => new Promise((resolve) => (finishPromotion = () => resolve(null))));
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const { result } = renderHook(
+      () => ({ advance: useUmtProceedFromPrAnalysis("42"), isAdvancing: useUmtIsAdvancingToPrAnalyzed("42") }),
+      { wrapper: wrapper(client) },
+    );
+
+    expect(result.current.isAdvancing).toBe(false);
+    let done: Promise<void> = Promise.resolve();
+    act(() => {
+      done = result.current.advance.mutateAsync();
+    });
+    await waitFor(() => expect(result.current.isAdvancing).toBe(true));
+
+    await act(async () => {
+      finishPromotion();
+      await done;
+    });
+    await waitFor(() => expect(result.current.isAdvancing).toBe(false));
   });
 });
 
