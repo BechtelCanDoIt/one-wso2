@@ -198,6 +198,15 @@ describe("freshnessOf", () => {
     expect(freshnessOf("2025-11-01 00:00:00", TEST_NOW)?.stale).toBe(false);
   });
 
+  it("counts a full year to the day, not by calendar month", () => {
+    // TEST_NOW is 14 Oct 2026: the same date a year ago is stale, the day after is not.
+    expect(freshnessOf("2025-10-13 23:59:59", TEST_NOW)?.stale).toBe(true);
+    expect(freshnessOf("2025-10-14 12:00:00", TEST_NOW)?.stale).toBe(true);
+    expect(freshnessOf("2025-10-15 00:00:00", TEST_NOW)?.stale).toBe(false);
+    expect(freshnessOf("2025-10-31 00:00:00", TEST_NOW)?.stale).toBe(false);
+    expect(freshnessOf("2025-10-31 00:00:00", TEST_NOW)?.label).toBe("Added Oct 2025");
+  });
+
   it("uses the last verified date when there is one", () => {
     expect(freshnessOf("2024-10-18 04:17:44.848773", TEST_NOW, "2026-09-02 08:00:00")).toEqual({
       label: "Last verified Sep 2026",

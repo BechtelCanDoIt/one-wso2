@@ -210,8 +210,9 @@ export function freshnessOf(
   const verified = dateOf(lastVerifiedOn);
   const date = verified ?? dateOf(createdOn);
   if (!date) return null;
-  const months = (now.getUTCFullYear() - date.getUTCFullYear()) * 12 + (now.getUTCMonth() - date.getUTCMonth());
-  const stale = months >= 12;
+  // A full year, to the day: the same date a year ago still counts, the day after does not.
+  const aYearAgo = Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate());
+  const stale = date.getTime() <= aYearAgo;
   const when = `${verified ? "Last verified" : "Added"} ${MONTH_FORMAT.format(date)}`;
   return { label: stale ? `${when} - check it is still current` : when, stale };
 }
