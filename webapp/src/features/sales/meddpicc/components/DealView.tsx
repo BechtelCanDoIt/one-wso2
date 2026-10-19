@@ -631,7 +631,7 @@ export default function DealView({
               tone="warning"
               count={sections.review.length}
               description="Heard on calls and proposed by the AI. Approve all writes them to Salesforce; edit one first if it isn't right."
-              empty={`Nothing is waiting for review in ${scopeName}.`}
+              hideWhenEmpty
             >
               {sections.review.map((field) => renderField(field))}
             </FieldSection>
@@ -788,8 +788,9 @@ function ActivityRow({
 
 /**
  * One of the two sections the AM works through: a heading with its count, a line on what
- * it holds, and the fields. A coloured edge marks the section; when it is empty it says
- * so in a line rather than disappearing, so "nothing to review" reads as an answer.
+ * it holds, and the fields. A coloured edge marks the section. When it is empty it says
+ * so in a line, or with `hideWhenEmpty` is left out: the review section, whose "nothing
+ * to approve" the approval bar above already says.
  */
 function FieldSection({
   title,
@@ -797,15 +798,18 @@ function FieldSection({
   count,
   description,
   empty,
+  hideWhenEmpty = false,
   children,
 }: {
   title: string;
   tone: "warning" | "info";
   count: number;
   description: string;
-  empty: string;
+  empty?: string;
+  hideWhenEmpty?: boolean;
   children: ReactNode;
 }) {
+  if (count === 0 && hideWhenEmpty) return null;
   return (
     <Box
       component="section"

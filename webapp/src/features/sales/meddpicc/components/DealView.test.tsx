@@ -245,6 +245,16 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toHaveTextContent("Nothing is missing in Qualify.");
   });
 
+  it("leaves out Needs your review on a stage with nothing to review", async () => {
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    await user.click(screen.getByRole("button", { name: /^Validate: / }));
+    expect(screen.queryByRole("region", { name: "Needs your review" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing is waiting for review/)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Missing" })).toBeInTheDocument();
+  });
+
   it("leads with the deal's facts, its Letters in Salesforce and what is waiting for review", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
