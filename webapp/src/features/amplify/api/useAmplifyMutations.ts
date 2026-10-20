@@ -20,7 +20,7 @@
 // dropped response replays the stored answer instead of doing it twice. No
 // React Query `retry`: a 4xx here is a final answer.
 
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { authedPatch, authedPost } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { amplifyServiceUrls } from "@config/apiConfig";
@@ -39,6 +39,14 @@ import type {
 
 function idempotencyHeaders(): Record<string, string> {
   return { "Idempotency-Key": crypto.randomUUID() };
+}
+
+// Marks the key stale and refetches it now, including lists no page is showing. The app's QueryClient sets
+// `refetchOnMount: false`, so a stale list that isn't on screen would otherwise never reload: save a post on
+// New Post and Current Posts kept its old list until a full refresh. Awaited, so a caller that navigates
+// afterwards lands on fresh data.
+function refreshNow(qc: QueryClient, queryKey: unknown[]): Promise<void> {
+  return qc.invalidateQueries({ queryKey, refetchType: "all" });
 }
 
 function useAmplifySub(): string | undefined {
@@ -60,7 +68,7 @@ export function useRegisterCampaign() {
         idempotencyHeaders(),
       ),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: amplifyKey("campaigns", sub) });
+      await refreshNow(qc, amplifyKey("campaigns", sub));
     },
   });
 }
@@ -74,7 +82,7 @@ export function useEditCampaign() {
     mutationFn: async ({ id, patch }) =>
       authedPatch<Campaign>(amplifyServiceUrls.campaign(id), await getAccessToken(), patch),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: amplifyKey("campaigns", sub) });
+      await refreshNow(qc, amplifyKey("campaigns", sub));
     },
   });
 }
@@ -88,7 +96,7 @@ export function useRequestShare() {
     mutationFn: async ({ campaignId, kind }) =>
       authedPost<Share>(amplifyServiceUrls.shares(campaignId), await getAccessToken(), { kind }, idempotencyHeaders()),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: amplifyKey("my-shares", sub) });
+      await refreshNow(qc, amplifyKey("my-shares", sub));
     },
   });
 }
@@ -121,7 +129,7 @@ export function useCompleteLinkedInConnect() {
         idempotencyHeaders(),
       ),
     onSuccess: async () => {
-      await qc.invalidateQueries({ queryKey: amplifyKey("me", sub) });
+      await refreshNow(qc, amplifyKey("me", sub));
     },
   });
 }
