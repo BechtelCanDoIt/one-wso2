@@ -25,7 +25,7 @@ import { useRegisterCampaign } from "../api/useAmplifyMutations";
 import AmplifyShell, { AmplifyPanel } from "../components/AmplifyShell";
 import CategoryPicker from "../components/CategoryPicker";
 import { describeAmplifyError } from "../util/amplifyError";
-import { closesAtFromDateInput, isAllowedLink, postUrnFromUrl } from "../util/linkedinPost";
+import { closesAtFromDateInput, isAllowedLink, isLinkedInShortLink, postUrnFromUrl } from "../util/linkedinPost";
 
 // amplify-api's limits (CampaignDraft in openapi.yaml).
 const TITLE_MAX = 200;
@@ -122,7 +122,11 @@ export default function NewPostPage() {
               fullWidth
               error={urlError}
               helperText={
-                urlError ? "Paste the link to a post on LinkedIn." : "Must be a post on the WSO2 company page."
+                urlError
+                  ? isLinkedInShortLink(postUrl)
+                    ? "Short links (lnkd.in) can't be read. Open the post and paste the address from your browser's address bar."
+                    : "Paste the link to a post on LinkedIn."
+                  : "Must be a post on the WSO2 company page."
               }
               disabled={busy}
             />
