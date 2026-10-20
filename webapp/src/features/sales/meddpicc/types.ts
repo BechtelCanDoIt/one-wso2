@@ -391,3 +391,49 @@ export interface GatesResponse {
   fields: GateFieldDefinition[];
   missingFields: string[];
 }
+
+// ---- Ask AI ------------------------------------------------------------------------------
+
+/** One Sales Library passage sent with a question, as the Library search found it. */
+export interface LibraryPassage {
+  title: string;
+  content: string;
+  link: string | null;
+  page: number | null;
+  unitLabel: string;
+  documentId: string;
+}
+
+/** POST /deals/{opportunityId}/ask. */
+export interface AskRequest {
+  question: string;
+  /** The earlier turns, oldest first; the backend reads the last 6. */
+  history: { question: string; answer: string }[];
+  librarySources: LibraryPassage[];
+  /** The page could not search the Library. */
+  libraryUnavailable: boolean;
+}
+
+/** One numbered source an answer cites. */
+export interface AskSource {
+  n: number;
+  group: "OPPORTUNITY" | "LIBRARY";
+  type: "RECORD" | "FIELD" | "CALL" | "EMAIL" | "ACTIVITY" | "LIBRARY";
+  title: string;
+  detail: string;
+  quote: string | null;
+  occurredAt: string | null;
+  url: string | null;
+  meetingId: number | null;
+  offsetSeconds: number | null;
+}
+
+/** An Ask AI answer: plain text with [n] markers, and the sources they name. */
+export interface AskAnswer {
+  answer: string;
+  /** False when neither the opportunity nor the Library answers the question. */
+  covered: boolean;
+  nextQuestion: string | null;
+  sources: AskSource[];
+  libraryUnavailable: boolean;
+}
