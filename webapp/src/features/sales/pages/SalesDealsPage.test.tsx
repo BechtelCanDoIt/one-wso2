@@ -102,6 +102,9 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     // The stage rides in the Opportunity cell; its own column made way for the deal score.
     expect(screen.getByRole("columnheader", { name: "Opportunity" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Stage" })).not.toBeInTheDocument();
+    // Salesforce's deal score in its own column, with its band.
+    expect(screen.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
+    expect(row.getByLabelText("Deal score 28.3, Weak")).toBeInTheDocument();
 
     for (const name of [
       "Meridian Bank – integration platform",

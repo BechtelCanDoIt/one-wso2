@@ -22,14 +22,16 @@ import { formatAmount, formatSalesforceDate } from "../util/meddpiccFormat";
 import DealJourney, { DealJourneyLegend } from "./DealJourney";
 import MeddpiccCircles from "./MeddpiccCircles";
 import StageChip from "./StageChip";
+import DealScore from "./DealScore";
 import { useNow } from "../../util/useNow";
 
 /**
- * Three columns. The stage, amount and close date ride under the opportunity's name, and
+ * Four columns. The stage, amount and close date ride under the opportunity's name, and
  * the count to review under the circles, so the deal's journey gets the width.
  */
 const COLUMNS = [
   { key: "deal", label: "Opportunity", width: 300 },
+  { key: "score", label: "Score", width: 120 },
   { key: "activity", label: "Journey", width: "auto" },
   { key: "meddpicc", label: "MEDDPICC", width: 250 },
 ] as const;
@@ -137,6 +139,9 @@ export default function DealsTable({
                           {formatSalesforceDate(deal.closeDate)}
                         </Typography>
                       </Box>
+                    </ListingTable.Cell>
+                    <ListingTable.Cell>
+                      <DealScore score={deal.dealScore} />
                     </ListingTable.Cell>
                     <ListingTable.Cell>
                       <DealJourney

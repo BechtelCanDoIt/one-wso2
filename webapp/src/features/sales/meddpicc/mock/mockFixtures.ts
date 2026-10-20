@@ -183,6 +183,7 @@ export function createFixtures(): MockFixtures {
       accountName: "Brightwater Pumps Limited",
       salesRegion: "EU",
       stage: "Qualify",
+      dealScore: 28.3,
       recordType: "First Sale",
       amount: 120000,
       currencyIsoCode: "USD",
