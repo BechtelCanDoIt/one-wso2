@@ -497,8 +497,8 @@ export const pacificColumnRanges: ColumnRangesFor = (period, viewWindow, filters
  * set rather than a second computation, so the columns are literally drawn from
  * the ranges the filters carry and the two cannot drift.
  *
- * **Software/Cloud Customers reads this too, which is not obvious from the
- * source.** That table FETCHES `generateFullYearRanges(-yearsBack, 0)` — one
+ * **Software/Cloud Customers reads the same slice off a forecast type, which
+ * is not obvious from the source.** That table FETCHES `generateFullYearRanges(-yearsBack, 0)` — one
  * year more than Subscription — while its column definition
  * (`tableUtils.js:1091`) is `-(yearsBack - 1)`, identical to Subscription's. So
  * the source asks the backend for a year it then never renders. This port
@@ -507,6 +507,9 @@ export const pacificColumnRanges: ColumnRangesFor = (period, viewWindow, filters
  * and showed six Periods where the source shows five.
  *
  * A TTM Window has no such split: there the columns ARE `columnDateRanges`.
+ *
+ * Under a forecast type on a Calendar Window the Build draws its own forecast
+ * ranges instead; see `forecastBuildRanges`.
  */
 export function buildColumnRanges(
   period: MisPeriod,
@@ -535,7 +538,7 @@ export function summaryColumnRanges(
       isYtd: filters.isYtd ?? false,
       endingMonth: filters.endingMonth,
       yearsBack: 0,
-      yearsAhead: 2,
+      yearsAhead: FORECAST_YEARS_AHEAD,
       asOf,
     });
   }
@@ -557,6 +560,9 @@ function calendarColumnRanges(
   if (viewWindow === MIS_WINDOWS.TTM) return ranges;
   return ranges.slice(-Math.max(1, filters.yearsBack));
 }
+
+/** Forecast columns run from the current year to this many years after it. */
+const FORECAST_YEARS_AHEAD = 2;
 
 type ForecastRangeFilters = Partial<Pick<MisAppliedFilters, "forecast" | "isYtd" | "endingMonth">>;
 
@@ -589,7 +595,7 @@ function forecastBuildRanges(
   today: MisCivilDate,
 ): MisDateRange[] {
   const month = asksForAMonth(endingMonth) ? monthNumber(endingMonth) : null;
-  return [0, 1, 2].map((yearsAhead) => {
+  return Array.from({ length: FORECAST_YEARS_AHEAD + 1 }, (_, yearsAhead) => {
     const year = today.year + yearsAhead;
     const end =
       month == null
@@ -605,8 +611,8 @@ function forecastBuildRanges(
 }
 
 /**
- * The Software/Cloud Customers table's column ranges, which are the Build's
- * except on a Delayed type.
+ * The Software/Cloud Customers table's column ranges, which are the
+ * summaries' except on a Delayed type.
  *
  * On Delayed QRR the source shows **two historic quarters plus the current
  * day**, and on Delayed MRR **six historic months plus the current day**
@@ -617,8 +623,8 @@ function forecastBuildRanges(
  * it stands today.
  *
  * It is the one table with ranges of its own, which is why this is a wrapper
- * rather than a branch inside `buildColumnRanges` — the other three tables and
- * the Build itself must not see it.
+ * rather than a branch inside `summaryColumnRanges` — the two summaries and the
+ * Build itself must not see it.
  *
  * The source's branch names `quarterly` and `monthly` only, so a Delayed
  * ANNUALLY type has no special case and falls through: reproduced rather than

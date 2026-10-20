@@ -470,7 +470,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
  * screen where `BuildTable`'s row windowing actually runs.
  *
  * Its columns are `summaryColumnRanges`, the same slice the Subscription Build
- * takes. The fetch asks for one year more than those columns render
+ * takes except under a forecast type. The fetch asks for one year more than those columns render
  * (`generateFullYearRanges(-yearsBack, 0)` versus `-(yearsBack - 1)`), so
  * reading the fetch as the column list would put six Periods on screen where
  * five belong.
