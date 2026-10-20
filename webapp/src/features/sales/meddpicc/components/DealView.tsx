@@ -724,7 +724,7 @@ export default function DealView({
           )}
         </Stack>
       ) : (
-        <DealChat entries={chat} onChange={setChat} />
+        <DealChat opportunityId={deal.opportunityId} entries={chat} onChange={setChat} />
       )}
     </>
   );

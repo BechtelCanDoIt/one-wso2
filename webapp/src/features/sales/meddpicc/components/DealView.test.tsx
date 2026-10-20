@@ -36,6 +36,13 @@ vi.mock("@hooks/useAsgardeoSub", () => ({
   foldIdentityError: (query: unknown) => query,
 }));
 vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "token" }));
+// Ask AI's two requests, answered by each test.
+const ask = vi.hoisted(() => ({ searchLibrary: vi.fn(), askDeal: vi.fn() }));
+vi.mock("@features/sales/meddpicc/api/askAi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/sales/meddpicc/api/askAi")>()),
+  searchLibrary: ask.searchLibrary,
+  askDeal: ask.askDeal,
+}));
 const showSuccess = vi.fn();
 vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showSuccess, showError: vi.fn(), showWarning: vi.fn() }),
@@ -49,6 +56,8 @@ import DealView from "./DealView";
 import { useDeal } from "../api/useMeddpiccData";
 import { mockMeddpiccClient, resetMockStore } from "../testing/mockStore";
 import type { DealTab } from "../../util/salesPaths";
+import { HttpError } from "@api/http";
+import type { AskAnswer } from "../types";
 
 /** What DealPage does once the deal has loaded, without the page's shell around it. */
 function LoadedDeal({ opportunityId, tab }: { opportunityId: string; tab?: DealTab }) {
@@ -78,6 +87,8 @@ function renderPanel(opportunityId: string, tab?: DealTab) {
 const approveButton = () => screen.getByRole("button", { name: /^Approve all/ });
 
 beforeEach(() => {
+  ask.searchLibrary.mockReset();
+  ask.askDeal.mockReset();
   resetMockStore();
   showSuccess.mockClear();
 });
@@ -295,26 +306,72 @@ describe("DealView", { timeout: 20000 }, () => {
     spy.mockRestore();
   });
 
-  it("asks about the deal on the Ask AI tab, saying it is not connected yet", async () => {
+  it("answers a question from the opportunity and the Library, with its sources, and carries the thread", async () => {
+    const answer: AskAnswer = {
+      answer: "The CFO signs [1]. API Manager ships Helm charts [2].",
+      covered: true,
+      nextQuestion: null,
+      libraryUnavailable: false,
+      sources: [
+        { n: 1, group: "OPPORTUNITY", type: "CALL", title: "Architecture review", detail: "Call · Aisha Rahman (customer)",
+          quote: "Anything over budget goes to the CFO.", occurredAt: "2026-09-22T14:30:00Z", url: null, meetingId: 91013, offsetSeconds: 600 },
+        { n: 2, group: "LIBRARY", type: "LIBRARY", title: "API Manager on Kubernetes", detail: "Sales Library · Slide 4",
+          quote: "Helm charts for Kubernetes.", occurredAt: null, url: "https://drive.example/doc#slide=4", meetingId: null, offsetSeconds: null },
+      ],
+    };
+    ask.searchLibrary.mockResolvedValue([{ title: "API Manager on Kubernetes", content: "Helm charts.", link: null, page: 4, unitLabel: "Slide", documentId: "42" }]);
+    ask.askDeal.mockResolvedValue(answer);
     const user = userEvent.setup();
     renderPanel("006MOCK0000MERI", "ask");
     await screen.findByRole("heading", { name: "Ask about this opportunity" });
-    expect(screen.getByText("Preview")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "What's blocking the next stage?" }));
-
     const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
-    expect(within(log).getByText("What's blocking the next stage?")).toBeInTheDocument();
-    expect(within(log).getByText(/Ask AI isn't connected yet/)).toBeInTheDocument();
+    expect(await within(log).findByText(/The CFO signs/)).toBeInTheDocument();
+    expect(within(log).getByRole("link", { name: "Source 1" })).toHaveAttribute("href", expect.stringMatching(/#ask-.*-source-1$/));
+    const fromOpportunity = within(log).getByRole("region", { name: "From this opportunity" });
+    expect(within(fromOpportunity).getByRole("link", { name: /Architecture review/ })).toHaveAttribute("href", "/sales/meetings/91013?tab=meddpicc");
+    const fromLibrary = within(log).getByRole("region", { name: "From the Sales Library" });
+    expect(within(fromLibrary).getByRole("link", { name: /API Manager on Kubernetes/ })).toHaveAttribute("href", "https://drive.example/doc#slide=4");
 
-    // A typed follow-up, sent with Enter.
+    const [, first] = ask.askDeal.mock.calls[0];
+    expect(first).toEqual(expect.objectContaining({ question: "What's blocking the next stage?", history: [], libraryUnavailable: false }));
+    expect(first.librarySources).toHaveLength(1);
+
+    // A typed follow-up carries the first turn, and the Library search carries the first question.
     await user.type(screen.getByRole("textbox", { name: "Your question" }), "Who signs the contract?{Enter}");
-    expect(within(log).getByText("Who signs the contract?")).toBeInTheDocument();
-    expect(within(log).getAllByText(/Ask AI isn't connected yet/)).toHaveLength(2);
+    await waitFor(() => expect(ask.askDeal).toHaveBeenCalledTimes(2));
+    const [, second] = ask.askDeal.mock.calls[1];
+    expect(second.history).toEqual([{ question: "What's blocking the next stage?", answer: answer.answer }]);
+    expect(ask.searchLibrary.mock.calls[1][0]).toBe("Who signs the contract? | What's blocking the next stage?");
 
-    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    await user.click(await screen.findByRole("button", { name: "New conversation" }));
     expect(within(log).queryByText("Who signs the contract?")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Summarise where this opportunity stands." })).toBeInTheDocument();
+  });
+
+  it("answers without the Library when it can't be searched, and says so", async () => {
+    ask.searchLibrary.mockResolvedValue(null);
+    ask.askDeal.mockResolvedValue({ answer: "Not covered.", covered: false, nextQuestion: "Who signs off the purchase?",
+      libraryUnavailable: true, sources: [] } satisfies AskAnswer);
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI", "ask");
+    await user.click(await screen.findByRole("button", { name: "Who is the economic buyer, and how do we know?" }));
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
+    expect(await within(log).findByText("Who signs off the purchase?")).toBeInTheDocument();
+    expect(within(log).getByText(/Library unavailable/)).toBeInTheDocument();
+    expect(ask.askDeal.mock.calls[0][1]).toEqual(expect.objectContaining({ librarySources: [], libraryUnavailable: true }));
+  });
+
+  it("says when Ask AI isn't connected, or the question was too many", async () => {
+    ask.searchLibrary.mockResolvedValue([]);
+    ask.askDeal.mockRejectedValueOnce(new HttpError("/ask", 404, "")).mockRejectedValueOnce(new HttpError("/ask", 429, ""));
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI", "ask");
+    await user.click(await screen.findByRole("button", { name: "What's blocking the next stage?" }));
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
+    expect(await within(log).findByText("Ask AI isn't connected yet, so this question wasn't answered.")).toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Your question" }), "Again?{Enter}");
+    expect(await within(log).findByText(/asked a lot in the last minute/)).toBeInTheDocument();
   });
 
   it("filters the activity list and the journey by source with the chips", async () => {

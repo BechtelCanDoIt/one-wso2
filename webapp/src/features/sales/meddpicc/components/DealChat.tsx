@@ -15,14 +15,25 @@
 // under the License.
 
 import { useEffect, useRef, useState, type KeyboardEvent } from "react";
-import { Box, Button, Chip, IconButton, InputBase, Paper, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Chip, CircularProgress, IconButton, InputBase, Paper, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ArrowUpRightIcon, RotateCcwIcon, SendHorizontalIcon, SparklesIcon } from "@wso2/oxygen-ui-icons-react";
+import { HttpError } from "@api/http";
+import { isSmartSearchBackendConfigured } from "@config/apiConfig";
+import { useAccessToken } from "@hooks/useAccessToken";
+import { askDeal, libraryQuery, searchLibrary } from "../api/askAi";
+import type { AskAnswer, AskRequest } from "../types";
+import AskAnswerView from "./AskAnswerView";
 
-/** One message in the thread. Until Ask AI is connected, each question is answered with a notice. */
-export interface ChatEntry {
-  role: "user" | "notice";
-  text: string;
-}
+/** One message in the thread: a question, an answer, or a notice when there is no answer. */
+export type ChatEntry =
+  | { role: "user"; text: string }
+  | { role: "answer"; id: string; answer: AskAnswer }
+  | { role: "notice"; text: string };
+
+/** How long a question may be, as the backend takes it. */
+const MAX_QUESTION = 1000;
+/** How many earlier turns go with a question, for follow-ups. */
+const HISTORY_TURNS = 6;
 
 const ASK_SUGGESTIONS = [
   "Summarise where this opportunity stands.",
@@ -32,33 +43,80 @@ const ASK_SUGGESTIONS = [
   "What should I ask on the next call?",
 ];
 
-/** What a question is answered with until the backend answers it. */
-const NOT_CONNECTED = "Ask AI isn't connected yet, so this question wasn't sent anywhere. Answers will come from this opportunity's record once it is.";
+/** Said instead of an answer by a backend that does not answer questions yet. */
+const NOT_CONNECTED = "Ask AI isn't connected yet, so this question wasn't answered.";
+
+/** What to say when no answer came back. */
+function noAnswer(error: unknown): string {
+  if (error instanceof HttpError) {
+    if (error.status === 404) return NOT_CONNECTED;
+    if (error.status === 429) return "You've asked a lot in the last minute. Try again in a moment.";
+    if (error.status === 504) return "That took too long to answer. Try a narrower question.";
+    if (error.status === 400) return "That question couldn't be sent. Try a shorter one.";
+  }
+  return "Ask AI couldn't answer just now. Try again.";
+}
+
+/** The earlier turns that go with a question: each question and its answer, the last few. */
+function historyOf(entries: ChatEntry[]): AskRequest["history"] {
+  const turns: AskRequest["history"] = [];
+  entries.forEach((entry, i) => {
+    const next = entries[i + 1];
+    if (entry.role === "user" && next?.role === "answer") turns.push({ question: entry.text, answer: next.answer.answer });
+  });
+  return turns.slice(-HISTORY_TURNS);
+}
 
 /**
- * Ask anything about this opportunity. The screen is here ahead of the backend: a
- * question is shown, then answered with a notice that Ask AI is not connected yet. Nothing
- * is sent anywhere, and nothing here writes to Salesforce.
- *
- * Once connected, answers will come from the deal's own record (its fields, the AI's
- * proposals, the quotes and who said them, the activity), each citing the quotes it used.
+ * Ask anything about this opportunity. Each question is first searched in the Sales Library
+ * as the signed-in user (only what they may see), then answered by Echo from the
+ * opportunity's own record and those passages, every claim citing its source: the
+ * opportunity's first, the Library's for product facts. Nothing here writes to Salesforce.
  *
  * The thread is held by the deal page, so it survives switching tabs; it is not kept
- * after the page is left.
+ * after the page is left, and nothing asked is stored.
  */
-export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; onChange: (entries: ChatEntry[]) => void }) {
+export default function DealChat({
+  opportunityId,
+  entries,
+  onChange,
+}: {
+  opportunityId: string;
+  entries: ChatEntry[];
+  onChange: (entries: ChatEntry[]) => void;
+}) {
+  const getAccessToken = useAccessToken();
   const [draft, setDraft] = useState("");
+  const [step, setStep] = useState<"library" | "answer" | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView?.({ block: "end", behavior: "smooth" });
-  }, [entries.length]);
+  }, [entries.length, step]);
 
-  const send = (question: string) => {
-    const text = question.trim();
-    if (!text) return;
-    onChange([...entries, { role: "user", text }, { role: "notice", text: NOT_CONNECTED }]);
+  const send = async (question: string) => {
+    const text = question.trim().slice(0, MAX_QUESTION);
+    if (!text || step) return;
+    const asked: ChatEntry[] = [...entries, { role: "user", text }];
+    onChange(asked);
     setDraft("");
+    try {
+      const token = await getAccessToken();
+      const earlier = entries.flatMap((e) => (e.role === "user" ? [e.text] : []));
+      setStep(isSmartSearchBackendConfigured() ? "library" : "answer");
+      const passages = await searchLibrary(libraryQuery(text, earlier), token);
+      setStep("answer");
+      const answer = await askDeal(
+        opportunityId,
+        { question: text, history: historyOf(entries), librarySources: passages ?? [], libraryUnavailable: passages === null },
+        token,
+      );
+      onChange([...asked, { role: "answer", id: `${Date.now()}`, answer }]);
+    } catch (error) {
+      onChange([...asked, { role: "notice", text: noAnswer(error) }]);
+    } finally {
+      setStep(null);
+    }
   };
 
   const asked = new Set(entries.filter((e) => e.role === "user").map((e) => e.text));
@@ -68,7 +126,7 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
     // Not while an input method is composing: there Enter confirms a character.
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
-      send(draft);
+      void send(draft);
     }
   };
 
@@ -96,11 +154,10 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
             <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 700 }}>
               Ask about this opportunity
             </Typography>
-            <Chip label="Preview" size="small" color="primary" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600 }} />
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-            Answers come from what Echo has on this opportunity: its MEDDPICC, the AI&apos;s proposals, what was said on calls
-            and in emails, and its activity. Each answer shows the quotes it used.
+            Answers come from this opportunity first (its MEDDPICC, what was said on calls and in emails, its activity) and
+            from the Sales Library for product questions. Every answer lists the sources it used.
           </Typography>
         </Box>
       </Stack>
@@ -117,7 +174,8 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
                 key={q}
                 variant="outlined"
                 color="inherit"
-                onClick={() => send(q)}
+                onClick={() => void send(q)}
+                disabled={step !== null}
                 endIcon={<ArrowUpRightIcon size={14} />}
                 sx={{
                   justifyContent: "space-between",
@@ -139,7 +197,19 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
         )}
 
         {entries.map((entry, i) =>
-          entry.role === "user" ? (
+          entry.role === "answer" ? (
+            <Box key={i} sx={{ alignSelf: "flex-start", maxWidth: "92%", width: "100%" }}>
+              <Stack direction="row" spacing={0.5} sx={{ alignItems: "center", mb: 0.5, color: "primary.main" }}>
+                <SparklesIcon size={13} aria-hidden />
+                <Typography variant="caption" sx={{ fontWeight: 700 }}>
+                  Echo AI
+                </Typography>
+              </Stack>
+              <Box sx={{ border: 1, borderColor: "divider", px: 1.75, py: 1.25, borderRadius: 2.5, borderTopLeftRadius: 6 }}>
+                <AskAnswerView answer={entry.answer} answerId={entry.id} />
+              </Box>
+            </Box>
+          ) : entry.role === "user" ? (
             <Box key={i} sx={{ alignSelf: "flex-end", maxWidth: "80%" }}>
               <Box sx={{ bgcolor: "primary.main", color: "primary.contrastText", px: 1.75, py: 1, borderRadius: 2.5, borderBottomRightRadius: 6 }}>
                 <Typography variant="body2" sx={{ whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
@@ -163,19 +233,26 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
             </Box>
           ),
         )}
+        {step && (
+          <Stack direction="row" spacing={1} sx={{ alignSelf: "flex-start", alignItems: "center", color: "text.secondary" }} role="status">
+            <CircularProgress size={14} />
+            <Typography variant="body2">{step === "library" ? "Searching the Library…" : "Writing the answer…"}</Typography>
+          </Stack>
+        )}
         <div ref={endRef} />
       </Stack>
 
       {entries.length > 0 && (
         <Stack direction="row" sx={{ flexWrap: "wrap", gap: 0.75, mb: 1.25, alignItems: "center" }}>
           {followUps.map((q) => (
-            <Chip key={q} label={q} size="small" variant="outlined" onClick={() => send(q)} />
+            <Chip key={q} label={q} size="small" variant="outlined" onClick={() => void send(q)} disabled={step !== null} />
           ))}
           <Button
             size="small"
             variant="text"
             startIcon={<RotateCcwIcon size={13} />}
             onClick={() => onChange([])}
+            disabled={step !== null}
             sx={{ textTransform: "none", ml: "auto" }}
           >
             New conversation
@@ -208,14 +285,14 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={onKeyDown}
           placeholder={entries.length ? "Ask a follow-up" : "Ask anything about this opportunity"}
-          inputProps={{ "aria-label": "Your question", maxLength: 2000 }}
+          inputProps={{ "aria-label": "Your question", maxLength: MAX_QUESTION }}
           sx={{ py: 0.75, fontSize: "0.9rem" }}
         />
         <Tooltip title="Send (Enter)" arrow>
           <span>
             <IconButton
-              onClick={() => send(draft)}
-              disabled={!draft.trim()}
+              onClick={() => void send(draft)}
+              disabled={!draft.trim() || step !== null}
               aria-label="Send question"
               sx={{
                 color: "primary.contrastText",
@@ -230,8 +307,8 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
         </Tooltip>
       </Box>
       <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1 }}>
-        Answers can be wrong: check the quotes. Asking changes nothing in Salesforce; changes are approved on the
-        MEDDPICC tab.
+        Answers can be wrong: check the sources. Asking changes nothing in Salesforce, and nothing asked is kept;
+        changes are approved on the MEDDPICC tab.
       </Typography>
     </Paper>
   );
