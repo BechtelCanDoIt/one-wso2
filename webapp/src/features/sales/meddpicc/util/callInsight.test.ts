@@ -119,7 +119,7 @@ describe("groupEvidence", () => {
     offsetSeconds,
     original: quote({ quote: quoteText, offsetSeconds }),
     proposal: fieldKey
-      ? { fieldKey, fieldLabel: fieldKey, value: "x", confidence: 0.8, pending: true }
+      ? { fieldKey, fieldLabel: fieldKey, value: "x", confidence: 0.8, pending: true, notInSalesforce: false }
       : undefined,
   });
 

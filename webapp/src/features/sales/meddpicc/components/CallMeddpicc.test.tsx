@@ -20,7 +20,7 @@ import userEvent from "@testing-library/user-event";
 import type { CallMeddpicc } from "../api/useCallMeddpicc";
 import type { DealDetail, MeetingCoverage } from "../types";
 import { callInsight } from "../util/callInsight";
-import { coverage as makeCoverage, detail as makeDetail } from "../util/callInsight.fixtures";
+import { coverage as makeCoverage, detail as makeDetail, field, quote } from "../util/callInsight.fixtures";
 import CallMeddpiccStrip from "./CallMeddpiccStrip";
 import CallMeddpiccTab from "./CallMeddpiccTab";
 
@@ -114,6 +114,31 @@ describe("CallMeddpiccTab", () => {
     expect(section).toHaveTextContent("To review");
     await userEvent.click(within(section).getByRole("button", { name: "Play from 12:40, Lars Haugen" }));
     expect(onSeek).toHaveBeenCalledWith(760);
+  });
+
+  it("says an approved suggestion is kept in Echo when Salesforce doesn't have the field yet", () => {
+    const approved = { value: "Ingrid Solberg", rationale: null, confidence: 0.86, evidence: [quote()], pending: false };
+    const { unmount } = render(
+      <CallMeddpiccTab
+        call={callOf(makeCoverage(), makeDetail({ fields: [field({ notInSalesforce: true, proposal: approved, state: "FILLED" })] }))}
+        focusLetter={null}
+        onSeek={() => {}}
+        onOpenDeal={() => {}}
+      />,
+    );
+    expect(screen.getByText("Kept in Echo")).toBeInTheDocument();
+    expect(screen.queryByText("Matches Salesforce")).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <CallMeddpiccTab
+        call={callOf(makeCoverage(), makeDetail({ fields: [field({ salesforceValue: "Ingrid Solberg", proposal: approved, state: "FILLED" })] }))}
+        focusLetter={null}
+        onSeek={() => {}}
+        onOpenDeal={() => {}}
+      />,
+    );
+    expect(screen.getByText("Matches Salesforce")).toBeInTheDocument();
   });
 
   it("lists what was missed and what to ask next", () => {

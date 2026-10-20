@@ -212,7 +212,7 @@ function Suggestion({ proposal }: { proposal: CallProposal }) {
             {proposal.fieldLabel}
           </Typography>
           <Chip
-            label={proposal.pending ? "To review" : "Matches Salesforce"}
+            label={proposal.pending ? "To review" : proposal.notInSalesforce ? "Kept in Echo" : "Matches Salesforce"}
             size="small"
             color={proposal.pending ? "warning" : "default"}
             variant="outlined"

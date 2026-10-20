@@ -48,6 +48,8 @@ export interface CallEvidence {
     value: FieldValue | RoleProposalValue;
     confidence: number;
     pending: boolean;
+    /** The field is not in Salesforce yet: an approved value is kept in Echo, matching nothing there. */
+    notInSalesforce: boolean;
   };
 }
 
@@ -149,6 +151,7 @@ export function callInsight(
             value: proposal.value,
             confidence: proposal.confidence,
             pending: proposal.pending,
+            notInSalesforce: field.notInSalesforce,
           },
         });
       }
