@@ -33,7 +33,7 @@ export default function AmplifyShell({
   useDocumentTitle(title);
   const configured = isAmplifyBackendConfigured();
   return (
-    <Box sx={{ maxWidth: 1040 }}>
+    <Box>
       <Typography component="h1" variant="h5" sx={{ mb: 0.5 }}>
         {title}
       </Typography>
