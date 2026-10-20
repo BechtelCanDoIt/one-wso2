@@ -1104,6 +1104,29 @@ describe("taking the Build out of the browser", () => {
     expect(sheet.getRow(1).getCell(1).value).toBe("All amounts in USD");
   });
 
+  it("exports only the filtered customers, in the sorted order, with the Total re-added", async () => {
+    customers.value = customerBook([
+      { ...NORTHWIND, id: "a1", name: "Acme", arrGrandTotal: 10 },
+      { ...NORTHWIND, id: "a2", name: "Acme West", arrGrandTotal: 30 },
+      { ...NORTHWIND, id: "a3", name: "Contoso", arrGrandTotal: 500 },
+    ]);
+    renderPage("?table=customers");
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Account Name/ }));
+    await userEvent.type(await screen.findByLabelText("Filter Account Name"), "acme");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument());
+    await userEvent.click(
+      within(screen.getByRole("columnheader", { name: /^Total/ })).getByRole("button", { name: "Total" }),
+    );
+
+    const sheet = await exportedSheet("Customers");
+    const labels: string[] = [];
+    sheet.eachRow((row) => labels.push(String(row.getCell(1).value ?? "").trim()));
+    expect(labels).not.toContain("Contoso");
+    expect(labels.indexOf("Acme West")).toBeLessThan(labels.indexOf("Acme"));
+    expect(figureAt(sheet, "Total", "Total")).toBe(40);
+  });
+
   it("exports the Region Summary at units while the screen shows thousands", async () => {
     renderPage("?table=region-summary&scale=k");
     const sheet = await exportedSheet("Region Summary");
@@ -1375,10 +1398,10 @@ describe("sorting a table from its header", () => {
       { ...NORTHWIND, id: "a3", name: "Zeta Corp" },
     ]);
     renderPage("?table=customers");
-    const nameHeader = screen.getByRole("columnheader", { name: "Account Name" });
-    await userEvent.click(within(nameHeader).getByRole("button"));
+    const nameHeader = screen.getByRole("columnheader", { name: /^Account Name/ });
+    await userEvent.click(within(nameHeader).getByRole("button", { name: "Account Name" }));
     expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Zeta Corp", "Northwind Bank", "Contoso"]);
-    await userEvent.click(within(nameHeader).getByRole("button"));
+    await userEvent.click(within(nameHeader).getByRole("button", { name: "Account Name" }));
     expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Contoso", "Northwind Bank", "Zeta Corp"]);
   });
 
@@ -1427,6 +1450,108 @@ describe("sorting a table from its header", () => {
     expect(
       screen.getAllByRole("columnheader").some((header) => header.hasAttribute("aria-sort")),
     ).toBe(false);
+  });
+});
+
+describe("filtering the Customers table by an identity column", () => {
+  const BOOK = [
+    NORTHWIND,
+    { ...NORTHWIND, id: "a2", name: "Contoso", accountOwnerName: "Jane Roe", apimBuTotal: 100_000 },
+    { ...NORTHWIND, id: "a3", name: "North Star Ltd", accountOwnerName: "Jim Poe", apimBuTotal: 7_000 },
+  ];
+  const names = () =>
+    within(screen.getByRole("table", { name: /Customers/, hidden: true }))
+      .getAllByRole("row", { hidden: true })
+      .slice(2)
+      .map((row) => row.children[0]?.textContent ?? "");
+  const filterButton = (column: string) => screen.getByRole("button", { name: new RegExp(`^Filter by ${column}`), hidden: true });
+  const filterBy = async (column: string, text: string) => {
+    await userEvent.click(filterButton(column));
+    await userEvent.type(await screen.findByLabelText(`Filter ${column}`), text);
+  };
+
+  beforeEach(() => {
+    customers.value = customerBook(BOOK);
+  });
+
+  it("narrows the rows to those containing what was typed, in any case", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "NORTH");
+    expect(names()).toEqual(["Total", "Northwind Bank", "North Star Ltd"]);
+  });
+
+  it("filters any identity column, and all the filtered ones together", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Owner", "jane");
+    expect(names()).toEqual(["Total", "Contoso"]);
+    await userEvent.keyboard("{Escape}");
+    await filterBy("Account Name", "north");
+    expect(names()).toEqual(["Total"]);
+  });
+
+  it("makes the Total equal the sum of the customers left", async () => {
+    renderPage("?table=customers");
+    const total = () =>
+      within(screen.getByRole("table", { name: /Customers/, hidden: true })).getAllByRole("row", { hidden: true })[2];
+    expect(within(total()).getByText("507,000.00")).toBeInTheDocument();
+    await filterBy("Account Name", "north");
+    expect(within(total()).getByText("407,000.00")).toBeInTheDocument();
+    expect(within(total()).queryByText("507,000.00")).not.toBeInTheDocument();
+  });
+
+  it("shows which column is filtered, and clears it", async () => {
+    renderPage("?table=customers");
+    expect(filterButton("Account Name")).not.toHaveAccessibleName(/filtered/);
+    await filterBy("Account Name", "contoso");
+    expect(filterButton("Account Name")).toHaveAccessibleName(/filtered by "contoso"/);
+    expect(filterButton("Account Owner")).not.toHaveAccessibleName(/filtered/);
+    await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    expect(names()).toEqual(["Total", "Northwind Bank", "Contoso", "North Star Ltd"]);
+    expect(filterButton("Account Name")).not.toHaveAccessibleName(/filtered/);
+  });
+
+  it("is operable from the keyboard, and labelled", async () => {
+    renderPage("?table=customers");
+    filterButton("Account Name").focus();
+    await userEvent.keyboard("{Enter}");
+    const field = await screen.findByLabelText("Filter Account Name");
+    expect(field).toHaveFocus();
+    await userEvent.keyboard("star");
+    expect(names()).toEqual(["Total", "North Star Ltd"]);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument();
+    expect(names()).toEqual(["Total", "North Star Ltd"]);
+  });
+
+  it("sorts what is left", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "north");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(
+      within(screen.getByRole("columnheader", { name: /Account Name/ })).getByRole("button", { name: "Account Name" }),
+    );
+    expect(names()).toEqual(["Total", "Northwind Bank", "North Star Ltd"]);
+  });
+
+  it("starts again when the applied filters change", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "contoso");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument());
+    await userEvent.click(screen.getByLabelText("ARR Type"));
+    await userEvent.click(await screen.findByRole("option", { name: "Only Closed Won ARR" }));
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(names()).toEqual(["Total", "Northwind Bank", "Contoso", "North Star Ltd"]);
+    expect(filterButton("Account Name")).not.toHaveAccessibleName(/filtered/);
+  });
+
+  it("starts again on another Table", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "contoso");
+    await userEvent.keyboard("{Escape}");
+    await switchTable("BU Build");
+    await switchTable("Customers");
+    expect(names()).toHaveLength(4);
   });
 });
 

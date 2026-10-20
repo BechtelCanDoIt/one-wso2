@@ -19,6 +19,7 @@ import { Box, Skeleton, Typography } from "@wso2/oxygen-ui";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import MisShell from "../components/MisShell";
+import { filterRows, useBuildFilters } from "../components/buildTableFilter";
 import { sortRows, sortValueReader, useBuildSort } from "../components/buildTableSort";
 import BuildTable, { type BuildCellFor } from "../components/BuildTable";
 import { MAX_BODY_HEIGHT } from "../components/buildTableSx";
@@ -535,12 +536,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
       new Map((column.accounts ?? []).map((account) => [account.id, account])),
     ]),
   );
-  // The Total row adds a column down the whole book, so it needs the LIST and
-  // not the by-id map above. Absent for a column that never answered, which is
-  // what keeps its cells blank rather than zero.
-  const accountsByColumn = new Map<string, readonly AccountsResponse[] | undefined>(
-    book.columns.map((column) => [column.label, column.accounts]),
-  );
 
   // The column hands back its own reader — `BuildTable` is generic over the
   // caller's column type, so this is the very object `leadColumns` holds and
@@ -548,6 +543,24 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // difference between one call and seventeen comparisons per identity cell.
   const leadCell = (row: { id: string }, column: CustomerLeadColumn) =>
     customerIdentityText(row.id, accountById.get(row.id), column);
+  /** What an identity column says for a row, which is what a filter and a sort read. */
+  const identityText = (row: BuildRow, key: string): string =>
+    key === leadColumns[0].key
+      ? row.label
+      : leadCell(row, leadColumns.find((column) => column.key === key)!);
+
+  const { filters, setFilter } = useBuildFilters(view.filters);
+  const filteredRows = filterRows(rows, filters, identityText);
+  // The Total row adds a column down the customers that are LEFT, so it needs
+  // the LIST and not the by-id map above. Absent for a column that never
+  // answered, which is what keeps its cells blank rather than zero.
+  const keptIds = new Set(filteredRows.map((row) => row.id));
+  const accountsByColumn = new Map<string, readonly AccountsResponse[] | undefined>(
+    book.columns.map((column) => [
+      column.label,
+      filteredRows === rows ? column.accounts : column.accounts?.filter((account) => keptIds.has(account.id)),
+    ]),
+  );
 
   // A Customers Period is headed "As of {end}" — a balance at a date, like the
   // Exit ARR summaries — not "{opening} - {end}". Read off the range label by
@@ -613,11 +626,11 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   };
   const { sort, toggle } = useBuildSort(view.filters);
   const shownRows = sortRows(
-    rows,
+    filteredRows,
     sort,
     sortValueReader({
       figure: (row, groupKey, subKey) => rawFigure(row, { key: groupKey, label: groupKey }, subKey),
-      lead: (row, key) => (key === leadColumns[0].key ? row.label : leadCell(row, leadColumns.find((column) => column.key === key)!)),
+      lead: identityText,
     }),
   );
 
@@ -718,6 +731,8 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
         rows={shownRows}
         sort={sort}
         onSort={toggle}
+        filters={filters}
+        onFilter={setFilter}
         cell={cell}
         grandTotalKeys={grandTotalKeys}
       />

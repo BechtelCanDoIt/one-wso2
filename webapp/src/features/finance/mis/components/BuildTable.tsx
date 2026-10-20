@@ -43,6 +43,8 @@ import {
   leadHeadCellSx,
   sectionRowSx,
 } from "./buildTableSx";
+import BuildColumnFilter from "./BuildColumnFilter";
+import type { BuildFilters } from "./buildTableFilter";
 import { sortsColumn, type BuildSort, type BuildSortColumn } from "./buildTableSort";
 import { gridFrameSx } from "./misLookTokens";
 
@@ -192,6 +194,10 @@ export interface BuildTableProps<L extends BuildLeadColumn = BuildLeadColumn> {
   sort?: BuildSort | null;
   /** Makes every column header a sort button. Without it the headers are plain. */
   onSort?: (column: BuildSortColumn) => void;
+  /** The text each identity column is filtered by. */
+  filters?: BuildFilters;
+  /** Gives every identity column a text filter. Without it the headers have none. */
+  onFilter?: (key: string, text: string) => void;
 }
 
 export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>({
@@ -212,6 +218,8 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
   fill = false,
   sort = null,
   onSort,
+  filters,
+  onFilter,
 }: BuildTableProps<L>) {
   // The Period label stands alone when it has one sub-column under it (a Build
   // with one ARR type); the sub-header row only exists with several. Kept in
@@ -379,7 +387,18 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                     style={{ width: column.width, minWidth: column.width }}
                     sx={[leadHeadCellSx(leadOffsets[index])]}
                   >
-                    {sortable(column.label, { kind: "lead", key: column.key })}
+                    {onFilter ? (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        {sortable(column.label, { kind: "lead", key: column.key })}
+                        <BuildColumnFilter
+                          label={column.label}
+                          text={filters?.[column.key] ?? ""}
+                          onChange={(text) => onFilter(column.key, text)}
+                        />
+                      </Box>
+                    ) : (
+                      sortable(column.label, { kind: "lead", key: column.key })
+                    )}
                   </ListingTable.Cell>
                 ))}
                 {columnGroups.map((group) => (
