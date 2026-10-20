@@ -266,6 +266,19 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("tab", { name: /^MEDDPICC, \d+ to review$/ })).toBeInTheDocument();
   });
 
+  it("shows Salesforce's deal score in the header", async () => {
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+    expect(screen.getByText("Deal score")).toBeInTheDocument();
+    expect(screen.getByLabelText("Deal score 28.3, Weak")).toBeInTheDocument();
+  });
+
+  it("shows a dash for a deal with no score", async () => {
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    expect(screen.getByLabelText("No deal score")).toBeInTheDocument();
+  });
+
   it("re-reads the deal from Salesforce on Refresh, and shows what came back", async () => {
     const user = userEvent.setup();
     const realDeal = mockMeddpiccClient.deal;

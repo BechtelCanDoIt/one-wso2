@@ -64,6 +64,7 @@ import { activityOf, describeSources, journeyOf, kindOf, sourcesOf } from "../ut
 import { defaultGate, gateSummaries, sectionsFor } from "../util/dealSections";
 import { useNow } from "../../util/useNow";
 import DealJourney, { KindMark, QUIET_AFTER_DAYS } from "./DealJourney";
+import DealScore from "./DealScore";
 import { KINDS } from "../util/timelineKinds";
 import StagePath from "./StagePath";
 import DealChat, { type ChatEntry } from "./DealChat";
@@ -298,7 +299,7 @@ export default function DealView({
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" },
+            gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(6, minmax(0, 1fr))" },
             gap: 1.25,
           }}
         >
@@ -317,6 +318,7 @@ export default function DealView({
             detail={describeSources(sources) || undefined}
             warn={quietDays !== null && quietDays > QUIET_AFTER_DAYS}
           />
+          <Fact label="Deal score" value={<DealScore score={deal.dealScore} />} detail="From Salesforce" />
         </Box>
 
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, mt: 2 }}>
