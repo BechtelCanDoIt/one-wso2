@@ -48,11 +48,9 @@ describe("DealFlags", () => {
 });
 
 describe("DealFlagMarker", () => {
-  it("is reachable by keyboard and named by the flags' details, not the count", () => {
+  it("is reachable by keyboard, named briefly by the flags' titles", () => {
     render(<DealFlagMarker flags={[stuck, quiet]} />);
-    const marker = screen.getByRole("button", {
-      name: "Needs attention: Stuck in stage: In Qualify for 64 days. Gone quiet: No call, email or task in 26 days.",
-    });
+    const marker = screen.getByRole("button", { name: "Needs attention: Stuck in stage, Gone quiet" });
     expect(marker).toHaveAttribute("tabindex", "0");
     expect(marker).toHaveTextContent("2");
   });
