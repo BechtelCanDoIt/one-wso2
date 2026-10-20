@@ -130,6 +130,21 @@ export interface DealSummary {
   timeline?: TimelineMark[];
   /** The deal's start and the stages Echo saw it in. Absent from an older backend. */
   journey?: Journey;
+  /**
+   * Salesforce's deal-health score, 0-100: Weak below 50, Moderate below 70, Strong from 70.
+   * Null when Salesforce has none; absent from an older backend.
+   */
+  dealScore?: number | null;
+  /** What needs attention on an open deal, most urgent first. Absent from an older backend. */
+  flags?: DealFlag[];
+}
+
+/** One rule-based flag on a deal, with what to do about it. */
+export interface DealFlag {
+  code: "CLOSING_WITH_GAPS" | "STUCK_IN_STAGE" | "GONE_QUIET";
+  title: string;
+  detail: string;
+  nextStep: string;
 }
 
 /** What a timeline entry was: a customer call, an internal discussion, an email, or a Salesforce activity. */
