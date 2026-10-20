@@ -17,6 +17,10 @@
 import { describe, expect, it } from "vitest";
 import type { BuildRow } from "../components/buildTableModel";
 import { MIS_ROW_LABELS } from "../util/misMoney";
+import { sortRows } from "../components/buildTableSort";
+import { misWorkbookCsv } from "./misCsv";
+import { misPdfTable } from "./misPdf";
+import { MIS_SCALES } from "../util/misViewVocabulary";
 import { MIS_NUMBER_FORMATS } from "./misWorkbook";
 import { misBuildSheet, type MisBuildSheetInput } from "./misBuildWorkbook";
 
@@ -158,5 +162,47 @@ describe("a Build, as a sheet", () => {
     const sheet = misBuildSheet({ ...INPUT, value: () => "N/A" });
     expect(at(sheet, 6, 2).value).toBe("N/A");
     expect(at(sheet, 6, 2).numFmt).toBeUndefined();
+  });
+});
+
+describe("a sorted Build, as a file", () => {
+  const MOVEMENT: readonly BuildRow[] = [
+    {
+      id: "arr-movement",
+      label: "ARR movement",
+      children: [
+        { id: "opening-arr", label: "Opening ARR", emphasis: true },
+        { id: "new-arr", label: "New" },
+        { id: "expansions", label: "Expansions" },
+        { id: "lost", label: "Lost" },
+      ],
+    },
+  ];
+  const AMOUNTS: Record<string, number> = { "opening-arr": 100, "new-arr": 5, expansions: 9, lost: 3 };
+  const value = (row: BuildRow) => AMOUNTS[row.id];
+  const sorted = sortRows(MOVEMENT, { column: { kind: "figure", groupKey: "2025", subKey: "amount" }, direction: "desc" }, value);
+  const sheet = misBuildSheet({
+    ...INPUT,
+    columnGroups: [{ key: "2025", label: "2025" }],
+    rows: sorted,
+    value,
+  });
+  const ORDER = ["ARR movement", "Opening ARR", "Expansions", "New", "Lost"];
+
+  it("writes the Excel rows in the displayed order", () => {
+    const labels = sheet.rows
+      .map((row) => String(row.cells[0]?.value ?? "").trim())
+      .filter((label) => ORDER.includes(label));
+    expect(labels).toEqual(ORDER);
+  });
+
+  it("writes the CSV rows in the displayed order", () => {
+    const lines = misWorkbookCsv({ sheets: [sheet] }).split("\r\n");
+    expect(lines.slice(-4).map((line) => line.split(",")[0].trim())).toEqual(ORDER.slice(1));
+  });
+
+  it("prints the PDF rows in the displayed order", () => {
+    const { body } = misPdfTable({ sheets: [sheet] }, MIS_SCALES.UNITS);
+    expect(body.slice(-4).map((row) => row[0].trim())).toEqual(ORDER.slice(1));
   });
 });
