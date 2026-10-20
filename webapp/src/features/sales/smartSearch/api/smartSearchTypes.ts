@@ -49,6 +49,8 @@ export interface SmartSearchContent {
   tags?: string[];
   /** When it was added to Pitstop, as "YYYY-MM-DD HH:MM:SS.ffffff" in UTC. */
   createdOn: string;
+  /** When an admin last verified it, in the same format. Missing on older backends, and null when never set. */
+  lastVerifiedOn?: string | null;
   contentType: string;
   contentSubtype: string | null;
   thumbnail?: string;

@@ -14,13 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { JSX } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useEffect, useState, type JSX, type ReactNode } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router";
 import { Alert, Box } from "@wso2/oxygen-ui";
 import PerspectiveHeader from "@components/perspective-header/PerspectiveHeader";
 import { isSmartSearchBackendConfigured } from "@config/apiConfig";
 import LibraryResults from "../components/LibraryResults";
 import LibraryStart from "../components/LibraryStart";
+import { isRefreshOfThisAddress, markRefreshHandled } from "../util/libraryReload";
 import { useRecentSearches } from "../util/useLibraryStorage";
 import {
   LIBRARY_MAX_QUERY_LENGTH,
@@ -29,12 +30,29 @@ import {
   libraryPath,
 } from "../smartSearchPaths";
 
+// The page is centred and capped, so it looks the same with the side menu open or collapsed, and on wide screens.
+const PAGE_MAX_WIDTH = 1200;
+
+function PageFrame({ children }: { readonly children: ReactNode }): JSX.Element {
+  return <Box sx={{ width: "100%", maxWidth: PAGE_MAX_WIDTH, mx: "auto" }}>{children}</Box>;
+}
+
 /** The question in the address; what the page shows follows from it alone. */
 function LibraryContent(): JSX.Element {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const recent = useRecentSearches();
-  const query = (params.get(LIBRARY_QUERY_PARAM) ?? "").trim().slice(0, LIBRARY_MAX_QUERY_LENGTH);
+  const location = useLocation();
+  const [refreshedOn] = useState(() => (isRefreshOfThisAddress() ? location.key : null));
+  const ignoreQuestion = refreshedOn !== null && location.key === refreshedOn;
+  const query = ignoreQuestion ? "" : (params.get(LIBRARY_QUERY_PARAM) ?? "").trim().slice(0, LIBRARY_MAX_QUERY_LENGTH);
+
+  // A refresh lands on the start screen, so the address drops the question too.
+  useEffect(() => {
+    if (refreshedOn === null) return;
+    markRefreshHandled();
+    navigate(SMART_SEARCH_LIBRARY_PATH, { replace: true });
+  }, [refreshedOn, navigate]);
 
   const search = (question: string) => {
     recent.add(question);
@@ -56,7 +74,7 @@ function LibraryContent(): JSX.Element {
 export default function LibraryPage(): JSX.Element {
   if (!isSmartSearchBackendConfigured()) {
     return (
-      <Box>
+      <PageFrame>
         <PerspectiveHeader
           title="Library"
           subtitle="Ask a question in plain language. The Library finds the exact page, slide, sheet or video moment in Pitstop content that answers it."
@@ -65,8 +83,12 @@ export default function LibraryPage(): JSX.Element {
           The Library isn&apos;t connected yet. Set <code>ONE_WSO2_SMART_SEARCH_BACKEND_URL</code> in{" "}
           <code>public/config.js</code> and reload.
         </Alert>
-      </Box>
+      </PageFrame>
     );
   }
-  return <LibraryContent />;
+  return (
+    <PageFrame>
+      <LibraryContent />
+    </PageFrame>
+  );
 }
