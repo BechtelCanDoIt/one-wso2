@@ -14,16 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
 import { Box, DataGrid, LinearProgress, Paper, Stack, Typography } from "@wso2/oxygen-ui";
 import { InboxIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { UmtReleasedChunk } from "../../api/umtReleaseChunks";
 import { useUmtReleasedChunks } from "../../api/useUmtReleaseChunks";
-import { UMT_CHUNK_PAGE_SIZE_OPTIONS } from "../../lib/umtReleaseChunks";
 import { BuildStatusChip, ChunkCell, ChunkLine } from "./umtReleaseChunkGridPrimitives";
 import { UMT_CHUNK_GRID_SX } from "./umtReleaseChunkGridSx";
-import { useRetainedRowCount } from "./useRetainedRowCount";
+import { useChunkGridPagination } from "./useChunkGridPagination";
 
 const { DataGrid: DataGridComponent } = DataGrid;
 
@@ -47,13 +45,8 @@ const COLUMN_GROUPING_MODEL: DataGrid.GridColumnGroupingModel = [
 // Purely informational: a released chunk is finished, so there is nothing to
 // act on here even for an administrator.
 export default function UmtReleasedChunksGrid() {
-  const [paginationModel, setPaginationModel] = useState<DataGrid.GridPaginationModel>({
-    page: 0,
-    pageSize: UMT_CHUNK_PAGE_SIZE_OPTIONS[0],
-  });
-  const releasedChunks = useUmtReleasedChunks(paginationModel);
+  const { chunks: releasedChunks, gridProps } = useChunkGridPagination(useUmtReleasedChunks);
   const rows = releasedChunks.data?.chunks ?? [];
-  const rowCount = useRetainedRowCount(releasedChunks.data?.totalCount);
 
   const columns: DataGrid.GridColDef<UmtReleasedChunk>[] = [
     {
@@ -190,12 +183,8 @@ export default function UmtReleasedChunksGrid() {
             disableRowSelectionOnClick
             getRowHeight={() => "auto"}
             loading={releasedChunks.isPending}
-            onPaginationModelChange={setPaginationModel}
-            pageSizeOptions={UMT_CHUNK_PAGE_SIZE_OPTIONS}
-            paginationMode="server"
-            paginationModel={paginationModel}
-            rowCount={rowCount}
             rows={rows}
+            {...gridProps}
             slots={{ noRowsOverlay: ReleasedChunksEmptyState }}
             sx={UMT_CHUNK_GRID_SX}
           />

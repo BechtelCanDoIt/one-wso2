@@ -64,7 +64,6 @@ import {
   umtCanRetriggerCstBuild,
   umtReleaseChunkRowAction,
   umtReleaseReadiness,
-  UMT_CHUNK_PAGE_SIZE_OPTIONS,
   type UmtReleaseChunkRowAction,
 } from "../../lib/umtReleaseChunks";
 import UmtReleaseChunkBuildInfoDialog from "./UmtReleaseChunkBuildInfoDialog";
@@ -76,7 +75,7 @@ import {
   ChunkLine,
 } from "./umtReleaseChunkGridPrimitives";
 import { UMT_CHUNK_GRID_BORDERED_SX } from "./umtReleaseChunkGridSx";
-import { useRetainedRowCount } from "./useRetainedRowCount";
+import { useChunkGridPagination } from "./useChunkGridPagination";
 
 const { DataGrid: DataGridComponent } = DataGrid;
 
@@ -195,14 +194,9 @@ function columnGroupingModel(
 }
 
 export default function UmtPendingReleaseChunksGrid() {
-  const [paginationModel, setPaginationModel] = useState<DataGrid.GridPaginationModel>({
-    page: 0,
-    pageSize: UMT_CHUNK_PAGE_SIZE_OPTIONS[0],
-  });
-  const chunks = useUmtReleaseChunks(paginationModel);
+  const { chunks, gridProps } = useChunkGridPagination(useUmtReleaseChunks);
   const gate = useUmtGate();
   const rows = chunks.data?.chunks ?? [];
-  const rowCount = useRetainedRowCount(chunks.data?.totalCount);
   const rowStatuses = useUmtReleaseChunkRowStatuses(rows.map((row) => row.id));
   const { showSuccess, showError, showWarning } = useNotifications();
 
@@ -578,12 +572,8 @@ export default function UmtPendingReleaseChunksGrid() {
             disableRowSelectionOnClick
             getRowHeight={() => "auto"}
             loading={chunks.isPending}
-            onPaginationModelChange={setPaginationModel}
-            pageSizeOptions={UMT_CHUNK_PAGE_SIZE_OPTIONS}
-            paginationMode="server"
-            paginationModel={paginationModel}
-            rowCount={rowCount}
             rows={rows}
+            {...gridProps}
             slots={{ noRowsOverlay: PendingChunksEmptyState }}
             sx={UMT_CHUNK_GRID_BORDERED_SX}
           />

@@ -17,7 +17,6 @@
 import { useMemo } from "react";
 import { keepPreviousData, useQueries, useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import type { DataGrid } from "@wso2/oxygen-ui";
 import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
@@ -33,6 +32,7 @@ import {
   type RawUmtReleaseChunksPage,
   type RawUmtReleasedChunk,
   type UmtDockerBuildStatus,
+  type UmtPageRequest,
   type UmtReleaseChunk,
   type UmtReleaseChunkBuildStatus,
   type UmtReleaseChunksPage,
@@ -40,10 +40,9 @@ import {
   type UmtReleasedChunk,
 } from "./umtReleaseChunks";
 
-// Both lists take the grid's own pagination model, and keep the previous page
-// on screen while the next one loads, so paging doesn't blank the grid
-// between requests.
-export function useUmtReleaseChunks({ page, pageSize }: DataGrid.GridPaginationModel) {
+// Both lists load one page at a time, and keep the previous page on screen
+// while the next one loads, so paging doesn't blank the grid between requests.
+export function useUmtReleaseChunks({ page, pageSize }: UmtPageRequest) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
@@ -66,7 +65,7 @@ export function useUmtReleaseChunks({ page, pageSize }: DataGrid.GridPaginationM
   return foldIdentityError(query, subState, retryIdentity);
 }
 
-export function useUmtReleasedChunks({ page, pageSize }: DataGrid.GridPaginationModel) {
+export function useUmtReleasedChunks({ page, pageSize }: UmtPageRequest) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();

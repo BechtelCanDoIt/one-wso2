@@ -182,6 +182,13 @@ export interface RawUmtReleaseChunksPage<T> {
   totalCount: number;
 }
 
+// Which page of a chunk list to load. `page` is 0-based; the backend's is
+// 1-based, and releaseChunksPage does the conversion.
+export interface UmtPageRequest {
+  page: number;
+  pageSize: number;
+}
+
 export interface UmtReleaseChunksPage<T> {
   chunks: T[];
   totalCount: number;
