@@ -24,7 +24,7 @@ import { bandColor, formatScore, scoreBand } from "../util/dealScore";
 export default function DealScore({ score }: { score: number | null | undefined }) {
   if (score === null || score === undefined) {
     return (
-      <Typography variant="body2" color="text.disabled" role="img" aria-label="No deal score">
+      <Typography variant="body2" color="text.disabled" role="img" aria-label="No opportunity score">
         —
       </Typography>
     );
@@ -35,8 +35,8 @@ export default function DealScore({ score }: { score: number | null | undefined 
     <Box
       role="img"
       sx={{ display: "inline-flex", alignItems: "center", gap: 0.75 }}
-      aria-label={`Deal score ${formatScore(score)}, ${band}`}
-      title={`Salesforce deal score: ${formatScore(score)} (${band})`}
+      aria-label={`Opportunity score ${formatScore(score)}, ${band}`}
+      title={`Salesforce opportunity score: ${formatScore(score)} (${band})`}
     >
       <Box
         sx={(theme) => ({

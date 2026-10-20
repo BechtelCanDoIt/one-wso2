@@ -25,7 +25,7 @@ export interface ChatEntry {
 }
 
 const ASK_SUGGESTIONS = [
-  "Summarise where this deal stands.",
+  "Summarise where this opportunity stands.",
   "What's blocking the next stage?",
   "Who is the economic buyer, and how do we know?",
   "What did the customer say about competitors?",
@@ -33,7 +33,7 @@ const ASK_SUGGESTIONS = [
 ];
 
 /** What a question is answered with until the backend answers it. */
-const NOT_CONNECTED = "Ask AI isn't connected yet, so this question wasn't sent anywhere. Answers will come from this deal's record once it is.";
+const NOT_CONNECTED = "Ask AI isn't connected yet, so this question wasn't sent anywhere. Answers will come from this opportunity's record once it is.";
 
 /**
  * Ask anything about this opportunity. The screen is here ahead of the backend: a
@@ -94,18 +94,18 @@ export default function DealChat({ entries, onChange }: { entries: ChatEntry[]; 
         <Box sx={{ minWidth: 0 }}>
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Typography variant="subtitle1" component="h2" sx={{ fontWeight: 700 }}>
-              Ask about this deal
+              Ask about this opportunity
             </Typography>
             <Chip label="Preview" size="small" color="primary" variant="outlined" sx={{ height: 20, fontSize: "0.7rem", fontWeight: 600 }} />
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>
-            Answers come from what Echo has on this deal: its MEDDPICC, the AI&apos;s proposals, what was said on calls
+            Answers come from what Echo has on this opportunity: its MEDDPICC, the AI&apos;s proposals, what was said on calls
             and in emails, and its activity. Each answer shows the quotes it used.
           </Typography>
         </Box>
       </Stack>
 
-      <Stack spacing={1.75} role="log" aria-label="Conversation about this deal" aria-live="polite" sx={{ mb: 2 }}>
+      <Stack spacing={1.75} role="log" aria-label="Conversation about this opportunity" aria-live="polite" sx={{ mb: 2 }}>
         {entries.length === 0 && (
           <Box
             role="group"

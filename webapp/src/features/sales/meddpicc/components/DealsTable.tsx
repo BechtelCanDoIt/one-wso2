@@ -183,8 +183,8 @@ export default function DealsTable({
 
         {!loading && deals.length === 0 && (
           <ListingTable.EmptyState
-            title="No deals found"
-            description="Deals appear here once one of their calls has been analysed. Try a different filter."
+            title="No opportunities found"
+            description="Opportunities appear here once one of their calls has been analysed. Try a different filter."
           />
         )}
       </ListingTable.Container>

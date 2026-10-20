@@ -21,7 +21,7 @@ import DealScore from "./DealScore";
 describe("DealScore", () => {
   it("names the score and its band", () => {
     render(<DealScore score={28.3} />);
-    expect(screen.getByRole("img", { name: "Deal score 28.3, Weak" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Opportunity score 28.3, Weak" })).toBeInTheDocument();
   });
 
   it("names each band as Salesforce's meter does", () => {
@@ -31,12 +31,12 @@ describe("DealScore", () => {
         <DealScore score={78.9} />
       </>,
     );
-    expect(screen.getByRole("img", { name: "Deal score 56.4, Moderate" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Deal score 78.9, Strong" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Opportunity score 56.4, Moderate" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Opportunity score 78.9, Strong" })).toBeInTheDocument();
   });
 
   it("shows a dash when Salesforce has no score", () => {
     render(<DealScore score={null} />);
-    expect(screen.getByRole("img", { name: "No deal score" })).toHaveTextContent("—");
+    expect(screen.getByRole("img", { name: "No opportunity score" })).toHaveTextContent("—");
   });
 });

@@ -538,7 +538,7 @@ const SALES_ECHO_SECTION: PerspectiveSection = {
     // One row per Opportunity with its MEDDPICC state, beside the calls it came from.
     // Served by the MEDDPICC backend rather than meet-app, but gated like Calls: it is
     // the same sales team, and meet-app's answer is the one the rail already has.
-    { id: "sales-deals", label: "Deals", icon: HandshakeIcon, path: "/sales/deals" },
+    { id: "sales-deals", label: "Opportunities", icon: HandshakeIcon, path: "/sales/deals" },
   ],
 };
 

@@ -319,7 +319,7 @@ export default function DealView({
             detail={describeSources(sources) || undefined}
             warn={quietDays !== null && quietDays > QUIET_AFTER_DAYS}
           />
-          <Fact label="Deal score" value={<DealScore score={deal.dealScore} />} detail="From Salesforce" />
+          <Fact label="Opportunity score" value={<DealScore score={deal.dealScore} />} detail="From Salesforce" />
         </Box>
 
         {deal.flags && deal.flags.length > 0 && (
@@ -372,7 +372,7 @@ export default function DealView({
           )}
           {/* The backend keeps Salesforce's answer for ten minutes; this asks again, for
               when a change made in Salesforce should show now. */}
-          <Tooltip title="Read this deal from Salesforce again" arrow>
+          <Tooltip title="Read this opportunity from Salesforce again" arrow>
             <Box component="span" sx={{ ml: "auto !important", display: "inline-flex" }}>
               <Button
                 size="small"
@@ -408,7 +408,7 @@ export default function DealView({
       <Tabs
         value={tab}
         onChange={(_, next: DealTab) => onTabChange?.(next)}
-        aria-label="Deal views"
+        aria-label="Opportunity views"
         sx={{
           mb: 2.5,
           minHeight: 40,
@@ -446,7 +446,7 @@ export default function DealView({
           <Stack spacing={1.5} sx={{ minWidth: 0 }}>
             {readOnly && (
               <Alert severity="info">
-                You can view this deal. Only its Opportunity owner can approve, include calls or
+                You can view this opportunity. Only its Opportunity owner can approve, include calls or
                 move its stage.
               </Alert>
             )}
@@ -469,8 +469,8 @@ export default function DealView({
               >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {detail.unassignedCalls.length === 1
-                    ? `An earlier call with ${deal.accountName} isn't linked to this deal.`
-                    : `${detail.unassignedCalls.length} earlier calls with ${deal.accountName} aren't linked to this deal.`}
+                    ? `An earlier call with ${deal.accountName} isn't linked to this opportunity.`
+                    : `${detail.unassignedCalls.length} earlier calls with ${deal.accountName} aren't linked to this opportunity.`}
                 </Typography>
                 <Stack component="ul" spacing={0.5} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
                   {detail.unassignedCalls.map((call) => (
@@ -580,7 +580,7 @@ export default function DealView({
                       <Typography variant="body2">
                         {somethingToApprove
                           ? "Approve all writes your reviewed answers to Salesforce."
-                          : `This stage is complete. Move the deal on when you're ready.`}
+                          : `This stage is complete. Move the opportunity on when you're ready.`}
                       </Typography>
                     )}
                     {lastApproved}
@@ -654,7 +654,7 @@ export default function DealView({
                 letter
                   ? `Nothing is missing for ${scopeName}.`
                   : deal.isClosed
-                    ? "This deal is closed."
+                    ? "This opportunity is closed."
                     : `Nothing is missing in ${scopeName}.`
               }
             >
@@ -708,7 +708,7 @@ export default function DealView({
                 {sourceFilter ? ` of ${activity.length}` : ""})
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                Everything the deal's MEDDPICC is drawn from, newest first.
+                Everything the opportunity's MEDDPICC is drawn from, newest first.
               </Typography>
               <Stack component="ul" spacing={0.75} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
                 {shownActivity.map((entry) => (

@@ -184,7 +184,7 @@ export default function DealFieldRow({
 
   if (variant === "compact" && !editing && !edited) {
     const value = !field.applicable
-      ? "Not needed for this deal"
+      ? "Not needed for this opportunity"
       : field.notInSalesforce
         ? proposal
           ? `${formatFieldValue(proposal.value)} (kept in Echo, not in Salesforce yet)`
@@ -299,7 +299,7 @@ export default function DealFieldRow({
 
       {!field.applicable && (
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
-          Not needed for this deal, given the answers it depends on.
+          Not needed for this opportunity, given the answers it depends on.
         </Typography>
       )}
 

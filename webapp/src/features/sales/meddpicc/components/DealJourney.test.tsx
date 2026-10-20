@@ -58,7 +58,7 @@ const renderJourney = (props: Partial<Parameters<typeof DealJourney>[0]> = {}) =
 describe("DealJourney", () => {
   it("names each mark by what it was: customer call, internal discussion, email", () => {
     renderJourney();
-    const track = screen.getByRole("list", { name: /^Deal journey/ });
+    const track = screen.getByRole("list", { name: /^Opportunity journey/ });
     expect(within(track).getAllByRole("listitem")).toHaveLength(4);
     expect(screen.getByLabelText(/^Customer call · Intro/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Internal discussion · Deal review/)).toBeInTheDocument();

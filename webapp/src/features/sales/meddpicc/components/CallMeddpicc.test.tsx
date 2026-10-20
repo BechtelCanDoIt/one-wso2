@@ -52,7 +52,7 @@ describe("CallMeddpiccStrip", () => {
     );
     const strip = screen.getByRole("region", { name: "MEDDPICC for this call" });
     expect(within(strip).getByText("Business Proof")).toBeInTheDocument();
-    expect(strip).toHaveTextContent("New for this deal: Economic Buyer, Paper Process");
+    expect(strip).toHaveTextContent("New for this opportunity: Economic Buyer, Paper Process");
     expect(strip).toHaveTextContent("Missed: Decision Criteria");
     expect(strip).toHaveTextContent("1 awaiting review");
   });
@@ -70,7 +70,7 @@ describe("CallMeddpiccStrip", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: /^Economic Buyer/ }));
     expect(onLetterClick).toHaveBeenCalledWith("E");
-    await userEvent.click(screen.getByRole("button", { name: "Open deal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open opportunity" }));
     expect(onOpenDeal).toHaveBeenCalled();
   });
 
@@ -131,7 +131,7 @@ describe("CallMeddpiccTab", () => {
       <CallMeddpiccTab call={callOf(makeCoverage(), makeDetail())} focusLetter={null} onSeek={() => {}} onOpenDeal={onOpenDeal} />,
     );
     expect(screen.getByText("1 proposal from this call waits for your review.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Review in deal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Review in opportunity" }));
     expect(onOpenDeal).toHaveBeenCalled();
   });
 
@@ -144,7 +144,7 @@ describe("CallMeddpiccTab", () => {
         onOpenDeal={() => {}}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Review in deal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review in opportunity" })).not.toBeInTheDocument();
     expect(screen.getByText("1 proposal from this call waits for the account manager's review.")).toBeInTheDocument();
   });
 

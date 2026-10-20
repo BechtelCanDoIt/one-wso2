@@ -78,19 +78,19 @@ describe("DealPage", { timeout: 20000 }, () => {
   it("is the deal's own page: named in the title, with a way back to the list", async () => {
     renderAt(dealPath("006MOCK0000MERI"));
     expect(await screen.findByRole("heading", { name: "Meridian Bank – integration platform" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Deals" })).toHaveAttribute("href", "/sales/deals");
+    expect(screen.getByRole("link", { name: "Opportunities" })).toHaveAttribute("href", "/sales/deals");
     expect(screen.getByRole("tab", { name: /^MEDDPICC/ })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("button", { name: /^Approve all/ })).toBeInTheDocument();
   });
 
   it("opens on the Activity tab from ?tab=activity, and switches tabs in place", async () => {
     renderAt(dealPath("006MOCK0000MERI", null, "activity"));
-    expect(await screen.findByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: /^Opportunity journey/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
 
     await userEvent.click(screen.getByRole("tab", { name: /^MEDDPICC/ }));
     expect(await screen.findByRole("button", { name: /^Approve all/ })).toBeInTheDocument();
-    expect(screen.queryByRole("list", { name: /^Deal journey/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: /^Opportunity journey/ })).not.toBeInTheDocument();
   });
 
   it("opens filtered to a Letter from ?letter=, and ignores one that isn't a Letter", async () => {
@@ -107,12 +107,12 @@ describe("DealPage", { timeout: 20000 }, () => {
   it("opens on the Ask AI tab from ?tab=ask, and keeps the conversation across tabs", async () => {
     const user = userEvent.setup();
     renderAt(dealPath("006MOCK0000MERI", null, "ask"));
-    await user.click(await screen.findByRole("button", { name: "Summarise where this deal stands." }));
+    await user.click(await screen.findByRole("button", { name: "Summarise where this opportunity stands." }));
 
     await user.click(screen.getByRole("tab", { name: /^MEDDPICC/ }));
     await user.click(screen.getByRole("tab", { name: "Ask AI" }));
 
-    expect(screen.getByRole("log", { name: "Conversation about this deal" })).toHaveTextContent("Summarise where this deal stands.");
+    expect(screen.getByRole("log", { name: "Conversation about this opportunity" })).toHaveTextContent("Summarise where this opportunity stands.");
   });
 
   it("builds deal paths, escaping the id", () => {

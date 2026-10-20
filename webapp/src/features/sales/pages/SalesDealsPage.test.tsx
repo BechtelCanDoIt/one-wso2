@@ -89,7 +89,7 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(row.getByText("Qualify")).toBeInTheDocument();
     // Amount and close date ride under the name now, to give the timeline the width.
     expect(row.getByText("120,000 USD · closes 31/12/2026")).toBeInTheDocument();
-    expect(row.getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    expect(row.getByRole("list", { name: /^Opportunity journey/ })).toBeInTheDocument();
     // The journey's key is behind the column title's info button, not spread across the header.
     expect(screen.getByRole("columnheader", { name: /^Journey/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What the journey shows" })).toBeInTheDocument();
@@ -104,7 +104,7 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(screen.queryByRole("columnheader", { name: "Stage" })).not.toBeInTheDocument();
     // Salesforce's deal score has its own column (DealScore.test covers the badge).
     expect(screen.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
-    expect(row.getByRole("img", { name: "No deal score" })).toBeInTheDocument();
+    expect(row.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
 
     for (const name of [
       "Meridian Bank – integration platform",
@@ -126,13 +126,13 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     renderPage();
     await screen.findByRole("button", { name: "Brightwater – API Manager first sale" });
 
-    expect(screen.getByRole("radio", { name: "My deals" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "My opportunities" })).toBeChecked();
     expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: true }));
     expect(screen.queryByRole("button", { name: "Asterra Health – FHIR gateway" })).not.toBeInTheDocument();
     // An owner filter means nothing on your own deals.
     expect(screen.getByRole("combobox", { name: "Owner" })).toHaveAttribute("aria-disabled", "true");
 
-    await user.click(screen.getByRole("radio", { name: "All deals" }));
+    await user.click(screen.getByRole("radio", { name: "All opportunities" }));
 
     expect(await screen.findByRole("button", { name: "Asterra Health – FHIR gateway" })).toBeInTheDocument();
     expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: false }));

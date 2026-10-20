@@ -33,7 +33,7 @@ import StageChip from "./StageChip";
  * proposals still wait for the account manager. Leadership can stop here; the account
  * manager reads on in the MEDDPICC tab.
  *
- * A circle opens that tab at its Letter. Open deal opens the deal's page, the one place
+ * A circle opens that tab at its Letter. Open opportunity opens the deal's page, the one place
  * proposals are approved.
  */
 export default function CallMeddpiccStrip({
@@ -101,13 +101,13 @@ export default function CallMeddpiccStrip({
       insight.firstAnswered.length > 0 ? (
         <Typography key="new" variant="body2" sx={{ color: "success.dark" }}>
           <Box component="span" sx={{ fontWeight: 600 }}>
-            New for this deal:
+            New for this opportunity:
           </Box>{" "}
           {lettersInWords(insight.firstAnswered)}
         </Typography>
       ) : (
         <Typography key="new" variant="body2" color="text.secondary">
-          Nothing new for this deal
+          Nothing new for this opportunity
         </Typography>
       ),
     );
@@ -118,7 +118,7 @@ export default function CallMeddpiccStrip({
         key="missed"
         variant="body2"
         sx={{ color: "warning.dark" }}
-        title={`The ${insight.stageAtCall ?? "deal's"} stage needs these, and this call didn't cover them.`}
+        title={`The ${insight.stageAtCall ?? "opportunity's"} stage needs these, and this call didn't cover them.`}
       >
         <Box component="span" sx={{ fontWeight: 600 }}>
           Missed:
@@ -138,7 +138,7 @@ export default function CallMeddpiccStrip({
   return frame(
     <>
       {insight.stageAtCall && (
-        <StageChip stage={insight.stageAtCall} title={`${insight.stageAtCall}: the deal's stage at the time of the call`} />
+        <StageChip stage={insight.stageAtCall} title={`${insight.stageAtCall}: the opportunity's stage at the time of the call`} />
       )}
       <MeddpiccCircles
         variant="coverage"
@@ -161,7 +161,7 @@ export default function CallMeddpiccStrip({
           onClick={onOpenDeal}
           sx={{ ml: "auto", textTransform: "none" }}
         >
-          Open deal
+          Open opportunity
         </Button>
       )}
     </>,

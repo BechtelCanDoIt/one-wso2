@@ -202,7 +202,7 @@ describe("DealView", { timeout: 20000 }, () => {
   it("is read-only for someone who can't edit the deal", async () => {
     renderPanel("006MOCK0000ASTE");
     await screen.findByRole("heading", { name: "Asterra Health – FHIR gateway" });
-    expect(screen.getByText(/You can view this deal/)).toBeInTheDocument();
+    expect(screen.getByText(/You can view this opportunity/)).toBeInTheDocument();
     // The notice says why; there is no disabled Approve all to puzzle over.
     expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
@@ -270,8 +270,8 @@ describe("DealView", { timeout: 20000 }, () => {
   it("has a deal score card, a dash with no score, and no attention box with no flags", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
-    expect(screen.getByText("Deal score")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "No deal score" })).toBeInTheDocument();
+    expect(screen.getByText("Opportunity score")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
   });
 
@@ -298,12 +298,12 @@ describe("DealView", { timeout: 20000 }, () => {
   it("asks about the deal on the Ask AI tab, saying it is not connected yet", async () => {
     const user = userEvent.setup();
     renderPanel("006MOCK0000MERI", "ask");
-    await screen.findByRole("heading", { name: "Ask about this deal" });
+    await screen.findByRole("heading", { name: "Ask about this opportunity" });
     expect(screen.getByText("Preview")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "What's blocking the next stage?" }));
 
-    const log = screen.getByRole("log", { name: "Conversation about this deal" });
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
     expect(within(log).getByText("What's blocking the next stage?")).toBeInTheDocument();
     expect(within(log).getByText(/Ask AI isn't connected yet/)).toBeInTheDocument();
 
@@ -314,7 +314,7 @@ describe("DealView", { timeout: 20000 }, () => {
 
     await user.click(screen.getByRole("button", { name: "New conversation" }));
     expect(within(log).queryByText("Who signs the contract?")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Summarise where this deal stands." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Summarise where this opportunity stands." })).toBeInTheDocument();
   });
 
   it("filters the activity list and the journey by source with the chips", async () => {
@@ -341,7 +341,7 @@ describe("DealView", { timeout: 20000 }, () => {
     renderPanel("006MOCK0000MERI", "activity");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     const activity = () => screen.getByRole("region", { name: "Activity" });
-    const marks = () => within(screen.getByRole("list", { name: /^Deal journey/ })).getAllByRole("listitem");
+    const marks = () => within(screen.getByRole("list", { name: /^Opportunity journey/ })).getAllByRole("listitem");
     const all = marks().length;
     expect(within(activity()).getByText("Re: pricing")).toBeInTheDocument();
     expect(within(activity()).getByText("Sent the proposal")).toBeInTheDocument();
@@ -362,13 +362,13 @@ describe("DealView", { timeout: 20000 }, () => {
     const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     expect(screen.getByRole("tab", { name: /^MEDDPICC/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("list", { name: /^Deal journey/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: /^Opportunity journey/ })).not.toBeInTheDocument();
     unmount();
 
     renderPanel("006MOCK0000MERI", "activity");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     expect(screen.getByRole("tab", { name: /^Activity/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /^Opportunity journey/ })).toBeInTheDocument();
     // The fields and their approval bar stay on the MEDDPICC tab.
     expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
     // Each activity entry says what it was; without the backend's kind, a call is a customer call.

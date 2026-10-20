@@ -122,7 +122,7 @@ export function DealJourneyLegend() {
   );
   return (
     <Stack spacing={0.5} sx={{ typography: "caption", color: "inherit", py: 0.25 }}>
-      <Box sx={{ fontWeight: 700 }}>Each deal, from its start to its close</Box>
+      <Box sx={{ fontWeight: 700 }}>Each opportunity, from its start to its close</Box>
       {KIND_ORDER.map((kind) => swatch(<KindMark kind={kind} upcoming={false} />, KINDS[kind].label))}
       {swatch(<KindMark kind="CUSTOMER_CALL" upcoming scale={0.8} />, "Upcoming (dashed outline)")}
       {swatch(
@@ -240,7 +240,7 @@ export default function DealJourney({
     <Box sx={{ minWidth: 0 }}>
       <Box
         role="list"
-        aria-label="Deal journey, from its start to its close"
+        aria-label="Opportunity journey, from its start to its close"
         sx={{ position: "relative", height: TRACK_HEIGHT, minWidth: 160 }}
       >
         {/* The axis, a recessive hairline. */}

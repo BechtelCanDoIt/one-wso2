@@ -78,7 +78,7 @@ export default function MeddpiccCircles(props: MeddpiccCirclesProps) {
   const { onLetterClick, selected = null, size = "small", label } = props;
   const diameter = size === "small" ? 20 : 26;
   const groupLabel =
-    label ?? (props.variant === "coverage" ? "MEDDPICC coverage" : "MEDDPICC deal state");
+    label ?? (props.variant === "coverage" ? "MEDDPICC coverage" : "MEDDPICC opportunity state");
 
   return (
     <Stack direction="row" spacing={0.5} role="group" aria-label={groupLabel} sx={{ alignItems: "center" }}>

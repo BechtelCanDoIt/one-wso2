@@ -254,7 +254,7 @@ function NextSteps({ call, onOpenDeal }: { call: CallMeddpicc; onOpenDeal: () =>
           {lettersInWords(insight.missed)}
           <Typography component="span" variant="caption" color="text.secondary">
             {" "}
-            — the {insight.stageAtCall ?? "deal's"} stage needs these.
+            — the {insight.stageAtCall ?? "opportunity's"} stage needs these.
           </Typography>
         </Typography>
       )}
@@ -279,7 +279,7 @@ function NextSteps({ call, onOpenDeal }: { call: CallMeddpicc; onOpenDeal: () =>
 
       {!call.opportunityId ? (
         <Typography variant="body2" color="text.secondary">
-          This call isn&apos;t linked to a deal, so there is nothing to review.
+          This call isn&apos;t linked to an opportunity, so there is nothing to review.
         </Typography>
       ) : !deal ? null : deal.canEdit ? (
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
@@ -289,7 +289,7 @@ function NextSteps({ call, onOpenDeal }: { call: CallMeddpicc; onOpenDeal: () =>
             onClick={onOpenDeal}
             sx={{ textTransform: "none" }}
           >
-            Review in deal
+            Review in opportunity
           </Button>
           <Typography variant="caption" color="text.secondary">
             {pending > 0

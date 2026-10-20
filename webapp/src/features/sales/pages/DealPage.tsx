@@ -59,7 +59,7 @@ export default function DealPage() {
 
   return (
     <SalesShell
-      title={name ?? "Deal"}
+      title={name ?? "Opportunity"}
       configured={meetAppConfigured && echoConfigured}
       configKey={meetAppConfigured ? "ONE_WSO2_ECHO_BACKEND_URL" : "ONE_WSO2_REVOPS_BACKEND_URL"}
       configLabel={meetAppConfigured ? "the MEDDPICC backend URL" : undefined}
@@ -67,7 +67,7 @@ export default function DealPage() {
     >
       <Breadcrumbs sx={{ mb: 2 }}>
         <Link component={RouterLink} to="/sales/deals" underline="hover" color="inherit">
-          Deals
+          Opportunities
         </Link>
         <Typography color="text.primary" variant="body2">
           {name ?? "…"}
@@ -84,7 +84,7 @@ export default function DealPage() {
       ) : query.isError ? (
         <Box sx={{ py: 1 }}>
           <ErrorNotice onRetry={() => void query.refetch()} error={query.error}>
-            Couldn&apos;t load this deal.
+            Couldn&apos;t load this opportunity.
           </ErrorNotice>
         </Box>
       ) : (
