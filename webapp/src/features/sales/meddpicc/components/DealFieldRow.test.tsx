@@ -46,6 +46,12 @@ describe("DealFieldRow's comparison box", () => {
     expect(screen.getByText(/matches Salesforce/)).toBeInTheDocument();
   });
 
+  it("doesn't say matches Salesforce once Salesforce holds something else", () => {
+    renderRow({ salesforceValue: "Lars Haugen", proposal: heard, state: "FILLED" });
+    expect(screen.getByText("In Salesforce")).toBeInTheDocument();
+    expect(screen.queryByText(/matches Salesforce/)).not.toBeInTheDocument();
+  });
+
   it("never says matches Salesforce for a field not in Salesforce yet", () => {
     renderRow({ notInSalesforce: true, proposal: heard, state: "FILLED" });
     expect(screen.queryByText("In Salesforce")).not.toBeInTheDocument();
