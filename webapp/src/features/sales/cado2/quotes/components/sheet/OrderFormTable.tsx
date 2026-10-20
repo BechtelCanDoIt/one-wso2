@@ -15,7 +15,8 @@
 // under the License.
 
 import { Fragment, type JSX, type ReactNode } from "react";
-import { Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { alpha, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { CircleAlertIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 
@@ -31,6 +32,11 @@ interface OrderFormTableProps {
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
   /**
+   * The term, short, e.g. "1Y 1D" (D85, D94), shown on every recurring line;
+   * a one-off line says "One-time". "" while there is no term yet.
+   */
+  readonly duration: string;
+  /**
    * The wizard: lines without a category yet (D72) come first, under a plain
    * "Uncategorised" heading with no subtotal (D93). The category is chosen
    * in the line's dialog.
@@ -42,7 +48,7 @@ interface OrderFormTableProps {
  * The products as an order form (misc/WSO2_Order_Form_Sample.docx): grouped
  * into Subscription, Support and Professional Services, each with its own
  * subtotal, then the total order value. Each amount is the line's cost over
- * the whole term, shown on the Term card, not per line (D92). On a partner-led
+ * the whole term, which the Duration column shows (D85, back since D94). On a partner-led
  * quote, the partner's commission and the
  * net order value follow:
  *
@@ -57,9 +63,12 @@ export default function OrderFormTable({
   below,
   commissionPercent = null,
   groupUncategorised = false,
+  duration,
 }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
-  const cols = actions ? 7 : 6;
+  // Product, unit of measure, unit list, qty, discount, duration, amount (+ actions).
+  const dataCols = 7;
+  const cols = actions ? dataCols + 1 : dataCols;
   // Products brought in from Salesforce whose category isn't chosen yet (D72).
   const pending = groupUncategorised ? lines.filter((l) => !l.category) : [];
   const cur = currency ? ` (${currency})` : "";
@@ -67,7 +76,7 @@ export default function OrderFormTable({
 
   const totalRow = (label: string, value: string | null, strong = false, prefix = "") => (
     <TableRow sx={strong ? { bgcolor: "action.hover" } : undefined}>
-      <TableCell colSpan={6} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
+      <TableCell colSpan={dataCols - 1} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
         {label}
         {cur}
       </TableCell>
@@ -88,6 +97,24 @@ export default function OrderFormTable({
     </TableRow>
   );
 
+
+  // The uncategorised group's heading (D93, D95): in the error colour, saying
+  // what to do, so it reads as something to fix, not just another section.
+  const uncategorisedHeader = (
+    <TableRow>
+      <TableCell colSpan={cols} sx={{ bgcolor: (t) => alpha(t.palette.error.main, 0.06), py: 0.75 }}>
+        <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 1, color: "error.main" }}>
+          <CircleAlertIcon size={16} aria-hidden />
+          <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
+            Uncategorised
+          </Typography>
+          <Typography variant="body2" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
+            · Click <PencilIcon size={14} aria-label="Edit" /> to choose a category
+          </Typography>
+        </Box>
+      </TableCell>
+    </TableRow>
+  );
 
   const lineRow = (l: SheetLine) => {
     const index = lines.indexOf(l);
@@ -124,6 +151,7 @@ export default function OrderFormTable({
           <TableCell align="right" sx={num}>
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
           </TableCell>
+          <TableCell sx={{ whiteSpace: "nowrap" }}>{l.recurring ? duration || "–" : "One-time"}</TableCell>
           <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
             {money(l.tcv)}
           </TableCell>
@@ -148,6 +176,7 @@ export default function OrderFormTable({
             <TableCell align="right">Unit list</TableCell>
             <TableCell align="right">Qty</TableCell>
             <TableCell align="right">Discount</TableCell>
+            <TableCell>Duration</TableCell>
             <TableCell align="right">Amount{cur}</TableCell>
             {actions ? (
               <TableCell align="right">
@@ -175,7 +204,7 @@ export default function OrderFormTable({
               };
             }}
           >
-            {groupHeader("Uncategorised")}
+            {uncategorisedHeader}
             {pending.map(lineRow)}
           </TableBody>
         ) : null}

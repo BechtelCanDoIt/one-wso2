@@ -40,6 +40,7 @@ import { sumMoney } from "@features/sales/cado2/utils/money";
 import { versionLabel } from "@features/sales/cado2/utils/pricingFormula";
 import {
   commissionProblem,
+  durationShort,
   durationText,
   hasRecurring,
   isPartnerLed,
@@ -359,6 +360,9 @@ export function sheetFromForm(
 
 /** How long the term is, in words (D85): "3 years", "1 year + 1 day", or "". */
 export const termLabel = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationText(s.startDate, s.endDate);
+
+/** The term, short, e.g. "1Y 1D": the products table's Duration column (D94). */
+export const termShort = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationShort(s.startDate, s.endDate);
 
 /** The yearly schedule is shown only when the term runs over more than one contract year. */
 export const hasYearlySchedule = (s: Pick<QuoteSheet, "years">) => s.years.length > 1;

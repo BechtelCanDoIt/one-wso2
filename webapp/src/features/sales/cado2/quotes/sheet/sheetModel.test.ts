@@ -17,7 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraftForm, fromVersion } from "@features/sales/cado2/quotes/form/draftForm";
 import { draft, fullPartnerQuote } from "@features/sales/cado2/quotes/testing/fixtures";
-import { expiryState, sheetFromForm, sheetFromVersion, hasYearlySchedule, orderForm, termLabel, yearOpportunity } from "./sheetModel";
+import { expiryState, sheetFromForm, sheetFromVersion, hasYearlySchedule, orderForm, termLabel, termShort, yearOpportunity } from "./sheetModel";
 import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initials";
 import { lifecycleSteps } from "./lifecycleSteps";
 
@@ -146,6 +146,12 @@ describe("labels", () => {
     expect(termLabel({ startDate: "2027-01-01", endDate: "2027-06-30" })).toBe("6 months");
     expect(termLabel({ startDate: "2027-01-01", endDate: "2028-01-01" })).toBe("1 year + 1 day");
     expect(termLabel({ startDate: "", endDate: "" })).toBe("");
+    // Short, for the products table (D94).
+    expect(termShort({ startDate: "2027-01-01", endDate: "2029-12-31" })).toBe("3Y");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2028-01-01" })).toBe("1Y 1D");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2028-02-01" })).toBe("1Y 1M 1D");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2027-12-30" })).toBe("11M 30D");
+    expect(termShort({ startDate: "", endDate: "" })).toBe("");
   });
 
   it("names each year's opportunity, and shows a schedule only past one year", () => {

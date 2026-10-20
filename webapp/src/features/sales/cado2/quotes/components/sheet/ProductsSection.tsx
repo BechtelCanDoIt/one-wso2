@@ -17,7 +17,7 @@
 import type { JSX } from "react";
 import { Typography } from "@wso2/oxygen-ui";
 import { PackageIcon } from "@wso2/oxygen-ui-icons-react";
-import type { QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import { termShort, type QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import SheetCard from "@features/sales/cado2/components/section-card/SectionCard";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import OrderFormTable from "./OrderFormTable";
@@ -41,6 +41,7 @@ export default function ProductsSection({ sheet }: { sheet: QuoteSheet }): JSX.E
           lines={sheet.lines}
           currency={sheet.currency}
           commissionPercent={sheet.partnerCommissionPercent}
+          duration={termShort(sheet)}
         />
       )}
     </SheetCard>

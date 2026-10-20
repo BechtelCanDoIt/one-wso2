@@ -74,8 +74,9 @@ describe("QuoteSheet", () => {
     }
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
-    // No Duration column: the term is on the Term card, not per line (D92).
-    expect(within(products).queryByRole("columnheader", { name: "Duration" })).toBeNull();
+    // The Duration column (D85, back since D94): the term on a recurring line.
+    expect(within(products).getByRole("columnheader", { name: "Duration" })).toBeInTheDocument();
+    expect(within(products).getAllByText("1Y").length).toBeGreaterThan(0);
     expect(within(products).getByText("Subscription")).toBeInTheDocument();
     expect(within(products).getByText("Gateways")).toBeInTheDocument();
     // A one-year quote has no yearly schedule.
@@ -201,6 +202,24 @@ describe("Partner commission", () => {
   it("shows the schedule's billing net of commission", () => {
     render(<QuoteSheet sheet={{ ...partner, years: partner.years.map((y) => ({ ...y, netBilling: "1.00" })) }} />);
     expect(within(screen.getByRole("table", { name: "Yearly schedule" })).getByText("Billed, net of commission")).toBeInTheDocument();
+  });
+
+  it("says a one-off line is one-time in the Duration column (D85, D94)", () => {
+    render(<QuoteSheet sheet={{ ...threeYears, startDate: "2027-01-01" }} />);
+    const products = within(screen.getByRole("table", { name: "Products" }));
+    expect(products.getAllByText("3Y")).toHaveLength(3); // two subscriptions and support
+    expect(products.getByText("One-time")).toBeInTheDocument(); // the onboarding service
+  });
+
+  // D94: a total's value sits in the Amount column, under the line amounts.
+  it("puts every total in the Amount column", () => {
+    render(<QuoteSheet sheet={threeYears} />);
+    const table = screen.getByRole("table", { name: "Products" });
+    const amountCol = [...table.querySelectorAll("thead th")].findIndex((th) => th.textContent?.startsWith("Amount"));
+    const row = within(table).getByText(/^Total order value/).closest("tr") as HTMLTableRowElement;
+    const cells = [...row.cells];
+    const span = cells.slice(0, -1).reduce((n, c) => n + c.colSpan, 0);
+    expect(span).toBe(amountCol); // the label fills the columns before Amount
   });
 
   it("shows no commission rows on a direct deal", () => {
