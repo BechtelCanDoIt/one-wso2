@@ -42,6 +42,7 @@ import {
   CUMULATIVE_KEY_BY_PERIOD,
   DELAYED_MRR,
   DELAYED_QRR,
+  FORECAST_STATES,
   MIS_PERIODS,
   type MisPeriod,
 } from "./misViewVocabulary";
@@ -507,6 +508,30 @@ export const pacificColumnRanges: ColumnRangesFor = (period, viewWindow, filters
 export function buildColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
+  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack"> & ForecastRangeFilters,
+  asOf?: MisCivilDate,
+): readonly MisDateRange[] {
+  if (drawsForecastColumns(period, viewWindow, filters)) {
+    return forecastBuildRanges(filters, asOf ?? pacificCivilDate());
+  }
+  return calendarColumnRanges(period, viewWindow, filters);
+}
+
+/**
+ * The columns of the Customers table and the two summaries, which differ from
+ * the Subscription Build's only under a forecast type.
+ */
+export function summaryColumnRanges(
+  period: MisPeriod,
+  viewWindow: MisWindow,
+  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack"> & ForecastRangeFilters,
+): readonly MisDateRange[] {
+  return calendarColumnRanges(period, viewWindow, filters);
+}
+
+function calendarColumnRanges(
+  period: MisPeriod,
+  viewWindow: MisWindow,
   filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack">,
 ): readonly MisDateRange[] {
   const ranges = filters.columnDateRanges ?? [];
@@ -518,6 +543,52 @@ export function buildColumnRanges(
   if (period !== MIS_PERIODS.ANNUALLY) return ranges;
   if (viewWindow === MIS_WINDOWS.TTM) return ranges;
   return ranges.slice(-Math.max(1, filters.yearsBack));
+}
+
+type ForecastRangeFilters = Partial<Pick<MisAppliedFilters, "forecast" | "isYtd" | "endingMonth">>;
+
+/**
+ * Whether an Annually Calendar table lays its columns out as forecast ranges.
+ *
+ * Only that one: Quarterly and Monthly keep their own generators, and a TTM
+ * Window keeps its trailing ranges — the source's `ttm || forecast` order.
+ */
+const drawsForecastColumns = (
+  period: MisPeriod,
+  viewWindow: MisWindow,
+  { forecast }: ForecastRangeFilters,
+): boolean =>
+  period === MIS_PERIODS.ANNUALLY &&
+  viewWindow === MIS_WINDOWS.CALENDAR &&
+  forecast === FORECAST_STATES.ENABLE;
+
+/**
+ * The Subscription Build's columns under a Forecasted or Renewal type: the
+ * current year and the two after it, each opening on the 31 December before it
+ * and closing at the Ending Month of its year.
+ *
+ * Ported from `generateTwoForecastRanges` (`tableUtils.js`), which is named for
+ * two and returns three. YTD does not apply: every column closes at the Ending
+ * Month, or at today's month and day when it is Today.
+ */
+function forecastBuildRanges(
+  { endingMonth }: ForecastRangeFilters,
+  today: MisCivilDate,
+): MisDateRange[] {
+  const month = asksForAMonth(endingMonth) ? monthNumber(endingMonth) : null;
+  return [0, 1, 2].map((yearsAhead) => {
+    const year = today.year + yearsAhead;
+    const end =
+      month == null
+        ? { year, month: today.month, day: Math.min(today.day, lastDayOfMonth(year, today.month)) }
+        : endOfMonth(year, month);
+    const opening = endOfYear(year - 1);
+    return {
+      opening: formatCivilDate(opening),
+      start: formatCivilDate(nextDay(opening)),
+      end: formatCivilDate(end),
+    };
+  });
 }
 
 /**
@@ -554,7 +625,7 @@ export function customerColumnRanges(
   if (period === MIS_PERIODS.MONTHLY && filters.mrrType === DELAYED_MRR) {
     return recentMonths(today, 6);
   }
-  return buildColumnRanges(period, viewWindow, filters);
+  return summaryColumnRanges(period, viewWindow, filters);
 }
 
 /** `back` whole quarters, then the one still running, closing today. */

@@ -30,6 +30,7 @@ import { useArrSummary, type ArrSummaryColumn } from "../api/useArrSummary";
 import {
   buildColumnLabel,
   buildColumnRanges,
+  summaryColumnRanges,
   customerColumnRanges,
   pacificColumnRanges,
 } from "../util/misPeriods";
@@ -788,7 +789,7 @@ function RegionExitGrid({
 }) {
   const scale = scaleState.scale;
   const ranges = useMemo(
-    () => buildColumnRanges(view.period, view.viewWindow, view.filters),
+    () => summaryColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
   );
   const summary = useExitArrByRegion(ranges, view.filters, bySalesRegion);
@@ -894,7 +895,7 @@ function RegionMetricsGrid({
 }) {
   const scale = scaleState.scale;
   const ranges = useMemo(
-    () => buildColumnRanges(view.period, view.viewWindow, view.filters),
+    () => summaryColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
   );
   const metrics = useRegionMetrics(ranges, view.filters, bySalesRegion);
@@ -976,7 +977,7 @@ function RegionMetricsGrid({
 function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
   const scale = scaleState.scale;
   const ranges = useMemo(
-    () => buildColumnRanges(view.period, view.viewWindow, view.filters),
+    () => summaryColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
   );
   const summary = useExitArrByBU(ranges, view.filters);
