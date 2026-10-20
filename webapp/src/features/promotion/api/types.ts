@@ -227,6 +227,19 @@ export interface PromotionRequestFull {
   isNotificationEmailSent: boolean;
 }
 
+// GET /promotion/requests/{id}/promotable-roles — designations above the
+// request's current job band in the employee's career function. A band can
+// appear more than once; the backend fills promotedJobRole by itself only when
+// a band has exactly one designation.
+export interface PromotableRole {
+  designation: string;
+  jobBand: number | null;
+}
+
+export interface PromotableRolesResponse {
+  roles: PromotableRole[];
+}
+
 export interface PromotionRequestsResponse {
   promotionRequests: PromotionRequestFull[];
 }

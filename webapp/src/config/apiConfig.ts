@@ -1559,6 +1559,10 @@ export const promotionServiceUrls = {
   // the request lands in (service.bal's own GET .../approve handler).
   promotionRequestApprove: (id: number, from: "functional_lead" | "promotion_board") =>
     `${promotionBackendUrl}/promotion/requests/${id}/approve?from=${from}`,
+  // GET /promotion/requests/{id}/promotable-roles — the roles the request's
+  // job band can be changed to.
+  promotionRequestPromotableRoles: (id: number) =>
+    `${promotionBackendUrl}/promotion/requests/${id}/promotable-roles`,
   promotionRequestReject: (id: number, from: "functional_lead" | "promotion_board", reason: string) =>
     `${promotionBackendUrl}/promotion/requests/${id}/reject?from=${from}&reason=${encodeURIComponent(reason)}`,
   // PATCH /promotion/requests — body is ApplicationUpdateData. Two different

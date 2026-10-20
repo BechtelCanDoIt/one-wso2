@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   Autocomplete,
@@ -30,12 +30,21 @@ import {
 import { humanizeHttpError } from "@api/http";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useUpdatePromotionRequestJobBand } from "../api/usePromotionRequests";
+import { usePromotionDesignations } from "../api/usePromotionDesignations";
 import type { PromotionRequestFull } from "../api/types";
 
-// Source's own job-band picker (submittedRequests.tsx) hardcodes 1–13; kept
-// as-is here rather than sourcing a real job-band list, since that's what
-// the running app actually offers.
+// Offered when the promotable roles lookup returns nothing, e.g. when the
+// employee's career function is unknown.
 const JOB_BANDS = Array.from({ length: 13 }, (_, i) => i + 1);
+
+interface JobBandOption {
+  band: number;
+  role: string | null;
+}
+
+function jobBandLabel(band: number, role: string | null | undefined): string {
+  return role ? `${role} (JB ${band})` : `JB ${band}`;
+}
 
 // Ports submittedRequests.tsx's own "Update Application Job Band" dialog —
 // Active Promotion Requests tab only.
@@ -67,18 +76,45 @@ function EditJobBandDialogContent({
   request: PromotionRequestFull;
   onClose: () => void;
 }) {
-  const [promotingJobBand, setPromotingJobBand] = useState<number | null>(request.nextJobBand ?? null);
+  const [selected, setSelected] = useState<JobBandOption | null>(
+    request.nextJobBand != null ? { band: request.nextJobBand, role: request.promotedJobRole } : null,
+  );
   const [warning, setWarning] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmationContent | null>(null);
   const update = useUpdatePromotionRequestJobBand();
+  const designations = usePromotionDesignations(request.id, true);
+
+  // One option per designation: a band can have more than one title in a
+  // career function.
+  const options = useMemo<JobBandOption[]>(() => {
+    const roles = designations.data?.roles ?? [];
+    const fromApi: JobBandOption[] = roles
+      .filter((r): r is typeof r & { jobBand: number } => r.jobBand != null)
+      .map((r) => ({ band: r.jobBand, role: r.designation }))
+      .sort((a, b) => a.band - b.band || (a.role ?? "").localeCompare(b.role ?? ""));
+    if (fromApi.length === 0) {
+      return JOB_BANDS.filter((band) => band > request.currentJobBand).map((band) => ({
+        band,
+        role: band === request.nextJobBand ? request.promotedJobRole : null,
+      }));
+    }
+    // The saved band and role stay selectable even when the lookup no longer returns them.
+    if (
+      request.nextJobBand != null &&
+      !fromApi.some((o) => o.band === request.nextJobBand && o.role === request.promotedJobRole)
+    ) {
+      fromApi.unshift({ band: request.nextJobBand, role: request.promotedJobRole });
+    }
+    return fromApi;
+  }, [designations.data, request.currentJobBand, request.nextJobBand, request.promotedJobRole]);
 
   const handleSave = () => {
-    if (promotingJobBand == null) {
+    if (selected == null) {
       setWarning("Nothing to update");
       return;
     }
-    if (promotingJobBand === request.nextJobBand) {
-      setWarning("Please select a valid job band other than the current promotion job band.");
+    if (selected.band === request.nextJobBand && selected.role === request.promotedJobRole) {
+      setWarning("Please select a different job band or role than the current one.");
       return;
     }
     setConfirm({
@@ -90,7 +126,14 @@ function EditJobBandDialogContent({
         // actually resolves — closing right away would unmount this content
         // before a failed PATCH's error had anywhere to render, silently
         // telling the user it worked when it didn't.
-        update.mutate({ id: request.id, promotingJobBand }, { onSuccess: onClose });
+        update.mutate(
+          {
+            id: request.id,
+            promotingJobBand: selected.band,
+            ...(selected.role != null && { promotedJobRole: selected.role }),
+          },
+          { onSuccess: onClose },
+        );
       },
     });
   };
@@ -101,18 +144,24 @@ function EditJobBandDialogContent({
       <DialogTitle>Update Application Job Band</DialogTitle>
       <DialogContent dividers>
         <Grid container spacing={2} sx={{ mt: 0.5 }}>
-          <Grid size={6}>
+          <Grid size={12}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>Current Job Band</Typography>
-            <TextField size="small" disabled fullWidth value={request.currentJobBand} />
+            <TextField
+              size="small"
+              disabled
+              fullWidth
+              value={jobBandLabel(request.currentJobBand, request.currentJobRole)}
+            />
           </Grid>
-          <Grid size={6}>
+          <Grid size={12}>
             <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>Recommended Job Band *</Typography>
             <Autocomplete
               size="small"
-              options={JOB_BANDS.filter((band) => band > request.currentJobBand)}
-              getOptionLabel={(option) => String(option)}
-              value={promotingJobBand}
-              onChange={(_e, value) => setPromotingJobBand(value)}
+              options={options}
+              getOptionLabel={(option) => jobBandLabel(option.band, option.role)}
+              isOptionEqualToValue={(option, value) => option.band === value.band && option.role === value.role}
+              value={selected}
+              onChange={(_e, value) => setSelected(value)}
               renderInput={(params) => <TextField {...params} />}
             />
           </Grid>
