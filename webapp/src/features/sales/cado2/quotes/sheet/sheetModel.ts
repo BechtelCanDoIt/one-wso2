@@ -74,7 +74,7 @@ export interface SheetLine {
   /** The product's description, without the name if it repeats it. */
   readonly productDescription: string | null;
   readonly pricebookName: string;
-  /** "" = not chosen yet (D72): listed under "Not categorised". */
+  /** "" = not chosen yet (D72): listed under "Uncategorised". */
   readonly category: LineCategory | "";
   /** The rep chose the category, because the product isn't mapped: Deal Desk verifies it. */
   readonly categoryByRep: boolean;

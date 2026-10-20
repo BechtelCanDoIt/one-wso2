@@ -32,7 +32,7 @@ interface OrderFormTableProps {
   readonly commissionPercent?: string | null;
   /**
    * The wizard: lines without a category yet (D72) come first, under a plain
-   * "Not categorised" heading with no subtotal (D93). The category is chosen
+   * "Uncategorised" heading with no subtotal (D93). The category is chosen
    * in the line's dialog.
    */
   readonly groupUncategorised?: boolean;
@@ -162,18 +162,20 @@ export default function OrderFormTable({
             subtotal, framed by a thin red line until each has one (D72, D93). */}
         {pending.length > 0 ? (
           <TableBody
-            aria-label="Not categorised"
+            aria-label="Uncategorised"
             sx={(t) => {
               const line = `1px solid ${t.palette.error.main}`;
               return {
                 "& td:first-of-type": { borderLeft: line },
                 "& td:last-of-type": { borderRight: line },
-                "& tr:first-of-type td": { borderTop: line },
+                // An inset shadow, not a border: the header row's bottom border
+                // sits on the same line and would win the collapsed-border tie.
+                "& tr:first-of-type td": { boxShadow: `inset 0 1px 0 ${t.palette.error.main}` },
                 "& tr:last-of-type td": { borderBottom: line },
               };
             }}
           >
-            {groupHeader("Not categorised")}
+            {groupHeader("Uncategorised")}
             {pending.map(lineRow)}
           </TableBody>
         ) : null}

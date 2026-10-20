@@ -125,15 +125,15 @@ describe("ProductsStep (Products & Pricing)", () => {
     ).toBeInTheDocument();
   });
 
-  // D93: a plain "Not categorised" heading, no amber and no chip; the line's edit button opens the dialog.
-  it("puts a line whose product isn't mapped under Not categorised; its category is chosen in the line's dialog", async () => {
+  // D93: a plain "Uncategorised" heading, no amber and no chip; the line's edit button opens the dialog.
+  it("puts a line whose product isn't mapped under Uncategorised; its category is chosen in the line's dialog", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     const table = screen.getByRole("table", { name: "Products" });
     expect(within(table).queryByRole("combobox")).toBeNull(); // no dropdown on the line
-    expect(within(table).getByText("Not categorised")).toBeInTheDocument(); // its own section, first
+    expect(within(table).getByText("Uncategorised")).toBeInTheDocument(); // its own section, first
     // Framed by a thin red line.
-    const group = within(table).getByRole("rowgroup", { name: "Not categorised" });
+    const group = within(table).getByRole("rowgroup", { name: "Uncategorised" });
     expect(within(group).getByText("WSO2 Integrator")).toBeInTheDocument();
     expect(within(group).queryByText("WSO2 Gateway")).toBeNull();
     expect(within(table).queryByText(/Choose a category for/)).toBeNull();
@@ -148,8 +148,8 @@ describe("ProductsStep (Products & Pricing)", () => {
     await user.click(within(dialog).getByRole("button", { name: "Save line" }));
 
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
-    expect(within(table).queryByText("Not categorised")).toBeNull(); // gone once empty
-    expect(within(table).queryByRole("rowgroup", { name: "Not categorised" })).toBeNull();
+    expect(within(table).queryByText("Uncategorised")).toBeNull(); // gone once empty
+    expect(within(table).queryByRole("rowgroup", { name: "Uncategorised" })).toBeNull();
   });
 
   // D91: a partner-led quote's commission card sits right above the products, before any product too.
