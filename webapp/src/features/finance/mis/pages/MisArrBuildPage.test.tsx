@@ -148,8 +148,12 @@ vi.mock("@features/finance/mis/api/useCustomerAccounts", () => ({
 const regionExit = {
   value: {} as SummaryColumnsState<RegionExitResponse>,
   askedBySalesRegion: [] as boolean[],
+  lastRanges: [] as readonly MisDateRange[],
 };
-const buExit = { value: {} as SummaryColumnsState<BuFigures> };
+const buExit = {
+  value: {} as SummaryColumnsState<BuFigures>,
+  lastRanges: [] as readonly MisDateRange[],
+};
 const regionMetrics = {
   value: {} as SummaryColumnsState<RegionMetricsResponse>,
   askedBySalesRegion: [] as boolean[],
@@ -157,14 +161,18 @@ const regionMetrics = {
 };
 vi.mock("@features/finance/mis/api/useExitArr", () => ({
   useExitArrByRegion: (
-    _ranges: unknown,
+    ranges: readonly MisDateRange[],
     _filters: unknown,
     isSalesRegionSummary: boolean,
   ) => {
     regionExit.askedBySalesRegion.push(isSalesRegionSummary);
+    regionExit.lastRanges = ranges;
     return regionExit.value;
   },
-  useExitArrByBU: () => buExit.value,
+  useExitArrByBU: (ranges: readonly MisDateRange[]) => {
+    buExit.lastRanges = ranges;
+    return buExit.value;
+  },
   useRegionMetrics: (
     _ranges: unknown,
     filters: MisAppliedFilters,
@@ -1248,6 +1256,46 @@ describe("the Annually columns under a forecast type", () => {
   it("keeps the calendar columns under a type that is not a forecast", () => {
     renderPage("?type=Closed+Won+ARR&years=3");
     expect(yearsRequested(summary.lastRanges)).toEqual([thisYear - 2, thisYear - 1, thisYear]);
+  });
+});
+
+describe("Forecasted on Region Summary and BU Summary", () => {
+  const typeOptions = async (label: string) => {
+    await userEvent.click(screen.getByLabelText(label));
+    return (await screen.findAllByRole("option")).map((option) => option.textContent);
+  };
+
+  it.each([
+    [MIS_PERIODS.ANNUALLY, "ARR Type", ["ARR", "Only Closed Won ARR", "Forecasted ARR"]],
+    [MIS_PERIODS.QUARTERLY, "QRR Type", ["QRR", "Only Closed Won QRR", "Forecasted QRR"]],
+    [MIS_PERIODS.MONTHLY, "MRR Type", ["MRR", "Only Closed Won MRR", "Forecasted MRR"]],
+  ] as const)("offers Total, Closed Won and Forecasted on %s", async (period, label, expected) => {
+    for (const table of ["region-summary", "bu-summary"]) {
+      cleanup();
+      renderPage(`?table=${table}`, period);
+      expect(await typeOptions(label), `${table} on ${period}`).toEqual(expected);
+    }
+  });
+
+  it("offers Forecast Type under Forecasted only", async () => {
+    renderPage("?table=region-summary");
+    expect(screen.queryByLabelText("Forecast Type")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("ARR Type"));
+    await userEvent.click(await screen.findByRole("option", { name: "Forecasted ARR" }));
+    expect(screen.getByLabelText("Forecast Type")).toBeInTheDocument();
+  });
+
+  it("opens a link carrying Forecasted on it, and asks for the forecast ranges", () => {
+    const thisYear = pacificCivilDate().year;
+    const years = (ranges: readonly MisDateRange[]) =>
+      ranges.map((range) => Number(range.end.slice(0, 4)));
+
+    renderPage("?table=region-summary&type=Forecasted+ARR");
+    expect(screen.getByLabelText("ARR Type")).toHaveValue("Forecasted ARR");
+    expect(years(regionExit.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
+    cleanup();
+    renderPage("?table=bu-summary&type=Forecasted+ARR");
+    expect(years(buExit.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
   });
 });
 
