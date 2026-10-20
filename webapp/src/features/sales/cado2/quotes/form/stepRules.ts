@@ -87,13 +87,13 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
     need(products, !problem, "partnerCommissionPercent", problem);
   }
   const commercial: StepCheck[] = [];
-  // Commercials opens with billing (only when a line recurs) and payment terms (D86).
-  if (recurring) need(commercial, Boolean(v.billingFrequency), "billingFrequency", "Choose the billing frequency");
+  // Commercials opens with billing and payment terms (D86), on every quote (D88).
+  need(commercial, Boolean(v.billingFrequency), "billingFrequency", "Choose the billing frequency");
   need(commercial, Boolean(v.netTermsDays), "netTermsDays", "Choose the payment terms");
   // D86: "See Special Terms" billing points at the special terms.
   need(
     commercial,
-    !recurring || v.billingFrequency !== "SPECIAL_TERMS" || v.specialTermsEnabled,
+    v.billingFrequency !== "SPECIAL_TERMS" || v.specialTermsEnabled,
     "specialTerms.billing",
     SPECIAL_TERMS_BILLING,
   );

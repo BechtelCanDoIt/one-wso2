@@ -306,7 +306,7 @@ export function sheetFromForm(
     termMode: recurring && v.termMode ? v.termMode : null,
     termYears: recurring && v.termMode === "YEARS" ? Number(v.termYears) : null,
     recurring,
-    billingFrequency: recurring ? v.billingFrequency || null : null,
+    billingFrequency: v.billingFrequency || null,
     partnerCommissionPercent:
       isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? String(Number(v.partnerCommissionPercent)) : null,
     contacts: [contacts[0], contacts[1]],

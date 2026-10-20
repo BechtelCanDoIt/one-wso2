@@ -552,14 +552,15 @@ function commissionInput(v: DraftFormValues): string | undefined {
   return isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? v.partnerCommissionPercent.trim() : undefined;
 }
 
-/** The term fields of a request, for the mode in use, and the billing; none without a recurring line. */
+/** The term fields of a request, for the mode in use (none without a recurring line), and the billing (every quote, D88). */
 function termInput(v: DraftFormValues) {
-  if (!hasRecurring(v.lines)) return {};
+  const billingFrequency = v.billingFrequency || undefined;
+  if (!hasRecurring(v.lines)) return { billingFrequency };
   return {
     termMode: v.termMode || undefined,
     termYears: v.termMode === "YEARS" ? Number(v.termYears) : undefined,
     subscriptionEndDate: v.termMode === "END_DATE" ? opt(v.termEndDate) : undefined,
-    billingFrequency: v.billingFrequency || undefined,
+    billingFrequency,
   };
 }
 
@@ -620,12 +621,12 @@ export function toPreviewBody(v: DraftFormValues): object | null {
   const recurring = hasRecurring(v.lines);
   const end = termEnd(v);
   const billing = v.billingFrequency;
-  if (recurring && (!end || !billing || endDateProblem(v.startDate, end))) return null;
+  if (!billing || (recurring && (!end || endDateProblem(v.startDate, end)))) return null;
   return {
     currencyIsoCode: v.currencyIsoCode,
     subscriptionStartDate: v.startDate,
     subscriptionEndDate: recurring ? end : undefined,
-    billingFrequency: recurring ? billing : "ANNUAL",
+    billingFrequency: billing,
     partnerCommissionPercent: commissionInput(v),
     lines: lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,

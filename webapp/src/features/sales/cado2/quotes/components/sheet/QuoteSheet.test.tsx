@@ -239,9 +239,12 @@ describe("DealFiguresSection", () => {
     expect(screen.getByRole("region", { name: "Deal" })).not.toHaveTextContent("Billing");
   });
 
-  it("shows no billing frequency on a services-only quote", () => {
-    render(<QuoteSheet sheet={{ ...sheet, recurring: false }} />);
-    expect(screen.getByRole("region", { name: "Commercial Terms" })).not.toHaveTextContent("Billing frequency");
+  // D88: services-only quotes have a billing frequency too.
+  it("shows the billing frequency on a services-only quote", () => {
+    render(<QuoteSheet sheet={{ ...sheet, recurring: false, billingFrequency: "UPFRONT" }} />);
+    expect(screen.getByRole("region", { name: "Commercial Terms" })).toHaveTextContent(
+      "Billing frequencyUpon the Execution of the Order Form",
+    );
   });
 
   it("shows ARR and ACV as not applicable on a services-only quote", () => {

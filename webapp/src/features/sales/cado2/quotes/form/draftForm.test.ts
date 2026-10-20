@@ -230,11 +230,12 @@ describe("toDraftInput", () => {
     expect(date).not.toHaveProperty("coTermOpportunityId");
   });
 
-  it("sends no term when no product recurs in Salesforce (D76)", () => {
+  it("sends no term when no product recurs in Salesforce (D76), but still the billing (D88)", () => {
     const v = filled();
     // Still under Subscription: the category doesn't decide.
-    const input = toDraftInput({ ...v, lines: v.lines.map((l) => ({ ...l, recurring: false })) });
+    const input = toDraftInput({ ...v, billingFrequency: "MONTHLY", lines: v.lines.map((l) => ({ ...l, recurring: false })) });
     expect(input.termMode).toBeUndefined();
+    expect(input.billingFrequency).toBe("MONTHLY");
     expect(input.subscriptionStartDate).toBe("2027-01-01");
   });
 
@@ -282,10 +283,11 @@ describe("toPreviewBody", () => {
     });
   });
 
-  it("prices a quote with no recurring product from its start date alone", () => {
+  it("prices a quote with no recurring product from its start date and billing (D88)", () => {
     const v = filled();
-    const body = toPreviewBody({ ...v, termMode: "", lines: v.lines.map((l) => ({ ...l, recurring: false })) });
-    expect(body).toMatchObject({ subscriptionStartDate: "2027-01-01", subscriptionEndDate: undefined });
+    const services = { ...v, termMode: "" as const, billingFrequency: "UPFRONT" as const, lines: v.lines.map((l) => ({ ...l, recurring: false })) };
+    expect(toPreviewBody(services)).toMatchObject({ subscriptionStartDate: "2027-01-01", subscriptionEndDate: undefined, billingFrequency: "UPFRONT" });
+    expect(toPreviewBody({ ...services, billingFrequency: "" })).toBeNull();
   });
 });
 

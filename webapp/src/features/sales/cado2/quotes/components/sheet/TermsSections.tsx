@@ -30,16 +30,14 @@ function TextBlock({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /**
- * Billing (only when a line recurs), payment terms, PO, and any special or
+ * Billing (every quote, D88), payment terms, PO, and any special or
  * governing terms: as on the Commercials step (D86).
  */
 export function TermsSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
   return (
     <SheetCard title="Commercial Terms" icon={<FileTextIcon size={18} />}>
       <FactGrid>
-        {sheet.recurring ? (
-          <Fact label="Billing frequency" value={sheet.billingFrequency ? BILLING_LABEL[sheet.billingFrequency] : ""} />
-        ) : null}
+        <Fact label="Billing frequency" value={sheet.billingFrequency ? BILLING_LABEL[sheet.billingFrequency] : ""} />
         <Fact
           label="Payment terms"
           value={sheet.netTermsDays ? `Net ${sheet.netTermsDays}` : ""}

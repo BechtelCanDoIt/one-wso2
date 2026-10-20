@@ -112,9 +112,11 @@ describe("CommercialStep — Commercials", () => {
     expect(screen.queryByText(/Billing says See Special Terms/)).toBeNull();
   });
 
-  it("has no billing frequency when no product recurs", () => {
-    render(<Harness lines={[{ ...line("0"), recurring: false }]} />);
-    expect(screen.queryByRole("region", { name: "Billing Frequency" })).toBeNull();
+  // D88: services-only quotes choose their billing too, and the same to-do applies.
+  it("asks for the billing frequency when no product recurs", () => {
+    render(<Harness lines={[{ ...line("0"), recurring: false }]} values={{ billingFrequency: "SPECIAL_TERMS" }} />);
+    expect(screen.getByRole("region", { name: "Billing Frequency" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Payment Terms" })).toBeInTheDocument();
+    expect(screen.getByText(/Billing says See Special Terms/)).toBeInTheDocument();
   });
 });

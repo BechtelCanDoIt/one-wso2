@@ -20,7 +20,7 @@ import { Alert, Checkbox, FormControlLabel, Stack, Switch, TextField, Typography
 import { FileTextIcon, MapPinIcon, MessageSquareTextIcon, TruckIcon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useAccountContacts } from "@features/sales/cado2/quotes/api/useQuoteApi";
-import { discountedLines, hasRecurring, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
+import { discountedLines, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
 import { SPECIAL_TERMS_BILLING } from "@features/sales/cado2/quotes/form/stepRules";
 import AddressFields from "@features/sales/cado2/quotes/components/AddressFields";
 import ContactPicker from "@features/sales/cado2/quotes/components/ContactPicker";
@@ -100,8 +100,8 @@ function TermsSwitch({
 }
 
 /**
- * Step ③ Commercials (D86): how often it is invoiced (only when a line
- * recurs) and when each invoice is due, the contract's terms, who is billed
+ * Step ③ Commercials (D86): how often it is invoiced (every quote, D88)
+ * and when each invoice is due, the contract's terms, who is billed
  * and who receives it (each with its contact; the PO number in Bill To), and
  * the justification. Billing sits right above Terms, so "See Special Terms"
  * leads straight to the switch it needs.
@@ -116,11 +116,11 @@ export default function CommercialStep(): JSX.Element {
   const partnerDeal = dealType === "PARTNER";
   const discounted = discountedLines(lines);
   // D86: "See Special Terms" billing needs the special terms on.
-  const billingNeedsSpecialTerms = hasRecurring(lines) && billing === "SPECIAL_TERMS" && !specialOn;
+  const billingNeedsSpecialTerms = billing === "SPECIAL_TERMS" && !specialOn;
 
   return (
     <Stack spacing={2.5}>
-      {hasRecurring(lines) ? <BillingFrequencyCard /> : null}
+      <BillingFrequencyCard />
       <PaymentTermsCard />
 
       <Section title="Terms" icon={<FileTextIcon size={18} />} hint="Switch on only what differs from WSO2's standard terms.">

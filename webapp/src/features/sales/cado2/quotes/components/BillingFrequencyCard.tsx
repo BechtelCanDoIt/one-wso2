@@ -23,7 +23,7 @@ import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssu
 
 /**
  * How often the customer is invoiced (D85), its own card on Commercials since D86. Shown
- * only when a line recurs. It never changes the price: only "Upon the
+ * on every quote, services-only included (D88). It never changes the price: only "Upon the
  * Execution of the Order Form" moves everything into Year 1's billing.
  * "See Special Terms" points at the special terms, in the Terms card below.
  */

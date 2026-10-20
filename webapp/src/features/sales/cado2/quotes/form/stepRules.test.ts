@@ -76,12 +76,12 @@ describe("stepChecks", () => {
     expect(products({ termMode: "END_DATE", termEndDate: "2036-10-01" })[0].message).toMatch(/at most 10 years/);
   });
 
-  // D85, D86: every recurring quote chooses its billing, on Commercials.
-  it("checks the billing on Commercials, only when a line recurs", () => {
+  // D85, D86, D88: every quote chooses its billing on Commercials, services-only included.
+  it("checks the billing on Commercials, on every quote", () => {
     const step3 = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[2];
     expect(step3({ billingFrequency: "" }).map((c) => c.field)).toEqual(["billingFrequency"]);
     const services = complete().lines.map((l) => ({ ...l, recurring: false }));
-    expect(step3({ billingFrequency: "", lines: services })).toEqual([]);
+    expect(step3({ billingFrequency: "", lines: services }).map((c) => c.field)).toEqual(["billingFrequency"]);
   });
 
   // D86: "See Special Terms" billing points at the special terms.
@@ -92,9 +92,9 @@ describe("stepChecks", () => {
     ]);
     expect(step3({ specialTermsEnabled: true, specialTerms: "40% on signing, 60% on go-live" })).toEqual([]);
     expect(step3({ specialTermsEnabled: true, specialTerms: " " }).map((c) => c.field)).toEqual(["specialTerms.text"]);
-    // No recurring product: no billing, so nothing to point at.
+    // Services-only too (D88).
     const services = complete().lines.map((l) => ({ ...l, recurring: false }));
-    expect(step3({ specialTermsEnabled: false, lines: services })).toEqual([]);
+    expect(step3({ specialTermsEnabled: false, lines: services }).map((c) => c.field)).toEqual(["specialTerms.billing"]);
   });
 
   it("needs the partner's commission on a partner-led quote", () => {

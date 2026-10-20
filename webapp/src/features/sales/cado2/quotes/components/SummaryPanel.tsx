@@ -276,7 +276,7 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
         <Group title="Commercials" icon={<FileTextIcon size={14} />}>
           {/* As on the step (D86): billing and payment terms first. */}
           <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 1.25 }}>
-            {recurring || v.lines.length === 0 ? <Field label="Billing">{billing ? BILLING_LABEL[billing] : null}</Field> : null}
+            <Field label="Billing">{billing ? BILLING_LABEL[billing] : null}</Field>
             <Field label="Payment terms">{v.netTermsDays ? `Net ${v.netTermsDays}` : null}</Field>
           </Box>
           <Field label="Bill to">

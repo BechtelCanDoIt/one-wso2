@@ -55,6 +55,7 @@ const RULE: Record<string, { kind: ReasonKind; title: string }> = {
   RENEWAL_DOWNSELL: { kind: "downsell", title: "Renewal downsell" },
   RENEWAL_DOWNSELL_CEO: { kind: "downsell", title: "Renewal downsell" },
   PAYMENT_TERMS: { kind: "payment", title: "Payment terms" },
+  BILLING_FREQUENCY: { kind: "payment", title: "Billing frequency" },
 };
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
