@@ -14,11 +14,31 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Box, Chip, Link, Paper, Typography } from "@wso2/oxygen-ui";
-import { ImageIcon } from "@wso2/oxygen-ui-icons-react";
 import type { Campaign } from "../api/amplifyTypes";
 import { linkedInPostUrl } from "../util/linkedinPost";
+
+// Black card with the white Amplify pulse mark at 80% of the frame height (public/amplify).
+export const DEFAULT_POST_IMAGE = "/amplify/default-post-image.svg";
+
+// The post's own image, or the default when the URL is empty or fails to load.
+function PostImage({ url }: { url?: string | null }) {
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const useDefault = !url || failedUrl === url;
+  return (
+    <Box
+      component="img"
+      src={useDefault ? DEFAULT_POST_IMAGE : url}
+      alt=""
+      loading="lazy"
+      onError={() => {
+        if (url && !useDefault) setFailedUrl(url);
+      }}
+      sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+    />
+  );
+}
 
 function postDate(iso: string): string {
   const d = new Date(iso);
@@ -57,30 +77,8 @@ export default function PostCard({
         </Typography>
       </Box>
 
-      <Box
-        sx={{
-          aspectRatio: "16 / 9",
-          borderRadius: 1,
-          border: "1px dashed",
-          borderColor: "divider",
-          overflow: "hidden",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          color: "text.secondary",
-        }}
-      >
-        {campaign.imageUrl ? (
-          <Box
-            component="img"
-            src={campaign.imageUrl}
-            alt=""
-            loading="lazy"
-            sx={{ width: "100%", height: "100%", objectFit: "cover" }}
-          />
-        ) : (
-          <ImageIcon size={24} aria-hidden />
-        )}
+      <Box sx={{ aspectRatio: "16 / 9", borderRadius: 1, overflow: "hidden", bgcolor: "common.black" }}>
+        <PostImage url={campaign.imageUrl} />
       </Box>
 
       {chips && <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>{chips}</Box>}
