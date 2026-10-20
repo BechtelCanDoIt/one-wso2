@@ -266,16 +266,20 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("tab", { name: /^MEDDPICC, \d+ to review$/ })).toBeInTheDocument();
   });
 
-  it("shows Salesforce's deal score in the header", async () => {
+  it("shows Salesforce's deal score and what needs attention, with the next step", async () => {
     renderPanel("006MOCK0000BRWT");
     await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
     expect(screen.getByText("Deal score")).toBeInTheDocument();
     expect(screen.getByLabelText("Deal score 28.3, Weak")).toBeInTheDocument();
+    const attention = screen.getByRole("region", { name: "Needs attention" });
+    expect(attention).toHaveTextContent("Closing, with gaps. Closes in 12 days, and Qualify still needs 1 field.");
+    expect(attention).toHaveTextContent("Next step: Fill in Economic buyer, or move the close date.");
   });
 
-  it("shows a dash for a deal with no score", async () => {
+  it("shows no attention box and a dash for a deal with no flags or score", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
     expect(screen.getByLabelText("No deal score")).toBeInTheDocument();
   });
 

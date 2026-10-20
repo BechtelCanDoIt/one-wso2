@@ -23,11 +23,12 @@ import DealJourney, { DealJourneyLegend } from "./DealJourney";
 import MeddpiccCircles from "./MeddpiccCircles";
 import StageChip from "./StageChip";
 import DealScore from "./DealScore";
+import { DealFlagMarker } from "./DealFlags";
 import { useNow } from "../../util/useNow";
 
 /**
- * Four columns. The stage, amount and close date ride under the opportunity's name, and
- * the count to review under the circles, so the deal's journey gets the width.
+ * Four columns. The stage, amount, close date and any flags ride under the opportunity's
+ * name, and the count to review under the circles, so the deal's journey gets the width.
  */
 const COLUMNS = [
   { key: "deal", label: "Opportunity", width: 300 },
@@ -133,6 +134,7 @@ export default function DealsTable({
                       </Link>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.25, mt: 0.5 }}>
                         <StageChip stage={deal.stage} />
+                        <DealFlagMarker flags={deal.flags} />
                         <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
                           {formatAmount(deal.amount, deal.currencyIsoCode)}
                           {" · closes "}

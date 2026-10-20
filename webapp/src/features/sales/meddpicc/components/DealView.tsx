@@ -65,6 +65,7 @@ import { defaultGate, gateSummaries, sectionsFor } from "../util/dealSections";
 import { useNow } from "../../util/useNow";
 import DealJourney, { KindMark, QUIET_AFTER_DAYS } from "./DealJourney";
 import DealScore from "./DealScore";
+import { DealFlags } from "./DealFlags";
 import { KINDS } from "../util/timelineKinds";
 import StagePath from "./StagePath";
 import DealChat, { type ChatEntry } from "./DealChat";
@@ -320,6 +321,12 @@ export default function DealView({
           />
           <Fact label="Deal score" value={<DealScore score={deal.dealScore} />} detail="From Salesforce" />
         </Box>
+
+        {deal.flags && deal.flags.length > 0 && (
+          <Box sx={{ mt: 1.5 }}>
+            <DealFlags flags={deal.flags} />
+          </Box>
+        )}
 
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, mt: 2 }}>
           <StageChip stage={deal.stage} />
