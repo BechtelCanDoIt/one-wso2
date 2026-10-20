@@ -15,6 +15,7 @@
 // under the License.
 
 import { useMemo, useState, type JSX } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Box, Link, Sidebar, Typography } from "@wso2/oxygen-ui";
 import { BookOpenIcon, ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, matchPath, useLocation, useNavigate } from "react-router";
@@ -92,6 +93,8 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
   const active = useActivePerspective();
   const navigate = useNavigate();
   const location = useLocation();
+  // Handed to a row's `onSelect` action — see PerspectiveSection.onSelect.
+  const queryClient = useQueryClient();
 
   // Who can see what. This used to be ~100 lines of gate wiring right here,
   // which made the rail the only thing in the app that knew — see
@@ -201,7 +204,7 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
   // Every row that runs an action instead of navigating — see
   // PerspectiveSection.onSelect.
   const actionById = useMemo(() => {
-    const map = new Map<string, () => void>();
+    const map = new Map<string, NonNullable<PerspectiveSection["onSelect"]>>();
     for (const s of sections) {
       if (s.onSelect) map.set(s.id, s.onSelect);
       for (const c of s.children ?? []) {
@@ -228,7 +231,7 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
     if (id === OVERVIEW_ID) return;
     const action = actionById.get(id);
     if (action) {
-      action();
+      action({ queryClient });
       return;
     }
     const path = pathById.get(id);

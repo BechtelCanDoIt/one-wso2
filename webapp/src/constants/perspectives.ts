@@ -51,6 +51,7 @@ import {
   ServerIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
+import type { QueryClient } from "@tanstack/react-query";
 import type { Capability, MenuApp } from "@constants/appMenu";
 import {
   FINANCE_OVERVIEW_APPS,
@@ -99,8 +100,10 @@ export interface PerspectiveSection {
   // `path` — a section is either somewhere we host or somewhere we don't.
   externalUrl?: string;
   // When set, choosing the row runs this instead of navigating — for a row
-  // whose destination is only known at runtime. Mutually exclusive with `path`.
-  onSelect?: () => void;
+  // whose destination is only known at runtime. It is handed the app's
+  // QueryClient, so it can read what a hook has already fetched. Mutually
+  // exclusive with `path`.
+  onSelect?: (context: { queryClient: QueryClient }) => void;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group

@@ -21,8 +21,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Book, RefreshCw } from "@wso2/oxygen-ui-icons-react";
 import {
   UMT_DOCUMENTATION_ITEM_ID,
+  UMT_DOCUMENTATION_URL_KEY,
   openUmtDocumentation,
-  rememberUmtDocumentationUrl,
 } from "@features/umt/lib/umtDocumentation";
 
 // SideRail rendered the way SideRail.userGuide.test.tsx renders it: the
@@ -60,11 +60,11 @@ const { default: SideRail } = await import("@components/side-rail/SideRail");
 
 const DOCS = "https://docs.example/umt";
 
-// The link is whatever useUmtDocumentationUrl last fetched; remembering it
-// here is exactly what the row's action sees once that request lands.
+// The link is whatever useUmtDocumentationUrl fetched into the cache; seeding
+// the cache is exactly what the row's action sees once that request lands.
 function renderSideRail({ collapsed, url }: { collapsed: boolean; url?: string }) {
-  rememberUmtDocumentationUrl(url);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  if (url !== undefined) queryClient.setQueryData(UMT_DOCUMENTATION_URL_KEY, url);
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={["/engineering/umt"]}>
@@ -77,7 +77,6 @@ function renderSideRail({ collapsed, url }: { collapsed: boolean; url?: string }
 describe("UMT's Documentation row", () => {
   afterEach(() => {
     vi.restoreAllMocks();
-    rememberUmtDocumentationUrl(undefined);
   });
 
   it("opens the documentation in a new tab", () => {

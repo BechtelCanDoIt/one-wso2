@@ -14,48 +14,44 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { umtServiceUrls, isUmtBackendConfigured } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
-import { rememberUmtDocumentationUrl } from "../lib/umtDocumentation";
+import { UMT_DOCUMENTATION_URL_KEY, toWebAddress } from "../lib/umtDocumentation";
 import type { UmtDocumentation } from "./umtTypes";
 
 // GET /update/documentation — the Update Manager documentation link configured
 // for this environment. The rail's UMT "Documentation" row opens it, so the row
-// needs it before it can be shown; it is also handed to openUmtDocumentation,
-// which the row runs when chosen.
+// needs it before it can be shown; openUmtDocumentation reads it back out of
+// the cache when the row is chosen.
 //
-// Undefined until it arrives, and also when the backend has none configured:
-// there is nowhere for the row to go in either case. The link is deployment
-// configuration, the same for every caller, so the key is not per user and it
-// is fetched once per session.
+// Undefined until it arrives, and also when the backend has none configured or
+// sends something that is not a web address: there is nowhere for the row to go
+// in either case. The link is deployment configuration, the same for every
+// caller, so the key is not per user.
+//
+// Fresh for ten minutes, like useUserGuideUrl. This app's QueryClient turns off
+// refetch on mount, focus and reconnect, so a link that is already cached is
+// fetched again only once its entry has been dropped from the cache.
 export function useUmtDocumentationUrl(enabled = true): string | undefined {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const configured = isUmtBackendConfigured();
 
   const query = useQuery<string>({
-    queryKey: ["umt-documentation-url"],
+    queryKey: UMT_DOCUMENTATION_URL_KEY,
     enabled: enabled && isSignedIn && configured,
     queryFn: async () => {
       const accessToken = await getAccessToken();
       const { url } = await authedGet<UmtDocumentation>(umtServiceUrls.documentation, accessToken);
-      return url?.trim() ?? "";
+      return toWebAddress(url);
     },
-    staleTime: Infinity,
+    staleTime: 10 * 60 * 1000,
     retry: httpRetry,
   });
 
-  const url = query.data || undefined;
-  // An effect, not a write during render: React may render this more than once
-  // per commit.
-  useEffect(() => {
-    rememberUmtDocumentationUrl(url);
-  }, [url]);
-
-  return url;
+  return query.data || undefined;
 }

@@ -303,3 +303,39 @@ describe("perspectives whose landing forwards to the first rail item", () => {
     });
   });
 });
+
+// A rail row does exactly one thing when chosen: go to a page (`path`), open a
+// site (`externalUrl`), or run an action (`onSelect`). Only this test stops a
+// row from carrying two. SideRail hands every click, links included, to its
+// `onSelect`, so a row with a `path` or an `externalUrl` and an action would
+// follow its link and run the action.
+describe("a rail row does one thing", () => {
+  type Row = NonNullable<Perspectives["PERSPECTIVES"][number]["sections"]>[number];
+  const rowsOf = (rows: readonly Row[] | undefined): Row[] =>
+    (rows ?? []).flatMap((row) => [row, ...rowsOf(row.children)]);
+
+  it.each([[true], [false]])("across every perspective, with the preview flags on = %s", async (previewOn) => {
+    vi.resetModules();
+    window.config = {
+      ...(window.config ?? {}),
+      ONE_WSO2_PREVIEW_FEATURES: previewOn
+        ? { umt: true, infra: true, cado2: true, nda: true, smartSearch: true }
+        : {},
+      // ISAC and CSM are only in the registry once their addresses are set.
+      ONE_WSO2_MARKETINGOPS_ISAC_URL: "https://isac.example",
+      ONE_WSO2_CSM_URL: "https://csm.example",
+    } as Window["config"];
+    const { PERSPECTIVES } = await import("./perspectives");
+
+    const rows = PERSPECTIVES.flatMap((perspective) => rowsOf(perspective.sections));
+    const ids = rows.map((row) => row.id);
+    // Guards against this walking nothing and passing for the wrong reason.
+    expect(ids).toContain("mops-isac");
+    expect(ids.includes("umt-documentation")).toBe(previewOn);
+
+    const doingMoreThanOne = rows
+      .filter((row) => [row.path, row.externalUrl, row.onSelect].filter((field) => field !== undefined).length > 1)
+      .map((row) => row.id);
+    expect(doingMoreThanOne).toEqual([]);
+  });
+});
