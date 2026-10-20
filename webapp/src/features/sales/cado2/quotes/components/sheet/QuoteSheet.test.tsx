@@ -74,8 +74,8 @@ describe("QuoteSheet", () => {
     }
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
-    // The Duration column (D85, back since D94): the term on a recurring line.
-    expect(within(products).getByRole("columnheader", { name: "Duration" })).toBeInTheDocument();
+    // The Term column (D85, back since D94, renamed D96): the term on a recurring line.
+    expect(within(products).getByRole("columnheader", { name: "Term" })).toBeInTheDocument();
     expect(within(products).getAllByText("1Y").length).toBeGreaterThan(0);
     expect(within(products).getByText("Subscription")).toBeInTheDocument();
     expect(within(products).getByText("Gateways")).toBeInTheDocument();
@@ -204,7 +204,7 @@ describe("Partner commission", () => {
     expect(within(screen.getByRole("table", { name: "Yearly schedule" })).getByText("Billed, net of commission")).toBeInTheDocument();
   });
 
-  it("says a one-off line is one-time in the Duration column (D85, D94)", () => {
+  it("says a one-off line is one-time in the Term column (D85, D94)", () => {
     render(<QuoteSheet sheet={{ ...threeYears, startDate: "2027-01-01" }} />);
     const products = within(screen.getByRole("table", { name: "Products" }));
     expect(products.getAllByText("3Y")).toHaveLength(3); // two subscriptions and support

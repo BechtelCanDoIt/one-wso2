@@ -321,7 +321,7 @@ export function durationText(start: string, end: string): string {
   return [part(d.years, "year"), part(d.months, "month"), part(d.days, "day")].filter(Boolean).join(" + ");
 }
 
-/** The same duration, short, for the products table's Duration column (D94): "1Y 1M 1D", "3Y", "11M 30D". */
+/** The same duration, short, for the products table's Term column (D94, D96): "1Y 1M 1D", "3Y", "11M 30D". */
 export function durationShort(start: string, end: string): string {
   const d = durationParts(start, end);
   if (!d) return "";

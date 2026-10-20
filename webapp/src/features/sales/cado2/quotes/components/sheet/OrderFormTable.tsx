@@ -176,7 +176,7 @@ export default function OrderFormTable({
             <TableCell align="right">Unit list</TableCell>
             <TableCell align="right">Qty</TableCell>
             <TableCell align="right">Discount</TableCell>
-            <TableCell>Duration</TableCell>
+            <TableCell>Term</TableCell>
             <TableCell align="right">Amount{cur}</TableCell>
             {actions ? (
               <TableCell align="right">

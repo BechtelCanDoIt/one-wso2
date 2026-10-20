@@ -361,7 +361,7 @@ export function sheetFromForm(
 /** How long the term is, in words (D85): "3 years", "1 year + 1 day", or "". */
 export const termLabel = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationText(s.startDate, s.endDate);
 
-/** The term, short, e.g. "1Y 1D": the products table's Duration column (D94). */
+/** The term, short, e.g. "1Y 1D": the products table's Term column (D94, D96). */
 export const termShort = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationShort(s.startDate, s.endDate);
 
 /** The yearly schedule is shown only when the term runs over more than one contract year. */
