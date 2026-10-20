@@ -256,6 +256,8 @@ export interface BuildLeadColumn {
    * the left — see `leadColumnOffsets`.
    */
   pinned?: boolean;
+  /** Whether the header offers a text filter. A column of figures says false. */
+  filterable?: boolean;
 }
 
 /**

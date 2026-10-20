@@ -29,6 +29,8 @@ import {
 import { XIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import BuildTable, { type BuildCellFor } from "./BuildTable";
+import { filterRows, useBuildFilters } from "./buildTableFilter";
+import { figureSortValue, sortRows, sortValueReader, useBuildSort } from "./buildTableSort";
 import {
   OPPORTUNITY_COLUMNS,
   opportunityRows,
@@ -126,6 +128,31 @@ export default function MisOpportunities({
       : String(value);
   };
 
+  const buildRows = useMemo(
+    () => rows.map((row) => ({ id: row.rowId, label: row.accountId })),
+    [rows],
+  );
+  const { sort, toggle } = useBuildSort(state.opportunities);
+  const { filters, setFilter } = useBuildFilters(state.opportunities);
+  const columnOf = (key: string) => OPPORTUNITY_COLUMNS.find((column) => column.key === key);
+  const shownBuildRows = sortRows(
+    filterRows(buildRows, filters, (row, key) => {
+      const column = columnOf(key);
+      return column ? leadCell(row, column) : "";
+    }),
+    sort,
+    sortValueReader({
+      figure: () => undefined,
+      lead: (row, key) => {
+        const opportunity = byRowId.get(row.id);
+        const column = columnOf(key);
+        return opportunity && column ? figureSortValue(column.read(opportunity)) : undefined;
+      },
+    }),
+  );
+  // The file carries the opportunities as the list shows them.
+  const shownOpportunities = shownBuildRows.flatMap((row) => byRowId.get(row.id) ?? []);
+
   // No Period groups: this table's columns are all identity and figure columns
   // of one opportunity, so there is nothing to group them by.
   const cell: BuildCellFor = () => ({ text: "" });
@@ -161,7 +188,7 @@ export default function MisOpportunities({
               sx={{ alignItems: "baseline", justifyContent: "space-between", mb: 0.75 }}
             >
               <Typography variant="caption" color="text.secondary">
-                {rows.length} {rows.length === 1 ? "opportunity" : "opportunities"}
+                {shownOpportunities.length} {shownOpportunities.length === 1 ? "opportunity" : "opportunities"}
               </Typography>
               {/* The caption travels with the table, so a figure cropped into a
                   deck carries its units — see `amountUnitCaption`. */}
@@ -176,7 +203,7 @@ export default function MisOpportunities({
                     title: `Opportunities — ${account?.name || account?.id || "account"}`,
                     lines: asOf ? [`As of ${asOf}`] : [],
                   })}
-                  workbook={() => opportunitiesWorkbook(rows)}
+                  workbook={() => opportunitiesWorkbook(shownOpportunities)}
                   filename={() => misExportFilename(["opportunities", account?.id ?? ""])}
                 />
               </Stack>
@@ -192,7 +219,11 @@ export default function MisOpportunities({
               // than through `leadCell`, so a mismatch puts one field under
               // another's header. Here that showed the opportunity name under
               // "Account ID", and again under "Opportunity Name".
-              rows={rows.map((row) => ({ id: row.rowId, label: row.accountId }))}
+              rows={shownBuildRows}
+              sort={sort}
+              onSort={toggle}
+              filters={filters}
+              onFilter={setFilter}
               leadColumns={OPPORTUNITY_COLUMNS}
               leadCell={leadCell}
               columnGroups={[]}

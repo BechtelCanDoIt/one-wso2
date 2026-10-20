@@ -23,6 +23,12 @@ import MisCustomerDrillDown from "./MisCustomerDrillDown";
 import type { DrillDownCustomer } from "./drillDownColumns";
 import type { DrillDownState } from "../api/useDrillDownCustomers";
 
+// Vitest's 5s default is the wrong one for this file: sorting and filtering
+// each mount a real `BuildTable` and click through every column, which runs
+// past five seconds under the full suite's parallelism. Same line as
+// `MisOpportunities.test.tsx`.
+vi.setConfig({ testTimeout: 20_000 });
+
 // The dialog behind a figure: who is inside this number.
 //
 // The fetch is stubbed at the hook's own shape — it has its own tests — so this
@@ -210,5 +216,81 @@ describe("taking the customers out of the browser", () => {
   it("offers nothing to export before there is a list", async () => {
     renderDialog({ state: { ...loaded([]), isLoading: true } });
     expect(screen.queryByRole("button", { name: /export/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("finding one customer in the list", () => {
+  const BOOK: DrillDownCustomer[] = [
+    NORTHWIND,
+    { ...NORTHWIND, accountId: "a2", name: "Contoso", amount: 90_000, accountOwner: "Jane Roe" },
+    { ...NORTHWIND, accountId: "a3", name: "North Star Ltd", amount: 12_000, accountOwner: undefined },
+  ];
+  const table = () => screen.getByRole("table", { name: "Customers behind this figure", hidden: true });
+  const bodyRows = () =>
+    within(table())
+      .getAllByRole("row", { hidden: true })
+      .slice(1)
+      .map((row) => row.children[1]?.textContent ?? "");
+  const header = (name: RegExp) => within(table()).getByRole("columnheader", { name, hidden: true });
+  const startsWith = (label: string) => new RegExp(`^${label.replace(/[()]/g, "\\$&")}`);
+  const sortButton = (label: string) => within(header(startsWith(label))).getByRole("button", { name: label });
+  beforeEach(() => {
+    renderDialog({ state: loaded(BOOK) });
+  });
+
+  it("sorts every column: descending, ascending, then off", async () => {
+    const before = bodyRows();
+    for (const label of ["Account ID", "Account Name", "Amount (USD)", "Account Owner"]) {
+      await userEvent.click(sortButton(label));
+      expect(header(startsWith(label)), `${label} descending`).toHaveAttribute("aria-sort", "descending");
+      await userEvent.click(sortButton(label));
+      expect(header(startsWith(label)), `${label} ascending`).toHaveAttribute("aria-sort", "ascending");
+      await userEvent.click(sortButton(label));
+      expect(header(startsWith(label)), `${label} off`).not.toHaveAttribute("aria-sort");
+    }
+    expect(bodyRows()).toEqual(before);
+  }, 30_000);
+
+  it("orders the amounts as numbers, and puts a missing owner last", async () => {
+    await userEvent.click(sortButton("Amount (USD)"));
+    expect(bodyRows()).toEqual(["Northwind Bank", "Contoso", "North Star Ltd"]);
+    await userEvent.click(sortButton("Amount (USD)"));
+    expect(bodyRows()).toEqual(["North Star Ltd", "Contoso", "Northwind Bank"]);
+    await userEvent.click(sortButton("Amount (USD)"));
+    await userEvent.click(sortButton("Account Owner"));
+    expect(bodyRows().at(-1)).toBe("North Star Ltd");
+    await userEvent.click(sortButton("Account Owner"));
+    expect(bodyRows().at(-1)).toBe("North Star Ltd");
+  });
+
+  it("filters the text columns by what they contain, ignoring case", async () => {
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Account Name/, hidden: true }));
+    await userEvent.type(await screen.findByLabelText("Filter Account Name"), "NORTH");
+    expect(bodyRows()).toEqual(["Northwind Bank", "North Star Ltd"]);
+  });
+
+  it("offers no text filter on the Amount, which is a figure", () => {
+    expect(screen.queryByRole("button", { name: /^Filter by Amount/, hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Filter by Account Name/, hidden: true })).toBeInTheDocument();
+  });
+
+  it("exports the rows as sorted and filtered, in Excel", async () => {
+    const { blobs } = captureDownloads();
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Account Name/, hidden: true }));
+    await userEvent.type(await screen.findByLabelText("Filter Account Name"), "north");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument());
+    await userEvent.click(sortButton("Amount (USD)"));
+    await userEvent.click(sortButton("Amount (USD)"));
+
+    await userEvent.click(screen.getByRole("button", { name: /^export$/i }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /^excel/i }));
+    await waitFor(() => expect(blobs).toHaveLength(1));
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await bytesOf(blobs[0]));
+    const names: string[] = [];
+    workbook.getWorksheet("Customers")!.eachRow((row) => names.push(String(row.getCell(2).value ?? "")));
+    expect(names.filter((name) => /north/i.test(name))).toEqual(["North Star Ltd", "Northwind Bank"]);
+    expect(names).not.toContain("Contoso");
   });
 });

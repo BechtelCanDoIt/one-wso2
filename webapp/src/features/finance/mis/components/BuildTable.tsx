@@ -387,7 +387,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                     style={{ width: column.width, minWidth: column.width }}
                     sx={[leadHeadCellSx(leadOffsets[index])]}
                   >
-                    {onFilter ? (
+                    {onFilter && column.filterable !== false ? (
                       <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                         {sortable(column.label, { kind: "lead", key: column.key })}
                         <BuildColumnFilter

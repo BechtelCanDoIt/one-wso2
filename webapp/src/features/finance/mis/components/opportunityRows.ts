@@ -228,7 +228,7 @@ function figureColumn(
   width: number,
   read: (row: OpportunityRow) => number,
 ): OpportunityColumn {
-  return { key, label, width, isFigure: true, read };
+  return { key, label, width, isFigure: true, filterable: false, read };
 }
 
 /** A figure, however it arrived. Zero for anything unreadable, never `NaN`. */
