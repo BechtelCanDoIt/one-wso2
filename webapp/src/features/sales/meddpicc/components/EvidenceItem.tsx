@@ -156,6 +156,7 @@ export default function EvidenceItem({
           )}
           <Box
             component="span"
+            role="img"
             title={SOURCE_NAME[source.type]}
             aria-label={SOURCE_NAME[source.type]}
             sx={{ display: "inline-flex" }}
