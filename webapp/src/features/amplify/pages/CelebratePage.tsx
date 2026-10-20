@@ -30,7 +30,7 @@ import {
 } from "../api/useAmplifyData";
 import { useAmplifyPeople } from "../api/useAmplifyPeople";
 import AmplifyShell from "../components/AmplifyShell";
-import { MyPositionPanel, TeamLeaderboardPanel, TopThreePanel } from "../components/LeaderboardPanels";
+import { TeamLeaderboardPanel, TopAmplifiersPanel } from "../components/LeaderboardPanels";
 import LinkLinkedInDialog from "../components/LinkLinkedInDialog";
 import PostCard, { CategoryChip, PriorityChip } from "../components/PostCard";
 import PostCarousel from "../components/PostCarousel";
@@ -150,8 +150,7 @@ export default function CelebratePage() {
         </ErrorNotice>
       ) : (
         <>
-          <TopThreePanel board={board.data} people={people} />
-          <MyPositionPanel board={board.data} />
+          <TopAmplifiersPanel board={board.data} people={people} />
           <TeamLeaderboardPanel board={board.data} people={people} />
         </>
       )}
