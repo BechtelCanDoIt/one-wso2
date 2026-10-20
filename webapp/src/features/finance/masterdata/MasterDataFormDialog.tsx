@@ -24,6 +24,8 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
+  Switch,
 } from "@wso2/oxygen-ui";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { MASTER_DATA_FORM_COPY, MASTER_DATA_SNACK } from "./masterDataCopy";
@@ -35,9 +37,15 @@ import {
   SelectInput,
   TextInput,
 } from "./masterDataFields";
-import { useCreateMasterData, useUpdateMasterData } from "./useMasterDataMutations";
+import {
+  describeUpdateError,
+  useCreateMasterData,
+  useUpdateMasterData,
+} from "./useMasterDataMutations";
+import { useCountries } from "./useMasterData";
 import {
   CREDIT_CARD_PROVIDERS,
+  MASTER_DATA_STATUS,
   type CreditCardPayload,
   type DepartmentPayload,
   type ExpenseTypeAutoComplete,
@@ -86,6 +94,9 @@ export default function MasterDataFormDialog({
   const { showSuccess, showError } = useNotifications();
   const create = useCreateMasterData(tab);
   const update = useUpdateMasterData(tab);
+  // Only the subsidiary form asks for a country, so the other three tabs do
+  // not pay for the request.
+  const countries = useCountries(tab === "subsidiaries" && open);
 
   // Seeded once per mount. The page keys this dialog on the row being edited,
   // so opening a different record remounts it rather than carrying the last
@@ -112,14 +123,16 @@ export default function MasterDataFormDialog({
   const handleSubmit = () => {
     if (!canSubmit) return;
     if (row) {
+      const patch = changedFields(row, form);
       update.mutate(
-        { id: row.id, patch: changedFields(row, form) },
+        { id: row.id, patch },
         {
           onSuccess: () => {
             showSuccess(MASTER_DATA_SNACK.success.updated);
             onClose();
           },
-          onError: () => showError(MASTER_DATA_SNACK.error.updating),
+          // The patch says which refusal a 409 was: retiring or reactivating.
+          onError: (error) => showError(describeUpdateError(error, patch)),
         },
       );
     } else {
@@ -152,6 +165,7 @@ export default function MasterDataFormDialog({
           glCodes={glCodes}
           autoComplete={autoComplete}
           employeeEmails={employeeEmails}
+          countryCurrency={countries.data ?? {}}
         />
       </DialogContent>
       <DialogActions>
@@ -179,6 +193,7 @@ function Fields({
   glCodes,
   autoComplete,
   employeeEmails,
+  countryCurrency,
 }: {
   tab: MasterDataTab;
   form: MasterDataPayload;
@@ -186,6 +201,8 @@ function Fields({
   glCodes?: GlCode[];
   autoComplete?: ExpenseTypeAutoComplete;
   employeeEmails?: string[];
+  /** ISO 4217 currency code by country. */
+  countryCurrency: Readonly<Record<string, string>>;
 }) {
   switch (tab) {
     case "subsidiaries": {
@@ -209,6 +226,23 @@ function Fields({
             onChange={set}
           />
           <TextInput id="taxCode" label="Tax Code" value={f.taxCode} required onChange={set} />
+          <SelectInput
+            id="country"
+            label="Country"
+            value={f.country}
+            options={Object.keys(countryCurrency)}
+            required
+            onChange={set}
+          />
+          {/* Read-only preview, not part of the payload. */}
+          <TextInput
+            id="currencyCodePreview"
+            label="Currency Code"
+            value={countryCurrency[f.country] ?? ""}
+            required={false}
+            disabled
+            onChange={() => {}}
+          />
         </>
       );
     }
@@ -306,6 +340,7 @@ function Fields({
               onChange={set}
             />
           </Box>
+          <StatusToggle value={f.status} onChange={set} />
         </>
       );
     }
@@ -355,8 +390,43 @@ function Fields({
             multiline
             onChange={set}
           />
+          <StatusToggle value={f.status} onChange={set} />
         </>
       );
     }
   }
+}
+
+/**
+ * Active / inactive, for the two tabs that retire a record by status.
+ *
+ * Renders nothing while creating — `value` is absent in exactly that case,
+ * the status being no part of either Add payload. See `initialFormData`.
+ *
+ * Either direction can be refused with a 409: retiring an expense type that
+ * active claims still carry, and reactivating one whose Gl code is inactive.
+ */
+function StatusToggle({
+  value,
+  onChange,
+}: {
+  value?: string;
+  onChange: (key: string, value: string) => void;
+}) {
+  if (value === undefined) return null;
+  const active = value === MASTER_DATA_STATUS.active;
+  return (
+    <FormControlLabel
+      sx={{ mt: 0.5 }}
+      control={
+        <Switch
+          checked={active}
+          onChange={(_e, checked) =>
+            onChange("status", checked ? MASTER_DATA_STATUS.active : MASTER_DATA_STATUS.inactive)
+          }
+        />
+      }
+      label={active ? "Active" : "Inactive"}
+    />
+  );
 }

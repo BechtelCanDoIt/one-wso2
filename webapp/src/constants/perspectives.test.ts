@@ -16,13 +16,13 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// UMT is behind a preview flag, so the registry depends on `window.config`
-// and has to be imported fresh per state rather than once at the top of the
-// file.
+// Several perspectives and rail groups are behind preview flags, so the
+// registry depends on `window.config` and has to be imported fresh per state
+// rather than once at the top of the file.
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { umt?: boolean; infra?: boolean; engineering?: boolean; mis?: boolean; cado2?: boolean } = {},
+  preview: { umt?: boolean; infra?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -40,8 +40,9 @@ afterEach(() => {
 
 const keys = (perspectives: readonly { key: string }[]) => perspectives.map((p) => p.key);
 
-// Finance MIS has shown live figures on stage, but Finance has not yet verified
-// them, so it lands behind its own flag, as a whole.
+// Finance MIS shipped out of preview. The ARR Dashboard and ARR Analysis are
+// part of Finance with no preview config, which is what production looks like.
+// Quarterly and Monthly stay routes of the dashboard, not rows of their own.
 describe("Finance MIS's rail entries", () => {
   const misIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("finance")?.sections ?? [])
@@ -49,17 +50,8 @@ describe("Finance MIS's rail entries", () => {
       .map((section) => section.id)
       .filter((id) => id.startsWith("mis-"));
 
-  it("are there once staging switches the flag on", async () => {
-    expect(misIdsIn(await load({ mis: true }))).toContain("mis-arr-build");
-  });
-
-  it("are gone when the flag is off", async () => {
-    expect(misIdsIn(await load({ mis: false }))).toEqual([]);
-  });
-
-  // Production sets no preview config at all — absent has to mean off.
-  it("are gone when nobody has mentioned the flag", async () => {
-    expect(misIdsIn(await load({}))).toEqual([]);
+  it("are present with no preview flags set", async () => {
+    expect(misIdsIn(await load({}))).toEqual(["mis-arr-build", "mis-analysis"]);
   });
 });
 
@@ -100,9 +92,19 @@ describe("the Sales perspective", () => {
   it("brings its rail, not just the tile", async () => {
     // The rail is what a deep link lands beside.
     const { findPerspectiveByKey } = await load();
-    expect(findPerspectiveByKey("sales")?.sections?.map((section) => section.id)).toContain(
-      "sales-meetings",
-    );
+    expect(findPerspectiveByKey("sales")?.sections?.map((section) => section.id)).toContain("sales-echo");
+  });
+
+  // Echo is a group of its screens, like CadO2: Calls and Deals.
+  it("lists Echo as a group with Calls and Deals inside it", async () => {
+    const { findPerspectiveByKey } = await load();
+    const echo = findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-echo");
+    expect(echo?.label).toBe("Echo");
+    expect(echo?.alwaysGroup).toBe(true);
+    expect(echo?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
+      ["sales-meetings", "Calls", "/sales/meetings"],
+      ["sales-deals", "Deals", "/sales/deals"],
+    ]);
   });
 });
 
@@ -127,50 +129,83 @@ describe("CadO2's rail entries", () => {
 
   it("are gone when the flag is off, or never mentioned", async () => {
     for (const preview of [{ cado2: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-meetings", "sales-deals"]);
+      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
     }
   });
 
-  it("never join the Meetings gate's ids", async () => {
+  it("never join the Echo gate's ids", async () => {
     const { SALES_ITEM_IDS } = await load({ cado2: true });
-    // Meetings and Deals are the meet-app-gated rows; nothing of CadO2's joins them.
-    expect([...SALES_ITEM_IDS]).toEqual(["sales-meetings", "sales-deals"]);
+    // Echo and Deals are the Sales rows gated through ONE_WSO2_REVOPS_BACKEND_URL;
+    // nothing of CadO2's joins them.
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
   });
 });
 
-describe("the UMT perspective", () => {
-  it("is absent from the registry when the preview flag is off", async () => {
-    const { PERSPECTIVES, FUNCTIONAL_PERSPECTIVES, reachablePerspectives } = await load({
-      umt: false,
-    });
-    expect(keys(PERSPECTIVES)).not.toContain("umt");
-    expect(keys(FUNCTIONAL_PERSPECTIVES)).not.toContain("umt");
-    expect(keys(reachablePerspectives())).not.toContain("umt");
+// The Library lands behind its own flag, inside a Sales Pitstop group in the Sales perspective.
+describe("the Library's rail entry", () => {
+  const salesIdsIn = (perspectives: Perspectives) =>
+    (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
+
+  it("is a Library row in a Sales Pitstop group, after Echo, once the flag is on", async () => {
+    const perspectives = await load({ smartSearch: true });
+    const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-pitstop");
+    expect(group?.label).toBe("Sales Pitstop");
+    expect(group?.alwaysGroup).toBe(true);
+    expect(group?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
+      ["sales-library", "Library", "/sales/library"],
+    ]);
+    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-pitstop"]);
   });
 
-  it("is absent on an absent flag, not only on an explicit false", async () => {
-    // Production ships no entry at all; safety must not depend on remembering
-    // to write `false`.
-    const { PERSPECTIVES } = await load();
-    expect(keys(PERSPECTIVES)).not.toContain("umt");
+  it("sits before CadO2 when both flags are on", async () => {
+    expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
+      "sales-echo",
+      "sales-pitstop",
+      "sec-app-cado2",
+    ]);
   });
 
-  it("is present, built and routable, when the preview flag is on", async () => {
-    const { PERSPECTIVES, reachablePerspectives, findPerspectiveByKey, findPerspectiveByPath } =
-      await load({ umt: true });
-    expect(keys(PERSPECTIVES)).toContain("umt");
-    expect(keys(reachablePerspectives())).toContain("umt");
-    expect(findPerspectiveByKey("umt")?.path).toBe("/umt");
-    expect(findPerspectiveByPath("/umt")?.key).toBe("umt");
+  it("is gone when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ smartSearch: false }, {}]) {
+      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo"]);
+    }
   });
 
-  it("does not disturb the other perspectives whatever the flag says", async () => {
+  it("never joins the Echo gate's ids", async () => {
+    const { SALES_ITEM_IDS } = await load({ smartSearch: true });
+    // Echo and Deals are gated through ONE_WSO2_REVOPS_BACKEND_URL; the Library is decided by its own backend.
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
+  });
+});
+
+describe("UMT inside Engineering", () => {
+  const umtGroupOf = (perspectives: Perspectives) =>
+    perspectives.findPerspectiveByKey("engineering")?.sections?.find((s) => s.id === "engineering-umt");
+
+  it("is not a perspective of its own whatever the flags say", async () => {
     for (const preview of [{}, { umt: true }]) {
       const { PERSPECTIVES } = await load(preview);
-      expect(keys(PERSPECTIVES)).toEqual(
-        expect.arrayContaining(["people", "finance", "legal", "csm", "marketing", "me"]),
-      );
+      expect(keys(PERSPECTIVES)).not.toContain("umt");
     }
+  });
+
+  it("is a group in the Engineering rail when its flag is on", async () => {
+    const perspectives = await load({ umt: true });
+    const group = umtGroupOf(perspectives);
+    expect(group?.label).toBe("UMT");
+    expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
+      ["Overview", "/engineering/umt"],
+      ["Updates", "/engineering/umt/updates"],
+      ["Product Management", "/engineering/umt/products"],
+      ["Release Chunks", "/engineering/umt/release-chunks"],
+      ["Statistics", "/engineering/umt/statistics"],
+    ]);
+    expect(perspectives.findPerspectiveByPath("/engineering/umt/updates/42")?.key).toBe("engineering");
+  });
+
+  it("is absent while its own flag is off or absent", async () => {
+    expect(umtGroupOf(await load({ umt: false }))).toBeUndefined();
+    expect(umtGroupOf(await load())).toBeUndefined();
   });
 
   // usePerspectiveVisibility falls through to sectionAllowed(s.requires, caps)
@@ -183,6 +218,15 @@ describe("the UMT perspective", () => {
   it("keeps Product Management in the UMT admin gate set", async () => {
     const { UMT_ADMIN_ITEM_IDS } = await load({ umt: true });
     expect(UMT_ADMIN_ITEM_IDS.has("umt-products")).toBe(true);
+  });
+
+  // Every UMT row is decided by UMT's own roles. An id missing from this set
+  // would fall back to `requires`, which none of them sets: visible to all.
+  it("gates every UMT row, the group included, on UMT's roles", async () => {
+    const perspectives = await load({ umt: true });
+    const group = umtGroupOf(perspectives);
+    const ids = [group?.id, ...(group?.children ?? []).map((c) => c.id)];
+    expect(new Set(ids)).toEqual(perspectives.UMT_ITEM_IDS);
   });
 });
 
@@ -231,28 +275,16 @@ describe("perspectives whose landing forwards to the first rail item", () => {
       expect(keys(PERSPECTIVES)).toContain("infra");
       expect(keys(reachablePerspectives())).toContain("infra");
       expect(findPerspectiveByPath("/infra")?.key).toBe("infra");
+      expect(findPerspectiveByPath("/infra")?.label).toBe("Infrastructure");
     });
   });
 
-  // Engineering is the home of Product Download Stats. Same preview contract
-  // as Infra: absent means off, so the waffle, favourites, and landing choices
-  // — all of which read this registry — cannot offer it early.
+  // Engineering shipped out of preview. Download Stats is its first app. UMT
+  // is the second, and only while its own preview flag is on. The waffle,
+  // favourites, and landing choices all read this registry.
   describe("the Engineering perspective", () => {
-    it("is absent from the registry when the preview flag is off", async () => {
-      const { PERSPECTIVES, reachablePerspectives } = await load({ engineering: false });
-      expect(keys(PERSPECTIVES)).not.toContain("engineering");
-      expect(keys(reachablePerspectives())).not.toContain("engineering");
-    });
-
-    it("is absent on an absent flag, not only on an explicit false", async () => {
-      const { PERSPECTIVES } = await load();
-      expect(keys(PERSPECTIVES)).not.toContain("engineering");
-    });
-
-    it("lands on Product Download Stats Overview when the preview flag is on", async () => {
-      const { PERSPECTIVES, reachablePerspectives, findPerspectiveByPath } = await load({
-        engineering: true,
-      });
+    it("offers Download Stats and its six screens with no preview flags set", async () => {
+      const { PERSPECTIVES, reachablePerspectives, findPerspectiveByPath } = await load();
       expect(keys(PERSPECTIVES)).toContain("engineering");
       expect(keys(reachablePerspectives())).toContain("engineering");
       const engineering = findPerspectiveByPath("/engineering");
@@ -261,7 +293,8 @@ describe("perspectives whose landing forwards to the first rail item", () => {
         section.label,
         ...(section.children ?? []).map((child) => child.label),
       ]);
-      expect(labels).toContain("Product Download Stats");
+      expect(labels).toContain("Download Stats");
+      expect(labels).not.toContain("Product Download Stats");
       expect(labels).toContain("Overview");
       expect(labels).toContain("Downloads");
       expect(labels).toContain("Versions");

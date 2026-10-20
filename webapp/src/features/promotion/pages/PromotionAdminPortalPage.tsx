@@ -49,8 +49,8 @@ export default function PromotionAdminPortalPage() {
   );
 }
 
-/** The group's index route — sends straight to Promotion Cycle, source's
- * own first/default tab. */
+/** The group's index route — sends straight to Promotion Cycle, the
+ * first and default tab. */
 export function PromotionAdminPortalIndex() {
   return <Navigate to={`${BASE_PATH}/cycle`} replace />;
 }

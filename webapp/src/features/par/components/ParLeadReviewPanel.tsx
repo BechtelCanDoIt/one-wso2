@@ -41,7 +41,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ChevronDownIcon, ExternalLinkIcon, FileDownIcon, Google, PencilIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, CircleAlertIcon, ExternalLinkIcon, FileDownIcon, Google, InfoIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
 import {
@@ -58,8 +58,10 @@ import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
+import { LEADERSHIP_ALLOWED_RATINGS, isEvidenceMissing, ratingOptions } from "../util/parLeadership";
 import ParRichTextField from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
+import { ParAutoAssignedChip } from "./ParChips";
 import ParDriveFileChip from "./ParDriveFileChip";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
@@ -72,6 +74,8 @@ type SpecialRatingUi = "NONE" | "TOP5P" | "TOP20P";
 // rating", so anything else read back from the server normalizes to it.
 const toSpecialRatingUi = (value: string | undefined): SpecialRatingUi =>
   value === "TOP5P" || value === "TOP20P" ? value : "NONE";
+
+const SPECIAL_RATING_LABELS: Record<SpecialRatingUi, string> = { NONE: "N/A", TOP5P: "Top 5%", TOP20P: "Top 20%" };
 
 // Ports LeadReviewPanel.tsx's lead-only path, plus (via `isAdminView`) its
 // isAdminAuditViewOn branch used from the Admin Portal's Employee View/Team
@@ -97,6 +101,7 @@ export default function ParLeadReviewPanel({
   // falling back to the deploy-wide window.config value.
   const top5p20pEnabledRating = cycle.parCycleConfigurations?.top5p20pEnabledRating ?? defaultTop5p20pEnabledRating;
   const evidenceEnabledRating = cycle.parCycleConfigurations?.evidenceEnabledRating ?? defaultEvidenceEnabledRating;
+  const leadershipAllowedRatings = cycle.parCycleConfigurations?.leadershipAllowedRatings ?? LEADERSHIP_ALLOWED_RATINGS;
 
   const [leadComment, setLeadComment] = useState("");
   const [adminComment, setAdminComment] = useState("");
@@ -116,6 +121,9 @@ export default function ParLeadReviewPanel({
   const autoSaveTokenRef = useRef(0);
 
   const parRatingData = rating.data;
+  // The backend refuses a non-admin change to a rating the system
+  // auto-assigned after a missed deadline; an admin can still correct it.
+  const ratingLocked = !isAdminView && parRatingData?.parRatingUpdatedBy === "SYSTEM";
 
   // Seed once per record, so a background refetch doesn't overwrite mid-typing.
   if (parRatingData && parRatingData.parRatingId !== seededForId) {
@@ -129,9 +137,8 @@ export default function ParLeadReviewPanel({
         toSpecialRatingUi(parRatingData.parSpecialRating) !== "NONE",
     );
     setDriveFiles(parseSavedUrls(parRatingData.parPerformanceNoticeAck ?? ""));
-    // par-app never persists the checkbox itself, only its effect (the
-    // attached files) — always seeds unchecked, same as legacy's own
-    // initialValues.isEvidenceDiscussionConfirmed: false.
+    // The checkbox itself is never saved, only its effect (the attached
+    // files), so it always starts unchecked.
     setEvidenceConfirmed(false);
   }
 
@@ -185,40 +192,30 @@ export default function ParLeadReviewPanel({
           parLeadStatus: status,
           parLeadComment: encodeParComment(leadComment),
           // The autosave fires purely off comment typing and must not also
-          // commit whatever the rating dropdowns currently hold — source's
-          // own updateParRatingAutoSave has this same bug (parSpecialRating
-          // sent unconditionally, clobbering a saved Top 5%/20% allocation
-          // the moment someone types a character), so this is a deliberate
-          // deviation, not a port gap.
+          // commit whatever the rating dropdowns currently hold — sending
+          // parSpecialRating with it would clobber a saved Top 5%/20%
+          // allocation the moment someone types a character.
           ...(opts?.commentOnly
             ? {}
             : {
-                ...(parRatingValue ? { parRating: parRatingValue } : {}),
-                // The backend's wire vocabulary is TOP5P/TOP20P/NOT_ASSIGNED
-                // (manager.bal's validateParRatingModify) — "NONE" is only
-                // this component's own UI sentinel and 400s if sent as-is.
+                ...(parRatingValue && !ratingLocked ? { parRating: parRatingValue } : {}),
+                // The backend's wire vocabulary is TOP5P/TOP20P/NOT_ASSIGNED;
+                // "NONE" is only this component's UI sentinel and 400s if sent.
                 parSpecialRating: specialRating === "NONE" ? "NOT_ASSIGNED" : specialRating,
                 // Omitted entirely rather than sent as "" when there's no
-                // evidence — the backend's ParRatingModify constrains this
-                // field to a non-empty string whenever it's present at all
-                // (types.bal's own [\s\S]*\S[\s\S]* pattern), so an explicit
-                // empty string 400s. Source's own updateEmployeeParRating
-                // has this same conditional-include for the same reason.
+                // evidence — the backend requires a non-empty string whenever
+                // this field is present, so an empty string 400s.
                 //
-                // One consequence neither side works around: there is no way
-                // to CLEAR a saved attachment through this endpoint at all.
-                // manager.bal's own isUpdatedString guard
-                // (`newValue.trim() != ""`) refuses to apply an empty value
-                // as an update even if one got past the constraint above, so
-                // removing every file and saving leaves the old URLs on the
-                // record — they reappear on the next fetch. Source has this
-                // identical gap; fixing it needs a backend change (a real
-                // clear operation), not a frontend one.
+                // One consequence: there is no way to CLEAR a saved attachment
+                // through this endpoint. The backend also ignores an empty
+                // value as an update, so removing every file and saving leaves
+                // the old URLs on the record and they reappear on the next
+                // fetch. Fixing that needs a backend change (a real clear
+                // operation), not a frontend one.
                 ...(driveFiles.length > 0 ? { parPerformanceNoticeAck: driveFiles.map((f) => f.url).join("\n") } : {}),
               }),
           // Only an admin caller may set this field — the backend rejects a
-          // non-empty value from anyone else, per checkForModifiableFields-
-          // ForLead/-ForSelf.
+          // non-empty value from anyone else.
           ...(isAdminView ? { parAdminComment: encodeParComment(adminComment) } : {}),
         },
       },
@@ -270,6 +267,7 @@ export default function ParLeadReviewPanel({
   }
 
   const employeeComment = decodeParComment(parRatingData.parEmployeeComment);
+  const isLeadership = parRatingData.parIsLeadershipEmployee;
 
   const dirty =
     leadComment.trim() !== savedLeadComment.trim() ||
@@ -299,11 +297,9 @@ export default function ParLeadReviewPanel({
 
   // Save Draft only enables once something has actually changed; Share
   // additionally waits for the employee to have at least started their own
-  // side (LeadReviewPanel.tsx:1572-1574 — parEmployeeStatus !== PENDING),
-  // and — per its own yup validationSchema (parRating/parLeadComment both
-  // "Required" for a non-admin caller) — for a rating to be picked and the
-  // comment to be non-empty. The backend doesn't enforce either, so this is
-  // the only place that does.
+  // side (parEmployeeStatus !== PENDING), for a rating to be picked and for
+  // the comment to be non-empty. The backend doesn't enforce either, so this
+  // is the only place that does.
   // In admin mode, the "employee hasn't started yet" gate on Share is
   // removed — an admin can force a rating through regardless of where the
   // employee's own side is.
@@ -316,7 +312,13 @@ export default function ParLeadReviewPanel({
     employeeHasStarted &&
     Boolean(parRatingValue) &&
     !isEmptyHtml(leadComment) &&
-    !(parRatingValue === evidenceEnabledRating && (!evidenceConfirmed || driveFiles.length === 0));
+    !isEvidenceMissing({
+      rating: parRatingValue,
+      evidenceEnabledRating,
+      ratingLocked,
+      evidenceConfirmed,
+      fileCount: driveFiles.length,
+    });
 
   return (
     <Grid container spacing={2}>
@@ -399,12 +401,32 @@ export default function ParLeadReviewPanel({
                   below. */}
               <Stack spacing={1.5} sx={{ p: 1.75, borderRadius: 1.5, bgcolor: "action.hover" }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Typography id="lead-review-rating-label" variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                  <Typography
+                    id="lead-review-rating-label"
+                    variant="body2"
+                    sx={{ flexShrink: 0, minWidth: 96, display: "flex", alignItems: "center", gap: 0.75 }}
+                    color="text.secondary"
+                  >
                     Rating
+                    {!readOnly && ratingLocked && (
+                      <Tooltip title="This rating was automatically assigned after the PAR deadline was missed and can no longer be changed.">
+                        <Box
+                          component="span"
+                          tabIndex={0}
+                          aria-label="Rating auto-assigned and locked"
+                          sx={{ display: "flex", cursor: "help", color: "warning.main" }}
+                        >
+                          <CircleAlertIcon size={16} />
+                        </Box>
+                      </Tooltip>
+                    )}
                   </Typography>
                   {readOnly ? (
                     parRatingData.parRating ? (
-                      <Chip size="small" label={parRatingData.parRating} />
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <Chip size="small" label={parRatingData.parRating} />
+                        {parRatingData.parRatingUpdatedBy === "SYSTEM" && <ParAutoAssignedChip />}
+                      </Box>
                     ) : (
                       <Typography variant="body2" color="text.secondary">
                         N/A
@@ -415,36 +437,61 @@ export default function ParLeadReviewPanel({
                       fullWidth
                       value={parRatingValue}
                       onChange={(e) => setParRatingValue(e.target.value as string)}
-                      disabled={ratingUpdate.isPending}
+                      disabled={ratingUpdate.isPending || ratingLocked}
                       aria-labelledby="lead-review-rating-label"
                     >
-                      {(cycle.parCycleConfigurations?.parRatings ?? []).map((r) => (
-                        <ComplexSelect.MenuItem key={r} value={r}>
-                          {r}
-                        </ComplexSelect.MenuItem>
-                      ))}
+                      {ratingOptions(cycle.parCycleConfigurations?.parRatings ?? [], {
+                        isLeadership,
+                        leadershipAllowedRatings,
+                        currentRating: parRatingValue,
+                      }).map((r) => (
+                          <ComplexSelect.MenuItem key={r} value={r}>
+                            {r}
+                          </ComplexSelect.MenuItem>
+                        ))}
                     </ComplexSelect>
                   )}
                 </Box>
 
                 {parRatingValue === top5p20pEnabledRating && (
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Typography id="lead-review-special-rating-label" variant="body2" sx={{ flexShrink: 0, minWidth: 96 }} color="text.secondary">
+                    <Typography
+                      id="lead-review-special-rating-label"
+                      variant="body2"
+                      sx={{ flexShrink: 0, minWidth: 96, display: "flex", alignItems: "center", gap: 0.75 }}
+                      color="text.secondary"
+                    >
                       Top 5%/20%
+                      {!readOnly && parRatingData.parSpecialRatingEligibility === false && (
+                        <Tooltip title="This employee isn't eligible for a Top 5%/20% rating in this cycle.">
+                          <Box
+                            component="span"
+                            tabIndex={0}
+                            aria-label="Not eligible for a Top 5%/20% rating"
+                            sx={{ display: "flex", cursor: "help" }}
+                          >
+                            <InfoIcon size={16} />
+                          </Box>
+                        </Tooltip>
+                      )}
                     </Typography>
                     {readOnly ? (
-                      <Chip size="small" label={specialRating} />
+                      <Chip size="small" label={SPECIAL_RATING_LABELS[specialRating]} />
                     ) : (
                       <ComplexSelect
                         fullWidth
                         value={specialRating}
                         onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
-                        disabled={!specialRatingConfirmed || ratingUpdate.isPending}
+                        disabled={
+                          !specialRatingConfirmed || ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false
+                        }
                         aria-labelledby="lead-review-special-rating-label"
                       >
-                        <ComplexSelect.MenuItem value="NONE">N/A</ComplexSelect.MenuItem>
-                        <ComplexSelect.MenuItem value="TOP5P">Top 5%</ComplexSelect.MenuItem>
-                        <ComplexSelect.MenuItem value="TOP20P">Top 20%</ComplexSelect.MenuItem>
+                        {(Object.keys(SPECIAL_RATING_LABELS) as SpecialRatingUi[]).map((value) => (
+                          <ComplexSelect.MenuItem key={value} value={value}>
+                            {SPECIAL_RATING_LABELS[value]}
+                          </ComplexSelect.MenuItem>
+                        ))}
                       </ComplexSelect>
                     )}
                   </Box>
@@ -456,7 +503,7 @@ export default function ParLeadReviewPanel({
                       <Checkbox
                         checked={specialRatingConfirmed}
                         onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
-                        disabled={ratingUpdate.isPending}
+                        disabled={ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false}
                       />
                     }
                     label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"
@@ -471,7 +518,7 @@ export default function ParLeadReviewPanel({
                         <Checkbox
                           checked={evidenceConfirmed}
                           onChange={(e) => setEvidenceConfirmed(e.target.checked)}
-                          disabled={ratingUpdate.isPending}
+                          disabled={ratingUpdate.isPending || ratingLocked}
                         />
                       }
                       label={`Performance gaps were discussed, and the employee has been informed of the "${evidenceEnabledRating}" rating, and at least two discussions were held.`}
@@ -595,17 +642,19 @@ export default function ParLeadReviewPanel({
         </Grid>
       )}
 
-      <Grid size={12}>
-        {reviews.isLoading ? (
-          <Skeleton variant="rectangular" height={72} sx={{ borderRadius: 1.5 }} />
-        ) : reviews.isError ? (
-          <ErrorNotice error={reviews.error} onRetry={() => reviews.refetch()} retrying={reviews.isFetching}>
-            Couldn't load 360° feedback.
-          </ErrorNotice>
-        ) : (
-          <ParHistoryReviewSection reviews={reviews.data ?? []} />
-        )}
-      </Grid>
+      {!(reviews.isSuccess && reviews.data.length === 0) && (
+        <Grid size={12}>
+          {reviews.isLoading ? (
+            <Skeleton variant="rectangular" height={72} sx={{ borderRadius: 1.5 }} />
+          ) : reviews.isError ? (
+            <ErrorNotice error={reviews.error} onRetry={() => reviews.refetch()} retrying={reviews.isFetching}>
+              Couldn't load 360° feedback.
+            </ErrorNotice>
+          ) : (
+            <ParHistoryReviewSection reviews={reviews.data ?? []} />
+          )}
+        </Grid>
+      )}
 
       <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="md" fullWidth>
         <DialogTitle>Share Lead's Feedback?</DialogTitle>

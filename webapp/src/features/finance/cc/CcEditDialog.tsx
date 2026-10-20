@@ -26,6 +26,7 @@ import {
   DialogTitle,
   FormControl,
   IconButton,
+  ListSubheader,
   MenuItem,
   Select,
   Table,
@@ -38,7 +39,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { CirclePlusIcon, FileIcon } from "@wso2/oxygen-ui-icons-react";
+import { CirclePlusIcon, FileIcon, InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { ccServiceUrls } from "@config/apiConfig";
@@ -54,8 +55,9 @@ import {
   type ReceiptSource,
 } from "../util/financeReceipts";
 import { useCcJobNumberDetails, useCcMenus } from "./useCc";
+import { isValidJobNumberFormat, normalizeJobNumber } from "./ccJobNumber";
 import { useCcAttachment } from "./useCcMutations";
-import { JobNumberAutocomplete } from "./ccFormFields";
+import { JobNumberAutocomplete, JobNumberDetails, SearchableSelect } from "./ccFormFields";
 import { CcFundingSource,
   CC_MARKETING_CATEGORY,
   CC_TRAVEL_CATEGORY,
@@ -121,6 +123,9 @@ function CcEditForm({
   const [unitIndex, setUnitIndex] = useState<number | "">("");
   const [subRegion, setSubRegion] = useState(txn.subRegion ?? "");
   const [jobNumber, setJobNumber] = useState(txn.travelJobNumber ?? "");
+  // Turns an empty required job number from "not filled in yet" into an
+  // error worth pointing at.
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [receiptFileName, setReceiptFileName] = useState(txn.receiptFileName);
   const [contractFileName, setContractFileName] = useState(txn.contractFileName);
   // The source shows and writes the FIRST lead of what may be a comma-separated
@@ -160,17 +165,32 @@ function CcEditForm({
    */
   const leadOnly = Boolean(financeAdmin) && txn.status === "pending_lead";
 
-  const categories = menus.expenseTypes.data?.categories ?? [];
-  const typeOptions = category ? menus.expenseTypes.data?.types[category] ?? [] : [];
+  const categories = useMemo(
+    () => [...(menus.expenseTypes.data?.categories ?? [])].sort((a, b) => a.localeCompare(b)),
+    [menus.expenseTypes.data],
+  );
+  const typeOptions = useMemo(
+    () => (category ? [...(menus.expenseTypes.data?.types[category] ?? [])].sort((a, b) => a.localeCompare(b)) : []),
+    [category, menus.expenseTypes.data],
+  );
   const subRegions = menus.subRegions.data?.subRegions ?? [];
   const jobNumbers = menus.jobNumbers.data?.jobNumbers ?? [];
   const productUnits = menus.units.data?.productUnits ?? [];
   const businessUnits = menus.units.data?.businessUnits ?? [];
 
-  const unitOptions = useMemo(
-    () => productUnits.map((pu, i) => ({ i, label: `${pu} — ${businessUnits[i] ?? ""}` })),
-    [productUnits, businessUnits],
-  );
+  // Product Unit options are grouped under a Business Unit subheader rather
+  // than spelling the business unit out in each option's own label, in
+  // whichever order the menu arrays list the business units — first
+  // appearance wins a group's position.
+  const unitGroups = useMemo(() => {
+    const groups = new Map<string, { i: number; label: string }[]>();
+    productUnits.forEach((pu, i) => {
+      const bu = businessUnits[i] || "Other";
+      if (!groups.has(bu)) groups.set(bu, []);
+      groups.get(bu)!.push({ i, label: pu });
+    });
+    return Array.from(groups.entries());
+  }, [productUnits, businessUnits]);
 
   // Re-select the transaction's stored product/business unit once the
   // aligned unit arrays load. Without this, editing an already-categorised
@@ -192,8 +212,39 @@ function CcEditForm({
   // EditPane.tsx:560-600 — the job number decides a travel transaction's units.
   // Fetched only while Travel is selected; the row keeps its stored units until
   // the details arrive, so a slow lookup never blanks them.
-  const jobDetails = useCcJobNumberDetails(isTravel && jobNumber ? jobNumber : undefined);
+  //
+  // Only a typed number is shape-checked; one off the list is real by
+  // definition. The lookup is gated on it, so typing fires no request.
+  const jobPicked = jobNumbers.includes(jobNumber);
+  const jobLookupKey =
+    isTravel && jobNumber && (jobPicked || isValidJobNumberFormat(jobNumber))
+      ? normalizeJobNumber(jobNumber)
+      : undefined;
+  const jobDetails = useCcJobNumberDetails(jobLookupKey);
   const jobUnits = isTravel ? jobDetails.data : undefined;
+  const jobMalformed = Boolean(
+    isTravel && jobNumber && !jobPicked && !isValidJobNumberFormat(jobNumber),
+  );
+  const jobNotFound = Boolean(jobLookupKey) && jobDetails.isError;
+  // Set and not yet one of the three settled states above: the lookup is
+  // still in flight. A format that passes and a pick from the list both
+  // start here, and only `jobUnits` arriving moves it out.
+  const jobPending = Boolean(jobLookupKey) && !jobUnits && !jobNotFound;
+  // Only once Save has been pressed: an empty field is the starting state,
+  // not a mistake to point at before the reader has done anything.
+  const jobMissing = Boolean(isTravel && saveAttempted && !jobNumber);
+  const jobNumberError = jobMalformed || jobNotFound || jobMissing;
+  const jobNumberHelp = jobMissing
+    ? "Required field"
+    : jobMalformed
+      ? "Enter a valid value in the format TRV-YYYY-MM-NNNN"
+      : jobNotFound
+        ? "Could not verify this job number"
+        : jobPending
+          ? "Checking the job number…"
+          : // Says the typed route exists at all, which the dropdown alone
+            // does not.
+            "Not listed? Type the full job number.";
   const fundingSources = jobUnits?.fundingSources ?? [];
   // :568-575 — a job with no funding sources cannot be charged against, so the
   // source refuses to apply it rather than filling in half the row.
@@ -251,7 +302,9 @@ function CcEditForm({
   // categorisation is not this mode's to judge or to re-save unchanged.
   const valid = leadOnly
     ? Boolean(leadEmail) && leadEmail !== (txn.leadEmail?.split(",")[0]?.trim() ?? "")
-    : ccTxnComplete(patched) && !jobUnusable;
+    // A job number that is unverified — malformed, not found, or still being
+    // looked up — would save with the PREVIOUS job's units attached.
+    : ccTxnComplete(patched) && !jobUnusable && !jobMalformed && !jobNotFound && !jobPending;
 
   return (
     <>
@@ -266,37 +319,23 @@ function CcEditForm({
         <Stack spacing={2} sx={{ pt: 0.5 }}>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
             <Field label="Expense category">
-              <Select
+              <SearchableSelect
                 value={category}
+                options={categories}
                 disabled={leadOnly}
-                onChange={(e) => {
-                  setCategory(String(e.target.value));
+                onChange={(v) => {
+                  setCategory(v);
                   setTypeLabel(""); // types depend on category
                 }}
-                displayEmpty
-                renderValue={(v) => (v ? String(v) : <Placeholder />)}
-              >
-                {categories.map((c) => (
-                  <MenuItem key={c} value={c}>
-                    {c}
-                  </MenuItem>
-                ))}
-              </Select>
+              />
             </Field>
             <Field label="Expense type">
-              <Select
+              <SearchableSelect
                 value={typeLabel}
-                onChange={(e) => setTypeLabel(String(e.target.value))}
+                options={typeOptions}
+                onChange={setTypeLabel}
                 disabled={leadOnly || !category}
-                displayEmpty
-                renderValue={(v) => (v ? String(v) : <Placeholder />)}
-              >
-                {typeOptions.map((t) => (
-                  <MenuItem key={t} value={t}>
-                    {t}
-                  </MenuItem>
-                ))}
-              </Select>
+              />
             </Field>
           </Box>
 
@@ -307,6 +346,24 @@ function CcEditForm({
                 options={jobNumbers}
                 disabled={leadOnly}
                 onChange={(v) => setJobNumber(v ?? "")}
+                error={jobNumberError}
+                helperText={jobNumberHelp}
+                /* Shown as soon as the lookup succeeds: a job with no
+                   funding still has an engagement worth reading. */
+                info={
+                  jobUnits ? (
+                    // A button, so the tooltip is reachable by keyboard.
+                    <Tooltip title={<JobNumberDetails details={jobUnits} />} placement="top-end">
+                      <IconButton
+                        size="small"
+                        aria-label="Job number details"
+                        sx={{ ml: 0.5, mt: 0.5, flexShrink: 0 }}
+                      >
+                        <InfoIcon size={16} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : undefined
+                }
               />
             {/* EditPane.tsx:568-598 warns on both, because either one leaves
                 the row uncompletable and neither is the user's fault. */}
@@ -322,13 +379,8 @@ function CcEditForm({
             )}
             {jobUsable && jobUnits && (
               <Box sx={{ mt: 1 }}>
-                {/* :629-641 — the engagement a travel spend is charged to. */}
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-                  {jobUnits.engagementCode} · {jobUnits.engagementType} · {jobUnits.country}
-                </Typography>
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-                  Units from this job: {jobUnits.productUnit} — {jobUnits.businessUnit}
-                </Typography>
+                {/* The engagement, country and units read off the info
+                    tooltip: an older travel has no engagement to print. */}
                 <FundingSources sources={fundingSources} totalAmount={txn.txnAmount} />
               </Box>
             )}
@@ -340,13 +392,48 @@ function CcEditForm({
                 disabled={leadOnly}
                 onChange={(e) => setUnitIndex(e.target.value === "" ? "" : Number(e.target.value))}
                 displayEmpty
-                renderValue={(v) => (v === "" ? <Placeholder /> : unitOptions[Number(v)]?.label ?? String(v))}
+                renderValue={(v) => (v === "" ? <Placeholder /> : productUnits[Number(v)] ?? String(v))}
               >
-                {unitOptions.map((o) => (
-                  <MenuItem key={o.i} value={o.i}>
-                    {o.label}
-                  </MenuItem>
-                ))}
+                {unitGroups.flatMap(([bu, items]) => [
+                  // Full-opacity heading colour instead of MUI's dim default
+                  // text.secondary, which read as low-contrast grey-on-dark.
+                  <ListSubheader
+                    key={`h-${bu}`}
+                    // A group with few items lets the next sticky header
+                    // overtake it mid-scroll, overlapping its text with the
+                    // item still scrolling out underneath. Disabling sticky
+                    // entirely removes the only thing that can collide.
+                    disableSticky
+                    // The flat #8a8a8a this used to carry read as a plain
+                    // grey, out of step with every other surface in the
+                    // dialog — those come from the warm `action.hover`
+                    // tint (CcApproveDetail.tsx:67's description/amount
+                    // card uses the same token), which resolves through
+                    // MUI's CSS-variables colour-scheme system automatically,
+                    // unlike theme.palette.mode (confirmed dead here: it
+                    // never reflects the live DOM colour-scheme attribute).
+                    sx={{
+                      bgcolor: "action.hover",
+                      // text.primary, not ListSubheader's default
+                      // text.secondary — a dim label reads poorly as a
+                      // group heading.
+                      color: "text.primary",
+                      // MUI's ListSubheader bolds itself by default (its own
+                      // built-in CSS, not something added here) — forced
+                      // back to normal weight to match plain body text.
+                      fontWeight: 400,
+                    }}
+                  >
+                    {bu}
+                  </ListSubheader>,
+                  ...items.map((o) => (
+                    // Indented under its group header so each option reads
+                    // clearly as belonging to the business unit above it.
+                    <MenuItem key={o.i} value={o.i} sx={{ pl: 4 }}>
+                      {o.label}
+                    </MenuItem>
+                  )),
+                ])}
               </Select>
             </Field>
           )}
@@ -438,7 +525,15 @@ function CcEditForm({
             line goes where it can still be read. */}
         <Tooltip title={valid ? "" : "Please fill in all required fields."}>
           <span>
-            <Button size="small" variant="contained" disabled={!valid} onClick={() => onSave(patched)}>
+            <Button
+              size="small"
+              variant="contained"
+              disabled={!valid}
+              onClick={() => {
+                setSaveAttempted(true);
+                onSave(patched);
+              }}
+            >
               Save
             </Button>
           </span>

@@ -24,6 +24,7 @@ import { useAllClosedParCycles, useParEmployeeReviews, useParLegacyHistory } fro
 import { buildMergedCycleOptions } from "../util/parEmployeeHistory";
 import { decodeParComment } from "../util/parComment";
 import { ParCommentView } from "./ParContent";
+import { ParAutoAssignedChip } from "./ParChips";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
 import ParLegacyRecordDetail from "./ParLegacyRecordDetail";
@@ -42,10 +43,10 @@ function InfoItem({ label, value, secondaryValue }: { label: string; value: stri
       >
         {label}
       </Typography>
-      <Typography variant="body1" sx={{ fontWeight: 600 }}>
+      <Typography variant="body2" sx={{ fontWeight: 600 }}>
         {value || "—"}
       </Typography>
-      <Typography variant="body2" color="text.secondary">
+      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
         {secondaryValue || "—"}
       </Typography>
     </Grid>
@@ -164,14 +165,14 @@ export default function ParEmployeeHistoryView({
 
       {showRealDetails && rating.data && (
         <Stack spacing={2}>
-          <Card variant="outlined" sx={{ p: 2 }}>
-            <Grid container spacing={2} alignItems="center">
+          <Card variant="outlined" sx={{ px: 2, py: 1.25 }}>
+            <Grid container spacing={1.5} alignItems="center">
               <Grid size="auto">
                 <Avatar
                   variant="rounded"
                   src={thumbnailByEmail.get(employeeEmail)}
                   alt="Employee Thumbnail"
-                  sx={{ width: 100, height: 100 }}
+                  sx={{ width: "3rem", height: "3rem", borderRadius: 3 }}
                 />
               </Grid>
               <Grid size="grow">
@@ -190,6 +191,9 @@ export default function ParEmployeeHistoryView({
                     sx={{ mt: 1 }}
                     label={`PAR shared by: ${rating.data.parRatingSharedBy}`}
                   />
+                )}
+                {rating.data.parRatingUpdatedBy === "SYSTEM" && (
+                  <ParAutoAssignedChip sx={{ mt: 1, ml: rating.data.parRatingSharedBy ? 1 : 0 }} />
                 )}
               </Grid>
               <InfoItem label="Employee" value={employeeName} secondaryValue={employeeEmail} />

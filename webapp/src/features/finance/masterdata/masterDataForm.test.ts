@@ -60,7 +60,13 @@ describe("isCreditCardNumberValid — the two formats it enforces", () => {
 
 describe("isFormComplete — subsidiaries and departments (every field required)", () => {
   it("is false until every field is filled", () => {
-    const empty: SubsidiaryPayload = { taxCodeInternalId: 0, taxCode: "", legalName: "", code: "" };
+    const empty: SubsidiaryPayload = {
+      taxCodeInternalId: 0,
+      taxCode: "",
+      legalName: "",
+      code: "",
+      country: "",
+    };
     expect(isFormComplete("subsidiaries", empty)).toBe(false);
   });
   it("is true once every field is filled, including a numeric field at a non-zero value", () => {
@@ -69,6 +75,7 @@ describe("isFormComplete — subsidiaries and departments (every field required)
       taxCode: "UNDEF_LK",
       legalName: "WSO2 Lanka",
       code: "WSO2-LK",
+      country: "Sri Lanka",
     };
     expect(isFormComplete("subsidiaries", filled)).toBe(true);
   });
@@ -78,6 +85,7 @@ describe("isFormComplete — subsidiaries and departments (every field required)
       taxCode: "UNDEF_LK",
       legalName: "WSO2 Lanka",
       code: "WSO2-LK",
+      country: "Sri Lanka",
     };
     expect(isFormComplete("subsidiaries", almost)).toBe(false);
   });
@@ -207,6 +215,45 @@ describe("isUnchanged / changedFields — PATCH diffing against the source row",
     expect(isUnchanged(row, reordered)).toBe(true);
     expect(changedFields(row, reordered)).toEqual({});
   });
+  // The two functions have to agree. They did not: isUnchanged compared
+  // status case-insensitively, so Update stayed disabled as it should, while
+  // changedFields compared exactly — so editing any OTHER field sent a
+  // status the reader never touched, written back in a different casing.
+  it("does not report a status change for a casing the reader did not choose", () => {
+    const stored = { ...row, status: "Inactive" };
+    const seeded = { ...form, status: "inactive" };
+
+    expect(isUnchanged(stored, seeded)).toBe(true);
+    expect(changedFields(stored, seeded)).not.toHaveProperty("status");
+
+    // And an unrelated edit carries only that edit.
+    const edited = { ...seeded, expenseType: "Renamed" };
+    expect(changedFields(stored, edited)).toEqual({ expenseType: "Renamed" });
+  });
+
+  it("still reports a status the reader really did change", () => {
+    const stored = { ...row, status: "Inactive" };
+    const edited = { ...form, status: "active" };
+
+    expect(isUnchanged(stored, edited)).toBe(false);
+    expect(changedFields(stored, edited)).toEqual({ status: "active" });
+  });
+
+  // `initialFormData` seeds "active" when the row's own status is nullish.
+  // The generic row lookup these two functions share defaults a missing key
+  // to "" — not "active" — so without matching that default here too, an
+  // untouched status read as changed and rode along with any other edit.
+  it("does not report a status change for a row that never carried one", () => {
+    const stored = { ...row, status: undefined as unknown as string };
+    const seeded = { ...form, status: "active" };
+
+    expect(isUnchanged(stored, seeded)).toBe(true);
+    expect(changedFields(stored, seeded)).not.toHaveProperty("status");
+
+    const edited = { ...seeded, expenseType: "Renamed" };
+    expect(changedFields(stored, edited)).toEqual({ expenseType: "Renamed" });
+  });
+
   it("a real array content change is picked up by both functions", () => {
     const edited = { ...form, engagementCodes: ["RND-GEN"] };
     expect(isUnchanged(row, edited)).toBe(false);
@@ -258,6 +305,7 @@ describe("initialFormData — seeding the payload from an existing row, or blank
       taxCode: "",
       legalName: "",
       code: "",
+      country: "",
     });
   });
   it("flattens an existing row into its payload shape", () => {
@@ -276,6 +324,9 @@ describe("initialFormData — seeding the payload from an existing row, or blank
       comment: "",
       employeeEmail: "amila@wso2.com",
       leadEmails: ["lead@wso2.com"],
+      // Carried so the edit dialog's Active/Inactive toggle has something to
+      // show; a create seeds no `status` at all, which the next test covers.
+      status: "active",
     });
   });
   it("a null on the row seeds the form with an empty string, not null", () => {

@@ -50,6 +50,10 @@ export interface LeaveGate {
   isResolving: boolean;
   isPeopleOps: boolean;
   isLead: boolean;
+  /** May see the general report across all employees, not just their team. */
+  canReportAllGeneral: boolean;
+  /** May see the sabbatical report across all employees, not just their team. */
+  canReportAllSabbatical: boolean;
 }
 
 export function useLeaveGate(enabled = true): LeaveGate {
@@ -63,12 +67,21 @@ export function useLeaveGate(enabled = true): LeaveGate {
   const isLead = privileges.includes(LEAVE_PRIVILEGE.LEAD);
   const isEmployee = privileges.includes(LEAVE_PRIVILEGE.EMPLOYEE);
   const isIntern = privileges.includes(LEAVE_PRIVILEGE.INTERN);
+  // Each report is granted on its own. People Ops is named as well as the
+  // report privileges so an older backend, which sends neither, keeps them.
+  const canReportAllGeneral =
+    isPeopleOps || privileges.includes(LEAVE_PRIVILEGE.GENERAL_REPORT);
+  const canReportAllSabbatical =
+    isPeopleOps || privileges.includes(LEAVE_PRIVILEGE.SABBATICAL_REPORT);
 
   const canSee = (itemId: string): boolean => {
     switch (itemId) {
-      // route.ts:148 — LEAD or People Ops.
-      case "leave-reports":
-        return isLead || isPeopleOps;
+      // A lead sees their own team; a report role (or People Ops) sees
+      // everyone. Someone with neither gets no Reports at all.
+      case "leave-reports-general":
+        return isLead || canReportAllGeneral;
+      case "leave-reports-sabbatical":
+        return isLead || canReportAllSabbatical;
       // route.ts:94,101 — LEAD only. People Ops cannot approve.
       case "leave-approve":
         return isLead;
@@ -127,6 +140,8 @@ export function useLeaveGate(enabled = true): LeaveGate {
     isResolving: enabled && userInfo.isPending && userInfo.errorUpdateCount === 0,
     isPeopleOps,
     isLead,
+    canReportAllGeneral,
+    canReportAllSabbatical,
   };
 }
 

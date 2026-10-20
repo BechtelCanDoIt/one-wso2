@@ -37,13 +37,14 @@ import { parVisibility } from "@features/par/api/parVisibility";
 import { useParCanSeeLeadPortal, useParEmployeeItemVisible } from "@features/par/api/useParData";
 import { useParIsAdmin } from "@features/par/api/useParIsAdmin";
 import { promotionVisibility, usePromotionPrivileges } from "@features/promotion/api/usePromotionRoles";
+import { promotionEmployeeAccess } from "@features/promotion/util/promotionEmployeeAccess";
 import { umtVisibility, useUmtGate } from "@features/umt/api/useUmtGate";
 import {
   engineeringAdminVisibility,
   useEngineeringAdminGate,
 } from "@features/engineering/api/engineeringAdminVisibility";
 import { isSriLankaWorkLocation } from "@utils/locationGate";
-import { visibleLeavesOf } from "./railActive";
+import { firstVisibleLeaf as firstVisibleLeafOf, visibleLeavesOf } from "./railActive";
 import {
   claimOf,
   claimsForPerspective,
@@ -89,6 +90,22 @@ export interface PerspectiveVisibility {
    */
   visibleLeaves: PerspectiveSection[];
   /**
+   * The first leaf a caller may safely navigate to RIGHT NOW, in rail order —
+   * `undefined` until every section ranked above it has answered, visible or
+   * not. See `firstVisibleLeaf` for why this is not just `visibleLeaves[0]`:
+   * that fills in whatever has resolved so far, which can rank a quick lower
+   * answer ahead of a slow higher one. A caller that redirects (PerspectiveLanding)
+   * needs the rail-order-correct answer; the rail itself, which only ever
+   * draws what it knows and fills the rest in, keeps using `visibleLeaves`.
+   *
+   * Finance waits one step longer. Overview ranks above the MIS rows, so this
+   * stays unset until the ARR read has settled, even when Overview has already
+   * answered. A failed read is the Retry notice on the opening screen, and
+   * leaving for Overview before that read finishes never shows it. The rail
+   * and a direct address do not read this field.
+   */
+  firstVisibleLeaf: PerspectiveSection | undefined;
+  /**
    * True when something this perspective needed to answer the question failed.
    *
    * Only worth asking where an empty `visibleLeaves` is about to be shown to
@@ -114,18 +131,21 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   const caps = capabilitiesFromPrivileges(userInfo.data?.privileges);
   const infraGate = useInfraGate(active.key === "infra");
 
-  // Finance items (OPD/credit-card/expense, surfaced under Me) gate on each
-  // finance app's OWN backend roles, not the coarse people-app capabilities
-  // — so someone who is a people-app lead but not a cc-expenses lead/finance
-  // doesn't see "Approve Submissions". Dispatched per item id rather than
-  // per perspective since Finance items are just some of Me's sections now.
-  // Only fetch those roles while Me is active.
-  // Both perspectives: the claim apps' own screens are under Me, and Claim
-  // approval is under Finance. One gate answers for both, so it has to be
-  // asked in either place.
-  // `caps` for the master-data items, which have no finance backend role of
-  // their own — see useFinanceGate's own note.
-  const financeGate = useFinanceGate(active.key === "me" || active.key === "finance", caps);
+  // Finance items gate on each finance app's OWN backend roles, not the
+  // coarse people-app capabilities — so someone who is a people-app lead but
+  // not a cc-expenses lead/finance doesn't see "Approve Submissions".
+  // Dispatched per item id rather than per perspective.
+  //
+  // Finance only, not Me: Me's one finance-claimed id ("claims", under
+  // ME_FINANCE_APPS) has no `requires` and falls to `canSee`'s open default
+  // regardless of what this gate answers — nothing under Me actually reads
+  // it. Fetching it there was four wasted `/user-info` calls on every visit
+  // to Me, and backend latency bleeding into `isResolving` for a perspective
+  // that never needed an answer.
+  // No `caps` any more: master data was the one finance item the portal's own
+  // privileges decided, and its backend now answers for itself — see
+  // useFinanceGate's note.
+  const financeGate = useFinanceGate(active.key === "finance");
 
   // Finance MIS, also under Finance, but a different backend again — the MIS
   // ARR service's own /user-info. It cannot share the finance gate above: that
@@ -137,11 +157,10 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // things, so a MIS id reaching the capability check would show company-wide
   // revenue reporting to every signed-in employee.
   //
-  // And only while the `mis` preview flag is on. The flag holds MIS back as a
-  // whole, backend included: with the ARR URL set and the flag off, a gate that
-  // still asked would hold every Finance landing on /user-info, and report its
-  // failure as Finance's, for screens nobody can open.
-  const misGate = useMisGate(active.key === "finance" && isPreviewEnabled("mis"));
+  // Finance MIS is shipped, so this asks whenever Finance is open. A slow or
+  // failed /user-info holds or stops the Finance opening screen. Unconfigured,
+  // useMisGate asks nothing and never stays pending.
+  const misGate = useMisGate(active.key === "finance");
 
   // Leave is the same problem again: its backend numbers LEAD 879 /
   // PEOPLE_OPS_TEAM 789, unrelated to people-app's 993 / 999. Reading
@@ -224,24 +243,28 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
     isMe && meProfile.isPending,
   );
 
+  // The employee-facing "Promotion" item under Me — promotionEmployeeAccess
+  // hides it for employment types it isn't for, from the same profile
+  // record as above.
+  const promotionEmployeeGate = promotionEmployeeAccess(
+    meProfile.data?.employee?.employmentType,
+    isMe && meProfile.isPending,
+  );
+
   // promotion-app's Lead Portal — same shape of problem as PAR's above: its
   // Role.LEAD comes from promotion-app's own backend and bears no fixed
   // relationship to people-app's generic "lead" privilege `caps` is built
   // from. Only fetched while People Ops is active.
-  const promotionLeadPortalGate = usePromotionPrivileges(
-    userInfo.data?.workEmail,
-    isPeopleOps && isPreviewEnabled("promotion"),
-  );
+  const promotionLeadPortalGate = usePromotionPrivileges(userInfo.data?.workEmail, isPeopleOps);
 
   // UMT is the same shape of problem again: Product Management is
   // UMT_ADMIN-only, decided by UMT's own /update/user-info roles, which bear
   // no relation to the people-app privilege numbers `caps` is built from.
-  // Only fetched while UMT is the active perspective.
-  const isUmt = active.key === "umt";
-  const umtGate = useUmtGate(isUmt);
-  const engineeringAdminGate = useEngineeringAdminGate(
-    active.key === "engineering" && isPreviewEnabled("engineering"),
-  );
+  // Only fetched while Engineering is active. UMT's rows exist only while
+  // its preview flag is on.
+  const isEngineering = active.key === "engineering";
+  const umtGate = useUmtGate(isEngineering && isPreviewEnabled("umt"));
+  const engineeringAdminGate = useEngineeringAdminGate(isEngineering);
 
   // Both services are a Colombo-office perk, so both screens are Sri-Lanka-only
   // — see isSriLankaWorkLocation. They now sit in different perspectives (self
@@ -297,7 +320,7 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
       case "cado2":
         return cado2Visibility(cado2Gate);
       case "promotion":
-        return promotionVisibility(promotionLeadPortalGate);
+        return promotionVisibility(promotionLeadPortalGate, promotionEmployeeGate, meProfile.isError);
       case "security":
         return securityVisibility(securityGate);
       case "umt":
@@ -341,11 +364,21 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
 
   const resolveVisible = (section: PerspectiveSection): boolean => folded.canSee(section);
   const visibleLeaves = visibleLeavesOf(sections, resolveVisible);
+  // Overview ranks above the MIS rows, so the walk can name it while the ARR
+  // read is still in flight or has already failed. The opening screen stays
+  // here until that read settles. `resolveVisible` is unchanged, so the rail
+  // keeps the other Finance rows, and a typed address never comes through here.
+  const arrReadSettled = !misGate.isResolving && !misGate.isError;
+  const firstVisibleLeaf =
+    active.key === "finance" && !arrReadSettled
+      ? undefined
+      : firstVisibleLeafOf(sections, resolveVisible, folded.sectionAnswered);
 
   return {
     resolveVisible,
     isResolving: folded.resolving,
     visibleLeaves,
+    firstVisibleLeaf,
     isError: folded.failed,
     error: folded.error,
     retry: folded.retry,

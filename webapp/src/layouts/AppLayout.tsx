@@ -30,6 +30,7 @@ import AuthDebugPanel from "@features/debug/AuthDebugPanel";
 import AppShellLayout from "@layouts/AppShellLayout";
 import IdleTimeoutProvider from "@context/idle-timeout/IdleTimeoutProvider";
 import SessionExpiryWatcher from "@components/session-expiry/SessionExpiryWatcher";
+import { isFullPageLocation } from "@layouts/fullPageRoutes";
 
 const SIDEBAR_COLLAPSED_KEY = "one-wso2.sidebar.collapsed";
 
@@ -82,6 +83,17 @@ export default function AppLayout(): JSX.Element {
   useEffect(() => {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, [location.pathname]);
+
+  // A page that brings its own frame (see fullPageRoutes) gets none of the
+  // shell below, but keeps the idle timeout and the session-expired prompt.
+  if (isFullPageLocation(location)) {
+    return (
+      <IdleTimeoutProvider>
+        <SessionExpiryWatcher />
+        <Outlet />
+      </IdleTimeoutProvider>
+    );
+  }
 
   return (
     // Owns the idle deadline and the "still there?" prompt (ONEWSO2-R1).

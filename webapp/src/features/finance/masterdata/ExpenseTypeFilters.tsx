@@ -15,7 +15,12 @@
 // under the License.
 
 import { Autocomplete, Box, Button, Chip, Stack, TextField } from "@wso2/oxygen-ui";
-import type { ExpenseTypeAutoComplete, ExpenseTypeFilter, LabelledId } from "./masterDataTypes";
+import {
+  MASTER_DATA_STATUS,
+  type ExpenseTypeAutoComplete,
+  type ExpenseTypeFilter,
+  type LabelledId,
+} from "./masterDataTypes";
 
 /**
  * The six filters above the expense-type table.
@@ -27,9 +32,22 @@ import type { ExpenseTypeAutoComplete, ExpenseTypeFilter, LabelledId } from "./m
  */
 
 /** The two statuses a row can carry. */
-const STATUS_OPTIONS = ["active", "inactive"] as const;
+const STATUS_OPTIONS = [MASTER_DATA_STATUS.active, MASTER_DATA_STATUS.inactive] as const;
 
-const FIELD_SX = { minWidth: 200, flex: 1 } as const;
+// The grid below sizes the fields. `minWidth: 0` lets a column shrink to its
+// track instead of being held open by a long chip, which is what pushes a
+// field onto a row of its own.
+const FIELD_SX = { minWidth: 0 } as const;
+
+// Equal-width columns that wrap as a grid rather than a flex row: the six
+// filters keep one width whichever row they land on, instead of the last one
+// stretching across the full bar on its own.
+const FILTER_GRID_SX = {
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+  gap: 1.5,
+  mb: 1.5,
+} as const;
 
 /** Multi-select over plain strings. */
 function StringFilter({
@@ -125,7 +143,7 @@ export default function ExpenseTypeFilters({
 
   return (
     <Box sx={{ mb: 2 }}>
-      <Stack direction="row" flexWrap="wrap" gap={1.5} sx={{ mb: 1.5 }}>
+      <Box sx={FILTER_GRID_SX}>
         <IdFilter
           label="Expense Category"
           values={draft.expenseCategoryIds ?? []}
@@ -162,7 +180,7 @@ export default function ExpenseTypeFilters({
           options={STATUS_OPTIONS}
           onChange={(v) => set("status", v)}
         />
-      </Stack>
+      </Box>
       <Stack direction="row" gap={1}>
         <Button variant="contained" size="small" onClick={onApply} disabled={busy || optionsLoading}>
           Apply Filters

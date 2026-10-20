@@ -54,7 +54,7 @@ export default function ParEmployeeFeedbackTab() {
   const leadEmail = useParEmployeeInfo(workEmail).data?.leadEmail ?? undefined;
 
   const activeCycles = useActiveParCycle(workEmail);
-  // manager.bal refuses to have two cycles OPEN at once, so there is at most
+  // The backend refuses to have two cycles OPEN at once, so there is at most
   // one to show.
   const cycle = activeCycles.data?.[0];
   const rating = useParRating(cycle?.parCycleId, workEmail);
@@ -352,7 +352,7 @@ function SelfReviewForm({
         </Box>
       )}
 
-      <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="xs" fullWidth>
+      <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="md" fullWidth>
         <DialogTitle>Share your PAR?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
@@ -368,7 +368,7 @@ function SelfReviewForm({
         </DialogActions>
       </Dialog>
 
-      <Dialog open={unsharing} onClose={() => setUnsharing(false)} maxWidth="xs" fullWidth>
+      <Dialog open={unsharing} onClose={() => setUnsharing(false)} maxWidth="md" fullWidth>
         <DialogTitle>Unshare your PAR?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">

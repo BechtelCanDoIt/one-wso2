@@ -25,6 +25,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  ListSubheader,
   MenuItem,
   Select,
   Stack,
@@ -48,11 +49,15 @@ import {
   FieldRow,
   FundingSources,
   JobNumberAutocomplete,
+  INFO_SIDEBAR_WIDTH,
+  JobNumberSideBar,
   Placeholder,
   ReadOnlyField,
+  SearchableSelect,
 } from "./ccFormFields";
 import { clearDependentFields, resolveProductUnitIndex } from "./ccPendingSubmissions";
 import { useCcJobNumberDetails, useCcMenus } from "./useCc";
+import { isValidJobNumberFormat, normalizeJobNumber } from "./ccJobNumber";
 import { useCcAttachment } from "./useCcMutations";
 import { CC_SNACK } from "./ccCopy";
 import {
@@ -147,6 +152,9 @@ export function CcCategorisePanel({
   // changes" means what it says.
   const [baseline, setBaseline] = useState<CcTransaction>(txn);
   const [saving, setSaving] = useState(false);
+  // Turns an empty required job number from "not filled in yet" into an
+  // error worth pointing at.
+  const [saveAttempted, setSaveAttempted] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [load, setLoad] = useState<(() => Promise<ReceiptSource>) | null>(null);
   // Which attachment the viewer is open on — needed alongside `load` so the
@@ -163,22 +171,61 @@ export function CcCategorisePanel({
   /** Show the fields as values rather than as controls. */
   const showValues = review && !isEditing;
 
-  const categories = menus.expenseTypes.data?.categories ?? [];
+  const categories = useMemo(
+    () => [...(menus.expenseTypes.data?.categories ?? [])].sort((a, b) => a.localeCompare(b)),
+    [menus.expenseTypes.data],
+  );
   const subRegions = menus.subRegions.data?.subRegions ?? [];
   const jobNumbers = menus.jobNumbers.data?.jobNumbers ?? [];
   const productUnits = useMemo(() => menus.units.data?.productUnits ?? [], [menus.units.data]);
   const businessUnits = useMemo(() => menus.units.data?.businessUnits ?? [], [menus.units.data]);
 
   const category = draft.expenseCategoryLabel ?? "";
-  const typeOptions = category ? menus.expenseTypes.data?.types[category] ?? [] : [];
+  const typeOptions = useMemo(
+    () => (category ? [...(menus.expenseTypes.data?.types[category] ?? [])].sort((a, b) => a.localeCompare(b)) : []),
+    [category, menus.expenseTypes.data],
+  );
   const isTravel = category === CC_TRAVEL_CATEGORY;
   // EditPane.tsx:1397 matches with startsWith, so a sub-category such as
   // "Marketing - Digital" still needs a sub-region.
   const isMarketing = category.startsWith(CC_MARKETING_CATEGORY);
 
   // EditPane.tsx:560-600 — the job number decides a travel transaction's units.
-  const jobDetails = useCcJobNumberDetails(isTravel && draft.travelJobNumber ? draft.travelJobNumber : undefined);
+  // Only a typed number is shape-checked; one off the list is real by
+  // definition. The lookup is gated on it, so typing fires no request.
+  const jobPicked = Boolean(draft.travelJobNumber && jobNumbers.includes(draft.travelJobNumber));
+  const jobLookupKey =
+    isTravel &&
+    draft.travelJobNumber &&
+    (jobPicked || isValidJobNumberFormat(draft.travelJobNumber))
+      ? normalizeJobNumber(draft.travelJobNumber)
+      : undefined;
+  const jobDetails = useCcJobNumberDetails(jobLookupKey);
   const jobUnits = isTravel ? jobDetails.data : undefined;
+  const jobMalformed = Boolean(
+    isTravel &&
+      draft.travelJobNumber &&
+      !jobPicked &&
+      !isValidJobNumberFormat(draft.travelJobNumber),
+  );
+  const jobNotFound = Boolean(jobLookupKey) && jobDetails.isError;
+  // Set and not yet one of the three settled states above: the lookup is
+  // still in flight. A format that passes and a pick from the list both
+  // start here, and only `jobUnits` arriving moves it out.
+  const jobPending = Boolean(jobLookupKey) && !jobUnits && !jobNotFound;
+  // Only once a save has been tried: an empty field is the starting state,
+  // not a mistake to point at before the reader has done anything.
+  const jobMissing = Boolean(isTravel && saveAttempted && !draft.travelJobNumber);
+  const jobNumberError = jobMalformed || jobNotFound || jobMissing;
+  const jobNumberHelp = jobMissing
+    ? "Required field"
+    : jobMalformed
+      ? "Enter a valid value in the format TRV-YYYY-MM-NNNN"
+      : jobNotFound
+        ? "Could not verify this job number"
+        : jobPending
+          ? "Checking the job number…"
+          : "Not listed? Type the full job number.";
   const fundingSources = jobUnits?.fundingSources ?? [];
   // :568-575 — a job with no funding sources cannot be charged against, so the
   // source refuses to apply it rather than filling in half the row.
@@ -225,15 +272,28 @@ export function CcCategorisePanel({
   latestSignature.current = signature(effective);
 
   const persist = async (row: CcTransaction): Promise<boolean> => {
+    setSaveAttempted(true);
     // :568-575 — a job with no funding sources cannot be charged against, so it
     // is never written. `CcEditDialog` refuses the same case; without this the
     // autosave, the Save button and `saveNow` would all persist a travel row
     // against a job finance cannot book it to.
-    //
-    // Only `jobUnusable`, never `!jobUsable`: a lookup that has not resolved,
-    // or failed, must still let a part-finished draft be saved.
     if (isTravel && jobUnusable) {
       setSaveError("No funding sources found for the selected Job number.");
+      return false;
+    }
+    // Both modes, not review only: a draft carrying a job number that cannot
+    // be looked up is submitted from the list later, without passing back
+    // through this form.
+    if (isTravel && (jobMalformed || jobNotFound)) {
+      setSaveError(jobNumberHelp);
+      return false;
+    }
+    // A number can be well-formed and still unverified: the lookup is a
+    // separate round trip, and a pending one has no error for the check above
+    // to catch. Autosave is kept away by `ready` below rather than by this;
+    // this one stops `saveNow` and the unsaved-changes dialog.
+    if (isTravel && jobPending) {
+      setSaveError(jobNumberHelp);
       return false;
     }
     setSaving(true);
@@ -306,14 +366,18 @@ export function CcCategorisePanel({
     }
   };
   // `ready` is false for the whole of review mode, which is what keeps the hook
-  // from ever arming — the source guards the same way (`:441-445`), because a
-  // correction to a submitted row goes back to an approver and must not leave
-  // on a timer the reader did not ask for.
+  // from ever arming, because a correction to a submitted row goes back to an
+  // approver and must not leave on a timer the reader did not ask for.
+  //
+  // False too while a job number lookup is pending, so the timer starts once
+  // the job resolves. The mounted row goes in as the baseline for that window,
+  // so an edit made during the lookup is still saved once the timer arms.
   const draftState = useDraftAutosave(
     signature(effective),
-    !review && editMode,
+    !review && editMode && !jobPending,
     () => autosave.current(),
     5000,
+    signature(baseline),
   );
 
   useImperativeHandle(ref, () => ({
@@ -347,10 +411,19 @@ export function CcCategorisePanel({
     productUnits,
     businessUnits,
   );
-  const unitOptions = useMemo(
-    () => productUnits.map((pu, i) => ({ i, label: `${pu} — ${businessUnits[i] ?? ""}` })),
-    [productUnits, businessUnits],
-  );
+  // CcEditDialog.tsx — Product Unit options grouped under a Business Unit
+  // subheader rather than spelling the business unit out in each option's
+  // own label, in whichever order the menu arrays list the business units
+  // (first appearance wins a group's position).
+  const unitGroups = useMemo(() => {
+    const groups = new Map<string, { i: number; label: string }[]>();
+    productUnits.forEach((pu, i) => {
+      const bu = businessUnits[i] || "Other";
+      if (!groups.has(bu)) groups.set(bu, []);
+      groups.get(bu)!.push({ i, label: pu });
+    });
+    return Array.from(groups.entries());
+  }, [productUnits, businessUnits]);
 
   const viewAttachment = (attachmentType: CcAttachmentType) => {
     setViewingType(attachmentType);
@@ -473,44 +546,22 @@ export function CcCategorisePanel({
           <>
         <FieldRow>
           <Field label="Expense Category" required>
-            <Select
+            <SearchableSelect
               value={category}
+              options={categories}
               disabled={!editable}
-              onChange={(e) =>
-                change(
-                  { expenseCategoryLabel: String(e.target.value) || null },
-                  clearDependentFields("expenseCategory"),
-                )
+              onChange={(v) =>
+                change({ expenseCategoryLabel: v || null }, clearDependentFields("expenseCategory"))
               }
-              displayEmpty
-              renderValue={(v) => (v ? String(v) : <Placeholder />)}
-            >
-              {categories.map((c) => (
-                <MenuItem key={c} value={c}>
-                  {c}
-                </MenuItem>
-              ))}
-            </Select>
+            />
           </Field>
           <Field label="Expense Type" required>
-            <Select
+            <SearchableSelect
               value={draft.expenseTypeLabel ?? ""}
+              options={typeOptions}
               disabled={!editable || !category}
-              onChange={(e) =>
-                change(
-                  { expenseTypeLabel: String(e.target.value) || null },
-                  clearDependentFields("expenseType"),
-                )
-              }
-              displayEmpty
-              renderValue={(v) => (v ? String(v) : <Placeholder />)}
-            >
-              {typeOptions.map((t) => (
-                <MenuItem key={t} value={t}>
-                  {t}
-                </MenuItem>
-              ))}
-            </Select>
+              onChange={(v) => change({ expenseTypeLabel: v || null }, clearDependentFields("expenseType"))}
+            />
           </Field>
         </FieldRow>
 
@@ -547,14 +598,23 @@ export function CcCategorisePanel({
               options={jobNumbers}
               disabled={!editable}
               onChange={(v) => change({ travelJobNumber: v }, clearDependentFields("travelJobNumber"))}
+              error={jobNumberError}
+              helperText={jobNumberHelp}
+              infoWidth={INFO_SIDEBAR_WIDTH}
+              /* Keyed on the lookup landing, not on the job being usable: a
+                 job with no funding still has an engagement worth reading. */
+              info={
+                jobUnits ? (
+                  <JobNumberSideBar
+                    details={jobUnits}
+                    fundingCount={fundingSources.length}
+                    onOpenFunding={() => setFundingOpen(true)}
+                  />
+                ) : undefined
+              }
             />
             {/* :568-598 warns on both, because either one leaves the row short
                 of what finance needs and neither is the reader's fault. */}
-            {jobDetails.isError && (
-              <Alert severity="error" sx={{ mt: 1, fontSize: 12.5 }}>
-                An error occurred while fetching job number details.
-              </Alert>
-            )}
             {jobUnusable && (
               <Alert severity="warning" sx={{ mt: 1, fontSize: 12.5 }}>
                 No funding sources found for the selected Job number.
@@ -565,31 +625,7 @@ export function CcCategorisePanel({
                 No Product unit and/or Business unit found for the selected Job number.
               </Alert>
             )}
-            {jobUsable && jobUnits && (
-              <Box sx={{ mt: 1 }}>
-                {/* :629-641 — the engagement a travel spend is charged to. */}
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-                  {jobUnits.engagementCode} · {jobUnits.engagementType} · {jobUnits.country}
-                </Typography>
-                <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>
-                  Units from this job: {jobUnits.productUnit} · {jobUnits.businessUnit}
-                </Typography>
-                {/* :1288-1318 — behind a button, as the source has it, not
-                    spread out in the form. Six columns of funding split is
-                    reference material a reader opens once to check; inline it
-                    was the one thing tall enough to push this panel past the
-                    window, which on a screen that does not scroll means it
-                    would simply have been cut off. */}
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => setFundingOpen(true)}
-                  sx={{ textTransform: "none", fontWeight: 600, mt: 0.25, px: 0 }}
-                >
-                  View funding sources ({fundingSources.length})
-                </Button>
-              </Box>
-            )}
+
           </Field>
         ) : (
           // Sub Region sits in this row rather than on one of its own: the row
@@ -612,13 +648,48 @@ export function CcCategorisePanel({
                   });
                 }}
                 displayEmpty
-                renderValue={(v) => (v === "" ? <Placeholder /> : unitOptions[Number(v)]?.label ?? String(v))}
+                renderValue={(v) => (v === "" ? <Placeholder /> : productUnits[Number(v)] ?? String(v))}
               >
-                {unitOptions.map((o) => (
-                  <MenuItem key={o.i} value={o.i}>
-                    {o.label}
-                  </MenuItem>
-                ))}
+                {unitGroups.flatMap(([bu, items]) => [
+                  // Full-opacity heading colour instead of MUI's dim default
+                  // text.secondary, which read as low-contrast grey-on-dark.
+                  <ListSubheader
+                    key={`h-${bu}`}
+                    // A group with few items lets the next sticky header
+                    // overtake it mid-scroll, overlapping its text with the
+                    // item still scrolling out underneath. Disabling sticky
+                    // entirely removes the only thing that can collide.
+                    disableSticky
+                    // The flat #8a8a8a this used to carry read as a plain
+                    // grey, out of step with every other surface in the
+                    // panel — those all come from the warm `action.hover`
+                    // tint (CcApproveDetail.tsx:67's description/amount
+                    // card uses the same token), which resolves through
+                    // MUI's CSS-variables colour-scheme system automatically,
+                    // unlike theme.palette.mode (confirmed dead here: it
+                    // never reflects the live DOM colour-scheme attribute).
+                    sx={{
+                      bgcolor: "action.hover",
+                      // text.primary, not ListSubheader's default
+                      // text.secondary — a dim label reads poorly as a
+                      // group heading.
+                      color: "text.primary",
+                      // MUI's ListSubheader bolds itself by default (its own
+                      // built-in CSS, not something added here) — forced
+                      // back to normal weight to match plain body text.
+                      fontWeight: 400,
+                    }}
+                  >
+                    {bu}
+                  </ListSubheader>,
+                  ...items.map((o) => (
+                    // Indented under its group header so each option reads
+                    // clearly as belonging to the business unit above it.
+                    <MenuItem key={o.i} value={o.i} sx={{ pl: 4 }}>
+                      {o.label}
+                    </MenuItem>
+                  )),
+                ])}
               </Select>
             </Field>
             {/* :1366-1393 — read-only. The business unit follows the product
@@ -752,7 +823,7 @@ export function CcCategorisePanel({
                       !dirty ||
                       saving ||
                       jobDetails.isFetching ||
-                      (isTravel && jobUnusable) ||
+                      (isTravel && (jobUnusable || jobPending)) ||
                       (review && !ccTxnComplete(effective))
                     }
                     onClick={() => void saveRow()}

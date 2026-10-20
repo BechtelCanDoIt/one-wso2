@@ -22,7 +22,6 @@ import { isPreviewEnabled } from "@config/previewFeatures";
 import { CADO2_APPS } from "@constants/cado2Apps";
 import {
   AwardIcon,
-  Box as BoxIcon,
   BarChart3,
   BookOpenIcon,
   CheckCheckIcon,
@@ -33,12 +32,10 @@ import {
   LandmarkIcon,
   LifeBuoyIcon,
   LightbulbIcon,
-  LayoutDashboard,
-  LucideLayoutGrid,
+  RefreshCw,
   MegaphoneIcon,
   NetworkIcon,
   RadioIcon,
-  RefreshCcw,
   SatelliteDishIcon,
   ScaleIcon,
   ShieldIcon,
@@ -53,6 +50,7 @@ import {
   ServerIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
+import type { ComponentType } from "react";
 import type { Capability, MenuApp } from "@constants/appMenu";
 import {
   FINANCE_OVERVIEW_APPS,
@@ -61,6 +59,7 @@ import {
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
 import { MIS_APPS } from "@constants/misApps";
+import { DOWNLOAD_STATS_APPS } from "@constants/downloadStatsApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
 import { DUE_DILIGENCE_APPS } from "@constants/dueDiligenceApps";
@@ -69,6 +68,13 @@ import { ME_APPS } from "@constants/meApps";
 import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
+import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
+import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
+import {
+  EchoLogoIcon,
+  SalesPitstopLogoIcon,
+  type RailIconProps,
+} from "@features/sales/components/SalesBrandIcons";
 
 export interface PerspectiveSection {
   id: string; // anchor id on the perspective's page (leaf sections)
@@ -76,7 +82,8 @@ export interface PerspectiveSection {
   // App groups (Leave, Menu, Finance) carry an icon + nested children.
   // A section with `children` renders as a collapsible group in the rail; a
   // leaf section scrolls to its `id`.
-  icon?: LucideIcon;
+  // A line icon, or a product's own logo (see SalesBrandIcons) -- the rail only renders it.
+  icon?: LucideIcon | ComponentType<RailIconProps>;
   // Visible when the caller has ANY of these capabilities (OR semantics).
   // Omitted = visible to everyone. Only app-menu registries (Leave, Finance,
   // Finance) use this.
@@ -87,6 +94,10 @@ export interface PerspectiveSection {
   path?: string;
   // Render as a group even with a single visible child — see MenuApp.alwaysGroup.
   alwaysGroup?: boolean;
+  // One rail row whose screens the app offers as tabs — see MenuApp.inTabs.
+  // Children stay so a pin can name each screen; the rail does not list them.
+  // The row's path is the first item, which is where choosing the app opens.
+  inTabs?: boolean;
   // When set, a leaf item leaves One WSO2 entirely: it renders as an anchor
   // that opens in a new tab, and is never route-highlighted because no route
   // of ours is active while the user is over there. Mutually exclusive with
@@ -104,9 +115,12 @@ function appsToSections(apps: readonly MenuApp[]): PerspectiveSection[] {
     label: app.name,
     icon: app.icon,
     alwaysGroup: app.alwaysGroup,
+    inTabs: app.inTabs,
+    path: app.inTabs ? app.items[0]?.path : undefined,
     children: app.items.map((it) => ({
       id: it.id,
       label: it.label,
+      icon: it.icon,
       requires: it.requires,
       path: it.path,
     })),
@@ -224,74 +238,63 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
   // below, not `requires` — promotion-app's own Role.LEAD (read back from its
   // GET /employee-privileges) bears no fixed relationship to people-app's
   // generic "lead" capability `requires` would otherwise gate on.
-  //
-  // The whole group is additionally held behind a preview flag until
-  // promotion-app is ready for production (same flag as the Me → Promotion
-  // item above and every /people-ops/promotion/* route in App.tsx) — with
-  // the flag off, this group doesn't exist, so there's nothing here for
-  // resolveVisible's own PROMOTION_*_ITEM_ID checks to ever be asked about.
-  ...(isPreviewEnabled("promotion")
-    ? [
-        {
-          id: "people-promotion",
-          label: "Promotion",
-          icon: AwardIcon,
-          children: [
-            {
-              id: "promotion-lead-portal",
-              label: "Time Based Promotions",
-              path: "/people-ops/promotion/lead",
-            },
-            // A separate Lead-role screen from Time Based Promotions above
-            // (source's own /lead-employee-history route, distinct from
-            // /time-based-promotions) — same Role.LEAD gate, same
-            // PROMOTION_LEAD_PORTAL_ITEM_ID-style treatment, its own id
-            // (PROMOTION_TEAM_HISTORY_ITEM_ID below).
-            {
-              id: "promotion-team-history",
-              label: "Team Promotion History",
-              path: "/people-ops/promotion/team-history",
-            },
-            // A different role gate from the two above (Role.FUNCTIONAL_LEAD,
-            // not Role.LEAD) — its own id (PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID
-            // below), same presentation-only treatment.
-            {
-              id: "promotion-functional-lead-portal",
-              label: "Functional Lead Portal",
-              path: "/people-ops/promotion/functional-lead",
-            },
-            // A third role gate (Role.PROMOTION_BOARD_MEMBER, not Role.LEAD or
-            // Role.FUNCTIONAL_LEAD) — its own id
-            // (PROMOTION_BOARD_PORTAL_ITEM_ID below), same presentation-only
-            // treatment.
-            {
-              id: "promotion-board-portal",
-              label: "Promotion Board Portal",
-              path: "/people-ops/promotion/board",
-            },
-            // A fourth role gate (Role.HR_ADMIN) — its own id
-            // (PROMOTION_ADMIN_PORTAL_ITEM_ID below), same presentation-only
-            // treatment. Not people-app's generic "admin" capability — see the
-            // same reasoning the other three children's own comments give.
-            {
-              id: "promotion-admin-portal",
-              label: "Admin Portal",
-              path: "/people-ops/promotion/admin",
-            },
-            // The one screen two different role gates both reach directly —
-            // Role.HR_ADMIN OR Role.FUNCTIONAL_LEAD (unlike every child above,
-            // gated on exactly one role each). Its own id
-            // (PROMOTION_CYCLE_HISTORY_ITEM_ID below), same presentation-only
-            // treatment.
-            {
-              id: "promotion-cycle-history",
-              label: "Promotion Cycle History",
-              path: "/people-ops/promotion/cycle-history",
-            },
-          ],
-        },
-      ]
-    : []),
+  {
+    id: "people-promotion",
+    label: "Promotion",
+    icon: AwardIcon,
+    children: [
+      {
+        id: "promotion-lead-portal",
+        label: "Time Based Promotions",
+        path: "/people-ops/promotion/lead",
+      },
+      // A separate Lead-role screen from Time Based Promotions above,
+      // listing promotions received by a lead's direct and indirect reports —
+      // same lead gate, same PROMOTION_LEAD_PORTAL_ITEM_ID-style treatment,
+      // its own id (PROMOTION_TEAM_HISTORY_ITEM_ID below).
+      {
+        id: "promotion-team-history",
+        label: "Team Promotion History",
+        path: "/people-ops/promotion/team-history",
+      },
+      // A different role gate from the two above (Role.FUNCTIONAL_LEAD,
+      // not Role.LEAD) — its own id (PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID
+      // below), same presentation-only treatment.
+      {
+        id: "promotion-functional-lead-portal",
+        label: "Functional Lead Portal",
+        path: "/people-ops/promotion/functional-lead",
+      },
+      // A third role gate (Role.PROMOTION_BOARD_MEMBER, not Role.LEAD or
+      // Role.FUNCTIONAL_LEAD) — its own id
+      // (PROMOTION_BOARD_PORTAL_ITEM_ID below), same presentation-only
+      // treatment.
+      {
+        id: "promotion-board-portal",
+        label: "Promotion Board Portal",
+        path: "/people-ops/promotion/board",
+      },
+      // A fourth role gate (Role.HR_ADMIN) — its own id
+      // (PROMOTION_ADMIN_PORTAL_ITEM_ID below), same presentation-only
+      // treatment. Not people-app's generic "admin" capability — see the
+      // same reasoning the other three children's own comments give.
+      {
+        id: "promotion-admin-portal",
+        label: "Admin Portal",
+        path: "/people-ops/promotion/admin",
+      },
+      // The one screen two different role gates both reach directly —
+      // Role.HR_ADMIN OR Role.FUNCTIONAL_LEAD (unlike every child above,
+      // gated on exactly one role each). Its own id
+      // (PROMOTION_CYCLE_HISTORY_ITEM_ID below), same presentation-only
+      // treatment.
+      {
+        id: "promotion-cycle-history",
+        label: "Promotion Cycle History",
+        path: "/people-ops/promotion/cycle-history",
+      },
+    ],
+  },
   {
     id: "people-active-employee-report",
     label: "Active Employees",
@@ -467,30 +470,38 @@ const ME_SECTIONS: PerspectiveSection[] = [
   // par-app's employee portal.
   ...appsToSections(ME_PAR_APPS),
   // promotion-app's employee portal.
-  // Held behind a preview flag until the whole app (this item plus the
-  // "Promotion" group under People Ops) is ready for production — see
-  // isPreviewEnabled's own call in PEOPLE_OPS_SECTIONS below and in App.tsx.
-  ...(isPreviewEnabled("promotion") ? appsToSections(ME_PROMOTION_APPS) : []),
+  ...appsToSections(ME_PROMOTION_APPS),
 ];
 
-// Knowledge Base's one item so far. Its own perspective (not nested under Me)
+// Knowledge's one item so far. Its own perspective (not nested under Me)
 // since "a company-wide learnings feed" is a destination in its own right,
-// not a personal-portal item — see KNOWLEDGE_BASE in PERSPECTIVES below.
-const KNOWLEDGE_BASE_SECTIONS: PerspectiveSection[] = [
-  { id: "knowledge-base-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge-base" },
+// not a personal-portal item — see `knowledge` in PERSPECTIVES below.
+const KNOWLEDGE_SECTIONS: PerspectiveSection[] = [
+  { id: "knowledge-today-i-learned", label: "Today I Learned", icon: LightbulbIcon, path: "/knowledge/today-i-learned" },
 ];
 
-const UMT_SECTIONS: PerspectiveSection[] = [
-  { id: "umt-updates", label: "Updates", icon: RefreshCcw, path: "/umt/updates" },
-  // Admin-only. `requires` speaks the people-app capability vocabulary, which
-  // UMT's own numeric roles have nothing to do with — this is filtered by
-  // UMT_ADMIN_ITEM_IDS below instead, the same way Finance/Leave/Subscriptions
-  // items are (see the comment above SUBSCRIPTION_ITEM_IDS).
-  { id: "umt-products", label: "Product Management", icon: BoxIcon, path: "/umt/products" },
-  { id: "umt-release-chunks", label: "Release Chunks", icon: LucideLayoutGrid, path: "/umt/release-chunks" },
-  { id: "umt-statistics", label: "Statistics", icon: BarChart3, path: "/umt/statistics" },
-];
-
+// UMT, an app inside the Engineering perspective (see `engineering` in
+// PERSPECTIVES below). A group like Product Download Stats beside it, with its
+// dashboard as the first row: Engineering forwards to its first item, so the
+// rail has no perspective-level Overview row that could stand in for it.
+const UMT_SECTION: PerspectiveSection = {
+  id: "engineering-umt",
+  label: "UMT",
+  icon: RefreshCw,
+  alwaysGroup: true,
+  children: [
+    { id: "umt-overview", label: "Overview", path: UMT_PATH },
+    { id: "umt-updates", label: "Updates", path: umtPaths.updates },
+    // Admin-only. `requires` speaks One WSO2's own capabilities, which have
+    // nothing to do with the roles the UMT backend (ONE_WSO2_UMT_BACKEND_URL)
+    // assigns — so this is filtered by UMT_ADMIN_ITEM_IDS below instead, the
+    // same way Finance/Leave/Subscriptions items are (see the comment above
+    // SUBSCRIPTION_ITEM_IDS).
+    { id: "umt-products", label: "Product Management", path: umtPaths.products },
+    { id: "umt-release-chunks", label: "Release Chunks", path: umtPaths.releaseChunks },
+    { id: "umt-statistics", label: "Statistics", path: umtPaths.statistics },
+  ],
+};
 
 /**
  * UMT rail ids whose visibility must be decided by UMT's own /update/user-info
@@ -502,30 +513,50 @@ const UMT_SECTIONS: PerspectiveSection[] = [
  * ask useUmtGate directly rather than reading `requires` for them.
  */
 export const UMT_ADMIN_ITEM_IDS: ReadonlySet<string> = new Set(["umt-products"]);
-// Sales's rail: the meeting history, and CadO2 while its preview flag is on.
-const SALES_MEETINGS_SECTION: PerspectiveSection = {
-  id: "sales-meetings",
-  label: "Meetings",
-  // NOT RadioIcon, which belongs to the perspective itself. SideRail renders
-  // the Overview row with `active.icon`, so a section reusing the perspective
-  // icon puts the same glyph on two adjacent rows and the rail stops being
-  // scannable. Video reads as "recorded call" and its solid rectangle is the
-  // strongest silhouette contrast against Radio's arcs at 20px.
-  icon: VideoIcon,
-  path: "/sales",
+
+/**
+ * Every UMT rail id, the group included. UMT's own roles decide all of them
+ * (see umtVisibility), so someone in Engineering with no UMT role does not see
+ * the group — the same way MIS, Due Diligence and CadO2 hide from callers their
+ * backends grant nothing.
+ */
+export const UMT_ITEM_IDS: ReadonlySet<string> = new Set([
+  UMT_SECTION.id,
+  ...(UMT_SECTION.children ?? []).map((child) => child.id),
+]);
+// Sales's rail: Echo, the call-intelligence product, as a group of its screens (Calls and
+// Deals); Sales Pitstop's Library while its preview flag is on; and CadO2 while its flag is on.
+const SALES_ECHO_SECTION: PerspectiveSection = {
+  id: "sales-echo",
+  label: "Echo",
+  icon: EchoLogoIcon,
+  alwaysGroup: true,
+  children: [
+    // The recordings Echo captured, with their transcripts and MEDDPICC evidence.
+    // The id is an internal key and does not need to match the label.
+    { id: "sales-meetings", label: "Calls", icon: VideoIcon, path: "/sales/meetings" },
+    // One row per Opportunity with its MEDDPICC state, beside the calls it came from.
+    // Served by the MEDDPICC backend rather than meet-app, but gated like Calls: it is
+    // the same sales team, and meet-app's answer is the one the rail already has.
+    { id: "sales-deals", label: "Deals", icon: HandshakeIcon, path: "/sales/deals" },
+  ],
+};
+
+// Sales Pitstop's Library: Smart Search over Pitstop's content. No `requires`, and not in
+// SALES_ITEM_IDS: it is not gated by the ONE_WSO2_REVOPS_BACKEND_URL backend that gates Calls and
+// Deals. The ONE_WSO2_SMART_SEARCH_BACKEND_URL backend decides what each caller may see. A group even
+// with one screen, so the rail names both the product and the screen. Held back by the `smartSearch` flag.
+const SALES_PITSTOP_SECTION: PerspectiveSection = {
+  id: "sales-pitstop",
+  label: "Sales Pitstop",
+  icon: SalesPitstopLogoIcon,
+  alwaysGroup: true,
+  children: [{ id: "sales-library", label: "Library", icon: BookOpenIcon, path: SMART_SEARCH_LIBRARY_PATH }],
 };
 
 const SALES_SECTIONS: PerspectiveSection[] = [
-  SALES_MEETINGS_SECTION,
-  {
-    // One row per Opportunity with its MEDDPICC state, beside the calls it came from.
-    // Served by the MEDDPICC backend rather than meet-app, but gated like Meetings: it is
-    // the same sales team, and meet-app's answer is the one the rail already has.
-    id: "sales-deals",
-    label: "Deals",
-    icon: HandshakeIcon,
-    path: "/sales/deals",
-  },
+  SALES_ECHO_SECTION,
+  ...(isPreviewEnabled("smartSearch") ? [SALES_PITSTOP_SECTION] : []),
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
   ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS) : []),
@@ -535,12 +566,19 @@ const SALES_SECTIONS: PerspectiveSection[] = [
  * Sales rail ids, which the rail must route through useSalesRailGate rather than `requires`
  * -- the same shape as SECURITY_ITEM_IDS. Access is decided by the meet-app backend's own
  * groups, so the only way to know a caller has none is its 403; until this gate existed the
- * Meetings row stayed in the rail beside a "Nothing here for you yet" card.
+ * Echo row stayed in the rail beside a "Nothing here for you yet" card.
  *
- * Meetings and Deals: CadO2's rows sit in the same perspective but belong to its own adapter, and
+ * The Echo group is here as well as its screens, the way UMT_ITEM_IDS carries its group: an
+ * id no adapter claims falls through to the capability check, and a group with no `requires`
+ * would pass it for everyone.
+ *
+ * Echo's rows only: CadO2's rows sit in the same perspective but belong to its own adapter, and
  * two adapters claiming one id is a test failure (claimConflicts).
  */
-export const SALES_ITEM_IDS: ReadonlySet<string> = new Set([SALES_MEETINGS_SECTION.id, "sales-deals"]);
+export const SALES_ITEM_IDS: ReadonlySet<string> = new Set([
+  SALES_ECHO_SECTION.id,
+  ...(SALES_ECHO_SECTION.children ?? []).map((child) => child.id),
+]);
 
 export interface PerspectiveDef {
   key: string;
@@ -584,22 +622,10 @@ export interface PerspectiveDef {
    *
    * Me is the one perspective that does not carry this: its landing is the
    * person's own profile, which is a page someone stops and reads.
-   *
-   * ALSO covers the near case where the landing does not forward because it
-   * already IS the first row's destination -- Sales, whose Meetings row points
-   * at `/sales` itself. The reason differs (nothing bounces) but the rail
-   * problem is identical: two rows, one destination, and the reader has to work
-   * out that they are the same place. The name is kept rather than split into a
-   * second near-identical flag.
    */
   forwardsToFirstItem?: boolean;
   sections?: PerspectiveSection[];
 }
-
-// Admin under Product Download Stats, in the Engineering perspective below.
-// The rail shows this row only when the download-stats API says the caller
-// is an admin.
-export const ENGINEERING_ADMIN_ITEM_ID = "engineering-download-stats-admin";
 
 export const PERSPECTIVES: readonly PerspectiveDef[] = [
   // "Apps" (persona areas, locked or unlocked). Order here is the order
@@ -652,8 +678,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // Gated on the MIS ARR backend's own privileges, not on `requires` —
       // see useMisGate. Privilege 987 is also this app's PRIVILEGE.EMPLOYEE,
       // so reading one for the other would show company revenue to everyone.
-      // Behind the `mis` preview flag. The routes carry the same flag.
-      ...(isPreviewEnabled("mis") ? appsToSections(MIS_APPS) : []),
+      ...appsToSections(MIS_APPS),
       // Master Data last, under everything else. It is reference data an
       // administrator edits occasionally — subsidiaries, departments, expense
       // types, the card register — not a screen anyone opens to do their day's
@@ -678,12 +703,16 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/legal",
     forwardsToFirstItem: true,
     sections: [
-      {
-        id: "legal-nda",
-        label: "NDA",
-        icon: FileSignatureIcon,
-        path: "/legal/nda",
-      },
+      ...(isPreviewEnabled("nda")
+        ? [
+            {
+              id: "legal-nda",
+              label: "NDA",
+              icon: FileSignatureIcon,
+              path: "/legal/nda",
+            },
+          ]
+        : []),
       ...appsToSections(DUE_DILIGENCE_APPS),
     ],
   },
@@ -728,92 +757,47 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/sales",
     sections: SALES_SECTIONS,
   },
-  // Knowledge Base, so far just Today I Learned's feed. Held behind a preview
-  // flag until til-backend has a real Choreo deployment and the Chat App side
-  // is registered — see isPreviewEnabled("til")'s doc comment in
-  // previewFeatures.ts. Its own perspective rather than nested under Me or
-  // People Ops: a company-wide feed is a destination in its own right, same
-  // reasoning as Sales/Marketing Ops getting their own waffle tile instead of
-  // living under an existing one.
-  ...(isPreviewEnabled("til")
-    ? [
-        {
-          key: "knowledge-base",
-          label: "Knowledge Base",
-          icon: BookOpenIcon,
-          access: true,
-          path: "/knowledge-base",
-          forwardsToFirstItem: true,
-          sections: KNOWLEDGE_BASE_SECTIONS,
-        },
-      ]
-    : []),
-  // Product Download Stats is the first engineering tool. It is not under
+  // Knowledge, so far just Today I Learned's feed. Its own perspective rather
+  // than nested under Me or People Ops: a company-wide feed is a destination
+  // in its own right, same reasoning as Sales/Marketing Ops getting their own
+  // waffle tile instead of living under an existing one.
+  {
+    key: "knowledge",
+    label: "Knowledge",
+    icon: BookOpenIcon,
+    access: true,
+    path: "/knowledge",
+    forwardsToFirstItem: true,
+    sections: KNOWLEDGE_SECTIONS,
+  },
+  // Download Stats is the first engineering tool (ADR 0001). It is not under
   // Infra Portal: Infra is GitHub administration, and this is release
-  // downloads, package downloads, and repository stats. The perspective stays
-  // hidden until the preview flag is on. The route stays registered either
-  // way, so a direct visit while the flag is off says Engineering is not
-  // available.
-  ...(isPreviewEnabled("engineering")
-    ? [
-        {
-          key: "engineering",
-          label: "Engineering",
-          icon: BarChart3,
-          access: true,
-          path: "/engineering",
-          forwardsToFirstItem: true,
-          sections: [
-            {
-              id: "engineering-product-download-stats",
-              label: "Product Download Stats",
-              icon: BarChart3,
-              alwaysGroup: true,
-              children: [
-                {
-                  id: "engineering-download-stats-overview",
-                  label: "Overview",
-                  path: "/engineering",
-                },
-                {
-                  id: "engineering-download-stats-downloads",
-                  label: "Downloads",
-                  path: "/engineering/downloads",
-                },
-                {
-                  id: "engineering-download-stats-versions",
-                  label: "Versions",
-                  path: "/engineering/versions",
-                },
-                {
-                  id: "engineering-download-stats-packages",
-                  label: "Packages",
-                  path: "/engineering/packages",
-                },
-                {
-                  id: "engineering-download-stats-repository-stats",
-                  label: "Repository Stats",
-                  path: "/engineering/repository-stats",
-                },
-                {
-                  id: ENGINEERING_ADMIN_ITEM_ID,
-                  label: "Admin",
-                  path: "/engineering/admin",
-                },
-              ],
-            },
-          ],
-        },
-      ]
-    : []),
+  // downloads, package downloads, and repository stats. It is an app inside
+  // the perspective the way MIS is inside Finance — its own registry
+  // (downloadStatsApps.ts), one rail row, screens in a tab bar — because its
+  // Admin screen is gated by the Download Stats API's own user-info, not by
+  // `requires`. UMT is the second app, and only while its own preview flag
+  // is on. Engineering itself is shipped.
+  {
+    key: "engineering",
+    label: "Engineering",
+    icon: BarChart3,
+    access: true,
+    path: "/engineering",
+    forwardsToFirstItem: true,
+    sections: [
+      ...appsToSections(DOWNLOAD_STATS_APPS),
+      ...(isPreviewEnabled("umt") ? [UMT_SECTION] : []),
+    ],
+  },
   // Held behind a preview flag, whole perspective and all, until it's ready
   // for production. With the flag off the entry does not exist, so the waffle,
-  // landing options, and favourites stay clean. Same shape as UMT above.
+  // landing options, and favourites stay clean.
   ...(isPreviewEnabled("infra")
   ? [
       {
         key: "infra",
-        label: "Infra Portal",
+        label: "Infrastructure",
         icon: ServerIcon,
         access: true,
         path: "/infra",
@@ -876,6 +860,10 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     access: true,
     path: "/security",
     forwardsToFirstItem: true,
+    // The "User Guide" row is NOT here: it covers Risk Hub AND Audit Hub, so
+    // it belongs to neither one's group, and it's fetched from the GRC
+    // backend (GET_USER_GUIDE_URL) rather than carried as registry data — see
+    // useUserGuideUrl and SideRail's own pinned-to-bottom category.
     sections: [...appsToSections(SECURITY_APPS)],
   },
   // "Me" is the Home landing: the person's own profile plus everyday apps —
@@ -891,27 +879,6 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     path: "/me",
     sections: ME_SECTIONS,
   },
-  // UmtShell performs the service-owned role check for all UMT pages.
-  //
-  // Held behind a preview flag, whole perspective and all, until it's ready for
-  // production — not just `access: false`, because that would still leave a
-  // disabled "not available yet" tile in the waffle (see FUNCTIONAL_PERSPECTIVES
-  // below, which is unfiltered). Spread in exactly like FINANCE_PERSPECTIVE_APPS
-  // does for the expense app, so with the flag off the entry does not exist at
-  // all, and every surface that reads PERSPECTIVES stays clean.
-  ...(isPreviewEnabled("umt")
-    ? [
-        {
-          key: "umt",
-          label: "UMT",
-          icon: LayoutDashboard,
-          externallyGated: true,
-          access: true,
-          path: "/umt",
-          sections: UMT_SECTIONS,
-        },
-      ]
-    : []),
 ];
 
 /**

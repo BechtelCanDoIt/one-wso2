@@ -159,9 +159,9 @@ describe("foldVisibility", () => {
 
   it("hides a claimed section when its adapter is not in play", () => {
     const folded = foldVisibility(
-      claimsForPerspective("me").map((name) => adapter({ name, canSee: () => true })),
+      claimsForPerspective("finance").map((name) => adapter({ name, canSee: () => true })),
       shell({
-        perspectiveKey: "me",
+        perspectiveKey: "finance",
         sectionIds: new Set([PROMOTION_LEAD_PORTAL_ITEM_ID]),
         capabilities: new Set(),
       }),
@@ -226,21 +226,67 @@ describe("foldVisibility", () => {
     expect(folded.failed).toBe(false);
     expect(folded.canSee({ id: "claim-approval" })).toBe(false);
   });
+
+  // THE bug this exists for: a finance item already decided must not stay
+  // unreachable behind a backend it never read. `resolving: true` on the
+  // adapter itself (e.g. CC still pending) must not leak into `sectionAnswered`
+  // for an item `answered` says is already settled (e.g. finance-overview,
+  // decided by OPD alone).
+  describe("sectionAnswered", () => {
+    it("falls back to !resolving when the adapter provides no answered override", () => {
+      const folded = foldVisibility(
+        [adapter({ name: "sales", resolving: true })],
+        shell({ perspectiveKey: "sales", sectionIds: new Set(["sales-meetings"]) }),
+      );
+
+      expect(folded.sectionAnswered({ id: "sales-meetings" })).toBe(false);
+    });
+
+    it("defers to the adapter's own per-item answered when the aggregate is still resolving", () => {
+      const answered = vi.fn((id: string) => id === "finance-overview");
+      const folded = foldVisibility(
+        [adapter({ name: "finance", resolving: true, answered })],
+        shell({ perspectiveKey: "finance", sectionIds: new Set(["finance-overview", "claim-approval"]) }),
+      );
+
+      expect(folded.sectionAnswered({ id: "finance-overview" })).toBe(true);
+      expect(folded.sectionAnswered({ id: "claim-approval" })).toBe(false);
+      expect(answered).toHaveBeenCalledWith("finance-overview");
+    });
+
+    it("is true for a section no adapter claims, same as canSee's open default", () => {
+      const folded = foldVisibility([], shell({ sectionIds: new Set(["open-section"]) }));
+      expect(folded.sectionAnswered({ id: "open-section" })).toBe(true);
+    });
+
+    it("is false while the employee record is resolving, even for an adapter that has already answered", () => {
+      const folded = foldVisibility(
+        [adapter({ name: "finance", resolving: false, answered: () => true })],
+        shell({
+          perspectiveKey: "finance",
+          sectionIds: new Set(["finance-overview"]),
+          employeeRecordResolving: true,
+        }),
+      );
+
+      expect(folded.sectionAnswered({ id: "finance-overview" })).toBe(false);
+    });
+  });
 });
 
 describe("claimsForPerspective", () => {
-  it("includes promotion on People Ops only while the preview flag is on", () => {
+  it("includes Finance MIS on Finance with no preview config", () => {
     const previous = window.config;
     window.config = { ...(previous ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
-    expect(claimsForPerspective("people")).not.toContain("promotion");
-
-    window.config = {
-      ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { promotion: true },
-    } as Window["config"];
-    expect(claimsForPerspective("people")).toContain("promotion");
-    expect(claimsForPerspective("me")).not.toContain("promotion");
+    expect(claimsForPerspective("finance")).toContain("mis");
+    expect(claimsForPerspective("me")).not.toContain("mis");
     window.config = previous;
+  });
+
+  it("includes promotion on People Ops and Me", () => {
+    expect(claimsForPerspective("people")).toContain("promotion");
+    expect(claimsForPerspective("me")).toContain("promotion");
+    expect(claimsForPerspective("finance")).not.toContain("promotion");
   });
 
   it("puts the claiming adapter in play for every section of each real perspective", () => {
@@ -249,6 +295,7 @@ describe("claimsForPerspective", () => {
       "marketing",
       "due-diligence",
       "finance",
+      "mis",
       "leave",
       "banking",
       "banking-admin",
@@ -275,26 +322,33 @@ describe("claimsForPerspective", () => {
     }
   });
 
-  it("covers infra, umt, and promotion when those preview flags are on", async () => {
+  it("covers infra and shipped Engineering with UMT when those flags are on, and promotion regardless", async () => {
     const previous = window.config;
     vi.resetModules();
     window.config = {
       ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { infra: true, umt: true, promotion: true },
+      ONE_WSO2_PREVIEW_FEATURES: { infra: true, umt: true },
     } as Window["config"];
     const { PERSPECTIVES: flagged } = await import("@constants/perspectives");
     const fold = await import("./visibilityFold");
     const keys = flagged.map((perspective) => perspective.key);
-    expect(keys).toEqual(expect.arrayContaining(["infra", "umt"]));
+    expect(keys).toEqual(expect.arrayContaining(["infra", "engineering"]));
+    expect(keys).not.toContain("umt");
     const people = flagged.find((perspective) => perspective.key === "people");
     expect(fold.sectionIdsIn(people?.sections ?? []).has("promotion-lead-portal")).toBe(true);
     expect(fold.claimsForPerspective("people")).toContain("promotion");
+    // UMT's admin row sits in Engineering now, so UMT's gate must be in play
+    // there or Product Management falls through to "visible to everyone".
+    const engineering = flagged.find((perspective) => perspective.key === "engineering");
+    expect(fold.sectionIdsIn(engineering?.sections ?? []).has("umt-products")).toBe(true);
+    expect(fold.claimsForPerspective("engineering")).toEqual(expect.arrayContaining(["engineering", "umt"]));
 
     const names = [
       "par",
       "marketing",
       "due-diligence",
       "finance",
+      "mis",
       "leave",
       "banking",
       "banking-admin",
@@ -304,6 +358,7 @@ describe("claimsForPerspective", () => {
       "security",
       "umt",
       "subscriptions",
+      "engineering",
     ] as const;
     for (const perspective of flagged) {
       const sectionIds = fold.sectionIdsIn(perspective.sections ?? []);
@@ -337,7 +392,6 @@ describe("claimsForPerspective", () => {
       "sales",
       "security",
       "infra",
-      "umt",
       "engineering",
     ]);
 

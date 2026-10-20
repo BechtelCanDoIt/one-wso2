@@ -112,8 +112,9 @@ export interface CcFundingSource {
  * the row rather than asking the user to pick them.
  */
 export interface CcJobNumberDetails {
-  engagementCode: string;
-  engagementType: string;
+  /** Null on older travels, which carry no engagement. */
+  engagementCode: string | null;
+  engagementType: string | null;
   customerName: string;
   city: string;
   country: string;

@@ -258,33 +258,76 @@ export function LegalMark({ size }: MarkProps) {
   );
 }
 
-/** UMT — two rotating arrows representing the update cycle. */
-export function UmtMark({ size }: MarkProps) {
-  const t = appMarkTones("umt")!;
+/** Infrastructure — two stacked server units. */
+export function InfrastructureMark({ size }: MarkProps) {
+  const t = appMarkTones("infra")!;
+
   return (
     <Svg size={size}>
-      <g transform="translate(24 24) scale(0.1) translate(-394.847 -298.782)">
+      <rect x="5" y="7" width="38" height="15" rx="4" fill={t.field} />
+      <rect x="5" y="26" width="38" height="15" rx="4" fill={t.field} />
+
+      <rect x="10" y="12" width="19" height="5" rx="2.5" fill={t.lead} />
+      <rect x="10" y="31" width="19" height="5" rx="2.5" fill={t.lead} />
+
+      <circle cx="36" cy="14.5" r="2.5" fill={t.lead} />
+      <circle cx="36" cy="33.5" r="2.5" fill={t.lead} />
+    </Svg>
+  );
+}
+
+/**
+ * Engineering — a terminal window: the body in `field`, the title bar in
+ * `lead`, and a `>_` prompt in `detail`.
+ *
+ * Built like the Security shield: the title bar is the window's own top
+ * section closed straight across, so the outline is drawn once.
+ *
+ * Drawn at 36x30 rather than filling the grid. At 40x34 it covered 59% of its
+ * box at 64px, heavier than any mark in the set (Security is 49%); at this
+ * size it measures 46% and L* 68.8.
+ */
+export function EngineeringMark({ size }: MarkProps) {
+  const t = appMarkTones("engineering")!;
+  return (
+    <Svg size={size}>
+      <rect x="6" y="9" width="36" height="30" rx="5.5" fill={t.field} />
+      <path d="M6 14.5A5.5 5.5 0 0 1 11.5 9h25a5.5 5.5 0 0 1 5.5 5.5V17H6z" fill={t.lead} />
+      <path
+        d="M13 23l5.5 5-5.5 5"
+        fill="none"
+        stroke={t.detail}
+        strokeWidth={4.2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <rect x="22" y="30.9" width="12" height="4.2" rx="2.1" fill={t.detail} />
+    </Svg>
+  );
+}
+
+/**
+ * Knowledge — an open book, traced from the same silhouette as the rail's line
+ * icon (lucide's BookOpen, scaled 2x for this 48-unit grid) and split at the
+ * spine into two pages. The left page carries the hue and the right one sits
+ * back in `field`, the same split People uses for its two figures. Field + lead
+ * only, like Me.
+ *
+ * Scaled to 0.88 about its centre so its weight sits with the rest of the set:
+ * 40% coverage and L* 64.0 at 64px.
+ */
+export function KnowledgeMark({ size }: MarkProps) {
+  const t = appMarkTones("knowledge")!;
+  return (
+    <Svg size={size}>
+      <g transform="translate(24 24) scale(0.88) translate(-24 -24)">
         <path
-          id="arrow_body_1"
-          d="m223.41603,324.63551l54.63337,-1.22016l0,-16.0976c0.0009,0.24455 -9.10856,-70.31723 60.63647,-110.97521c69.74502,-40.65798 135.48081,16.71228 135.46153,16.82866c-0.01929,0.11638 37.07416,-42.68238 37.07325,-42.92692c0.0009,0.24455 -88.82634,-84.15712 -201.10032,-20.75357c-112.27398,63.40355 -86.21649,179.04725 -86.21739,178.8027"
-          fill={t.lead}
-        />
-        <path
-          id="arrow_body_2"
-          transform="rotate(180 396.116 298.782)"
-          d="m223.41603,324.63551l54.63337,-1.22016l0,-16.0976c0.0009,0.24455 -9.10856,-70.31723 60.63647,-110.97521c69.74502,-40.65798 135.48081,16.71228 135.46153,16.82866c-0.01929,0.11638 37.07416,-42.68238 37.07325,-42.92692c0.0009,0.24455 -88.82634,-84.15712 -201.10032,-20.75357c-112.27398,63.40355 -86.21649,179.04725 -86.21739,178.8027"
-          fill={t.lead}
-        />
-        <path
-          id="arrowhead_1"
-          transform="rotate(180 250.042 351.497)"
-          d="m185.43103,397.60062l64.61047,-92.20791l64.61047,92.20791l-129.22094,0z"
+          d="M42 36a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2H32a8 8 0 0 0-8 8v28a6 6 0 0 1 6-6z"
           fill={t.field}
         />
         <path
-          id="arrowhead_2"
-          d="m475.04176,306.04207l64.61046,-92.20791l64.61047,92.20791l-129.22093,0z"
-          fill={t.field}
+          d="M6 36a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h10a8 8 0 0 1 8 8v28a6 6 0 0 0-6-6z"
+          fill={t.lead}
         />
       </g>
     </Svg>

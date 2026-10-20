@@ -20,13 +20,15 @@ import { Navigate, Route, Routes } from "react-router";
 import { landingPath } from "@config/landingConfig";
 import SettingsPage from "@features/settings/pages/SettingsPage";
 import MenuHomePage from "@features/menu/pages/MenuHomePage";
-import TilEntryPage from "@features/til/pages/TilEntryPage";
+import TilEntryRoute from "@features/til/pages/TilEntryRoute";
 import TilHomePage from "@features/til/pages/TilHomePage";
 import OrgChartPage from "@features/org-chart/pages/OrgChartPage";
 import SalesMeetingsPage from "@features/sales/pages/SalesMeetingsPage";
 import MeetingDetailPage from "@features/sales/pages/MeetingDetailPage";
 import SalesDealsPage from "@features/sales/pages/SalesDealsPage";
+import DealPage from "@features/sales/pages/DealPage";
 import PromotionHistoryPage from "@features/promotion/pages/PromotionHistoryPage";
+import PromotionRequiresEmployeeRoute from "@features/promotion/components/PromotionRequiresEmployeeRoute";
 import PromotionRequiresLeadRoute from "@features/promotion/components/PromotionRequiresLeadRoute";
 import LeadPortalPage, { LeadPortalIndex } from "@features/promotion/pages/LeadPortalPage";
 import LeadPendingRequestsTab from "@features/promotion/pages/LeadPendingRequestsTab";
@@ -164,6 +166,8 @@ const GeneralReportTab = lazy(() => import("@features/leave/pages/LeaveReportsPa
 const SabbaticalReportTab = lazy(
   () => import("@features/leave/components/SabbaticalReportTab"),
 );
+// Sales Library: only routed when the `smartSearch` preview flag is on.
+const LibraryPage = lazy(() => import("@features/sales/smartSearch/pages/LibraryPage"));
 
 import SabbaticalApplyTab from "@features/leave/pages/LeaveSabbaticalPage";
 import ClaimsPage, { ClaimsIndex } from "@features/finance/claims/ClaimsPage";
@@ -222,14 +226,11 @@ import UmtReleaseChunksPage from "@features/umt/pages/UmtReleaseChunksPage";
 import UmtStatisticsPage from "@features/umt/pages/UmtStatisticsPage";
 import UmtUpdateView from "@features/umt/pages/UmtUpdateView";
 import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
-import EngineeringDownloadsPage from "@features/engineering/pages/EngineeringDownloadsPage";
-import EngineeringVersionsPage from "@features/engineering/pages/EngineeringVersionsPage";
-import EngineeringPackagesPage from "@features/engineering/pages/EngineeringPackagesPage";
-import EngineeringRepositoryStatsPage from "@features/engineering/pages/EngineeringRepositoryStatsPage";
-import EngineeringAdminPage from "@features/engineering/pages/EngineeringAdminPage";
-import EngineeringOverviewPage from "@features/engineering/pages/EngineeringOverviewPage";
+import { engineeringRoutes } from "@features/engineering/routes";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
+import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPage";
+import InfraRepositoryAccessPage from "@features/infra/pages/InfraRepositoryAccessPage";
 
 export default function App() {
   return (
@@ -240,37 +241,38 @@ export default function App() {
           <Route index element={<Navigate to={landingPath()} replace />} />
           {/* Me home — the full profile page including Connected apps. */}
           <Route path="me" element={<MyProfilePage />} />
-          {/* UmtShell owns its role gate. Behind the same preview flag as its
-              perspective entry — hiding only the rail/launcher tile would leave
-              the routes reachable by URL. */}
+          {/* Engineering → Download Stats, routed as perspective / app / screen,
+              with the earlier addresses forwarding. The feature owns the
+              tree, as CadO2 and the GRC modules own theirs. */}
+          {engineeringRoutes}
+          {/* Engineering → UMT. UmtShell owns its role gate. Behind the same
+              preview flag as its rail group — hiding only the rail entries
+              would leave the routes reachable by URL. Nested under
+              /engineering/ so the Engineering rail renders around them. */}
           {isPreviewEnabled("umt") && (
             <>
-              <Route path="umt" element={<UmtHomePage />} />
-              <Route path="umt/updates" element={<UmtUpdatesPage />} />
-              <Route path="umt/updates/:id" element={<UmtUpdateView />} />
+              <Route path="engineering/umt" element={<UmtHomePage />} />
+              <Route path="engineering/umt/updates" element={<UmtUpdatesPage />} />
+              <Route path="engineering/umt/updates/:id" element={<UmtUpdateView />} />
               {/* Admin-only: UmtProductsPage itself enforces this via UmtShell's
                   requireAdmin, independent of the rail item's own visibility. */}
-              <Route path="umt/products" element={<UmtProductsPage />} />
-              <Route path="umt/release-chunks" element={<UmtReleaseChunksPage />} />
-              <Route path="umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
-              <Route path="umt/statistics" element={<UmtStatisticsPage />} />
+              <Route path="engineering/umt/products" element={<UmtProductsPage />} />
+              <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
+              <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
+              <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
             </>
           )}
-          {/* Registered even while the engineering preview flag is off. The page
-              says Engineering is not available; omitting the route would send a
-              direct visit home with no answer. */}
-          <Route path="engineering" element={<EngineeringOverviewPage />} />
-          <Route path="engineering/downloads" element={<EngineeringDownloadsPage />} />
-          <Route path="engineering/versions" element={<EngineeringVersionsPage />} />
-          <Route path="engineering/packages" element={<EngineeringPackagesPage />} />
-          <Route path="engineering/repository-stats" element={<EngineeringRepositoryStatsPage />} />
-          <Route path="engineering/admin" element={<EngineeringAdminPage />} />
           {isPreviewEnabled("infra") && (
             <>
               <Route path="infra" element={<InfraHomePage />} />
               <Route
                   path="infra/github/repository-requests"
                   element={<InfraNewRepositoryPage />}
+              />
+              <Route path="infra/github/callback" element={<InfraGitHubCallbackPage />} />
+              <Route
+                path="infra/github/repository-access-requests"
+                element={<InfraRepositoryAccessPage />}
               />
             </>
           )}
@@ -354,7 +356,7 @@ export default function App() {
               <Route
                 path="general"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-general">
                     {/* Skeleton rather than null: the chunk is fetched on
                         navigation, and a blank frame reads as a broken link. */}
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
@@ -366,7 +368,7 @@ export default function App() {
               <Route
                 path="sabbatical"
                 element={
-                  <LeaveKindRoute gateId="leave-reports">
+                  <LeaveKindRoute gateId="leave-reports-sabbatical">
                     <Suspense fallback={<Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />}>
                       <SabbaticalReportTab />
                     </Suspense>
@@ -470,41 +472,34 @@ export default function App() {
               than who may read it, so with the flag off its route redirects to
               ARR Build — see MisArrAnalysisPage, which holds the redirect
               itself so that a flag not yet known is neither. */}
-          {/* Behind the same preview flag as its rail entries — hiding only the
-              entries would leave every MIS screen reachable by URL. See
-              previewFeatures.ts for what the flag is waiting on. */}
-          {isPreviewEnabled("mis") && (
-            <>
-              {/* A layout route for one reason: the session Years Back. A reader
-                  who has set three years keeps three years across MIS screens, and
-                  it is held in memory alone (it dies with the tab) — so its provider
-                  has to outlive any one
-                  screen. Inside MisShell it would be remounted on every navigation
-                  between these two. See YearsBackSessionContext. */}
-              {/* All three Builds INSIDE `MisSession`, not beside it. The session
-                  Years Back lives in that layout route, and a Period switch is a
-                  NAVIGATION rather than a tab — so a Build mounted outside it would
-                  lose the reader's Years Back on the way over, which is precisely
-                  the journey the value exists for. Quarterly and Monthly default to
-                  1 where Annually defaults to 5, so a missed route shows up as a
-                  Build that silently re-narrows itself. */}
-              <Route element={<MisSession />}>
-                <Route
-                  path="finance/mis/arr-build"
-                  element={<MisArrBuildPage period={MIS_PERIODS.ANNUALLY} />}
-                />
-                <Route
-                  path="finance/mis/qrr-build"
-                  element={<MisArrBuildPage period={MIS_PERIODS.QUARTERLY} />}
-                />
-                <Route
-                  path="finance/mis/mrr-build"
-                  element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
-                />
-                <Route path="finance/mis/analysis" element={<MisArrAnalysisPage />} />
-              </Route>
-            </>
-          )}
+          {/* A layout route for one reason: the session Years Back. A reader
+              who has set three years keeps three years across MIS screens, and
+              it is held in memory alone (it dies with the tab) — so its provider
+              has to outlive any one
+              screen. Inside MisShell it would be remounted on every navigation
+              between these two. See YearsBackSessionContext. */}
+          {/* All three Builds INSIDE `MisSession`, not beside it. The session
+              Years Back lives in that layout route, and a Period switch is a
+              NAVIGATION rather than a tab — so a Build mounted outside it would
+              lose the reader's Years Back on the way over, which is precisely
+              the journey the value exists for. Quarterly and Monthly default to
+              1 where Annually defaults to 5, so a missed route shows up as a
+              Build that silently re-narrows itself. */}
+          <Route element={<MisSession />}>
+            <Route
+              path="finance/mis/arr-build"
+              element={<MisArrBuildPage period={MIS_PERIODS.ANNUALLY} />}
+            />
+            <Route
+              path="finance/mis/qrr-build"
+              element={<MisArrBuildPage period={MIS_PERIODS.QUARTERLY} />}
+            />
+            <Route
+              path="finance/mis/mrr-build"
+              element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
+            />
+            <Route path="finance/mis/analysis" element={<MisArrAnalysisPage />} />
+          </Route>
           <Route path="people-ops" element={<PerspectiveLanding />} />
           {/* People Ops → Org Chart: the company's reporting hierarchy, ported
               from the standalone org-chart app. Unlike every other People Ops
@@ -540,11 +535,17 @@ export default function App() {
               </SriLankaRoute>
             }
           />
-          {/* Me → Promotion: promotion-app's own employee route ("Self
-              Promotion History"). Behind the same preview flag as every
-              other promotion-app route (People Ops → Promotion below) — the
-              whole app isn't released yet. */}
-          {isPreviewEnabled("promotion") && <Route path="me/promotion" element={<PromotionHistoryPage />} />}
+          {/* Me → Promotion: an employee's own promotion history, for the
+              employment types it applies to — PromotionRequiresEmployeeRoute
+              redirects the rest to /me. */}
+          <Route
+            path="me/promotion"
+            element={
+              <PromotionRequiresEmployeeRoute>
+                <PromotionHistoryPage />
+              </PromotionRequiresEmployeeRoute>
+            }
+          />
           {/* Me → PAR: the employee half of par-app, ported one screen at a
               time. Tab names match par-app's own OngoingCycleView tab bar
               (Employee Feedback / Request 360° Feedback / Provide 360°
@@ -722,115 +723,103 @@ export default function App() {
             />
           </Route>
           {/* People Ops → Promotion (Lead/Team History/Functional Lead/
-              Board/Admin/Cycle History portals). Behind the same preview
-              flag as the Me → Promotion route above and the rail's own
-              "Promotion" group (perspectives.ts) — hiding only the
-              rail/launcher entry would leave every route below reachable by
-              URL. Each portal's own role guard (PromotionRequires*Route)
-              keeps working the same regardless of this flag. */}
-          {isPreviewEnabled("promotion") && (
-            <>
-              {/* Lead Portal: promotion-app's own lead.tsx ("Time Based
-                  Promotions"). Reviewing/deciding on other people's
-                  promotions is People-Ops-team work, the same split PAR's own
-                  Lead Portal above already applies. Gated on
-                  PromotionRequiresLeadRoute (promotion-app's own Role.LEAD,
-                  read back from GET /employee-privileges). */}
-              <Route
-                path="people-ops/promotion/lead"
-                element={
-                  <PromotionRequiresLeadRoute>
-                    <LeadPortalPage />
-                  </PromotionRequiresLeadRoute>
-                }
-              >
-                <Route index element={<LeadPortalIndex />} />
-                <Route path="pending" element={<LeadPendingRequestsTab />} />
-                <Route path="history" element={<LeadHistoryTab />} />
-              </Route>
-              {/* Team Promotion History: a SEPARATE Lead-role screen from the
-                  Lead Portal above (source's own /lead-employee-history
-                  route, distinct from /time-based-promotions). */}
-              <Route
-                path="people-ops/promotion/team-history"
-                element={
-                  <PromotionRequiresLeadRoute>
-                    <TeamPromotionHistoryPage />
-                  </PromotionRequiresLeadRoute>
-                }
-              >
-                <Route index element={<TeamPromotionHistoryIndex />} />
-                <Route path="direct-reports" element={<TeamDirectReportsTab />} />
-                <Route path="indirect-reports" element={<TeamIndirectReportsTab />} />
-              </Route>
-              {/* Functional Lead Portal: promotion-app's own
-                  functionalLead.tsx. Gated on Role.FUNCTIONAL_LEAD via
-                  PromotionRequiresFunctionalLeadRoute. */}
-              <Route
-                path="people-ops/promotion/functional-lead"
-                element={
-                  <PromotionRequiresFunctionalLeadRoute>
-                    <FunctionalLeadPortalPage />
-                  </PromotionRequiresFunctionalLeadRoute>
-                }
-              >
-                <Route index element={<FunctionalLeadPortalIndex />} />
-                <Route path="active" element={<FLActiveRequestsTab />} />
-                <Route path="approved" element={<FLApprovedListTab />} />
-                <Route path="rejected" element={<FLRejectedListTab />} />
-                <Route path="time-based" element={<FLTimeBasedTab />} />
-              </Route>
-              {/* Promotion Board Portal: promotion-app's own
-                  promotionBoard.tsx. Gated on Role.PROMOTION_BOARD_MEMBER via
-                  PromotionRequiresPromotionBoardRoute. */}
-              <Route
-                path="people-ops/promotion/board"
-                element={
-                  <PromotionRequiresPromotionBoardRoute>
-                    <PromotionBoardPortalPage />
-                  </PromotionRequiresPromotionBoardRoute>
-                }
-              >
-                <Route index element={<PromotionBoardPortalIndex />} />
-                <Route path="active" element={<PBActiveRequestsTab />} />
-                <Route path="approved" element={<PBApprovedListTab />} />
-                <Route path="rejected" element={<PBRejectedListTab />} />
-                <Route path="fl-rejected" element={<PBFLRejectedListTab />} />
-              </Route>
-              {/* Admin Portal: promotion-app's own administration.tsx.
-                  Gated on Role.HR_ADMIN via PromotionRequiresHrAdminRoute. */}
-              <Route
-                path="people-ops/promotion/admin"
-                element={
-                  <PromotionRequiresHrAdminRoute>
-                    <PromotionAdminPortalPage />
-                  </PromotionRequiresHrAdminRoute>
-                }
-              >
-                <Route index element={<PromotionAdminPortalIndex />} />
-                <Route path="cycle" element={<AdminPromotionCycleTab />} />
-                <Route path="time-based" element={<AdminTimeBasedPromotionsTab />} />
-                <Route path="individual-contributor" element={<AdminIndividualContributorTab />} />
-                <Route path="withdrawal-requests" element={<AdminWithdrawalRequestsTab />} />
-                <Route path="users" element={<AdminUserManagementTab />} />
-              </Route>
-              {/* Promotion Cycle History: promotion-app's own
-                  promotionCycleHistory.tsx. Gated on Role.HR_ADMIN OR
-                  Role.FUNCTIONAL_LEAD via PromotionRequiresCycleHistoryRoute. */}
-              <Route
-                path="people-ops/promotion/cycle-history"
-                element={
-                  <PromotionRequiresCycleHistoryRoute>
-                    <PromotionCycleHistoryPage />
-                  </PromotionRequiresCycleHistoryRoute>
-                }
-              >
-                <Route index element={<PromotionCycleHistoryIndex />} />
-                <Route path="by-cycle" element={<CycleHistoryTab />} />
-                <Route path="people-hr-archive" element={<PeopleHrArchiveTab />} />
-              </Route>
-            </>
-          )}
+              Board/Admin/Cycle History portals). Each portal's own role guard
+              (PromotionRequires*Route) decides who can open it. */}
+          {/* Lead Portal ("Time Based Promotions"): reviewing and deciding on
+              other people's promotions is People-Ops-team work, the same
+              split PAR's Lead Portal above already applies. Gated on
+              PromotionRequiresLeadRoute (the lead privilege read back from
+              GET /employee-privileges). */}
+          <Route
+            path="people-ops/promotion/lead"
+            element={
+              <PromotionRequiresLeadRoute>
+                <LeadPortalPage />
+              </PromotionRequiresLeadRoute>
+            }
+          >
+            <Route index element={<LeadPortalIndex />} />
+            <Route path="pending" element={<LeadPendingRequestsTab />} />
+            <Route path="history" element={<LeadHistoryTab />} />
+          </Route>
+          {/* Team Promotion History: a separate screen from the Lead Portal
+              above, listing promotions received by a lead's direct and
+              indirect reports. Gated on PromotionRequiresLeadRoute. */}
+          <Route
+            path="people-ops/promotion/team-history"
+            element={
+              <PromotionRequiresLeadRoute>
+                <TeamPromotionHistoryPage />
+              </PromotionRequiresLeadRoute>
+            }
+          >
+            <Route index element={<TeamPromotionHistoryIndex />} />
+            <Route path="direct-reports" element={<TeamDirectReportsTab />} />
+            <Route path="indirect-reports" element={<TeamIndirectReportsTab />} />
+          </Route>
+          {/* Functional Lead Portal: gated on the functional lead privilege
+              via PromotionRequiresFunctionalLeadRoute. */}
+          <Route
+            path="people-ops/promotion/functional-lead"
+            element={
+              <PromotionRequiresFunctionalLeadRoute>
+                <FunctionalLeadPortalPage />
+              </PromotionRequiresFunctionalLeadRoute>
+            }
+          >
+            <Route index element={<FunctionalLeadPortalIndex />} />
+            <Route path="active" element={<FLActiveRequestsTab />} />
+            <Route path="approved" element={<FLApprovedListTab />} />
+            <Route path="rejected" element={<FLRejectedListTab />} />
+            <Route path="time-based" element={<FLTimeBasedTab />} />
+          </Route>
+          {/* Promotion Board Portal: gated on the promotion board member
+              privilege via PromotionRequiresPromotionBoardRoute. */}
+          <Route
+            path="people-ops/promotion/board"
+            element={
+              <PromotionRequiresPromotionBoardRoute>
+                <PromotionBoardPortalPage />
+              </PromotionRequiresPromotionBoardRoute>
+            }
+          >
+            <Route index element={<PromotionBoardPortalIndex />} />
+            <Route path="active" element={<PBActiveRequestsTab />} />
+            <Route path="approved" element={<PBApprovedListTab />} />
+            <Route path="rejected" element={<PBRejectedListTab />} />
+            <Route path="fl-rejected" element={<PBFLRejectedListTab />} />
+          </Route>
+          {/* Admin Portal: gated on the HR admin privilege via
+              PromotionRequiresHrAdminRoute. */}
+          <Route
+            path="people-ops/promotion/admin"
+            element={
+              <PromotionRequiresHrAdminRoute>
+                <PromotionAdminPortalPage />
+              </PromotionRequiresHrAdminRoute>
+            }
+          >
+            <Route index element={<PromotionAdminPortalIndex />} />
+            <Route path="cycle" element={<AdminPromotionCycleTab />} />
+            <Route path="time-based" element={<AdminTimeBasedPromotionsTab />} />
+            <Route path="individual-contributor" element={<AdminIndividualContributorTab />} />
+            <Route path="withdrawal-requests" element={<AdminWithdrawalRequestsTab />} />
+            <Route path="users" element={<AdminUserManagementTab />} />
+          </Route>
+          {/* Promotion Cycle History: gated on the HR admin or functional
+              lead privilege via PromotionRequiresCycleHistoryRoute. */}
+          <Route
+            path="people-ops/promotion/cycle-history"
+            element={
+              <PromotionRequiresCycleHistoryRoute>
+                <PromotionCycleHistoryPage />
+              </PromotionRequiresCycleHistoryRoute>
+            }
+          >
+            <Route index element={<PromotionCycleHistoryIndex />} />
+            <Route path="by-cycle" element={<CycleHistoryTab />} />
+            <Route path="people-hr-archive" element={<PeopleHrArchiveTab />} />
+          </Route>
           {/* People Ops reports. Admin-only, but enforced by the backend and
               explained by PeopleOpsShell — there is no route-level guard, so
               a non-admin reaching this URL gets the shell's "no access"
@@ -935,12 +924,11 @@ export default function App() {
           <Route path="marketing-ops/admin/events" element={<EventsSettingsPage />} />
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
-          {/* Event Platform — the agenda-organizer port, a different app from
-              Events above. The tree is deep enough that the feature owns it, as
-              the GRC modules own theirs. See event-platform/eventPlatformTabs.ts.
-              Behind the same preview flag as its rail group — hiding only the
-              rail would leave the routes reachable by URL. */}
-          {isPreviewEnabled("eventPlatform") && eventPlatformRoutes}
+          {/* Event Platform — event agendas, speakers and swag shops, a different
+              app from Events above. The tree is deep enough that the feature
+              owns it, as the GRC modules own theirs. See
+              event-platform/eventPlatformTabs.ts. */}
+          {eventPlatformRoutes}
           <Route
             path="marketing-ops/crm-upload/pipelines"
             element={<CrmUploadPipelinesPage />}
@@ -954,14 +942,17 @@ export default function App() {
             path="marketing-ops/design-studio/post-builder"
             element={<PostBuilderPage />}
           />
-          {/* Sales — auto-recorded meetings. The meeting history ported from
-              meet-app; scheduling stays in the calendar add-on and the
-              analytics dashboard was out of scope. No route-level guard: the
-              meet-app backend refuses a caller in no authorised group on
-              every endpoint, and SalesShell turns that 403 into an
+          {/* Sales opens on the first rail row the caller can see, which is
+              Echo → Meetings (`forwardsToFirstItem`); someone the backend
+              refuses is told so here, by PerspectiveLanding. */}
+          <Route path="sales" element={<PerspectiveLanding />} />
+          {/* Echo → Meetings: the recorded meetings. Scheduling stays in the
+              calendar add-on. No route-level guard: the backend behind
+              ONE_WSO2_REVOPS_BACKEND_URL refuses a caller in no authorised
+              group on every endpoint, and SalesShell turns that 403 into an
               explanation, so someone reaching this URL gets an answer rather
               than a blank page. */}
-          <Route path="sales" element={<SalesMeetingsPage />} />
+          <Route path="sales/meetings" element={<SalesMeetingsPage />} />
           {/* One meeting: the recording, and the call's details. A route rather than a
               dialog because a recording is something people send each other, and a dialog
               has no address — this survives a refresh, a bookmark and a paste into Slack.
@@ -974,6 +965,21 @@ export default function App() {
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />
+          {/* One deal, as a page rather than a drawer: it can be linked, refreshed and
+              returned to with Back. ?letter= opens it filtered to one MEDDPICC Letter. */}
+          <Route path="sales/deals/:opportunityId" element={<DealPage />} />
+          {/* Sales → Library, Smart Search over Pitstop's content. Behind the `smartSearch` preview
+              flag, and loaded lazily so nothing of it is downloaded while the flag is off. */}
+          {isPreviewEnabled("smartSearch") && (
+            <Route
+              path="sales/library"
+              element={
+                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                  <LibraryPage />
+                </Suspense>
+              }
+            />
+          )}
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
               menu app. One page, as the original was. */}
@@ -985,22 +991,23 @@ export default function App() {
               </SriLankaRoute>
             }
           />
-          {isPreviewEnabled("til") && (
-            <>
-              {/* Knowledge Base → Today I Learned: a company-wide learnings feed.
-                  No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
-                  Colombo-office perk, every employee everywhere can use it. */}
-              <Route path="knowledge-base" element={<TilHomePage />} />
-              {/* One entry's own page — what a Chat "View entry" button and a
-                  feed card's own link both land on. */}
-              <Route path="knowledge-base/:id" element={<TilEntryPage />} />
-            </>
-          )}
+          {/* Knowledge → Today I Learned: a company-wide learnings feed.
+              No SriLankaRoute wrapper — unlike Menu/Subscriptions this isn't a
+              Colombo-office perk, every employee everywhere can use it. */}
+          <Route path="knowledge" element={<PerspectiveLanding />} />
+          <Route path="knowledge/today-i-learned" element={<TilHomePage />} />
+          {/* One entry's own page — what a feed card opens inside One
+              WSO2, or, with ?view=article, the full-page article a Chat
+              "Read more" link lands on (AppLayout drops its shell for
+              that; see layouts/fullPageRoutes). */}
+          <Route path="knowledge/today-i-learned/:id" element={<TilEntryRoute />} />
           {/* Legal perspective — currently just a second entry point into Due
               Diligence, alongside Finance (see the finance/ routes below and
               DUE_DILIGENCE_APPS). */}
           <Route path="legal" element={<PerspectiveLanding />} />
-          <Route path="legal/nda" element={<NdaPage />} />
+          {/* Behind the same preview flag as its rail entry, so the page is not
+              reachable by URL either. */}
+          {isPreviewEnabled("nda") && <Route path="legal/nda" element={<NdaPage />} />}
           {/* Security — the GRC platform's Risk Hub and Admin Console, lifted
               from grc-tools rather than rewritten. The two route fragments are
               the SOURCE's own (modules/{risk,audit,admin}/routes.tsx), spread

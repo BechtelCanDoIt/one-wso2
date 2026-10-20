@@ -13,25 +13,32 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import { Box, Chip, IconButton, Paper, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { TrashIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, Chip, Paper, Typography } from "@wso2/oxygen-ui";
 import type { TilSubmission } from "../api/tilTypes";
+import { entryLinkProps } from "../util/tilEntryLink";
 import { tilExcerpt } from "../util/tilRichText";
+import SubmissionActions from "./SubmissionActions";
 
-// One entry in the history feed.
+// One entry in the history feed, in the Cards layout.
 //
 // Shows a plain-text EXCERPT of `what`, not the full rich content — a long
 // multi-paragraph/list entry made the feed itself unreadable (one card
-// could run to a dozen visible lines). The full rich version still renders
-// in full on the entry's own page (TilWhatContent, via onOpen below).
+// could run to a dozen visible lines). Each paragraph still starts its own
+// line within the three-line clamp, so the preview keeps the entry's shape.
+// The full rich version still renders in full on the entry's own page
+// (TilWhatContent, via onOpen below).
 export default function SubmissionCard({
   submission,
+  canEdit,
+  onEdit,
   canDelete,
   onDelete,
   deleting,
   onOpen,
 }: {
   submission: TilSubmission;
+  canEdit: boolean;
+  onEdit: () => void;
   canDelete: boolean;
   onDelete: () => void;
   deleting: boolean;
@@ -43,22 +50,7 @@ export default function SubmissionCard({
   return (
     <Paper
       variant="outlined"
-      onClick={onOpen}
-      role={onOpen ? "link" : undefined}
-      tabIndex={onOpen ? 0 : undefined}
-      onKeyDown={
-        onOpen
-          ? (e) => {
-              // target === currentTarget so Enter on the delete IconButton
-              // below (which bubbles as a keydown same as any other) doesn't
-              // ALSO open the entry -- only a keypress on the card itself
-              // (the only thing with tabIndex here) should count.
-              if (e.key === "Enter" && e.target === e.currentTarget) {
-                onOpen();
-              }
-            }
-          : undefined
-      }
+      {...(onOpen && entryLinkProps(onOpen))}
       sx={{
         p: 2,
         display: "flex",
@@ -70,42 +62,57 @@ export default function SubmissionCard({
         }),
       }}
     >
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700 }} noWrap>
-            {submission.who}
-          </Typography>
-          <Chip
-            label={submission.whereDetail ? `${submission.where} — ${submission.whereDetail}` : submission.where}
-            size="small"
-            variant="outlined"
-          />
+      <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 1 }}>
+        <Box sx={{ minWidth: 0 }}>
+          {/* Old entries predate the title field (backend default: "") --
+              falling back to the who/where line alone for those, rather
+              than showing an empty heading above it. */}
+          {submission.title && (
+            <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+              {submission.title}
+            </Typography>
+          )}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap", mt: submission.title ? 0.25 : 0 }}>
+            <Typography
+              variant={submission.title ? "caption" : "subtitle2"}
+              color={submission.title ? "text.secondary" : "text.primary"}
+              sx={submission.title ? undefined : { fontWeight: 700 }}
+              noWrap
+            >
+              Authored by {submission.who}
+            </Typography>
+            <Chip
+              label={submission.whereDetail ? `${submission.where} — ${submission.whereDetail}` : submission.where}
+              size="small"
+              variant="outlined"
+            />
+          </Box>
         </Box>
-        {canDelete && (
-          <Tooltip title="Delete this entry">
-            <span>
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  // The card's own onClick (onOpen) would otherwise also
-                  // fire, navigating to the entry this click just deleted.
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                disabled={deleting}
-                aria-label="Delete entry"
-              >
-                <TrashIcon size={16} />
-              </IconButton>
-            </span>
-          </Tooltip>
-        )}
+        <SubmissionActions
+          canEdit={canEdit}
+          onEdit={onEdit}
+          canDelete={canDelete}
+          onDelete={onDelete}
+          deleting={deleting}
+        />
       </Box>
-      <Typography variant="body2" color="text.secondary" sx={{ wordBreak: "break-word" }}>
+      <Typography
+        variant="body2"
+        color="text.secondary"
+        sx={{
+          wordBreak: "break-word",
+          whiteSpace: "pre-line",
+          display: "-webkit-box",
+          WebkitLineClamp: 3,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+        }}
+      >
         {tilExcerpt(submission.what)}
       </Typography>
       <Typography variant="caption" color="text.secondary">
         {submission.createdAt.toLocaleString()}
+        {submission.updatedAt && " · Edited"}
       </Typography>
     </Paper>
   );

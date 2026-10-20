@@ -18,15 +18,24 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import type { Capability } from "@constants/appMenu";
+import type { MasterDataAccessLevel } from "../masterdata/useMasterDataAccess";
 
-// Three backends, three vocabularies, none of them the people-app roles the
+/** The four master-data rail ids, which answer as one. */
+const MASTER_DATA_IDS = [
+  "master-data-subsidiaries",
+  "master-data-departments",
+  "master-data-expense-types",
+  "master-data-credit-cards",
+] as const;
+
+// Four backends, four vocabularies, none of them the people-app roles the
 // rail normally reads. These are the rules the standalone apps enforce, so they
 // are asserted against what those apps actually do:
 //
-//   OPD      userSlice.ts:38-40   role 555 approves, 444 is submit-only
-//   Expense  appDataSlice.ts:99-103   two independent booleans
-//   CC       privilege names on /user-info
+//   OPD          userSlice.ts:38-40   role 555 approves, 444 is submit-only
+//   Expense      appDataSlice.ts:99-103   two independent booleans
+//   CC           privilege names on /user-info
+//   Master data  privilege names on /user-info, from its JWT group check
 
 const roles = {
   /** OPD `userRoles`. 444 = submitter, 555 = finance approver. */
@@ -45,7 +54,17 @@ const roles = {
   betweenRetries: false,
   /** The OPD lookup came back a failure rather than a role. */
   opdErrored: false,
+  /** The CC lookup came back a failure rather than a role. */
+  ccErrored: false,
+  /** The Expense lookup came back a failure rather than a role. */
+  expenseErrored: false,
+  /** The master-data backend's own `privileges` — `["admin"]` or empty. */
+  masterData: [] as MasterDataAccessLevel[],
 };
+
+const ccRefetch = vi.fn().mockResolvedValue(undefined);
+const opdRefetch = vi.fn().mockResolvedValue(undefined);
+const expenseRefetch = vi.fn().mockResolvedValue(undefined);
 
 // `isSuccess`/`isError` are what the gate reads to decide whether a backend
 // has finished having its say. Neither ever goes back to false in React Query
@@ -58,7 +77,13 @@ const answered = () => ({
 });
 
 vi.mock("../cc/useCc", () => ({
-  useCcUserInfo: () => ({ data: { privileges: roles.cc }, ...answered() }),
+  useCcUserInfo: () => ({
+    data: { privileges: roles.cc },
+    isLoading: answered().isLoading,
+    isError: roles.ccErrored,
+    isSuccess: answered().isSuccess && !roles.ccErrored,
+    refetch: ccRefetch,
+  }),
 }));
 vi.mock("../opd/useOpd", () => ({
   useOpdUserInfo: () => ({
@@ -66,11 +91,25 @@ vi.mock("../opd/useOpd", () => ({
     isLoading: answered().isLoading,
     isError: roles.opdErrored,
     isSuccess: answered().isSuccess && !roles.opdErrored,
+    refetch: opdRefetch,
   }),
 }));
 vi.mock("../expense/useExpense", () => ({
   useExpenseAppData: () => ({
     data: { enableLeadView: roles.expenseLead, enableFinanceView: roles.expenseFinance },
+    isLoading: answered().isLoading,
+    isError: roles.expenseErrored,
+    isSuccess: answered().isSuccess && !roles.expenseErrored,
+    refetch: expenseRefetch,
+  }),
+}));
+// The master-data backend's own /user-info, which is what the four table rows
+// are gated on now — not the portal's `admin` capability. `masterDataHasAccess`
+// is the real implementation; only the query is faked.
+vi.mock("../masterdata/useMasterDataAccess", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../masterdata/useMasterDataAccess")>()),
+  useMasterDataUserInfo: () => ({
+    data: { image: null, email: "someone@wso2.com", privileges: roles.masterData },
     ...answered(),
   }),
 }));
@@ -81,9 +120,13 @@ vi.mock("@config/apiConfig", () => ({
   isCcBackendConfigured: () => true,
   isOpdBackendConfigured: () => true,
   isExpenseBackendConfigured: () => true,
+  isFinanceMasterDataBackendConfigured: () => true,
 }));
 
-const { useFinanceGate, canSeeMasterData } = await import("./useFinanceGate");
+const { useFinanceGate, canSeeMasterData, CLAIM_APPROVAL_GATE_APPS, OVERVIEW_GATE_APPS } = await import(
+  "./useFinanceGate"
+);
+type FinanceGateApp = "cc" | "opd" | "expense" | "masterData";
 const { FINANCE_ITEM_IDS } = await import("@constants/financeApps");
 
 const gate = () => renderHook(() => useFinanceGate()).result.current;
@@ -96,6 +139,11 @@ beforeEach(() => {
   roles.loading = false;
   roles.betweenRetries = false;
   roles.opdErrored = false;
+  roles.ccErrored = false;
+  roles.expenseErrored = false;
+  ccRefetch.mockClear();
+  opdRefetch.mockClear();
+  expenseRefetch.mockClear();
 });
 
 // The entry appears when ANY claim is approvable. Requiring all three would
@@ -276,46 +324,61 @@ describe("Credit Card Expenses' submitter-facing items", () => {
   });
 });
 
-// Master Data is gated on TWO things that answer two different questions, and
-// both have to say yes: the preview flag ("does this environment have the
-// feature yet") and `admin` ("may this reader use it"). Neither alone is
-// enough, which is the whole point — turning the flag on in an environment
-// must not hand finance's reference tables to every employee in it, and
-// holding `admin` must not surface a feature the environment has not enabled.
+// Master Data is gated on the master-data backend's OWN verdict — the
+// `privileges` on its /user-info, derived there from the same
+// `app-finance-masterdata-admin` group check it enforces on every other
+// resource. It used to be the portal's `admin` capability (people-app
+// privilege 999), which is the portal's GENERIC administrator and no finance
+// role at all: that admitted portal admins this backend then refused, and
+// turned away the finance staff who actually maintain these tables.
 describe("the Master Data tables", () => {
-  const admin = new Set<Capability>(["employee", "admin"]);
-  const employee = new Set<Capability>(["employee"]);
-
-  it("opens for an admin", () => {
-    expect(canSeeMasterData(admin)).toBe(true);
+  const withPrivileges = (privileges: MasterDataAccessLevel[]) => ({
+    image: null,
+    email: "someone@wso2.com",
+    privileges,
   });
 
-  // `admin` is the whole rule now that the "finance-master-data" preview flag
-  // has been removed — so this is the only thing standing between finance's
-  // reference tables and everyone else.
-  it("stays shut for a non-admin", () => {
-    expect(canSeeMasterData(employee)).toBe(false);
+  it("opens for a reader the backend calls an admin", () => {
+    expect(canSeeMasterData(withPrivileges(["admin"]))).toBe(true);
   });
 
-  // Capabilities read as undefined until the identity query answers, and a
-  // restricted entry must fail closed while it does.
-  it("stays shut while capabilities are still unknown", () => {
+  // The backend answering with an EMPTY privilege list is a "no", not a
+  // failure — it is how a valid reader outside the finance group is reported,
+  // and the whole reason /user-info stopped returning a bare 401.
+  it("stays shut for a reader the backend grants nothing", () => {
+    expect(canSeeMasterData(withPrivileges([]))).toBe(false);
+  });
+
+  // The response reads as undefined until the query answers, and a restricted
+  // entry must fail closed while it does.
+  it("stays shut while the backend has not answered", () => {
     expect(canSeeMasterData(undefined)).toBe(false);
+  });
+
+  // A deployment still running the build whose /user-info returned only an
+  // email and an avatar sends no `privileges` at all. That must read as "no"
+  // rather than crash the rail or go open.
+  it("stays shut when the field is absent entirely", () => {
+    expect(canSeeMasterData({ image: null, email: "someone@wso2.com" })).toBe(false);
+  });
+
+  // The portal's own `admin` privilege no longer opens these rows — the point
+  // of the change. A portal admin with no finance group sees nothing here.
+  it("is not opened by the portal's admin capability", () => {
+    roles.masterData = [];
+    for (const id of MASTER_DATA_IDS) {
+      expect(gate().canSee(id)).toBe(false);
+    }
   });
 
   // The four tabs answer as one — listed individually in the switch so a new
   // table has to be named there before it appears, rather than matching a
   // prefix and going open by accident.
   it("answers the same for all four tables", () => {
-    for (const id of [
-      "master-data-subsidiaries",
-      "master-data-departments",
-      "master-data-expense-types",
-      "master-data-credit-cards",
-    ]) {
-      expect(renderHook(() => useFinanceGate(true, employee)).result.current.canSee(id)).toBe(false);
-      expect(renderHook(() => useFinanceGate(true, admin)).result.current.canSee(id)).toBe(true);
-    }
+    roles.masterData = [];
+    for (const id of MASTER_DATA_IDS) expect(gate().canSee(id)).toBe(false);
+    roles.masterData = ["admin"];
+    for (const id of MASTER_DATA_IDS) expect(gate().canSee(id)).toBe(true);
   });
 });
 
@@ -371,5 +434,188 @@ describe("settling, and staying settled", () => {
 
     rerender({ on: true });
     expect(result.current.isResolving).toBe(true);
+  });
+});
+
+// `needs` narrows which backends a caller fetches and waits on. The whole
+// point: a backend left out must behave as if it were never asked at all —
+// not fetched, not waited for, not able to hold `isResolving` open — so a
+// slow or failing backend outside `needs` can never blank a screen that does
+// not read it. See Claim Approval and Finance Overview, which this exists for.
+describe("needs: scoping which backends a caller depends on", () => {
+  function settlingWithNeeds(needsList: FinanceGateApp[]) {
+    return renderHook(() => useFinanceGate(true, needsList)).result;
+  }
+
+  it("resolves immediately when every needed backend has answered, even mid-flight on the rest", () => {
+    // CC and Master Data never finish — they are not in `needs`, so they must
+    // not matter to this caller at all.
+    roles.loading = true;
+    const opdOnly = settlingWithNeeds(["opd"]);
+    // OPD itself is also "loading" via the shared `roles.loading` flag in this
+    // fixture, so isResolving starts true, exactly like a caller asking for
+    // every backend would — the difference under test is what happens next.
+    expect(opdOnly.current.isResolving).toBe(true);
+  });
+
+  it("stops resolving once only the needed backends answer, regardless of the rest", () => {
+    roles.loading = true;
+    const { result, rerender } = renderHook(({ needsList }) => useFinanceGate(true, needsList), {
+      initialProps: { needsList: ["opd"] as FinanceGateApp[] },
+    });
+    expect(result.current.isResolving).toBe(true);
+
+    // Only OPD settles. CC, Expense and Master Data are mocked off the same
+    // shared `roles.loading` flag in this fixture, so in isolation this also
+    // "answers" them — the real guarantee under test is in the next case,
+    // where an EXCLUDED backend is made to fail outright and still does not
+    // block.
+    roles.loading = false;
+    rerender({ needsList: ["opd"] });
+    expect(result.current.isResolving).toBe(false);
+  });
+
+  it("does not wait on a backend outside needs even when that backend errors", () => {
+    roles.opdErrored = true;
+    // CC is excluded from `needs`; OPD alone decides this caller's answer.
+    const opdOnly = settlingWithNeeds(["opd"]);
+    expect(opdOnly.current.isResolving).toBe(false);
+    expect(opdOnly.current.canSee("claim-approval")).toBe(false); // opdErrored, no role
+  });
+
+  it("CLAIM_APPROVAL_GATE_APPS excludes cc, matching canSee's own switch", () => {
+    expect(CLAIM_APPROVAL_GATE_APPS).toEqual(["opd", "expense"]);
+  });
+
+  it("OVERVIEW_GATE_APPS excludes masterData, matching canSee's own switch", () => {
+    expect(OVERVIEW_GATE_APPS).toEqual(["cc", "opd", "expense"]);
+  });
+
+  // The two constants above are DERIVED from the same table canSee's warning
+  // reads, rather than hand-typed separately — this just confirms that table
+  // actually agrees with canSee's real behaviour, not only with itself.
+  it("a gate scoped to CLAIM_APPROVAL_GATE_APPS answers claim-approval the same as the full gate", () => {
+    roles.opd = [555];
+    const full = gate();
+    const scoped = settlingWithNeeds([...CLAIM_APPROVAL_GATE_APPS]).current;
+    expect(scoped.canSee("claim-approval")).toBe(full.canSee("claim-approval"));
+  });
+
+  it("a gate scoped to OVERVIEW_GATE_APPS answers finance-overview the same as the full gate", () => {
+    roles.expenseFinance = true;
+    const full = gate();
+    const scoped = settlingWithNeeds([...OVERVIEW_GATE_APPS]).current;
+    expect(scoped.canSee("finance-overview")).toBe(full.canSee("finance-overview"));
+  });
+
+  it("warns in dev when canSee is asked about an item whose backend needs excluded", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const ccOnly = settlingWithNeeds(["cc"]);
+    ccOnly.current.canSee("claim-approval"); // needs opd+expense, neither is in `needs`
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining("claim-approval"));
+    warn.mockRestore();
+  });
+
+  it("does not warn when the item's backends are all in needs", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const scoped = settlingWithNeeds(["opd", "expense"]);
+    scoped.current.canSee("claim-approval");
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});
+
+// THE bug `itemAnswered` exists to close: `financeVisibility` folds this gate
+// into the rail/landing using the FULL, unscoped call (every backend fetched)
+// — so `isResolving` alone stays true until all four answer, even once a
+// specific item's own question is already settled. `firstVisibleLeaf` reads
+// `itemAnswered` instead of the aggregate for exactly this reason: a granted
+// item (finance-overview, decided by OPD) must not stay unreachable behind an
+// unrelated, still-pending backend (CC, Master Data) it never consulted.
+describe("itemAnswered", () => {
+  it("is true for finance-overview once OPD decides it, while CC is still pending", () => {
+    roles.loading = true;
+    const { result, rerender } = renderHook(() => useFinanceGate());
+    expect(result.current.itemAnswered("finance-overview")).toBe(false);
+
+    // Only OPD resolves — CC, Expense and Master Data stay pending. This
+    // fixture answers every backend off the one shared `roles.loading` flag,
+    // so the next assertion is the real point: OPD's role already makes
+    // finance-overview's OWN three required backends (cc, opd, expense) the
+    // ones still being waited on, not the aggregate across all four.
+    roles.loading = false;
+    roles.opd = [555];
+    rerender();
+    expect(result.current.canSee("finance-overview")).toBe(true);
+    expect(result.current.itemAnswered("finance-overview")).toBe(true);
+  });
+
+  it("is false for claim-approval while a backend IT needs (expense) is still pending, independent of other items", () => {
+    const { result } = renderHook(() => useFinanceGate(true, ["opd", "expense"]));
+    // Both needed backends resolved in this fixture (roles.loading defaults
+    // false), so this is the settled case — confirms true once both answer.
+    expect(result.current.itemAnswered("claim-approval")).toBe(true);
+  });
+
+  it("stays false for cc-approve while CC alone is unresolved, regardless of OPD/Expense", () => {
+    roles.loading = true;
+    const { result } = renderHook(() => useFinanceGate());
+    expect(result.current.itemAnswered("cc-approve")).toBe(false);
+  });
+
+  it("falls back to the aggregate isResolving for an item with no ITEM_BACKENDS entry", () => {
+    roles.loading = true;
+    const { result, rerender } = renderHook(() => useFinanceGate());
+    expect(result.current.itemAnswered("some-future-item")).toBe(false);
+
+    roles.loading = false;
+    rerender();
+    expect(result.current.itemAnswered("some-future-item")).toBe(true);
+  });
+});
+
+// Distinct from "no CC role": a reader refused everywhere else because CC's
+// own lookup failed outright should be told that, with a way back, rather
+// than the same "not for you" a genuinely roleless reader gets.
+// Every backend gets the same treatment — originally just CC, generalised on
+// review so a caller can tell "couldn't check" from "no role" for OPD and
+// Expense too, not only Credit Card.
+describe("ccErrored/opdErrored/expenseErrored and their retry functions", () => {
+  it("are all false on a healthy lookup", () => {
+    const g = gate();
+    expect(g.ccErrored).toBe(false);
+    expect(g.opdErrored).toBe(false);
+    expect(g.expenseErrored).toBe(false);
+  });
+
+  it("is true for whichever backend's own user-info call fails, and false for the others", () => {
+    roles.opdErrored = true;
+    const g = gate();
+    expect(g.opdErrored).toBe(true);
+    expect(g.ccErrored).toBe(false);
+    expect(g.expenseErrored).toBe(false);
+  });
+
+  // A failed lookup still reads as "no" everywhere canSee reads the role
+  // flags — the same "a failed lookup is not a yes" rule every case here
+  // follows. The error fields exist so a caller can tell THIS "no" apart
+  // from a genuine refusal, not to change what canSee itself answers.
+  it("a CC error still answers no on CC-gated items, same as holding no CC role", () => {
+    roles.ccErrored = true;
+    expect(gate().canSee("cc-approve")).toBe(false);
+    expect(gate().ccHasOwnCard).toBe(false);
+  });
+
+  it("retryCc/retryOpd/retryExpense each refetch their own query only", () => {
+    gate().retryCc();
+    expect(ccRefetch).toHaveBeenCalledTimes(1);
+    expect(opdRefetch).not.toHaveBeenCalled();
+    expect(expenseRefetch).not.toHaveBeenCalled();
+
+    gate().retryOpd();
+    expect(opdRefetch).toHaveBeenCalledTimes(1);
+
+    gate().retryExpense();
+    expect(expenseRefetch).toHaveBeenCalledTimes(1);
   });
 });

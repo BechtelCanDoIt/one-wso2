@@ -15,11 +15,12 @@
 // under the License.
 
 import { useMemo, useState, type JSX, type ReactNode } from "react";
-import { Box, Link, Sidebar, Typography } from "@wso2/oxygen-ui";
-import { ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
+import { alpha, Box, Link, List, Sidebar, Typography, useSidebar } from "@wso2/oxygen-ui";
+import { BookOpenIcon, ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, matchPath, useLocation, useNavigate } from "react-router";
 import { useActivePerspective } from "@context/perspective/PerspectiveContext";
 import type { PerspectiveSection } from "@constants/perspectives";
+import { useUserGuideUrl } from "@features/security/api/useUserGuideUrl";
 import {
   activeGroupIds as activeGroupIdsFor,
   activeItemId as activeItemIdFor,
@@ -101,6 +102,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
   // Memoised because `?? []` would otherwise hand a fresh array to the
   // dependency lists below on every render, defeating both useMemos.
   const sections = useMemo(() => active.sections ?? [], [active.sections]);
+
+  // The GRC user guide link, served by the GRC backend rather than carried in
+  // this perspective's own registry data — see useUserGuideUrl. Fetched only
+  // while Security and Compliance is active, same as every other
+  // perspective-scoped gate in usePerspectiveVisibility.
+  const userGuide = useUserGuideUrl(active.key === "security");
 
   // Manual open/close choices for groups the user has explicitly clicked.
   // These win: navigating into a group opens it, and closing it again is
@@ -230,7 +237,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
       onSelect={onSelect}
       onToggleExpand={onToggleExpand}
     >
-      <Sidebar.Nav>
+      {/* flex column: lets the pinned-to-bottom category below push itself to
+          the foot of this scroll area with `mt: auto`, rather than flowing
+          directly under the main one. showDividers off: Nav would otherwise
+          draw its own rule between the two categories, on top of the gap
+          `mt: auto` already opens up. */}
+      <Sidebar.Nav showDividers={false} sx={{ display: "flex", flexDirection: "column" }}>
         <Sidebar.Category>
           <Sidebar.CategoryLabel>{active.label}</Sidebar.CategoryLabel>
 
@@ -245,14 +257,12 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
               that renders as selected for a split second on a screen you are
               about to leave. */}
           {active.path && !active.forwardsToFirstItem && (
-            <RouteItem id={OVERVIEW_ID} to={active.path} fromPerspective={active.key}>
-              <Sidebar.Item id={OVERVIEW_ID}>
-                <Sidebar.ItemIcon>
-                  <active.icon />
-                </Sidebar.ItemIcon>
-                <Sidebar.ItemLabel>Overview</Sidebar.ItemLabel>
-              </Sidebar.Item>
-            </RouteItem>
+            <Sidebar.Item id={OVERVIEW_ID} link={routeLink(active.path, active.key)}>
+              <Sidebar.ItemIcon>
+                <active.icon />
+              </Sidebar.ItemIcon>
+              <Sidebar.ItemLabel>Overview</Sidebar.ItemLabel>
+            </Sidebar.Item>
           )}
 
           {sections.map((s) => (
@@ -274,48 +284,51 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
           )}
         </Sidebar.Category>
 
+        {/* A second top-level child of Sidebar.Nav, not a row joining the
+            list inside the first Category — that's what lets `mt: "auto"`
+            push it down the flex column to the foot of the scroll area,
+            opening a gap from the groups above. showDividers is off, so no
+            rule is drawn between the two; the gap alone is the separation.
+            Only Security and Compliance has anything to put here today. */}
+        {active.key === "security" && userGuide.data?.url && (
+          <Sidebar.Category sx={{ mt: "auto" }}>
+            <LeafItem id="security-user-guide" label="User Guide" icon={BookOpenIcon} href={userGuide.data.url} />
+          </Sidebar.Category>
+        )}
       </Sidebar.Nav>
 
       <Sidebar.Footer showDivider>
+        {/* The footer is not a list, and Sidebar.Item is an li, so it needs one. */}
+        {/* The tour marker sits on the list, not inside the label. Oxygen
+            names a collapsed row with String(label children), and a span
+            there becomes the accessible name "[object Object]". */}
+        <Box component="ul" data-tour="settings" sx={{ m: 0, p: 0, listStyle: "none" }}>
         <Sidebar.Item id={SETTINGS_ID}>
           <Sidebar.ItemIcon>
             <SettingsIcon />
           </Sidebar.ItemIcon>
-          {/* The tour points here. The marker is on a span of our own because
-              Sidebar.Item drops unknown props, so data-* put on it never reaches
-              the DOM. */}
-          <Sidebar.ItemLabel>
-            <span data-tour="settings">Settings</span>
-          </Sidebar.ItemLabel>
+          <Sidebar.ItemLabel>Settings</Sidebar.ItemLabel>
         </Sidebar.Item>
+        </Box>
       </Sidebar.Footer>
     </Sidebar>
   );
 }
 
 /**
- * Wraps a rail row in a real anchor so middle-click / cmd-click open a new
- * tab. Oxygen's Sidebar already strips link underlines (`& a` in its root
- * styles), so no styling is needed here.
+ * The anchor for a rail row, passed as `Sidebar.Item`'s `link` so the row stays
+ * `li > a` and middle-click still opens a new tab. Wrapping the item in the
+ * anchor instead makes the list `ul > a > li`, which a screen reader does not
+ * treat as a list.
+ *
+ * `fromPerspective` is navigation state, same as SideRail's own Settings
+ * navigation. Harmless for a route under this perspective's own path prefix
+ * (PerspectiveProvider resolves it directly and never reads this state) —
+ * load-bearing for one that isn't, like Due Diligence's routes, which are
+ * reachable from both Finance and Legal and can't live under either one's
+ * own prefix.
  */
-function RouteItem({
-  to,
-  children,
-  fromPerspective,
-}: {
-  id: string;
-  to: string;
-  children: ReactNode;
-  /**
-   * Carried as navigation state, same as SideRail's own Settings navigation.
-   * Harmless for a route under this perspective's own path prefix
-   * (PerspectiveProvider resolves it directly and never reads this state) —
-   * load-bearing for one that isn't, like Due Diligence's routes, which are
-   * reachable from both Finance and Legal and can't live under either one's
-   * own prefix.
-   */
-  fromPerspective?: string;
-}): JSX.Element {
+function routeLink(to: string, fromPerspective?: string) {
   return (
     <Link
       component={RouterLink}
@@ -323,9 +336,7 @@ function RouteItem({
       state={fromPerspective ? { fromPerspective } : undefined}
       color="inherit"
       underline="none"
-    >
-      {children}
-    </Link>
+    />
   );
 }
 
@@ -355,9 +366,24 @@ function SectionNode({
    * navigation, and closing it again is the user's business.
    */
   containsActiveRoute: boolean;
-  /** The perspective this section is rendered under — see RouteItem. */
+  /** The perspective this section is rendered under — see routeLink. */
   fromPerspective: string;
 }): JSX.Element | null {
+  // Screens offered as tabs stay children of the section (pins name them from
+  // there) and are not rows. The row is the app, and it opens its first screen.
+  if (section.inTabs) {
+    if (!resolveVisible(section)) return null;
+    return (
+      <LeafItem
+        id={section.id}
+        label={section.label}
+        icon={section.icon}
+        to={section.path}
+        fromPerspective={fromPerspective}
+      />
+    );
+  }
+
   if (section.children && section.children.length > 0) {
     const visible = section.children.filter((c) => resolveVisible(c));
     if (visible.length === 0) return null;
@@ -383,26 +409,41 @@ function SectionNode({
 
 
     return (
-      <Sidebar.Item id={section.id}>
-        <Sidebar.ItemIcon
-          sx={containsActiveRoute ? { color: "primary.main" } : undefined}
-        >
-          {section.icon ? <section.icon /> : null}
-        </Sidebar.ItemIcon>
-        <Sidebar.ItemLabel sx={ELLIPSIS_SX}>{section.label}</Sidebar.ItemLabel>
-        {/* Literal Sidebar.Item elements, NOT a wrapper component. Oxygen
-            renders a group's children with
-            `cloneElement(child, { depth: depth + 1 })` and separately reads
-            `child.props.id` / `extractItemContent(child.props.children)` to
-            build the collapsed-rail flyout. Any wrapper — a Link, or one of
-            our own components — swallows the injected `depth` and hides the
-            label from that flyout. These rows navigate via `onSelect`. */}
-        {visible.map((c) => (
-          <Sidebar.Item key={c.id} id={c.id} sx={{ pl: NESTED_LABEL_PL }}>
-            <Sidebar.ItemLabel sx={ELLIPSIS_SX}>{c.label}</Sidebar.ItemLabel>
-          </Sidebar.Item>
-        ))}
-      </Sidebar.Item>
+      <GroupFrame id={section.id}>
+        <Sidebar.Item id={section.id}>
+          <Sidebar.ItemIcon
+            sx={containsActiveRoute ? { color: "primary.main" } : undefined}
+          >
+            {section.icon ? <section.icon /> : null}
+          </Sidebar.ItemIcon>
+          <Sidebar.ItemLabel sx={ELLIPSIS_SX}>{section.label}</Sidebar.ItemLabel>
+          {/* Literal Sidebar.Item elements, NOT a wrapper component. Oxygen
+              renders a group's children with
+              `cloneElement(child, { depth: depth + 1 })` and separately reads
+              `child.props.id` / `extractItemContent(child.props.children)` to
+              build the collapsed-rail flyout. Any wrapper — a Link, or one of
+              our own components — swallows the injected `depth` and hides the
+              label from that flyout. These rows navigate via `onSelect`. */}
+          {visible.map((c) => {
+            // A row that names an icon wears it, starting where the parent label
+            // starts. A row that doesn't stays a plain label lined up with that
+            // word. The label itself stays a string: the collapsed flyout reads
+            // it with String(children), and an element there becomes
+            // "[object Object]".
+            const Icon = c.icon;
+            return (
+              <Sidebar.Item key={c.id} id={c.id} sx={{ pl: NESTED_LABEL_PL }}>
+                {Icon ? (
+                  <Sidebar.ItemIcon>
+                    <Icon />
+                  </Sidebar.ItemIcon>
+                ) : null}
+                <Sidebar.ItemLabel sx={ELLIPSIS_SX}>{c.label}</Sidebar.ItemLabel>
+              </Sidebar.Item>
+            );
+          })}
+        </Sidebar.Item>
+      </GroupFrame>
     );
   }
 
@@ -416,6 +457,36 @@ function SectionNode({
       href={section.externalUrl}
       fromPerspective={fromPerspective}
     />
+  );
+}
+
+/**
+ * A faint outline and tint around an open group, so its header and its screens read as one
+ * unit. Nothing while the group is closed or the rail is collapsed.
+ *
+ * The frame is always rendered and only its look changes: dropping it on close would give the
+ * group a different parent, remount it, and cut Collapse's closing animation short. It is an
+ * <li> holding its own <ul>, because Sidebar.Category lays its rows out in a list.
+ */
+function GroupFrame({ id, children }: { id: string; children: ReactNode }): JSX.Element {
+  const { collapsed, expandedMenus } = useSidebar();
+  const framed = !collapsed && Boolean(expandedMenus?.[id]);
+  return (
+    <Box
+      component="li"
+      sx={(theme) => ({
+        listStyle: "none",
+        mx: 1,
+        border: "1px solid",
+        borderRadius: 1.5,
+        borderColor: framed ? alpha(theme.palette.primary.main, 0.24) : "transparent",
+        bgcolor: framed ? alpha(theme.palette.primary.main, 0.04) : "transparent",
+        py: framed ? 0.5 : 0,
+        my: framed ? 0.5 : 0,
+      })}
+    >
+      <List disablePadding>{children}</List>
+    </Box>
   );
 }
 
@@ -443,11 +514,16 @@ function LeafItem({
   // active-highlighted: no route of ours is current once the user is over
   // there, and highlighting it would claim otherwise.
   href?: string;
-  /** The perspective this leaf is rendered under — see RouteItem. */
+  /** The perspective this leaf is rendered under — see routeLink. */
   fromPerspective?: string;
 }): JSX.Element {
-  const item = (
-    <Sidebar.Item id={id}>
+  const link = href ? (
+    <Link href={href} target="_blank" rel="noopener noreferrer" color="inherit" underline="none" />
+  ) : to ? (
+    routeLink(to, fromPerspective)
+  ) : undefined;
+  return (
+    <Sidebar.Item id={id} link={link}>
       {Icon ? (
         <Sidebar.ItemIcon>
           <Icon />
@@ -460,24 +536,18 @@ function LeafItem({
           outbound item is indistinguishable from a route until it has already
           opened a tab. */}
       {href ? (
-        <Sidebar.ItemBadge color="default">
+        <Sidebar.ItemBadge
+          color="default"
+          sx={{
+            mr: -0.75,
+            // The chip's default label padding is sized for text; an
+            // icon-only badge this small just wants to fill the pill.
+            "& .MuiChip-label": { display: "flex", px: "4px" },
+          }}
+        >
           <ExternalLinkIcon size={11} />
         </Sidebar.ItemBadge>
       ) : null}
     </Sidebar.Item>
-  );
-  if (href) {
-    return (
-      <Link href={href} target="_blank" rel="noopener noreferrer" color="inherit" underline="none">
-        {item}
-      </Link>
-    );
-  }
-  return to ? (
-    <RouteItem id={id} to={to} fromPerspective={fromPerspective}>
-      {item}
-    </RouteItem>
-  ) : (
-    item
   );
 }

@@ -52,26 +52,34 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter, useLocation } from "react-router";
 import SalesDealsPage from "./SalesDealsPage";
-import { resetMockStore } from "../meddpicc/mock/mockStore";
+import { mockMeddpiccClient, resetMockStore } from "../meddpicc/mock/mockStore";
+
+function Where() {
+  return <div data-testid="where">{useLocation().pathname}</div>;
+}
 
 function renderPage() {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
   });
   return render(
-    <QueryClientProvider client={client}>
-      <SalesDealsPage />
-    </QueryClientProvider>,
+    <MemoryRouter initialEntries={["/sales/deals"]}>
+      <Where />
+      <QueryClientProvider client={client}>
+        <SalesDealsPage />
+      </QueryClientProvider>
+    </MemoryRouter>,
   );
 }
 
 beforeEach(() => resetMockStore());
 
-// A drawer full of MUI selects and tooltips, driven by userEvent: well under a
+// A page full of MUI selects and tooltips, driven by userEvent: well under a
 // second each on an idle machine, but the default 5s is too tight on a busy runner.
 describe("SalesDealsPage", { timeout: 20000 }, () => {
-  it("lists the demo deals, one row each, with their stage, circles and pending count", async () => {
+  it("lists the demo deals, one row each, with their stage, activity, circles and pending count", async () => {
     renderPage();
 
     const brightwater = (await screen.findByRole("button", { name: "Brightwater – API Manager first sale" })).closest("tr");
@@ -79,8 +87,15 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     const row = within(brightwater as HTMLElement);
     expect(row.getByText("Brightwater Pumps Limited")).toBeInTheDocument();
     expect(row.getByText("Qualify")).toBeInTheDocument();
-    expect(row.getByText("120,000 USD")).toBeInTheDocument();
-    expect(row.getByText("31/12/2026")).toBeInTheDocument();
+    // Amount and close date ride under the name now, to give the timeline the width.
+    expect(row.getByText("120,000 USD · closes 31/12/2026")).toBeInTheDocument();
+    expect(row.getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    // The journey's key is behind the column title's info button, not spread across the header.
+    expect(screen.getByRole("columnheader", { name: /^Journey/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "What the journey shows" })).toBeInTheDocument();
+    expect(screen.queryByText("Internal discussion")).not.toBeInTheDocument();
+    await userEvent.hover(screen.getByRole("button", { name: "What the journey shows" }));
+    expect(await screen.findByText("Internal discussion")).toBeInTheDocument();
     expect(row.getByRole("group", { name: /^MEDDPICC for Brightwater/ })).toBeInTheDocument();
     expect(row.getByRole("button", { name: "Champion: AI suggestion waiting for approval" })).toBeInTheDocument();
     expect(row.getByLabelText(/AI proposals waiting for approval/)).toBeInTheDocument();
@@ -89,13 +104,51 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
       "Meridian Bank – integration platform",
       "Nordlys Energi – identity expansion",
       "Harbourline – API platform",
-      "Asterra Health – FHIR gateway",
       "Oakridge University – campus IAM",
     ]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();
     }
+    // My deals is the default: a deal someone else owns waits for All deals.
+    expect(screen.queryByRole("button", { name: "Asterra Health – FHIR gateway" })).not.toBeInTheDocument();
     // Closed deals are hidden by default.
     expect(screen.queryByRole("button", { name: "Kestrel Telecom – API Manager expansion" })).not.toBeInTheDocument();
+  });
+
+  it("opens on My deals, and All deals adds everyone else's", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(mockMeddpiccClient, "deals");
+    renderPage();
+    await screen.findByRole("button", { name: "Brightwater – API Manager first sale" });
+
+    expect(screen.getByRole("radio", { name: "My deals" })).toBeChecked();
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: true }));
+    expect(screen.queryByRole("button", { name: "Asterra Health – FHIR gateway" })).not.toBeInTheDocument();
+    // An owner filter means nothing on your own deals.
+    expect(screen.getByRole("combobox", { name: "Owner" })).toHaveAttribute("aria-disabled", "true");
+
+    await user.click(screen.getByRole("radio", { name: "All deals" }));
+
+    expect(await screen.findByRole("button", { name: "Asterra Health – FHIR gateway" })).toBeInTheDocument();
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: false }));
+    expect(screen.getByRole("combobox", { name: "Owner" })).not.toHaveAttribute("aria-disabled");
+    spy.mockRestore();
+  });
+
+  it("filters by the account's region", async () => {
+    const user = userEvent.setup();
+    const spy = vi.spyOn(mockMeddpiccClient, "deals");
+    renderPage();
+    await screen.findByRole("button", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("combobox", { name: "Region" }));
+    await user.click(await screen.findByRole("option", { name: "APAC" }));
+
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Brightwater – API Manager first sale" })).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole("button", { name: "Harbourline – API platform" })).toBeInTheDocument();
+    expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ region: "APAC", mine: true }));
+    spy.mockRestore();
   });
 
   it("shows closed deals once Hide closed is turned off", async () => {
@@ -121,10 +174,11 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(screen.getByRole("button", { name: "Meridian Bank – integration platform" })).toBeInTheDocument();
   });
 
-  it("opens the deal panel from a row", async () => {
+  // A deal is a page of its own now, not a drawer over the list.
+  it("opens the deal's own page from a row", async () => {
     const user = userEvent.setup();
     renderPage();
     await user.click(await screen.findByRole("button", { name: "Harbourline – API platform" }));
-    expect(await screen.findByRole("heading", { name: "Harbourline – API platform" })).toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent(/^\/sales\/deals\/006MOCK0000HARB$/);
   });
 });

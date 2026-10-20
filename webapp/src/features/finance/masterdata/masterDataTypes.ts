@@ -50,6 +50,10 @@ export interface Subsidiary {
   taxCode: string;
   legalName: string;
   code: string;
+  /** Country the subsidiary is registered in. */
+  country: string;
+  /** ISO 4217 code the subsidiary reimburses in, derived from `country`. */
+  currencyCode: string;
 }
 
 export interface SubsidiaryPayload {
@@ -57,6 +61,8 @@ export interface SubsidiaryPayload {
   taxCode: string;
   legalName: string;
   code: string;
+  /** Country the subsidiary is registered in. */
+  country: string;
 }
 
 // ---- Departments ----------------------------------------------------------
@@ -114,6 +120,8 @@ export interface ExpenseTypePayload {
   expenseTypeDescription: string;
   engagementCodes: string[];
   engagementCodeSuffixes: string[];
+  /** Edits only — see {@link CreditCardPayload.status}, which works the same way. */
+  status?: string;
 }
 
 /** POST body for `search-expense-types`. Every key is optional. */
@@ -158,7 +166,24 @@ export interface CreditCardPayload {
   comment: string;
   employeeEmail: string;
   leadEmails: string[];
+  /**
+   * Only an edit carries one. A new card is created active by the backend,
+   * which hardcodes the value, and `AddCreditCardPayload` is a closed record
+   * there — sending the field on a create is a 400, not a no-op.
+   */
+  status?: string;
 }
+
+/**
+ * The two statuses a row can carry. The column holds a mix of "Active" and
+ * "active" from older writes, so these are the lower-cased forms everything
+ * normalises to before comparing.
+ */
+export const MASTER_DATA_STATUS = {
+  active: "active",
+  inactive: "inactive",
+} as const;
+export type MasterDataStatus = (typeof MASTER_DATA_STATUS)[keyof typeof MASTER_DATA_STATUS];
 
 /** The two card providers this backend supports. */
 export const CREDIT_CARD_PROVIDERS = ["AMEX", "SVB"] as const;

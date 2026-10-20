@@ -14,21 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { MIS_APPS, MIS_ITEM_IDS } from "./misApps";
 import { FINANCE_ITEM_IDS } from "./financeApps";
 import { LEAVE_ITEM_IDS } from "./meApps";
 import { PERSPECTIVES } from "./perspectives";
-
-// The MIS rail entries are behind the `mis` preview flag (previewFeatures.ts),
-// and the registry is read once, at import — so the flag has to be on before it
-// is. Its OFF half is pinned in perspectives.test.ts.
-vi.hoisted(() => {
-  window.config = {
-    ...(window.config ?? {}),
-    ONE_WSO2_PREVIEW_FEATURES: { mis: true },
-  } as Window["config"];
-});
 
 const items = MIS_APPS.flatMap((app) => app.items);
 
@@ -52,22 +42,14 @@ describe("the Finance MIS registry", () => {
   // and `App.tsx` in the same change, never the registry alone.
   it("gives a path only to screens that have a route", () => {
     const routed = items.filter((item) => item.path !== undefined).map((item) => item.id);
-    expect(routed.sort()).toEqual([
-      "mis-analysis",
-      "mis-arr-build",
-      "mis-mrr-build",
-      "mis-qrr-build",
-    ]);
+    expect(routed.sort()).toEqual(["mis-analysis", "mis-arr-build"]);
   });
 
-  // These four are the registry. An extra id, with or without a path, fails here.
-  it("lists exactly the four screens", () => {
-    expect(items.map((item) => item.id).sort()).toEqual([
-      "mis-analysis",
-      "mis-arr-build",
-      "mis-mrr-build",
-      "mis-qrr-build",
-    ]);
+  // One row for the dashboard. Quarterly and Monthly stay routes of that row,
+  // gated on their own ids, and are not rows of their own.
+  it("lists the dashboard and ARR Analysis", () => {
+    expect(items.map((item) => item.id).sort()).toEqual(["mis-analysis", "mis-arr-build"]);
+    expect(items.find((item) => item.id === "mis-arr-build")?.label).toBe("ARR Dashboard");
   });
 
   // ARR Analysis is in the registry unconditionally, and has to be: the

@@ -26,7 +26,14 @@ import type { PerspectiveVisibility } from "@components/side-rail/usePerspective
 // features/tour/tourTargets.test.tsx hits. A factory mock keeps the real module
 // from ever being evaluated.
 const visibility: { current: PerspectiveVisibility } = {
-  current: { resolveVisible: () => true, isResolving: false, visibleLeaves: [], isError: false, retry: () => {} },
+  current: {
+    resolveVisible: () => true,
+    isResolving: false,
+    visibleLeaves: [],
+    firstVisibleLeaf: undefined,
+    isError: false,
+    retry: () => {},
+  },
 };
 const perspective: { current: PerspectiveDef } = {
   current: { key: "security", label: "Security and Compliance", icon: ShieldIcon, access: true, path: "/security" },
@@ -75,6 +82,7 @@ beforeEach(() => {
     resolveVisible: () => true,
     isResolving: false,
     visibleLeaves: [],
+    firstVisibleLeaf: undefined,
     isError: false,
     retry: () => {},
   };
@@ -89,10 +97,12 @@ beforeEach(() => {
 
 describe("a perspective landing that forwards to the first item", () => {
   it("opens the first item someone can see", () => {
-    visibility.current.visibleLeaves = [
+    const leaves = [
       leaf("risk-dashboard", "/security/risk/dashboard"),
       leaf("risk-registers", "/security/risk/registers"),
     ];
+    visibility.current.visibleLeaves = leaves;
+    visibility.current.firstVisibleLeaf = leaves[0];
     renderLanding();
     expect(screen.getByTestId("url")).toHaveTextContent("/security/risk/dashboard");
   });
@@ -102,20 +112,60 @@ describe("a perspective landing that forwards to the first item", () => {
   // reads the URL first. Without this the perspective survives only by the
   // sessionStorage memory an effect happened to write before we left.
   it("carries the perspective through the redirect", () => {
-    visibility.current.visibleLeaves = [leaf("dd-partners", "/due-diligence/partners")];
+    const partners = leaf("dd-partners", "/due-diligence/partners");
+    visibility.current.visibleLeaves = [partners];
+    visibility.current.firstVisibleLeaf = partners;
     renderLanding();
     expect(screen.getByTestId("from")).toHaveTextContent("security");
   });
 
-  // THE bug this guards. Every gate fails closed while it answers, so the
-  // first visible item read mid-flight is either the wrong one or absent —
-  // redirecting on it lands people on a screen they did not ask for, or
-  // refuses one they can open.
-  it("waits rather than redirecting while the gates are still answering", () => {
+  // A leaf already decided — `firstVisibleLeaf` is rail-order-correct by
+  // construction (see railActive.ts), so once it names one there is no
+  // lower-ranked leaf here to later get bumped by a higher-ranked one landing
+  // late — is navigable NOW. Waiting past this point would only hold the
+  // reader on a backend that has nothing to do with the item they are about
+  // to open. `isResolving` can still be true here (another gate hasn't
+  // answered yet); it just is no longer what decides whether this redirects.
+  it("redirects to a known leaf even while another gate is still answering", () => {
+    const registers = leaf("risk-registers", "/security/risk/registers");
+    visibility.current = {
+      ...visibility.current,
+      isResolving: true,
+      visibleLeaves: [registers],
+      firstVisibleLeaf: registers,
+    };
+    renderLanding();
+    expect(screen.getByTestId("url")).toHaveTextContent("/security/risk/registers");
+  });
+
+  // THE bug this guards, for the case that's still real: NOTHING decided yet
+  // — `firstVisibleLeaf` undefined — could still resolve to a leaf once every
+  // gate above it settles, so this has to wait — concluding "nothing here" on
+  // an incomplete answer would send someone chasing a permission they
+  // already hold.
+  it("waits rather than saying 'nothing here' while nothing is decided yet and gates are still answering", () => {
+    visibility.current = {
+      ...visibility.current,
+      isResolving: true,
+      visibleLeaves: [],
+      firstVisibleLeaf: undefined,
+    };
+    renderLanding();
+    expect(screen.getByTestId("url")).toHaveTextContent("/security");
+    expect(screen.getByText(/Opening Security and Compliance/)).toBeInTheDocument();
+  });
+
+  // The exact case `firstVisibleLeaf` exists for: a lower-ranked leaf already
+  // visible must NOT be offered as "the first" while a higher-ranked section
+  // hasn't answered — `visibleLeaves` alone (the rail's own, progressive
+  // list) would already have one here, but `firstVisibleLeaf` must not, since
+  // nothing has ruled out something ranking above it yet.
+  it("does not redirect on visibleLeaves alone when firstVisibleLeaf has not decided", () => {
     visibility.current = {
       ...visibility.current,
       isResolving: true,
       visibleLeaves: [leaf("risk-registers", "/security/risk/registers")],
+      firstVisibleLeaf: undefined,
     };
     renderLanding();
     expect(screen.getByTestId("url")).toHaveTextContent("/security");
