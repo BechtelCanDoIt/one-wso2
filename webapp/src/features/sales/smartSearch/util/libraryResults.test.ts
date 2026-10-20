@@ -70,6 +70,11 @@ describe("video timestamps", () => {
   it("has no timestamp when the link has none, or is not a link", () => {
     expect(parseVideoTimestampSeconds("https://x.test/v")).toBeNull();
     expect(parseVideoTimestampSeconds("not a url")).toBeNull();
+    expect(parseVideoTimestampSeconds("https://x.test/v?t=-5")).toBeNull();
+    expect(parseVideoTimestampSeconds("https://x.test/v?t=1h2m")).toBeNull();
+    expect(parseVideoTimestampSeconds("https://x.test/v?t=")).toBeNull();
+    expect(parseVideoTimestampSeconds(`https://x.test/v?t=${"9".repeat(30)}`)).toBeNull();
+    expect(parseVideoTimestampSeconds(`https://x.test/v?t=${"9".repeat(400)}`)).toBeNull();
   });
 
   it("formats minutes and seconds, and hours when there are any", () => {
@@ -191,6 +196,56 @@ describe("freshnessOf", () => {
     });
     expect(freshnessOf("2025-10-14 00:00:00", TEST_NOW)?.stale).toBe(true);
     expect(freshnessOf("2025-11-01 00:00:00", TEST_NOW)?.stale).toBe(false);
+  });
+
+  it("counts a full year to the day, not by calendar month", () => {
+    // TEST_NOW is 14 Oct 2026: the same date a year ago is stale, the day after is not.
+    expect(freshnessOf("2025-10-13 23:59:59", TEST_NOW)?.stale).toBe(true);
+    expect(freshnessOf("2025-10-14 12:00:00", TEST_NOW)?.stale).toBe(true);
+    expect(freshnessOf("2025-10-15 00:00:00", TEST_NOW)?.stale).toBe(false);
+    expect(freshnessOf("2025-10-31 00:00:00", TEST_NOW)?.stale).toBe(false);
+    expect(freshnessOf("2025-10-31 00:00:00", TEST_NOW)?.label).toBe("Added Oct 2025");
+  });
+
+  it("uses the last verified date when there is one", () => {
+    expect(freshnessOf("2024-10-18 04:17:44.848773", TEST_NOW, "2026-09-02 08:00:00")).toEqual({
+      label: "Last verified Sep 2026",
+      stale: false,
+    });
+    expect(freshnessOf("2026-01-05 00:00:00", TEST_NOW, "2024-12-20 08:00:00")).toEqual({
+      label: "Last verified Dec 2024 - check it is still current",
+      stale: true,
+    });
+  });
+
+  it("falls back to the added date when the verified date is missing or unreadable", () => {
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, null)?.label).toBe("Added Oct 2026");
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "soon")?.label).toBe("Added Oct 2026");
+  });
+
+  it("ignores dates that are not real, and uses the added date instead", () => {
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "0000-00-00 00:00:00")?.label).toBe("Added Oct 2026");
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "2026-02-30 00:00:00")?.label).toBe("Added Oct 2026");
+    expect(freshnessOf("2026-13-01", TEST_NOW)).toBeNull();
+  });
+
+  it("ignores a timestamp whose time is not real, and uses the added date instead", () => {
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "2026-09-02 99:99:99")?.label).toBe("Added Oct 2026");
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "2026-09-02 24:00:00")?.label).toBe("Added Oct 2026");
+    expect(freshnessOf("2026-10-09 04:05:11", TEST_NOW, "2026-09-02xyz")?.label).toBe("Added Oct 2026");
+  });
+
+  it("reads the usual shapes of a timestamp", () => {
+    for (const stamp of [
+      "2026-09-02",
+      "2026-09-02 08:00:00",
+      "2026-09-02 08:00:00.123456",
+      "2026-09-02T08:00:00Z",
+      "2026-09-02T08:00:00.000+05:30",
+      "2026-09-02 08:00",
+    ]) {
+      expect(freshnessOf(undefined, TEST_NOW, stamp)?.label).toBe("Last verified Sep 2026");
+    }
   });
 
   it("says nothing when the date can't be read", () => {

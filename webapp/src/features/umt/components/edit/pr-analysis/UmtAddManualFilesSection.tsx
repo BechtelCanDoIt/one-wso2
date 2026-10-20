@@ -57,25 +57,12 @@ import {
   umtSvnLocationRegex,
   UmtZipRejectedError,
   zipTargetDirectory,
+  type UmtPendingManualUpload,
 } from "../../../lib/umtPrAnalysis";
 import type { UmtBundleInfoChange, UmtFileOperation } from "../../../api/umtUpdates";
-import { useUmtUploadPullRequestAnalysisFile } from "../../../api/useUmtPrAnalysis";
 import { renderLinkValue } from "../../umtViewSectionPrimitives";
 
 const { DataGrid: DataGridComponent } = DataGrid;
-
-class UmtPartialZipUploadError extends Error {
-  constructor(
-    public readonly uploadedRows: UmtFileOperation[],
-    public readonly failedEntry: string,
-    public readonly uploadCause: unknown,
-  ) {
-    super(
-      `Uploaded ${uploadedRows.length} entr${uploadedRows.length === 1 ? "y" : "ies"} before "${failedEntry}" failed.`,
-    );
-    this.name = "UmtPartialZipUploadError";
-  }
-}
 
 type UmtManualFileOperation = "Added" | "Modified" | "Removed";
 type UmtManualFileSource = "upload" | "svn" | "github";
@@ -85,7 +72,9 @@ interface UmtAddManualFilesSectionProps {
   updateId: string;
   disabled: boolean;
   files: UmtFileOperation[];
-  onFilesChange: (files: UmtFileOperation[]) => void;
+  // `uploads` carries the files behind newly added rows; nothing is uploaded
+  // here, the caller does that on Analyze.
+  onFilesChange: (files: UmtFileOperation[], uploads?: UmtPendingManualUpload[]) => void;
   bundlesInfoChanges: UmtBundleInfoChange[];
   onBundlesInfoChanged: (changes: UmtBundleInfoChange[]) => void;
   onDirty: () => void;
@@ -101,8 +90,7 @@ export default function UmtAddManualFilesSection({
   onBundlesInfoChanged,
   onDirty,
 }: UmtAddManualFilesSectionProps) {
-  const upload = useUmtUploadPullRequestAnalysisFile(updateId);
-  const { showError, showWarning } = useNotifications();
+  const { showError } = useNotifications();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -153,10 +141,7 @@ export default function UmtAddManualFilesSection({
     }
     return id;
   }
-  // Spans the whole Add operation, including every sequential upload inside
-  // a zip's entry loop — unlike `upload.isPending`, which flips true/false
-  // once per individual mutateAsync call and made the button (and its
-  // cursor) flicker across a multi-entry zip.
+  // Spans the whole Add operation, including unpacking a zip.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const needsBundleInfo = bundleInfoApplies(relativePath, operation);
@@ -204,7 +189,7 @@ export default function UmtAddManualFilesSection({
     setSelectedFile(file);
   }
 
-  /** Validates the Add Manual File form, then uploads the file or zip and adds its rows. */
+  /** Validates the Add Manual File form, then adds the file's (or zip's) rows for upload on Analyze. */
   async function handleAdd() {
     setFormError(undefined);
     if (!relativePath.trim() || !operation) {
@@ -266,48 +251,31 @@ export default function UmtAddManualFilesSection({
     // uploaded instead of the URL-only placeholder those sources expect.
     const fileForUpload = source === "upload" ? selectedFile : null;
 
-    // The Java tool rejects a duplicate manual path *before* uploading anything
-    // ("<path> file is already added to the uploading file list"), so do the
-    // same here for a single file, whose resolved path is known up front. A
-    // zip's entries aren't known until it is unpacked and uploaded, so that
-    // case can only be reported afterwards — see below.
     const isZip = Boolean(fileForUpload?.name.toLowerCase().endsWith(".zip"));
-    if (!isZip) {
-      if (!fileForUpload) {
-        const fileNameError = sourceUrlFileNameError(lastPathSegment(sourceFilePath));
-        if (fileNameError) {
-          setFormError(fileNameError);
-          return;
-        }
-      }
-      const filePath = singleEntryFilePath(fileForUpload, relativePath, sourceFilePath);
-      if (files.some((row) => row.file === filePath)) {
-        setFormError(`"${filePath}" has already been added.`);
+    if (!isZip && !fileForUpload) {
+      const fileNameError = sourceUrlFileNameError(lastPathSegment(sourceFilePath));
+      if (fileNameError) {
+        setFormError(fileNameError);
         return;
       }
     }
 
     setIsSubmitting(true);
     try {
-      const newRows = isZip
-        ? await addZipEntries(fileForUpload as File, relativePath, operation, sourceFilePath)
-        : await addSingleEntry(fileForUpload, relativePath, operation, sourceFilePath);
+      const uploads = isZip
+        ? await zipEntryUploads(fileForUpload as File, relativePath, operation, sourceFilePath)
+        : [singleEntryUpload(fileForUpload, relativePath, operation, sourceFilePath)];
 
-      // Zip entries are already on the server by now, so refusing them would
-      // orphan the uploads (the failure mode #14 fixed). The stable row ids
-      // above make a duplicate path addressable instead — both rows render and
-      // either can be deleted — so add them and say which ones collided.
+      // Like the Java tool ("<path> file is already added to the uploading file
+      // list"), refuse a path that is already listed, before anything is added.
       const existingPaths = new Set(files.map((row) => row.file));
-      const collisions = newRows.filter((row) => existingPaths.has(row.file));
-      if (collisions.length > 0) {
-        showWarning(
-          collisions.length === 1
-            ? `"${collisions[0].file}" was already in the list and has been added again. Delete whichever entry you don't want.`
-            : `${collisions.length} of these files were already in the list (e.g. "${collisions[0].file}") and have been added again. Delete whichever entries you don't want.`,
-        );
+      const duplicate = uploads.find((upload) => existingPaths.has(upload.row.file));
+      if (duplicate) {
+        setFormError(`"${duplicate.row.file}" has already been added.`);
+        return;
       }
 
-      onFilesChange([...files, ...newRows]);
+      onFilesChange([...files, ...uploads.map((upload) => upload.row)], uploads);
       if (needsBundleInfo) {
         onBundlesInfoChanged([
           ...bundlesInfoChanges,
@@ -326,67 +294,48 @@ export default function UmtAddManualFilesSection({
     } catch (error) {
       if (error instanceof UmtZipRejectedError) {
         setFormError(error.message);
-      } else if (error instanceof UmtPartialZipUploadError) {
-        if (error.uploadedRows.length > 0) {
-          onFilesChange([...files, ...error.uploadedRows]);
-          onDirty();
-        }
-        // Deliberately leave the dialog open and the form populated so the user
-        // can see which zip failed and retry the remaining entries.
-        showError(
-          `${error.message} ${describeError(error.uploadCause)} Remove the listed files and retry the remaining ones.`,
-        );
       } else {
-        showError(`Upload failed. ${describeError(error)}`);
+        showError(`Couldn't add the file. ${describeError(error)}`);
       }
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  async function addSingleEntry(
+  function singleEntryUpload(
     file: File | null,
     path: string,
     op: UmtManualFileOperation,
     sourceFilePath: string,
-  ): Promise<UmtFileOperation[]> {
-    await upload.mutateAsync({
+  ): UmtPendingManualUpload {
+    return {
+      row: { file: singleEntryFilePath(file, path, sourceFilePath), operation: op, sourceFilePath },
       relativePath: path,
       sourceFilePath,
       file: file ?? new Blob([], { type: "application/octet-stream" }),
-    });
-    return [{ file: singleEntryFilePath(file, path, sourceFilePath), operation: op, sourceFilePath }];
+    };
   }
 
-  /** Checks and unpacks a zip, then uploads its entries into the target directory. */
-  async function addZipEntries(
+  /** Checks and unpacks a zip into one pending upload per entry, in the target directory. */
+  async function zipEntryUploads(
     zipFile: File,
     path: string,
     op: UmtManualFileOperation,
     sourceFilePath: string,
-  ): Promise<UmtFileOperation[]> {
+  ): Promise<UmtPendingManualUpload[]> {
     const zip = await JSZip.loadAsync(zipFile);
     const entries = Object.values(zip.files).filter((entry) => !entry.dir);
     const extracted = await extractZipEntriesWithinLimits(entries);
-    const rows: UmtFileOperation[] = [];
     // Resolve once: `path` may still carry the archive's own name on the end,
     // which would otherwise become a directory segment in every entry's path.
     const targetDir = zipTargetDirectory(path, zipFile.name);
 
-    for (const entry of extracted) {
-      const extractedFile = new File([entry.blob], entry.name);
-      try {
-        await upload.mutateAsync({ relativePath: targetDir, sourceFilePath, file: extractedFile });
-      } catch (error) {
-        // Entries already uploaded exist on the server. Hand them back so the
-        // caller can still list them — otherwise they're orphaned: invisible in
-        // the grid, undeletable, and re-uploaded if the user retries the zip.
-        throw new UmtPartialZipUploadError(rows, entry.name, error);
-      }
-      rows.push({ file: `${targetDir}/${entry.name}`, operation: op, sourceFilePath });
-    }
-
-    return rows;
+    return extracted.map((entry) => ({
+      row: { file: `${targetDir}/${entry.name}`, operation: op, sourceFilePath },
+      relativePath: targetDir,
+      sourceFilePath,
+      file: new File([entry.blob], entry.name),
+    }));
   }
 
   function confirmDeleteFile() {
@@ -567,6 +516,7 @@ export default function UmtAddManualFilesSection({
         <DialogTitle>Add Manual File</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="info">Files are uploaded when you click Analyze.</Alert>
             <TextField
               fullWidth
               label="Path in Product Pack"

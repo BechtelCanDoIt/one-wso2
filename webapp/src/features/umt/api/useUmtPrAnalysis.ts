@@ -15,7 +15,7 @@
 // under the License.
 
 import { useAsgardeo } from "@asgardeo/react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useIsMutating, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { httpRetry } from "@api/errors";
 import { authedPost, authedPut, fetchWithReauth, HttpError } from "@api/http";
 import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
@@ -84,6 +84,8 @@ export function useUmtPrAnalysisStatus(
       );
       if (status === UMT_PR_ANALYSIS_STATUS.COMPLETED && previousStatus !== UMT_PR_ANALYSIS_STATUS.COMPLETED) {
         void queryClient.invalidateQueries({ queryKey: ["umt-update-pull-request-analysis"] });
+        // The update's own praStatus is what moves it on to PRAnalyzed.
+        void queryClient.invalidateQueries({ queryKey: ["umt-update"] });
       }
       return status;
     },
@@ -111,53 +113,58 @@ export function useUmtStartPullRequestAnalysis(id: string) {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["umt-update-pr-analysis-status"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-update-pull-request-analysis"] }),
+        queryClient.invalidateQueries({ queryKey: ["umt-update"] }),
       ]);
     },
   });
 }
 
-// Thrown when the lifecycle promotion succeeds but starting product analysis
-// fails. The promotion isn't reverted here: PRAnalyzed is a forward step in a
-// one-directional state machine, and PUTting the update back to its previous
-// state is not a transition this app otherwise performs — it risks either
-// being rejected by the backend's own transition rules or silently hiding
-// that the update genuinely advanced. Instead the caller is told plainly what
-// happened, and how to actually recover: PR Analysis's own Proceed button is
-// gone as soon as the promotion commits (the stepper follows the now-real
-// PRAnalyzed lifecycleState straight to Product Analysis), so there is no
-// same-screen retry — the only path back to a retry is demoting the update
-// (Product Analysis's "Demote to Development") and running Proceed again
-// from PR Analysis.
-export class UmtPartialProceedError extends Error {
-  constructor(public readonly analysisStartError: unknown) {
+// Thrown when the update was promoted to PRAnalyzed but its product analysis
+// failed. The promotion is rolled back to Development, so a half-analyzed
+// update never sits in PRAnalyzed; `rolledBack` says whether that worked.
+export class UmtProductAnalysisFailedError extends Error {
+  constructor(
+    public readonly rolledBack: boolean,
+    public readonly analysisError: unknown,
+    public readonly rollbackError?: unknown,
+  ) {
     super(
-      "Advanced to PRAnalyzed, but starting product analysis failed. Use Product Analysis's " +
-        "\"Demote to Development\" button, then Proceed again from PR Analysis to retry.",
+      rolledBack
+        ? "Product analysis failed, so the update was moved back to Development. Run Analyze again."
+        : "Product analysis failed, and moving the update back to Development also failed. Use " +
+            '"Demote to Development", then run Analyze again.',
     );
-    this.name = "UmtPartialProceedError";
+    this.name = "UmtProductAnalysisFailedError";
   }
 }
 
-// PR Analysis's Proceed sends two calls together — promote to PRAnalyzed,
-// then start product analysis — then invalidates the relevant queries to
-// pick up results. `lifecycleState: "PRAnalyzed"` is hardcoded here
-// (rather than sent from the backend's promoteStages[0], as most later
-// transitions do) since it's the fixed first step out of Development.
-// Invalidation runs in onSettled (not onSuccess) so a failure in the second
-// call still refreshes the cache to reflect the lifecycle promotion that did
-// commit, instead of leaving the UI showing the pre-Proceed state.
+const advanceToPrAnalyzedKey = (id: string) => ["umt-advance-to-pr-analyzed", id];
+
+// Promotes the update to PRAnalyzed, then runs its product analysis, then
+// invalidates the relevant queries to pick up results. `lifecycleState:
+// "PRAnalyzed"` is hardcoded here (rather than sent from the backend's
+// promoteStages[0], as most later transitions do) since it's the fixed first
+// step out of Development. If the promotion itself fails the update never
+// left Development, so there is nothing to roll back. Invalidation runs in
+// onSettled (not onSuccess) so the page re-reads wherever the update ended up.
 export function useUmtProceedFromPrAnalysis(id: string) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, void>({
+    mutationKey: advanceToPrAnalyzedKey(id),
     mutationFn: async () => {
       const accessToken = await getAccessToken();
       await authedPut(umtServiceUrls.update(id), accessToken, { lifecycleState: "PRAnalyzed" });
       try {
         await authedPost(umtServiceUrls.updateProductAnalysis(id), accessToken, {});
-      } catch (analysisStartError) {
-        throw new UmtPartialProceedError(analysisStartError);
+      } catch (analysisError) {
+        try {
+          await authedPut(umtServiceUrls.update(id), accessToken, { lifecycleState: "Development" });
+        } catch (rollbackError) {
+          throw new UmtProductAnalysisFailedError(false, analysisError, rollbackError);
+        }
+        throw new UmtProductAnalysisFailedError(true, analysisError);
       }
     },
     onSettled: async () => {
@@ -166,9 +173,16 @@ export function useUmtProceedFromPrAnalysis(id: string) {
         queryClient.invalidateQueries({ queryKey: ["umt-updates"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-update-lifecycle-history"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-update-product-analysis"] }),
+        // A rollback to Development resets the PR analysis status.
+        queryClient.invalidateQueries({ queryKey: ["umt-update-pr-analysis-status"] }),
       ]);
     },
   });
+}
+
+/** True while useUmtProceedFromPrAnalysis is promoting update `id` and running its product analysis. */
+export function useUmtIsAdvancingToPrAnalyzed(id: string): boolean {
+  return useIsMutating({ mutationKey: advanceToPrAnalyzedKey(id) }) > 0;
 }
 
 // Mirrors financeReceipts.ts's uploadReceipt: calls fetchWithReauth directly
@@ -176,18 +190,32 @@ export function useUmtProceedFromPrAnalysis(id: string) {
 // When there's no local file (an SVN-location- or GitHub-raw-URL-only
 // source), the caller passes a small placeholder blob — the backend already
 // expects a `file` part on every call regardless of source.
+//
+// The backend stores the upload under the `file` part's filename and ignores
+// the `relativePath` field, so `filePath` — the path the PR analysis request
+// will later reference — must be sent as that filename. Otherwise the file
+// lands at its bare name and the analysis fails with "File does not exist in
+// UMT-container" (the Java and ui-revamp UIs both sent the full path).
 export function useUmtUploadPullRequestAnalysisFile(id: string) {
   const getAccessToken = useAccessToken();
 
-  return useMutation<void, Error, { relativePath: string; sourceFilePath: string; file: File | Blob }>({
-    mutationFn: async ({ relativePath, sourceFilePath, file }) => {
+  return useMutation<
+    void,
+    Error,
+    { relativePath: string; sourceFilePath: string; file: File | Blob; filePath?: string }
+  >({
+    mutationFn: async ({ relativePath, sourceFilePath, file, filePath }) => {
       const accessToken = await getAccessToken();
       const url = umtServiceUrls.updatePullRequestAnalysisFile(id);
       const formData = new FormData();
       formData.append("relativePath", relativePath);
       formData.append("id", id);
       formData.append("sourceFilePath", sourceFilePath);
-      formData.append("file", file);
+      if (filePath) {
+        formData.append("file", file, filePath);
+      } else {
+        formData.append("file", file);
+      }
 
       const res = await fetchWithReauth(url, { method: "POST", body: formData }, accessToken);
       if (!res.ok) {
