@@ -15,7 +15,7 @@
 // under the License.
 
 import { memo, useId, useLayoutEffect, useMemo, useRef, useState, type Ref, type UIEvent } from "react";
-import { Box, ButtonBase, ListingTable, Typography } from "@wso2/oxygen-ui";
+import { Box, ButtonBase, ListingTable, TableSortLabel, Typography } from "@wso2/oxygen-ui";
 import WideTableNotice from "@components/wide-table-notice/WideTableNotice";
 import {
   ROW_WINDOW_THRESHOLD,
@@ -43,6 +43,7 @@ import {
   leadHeadCellSx,
   sectionRowSx,
 } from "./buildTableSx";
+import { sortsColumn, type BuildSort, type BuildSortColumn } from "./buildTableSort";
 import { gridFrameSx } from "./misLookTokens";
 
 // The grid's visual rules, in one place (the values are `buildTableSx.ts`):
@@ -184,6 +185,13 @@ export interface BuildTableProps<L extends BuildLeadColumn = BuildLeadColumn> {
    * it off and keeps `maxBodyHeight`.
    */
   fill?: boolean;
+  /**
+   * The column the rows are sorted by. The page sorts the rows and hands the
+   * same list to the table and the export; the table only draws the marks.
+   */
+  sort?: BuildSort | null;
+  /** Makes every column header a sort button. Without it the headers are plain. */
+  onSort?: (column: BuildSortColumn) => void;
 }
 
 export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>({
@@ -202,6 +210,8 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
   emphasisStyle,
   collapseLoneSubHeader = false,
   fill = false,
+  sort = null,
+  onSort,
 }: BuildTableProps<L>) {
   // The Period label stands alone when it has one sub-column under it (a Build
   // with one ARR type); the sub-header row only exists with several. Kept in
@@ -251,6 +261,21 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
     () => subColumns.map((column) => ({ ...column, width: Math.max(column.width, fillWidth) })),
     [subColumns, fillWidth],
   );
+  const ariaSortFor = (column: BuildSortColumn) =>
+    sortsColumn(sort, column) ? (sort?.direction === "desc" ? "descending" : "ascending") : undefined;
+  /** A header's label, as a sort button when the page can sort. */
+  const sortable = (label: string, column: BuildSortColumn) =>
+    onSort ? (
+      <TableSortLabel
+        active={sortsColumn(sort, column)}
+        direction={sortsColumn(sort, column) ? sort?.direction : "desc"}
+        onClick={() => onSort(column)}
+      >
+        {label}
+      </TableSortLabel>
+    ) : (
+      label
+    );
   /** The id heading one identity column. The first keeps the name it shipped with. */
   const leadHeaderId = (index: number) =>
     index === 0 ? ids.rowLabelHeader : ids.leadHeader(lead[index].key);
@@ -350,10 +375,11 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                     // table algorithm has to resolve on its own.
                     rowSpan={columnGroups.length && subColumns.length && !singleHeaderRow ? 2 : 1}
                     scope="col"
+                    aria-sort={ariaSortFor({ kind: "lead", key: column.key })}
                     style={{ width: column.width, minWidth: column.width }}
                     sx={[leadHeadCellSx(leadOffsets[index])]}
                   >
-                    {column.label}
+                    {sortable(column.label, { kind: "lead", key: column.key })}
                   </ListingTable.Cell>
                 ))}
                 {columnGroups.map((group) => (
@@ -362,6 +388,11 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                     id={ids.groupHeader(group.key)}
                     colSpan={subColumns.length}
                     scope="colgroup"
+                    aria-sort={
+                      singleHeaderRow
+                        ? ariaSortFor({ kind: "figure", groupKey: group.key, subKey: subColumns[0].key })
+                        : undefined
+                    }
                     sx={[
                       headCellSx,
                       {
@@ -373,7 +404,9 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                       },
                     ]}
                   >
-                    {group.label}
+                    {singleHeaderRow
+                      ? sortable(group.label, { kind: "figure", groupKey: group.key, subKey: subColumns[0].key })
+                      : group.label}
                   </ListingTable.Cell>
                 ))}
               </ListingTable.Row>
@@ -392,6 +425,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                       key={`${group.key}:${subColumn.key}`}
                       id={ids.subHeader(group.key, subColumn.key)}
                       scope="col"
+                      aria-sort={ariaSortFor({ kind: "figure", groupKey: group.key, subKey: subColumn.key })}
                       style={{
                         top: periodRowHeight,
                         width: subColumn.width,
@@ -406,7 +440,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                         grandTotalSx(subColumn.key),
                       ]}
                     >
-                      {subColumn.label}
+                      {sortable(subColumn.label, { kind: "figure", groupKey: group.key, subKey: subColumn.key })}
                     </ListingTable.Cell>
                   )),
                 )}

@@ -1299,6 +1299,137 @@ describe("Forecasted on Region Summary and BU Summary", () => {
   });
 });
 
+describe("sorting a table from its header", () => {
+  /** The first cell of every row, top to bottom. */
+  const firstCells = (name?: RegExp) =>
+    within(screen.getByRole("table", name ? { name } : undefined))
+      .getAllByRole("row")
+      .map((row) => row.children[0]?.textContent ?? "");
+
+  const BUILD = {
+    openingArr: 100,
+    newArr: 5,
+    expansions: 9,
+    reductions: 1,
+    lost: 3,
+    endingArr: 120,
+  };
+  const sortHeader = () => screen.getByRole("columnheader", { name: THIS_YEAR });
+  const sortButton = () => within(sortHeader()).getByRole("button");
+
+  beforeEach(() => {
+    summary.value = loaded(BUILD);
+  });
+
+  it("cycles descending, ascending, then off, marking the sorted header", async () => {
+    renderPage();
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+    await userEvent.click(sortButton());
+    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
+    await userEvent.click(sortButton());
+    expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.click(sortButton());
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+  });
+
+  it("is reachable and operable from the keyboard", async () => {
+    renderPage();
+    sortButton().focus();
+    await userEvent.keyboard("{Enter}");
+    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
+    await userEvent.keyboard(" ");
+    expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
+  });
+
+  it("reorders the movement rows between Opening and Ending, and nothing else", async () => {
+    renderPage();
+    const before = firstCells();
+    await userEvent.click(sortButton());
+    const desc = firstCells();
+    const movement = ["Expansions", "New", "Lost", "Reductions"];
+    const start = desc.indexOf("Opening ARR") + 1;
+    expect(desc.slice(start, start + 4)).toEqual(movement);
+    await userEvent.click(sortButton());
+    const asc = firstCells();
+    expect(asc.slice(start, start + 4)).toEqual([...movement].reverse());
+    // Everything else is where it was: the bands, the bold rows, the lot.
+    for (const label of ["ARR movement", "Dollar retention", "Customers", "Opening ARR", "Ending ARR"]) {
+      expect(desc.indexOf(label), `${label} moved under descending`).toBe(before.indexOf(label));
+      expect(asc.indexOf(label), `${label} moved under ascending`).toBe(before.indexOf(label));
+    }
+  });
+
+  it("puts the rows back when the sort is turned off", async () => {
+    renderPage();
+    const before = firstCells();
+    await userEvent.click(sortButton());
+    await userEvent.click(sortButton());
+    await userEvent.click(sortButton());
+    expect(firstCells()).toEqual(before);
+  });
+
+  it("sorts the identity column of a table with several", async () => {
+    customers.value = customerBook([
+      NORTHWIND,
+      { ...NORTHWIND, id: "a2", name: "Contoso" },
+      { ...NORTHWIND, id: "a3", name: "Zeta Corp" },
+    ]);
+    renderPage("?table=customers");
+    const nameHeader = screen.getByRole("columnheader", { name: "Account Name" });
+    await userEvent.click(within(nameHeader).getByRole("button"));
+    expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Zeta Corp", "Northwind Bank", "Contoso"]);
+    await userEvent.click(within(nameHeader).getByRole("button"));
+    expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Contoso", "Northwind Bank", "Zeta Corp"]);
+  });
+
+  it("keeps the Customers Total above the book under every sort", async () => {
+    customers.value = customerBook([NORTHWIND, { ...NORTHWIND, id: "a2", name: "Contoso", arrGrandTotal: 1 }]);
+    renderPage("?table=customers");
+    const total = screen.getByRole("columnheader", { name: "Total" });
+    for (let step = 0; step < 3; step++) {
+      await userEvent.click(within(total).getByRole("button"));
+      expect(firstCells(/Customers/)[2], `after click ${step + 1}`).toBe("Total");
+    }
+  });
+
+  it("sorts the two summaries by their figures as well", async () => {
+    buExit.value = unitsLoaded(SPLIT);
+    renderPage("?table=bu-summary");
+    const header = screen.getByRole("columnheader", { name: "Exit ARR" });
+    await userEvent.click(within(header).getByRole("button"));
+    expect(header).toHaveAttribute("aria-sort", "descending");
+    expect(firstCells().slice(2).slice(0, 2)).toEqual(["API Platform", "IAM"]);
+    await userEvent.click(within(header).getByRole("button"));
+    // The Total holds its place at the foot while the units reverse above it.
+    expect(firstCells().slice(-2)).toEqual(["API Platform", "Total"]);
+  });
+
+  it("starts again when the applied filters change", async () => {
+    renderPage();
+    await userEvent.click(sortButton());
+    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
+    await userEvent.click(screen.getByLabelText("Channel/Direct"));
+    await userEvent.click(await screen.findByRole("option", { name: "Channel" }));
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+  });
+
+  it("starts again on another Table and on another Period", async () => {
+    renderRouted(misPathFor(MIS_PERIODS.ANNUALLY));
+    await userEvent.click(sortButton());
+    await switchTable("Customers");
+    await switchTable("BU Build");
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+    await userEvent.click(sortButton());
+    await userEvent.click(
+      within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: "Quarterly" }),
+    );
+    expect(
+      screen.getAllByRole("columnheader").some((header) => header.hasAttribute("aria-sort")),
+    ).toBe(false);
+  });
+});
+
 describe("the QRR and MRR Builds", () => {
   // The whole model layer is Period-generic already — the Applied
   // set holds one type and one cumulative flag whatever the Period, and

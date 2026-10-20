@@ -19,6 +19,7 @@ import { Box, Skeleton, Typography } from "@wso2/oxygen-ui";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import MisShell from "../components/MisShell";
+import { sortRows, sortValueReader, useBuildSort } from "../components/buildTableSort";
 import BuildTable, { type BuildCellFor } from "../components/BuildTable";
 import { MAX_BODY_HEIGHT } from "../components/buildTableSx";
 import {
@@ -377,6 +378,15 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
           : undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    rows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey) => rawFigure(row, { key: groupKey, label: groupKey }),
+      lead: (row) => row.label,
+    }),
+  );
 
   if (summary.isLoading) {
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;
@@ -420,7 +430,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
               // were exported.
                 columnGroups,
                 subColumns: SUB_COLUMNS,
-                rows,
+                rows: shownRows,
                 value: rawFigure,
               })
             }
@@ -453,7 +463,9 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
         rowLabelHeader="Summary"
         columnGroups={columnGroups}
         subColumns={SUB_COLUMNS}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </Box>
@@ -599,6 +611,15 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
           : undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    rows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey, subKey) => rawFigure(row, { key: groupKey, label: groupKey }, subKey),
+      lead: (row, key) => (key === leadColumns[0].key ? row.label : leadCell(row, leadColumns.find((column) => column.key === key)!)),
+    }),
+  );
 
   if (book.isLoading) {
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;
@@ -676,7 +697,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
                 leadCell,
                 columnGroups,
                 subColumns,
-                rows,
+                rows: shownRows,
                 value: rawFigure,
                 valueType: ALL_CURRENCY,
               })
@@ -694,7 +715,9 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
         leadCell={leadCell}
         columnGroups={columnGroups}
         subColumns={subColumns}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
         grandTotalKeys={grandTotalKeys}
       />
@@ -818,6 +841,15 @@ function RegionExitGrid({
       muted: raw === undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    rows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey, subKey) => rawFigure(row, { key: groupKey, label: groupKey }, subKey),
+      lead: (row) => row.label,
+    }),
+  );
 
   return (
     <SummaryBody
@@ -839,7 +871,7 @@ function RegionExitGrid({
               rowLabelWidth: REGION_LABEL_WIDTH,
               columnGroups,
               subColumns,
-              rows,
+              rows: shownRows,
               value: rawFigure,
               valueType: ALL_CURRENCY,
             })
@@ -857,7 +889,9 @@ function RegionExitGrid({
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
         subColumns={subColumns}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </SummaryBody>
@@ -919,6 +953,15 @@ function RegionMetricsGrid({
       muted: raw === undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    rows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey, subKey) => rawFigure(row, { key: groupKey, label: groupKey }, subKey),
+      lead: (row) => row.label,
+    }),
+  );
 
   return (
     <SummaryBody
@@ -941,7 +984,7 @@ function RegionMetricsGrid({
               rowLabelWidth: REGION_LABEL_WIDTH,
               columnGroups,
               subColumns: REGION_METRICS_SUB_COLUMNS,
-              rows,
+              rows: shownRows,
               value: rawFigure,
               valueType: ALL_CURRENCY,
             })
@@ -959,7 +1002,9 @@ function RegionMetricsGrid({
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
         subColumns={REGION_METRICS_SUB_COLUMNS}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </SummaryBody>
@@ -995,6 +1040,15 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
       muted: raw === undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    BU_EXIT_ROWS,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey) => rawFigure(row, { key: groupKey, label: groupKey }),
+      lead: (row) => row.label,
+    }),
+  );
 
   return (
     <SummaryBody
@@ -1015,7 +1069,7 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
               rowLabelWidth: BU_LABEL_WIDTH,
               columnGroups,
               subColumns: EXIT_ARR_SUB_COLUMNS,
-              rows: BU_EXIT_ROWS,
+              rows: shownRows,
               value: rawFigure,
               valueType: ALL_CURRENCY,
             })
@@ -1031,7 +1085,9 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
         rowLabelWidth={BU_LABEL_WIDTH}
         columnGroups={columnGroups}
         subColumns={EXIT_ARR_SUB_COLUMNS}
-        rows={BU_EXIT_ROWS}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </SummaryBody>

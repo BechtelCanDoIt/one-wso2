@@ -48,6 +48,29 @@ export const sortsColumn = (sort: BuildSort | null, column: BuildSortColumn): bo
   return false;
 };
 
+/** A raw figure as something to sort on: a number sorts as one, a words answer as words. */
+export function figureSortValue(raw: unknown): BuildSortValue {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : undefined;
+  if (typeof raw !== "string" || raw.trim() === "") return undefined;
+  const asNumber = Number(raw);
+  return Number.isFinite(asNumber) ? asNumber : raw;
+}
+
+/**
+ * Reads a row for a column from the two things a page already has: its raw
+ * figure, and the words in an identity column.
+ */
+export const sortValueReader =
+  ({
+    figure,
+    lead,
+  }: {
+    figure: (row: BuildRow, groupKey: string, subKey: string) => unknown;
+    lead: (row: BuildRow, key: string) => BuildSortValue;
+  }) =>
+  (row: BuildRow, column: BuildSortColumn): BuildSortValue =>
+    column.kind === "figure" ? figureSortValue(figure(row, column.groupKey, column.subKey)) : lead(row, column.key);
+
 /** Descending, then ascending, then off; another column starts at descending. */
 export function nextSort(current: BuildSort | null, column: BuildSortColumn): BuildSort | null {
   if (!sortsColumn(current, column)) return { column, direction: "desc" };
