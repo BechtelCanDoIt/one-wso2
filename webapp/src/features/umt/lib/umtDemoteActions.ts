@@ -33,8 +33,10 @@ export function computeUmtDemoteActions(
   isAdmin: boolean,
 ): UmtDemoteAction[] {
   switch (stepId) {
-    case "product-analysis":
-      return [{ label: "Demote to Development", targetLifecycleState: "Development" }];
+    case "files-analysis":
+      return lifecycleState === "PRAnalyzed"
+        ? [{ label: "Demote to Development", targetLifecycleState: "Development" }]
+        : [];
     case "description-instruction":
       // Both of this step's demote buttons are gated on !isHotfix; there is
       // no separate rule for the hotfix branch.

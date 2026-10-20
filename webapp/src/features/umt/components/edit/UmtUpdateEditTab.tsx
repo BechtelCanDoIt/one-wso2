@@ -21,6 +21,7 @@ import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtUpdateSummary } from "../../api/umtUpdates";
 import { useUmtGate } from "../../api/useUmtGate";
 import { useUmtLifecycleTransition } from "../../api/useUmtLifecycleTransition";
+import { useUmtIsAdvancingToPrAnalyzed } from "../../api/useUmtPrAnalysis";
 import { useUmtProductAnalysis, useUmtPullRequestAnalysis } from "../../api/useUmtUpdateViewData";
 import {
   computeUmtEditSteps,
@@ -40,9 +41,8 @@ import UmtEditStepPlaceholder from "./UmtEditStepPlaceholder";
 import UmtEditStepper from "./UmtEditStepper";
 import UmtDescriptionInstructionStep from "./description-instruction/UmtDescriptionInstructionStep";
 import UmtFileApprovalStep from "./file-approval/UmtFileApprovalStep";
+import UmtFilesAnalysisStep from "./files-analysis/UmtFilesAnalysisStep";
 import UmtIntegrationTestsStep from "./integration-tests/UmtIntegrationTestsStep";
-import UmtPrAnalysisStep from "./pr-analysis/UmtPrAnalysisStep";
-import UmtProductAnalysisStep from "./product-analysis/UmtProductAnalysisStep";
 import UmtSecurityAdvisoryStep from "./security-advisory/UmtSecurityAdvisoryStep";
 import UmtTestingStep from "./testing/UmtTestingStep";
 import UmtValidateStep from "./validate/UmtValidateStep";
@@ -61,6 +61,7 @@ export default function UmtUpdateEditTab({
   const stagingTestResults = useUmtStagingTestResults(id, update.lifecycleState);
   const gate = useUmtGate();
   const transition = useUmtLifecycleTransition(id);
+  const isAdvancingToPrAnalyzed = useUmtIsAdvancingToPrAnalyzed(id);
   const { showSuccess, showError } = useNotifications();
 
   const hasFileOps = umtHasAdditionalFileOperations(pullRequestAnalysis.data, update.lifecycleState);
@@ -106,7 +107,11 @@ export default function UmtUpdateEditTab({
 
   const isFileApproval = currentStep.id === "file-approval";
   const isCloudDevelopment = currentStep.id === "cloud-development";
-  const isProductAnalysis = currentStep.id === "product-analysis";
+  const isFilesAnalysis = currentStep.id === "files-analysis";
+  // Files Analysis spans Development and PRAnalyzed; the product analysis
+  // (and the shared step actions under it) only exists once PRAnalyzed, and
+  // only once the run that promoted the update has finished its analysis.
+  const isProductAnalysis = isFilesAnalysis && update.lifecycleState === "PRAnalyzed" && !isAdvancingToPrAnalyzed;
   const isDescriptionInstruction = currentStep.id === "description-instruction";
   const isIntegrationTests = currentStep.id === "integration-tests";
   const isSecurityAdvisory = currentStep.id === "security-advisory";
@@ -142,7 +147,7 @@ export default function UmtUpdateEditTab({
   const verifyingReady = !isVerifying || update.lifecycleState === "Released";
   const stepReady =
     productAnalysisReady && descriptionInstructionReady && integrationTestsReady && testingReady && verifyingReady;
-  // File Approval, Cloud Support's Development step, Product Analysis,
+  // File Approval, Cloud Support's Development step, Files Analysis,
   // Description and Instruction, and Integration Tests are wired
   // (currentStep.proceedWired); every other step's Proceed is a stub. Cloud
   // Support's single transition is hardcoded to "Released"; every other
@@ -205,10 +210,8 @@ export default function UmtUpdateEditTab({
           <Typography variant="h6" sx={{ color: "info.main", fontWeight: 700, textAlign: "center", py: 4 }}>
             All states completed.
           </Typography>
-        ) : currentStep.id === "pr-analysis" ? (
-          <UmtPrAnalysisStep id={id} update={update} />
-        ) : currentStep.id === "product-analysis" ? (
-          <UmtProductAnalysisStep id={id} update={update} />
+        ) : isFilesAnalysis ? (
+          <UmtFilesAnalysisStep id={id} update={update} />
         ) : currentStep.id === "description-instruction" ? (
           <UmtDescriptionInstructionStep id={id} update={update} />
         ) : currentStep.id === "security-advisory" ? (
@@ -234,7 +237,7 @@ export default function UmtUpdateEditTab({
           <UmtEditStepPlaceholder stepLabel={currentStep.label} />
         )}
       </Box>
-      {!isTerminal && currentStep.id !== "pr-analysis" && (
+      {!isTerminal && (!isFilesAnalysis || isProductAnalysis) && (
         <UmtEditStepActions
           proceedLabel={
             isFileApproval

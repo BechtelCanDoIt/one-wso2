@@ -19,10 +19,14 @@ import { computeUmtDemoteActions } from "./umtDemoteActions";
 import type { UmtEditStepId } from "./umtEditSteps";
 
 describe("computeUmtDemoteActions", () => {
-  it("returns Demote to Development for product-analysis", () => {
-    expect(computeUmtDemoteActions("product-analysis", null, false, false)).toEqual([
+  it("returns Demote to Development for files-analysis once the update is PRAnalyzed", () => {
+    expect(computeUmtDemoteActions("files-analysis", "PRAnalyzed", false, false)).toEqual([
       { label: "Demote to Development", targetLifecycleState: "Development" },
     ]);
+  });
+
+  it("returns no demote buttons for files-analysis while the update is in Development", () => {
+    expect(computeUmtDemoteActions("files-analysis", "Development", false, false)).toEqual([]);
   });
 
   it("returns both demote buttons for description-instruction when not a hotfix", () => {
@@ -72,7 +76,6 @@ describe("computeUmtDemoteActions", () => {
 
   it("returns no demote buttons for every step outside the legacy inventory", () => {
     const stepsWithoutDemote: UmtEditStepId[] = [
-      "pr-analysis",
       "security-advisory",
       "integration-tests",
       "completed",
