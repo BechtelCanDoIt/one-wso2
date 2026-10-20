@@ -164,8 +164,8 @@ export function defaultYearsBack(period: MisPeriod, table: MisTable): number {
 
 /**
  * The type values a Table offers, mirroring the filter bar's option lists:
- * the summaries take Total and Closed Won only, Customers has no Renewal, and
- * the Build has no Delayed.
+ * the summaries take Total, Closed Won and Forecasted, Customers has no
+ * Renewal, and the Build has no Delayed.
  *
  * Validating a link against a single global list instead would restore views
  * the filter bar cannot show — a Renewal column on a summary that has no
@@ -183,10 +183,11 @@ export function defaultYearsBack(period: MisPeriod, table: MisTable): number {
  * option for. Ported here instead, once, so the control and the contract cannot
  * drift — spec §7. It is the one place a Window has ever had to be known.
  *
- * The summaries are deliberately NOT widened. Spec §3 states their list as a
- * business rule — a summary reports a balance, it does not cut a trailing
- * window — and the source's blanket TTM branch reaching them too looks like the
- * accident rather than the intent.
+ * The summaries are deliberately NOT widened. A summary reports a balance at a
+ * date and does not cut a trailing window, so it takes no Delayed type on a TTM
+ * Window, and the source's blanket TTM branch reaching them too looks like the
+ * accident rather than the intent. Off TTM the source offers them every type but
+ * Delayed and Renewal (`FilterBar.js`, `arrTypeOptionsUI`).
  */
 export function allowedTypeValues(
   period: MisPeriod,
@@ -197,7 +198,13 @@ export function allowedTypeValues(
   // Membership, not a prefix. A renamed type that no longer starts with
   // "Delayed" would otherwise sail through and become a view the bar cannot show.
   if (isSummaryTable(table)) {
-    return all.filter((value) => !DELAYED_TYPE_VALUES.has(value) && !FORECAST_TYPE_VALUES.has(value));
+    const onTtm = period === MIS_PERIODS.ANNUALLY && viewWindow === MIS_WINDOWS.TTM;
+    return all.filter(
+      (value) =>
+        !DELAYED_TYPE_VALUES.has(value) &&
+        !RENEWAL_TYPE_VALUES.has(value) &&
+        !(onTtm && FORECAST_TYPE_VALUES.has(value)),
+    );
   }
   // Annually is the only Period with a Window, so one named on either of the
   // others is not a narrowing — it is a parameter that was already ignored.
