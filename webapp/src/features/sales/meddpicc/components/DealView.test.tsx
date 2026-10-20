@@ -349,6 +349,23 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(within(log).queryByText("Who signs the contract?")).not.toBeInTheDocument();
   });
 
+  it("sends a question once, however fast it is sent again", async () => {
+    let finish: (a: AskAnswer) => void = () => {};
+    ask.searchLibrary.mockResolvedValue([]);
+    ask.askDeal.mockReturnValue(new Promise<AskAnswer>((resolve) => (finish = resolve)));
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI", "ask");
+    const box = await screen.findByRole("textbox", { name: "Your question" });
+    await user.type(box, "Who signs?{Enter}");
+    await user.type(box, "Who signs?{Enter}");
+    expect(await screen.findByRole("status")).toHaveTextContent(/Searching the Library|Writing the answer/);
+    finish({ answer: "Not covered.", covered: false, nextQuestion: null, libraryUnavailable: false, sources: [] });
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
+    expect(await within(log).findByText("Not covered.")).toBeInTheDocument();
+    expect(ask.askDeal).toHaveBeenCalledTimes(1);
+    expect(within(log).getAllByText("Who signs?")).toHaveLength(1);
+  });
+
   it("answers without the Library when it can't be searched, and says so", async () => {
     ask.searchLibrary.mockResolvedValue(null);
     ask.askDeal.mockResolvedValue({ answer: "Not covered.", covered: false, nextQuestion: "Who signs off the purchase?",

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent, type SetStateAction } from "react";
 import { Box, Button, Chip, CircularProgress, IconButton, InputBase, Paper, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ArrowUpRightIcon, RotateCcwIcon, SendHorizontalIcon, SparklesIcon } from "@wso2/oxygen-ui-icons-react";
 import { HttpError } from "@api/http";
@@ -83,11 +83,15 @@ export default function DealChat({
 }: {
   opportunityId: string;
   entries: ChatEntry[];
-  onChange: (entries: ChatEntry[]) => void;
+  /** The deal page's setter: entries are appended to the thread as it is then, not as it was. */
+  onChange: Dispatch<SetStateAction<ChatEntry[]>>;
 }) {
   const getAccessToken = useAccessToken();
   const [draft, setDraft] = useState("");
   const [step, setStep] = useState<"library" | "answer" | null>(null);
+  // One question at a time, guarded synchronously: two clicks in the same moment both see
+  // the step still unset.
+  const inFlight = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -96,25 +100,28 @@ export default function DealChat({
 
   const send = async (question: string) => {
     const text = question.trim().slice(0, MAX_QUESTION);
-    if (!text || step) return;
-    const asked: ChatEntry[] = [...entries, { role: "user", text }];
-    onChange(asked);
+    if (!text || inFlight.current) return;
+    // In flight before anything is awaited, so the question cannot be sent twice.
+    inFlight.current = true;
+    setStep(isSmartSearchBackendConfigured() ? "library" : "answer");
+    const earlier = entries.flatMap((e) => (e.role === "user" ? [e.text] : []));
+    const history = historyOf(entries);
+    onChange((thread) => [...thread, { role: "user", text }]);
     setDraft("");
     try {
       const token = await getAccessToken();
-      const earlier = entries.flatMap((e) => (e.role === "user" ? [e.text] : []));
-      setStep(isSmartSearchBackendConfigured() ? "library" : "answer");
       const passages = await searchLibrary(libraryQuery(text, earlier), token);
       setStep("answer");
       const answer = await askDeal(
         opportunityId,
-        { question: text, history: historyOf(entries), librarySources: passages ?? [], libraryUnavailable: passages === null },
+        { question: text, history, librarySources: passages ?? [], libraryUnavailable: passages === null },
         token,
       );
-      onChange([...asked, { role: "answer", id: `${Date.now()}`, answer }]);
+      onChange((thread) => [...thread, { role: "answer", id: `${Date.now()}`, answer }]);
     } catch (error) {
-      onChange([...asked, { role: "notice", text: noAnswer(error) }]);
+      onChange((thread) => [...thread, { role: "notice", text: noAnswer(error) }]);
     } finally {
+      inFlight.current = false;
       setStep(null);
     }
   };
