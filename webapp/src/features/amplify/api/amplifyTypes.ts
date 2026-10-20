@@ -86,9 +86,10 @@ export interface Category {
   sortOrder: number;
 }
 
-// Phase 1 shares as a plain SHARE only: commentary and the REPOST kinds aren't
-// supported by the LinkedIn API Amplify uses yet (D5 spike).
-export type ShareKind = "SHARE";
+// REPOST reshares the org's post (`reshareContext.parent`); proven with a member token and `w_member_social`
+// (D5 spike, 2026-10-20). SHARE creates a new post that links to it, the fallback if LinkedIn refuses a reshare.
+// The `*_COMMENTARY` kinds aren't offered: the employee can't add commentary yet.
+export type ShareKind = "REPOST" | "SHARE";
 
 export interface Share {
   id: string;
