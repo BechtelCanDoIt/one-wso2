@@ -315,9 +315,24 @@ function addMonths(start: Date, months: number): Date {
  * days", "2 years + 3 months". "" when a date is missing or the end is before the start.
  */
 export function durationText(start: string, end: string): string {
+  const d = durationParts(start, end);
+  if (!d) return "";
+  const part = (n: number, unit: string) => (n === 1 ? `1 ${unit}` : n > 1 ? `${n} ${unit}s` : "");
+  return [part(d.years, "year"), part(d.months, "month"), part(d.days, "day")].filter(Boolean).join(" + ");
+}
+
+/** The same duration, short, for the products table's Term column (D94, D96): "1Y 1M 1D", "3Y", "11M 30D". */
+export function durationShort(start: string, end: string): string {
+  const d = durationParts(start, end);
+  if (!d) return "";
+  return [d.years && `${d.years}Y`, d.months && `${d.months}M`, d.days && `${d.days}D`].filter(Boolean).join(" ");
+}
+
+/** Whole years, then whole months, then days, from the start to the end (both inclusive). */
+function durationParts(start: string, end: string): { years: number; months: number; days: number } | null {
   const s = parseDateString(start);
   const e = parseDateString(end);
-  if (!s || !e || e < s) return "";
+  if (!s || !e || e < s) return null;
   const whole = (months: number) => {
     const last = addMonths(s, months);
     last.setDate(last.getDate() - 1);
@@ -329,8 +344,7 @@ export function durationText(start: string, end: string): string {
   while (months < 11 && whole(12 * years + months + 1)) months++;
   const from = addMonths(s, 12 * years + months);
   const days = Math.round((e.getTime() - from.getTime()) / 86_400_000) + 1;
-  const part = (n: number, unit: string) => (n === 1 ? `1 ${unit}` : n > 1 ? `${n} ${unit}s` : "");
-  return [part(years, "year"), part(months, "month"), part(days, "day")].filter(Boolean).join(" + ");
+  return { years, months, days };
 }
 
 /**

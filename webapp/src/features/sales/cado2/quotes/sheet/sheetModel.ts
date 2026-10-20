@@ -40,6 +40,7 @@ import { sumMoney } from "@features/sales/cado2/utils/money";
 import { versionLabel } from "@features/sales/cado2/utils/pricingFormula";
 import {
   commissionProblem,
+  durationShort,
   durationText,
   hasRecurring,
   isPartnerLed,
@@ -329,7 +330,7 @@ export function sheetFromForm(
         discountPercent: byFormula ? "0" : String(Number(l.discount || "0")),
         formula: byFormula ? formulaOf(p.formula) : null,
         startDate: v.startDate,
-        endDate: l.category === "PROFESSIONAL_SERVICE" ? v.startDate : end,
+        endDate: l.recurring ? end : v.startDate,
         annualList: p?.annualList ?? null,
         annualNet: p?.annualNet ?? null,
         arr: p?.arr ?? null,
@@ -359,6 +360,9 @@ export function sheetFromForm(
 
 /** How long the term is, in words (D85): "3 years", "1 year + 1 day", or "". */
 export const termLabel = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationText(s.startDate, s.endDate);
+
+/** The term, short, e.g. "1Y 1D": the products table's Term column (D94, D96). */
+export const termShort = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationShort(s.startDate, s.endDate);
 
 /** The yearly schedule is shown only when the term runs over more than one contract year. */
 export const hasYearlySchedule = (s: Pick<QuoteSheet, "years">) => s.years.length > 1;
@@ -474,20 +478,21 @@ export function dealFigures(
 ): DealFigures | null {
   const t = s.totals;
   if (!t || s.lines.some((l) => l.tcv === null)) return null;
-  const recurring = s.lines.filter((l) => l.category !== "PROFESSIONAL_SERVICE");
+  // What recurs comes from the product's Salesforce classification, not its category (D76).
+  const recurring = s.lines.filter((l) => l.recurring);
   const years = t.acv && Number(t.acv) > 0 ? Number(t.tcv) / Number(t.acv) : null;
   return {
     arr: t.arr,
     tcv: t.tcv,
     acv: t.acv,
     arrParts: recurring.map((l) => ({ productName: l.productName, amount: l.arr ?? "0.00" })),
-    arrExcluded: s.lines.filter((l) => l.category === "PROFESSIONAL_SERVICE").map((l) => l.productName),
+    arrExcluded: s.lines.filter((l) => !l.recurring).map((l) => l.productName),
     tcvParts: s.years.map((y) => ({ yearNumber: y.yearNumber, amount: y.net })),
     contractYears: years === null ? null : String(Math.round(years * 100) / 100),
     byProduct: s.lines.map((l) => ({
       number: l.number,
       productName: l.productName,
-      arr: l.category === "PROFESSIONAL_SERVICE" ? null : l.arr,
+      arr: l.recurring ? l.arr : null,
       tcv: l.tcv!,
       commission: s.partnerCommissionPercent ? l.commission : null,
     })),

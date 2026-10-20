@@ -16,7 +16,7 @@
 
 import type { JSX, ReactNode } from "react";
 import { Avatar, Box, Paper, Stack, Typography } from "@wso2/oxygen-ui";
-import { BriefcaseIcon, HandshakeIcon } from "@wso2/oxygen-ui-icons-react";
+import { BriefcaseIcon } from "@wso2/oxygen-ui-icons-react";
 import type { QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initials";
 import SalesforceLink from "@features/sales/cado2/components/salesforce-link/SalesforceLink";
@@ -36,24 +36,24 @@ interface HeaderParts {
 }
 
 /**
- * Who the quote is for: account, opportunity and partner, up front (the deal
- * type, region and currency are facts in the Deal section). The
+ * Who the quote is for: account and opportunity, up front (the deal type,
+ * partner, region and currency are facts in the Deal section). The
  * contacts sit with the addresses. With `header`, it is the quote page's
  * header (the account is the page's title); without, a box at the top of the
  * Review step.
  */
 export default function CustomerBand({ sheet, header }: { sheet: QuoteSheet; header?: HeaderParts }): JSX.Element {
-  const partner = sheet.dealType === "PARTNER" ? sheet.partner : null;
   return (
     <Paper
       component={header ? "header" : "section"}
       aria-label={header ? "About this quote" : "Customer"}
       variant="outlined"
-      sx={{ p: { xs: 2, sm: 3 }, borderRadius: 2, borderLeft: 4, borderLeftColor: "primary.main", minWidth: 0 }}
+      // Compact (D99): less padding, a smaller avatar; the partner is in the Deal section.
+      sx={{ px: { xs: 2, sm: 2.5 }, py: { xs: 1.5, sm: 1.75 }, borderRadius: 2, borderLeft: 4, borderLeftColor: "primary.main", minWidth: 0 }}
     >
-      <Stack direction={{ xs: "column", md: "row" }} spacing={3} justifyContent="space-between">
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2} justifyContent="space-between" alignItems={{ md: "center" }}>
         <Stack direction="row" spacing={2} alignItems="center" sx={{ minWidth: 0 }}>
-          <Avatar sx={{ width: 56, height: 56, bgcolor: "primary.main", color: "primary.contrastText", fontSize: 22, fontWeight: 600 }}>
+          <Avatar sx={{ width: 44, height: 44, bgcolor: "primary.main", color: "primary.contrastText", fontSize: 18, fontWeight: 600 }}>
             {initialsFor(sheet.accountName || "?")}
           </Avatar>
           <Box sx={{ minWidth: 0 }}>
@@ -71,7 +71,7 @@ export default function CustomerBand({ sheet, header }: { sheet: QuoteSheet; hea
                 {sheet.accountName || "No account yet"}
               </SalesforceLink>
             </Typography>
-            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.5, color: "text.secondary" }}>
+            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 0.25, color: "text.secondary", minWidth: 0 }}>
               <BriefcaseIcon size={14} />
               <Typography variant="body2">
                 <SalesforceLink object="Opportunity" id={sheet.opportunityId}>
@@ -79,33 +79,13 @@ export default function CustomerBand({ sheet, header }: { sheet: QuoteSheet; hea
                 </SalesforceLink>
               </Typography>
             </Stack>
-            {header ? <Box sx={{ mt: 1 }}>{header.status}</Box> : null}
+            {header ? <Box sx={{ mt: 0.75 }}>{header.status}</Box> : null}
           </Box>
         </Stack>
         <Stack spacing={2} alignItems={{ xs: "flex-start", md: "flex-end" }} sx={{ minWidth: 0, flexShrink: 0 }}>
         {header ? (
           <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap", rowGap: 1, justifyContent: { md: "flex-end" } }}>
             {header.actions}
-          </Stack>
-        ) : null}
-        {partner ? (
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ minWidth: 0 }}>
-            <Avatar sx={{ width: 44, height: 44, bgcolor: "secondary.main", color: "secondary.contrastText" }}>
-              <HandshakeIcon size={20} />
-            </Avatar>
-            <Box sx={{ minWidth: 0 }}>
-              <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.4, display: "block" }}>
-                Sold through
-              </Typography>
-              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                {partner.name}
-              </Typography>
-              {partner.role ? (
-                <Typography variant="caption" color="text.secondary">
-                  {partner.role}
-                </Typography>
-              ) : null}
-            </Box>
           </Stack>
         ) : null}
         </Stack>

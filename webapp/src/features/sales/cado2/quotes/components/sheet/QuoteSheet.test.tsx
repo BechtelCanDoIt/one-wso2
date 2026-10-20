@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import { draft, fullPartnerQuote } from "@features/sales/cado2/quotes/testing/fixtures";
 import { sheetFromVersion } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import CustomerBand from "./CustomerBand";
 import QuoteSheet from "./QuoteSheet";
 import DealFiguresSection from "./DealFiguresSection";
 import type { QuoteSheet as Sheet, SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
@@ -74,8 +75,9 @@ describe("QuoteSheet", () => {
     }
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
-    // No Duration column: the term is on the Term card, not per line (D92).
-    expect(within(products).queryByRole("columnheader", { name: "Duration" })).toBeNull();
+    // The Term column (D85, back since D94, renamed D96): the term on a recurring line.
+    expect(within(products).getByRole("columnheader", { name: "Term" })).toBeInTheDocument();
+    expect(within(products).getAllByText("1Y").length).toBeGreaterThan(0);
     expect(within(products).getByText("Subscription")).toBeInTheDocument();
     expect(within(products).getByText("Gateways")).toBeInTheDocument();
     // A one-year quote has no yearly schedule.
@@ -141,7 +143,9 @@ describe("Order form", () => {
     expect(rows[at("Support subtotal")]).toContain("75,000.00");
     expect(rows[at("Professional Services subtotal")]).toContain("10,700.00");
     expect(rows.some((r) => r?.includes("Support and services"))).toBe(false);
-    expect(rows[at("Total order value")]).toContain("119,540.00");
+    // The order total is in its own box under the table (D97).
+    expect(at("Total order value")).toBe(-1);
+    expect(screen.getByRole("region", { name: "Order totals" })).toHaveTextContent("Total order value (USD)119,540.00");
   });
 
   // 2026-10-12 (amends D53): a line shows its product's name and SKU only; the
@@ -179,14 +183,22 @@ describe("Partner commission", () => {
     totals: { ...threeYears.totals!, partnerCommission: "17931.00", netOrderValue: "101609.00" },
   };
 
+  // D99: the header shows the account and opportunity only; the partner is in the Deal section.
+  it("leaves the partner out of the header", () => {
+    const sold = { ...partner, dealType: "PARTNER" as const, partner: { name: "Tech Mahindra - Enterprise", role: "Value Added Reseller" } };
+    render(<CustomerBand sheet={sold} />);
+    expect(screen.getByText(sold.opportunityName)).toBeInTheDocument();
+    expect(screen.queryByText(/Tech Mahindra/)).toBeNull();
+  });
+
   it("adds the commission and the net order value under the total order value", () => {
     render(<QuoteSheet sheet={partner} />);
-    const rows = within(screen.getByRole("table", { name: "Products" })).getAllByRole("row").map((r) => r.textContent ?? "");
-    const at = (text: string) => rows.findIndex((r) => r.includes(text));
-    expect(rows[at("Total order value")]).toContain("119,540.00");
-    expect(rows[at("Partner commission (15%)")]).toContain("− 17,931.00");
-    expect(rows[at("Net order value")]).toContain("101,609.00");
-    expect(at("Total order value")).toBeLessThan(at("Net order value"));
+    // In the order totals box under the table (D97), in this order.
+    const totals = screen.getByRole("region", { name: "Order totals" }).textContent ?? "";
+    expect(totals).toContain("Total order value (USD)119,540.00");
+    expect(totals).toContain("Partner commission (15%) (USD)− 17,931.00");
+    expect(totals).toContain("Net order value (USD)101,609.00");
+    expect(totals.indexOf("Total order value")).toBeLessThan(totals.indexOf("Net order value"));
   });
 
   it("leaves commission and net to the order form's totals", () => {
@@ -203,6 +215,35 @@ describe("Partner commission", () => {
     expect(within(screen.getByRole("table", { name: "Yearly schedule" })).getByText("Billed, net of commission")).toBeInTheDocument();
   });
 
+  it("says a one-off line is one-time in the Term column (D85, D94)", () => {
+    render(<QuoteSheet sheet={{ ...threeYears, startDate: "2027-01-01" }} />);
+    const products = within(screen.getByRole("table", { name: "Products" }));
+    expect(products.getAllByText("3Y")).toHaveLength(3); // two subscriptions and support
+    expect(products.getByText("One-time")).toBeInTheDocument(); // the onboarding service
+  });
+
+  // D94: a subtotal's value sits in the Amount column, under the line amounts.
+  it("puts every subtotal in the Amount column", () => {
+    render(<QuoteSheet sheet={threeYears} />);
+    const table = screen.getByRole("table", { name: "Products" });
+    const amountCol = [...table.querySelectorAll("thead th")].findIndex((th) => th.textContent?.startsWith("Amount"));
+    const row = within(table).getByText(/^Subscription subtotal/).closest("tr") as HTMLTableRowElement;
+    const cells = [...row.cells];
+    const span = cells.slice(0, -1).reduce((n, c) => n + c.colSpan, 0);
+    expect(span).toBe(amountCol); // the label fills the columns before Amount
+  });
+
+  // A draft whose products have no category yet still lists them on the quote page, under a plain heading.
+  it("lists lines without a category under Uncategorised, without the wizard's red flag", () => {
+    const uncategorised = threeYears.lines.map((l) => ({ ...l, category: "" as const }));
+    render(<QuoteSheet sheet={{ ...threeYears, lines: uncategorised }} />);
+    const table = screen.getByRole("table", { name: "Products" });
+    const group = within(table).getByRole("rowgroup", { name: "Uncategorised" });
+    for (const l of threeYears.lines) expect(within(group).getByText(l.productName)).toBeInTheDocument();
+    expect(within(table).queryByText(/to choose a category/)).toBeNull();
+    expect(screen.getByRole("region", { name: "Order totals" })).toHaveTextContent("119,540.00");
+  });
+
   it("shows no commission rows on a direct deal", () => {
     render(<QuoteSheet sheet={{ ...threeYears, dealType: "DIRECT", partnerCommissionPercent: null }} />);
     expect(screen.queryByText(/Partner commission/)).toBeNull();
@@ -210,6 +251,19 @@ describe("Partner commission", () => {
 });
 
 describe("DealFiguresSection", () => {
+  // D76: ARR follows whether a line recurs (its Salesforce classification), not its category.
+  it("counts a recurring line in ARR whatever its category, and leaves out a one-off one", () => {
+    const [gateway, ...rest] = threeYears.lines;
+    const onboarding = rest.find((l) => l.productName === "Onboarding")!;
+    const lines = threeYears.lines.map((l) =>
+      l === gateway ? { ...l, category: "PROFESSIONAL_SERVICE" as const } : l === onboarding ? { ...l, category: "" as const } : l,
+    );
+    render(<DealFiguresSection sheet={{ ...threeYears, lines }} />);
+    const arr = within(screen.getByLabelText("ARR · annual recurring revenue"));
+    expect(arr.getByText(/Gateway 6,480.00/)).toBeInTheDocument(); // recurring, though placed under Professional Services
+    expect(arr.getByText(/Left out, one-time: Onboarding/)).toBeInTheDocument(); // one-off, though uncategorised
+  });
+
   it("shows how ARR, TCV and ACV are worked out, and each product's share", () => {
     render(<DealFiguresSection sheet={threeYears} />);
     const arr = within(screen.getByLabelText("ARR · annual recurring revenue"));

@@ -33,7 +33,7 @@ import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState"
 import OrderFormTable from "@features/sales/cado2/quotes/components/sheet/OrderFormTable";
 import DealFiguresSection from "@features/sales/cado2/quotes/components/sheet/DealFiguresSection";
 import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/ScheduleTable";
-import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import { hasYearlySchedule, orderForm, sheetFromForm, termShort } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   hasRecurring,
@@ -189,7 +189,8 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               </>
             )}
             below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
-            groupUncategorised
+            flagUncategorised
+            duration={termShort(sheet)}
           />
         )}
         {amountsHint ? (

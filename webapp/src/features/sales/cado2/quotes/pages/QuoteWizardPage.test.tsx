@@ -320,8 +320,9 @@ describe("QuoteWizardPage — review and submit", () => {
 
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
-    // The line, the subscription subtotal and the total order value.
-    expect(within(products).getAllByText("6,480.00")).toHaveLength(3);
+    // The line and the subscription subtotal; the total order value is in the box under the table (D97).
+    expect(within(products).getAllByText("6,480.00")).toHaveLength(2);
+    expect(screen.getByRole("region", { name: "Order totals" })).toHaveTextContent("6,480.00");
     expect(within(products).getByText("10%")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Deal Figures" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Internal view" })).toBeNull();

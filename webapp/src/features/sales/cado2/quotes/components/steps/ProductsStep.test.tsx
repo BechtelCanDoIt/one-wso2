@@ -136,7 +136,8 @@ describe("ProductsStep (Products & Pricing)", () => {
     const group = within(table).getByRole("rowgroup", { name: "Uncategorised" });
     expect(within(group).getByText("WSO2 Integrator")).toBeInTheDocument();
     expect(within(group).queryByText("WSO2 Gateway")).toBeNull();
-    expect(within(table).queryByText(/Choose a category for/)).toBeNull();
+    // Says what to do (D95).
+    expect(within(table).getByText(/to choose a category/)).toBeInTheDocument();
     expect(within(table).queryByRole("button", { name: /Category not set/ })).toBeNull();
 
     // Line 2 is WSO2 Integrator, the one without a category.

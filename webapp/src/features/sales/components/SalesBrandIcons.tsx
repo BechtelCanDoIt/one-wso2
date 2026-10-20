@@ -34,5 +34,8 @@ function logoIcon(src: string, displayName: string) {
 /** Echo, the call-intelligence product (public/echo-logo.png). */
 export const EchoLogoIcon = logoIcon("/echo-logo.png", "EchoLogoIcon");
 
+/** CADO2, the quote tool: a quote document with quote marks (public/cado2-logo.svg). */
+export const Cado2LogoIcon = logoIcon("/cado2-logo.svg", "Cado2LogoIcon");
+
 /** Sales Pitstop, the sales content hub the Library searches (public/sales-pitstop-logo.png). */
 export const SalesPitstopLogoIcon = logoIcon("/sales-pitstop-logo.png", "SalesPitstopLogoIcon");
