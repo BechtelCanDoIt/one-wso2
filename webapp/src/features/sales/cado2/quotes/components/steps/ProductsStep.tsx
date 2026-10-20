@@ -20,7 +20,6 @@ import {
   Alert,
   AlertTitle,
   Button,
-  Chip,
   IconButton,
   Stack,
   TableCell,
@@ -190,17 +189,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               </>
             )}
             below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
-            categoryNote={(i) => (
-              <Chip
-                size="small"
-                color="warning"
-                variant="outlined"
-                clickable
-                label="Category not set · Choose"
-                onClick={() => setEditing({ open: true, index: i })}
-                sx={{ mt: 0.5 }}
-              />
-            )}
+            groupUncategorised
           />
         )}
         {amountsHint ? (

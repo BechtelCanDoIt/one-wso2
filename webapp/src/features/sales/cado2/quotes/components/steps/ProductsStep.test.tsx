@@ -125,39 +125,31 @@ describe("ProductsStep (Products & Pricing)", () => {
     ).toBeInTheDocument();
   });
 
+  // D93: a plain "Not categorised" heading, no amber and no chip; the line's edit button opens the dialog.
   it("puts a line whose product isn't mapped under Not categorised; its category is chosen in the line's dialog", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     const table = screen.getByRole("table", { name: "Products" });
     expect(within(table).queryByRole("combobox")).toBeNull(); // no dropdown on the line
-    expect(within(table).getByText("Not Categorised")).toBeInTheDocument(); // its own section, first
-    expect(within(table).getByText("· Choose a category for 1 product")).toBeInTheDocument();
+    expect(within(table).getByText("Not categorised")).toBeInTheDocument(); // its own section, first
+    // Framed by a thin red line.
+    const group = within(table).getByRole("rowgroup", { name: "Not categorised" });
+    expect(within(group).getByText("WSO2 Integrator")).toBeInTheDocument();
+    expect(within(group).queryByText("WSO2 Gateway")).toBeNull();
+    expect(within(table).queryByText(/Choose a category for/)).toBeNull();
+    expect(within(table).queryByRole("button", { name: /Category not set/ })).toBeNull();
 
-    const integrator = within(table)
-      .getByText("WSO2 Integrator")
-      .closest("tr") as HTMLElement;
-    await user.click(
-      within(integrator).getByRole("button", {
-        name: "Category not set · Choose",
-      }),
-    );
+    // Line 2 is WSO2 Integrator, the one without a category.
+    await user.click(within(table).getByRole("button", { name: "Edit line 2" }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("No category is set up for this product");
-    await user.click(
-      within(dialog).getByRole("combobox", { name: "Category" }),
-    );
+    await user.click(within(dialog).getByRole("combobox", { name: "Category" }));
     await user.click(screen.getByRole("option", { name: "Support" }));
-    await user.click(
-      within(dialog).getByRole("button", { name: "Save line" }),
-    );
+    await user.click(within(dialog).getByRole("button", { name: "Save line" }));
 
-    expect(
-      within(table).queryByRole("button", {
-        name: "Category not set · Choose",
-      }),
-    ).toBeNull();
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
-    expect(within(table).queryByText("Not Categorised")).toBeNull(); // gone once empty
+    expect(within(table).queryByText("Not categorised")).toBeNull(); // gone once empty
+    expect(within(table).queryByRole("rowgroup", { name: "Not categorised" })).toBeNull();
   });
 
   // D91: a partner-led quote's commission card sits right above the products, before any product too.

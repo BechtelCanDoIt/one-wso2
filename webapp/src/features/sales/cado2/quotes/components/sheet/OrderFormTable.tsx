@@ -15,8 +15,7 @@
 // under the License.
 
 import { Fragment, type JSX, type ReactNode } from "react";
-import { alpha, Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
-import { TriangleAlertIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 
@@ -32,10 +31,11 @@ interface OrderFormTableProps {
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
   /**
-   * The wizard's note on a line without a category yet (D72), by position in
-   * `lines`, shown under the product. Such lines are listed first.
+   * The wizard: lines without a category yet (D72) come first, under a plain
+   * "Not categorised" heading with no subtotal (D93). The category is chosen
+   * in the line's dialog.
    */
-  readonly categoryNote?: (index: number) => ReactNode;
+  readonly groupUncategorised?: boolean;
 }
 
 /**
@@ -56,12 +56,12 @@ export default function OrderFormTable({
   actions,
   below,
   commissionPercent = null,
-  categoryNote,
+  groupUncategorised = false,
 }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
   const cols = actions ? 7 : 6;
   // Products brought in from Salesforce whose category isn't chosen yet (D72).
-  const pending = categoryNote ? lines.filter((l) => !l.category) : [];
+  const pending = groupUncategorised ? lines.filter((l) => !l.category) : [];
   const cur = currency ? ` (${currency})` : "";
   const money = (v: string | null) => (v ? formatMoney(v) : "—");
 
@@ -88,43 +88,13 @@ export default function OrderFormTable({
     </TableRow>
   );
 
-  // Lines waiting for a category stand apart from the category sections: an
-  // amber strip that says what to do, and an amber bar down each line (2026-10-12).
-  const pendingHeader = (
-    <TableRow>
-      <TableCell
-        colSpan={cols}
-        sx={{
-          bgcolor: (t) => alpha(t.palette.warning.main, 0.14),
-          boxShadow: (t) => `inset 4px 0 ${t.palette.warning.main}`,
-          py: 0.75,
-        }}
-      >
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1, color: "warning.dark" }}>
-          <TriangleAlertIcon size={16} aria-hidden />
-          <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
-            Not Categorised
-          </Typography>
-          <Typography variant="body2" sx={{ color: "text.primary" }}>
-            · Choose a category for {pending.length === 1 ? "1 product" : `${pending.length} products`}
-          </Typography>
-        </Box>
-      </TableCell>
-    </TableRow>
-  );
 
   const lineRow = (l: SheetLine) => {
     const index = lines.indexOf(l);
-    const waiting = pending.includes(l);
     return (
       <Fragment key={l.number}>
         <TableRow>
-          <TableCell
-            sx={{
-              minWidth: 200,
-              ...(waiting ? { boxShadow: (t) => `inset 4px 0 ${t.palette.warning.main}` } : {}),
-            }}
-          >
+          <TableCell sx={{ minWidth: 200 }}>
             <Typography variant="body2" sx={{ fontWeight: 600 }}>
               {l.productName}
             </Typography>
@@ -142,17 +112,6 @@ export default function OrderFormTable({
                   {l.formula.explanation}
                 </Box>
               </Typography>
-            ) : null}
-            {!l.category ? categoryNote?.(index) : null}
-            {l.categoryByRep && l.category ? (
-              <Chip
-                size="small"
-                color="warning"
-                variant="outlined"
-                label="Category chosen by AM"
-                title="This product has no category set up by an Admin, so the AM chose it. Deal Desk checks it."
-                sx={{ mt: 0.5 }}
-              />
             ) : null}
           </TableCell>
           <TableCell>{l.unitOfMeasure ?? "–"}</TableCell>
@@ -199,14 +158,26 @@ export default function OrderFormTable({
             ) : null}
           </TableRow>
         </TableHead>
+        {/* Lines waiting for a category come first, under a plain heading, with no
+            subtotal, framed by a thin red line until each has one (D72, D93). */}
+        {pending.length > 0 ? (
+          <TableBody
+            aria-label="Not categorised"
+            sx={(t) => {
+              const line = `1px solid ${t.palette.error.main}`;
+              return {
+                "& td:first-of-type": { borderLeft: line },
+                "& td:last-of-type": { borderRight: line },
+                "& tr:first-of-type td": { borderTop: line },
+                "& tr:last-of-type td": { borderBottom: line },
+              };
+            }}
+          >
+            {groupHeader("Not categorised")}
+            {pending.map(lineRow)}
+          </TableBody>
+        ) : null}
         <TableBody>
-          {/* Lines waiting for a category come first, under their own heading, with no subtotal (D72). */}
-          {pending.length > 0 ? (
-            <>
-              {pendingHeader}
-              {pending.map(lineRow)}
-            </>
-          ) : null}
           {form.groups.map((g) => (
             <Fragment key={g.category}>
               {groupHeader(g.title)}
