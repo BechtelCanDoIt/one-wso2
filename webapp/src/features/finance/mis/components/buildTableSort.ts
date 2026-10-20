@@ -20,8 +20,8 @@
 // the same list to the table and to the export. That is what keeps the file in
 // the order the reader is looking at.
 
-import { useState } from "react";
 import type { BuildRow } from "./buildTableModel";
+import { useStateUntilKeyChanges } from "./useStateUntilKeyChanges";
 
 export type BuildSortDirection = "desc" | "asc";
 
@@ -140,9 +140,7 @@ export function useBuildSort(resetKey: unknown): {
   sort: BuildSort | null;
   toggle: (column: BuildSortColumn) => void;
 } {
-  const [state, setState] = useState<{ key: unknown; sort: BuildSort | null }>({ key: resetKey, sort: null });
-  const sort = Object.is(state.key, resetKey) ? state.sort : null;
-  const toggle = (column: BuildSortColumn): void =>
-    setState({ key: resetKey, sort: nextSort(sort, column) });
+  const [sort, setSort] = useStateUntilKeyChanges<BuildSort | null>(resetKey, null);
+  const toggle = (column: BuildSortColumn): void => setSort(nextSort(sort, column));
   return { sort, toggle };
 }
