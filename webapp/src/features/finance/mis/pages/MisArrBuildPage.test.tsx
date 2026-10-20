@@ -39,6 +39,7 @@ import {
   customerColumnRanges,
   pacificColumnRanges,
 } from "@features/finance/mis/util/misPeriods";
+import { pacificCivilDate } from "@features/finance/mis/util/misPacificTime";
 import type { ArrSummaryState } from "@features/finance/mis/api/useArrSummary";
 import type { CustomerAccountsState } from "@features/finance/mis/api/useCustomerAccounts";
 import type { SummaryColumnsState } from "@features/finance/mis/api/useExitArr";
@@ -1220,6 +1221,33 @@ describe("a session Years Back that happens to equal the Table's own default", (
     // is gone, so Region Summary answers with its own two.
     await switchTable("Region Summary");
     expect(address()).toBe("?table=region-summary");
+  });
+});
+
+describe("the Annually columns under a forecast type", () => {
+  const thisYear = pacificCivilDate().year;
+  const yearsRequested = (ranges: readonly MisDateRange[]) =>
+    ranges.map((range) => Number(range.end.slice(0, 4)));
+
+  it.each(["Forecasted+ARR", "Renewal+ARR"])(
+    "asks the Build for the current year and the next two under %s",
+    (type) => {
+      renderPage(`?type=${type}`);
+      expect(yearsRequested(summary.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
+      expect(summary.lastRanges.map(buildColumnLabel)[1]).toMatch(
+        new RegExp(`^${thisYear}/12/31 - ${thisYear + 1}/`),
+      );
+    },
+  );
+
+  it("asks Customers for the current year and the next two under Forecasted", () => {
+    renderPage("?table=customers&type=Forecasted+ARR");
+    expect(yearsRequested(customers.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
+  });
+
+  it("keeps the calendar columns under a type that is not a forecast", () => {
+    renderPage("?type=Closed+Won+ARR&years=3");
+    expect(yearsRequested(summary.lastRanges)).toEqual([thisYear - 2, thisYear - 1, thisYear]);
   });
 });
 
