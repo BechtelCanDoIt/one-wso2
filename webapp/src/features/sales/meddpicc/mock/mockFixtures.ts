@@ -183,15 +183,6 @@ export function createFixtures(): MockFixtures {
       accountName: "Brightwater Pumps Limited",
       salesRegion: "EU",
       stage: "Qualify",
-      dealScore: 28.3,
-      flags: [
-        {
-          code: "CLOSING_WITH_GAPS",
-          title: "Closing, with gaps",
-          detail: "Closes in 12 days, and Qualify still needs 1 field.",
-          nextStep: "Fill in Economic buyer, or move the close date.",
-        },
-      ],
       recordType: "First Sale",
       amount: 120000,
       currencyIsoCode: "USD",

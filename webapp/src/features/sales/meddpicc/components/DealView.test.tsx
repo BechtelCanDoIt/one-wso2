@@ -266,21 +266,13 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("tab", { name: /^MEDDPICC, \d+ to review$/ })).toBeInTheDocument();
   });
 
-  it("shows Salesforce's deal score and what needs attention, with the next step", async () => {
-    renderPanel("006MOCK0000BRWT");
-    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
-    expect(screen.getByText("Deal score")).toBeInTheDocument();
-    expect(screen.getByLabelText("Deal score 28.3, Weak")).toBeInTheDocument();
-    const attention = screen.getByRole("region", { name: "Needs attention" });
-    expect(attention).toHaveTextContent("Closing, with gaps. Closes in 12 days, and Qualify still needs 1 field.");
-    expect(attention).toHaveTextContent("Next step: Fill in Economic buyer, or move the close date.");
-  });
-
-  it("shows no attention box and a dash for a deal with no flags or score", async () => {
+  // The score and flags themselves are covered in DealScore.test and DealFlags.test.
+  it("has a deal score card, a dash with no score, and no attention box with no flags", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    expect(screen.getByText("Deal score")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "No deal score" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
-    expect(screen.getByLabelText("No deal score")).toBeInTheDocument();
   });
 
   it("re-reads the deal from Salesforce on Refresh, and shows what came back", async () => {

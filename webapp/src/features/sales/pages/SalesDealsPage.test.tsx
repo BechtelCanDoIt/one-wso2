@@ -102,10 +102,9 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     // The stage rides in the Opportunity cell; its own column made way for the deal score.
     expect(screen.getByRole("columnheader", { name: "Opportunity" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Stage" })).not.toBeInTheDocument();
-    // Salesforce's deal score in its own column, with its band; flags beside the stage.
+    // Salesforce's deal score has its own column (DealScore.test covers the badge).
     expect(screen.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
-    expect(row.getByLabelText("Deal score 28.3, Weak")).toBeInTheDocument();
-    expect(row.getByRole("button", { name: /^Needs attention: Closing, with gaps/ })).toHaveAttribute("tabindex", "0");
+    expect(row.getByRole("img", { name: "No deal score" })).toBeInTheDocument();
 
     for (const name of [
       "Meridian Bank – integration platform",
