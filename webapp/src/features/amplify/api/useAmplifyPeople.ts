@@ -32,6 +32,8 @@ const NOBODY: PeopleByEmail = new Map();
 export function indexPeople(records: readonly EmployeeDirectoryRecord[]): PeopleByEmail {
   const people = new Map<string, AmplifyPerson>();
   for (const r of records) {
+    // One row without an email (a contractor, a placeholder) is skipped, not a crash for the whole page.
+    if (typeof r.workEmail !== "string" || !r.workEmail.trim()) continue;
     const name = `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim();
     people.set(r.workEmail.toLowerCase(), { name, photoUrl: r.employeeThumbnail || null });
   }

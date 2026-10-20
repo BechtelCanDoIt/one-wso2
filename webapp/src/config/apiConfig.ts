@@ -1690,6 +1690,18 @@ export function isAmplifyBackendConfigured(): boolean {
   return Boolean(amplifyBackendUrl);
 }
 
+/**
+ * Origins a post link (and the LinkedIn sign-in redirect) may use, lowercase. LinkedIn only unless
+ * `ONE_WSO2_AMPLIFY_POST_LINK_ORIGINS` adds more (the mock LinkedIn, for dev and demos). amplify-api applies
+ * the same rule (`campaignLinkOrigins`); this copy keeps the UI from sending or showing anything else.
+ */
+export const amplifyPostLinkOrigins: readonly string[] = (() => {
+  const configured = (window.config?.ONE_WSO2_AMPLIFY_POST_LINK_ORIGINS ?? [])
+    .map((o) => o.trim().toLowerCase())
+    .filter(Boolean);
+  return configured.length > 0 ? configured : ["https://www.linkedin.com", "https://linkedin.com"];
+})();
+
 /** WSO2's LinkedIn organization URN, the owner New Post sends. Empty when unset. */
 export const amplifyLinkedInOrgUrn: string = (window.config?.ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN ?? "").trim();
 

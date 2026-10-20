@@ -20,6 +20,7 @@ import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useStartLinkedInConnect } from "../api/useAmplifyMutations";
 import { describeAmplifyError } from "../util/amplifyError";
+import { isAllowedLink } from "../util/linkedinPost";
 
 /**
  * The "Link Your LinkedIn Account" popup an unlinked Amplify click opens.
@@ -53,7 +54,8 @@ export default function LinkLinkedInDialog({
       { returnTo, pendingCampaignId },
       {
         onSuccess: (auth) => {
-          if (auth?.authorizationUrl) window.location.assign(auth.authorizationUrl);
+          // Only ever follow a LinkedIn (or, in dev, the listed mock) sign-in page.
+          if (auth?.authorizationUrl && isAllowedLink(auth.authorizationUrl)) window.location.assign(auth.authorizationUrl);
           else showError("Something went wrong, please try again.");
         },
         onError: (err) => showError(describeAmplifyError(err)),

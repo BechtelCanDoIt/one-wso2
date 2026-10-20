@@ -25,7 +25,7 @@ import { useRegisterCampaign } from "../api/useAmplifyMutations";
 import AmplifyShell, { AmplifyPanel } from "../components/AmplifyShell";
 import CategoryPicker from "../components/CategoryPicker";
 import { describeAmplifyError } from "../util/amplifyError";
-import { closesAtFromDateInput, postUrnFromUrl } from "../util/linkedinPost";
+import { closesAtFromDateInput, isAllowedLink, postUrnFromUrl } from "../util/linkedinPost";
 
 // amplify-api's limits (CampaignDraft in openapi.yaml).
 const TITLE_MAX = 200;
@@ -68,7 +68,8 @@ export default function NewPostPage() {
         draft: {
           resourceUrn,
           ownerUrn: amplifyLinkedInOrgUrn,
-          resourceUrl: postUrl.trim(),
+          // Only a link on an allowed origin is sent; a bare URN registers the post without one.
+          resourceUrl: isAllowedLink(postUrl) ? postUrl.trim() : undefined,
           title: title.trim(),
           summary: summary.trim() || undefined,
           imageUrl: imageUrl.trim() || undefined,
@@ -121,7 +122,7 @@ export default function NewPostPage() {
               fullWidth
               error={urlError}
               helperText={
-                urlError ? "Paste the link to a LinkedIn post." : "Must be a post on the WSO2 company page."
+                urlError ? "Paste the link to a post on LinkedIn." : "Must be a post on the WSO2 company page."
               }
               disabled={busy}
             />

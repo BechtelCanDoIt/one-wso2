@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { closesAtFromDateInput, linkedInPostUrl, postUrnFromUrl } from "./linkedinPost";
+import { closesAtFromDateInput, isAllowedLink, linkedInPostUrl, originOf, postUrnFromUrl } from "./linkedinPost";
 
 describe("postUrnFromUrl", () => {
   it("reads the feed form", () => {
@@ -56,3 +56,41 @@ describe("closesAtFromDateInput", () => {
     expect(closesAtFromDateInput("")).toBeUndefined();
   });
 });
+
+describe("post links stay on LinkedIn", () => {
+  it("refuses a URN carried on another host", () => {
+    expect(postUrnFromUrl("https://evil.example/?x=urn:li:share:1")).toBeNull();
+    expect(postUrnFromUrl("https://www.linkedin.com.evil.example/feed/update/urn:li:share:1/")).toBeNull();
+    expect(postUrnFromUrl("https://www.linkedin.com@evil.example/feed/update/urn:li:share:1/")).toBeNull();
+    expect(postUrnFromUrl("http://www.linkedin.com/feed/update/urn:li:share:1/")).toBeNull();
+    expect(postUrnFromUrl("javascript:alert('urn:li:share:1')")).toBeNull();
+  });
+
+  it("still takes a bare URN (registered without a link)", () => {
+    expect(postUrnFromUrl("urn:li:share:7123")).toBe("urn:li:share:7123");
+    expect(isAllowedLink("urn:li:share:7123")).toBe(false);
+  });
+
+  it("accepts the mock LinkedIn only where it's listed (dev and demos)", () => {
+    const mock = "http://localhost:19091/feed/update/urn:li:share:7123/";
+    expect(postUrnFromUrl(mock)).toBeNull();
+    expect(postUrnFromUrl(mock, ["https://www.linkedin.com", "http://localhost:19091"])).toBe("urn:li:share:7123");
+  });
+
+  it("never renders a stored link from another host", () => {
+    expect(linkedInPostUrl("urn:li:share:1", "https://evil.example/p")).toBe(
+      "https://www.linkedin.com/feed/update/urn:li:share:1/",
+    );
+    expect(linkedInPostUrl("urn:li:share:1", "javascript:alert(1)")).toBe(
+      "https://www.linkedin.com/feed/update/urn:li:share:1/",
+    );
+  });
+
+  it("reads the origin of http(s) URLs only", () => {
+    expect(originOf("https://WWW.LinkedIn.com/feed")).toBe("https://www.linkedin.com");
+    expect(originOf("https://u:p@www.linkedin.com/")).toBeNull();
+    expect(originOf("ftp://www.linkedin.com/")).toBeNull();
+    expect(originOf("not a url")).toBeNull();
+  });
+});
+

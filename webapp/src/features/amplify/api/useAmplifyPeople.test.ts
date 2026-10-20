@@ -51,4 +51,13 @@ describe("indexPeople", () => {
     expect(people.get("ada@wso2.com")?.photoUrl).toBeNull();
     expect(people.get("b@wso2.com")?.photoUrl).toBeNull();
   });
+
+  it("skips rows without a work email instead of crashing", () => {
+    const people = indexPeople([
+      record({ workEmail: null as unknown as string }),
+      record({ workEmail: "" }),
+      record({ workEmail: "grace@wso2.com", firstName: "Grace", lastName: "Hopper" }),
+    ]);
+    expect([...people.keys()]).toEqual(["grace@wso2.com"]);
+  });
 });
