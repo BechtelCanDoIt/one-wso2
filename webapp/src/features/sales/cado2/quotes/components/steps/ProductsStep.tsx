@@ -34,7 +34,7 @@ import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState"
 import OrderFormTable from "@features/sales/cado2/quotes/components/sheet/OrderFormTable";
 import DealFiguresSection from "@features/sales/cado2/quotes/components/sheet/DealFiguresSection";
 import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/ScheduleTable";
-import { hasYearlySchedule, orderForm, sheetFromForm, termLabel } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   hasRecurring,
@@ -175,7 +175,6 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
             lines={sheet.lines}
             currency={currency}
             commissionPercent={sheet.partnerCommissionPercent}
-            duration={termLabel(sheet)}
             actions={(i) => (
               <>
                 <Tooltip title="Edit">

@@ -32,11 +32,6 @@ interface OrderFormTableProps {
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
   /**
-   * The term in words, e.g. "1 year + 1 day" (D85), shown on every recurring
-   * line; a one-off line says "One-time". "" while there is no term yet.
-   */
-  readonly duration: string;
-  /**
    * The wizard's note on a line without a category yet (D72), by position in
    * `lines`, shown under the product. Such lines are listed first.
    */
@@ -47,7 +42,7 @@ interface OrderFormTableProps {
  * The products as an order form (misc/WSO2_Order_Form_Sample.docx): grouped
  * into Subscription, Support and Professional Services, each with its own
  * subtotal, then the total order value. Each amount is the line's cost over
- * the whole term, which the Duration column shows (D85). On a partner-led
+ * the whole term, shown on the Term card, not per line (D92). On a partner-led
  * quote, the partner's commission and the
  * net order value follow:
  *
@@ -62,10 +57,9 @@ export default function OrderFormTable({
   below,
   commissionPercent = null,
   categoryNote,
-  duration,
 }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
-  const cols = actions ? 8 : 7;
+  const cols = actions ? 7 : 6;
   // Products brought in from Salesforce whose category isn't chosen yet (D72).
   const pending = categoryNote ? lines.filter((l) => !l.category) : [];
   const cur = currency ? ` (${currency})` : "";
@@ -171,7 +165,6 @@ export default function OrderFormTable({
           <TableCell align="right" sx={num}>
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
           </TableCell>
-          <TableCell sx={{ whiteSpace: "nowrap" }}>{l.recurring ? duration || "–" : "One-time"}</TableCell>
           <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
             {money(l.tcv)}
           </TableCell>
@@ -195,8 +188,7 @@ export default function OrderFormTable({
             <TableCell>Unit of measure</TableCell>
             <TableCell align="right">Unit list</TableCell>
             <TableCell align="right">Qty</TableCell>
-            <TableCell align="right">Disc.</TableCell>
-            <TableCell>Duration</TableCell>
+            <TableCell align="right">Discount</TableCell>
             <TableCell align="right">Amount{cur}</TableCell>
             {actions ? (
               <TableCell align="right">
