@@ -18,8 +18,9 @@ import { amplifyPostLinkOrigins } from "@config/apiConfig";
 
 // The post kinds amplify-api accepts (parsePostUrn in amplify-common).
 const URN = /urn:li:(share|ugcPost|article|video|document|event|activity):([A-Za-z0-9_-]{1,100})/;
-// The public "copy link" form: /posts/wso2_some-slug-activity-7123-AbCd
-const ACTIVITY_SLUG = /-activity-(\d{1,100})-/;
+// The public "copy link" form: /posts/<slug>-<kind>-<id>-<suffix>. LinkedIn writes the post kind into the slug:
+// /posts/wso2_some-slug-activity-7123-AbCd, /posts/some-slug-share-7123-AbCd, /posts/some-slug-ugcPost-7123-AbCd.
+const POST_SLUG = /-(activity|share|ugcPost)-(\d{1,100})(?:[-/?#]|$)/;
 
 /**
  * `scheme://host[:port]` of an http(s) URL, lowercase, or null for anything
@@ -48,9 +49,10 @@ export function isAllowedLink(raw: string | null | undefined, origins: readonly 
  *
  * Accepts the two forms people paste: the feed form
  * (`/feed/update/urn:li:share:7123/`, also URL-encoded) and the "copy link"
- * form (`/posts/<slug>-activity-7123-xyz`). A bare URN works too. A URL on any
- * other host is refused, even if it carries a URN: every employee's card would
- * link to it.
+ * form (`/posts/<slug>-activity|share|ugcPost-7123-xyz`). A bare URN works too.
+ * A URL on any other host is refused, even if it carries a URN: every employee's
+ * card would link to it. Short links (`lnkd.in/...`) hide the id behind a redirect
+ * and can't be read here; see `isLinkedInShortLink`.
  */
 export function postUrnFromUrl(raw: string, origins: readonly string[] = amplifyPostLinkOrigins): string | null {
   const value = raw.trim();
@@ -58,17 +60,33 @@ export function postUrnFromUrl(raw: string, origins: readonly string[] = amplify
   // Anything with a scheme except `urn:` is a link (https:, http:, javascript:, …) and must pass the origin check.
   const looksLikeUrl = /^[a-z][a-z0-9+.-]*:/i.test(value) && !/^urn:/i.test(value);
   if (looksLikeUrl && !isAllowedLink(value, origins)) return null;
-  let decoded = value;
+  // For a link, read only its path: LinkedIn's own redirects append `?highlightedUpdateUrn=urn:li:activity:…`,
+  // a different id from the one in the path, and the path is the post that was linked.
+  let subject = value;
+  if (looksLikeUrl) {
+    try {
+      subject = new URL(value).pathname;
+    } catch {
+      // Not parseable: keep it as typed.
+    }
+  }
+  let decoded = subject;
   try {
-    decoded = decodeURIComponent(value);
+    decoded = decodeURIComponent(subject);
   } catch {
     // A stray % — read it as typed.
   }
   const urn = URN.exec(decoded);
   if (urn) return `urn:li:${urn[1]}:${urn[2]}`;
-  const slug = ACTIVITY_SLUG.exec(decoded);
-  if (slug && looksLikeUrl && /\/posts\//i.test(decoded)) return `urn:li:activity:${slug[1]}`;
+  const slug = POST_SLUG.exec(decoded);
+  if (slug && looksLikeUrl && /\/posts\//i.test(decoded)) return `urn:li:${slug[1]}:${slug[2]}`;
   return null;
+}
+
+/** LinkedIn's share-sheet short link (`https://lnkd.in/...`). The post id is behind a redirect, so it can't be read. */
+export function isLinkedInShortLink(raw: string): boolean {
+  const origin = originOf(raw);
+  return origin !== null && /^https?:\/\/lnkd\.in$/.test(origin);
 }
 
 /** The public URL for a post. The stored link only if its origin is allowed; otherwise built from the URN. */

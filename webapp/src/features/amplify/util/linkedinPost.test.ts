@@ -15,7 +15,14 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { closesAtFromDateInput, isAllowedLink, linkedInPostUrl, originOf, postUrnFromUrl } from "./linkedinPost";
+import {
+  closesAtFromDateInput,
+  isAllowedLink,
+  isLinkedInShortLink,
+  linkedInPostUrl,
+  originOf,
+  postUrnFromUrl,
+} from "./linkedinPost";
 
 describe("postUrnFromUrl", () => {
   it("reads the feed form", () => {
@@ -35,11 +42,49 @@ describe("postUrnFromUrl", () => {
     );
   });
 
+  it("reads the copy-link form for every post kind", () => {
+    const base = "https://www.linkedin.com/posts/testing-api-repost";
+    expect(postUrnFromUrl(`${base}-share-7518434065226887168-Jsow`)).toBe("urn:li:share:7518434065226887168");
+    expect(postUrnFromUrl(`${base}-ugcPost-7518434065226887168-Jsow`)).toBe("urn:li:ugcPost:7518434065226887168");
+    expect(postUrnFromUrl(`${base}-share-7518434065226887168-Jsow/`)).toBe("urn:li:share:7518434065226887168");
+    expect(postUrnFromUrl(`${base}-share-7518434065226887168-Jsow?utm_source=share&utm_medium=member_desktop`)).toBe(
+      "urn:li:share:7518434065226887168",
+    );
+    expect(postUrnFromUrl(`${base}-share-7518434065226887168`)).toBe("urn:li:share:7518434065226887168");
+  });
+
+  it("reads the path, not the tracking query LinkedIn adds when a short link redirects", () => {
+    // What https://lnkd.in/p/<id> redirects to: the slug carries the share id, the query a different activity id.
+    const resolved =
+      "https://www.linkedin.com/posts/testing-api-repost-share-7518434065226887168-Jsow/" +
+      "?highlightedUpdateUrn=urn%3Ali%3Aactivity%3A7518434065650315264&highlightedUpdateType=SOCIAL_SHARE" +
+      "&origin=SOCIAL_SHARE&utm_source=share&utm_medium=member_desktop";
+    expect(postUrnFromUrl(resolved)).toBe("urn:li:share:7518434065226887168");
+    // A feed link keeps its path URN even with a query.
+    expect(postUrnFromUrl("https://www.linkedin.com/feed/update/urn:li:share:7123/?utm_source=share")).toBe(
+      "urn:li:share:7123",
+    );
+  });
+
+  it("refuses a copy-link slug with an unknown kind or no id", () => {
+    expect(postUrnFromUrl("https://www.linkedin.com/posts/x-reshare-7518434065226887168-Jsow")).toBeNull();
+    expect(postUrnFromUrl("https://www.linkedin.com/posts/x-share-abc-Jsow")).toBeNull();
+  });
+
   it("refuses anything else", () => {
     expect(postUrnFromUrl("")).toBeNull();
     expect(postUrnFromUrl("https://example.com/posts/x-activity-1-y")).toBeNull();
     expect(postUrnFromUrl("https://www.linkedin.com/in/someone")).toBeNull();
     expect(postUrnFromUrl("%E0%A4%A")).toBeNull();
+  });
+});
+
+describe("isLinkedInShortLink", () => {
+  it("spots the share-sheet short link, which postUrnFromUrl can't read", () => {
+    expect(isLinkedInShortLink("https://lnkd.in/p/gMdNVrGJ")).toBe(true);
+    expect(postUrnFromUrl("https://lnkd.in/p/gMdNVrGJ")).toBeNull();
+    expect(isLinkedInShortLink("https://www.linkedin.com/posts/x-share-1-y")).toBe(false);
+    expect(isLinkedInShortLink("https://evil.example/lnkd.in")).toBe(false);
   });
 });
 
