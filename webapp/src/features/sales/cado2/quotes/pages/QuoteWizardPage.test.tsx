@@ -279,7 +279,7 @@ describe("QuoteWizardPage — review and submit", () => {
     expect(field).toHaveAttribute("readonly");
     expect(screen.queryByRole("listbox", { name: "Price books" })).toBeNull(); // nothing to choose
     expect(screen.queryByText("Different price book")).toBeNull();
-    expect(screen.getByRole("button", { name: "Add line" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
   });
 
   // 2026-10-09: one price book (the opportunity's), named; not "the USD price books".
@@ -299,7 +299,7 @@ describe("QuoteWizardPage — review and submit", () => {
     renderWizard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
     expect(screen.getByRole("textbox", { name: "Price book" })).toHaveValue("—");
-    expect(screen.getByRole("button", { name: "Add line" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add product" })).toBeDisabled();
   });
 
   it("reviews the stored numbers in one view, as an order form with the deal figures", async () => {

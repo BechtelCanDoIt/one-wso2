@@ -128,13 +128,17 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
       disabled={!ready}
       onClick={() => setEditing({ open: true, index: null })}
     >
-      Add line
+      Add product
     </Button>
   );
 
   return (
     <Stack spacing={2.5}>
       {linesIssue ? <Alert severity="error">{linesIssue}</Alert> : null}
+
+      {/* When it starts and how long it runs: set first, since the amounts
+          below depend on it (D90). */}
+      <SubscriptionTermCard />
 
       {/* The opportunity's currency and price book, locked. */}
       <PricingSetupCard />
@@ -144,6 +148,16 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           <AlertTitle>Not brought in from Salesforce ({values.notBroughtIn.length})</AlertTitle>
           {values.notBroughtIn.map((n) => `${n.productName}: ${n.reason}`).join(" · ")}
         </Alert>
+      ) : null}
+
+      {/* Partner-led: the commission, right above the products whose totals it
+          changes (D91); shown before any product too. */}
+      {isPartnerLed(values) ? (
+        <PartnerCommissionCard
+          commission={orderForm(sheet.lines, sheet.partnerCommissionPercent).commission}
+          total={orderForm(sheet.lines).total}
+          currency={currency}
+        />
       ) : null}
 
       <SectionCard title="Products" icon={<PackageIcon size={18} />} aside={fields.length > 0 ? addButton : undefined}>
@@ -196,19 +210,6 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           </Typography>
         ) : null}
       </SectionCard>
-
-      {/* When it starts and how long it runs, under the products it depends on;
-          the figures below depend on it (D85). */}
-      <SubscriptionTermCard />
-
-      {/* Partner-led: the partner's commission. */}
-      {isPartnerLed(values) && fields.length > 0 ? (
-        <PartnerCommissionCard
-          commission={orderForm(sheet.lines, sheet.partnerCommissionPercent).commission}
-          total={orderForm(sheet.lines).total}
-          currency={currency}
-        />
-      ) : null}
 
       {fields.length > 0 ? <DealFiguresSection sheet={sheet} /> : null}
 

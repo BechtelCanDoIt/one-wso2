@@ -69,16 +69,16 @@ function approvalHint(start: string, end: string): string {
 }
 
 /**
- * Step 2's Term card (D85), under the products it depends on: when the quote
- * starts and, when a line recurs, how long it runs. Billing has its own card
- * since D86.
+ * Step 2's Term card (D85), first on the step (D90): when the quote starts
+ * and how long it runs. Billing has its own card since D86.
  *
  *   Start     pre-filled from the opportunity. A renewal's is locked: its
  *             Subs_Start_Date__c, else the day after the renewed one ends
  *   End by    Number of years (1–10): the end is worked out
  *             End date: any date up to 10 years, e.g. 1 year + 1 day
  *   Duration  always shown in words, with the approval it needs
- *   No recurring line: the start date only, titled "Start Date"
+ *   No products yet: the term too, so it can be set before adding them
+ *   Products but none recurs: the start date only, titled "Start Date"
  */
 export default function SubscriptionTermCard(): JSX.Element {
   const { control, setValue } = useFormContext<DraftFormValues>();
@@ -107,6 +107,8 @@ export default function SubscriptionTermCard(): JSX.Element {
       )
     : null;
   const recurring = hasRecurring(lines);
+  // Before any product, the term is asked too: most quotes are subscriptions.
+  const asksTerm = recurring || lines.length === 0;
   const end = termEnd({ startDate, termMode, termYears, termEndDate });
   const duration = durationText(startDate, end);
   const hint = approvalHint(startDate, end);
@@ -126,7 +128,7 @@ export default function SubscriptionTermCard(): JSX.Element {
   return (
     <SectionCard
       // "Start Date" only once there are lines and none recurs: an empty quote is most likely a subscription.
-      title={recurring || lines.length === 0 ? "Subscription Term" : "Start Date"}
+      title={asksTerm ? "Subscription Term" : "Start Date"}
       icon={<CalendarDaysIcon size={18} />}
       aside={
         recurring && startDate && end ? (
@@ -171,7 +173,7 @@ export default function SubscriptionTermCard(): JSX.Element {
           </Alert>
         ) : null}
 
-        {recurring ? (
+        {asksTerm ? (
           <>
             <Stack spacing={1}>
               <Typography variant="body2">Set the end by</Typography>
@@ -252,9 +254,7 @@ export default function SubscriptionTermCard(): JSX.Element {
           </>
         ) : (
           <Typography variant="body2" color="text.secondary">
-            {lines.length === 0
-              ? "Add products above. A recurring product (charged every year) asks for the duration here."
-              : "No recurring products, so no subscription term. Only the contract total (TCV) applies."}
+            No recurring products, so no subscription term. Only the contract total (TCV) applies.
           </Typography>
         )}
       </Stack>

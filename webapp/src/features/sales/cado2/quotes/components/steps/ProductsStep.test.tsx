@@ -66,7 +66,10 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   discount: "",
 });
 
-function Harness({ startDate = "2027-01-01" }: { startDate?: string } = {}): JSX.Element {
+function Harness({
+  startDate = "2027-01-01",
+  values = {},
+}: { startDate?: string; values?: Partial<DraftFormValues> } = {}): JSX.Element {
   const form = useForm<DraftFormValues>({
     defaultValues: {
       ...emptyDraftForm(),
@@ -86,6 +89,7 @@ function Harness({ startDate = "2027-01-01" }: { startDate?: string } = {}): JSX
           reason: "not active in USD Price Book in USD",
         },
       ],
+      ...values,
     },
   });
   return (
@@ -102,16 +106,18 @@ describe("ProductsStep (Products & Pricing)", () => {
   // priced once it is chosen.
   it("lets the AM add products before the start date is chosen", () => {
     render(<Harness startDate="" />);
-    expect(screen.getByRole("button", { name: "Add line" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
     expect(screen.getByText("Amounts appear once the start date is chosen.")).toBeInTheDocument();
   });
 
-  // D86: the products, then the term; billing and payment terms are on Commercials.
-  it("puts the term under the products, and says what wasn't brought in", () => {
+  // D90: the term first, then currency and price book, then the products;
+  // billing and payment terms are on Commercials (D86).
+  it("puts the term first, and says what wasn't brought in", () => {
     render(<Harness />);
     const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
-    expect(regions.indexOf("Products")).toBeGreaterThanOrEqual(0);
-    expect(regions.indexOf("Subscription Term")).toBeGreaterThan(regions.indexOf("Products"));
+    expect(regions[0]).toBe("Subscription Term");
+    expect(regions.indexOf("Currency & Price Book")).toBeGreaterThan(0);
+    expect(regions.indexOf("Products")).toBeGreaterThan(regions.indexOf("Currency & Price Book"));
     expect(regions).not.toContain("Billing Frequency");
     expect(regions).not.toContain("Payment Terms");
     expect(
@@ -152,5 +158,18 @@ describe("ProductsStep (Products & Pricing)", () => {
     ).toBeNull();
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
     expect(within(table).queryByText("Not Categorised")).toBeNull(); // gone once empty
+  });
+
+  // D91: a partner-led quote's commission card sits right above the products, before any product too.
+  it("puts the partner commission card right above the products", () => {
+    render(<Harness values={{ dealType: "PARTNER", lines: [] }} />);
+    const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    expect(regions.indexOf("Partner Commission")).toBe(regions.indexOf("Products") - 1);
+    expect(regions.indexOf("Partner Commission")).toBeGreaterThan(regions.indexOf("Currency & Price Book"));
+  });
+
+  it("has no commission card on a direct deal (D91)", () => {
+    render(<Harness values={{ dealType: "DIRECT" }} />);
+    expect(screen.queryByRole("region", { name: "Partner Commission" })).toBeNull();
   });
 });

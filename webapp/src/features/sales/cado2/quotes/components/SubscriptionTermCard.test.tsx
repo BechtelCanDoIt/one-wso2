@@ -148,11 +148,12 @@ describe("Term card", () => {
     expect(screen.queryByRole("combobox", { name: /Billing frequency/ })).toBeNull();
   });
 
-  it("asks for products first when there are none, under the Subscription Term title", () => {
+  // D90: the card is first on the step, so the term can be set before any product.
+  it("asks for the term before there are products", () => {
     render(<Harness values={{ lines: [] }} />);
     expect(screen.getByText("Subscription Term")).toBeInTheDocument();
-    expect(screen.queryByRole("radiogroup", { name: "Set the end by" })).toBeNull();
-    expect(screen.getByText(/Add products above/)).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Set the end by" })).toBeInTheDocument();
+    expect(screen.queryByText(/No recurring products/)).toBeNull();
   });
 
   it("is only the start date when no product recurs, whatever its category (D76)", () => {
