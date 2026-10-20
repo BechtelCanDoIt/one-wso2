@@ -55,5 +55,19 @@ export function basePromotionRequestColumns(): DataGrid.GridColDef<PromotionRequ
     },
     { field: "currentJobBand", headerName: "Current Job Band", type: "number", flex: 0.8, minWidth: 130 },
     { field: "nextJobBand", headerName: "Applied Job Band", type: "number", flex: 0.8, minWidth: 130 },
+    {
+      field: "promotedJobRole",
+      headerName: "New Job Role",
+      flex: 1.1,
+      minWidth: 160,
+      valueFormatter: (value: string | null) => value ?? "",
+    },
+    {
+      field: "promotedDate",
+      headerName: "Promoted Date",
+      flex: 0.9,
+      minWidth: 140,
+      valueFormatter: (value: string | null) => value ?? "",
+    },
   ];
 }

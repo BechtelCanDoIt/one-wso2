@@ -61,6 +61,8 @@ export interface PromotionHistoryEntry {
   currentJobBand: number;
   currentJobRole: string;
   nextJobBand: number;
+  promotedJobRole: string | null;
+  promotedDate: string | null;
   promotionCycle: string;
   promotionStatement: string | null;
   businessUnit: string;
@@ -206,6 +208,8 @@ export interface PromotionRequestFull {
   currentJobBand: number;
   currentJobRole: string;
   nextJobBand: number;
+  promotedJobRole: string | null;
+  promotedDate: string | null;
   promotionCycle: string;
   promotionStatement: string | null;
   businessUnit: string;
