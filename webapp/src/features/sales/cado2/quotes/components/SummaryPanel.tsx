@@ -20,7 +20,6 @@ import { Building2Icon, FileTextIcon, LandmarkIcon, PackageIcon } from "@wso2/ox
 import type { Totals } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   BILLING_LABEL,
-  effectiveBilling,
   formatDate,
   hasRecurring,
   termEnd,
@@ -139,7 +138,7 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
   const money = (x: string | null | undefined) => (x ? `${v.currencyIsoCode} ${formatMoney(x)}` : "—");
   const recurring = hasRecurring(v.lines);
   const end = termEnd(v);
-  const billing = effectiveBilling(v);
+  const billing = v.billingFrequency;
   const partner = v.dealType === "PARTNER" ? v.partner : null;
   const addressLines = (a: DraftFormValues["billTo"]) =>
     [a.companyName, [a.city, a.country].filter((x) => x.trim()).join(", ")].filter((x) => x.trim());
@@ -187,14 +186,6 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
             </Typography>
           </Stack>
         ) : null}
-        <Stack direction="row" justifyContent="space-between" sx={{ mt: totals?.netOrderValue ? 0.5 : 1.25 }}>
-          <Typography variant="body2" color="text.secondary">
-            First invoice
-          </Typography>
-          <Typography variant="body2" sx={{ fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
-            {money(totals?.payableNow)}
-          </Typography>
-        </Stack>
       </Box>
       <Divider />
       {approvals ? (
@@ -245,17 +236,15 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
           <Field label="WSO2 legal entity">{v.legalEntityId ? legalEntityName : null}</Field>
           <Field label="Currency">{v.currencyIsoCode}</Field>
           {recurring || v.lines.length === 0 ? (
-            <>
-              <Field label="Subscription term" detail={termLabel({ startDate: v.startDate, endDate: end, termMode: v.termMode || null }) || undefined}>
-                {v.startDate && end ? `${formatDate(v.startDate)} – ${formatDate(end)}` : null}
-              </Field>
-              <Field label="Billing">{billing ? BILLING_LABEL[billing] : null}</Field>
-            </>
+            <Field label="Subscription term" detail={termLabel({ startDate: v.startDate, endDate: end }) || undefined}>
+              {v.startDate && end ? `${formatDate(v.startDate)} – ${formatDate(end)}` : null}
+            </Field>
           ) : (
             <Field label="Start date" detail="No subscription term: no recurring products">
               {v.startDate ? formatDate(v.startDate) : null}
             </Field>
           )}
+
         </Group>
 
         <Group title="Products" icon={<PackageIcon size={14} />}>
@@ -284,10 +273,11 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
           )}
         </Group>
 
-        <Group title="Commercial" icon={<FileTextIcon size={14} />}>
+        <Group title="Commercials" icon={<FileTextIcon size={14} />}>
+          {/* As on the step (D86): billing and payment terms first. */}
           <Box sx={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0,1fr))", gap: 1.25 }}>
+            <Field label="Billing">{billing ? BILLING_LABEL[billing] : null}</Field>
             <Field label="Payment terms">{v.netTermsDays ? `Net ${v.netTermsDays}` : null}</Field>
-            <Field label="PO number">{v.poNumber.trim() || null}</Field>
           </Box>
           <Field label="Bill to">
             {/* The whole address is the value, so every line of it is bold. */}
@@ -308,6 +298,7 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
                 ))
               : null}
           </Field>
+          <Field label="PO number">{v.poNumber.trim() || null}</Field>
           <Field label="Billing contact" detail={contactDetail(v.billingContact)}>
             {hasContact(v.billingContact) ? contactName(v.billingContact) : null}
           </Field>

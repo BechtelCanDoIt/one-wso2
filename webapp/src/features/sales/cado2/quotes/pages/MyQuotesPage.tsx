@@ -739,7 +739,7 @@ export default function MyQuotesPage(): JSX.Element {
             <EmptyState
               icon={<FileTextIcon size={28} />}
               title={mine ? "No quotes yet" : "No quotes"}
-              body="Start from a Salesforce opportunity: CadO2 prices it from the price book and keeps every version."
+              body="Start from a Salesforce opportunity: CADO2 prices it from the price book and keeps every version."
               action={
                 <Button variant="contained" component={RouterLink} to={cado2Paths.newQuote} startIcon={<PlusIcon size={16} />}>
                   {mine ? "Create your first quote" : "Create a quote"}

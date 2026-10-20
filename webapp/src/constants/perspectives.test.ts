@@ -118,7 +118,7 @@ describe("CadO2's rail entries", () => {
   it("are a CadO2 group under Sales once the flag is on", async () => {
     const perspectives = await load({ cado2: true });
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sec-app-cado2");
-    expect(group?.label).toBe("CadO2");
+    expect(group?.label).toBe("CADO2");
     expect(group?.alwaysGroup).toBe(true);
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
       ["Quotes", "/sales/cado2/quotes"],

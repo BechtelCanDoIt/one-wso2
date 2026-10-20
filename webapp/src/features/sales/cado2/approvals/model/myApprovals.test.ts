@@ -49,6 +49,16 @@ describe("reasonRows", () => {
     ]);
   });
 
+  // D87: billing more often than once a year, or as the special terms say.
+  it("names the billing frequency rule", () => {
+    const cfo = step("CFO", "PENDING", { triggers: [
+      { rule: "BILLING_FREQUENCY", branch: "COMMERCIAL" as const, lineNumber: 0, reason: "Billed quarterly: more often than once a year" },
+    ] });
+    expect(reasonRows(cfo)).toEqual([
+      { kind: "payment", title: "Billing frequency", detail: "Billed quarterly: more often than once a year" },
+    ]);
+  });
+
   it("leaves out Deal Desk's own every-quote review", () => {
     expect(reasonRows(step("DEAL_DESK", "PENDING", { triggers: [trigger("DEAL_DESK_REVIEW", 0, "Deal Desk reviews every quote")] }))).toEqual([]);
   });

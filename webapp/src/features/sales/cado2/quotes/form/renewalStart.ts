@@ -14,10 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// A renewal's start date (2026-10-09): the day after the renewed
-// opportunity's subscription end date. The CadO2 backend applies the same
-// rule to the version it stores. The AM may choose another day; the quote
-// then warns.
+// A renewal's start date (2026-10-09, D85): its own opportunity's
+// subscription start date, else the day after the renewed opportunity's
+// subscription end date. The CadO2 backend applies the same rule to the
+// version it stores. When it isn't the day after, the quote warns.
 //
 //   Renews "APIM Subs 2026"  ends 31 Jan 2027  →  starts 1 Feb 2027
 
@@ -52,4 +52,27 @@ export function expectedRenewalStart(
 /** The warning when the quote starts another day, e.g. "Starts 1 Mar 2027, not 1 Feb 2027, the day after APIM Subs 2026 ends". */
 export function renewalStartWarning(start: string, expected: { date: string; fromName: string }): string {
   return `Starts ${formatDate(start)}, not ${formatDate(expected.date)}, the day after ${expected.fromName || "the renewed opportunity"} ends`;
+}
+
+/** Where a renewal's locked start date comes from (D85). */
+export interface LockedRenewalStart extends ExpectedRenewalStart {
+  /** OPPORTUNITY: its own Subs_Start_Date__c; RENEWED: the day after the renewed one ends. */
+  readonly source: "OPPORTUNITY" | "RENEWED";
+}
+
+/**
+ * A renewal's start date, locked (D85): its own opportunity's
+ * Subs_Start_Date__c; without one, the day after the renewed opportunity
+ * ends; null when neither is in Salesforce (the AM then chooses). The
+ * backend applies the same order.
+ */
+export function lockedRenewalStart(
+  opportunity: { readonly name: string | null; readonly subsStartDate?: string | null } | undefined,
+  renewed: readonly { readonly name: string | null; readonly subsEndDate?: string | null }[],
+): LockedRenewalStart | null {
+  if (opportunity?.subsStartDate && parseDateString(opportunity.subsStartDate)) {
+    return { date: opportunity.subsStartDate, fromName: opportunity.name ?? "", source: "OPPORTUNITY" };
+  }
+  const expected = expectedRenewalStart(renewed);
+  return expected ? { ...expected, source: "RENEWED" } : null;
 }

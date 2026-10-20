@@ -37,7 +37,11 @@ export default function ProductsSection({ sheet }: { sheet: QuoteSheet }): JSX.E
       {sheet.lines.length === 0 ? (
         <EmptyState compact icon={<PackageIcon size={20} />} title="No products yet" />
       ) : (
-        <OrderFormTable lines={sheet.lines} currency={sheet.currency} commissionPercent={sheet.partnerCommissionPercent} />
+        <OrderFormTable
+          lines={sheet.lines}
+          currency={sheet.currency}
+          commissionPercent={sheet.partnerCommissionPercent}
+        />
       )}
     </SheetCard>
   );

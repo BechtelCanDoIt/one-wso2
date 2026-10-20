@@ -29,7 +29,7 @@ const v2: DraftResponse = {
       { ...gateway, quantity: 30, discretionaryDiscountPercent: "12.00", annualNet: "9504.00" },
       { ...gateway, id: 52, pricebookEntryId: "01u000000000002", productName: "WSO2 Support", quantity: 1, unitPrice: "25000", discretionaryDiscountPercent: "0.00" },
     ],
-    totals: { arr: "34504.00", acv: "34504.00", tcv: "34504.00", payableNow: "34504.00" },
+    totals: { arr: "34504.00", acv: "34504.00", tcv: "34504.00" },
   },
 };
 

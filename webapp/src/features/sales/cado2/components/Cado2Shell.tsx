@@ -25,7 +25,7 @@ import { cado2Access, useCado2Me, type Cado2Access } from "../api/useCado2Me";
 import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { cado2Paths } from "../cado2Paths";
 
-const NAME = "CadO2";
+const NAME = "CADO2";
 
 /**
  * The frame every CadO2 route renders in: resolves access once, in the order

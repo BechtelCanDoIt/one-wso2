@@ -20,7 +20,6 @@ import {
   Alert,
   AlertTitle,
   Button,
-  Chip,
   IconButton,
   Stack,
   TableCell,
@@ -74,8 +73,15 @@ function LineIssue({ index }: { index: number }) {
 }
 
 /**
- * Step ② Term & Products (D73): when the quote starts and how long it runs,
- * then the products, priced from the opportunity's price book. A new quote's
+ * Step ② Products & Pricing (D86): the products, priced from the
+ * opportunity's price book, then each section that changes the amounts, top
+ * to bottom, with the figures last:
+ *
+ *   Products → Subscription Term → Partner Commission → Deal Figures → Yearly Schedule
+ *
+ * Billing and payment terms are on Commercials.
+ *
+ * A new quote's
  * products are brought in from the opportunity (D72); one not mapped to a
  * category says so on its line, and is chosen in the line's dialog.
  */
@@ -121,7 +127,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
       disabled={!ready}
       onClick={() => setEditing({ open: true, index: null })}
     >
-      Add line
+      Add product
     </Button>
   );
 
@@ -129,7 +135,8 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
     <Stack spacing={2.5}>
       {linesIssue ? <Alert severity="error">{linesIssue}</Alert> : null}
 
-      {/* When it starts and how long it runs: the term comes first (D73). */}
+      {/* When it starts and how long it runs: set first, since the amounts
+          below depend on it (D90). */}
       <SubscriptionTermCard />
 
       {/* The opportunity's currency and price book, locked. */}
@@ -140,6 +147,16 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           <AlertTitle>Not brought in from Salesforce ({values.notBroughtIn.length})</AlertTitle>
           {values.notBroughtIn.map((n) => `${n.productName}: ${n.reason}`).join(" · ")}
         </Alert>
+      ) : null}
+
+      {/* Partner-led: the commission, right above the products whose totals it
+          changes (D91); shown before any product too. */}
+      {isPartnerLed(values) ? (
+        <PartnerCommissionCard
+          commission={orderForm(sheet.lines, sheet.partnerCommissionPercent).commission}
+          total={orderForm(sheet.lines).total}
+          currency={currency}
+        />
       ) : null}
 
       <SectionCard title="Products" icon={<PackageIcon size={18} />} aside={fields.length > 0 ? addButton : undefined}>
@@ -172,17 +189,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               </>
             )}
             below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
-            categoryNote={(i) => (
-              <Chip
-                size="small"
-                color="warning"
-                variant="outlined"
-                clickable
-                label="Category not set · Choose"
-                onClick={() => setEditing({ open: true, index: i })}
-                sx={{ mt: 0.5 }}
-              />
-            )}
+            groupUncategorised
           />
         )}
         {amountsHint ? (
@@ -191,15 +198,6 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           </Typography>
         ) : null}
       </SectionCard>
-
-      {/* Partner-led: the partner's commission. */}
-      {isPartnerLed(values) && fields.length > 0 ? (
-        <PartnerCommissionCard
-          commission={orderForm(sheet.lines, sheet.partnerCommissionPercent).commission}
-          total={orderForm(sheet.lines).total}
-          currency={currency}
-        />
-      ) : null}
 
       {fields.length > 0 ? <DealFiguresSection sheet={sheet} /> : null}
 

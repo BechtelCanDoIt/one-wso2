@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { DraftInput, Issue } from "@features/sales/cado2/quotes/api/quoteTypes";
+import type { BillingFrequency, DraftInput, Issue } from "@features/sales/cado2/quotes/api/quoteTypes";
 
 /** Approval roles. Each is an Asgardeo group. */
 export type ApprovalRole =
@@ -155,6 +155,8 @@ export interface ApprovalSettings {
   readonly paymentTermsDays: number;
   readonly downsellCeoPercent: string;
   readonly saasClassification: string;
+  /** Billing frequencies that need the CFO (D89); none = the rule is off. */
+  readonly billingApproval: readonly BillingFrequency[];
 }
 
 export interface ApprovalRoleInfo {
