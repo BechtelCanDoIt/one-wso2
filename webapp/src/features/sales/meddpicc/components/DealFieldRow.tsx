@@ -102,7 +102,8 @@ function ProposalCompare({
           <Typography variant="caption" color="text.secondary" component="div">
             {from && `From ${from} · `}
             {Math.round(confidence * 100)}% confident
-            {!pending && " · matches Salesforce"}
+            {/* Only when Salesforce has the field: a field not in Salesforce yet has nothing to match. */}
+            {!pending && salesforceValue !== undefined && " · matches Salesforce"}
           </Typography>
         </Box>
       </Box>
