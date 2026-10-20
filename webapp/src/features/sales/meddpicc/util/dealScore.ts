@@ -19,9 +19,18 @@
 
 export type ScoreBand = "Weak" | "Moderate" | "Strong";
 
+/**
+ * The score as it is shown: rounded to one decimal. The band is read from this too, so a
+ * 49.96 shows as 50 and is Moderate, never "50.0, Weak".
+ */
+export function roundScore(score: number): number {
+  return Math.round(score * 10) / 10;
+}
+
 export function scoreBand(score: number): ScoreBand {
-  if (score >= 70) return "Strong";
-  if (score >= 50) return "Moderate";
+  const shown = roundScore(score);
+  if (shown >= 70) return "Strong";
+  if (shown >= 50) return "Moderate";
   return "Weak";
 }
 
@@ -32,5 +41,6 @@ export function bandColor(band: ScoreBand): "error" | "warning" | "success" {
 
 /** One decimal, as Salesforce shows it: 28.3, 70.0 → 70. */
 export function formatScore(score: number): string {
-  return Number.isInteger(score) ? String(score) : score.toFixed(1);
+  const shown = roundScore(score);
+  return Number.isInteger(shown) ? String(shown) : shown.toFixed(1);
 }

@@ -32,4 +32,12 @@ describe("deal score", () => {
     expect(formatScore(17.06)).toBe("17.1");
     expect(formatScore(70)).toBe("70");
   });
+
+  it("reads the band from the score as shown, so the two never disagree", () => {
+    expect(formatScore(49.96)).toBe("50");
+    expect(scoreBand(49.96)).toBe("Moderate");
+    expect(formatScore(69.95)).toBe("70");
+    expect(scoreBand(69.95)).toBe("Strong");
+    expect(scoreBand(49.94)).toBe("Weak");
+  });
 });
