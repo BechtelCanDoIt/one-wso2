@@ -18,14 +18,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
 // The shell has its own suite; here it only frames the page.
-// The backend is replaced by the in-memory test double in ../mock, behind the
+// The backend is replaced by the in-memory test double in ../testing, behind the
 // same client interface, so the real hooks, cache and mutations run against it.
 vi.mock("@config/apiConfig", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@config/apiConfig")>()),
   isEchoBackendConfigured: () => true,
 }));
 vi.mock("@features/sales/meddpicc/api/meddpiccClient", async (importOriginal) => {
-  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/mock/mockStore");
+  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/testing/mockStore");
   return {
     ...(await importOriginal<typeof import("@features/sales/meddpicc/api/meddpiccClient")>()),
     httpMeddpiccClient: () => mockMeddpiccClient,
@@ -54,7 +54,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
 import SalesDealsPage from "./SalesDealsPage";
-import { mockMeddpiccClient, resetMockStore } from "../meddpicc/mock/mockStore";
+import { mockMeddpiccClient, resetMockStore } from "../meddpicc/testing/mockStore";
 
 function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>;

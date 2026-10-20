@@ -24,7 +24,7 @@ vi.mock("@config/apiConfig", async (importOriginal) => ({
   isEchoBackendConfigured: () => true,
 }));
 vi.mock("@features/sales/meddpicc/api/meddpiccClient", async (importOriginal) => {
-  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/mock/mockStore");
+  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/testing/mockStore");
   return {
     ...(await importOriginal<typeof import("@features/sales/meddpicc/api/meddpiccClient")>()),
     httpMeddpiccClient: () => mockMeddpiccClient,
