@@ -63,6 +63,8 @@ export interface AnnualPeriodsOptions {
   endingMonth?: string;
   /** Prior years to include. The current year is always added on top. */
   yearsBack?: number;
+  /** Years after the current one to include, as the forecast columns do. */
+  yearsAhead?: number;
   /** Today, on the Pacific calendar. Read from the clock when omitted. */
   asOf?: MisCivilDate;
 }
@@ -83,12 +85,13 @@ export function getAnnualPeriods({
   isYtd,
   endingMonth,
   yearsBack = 5,
+  yearsAhead = 0,
   asOf,
 }: AnnualPeriodsOptions): MisDateRange[] {
   const today = asOf ?? pacificCivilDate();
   const ranges: MisDateRange[] = [];
-  for (let back = yearsBack; back >= 0; back--) {
-    const year = today.year - back;
+  for (let offset = -yearsBack; offset <= yearsAhead; offset++) {
+    const year = today.year + offset;
     ranges.push({
       start: formatCivilDate(startOfYear(year)),
       end: formatCivilDate(annualEnd(year, today, { isYtd, endingMonth })),
@@ -525,7 +528,17 @@ export function summaryColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
   filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack"> & ForecastRangeFilters,
+  asOf?: MisCivilDate,
 ): readonly MisDateRange[] {
+  if (drawsForecastColumns(period, viewWindow, filters)) {
+    return getAnnualPeriods({
+      isYtd: filters.isYtd ?? false,
+      endingMonth: filters.endingMonth,
+      yearsBack: 0,
+      yearsAhead: 2,
+      asOf,
+    });
+  }
   return calendarColumnRanges(period, viewWindow, filters);
 }
 
@@ -615,7 +628,8 @@ function forecastBuildRanges(
 export function customerColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
-  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "qrrType" | "mrrType">,
+  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "qrrType" | "mrrType"> &
+    ForecastRangeFilters,
   asOf?: MisCivilDate,
 ): readonly MisDateRange[] {
   const today = asOf ?? pacificCivilDate();
@@ -625,7 +639,7 @@ export function customerColumnRanges(
   if (period === MIS_PERIODS.MONTHLY && filters.mrrType === DELAYED_MRR) {
     return recentMonths(today, 6);
   }
-  return summaryColumnRanges(period, viewWindow, filters);
+  return summaryColumnRanges(period, viewWindow, filters, asOf);
 }
 
 /** `back` whole quarters, then the one still running, closing today. */

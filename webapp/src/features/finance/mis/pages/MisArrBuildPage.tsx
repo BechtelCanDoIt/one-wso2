@@ -469,7 +469,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
  * customer and there are hundreds of them, which is why this is the first
  * screen where `BuildTable`'s row windowing actually runs.
  *
- * Its columns are `buildColumnRanges`, the same slice the Subscription Build
+ * Its columns are `summaryColumnRanges`, the same slice the Subscription Build
  * takes. The fetch asks for one year more than those columns render
  * (`generateFullYearRanges(-yearsBack, 0)` versus `-(yearsBack - 1)`), so
  * reading the fetch as the column list would put six Periods on screen where
@@ -484,7 +484,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // Totals only collapses each Period group to its Total column(s). Off by
   // default; component state like BU only, for the same reason.
   const [totalsOnly, setTotalsOnly] = useState(false);
-  // `customerColumnRanges`, not `buildColumnRanges`: this is the one table with
+  // `customerColumnRanges`, not `summaryColumnRanges`: this is the one table with
   // ranges of its own, and only on a Delayed type, where the columns are a
   // recent run plus today rather than the whole Period. See misPeriods.ts.
   const ranges = useMemo(

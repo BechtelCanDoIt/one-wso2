@@ -35,6 +35,7 @@ import {
   getTtmPeriods,
   pacificColumnRanges,
   buildColumnRanges,
+  summaryColumnRanges,
 } from "./misPeriods";
 
 // The Annually column ranges, in Pacific Time. Spec §3 and §10.8.
@@ -698,5 +699,61 @@ describe("the Subscription Build's columns under a forecast type", () => {
     const quarters = getQuarterlyPeriods({ yearsBack: 1, asOf: ASOF });
     const filters = forecasting({ columnDateRanges: quarters });
     expect(buildColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toEqual(quarters);
+  });
+});
+
+// Region Summary, BU Summary and Customers take the same forecast columns: the
+// current year and the two after it as full-year ranges, `generateFullYearRanges(0, 2)`
+// in the standalone. Customers' own column builder (`tableUtils.js`,
+// `case 'software-cloud-customers'`, `startOffset = forecastEnabled ? 0 : -(yearsBack - 1)`)
+// uses it exactly as the summaries do, so one rule serves all three.
+describe("the summaries' and Customers' columns under a forecast type", () => {
+  const forecasting = (extra: Record<string, unknown> = {}) =>
+    ({
+      yearsBack: 5,
+      isYtd: false,
+      endingMonth: ENDING_MONTH_TODAY,
+      forecast: FORECAST_STATES.ENABLE,
+      ...extra,
+    }) as unknown as MisAppliedFilters;
+
+  const ranges = {
+    summaries: (filters: MisAppliedFilters) =>
+      summaryColumnRanges(MIS_PERIODS.ANNUALLY, MIS_WINDOWS.CALENDAR, filters, ASOF),
+    customers: (filters: MisAppliedFilters) =>
+      customerColumnRanges(MIS_PERIODS.ANNUALLY, MIS_WINDOWS.CALENDAR, filters, ASOF),
+  };
+
+  it.each(Object.entries(ranges))("%s: current year, then the next two in full", (_table, rangesOf) => {
+    expect(rangesOf(forecasting())).toEqual([
+      { start: "2026/01/01", end: "2026/09/12" },
+      { start: "2027/01/01", end: "2027/12/31" },
+      { start: "2028/01/01", end: "2028/12/31" },
+    ]);
+  });
+
+  it.each(Object.entries(ranges))("%s: YTD cuts every year at the as-of month and day", (_table, rangesOf) => {
+    expect(rangesOf(forecasting({ isYtd: true })).map((range) => range.end)).toEqual([
+      "2026/09/12",
+      "2027/09/12",
+      "2028/09/12",
+    ]);
+  });
+
+  it.each(Object.entries(ranges))("%s: headers follow the ranges", (_table, rangesOf) => {
+    expect(rangesOf(forecasting()).map(asOfColumnLabel)).toEqual([
+      "As of 2026/09/12",
+      "As of 2027/12/31",
+      "As of 2028/12/31",
+    ]);
+  });
+
+  it.each(Object.entries(ranges))("%s: keeps calendar ranges when it is not a forecast", (_table, rangesOf) => {
+    const calendar = forecasting({
+      forecast: FORECAST_STATES.DISABLE,
+      columnDateRanges: getAnnualPeriods({ isYtd: false, yearsBack: 5, asOf: ASOF }),
+    });
+    expect(rangesOf(calendar)).toHaveLength(5);
+    expect(rangesOf(calendar).at(-1)?.end).toBe("2026/09/12");
   });
 });
