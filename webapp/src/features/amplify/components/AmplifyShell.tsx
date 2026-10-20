@@ -56,11 +56,22 @@ export default function AmplifyShell({
 }
 
 /** A titled panel, the "POSTS TO AMPLIFY" / "TEAM LEADERBOARD" boxes on the wireframes. */
-export function AmplifyPanel({ title, action, children }: { title: string; action?: ReactNode; children: ReactNode }) {
+export function AmplifyPanel({
+  title,
+  ariaLabel,
+  action,
+  children,
+}: {
+  title: string;
+  /** Accessible name when the visible title carries emoji or decoration. Defaults to the title. */
+  ariaLabel?: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <Box
       component="section"
-      aria-label={title}
+      aria-label={ariaLabel ?? title}
       sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, mb: 3 }}
     >
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 1.5, minHeight: 32 }}>

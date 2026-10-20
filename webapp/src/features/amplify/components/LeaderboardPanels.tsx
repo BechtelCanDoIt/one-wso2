@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Avatar, Box, Chip, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { Avatar, Box, Chip, Divider, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import type { Leaderboard } from "../api/amplifyTypes";
 import type { PeopleByEmail } from "../api/useAmplifyPeople";
 import { AmplifyPanel } from "./AmplifyShell";
@@ -76,10 +76,10 @@ function RankBadge({ rank }: { rank: number }) {
 }
 
 /** The company's top three, one card each. */
-export function TopThreePanel({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
+function TopThree({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
   const leaders = board.company.slice(0, 3);
   return (
-    <AmplifyPanel title="Top three">
+    <>
       {leaders.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           No points yet. Amplify a post and be first on the board.
@@ -106,12 +106,12 @@ export function TopThreePanel({ board, people }: { board: Leaderboard; people: P
           ))}
         </Box>
       )}
-    </AmplifyPanel>
+    </>
   );
 }
 
 /** The caller's own rank, points and gap. Points only; no Coin value in phase 1. */
-export function MyPositionPanel({ board }: { board: Leaderboard }) {
+function MyPosition({ board }: { board: Leaderboard }) {
   const me = board.me;
   const ranked = me.rank != null;
   let tagline = "Amplify your first post to get on the board.";
@@ -120,7 +120,13 @@ export function MyPositionPanel({ board }: { board: Leaderboard }) {
   else if (ranked && me.pointsToNextRank != null) tagline = `${pts(me.pointsToNextRank)} to the next rank.`;
 
   return (
-    <AmplifyPanel title="My position">
+    <>
+      <Typography
+        variant="overline"
+        sx={{ display: "block", fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary", lineHeight: 1.5, mb: 1 }}
+      >
+        My position
+      </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 2, sm: 4 } }}>
         <Box>
           <Typography variant="caption" color="text.secondary">
@@ -142,6 +148,17 @@ export function MyPositionPanel({ board }: { board: Leaderboard }) {
           {tagline}
         </Typography>
       </Box>
+    </>
+  );
+}
+
+/** One box: the company's top three, a rule, then the caller's own position. */
+export function TopAmplifiersPanel({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
+  return (
+    <AmplifyPanel title="Top three amplifiers 🏆🎉" ariaLabel="top-amplifiers">
+      <TopThree board={board} people={people} />
+      <Divider sx={{ my: 2 }} />
+      <MyPosition board={board} />
     </AmplifyPanel>
   );
 }
