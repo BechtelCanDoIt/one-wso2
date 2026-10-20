@@ -71,6 +71,7 @@ import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 import {
+  Cado2LogoIcon,
   EchoLogoIcon,
   SalesPitstopLogoIcon,
   type RailIconProps,
@@ -559,7 +560,8 @@ const SALES_SECTIONS: PerspectiveSection[] = [
   ...(isPreviewEnabled("smartSearch") ? [SALES_PITSTOP_SECTION] : []),
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
-  ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS) : []),
+  // Its group shows CADO2's own logo, as Echo's does (D101).
+  ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS).map((s) => ({ ...s, icon: Cado2LogoIcon })) : []),
 ];
 
 /**

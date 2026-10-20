@@ -37,11 +37,11 @@ interface OrderFormTableProps {
    */
   readonly duration: string;
   /**
-   * The wizard: lines without a category yet (D72) come first, under a plain
-   * "Uncategorised" heading with no subtotal (D93). The category is chosen
-   * in the line's dialog.
+   * The wizard: frame the "Uncategorised" group in red and say how to fix it
+   * (D93, D95). Elsewhere (Review, the quote page) the group still shows,
+   * with a plain heading.
    */
-  readonly groupUncategorised?: boolean;
+  readonly flagUncategorised?: boolean;
 }
 
 /**
@@ -62,35 +62,39 @@ export default function OrderFormTable({
   actions,
   below,
   commissionPercent = null,
-  groupUncategorised = false,
+  flagUncategorised = false,
   duration,
 }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
   // Product, unit of measure, unit list, qty, discount, duration, amount (+ actions).
   const dataCols = 7;
   const cols = actions ? dataCols + 1 : dataCols;
-  // Products brought in from Salesforce whose category isn't chosen yet (D72).
-  const pending = groupUncategorised ? lines.filter((l) => !l.category) : [];
+  // Lines whose category isn't chosen yet (D72): listed first, under their own
+  // heading, on every view, so no line is ever left out of the table.
+  const pending = lines.filter((l) => !l.category);
   const cur = currency ? ` (${currency})` : "";
   const money = (v: string | null) => (v ? formatMoney(v) : "—");
 
-  const totalRow = (label: string, value: string | null, strong = false, prefix = "") => (
-    <TableRow sx={strong ? { bgcolor: "action.hover" } : undefined}>
-      <TableCell colSpan={dataCols - 1} align="right" sx={{ fontWeight: strong ? 800 : 600, borderBottom: strong ? 0 : undefined }}>
+  // The table's hierarchy (D97): column headers, then section headers, then
+  // lines; each section closes with its subtotal. The order totals are in a
+  // box under the table (see summaryRow).
+  const subtotalRow = (label: string, value: string | null) => (
+    <TableRow>
+      <TableCell colSpan={dataCols - 1} align="right" sx={{ fontWeight: 500, borderTop: 1, borderTopColor: "divider" }}>
         {label}
         {cur}
       </TableCell>
-      <TableCell align="right" sx={{ ...num, fontWeight: strong ? 800 : 600, fontSize: strong ? "1rem" : undefined, borderBottom: strong ? 0 : undefined }}>
-        {value ? `${prefix}${money(value)}` : money(value)}
+      <TableCell align="right" sx={{ ...num, fontWeight: 600, borderTop: 1, borderTopColor: "divider" }}>
+        {money(value)}
       </TableCell>
-      {actions ? <TableCell sx={{ borderBottom: strong ? 0 : undefined }} /> : null}
+      {actions ? <TableCell sx={{ borderTop: 1, borderTopColor: "divider" }} /> : null}
     </TableRow>
   );
 
   const groupHeader = (title: string) => (
     <TableRow>
-      <TableCell colSpan={cols} sx={{ bgcolor: "action.hover", py: 0.75 }}>
-        <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
+      <TableCell colSpan={cols} sx={{ pt: 2, pb: 0.75 }}>
+        <Typography variant="body2" sx={{ fontWeight: 700, color: "text.primary" }}>
           {title}
         </Typography>
       </TableCell>
@@ -122,7 +126,7 @@ export default function OrderFormTable({
       <Fragment key={l.number}>
         <TableRow>
           <TableCell sx={{ minWidth: 200 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            <Typography variant="body2" sx={{ fontWeight: 500, color: "text.primary" }}>
               {l.productName}
             </Typography>
             {/* The name and the SKU only (2026-10-12, amends D53): the description is shown when choosing the product. */}
@@ -152,7 +156,7 @@ export default function OrderFormTable({
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
           </TableCell>
           <TableCell sx={{ whiteSpace: "nowrap" }}>{l.recurring ? duration || "–" : "One-time"}</TableCell>
-          <TableCell align="right" sx={{ ...num, fontWeight: 600 }}>
+          <TableCell align="right" sx={num}>
             {money(l.tcv)}
           </TableCell>
           {actions ? (
@@ -166,67 +170,124 @@ export default function OrderFormTable({
     );
   };
 
+  // The order totals, below the table and right-aligned like an invoice's,
+  // so they don't read as one more subtotal (D97).
+  const summaryRow = (label: string, value: string | null, grand = false, prefix = "") => (
+    <Box
+      sx={{
+        display: "flex",
+        justifyContent: "space-between",
+        gap: 3,
+        px: 2,
+        py: grand ? 1.25 : 0.75,
+        ...(grand ? { borderTop: 1, borderColor: "divider", bgcolor: (t) => alpha(t.palette.primary.main, 0.08) } : {}),
+      }}
+    >
+      <Typography variant={grand ? "subtitle1" : "body2"} sx={{ fontWeight: grand ? 700 : 500 }}>
+        {label}
+        {cur}
+      </Typography>
+      <Typography variant={grand ? "subtitle1" : "body2"} sx={{ ...num, fontWeight: grand ? 700 : 600 }}>
+        {value ? `${prefix}${money(value)}` : money(value)}
+      </Typography>
+    </Box>
+  );
+
   return (
-    <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
-      <Table size="small" aria-label="Products">
-        <TableHead>
-          <TableRow>
-            <TableCell>Product or service</TableCell>
-            <TableCell>Unit of measure</TableCell>
-            <TableCell align="right">Unit list</TableCell>
-            <TableCell align="right">Qty</TableCell>
-            <TableCell align="right">Discount</TableCell>
-            <TableCell>Term</TableCell>
-            <TableCell align="right">Amount{cur}</TableCell>
-            {actions ? (
-              <TableCell align="right">
-                <Box component="span" sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
-                  Actions
-                </Box>
-              </TableCell>
-            ) : null}
-          </TableRow>
-        </TableHead>
-        {/* Lines waiting for a category come first, under a plain heading, with no
-            subtotal, framed by a thin red line until each has one (D72, D93). */}
-        {pending.length > 0 ? (
-          <TableBody
-            aria-label="Uncategorised"
-            sx={(t) => {
-              const line = `1px solid ${t.palette.error.main}`;
-              return {
-                "& td:first-of-type": { borderLeft: line },
-                "& td:last-of-type": { borderRight: line },
-                // An inset shadow, not a border: the header row's bottom border
-                // sits on the same line and would win the collapsed-border tie.
-                "& tr:first-of-type td": { boxShadow: `inset 0 1px 0 ${t.palette.error.main}` },
-                "& tr:last-of-type td": { borderBottom: line },
-              };
+    <Box>
+      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
+        <Table
+          size="small"
+          aria-label="Products"
+          // Light lines between columns (D97); not after the last cell, so the
+          // Uncategorised group's red frame keeps its right edge.
+          sx={{ "& th:not(:last-child), & td:not(:last-child)": { borderRight: 1, borderRightColor: "divider" } }}
+        >
+          <TableHead
+            sx={{
+              "& th": {
+                bgcolor: "action.hover",
+                fontWeight: 700,
+                fontSize: (t) => t.typography.body2.fontSize,
+                color: "text.primary",
+                borderBottom: (t) => `2px solid ${t.palette.divider}`,
+              },
             }}
           >
-            {uncategorisedHeader}
-            {pending.map(lineRow)}
+            <TableRow>
+              <TableCell>Product or service</TableCell>
+              <TableCell>Unit of measure</TableCell>
+              <TableCell align="right">Unit list</TableCell>
+              <TableCell align="right">Qty</TableCell>
+              <TableCell align="right">Discount</TableCell>
+              <TableCell>Term</TableCell>
+              <TableCell align="right">Amount{cur}</TableCell>
+              {actions ? (
+                <TableCell align="right">
+                  <Box component="span" sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
+                    Actions
+                  </Box>
+                </TableCell>
+              ) : null}
+            </TableRow>
+          </TableHead>
+          {/* Lines waiting for a category come first, under a plain heading, with no
+              subtotal, framed by a thin red line until each has one (D72, D93). */}
+          {pending.length > 0 && flagUncategorised ? (
+            <TableBody
+              aria-label="Uncategorised"
+              sx={(t) => {
+                const line = `1px solid ${t.palette.error.main}`;
+                return {
+                  "& td:first-of-type": { borderLeft: line },
+                  "& td:last-of-type": { borderRight: line },
+                  // An inset shadow, not a border: the header row's bottom border
+                  // sits on the same line and would win the collapsed-border tie.
+                  "& tr:first-of-type td": { boxShadow: `inset 0 1px 0 ${t.palette.error.main}` },
+                  "& tr:last-of-type td": { borderBottom: line },
+                };
+              }}
+            >
+              {uncategorisedHeader}
+              {pending.map(lineRow)}
+            </TableBody>
+          ) : null}
+          {/* Read-only views: the same lines under a plain heading. */}
+          {pending.length > 0 && !flagUncategorised ? (
+            <TableBody aria-label="Uncategorised">
+              {groupHeader("Uncategorised")}
+              {pending.map(lineRow)}
+            </TableBody>
+          ) : null}
+          <TableBody>
+            {form.groups.map((g) => (
+              <Fragment key={g.category}>
+                {groupHeader(g.title)}
+                {g.lines.map(lineRow)}
+                {subtotalRow(`${g.title} subtotal`, g.subtotal)}
+              </Fragment>
+            ))}
           </TableBody>
-        ) : null}
-        <TableBody>
-          {form.groups.map((g) => (
-            <Fragment key={g.category}>
-              {groupHeader(g.title)}
-              {g.lines.map(lineRow)}
-              {totalRow(`${g.title} subtotal`, g.subtotal)}
-            </Fragment>
-          ))}
-          {form.commission !== null ? (
-            <>
-              {totalRow("Total order value", form.total)}
-              {totalRow(`Partner commission (${commissionPercent}%)`, form.commission, false, "− ")}
-              {totalRow("Net order value", form.netOrderValue, true)}
-            </>
-          ) : (
-            totalRow("Total order value", form.total, true)
-          )}
-        </TableBody>
-      </Table>
-    </TableContainer>
+        </Table>
+      </TableContainer>
+      <Paper
+        variant="outlined"
+        aria-label="Order totals"
+        role="region"
+        sx={{ mt: 1.5, ml: "auto", width: { xs: "100%", sm: 380 }, borderRadius: 1.5, overflow: "hidden" }}
+      >
+        {form.commission !== null ? (
+          <>
+            <Box sx={{ pt: 0.75 }}>
+              {summaryRow("Total order value", form.total)}
+              {summaryRow(`Partner commission (${commissionPercent}%)`, form.commission, false, "− ")}
+            </Box>
+            {summaryRow("Net order value", form.netOrderValue, true)}
+          </>
+        ) : (
+          summaryRow("Total order value", form.total, true)
+        )}
+      </Paper>
+    </Box>
   );
 }

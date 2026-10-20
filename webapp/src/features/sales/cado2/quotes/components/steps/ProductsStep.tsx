@@ -189,7 +189,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               </>
             )}
             below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
-            groupUncategorised
+            flagUncategorised
             duration={termShort(sheet)}
           />
         )}
