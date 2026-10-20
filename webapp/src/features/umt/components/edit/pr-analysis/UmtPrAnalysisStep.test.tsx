@@ -112,6 +112,16 @@ vi.mock("./UmtAddManualFilesSection", () => ({
       >
         Add stub file
       </button>
+      <button
+        onClick={() => {
+          const row = { file: "repository/components/lib/andes-4.0.0.jar", operation: "Added" };
+          const file = new File(["contents"], "andes-4.0.0.jar");
+          onFilesChange([...files, row], [{ row, relativePath: row.file, sourceFilePath: "", file }]);
+          onDirty();
+        }}
+      >
+        Add stub uploaded file
+      </button>
     </div>
   ),
 }));
@@ -276,6 +286,21 @@ describe("UmtPrAnalysisStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
 
     await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "upload", "start"]));
+  });
+
+  it("uploads a picked file under the path it is analyzed with, and a placeholder under none", async () => {
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub uploaded file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
+
+    await vi.waitFor(() => expect(state.upload).toHaveBeenCalledTimes(2));
+    expect(state.upload.mock.calls[0][0]).toEqual(
+      expect.objectContaining({ filePath: "repository/components/lib/andes-4.0.0.jar" }),
+    );
+    expect(state.upload.mock.calls[1][0].filePath).toBeUndefined();
   });
 
   it("names the file an upload failed on, and sends only the remaining ones on the next Analyze", async () => {

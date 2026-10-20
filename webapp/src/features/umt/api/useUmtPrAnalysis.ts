@@ -190,18 +190,32 @@ export function useUmtIsAdvancingToPrAnalyzed(id: string): boolean {
 // When there's no local file (an SVN-location- or GitHub-raw-URL-only
 // source), the caller passes a small placeholder blob — the backend already
 // expects a `file` part on every call regardless of source.
+//
+// The backend stores the upload under the `file` part's filename and ignores
+// the `relativePath` field, so `filePath` — the path the PR analysis request
+// will later reference — must be sent as that filename. Otherwise the file
+// lands at its bare name and the analysis fails with "File does not exist in
+// UMT-container" (the Java and ui-revamp UIs both sent the full path).
 export function useUmtUploadPullRequestAnalysisFile(id: string) {
   const getAccessToken = useAccessToken();
 
-  return useMutation<void, Error, { relativePath: string; sourceFilePath: string; file: File | Blob }>({
-    mutationFn: async ({ relativePath, sourceFilePath, file }) => {
+  return useMutation<
+    void,
+    Error,
+    { relativePath: string; sourceFilePath: string; file: File | Blob; filePath?: string }
+  >({
+    mutationFn: async ({ relativePath, sourceFilePath, file, filePath }) => {
       const accessToken = await getAccessToken();
       const url = umtServiceUrls.updatePullRequestAnalysisFile(id);
       const formData = new FormData();
       formData.append("relativePath", relativePath);
       formData.append("id", id);
       formData.append("sourceFilePath", sourceFilePath);
-      formData.append("file", file);
+      if (filePath) {
+        formData.append("file", file, filePath);
+      } else {
+        formData.append("file", file);
+      }
 
       const res = await fetchWithReauth(url, { method: "POST", body: formData }, accessToken);
       if (!res.ok) {

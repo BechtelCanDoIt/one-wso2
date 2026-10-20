@@ -278,6 +278,24 @@ describe("useUmtUploadPullRequestAnalysisFile", () => {
     expect(formData.get("file")).toBe(file);
   });
 
+  it("sends the product file path as the file part's filename", async () => {
+    fetchWithReauth.mockResolvedValue({ ok: true });
+    const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+    const { result } = renderHook(() => useUmtUploadPullRequestAnalysisFile("42"), { wrapper: wrapper(client) });
+
+    await act(async () => {
+      await result.current.mutateAsync({
+        relativePath: "repository/components/lib/andes-4.0.0.jar",
+        sourceFilePath: "",
+        file: new File(["contents"], "andes-4.0.0.jar"),
+        filePath: "repository/components/lib/andes-4.0.0.jar",
+      });
+    });
+
+    const formData = fetchWithReauth.mock.calls[0][1].body as FormData;
+    expect((formData.get("file") as File).name).toBe("repository/components/lib/andes-4.0.0.jar");
+  });
+
   it("throws when the upload response is not ok", async () => {
     fetchWithReauth.mockResolvedValue({ ok: false, status: 400, text: async () => "bad request" });
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });

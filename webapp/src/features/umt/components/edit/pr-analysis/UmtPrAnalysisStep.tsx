@@ -298,6 +298,10 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
               relativePath: pending.relativePath,
               sourceFilePath: pending.sourceFilePath,
               file: pending.file,
+              // Store a real file at the path its row is analyzed under. A URL
+              // source's placeholder blob isn't the file's content, so it must
+              // not take that path.
+              filePath: pending.file instanceof File ? (pending.row.file ?? undefined) : undefined,
             });
           } catch (error) {
             // The ones before it are already uploaded, and stay uploaded: the
