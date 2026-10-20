@@ -69,10 +69,11 @@ export function DealFlags({ flags }: { flags: DealFlag[] | undefined }) {
 /** A deal's flags on its list row: a flag and the count, the titles on hover. */
 export function DealFlagMarker({ flags }: { flags: DealFlag[] | undefined }) {
   if (!flags || flags.length === 0) return null;
-  const titles = flags.map((f) => f.title).join(" · ");
+  const details = flags.map((f) => `${f.title}: ${f.detail}`).join(" ");
   return (
     <Tooltip
       arrow
+      describeChild
       title={
         <Box>
           {flags.map((f) => (
@@ -83,10 +84,24 @@ export function DealFlagMarker({ flags }: { flags: DealFlag[] | undefined }) {
         </Box>
       }
     >
+      {/* Focusable so a keyboard reaches the details too; named by them, not by the count. */}
       <Box
         component="span"
-        aria-label={`Needs attention: ${titles}`}
-        sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, color: "warning.dark", fontWeight: 700, fontSize: "0.75rem" }}
+        role="button"
+        tabIndex={0}
+        aria-label={`Needs attention: ${details}`}
+        onClick={(event) => event.stopPropagation()}
+        sx={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 0.25,
+          color: "warning.dark",
+          fontWeight: 700,
+          fontSize: "0.75rem",
+          borderRadius: "4px",
+          cursor: "default",
+          "&:focus-visible": { outline: 2, outlineColor: "primary.main", outlineStyle: "solid", outlineOffset: 1 },
+        }}
       >
         <FlagIcon size={12} aria-hidden />
         {flags.length}

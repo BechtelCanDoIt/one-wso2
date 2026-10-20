@@ -105,7 +105,7 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     // Salesforce's deal score in its own column, with its band; flags beside the stage.
     expect(screen.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
     expect(row.getByLabelText("Deal score 28.3, Weak")).toBeInTheDocument();
-    expect(row.getByLabelText("Needs attention: Closing, with gaps")).toBeInTheDocument();
+    expect(row.getByRole("button", { name: /^Needs attention: Closing, with gaps/ })).toHaveAttribute("tabindex", "0");
 
     for (const name of [
       "Meridian Bank – integration platform",
