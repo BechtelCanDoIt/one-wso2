@@ -24,7 +24,7 @@ import { KIND_ICON } from "./kindIcon";
 
 interface ResultCardProps {
   readonly group: ResultGroup;
-  /** Its place in the list, 1-based; the answer's source chips use the same numbers. */
+  /** Its place in the list, 1-based. */
   readonly number: number;
   readonly selected: boolean;
   /** Which of its passages the preview is showing, when it is the selected card. */
@@ -117,7 +117,7 @@ export default function ResultCard({
               {group.title}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={0.75} sx={{ mt: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
+          <Stack direction="row" sx={{ mt: 0.75, columnGap: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
             <Chip size="small" variant="outlined" label={KIND_NAME[group.kind]} />
             {tags.map((tag) => (
               <Chip key={tag} size="small" variant="outlined" label={tag} />
@@ -126,7 +126,7 @@ export default function ResultCard({
         </Box>
       </ButtonBase>
 
-      <Stack direction="row" spacing={2} sx={{ mt: 1.5, alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
+      <Stack direction="row" sx={{ mt: 1.5, alignItems: "center", columnGap: 2, flexWrap: "wrap", rowGap: 0.5 }}>
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
           <StrengthDots level={strength.level} />
           <Typography variant="caption" color="text.secondary">

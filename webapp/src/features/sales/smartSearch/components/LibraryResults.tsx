@@ -31,14 +31,18 @@ import {
   sameDocuments,
   type ResultKind,
 } from "../util/libraryResults";
+import { describeLibraryFailure } from "../util/libraryFailure";
 import { belongsToSomethingElse } from "../util/libraryKeys";
 import { canAnimate, pop, rise } from "../util/libraryMotion";
 import { LIBRARY_TOPICS } from "../util/libraryTopics";
+import { useScrollAreaHeight } from "../util/useScrollAreaHeight";
+import { useSlowAfter } from "../util/useSlowAfter";
 import { libraryPath } from "../smartSearchPaths";
 import AnswerCard from "./AnswerCard";
 import PreviewPanel from "./PreviewPanel";
 import ResultCard from "./ResultCard";
 import SearchBox from "./SearchBox";
+import UseMaterialCard from "./UseMaterialCard";
 
 // The results and their loading placeholder share one shape, so nothing jumps when the results arrive.
 const RESULTS_GRID_SX = {
@@ -48,8 +52,29 @@ const RESULTS_GRID_SX = {
   gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "minmax(0, 1.15fr) minmax(0, 1fr)" },
 };
 
+// The gap kept above and below the column that stays in view.
+const SIDE_COLUMN_GAP = 16;
+
+// The preview, what to write from the sources and the answer sit together beside them, and stay in view while those
+// scroll. They scroll on their own when they are taller than the area that is visible.
+const sideColumnSx = (areaHeight: number | undefined) => ({
+  minWidth: 0,
+  position: { lg: "sticky" },
+  top: { lg: SIDE_COLUMN_GAP },
+  // The visible height of the scrolling area, not of the window: the top bar and the footer are not part of it.
+  maxHeight: { lg: areaHeight ? `${areaHeight - 2 * SIDE_COLUMN_GAP}px` : `calc(100dvh - ${2 * SIDE_COLUMN_GAP}px)` },
+  overflowY: { lg: "auto" },
+  // Room for focus outlines, which the scroll area would otherwise cut off.
+  p: "2px",
+  // Keeps the preview its full height: without it, a short screen squeezes the preview down to its header.
+  "& > *": { flexShrink: 0 },
+});
+
 const RATE_LIMIT_MESSAGE = "You've searched a lot in a short time. Wait a minute, then try again.";
 const PIN_LABEL_MAX_LENGTH = 36;
+
+// A search this slow is slower than usual, so the page says so.
+const SLOW_SEARCH_AFTER_MS = 12_000;
 
 const isStatus = (error: unknown, status: number): boolean => error instanceof HttpError && error.status === status;
 
@@ -99,6 +124,9 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   const selectedPassage = selectedGroup?.passages[passageIndex];
 
   const page = useRef<HTMLDivElement>(null);
+  // The column only exists once there are results, so it is kept as state: the height is measured when it appears.
+  const [sideColumn, setSideColumn] = useState<HTMLDivElement | null>(null);
+  const areaHeight = useScrollAreaHeight(sideColumn);
   const searchInput = useRef<HTMLInputElement>(null);
   const selectedKey = selectedGroup?.key;
   const selectedUrl = selectedPassage?.openUrl;
@@ -137,7 +165,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   const isPinned = pinned.some((entry) => entry.kind === "search" && entry.id === href);
 
   const pinSearch = () => {
-    const label = `Library: ${query.length > PIN_LABEL_MAX_LENGTH ? `${query.slice(0, PIN_LABEL_MAX_LENGTH - 1)}…` : query}`;
+    const label = `Ask Sales: ${query.length > PIN_LABEL_MAX_LENGTH ? `${query.slice(0, PIN_LABEL_MAX_LENGTH - 1)}…` : query}`;
     if (togglePin({ kind: "search", id: href, label, href }) === "at-capacity") {
       showWarning(`You can pin up to ${MAX_PINNED} pages. Unpin one to make room.`);
     }
@@ -153,27 +181,33 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   };
 
   const answerStatus = answerText ? "ready" : answer.isError || answer.isSuccess ? "none" : "loading";
-  const answerNotice = isStatus(answer.error, 429)
-    ? "The written answer is paused because you've searched a lot. The documents below still match."
+  // Why there is no answer when it failed, in words the reader can use; the documents are shown either way.
+  const answerNotice = answer.isError
+    ? `${describeLibraryFailure(answer.error, "answer").message} The documents still match.`
     : null;
+  const searching = sources.isPending || sources.isLoading;
+  const slowSearch = useSlowAfter(searching, SLOW_SEARCH_AFTER_MS);
 
   let body: JSX.Element;
-  if (sources.isPending || sources.isLoading) {
+  if (searching) {
     body = (
       <Stack spacing={2} role="status" aria-label="Searching" sx={rise()}>
         <Stack direction="row" spacing={1} sx={{ alignItems: "center", color: "text.secondary" }}>
           <SearchIcon size={16} />
-          <Typography variant="body2">Searching Pitstop…</Typography>
+          <Typography variant="body2">
+            {slowSearch ? "Still searching - this is taking longer than usual. The service may be busy." : "Searching Pitstop…"}
+          </Typography>
         </Stack>
         <Box sx={RESULTS_GRID_SX}>
-          <Stack spacing={3} sx={{ minWidth: 0 }}>
-            <Skeleton variant="rounded" height={190} sx={{ borderRadius: 1.5 }} />
-            <Stack spacing={1.5}>
-              <Skeleton variant="rounded" height={132} sx={{ borderRadius: 1.5 }} />
-              <Skeleton variant="rounded" height={132} sx={{ borderRadius: 1.5 }} />
-            </Stack>
+          <Stack spacing={1.5} sx={{ minWidth: 0 }}>
+            <Skeleton variant="rounded" height={132} sx={{ borderRadius: 1.5 }} />
+            <Skeleton variant="rounded" height={132} sx={{ borderRadius: 1.5 }} />
+            <Skeleton variant="rounded" height={132} sx={{ borderRadius: 1.5 }} />
           </Stack>
-          <Skeleton variant="rounded" height={420} sx={{ borderRadius: 1.5, display: { xs: "none", lg: "block" } }} />
+          <Stack spacing={3} sx={{ minWidth: 0, p: "2px", display: { xs: "none", lg: "flex" } }}>
+            <Skeleton variant="rounded" height={360} sx={{ borderRadius: 1.5 }} />
+            <Skeleton variant="rounded" height={190} sx={{ borderRadius: 1.5 }} />
+          </Stack>
         </Box>
       </Stack>
     );
@@ -187,9 +221,15 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   } else if (isStatus(sources.error, 429)) {
     body = <ErrorNotice severity="info">{RATE_LIMIT_MESSAGE}</ErrorNotice>;
   } else if (sources.isError) {
+    // A slow or unreachable service is said in plain words, with a way to try again where trying again can help.
+    const failure = describeLibraryFailure(sources.error, "search");
     body = (
-      <ErrorNotice error={sources.error} onRetry={() => void sources.refetch()} retrying={sources.isFetching}>
-        Couldn&apos;t run that search.
+      <ErrorNotice
+        severity={failure.retryable ? "error" : "info"}
+        onRetry={failure.retryable ? () => void sources.refetch() : undefined}
+        retrying={sources.isFetching}
+      >
+        {failure.message}
       </ErrorNotice>
     );
   } else if (groups.length === 0) {
@@ -205,7 +245,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
         <Typography variant="overline" color="text.secondary" sx={{ display: "block", mt: 3, mb: 1 }}>
           Or try one of these
         </Typography>
-        <Stack direction="row" spacing={1} sx={{ justifyContent: "center", flexWrap: "wrap", rowGap: 1 }}>
+        <Stack direction="row" sx={{ justifyContent: "center", columnGap: 1, flexWrap: "wrap", rowGap: 1 }}>
           {LIBRARY_TOPICS.slice(0, 3).map((topic) => (
             <Chip
               key={topic.id}
@@ -222,7 +262,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
     body = (
       <>
         {kinds.length > 1 && (
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, mb: 2.5 }}>
+          <Stack direction="row" sx={{ alignItems: "center", columnGap: 1, flexWrap: "wrap", rowGap: 1, mb: 2.5 }}>
             <Typography variant="overline" color="text.secondary">
               Show
             </Typography>
@@ -243,47 +283,44 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
         )}
 
         <Box sx={RESULTS_GRID_SX}>
-          <Stack spacing={3} sx={{ minWidth: 0 }}>
+          <Box component="section" aria-label="Sources" sx={{ minWidth: 0 }}>
+            <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between", mb: 1 }}>
+              <Typography variant="overline" color="text.secondary" component="h2">
+                Sources
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
+                ↑ ↓ to browse · Enter to open · / to search
+              </Typography>
+            </Stack>
+            <Stack spacing={1.5}>
+              {visible.map((group, index) => (
+                <ResultCard
+                  key={group.key}
+                  group={group}
+                  number={index + 1}
+                  selected={group.key === selectedGroup?.key}
+                  selectedPassage={passageIndex}
+                  query={query}
+                  now={now}
+                  top={index === 0 && visible.length > 1}
+                  onSelect={(key, passage) => setSelection({ key, passage })}
+                />
+              ))}
+            </Stack>
+          </Box>
+
+          {/* Stays in view while the sources scroll; scrolls on its own when preview and answer are taller than the screen. */}
+          <Stack ref={setSideColumn} spacing={3} sx={sideColumnSx(areaHeight)}>
+            {selectedGroup && selectedPassage && <PreviewPanel group={selectedGroup} passage={selectedPassage} />}
+            {/* Written from all the results on screen, so a new filter is a new set of results and starts over. */}
+            <UseMaterialCard key={visible.map((group) => group.key).join("|")} groups={visible} query={query} />
             <AnswerCard
               status={answerStatus}
               text={answerText}
               notice={answerNotice}
-              query={query}
               groups={visible}
-              onSelectGroup={(key) => setSelection({ key, passage: 0 })}
             />
-            <Box component="section" aria-label="Sources">
-              <Stack direction="row" sx={{ alignItems: "baseline", justifyContent: "space-between", mb: 1 }}>
-                <Typography variant="overline" color="text.secondary" component="h2">
-                  Sources
-                </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ display: { xs: "none", md: "block" } }}>
-                  ↑ ↓ to browse · Enter to open · / to search
-                </Typography>
-              </Stack>
-              <Stack spacing={1.5}>
-                {visible.map((group, index) => (
-                  <ResultCard
-                    key={group.key}
-                    group={group}
-                    number={index + 1}
-                    selected={group.key === selectedGroup?.key}
-                    selectedPassage={passageIndex}
-                    query={query}
-                    now={now}
-                    top={index === 0 && visible.length > 1}
-                    onSelect={(key, passage) => setSelection({ key, passage })}
-                  />
-                ))}
-              </Stack>
-            </Box>
           </Stack>
-
-          {selectedGroup && selectedPassage && (
-            <Box sx={{ position: { lg: "sticky" }, top: { lg: 16 }, minWidth: 0 }}>
-              <PreviewPanel group={selectedGroup} passage={selectedPassage} />
-            </Box>
-          )}
         </Box>
       </>
     );
@@ -294,9 +331,9 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
       <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
         Library
       </Typography>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1.5, mb: 2.5 }}>
-        <Tooltip title="Back to the Library">
-          <IconButton aria-label="Back to the Library" onClick={onBack} size="small">
+      <Stack direction="row" sx={{ alignItems: "center", columnGap: 1.5, flexWrap: "wrap", rowGap: 1.5, mb: 2.5 }}>
+        <Tooltip title="Back to Ask Sales">
+          <IconButton aria-label="Back to Ask Sales" onClick={onBack} size="small">
             <ArrowLeftIcon size={18} />
           </IconButton>
         </Tooltip>

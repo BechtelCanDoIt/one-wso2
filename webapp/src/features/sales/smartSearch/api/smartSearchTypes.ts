@@ -62,3 +62,16 @@ export interface SmartSearchResponse {
   sources: SmartSearchSource[];
   contents: SmartSearchContent[];
 }
+
+/** What a written message is for: an email or chat message to a customer, a plain summary, an explanation, or what the seller types themselves. */
+export type ComposeIntent = "email" | "chat" | "plain" | "explain" | "custom";
+
+/** What the backend returns for POST /smart-search/compose. */
+export interface ComposeResponse {
+  /** The message, as plain text. */
+  text: string;
+  /** The Pitstop content ids of the results it was written from, best match first. */
+  documentIds: string[];
+  /** An email's subject line, when one was written; the text then does not repeat it. */
+  subject?: string | null;
+}

@@ -76,11 +76,11 @@ export default function LibraryPage(): JSX.Element {
     return (
       <PageFrame>
         <PerspectiveHeader
-          title="Library"
-          subtitle="Ask a question in plain language. The Library finds the exact page, slide, sheet or video moment in Pitstop content that answers it."
+          title="Ask Sales"
+          subtitle="Ask a question in plain language. Ask Sales finds the exact page, slide, sheet or video moment in Pitstop content that answers it."
         />
         <Alert severity="info" sx={{ mt: 1.5 }}>
-          The Library isn&apos;t connected yet. Set <code>ONE_WSO2_SMART_SEARCH_BACKEND_URL</code> in{" "}
+          Ask Sales isn&apos;t connected yet. Set <code>ONE_WSO2_SMART_SEARCH_BACKEND_URL</code> in{" "}
           <code>public/config.js</code> and reload.
         </Alert>
       </PageFrame>
