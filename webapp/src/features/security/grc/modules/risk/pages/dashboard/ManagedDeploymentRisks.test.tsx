@@ -61,8 +61,24 @@ describe("ManagedDeploymentRisks", () => {
     expect(screen.queryByText(/High severity/)).not.toBeInTheDocument();
   });
 
-  it("says so when there are no themes", () => {
-    render(<ManagedDeploymentRisks data={{ ...data, themes: [] }} />);
+  it("says so when no risks are open", () => {
+    render(<ManagedDeploymentRisks data={{ ...data, open_risks: 0, high_open: 0, themes: [] }} />);
     expect(screen.getByText(/No open risks in Managed Services registers/)).toBeInTheDocument();
+  });
+
+  it("keeps the callout when no risks are open but High risks were closed", () => {
+    render(
+      <ManagedDeploymentRisks
+        data={{ ...data, open_risks: 0, closed_risks: 4, high_open: 0, high_closed: 2, themes: [] }}
+      />,
+    );
+    expect(screen.getByText(/No open risks in Managed Services registers/)).toBeInTheDocument();
+    expect(screen.getByText(/0 High severity risks open — 2 closed/)).toBeInTheDocument();
+  });
+
+  it("still shows the callout when open risks have no themes", () => {
+    render(<ManagedDeploymentRisks data={{ ...data, themes: [] }} />);
+    expect(screen.queryByText(/No open risks/)).not.toBeInTheDocument();
+    expect(screen.getByText(/3 High severity risks — none closed/)).toBeInTheDocument();
   });
 });

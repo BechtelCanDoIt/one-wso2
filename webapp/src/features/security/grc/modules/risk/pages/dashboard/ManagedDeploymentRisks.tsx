@@ -36,6 +36,25 @@ interface ManagedDeploymentRisksProps {
   data: ManagedServicesRisks;
 }
 
+function HighSeverityCallout({ text }: { text: string }): JSX.Element {
+  return (
+    <Box
+      sx={{
+        px: 1.5,
+        py: 1,
+        textAlign: "center",
+        border: `1px solid ${OPEN_COLOR}`,
+        borderRadius: 1,
+        bgcolor: `${OPEN_COLOR}1a`,
+      }}
+    >
+      <Typography variant="body2" fontWeight={700} sx={{ color: OPEN_COLOR }}>
+        ⚠ {text}
+      </Typography>
+    </Box>
+  );
+}
+
 // "Most Common Risks — Managed Deployments": per Risk Category, a stacked bar
 // of open risks by level beside a table of how many customers it affects. Rows
 // follow the service's order (most open risks first) in both panels.
@@ -44,12 +63,16 @@ export default function ManagedDeploymentRisks({ data }: ManagedDeploymentRisksP
   const callout = highSeverityCallout(data);
 
   // Themes only cover categorised risks, so an empty list does not mean zero
-  // open risks; the High-severity callout must still render in that case.
+  // open risks. With none open, show the message but keep the callout, which
+  // still reports High risks that have since been closed.
   if (data.open_risks === 0) {
     return (
-      <Typography variant="body2" color="text.secondary">
-        No open risks in Managed Services registers.
-      </Typography>
+      <Stack spacing={2}>
+        <Typography variant="body2" color="text.secondary">
+          No open risks in Managed Services registers.
+        </Typography>
+        {callout && <HighSeverityCallout text={callout} />}
+      </Stack>
     );
   }
 
@@ -127,20 +150,8 @@ export default function ManagedDeploymentRisks({ data }: ManagedDeploymentRisksP
             </Table>
           </TableContainer>
           {callout && (
-            <Box
-              sx={{
-                mt: 2,
-                px: 1.5,
-                py: 1,
-                textAlign: "center",
-                border: `1px solid ${OPEN_COLOR}`,
-                borderRadius: 1,
-                bgcolor: `${OPEN_COLOR}1a`,
-              }}
-            >
-              <Typography variant="body2" fontWeight={700} sx={{ color: OPEN_COLOR }}>
-                ⚠ {callout}
-              </Typography>
+            <Box sx={{ mt: 2 }}>
+              <HighSeverityCallout text={callout} />
             </Box>
           )}
         </Box>
