@@ -193,6 +193,7 @@ import CreditCardsPage from "@features/finance/masterdata/pages/CreditCardsPage"
 import ExpenseNewClaimPage from "@features/finance/expense/pages/ExpenseNewClaimPage";
 import MisArrBuildPage from "@features/finance/mis/pages/MisArrBuildPage";
 import MisSession from "@features/finance/mis/components/MisSession";
+import { misPaths } from "@constants/misApps";
 import { MIS_PERIODS } from "@features/finance/mis/util/misViewVocabulary";
 import MisArrAnalysisPage from "@features/finance/mis/pages/MisArrAnalysisPage";
 import MisAnalysisRedirect from "@features/finance/mis/pages/MisAnalysisRedirect";
@@ -500,7 +501,7 @@ export default function App() {
               element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
             />
             <Route path="finance/mis/portfolio" element={<MisArrAnalysisPage />} />
-            <Route path="finance/mis/analysis" element={<MisAnalysisRedirect />} />
+            <Route path={misPaths.legacyAnalysis} element={<MisAnalysisRedirect />} />
           </Route>
           <Route path="people-ops" element={<PerspectiveLanding />} />
           {/* People Ops → Org Chart: the company's reporting hierarchy, ported
