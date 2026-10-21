@@ -33,6 +33,8 @@ import RepeatedCategoriesTable from "./RepeatedCategoriesTable";
 import CommonOpenCategoriesTable from "./CommonOpenCategoriesTable";
 import { groupRepeatedByRegister, scopeRegisters } from "./categoryViews";
 import HighRisksTable from "./HighRisksTable";
+import ManagedDeploymentRisks from "./ManagedDeploymentRisks";
+import { managedSubtitle } from "./managedDeployments";
 
 interface DashboardViewProps {
   dashboard: DashboardSummary;
@@ -65,6 +67,9 @@ export default function DashboardView({
   // rather than present missing data as "nothing repeats".
   const repeatedCategories = dashboard.repeated_categories;
   const commonOpenCategories = dashboard.common_open_categories;
+  // Absent until the backend that serves it is deployed; empty when the scope
+  // holds no Managed Services risks — either way the card stays hidden.
+  const managed = dashboard.managed_services;
   const payloadRegisters = [
     ...dashboard.registers.map((r) => ({ id: r.register_id, name: r.register_name })),
     ...(repeatedCategories ?? []).map((r) => ({ id: r.register_id, name: r.register_name })),
@@ -221,6 +226,12 @@ export default function DashboardView({
       {isAllRegisters && (
         <ChartCard title="Repeated Risks Potentially Impacting Compliance Certs">
           <RepeatedRisksTable data={dashboard.repeated_compliance_risks} />
+        </ChartCard>
+      )}
+
+      {managed && managed.customer_count > 0 && (
+        <ChartCard title="Most Common Risks — Managed Deployments" subtitle={managedSubtitle(managed)}>
+          <ManagedDeploymentRisks data={managed} />
         </ChartCard>
       )}
 
