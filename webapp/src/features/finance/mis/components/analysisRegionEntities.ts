@@ -18,7 +18,12 @@
 
 import { CHART_ENTITY_SERIES } from "@components/charts/chartPalette";
 import type { AnalysisAccountRow } from "./analysisAccountRows";
-import type { PartnerModelSlice } from "./analysisBreakdowns";
+import {
+  ANALYSIS_INDUSTRIES,
+  ANALYSIS_OTHER_INDUSTRY,
+  type IndustryRow,
+  type PartnerModelSlice,
+} from "./analysisBreakdowns";
 
 export const OTHER_ENTITY = "Other";
 export const UNSPECIFIED_ENTITY = "Unspecified";
@@ -27,6 +32,7 @@ export const UNSPECIFIED_ENTITY = "Unspecified";
 const NAMED_ENTITY_COUNT = CHART_ENTITY_SERIES.length;
 
 type EntityAccount = Pick<AnalysisAccountRow, "salesRegion" | "subRegion" | "totalArr">;
+type IndustryAccount = EntityAccount & Pick<AnalysisAccountRow, "industry">;
 type PartnerAccount = EntityAccount & Pick<AnalysisAccountRow, "partnerType">;
 
 export interface RegionEntity {
@@ -126,4 +132,65 @@ export function entitiesWithinPartnerModels(
         })),
     };
   });
+}
+
+export interface IndustryBar {
+  industry: string;
+  /** The industry's exit-ARR figure, which the stacks sum to. */
+  amount: number;
+  share?: number;
+  /** Amount by entity name; an entity that contributes nothing has no key. */
+  stacks: Record<string, number>;
+}
+
+export interface IndustryStacks {
+  bars: IndustryBar[];
+  /** The entities some bar draws, in rank order with Other last. */
+  legend: RegionEntity[];
+}
+
+/**
+ * Each industry's bar, split by region entity.
+ *
+ * A bar's height is the figure the exit-ARR read gave for that industry; the
+ * accounts only supply the mix, spread over that figure. An industry no account
+ * can account for goes to Other whole, so a bar never falls short of its real
+ * height. An account outside the six named industries counts under Other.
+ */
+export function industryRegionStacks(
+  industries: readonly IndustryRow[],
+  accounts: readonly IndustryAccount[],
+  { order, bucketOf }: RegionEntities,
+): IndustryStacks {
+  const named = new Set<string>(ANALYSIS_INDUSTRIES);
+  const industryOf = (account: IndustryAccount) => {
+    const name = account.industry.trim();
+    return named.has(name) ? name : ANALYSIS_OTHER_INDUSTRY;
+  };
+
+  const bars = industries.flatMap((row): IndustryBar[] => {
+    const { amount: figure } = row;
+    if (figure == null) return [];
+    const mix = new Map<string, number>();
+    for (const account of accounts) {
+      if (industryOf(account) !== row.industry || account.totalArr <= 0) continue;
+      const name = bucketOf(account);
+      mix.set(name, (mix.get(name) ?? 0) + account.totalArr);
+    }
+    const mixTotal = [...mix.values()].reduce((sum, amount) => sum + amount, 0);
+    const stacks: Record<string, number> =
+      mixTotal > 0
+        ? Object.fromEntries(
+            [...mix.entries()].map(([name, amount]) => [name, (amount / mixTotal) * figure]),
+          )
+        : { [OTHER_ENTITY]: figure };
+    return [{ industry: row.industry, amount: figure, share: row.share, stacks }];
+  });
+
+  const drawn = (name: string) => bars.some((bar) => (bar.stacks[name] ?? 0) > 0);
+  const legend = [
+    ...order.filter((entity) => entity.name !== OTHER_ENTITY && drawn(entity.name)),
+    ...(drawn(OTHER_ENTITY) ? [{ name: OTHER_ENTITY, rank: null }] : []),
+  ];
+  return { bars, legend };
 }

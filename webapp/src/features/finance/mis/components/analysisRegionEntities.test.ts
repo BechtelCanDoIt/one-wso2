@@ -20,10 +20,11 @@ import { describe, expect, it } from "vitest";
 import {
   analysisRegionEntities,
   entitiesWithinPartnerModels,
+  industryRegionStacks,
   OTHER_ENTITY,
   UNSPECIFIED_ENTITY,
 } from "./analysisRegionEntities";
-import { partnerModelSlices } from "./analysisBreakdowns";
+import { partnerModelSlices, type IndustryRow } from "./analysisBreakdowns";
 import type { AnalysisAccountRow } from "./analysisAccountRows";
 
 const account = (
@@ -132,5 +133,85 @@ describe("entitiesWithinPartnerModels", () => {
     const entities = analysisRegionEntities([], { bySubRegion: false });
     const [channel] = entitiesWithinPartnerModels(models, [], entities);
     expect(channel?.entities).toEqual([{ name: UNSPECIFIED_ENTITY, rank: null, amount: 400 }]);
+  });
+});
+
+describe("industryRegionStacks", () => {
+  const inIndustry = (industry: string, salesRegion: string, totalArr: number) => ({
+    industry,
+    salesRegion,
+    subRegion: "",
+    totalArr,
+  });
+  const bar = (industry: string, amount: number, share?: number): IndustryRow => ({
+    industry,
+    amount,
+    share,
+    asked: true,
+    answered: true,
+  });
+  const book = [
+    inIndustry("Utilities", "EMEA", 100),
+    inIndustry("Utilities", "AMER", 300),
+    inIndustry("Information", "AMER", 50),
+    inIndustry("Mining", "EMEA", 10),
+  ];
+  const entities = analysisRegionEntities(book, { bySubRegion: false });
+
+  it("splits a bar's own figure across regions in proportion to its accounts", () => {
+    const { bars } = industryRegionStacks([bar("Utilities", 2000)], book, entities);
+    expect(bars[0]?.stacks).toEqual({ AMER: 1500, EMEA: 500 });
+  });
+
+  it("makes a bar's stacks sum to the industry's figure, whatever the accounts total", () => {
+    const { bars } = industryRegionStacks(
+      [bar("Utilities", 7), bar("Information", 1234.5)],
+      book,
+      entities,
+    );
+    for (const { stacks, amount } of bars) {
+      const sum = Object.values(stacks).reduce((total, part) => total + part, 0);
+      expect(sum).toBeCloseTo(amount, 9);
+    }
+  });
+
+  it("counts an account outside the six named industries under Other", () => {
+    const { bars } = industryRegionStacks([bar("Other", 400)], book, entities);
+    expect(bars[0]?.stacks).toEqual({ EMEA: 400 });
+  });
+
+  it("gives an industry no account can account for to Other, whole", () => {
+    const { bars } = industryRegionStacks([bar("Retail Trade", 900)], book, entities);
+    expect(bars[0]?.stacks).toEqual({ [OTHER_ENTITY]: 900 });
+  });
+
+  it("carries each bar's share through for its axis label", () => {
+    const { bars } = industryRegionStacks([bar("Utilities", 2000, 12.5)], book, entities);
+    expect(bars[0]).toMatchObject({ industry: "Utilities", amount: 2000, share: 12.5 });
+  });
+
+  it("drops a region that contributes to no bar, and keeps the rest in rank order", () => {
+    const { legend } = industryRegionStacks([bar("Information", 500)], book, entities);
+    expect(legend.map((entity) => entity.name)).toEqual(["AMER"]);
+  });
+
+  it("lists Other in the legend, hueless, when something landed there", () => {
+    const { legend } = industryRegionStacks(
+      [bar("Information", 500), bar("Retail Trade", 100)],
+      book,
+      entities,
+    );
+    expect(legend).toEqual([
+      { name: "AMER", rank: 0 },
+      { name: OTHER_ENTITY, rank: null },
+    ]);
+  });
+
+  it("keeps the hue rank a region has in the shared ranking", () => {
+    const { legend } = industryRegionStacks([bar("Utilities", 400)], book, entities);
+    expect(legend.map((entity) => [entity.name, entity.rank])).toEqual([
+      ["AMER", 0],
+      ["EMEA", 1],
+    ]);
   });
 });
