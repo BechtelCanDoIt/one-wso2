@@ -88,8 +88,9 @@ export interface Category {
 
 // REPOST reshares the org's post (`reshareContext.parent`); proven with a member token and `w_member_social`
 // (D5 spike, 2026-10-20). SHARE creates a new post that links to it, the fallback if LinkedIn refuses a reshare.
-// The `*_COMMENTARY` kinds aren't offered: the employee can't add commentary yet.
-export type ShareKind = "REPOST" | "SHARE";
+// REPOST_COMMENTARY is a repost with the employee's own text on top (D5b spike, 2026-10-21: LinkedIn accepted it).
+// The API requires text for it and refuses text on a plain REPOST. SHARE_COMMENTARY stays unused.
+export type ShareKind = "REPOST" | "REPOST_COMMENTARY" | "SHARE";
 
 export interface Share {
   id: string;

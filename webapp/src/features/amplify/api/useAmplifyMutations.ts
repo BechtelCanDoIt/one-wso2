@@ -92,9 +92,14 @@ export function useRequestShare() {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
   const sub = useAmplifySub();
-  return useMutation<Share | null, Error, { campaignId: string; kind: ShareKind }>({
-    mutationFn: async ({ campaignId, kind }) =>
-      authedPost<Share>(amplifyServiceUrls.shares(campaignId), await getAccessToken(), { kind }, idempotencyHeaders()),
+  return useMutation<Share | null, Error, { campaignId: string; kind: ShareKind; commentary?: string }>({
+    mutationFn: async ({ campaignId, kind, commentary }) =>
+      authedPost<Share>(
+        amplifyServiceUrls.shares(campaignId),
+        await getAccessToken(),
+        commentary === undefined ? { kind } : { kind, commentary },
+        idempotencyHeaders(),
+      ),
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("my-shares", sub));
     },

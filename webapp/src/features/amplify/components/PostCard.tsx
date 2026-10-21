@@ -47,8 +47,8 @@ function postDate(iso: string): string {
 
 /**
  * One post: headline, "WSO2 on LinkedIn · date", image, chips, the 2–3 line
- * summary, and an action button. Same card on Celebrate and Current Posts;
- * only the chips and the action differ.
+ * summary, and an action button. Same card on Celebrate, Current Posts and the
+ * share dialog; only the chips and the action differ (the dialog passes none).
  */
 export default function PostCard({
   campaign,
@@ -57,7 +57,7 @@ export default function PostCard({
 }: {
   campaign: Campaign;
   chips?: ReactNode;
-  action: ReactNode;
+  action?: ReactNode;
 }) {
   return (
     <Paper variant="outlined" sx={{ p: 1.5, height: "100%", display: "flex", flexDirection: "column", gap: 1 }}>
@@ -91,7 +91,7 @@ export default function PostCard({
         {campaign.summary || " "}
       </Typography>
 
-      <Box>{action}</Box>
+      {action && <Box>{action}</Box>}
     </Paper>
   );
 }
