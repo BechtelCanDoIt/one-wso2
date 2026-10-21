@@ -47,6 +47,17 @@ const LEGACY_CYCLE_DISPLAY_NAMES: Record<string, string> = {
     "2015 ANNUAL PERFORMANCE REVIEW for Engineering Team Leads",
   "ANNUAL PERFORMANCE REVIEW for Engineering Employees - 2015":
     "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees",
+  // Real migrated data for this one -- a numbered-form export, year omitted
+  // entirely -- hand-confirmed from a real sample (29 rows, the single
+  // largest cycle in that sample). Maps to the same canonical 2015
+  // Engineering Employees review as the "for Engineering Employees - 2015"
+  // form above.
+  "(3) ANNUAL PERFORMANCE REVIEW - Engineering Employees":
+    "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees",
+  // 2016 Q2/Q3-Q4 exported without the "2016 " prefix some of the time --
+  // hand-confirmed from the same real sample (3 rows each).
+  "Quarterly Review - Q2": "2016 Quarterly Review - Q2",
+  "Quarterly Review - Q3/Q4": "2016 Quarterly Review - Q3/Q4",
 };
 
 // Every catalog/rating lookup throughout this feature is an exact-string
