@@ -31,7 +31,9 @@ import type {
   DraftInput,
   DraftResponse,
   LineCategory,
+  LineFormula,
   Partner,
+  PricingMethod,
   PricingPreview,
   Product,
   TermMode,
@@ -61,10 +63,27 @@ export interface AddressValue {
 }
 
 /** One line; product fields are for display and come from the price book. */
+/** A saved line's pricing (D82): the price book, or a formula version with how it worked the price out. */
+export interface KeptPricing {
+  method: PricingMethod;
+  formulaVersionId: number | null;
+  formula: LineFormula | null;
+}
+
 export interface LineValue {
   /** Id of the saved line this came from; keeps its stored price. */
   lineId: number | null;
   pricebookEntryId: string;
+  /** The Salesforce product: tells a formula-priced one (D81). Absent on lines from before it was kept. */
+  productId?: string;
+  /** How a saved line was priced (D82); absent on a new line. */
+  keepPricing?: KeptPricing;
+  /**
+   * The AM moved this saved line to its product's pricing in force: the
+   * latest formula version, or the price book (D82). Set only by the line
+   * dialog; without it a saved line keeps its pricing.
+   */
+  useLatestPricing?: boolean;
   productName: string;
   productCode: string;
   /** The product's Salesforce description; "" when it has none. */
@@ -88,8 +107,11 @@ export interface LineValue {
   discount: string;
 }
 
-/** Multi-year lengths the AM can choose. */
-export const MULTI_YEAR_OPTIONS = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+/** Term lengths the AM can choose by number of years (D85). */
+export const YEAR_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+/** The billing choices, in the order shown (D85, D86). */
+export const BILLING_OPTIONS: readonly BillingFrequency[] = ["MONTHLY", "QUARTERLY", "ANNUAL", "UPFRONT", "SPECIAL_TERMS"];
 
 export interface DraftFormValues {
   // Step 1 — the quote's identity is fixed after the first save (UI choice 3).
@@ -121,19 +143,16 @@ export interface DraftFormValues {
   defaultPricebookName: string;
   /** Every quote has a start date. */
   startDate: string;
-  // Step 2 — the Subscription term card; only used when a line
-  // is a Subscription or Support. "" = a saved draft whose dates fit no mode.
+  // Step 2 — the Subscription term card; only used when a line recurs.
+  // "" = a saved draft with no mode yet.
   termMode: TermMode | "";
-  /** Multi-year only. */
+  /** Number of years: 1–10. */
   termYears: string;
-  /** Shorter term: the end date the AM types. Co-termed: the chosen opportunity's end (D73). */
+  /** End date: the term's end, pre-filled from Salesforce or set by the AM. */
   termEndDate: string;
-  /** A co-termed expansion: the opportunity it ends with (D73); "" otherwise. */
-  coTermOpportunityId: string;
-  coTermOpportunityName: string;
   /** The opportunity's products that couldn't be brought in, and why (D72). Shown once; never saved. */
   notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
-  /** Multi-year only; every other term is billed annually. */
+  /** With a recurring line (D85); annually in advance unless changed. */
   billingFrequency: BillingFrequency | "";
   /** Partner-led quotes only: the partner's commission %, "" until entered. */
   partnerCommissionPercent: string;
@@ -194,13 +213,11 @@ export function emptyDraftForm(): DraftFormValues {
     defaultPricebookId: "",
     defaultPricebookName: "",
     startDate: "",
-    termMode: "ONE_YEAR", // T1
-    termYears: "2",
+    termMode: "YEARS", // 1 year until Salesforce or the AM says otherwise (D85)
+    termYears: "1",
     termEndDate: "",
-    coTermOpportunityId: "",
-    coTermOpportunityName: "",
     notBroughtIn: [],
-    billingFrequency: "",
+    billingFrequency: "ANNUAL",
     partnerCommissionPercent: "",
     lines: [],
     netTermsDays: "",
@@ -274,32 +291,76 @@ export const LINE_CATEGORIES: readonly { value: LineCategory; label: string }[] 
 /** Whether any line is charged every year, so a subscription term is needed (D37, D76). */
 export const hasRecurring = (lines: readonly { readonly recurring: boolean }[]) => lines.some((l) => l.recurring);
 
-/** Whether the AM types the end date (Co-termed, Shorter term). */
-export const isShortMode = (mode: TermMode | "" | null) => mode === "CO_TERMED" || mode === "SHORTER";
+/** The longest term: the latest end date a start allows (10 years, D85). */
+export const latestEndDate = (start: string) => endDateFor(start, YEAR_OPTIONS[YEAR_OPTIONS.length - 1]);
 
-/**
- * The latest end date "Less than a year" may have: the day before a full year
- * would end (2026-10-12), e.g. 30 Dec 2027 from 1 Jan 2027. A full year is "1 year".
- */
-export function shortTermLatestEnd(start: string): string {
-  const d = parseDateString(endDateFor(start, 1));
-  if (!d) return "";
-  d.setDate(d.getDate() - 1);
-  return toDateString(d);
+/** Why an End date term is not allowed, or "" when it is (D85): not before the start, at most 10 years. */
+export function endDateProblem(start: string, end: string): string {
+  if (!start || !end) return "";
+  if (end < start) return "The end date must not be before the start date";
+  if (end > latestEndDate(start)) return `The term can be at most 10 years: end by ${formatDate(latestEndDate(start))}`;
+  return "";
+}
+
+/** `start` moved by whole months, the day clamped to the month's last (as the backend counts). */
+function addMonths(start: Date, months: number): Date {
+  const first = new Date(start.getFullYear(), start.getMonth() + months, 1);
+  const last = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  return new Date(first.getFullYear(), first.getMonth(), Math.min(start.getDate(), last));
 }
 
 /**
- * Why a Co-termed or Shorter term end date is not allowed, or "" when it is.
- * A co-termed end comes from the other contract, so it may fall on the full year.
+ * How long a term is, both days included, in words (D85), exactly as the
+ * backend says it: "1 year", "3 years", "1 year + 1 day", "11 months + 30
+ * days", "2 years + 3 months". "" when a date is missing or the end is before the start.
  */
-export function shortTermProblem(start: string, end: string, mode: "CO_TERMED" | "SHORTER"): string {
-  if (!start || !end) return "";
-  if (end < start) return "The end date must not be before the start date";
-  if (mode === "SHORTER" && end > shortTermLatestEnd(start)) {
-    return `Less than a year must end before ${formatDate(endDateFor(start, 1))}. For a full year, choose 1 year`;
+export function durationText(start: string, end: string): string {
+  const d = durationParts(start, end);
+  if (!d) return "";
+  const part = (n: number, unit: string) => (n === 1 ? `1 ${unit}` : n > 1 ? `${n} ${unit}s` : "");
+  return [part(d.years, "year"), part(d.months, "month"), part(d.days, "day")].filter(Boolean).join(" + ");
+}
+
+/** The same duration, short, for the products table's Term column (D94, D96): "1Y 1M 1D", "3Y", "11M 30D". */
+export function durationShort(start: string, end: string): string {
+  const d = durationParts(start, end);
+  if (!d) return "";
+  return [d.years && `${d.years}Y`, d.months && `${d.months}M`, d.days && `${d.days}D`].filter(Boolean).join(" ");
+}
+
+/** Whole years, then whole months, then days, from the start to the end (both inclusive). */
+function durationParts(start: string, end: string): { years: number; months: number; days: number } | null {
+  const s = parseDateString(start);
+  const e = parseDateString(end);
+  if (!s || !e || e < s) return null;
+  const whole = (months: number) => {
+    const last = addMonths(s, months);
+    last.setDate(last.getDate() - 1);
+    return last <= e;
+  };
+  let years = 0;
+  while (whole(12 * (years + 1))) years++;
+  let months = 0;
+  while (months < 11 && whole(12 * years + months + 1)) months++;
+  const from = addMonths(s, 12 * years + months);
+  const days = Math.round((e.getTime() - from.getTime()) / 86_400_000) + 1;
+  return { years, months, days };
+}
+
+/**
+ * The term Salesforce's dates describe (D85): a whole number of years (1–10)
+ * when they make one, else the end date as it is; 1 year when there is no end.
+ */
+export function termFromDates(
+  start: string,
+  end: string | null | undefined,
+): Pick<DraftFormValues, "termMode" | "termYears" | "termEndDate"> {
+  if (start && end && parseDateString(end)) {
+    const years = YEAR_OPTIONS.find((n) => endDateFor(start, n) === end);
+    if (years) return { termMode: "YEARS", termYears: String(years), termEndDate: "" };
+    return { termMode: "END_DATE", termYears: "1", termEndDate: end };
   }
-  if (end > endDateFor(start, 1)) return "Ends within a year of the start. For longer, choose 1 year or Multi-year";
-  return "";
+  return { termMode: "YEARS", termYears: "1", termEndDate: "" };
 }
 
 // ---------------------------------------------------------------------------
@@ -396,18 +457,22 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
     defaultPricebookId: v.defaultPricebook?.id ?? "",
     defaultPricebookName: v.defaultPricebook?.name ?? "",
     startDate: start,
-    // A services-only draft has no mode; it gets the default if a
-    // subscription is added. A draft whose dates fit no mode shows none.
-    termMode: v.termMode ?? (hasRecurring(v.lines) ? "" : "ONE_YEAR"),
-    termYears: String(v.termYears ?? 2),
-    termEndDate: isShortMode(v.termMode) ? end : "",
-    coTermOpportunityId: v.coTermOpportunity?.id ?? "",
-    coTermOpportunityName: v.coTermOpportunity?.name ?? "",
-    billingFrequency: v.termMode === "MULTI_YEAR" ? (v.billingFrequency ?? "") : "",
+    // A draft with no recurring line has no mode; it gets 1 year if a
+    // recurring product is added (D85).
+    termMode: v.termMode ?? (hasRecurring(v.lines) ? "" : "YEARS"),
+    termYears: String(v.termYears ?? 1),
+    termEndDate: v.termMode === "END_DATE" ? end : "",
+    billingFrequency: v.billingFrequency ?? "ANNUAL",
     partnerCommissionPercent: v.partnerCommissionPercent ? String(Number(v.partnerCommissionPercent)) : "",
     lines: v.lines.map((l) => ({
       lineId: l.id,
       pricebookEntryId: l.pricebookEntryId,
+      productId: l.sfProductId,
+      keepPricing: {
+        method: l.pricingMethod ?? "PRICE_BOOK",
+        formulaVersionId: l.formula?.versionId ?? null,
+        formula: l.formula ?? null,
+      },
       productName: l.productName,
       productCode: l.productCode ?? "",
       productDescription: l.productDescription ?? "",
@@ -466,27 +531,19 @@ function addressInput(a: AddressValue): AddressInput | undefined {
 }
 
 /**
- * The term's end date: derived for 1 year and Multi-year, typed for the
- * short modes. "" when there is no term yet, or none is needed.
+ * The term's end date: worked out for a number of years, as set for an end
+ * date. "" when there is no term yet, or none is needed.
  */
 export function termEnd(v: Pick<DraftFormValues, "startDate" | "termMode" | "termYears" | "termEndDate">): string {
   if (!v.startDate) return "";
   switch (v.termMode) {
-    case "ONE_YEAR":
-      return endDateFor(v.startDate, 1);
-    case "MULTI_YEAR":
+    case "YEARS":
       return endDateFor(v.startDate, Number(v.termYears));
-    case "CO_TERMED":
-    case "SHORTER":
+    case "END_DATE":
       return v.termEndDate;
     default:
       return "";
   }
-}
-
-/** The billing frequency pricing uses: chosen for Multi-year, annual otherwise. */
-export function effectiveBilling(v: Pick<DraftFormValues, "termMode" | "billingFrequency">): BillingFrequency | "" {
-  return v.termMode === "MULTI_YEAR" ? v.billingFrequency : "ANNUAL";
 }
 
 // ---------------------------------------------------------------------------
@@ -509,15 +566,15 @@ function commissionInput(v: DraftFormValues): string | undefined {
   return isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? v.partnerCommissionPercent.trim() : undefined;
 }
 
-/** The term fields of a request, for the modes that use them. */
+/** The term fields of a request, for the mode in use (none without a recurring line), and the billing (every quote, D88). */
 function termInput(v: DraftFormValues) {
-  if (!hasRecurring(v.lines) || !v.termMode) return {};
+  const billingFrequency = v.billingFrequency || undefined;
+  if (!hasRecurring(v.lines)) return { billingFrequency };
   return {
-    termMode: v.termMode,
-    termYears: v.termMode === "MULTI_YEAR" ? Number(v.termYears) : undefined,
-    subscriptionEndDate: v.termMode === "SHORTER" ? opt(v.termEndDate) : undefined,
-    coTermOpportunityId: v.termMode === "CO_TERMED" ? opt(v.coTermOpportunityId) : undefined,
-    billingFrequency: v.termMode === "MULTI_YEAR" ? v.billingFrequency || undefined : undefined,
+    termMode: v.termMode || undefined,
+    termYears: v.termMode === "YEARS" ? Number(v.termYears) : undefined,
+    subscriptionEndDate: v.termMode === "END_DATE" ? opt(v.termEndDate) : undefined,
+    billingFrequency,
   };
 }
 
@@ -560,6 +617,8 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
       category: l.category,
       discretionaryDiscountPercent: l.discount.trim() || "0",
       unitOfMeasure: opt(l.unitOfMeasure),
+      // A saved line the AM moved to the pricing in force (D82).
+      useLatestFormula: l.lineId !== null && l.useLatestPricing ? true : undefined,
     })),
   };
 }
@@ -567,7 +626,7 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
 /**
  * The live-pricing request, or null until there is enough to price: a start
  * date, a currency and at least one line — plus, when a line recurs, a valid
- * term and (for Multi-year) a billing frequency.
+ * term and a billing frequency.
  */
 export function toPreviewBody(v: DraftFormValues): object | null {
   // Every line, a line waiting for its category included: it is priced once, like a service (D75, WIP for multi-year).
@@ -575,19 +634,23 @@ export function toPreviewBody(v: DraftFormValues): object | null {
   if (!v.startDate || !v.currencyIsoCode || lines.length === 0) return null;
   const recurring = hasRecurring(v.lines);
   const end = termEnd(v);
-  const billing = effectiveBilling(v);
-  if (recurring && (!end || !billing || (isShortMode(v.termMode) && shortTermProblem(v.startDate, end, v.termMode as "CO_TERMED" | "SHORTER")))) return null;
+  const billing = v.billingFrequency;
+  if (!billing || (recurring && (!end || endDateProblem(v.startDate, end)))) return null;
   return {
     currencyIsoCode: v.currencyIsoCode,
     subscriptionStartDate: v.startDate,
     subscriptionEndDate: recurring ? end : undefined,
-    billingFrequency: recurring ? billing : "ANNUAL",
+    billingFrequency: billing,
     partnerCommissionPercent: commissionInput(v),
     lines: lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,
       quantity: Number(l.quantity),
       category: l.category,
       discretionaryDiscountPercent: l.discount.trim() || "0",
+      keepPricing:
+        l.keepPricing && !l.useLatestPricing
+          ? { method: l.keepPricing.method, formulaVersionId: l.keepPricing.formulaVersionId }
+          : undefined,
     })),
   };
 }
@@ -706,31 +769,37 @@ export function changedText(at: string, by: string | null): string {
   return by ? `${day} · ${by}` : day;
 }
 
-/** The billing choice, in the same words everywhere (D2, 2026-10-14). */
-export const BILLING_LABEL = { ANNUAL: "Annual billing", UPFRONT: "Upfront" } as const;
+/** The billing choice, in the same words everywhere (D85), the order form included. */
+export const BILLING_LABEL: Record<BillingFrequency, string> = {
+  MONTHLY: "Monthly in Advance",
+  QUARTERLY: "Quarterly in Advance",
+  ANNUAL: "Annually in Advance",
+  UPFRONT: "Upon the Execution of the Order Form",
+  SPECIAL_TERMS: "See Special Terms",
+};
 
 // ---------------------------------------------------------------------------
 // Issues → wizard steps
 // ---------------------------------------------------------------------------
 
 /** Wizard steps, in order. */
-export const STEPS = ["Overview", "Term & Products", "Commercial", "Review"] as const;
+export const STEPS = ["Overview", "Products & Pricing", "Commercials", "Review"] as const;
 
-/** Fields on Term & Products besides the lines: the start date and term, currency and price book, commission. */
-const TERM_FIELDS = [
+/** Fields on Products & Pricing besides the lines: currency and price book, the start date and term, commission. */
+const STEP_2_FIELDS = [
   // The start date is on step 2 with the term (D73).
   "subscriptionStartDate",
-  "coTermOpportunityId",
   "currencyIsoCode",
   "defaultPricebookId",
   "termMode",
   "termYears",
   "subscriptionEndDate",
-  "billingFrequency",
   "partnerCommissionPercent",
 ];
 
+/** Commercials (D86): billing and payment terms first. */
 const STEP_3_FIELDS = [
+  "billingFrequency",
   "netTermsDays",
   "poNumber",
   "specialTerms",
@@ -744,8 +813,8 @@ const STEP_3_FIELDS = [
 
 /** The step (0-based) where an issue's field lives, so the summary panel can jump there. */
 export function stepOfField(field: string): number {
-  // "salesforce": a refused sync (D77), done from Term & Products.
-  if (field === "lines" || field.startsWith("lines[") || field === "salesforce" || TERM_FIELDS.includes(field)) return 1;
+  // "salesforce": a refused sync (D77), done from Products & Pricing.
+  if (field === "lines" || field.startsWith("lines[") || field === "salesforce" || STEP_2_FIELDS.includes(field)) return 1;
   if (STEP_3_FIELDS.some((f) => field === f || field.startsWith(f + ".") || field.startsWith(f + "["))) return 2;
   return 0;
 }
@@ -763,6 +832,7 @@ export function pulledLines(products: readonly Product[]): LineValue[] {
       {
         lineId: null,
         pricebookEntryId: entry.id,
+        productId: p.id,
         productName: p.name ?? p.id,
         productCode: p.productCode ?? "",
         productDescription: p.description ?? "",

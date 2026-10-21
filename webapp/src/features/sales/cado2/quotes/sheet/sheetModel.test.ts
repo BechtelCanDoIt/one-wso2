@@ -17,7 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraftForm, fromVersion } from "@features/sales/cado2/quotes/form/draftForm";
 import { draft, fullPartnerQuote } from "@features/sales/cado2/quotes/testing/fixtures";
-import { expiryState, sheetFromForm, sheetFromVersion, hasYearlySchedule, orderForm, termLabel, termLength, yearOpportunity } from "./sheetModel";
+import { expiryState, sheetFromForm, sheetFromVersion, hasYearlySchedule, orderForm, termLabel, termShort, yearOpportunity } from "./sheetModel";
 import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initials";
 import { lifecycleSteps } from "./lifecycleSteps";
 
@@ -37,7 +37,7 @@ describe("sheetFromVersion", () => {
       startDate: "2026-10-01",
       endDate: "2027-09-30",
       billingFrequency: "ANNUAL",
-      termMode: "ONE_YEAR",
+      termMode: "YEARS",
       recurring: true,
       netTermsDays: 45,
       poNumber: "PO-4471",
@@ -55,6 +55,26 @@ describe("sheetFromVersion", () => {
     expect(s.lines[0]).toMatchObject({ productName: "WSO2 Gateway", quantity: "20", discountPercent: "10", annualNet: "6480.00", tcv: "6480.00" });
     expect(s.years).toHaveLength(1);
     expect(s.totals?.tcv).toBe("6480.00");
+  });
+
+  it("shows how a saved formula line was priced (D81)", () => {
+    const line = fullPartnerQuote.version.lines[0];
+    const withFormula = {
+      ...fullPartnerQuote,
+      version: {
+        ...fullPartnerQuote.version,
+        lines: [
+          {
+            ...line,
+            discretionaryDiscountPercent: "0",
+            pricingMethod: "FORMULA" as const,
+            formula: { versionId: 6, version: 3, versionDate: "2026-10-15", expression: "max($1, $2)", explanation: "max(25,000, 648)", listPrice: "0", values: [] },
+          },
+        ],
+      },
+    };
+    expect(sheetFromVersion(withFormula).lines[0].formula).toEqual({ version: "v3 · 15 Oct 2026", explanation: "max(25,000, 648)" });
+    expect(s.lines[0].formula).toBeNull();
   });
 
   it("leaves unpriced drafts without totals", () => {
@@ -77,6 +97,39 @@ describe("sheetFromForm", () => {
     expect(fromForm.previousOpportunityCount).toBe(1);
   });
 
+  it("takes a formula line's price and explanation from the preview, with no discount (D81)", () => {
+    const form = fromVersion(fullPartnerQuote);
+    const preview = {
+      rulesVersion: "2026-09-M9",
+      termMonths: "12",
+      totals: null as never,
+      years: [],
+      lines: [
+        {
+          pricebookEntryId: form.lines[0].pricebookEntryId,
+          unitPrice: "25000.00",
+          pricingMethod: "FORMULA" as const,
+          formula: { versionId: 6, version: 3, versionDate: "2026-10-15", expression: "max($1, $2)", explanation: "max(25,000, 648)", listPrice: "0", values: [] },
+          annualList: "25000.00",
+          annualNet: "25000.00",
+          arr: "25000.00",
+          tcv: "25000.00",
+          schedule: [],
+        },
+      ],
+    };
+    const line = sheetFromForm(form, preview, null).lines[0];
+    expect(line).toMatchObject({
+      unitPrice: "25000.00",
+      discountPercent: "0",
+      formula: { version: "v3 · 15 Oct 2026", explanation: "max(25,000, 648)" },
+    });
+
+    const plain = sheetFromForm(form, null, null).lines[0];
+    expect(plain.formula).toBeNull();
+    expect(plain.discountPercent).toBe("10");
+  });
+
   it("marks what isn't chosen yet", () => {
     const s = sheetFromForm(emptyDraftForm(), null, null);
     expect(s.contacts).toEqual([null, null]);
@@ -87,18 +140,18 @@ describe("sheetFromForm", () => {
 });
 
 describe("labels", () => {
-  it("names the term length", () => {
-    expect(termLength("2027-01-01", "2029-12-31")).toBe("3 years");
-    expect(termLength("2027-01-01", "2027-12-31")).toBe("1 year");
-    expect(termLength("2027-01-01", "2028-06-30")).toBe("18 months");
-    expect(termLength("", "")).toBe("");
-  });
-
-  it("names the term with its mode", () => {
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-12-31", termMode: "ONE_YEAR" })).toBe("1 year");
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2029-12-31", termMode: "MULTI_YEAR" })).toBe("3 years · Multi-year");
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-06-30", termMode: "CO_TERMED" })).toBe("6 months · Co-termed");
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2028-06-30", termMode: null })).toBe("18 months");
+  it("names the term by its length, in words (D85)", () => {
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-12-31" })).toBe("1 year");
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2029-12-31" })).toBe("3 years");
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-06-30" })).toBe("6 months");
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2028-01-01" })).toBe("1 year + 1 day");
+    expect(termLabel({ startDate: "", endDate: "" })).toBe("");
+    // Short, for the products table (D94).
+    expect(termShort({ startDate: "2027-01-01", endDate: "2029-12-31" })).toBe("3Y");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2028-01-01" })).toBe("1Y 1D");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2028-02-01" })).toBe("1Y 1M 1D");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2027-12-30" })).toBe("11M 30D");
+    expect(termShort({ startDate: "", endDate: "" })).toBe("");
   });
 
   it("names each year's opportunity, and shows a schedule only past one year", () => {

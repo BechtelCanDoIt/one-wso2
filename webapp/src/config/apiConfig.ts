@@ -605,6 +605,7 @@ export const financeMasterDataServiceUrls = {
   glCodes: `${financeMasterDataBackendUrl}/gl-codes`,
   employeeEmails: `${financeMasterDataBackendUrl}/employees/email`,
   expenseTypeAutocomplete: `${financeMasterDataBackendUrl}/expense-types/autocomplete-values`,
+  countries: `${financeMasterDataBackendUrl}/countries`,
 };
 
 // ---- Updates Manager backend ---------------------------------------------
@@ -1931,6 +1932,7 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
   // What AMs may do with quotes they don't own (D69; Admin).
   adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
+  adminSalesforceSync: `${cado2BackendUrl}/admin/salesforce-sync`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>
@@ -1973,6 +1975,20 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
+  // Pricing formulas (D81): read by AMs and Admins; changed by Admins.
+  pricingFormulas: `${cado2BackendUrl}/pricing-formulas`,
+  adminPricingFormula: (productId: string): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/${encodeSegment(productId)}`,
+  pricingFormulaTry: `${cado2BackendUrl}/admin/pricing-formulas/try`,
+  pricingFormulaVersions: (productId: string): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/${encodeSegment(productId)}/versions`,
+  // The formula editor's product list: every quote currency, a page at a time.
+  pricingFormulaProducts: (search: string, limit: number, offset: number): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/products?${new URLSearchParams({
+      ...(search ? { search } : {}),
+      limit: String(limit),
+      offset: String(offset),
+    }).toString()}`,
 };
 
 export const salesBackendUrl: string = window.config?.ONE_WSO2_REVOPS_BACKEND_URL ?? "";
@@ -2170,6 +2186,9 @@ export const echoServiceUrls = {
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/move-stage`,
   includeCalls: (opportunityId: string): string =>
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/include-calls`,
+  // Ask AI: a question about the opportunity, answered from it and the Library passages sent.
+  ask: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/ask`,
 };
 
 /**
@@ -2183,8 +2202,14 @@ export function buildDealsUrl(params: {
   owner?: string | null;
   stage?: string | null;
   hideClosed: boolean;
+  /** My deals: only the signed-in user's own (the backend reads who from the token). */
+  mine?: boolean;
+  /** Only deals whose account is in this Sales Region, e.g. "EU". */
+  region?: string | null;
 }): string {
   const qs = new URLSearchParams();
+  if (params.mine) qs.set("mine", "true");
+  if (params.region?.trim()) qs.set("region", params.region.trim());
   if (params.search?.trim()) qs.set("search", params.search.trim());
   if (params.owner?.trim()) qs.set("owner", params.owner.trim());
   if (params.stage?.trim()) qs.set("stage", params.stage.trim());

@@ -17,7 +17,7 @@
 import type { JSX } from "react";
 import { Stack, Typography } from "@wso2/oxygen-ui";
 import { LandmarkIcon } from "@wso2/oxygen-ui-icons-react";
-import { BILLING_LABEL, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { renewalStartWarning } from "@features/sales/cado2/quotes/form/renewalStart";
 import { termLabel, type QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import SheetCard, { Fact, FactGrid } from "@features/sales/cado2/components/section-card/SectionCard";
@@ -35,7 +35,7 @@ function termFact(sheet: QuoteSheet): { label: string; value: string; hint: stri
   };
 }
 
-/** Who sells, for how long, and how it is billed. */
+/** Who sells and for how long. Billing is under Commercial Terms (D86). */
 export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
   const term = termFact(sheet);
   return (
@@ -53,7 +53,6 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
         <Fact label="Sub-region" value={sheet.subRegion || "Not set"} />
         <Fact label="WSO2 legal entity" value={sheet.legalEntity?.name} hint={sheet.legalEntity?.address} />
         <Fact label={term.label} value={term.value} hint={term.hint} />
-        {sheet.recurring ? <Fact label="Billing" value={sheet.billingFrequency ? BILLING_LABEL[sheet.billingFrequency] : ""} /> : null}
         <Fact label="Currency" value={sheet.currency} />
         {sheet.pricebookName ? (
           <Fact label="Price book" value={sheet.pricebookName} hint="The Salesforce opportunity's; every line is priced from it" />

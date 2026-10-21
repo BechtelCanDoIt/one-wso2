@@ -18,6 +18,7 @@ import { describe, expect, it } from "vitest";
 import type { EvidenceQuote } from "../types";
 import {
   activityOf,
+  describeEvidenceSources,
   describeSources,
   hasCustomerEvidence,
   newestFirst,
@@ -91,5 +92,20 @@ describe("deal row timeline", () => {
     expect(timelineOf(deal)).toEqual([{ type: "CALL", at: "2026-09-24T07:30:00Z", title: "Last call", meetingId: null }]);
     expect(rowSourcesOf(deal)).toEqual({ calls: 3, emails: 0, activities: 0, lastActivityAt: "2026-09-24T07:30:00Z" });
     expect([daysAgo(0), daysAgo(1), daysAgo(9)]).toEqual(["today", "yesterday", "9 days ago"]);
+  });
+});
+
+describe("describeEvidenceSources", () => {
+  it("names a single source by its title, and counts several", () => {
+    expect(describeEvidenceSources([quote(), quote({ offsetSeconds: 10 })])).toBe("call “Nordlys – budget sign-off”");
+    expect(
+      describeEvidenceSources([
+        quote(),
+        quote({ meetingId: 23 }),
+        quote({ source: { type: "EMAIL", id: "02s1", title: "Re: proposal", occurredAt: "2026-10-02T09:00:00Z", url: null } }),
+        quote({ source: { type: "ACTIVITY", id: "00T1", title: "Call notes", occurredAt: "2026-10-05T09:00:00Z", url: null } }),
+      ]),
+    ).toBe("2 calls · 1 email · 1 note");
+    expect(describeEvidenceSources([])).toBe("");
   });
 });

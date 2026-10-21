@@ -50,7 +50,7 @@ describe("EvidenceItem", () => {
         })}
       />,
     );
-    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Email" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Open email/ })).toHaveAttribute("href", "https://sf/02s1");
   });
 

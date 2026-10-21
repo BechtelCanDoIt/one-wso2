@@ -15,8 +15,8 @@
 // under the License.
 
 import { useEffect, useState } from "react";
-import { Box, Collapse, ToggleButton, Typography } from "@wso2/oxygen-ui";
-import { FilterIcon, ListFilterIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, Collapse, ToggleButton } from "@wso2/oxygen-ui";
+import { FilterIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import ExpenseTypeFilters from "../ExpenseTypeFilters";
 import MasterDataScreen from "../MasterDataScreen";
@@ -24,33 +24,45 @@ import { MASTER_DATA_SNACK } from "../masterDataCopy";
 import { useExpenseTypeAutoComplete, useExpenseTypes } from "../useMasterData";
 import type { ExpenseTypeFilter } from "../masterDataTypes";
 
+// The filter panel's height slide, and the fade that covers it.
+const FILTER_EASE_IN = "cubic-bezier(0.4, 0, 0.2, 1)";
+const FILTER_EASE_OUT = "cubic-bezier(0.4, 0, 1, 1)";
+const FILTER_SLIDE_MS = 260;
+const FILTER_FADE_IN_MS = 220;
+const FILTER_FADE_OUT_MS = 120;
+// Lets the height open before the contents arrive.
+const FILTER_FADE_DELAY_MS = 40;
+
+const FADE_PROPS = ["opacity", "transform"];
+const fadeTransition = (ms: number, ease: string, delay = 0) =>
+  FADE_PROPS.map((prop) => `${prop} ${ms}ms ${ease} ${delay}ms`).join(", ");
+
 /**
  * The expense-type catalogue — `pages/ExpenseTypes.tsx`.
  *
- * The one tab whose rows come from a POST filter rather than a GET, and so
- * the one that shows nothing until a filter has been applied
- * (`CustomTable.tsx:236-254`). That is not an empty table: it is the screen
- * saying it has not asked yet.
+ * Opens on the whole catalogue. The rows come from a POST filter rather than
+ * a GET, but an empty filter is not an unanswerable question:
+ * `search-expense-types` builds no WHERE clause for one and returns every
+ * row. Asking people to pick a filter before they can see what there is to
+ * filter BY had it backwards, so the catalogue loads and the bar narrows it.
  *
  * Two filter objects, not one. `draft` is what the bar is editing; `applied`
  * is what the table is showing. Without the split, every keystroke in the
  * filter bar would be a new query key and a new request — the source avoids
  * that with an explicit Apply, and so does this.
  *
- * Filters start collapsed. Nothing is loaded until the first Apply anyway
- * (`hasApplied` below), so opening on an already-expanded bar showed a form
- * before there was anything to filter — "Show Filters" is the deliberate
- * first click, not a state the screen should guess its way past.
+ * Filters start collapsed: the catalogue is already on screen, so the bar is
+ * there for the person who wants to narrow it, not a gate on the way in.
  */
 export default function ExpenseTypesPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [draft, setDraft] = useState<ExpenseTypeFilter>({});
-  const [applied, setApplied] = useState<ExpenseTypeFilter | null>(null);
+  // `{}` rather than null: the first render asks for the unfiltered
+  // catalogue, and Apply replaces it with a narrower question.
+  const [applied, setApplied] = useState<ExpenseTypeFilter>({});
 
   const options = useExpenseTypeAutoComplete();
-  // `applied === null` before the first Apply, which is what holds the query
-  // back — the hook is mounted but disabled, so nothing is requested.
-  const query = useExpenseTypes(applied ?? {}, applied !== null);
+  const query = useExpenseTypes(applied);
   const { showError } = useNotifications();
 
   // CustomTable.tsx:54-59 — the option lists failing is its own message,
@@ -60,78 +72,60 @@ export default function ExpenseTypesPage() {
     if (options.isError) showError(MASTER_DATA_SNACK.error.autoComplete);
   }, [options.isError, showError]);
 
-  const hasApplied = applied !== null;
-
   return (
     <MasterDataScreen
       tab="expenseTypes"
-      rows={hasApplied ? (query.data ?? []) : []}
-      loading={hasApplied && query.isLoading}
-      error={hasApplied && query.isError ? query.error : undefined}
+      rows={query.data ?? []}
+      loading={query.isLoading}
+      error={query.isError ? query.error : undefined}
       onRetry={() => void query.refetch()}
       autoComplete={options.data}
-      showTable={hasApplied}
       toolbar={
         <ToggleButton
           value="filters"
           size="small"
           selected={showFilters}
           onChange={() => setShowFilters((v) => !v)}
-          sx={{ textTransform: "none", gap: 0.75, px: 1.5 }}
+          // One width for both labels: the toolbar is right-aligned, so a
+          // button that resizes on click nudges "Add New Expense Type" too.
+          sx={{ textTransform: "none", gap: 0.75, px: 1.5, minWidth: 140 }}
         >
           <FilterIcon size={16} />
           {showFilters ? "Hide Filters" : "Show Filters"}
         </ToggleButton>
       }
     >
-      <Collapse in={showFilters} unmountOnExit>
-        <ExpenseTypeFilters
-          draft={draft}
-          options={options.data}
-          optionsLoading={options.isLoading}
-          busy={query.isFetching}
-          onChange={setDraft}
-          onApply={() => setApplied(draft)}
-          onClear={() => setDraft({})}
-        />
+      {/* flexShrink: 0 stops the flex-column parent squeezing Collapse and
+          clipping the buttons. The fade hides Collapse un-clipping the
+          filters a row at a time. */}
+      <Collapse in={showFilters} timeout={FILTER_SLIDE_MS} easing={FILTER_EASE_IN} sx={{ flexShrink: 0 }}>
+        <Box
+          sx={{
+            opacity: showFilters ? 1 : 0,
+            transform: showFilters ? "translateY(0)" : "translateY(-4px)",
+            transition: showFilters
+              ? fadeTransition(FILTER_FADE_IN_MS, FILTER_EASE_IN, FILTER_FADE_DELAY_MS)
+              : fadeTransition(FILTER_FADE_OUT_MS, FILTER_EASE_OUT),
+          }}
+        >
+          <ExpenseTypeFilters
+            draft={draft}
+            options={options.data}
+            optionsLoading={options.isLoading}
+            busy={query.isFetching}
+            onChange={setDraft}
+            onApply={() => setApplied(draft)}
+            // Clears what the table is showing too, not just the bar. With the
+            // catalogue as the starting point, "Clear" means "back to all of
+            // it" — emptying the fields while the table stayed narrowed would
+            // leave no way to read what it was still narrowed by.
+            onClear={() => {
+              setDraft({});
+              setApplied({});
+            }}
+          />
+        </Box>
       </Collapse>
-
-      {/* Stands in for the table until the first Apply. Rendered here rather
-          than by the screen because it is the only tab that has this state. */}
-      {!hasApplied && <SelectFiltersFirst />}
     </MasterDataScreen>
-  );
-}
-
-/**
- * `CustomTable.tsx:243-253` — the empty state before any filter is applied.
- *
- * The source centres an illustration above the line. An icon stands in for
- * it: the drawing is an asset of the old app, and the sentence is what does
- * the work.
- */
-function SelectFiltersFirst() {
-  return (
-    <Box
-      sx={{
-        flex: 1,
-        minHeight: 280,
-        border: 1,
-        borderColor: "divider",
-        borderRadius: 2,
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 1.5,
-        p: 3,
-        textAlign: "center",
-      }}
-    >
-      <ListFilterIcon size={44} opacity={0.35} />
-      <Typography sx={{ fontSize: 18, fontWeight: 500, color: "text.secondary" }}>
-        Please select filters
-      </Typography>
-    </Box>
   );
 }

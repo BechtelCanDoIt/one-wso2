@@ -44,11 +44,11 @@ export default function Cado2AdminLayout(): JSX.Element {
   const navigate = useNavigate();
   const match = useMatch(`${cado2Paths.admin}/:section/*`);
   const current = ADMIN_SECTIONS.find((s) => s.id === match?.params.section);
-  useDocumentTitle(current ? `${current.label} · CadO2 Admin` : "CadO2 Admin");
+  useDocumentTitle(current ? `${current.label} · CADO2 Admin` : "CADO2 Admin");
 
   const list = (
     <Paper variant="outlined" sx={{ width: 240, flexShrink: 0, alignSelf: "flex-start", py: 0.5 }}>
-      <List component="nav" aria-label="CadO2 Admin sections" dense disablePadding>
+      <List component="nav" aria-label="CADO2 Admin sections" dense disablePadding>
         {ADMIN_SECTION_GROUPS.map((group) => (
           <Box component="li" key={group.label} sx={{ listStyle: "none" }}>
             <Box component="ul" sx={{ p: 0 }}>
@@ -94,7 +94,7 @@ export default function Cado2AdminLayout(): JSX.Element {
   return (
     <Box>
       <Typography variant="overline" color="text.secondary" component="p" sx={{ mb: 1 }}>
-        CadO2 Admin
+        CADO2 Admin
       </Typography>
       {wide ? (
         <Box sx={{ display: "flex", gap: 3, alignItems: "flex-start" }}>

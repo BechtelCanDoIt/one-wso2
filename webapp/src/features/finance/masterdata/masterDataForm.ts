@@ -14,18 +14,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type {
-  CreditCard,
-  CreditCardPayload,
-  Department,
-  DepartmentPayload,
-  ExpenseType,
-  ExpenseTypePayload,
-  MasterDataPayload,
-  MasterDataRow,
-  MasterDataTab,
-  Subsidiary,
-  SubsidiaryPayload,
+import {
+  MASTER_DATA_STATUS,
+  type CreditCard,
+  type CreditCardPayload,
+  type Department,
+  type DepartmentPayload,
+  type ExpenseType,
+  type ExpenseTypePayload,
+  type MasterDataPayload,
+  type MasterDataRow,
+  type MasterDataTab,
+  type Subsidiary,
+  type SubsidiaryPayload,
 } from "./masterDataTypes";
 
 /**
@@ -85,6 +86,7 @@ export function initialFormData(tab: MasterDataTab, row?: MasterDataRow): Master
         taxCode: r?.taxCode ?? "",
         legalName: r?.legalName ?? "",
         code: r?.code ?? "",
+        country: r?.country ?? "",
       } satisfies SubsidiaryPayload;
     }
     case "departments": {
@@ -104,6 +106,8 @@ export function initialFormData(tab: MasterDataTab, row?: MasterDataRow): Master
         expenseTypeDescription: r?.expenseTypeDescription ?? "",
         engagementCodes: r?.engagementCodes ?? [],
         engagementCodeSuffixes: r?.engagementCodeSuffixes ?? [],
+        // Same rule as credit cards: lower-cased, and absent when creating.
+        ...(r ? { status: (r.status ?? MASTER_DATA_STATUS.active).toLowerCase() } : {}),
       } satisfies ExpenseTypePayload;
     }
     case "creditCards": {
@@ -114,6 +118,11 @@ export function initialFormData(tab: MasterDataTab, row?: MasterDataRow): Master
         employeeEmail: r?.employeeEmail ?? "",
         leadEmails: r?.leadEmails ?? [],
         comment: r?.comment ?? "",
+        // Lower-cased because the column carries a mix of "Active" and
+        // "active" from older writes, and `isUnchanged` compares by value —
+        // seeding the raw casing would read as an edit the moment the dialog
+        // opened. Absent when creating; see CreditCardPayload.
+        ...(r ? { status: (r.status ?? MASTER_DATA_STATUS.active).toLowerCase() } : {}),
       } satisfies CreditCardPayload;
     }
   }
@@ -177,6 +186,30 @@ export function isFormComplete(tab: MasterDataTab, form: MasterDataPayload): boo
 }
 
 /**
+ * Whether one field still holds what the row holds.
+ *
+ * Shared by `isUnchanged` and `changedFields` because they have to agree: if
+ * this says a field is untouched, the PATCH must not carry it.
+ *
+ * Arrays are compared as sets, since the order the reader picked them in is
+ * not a change. `status` is compared case-insensitively — the column holds
+ * both "Active" and "active" from older writes — and a nullish row value
+ * falls back to active, matching what `initialFormData` seeds.
+ */
+function sameFieldValue(key: string, rowValue: unknown, formValue: unknown): boolean {
+  if (Array.isArray(formValue)) {
+    const before = [...((rowValue as string[]) ?? [])].sort();
+    const after = [...formValue].sort();
+    return JSON.stringify(before) === JSON.stringify(after);
+  }
+  if (key === "status") {
+    const normalizedRow = rowValue ? String(rowValue).toLowerCase() : MASTER_DATA_STATUS.active;
+    return normalizedRow === String(formValue).toLowerCase();
+  }
+  return rowValue === formValue;
+}
+
+/**
  * Whether the form still matches the row it was opened on.
  *
  * Only the payload's own keys are compared; a row carries resolved display
@@ -184,15 +217,9 @@ export function isFormComplete(tab: MasterDataTab, form: MasterDataPayload): boo
  * row reads as "" so an untouched empty comment does not count as a change.
  */
 export function isUnchanged(row: MasterDataRow, form: MasterDataPayload): boolean {
-  return Object.entries(form).every(([key, formValue]) => {
-    const rowValue = (row as unknown as Record<string, unknown>)[key] ?? "";
-    if (Array.isArray(formValue)) {
-      const before = [...((rowValue as string[]) ?? [])].sort();
-      const after = [...formValue].sort();
-      return JSON.stringify(before) === JSON.stringify(after);
-    }
-    return rowValue === formValue;
-  });
+  return Object.entries(form).every(([key, formValue]) =>
+    sameFieldValue(key, (row as unknown as Record<string, unknown>)[key] ?? "", formValue),
+  );
 }
 
 /**
@@ -206,10 +233,7 @@ export function changedFields(row: MasterDataRow, form: MasterDataPayload): Part
   const patch: Record<string, unknown> = {};
   for (const [key, formValue] of Object.entries(form)) {
     const rowValue = (row as unknown as Record<string, unknown>)[key] ?? "";
-    const same = Array.isArray(formValue)
-      ? JSON.stringify([...((rowValue as string[]) ?? [])].sort()) === JSON.stringify([...formValue].sort())
-      : rowValue === formValue;
-    if (!same) patch[key] = formValue;
+    if (!sameFieldValue(key, rowValue, formValue)) patch[key] = formValue;
   }
   return patch as Partial<MasterDataPayload>;
 }

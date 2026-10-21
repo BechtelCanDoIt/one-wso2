@@ -25,7 +25,13 @@ import {
 } from "@wso2/oxygen-ui-icons-react";
 import { FINANCE_GRID_SX } from "../util/financeGridSx";
 import { INITIAL_SORT_FIELD } from "./masterDataForm";
-import type { Department, ExpenseType, MasterDataRow, MasterDataTab } from "./masterDataTypes";
+import {
+  MASTER_DATA_STATUS,
+  type Department,
+  type ExpenseType,
+  type MasterDataRow,
+  type MasterDataTab,
+} from "./masterDataTypes";
 
 /**
  * The one table all four master-data screens are drawn with.
@@ -66,7 +72,7 @@ function StatusChip({ value }: { value: string }) {
       title={label}
       size="small"
       variant="outlined"
-      color={label === "active" ? "success" : "error"}
+      color={label === MASTER_DATA_STATUS.active ? "success" : "error"}
       sx={{ fontWeight: 600, textTransform: "capitalize" }}
     />
   );
@@ -127,6 +133,8 @@ const MASTER_DATA_COLUMNS: Record<MasterDataTab, DataGrid.GridColDef[]> = {
     { field: "code", headerName: "Subsidiary Code", flex: 3, minWidth: 170, ...text() },
     { field: "taxCodeInternalId", headerName: "Tax ID", flex: 1, minWidth: 90, ...text() },
     { field: "taxCode", headerName: "Tax Code", flex: 2, minWidth: 120, ...text() },
+    { field: "country", headerName: "Country", flex: 2, minWidth: 140, ...text() },
+    { field: "currencyCode", headerName: "Currency", flex: 1, minWidth: 100, ...text() },
   ],
   departments: [
     { field: "employeeDepartment", headerName: "Employee Department", flex: 4, minWidth: 220, ...text() },
@@ -276,7 +284,11 @@ function MasterDataToolbar() {
 }
 
 /**
- * One tab's table, with an Actions column of Edit and Delete.
+ * One tab's table, with an Actions column of Edit and — on Subsidiaries and
+ * Departments — Delete.
+ *
+ * Credit Cards and Expense Types have no Delete: both carry a status column
+ * and retire a record through their form's Active/Inactive toggle instead.
  *
  * Rows auto-size their height (`getRowHeight: () => "auto"`) because an
  * expense type can carry a dozen engagement-code chips and a fixed row
@@ -295,6 +307,10 @@ export default function MasterDataGrid({
   onEdit: (row: MasterDataRow) => void;
   onDelete: (row: MasterDataRow) => void;
 }) {
+  // Both tabs retire a record through their form's Active/Inactive toggle
+  // instead — see `StatusToggle` in MasterDataFormDialog.
+  const showsDelete = tab !== "creditCards" && tab !== "expenseTypes";
+
   const columns: DataGrid.GridColDef[] = [
     ...MASTER_DATA_COLUMNS[tab],
     {
@@ -303,7 +319,7 @@ export default function MasterDataGrid({
       headerAlign: "right",
       align: "right",
       flex: 1.2,
-      minWidth: 110,
+      minWidth: showsDelete ? 110 : 80,
       sortable: false,
       filterable: false,
       disableExport: true,
@@ -315,16 +331,18 @@ export default function MasterDataGrid({
               <PencilIcon size={16} />
             </IconButton>
           </Tooltip>
-          <Tooltip title="Delete">
-            <IconButton
-              size="small"
-              color="error"
-              aria-label="Delete"
-              onClick={() => onDelete(p.row as MasterDataRow)}
-            >
-              <TrashIcon size={16} />
-            </IconButton>
-          </Tooltip>
+          {showsDelete && (
+            <Tooltip title="Delete">
+              <IconButton
+                size="small"
+                color="error"
+                aria-label="Delete"
+                onClick={() => onDelete(p.row as MasterDataRow)}
+              >
+                <TrashIcon size={16} />
+              </IconButton>
+            </Tooltip>
+          )}
         </Stack>
       ),
     },

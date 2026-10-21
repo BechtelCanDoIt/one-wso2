@@ -20,7 +20,7 @@ import userEvent from "@testing-library/user-event";
 import type { CallMeddpicc } from "../api/useCallMeddpicc";
 import type { DealDetail, MeetingCoverage } from "../types";
 import { callInsight } from "../util/callInsight";
-import { coverage as makeCoverage, detail as makeDetail } from "../util/callInsight.fixtures";
+import { coverage as makeCoverage, detail as makeDetail, field, quote } from "../util/callInsight.fixtures";
 import CallMeddpiccStrip from "./CallMeddpiccStrip";
 import CallMeddpiccTab from "./CallMeddpiccTab";
 
@@ -52,7 +52,7 @@ describe("CallMeddpiccStrip", () => {
     );
     const strip = screen.getByRole("region", { name: "MEDDPICC for this call" });
     expect(within(strip).getByText("Business Proof")).toBeInTheDocument();
-    expect(strip).toHaveTextContent("New for this deal: Economic Buyer, Paper Process");
+    expect(strip).toHaveTextContent("New for this opportunity: Economic Buyer, Paper Process");
     expect(strip).toHaveTextContent("Missed: Decision Criteria");
     expect(strip).toHaveTextContent("1 awaiting review");
   });
@@ -70,7 +70,7 @@ describe("CallMeddpiccStrip", () => {
     );
     await userEvent.click(screen.getByRole("button", { name: /^Economic Buyer/ }));
     expect(onLetterClick).toHaveBeenCalledWith("E");
-    await userEvent.click(screen.getByRole("button", { name: "Open deal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Open opportunity" }));
     expect(onOpenDeal).toHaveBeenCalled();
   });
 
@@ -108,10 +108,37 @@ describe("CallMeddpiccTab", () => {
     const section = screen.getByRole("region", { name: "Economic Buyer" });
     expect(section).toHaveTextContent("Anything over 200k goes to Ingrid.");
     expect(section).toHaveTextContent("Lars Haugen");
-    expect(section).toHaveTextContent("Proposes Economic buyer: Ingrid Solberg");
-    expect(section).toHaveTextContent("awaiting review");
+    // The proposal shows once, above its quotes, with where it stands.
+    expect(section).toHaveTextContent("Economic buyer");
+    expect(section).toHaveTextContent("Ingrid Solberg");
+    expect(section).toHaveTextContent("To review");
     await userEvent.click(within(section).getByRole("button", { name: "Play from 12:40, Lars Haugen" }));
     expect(onSeek).toHaveBeenCalledWith(760);
+  });
+
+  it("says an approved suggestion is kept in Echo when Salesforce doesn't have the field yet", () => {
+    const approved = { value: "Ingrid Solberg", rationale: null, confidence: 0.86, evidence: [quote()], pending: false };
+    const { unmount } = render(
+      <CallMeddpiccTab
+        call={callOf(makeCoverage(), makeDetail({ fields: [field({ notInSalesforce: true, proposal: approved, state: "FILLED" })] }))}
+        focusLetter={null}
+        onSeek={() => {}}
+        onOpenDeal={() => {}}
+      />,
+    );
+    expect(screen.getByText("Kept in Echo")).toBeInTheDocument();
+    expect(screen.queryByText("Matches Salesforce")).not.toBeInTheDocument();
+    unmount();
+
+    render(
+      <CallMeddpiccTab
+        call={callOf(makeCoverage(), makeDetail({ fields: [field({ salesforceValue: "Ingrid Solberg", proposal: approved, state: "FILLED" })] }))}
+        focusLetter={null}
+        onSeek={() => {}}
+        onOpenDeal={() => {}}
+      />,
+    );
+    expect(screen.getByText("Matches Salesforce")).toBeInTheDocument();
   });
 
   it("lists what was missed and what to ask next", () => {
@@ -129,7 +156,7 @@ describe("CallMeddpiccTab", () => {
       <CallMeddpiccTab call={callOf(makeCoverage(), makeDetail())} focusLetter={null} onSeek={() => {}} onOpenDeal={onOpenDeal} />,
     );
     expect(screen.getByText("1 proposal from this call waits for your review.")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Review in deal" }));
+    await userEvent.click(screen.getByRole("button", { name: "Review in opportunity" }));
     expect(onOpenDeal).toHaveBeenCalled();
   });
 
@@ -142,7 +169,7 @@ describe("CallMeddpiccTab", () => {
         onOpenDeal={() => {}}
       />,
     );
-    expect(screen.queryByRole("button", { name: "Review in deal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Review in opportunity" })).not.toBeInTheDocument();
     expect(screen.getByText("1 proposal from this call waits for the account manager's review.")).toBeInTheDocument();
   });
 

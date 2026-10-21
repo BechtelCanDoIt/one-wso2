@@ -18,7 +18,11 @@
 // are decimal strings ("41000.00") and dates are "YYYY-MM-DD" strings.
 
 export type DealType = "DIRECT" | "PARTNER";
-export type BillingFrequency = "ANNUAL" | "UPFRONT";
+/**
+ * How the customer is invoiced (D85); UPFRONT = upon the execution of the
+ * order form; SPECIAL_TERMS = see special terms, which must then be on (D86).
+ */
+export type BillingFrequency = "MONTHLY" | "QUARTERLY" | "ANNUAL" | "UPFRONT" | "SPECIAL_TERMS";
 export type LineCategory = "SUBSCRIPTION" | "SUPPORT" | "PROFESSIONAL_SERVICE";
 
 /**
@@ -28,11 +32,10 @@ export type LineCategory = "SUBSCRIPTION" | "SUPPORT" | "PROFESSIONAL_SERVICE";
  */
 export type CategorySource = "MAPPED" | "REP";
 /**
- * How the subscription term is set: 1 year, a whole number of years
- * (2–10), or an end date the AM types that falls within a year — aligned to
- * a running contract (co-termed) or stand-alone (shorter term).
+ * How the subscription term is set (D85): a number of years (1–10), or an
+ * end date of any length up to 10 years.
  */
-export type TermMode = "ONE_YEAR" | "MULTI_YEAR" | "CO_TERMED" | "SHORTER";
+export type TermMode = "YEARS" | "END_DATE";
 
 /** A problem with one field, e.g. { field: "lines[2].quantity", message: "…" }. */
 export interface Issue {
@@ -182,8 +185,6 @@ export interface Totals {
   readonly arr: string | null;
   readonly acv: string | null;
   readonly tcv: string;
-  /** The first invoice: net of any partner commission (A6). */
-  readonly payableNow: string;
   /** Partner-led quotes with a commission % only; null otherwise. */
   readonly partnerCommission?: string | null;
   /** TCV less the partner commission: what WSO2 invoices in all. */
@@ -214,6 +215,62 @@ export interface PricingYear {
   readonly netBilling?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Pricing formulas (D81)
+// ---------------------------------------------------------------------------
+
+/** A Salesforce product in a formula, named as Salesforce had it when saved. */
+export interface FormulaProduct {
+  readonly id: string;
+  readonly name: string;
+  readonly code: string | null;
+}
+
+/** One placeholder's value: a fixed VALUE ("25000", "10%"), or PRODUCTS whose lines it adds up. */
+export interface FormulaBinding {
+  readonly name: string;
+  readonly kind: "VALUE" | "PRODUCTS";
+  readonly value?: string;
+  readonly products?: readonly FormulaProduct[];
+}
+
+/**
+ * One version of a product's pricing formula (D82). Every change is a new
+ * version; REMOVED means the product has no formula from then on (no
+ * expression or bindings). GET /pricing-formulas lists each product's latest.
+ */
+export interface PricingFormula {
+  readonly versionId: number;
+  readonly version: number;
+  readonly status: "ACTIVE" | "REMOVED";
+  readonly productId: string;
+  readonly productName: string;
+  readonly productCode: string | null;
+  readonly expression: string;
+  readonly bindings: readonly FormulaBinding[];
+  /** What a line priced with this version shows as its unit of measure (D83); "" when REMOVED. */
+  readonly unitOfMeasure: string;
+  readonly updatedByEmail: string;
+  readonly updatedAt: string;
+}
+
+/** How a formula line's unit price was worked out, and with which version: v2 of 2026-10-20, "max(25,000, 10% × 320,000)". */
+export interface LineFormula {
+  readonly versionId: number;
+  readonly version: number;
+  /** "2026-10-20": the day the version was made. */
+  readonly versionDate: string;
+  /** The version's unit of measure (D83). */
+  readonly unitOfMeasure?: string;
+  readonly expression: string;
+  readonly explanation: string;
+  readonly listPrice: string;
+  readonly values: readonly { readonly name: string; readonly value: string; readonly products?: readonly FormulaProduct[] }[];
+}
+
+/** How a line's unit price was worked out: the price book, or an Admin's formula (D81). */
+export type PricingMethod = "PRICE_BOOK" | "FORMULA";
+
 export interface PricingPreview {
   readonly rulesVersion: string;
   readonly termMonths: string;
@@ -224,6 +281,11 @@ export interface PricingPreview {
     /** The category priced: a mapped product's comes from its mapping. */
     readonly category?: LineCategory;
     readonly categorySource?: CategorySource;
+    /** The unit price priced: a formula line's is worked out (D81). */
+    readonly unitPrice?: string;
+    readonly pricingMethod?: PricingMethod;
+    readonly formula?: LineFormula | null;
+    readonly discretionaryDiscountPercent?: string;
     readonly annualList: string;
     readonly annualNet: string;
     readonly arr: string;
@@ -264,6 +326,8 @@ export interface DraftLineInput {
   readonly category: LineCategory | "";
   readonly discretionaryDiscountPercent: string;
   readonly unitOfMeasure?: string;
+  /** A kept line moved to its product's pricing in force: the latest formula version, or the price book (D82). */
+  readonly useLatestFormula?: boolean;
 }
 
 /** POST /quotes and PUT /quotes/{id}/versions/{n} body. */
@@ -281,13 +345,11 @@ export interface DraftInput {
   readonly defaultPricebookId?: string;
   readonly subscriptionStartDate?: string;
   readonly termMode?: TermMode;
-  /** Multi-year only (2–10). */
+  /** YEARS only (1–10). */
   readonly termYears?: number;
-  /** Typed in for Co-termed and Shorter term only; other modes derive it. */
+  /** END_DATE only; YEARS derives it. */
   readonly subscriptionEndDate?: string;
-  /** A co-termed expansion: the opportunity it ends with (D73). */
-  readonly coTermOpportunityId?: string;
-  /** Multi-year only; every other term is billed annually. */
+  /** With a recurring line only (D85). */
   readonly billingFrequency?: BillingFrequency;
   /** Partner-led quotes only: one % for every line. */
   readonly partnerCommissionPercent?: string;
@@ -321,6 +383,9 @@ export interface LineView {
   readonly pricebookId?: string;
   readonly pricebookName: string;
   readonly unitPrice: string;
+  /** PRICE_BOOK, or FORMULA: worked out by an Admin's formula, with no discount (D81). */
+  readonly pricingMethod?: PricingMethod;
+  readonly formula?: LineFormula | null;
   readonly unitOfMeasure: string | null;
   readonly productUnit: string | null;
   readonly classification: string | null;
@@ -424,8 +489,6 @@ export interface VersionView {
   /** Null for a services-only quote, or a version submitted before term modes. */
   readonly termMode: TermMode | null;
   readonly termYears: number | null;
-  /** A co-termed expansion: the opportunity it ends with (D73). */
-  readonly coTermOpportunity: { readonly id: string; readonly name: string | null } | null;
   /** "15.00" on a partner-led quote with a commission; null otherwise. */
   readonly partnerCommissionPercent?: string | null;
   readonly billingFrequency: BillingFrequency | null;

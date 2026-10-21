@@ -16,7 +16,7 @@
 
 // TEST DATA ONLY. The Gate definitions the test double serves as GET /gates, and
 // derives its deals from. The real list lives in echo-backend's gates.json and
-// reaches the live screens through the API; nothing outside ../mock reads this.
+// reaches the live screens through the API; nothing outside ../testing reads this.
 //
 // Only what the screen shows is copied: labels, kinds, options and the Ask next
 // questions. The backend's model guidance and Salesforce API names are not.

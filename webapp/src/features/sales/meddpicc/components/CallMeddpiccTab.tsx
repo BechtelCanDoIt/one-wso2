@@ -15,13 +15,13 @@
 // under the License.
 
 import { useEffect, useRef } from "react";
-import { Box, Button, Divider, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { alpha, Box, Button, Chip, Divider, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { SparklesIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { CallMeddpicc } from "../api/useCallMeddpicc";
 import type { LetterKey } from "../types";
-import { lettersInWords, type CallEvidence } from "../util/callInsight";
+import { groupEvidence, lettersInWords, type CallProposal } from "../util/callInsight";
 import { COVERAGE_LABELS, LETTER_KEYS, formatFieldValue, letterLabel } from "../util/meddpiccFormat";
-import { AiMarker } from "./DealFieldRow";
 import EvidenceItem from "./EvidenceItem";
 
 /**
@@ -111,45 +111,68 @@ export default function CallMeddpiccTab({
         </Typography>
       ) : (
         <Stack spacing={1.5}>
-          {insight.evidence.map(({ letter, items }) => (
-            <Box
-              key={letter}
-              ref={(el: HTMLElement | null) => {
-                if (el) sectionRefs.current.set(letter, el);
-                else sectionRefs.current.delete(letter);
-              }}
-              aria-label={letterLabel(letter)}
-              component="section"
-              sx={{
-                p: 1.25,
-                borderRadius: 1,
-                border: 1,
-                borderColor: focusLetter === letter ? "primary.main" : "divider",
-                bgcolor: focusLetter === letter ? "action.selected" : "transparent",
-              }}
-            >
-              <Stack direction="row" spacing={1} sx={{ alignItems: "baseline", mb: 0.75 }}>
-                <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  {letterLabel(letter)}
-                </Typography>
-                {insight.coverage && (
-                  <Typography variant="caption" color="text.secondary">
-                    {COVERAGE_LABELS[insight.coverage[letter] ?? 0]}
-                  </Typography>
+          {groupEvidence(insight.evidence).map((group) => {
+            const focused = focusLetter !== null && group.letters.includes(focusLetter);
+            return (
+              <Box
+                key={group.letters.join("-")}
+                ref={(el: HTMLElement | null) => {
+                  for (const letter of group.letters) {
+                    if (el) sectionRefs.current.set(letter, el);
+                    else sectionRefs.current.delete(letter);
+                  }
+                }}
+                aria-label={group.letters.map(letterLabel).join(", ")}
+                component="section"
+                sx={{
+                  p: 1.5,
+                  borderRadius: "10px",
+                  border: 1,
+                  borderColor: focused ? "primary.main" : "divider",
+                  bgcolor: focused ? "action.selected" : "transparent",
+                }}
+              >
+                <Stack direction="row" spacing={1} sx={{ alignItems: "baseline", flexWrap: "wrap", rowGap: 0.25, mb: 1 }}>
+                  {group.letters.map((letter, i) => (
+                    <Typography key={letter} variant="body2" component="span">
+                      {i > 0 && (
+                        <Box component="span" sx={{ color: "text.disabled", mr: 1 }}>
+                          ·
+                        </Box>
+                      )}
+                      <Box component="span" sx={{ fontWeight: 700 }}>
+                        {letterLabel(letter)}
+                      </Box>
+                      {insight.coverage && (
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 0.75 }}>
+                          {COVERAGE_LABELS[insight.coverage[letter] ?? 0]}
+                        </Typography>
+                      )}
+                    </Typography>
+                  ))}
+                </Stack>
+
+                {group.proposals.length > 0 && (
+                  <Stack spacing={0.75} sx={{ mb: 1.25 }}>
+                    {group.proposals.map((proposal) => (
+                      <Suggestion key={proposal.fieldKey} proposal={proposal} />
+                    ))}
+                  </Stack>
                 )}
-              </Stack>
-              <Stack spacing={1}>
-                {items.map((item) => (
-                  <Quote
-                    key={`${item.offsetSeconds}-${item.quote}`}
-                    item={item}
-                    meetingId={coverage.meetingId}
-                    onSeek={onSeek}
-                  />
-                ))}
-              </Stack>
-            </Box>
-          ))}
+
+                <Stack spacing={1}>
+                  {group.quotes.map((item) => (
+                    <EvidenceItem
+                      key={`${item.offsetSeconds}-${item.quote}`}
+                      quote={item.original}
+                      currentMeetingId={coverage.meetingId}
+                      onSeek={onSeek}
+                    />
+                  ))}
+                </Stack>
+              </Box>
+            );
+          })}
         </Stack>
       )}
 
@@ -166,33 +189,43 @@ export default function CallMeddpiccTab({
   );
 }
 
-/** One quote from this call, and the proposal it backs when it backs one. */
-function Quote({
-  item,
-  meetingId,
-  onSeek,
-}: {
-  item: CallEvidence;
-  meetingId: number;
-  onSeek: (seconds: number) => void;
-}) {
+/** What the AI took from this call for one field: the field, the value, and where it stands. */
+function Suggestion({ proposal }: { proposal: CallProposal }) {
   return (
-    <Box>
-      <EvidenceItem quote={item.original} currentMeetingId={meetingId} onSeek={onSeek} />
-      {item.proposal && (
-        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexWrap: "wrap", mt: 0.5, pl: 1.5 }}>
-          <AiMarker confidence={item.proposal.confidence} />
-          <Typography variant="caption">
-            Proposes <strong>{item.proposal.fieldLabel}</strong>: {formatFieldValue(item.proposal.value)}
+    <Box
+      sx={(theme) => ({
+        display: "flex",
+        gap: 1,
+        alignItems: "flex-start",
+        px: 1.25,
+        py: 0.75,
+        borderRadius: "8px",
+        bgcolor: proposal.pending ? alpha(theme.palette.warning.main, 0.08) : "action.hover",
+      })}
+    >
+      <Box component="span" sx={{ color: proposal.pending ? "warning.dark" : "text.secondary", display: "inline-flex", mt: "3px" }} aria-hidden>
+        <SparklesIcon size={14} />
+      </Box>
+      <Box sx={{ minWidth: 0, flex: 1 }}>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.25 }}>
+          <Typography variant="caption" sx={{ fontWeight: 700 }}>
+            {proposal.fieldLabel}
           </Typography>
-          <Typography
-            variant="caption"
-            sx={{ color: item.proposal.pending ? "warning.dark" : "text.secondary" }}
-          >
-            {item.proposal.pending ? "· awaiting review" : "· matches Salesforce"}
+          <Chip
+            label={proposal.pending ? "To review" : proposal.notInSalesforce ? "Kept in Echo" : "Matches Salesforce"}
+            size="small"
+            color={proposal.pending ? "warning" : "default"}
+            variant="outlined"
+            sx={{ height: 16, fontSize: "0.6rem", fontWeight: 600 }}
+          />
+          <Typography variant="caption" color="text.secondary">
+            {Math.round(proposal.confidence * 100)}% confident
           </Typography>
         </Stack>
-      )}
+        <Typography variant="body2" sx={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
+          {formatFieldValue(proposal.value)}
+        </Typography>
+      </Box>
     </Box>
   );
 }
@@ -221,7 +254,7 @@ function NextSteps({ call, onOpenDeal }: { call: CallMeddpicc; onOpenDeal: () =>
           {lettersInWords(insight.missed)}
           <Typography component="span" variant="caption" color="text.secondary">
             {" "}
-            — the {insight.stageAtCall ?? "deal's"} stage needs these.
+            — the {insight.stageAtCall ?? "opportunity's"} stage needs these.
           </Typography>
         </Typography>
       )}
@@ -246,7 +279,7 @@ function NextSteps({ call, onOpenDeal }: { call: CallMeddpicc; onOpenDeal: () =>
 
       {!call.opportunityId ? (
         <Typography variant="body2" color="text.secondary">
-          This call isn&apos;t linked to a deal, so there is nothing to review.
+          This call isn&apos;t linked to an opportunity, so there is nothing to review.
         </Typography>
       ) : !deal ? null : deal.canEdit ? (
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap" }}>
@@ -256,7 +289,7 @@ function NextSteps({ call, onOpenDeal }: { call: CallMeddpicc; onOpenDeal: () =>
             onClick={onOpenDeal}
             sx={{ textTransform: "none" }}
           >
-            Review in deal
+            Review in opportunity
           </Button>
           <Typography variant="caption" color="text.secondary">
             {pending > 0

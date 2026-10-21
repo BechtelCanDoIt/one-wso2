@@ -216,6 +216,9 @@ function DrillDownBody({
       // No figures: every column of this table is identity. Required by the
       // component and never called.
       cell={() => ({ text: "" })}
+      // The page tables share a taller cap. This list stays at the loading
+      // state's height, so the dialog does not jump and the list does not
+      // outgrow it.
       maxBodyHeight={420}
     />
   );

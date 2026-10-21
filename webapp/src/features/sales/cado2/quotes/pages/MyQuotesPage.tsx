@@ -55,6 +55,8 @@ import {
   SearchIcon,
   StarIcon,
   Trash2Icon,
+  UserIcon,
+  UsersIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
@@ -82,31 +84,14 @@ import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import {
   DEFAULT_SORT,
   changedAgo,
-  countQuotes,
   filterQuotes,
   groupQuotes,
   sortQuotes,
-  type QuoteFilter,
   type QuoteLayout,
   type QuoteSort,
   type QuoteSortKey,
 } from "@features/sales/cado2/quotes/list/quoteListModel";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
-
-/** The status filters, each with its count (D70). */
-const STATUS_FILTERS: readonly {
-  value: QuoteFilter;
-  label: string;
-  count: (c: ReturnType<typeof countQuotes>) => number;
-}[] = [
-  { value: "", label: "All", count: (c) => c.all },
-  { value: "DRAFT", label: "Draft", count: (c) => c.drafts },
-  { value: "SUBMITTED", label: "In approval", count: (c) => c.submitted },
-  { value: "APPROVED", label: "Approved", count: (c) => c.approved },
-  // Recalled or sent back: the owner revises or closes.
-  { value: "TO_REVISE", label: "To revise", count: (c) => c.toRevise },
-  { value: "CLOSED", label: "Closed", count: (c) => c.closed },
-];
 
 /** The last layout chosen, for next time; the page works without storage. */
 const LAYOUT_KEY = "cado2.quotes.layout";
@@ -564,12 +549,27 @@ function TreeLayout({
   );
 }
 
+/** A tab's label: icon, name and its count as a badge. */
+function ScopeLabel({ icon, label, count, on }: { icon: ReactNode; label: string; count?: number; on: boolean }): JSX.Element {
+  return (
+    <Stack direction="row" spacing={1} alignItems="center">
+      {icon}
+      <span>{label}</span>
+      {count !== undefined ? (
+        <Chip size="small" label={count} color={on ? "primary" : "default"} sx={{ height: 20, fontWeight: 600 }} />
+      ) : null}
+    </Stack>
+  );
+}
+
 /**
- * The Quotes page, the landing page (My Quotes 2026-09-25; D70): tabs for the
- * caller's quotes and everyone's (drafts included, D69), each with its count,
- * and beside them the List / Tree layout switch; search (owners too, on
- * All quotes); status chips with counts; every column sorts. Loaded once and
- * filtered, sorted and grouped in the browser. The tab and layout are in the
+ * The Quotes page, the landing page (My Quotes 2026-09-25; D70). One card:
+ * its toolbar has the tabs for the caller's quotes and everyone's (drafts
+ * included, D69), each with its count, then search (owners too, on All
+ * quotes) and the List / Tree icons; the table is right under it, so the
+ * tabs read as being about the table (2026-10-15: Sales hadn't noticed
+ * them; the status chips were removed). Every column sorts. Loaded once and
+ * searched, sorted and grouped in the browser. The tab and layout are in the
  * URL, so a link or Back keeps them; the layout is also remembered.
  */
 export default function MyQuotesPage(): JSX.Element {
@@ -591,7 +591,6 @@ export default function MyQuotesPage(): JSX.Element {
       },
       { replace: true },
     );
-  const [filter, setFilter] = useState<QuoteFilter>("");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<QuoteSort>(DEFAULT_SORT);
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -604,8 +603,7 @@ export default function MyQuotesPage(): JSX.Element {
   const mine = scope === "mine";
 
   const items = data?.items ?? [];
-  const counts = countQuotes(items);
-  const shown = sortQuotes(filterQuotes(items, filter, search), sort);
+  const shown = sortQuotes(filterQuotes(items, search), sort);
   const searching = search.trim() !== "";
   const accountIds = [...new Set(shown.map((q) => q.sfAccountId))];
   const allCollapsed =
@@ -617,10 +615,6 @@ export default function MyQuotesPage(): JSX.Element {
       else next.add(key);
       return next;
     });
-  const clear = () => {
-    setFilter("");
-    setSearch("");
-  };
 
   return (
     <Stack spacing={2} sx={{ maxWidth: 1400 }}>
@@ -638,188 +632,149 @@ export default function MyQuotesPage(): JSX.Element {
         }
       />
 
-      {/* Whose quotes, and how they're laid out: the page's two main choices, on one line. */}
-      <Stack
-        direction="row"
-        alignItems="flex-end"
-        justifyContent="space-between"
-        spacing={2}
-        sx={{ borderBottom: 1, borderColor: "divider", flexWrap: "wrap" }}
-      >
-        <Tabs
-          value={scope}
-          onChange={(_, v: QuoteScope) => {
-            clear();
-            setParam("scope", v, "mine");
-          }}
-          aria-label="Whose quotes"
+      {/* The tabs, search and layout sit on the table's own card (2026-10-15). */}
+      <Paper variant="outlined" sx={{ borderRadius: 2, overflow: "hidden" }}>
+        <Stack
+          direction="row"
+          alignItems="center"
+          sx={{ px: 2, columnGap: 2, flexWrap: "wrap", borderBottom: 1, borderColor: "divider" }}
         >
-          <Tab
-            value="mine"
-            label={`My quotes${mineList.data ? ` ${mineList.data.total}` : ""}`}
-          />
-          <Tab
-            value="all"
-            label={`All quotes${allList.data ? ` ${allList.data.total}` : ""}`}
-          />
-        </Tabs>
-        <Stack direction="row" spacing={1} alignItems="center" sx={{ pb: 1 }}>
-          {layout === "tree" ? (
-            <Tooltip title={allCollapsed ? "Expand all" : "Collapse all"}>
-              <IconButton
-                aria-label={allCollapsed ? "Expand all" : "Collapse all"}
-                onClick={() =>
-                  setCollapsed(allCollapsed ? new Set() : new Set(accountIds))
-                }
-              >
-                {allCollapsed ? (
-                  <ChevronsUpDownIcon size={18} />
-                ) : (
-                  <ChevronsDownUpIcon size={18} />
-                )}
-              </IconButton>
-            </Tooltip>
-          ) : null}
-          <ToggleButtonGroup
-            size="small"
-            exclusive
-            color="primary"
-            value={layout}
-            onChange={(_, v: QuoteLayout | null) => {
-              if (!v) return;
-              storeLayout(v);
-              setParam("layout", v, "");
+          <Tabs
+            value={scope}
+            onChange={(_, v: QuoteScope) => {
+              setSearch("");
+              setParam("scope", v, "mine");
             }}
-            aria-label="Layout"
+            aria-label="Whose quotes"
+            sx={{
+              order: 1,
+              minHeight: 56,
+              "& .MuiTabs-indicator": { height: 3 },
+              "& .MuiTab-root": { minHeight: 56, textTransform: "none", fontSize: "0.95rem", fontWeight: 600 },
+            }}
           >
-            <ToggleButton
-              value="list"
-              sx={{ gap: 0.75, px: 1.5, textTransform: "none" }}
-            >
-              <ListIcon size={18} /> List
-            </ToggleButton>
-            <ToggleButton
-              value="tree"
-              sx={{ gap: 0.75, px: 1.5, textTransform: "none" }}
-            >
-              <ListTreeIcon size={18} /> Tree
-            </ToggleButton>
-          </ToggleButtonGroup>
-        </Stack>
-      </Stack>
-
-      <Stack
-        direction={{ xs: "column", md: "row" }}
-        spacing={1.5}
-        alignItems={{ md: "center" }}
-      >
-        <TextField
-          size="small"
-          placeholder={
-            mine
-              ? "Search quote, account or opportunity"
-              : "Search quote, account, opportunity or owner"
-          }
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          sx={{ flexGrow: 1, maxWidth: { md: 420 } }}
-          slotProps={{
-            htmlInput: { "aria-label": "Search quotes" },
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Stack>
-
-      <Stack
-        direction="row"
-        spacing={1}
-        role="group"
-        aria-label="Filter by status"
-        sx={{ flexWrap: "wrap", rowGap: 1 }}
-      >
-        {STATUS_FILTERS.map((f) => (
-          <Chip
-            key={f.value || "all"}
-            label={`${f.label} ${f.count(counts)}`}
-            onClick={() => setFilter(f.value)}
-            color={filter === f.value ? "primary" : "default"}
-            variant={filter === f.value ? "filled" : "outlined"}
-            aria-pressed={filter === f.value}
+            <Tab
+              value="mine"
+              label={<ScopeLabel icon={<UserIcon size={18} />} label="My quotes" count={mineList.data?.total} on={mine} />}
+            />
+            <Tab
+              value="all"
+              label={<ScopeLabel icon={<UsersIcon size={18} />} label="All quotes" count={allList.data?.total} on={!mine} />}
+            />
+          </Tabs>
+          {/* Wide: beside the tabs. Narrow: its own line, full width. */}
+          <TextField
+            size="small"
+            placeholder={mine ? "Search quote, account or opportunity" : "Search quote, account, opportunity or owner"}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            sx={{ order: { xs: 3, md: 2 }, ml: { md: "auto" }, width: { xs: "100%", md: 340 }, mb: { xs: 1.5, md: 0 } }}
+            slotProps={{
+              htmlInput: { "aria-label": "Search quotes" },
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon size={16} />
+                  </InputAdornment>
+                ),
+              },
+            }}
           />
-        ))}
-      </Stack>
-
-      {error ? (
-        <ErrorNotice
-          error={error}
-          onRetry={() => void refetch()}
-          retrying={isFetching}
-        >
-          Couldn&apos;t load the quotes.
-        </ErrorNotice>
-      ) : isPending ? (
-        <Paper
-          variant="outlined"
-          sx={{ borderRadius: 2, p: 2 }}
-          aria-label="Loading the quotes"
-        >
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} variant="rounded" height={36} sx={{ my: 1 }} />
-          ))}
-        </Paper>
-      ) : items.length === 0 ? (
-        <EmptyState
-          icon={<FileTextIcon size={28} />}
-          title={mine ? "No quotes yet" : "No quotes"}
-          body="Start from a Salesforce opportunity: CadO2 prices it from the price book and keeps every version."
-          action={
-            <Button
-              variant="contained"
-              component={RouterLink}
-              to={cado2Paths.newQuote}
-              startIcon={<PlusIcon size={16} />}
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ order: { xs: 2, md: 3 }, ml: { xs: "auto", md: 0 } }}>
+            {layout === "tree" ? (
+              <Tooltip title={allCollapsed ? "Expand all" : "Collapse all"}>
+                <IconButton
+                  size="small"
+                  aria-label={allCollapsed ? "Expand all" : "Collapse all"}
+                  onClick={() => setCollapsed(allCollapsed ? new Set() : new Set(accountIds))}
+                >
+                  {allCollapsed ? <ChevronsUpDownIcon size={18} /> : <ChevronsDownUpIcon size={18} />}
+                </IconButton>
+              </Tooltip>
+            ) : null}
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={layout}
+              onChange={(_, v: QuoteLayout | null) => {
+                if (!v) return;
+                storeLayout(v);
+                setParam("layout", v, "");
+              }}
+              aria-label="Layout"
             >
-              {mine ? "Create your first quote" : "Create a quote"}
-            </Button>
-          }
-        />
-      ) : shown.length === 0 ? (
-        <EmptyState
-          icon={<SearchIcon size={28} />}
-          title="No quotes match"
-          body="Try another status or search term."
-          action={<Button onClick={clear}>Clear filters</Button>}
-        />
-      ) : (
-        <Paper variant="outlined" sx={{ borderRadius: 2, overflowX: "auto" }}>
-          {layout === "tree" ? (
-            <TreeLayout
-              rows={shown}
-              now={now}
-              showOwner={!mine}
-              sort={sort}
-              onSort={setSort}
-              collapsed={collapsed}
-              toggle={toggleBranch}
-              searching={searching}
+              {/* The tooltip sits inside the button: a group passes its state to its direct children. */}
+              <ToggleButton value="list" aria-label="List" sx={{ px: 1 }}>
+                <Tooltip title="List">
+                  <Box component="span" sx={{ display: "flex" }}>
+                    <ListIcon size={18} />
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+              <ToggleButton value="tree" aria-label="Tree" sx={{ px: 1 }}>
+                <Tooltip title="Tree: account › opportunity › quote">
+                  <Box component="span" sx={{ display: "flex" }}>
+                    <ListTreeIcon size={18} />
+                  </Box>
+                </Tooltip>
+              </ToggleButton>
+            </ToggleButtonGroup>
+          </Stack>
+        </Stack>
+
+        {error ? (
+          <Box sx={{ p: 2 }}>
+            <ErrorNotice error={error} onRetry={() => void refetch()} retrying={isFetching}>
+              Couldn&apos;t load the quotes.
+            </ErrorNotice>
+          </Box>
+        ) : isPending ? (
+          <Box sx={{ p: 2 }} aria-label="Loading the quotes">
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} variant="rounded" height={36} sx={{ my: 1 }} />
+            ))}
+          </Box>
+        ) : items.length === 0 ? (
+          <Box sx={{ p: 3 }}>
+            <EmptyState
+              icon={<FileTextIcon size={28} />}
+              title={mine ? "No quotes yet" : "No quotes"}
+              body="Start from a Salesforce opportunity: CADO2 prices it from the price book and keeps every version."
+              action={
+                <Button variant="contained" component={RouterLink} to={cado2Paths.newQuote} startIcon={<PlusIcon size={16} />}>
+                  {mine ? "Create your first quote" : "Create a quote"}
+                </Button>
+              }
             />
-          ) : (
-            <ListLayout
-              rows={shown}
-              now={now}
-              showOwner={!mine}
-              sort={sort}
-              onSort={setSort}
+          </Box>
+        ) : shown.length === 0 ? (
+          <Box sx={{ p: 3 }}>
+            <EmptyState
+              icon={<SearchIcon size={28} />}
+              title="No quotes match"
+              body="Try another search term."
+              action={<Button onClick={() => setSearch("")}>Clear search</Button>}
             />
-          )}
-        </Paper>
-      )}
+          </Box>
+        ) : (
+          <Box sx={{ overflowX: "auto" }}>
+            {layout === "tree" ? (
+              <TreeLayout
+                rows={shown}
+                now={now}
+                showOwner={!mine}
+                sort={sort}
+                onSort={setSort}
+                collapsed={collapsed}
+                toggle={toggleBranch}
+                searching={searching}
+              />
+            ) : (
+              <ListLayout rows={shown} now={now} showOwner={!mine} sort={sort} onSort={setSort} />
+            )}
+          </Box>
+        )}
+      </Paper>
     </Stack>
   );
 }

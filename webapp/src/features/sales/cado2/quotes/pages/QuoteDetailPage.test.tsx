@@ -489,9 +489,8 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show({ ...submitted.quote, actions: [] }, mixed);
 
-    // 1. The tag on the line, for everyone.
-    expect(within(screen.getByRole("table", { name: "Products" })).getAllByText("Category chosen by AM")).toHaveLength(1);
-    // 2. A point in Deal Desk's summary.
+    // No tag on the line (D93); only a point in Deal Desk's summary.
+    expect(screen.queryByText("Category chosen by AM")).toBeNull();
     const points = within(screen.getByRole("region", { name: "Your approval as Deal Desk" })).getByRole("list", { name: "What's non-standard" });
     expect(points).toHaveTextContent(`Line ${first.lineNumber} · ${first.productName}`);
     expect(points).toHaveTextContent("Category chosen by the AM");

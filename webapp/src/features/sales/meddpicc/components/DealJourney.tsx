@@ -31,32 +31,71 @@ const DAY = 86_400_000;
 function useKindColor(): (kind: TimelineKind) => string {
   const theme = useTheme();
   const dark = theme.palette.mode === "dark";
-  return (kind) => {
-    const k = KINDS[kind];
-    return (dark ? k.dark : k.light) ?? theme.palette.text.secondary;
-  };
+  return (kind) => (dark ? KINDS[kind].dark : KINDS[kind].light);
 }
 
+/** Track geometry: one line, the stage bar, with every mark centred on it. */
+const LINE_Y = 13;
+const BAR_HEIGHT = 6;
+/** The month labels sit under the line. */
+const MONTHS_Y = 24;
+const TRACK_HEIGHT = 38;
+
+const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * The start of each month the track spans, and which of them to label: every month when
+ * there are few, every other or every third when there are many, so labels never crowd.
+ */
+function monthTicks(start: number, end: number): { ms: number; label: string | null }[] {
+  const first = new Date(start);
+  let y = first.getUTCFullYear();
+  let m = first.getUTCMonth();
+  const ticks: number[] = [];
+  for (;;) {
+    if (m > 11) {
+      m = 0;
+      y += 1;
+    }
+    const ms = Date.UTC(y, m, 1);
+    if (ms > end) break;
+    if (ms >= start) ticks.push(ms);
+    m += 1;
+  }
+  const step = ticks.length > 16 ? 3 : ticks.length > 8 ? 2 : 1;
+  // The year rides on the first label shown in each year, January or not (a step can skip it).
+  let lastYear: number | null = null;
+  return ticks.map((ms, i) => {
+    if (i % step !== 0) return { ms, label: null };
+    const d = new Date(ms);
+    const month = MONTH_NAMES[d.getUTCMonth()];
+    const year = d.getUTCFullYear();
+    const label = year === lastYear ? month : `${month} ${year}`;
+    lastYear = year;
+    return { ms, label };
+  });
+}
+
+/**
+ * One mark: a plain solid dot in its kind's hue. Something still to come is the same dot,
+ * hollow, with a dashed outline. A ring of the surface keeps marks on the same day apart.
+ */
 export function KindMark({ kind, upcoming, scale = 1 }: { kind: TimelineKind; upcoming: boolean; scale?: number }) {
   const color = useKindColor()(kind);
-  const k = KINDS[kind];
-  const size = Math.round(k.size * scale);
-  const hollow = upcoming || k.shape === "ring";
+  const size = Math.round(KINDS[kind].size * scale);
   return (
     <Box
       component="span"
       aria-hidden
+      data-kind-mark={kind}
       sx={{
         display: "block",
         width: size,
         height: size,
         boxSizing: "border-box",
-        border: 2,
-        borderColor: color,
-        bgcolor: hollow ? "background.paper" : color,
-        borderRadius: k.shape === "diamond" ? 0.25 : "50%",
-        transform: k.shape === "diamond" ? "rotate(45deg) scale(0.85)" : undefined,
-        // A ring of the surface, so marks on the same day stay separate.
+        borderRadius: "50%",
+        bgcolor: upcoming ? "background.paper" : color,
+        border: upcoming ? `1.5px dashed ${color}` : "none",
         boxShadow: (theme) => `0 0 0 2px ${theme.palette.background.paper}`,
       }}
     />
@@ -83,9 +122,9 @@ export function DealJourneyLegend() {
   );
   return (
     <Stack spacing={0.5} sx={{ typography: "caption", color: "inherit", py: 0.25 }}>
-      <Box sx={{ fontWeight: 700 }}>Each deal, from its start to its close</Box>
+      <Box sx={{ fontWeight: 700 }}>Each opportunity, from its start to its close</Box>
       {KIND_ORDER.map((kind) => swatch(<KindMark kind={kind} upcoming={false} />, KINDS[kind].label))}
-      {swatch(<KindMark kind="CUSTOMER_CALL" upcoming scale={0.8} />, "Upcoming (hollow)")}
+      {swatch(<KindMark kind="CUSTOMER_CALL" upcoming scale={0.8} />, "Upcoming (dashed outline)")}
       {swatch(
         <Box sx={{ width: 14, height: 6, borderRadius: 0.5, bgcolor: "currentColor", opacity: 0.45 }} />,
         "Stage: darker further along",
@@ -105,7 +144,8 @@ export function DealJourneyLegend() {
       {swatch(<Box sx={{ width: "1px", height: 12, bgcolor: "currentColor", opacity: 0.6 }} />, "Today")}
       {swatch(<Box sx={{ width: "2px", height: 12, bgcolor: "currentColor" }} />, "Close date")}
       <Box sx={{ opacity: 0.8, maxWidth: 260 }}>
-        Stages are what Echo saw at each call and today, not Salesforce&apos;s stage history.
+        The line is the deal, shaded by stage. Stages come from Salesforce&apos;s stage history when it can
+        be read, else from the stage recorded at each call.
       </Box>
     </Stack>
   );
@@ -200,13 +240,24 @@ export default function DealJourney({
     <Box sx={{ minWidth: 0 }}>
       <Box
         role="list"
-        aria-label="Deal journey, from its start to its close"
-        sx={{ position: "relative", height: 32, minWidth: 160 }}
+        aria-label="Opportunity journey, from its start to its close"
+        sx={{ position: "relative", height: TRACK_HEIGHT, minWidth: 160 }}
       >
         {/* The axis, a recessive hairline. */}
-        <Box aria-hidden sx={{ position: "absolute", left: 0, right: 0, top: 11, height: "1px", bgcolor: "divider" }} />
+        <Box
+          aria-hidden
+          sx={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            top: LINE_Y - BAR_HEIGHT / 2,
+            height: BAR_HEIGHT,
+            borderRadius: BAR_HEIGHT / 2,
+            bgcolor: "action.hover",
+          }}
+        />
 
-        {/* Stage bands along the bottom, each with its own tooltip. */}
+        {/* The line itself: the stage bands, each with its own tooltip. */}
         {segments.map((s, i) => {
           const label =
             s.stage === null
@@ -220,8 +271,8 @@ export default function DealJourney({
                 aria-label={label}
                 sx={{
                   position: "absolute",
-                  top: 24,
-                  height: 6,
+                  top: LINE_Y - BAR_HEIGHT / 2,
+                  height: BAR_HEIGHT,
                   left: `${pct(s.from)}%`,
                   width: `${pct(s.to) - pct(s.from)}%`,
                   borderRadius: 0.5,
@@ -237,6 +288,41 @@ export default function DealJourney({
             </Tooltip>
           );
         })}
+
+        {/* Months: a notch through the line at each month's start, and its name under it. */}
+        {monthTicks(start, end).map(({ ms, label }) => (
+          <Box key={`month-${ms}`} aria-hidden>
+            <Box
+              sx={{
+                position: "absolute",
+                left: `${pct(ms)}%`,
+                top: LINE_Y - BAR_HEIGHT / 2 - 2,
+                height: BAR_HEIGHT + 4,
+                width: "1px",
+                bgcolor: "text.disabled",
+                opacity: 0.6,
+              }}
+            />
+            {label && (
+              <Typography
+                component="span"
+                data-month-label
+                sx={{
+                  position: "absolute",
+                  left: `${pct(ms)}%`,
+                  top: MONTHS_Y,
+                  transform: "translateX(-50%)",
+                  fontSize: "0.65rem",
+                  lineHeight: 1,
+                  color: "text.secondary",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {label}
+              </Typography>
+            )}
+          </Box>
+        ))}
 
         {/* Today, across the track. */}
         <Box
@@ -274,7 +360,14 @@ export default function DealJourney({
               <Box
                 key={`${mark.type}-${mark.at}-${i}`}
                 role="listitem"
-                sx={{ position: "absolute", top: 0, left: `${pct(ms)}%`, transform: "translateX(-50%)" }}
+                data-kind={kind}
+                sx={{
+                  position: "absolute",
+                  // Each mark's 22px box is centred on its row.
+                  top: LINE_Y - 11,
+                  left: `${pct(ms)}%`,
+                  transform: "translateX(-50%)",
+                }}
               >
                 <Tooltip title={label} arrow disableInteractive>
                   {/* The hit target is wider than the mark, so a 7px mark is easy to hover. */}
