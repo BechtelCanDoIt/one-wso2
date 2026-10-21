@@ -16,6 +16,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Box, Skeleton, Typography } from "@wso2/oxygen-ui";
+import { ChartLineIcon } from "@wso2/oxygen-ui-icons-react";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import MisShell from "../components/MisShell";
@@ -28,6 +29,7 @@ import {
   arrBuildRows,
   type ArrSummaryResponse,
 } from "../components/arrBuildRows";
+import { businessUnitsFor } from "../api/misRequestParts";
 import { useArrSummary, type ArrSummaryColumn } from "../api/useArrSummary";
 import {
   buildColumnLabel,
@@ -389,6 +391,17 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
       lead: (row) => row.label,
     }),
   );
+
+  if (businessUnitsFor(view.filters) === null) {
+    return (
+      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, py: 6 }}>
+        <ChartLineIcon size={32} />
+        <Typography variant="h6" component="h3" color="text.secondary">
+          Choose units to generate a build
+        </Typography>
+      </Box>
+    );
+  }
 
   if (summary.isLoading) {
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;

@@ -460,6 +460,28 @@ beforeEach(() => {
   };
 });
 
+describe("a Custom Build with nothing chosen", () => {
+  // The standalone's TableNavigation shows this card, not an empty grid, when
+  // Custom is on and no business or product unit is picked.
+  it("asks the reader to choose units instead of showing the generic empty sentence", () => {
+    renderPage("?unit=custom");
+    expect(screen.getByText("Choose units to generate a build")).toBeInTheDocument();
+    expect(screen.queryByText(/no periods to show/i)).not.toBeInTheDocument();
+  });
+
+  it("gives way to the Build once a unit is chosen", () => {
+    renderPage("?unit=custom&customBu=APIM_BU");
+    expect(screen.queryByText("Choose units to generate a build")).not.toBeInTheDocument();
+  });
+
+  it("keeps the generic empty sentence for an ordinary unit with no periods", () => {
+    summary.value = { ...loaded({}), columns: [] };
+    renderPage();
+    expect(screen.getByText(/no periods to show/i)).toBeInTheDocument();
+    expect(screen.queryByText("Choose units to generate a build")).not.toBeInTheDocument();
+  });
+});
+
 describe("opening the customers behind a figure", () => {
   // Only fourteen rows of the Build have a customer
   // list behind them; the rest are arithmetic over other rows.
@@ -789,7 +811,7 @@ describe("the filter bar above the Build", () => {
     // reader needs the units control still on screen to get out of it.
     summary.value = { ...loaded({}), columns: [] };
     renderPage("?unit=custom");
-    expect(screen.getByText(/no periods to show/i)).toBeInTheDocument();
+    expect(screen.getByText("Choose units to generate a build")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Business Units" })).toBeInTheDocument();
   });
 });
