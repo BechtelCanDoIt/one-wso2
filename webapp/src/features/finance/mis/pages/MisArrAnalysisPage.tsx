@@ -36,7 +36,7 @@ import {
   useAnalysisIndustries,
   useAnalysisPartnerModels,
 } from "../api/useAnalysisBreakdowns";
-import AnalysisPartnerModelChart from "../components/AnalysisPartnerModelChart";
+import AnalysisBreakdownDonut from "../components/AnalysisBreakdownDonut";
 import AnalysisIndustryChart from "../components/AnalysisIndustryChart";
 import { useDebouncedValue } from "../util/useDebouncedValue";
 import { analysisMenus } from "../util/misAnalysisMenus";
@@ -231,7 +231,12 @@ function ArrAnalysis() {
           gridTemplateColumns: { xs: "1fr", md: "minmax(0, 0.9fr) minmax(0, 1.3fr)" },
         }}
       >
-        <AnalysisPartnerModelChart breakdown={partnerModels} scale={scale} />
+        <AnalysisBreakdownDonut
+          breakdown={partnerModels}
+          accounts={accounts.rows}
+          bySubRegion={settled.salesRegions.length > 0}
+          scale={scale}
+        />
         <AnalysisIndustryChart
           breakdown={industries}
           totalArr={headline.arr}
