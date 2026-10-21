@@ -223,17 +223,16 @@ export default function ParLeadEmployeeHistoryTab() {
   const workEmail = profile.data?.userInfo.workEmail;
   const employees = useParLeadEmployees(workEmail);
   const realCycles = useAllClosedParCycles();
-  // A lead must never be able to view a report's legacy (pre-par-app)
-  // history -- not from this UI, and not as a backend call visible in the
-  // network trace either (see useParLegacyHistoryFanOut's own comment:
-  // GET /legacy-par-history/{email} is admin-or-self only, so a lead
-  // fanning this out across their reports got 403 for every one of them).
-  // par-app's own EmployeeHistoryView.tsx made this exact fix -- pass []
-  // instead of the reports' emails, so legacyFanOut.byEmail stays empty,
-  // cycleOptions below naturally never produces a "(Legacy)" entry for a
-  // lead to click, and no GET /legacy-par-history/{email} call is ever
-  // made from this view. Real access control lives in the backend; this
-  // is defense-in-depth so a lead never even sees the option or request.
+  // A lead must never be able to view a report's legacy history -- not
+  // from this UI, and not as a backend call visible in the network trace
+  // either (GET /legacy-par-history/{email} is admin-or-self only, so a
+  // lead fanning this out across their reports got 403 for every one of
+  // them). Passing [] instead of the reports' emails keeps
+  // legacyFanOut.byEmail empty, so cycleOptions below never produces a
+  // "(Legacy)" entry for a lead to click, and no
+  // GET /legacy-par-history/{email} call is ever made from this view. Real
+  // access control lives in the backend; this is defense-in-depth so a
+  // lead never even sees the option or request.
   const legacyFanOut = useParLegacyHistoryFanOut([]);
   // No org-wide employee directory of our own — reuses Leave's for avatars.
   const thumbnails = useLeaveEmployees();

@@ -19,7 +19,13 @@ import autoTable from "jspdf-autotable";
 import type { Par360Review, ParLegacyHistory, ParLegacyQuestionAnswer, ParRating } from "../api/types";
 import { decodeParComment, sanitizeParHtml } from "./parComment";
 import { pdfRatingText } from "./parLabels";
-import { formatLegacyCycleName, hasLegacyContent, parseLegacyFeedback360, stripRedundantRatingPrefix } from "./parLegacyHistory";
+import {
+  formatLegacyCycleName,
+  formatLegacyQuestionAnswers,
+  hasLegacyContent,
+  parseLegacyFeedback360,
+  stripRedundantRatingPrefix,
+} from "./parLegacyHistory";
 import { getLegacyQuestionGroups } from "./legacyParCatalogs";
 import { resolveLegacy2015EmployeeRatingLabel, resolveLegacyRating } from "./legacyParRatingResolvers";
 
@@ -88,15 +94,15 @@ export function downloadParPdf(rating: ParRating, selfComment: string, leadComme
   doc.save(`${rating.parEmployeeEmail}_par_summary.pdf`);
 }
 
-// Legacy counterpart to downloadParPdf above -- ports par-app's own
-// LegacyParDetail.tsx downloadPDF: every titled group (Employee PAR /
-// Lead's Feedback, and each era's own category -- "General", "Quality &
-// Dependability, Job Knowledge", etc.) is its own autoTable call, chained
-// down the page via startY = the previous call's finalY. A real `head`
-// (not a styled body row) makes jsPDF-autotable repeat that header at the
-// top of a continuation page if the group's content spans pages.
+// Legacy counterpart to downloadParPdf above: every titled group (Employee
+// PAR / Lead's Feedback, and each era's own category -- "General",
+// "Quality & Dependability, Job Knowledge", etc.) is its own autoTable
+// call, chained down the page via startY = the previous call's finalY. A
+// real `head` (not a styled body row) makes jsPDF-autotable repeat that
+// header at the top of a continuation page if the group's content spans
+// pages.
 //
-// hideThreeSixtyFeedback mirrors source's own privacy gate: an employee's
+// hideThreeSixtyFeedback mirrors the on-screen privacy gate: an employee's
 // own self-view PDF must never leak reviewer-identifiable 360 feedback that
 // the on-screen self-view already hides -- every admin call site passes
 // false (or omits it) so 360 feedback is included there as normal.
@@ -220,13 +226,18 @@ export function downloadLegacyParPdf(
   if (legacy2015EmployeeRating) {
     employeeTopRows.push(["PAR Rating", { content: legacy2015EmployeeRating, styles: contentStyles }]);
   }
-  // Same "N/A" (and flat-layout-suppressed) treatment as
-  // ParLegacyRecordDetail.tsx's own employeeComment -- see its comment for
-  // the two reference screenshots this is confirmed against.
+  // Same "N/A" (and flat-layout-suppressed) treatment as the on-screen
+  // detail view's employeeComment. For a cycle with no question catalog,
+  // employeeGroups is empty and the per-question answers would otherwise
+  // be silently dropped from the export even though the screen shows them
+  // (as a flat formatted block) -- fall back to that same formatting here.
   if (hasLegacyContent(record.overallCommentEmployee)) {
-    employeeTopRows.push(["Employee Comment", { content: record.overallCommentEmployee!, styles: contentStyles }]);
+    employeeTopRows.push(["Employee Comment", { content: htmlToPdfText(record.overallCommentEmployee!), styles: contentStyles }]);
   } else if (employeeGroups.length > 0 && employeeGroups[0]?.layout !== "flat") {
     employeeTopRows.push(["Employee Comment", { content: "N/A", styles: contentStyles }]);
+  } else if (employeeGroups.length === 0) {
+    const flat = formatLegacyQuestionAnswers(questionAnswers);
+    if (flat) employeeTopRows.push(["Employee Comment", { content: htmlToPdfText(flat), styles: contentStyles }]);
   }
   addBlock("Employee PAR", employeeTopRows, "section");
   for (const group of employeeGroups) {

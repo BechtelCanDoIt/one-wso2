@@ -84,13 +84,12 @@ export function useParEmployeeReviews(parCycleId: number | undefined, employeeEm
   });
 }
 
-// GET one employee's pre-migration legacy history — EmployeeHistoryView.tsx's
-// own fetchLegacyParHistoryOfEmployee.
+// GET one employee's pre-migration legacy history.
 //
 // The backend deliberately returns 404 for exactly one reason here:
-// enableLegacyParDataView is off (service.bal checks that BEFORE auth or any
-// query -- "every caller, including admin, must get a response
-// indistinguishable from this resource not existing at all"). A genuinely
+// enableLegacyParDataView is off (checked before auth or any query -- every
+// caller, including admin, must get a response indistinguishable from this
+// resource not existing at all). A genuinely
 // empty legacy history (flag on, employee just has no rows) comes back as a
 // normal 200 with `[]`, never 404 -- so 404 is a reliable, privacy-preserving
 // signal for "feature off" distinct from "no data", without this frontend
@@ -128,19 +127,14 @@ export interface ParLegacyHistoryByEmail {
 
 // Fans useParLegacyHistory out across a given set of employee emails.
 //
-// CALLER NOTE (confirmed against manager.bal's own doc comment on
-// isAuthorizedToViewEmployeeLegacyParHistoryGiven): GET
-// /legacy-par-history/{email} is admin-or-self ONLY -- "No lead/manager
-// access at all, ever... a team lead, additional lead, or current direct
-// manager must NOT be able to view a report's legacy history." A lead
-// calling this for their own reports' emails gets 403 for every one of
-// them. par-app's own EmployeeHistoryView.tsx used to fan this out across
-// a lead's reports the same way one-wso2 originally did -- removed there
-// specifically to close this leak (see its own comment: "A lead must
-// never be able to view a report's legacy... history -- not from this UI,
-// and not as a backend call visible in the network trace either"); mirror
-// that here by only ever passing emails this caller is actually allowed
-// to query (its own email, or -- for an admin context -- any email).
+// CALLER NOTE: GET /legacy-par-history/{email} is admin-or-self ONLY -- no
+// lead/manager access at all, ever. A team lead, additional lead, or
+// current direct manager must NOT be able to view a report's legacy
+// history, not from this UI and not as a backend call visible in the
+// network trace either. A lead calling this for their own reports' emails
+// gets 403 for every one of them, so only ever pass emails this caller is
+// actually allowed to query (its own email, or -- for an admin context --
+// any email).
 // `useQueries` keeps each fetch independently cached/retried, and results
 // merge here into one lookup so the caller doesn't juggle N query objects.
 export function useParLegacyHistoryFanOut(emails: string[]): {

@@ -609,6 +609,7 @@ export const financeMasterDataServiceUrls = {
   glCodes: `${financeMasterDataBackendUrl}/gl-codes`,
   employeeEmails: `${financeMasterDataBackendUrl}/employees/email`,
   expenseTypeAutocomplete: `${financeMasterDataBackendUrl}/expense-types/autocomplete-values`,
+  countries: `${financeMasterDataBackendUrl}/countries`,
 };
 
 // ---- Updates Manager backend ---------------------------------------------
@@ -2185,6 +2186,9 @@ export const echoServiceUrls = {
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/move-stage`,
   includeCalls: (opportunityId: string): string =>
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/include-calls`,
+  // Ask AI: a question about the opportunity, answered from it and the Library passages sent.
+  ask: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/ask`,
 };
 
 /**

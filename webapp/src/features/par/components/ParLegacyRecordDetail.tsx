@@ -44,10 +44,9 @@ function isMeaningfulLegacyText(text: string | null | undefined): text is string
   return Boolean(text) && text!.trim() !== "" && text!.trim() !== "N/A";
 }
 
-// par-app's own LegacyParDetail.tsx packs "PAR Rating"/"Top 5%/20%
-// Rating"/"PAR Shared By" as rows of ONE compact bordered table (MuiTable
-// size="small"), not three separately-bordered, separately-rounded boxes
-// with a visible gap between each -- InfoRowGroup/InfoRow below reproduce
+// "PAR Rating"/"Top 5%/20% Rating"/"PAR Shared By" render as rows of ONE
+// compact bordered table, not three separately-bordered, separately-rounded
+// boxes with a visible gap between each -- InfoRowGroup/InfoRow below give
 // that single-box, thin-divider-between-rows look.
 function InfoRowGroup({ children }: { children: ReactNode }) {
   return (
@@ -58,12 +57,11 @@ function InfoRowGroup({ children }: { children: ReactNode }) {
 }
 
 function InfoRow({ label, children }: { label: string; children: ReactNode }) {
-  // par-app's own reference packs these as a 2-column table (label/value
-  // cells each ~25% wide) -- the value sits right next to the label, not
-  // pushed out to the far edge. "justifyContent: space-between" stretched
-  // the value across the whole row width, leaving a big dead gap in the
-  // middle that didn't exist in the original. A fixed label-width column
-  // reproduces that tighter, left-clustered look instead.
+  // A 2-column layout (label/value cells each ~25% wide) keeps the value
+  // right next to the label, not pushed out to the far edge --
+  // "justifyContent: space-between" stretched the value across the whole
+  // row width, leaving a big dead gap in the middle. A fixed label-width
+  // column keeps it tighter and left-clustered instead.
   return (
     <Box sx={{ display: "flex", alignItems: "center", pl: 2.5, pr: 1.5, py: 0.75 }}>
       <Typography variant="body2" sx={{ fontWeight: 600, width: 160, flexShrink: 0 }}>
@@ -144,8 +142,7 @@ const ACCORDION_SUMMARY_SX = {
 function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[]; side: "employee" | "lead" }) {
   // 2018 Q3/Q4 and all of 2019 (1-3 questions, always exactly one flat
   // group) render as plain boxes -- no accordion, no "Performance
-  // Questions and Answers" heading -- matching par-app's own
-  // renderFlatLegacyQuestion treatment for these shorter cycles.
+  // Questions and Answers" heading -- for these shorter cycles.
   if (groups.length === 1 && groups[0].layout === "flat") {
     return (
       <Stack spacing={2} sx={{ mt: 2 }}>
@@ -158,8 +155,7 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[]; side
 
   // 2016/2017/2018 Q1-Q2: there's no real category here -- the single
   // group's own title is just the generic heading shown once above, and
-  // EACH QUESTION gets its own accordion, matching par-app's own
-  // renderLegacy2016Section et al. (3 separate "Job performance"/
+  // EACH QUESTION gets its own accordion (3 separate "Job performance"/
   // "Communication"/"Teamwork" accordions, not one wrapping all 3).
   if (groups.length === 1 && groups[0].layout === "perQuestion") {
     return (
@@ -214,12 +210,11 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[]; side
 }
 
 // One legacy record's full detail -- two side-by-side panels (Employee PAR
-// | Lead's Feedback), matching par-app's own LegacyParDetail.tsx layout and
-// its per-era question-catalog grouping (see util/legacyParCatalogs.ts and
-// util/legacyParRatingResolvers.ts, LOCAL TEST ports of par-app's own
-// src/utils/legacyPar{2015..2024}*.ts files). Shared by ParHistoryTab.tsx
+// | Lead's Feedback) with per-era question-catalog grouping (see
+// util/legacyParCatalogs.ts and util/legacyParRatingResolvers.ts for each
+// cycle's own question set and rating scale). Shared by ParHistoryTab.tsx
 // (employee self-view) and ParAdminLegacyCycleView.tsx (admin org-wide
-// drill-down) -- never by a lead viewing a report's record, see
+// drill-down) -- never by a lead viewing a report's record; see
 // hideThreeSixtyFeedback below and ParEmployeeHistoryView.tsx's own comment
 // on why a lead never reaches this component with real legacy data at all.
 export default function ParLegacyRecordDetail({
@@ -229,36 +224,34 @@ export default function ParLegacyRecordDetail({
 }: {
   record: ParLegacyHistory;
   thumbnail?: string;
-  // par-app's own LegacyParDetail.tsx privacy rule: an employee's own
-  // self-view (and its PDF export) must never show reviewer-identifiable
-  // 360 feedback. Every admin call site omits this, so it defaults to
-  // visible there -- only ParHistoryTab.tsx's own self-view passes true.
+  // Privacy rule: an employee's own self-view (and its PDF export) must
+  // never show reviewer-identifiable 360 feedback. Every admin call site
+  // omits this, so it defaults to visible there -- only ParHistoryTab.tsx's
+  // own self-view passes true.
   hideThreeSixtyFeedback?: boolean;
 }) {
   const questionAnswers = parseLegacyQuestionAnswers(record.questionAnswers);
   // Real migrated data can carry either the raw or canonical 2015 cycle
   // name (see formatLegacyCycleName's own comment) -- normalize before any
-  // catalog/rating lookup, same as par-app's own normalizedCycleName.
+  // catalog/rating lookup.
   const cycleName = formatLegacyCycleName(record.cycleName);
   // Top 5%/20% was only introduced starting 2021 -- every earlier era
   // (2015-2020) never captured it, so a dedicated "Not Assigned" row there
-  // would just be clutter. Matches par-app's own hideSpecialRating.
+  // would just be clutter.
   const hideSpecialRating = (Number(cycleName.match(/^(\d{4})/)?.[1]) || 0) < 2021;
   const employeeGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "employee");
   const leadGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "lead");
 
   // The overall comment and the catalogued question groups are NOT mutually
-  // exclusive -- par-app shows both together when both exist. Confirmed
-  // directly against a real par-app screenshot (2017 Q1, "perQuestion"
-  // layout): when there's a catalog but no real overall comment, the
-  // Employee/Lead Comment box still shows -- with the literal "N/A" --
-  // rather than being hidden. But a SEPARATE reference screenshot (2018 Q3,
-  // "flat" layout) shows the opposite for flat-display cycles: no comment
-  // box at all when blank, not even "N/A" -- the flat question's own box
-  // already carries the real content there, confirmed against par-app's
-  // own isFlatDisplayCycle comment ("leadContent CAN be genuinely blank
-  // there"). Only fall back to the flat per-question dump when there's no
-  // catalogued groups at all.
+  // exclusive -- both show together when both exist. For a 2017 Q1,
+  // "perQuestion"-layout cycle: when there's a catalog but no real overall
+  // comment, the Employee/Lead Comment box still shows -- with the literal
+  // "N/A" -- rather than being hidden. But for a 2018 Q3, "flat"-layout
+  // cycle, it's the opposite: no comment box at all when blank, not even
+  // "N/A" -- the flat question's own box already carries the real content
+  // there, and leadContent CAN be genuinely blank in that case. Only fall
+  // back to the flat per-question dump when there's no catalogued groups
+  // at all.
   const isFlatLayout = (groups: LegacyGroup[] | null) => groups?.[0]?.layout === "flat";
   const employeeComment = isMeaningfulLegacyText(record.overallCommentEmployee)
     ? record.overallCommentEmployee!
@@ -289,8 +282,7 @@ export default function ParLegacyRecordDetail({
   // narrative comment at all -- it's just the score value (e.g. "68.0").
   // Shown after the "Score breakdown" question's answer (i.e. after the
   // whole per-question accordion list) instead of in the usual Lead
-  // Comment spot above it, and labeled "Score" rather than "Lead Comment" --
-  // confirmed directly against a par-app reference screenshot.
+  // Comment spot above it, and labeled "Score" rather than "Lead Comment".
   const isLegacy2017ScoreCycle =
     (cycleName === "2017 Quarterly Review - Q3" || cycleName === "2017 Quarterly Review - Q4") &&
     record.managerScoreCode === 3;
@@ -299,9 +291,8 @@ export default function ParLegacyRecordDetail({
   // data, without one in 2024) is a workflow note -- did the lead actually
   // run the 360s -- not real feedback prose, so it's deliberately excluded
   // from the normal catalog/leadComment above. Surfaced here instead, in
-  // its own section -- explicit local request: shown to the employee too
-  // (on their own Lead's Feedback panel), not admin-only like par-app's own
-  // isAdminView gate.
+  // its own section -- explicit local request: shown to the employee too,
+  // on their own Lead's Feedback panel, not admin-only.
   const threeSixtyConfirmationAnswer = questionAnswers.find(
     (qa) => qa.title?.trim().replace(/\.$/, "") === "360 Confirmation" && isMeaningfulLegacyText(qa.managerFeedback),
   )?.managerFeedback;

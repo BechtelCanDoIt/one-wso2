@@ -45,15 +45,11 @@ type Row =
   | { kind: "real"; cycle: ParCycle; cycleName: string; start: string | null; end: string | null }
   | { kind: "legacy"; record: ParLegacyHistory; cycleName: string; start: string | null; end: string | null };
 
-// People Ops → Performance → History: par-app's ParHistory.tsx "My History" tab
-// (its lead-only "Report Chain" tab belongs with the Lead Portal work, not
-// here). LOCAL TEST PATCH: merges in the employee's own legacy PAR history
-// (2015+) alongside current-system cycles, same table-row layout this tab
-// always had -- matching par-app's own ParHistory.tsx behavior
-// (fetchLegacyParHistoryOfEmployee alongside fetchPreviousParCyclesOfEmployee
-// for the signed-in user's own email). Backend already supports this: see
-// isAuthorizedToViewEmployeeLegacyParHistoryGiven in manager.bal
-// (invokerDetails.isAdmin || employeeEmail == invokerDetails.email).
+// People Ops → Performance → History: "My History" tab (the lead-only
+// "Report Chain" tab belongs with the Lead Portal work, not here). Merges
+// in the employee's own legacy PAR history (2015+) alongside current-system
+// cycles, in the same table-row layout this tab always had. The backend
+// permits this for the signed-in user's own email (or an admin).
 export default function ParHistoryTab() {
   const profile = useMeProfile();
   const workEmail = profile.data?.userInfo.workEmail;
@@ -103,14 +99,6 @@ export default function ParHistoryTab() {
       </ErrorNotice>
     );
   }
-  if (legacyHistory.isError) {
-    return (
-      <ErrorNotice error={legacyHistory.error} onRetry={() => legacyHistory.refetch()} retrying={legacyHistory.isFetching}>
-        Couldn't load your legacy PAR history.
-      </ErrorNotice>
-    );
-  }
-
   if (opened) {
     return (
       <Box>
@@ -149,8 +137,8 @@ export default function ParHistoryTab() {
 
   // legacyHistory.data === null means enableLegacyParDataView is off
   // server-side (see useParLegacyHistory's own comment) -- not "no legacy
-  // records". Restores one-wso2's own original notice for exactly that
-  // case, same wording it always had before legacy support was added here.
+  // records". Shows the same notice this tab always had before legacy
+  // support was added here.
   const legacyDisabled = legacyHistory.data === null;
 
   // Unlike the single-column rating-summary detail view above (which stays
@@ -166,6 +154,16 @@ export default function ParHistoryTab() {
           PeopleHR for the history data.
         </Alert>
       )}
+      {legacyHistory.isError && (
+        <ErrorNotice
+          sx={{ mb: 2 }}
+          error={legacyHistory.error}
+          onRetry={() => legacyHistory.refetch()}
+          retrying={legacyHistory.isFetching}
+        >
+          Couldn't load your legacy PAR history.
+        </ErrorNotice>
+      )}
       {rows.length === 0 ? <Alert severity="info">No past PAR cycles on file.</Alert> : <HistoryTable rows={rows} onOpen={setOpened} />}
     </Box>
   );
@@ -175,9 +173,8 @@ export default function ParHistoryTab() {
 // a paginated DataGrid felt less human-friendly here than just scrolling
 // the full list, unlike the admin drill-down views where pagination stays.
 function HistoryTable({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => void }) {
-  // Default (not size="small") to match the row height of par-app's own
-  // ParHistory.tsx list view -- that reference uses a plain <Table
-  // stickyHeader>, and "small" made every row noticeably more cramped.
+  // Default (not size="small") row height -- "small" made every row
+  // noticeably more cramped for this plain <Table stickyHeader> list.
   return (
     <TableContainer>
       <Table>
@@ -192,7 +189,7 @@ function HistoryTable({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => voi
         <TableBody>
           {rows.map((row) => (
             <TableRow
-              key={row.kind === "real" ? `real-${row.cycle.parCycleId}` : `legacy-${row.cycleName}`}
+              key={row.kind === "real" ? `real-${row.cycle.parCycleId}` : `legacy-${row.record.legacyHeaderId}`}
               hover
               tabIndex={0}
               role="button"

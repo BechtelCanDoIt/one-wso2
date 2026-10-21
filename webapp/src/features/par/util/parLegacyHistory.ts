@@ -26,22 +26,20 @@ export function hasLegacyContent(text: string | null | undefined): boolean {
 // A 360 reviewer's rating answer is free text they typed, not a constrained
 // field -- some real migrated rows have values like "Rating : 5" instead of
 // just "5". Showing those verbatim in a label that already says "Rating: "
-// produces a doubled-up "Rating: Rating : 5". Strips a redundant leading
-// "Rating"/"Rating:" prefix -- LOCAL TEST PORT of par-app's own
-// LegacyThreeSixtyFeedbackSection.tsx stripRedundantRatingPrefix.
+// produces a doubled-up "Rating: Rating : 5". Strips that redundant
+// leading "Rating"/"Rating:" prefix.
 export function stripRedundantRatingPrefix(text: string): string {
   return text.replace(/^\s*rating\s*:?\s*/i, "").trim();
 }
 
-// LOCAL TEST PORT of par-app's own src/utils/types.ts formatLegacyCycleName.
 // The four 2015 canonical cycle names carry their year at the END
 // ("ANNUAL PERFORMANCE REVIEW for Team Leads -2015"), unlike every other
 // legacy cycle's "<year> ..." convention (e.g. "2016 Quarterly Review -
-// Q2") -- real migrated data has been seen with BOTH this raw form and the
+// Q2") -- real data has been seen with BOTH this raw form and the
 // translated one, depending on which import path produced the row.
 // Display-only -- does not touch par_cycle_name as stored. Every catalog/
 // rating lookup and cycle-name display in this feature should normalize
-// through this first, same as par-app's own normalizedCycleName.
+// through this first.
 const LEGACY_CYCLE_DISPLAY_NAMES: Record<string, string> = {
   "ANNUAL PERFORMANCE REVIEW -2015": "2015 ANNUAL PERFORMANCE REVIEW",
   "ANNUAL PERFORMANCE REVIEW for Team Leads -2015": "2015 ANNUAL PERFORMANCE REVIEW for Team Leads",
@@ -53,9 +51,9 @@ const LEGACY_CYCLE_DISPLAY_NAMES: Record<string, string> = {
 
 // Every catalog/rating lookup throughout this feature is an exact-string
 // match against a small set of cycle names hand-confirmed from one
-// employee's real data -- at real migration scale across many employees and
-// a decade of PeopleHR exports, whitespace drift in the source system is a
-// near-certainty, not a hypothetical (already hit once for real: "2019
+// employee's real data -- across many employees and a decade of PeopleHR
+// exports, whitespace drift in the source system is a near-certainty, not
+// a hypothetical (already hit once for real: "2019
 // Performance Evaluation - Q2" was exported with a double space). Collapsing
 // internal whitespace here, the single funnel point every lookup already
 // goes through, means a stray double space or trailing space degrades
@@ -145,7 +143,6 @@ export function deriveLegacyRatingFromScore(score: number | null): { rating: str
 // convention as the current app — derive display dates from that, since the
 // legacy PeopleHR system doesn't expose explicit cycle start/end dates.
 // Used purely for sort ordering of the merged (real + legacy) cycle picker.
-// LOCAL TEST PORT of par-app's own src/utils/types.ts deriveLegacyCycleDates.
 // Not every legacy cycle name fits the H1/H2 convention: 2016-2019 cycles
 // are quarterly ("2017 Quarterly Review - Q1", or a combined "2016
 // Quarterly Review - Q3/Q4"), and the four 2015 cycles have no half/quarter

@@ -14,16 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// LOCAL TEST PORT of par-app's own src/utils/legacyPar{2015..2019}Questions.ts
-// -- those 5 files group each era's known PeopleHR question labels into
-// named categories (2015) or a single flat "Performance Questions and
-// Answers" list (2016/2017/2018), with the full question wording
-// ("subtext") shown above each answer, and (2015's rating categories
-// only) the raw 0-5 answer shown as a filled chip rather than body text.
-// Trimmed relative to the originals: no `LegacyPerformanceCriteria`-style
-// criteria box, no 2017 Q3/Q4 "manager score as comment" special case --
-// those depend on components or edge-case rendering par-app has that this
-// port doesn't need for parity on the main view.
+// Groups each era's known PeopleHR question labels into named categories
+// (2015) or a single flat "Performance Questions and Answers" list
+// (2016/2017/2018), with the full question wording ("subtext") shown above
+// each answer, and (2015's rating categories only) the raw 0-5 answer
+// shown as a filled chip rather than body text. No
+// `LegacyPerformanceCriteria`-style criteria box and no 2017 Q3/Q4
+// "manager score as comment" special case -- neither is needed for parity
+// on this main view.
 import type { ParLegacyQuestionAnswer } from "../api/types";
 
 export type LegacyCatalogAnswerType = "rating" | "text";
@@ -410,7 +408,7 @@ export const LEGACY_2019_FLAT_DISPLAY_CYCLES = new Set<string>([
 // ---- 2020 Performance Evaluation -- flat, H1/H2 share one question -------
 // "360 Confirmation" is deliberately NOT part of this catalog -- it's a
 // workflow note (did the lead actually run the 360s), not real feedback
-// prose, and par-app surfaces it in its own separate section instead of the
+// prose, and is surfaced in its own separate section instead of the
 // normal question list (see ParLegacyRecordDetail.tsx's own
 // threeSixtyConfirmationAnswer).
 const SHARE_FEEDBACK_QUESTION = employeeOnlyItalic(
@@ -482,8 +480,7 @@ export interface LegacyGroupRow {
 //  - "perQuestion": 2016/2017/2018 Q1-Q2 -- there's no real category here
 //    (the group's own title is just the generic "Performance Questions and
 //    Answers" heading shown once above), so EACH ROW gets its own
-//    accordion instead, titled with that question's own label -- matching
-//    par-app's own renderLegacy2016Section et al. exactly (3 separate
+//    accordion instead, titled with that question's own label (3 separate
 //    "Job performance"/"Communication"/"Teamwork" accordions, not one
 //    accordion wrapping all 3).
 //  - "flat": 2018 Q3/Q4 and all of 2019 -- no accordion anywhere, every
@@ -499,8 +496,8 @@ export interface LegacyGroup {
 
 // One dispatcher covering every catalogued era -- returns grouped sections
 // for the Employee PAR / Lead's Feedback panels, or null when this cycle
-// has no catalog at all (2020+, falls back to the flat questionAnswers
-// list exactly as one-wso2 already rendered before this port).
+// name has no catalog at all; callers fall back to the flat
+// questionAnswers list in that case.
 export function getLegacyQuestionGroups(
   cycleName: string,
   questionAnswers: ParLegacyQuestionAnswer[],

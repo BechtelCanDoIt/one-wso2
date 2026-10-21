@@ -14,14 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// LOCAL TEST PORT of par-app's own src/utils/legacyPar{2015..2024}*.ts rating
-// resolvers. overallRating/overallSpecialRating are always null on the
-// migrated legacy rows (the old PeopleHR system never populated them) --
-// every era resolves a display rating from the raw managerScoreCode
-// instead, each using its OWN era's (and often its own quarter's) scale.
-// Before this port, one-wso2 used one generic 4-code scale
-// (deriveLegacyRatingFromScore) for every era, which is only actually
-// correct for whichever cycles happen to coincidentally match it.
+// overallRating/overallSpecialRating are always null on the migrated
+// legacy rows (the old PeopleHR system never populated them) -- every era
+// resolves a display rating from the raw managerScoreCode instead, each
+// using its OWN era's (and often its own quarter's) scale. A single
+// generic 4-code scale is only actually correct for whichever cycles
+// happen to coincidentally match it.
 import type { ParLegacyQuestionAnswer } from "../api/types";
 
 const TOP_FIVE_PERCENT = "TOP5P";
@@ -46,10 +44,9 @@ export const resolveLegacy2015EmployeeRatingLabel = (employeeScoreCode: number |
   employeeScoreCode === null ? null : EMPLOYEE_2015_LABELS[employeeScoreCode] ?? null;
 
 // ---- 2016 Quarterly Review -- each of the 4 variants has its own scale --
-// (confirmed directly against the real source mapping: Q2 and Q3/Q4 are
-// NOT identical -- Q3/Q4 has no code 1 "N/A" at all -- and the two Senior
-// Leadership variants rate ONLY the overall cycle score, on their own much
-// narrower scales, with no performance questions at all.)
+// Q2 and Q3/Q4 are NOT identical (Q3/Q4 has no code 1 "N/A" at all), and
+// the two Senior Leadership variants rate ONLY the overall cycle score, on
+// their own much narrower scales, with no performance questions at all.
 
 const LABELS_2016_Q2: Record<number, string> = {
   0: "Not Completed",

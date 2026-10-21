@@ -67,16 +67,12 @@ export default function ParEmployeeHistoryView({
 }) {
   const realCycles = useAllClosedParCycles();
   // This component is only ever rendered via ParLeadHistoryModal.tsx, for
-  // a LEAD viewing one of their reports -- a lead must never see legacy
-  // (pre-par-app) history for anyone but themselves, not in this UI and
-  // not as a backend call visible in the network trace either (GET
-  // /legacy-par-history/{email} is admin-or-self only -- see
-  // isAuthorizedToViewEmployeeLegacyParHistoryGiven in manager.bal, which
-  // excludes team-lead/manager relationships entirely). par-app's own
-  // EmployeeHistoryCard.tsx (this component's own source) never dispatches
-  // the fetch for exactly this reason; `enabled: false` here is the same
-  // fix -- defense-in-depth, not the actual security boundary, which lives
-  // in the backend.
+  // a LEAD viewing one of their reports -- a lead must never see a report's
+  // legacy history, not in this UI and not as a backend call visible in
+  // the network trace either. GET /legacy-par-history/{email} is
+  // admin-or-self only on the backend, which excludes team-lead/manager
+  // relationships entirely; `enabled: false` here is defense-in-depth, not
+  // the actual security boundary, which lives in the backend.
   const legacyHistory = useParLegacyHistory(employeeEmail, false);
   const thumbnails = useLeaveEmployees();
   const thumbnailByEmail = useMemo(

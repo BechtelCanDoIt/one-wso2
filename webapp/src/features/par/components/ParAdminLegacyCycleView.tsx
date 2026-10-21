@@ -22,7 +22,8 @@ import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useLegacyParHistoryByCycle } from "../api/useParAdmin";
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { formatShortDate } from "../util/parDate";
-import { deriveLegacyRatingFromScore, formatLegacyCycleName } from "../util/parLegacyHistory";
+import { formatLegacyCycleName } from "../util/parLegacyHistory";
+import { resolveLegacyRating } from "../util/legacyParRatingResolvers";
 import { groupLegacyParticipantsByTeam, type LegacyTeamGroup } from "../util/parAdminHistory";
 import ParEmptyState from "./ParEmptyState";
 import ParLegacyRecordDetail from "./ParLegacyRecordDetail";
@@ -102,9 +103,15 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
   // its comments/questions/360-feedback already nulled out.
   const openedEmail = selection.level === "record" ? selection.record.employeeEmail : undefined;
   const openedRecordHistory = useParLegacyHistory(openedEmail, Boolean(openedEmail));
-  const openedFullRecord = openedRecordHistory.data?.find(
-    (r) => formatLegacyCycleName(r.cycleName) === cycleName,
-  );
+  // Matched by legacyHeaderId, not cycle name -- one employee can have more
+  // than one row in the same cycle (e.g. a raw and a canonical 2015 cycle
+  // name that both normalize to the same displayed name), and matching by
+  // name alone could open one record's detail view with a different
+  // record's comments/ratings/360 feedback.
+  const openedFullRecord =
+    selection.level === "record"
+      ? openedRecordHistory.data?.find((r) => r.legacyHeaderId === selection.record.legacyHeaderId)
+      : undefined;
   const [searchText, setSearchText] = useState("");
 
   // Every grid below must get a referentially-stable rows/columns array, or
@@ -132,9 +139,13 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         field: "overallRating",
         headerName: "Overall Rating",
         flex: 1,
-        // Same fallback ParLegacyRecordDetail uses, so a record can't show
-        // "Not Assigned" here and a derived rating once opened.
-        valueGetter: (_v, row) => row.overallRating ?? deriveLegacyRatingFromScore(row.managerScoreCode).rating ?? "Not Assigned",
+        // Same resolver ParLegacyRecordDetail uses, so a record can't show
+        // a different rating here than once opened. Each cycle has its own
+        // rating scale, so this can't be derived generically.
+        valueGetter: (_v, row) =>
+          resolveLegacyRating(formatLegacyCycleName(row.cycleName), row.managerScoreCode, []).rating ??
+          row.overallRating ??
+          "Not Assigned",
       },
       {
         field: "reviewCompletedDate",
@@ -234,11 +245,13 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
           >
             Couldn't load this employee's full legacy record.
           </ErrorNotice>
-        ) : (
+        ) : openedFullRecord ? (
           <ParLegacyRecordDetail
-            record={openedFullRecord ?? record}
+            record={openedFullRecord}
             thumbnail={employeeByEmail.get(record.employeeEmail)?.employeeThumbnail}
           />
+        ) : (
+          <ParEmptyState text="Couldn't find this employee's full legacy record." />
         )}
       </Stack>
     );

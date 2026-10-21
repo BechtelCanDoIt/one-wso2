@@ -26,10 +26,9 @@ import type { ParLegacyThreeSixtyReview } from "../api/types";
 // `par_360_feedback` JSON column instead of a fetched review list. Legacy
 // data has no reviewer email, only a name, and no rejected/pending state to
 // filter on — every parsed entry is shown.
-// hideQuestionCaptions matches par-app's own hideThreeSixtyQuestionCaptions:
-// 2021 H2 onward hides the redundant question-caption subtext (the rating
-// chip and comment box already say everything they need to by then); 2021
-// H1 and earlier keep showing them.
+// From 2021 H2 onward, the redundant question-caption subtext is hidden
+// (the rating chip and comment box already say everything they need to by
+// then); 2021 H1 and earlier keep showing them.
 function hideQuestionCaptions(cycleName: string): boolean {
   return (
     (cycleName.startsWith("2021") && cycleName.includes("H2")) ||
@@ -103,10 +102,8 @@ export default function ParLegacyReviewSection({ feedback360, cycleName }: { fee
                       <Typography variant="caption" color="text.secondary">
                         {review.ratingQuestion}
                       </Typography>
-                      {/* par-app's own LegacyThreeSixtyFeedbackSection.tsx
-                      hides this chip entirely when there's no real rating --
-                      explicit local override: always show it, with "N/A"
-                      when blank. */}
+                      {/* Always show the rating chip, with "N/A" when the
+                      rating is blank. */}
                       <Chip size="small" label={`Rating: ${rating || "N/A"}`} />
                     </Stack>
                   )}
