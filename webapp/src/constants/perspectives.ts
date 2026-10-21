@@ -503,7 +503,7 @@ const UMT_SECTION: PerspectiveSection = {
     // same way Finance/Leave/Subscriptions items are (see the comment above
     // SUBSCRIPTION_ITEM_IDS).
     { id: "umt-products", label: "Products", icon: BoxIcon, path: umtPaths.products },
-    { id: "umt-release-chunks", label: "Release Chunks", icon: LucideLayoutGrid, path: umtPaths.releaseChunks },
+    { id: "umt-release-chunks", label: "Releases", icon: LucideLayoutGrid, path: umtPaths.releaseChunks },
     { id: "umt-statistics", label: "Statistics", icon: BarChart3, path: umtPaths.statistics },
   ],
 };
