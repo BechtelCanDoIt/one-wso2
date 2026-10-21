@@ -37,17 +37,17 @@ const valuesOf =
     figures[row.id];
 
 describe("the sort cycle", () => {
-  it("goes descending, then ascending, then off", () => {
+  it("goes ascending, then descending, then off", () => {
     const first = nextSort(null, AMOUNT);
-    expect(first).toEqual({ column: AMOUNT, direction: "desc" });
+    expect(first).toEqual({ column: AMOUNT, direction: "asc" });
     const second = nextSort(first, AMOUNT);
-    expect(second).toEqual({ column: AMOUNT, direction: "asc" });
+    expect(second).toEqual({ column: AMOUNT, direction: "desc" });
     expect(nextSort(second, AMOUNT)).toBeNull();
   });
 
-  it("starts another column over at descending", () => {
-    const sorted: BuildSort = { column: AMOUNT, direction: "asc" };
-    expect(nextSort(sorted, NAME)).toEqual({ column: NAME, direction: "desc" });
+  it("starts another column over at ascending", () => {
+    const sorted: BuildSort = { column: AMOUNT, direction: "desc" };
+    expect(nextSort(sorted, NAME)).toEqual({ column: NAME, direction: "asc" });
   });
 
   it("tells one column from another by its Period as well as its sub-column", () => {

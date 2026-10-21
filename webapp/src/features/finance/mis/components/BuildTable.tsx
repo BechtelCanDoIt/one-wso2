@@ -276,7 +276,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
     onSort ? (
       <TableSortLabel
         active={sortsColumn(sort, column)}
-        direction={sortsColumn(sort, column) ? sort?.direction : "desc"}
+        direction={sortsColumn(sort, column) ? sort?.direction : "asc"}
         onClick={() => onSort(column)}
       >
         {label}

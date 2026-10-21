@@ -23,7 +23,7 @@
 import type { BuildRow } from "./buildTableModel";
 import { useStateUntilKeyChanges } from "./useStateUntilKeyChanges";
 
-export type BuildSortDirection = "desc" | "asc";
+export type BuildSortDirection = "asc" | "desc";
 
 /** A sortable column: an identity column, or one figure under one Period. */
 export type BuildSortColumn =
@@ -91,10 +91,10 @@ export function sortOnShownColumn(
   return isShown ? sort : null;
 }
 
-/** Descending, then ascending, then off; another column starts at descending. */
+/** Ascending, then descending, then off; another column starts at ascending. */
 export function nextSort(current: BuildSort | null, column: BuildSortColumn): BuildSort | null {
-  if (!sortsColumn(current, column)) return { column, direction: "desc" };
-  return current?.direction === "desc" ? { column, direction: "asc" } : null;
+  if (!sortsColumn(current, column)) return { column, direction: "asc" };
+  return current?.direction === "asc" ? { column, direction: "desc" } : null;
 }
 
 const isNothing = (value: BuildSortValue): value is null | undefined =>

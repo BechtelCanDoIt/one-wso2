@@ -238,13 +238,13 @@ describe("finding one customer in the list", () => {
     renderDialog({ state: loaded(BOOK) });
   });
 
-  it("sorts every column: descending, ascending, then off", async () => {
+  it("sorts every column: ascending, descending, then off", async () => {
     const before = bodyRows();
     for (const label of ["Account ID", "Account Name", "Amount (USD)", "Account Owner"]) {
       await userEvent.click(sortButton(label));
-      expect(header(startsWith(label)), `${label} descending`).toHaveAttribute("aria-sort", "descending");
-      await userEvent.click(sortButton(label));
       expect(header(startsWith(label)), `${label} ascending`).toHaveAttribute("aria-sort", "ascending");
+      await userEvent.click(sortButton(label));
+      expect(header(startsWith(label)), `${label} descending`).toHaveAttribute("aria-sort", "descending");
       await userEvent.click(sortButton(label));
       expect(header(startsWith(label)), `${label} off`).not.toHaveAttribute("aria-sort");
     }
@@ -253,9 +253,9 @@ describe("finding one customer in the list", () => {
 
   it("orders the amounts as numbers, and puts a missing owner last", async () => {
     await userEvent.click(sortButton("Amount (USD)"));
-    expect(bodyRows()).toEqual(["Northwind Bank", "Contoso", "North Star Ltd"]);
-    await userEvent.click(sortButton("Amount (USD)"));
     expect(bodyRows()).toEqual(["North Star Ltd", "Contoso", "Northwind Bank"]);
+    await userEvent.click(sortButton("Amount (USD)"));
+    expect(bodyRows()).toEqual(["Northwind Bank", "Contoso", "North Star Ltd"]);
     await userEvent.click(sortButton("Amount (USD)"));
     await userEvent.click(sortButton("Account Owner"));
     expect(bodyRows().at(-1)).toBe("North Star Ltd");
@@ -280,7 +280,6 @@ describe("finding one customer in the list", () => {
     await userEvent.type(await screen.findByLabelText("Filter Account Name"), "north");
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument());
-    await userEvent.click(sortButton("Amount (USD)"));
     await userEvent.click(sortButton("Amount (USD)"));
 
     await userEvent.click(screen.getByRole("button", { name: /^export$/i }));

@@ -158,14 +158,14 @@ describe("finding one opportunity in the list", () => {
     within(table()).getByRole("columnheader", { name: new RegExp(`^${label}(?: Filter by.*)?$`), hidden: true });
   const sortButton = (label: string) => within(header(label)).getByRole("button", { name: label });
 
-  it("sorts every column: descending, ascending, then off", async () => {
+  it("sorts every column: ascending, descending, then off", async () => {
     showDialog({ over: { opportunities: BOOK } });
     const before = names();
     for (const label of ["Account ID", "Opportunity Name", "Stage Name", "Subscription Start Date", "API Platform", "Cloud Total"]) {
       await userEvent.click(sortButton(label));
-      expect(header(label), `${label} descending`).toHaveAttribute("aria-sort", "descending");
-      await userEvent.click(sortButton(label));
       expect(header(label), `${label} ascending`).toHaveAttribute("aria-sort", "ascending");
+      await userEvent.click(sortButton(label));
+      expect(header(label), `${label} descending`).toHaveAttribute("aria-sort", "descending");
       await userEvent.click(sortButton(label));
       expect(header(label), `${label} off`).not.toHaveAttribute("aria-sort");
     }
@@ -175,9 +175,9 @@ describe("finding one opportunity in the list", () => {
   it("orders the figures as numbers", async () => {
     showDialog({ over: { opportunities: BOOK } });
     await userEvent.click(sortButton("API Platform"));
-    expect(names()).toEqual(["Expansion Apac", "renewal west", "Renewal FY26"]);
-    await userEvent.click(sortButton("API Platform"));
     expect(names()).toEqual(["Renewal FY26", "renewal west", "Expansion Apac"]);
+    await userEvent.click(sortButton("API Platform"));
+    expect(names()).toEqual(["Expansion Apac", "renewal west", "Renewal FY26"]);
   });
 
   it("filters the text columns by what they contain, ignoring case", async () => {
@@ -201,6 +201,7 @@ describe("finding one opportunity in the list", () => {
     await userEvent.type(await screen.findByLabelText("Filter Opportunity Name"), "renewal");
     await userEvent.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByLabelText("Filter Opportunity Name")).not.toBeInTheDocument());
+    await userEvent.click(sortButton("API Platform"));
     await userEvent.click(sortButton("API Platform"));
 
     await userEvent.click(screen.getByRole("button", { name: /^export$/i }));

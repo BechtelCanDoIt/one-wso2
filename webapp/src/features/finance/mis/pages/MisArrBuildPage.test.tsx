@@ -1146,6 +1146,9 @@ describe("taking the Build out of the browser", () => {
     await userEvent.click(
       within(screen.getByRole("columnheader", { name: /^Total/ })).getByRole("button", { name: "Total" }),
     );
+    await userEvent.click(
+      within(screen.getByRole("columnheader", { name: /^Total/ })).getByRole("button", { name: "Total" }),
+    );
 
     const sheet = await exportedSheet("Customers");
     const labels: string[] = [];
@@ -1381,13 +1384,13 @@ describe("sorting a table from its header", () => {
     summary.value = loaded(BUILD);
   });
 
-  it("cycles descending, ascending, then off, marking the sorted header", async () => {
+  it("cycles ascending, descending, then off, marking the sorted header", async () => {
     renderPage();
     expect(sortHeader()).not.toHaveAttribute("aria-sort");
     await userEvent.click(sortButton());
-    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
-    await userEvent.click(sortButton());
     expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.click(sortButton());
+    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
     await userEvent.click(sortButton());
     expect(sortHeader()).not.toHaveAttribute("aria-sort");
   });
@@ -1396,22 +1399,22 @@ describe("sorting a table from its header", () => {
     renderPage();
     sortButton().focus();
     await userEvent.keyboard("{Enter}");
-    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
-    await userEvent.keyboard(" ");
     expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.keyboard(" ");
+    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
   });
 
   it("reorders the movement rows between Opening and Ending, and nothing else", async () => {
     renderPage();
     const before = firstCells();
     await userEvent.click(sortButton());
-    const desc = firstCells();
-    const movement = ["Expansions", "New", "Lost", "Reductions"];
-    const start = desc.indexOf("Opening ARR") + 1;
-    expect(desc.slice(start, start + 4)).toEqual(movement);
-    await userEvent.click(sortButton());
     const asc = firstCells();
+    const movement = ["Expansions", "New", "Lost", "Reductions"];
+    const start = asc.indexOf("Opening ARR") + 1;
     expect(asc.slice(start, start + 4)).toEqual([...movement].reverse());
+    await userEvent.click(sortButton());
+    const desc = firstCells();
+    expect(desc.slice(start, start + 4)).toEqual(movement);
     // Everything else is where it was: the bands, the bold rows, the lot.
     for (const label of ["ARR movement", "Dollar retention", "Customers", "Opening ARR", "Ending ARR"]) {
       expect(desc.indexOf(label), `${label} moved under descending`).toBe(before.indexOf(label));
@@ -1437,9 +1440,9 @@ describe("sorting a table from its header", () => {
     renderPage("?table=customers");
     const nameHeader = screen.getByRole("columnheader", { name: /^Account Name/ });
     await userEvent.click(within(nameHeader).getByRole("button", { name: "Account Name" }));
-    expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Zeta Corp", "Northwind Bank", "Contoso"]);
-    await userEvent.click(within(nameHeader).getByRole("button", { name: "Account Name" }));
     expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Contoso", "Northwind Bank", "Zeta Corp"]);
+    await userEvent.click(within(nameHeader).getByRole("button", { name: "Account Name" }));
+    expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Zeta Corp", "Northwind Bank", "Contoso"]);
   });
 
   it("keeps the Customers Total above the book under every sort", async () => {
@@ -1457,18 +1460,19 @@ describe("sorting a table from its header", () => {
     renderPage("?table=bu-summary");
     const header = screen.getByRole("columnheader", { name: "Exit ARR" });
     await userEvent.click(within(header).getByRole("button"));
-    expect(header).toHaveAttribute("aria-sort", "descending");
-    expect(firstCells().slice(2).slice(0, 2)).toEqual(["API Platform", "IAM"]);
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    expect(firstCells().slice(-3, -1)).toEqual(["IAM", "API Platform"]);
     await userEvent.click(within(header).getByRole("button"));
     // The Total holds its place at the foot while the units reverse above it.
-    expect(firstCells().slice(-2)).toEqual(["API Platform", "Total"]);
+    expect(firstCells().slice(2, 4)).toEqual(["API Platform", "IAM"]);
+    expect(firstCells().at(-1)).toBe("Total");
   });
 
   it("lets go of a sort whose column unchecking BU only has taken away", async () => {
     renderPage("?table=customers");
     const total = screen.getByRole("columnheader", { name: /^Total/ });
     await userEvent.click(within(total).getByRole("button", { name: "Total" }));
-    expect(total).toHaveAttribute("aria-sort", "descending");
+    expect(total).toHaveAttribute("aria-sort", "ascending");
     await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(screen.getAllByRole("columnheader").some((header) => header.hasAttribute("aria-sort"))).toBe(false);
     expect(screen.getByRole("table", { name: /Customers/ })).toBeInTheDocument();
@@ -1488,6 +1492,7 @@ describe("sorting a table from its header", () => {
     expect(names()).toEqual(["Small", "Large"]);
     const apim = screen.getByRole("columnheader", { name: /^API Platform BU/ });
     await userEvent.click(within(apim).getByRole("button", { name: "API Platform BU" }));
+    await userEvent.click(within(apim).getByRole("button", { name: "API Platform BU" }));
     expect(names()).toEqual(["Large", "Small"]);
     await userEvent.click(screen.getByLabelText("Totals only"));
     expect(names()).toEqual(["Small", "Large"]);
@@ -1496,7 +1501,7 @@ describe("sorting a table from its header", () => {
   it("starts again when the applied filters change", async () => {
     renderPage();
     await userEvent.click(sortButton());
-    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
+    expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
     await userEvent.click(screen.getByLabelText("Channel/Direct"));
     await userEvent.click(await screen.findByRole("option", { name: "Channel" }));
     await userEvent.click(screen.getByRole("button", { name: "Apply" }));
@@ -1596,7 +1601,7 @@ describe("filtering the Customers table by an identity column", () => {
     await userEvent.click(
       within(screen.getByRole("columnheader", { name: /Account Name/ })).getByRole("button", { name: "Account Name" }),
     );
-    expect(names()).toEqual(["Total", "Northwind Bank", "North Star Ltd"]);
+    expect(names()).toEqual(["Total", "North Star Ltd", "Northwind Bank"]);
   });
 
   it("starts again when the applied filters change", async () => {
