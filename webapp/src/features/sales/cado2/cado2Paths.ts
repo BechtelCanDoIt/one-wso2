@@ -24,6 +24,7 @@ export const CADO2_PATH = "/sales/cado2";
 export type Cado2AdminSection =
   | "approval-matrix"
   | "approval-slas"
+  | "email-notifications"
   | "legal-entities"
   | "currencies"
   | "product-categories"
