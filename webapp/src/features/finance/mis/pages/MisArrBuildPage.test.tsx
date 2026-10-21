@@ -1151,7 +1151,16 @@ describe("taking the Build out of the browser", () => {
     await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
     await chooseExcel();
     await waitFor(() => expect(blobs).toHaveLength(1));
-    expect(filenames[0]).toMatch(/^arr_dashboard_all_arr_metrics_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(filenames[0]).toMatch(/^arr_dashboard_all_arr_metrics_all_bu_\d{4}-\d{2}-\d{2}\.xlsx$/);
+  });
+
+  it("names the Unit the All ARR Metrics export was cut by", async () => {
+    const { blobs, filenames } = captureDownloads();
+    renderPage("?table=region-summary&metrics=cl-moesif");
+    await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
+    await chooseExcel();
+    await waitFor(() => expect(blobs).toHaveLength(1));
+    expect(filenames[0]).toMatch(/^arr_dashboard_all_arr_metrics_moesif_\d{4}-\d{2}-\d{2}\.xlsx$/);
   });
 
   it("exports the BU Summary at units while the screen shows thousands", async () => {
@@ -1827,8 +1836,10 @@ describe("the Region Summary's two views", () => {
     expect(screen.getByText("Opening ARR")).toBeInTheDocument();
     expect(screen.getByText("First Sale")).toBeInTheDocument();
     expect(screen.getByText("Closing ARR")).toBeInTheDocument();
-    // The business-unit split belongs to the other view.
-    expect(screen.queryByText("API Platform BU")).not.toBeInTheDocument();
+    // The business-unit split belongs to the other view; the Unit pill of the
+    // same name is not a column.
+    const table = screen.getByRole("table", { name: /All ARR Metrics/ });
+    expect(within(table).queryByText("API Platform BU")).not.toBeInTheDocument();
   });
 
   it("heads each column with the span it covers, not the date it closes on", async () => {
@@ -1853,12 +1864,85 @@ describe("the Region Summary's two views", () => {
     expect(within(total).getByText("1,500,000.00")).toBeInTheDocument();
   });
 
-  it("narrows the metrics by the unit the reader selected, which Exit ARR ignores", async () => {
-    // This view binds to the unit tabs the screen already carries, rather than
-    // keeping a second unit control of its own.
-    renderPage("?table=region-summary&unit=BU_APIM");
+  const METRICS_PILLS = [
+    "API Platform BU",
+    "IAM BU",
+    "Integration BU",
+    "Choreo BU",
+    "Agent Platform BU",
+    "Moesif",
+    "All BU",
+    "Custom Product Selection",
+  ];
+  const metricsUnit = () => within(screen.getByRole("group", { name: "Unit" }));
+
+  it("offers its own eight Unit pills, in the standalone's order, opening on All BU", async () => {
+    await openMetrics();
+    const pills = metricsUnit().getAllByRole("button");
+    expect(pills.map((pill) => pill.textContent)).toEqual(METRICS_PILLS);
+    expect(metricsUnit().getByRole("button", { name: "All BU" })).toHaveAttribute("aria-pressed", "true");
+    expect(metricsUnit().getByRole("button", { name: "Moesif" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps its Unit pills off the Exit ARR view", () => {
+    renderPage("?table=region-summary");
+    expect(screen.queryByRole("group", { name: "Unit" })).not.toBeInTheDocument();
+  });
+
+  it("asks for the unit the reader picked, Moesif included", async () => {
+    await openMetrics();
+    await userEvent.click(metricsUnit().getByRole("button", { name: "Moesif" }));
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({ metricsUnit: "CL_MOESIF" });
+    expect(metricsUnit().getByRole("button", { name: "Moesif" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("carries the Unit in the address", async () => {
+    await openMetrics();
+    await userEvent.click(metricsUnit().getByRole("button", { name: "IAM BU" }));
+    expect(address()).toContain("metrics=bu-iam");
+  });
+
+  it("opens on the Unit a link carried", async () => {
+    renderPage("?table=region-summary&metrics=bu-choreo");
     await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
-    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({ buProductSelection: "BU_APIM" });
+    expect(metricsUnit().getByRole("button", { name: "Choreo BU" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("is not moved by the Build's Unit", async () => {
+    renderPage("?table=region-summary&unit=cl-choreo&metrics=bu-apim");
+    await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
+    expect(metricsUnit().getByRole("button", { name: "API Platform BU" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({
+      metricsUnit: "BU_APIM",
+      buProductSelection: "CL_CHOREO",
+    });
+  });
+
+  it("does not move the Build's Unit", async () => {
+    renderPage("?unit=cl-choreo");
+    await userEvent.click(screen.getByRole("button", { name: "Region Summary" }));
+    await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
+    await userEvent.click(metricsUnit().getByRole("button", { name: "IAM BU" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cloud Build" }));
+    expect(screen.getByRole("button", { name: "Choreo" })).toBeInTheDocument();
+    expect(address()).not.toContain("metrics=");
+  });
+
+  it("opens the product multi-select, with chips and Reset, under Custom Product Selection", async () => {
+    await openMetrics();
+    await userEvent.click(metricsUnit().getByRole("button", { name: "Custom Product Selection" }));
+    const businessUnits = screen.getByRole("group", { name: "Business Units" });
+    await userEvent.click(within(businessUnits).getByRole("button", { name: "API Platform BU" }));
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({
+      metricsUnit: "CUSTOM",
+      metricsCustomBusinessUnits: ["APIM_BU"],
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({ metricsCustomBusinessUnits: [] });
+    expect(screen.getByRole("group", { name: "Product Units" })).toBeInTheDocument();
   });
 
   it("cuts by Sub Region when the reader switches, on the metrics too", async () => {

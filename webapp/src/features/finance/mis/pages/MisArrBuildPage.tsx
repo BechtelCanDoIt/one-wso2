@@ -107,11 +107,12 @@ import {
 import type { MisWorkbookSpec } from "../export/misWorkbook";
 import { misExportFilename, misFilenameWord } from "../export/misExportFilename";
 import type { MisScaleState } from "../util/useMisScale";
-import { MIS_UNITS_BY_CATEGORY, unitCategoryOf } from "../util/misUnits";
+import { MIS_METRICS_UNITS, MIS_UNITS_BY_CATEGORY, unitCategoryOf } from "../util/misUnits";
 import type { MisUnitSelection } from "../components/MisUnitTabs";
 import MisPeriodRow from "../components/MisPeriodRow";
 import MisTableTabs from "../components/MisTableTabs";
 import MisUnitPills from "../components/MisUnitPills";
+import MisMetricsUnitPills from "../components/MisMetricsUnitPills";
 import MisGridHeader, { type GridToggle } from "../components/MisGridHeader";
 import MisExportMenu from "../components/MisExportMenu";
 
@@ -764,6 +765,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
  * failed has to be able to get back to Sales Region.
  */
 function RegionSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
+  const configs = useMisAppConfigs();
   // Component state, and not in the URL — see `MisRegionSummaryTabs` and
   // `MisRegionTypeTabs`. The two views are not part of the shared address.
   const [summaryView, setSummaryView] = useState<MisRegionSummaryView>(
@@ -786,6 +788,14 @@ function RegionSummaryGrid({ view, scaleState }: { view: MisViewState; scaleStat
     <Box sx={gridColumnSx}>
       <MisRegionSummaryTabs view={summaryView} onChange={changeView} />
       <MisRegionTypeTabs bySalesRegion={bySalesRegion} onChange={setBySalesRegion} />
+      {summaryView === MIS_REGION_SUMMARY_VIEWS.ALL_ARR_METRICS && (
+        <MisMetricsUnitPills
+          fields={view.filters}
+          businessUnitOptions={configs.options.businessUnits}
+          productUnitOptions={configs.options.productUnits}
+          onChange={(fields) => view.setView({ filters: { ...view.filters, ...fields } })}
+        />
+      )}
       {summaryView === MIS_REGION_SUMMARY_VIEWS.ALL_ARR_METRICS ? (
         <RegionMetricsGrid view={view} scaleState={scaleState} bySalesRegion={bySalesRegion} />
       ) : (
@@ -933,15 +943,14 @@ function RegionExitGrid({
  * through `util/misRegions.ts`, so the two views spell a region the same way.
  * Everything else differs, because a movement is not a balance — the columns
  * span a period instead of closing one, the seven sub-columns are movements
- * instead of business units, and the unit selection narrows the question here
+ * instead of business units, and its own Unit narrows the question here
  * where it is ignored there.
  *
- * ---- the unit selection binds to the tabs already on screen ---------------
+ * ---- its Unit is its own -----------------------------------------------------
  *
- * A second unit control beside the tabs could disagree with them, and only one
- * of the two would be in the link a reader shares. Here it binds to the tabs
- * above, so there is one unit selection, it is in the address, and the tabs
- * stop being enabled-but-ignored on this Table.
+ * The pills above the grid choose `metricsUnit`, which is in the address and is
+ * not the Build tab's Unit: picking a Cloud unit on a Build must not silently
+ * re-cut the region metrics, and the reverse.
  */
 function RegionMetricsGrid({
   view,
@@ -1014,7 +1023,11 @@ function RegionMetricsGrid({
               valueType: ALL_CURRENCY,
             })
           }
-          filename={() => misExportFilename(["arr_dashboard", misFilenameWord(ALL_ARR_METRICS_LABEL)])}
+          filename={() => misExportFilename([
+            "arr_dashboard",
+            misFilenameWord(ALL_ARR_METRICS_LABEL),
+            misFilenameWord(metricsUnitLabel(view.filters.metricsUnit)),
+          ])}
         />
       }
     >
@@ -1224,6 +1237,9 @@ const EXIT_ARR_SUB_COLUMNS = [{ key: "amount", label: "Exit ARR", width: 200 }] 
  */
 const exportFilenameFor = (table: MisTable): string =>
   misExportFilename(["arr_dashboard", misFilenameWord(MIS_TABLE_LABELS[table])]);
+
+const metricsUnitLabel = (code: string): string =>
+  MIS_METRICS_UNITS.find((unit) => unit.code === code)?.label ?? "";
 
 /**
  * The Region Summary's second view has no `MisTable` of its own — it is a view
