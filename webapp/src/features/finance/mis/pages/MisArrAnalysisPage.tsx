@@ -85,7 +85,7 @@ import { analysisSurfaceSx, brandText, primaryTint } from "../components/misLook
 // screen is serialised today.
 
 /** The screen's own name, in the rail, the tab title and the heading. */
-const TITLE = "ARR Analysis";
+const TITLE = "Portfolio";
 
 export default function MisArrAnalysisPage() {
   useDocumentTitle(TITLE);
@@ -109,7 +109,7 @@ export default function MisArrAnalysisPage() {
         isError: configs.isError,
         errorMessage: configs.errorMessage,
         retry: configs.retry,
-        describe: "whether ARR Analysis is available",
+        describe: "whether Portfolio is available",
       }}
     >
       <ArrAnalysis />

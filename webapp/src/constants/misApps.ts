@@ -108,7 +108,7 @@ export const MIS_APPS: readonly MenuApp[] = [
         requires: ["admin"],
         path: misPaths.arrBuild,
       },
-      // ARR Analysis is listed like any other screen, flag and all. The flag is
+      // Portfolio is listed like any other screen, flag and all. The flag is
       // a per-reader runtime answer from GET /app-configs and this is a module
       // constant evaluated once at import, so it could not live here even if it
       // wanted to: the rail hides the row by asking `useMisGate`, which folds
@@ -116,7 +116,7 @@ export const MIS_APPS: readonly MenuApp[] = [
       // is ABSENT rather than disabled, and the route redirects to ARR Build.
       {
         id: "mis-analysis",
-        label: "ARR Analysis",
+        label: "Portfolio",
         desc: "Current ARR by partner model, region and industry, over an account-level table.",
         requires: ["admin"],
         path: misPaths.analysis,

@@ -108,12 +108,12 @@ describe("the ladder above the page", () => {
     };
     render(
       <MemoryRouter>
-        <MisShell gateId="mis-analysis" title="ARR Analysis">
+        <MisShell gateId="mis-analysis" title="Portfolio">
           <div>the real page</div>
         </MisShell>
       </MemoryRouter>,
     );
-    expect(screen.getByRole("heading", { name: "ARR Analysis isn't available" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Portfolio isn't available" })).toBeInTheDocument();
     expect(screen.queryByText(/don't have access to finance mis/i)).not.toBeInTheDocument();
     expect(screen.queryByText("the real page")).not.toBeInTheDocument();
   });

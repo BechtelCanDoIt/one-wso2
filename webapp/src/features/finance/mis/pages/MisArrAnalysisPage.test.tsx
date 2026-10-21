@@ -177,7 +177,8 @@ beforeEach(() => {
 describe("with the flag on", () => {
   it("opens for someone holding the ARR privilege", () => {
     show();
-    expect(screen.getByRole("heading", { level: 1, name: "ARR Analysis" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Portfolio" })).toBeInTheDocument();
+    expect(document.title).toBe("Portfolio · One WSO2");
     expect(screen.getByRole("grid")).toBeInTheDocument();
     // Logo count beside the ARR figure, and no clock on this screen.
     expect(screen.getByText("LOGO COUNT")).toBeInTheDocument();
@@ -221,7 +222,7 @@ describe("while the flag is unknown", () => {
     show();
     expect(screen.queryByText("the ARR Build")).not.toBeInTheDocument();
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 1, name: "ARR Analysis" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Portfolio" })).toBeInTheDocument();
   });
 
   it("says so with a retry when the call failed, rather than relocating anyone", async () => {

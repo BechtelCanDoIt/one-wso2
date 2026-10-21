@@ -47,18 +47,19 @@ describe("the Finance MIS registry", () => {
 
   // One row for the dashboard. Quarterly and Monthly stay routes of that row,
   // gated on their own ids, and are not rows of their own.
-  it("lists the dashboard and ARR Analysis", () => {
+  it("lists the dashboard and Portfolio", () => {
     expect(items.map((item) => item.id).sort()).toEqual(["mis-analysis", "mis-arr-build"]);
     expect(items.find((item) => item.id === "mis-arr-build")?.label).toBe("ARR Dashboard");
   });
 
-  // ARR Analysis is in the registry unconditionally, and has to be: the
+  // Portfolio is in the registry unconditionally, and has to be: the
   // `productsUsageEnabled` flag that decides whether it exists is a per-reader
   // runtime answer from GET /app-configs, where this list is a module constant
   // evaluated once at import. The rail hides the row by asking `useMisGate`,
-  // which folds the flag in — see the gate's ARR Analysis case.
-  it("lists ARR Analysis, and leaves the flag to the gate", () => {
+  // which folds the flag in — see the gate's Portfolio case.
+  it("lists Portfolio, and leaves the flag to the gate", () => {
     const analysis = items.find((item) => item.id === "mis-analysis");
+    expect(analysis?.label).toBe("Portfolio");
     expect(analysis?.path).toBe("/finance/mis/analysis");
   });
 
