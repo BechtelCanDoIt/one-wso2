@@ -24,8 +24,3 @@ dist-ssr
 
 # Runtime config — never commit env-specific values
 public/config.js
-
-# Playwright
-e2e/.auth/
-playwright-report/
-test-results/
