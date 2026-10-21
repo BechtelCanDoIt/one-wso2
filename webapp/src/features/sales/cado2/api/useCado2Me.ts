@@ -34,6 +34,8 @@ export interface Cado2Me {
   readonly roles: readonly Cado2Role[];
   /** Approval roles such as "DEAL_DESK"; an approver needs no CadO2 role. */
   readonly approverRoles: readonly string[];
+  /** Sales regions the caller approves in, e.g. "NA" (D13). */
+  readonly regions?: readonly string[];
 }
 
 /**
