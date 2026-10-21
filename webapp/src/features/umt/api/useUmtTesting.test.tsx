@@ -65,7 +65,9 @@ describe("useUmtStagingTestResults", () => {
     for (const state of enabledStates) {
       const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
       renderHook(() => useUmtStagingTestResults("42", state), { wrapper: wrapper(client) });
-      const query = client.getQueryCache().find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42"] });
+      const query = client
+        .getQueryCache()
+        .find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42", state] });
       const options = query!.options as unknown as { enabled: boolean };
       expect(options.enabled).toBe(true);
     }
@@ -74,7 +76,7 @@ describe("useUmtStagingTestResults", () => {
     renderHook(() => useUmtStagingTestResults("42", "Released"), { wrapper: wrapper(client) });
     const disabledQuery = client
       .getQueryCache()
-      .find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42"] });
+      .find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42", "Released"] });
     const disabledOptions = disabledQuery!.options as unknown as { enabled: boolean };
     expect(disabledOptions.enabled).toBe(false);
   });
@@ -82,7 +84,9 @@ describe("useUmtStagingTestResults", () => {
   it("polls while in a transient state and stops once Staging or Failed is reached", () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     renderHook(() => useUmtStagingTestResults("42", "TestingEnvironmentRequested"), { wrapper: wrapper(client) });
-    const query = client.getQueryCache().find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42"] });
+    const query = client
+      .getQueryCache()
+      .find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42", "TestingEnvironmentRequested"] });
     const options = query!.options as unknown as { refetchInterval: (q: unknown) => number | false };
     expect(options.refetchInterval({})).toBe(3000);
 
@@ -90,7 +94,7 @@ describe("useUmtStagingTestResults", () => {
     renderHook(() => useUmtStagingTestResults("42", "Staging"), { wrapper: wrapper(stoppedClient) });
     const stoppedQuery = stoppedClient
       .getQueryCache()
-      .find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42"] });
+      .find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42", "Staging"] });
     const stoppedOptions = stoppedQuery!.options as unknown as { refetchInterval: (q: unknown) => number | false };
     expect(stoppedOptions.refetchInterval({})).toBe(false);
   });

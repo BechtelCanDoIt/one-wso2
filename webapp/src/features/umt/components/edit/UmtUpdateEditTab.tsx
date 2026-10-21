@@ -39,7 +39,7 @@ import { isIntegrationTestsComplete } from "../../lib/umtIntegrationTests";
 import { umtHasSecurityAdvisory } from "../../lib/umtSecurityAdvisory";
 import { umtCanReleaseHotfix, umtHotfixTestsPassed } from "../../lib/umtHotfixRelease";
 import { UMT_UPDATE_LOCKED_MESSAGE, umtIsUpdateLocked } from "../../lib/umtUpdateLock";
-import { isTestingComplete } from "../../lib/umtTesting";
+import { isTestingComplete, umtTestingBlocker } from "../../lib/umtTesting";
 import { useUmtStagingTestResults } from "../../api/useUmtTesting";
 import UmtEditStepActions from "./UmtEditStepActions";
 import UmtEditStepPlaceholder from "./UmtEditStepPlaceholder";
@@ -176,16 +176,21 @@ export default function UmtUpdateEditTab({
     update.lifecycle !== "SecurityUpdateLifecycle" ||
     !(isSecurityAdvisory || isIntegrationTests) ||
     umtHasSecurityAdvisory(update.securityAdvisories);
-  // Proceed here requires a two-part gate: the environment/backend side
-  // must have reached Staging, AND every product's manual test result must
-  // already be submitted.
+  // Proceed here requires a two-part gate: the environment must have reached
+  // Staging, AND the results must be in order — at least one record, every
+  // automated run successful (an admin may go past that), and every product's
+  // manual test result submitted.
+  const testingBlocker = stagingTestResults.isSuccess
+    ? umtTestingBlocker(stagingTestResults.data, gate.isAdmin)
+    : null;
   const testingReady =
     !isTesting ||
     (isHotfixTesting
       ? update.lifecycleState === "TestingEnvironmentFailed" ||
         (isHotfixRelease &&
           umtCanReleaseHotfix({ testsPassed: hotfixTestsPassed, isAdmin: gate.isAdmin, isProductLead: gate.isProductLead }))
-      : stagingTestResults.isSuccess && isTestingComplete(update.lifecycleState, stagingTestResults.data));
+      : stagingTestResults.isSuccess &&
+        isTestingComplete(update.lifecycleState, stagingTestResults.data, { isAdmin: gate.isAdmin }));
   // Only Released has a real forward action (the Complete Update dialog);
   // every other verifying-family state (UATStaging/UAT/UATRequested/OnHold)
   // has no working transition in this pass, so Proceed stays disabled for
@@ -352,7 +357,11 @@ export default function UmtUpdateEditTab({
                               ? "Waiting for the hotfix testing environment to be created."
                               : update.lifecycleState !== "Staging"
                                 ? "Waiting for the testing environment to reach Staging before proceeding."
-                                : "Every product needs a submitted test result before proceeding."
+                                : testingBlocker === "no-results"
+                                  ? "There are no test results to review yet."
+                                  : testingBlocker === "automated-run"
+                                    ? "The automated tests must pass before proceeding. Only an admin can proceed without a pass."
+                                    : "Every product needs a submitted test result before proceeding."
                           : !verifyingReady
                             ? "This state has no further action available yet."
                             : undefined

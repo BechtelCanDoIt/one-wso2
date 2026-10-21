@@ -316,6 +316,37 @@ describe("Testing and Validate (Staging)", () => {
 
     expect(forwardButton()).toBeDisabled();
   });
+
+  it("holds Testing's Next while there are no staging rows to review", () => {
+    state.stagingResults = [];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText("There are no test results to review yet.")).toBeInTheDocument();
+  });
+
+  it("holds Testing's Next while an automated run has not succeeded, and says why", () => {
+    state.stagingResults = [{ productId: 1, manualTestResult: "success", automatedTestResult: "failure" }];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/The automated tests must pass before proceeding/)).toBeInTheDocument();
+  });
+
+  it("lets an admin past an automated run that has not succeeded", () => {
+    state.isAdmin = true;
+    state.stagingResults = [{ productId: 1, manualTestResult: "success", automatedTestResult: "failure" }];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeEnabled();
+  });
+
+  it("opens Testing's Next once every automated run and manual result has succeeded", () => {
+    state.stagingResults = [{ productId: 1, manualTestResult: "success", automatedTestResult: "success" }];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeEnabled();
+  });
 });
 
 describe("File Approval", () => {
