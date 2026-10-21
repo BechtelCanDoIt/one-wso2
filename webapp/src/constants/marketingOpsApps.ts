@@ -65,7 +65,6 @@ import {
   WrenchIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
-import { isPreviewEnabled } from "@config/previewFeatures";
 
 export const MARKETING_OPS_APPS: readonly MenuApp[] = [
   {
@@ -177,49 +176,42 @@ export const MARKETING_OPS_APPS: readonly MenuApp[] = [
       },
     ],
   },
-  // Behind a preview flag until the port is released. With it off the entry
-  // does not exist, so the rail, the landing page and the gate's restricted-id
-  // set never hear of it. App.tsx gates the routes on the same flag.
-  ...(isPreviewEnabled("eventPlatform")
-    ? ([
-        {
-          // The agenda-organizer port — a different app from Events above (attendee
-          // workbooks), which is why its ids are `mops-event-platform*` and never
-          // `mops-events-*`. Placed next to Events because the two are used by the
-          // same people around the same events.
-          key: "event-platform",
-          name: "Event Platform",
-          icon: CalendarRangeIcon,
-          purpose:
-            "Plan an event's agenda, speakers, rooms and activities, and run its swag shop.",
-          // A shop-only user sees one item; keep it inside the group so the
-          // operation's shape doesn't change with the caller's role.
-          alwaysGroup: true,
-          items: [
-            // The source's DashboardSideBar, as rail items rather than a tab row, so
-            // the operation reads as a group like its neighbours. Inside an event the
-            // tabs take over — see event-platform/eventPlatformTabs.ts.
-            //
-            // All Events opens for either role, so a shop-only user still has a way
-            // in; Speakers is admin-only, as in the source.
-            {
-              id: "mops-event-platform-events",
-              label: "All Events",
-              desc: "Every event on the platform — open one to plan its agenda or run its shop.",
-              requires: ["admin"],
-              path: "/marketing-ops/event-platform/events",
-            },
-            {
-              id: "mops-event-platform-speakers",
-              label: "Speakers",
-              desc: "The speaker library shared by every event.",
-              requires: ["admin"],
-              path: "/marketing-ops/event-platform/speakers",
-            },
-          ],
-        },
-      ] satisfies MenuApp[])
-    : []),
+  {
+    // Event agendas, speakers and swag shops — a different app from Events
+    // above (attendee workbooks), which is why its ids are `mops-event-platform*`
+    // and never `mops-events-*`. Placed next to Events because the two are used
+    // by the same people around the same events.
+    key: "event-platform",
+    name: "Event Platform",
+    icon: CalendarRangeIcon,
+    purpose:
+      "Plan an event's agenda, speakers, rooms and activities, and run its swag shop.",
+    // A shop-only user sees one item; keep it inside the group so the
+    // operation's shape doesn't change with the caller's role.
+    alwaysGroup: true,
+    items: [
+      // The platform-wide pages, as rail items rather than a tab row, so the
+      // operation reads as a group like its neighbours. Inside an event the
+      // tabs take over — see event-platform/eventPlatformTabs.ts.
+      //
+      // All Events opens for either role, so a shop-only user still has a way
+      // in to an event's shop; Speakers is for admins only.
+      {
+        id: "mops-event-platform-events",
+        label: "All Events",
+        desc: "Every event on the platform — open one to plan its agenda or run its shop.",
+        requires: ["admin"],
+        path: "/marketing-ops/event-platform/events",
+      },
+      {
+        id: "mops-event-platform-speakers",
+        label: "Speakers",
+        desc: "The speaker library shared by every event.",
+        requires: ["admin"],
+        path: "/marketing-ops/event-platform/speakers",
+      },
+    ],
+  },
   {
     key: "crm-upload",
     name: "CRM Upload",
@@ -387,10 +379,7 @@ export const MARKETING_OPS_EYEBROW = {
   emailWorkbench: eyebrowFor("email-workbench"),
   adCampaigns: eyebrowFor("ad-campaigns"),
   events: eyebrowFor("events"),
-  // A literal rather than eyebrowFor(...): Event Platform sits behind a
-  // preview flag, and with it off the lookup's `!` would throw at module load
-  // and take the whole app down.
-  eventPlatform: { icon: CalendarRangeIcon, label: "Event Platform" },
+  eventPlatform: eyebrowFor("event-platform"),
   crmUpload: eyebrowFor("crm-upload"),
   designStudio: eyebrowFor("design-studio"),
   utilities: eyebrowFor("utilities"),

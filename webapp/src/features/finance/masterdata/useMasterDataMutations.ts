@@ -21,6 +21,7 @@ import { financeMasterDataServiceUrls } from "@config/apiConfig";
 import { MASTER_DATA_SNACK } from "./masterDataCopy";
 import {
   MASTER_DATA_ENDPOINTS,
+  MASTER_DATA_STATUS,
   type MasterDataPayload,
   type MasterDataTab,
 } from "./masterDataTypes";
@@ -108,4 +109,24 @@ export function describeDeleteError(error: unknown): string {
     return MASTER_DATA_SNACK.error.deleteConflict;
   }
   return MASTER_DATA_SNACK.error.deleting;
+}
+
+/**
+ * Which sentence a failed update should say.
+ *
+ * A 409 is one of two opposite refusals: retiring a record something still
+ * references, or reactivating an expense type whose Gl code is inactive. They
+ * need opposite things from the reader, so the patch's own status picks the
+ * sentence.
+ */
+export function describeUpdateError(error: unknown, patch?: Partial<MasterDataPayload>): string {
+  if (error instanceof HttpError && error.status === 409) {
+    // An edit that never touched status carries none, and the references
+    // reading is the one that applies.
+    const status = (patch as { status?: string } | undefined)?.status?.toLowerCase();
+    return status === MASTER_DATA_STATUS.active
+      ? MASTER_DATA_SNACK.error.reactivateConflict
+      : MASTER_DATA_SNACK.error.deleteConflict;
+  }
+  return MASTER_DATA_SNACK.error.updating;
 }

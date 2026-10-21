@@ -18,15 +18,15 @@ import type { JSX } from "react";
 import { Stack, Typography } from "@wso2/oxygen-ui";
 import { LandmarkIcon } from "@wso2/oxygen-ui-icons-react";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { renewalStartWarning } from "@features/sales/cado2/quotes/form/renewalStart";
 import { termLabel, type QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import SheetCard, { Fact, FactGrid } from "@features/sales/cado2/components/section-card/SectionCard";
 
-const BILLING = { ANNUAL: "Annually in advance", UPFRONT: "Upfront, whole term" };
 
 /** The term fact: its dates and mode, or the start date alone for services only. */
 function termFact(sheet: QuoteSheet): { label: string; value: string; hint: string } {
   if (!sheet.recurring) {
-    return { label: "Start date", value: sheet.startDate ? formatDate(sheet.startDate) : "", hint: "No subscription term: services only" };
+    return { label: "Start date", value: sheet.startDate ? formatDate(sheet.startDate) : "", hint: "No subscription term: no recurring products" };
   }
   return {
     label: "Subscription term",
@@ -35,7 +35,7 @@ function termFact(sheet: QuoteSheet): { label: string; value: string; hint: stri
   };
 }
 
-/** Who sells, for how long, and how it is billed. */
+/** Who sells and for how long. Billing is under Commercial Terms (D86). */
 export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
   const term = termFact(sheet);
   return (
@@ -46,11 +46,13 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
           value={sheet.dealType === "PARTNER" ? "Partner deal" : sheet.dealType === "DIRECT" ? "Direct deal" : "Unknown"}
           hint={sheet.dealType ? undefined : "Salesforce has no Direct / Partner value"}
         />
+        {sheet.dealType === "PARTNER" ? (
+          <Fact label="Partner" value={sheet.partner?.name} hint={sheet.partner?.role ?? undefined} />
+        ) : null}
         <Fact label="Sales region" value={sheet.salesRegion || "Not set in Salesforce"} />
         <Fact label="Sub-region" value={sheet.subRegion || "Not set"} />
         <Fact label="WSO2 legal entity" value={sheet.legalEntity?.name} hint={sheet.legalEntity?.address} />
         <Fact label={term.label} value={term.value} hint={term.hint} />
-        {sheet.recurring ? <Fact label="Billing" value={sheet.billingFrequency ? BILLING[sheet.billingFrequency] : ""} /> : null}
         <Fact label="Currency" value={sheet.currency} />
         {sheet.pricebookName ? (
           <Fact label="Price book" value={sheet.pricebookName} hint="The Salesforce opportunity's; every line is priced from it" />
@@ -71,7 +73,17 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
                 `${sheet.previousOpportunityCount} previous opportunit${sheet.previousOpportunityCount === 1 ? "y" : "ies"}`
               )
             }
-            hint="Previous ARR not available yet"
+            hint={
+              sheet.renewalStart?.differs && sheet.startDate ? (
+                <Typography variant="caption" color="warning.main">
+                  ⚠ {renewalStartWarning(sheet.startDate, sheet.renewalStart)}
+                </Typography>
+              ) : sheet.renewalStart ? (
+                `Starts the day after ${sheet.renewalStart.fromName || "it"} ends`
+              ) : (
+                "Previous ARR not available yet"
+              )
+            }
           />
         ) : null}
         <Fact label="Pricing rules" value={sheet.pricingRulesVersion} />

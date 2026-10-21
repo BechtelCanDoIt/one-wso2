@@ -18,8 +18,7 @@ import type { UmtLifecycle, UmtLifecycleState } from "../api/umtTypes";
 import type { UmtPullRequestAnalysis } from "../api/umtUpdates";
 
 export type UmtEditStepId =
-  | "pr-analysis"
-  | "product-analysis"
+  | "files-analysis"
   | "description-instruction"
   | "security-advisory"
   | "integration-tests"
@@ -36,7 +35,7 @@ export interface UmtEditStepDefinition {
   label: string;
   // True only for the steps whose Proceed action is real, wired-up
   // behavior in this pass (File Approval, Cloud Support's Development step,
-  // Product Analysis, Description and Instruction, Security Advisory,
+  // Files Analysis, Description and Instruction, Security Advisory,
   // Integration Tests, and Testing). Every other step is a placeholder
   // pending its own future implementation.
   proceedWired: boolean;
@@ -49,8 +48,7 @@ export interface UmtEditStepDefinition {
 }
 
 const NORMAL_STEPS_BASE: UmtEditStepDefinition[] = [
-  { id: "pr-analysis", label: "PR Analysis", proceedWired: false },
-  { id: "product-analysis", label: "Product Analysis", proceedWired: true },
+  { id: "files-analysis", label: "Files Analysis", proceedWired: true },
   {
     id: "description-instruction",
     label: "Description and Instruction",
@@ -159,10 +157,12 @@ export function umtHasAdditionalFileOperations(
 // reached via the local override from Testing's Proceed, never restored
 // directly from a backend lifecycleState on reload.
 // TestingEnvironmentRequested/Created/Failed all map to "testing" so the step
-// doesn't get stuck at its default.
+// doesn't get stuck at its default. Development and PRAnalyzed both map to
+// "files-analysis": the step shows the PR analysis in Development, and the PR
+// analysis followed by the product analysis in PRAnalyzed.
 const LIFECYCLE_STATE_TO_STEP: Partial<Record<UmtLifecycleState, UmtEditStepId>> = {
-  Development: "pr-analysis",
-  PRAnalyzed: "product-analysis",
+  Development: "files-analysis",
+  PRAnalyzed: "files-analysis",
   ProductAnalyzed: "description-instruction",
   TestingEnvironmentRequested: "testing",
   TestingEnvironmentCreated: "testing",
@@ -189,7 +189,7 @@ export function umtActiveStepId(
 ): UmtEditStepId {
   const isCloudSupport = steps.some((step) => step.id === "cloud-development");
   const table = isCloudSupport ? CLOUD_SUPPORT_STATE_TO_STEP : LIFECYCLE_STATE_TO_STEP;
-  const fallback: UmtEditStepId = isCloudSupport ? "cloud-development" : "pr-analysis";
+  const fallback: UmtEditStepId = isCloudSupport ? "cloud-development" : "files-analysis";
 
   const mapped = lifecycleState ? table[lifecycleState] : undefined;
   if (mapped && steps.some((step) => step.id === mapped)) return mapped;

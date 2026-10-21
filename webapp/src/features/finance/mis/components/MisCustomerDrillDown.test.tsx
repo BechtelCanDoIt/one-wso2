@@ -88,6 +88,18 @@ describe("what the dialog says it is showing", () => {
 });
 
 describe("the customers themselves", () => {
+  it("keeps the list at the dialog's own height", () => {
+    // The page tables grow to the shared cap and the page scrolls past them.
+    // This list is inside a dialog. That cap is taller than the dialog, so
+    // the list would scroll inside a scroller that itself does not fit. The
+    // loading state is the same 420, so the dialog does not jump when the
+    // rows arrive.
+    renderDialog();
+    expect(screen.getByRole("region", { name: "Customers behind this figure" })).toHaveStyle({
+      maxHeight: "420px",
+    });
+  });
+
   it("lists one row per customer, under the column headings", () => {
     renderDialog();
     const table = screen.getByRole("table");
@@ -170,7 +182,8 @@ describe("taking the customers out of the browser", () => {
     const { blobs, filenames } = captureDownloads();
     renderDialog({ state: loaded([{ ...NORTHWIND, amount: 1_234_567.5 }]) });
 
-    await userEvent.click(screen.getByRole("button", { name: /export/i }));
+    await userEvent.click(screen.getByRole("button", { name: /^export$/i }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /^excel/i }));
     await waitFor(() => expect(blobs).toHaveLength(1));
 
     const workbook = new ExcelJS.Workbook();

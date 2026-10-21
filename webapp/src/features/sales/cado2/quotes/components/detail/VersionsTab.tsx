@@ -35,12 +35,14 @@ import {
   ToggleButtonGroup,
   Typography,
 } from "@wso2/oxygen-ui";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { useQuoteVersion } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { STATUS_COLOR, STATUS_LABEL, compareVersions, type CompareRow } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
+import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 
 const CHANGE_LABEL = { added: "Added", removed: "Removed", changed: "Changed", same: "" };
 
@@ -50,6 +52,7 @@ export default function VersionsTab({ quote, currency }: { quote: QuoteView; cur
   // Only the owner acts on a quote; a draft is always the latest version, and
   // the owner can then close it, so CLOSE doubles as "may edit the draft".
   const canEdit = quote.actions.includes("CLOSE");
+  const latestNumber = versions.at(-1)?.versionNumber;
   return (
     <Stack spacing={3}>
       <TableContainer component={Paper} variant="outlined">
@@ -73,15 +76,26 @@ export default function VersionsTab({ quote, currency }: { quote: QuoteView; cur
               <TableRow key={v.versionNumber} hover>
                 <TableCell>v{v.versionNumber}</TableCell>
                 <TableCell>
-                  <Chip size="small" color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
+                  <StatusChip color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
                 </TableCell>
                 <TableCell>{v.submittedAt ? formatDate(v.submittedAt.slice(0, 10)) : "—"}</TableCell>
                 <TableCell align="right">{`${currency} ${formatMoney(v.tcv)}`.trim()}</TableCell>
                 <TableCell>{formatDate(v.updatedAt.slice(0, 10))}</TableCell>
                 <TableCell align="right">
-                  <Button size="small" component={RouterLink} to={cado2Paths.editVersion(quote.id, v.versionNumber)}>
-                    {v.status === "DRAFT" && canEdit ? "Edit" : "View"}
-                  </Button>
+                  {/* View mode is the quote page; the wizard only edits a draft (2026-10-13). */}
+                  {v.status === "DRAFT" && canEdit ? (
+                    <Button size="small" component={RouterLink} to={cado2Paths.editVersion(quote.id, v.versionNumber)}>
+                      Edit draft
+                    </Button>
+                  ) : (
+                    <Button
+                      size="small"
+                      component={RouterLink}
+                      to={cado2Paths.quote(quote.id, "quote", false, v.versionNumber === latestNumber ? undefined : v.versionNumber)}
+                    >
+                      View
+                    </Button>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
@@ -126,7 +140,19 @@ function Compare({ quote }: { quote: QuoteView }): JSX.Element {
           <ToggleButton value={false}>All fields</ToggleButton>
         </ToggleButtonGroup>
       </Stack>
-      {a.isPending || b.isPending ? (
+      {/* A failed load is an error, never "No differences." (2026-10-13). */}
+      {a.error || b.error ? (
+        <ErrorNotice
+          error={a.error ?? b.error}
+          onRetry={() => {
+            void a.refetch();
+            void b.refetch();
+          }}
+          retrying={a.isFetching || b.isFetching}
+        >
+          Couldn&apos;t load the versions to compare.
+        </ErrorNotice>
+      ) : a.isPending || b.isPending ? (
         <CircularProgress size={24} aria-label="Loading the versions" />
       ) : shown.length === 0 ? (
         <Typography variant="body2" color="text.secondary">

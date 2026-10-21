@@ -30,7 +30,7 @@ describe("WizardStepper", () => {
     expect(nav().getByRole("button", { name: "Products & Pricing" })).toHaveAttribute("aria-current", "step");
     expect(nav().getByRole("button", { name: "Products & Pricing" })).toHaveTextContent("In progress");
     expect(nav().getByRole("button", { name: "Products & Pricing" })).not.toHaveTextContent(/to complete/); // no counts (F5 review)
-    expect(nav().getByRole("button", { name: "Commercial" })).toBeDisabled();
+    expect(nav().getByRole("button", { name: "Commercials" })).toBeDisabled();
     expect(nav().getByRole("button", { name: "Review" })).toBeDisabled();
 
     await userEvent.setup().click(nav().getByRole("button", { name: "Overview" }));
@@ -40,14 +40,14 @@ describe("WizardStepper", () => {
   it("opens the next step once the current one is complete", () => {
     render(<WizardStepper active={1} reachable={2} readOnly={false} onSelect={vi.fn()} />);
     expect(nav().getByRole("button", { name: "Products & Pricing" })).toHaveTextContent("In progress");
-    expect(nav().getByRole("button", { name: "Commercial" })).toBeEnabled();
-    expect(nav().getByRole("button", { name: "Commercial" })).toHaveTextContent("Up next");
+    expect(nav().getByRole("button", { name: "Commercials" })).toBeEnabled();
+    expect(nav().getByRole("button", { name: "Commercials" })).toHaveTextContent("Up next");
     expect(nav().getByRole("button", { name: "Review" })).toBeDisabled();
   });
 
   it("lets a read-only version be browsed freely", () => {
     render(<WizardStepper active={3} reachable={0} readOnly onSelect={vi.fn()} />);
-    for (const name of ["Overview", "Products & Pricing", "Commercial"]) {
+    for (const name of ["Overview", "Products & Pricing", "Commercials"]) {
       expect(nav().getByRole("button", { name })).toBeEnabled();
     }
     expect(nav().getByRole("button", { name: "Review" })).toHaveTextContent("Check & submit");

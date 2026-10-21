@@ -52,6 +52,9 @@ export function activeGroupIds(
 ): Set<string> {
   const ids = new Set<string>();
   for (const s of sections) {
+    // A tabbed app is one row. Its children are screens for pins and for
+    // lighting that row, not an accordion to open.
+    if (s.inTabs) continue;
     if (s.children?.some((c) => c.path && onPathOrBelow(c.path, pathname))) {
       ids.add(s.id);
     }
@@ -66,6 +69,16 @@ export function activeGroupIds(
  * path prefixes another's would steal it; only when nothing matches exactly do
  * descendants count.
  */
+/**
+ * True when this tabbed app owns the URL: the row's own path, or any screen
+ * kept as a child so pins can name it. Those children are not rows, so the
+ * app's row is what lights.
+ */
+function holdsTabbedScreen(section: PerspectiveSection, pathname: string): boolean {
+  if (section.path && onPathOrBelow(section.path, pathname)) return true;
+  return section.children?.some((c) => c.path && onPathOrBelow(c.path, pathname)) ?? false;
+}
+
 export function activeItemId({
   sections,
   pathname,
@@ -78,6 +91,9 @@ export function activeItemId({
   overviewId: string;
 }): string {
   for (const s of sections) {
+    // Before the child walk. A tabbed app's screens match exactly, and
+    // returning the child would light a row the rail does not render.
+    if (s.inTabs && holdsTabbedScreen(s, pathname)) return s.id;
     if (s.path && matchPath(s.path, pathname)) return s.id;
     for (const c of s.children ?? []) {
       if (c.path && matchPath(c.path, pathname)) return c.id;
@@ -134,4 +150,40 @@ export function visibleLeavesOf(
     }
   }
   return leaves;
+}
+
+/**
+ * The first leaf in rail order someone may open — WITHOUT skipping ahead of a
+ * higher-ranked one that simply hasn't answered yet.
+ *
+ * `visibleLeaves[0]` is not this: it is built by filtering out everything not
+ * YET visible, so a leaf two gates down that answered quickly can land ahead
+ * of one first in rail order whose gate is merely slower — the exact bug
+ * PerspectiveLanding was reviewed for landing someone on the wrong screen.
+ *
+ * `sectionAnswered` is what makes the difference: walking rail order, this
+ * stops and returns `undefined` ("not decidable yet") the moment it reaches a
+ * section whose own answer isn't final, rather than skipping past it to a
+ * later one that happens to be. Only once every section ABOVE a visible one
+ * has settled — visible or not — does that one count as "the first".
+ */
+export function firstVisibleLeaf(
+  sections: readonly PerspectiveSection[],
+  resolveVisible: (s: PerspectiveSection) => boolean,
+  sectionAnswered: (s: PerspectiveSection) => boolean,
+): PerspectiveSection | undefined {
+  for (const s of sections) {
+    if (!sectionAnswered(s)) return undefined;
+    if (!resolveVisible(s)) continue;
+    if (s.children?.length) {
+      for (const c of s.children) {
+        if (!c.path) continue;
+        if (!sectionAnswered(c)) return undefined;
+        if (resolveVisible(c)) return c;
+      }
+      continue;
+    }
+    if (s.path) return s;
+  }
+  return undefined;
 }

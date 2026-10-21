@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 import { Typography } from "@wso2/oxygen-ui";
-import { sanitizeTilHtml } from "../util/tilRichText";
+import { tilDisplayHtml } from "../util/tilRichText";
 
 // Read-only rendering of a submission's `what`, shared by SubmissionCard
 // (feed list) and TilEntryPage (the entry's own page) so the two views
@@ -33,7 +33,7 @@ export default function TilWhatContent({ html, variant = "body2" }: { html: stri
         "& ol > li": { listStyleType: "decimal" },
         "& p": { my: "0.4em" },
       }}
-      dangerouslySetInnerHTML={{ __html: sanitizeTilHtml(html) }}
+      dangerouslySetInnerHTML={{ __html: tilDisplayHtml(html) }}
     />
   );
 }

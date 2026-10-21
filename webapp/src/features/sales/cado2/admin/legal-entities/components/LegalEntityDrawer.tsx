@@ -65,7 +65,7 @@ const FIELDS: readonly { name: FieldName; label: string; required?: boolean; max
 
 const SECTIONS: readonly { key: Section; title: string; icon: ReactNode }[] = [
   { key: "identity", title: "Identity", icon: <LandmarkIcon size={16} /> },
-  { key: "address", title: "Registered address", icon: <MapPinIcon size={16} /> },
+  { key: "address", title: "Registered Address", icon: <MapPinIcon size={16} /> },
   { key: "registration", title: "Registration", icon: <BadgeCheckIcon size={16} /> },
 ];
 

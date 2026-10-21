@@ -26,8 +26,8 @@ window.config = {
   // Cafeteria menu backend (daily menu, lunch feedback, dinner orders).
   // ONE_WSO2_MENU_BACKEND_URL: "<your-menu-backend-url>",
 
-  // Today I Learned backend — the Knowledge Base perspective's learnings
-  // feed. Shown only while `til` is on in ONE_WSO2_PREVIEW_FEATURES below.
+  // Today I Learned backend — the Knowledge perspective's learnings
+  // feed.
   // ONE_WSO2_TIL_BACKEND_URL: "<your-til-backend-url>",
 
   // Subscriptions backend (PickMe Commute + LaaS opt-in/opt-out). The two
@@ -55,6 +55,13 @@ window.config = {
   // and make no requests. Salesforce record links use
   // ONE_WSO2_SALESFORCE_BASE_URL.
   // ONE_WSO2_CADO2_BACKEND_URL: "<your-cado2-backend-url>",
+
+  // Pitstop backend that serves Smart Search — powers Sales → Library, the
+  // plain-language search over Pitstop's content. Include the version segment.
+  // Shown only while `smartSearch` is on in ONE_WSO2_PREVIEW_FEATURES below.
+  // With the flag on and this unset, the page says "not connected" and makes
+  // no requests.
+  // ONE_WSO2_SMART_SEARCH_BACKEND_URL: "<your-pitstop-backend-url>",
 
   // Promotion backend. Requests carry the x-user-timezone-offset header.
   // Also powers the Me page's "Last promotion" row.
@@ -115,20 +122,17 @@ window.config = {
   //
   // Two things to get right, each of which fails silently if you don't:
   //
-  //  1. Take the *.wso2.com gateway URL, NOT the *.choreoapis.dev one Choreo
-  //     advertises next to it. The production CSP allows only *.wso2.com and
-  //     *.asgardeo.io, so a choreoapis.dev URL fails every call in a
-  //     production build with nothing in the console. It is a defect here,
-  //     not an alternative.
+  //  1. Prefer the *.wso2.com gateway URL over the *.choreoapis.dev one
+  //     Choreo advertises next to it. The production CSP allows both, so
+  //     either works; the wso2.com one is the stable vanity URL.
   //  2. The version segment is part of the URL and differs by environment —
   //     production ends /v1, staging ends /v1.0. Don't normalise them.
   //
   // Only ONE_WSO2_MIS_ARR_BACKEND_URL is configured. This app does not call
   // any other MIS service, so there is no key for one.
   //
-  // Configuring the URL is not enough to show MIS: every MIS screen is also
-  // behind the `mis` preview flag (ONE_WSO2_PREVIEW_FEATURES, below) until
-  // Finance has verified its figures.
+  // Who sees Finance MIS is the ARR privilege from this service's /user-info.
+  // ARR Analysis also stays hidden until this service turns that screen on.
   //
   // ONE_WSO2_MIS_ARR_BACKEND_URL: "<mis-arr-backend-url>",
 
@@ -172,6 +176,13 @@ window.config = {
   // https://pi.pardot.com.
   // ONE_WSO2_PARDOT_BASE_URL: "https://pi.pardot.com",
 
+  // GitHub OAuth for Infra Portal connect. Authorize URL defaults to GitHub.
+  // Redirect URL must be this app's origin + /infra/github/callback, and that
+  // exact URL must be registered on the GitHub OAuth app.
+  // ONE_WSO2_GITHUB_OAUTH_CLIENT_ID: "<github-oauth-client-id>",
+  // ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: "https://github.com/login/oauth/authorize",
+  // ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL: "https://<one-wso2-origin>/infra/github/callback",
+
   // Salesforce Lightning base URL — for deep-linking to the record an incoming
   // one collided with, from CRM Upload's review queue. A link target, not an
   // API. Defaults to https://wso2.lightning.force.com. Set it only for a
@@ -194,6 +205,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, promotion: false, engineering: false, mis: false, eventPlatform: false, cado2: false, til: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, cado2: false, nda: false, smartSearch: false },
 
 };

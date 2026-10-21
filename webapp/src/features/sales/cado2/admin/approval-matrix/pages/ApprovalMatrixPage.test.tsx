@@ -37,7 +37,14 @@ const matrix: ApprovalMatrix = {
     },
   ],
   mappings: [{ field: "PRODUCT_UNIT", value: "APIM", groupCode: "PLATFORM" }],
-  settings: { shortTermMonths: "12", longTermMonths: "36", paymentTermsDays: 45, downsellCeoPercent: "5", saasClassification: "CL" },
+  settings: {
+    shortTermMonths: "12",
+    longTermMonths: "36",
+    paymentTermsDays: 45,
+    downsellCeoPercent: "10",
+    saasClassification: "CL",
+    billingApproval: ["MONTHLY", "QUARTERLY", "SPECIAL_TERMS"],
+  },
   roles: [
     { code: "ACCOUNT_MANAGER", label: "Account Manager", ladder: true, reviewer: false },
     { code: "REGIONAL_DIRECTOR", label: "Regional Director", ladder: true, reviewer: false },
@@ -86,6 +93,8 @@ describe("ApprovalMatrixPage", () => {
     // Plain text: the admin panel gives no access to the quotes themselves.
     expect(dialog.getByText("Q-26-00005")).toBeInTheDocument();
     expect(dialog.queryByRole("link", { name: "Q-26-00005" })).toBeNull();
+    // Red: it recalls other people's quotes (2026-10-13).
+    expect(dialog.getByRole("button", { name: "Save and recall" })).toHaveClass("MuiButton-colorError");
     await user.click(dialog.getByRole("button", { name: "Save and recall" }));
     expect(mutate).toHaveBeenLastCalledWith(expect.objectContaining({ confirm: true }), expect.anything());
     expect(await screen.findByText("Saved. 1 quote was recalled for resubmission.")).toBeInTheDocument();
@@ -99,8 +108,33 @@ describe("ApprovalMatrixPage", () => {
       </MemoryRouter>,
     );
     await user.click(screen.getByRole("tab", { name: "Commercial rules" }));
-    expect(screen.getByText("Short term — First Sale or Renewal (Expansions are exempt)")).toBeInTheDocument();
+    expect(screen.getByText("Short-term deals")).toBeInTheDocument();
     expect(screen.getByLabelText("Above Net (days)")).toHaveValue("45");
-    expect(screen.getByText(/pending Sales' approval\./)).toBeInTheDocument();
+    expect(screen.queryByText(/pending Sales' approval/)).toBeNull();
+  });
+
+  // D89: the admin chooses which billing frequencies need the CFO.
+  it("saves the billing frequencies that need the CFO, in list order", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ApprovalMatrixPage />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole("tab", { name: "Commercial rules" }));
+    expect(screen.getByRole("checkbox", { name: "Monthly in Advance" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Annually in Advance" })).not.toBeChecked();
+
+    await user.click(screen.getByRole("checkbox", { name: "Quarterly in Advance" }));
+    await user.click(screen.getByRole("checkbox", { name: "Upon the Execution of the Order Form" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        matrix: expect.objectContaining({
+          settings: expect.objectContaining({ billingApproval: ["MONTHLY", "UPFRONT", "SPECIAL_TERMS"] }),
+        }),
+      }),
+      expect.anything(),
+    );
   });
 });

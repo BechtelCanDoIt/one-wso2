@@ -19,6 +19,7 @@
 // decision, one line saying what was recorded.
 
 import type { ApprovalOutcome, ApprovalStep, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
+import { renewalStartWarning } from "@features/sales/cado2/quotes/form/renewalStart";
 
 /** What kind of rule asked for the approval; picks the row's icon. */
 export type ReasonKind = "discount" | "review" | "terms" | "term" | "downsell" | "payment" | "category" | "other";
@@ -48,11 +49,13 @@ const RULE: Record<string, { kind: ReasonKind; title: string }> = {
   GOVERNING_TERMS: { kind: "terms", title: "Governing terms" },
   SHORT_TERM_NEW_CUSTOMER: { kind: "term", title: "Subscription term" },
   SHORT_TERM_RENEWAL: { kind: "term", title: "Subscription term" },
+  SHORT_TERM_EXPANSION: { kind: "term", title: "Subscription term" },
   EXTENDED_TERM: { kind: "term", title: "Subscription term" },
   EXTENDED_SAAS_TERM: { kind: "term", title: "Subscription term" },
   RENEWAL_DOWNSELL: { kind: "downsell", title: "Renewal downsell" },
   RENEWAL_DOWNSELL_CEO: { kind: "downsell", title: "Renewal downsell" },
   PAYMENT_TERMS: { kind: "payment", title: "Payment terms" },
+  BILLING_FREQUENCY: { kind: "payment", title: "Billing frequency" },
 };
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
@@ -94,7 +97,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 
 /**
  * For Deal Desk: lines whose category the rep chose because the product isn't
- * mapped, e.g. "Line 3 · WSO2 Onboarding" / "Category chosen by the rep:
+ * mapped, e.g. "Line 3 · WSO2 Onboarding" / "Category chosen by the AM:
  * Professional Service". Deal Desk verifies them (quote-submission.md D46).
  */
 export function repCategoryPoints(
@@ -105,8 +108,22 @@ export function repCategoryPoints(
     .map((l) => ({
       kind: "category" as const,
       title: `Line ${l.number} · ${l.productName}`,
-      detail: `Category chosen by the rep: ${CATEGORY_LABEL[l.category] ?? l.category}`,
+      detail: `Category chosen by the AM: ${CATEGORY_LABEL[l.category] ?? l.category}`,
     }));
+}
+
+/**
+ * For Deal Desk: a renewal that doesn't start the day after the renewed
+ * opportunity ends (2026-10-09), e.g. "Start date" / "Starts 1 Mar 2027, not
+ * 1 Feb 2027, the day after APIM Subs 2026 ends". The AM may choose it; Deal
+ * Desk checks it. Nothing otherwise.
+ */
+export function renewalStartPoints(sheet: {
+  readonly startDate: string;
+  readonly renewalStart: { readonly date: string; readonly fromName: string; readonly differs: boolean } | null;
+}): ReasonRow[] {
+  if (!sheet.renewalStart?.differs || !sheet.startDate) return [];
+  return [{ kind: "term", title: "Start date", detail: renewalStartWarning(sheet.startDate, sheet.renewalStart) }];
 }
 
 /**
@@ -142,8 +159,7 @@ export function decisionNote(
   after: ApprovalWorkflow,
   approverRoles: readonly string[],
 ): string {
-  if (outcome === "reject") return `Rejected as ${step.roleLabel}. The approval has stopped.`;
-  if (outcome === "request-changes") return `Sent back for changes as ${step.roleLabel}.`;
+  if (outcome === "return") return `Returned as ${step.roleLabel}.`;
   const mine = after.steps.filter((s) => approverRoles.includes(s.role) && (s.status === "WAITING" || s.status === "PENDING"));
   if (mine.some((s) => s.canAct)) return `Approved as ${step.roleLabel}.`;
   if (mine.length) return `Approved as ${step.roleLabel}. You approve as ${mine.map((s) => s.roleLabel).join(" and ")} later.`;

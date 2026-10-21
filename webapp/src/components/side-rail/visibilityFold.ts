@@ -23,6 +23,7 @@ import { MIS_ITEM_IDS } from "@constants/misApps";
 import { INFRA_ITEM_IDS } from "@constants/infraApps";
 import { BANKING_ITEM_IDS, LEAVE_ITEM_IDS } from "@constants/meApps";
 import { PAR_EMPLOYEE_ITEM_ID } from "@constants/parApps";
+import { PROMOTION_EMPLOYEE_ITEM_ID } from "@constants/promotionApps";
 import {
   BANKING_ADMIN_ITEM_ID,
   PAR_ADMIN_PORTAL_ITEM_ID,
@@ -48,6 +49,21 @@ import { CADO2_ITEM_IDS } from "@constants/cado2Apps";
 export interface VisibilityAnswer {
   canSee: (sectionId: string) => boolean;
   resolving: boolean;
+  /**
+   * Whether THIS item's own answer is final, if different from `resolving`.
+   * Optional — most adapters ask one backend for everything they claim, so
+   * `!resolving` already means "every item I claim has answered", and
+   * `sectionAnswered` falls back to exactly that when this is omitted.
+   *
+   * Only an adapter whose items can depend on DIFFERENT SUBSETS of what it
+   * fetches needs to override this — finance is the one case today: it asks
+   * four backends, but `finance-overview` needs three of them and
+   * `claim-approval` needs two, so `resolving` (all four) can stay true long
+   * after a given item's own answer is already known. Without this, a
+   * finance item that was already decided still blocked `firstVisibleLeaf`
+   * behind an unrelated backend — see useFinanceGate's `itemAnswered`.
+   */
+  answered?: (sectionId: string) => boolean;
   /**
    * A failed read the landing should retry.
    * Omitted when a failed read means the section is not allowed.
@@ -128,6 +144,16 @@ export interface VisibilityShell {
 
 export interface FoldedVisibility {
   canSee: (section: VisibilitySection) => boolean;
+  /**
+   * Whether `canSee`'s answer for this ONE section is final — the employee
+   * record it may read capabilities/Sri-Lanka from has resolved, and so has
+   * whichever adapter owns it, if any. A caller choosing the first VISIBLE
+   * section in rail order needs this alongside `canSee`: a later section
+   * answering `true` before an earlier one has answered at all is not "the
+   * first visible one" yet, only the first one checked so far — see
+   * `firstVisibleLeaf` in `railActive.ts`, the one place this is for.
+   */
+  sectionAnswered: (section: VisibilitySection) => boolean;
   resolving: boolean;
   failed: boolean;
   error?: unknown;
@@ -135,6 +161,7 @@ export interface FoldedVisibility {
 }
 
 const PROMOTION_SECTION_IDS: ReadonlySet<string> = new Set([
+  PROMOTION_EMPLOYEE_ITEM_ID,
   PROMOTION_LEAD_PORTAL_ITEM_ID,
   PROMOTION_TEAM_HISTORY_ITEM_ID,
   PROMOTION_FUNCTIONAL_LEAD_PORTAL_ITEM_ID,
@@ -203,10 +230,9 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   if (perspectiveKey === "marketing") names.push("marketing");
   if (perspectiveKey === "finance" || perspectiveKey === "legal") names.push("due-diligence");
   if (perspectiveKey === "finance" || perspectiveKey === "me") names.push("finance");
-  // The MIS sections exist only while the preview flag is on. Asking for
-  // /user-info when they are absent holds the Finance landing on a backend
-  // that has nothing to show.
-  if (perspectiveKey === "finance" && isPreviewEnabled("mis")) names.push("mis");
+  // Finance MIS is shipped. Its rows are always in Finance, so the ARR
+  // service is asked there and a failed read stops Finance with the other checks.
+  if (perspectiveKey === "finance") names.push("mis");
   if (perspectiveKey === "me") names.push("leave", "banking");
   if (perspectiveKey === "people" || perspectiveKey === "finance") names.push("banking-admin");
   if (perspectiveKey === "infra") names.push("infra");
@@ -214,16 +240,13 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   // CadO2's rows exist only while its preview flag is on. Asking its /me when
   // they are absent would hold the Sales landing on a backend with nothing to show.
   if (perspectiveKey === "sales" && isPreviewEnabled("cado2")) names.push("cado2");
-  // The promotion sections exist only while the preview flag is on. Asking
-  // for privileges when they are absent holds the People Ops landing on a
-  // backend that has nothing to show.
-  if (perspectiveKey === "people" && isPreviewEnabled("promotion")) names.push("promotion");
+  if (perspectiveKey === "people" || perspectiveKey === "me") names.push("promotion");
   if (perspectiveKey === "security") names.push("security");
-  if (perspectiveKey === "engineering" && isPreviewEnabled("engineering")) names.push("engineering");
-  // UMT's rows exist only while its preview flag is on, same as MIS and CadO2.
-  if (perspectiveKey === "engineering" && isPreviewEnabled("engineering") && isPreviewEnabled("umt")) {
-    names.push("umt");
-  }
+  if (perspectiveKey === "engineering") names.push("engineering");
+  // UMT's rows exist only while its preview flag is on, same as CadO2.
+  // Asking its /update/user-info when they are absent holds the Engineering
+  // landing on a backend that has nothing to show.
+  if (perspectiveKey === "engineering" && isPreviewEnabled("umt")) names.push("umt");
   names.push("subscriptions");
   return names;
 }
@@ -270,6 +293,19 @@ export function foldVisibility(
     return allowedByCapabilities(section.requires, shell.capabilities);
   };
 
+  const sectionAnswered = (section: VisibilitySection): boolean => {
+    // Capabilities and the Sri-Lanka check both read off the employee record,
+    // which `canSee` consults before it even looks for an owning adapter — so
+    // nothing is answered while that is still resolving, adapter or not.
+    if (shell.employeeRecordResolving) return false;
+    const owner = adapters.find((adapter) => claimedIds(adapter, shell).has(section.id));
+    if (!owner) return true;
+    // Per-item, where the adapter provides it (finance); the aggregate
+    // `resolving` otherwise, which is correct for everyone else, since they
+    // each ask one backend for everything they claim.
+    return owner.answered ? owner.answered(section.id) : !owner.resolving;
+  };
+
   const failedAdapters = adapters.filter((adapter) => adapter.error !== undefined);
   const failed = shell.employeeRecordFailed || failedAdapters.length > 0;
   const error = shell.employeeRecordFailed ? shell.employeeRecordError : failedAdapters[0]?.error;
@@ -281,6 +317,7 @@ export function foldVisibility(
 
   return {
     canSee,
+    sectionAnswered,
     resolving: shell.employeeRecordResolving || adapters.some((adapter) => adapter.resolving),
     failed,
     error,

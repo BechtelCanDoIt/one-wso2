@@ -45,10 +45,10 @@ export function lifecycleSteps(res: DraftResponse, events: readonly AuditEvent[]
       steps.push({ label: "Recalled", when: day(e.occurredAt), who: e.actorEmail, note: e.comment, done: true, tone: "warning" });
     } else if (e.eventType === "VERSION_APPROVED") {
       steps.push({ label: "Approved", when: day(e.occurredAt), who: e.actorEmail, done: true, tone: "success" });
-    } else if (e.eventType === "APPROVAL_REJECTED" || e.eventType === "APPROVAL_CHANGES_REQUESTED") {
+    } else if (e.eventType === "APPROVAL_REJECTED" || e.eventType === "APPROVAL_RETURNED") {
       const role = typeof e.metadata?.role === "string" ? roleLabel(e.metadata.role) : "An approver";
       steps.push({
-        label: e.eventType === "APPROVAL_REJECTED" ? `Rejected by ${role}` : `Changes requested by ${role}`,
+        label: e.eventType === "APPROVAL_REJECTED" ? `Rejected by ${role}` : `Returned by ${role}`,
         when: day(e.occurredAt),
         who: e.actorEmail,
         note: e.comment,
@@ -73,7 +73,6 @@ export function lifecycleSteps(res: DraftResponse, events: readonly AuditEvent[]
   }
   if (v.status === "DRAFT") steps.push({ label: "Submit", when: "Not yet", done: false });
   if (v.status === "SUBMITTED") steps.push({ label: "In approval", when: "See Approvals", done: false });
-  if ((v.status === "SUBMITTED" || v.status === "APPROVED") && v.expiryDate)
-    steps.push({ label: "Expires", when: formatDate(v.expiryDate), done: false });
+  // The expiry is the chip above the timeline, once (C4, 2026-10-14).
   return steps;
 }

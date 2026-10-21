@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { ApprovalStep, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
-import { decisionNote, deskSummary, reasonRows } from "./myApprovals";
+import { decisionNote, deskSummary, reasonRows, renewalStartPoints } from "./myApprovals";
 
 const step = (role: ApprovalStep["role"], status: ApprovalStep["status"], over: Partial<ApprovalStep> = {}): ApprovalStep => ({
   stepId: 1, role, roleLabel: role === "DEAL_DESK" ? "Deal Desk" : role, branches: ["DISCOUNT"], dependsOn: [], triggers: [],
@@ -46,6 +46,16 @@ describe("reasonRows", () => {
     expect(reasonRows(legal)).toEqual([
       { kind: "review", title: "Line 1 · WSO2 Identity Server", group: "IAM", detail: "Legal reviews every IAM line" },
       { kind: "terms", title: "Special terms", detail: "The quote includes special terms" },
+    ]);
+  });
+
+  // D87: billing more often than once a year, or as the special terms say.
+  it("names the billing frequency rule", () => {
+    const cfo = step("CFO", "PENDING", { triggers: [
+      { rule: "BILLING_FREQUENCY", branch: "COMMERCIAL" as const, lineNumber: 0, reason: "Billed quarterly: more often than once a year" },
+    ] });
+    expect(reasonRows(cfo)).toEqual([
+      { kind: "payment", title: "Billing frequency", detail: "Billed quarterly: more often than once a year" },
     ]);
   });
 
@@ -106,9 +116,25 @@ describe("decisionNote", () => {
       .toBe("Approved as CRO. Nothing else on this quote is waiting for you.");
   });
 
-  it("names the role for a rejection or a send-back", () => {
-    const after = wf([step("CRO", "REJECTED")], "REJECTED");
-    expect(decisionNote("reject", cro, after, roles)).toBe("Rejected as CRO. The approval has stopped.");
-    expect(decisionNote("request-changes", cro, after, roles)).toBe("Sent back for changes as CRO.");
+  it("names the role for a send-back", () => {
+    const after = wf([step("CRO", "RETURNED")], "RETURNED");
+    expect(decisionNote("return", cro, after, roles)).toBe("Returned as CRO.");
+  });
+});
+
+// 2026-10-09: Deal Desk checks a renewal that starts another day than the day
+// after the renewed opportunity ends.
+describe("renewalStartPoints", () => {
+  const renewalStart = { date: "2027-02-01", fromName: "APIM Subs 2026", differs: true };
+
+  it("points it out when the start differs", () => {
+    expect(renewalStartPoints({ startDate: "2027-03-01", renewalStart })).toEqual([
+      { kind: "term", title: "Start date", detail: "Starts 1 Mar 2027, not 1 Feb 2027, the day after APIM Subs 2026 ends" },
+    ]);
+  });
+
+  it("says nothing when it starts as expected, or isn't known", () => {
+    expect(renewalStartPoints({ startDate: "2027-02-01", renewalStart: { ...renewalStart, differs: false } })).toEqual([]);
+    expect(renewalStartPoints({ startDate: "2027-02-01", renewalStart: null })).toEqual([]);
   });
 });

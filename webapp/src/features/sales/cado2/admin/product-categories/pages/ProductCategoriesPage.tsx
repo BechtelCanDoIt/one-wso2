@@ -35,11 +35,13 @@ import {
 } from "@wso2/oxygen-ui";
 import { SearchIcon, TagsIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 import type { LineCategory } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   MIN_PRODUCT_SEARCH,
@@ -137,13 +139,23 @@ function ProductCell({ name, details }: { name: string; details: readonly (strin
 export default function ProductCategoriesPage(): JSX.Element {
   const mapped = useProductCategories();
   const set = useSetProductCategory();
+  const notify = useCado2Toast();
   const [term, setTerm] = useState("");
   const search = useProductCategorySearch(useDebouncedValue(term, 300));
   const [filter, setFilter] = useState("");
   const [only, setOnly] = useState<LineCategory | "ALL">("ALL");
 
   const savingId = set.isPending ? set.variables?.productId : undefined;
-  const change = (productId: string, category: LineCategory | null) => set.mutate({ productId, category });
+  // Removing a mapping asks first; choosing or changing one is instant (2026-10-13).
+  const [unmapping, setUnmapping] = useState<{ productId: string; name: string } | null>(null);
+  const change = (productId: string, name: string, category: LineCategory | null) => {
+    if (category === null) {
+      set.reset();
+      setUnmapping({ productId, name });
+      return;
+    }
+    set.mutate({ productId, category }, { onSuccess: () => notify("Category saved") });
+  };
 
   const shown = useMemo(() => filterMapped(mapped.data ?? [], filter, only), [mapped.data, filter, only]);
   const searching = term.trim().length >= MIN_PRODUCT_SEARCH;
@@ -152,17 +164,17 @@ export default function ProductCategoriesPage(): JSX.Element {
     <Stack spacing={3} sx={{ maxWidth: 1100 }}>
       <PageHeader title="Product Categories" />
 
-      {set.error ? (
+      {set.error && !unmapping ? (
         <ErrorNotice error={set.error} onRetry={() => set.variables && set.mutate(set.variables)} retrying={set.isPending}>
           Couldn&apos;t change the category.
         </ErrorNotice>
       ) : null}
 
-      <SectionCard title="Map a product" icon={<SearchIcon size={16} />}>
+      <SectionCard title="Map a Product" icon={<SearchIcon size={16} />}>
         <Stack spacing={2}>
           <TextField
             size="small"
-            placeholder="Search Salesforce products by name"
+            placeholder="Search Salesforce products by name or product code"
             value={term}
             onChange={(e) => setTerm(e.target.value)}
             sx={{ maxWidth: 480 }}
@@ -214,7 +226,7 @@ export default function ProductCategoriesPage(): JSX.Element {
                             value={p.category}
                             saving={savingId === p.productId}
                             disabled={set.isPending}
-                            onChange={(c) => change(p.productId, c)}
+                            onChange={(c) => change(p.productId, name, c)}
                           />
                         </TableCell>
                       </TableRow>
@@ -241,7 +253,7 @@ export default function ProductCategoriesPage(): JSX.Element {
           <EmptyState
             icon={<TagsIcon size={28} />}
             title="No products mapped yet"
-            body="Until a product is mapped, reps choose its category on each line and Deal Desk checks it. Start with the products sold most often."
+            body="Until a product is mapped, AMs choose its category on each line and Deal Desk checks it. Start with the products sold most often."
           />
         ) : (
           <Stack spacing={2}>
@@ -297,13 +309,12 @@ export default function ProductCategoriesPage(): JSX.Element {
                               value={m.category}
                               saving={savingId === m.productId}
                               disabled={set.isPending}
-                              onChange={(c) => change(m.productId, c)}
+                              onChange={(c) => change(m.productId, name, c)}
                             />
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2">{formatDate(m.updatedAt.slice(0, 10))}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {m.updatedByEmail}
+                            <Typography variant="body2" color="text.secondary">
+                              {changedText(m.updatedAt, m.updatedByEmail)}
                             </Typography>
                           </TableCell>
                         </TableRow>
@@ -316,6 +327,31 @@ export default function ProductCategoriesPage(): JSX.Element {
           </Stack>
         )}
       </SectionCard>
+
+      {unmapping ? (
+        <LifecycleDialog
+          title={`Remove the category of ${unmapping.name}?`}
+          confirmLabel="Remove category"
+          danger
+          pending={set.isPending}
+          error={set.error}
+          onClose={() => setUnmapping(null)}
+          onConfirm={() =>
+            set.mutate(
+              { productId: unmapping.productId, category: null },
+              {
+                onSuccess: () => {
+                  notify("Category removed");
+                  setUnmapping(null);
+                },
+              },
+            )
+          }
+        >
+          AMs will choose its category themselves when they add it, and Deal Desk sees that choice. A draft takes this at its
+          next save; submitted quotes keep their categories.
+        </LifecycleDialog>
+      ) : null}
     </Stack>
   );
 }

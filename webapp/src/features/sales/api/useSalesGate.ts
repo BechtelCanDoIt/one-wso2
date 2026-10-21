@@ -17,13 +17,12 @@
 // Who can do what in Echo, decided against meet-app's OWN privilege numbers
 // 
 // Nothing here is access control. The meet-app backend enforces every rule
-// below on its own — it refuses a cancellation from anyone who is neither the
-// host nor an admin, and answers 403 on every endpoint for a caller in no
+// on its own, and answers 403 on every endpoint for a caller in no
 // authorised group. 
 
 import type { VisibilityAnswer } from "@components/side-rail/visibilityFold";
 import { useMemo } from "react";
-import { SALES_PRIVILEGE, type Meeting } from "./salesTypes";
+import { SALES_PRIVILEGE } from "./salesTypes";
 import { isSalesBackendConfigured, useSalesUserInfo } from "./useSalesData";
 import { describeError, isForbidden } from "../util/salesError";
 
@@ -34,8 +33,6 @@ export interface SalesGate {
   isAdmin: boolean;
   /** The signed-in caller's work email, for the host comparison. */
   workEmail: string | null;
-  /** Whether this caller may cancel this meeting. */
-  canCancel: (meeting: Meeting) => boolean;
 }
 
 export function useSalesGate(): SalesGate {
@@ -50,17 +47,6 @@ export function useSalesGate(): SalesGate {
       isResolved: !isLoading,
       isAdmin,
       workEmail,
-      // Three conditions, all from the standalone app and all still true of the
-      // backend:
-      //   - a cancelled meeting cannot be cancelled again;
-      //   - a meeting that has already happened cannot be called off;
-      //   - and you must be its host, or an admin.
-      canCancel: (meeting: Meeting): boolean => {
-        if (meeting.meetingStatus === "CANCELLED") return false;
-        if (meeting.timeStatus === "PAST") return false;
-        if (isAdmin) return true;
-        return Boolean(workEmail) && meeting.host === workEmail;
-      },
     };
   }, [data, isLoading]);
 }

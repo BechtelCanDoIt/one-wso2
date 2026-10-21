@@ -17,7 +17,6 @@
 import { useState, type FormEvent, type JSX } from "react";
 import {
   Button,
-  Chip,
   Paper,
   Skeleton,
   Stack,
@@ -33,9 +32,11 @@ import {
 } from "@wso2/oxygen-ui";
 import { CoinsIcon, PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 import { useAddCurrency, useAdminCurrencies, useSetCurrencyActive } from "@features/sales/cado2/admin/currencies/api/useAdminCurrencies";
 
 /**
@@ -48,14 +49,22 @@ export default function CurrenciesPage(): JSX.Element {
   const list = useAdminCurrencies();
   const add = useAddCurrency();
   const toggle = useSetCurrencyActive();
+  const notify = useCado2Toast();
   const [code, setCode] = useState("");
+  // Switching a currency off asks first; on is instant (2026-10-13).
+  const [stopping, setStopping] = useState<string | null>(null);
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const iso = code.trim().toUpperCase();
     if (!iso) return;
     toggle.reset();
-    add.mutate(iso, { onSuccess: () => setCode("") });
+    add.mutate(iso, {
+      onSuccess: () => {
+        setCode("");
+        notify(`${iso} added`);
+      },
+    });
   };
   const switching = toggle.isPending ? toggle.variables?.isoCode : undefined;
 
@@ -63,7 +72,7 @@ export default function CurrenciesPage(): JSX.Element {
     <Stack spacing={3} sx={{ maxWidth: 900 }}>
       <PageHeader title="Currencies" />
 
-      <SectionCard title="Add a currency" icon={<PlusIcon size={16} />}>
+      <SectionCard title="Add a Currency" icon={<PlusIcon size={16} />}>
         <Stack component="form" onSubmit={submit} direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ sm: "flex-start" }}>
           <TextField
             size="small"
@@ -93,7 +102,7 @@ export default function CurrenciesPage(): JSX.Element {
         title={list.data ? `Quote currencies (${list.data.filter((c) => c.isActive).length} active)` : "Quote currencies"}
         icon={<CoinsIcon size={16} />}
       >
-        {toggle.error ? (
+        {toggle.error && !stopping ? (
           <ErrorNotice error={toggle.error} sx={{ mb: 1.5 }}>
             Couldn&apos;t change the currency.
           </ErrorNotice>
@@ -113,7 +122,7 @@ export default function CurrenciesPage(): JSX.Element {
                     <TableCell>Currency</TableCell>
                     <TableCell>Salesforce price books with prices in this currency</TableCell>
                     <TableCell>Last changed</TableCell>
-                    <TableCell align="right">Offered to reps</TableCell>
+                    <TableCell align="right">Offered to AMs</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -124,7 +133,6 @@ export default function CurrenciesPage(): JSX.Element {
                           <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: "monospace" }}>
                             {c.isoCode}
                           </Typography>
-                          <Chip size="small" color={c.isActive ? "success" : "default"} label={c.isActive ? "Active" : "Off"} />
                         </Stack>
                       </TableCell>
                       <TableCell>
@@ -150,9 +158,8 @@ export default function CurrenciesPage(): JSX.Element {
                         )}
                       </TableCell>
                       <TableCell>
-                        <Typography variant="body2">{formatDate(c.updatedAt.slice(0, 10))}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {c.updatedByEmail}
+                        <Typography variant="body2" color="text.secondary">
+                          {changedText(c.updatedAt, c.updatedByEmail)}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
@@ -161,9 +168,17 @@ export default function CurrenciesPage(): JSX.Element {
                           disabled={switching !== undefined}
                           onChange={(_, on) => {
                             add.reset();
-                            toggle.mutate({ isoCode: c.isoCode, isActive: on });
+                            if (!on) {
+                              toggle.reset();
+                              setStopping(c.isoCode);
+                              return;
+                            }
+                            toggle.mutate(
+                              { isoCode: c.isoCode, isActive: true },
+                              { onSuccess: () => notify(`${c.isoCode} offered`) },
+                            );
                           }}
-                          slotProps={{ input: { role: "switch", "aria-label": `Offer ${c.isoCode} to reps` } }}
+                          slotProps={{ input: { role: "switch", "aria-label": `Offer ${c.isoCode} to AMs` } }}
                         />
                       </TableCell>
                     </TableRow>
@@ -178,6 +193,31 @@ export default function CurrenciesPage(): JSX.Element {
           </Stack>
         )}
       </SectionCard>
+
+      {stopping ? (
+        <LifecycleDialog
+          title={`Stop offering ${stopping}?`}
+          confirmLabel="Stop offering"
+          danger
+          pending={toggle.isPending}
+          error={toggle.error}
+          onClose={() => setStopping(null)}
+          onConfirm={() =>
+            toggle.mutate(
+              { isoCode: stopping, isActive: false },
+              {
+                onSuccess: () => {
+                  notify(`${stopping} no longer offered`);
+                  setStopping(null);
+                },
+              },
+            )
+          }
+        >
+          New quotes can&apos;t be in {stopping}. Drafts already in it can still be saved and submitted; submitted quotes
+          don&apos;t change. You can switch it on again.
+        </LifecycleDialog>
+      ) : null}
     </Stack>
   );
 }

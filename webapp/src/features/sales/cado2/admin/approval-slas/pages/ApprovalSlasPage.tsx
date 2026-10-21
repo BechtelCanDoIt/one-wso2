@@ -16,7 +16,6 @@
 
 import { useState, type FormEvent, type JSX } from "react";
 import {
-  Alert,
   Button,
   InputAdornment,
   Paper,
@@ -32,10 +31,12 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { HistoryIcon, TimerIcon } from "@wso2/oxygen-ui-icons-react";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { changedText } from "@features/sales/cado2/quotes/form/draftForm";
 import type { ApprovalSlaPolicy } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { useApprovalSlaChanges, useApprovalSlas, useSaveApprovalSlas } from "@features/sales/cado2/admin/approval-slas/api/useApprovalSlas";
 
@@ -62,7 +63,7 @@ export default function ApprovalSlasPage(): JSX.Element {
       ) : (
         <Skeleton variant="rounded" height={420} />
       )}
-      <SectionCard title="Change log" icon={<HistoryIcon size={16} />}>
+      <SectionCard title="Change Log" icon={<HistoryIcon size={16} />}>
         {changes.error ? (
           <ErrorNotice error={changes.error} onRetry={() => void changes.refetch()} retrying={changes.isFetching}>
             Couldn&apos;t load the change log.
@@ -70,9 +71,7 @@ export default function ApprovalSlasPage(): JSX.Element {
         ) : !changes.data ? (
           <Skeleton variant="rounded" height={60} />
         ) : changes.data.length === 0 ? (
-          <Typography variant="body2" color="text.secondary">
-            No changes yet: every role has the default 24 hours.
-          </Typography>
+          <EmptyState compact icon={<HistoryIcon size={20} />} title="No changes yet" body="Every role has the default 24 hours." />
         ) : (
           <Stack component="ul" spacing={1} aria-label="SLA changes" sx={{ m: 0, pl: 2.5 }}>
             {changes.data.map((c) => {
@@ -84,7 +83,7 @@ export default function ApprovalSlasPage(): JSX.Element {
                   {unit}
                   <Typography component="span" variant="caption" color="text.secondary">
                     {" "}
-                    · {c.changedByEmail} · {formatDate(c.changedAt.slice(0, 10))}
+                    · {changedText(c.changedAt, c.changedByEmail)}
                   </Typography>
                 </Typography>
               );
@@ -97,6 +96,7 @@ export default function ApprovalSlasPage(): JSX.Element {
 }
 
 function SlaForm({ policy, save }: { policy: ApprovalSlaPolicy; save: ReturnType<typeof useSaveApprovalSlas> }): JSX.Element {
+  const notify = useCado2Toast();
   const [hours, setHours] = useState<Record<string, string>>(() =>
     Object.fromEntries(policy.roles.map((r) => [r.role, String(r.hours)])),
   );
@@ -116,11 +116,14 @@ function SlaForm({ policy, save }: { policy: ApprovalSlaPolicy; save: ReturnType
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (invalid || !changed) return;
-    save.mutate({ hours: Object.fromEntries(policy.roles.map((r) => [r.role, whole(hours[r.role] ?? "")])), atRiskPercent: atRiskN });
+    save.mutate(
+      { hours: Object.fromEntries(policy.roles.map((r) => [r.role, whole(hours[r.role] ?? "")])), atRiskPercent: atRiskN },
+      { onSuccess: () => notify("Saved. New approvals use these times.") },
+    );
   };
 
   return (
-    <SectionCard title="Response time per role" icon={<TimerIcon size={16} />}>
+    <SectionCard title="Response Time per Role" icon={<TimerIcon size={16} />}>
       <Stack component="form" spacing={2.5} onSubmit={submit} noValidate>
         <Typography variant="body2" color="text.secondary">
           How long a role has to act once a quote reaches its step, in calendar hours (nights and weekends count). A change applies to
@@ -178,11 +181,7 @@ function SlaForm({ policy, save }: { policy: ApprovalSlaPolicy; save: ReturnType
           slotProps={{ htmlInput: { inputMode: "numeric" }, input: { endAdornment: <InputAdornment position="end">%</InputAdornment> } }}
           sx={{ maxWidth: 260 }}
         />
-        {save.error ? (
-          <ErrorNotice error={save.error}>Couldn&apos;t save the SLAs.</ErrorNotice>
-        ) : save.isSuccess ? (
-          <Alert severity="success">Saved. New approvals use these times.</Alert>
-        ) : null}
+        {save.error ? <ErrorNotice error={save.error}>Couldn&apos;t save the SLAs.</ErrorNotice> : null}
         <Stack direction="row">
           <Button type="submit" variant="contained" disabled={!changed || invalid || save.isPending}>
             {save.isPending ? "Saving…" : "Save"}

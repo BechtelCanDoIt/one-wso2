@@ -18,6 +18,7 @@ import { useState, type JSX } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Avatar, Box, Button, ButtonBase, Chip, InputAdornment, Paper, Skeleton, Stack, TextField, Typography } from "@wso2/oxygen-ui";
 import { MailIcon, SearchIcon, UserPlusIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { Contact } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { emptyContact, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
 import { initialsOfName } from "@features/sales/cado2/utils/initials";
@@ -33,16 +34,34 @@ interface ContactPickerProps {
   /** The customer account's contacts. */
   readonly contacts: readonly Contact[];
   readonly loading: boolean;
+  /** The contacts couldn't be loaded: shown as an error, not "no contacts" (2026-10-13). */
+  readonly loadError?: unknown;
+  readonly onRetry?: () => void;
   readonly helperText?: string;
 }
 
+/** What each picker chooses, for "No billing contact chosen yet" and "Choose the billing contact". */
+const ROLE: Record<ContactField, string> = { billingContact: "billing contact", securityContact: "security contact" };
+
 /**
- * Pick a contact of the account, or type in someone who isn't in Salesforce
- *. A chosen contact shows as a card with Change; choosing shows a
- * searchable list (F5 feedback, 2026-09-25). Only Salesforce Ids and typed
- * text are sent; the backend snapshots the contact's details.
+ * Pick a contact of the account, or type in someone who isn't in Salesforce.
+ * Nothing chosen yet: a card offering "Choose from Salesforce" or "Someone
+ * not in Salesforce…" (2026-10-09: an open list on arrival read as a directory,
+ * not a choice). Choosing shows a searchable list headed "Choose the billing
+ * contact"; a click on a name picks it (F5 feedback, 2026-09-25). A chosen
+ * contact shows as a card with Change. Only Salesforce Ids and typed text are
+ * sent; the backend snapshots the contact's details.
  */
-export default function ContactPicker({ name, issueField, label, contacts, loading, helperText }: ContactPickerProps): JSX.Element {
+export default function ContactPicker({
+  name,
+  issueField,
+  label,
+  contacts,
+  loading,
+  loadError,
+  onRetry,
+  helperText,
+}: ContactPickerProps): JSX.Element {
   const { control, setValue } = useFormContext<DraftFormValues>();
   const value = useWatch({ control, name });
   const idIssue = useFieldIssue(`${issueField}.sfContactId`);
@@ -73,6 +92,33 @@ export default function ContactPicker({ name, issueField, label, contacts, loadi
       ) : null}
     </Box>
   );
+
+  // Nothing chosen yet: say so, and offer the two ways to choose.
+  if (value.mode === "none" && !changing) {
+    return (
+      <Stack spacing={1}>
+        {heading}
+        <Paper variant="outlined" aria-label={`${label}: none chosen`} sx={{ p: 1.75, borderRadius: 2 }}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5} alignItems={{ xs: "flex-start", sm: "center" }}>
+            <Typography variant="body2" color="text.secondary" sx={{ flexGrow: 1 }}>
+              No {ROLE[name]} chosen yet
+            </Typography>
+            <Button size="small" variant="outlined" startIcon={<SearchIcon size={14} />} onClick={() => setChanging(true)}>
+              Choose from Salesforce
+            </Button>
+            <Button size="small" startIcon={<UserPlusIcon size={14} />} onClick={typeIn}>
+              Someone not in Salesforce…
+            </Button>
+          </Stack>
+        </Paper>
+        {idIssue ? (
+          <Typography variant="caption" color="error">
+            {idIssue}
+          </Typography>
+        ) : null}
+      </Stack>
+    );
+  }
 
   // Chosen from Salesforce: a card.
   if (value.mode === "salesforce" && value.sfContactId && !changing) {
@@ -148,6 +194,9 @@ export default function ContactPicker({ name, issueField, label, contacts, loadi
       {heading}
       <Paper variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
         <Stack spacing={1.25}>
+          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            Choose the {ROLE[name]}
+          </Typography>
           <TextField
             size="small"
             placeholder="Search by name, title or email"
@@ -164,7 +213,11 @@ export default function ContactPicker({ name, issueField, label, contacts, loadi
               },
             }}
           />
-          {loading ? (
+          {loadError ? (
+            <ErrorNotice error={loadError} onRetry={onRetry} retrying={loading}>
+              Couldn&apos;t load the account&apos;s contacts from Salesforce.
+            </ErrorNotice>
+          ) : loading ? (
             <Stack spacing={1} aria-label="Loading contacts">
               {[0, 1].map((i) => (
                 <Skeleton key={i} variant="rounded" height={48} />

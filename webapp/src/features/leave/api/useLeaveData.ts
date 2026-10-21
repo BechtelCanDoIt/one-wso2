@@ -44,6 +44,7 @@ function leavesQuery(filter: LeaveFilter): string {
   if (filter.orderBy) p.set("orderBy", filter.orderBy);
   if (filter.subordinatesLeaves) p.set("subordinatesLeaves", "true");
   for (const c of filter.leaveCategory ?? []) p.append("leaveCategory", c);
+  for (const c of filter.excludedLeaveCategory ?? []) p.append("excludedLeaveCategory", c);
   for (const s of filter.statuses ?? []) p.append("statuses", s);
   for (const es of filter.employeeStatuses ?? []) p.append("employeeStatuses", es);
   const qs = p.toString();

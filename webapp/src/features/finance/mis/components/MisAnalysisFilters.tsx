@@ -31,6 +31,14 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { ChevronDownIcon, ChevronUpIcon, EraserIcon, ListFilterIcon } from "@wso2/oxygen-ui-icons-react";
+import {
+  brandText,
+  chipSx,
+  outlinedSx,
+  textButtonSx,
+  gradientCardSx,
+  primaryTint,
+} from "./misLookTokens";
 import type { MisCivilDate } from "../util/misPacificTime";
 import {
   ANALYSIS_BUSINESS_UNITS,
@@ -118,26 +126,36 @@ export default function MisAnalysisFilters({
   };
 
   return (
-    <Box sx={{ mb: 1.5, p: 1.5, borderRadius: 1.5, border: 1, borderColor: "divider" }}>
+    // The same card as the ARR Dashboard filter bar: gradient surface, a header
+    // rule, then the controls. No clock — this screen has no Period.
+    <Box sx={(theme) => ({ ...gradientCardSx(theme), p: 0, mb: 0, overflow: "hidden" })}>
       <Stack
         direction="row"
-        sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap", mb: 1.25 }}
+        sx={{
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 1,
+          flexWrap: "wrap",
+          px: 1.5,
+          py: 1,
+          borderBottom: open ? "1px solid" : "none",
+          borderColor: "divider",
+        }}
       >
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
-          <ListFilterIcon size={16} />
-          <Typography variant="subtitle2">Filters</Typography>
-          {/* The count IS the number of narrowings, so an absent chip means an
-              unnarrowed view. See `analysisFilterTags`.
-
-              It reads "3 filters". "Active filter" is not used as a synonym
-              for **Applied filter** — and "Applied" is no better here, because
-              it is defined as a filter serialised into the query string and
-              nothing on this screen is. The chip just counts. */}
+          <Box component="span" sx={(theme) => ({ display: "inline-flex", ...brandText(theme) })}>
+            <ListFilterIcon size={20} />
+          </Box>
+          <Typography component="h2" variant="subtitle2" sx={{ fontSize: 14, fontWeight: 600 }}>
+            Filters
+          </Typography>
+          {/* The count IS the number of narrowings, phrased "3 active". */}
           {tags.length > 0 && (
             <Chip
               size="small"
               variant="outlined"
-              label={`${tags.length} ${tags.length === 1 ? "filter" : "filters"}`}
+              label={`${tags.length} active`}
+              sx={chipSx}
             />
           )}
         </Stack>
@@ -148,6 +166,7 @@ export default function MisAnalysisFilters({
             aria-expanded={open}
             aria-controls={PANEL_ID}
             startIcon={open ? <ChevronUpIcon size={14} /> : <ChevronDownIcon size={14} />}
+            sx={textButtonSx}
           >
             {open ? "Collapse" : "Expand"}
           </Button>
@@ -158,8 +177,9 @@ export default function MisAnalysisFilters({
               variant="outlined"
               startIcon={<EraserIcon size={14} />}
               onClick={() => onChange(defaultAnalysisFilters(today))}
+              sx={outlinedSx}
             >
-              Clear All
+              Clear all
             </Button>
           )}
         </Stack>
@@ -194,8 +214,9 @@ export default function MisAnalysisFilters({
               md: "repeat(3, minmax(0, 1fr))",
               lg: "repeat(5, minmax(0, 1fr))",
             },
-            gap: 1.5,
+            gap: "12px 14px",
             alignItems: "start",
+            p: 1.5,
           }}
         >
           <ListControl
@@ -342,8 +363,20 @@ export default function MisAnalysisFilters({
       {tags.length > 0 && (
         <Stack
           direction="row"
-          sx={{ flexWrap: "wrap", gap: 0.75, mt: 1.25, pt: 1.25, borderTop: 1, borderColor: "divider" }}
+          sx={{
+            flexWrap: "wrap",
+            gap: 0.75,
+            alignItems: "center",
+            px: 1.5,
+            py: 1,
+            borderTop: 1,
+            borderColor: "divider",
+            backgroundColor: primaryTint(0.06),
+          }}
         >
+          <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.35px" }}>
+            Active:
+          </Typography>
           {tags.map((tag) => (
             <Chip
               key={tag.id}

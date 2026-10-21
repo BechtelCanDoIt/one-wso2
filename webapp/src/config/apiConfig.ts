@@ -605,6 +605,7 @@ export const financeMasterDataServiceUrls = {
   glCodes: `${financeMasterDataBackendUrl}/gl-codes`,
   employeeEmails: `${financeMasterDataBackendUrl}/employees/email`,
   expenseTypeAutocomplete: `${financeMasterDataBackendUrl}/expense-types/autocomplete-values`,
+  countries: `${financeMasterDataBackendUrl}/countries`,
 };
 
 // ---- Updates Manager backend ---------------------------------------------
@@ -891,6 +892,22 @@ export const marketingOpsServiceUrls = {
   campaignTrackerWeeklyLogEntry: (groupId: string, entryId: string) =>
     `${marketingOpsBackendUrl}/api/ad-campaigns/campaign-tracker/weekly-log/${encodeURIComponent(groupId)}/entries/${encodeURIComponent(entryId)}`,
   campaignTrackerLinkedinRefresh: `${marketingOpsBackendUrl}/api/ad-campaigns/campaign-tracker/linkedin-refresh`,
+  // ---- ad campaigns → Budget Sync (read-only) --------------------------------
+  //
+  // Synced runs from the Google Sheets budget connector add-on, plus the
+  // unfiltered per-campaign real-spend read the Pacing sub-tab joins against
+  // them. `month` on pacing-lines is 0-indexed.
+  budgetSyncRuns: (year?: number, limit = 25) =>
+    `${marketingOpsBackendUrl}/api/ad-campaigns/budget-sync/runs?limit=${limit}${year ? `&year=${year}` : ""}`,
+  budgetSyncRun: (runId: string) =>
+    `${marketingOpsBackendUrl}/api/ad-campaigns/budget-sync/runs/${encodeURIComponent(runId)}`,
+  campaignTrackerPacingLines: (
+    platform: "google_ads" | "linkedin",
+    year: number,
+    month: number,
+    day: number,
+  ) =>
+    `${marketingOpsBackendUrl}/api/ad-campaigns/campaign-tracker/pacing-lines?platform=${platform}&year=${year}&month=${month}&day=${day}`,
   // ---- ad campaigns → BU ownership registry ----------------------------------
   //
   // Owner name/email + which BU they currently own, with full append-only
@@ -1427,7 +1444,27 @@ export const infraServiceUrls = {
     `${infraBackendUrl}/teams?organization=${encodeURIComponent(organization)}`,
   // GET /repository-requests — repository requests for the caller.
   repositoryRequests: `${infraBackendUrl}/repository-requests`,
+  // POST /github/verify-and-persist-user — verify a GitHub user and persist their information.
+  githubVerifyAndPersistUser: `${infraBackendUrl}/github/verify-and-persist-user`,
+  // POST /set-default-repository-access — set the default repository access for the caller.
+  setDefaultRepositoryAccess: `${infraBackendUrl}/set-default-repository-access`,
+  // GET /default-repository-access — get the default repository access for the caller.
+  defaultRepositoryAccess: `${infraBackendUrl}/default-repository-access`,
 };
+
+const DEFAULT_GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
+
+export const githubOAuthConfig = {
+  clientId: window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID ?? "",
+  authorizeUrl:
+    window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL || DEFAULT_GITHUB_AUTHORIZE_URL,
+  redirectUrl: window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL ?? "",
+  scopes: ["read:user", "user:email"] as const,
+};
+
+export function isGitHubOAuthConfigured(): boolean {
+  return Boolean(githubOAuthConfig.clientId && githubOAuthConfig.redirectUrl);
+}
 
 export const promotionServiceUrls = {
   // GET /employee-info?employeeWorkEmail=<email> — returns the caller's
@@ -1643,9 +1680,7 @@ export const menuServiceUrls = {
 
 // ---------------------------------------------------------------------------
 // Today I Learned backend (til-backend) — a company-wide feed of learnings
-// from customers, partners, and internal sources. One submission form in One
-// WSO2, one in the Google Chat App's "+" Dialog, both calling this same
-// backend.
+// from customers, partners, and internal sources.
 //
 // Trailing slashes stripped for the same reason as dueDiligenceBackendUrl —
 // every URL below concatenates a path onto this.
@@ -1660,10 +1695,17 @@ export function isTilBackendConfigured(): boolean {
 export const tilServiceUrls = {
   // Identity + whether the caller may delete other people's entries.
   userInfo: `${tilBackendUrl}/user-info`,
-  // GET (paginated, ?cursor=&limit=) to list, POST to create.
+  // The rules the entry form shows, e.g. the learning's length limit.
+  settings: `${tilBackendUrl}/settings`,
+  // GET one page (q, createdFrom, createdBefore, mine, limit, offset) to
+  // list, POST to create.
   submissions: `${tilBackendUrl}/submissions`,
-  // DELETE one entry, moderator-only (re-checked server-side).
+  // GET one entry; PUT or DELETE it as its author or a moderator (checked
+  // server-side).
   submission: (id: string) => `${tilBackendUrl}/submissions/${encodeURIComponent(id)}`,
+  // POST to send an entry whose Google Chat announcement failed. Moderators
+  // only, and only while it's unsent (checked server-side).
+  notify: (id: string) => `${tilBackendUrl}/submissions/${encodeURIComponent(id)}/notify`,
   // Customer-name autocomplete (where == "Customer"). Always returns 200
   // with an array -- [] both for "no matches" and for "this feature isn't
   // configured on the backend", so the form can't tell those apart and
@@ -1839,15 +1881,16 @@ export const cado2ServiceUrls = {
   // Salesforce lookups, read live through the backend.
   accounts: (nameContains: string): string =>
     `${cado2BackendUrl}/accounts?nameContains=${encodeSegment(nameContains)}&limit=20`,
-  accountOpportunities: (accountId: string): string =>
-    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities`,
+  // Open opportunities to quote; closed-won ones for a renewal to renew.
+  accountOpportunities: (accountId: string, status: "open" | "won" = "open"): string =>
+    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${status}`,
   accountContacts: (accountId: string): string =>
     `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/contacts`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (
     currency: string,
-    nameContains: string,
+    search: string,
     page: { pricebookId: string; limit: number; offset: number },
   ): string => {
     const q = new URLSearchParams({
@@ -1856,7 +1899,8 @@ export const cado2ServiceUrls = {
       limit: String(page.limit),
       offset: String(page.offset),
     });
-    if (nameContains) q.set("nameContains", nameContains);
+    // The product name or its product code.
+    if (search) q.set("search", search);
     return `${cado2BackendUrl}/products?${q.toString()}`;
   },
   pricebooks: (currency: string): string => `${cado2BackendUrl}/pricebooks?currency=${encodeSegment(currency)}`,
@@ -1865,20 +1909,35 @@ export const cado2ServiceUrls = {
   pricingPreview: `${cado2BackendUrl}/pricing/preview`,
   quotes: `${cado2BackendUrl}/quotes`,
   // My Quotes: the caller's own quotes.
-  quoteList: (status: string): string => {
+  // scope "mine" (the default) or "all" (every AM's quotes, D70).
+  quoteList: (status: string, scope = "mine"): string => {
     const q = new URLSearchParams({ limit: "200" });
     if (status) q.set("status", status);
+    if (scope !== "mine") q.set("scope", scope);
     return `${cado2BackendUrl}/quotes?${q.toString()}`;
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
   quoteRevise: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/revise`,
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
+  // Makes the quote its opportunity's primary quote, or releases it (D68).
+  quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,
+  // The products on an opportunity, priced from its price book: a new quote starts from them (D72).
+  opportunityProducts: (accountId: string, opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/products?accountId=${encodeURIComponent(accountId)}`,
+  // The quotes on an opportunity, with which is primary (D68).
+  opportunityQuotes: (opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
+  // What AMs may do with quotes they don't own (D69; Admin).
+  adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
+  adminSalesforceSync: `${cado2BackendUrl}/admin/salesforce-sync`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}`,
   quoteSubmit: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/submit`,
+  quoteSync: (quoteId: number, version: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/sync`,
   quoteRecall: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/recall`,
   // A version's order form documents: GET lists them, POST issues the order form.
@@ -1898,7 +1957,7 @@ export const cado2ServiceUrls = {
     quoteId: number,
     version: number,
     stepId: number,
-    outcome: "approve" | "reject" | "request-changes",
+    outcome: "approve" | "return",
   ): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/approval/steps/${encodeSegment(stepId)}/${outcome}`,
   approvalInbox: `${cado2BackendUrl}/approvals/inbox`,
@@ -1913,6 +1972,20 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
+  // Pricing formulas (D81): read by AMs and Admins; changed by Admins.
+  pricingFormulas: `${cado2BackendUrl}/pricing-formulas`,
+  adminPricingFormula: (productId: string): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/${encodeSegment(productId)}`,
+  pricingFormulaTry: `${cado2BackendUrl}/admin/pricing-formulas/try`,
+  pricingFormulaVersions: (productId: string): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/${encodeSegment(productId)}/versions`,
+  // The formula editor's product list: every quote currency, a page at a time.
+  pricingFormulaProducts: (search: string, limit: number, offset: number): string =>
+    `${cado2BackendUrl}/admin/pricing-formulas/products?${new URLSearchParams({
+      ...(search ? { search } : {}),
+      limit: String(limit),
+      offset: String(offset),
+    }).toString()}`,
 };
 
 export const salesBackendUrl: string = window.config?.ONE_WSO2_REVOPS_BACKEND_URL ?? "";
@@ -1935,9 +2008,6 @@ export const salesServiceUrls = {
   // whatever else was attached. Returns links, never file content.
   attachments: (meetingId: number): string =>
     `${salesBackendUrl}/meetings/${meetingId}/attachments`,
-  // Cancels a meeting. The backend refuses unless the caller is the host or a
-  // meet-app admin, so the UI's own check is a courtesy, not the control.
-  meeting: (meetingId: number): string => `${salesBackendUrl}/meetings/${meetingId}`,
   // One meeting, for the detail page. The list endpoint cannot serve a direct link: it is
   // paged and filtered, so the meeting asked for may be on no page the caller would fetch.
   meetingById: (meetingId: number): string => `${salesBackendUrl}/meetings/${meetingId}`,
@@ -1971,6 +2041,8 @@ export function buildMeetingsUrl(params: {
   searchString?: string | null;
   region?: string | null;
   endTime?: string | null;
+  /** `"echo"` for add-on-registered meetings only; omitted for every meeting. */
+  source?: "echo" | null;
   limit: number;
   offset: number;
 }): string {
@@ -1978,10 +2050,31 @@ export function buildMeetingsUrl(params: {
   if (params.searchString?.trim()) qs.set("searchString", params.searchString.trim());
   if (params.region?.trim()) qs.set("region", params.region.trim());
   if (params.endTime?.trim()) qs.set("endTime", params.endTime.trim());
+  if (params.source) qs.set("source", params.source);
   qs.set("limit", String(params.limit));
   qs.set("offset", String(params.offset));
   return `${salesServiceUrls.meetings}?${qs.toString()}`;
 }
+
+// Smart Search — Sales → Library, the plain-language search over Pitstop's content. It is served by
+// the Pitstop backend, which re-checks every result against what the caller may see in Pitstop, so
+// nothing is filtered here. The base URL includes its version segment. Unset means "not connected":
+// the page says so and makes no requests. Gated as a whole by the `smartSearch` preview flag too
+// (previewFeatures.ts).
+export const smartSearchBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_SMART_SEARCH_BACKEND_URL ?? "",
+);
+
+export function isSmartSearchBackendConfigured(): boolean {
+  return Boolean(smartSearchBackendUrl);
+}
+
+export const smartSearchServiceUrls = {
+  // Without the generated answer when `includeAnswer` is false, so the matching documents can show
+  // first. The query is encoded by hand: a comma left raw is read by the backend as a list separator.
+  search: (userQuery: string, includeAnswer: boolean): string =>
+    `${smartSearchBackendUrl}/smart-search?userQuery=${encodeURIComponent(userQuery)}&includeAnswer=${includeAnswer}`,
+};
 
 // Finance MIS backend (digiops-finance/apps/mis) — the ARR service. The port
 // replaces the MIS frontend only; the Ballerina services are untouched.
@@ -2005,10 +2098,8 @@ export function buildMeetingsUrl(params: {
 //     the kind of value an operator pastes with a slash on the end; unstripped
 //     it yields `//user-info` and whether that 404s is up to the gateway.
 //
-// A *.choreoapis.dev URL here is a DEFECT, not an alternative. Choreo
-// advertises one for every endpoint beside the vanity URL, and the CSP in
-// vite.config.ts allows only *.wso2.com and *.asgardeo.io — so a production
-// build fails those calls with nothing in the console.
+// Prefer the *.wso2.com vanity URL over the *.choreoapis.dev one Choreo
+// advertises beside it. The CSP in vite.config.ts's connect-src allows both.
 export const misArrBackendUrl: string = stripTrailingSlashes(
   window.config?.ONE_WSO2_MIS_ARR_BACKEND_URL ?? "",
 );
@@ -2092,6 +2183,9 @@ export const echoServiceUrls = {
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/move-stage`,
   includeCalls: (opportunityId: string): string =>
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/include-calls`,
+  // Ask AI: a question about the opportunity, answered from it and the Library passages sent.
+  ask: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/ask`,
 };
 
 /**
@@ -2105,8 +2199,14 @@ export function buildDealsUrl(params: {
   owner?: string | null;
   stage?: string | null;
   hideClosed: boolean;
+  /** My deals: only the signed-in user's own (the backend reads who from the token). */
+  mine?: boolean;
+  /** Only deals whose account is in this Sales Region, e.g. "EU". */
+  region?: string | null;
 }): string {
   const qs = new URLSearchParams();
+  if (params.mine) qs.set("mine", "true");
+  if (params.region?.trim()) qs.set("region", params.region.trim());
   if (params.search?.trim()) qs.set("search", params.search.trim());
   if (params.owner?.trim()) qs.set("owner", params.owner.trim());
   if (params.stage?.trim()) qs.set("stage", params.stage.trim());

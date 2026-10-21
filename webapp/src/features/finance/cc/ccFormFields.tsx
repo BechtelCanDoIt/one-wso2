@@ -44,13 +44,14 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ChevronDownIcon, CirclePlusIcon, FileIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, CirclePlusIcon, ExternalLinkIcon, FileIcon, InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { describeError } from "../util/financeError";
 import { formatNice, money } from "../util/financeFormat";
 import { CC_SNACK } from "./ccCopy";
 import { CC_ATTACHMENT_ACCEPT, CC_ATTACHMENT_MAX_BYTES, maxSizeLabel } from "../util/financeReceipts";
-import type { CcFundingSource, CcTransaction } from "./ccTypes";
+import type { CcFundingSource, CcJobNumberDetails, CcTransaction } from "./ccTypes";
+import { formatJobDate, normalizeJobNumber } from "./ccJobNumber";
 
 export function FieldLabel({ children, id }: { children: React.ReactNode; id?: string }) {
   return (
@@ -113,12 +114,17 @@ export function Placeholder() {
   return <span style={{ opacity: 0.6 }}>Select…</span>;
 }
 
+/** Just the info icon button. */
+const INFO_ICON_WIDTH = 40;
+/** The icon plus "Funding Sources" and its button. */
+export const INFO_SIDEBAR_WIDTH = 192;
+
 /**
- * EditPane.tsx:1229-1246 / InputMenu.tsx:150-177 — the source's Travel Job
- * Number is a typable Autocomplete, not a plain Select: the reader can type
- * "Hilton" to filter a long job list down instead of scrolling it. Not
- * `freeSolo` there either — the committed value still has to be one of the
- * pre-loaded job numbers, typing only narrows the list.
+ * Travel Job Number: typable, and not limited to the list.
+ *
+ * `GET /travels/job-numbers` returns only the past year, so an older job can
+ * only be entered by typing it. `autoSelect` commits what was typed on blur;
+ * without it the text is discarded.
  *
  * `labelId` is what `Field` clones onto the first child to name a Select via
  * `aria-labelledby`; Select accepts that prop itself, Autocomplete does not,
@@ -130,20 +136,109 @@ export function JobNumberAutocomplete({
   disabled,
   onChange,
   labelId,
+  error,
+  helperText,
+  info,
+  infoWidth = INFO_ICON_WIDTH,
 }: {
   value: string | null;
   options: string[];
   disabled?: boolean;
   onChange: (value: string | null) => void;
   labelId?: string;
+  error?: boolean;
+  helperText?: string;
+  /**
+   * Rendered beside the input. A slot rather than something the caller wraps
+   * around this component, because `Field` clones `labelId` onto its FIRST
+   * child — a wrapper there leaves the input unnamed.
+   */
+  info?: React.ReactNode;
+  /** Width reserved for `info`, whether or not it is showing. */
+  infoWidth?: number;
+}) {
+  const field = (
+    <Autocomplete
+      size="small"
+      freeSolo
+      autoSelect
+      // `freeSolo` hides the arrow and stops the list opening on a click;
+      // both are put back, because picking from the list is the common case.
+      forcePopupIcon
+      openOnFocus
+      isOptionEqualToValue={(option, v) => option === v}
+      options={options}
+      value={value || null}
+      disabled={disabled}
+      // Normalised, because the lookup and the list both key on it.
+      onChange={(_e, v) => onChange(v === null ? null : normalizeJobNumber(String(v)))}
+      renderInput={(params) => (
+        <TextField
+          {...params}
+          placeholder="Select…"
+          error={error}
+          helperText={helperText}
+          slotProps={{ htmlInput: { ...params.inputProps, "aria-labelledby": labelId } }}
+        />
+      )}
+    />
+  );
+  // The reserved column keeps the input's width from depending on whether
+  // the value in it has resolved yet.
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "flex-start",
+        flexWrap: "wrap",
+        columnGap: 1,
+        rowGap: 0.5,
+      }}
+    >
+      <Box sx={{ flex: "1 1 240px", minWidth: 0 }}>{field}</Box>
+      <Box sx={{ flex: `0 0 ${infoWidth}px`, minWidth: 0 }}>{info}</Box>
+    </Box>
+  );
+}
+
+/**
+ * A searchable plain-string dropdown — Expense Category, Expense Type, and
+ * any other field whose options are just a flat string list. Same
+ * `labelId`-forwarding as `JobNumberAutocomplete` above, for the same reason,
+ * and the same `disableClearable`: once a value is set there is no "clear"
+ * affordance, matching the Select these replace (picking a blank option was
+ * never possible there either).
+ */
+export function SearchableSelect({
+  value,
+  options,
+  disabled,
+  onChange,
+  labelId,
+}: {
+  value: string;
+  options: string[];
+  disabled?: boolean;
+  onChange: (value: string) => void;
+  labelId?: string;
 }) {
   return (
     <Autocomplete
       size="small"
+      disableClearable
       options={options}
-      value={value || null}
+      // Passed straight through, not defaulted to `null` the way
+      // `JobNumberAutocomplete` above defaults to `null` — that component's
+      // `value` can itself be absent (`string | null`), where starting on
+      // `undefined` left MUI's controlled state able to drift out of sync
+      // with later `value` props. This component's own `value` is always a
+      // definite `string` (never `undefined`), so that drift can't happen
+      // here regardless, and `disableClearable` narrows MUI's own type for
+      // this prop to exclude `null` entirely — passing it would only trade
+      // a real type error for the bug above, with nothing to show for it.
+      value={value}
       disabled={disabled}
-      onChange={(_e, v) => onChange(v)}
+      onChange={(_e, v) => onChange(v ?? "")}
       renderInput={(params) => (
         <TextField
           {...params}
@@ -446,20 +541,22 @@ export function FundingSources({
       <Table size="small">
         <TableHead>
           <TableRow>
-            {["Region", "Sub Region", "Business Unit", "Product Unit", "Percentage", "Amount"].map((h) => (
-              <TableCell key={h} sx={{ fontSize: 10.5, fontWeight: 700, color: "text.disabled" }}>
-                {h}
-              </TableCell>
-            ))}
+            {["Business Unit", "Product Unit", "Region", "Sub Region", "Percentage", "Amount"].map(
+              (h) => (
+                <TableCell key={h} sx={{ fontSize: 10.5, fontWeight: 700, color: "text.disabled" }}>
+                  {h}
+                </TableCell>
+              ),
+            )}
           </TableRow>
         </TableHead>
         <TableBody>
           {sources.map((f, i) => (
             <TableRow key={i}>
-              <TableCell sx={{ fontSize: 11.5 }}>{f.region}</TableCell>
-              <TableCell sx={{ fontSize: 11.5 }}>{f.subRegion}</TableCell>
               <TableCell sx={{ fontSize: 11.5 }}>{f.businessUnit}</TableCell>
               <TableCell sx={{ fontSize: 11.5 }}>{f.productUnit}</TableCell>
+              <TableCell sx={{ fontSize: 11.5 }}>{f.region}</TableCell>
+              <TableCell sx={{ fontSize: 11.5 }}>{f.subRegion}</TableCell>
               <TableCell sx={{ fontSize: 11.5, fontVariantNumeric: "tabular-nums" }}>
                 {f.percentage}%
               </TableCell>
@@ -468,8 +565,96 @@ export function FundingSources({
               </TableCell>
             </TableRow>
           ))}
+          <TableRow>
+            <TableCell colSpan={4} sx={{ border: 0 }} />
+            <TableCell sx={{ fontSize: 11.5, fontWeight: 700 }}>Total Amount:</TableCell>
+            <TableCell sx={{ fontSize: 11.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>
+              {money(totalAmount, "USD")}
+            </TableCell>
+          </TableRow>
         </TableBody>
       </Table>
+    </Box>
+  );
+}
+
+/** The job's particulars, for the field's info tooltip. */
+export function JobNumberDetails({ details }: { details: CcJobNumberDetails }) {
+  // Nullable: a missing value still gets its row, reading "—".
+  const rows: [string, string | null][] = [
+    ["Engagement Code", details.engagementCode],
+    ["Engagement Type", details.engagementType],
+    ["Travel Country", details.country],
+    ["Customer", details.customerName],
+    ["Global Pod", details.globalPod],
+    ["Start Date", formatJobDate(details.startDate)],
+    ["End Date", formatJobDate(details.endDate)],
+    // For travel the form takes the units from the job and never shows them
+    // as fields, so without these two rows there is nowhere a reader can see
+    // what the job will charge the spend to.
+    ["Product Unit", details.productUnit],
+    ["Business Unit", details.businessUnit],
+  ];
+  return (
+    <Box sx={{ py: 0.5 }}>
+      {rows.map(([label, value]) => (
+        <Typography key={label} sx={{ fontSize: 11.5, lineHeight: 1.7 }}>
+          {label}: {value || "—"}
+        </Typography>
+      ))}
+    </Box>
+  );
+}
+
+/**
+ * What sits beside the Travel Job Number field: its info icon, and the way
+ * into the job's funding sources.
+ *
+ * Both on the field's own row, so everything the job implies is either on
+ * that line or behind one of those two controls, with only the helper text
+ * beneath.
+ *
+ * Rendered through the field's `info` slot rather than wrapped around it,
+ * because `Field` clones `labelId` onto its first child and a wrapper there
+ * leaves the input unnamed.
+ */
+export function JobNumberSideBar({
+  details,
+  fundingCount,
+  onOpenFunding,
+}: {
+  details: CcJobNumberDetails;
+  fundingCount: number;
+  onOpenFunding: () => void;
+}) {
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", gap: 0.25, minWidth: 0, mt: 0.25 }}>
+      <Tooltip title={<JobNumberDetails details={details} />} placement="top-end">
+        <IconButton size="small" aria-label="Job number details" sx={{ p: 0.5 }}>
+          <InfoIcon size={15} />
+        </IconButton>
+      </Tooltip>
+      <Typography sx={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2 }}>
+        Funding Sources
+      </Typography>
+      {/* The button only when there is something to open, and a plain line
+          saying so when there is not. */}
+      {fundingCount > 0 ? (
+        <Tooltip title="View funding sources">
+          <IconButton
+            size="small"
+            aria-label="View funding sources"
+            onClick={onOpenFunding}
+            sx={{ p: 0.5 }}
+          >
+            <ExternalLinkIcon size={15} />
+          </IconButton>
+        </Tooltip>
+      ) : (
+        <Typography sx={{ fontSize: 12, color: "text.secondary", lineHeight: 1.2 }}>
+          no funding sources
+        </Typography>
+      )}
     </Box>
   );
 }

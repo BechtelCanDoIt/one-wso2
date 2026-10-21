@@ -20,7 +20,7 @@ import type { MenuApp } from "@constants/appMenu";
 export const INFRA_APPS: readonly MenuApp[] = [
   {
     key: "github",
-    name: "GitHub",
+    name: "Infra Portal",
     icon: GitHub,
     alwaysGroup: true,
     purpose: "Connect GitHub, request repositories, and review those requests.",
@@ -31,11 +31,12 @@ export const INFRA_APPS: readonly MenuApp[] = [
             desc: "Request a new GitHub repository.",
             path: "/infra/github/repository-requests",
             requires: ["admin"],
-          },
+        },
         {
             id: "infra-github-repository-access",
             label: "Repository Access",
             desc: "Default org/team access and extra repos from approved requests.",
+            path: "/infra/github/repository-access-requests",
             requires: ["admin"],
         },
         {

@@ -30,11 +30,10 @@ describe("stepChecks", () => {
 
   it("starts a new quote at Overview with everything to choose", () => {
     const [overview, products, commercial] = stepChecks(emptyDraftForm());
-    expect(overview.map((c) => c.field)).toEqual([
-      "sfAccountId", "sfOpportunityId", "legalEntityId", "subscriptionStartDate",
-    ]);
-    // The currency is chosen with the price book.
-    expect(products.map((c) => c.field)).toEqual(["currencyIsoCode", "lines"]);
+    expect(overview.map((c) => c.field)).toEqual(["sfAccountId", "sfOpportunityId", "legalEntityId"]);
+    // The start date is chosen with the term (D73); the currency with the price book.
+    expect(products.map((c) => c.field)).toEqual(["subscriptionStartDate", "currencyIsoCode", "lines"]);
+    // Commercials opens with the payment terms (D86); no line yet, so no billing.
     expect(commercial.map((c) => c.field)).toEqual(["netTermsDays", "billTo", "shipTo", "contacts.billing"]);
     expect(reachableStep(stepChecks(emptyDraftForm()))).toBe(0);
   });
@@ -68,11 +67,34 @@ describe("stepChecks", () => {
   it("checks the subscription term on Products & Pricing", () => {
     const products = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[1];
     expect(products({ termMode: "" }).map((c) => c.field)).toEqual(["termMode"]);
-    expect(products({ termMode: "MULTI_YEAR", billingFrequency: "" }).map((c) => c.field)).toEqual(["billingFrequency"]);
-    expect(products({ termMode: "ONE_YEAR", billingFrequency: "" })).toEqual([]);
-    expect(products({ termMode: "SHORTER", termEndDate: "" })[0].message).toBe("Choose the end date");
-    expect(products({ termMode: "CO_TERMED", termEndDate: "2027-09-30" })).toEqual([]);
-    expect(products({ termMode: "CO_TERMED", termEndDate: "2027-10-01" })[0].message).toMatch(/within a year/);
+    // Billing is chosen on Commercials (D86).
+    expect(products({ termMode: "YEARS", billingFrequency: "" })).toEqual([]);
+    expect(products({ termMode: "YEARS", termYears: "3" })).toEqual([]);
+    expect(products({ termMode: "END_DATE", termEndDate: "" })[0].message).toBe("Choose the end date");
+    // Any length up to 10 years, a year and a day included (from 1 Oct 2026).
+    expect(products({ termMode: "END_DATE", termEndDate: "2027-10-01" })).toEqual([]);
+    expect(products({ termMode: "END_DATE", termEndDate: "2036-10-01" })[0].message).toMatch(/at most 10 years/);
+  });
+
+  // D85, D86, D88: every quote chooses its billing on Commercials, services-only included.
+  it("checks the billing on Commercials, on every quote", () => {
+    const step3 = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[2];
+    expect(step3({ billingFrequency: "" }).map((c) => c.field)).toEqual(["billingFrequency"]);
+    const services = complete().lines.map((l) => ({ ...l, recurring: false }));
+    expect(step3({ billingFrequency: "", lines: services }).map((c) => c.field)).toEqual(["billingFrequency"]);
+  });
+
+  // D86: "See Special Terms" billing points at the special terms.
+  it("needs the special terms on when the billing says See Special Terms", () => {
+    const step3 = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), billingFrequency: "SPECIAL_TERMS", ...v })[2];
+    expect(step3({ specialTermsEnabled: false })).toEqual([
+      { field: "specialTerms.billing", message: "Billing says See Special Terms: switch on special terms and describe the billing" },
+    ]);
+    expect(step3({ specialTermsEnabled: true, specialTerms: "40% on signing, 60% on go-live" })).toEqual([]);
+    expect(step3({ specialTermsEnabled: true, specialTerms: " " }).map((c) => c.field)).toEqual(["specialTerms.text"]);
+    // Services-only too (D88).
+    const services = complete().lines.map((l) => ({ ...l, recurring: false }));
+    expect(step3({ specialTermsEnabled: false, lines: services }).map((c) => c.field)).toEqual(["specialTerms.billing"]);
   });
 
   it("needs the partner's commission on a partner-led quote", () => {
@@ -83,9 +105,15 @@ describe("stepChecks", () => {
     expect(products({ dealType: "DIRECT", partnerCommissionPercent: "" })).toEqual([]);
   });
 
-  it("needs no term for a services-only quote", () => {
+  it("needs a category on every line brought in from Salesforce (D72)", () => {
     const v = complete();
-    const services = { ...v, termMode: "" as const, lines: v.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) };
+    const lines = v.lines.map((l, i) => (i === 0 ? { ...l, category: "" as const } : l));
+    expect(stepChecks({ ...v, lines })[1].map((c) => c.message)).toContain("Choose the category of 1 product");
+  });
+
+  it("needs no term when no product recurs in Salesforce (D76)", () => {
+    const v = complete();
+    const services = { ...v, termMode: "" as const, lines: v.lines.map((l) => ({ ...l, recurring: false })) };
     expect(stepChecks(services)[1]).toEqual([]);
   });
 });

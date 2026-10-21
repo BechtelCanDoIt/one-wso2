@@ -25,7 +25,7 @@
 // against CadO2's roles. An id missing from CADO2_ITEM_IDS would fall through
 // to the capability check and show to people-app admins instead.
 
-import { ReceiptTextIcon } from "@wso2/oxygen-ui-icons-react";
+import { ClipboardCheckIcon, FileTextIcon, ReceiptTextIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
 
@@ -41,9 +41,9 @@ export const CADO2_ITEM = {
 export const CADO2_APPS: readonly MenuApp[] = [
   {
     key: "cado2",
-    name: "CadO2",
-    // Not the perspective's Radio or Meetings' Video: three different
-    // silhouettes keep the Sales rail scannable.
+    name: "CADO2",
+    // A line icon, as MenuApp needs; the Sales rail shows CADO2's own logo
+    // instead (Cado2LogoIcon, set in perspectives.ts like Echo's).
     icon: ReceiptTextIcon,
     purpose: "Build quotes from Salesforce opportunities and take them through approval.",
     // A rep who is not an approver sees one row; it still belongs under CadO2.
@@ -51,14 +51,16 @@ export const CADO2_APPS: readonly MenuApp[] = [
     items: [
       {
         id: CADO2_ITEM.quotes,
-        label: "My Quotes",
-        desc: "Quotes you have built: drafts, submitted, approved and closed.",
+        label: "Quotes",
+        icon: FileTextIcon,
+        desc: "Your quotes and everyone else's: drafts, submitted, approved and closed.",
         requires: ["admin"],
         path: cado2Paths.quotes,
       },
       {
         id: CADO2_ITEM.approvals,
         label: "My Approvals",
+        icon: ClipboardCheckIcon,
         desc: "Approval steps waiting on your roles.",
         requires: ["admin"],
         path: cado2Paths.approvals,
@@ -66,7 +68,8 @@ export const CADO2_APPS: readonly MenuApp[] = [
       {
         id: CADO2_ITEM.admin,
         label: "Admin",
-        desc: "The approval matrix, approval SLAs and CadO2's reference data.",
+        icon: SettingsIcon,
+        desc: "The approval matrix, approval SLAs and CADO2's reference data.",
         requires: ["admin"],
         path: cado2Paths.admin,
       },

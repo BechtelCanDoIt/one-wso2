@@ -68,35 +68,95 @@ export function canSeeMasterData(user: MasterDataUserInfo | undefined): boolean 
   return masterDataHasAccess(user);
 }
 
-// Role-gates the Finance menu items (surfaced under Me) against each app's
-// OWN backend roles — not the coarse One WSO2 capabilities derived from
-// people-app. The rail uses this so a menu item is only shown to someone
-// who can actually use its page (e.g. cc "Approve Submissions" needs a
-// cc-expenses lead/finance role, exactly like the page enforces).
+/**
+ * The backends THIS HOOK reads — not the Finance perspective's app list, which
+ * is longer. MIS, Banking and Due Diligence answer for themselves through their
+ * own gates (`useMisGate`, `useBankingAccess`, `useDueDiligenceGate`), mounted
+ * separately in `usePerspectiveVisibility`.
+ */
+export type FinanceGateApp = "cc" | "opd" | "expense" | "masterData";
+
+const EVERY_FINANCE_GATE_APP: readonly FinanceGateApp[] = ["cc", "opd", "expense", "masterData"];
+
+/**
+ * Which backends each scoped `canSee` item actually reads, as ONE table rather
+ * than one constant per caller — so a case added to the `canSee` switch below
+ * and a `needs` list handed to the hook can't quietly drift apart. A caller
+ * scoping itself to less than an item's own list here would see that item
+ * silently answer "no" forever, for a backend it never asked; see the
+ * dev-only check against this map inside `canSee`.
+ */
+const ITEM_BACKENDS: Readonly<Record<string, readonly FinanceGateApp[]>> = {
+  "claim-approval": ["opd", "expense"],
+  "cc-new": ["cc"],
+  "cc-pending": ["cc"],
+  "cc-history": ["cc"],
+  "cc-approve": ["cc"],
+  "cc-settings": ["cc"],
+  "finance-overview": ["cc", "opd", "expense"],
+  "master-data-subsidiaries": ["masterData"],
+  "master-data-departments": ["masterData"],
+  "master-data-expense-types": ["masterData"],
+  "master-data-credit-cards": ["masterData"],
+};
+
+/**
+ * What `canSee("claim-approval")` reads. CC is deliberately absent: card
+ * submissions are approved under Credit Card Expenses, never on the Claim
+ * Approval screen, so that backend has no say in it.
+ */
+export const CLAIM_APPROVAL_GATE_APPS = ITEM_BACKENDS["claim-approval"];
+
+/** What `canSee("finance-overview")` and the three raw flags below read. */
+export const OVERVIEW_GATE_APPS = ITEM_BACKENDS["finance-overview"];
+
+// Role-gates the Finance menu items against each app's OWN backend roles —
+// not the coarse One WSO2 capabilities derived from people-app. The rail
+// uses this so a menu item is only shown to someone who can actually use
+// its page (e.g. cc "Approve Submissions" needs a cc-expenses lead/finance
+// role, exactly like the page enforces). Only one of these items is under
+// Me now (`claims`); the rest live under the Finance perspective.
 //
 // Only the restricted items are listed; anything not named here is a
 // per-user view (New / Pending / History) and stays visible to everyone.
-// `enabled` lets the caller avoid firing the finance /user-info calls when
-// the Me perspective isn't active (e.g. while on People Ops).
+// `enabled` lets the caller avoid firing the finance /user-info calls at all
+// — unlike `needs` below, which still fires every backend it names but skips
+// waiting on the ones it doesn't.
 export interface FinanceGate {
   canSee: (itemId: string) => boolean;
   isResolving: boolean;
   /**
+   * Whether THIS item's own answer is final — per-item, not the aggregate
+   * `isResolving`. `needs` still fetches every backend it names regardless of
+   * which item is asked about, so `isResolving` stays true until ALL of them
+   * answer even when ONE item's own backends already have. A caller folding
+   * this gate into the rail (`financeVisibility`) needs the per-item answer,
+   * or a finance item already decided stays unreachable behind a backend it
+   * never read — see `firstVisibleLeaf`, the one place this is for.
+   */
+  itemAnswered: (itemId: string) => boolean;
+  /**
    * The raw signals behind the `finance-overview` case, exposed so a caller
    * with a choice to make — which dashboard FinanceOverviewPage should
    * default to — can use the SAME resolved access `canSee` already computed,
-   * rather than re-deriving it from the backends itself. `opdErrored` in
-   * particular is what lets that default actually land on the OPD tab (with
-   * its own retry) when that's the reason Overview is visible at all —
-   * without it, `finance-overview`'s "a failed lookup counts as a yes"
-   * reasoning below would be true only in the rail, and a no-card reader
-   * would land on the tab that has nothing to show instead of the one
-   * that's erroring and can be retried.
+   * rather than re-deriving it from the backends itself.
    */
   ccHasOwnCard: boolean;
   opdFinance: boolean;
-  opdErrored: boolean;
   expenseFinance: boolean;
+  /**
+   * Whether each backend's own lookup failed outright, distinct from a reader
+   * who simply holds no role there. `canSee` folds both into "no" for every
+   * case here — a failed lookup is not a yes — so a caller showing gated UI
+   * on a `false` answer needs these to tell "not for you" from "couldn't
+   * check", and the matching `retry*` to offer a way back from the latter.
+   */
+  ccErrored: boolean;
+  opdErrored: boolean;
+  expenseErrored: boolean;
+  retryCc: () => void;
+  retryOpd: () => void;
+  retryExpense: () => void;
 }
 
 /**
@@ -110,11 +170,24 @@ export interface FinanceGate {
  * to gate the next finance item on a portal-wide privilege too, which is the
  * mistake this change exists to undo.
  */
-export function useFinanceGate(enabled = true): FinanceGate {
-  const cc = useCcUserInfo(enabled);
-  const opd = useOpdUserInfo(enabled);
-  const expense = useExpenseAppData(enabled);
-  const masterData = useMasterDataUserInfo(enabled);
+export function useFinanceGate(
+  enabled = true,
+  needs: readonly FinanceGateApp[] = EVERY_FINANCE_GATE_APP,
+): FinanceGate {
+  // `isResolving` below is all-or-nothing and every caller renders NOTHING
+  // while it is true, so a backend named here can hold a screen blank whether
+  // or not that screen's questions depend on it. Omitting `needs` keeps the old
+  // behaviour — fetch and wait for all four — which is what the rail wants,
+  // since it asks `canSee` about items belonging to each.
+  const needsCc = needs.includes("cc");
+  const needsOpd = needs.includes("opd");
+  const needsExpense = needs.includes("expense");
+  const needsMasterData = needs.includes("masterData");
+
+  const cc = useCcUserInfo(enabled && needsCc);
+  const opd = useOpdUserInfo(enabled && needsOpd);
+  const expense = useExpenseAppData(enabled && needsExpense);
+  const masterData = useMasterDataUserInfo(enabled && needsMasterData);
 
   const ccLeadOrFinance = ccHasAccess(cc.data, "lead") || ccHasAccess(cc.data, "finance");
   const ccFinance = ccHasAccess(cc.data, "finance");
@@ -124,11 +197,28 @@ export function useFinanceGate(enabled = true): FinanceGate {
   // dashboard for their team or the company, not for a card of their own.
   const ccHasOwnCard = ccHasAccess(cc.data, "cc_owner") || ccLeadOrFinance;
   const opdFinance = opdHasRole(opd.data, OPD_ROLE.FINANCE_APPROVER);
-  const opdErrored = opd.isError;
   const expenseLead = Boolean(expense.data?.enableLeadView);
   const expenseFinance = Boolean(expense.data?.enableFinanceView);
+  const ccErrored = cc.isError;
+  const opdErrored = opd.isError;
+  const expenseErrored = expense.isError;
 
   const canSee = (itemId: string): boolean => {
+    // Dev-only: a scoped gate silently answers "no" for an item whose backend
+    // it never fetched, which is correct for every item NOT in `needs` but a
+    // real bug for one that is in `ITEM_BACKENDS` — a caller that trimmed its
+    // `needs` list too far would see that item refuse everyone, forever, with
+    // nothing in production to say why.
+    if (process.env.NODE_ENV !== "production") {
+      const required = ITEM_BACKENDS[itemId];
+      const missing = required?.filter((app) => !needs.includes(app));
+      if (missing && missing.length > 0) {
+        console.warn(
+          `useFinanceGate: canSee("${itemId}") depends on ${required.join(", ")}, ` +
+            `but this caller's \`needs\` is missing ${missing.join(", ")}.`,
+        );
+      }
+    }
     switch (itemId) {
       // Claim approval, in the Finance perspective — just its two tabs now,
       // Needs You and Decided, both spanning every claim type. CC does not
@@ -227,21 +317,54 @@ export function useFinanceGate(enabled = true): FinanceGate {
   const hasAnswered = (q: { isSuccess: boolean; isError: boolean }, configured: boolean) =>
     !configured || q.isSuccess || q.isError;
 
+  // Per backend, not just the aggregate below — this is what lets
+  // `itemAnswered` tell "my own backends are done" from "SOME backend this
+  // caller asked about is still going", even when that other backend has
+  // nothing to do with the item being asked. A backend left out of `needs`
+  // reads as answered here too: its query is disabled, so it would otherwise
+  // stay `pending` forever and pin every item false.
+  const backendAnswered: Record<FinanceGateApp, boolean> = {
+    cc: !needsCc || hasAnswered(cc, isCcBackendConfigured()),
+    opd: !needsOpd || hasAnswered(opd, isOpdBackendConfigured()),
+    expense: !needsExpense || hasAnswered(expense, isExpenseBackendConfigured()),
+    // Counted here too, now that a master-data row waits on a real request
+    // rather than on an identity field the rail already had. Left out, the
+    // rail would call the four rows resolved while this query was still in
+    // flight and render them hidden, then show them when it landed — the
+    // appearing-and-vanishing row this hook's comments above are about.
+    masterData: !needsMasterData || hasAnswered(masterData, isFinanceMasterDataBackendConfigured()),
+  };
+
   const isResolving =
     enabled &&
-    !(
-      hasAnswered(cc, isCcBackendConfigured()) &&
-      hasAnswered(opd, isOpdBackendConfigured()) &&
-      hasAnswered(expense, isExpenseBackendConfigured()) &&
-      // Counted here too, now that a master-data row waits on a real request
-      // rather than on an identity field the rail already had. Left out, the
-      // rail would call the four rows resolved while this query was still in
-      // flight and render them hidden, then show them when it landed — the
-      // appearing-and-vanishing row this hook's comments above are about.
-      hasAnswered(masterData, isFinanceMasterDataBackendConfigured())
-    );
+    !(backendAnswered.cc && backendAnswered.opd && backendAnswered.expense && backendAnswered.masterData);
 
-  return { canSee, isResolving, ccHasOwnCard, opdFinance, opdErrored, expenseFinance };
+  // Per-item version of `isResolving`, for `financeVisibility` — see the
+  // field's own doc on `FinanceGate`. An item outside `ITEM_BACKENDS` (there
+  // is none today, but a future case could reach the switch's `default`
+  // without being added here) falls back to the aggregate, the same answer
+  // this gate always gave before `itemAnswered` existed — safe because it
+  // can only make that one item wait LONGER than it strictly has to, never
+  // answer it wrong.
+  const itemAnswered = (itemId: string): boolean => {
+    const required = ITEM_BACKENDS[itemId];
+    return required ? required.every((app) => backendAnswered[app]) : !isResolving;
+  };
+
+  return {
+    canSee,
+    isResolving,
+    itemAnswered,
+    ccHasOwnCard,
+    opdFinance,
+    expenseFinance,
+    ccErrored,
+    opdErrored,
+    expenseErrored,
+    retryCc: () => void cc.refetch(),
+    retryOpd: () => void opd.refetch(),
+    retryExpense: () => void expense.refetch(),
+  };
 }
 
 /** Rail and landing facts. Dashboard-tab fields stay on FinanceGate. */
@@ -249,6 +372,7 @@ export function financeVisibility(gate: FinanceGate): VisibilityAnswer {
   return {
     canSee: (id) => gate.canSee(id),
     resolving: gate.isResolving,
+    answered: (id) => gate.itemAnswered(id),
     retry: () => undefined,
   };
 }

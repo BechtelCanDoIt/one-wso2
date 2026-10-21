@@ -223,13 +223,13 @@ describe("Add Risk — register templates", () => {
     expect(screen.getByText("Step 1 of 3")).toBeInTheDocument();
   });
 
-  it("opens the request dialog from the link under Customer Name", async () => {
+  it("opens the add-customer dialog from the link under Customer Name", async () => {
     const user = userEvent.setup();
     render(<AddRisk />);
     await screen.findByRole("button", { name: "ISO 27001" });
     await chooseRegister(user, /Managed Services/);
-    await user.click(await screen.findByRole("button", { name: "Request it" }));
-    const dialog = await screen.findByRole("dialog", { name: "Request a customer" });
+    await user.click(await screen.findByRole("button", { name: "Add new customer" }));
+    const dialog = await screen.findByRole("dialog", { name: "Add new customer" });
     expect(within(dialog).getByLabelText(/Customer name/)).toBeInTheDocument();
   });
 });

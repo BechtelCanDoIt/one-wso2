@@ -32,7 +32,7 @@ import MisAppliedFilterChips from "./MisAppliedFilterChips";
 import { drillDownColumns, drillDownRows, type DrillDownColumn } from "./drillDownColumns";
 import type { MisFilterChip } from "../util/misAppliedFilterChips";
 import type { DrillDownState } from "../api/useDrillDownCustomers";
-import MisExportButton from "./MisExportButton";
+import MisExportMenu from "./MisExportMenu";
 import { misDrillDownSheet } from "../export/misDrillDownWorkbook";
 import { misExportFilename, misFilenameRange, misFilenameWord } from "../export/misExportFilename";
 
@@ -134,7 +134,14 @@ export default function MisCustomerDrillDown({
             it. */}
         {Boolean(state.customers.length) && !state.isLoading && !state.isError && (
           <Stack direction="row" sx={{ justifyContent: "flex-end", mb: 0.75 }}>
-            <MisExportButton
+            <MisExportMenu
+              // The PDF's heading is the dialog's own: the figure (row and
+              // Period) and the filters that narrowed it, so the page says what
+              // the list is a list of.
+              heading={() => ({
+                title,
+                lines: chips.length ? [chips.map((chip) => chip.label).join(" · ")] : [],
+              })}
               workbook={() => ({
                 sheets: [
                   misDrillDownSheet({
@@ -209,6 +216,9 @@ function DrillDownBody({
       // No figures: every column of this table is identity. Required by the
       // component and never called.
       cell={() => ({ text: "" })}
+      // The page tables share a taller cap. This list stays at the loading
+      // state's height, so the dialog does not jump and the list does not
+      // outgrow it.
       maxBodyHeight={420}
     />
   );

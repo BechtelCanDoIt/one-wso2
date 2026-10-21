@@ -14,22 +14,27 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Chip, Link, ListingTable, Skeleton, Typography } from "@wso2/oxygen-ui";
-import { SparklesIcon } from "@wso2/oxygen-ui-icons-react";
-import { formatDateTime } from "../../util/salesTime";
+import { Box, IconButton, Link, ListingTable, Skeleton, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import type { DealSummary, LetterKey } from "../types";
+import { journeyOf, rowSourcesOf, timelineOf } from "../util/evidenceSource";
 import { formatAmount, formatSalesforceDate } from "../util/meddpiccFormat";
+import DealJourney, { DealJourneyLegend } from "./DealJourney";
 import MeddpiccCircles from "./MeddpiccCircles";
 import StageChip from "./StageChip";
+import DealScore from "./DealScore";
+import { DealFlagMarker } from "./DealFlags";
+import { useNow } from "../../util/useNow";
 
+/**
+ * Four columns. The stage, amount, close date and any flags ride under the opportunity's
+ * name, and the count to review under the circles, so the deal's journey gets the width.
+ */
 const COLUMNS = [
-  { key: "deal", label: "Deal", width: "auto" },
-  { key: "stage", label: "Stage", width: 140 },
-  { key: "amount", label: "Amount", width: 130, right: true },
-  { key: "close", label: "Close date", width: 110 },
-  { key: "lastCall", label: "Last call", width: 150 },
-  { key: "meddpicc", label: "MEDDPICC", width: 220 },
-  { key: "pending", label: "Pending", width: 90, center: true },
+  { key: "deal", label: "Opportunity", width: 300 },
+  { key: "score", label: "Score", width: 120 },
+  { key: "activity", label: "Journey", width: "auto" },
+  { key: "meddpicc", label: "MEDDPICC", width: 250 },
 ] as const;
 
 /**
@@ -40,17 +45,30 @@ const COLUMNS = [
  *
  * The deal name is the way in, as a meeting's title is in MeetingsTable; the
  * row is clickable too, for the wide target a board wants. The circles open the
- * panel already filtered to the Letter clicked.
+ * deal already filtered to the Letter clicked; a call on the journey opens that
+ * call's analysis.
  */
 export default function DealsTable({
   deals,
   loading,
   onOpenDeal,
+  onOpenCall,
+  stageOrder = [],
+  now: fixedNow,
 }: {
   deals: DealSummary[];
   loading: boolean;
   onOpenDeal: (opportunityId: string, letter?: LetterKey) => void;
+  /** Open a call from the timeline, on its analysis. */
+  onOpenCall?: (meetingId: number) => void;
+  /** The stages in the gates' order, so later stages shade darker. */
+  stageOrder?: readonly string[];
+  /** The clock the timelines are drawn against; fixed in tests. */
+  now?: number;
 }) {
+  // One clock for every row, so all the tracks share the same "today".
+  const clock = useNow();
+  const now = fixedNow ?? clock;
   return (
     <ListingTable.Provider loading={loading}>
       <ListingTable.Container>
@@ -58,12 +76,17 @@ export default function DealsTable({
           <ListingTable.Head>
             <ListingTable.Row>
               {COLUMNS.map((column) => (
-                <ListingTable.Cell
-                  key={column.key}
-                  align={"center" in column ? "center" : "right" in column ? "right" : "left"}
-                  sx={{ width: column.width, whiteSpace: "nowrap" }}
-                >
+                <ListingTable.Cell key={column.key} sx={{ width: column.width, whiteSpace: "nowrap" }}>
                   {column.label}
+                  {/* The key lives in a tooltip, keeping the header to one line. It opens on
+                      hover and on keyboard focus, and every mark also names itself. */}
+                  {column.key === "activity" && (
+                    <Tooltip title={<DealJourneyLegend />} arrow placement="bottom-start">
+                      <IconButton size="small" aria-label="What the journey shows" sx={{ ml: 0.5, p: 0.25 }}>
+                        <InfoIcon size={14} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </ListingTable.Cell>
               ))}
             </ListingTable.Row>
@@ -88,8 +111,12 @@ export default function DealsTable({
                     onClick={() => onOpenDeal(deal.opportunityId)}
                     sx={{ cursor: "pointer" }}
                   >
-                    <ListingTable.Cell>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
+                    <ListingTable.Cell sx={{ maxWidth: 300 }}>
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ display: "block", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                      >
                         {deal.accountName}
                       </Typography>
                       <Link
@@ -105,27 +132,29 @@ export default function DealsTable({
                       >
                         {deal.name}
                       </Link>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.75, flexWrap: "wrap", rowGap: 0.25, mt: 0.5 }}>
+                        <StageChip stage={deal.stage} />
+                        <DealFlagMarker flags={deal.flags} />
+                        <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
+                          {formatAmount(deal.amount, deal.currencyIsoCode)}
+                          {" · closes "}
+                          {formatSalesforceDate(deal.closeDate)}
+                        </Typography>
+                      </Box>
                     </ListingTable.Cell>
                     <ListingTable.Cell>
-                      <StageChip stage={deal.stage} />
+                      <DealScore score={deal.dealScore} />
                     </ListingTable.Cell>
-                    <ListingTable.Cell align="right" sx={{ whiteSpace: "nowrap" }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {formatAmount(deal.amount, deal.currencyIsoCode)}
-                      </Typography>
-                    </ListingTable.Cell>
-                    <ListingTable.Cell sx={{ whiteSpace: "nowrap" }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {formatSalesforceDate(deal.closeDate)}
-                      </Typography>
-                    </ListingTable.Cell>
-                    <ListingTable.Cell sx={{ whiteSpace: "nowrap" }}>
-                      <Typography variant="body2" color="text.secondary">
-                        {formatDateTime(deal.lastCallAt)}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        {deal.callCount} {deal.callCount === 1 ? "call" : "calls"}
-                      </Typography>
+                    <ListingTable.Cell>
+                      <DealJourney
+                        marks={timelineOf(deal)}
+                        journey={journeyOf(deal)}
+                        sources={rowSourcesOf(deal)}
+                        closeDate={deal.closeDate}
+                        stageOrder={stageOrder}
+                        now={now}
+                        onOpenCall={onOpenCall}
+                      />
                     </ListingTable.Cell>
                     <ListingTable.Cell>
                       <MeddpiccCircles
@@ -134,22 +163,17 @@ export default function DealsTable({
                         onLetterClick={(letter) => onOpenDeal(deal.opportunityId, letter)}
                         label={`MEDDPICC for ${deal.name}`}
                       />
-                    </ListingTable.Cell>
-                    <ListingTable.Cell align="center">
-                      {deal.pendingCount > 0 ? (
-                        <Chip
-                          icon={<SparklesIcon size={12} />}
-                          label={deal.pendingCount}
-                          size="small"
-                          color="warning"
-                          variant="outlined"
+                      {/* The circles already mark which Letters hold a suggestion; this
+                          only says how many fields wait, quietly, under them. */}
+                      {deal.pendingCount > 0 && (
+                        <Typography
+                          variant="caption"
                           aria-label={`${deal.pendingCount} AI proposals waiting for approval`}
-                          sx={{ height: 20, fontWeight: 700 }}
-                        />
-                      ) : (
-                        <Box component="span" sx={{ color: "text.disabled" }} aria-label="Nothing pending">
-                          —
-                        </Box>
+                          sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, color: "warning.dark", fontWeight: 600 }}
+                        >
+                          <Box component="span" aria-hidden sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: "warning.main" }} />
+                          {deal.pendingCount} to review
+                        </Typography>
                       )}
                     </ListingTable.Cell>
                   </ListingTable.Row>
@@ -159,8 +183,8 @@ export default function DealsTable({
 
         {!loading && deals.length === 0 && (
           <ListingTable.EmptyState
-            title="No deals found"
-            description="Deals appear here once one of their calls has been analysed. Try a different filter."
+            title="No opportunities found"
+            description="Opportunities appear here once one of their calls has been analysed. Try a different filter."
           />
         )}
       </ListingTable.Container>

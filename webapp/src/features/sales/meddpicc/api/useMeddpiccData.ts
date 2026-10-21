@@ -102,11 +102,11 @@ export function useMeetingCoverage(meetingIds: number[]) {
  */
 export function useDeals(params: DealsQuery) {
   const { client, userSub, ready, subState, retryIdentity } = useMeddpiccBasis();
-  const { search, owner, stage, hideClosed } = params;
+  const { search, owner, stage, hideClosed, mine, region } = params;
   const query = useQuery<DealList>({
-    queryKey: ["meddpicc-deals", userSub, search, owner, stage, hideClosed],
+    queryKey: ["meddpicc-deals", userSub, search, owner, stage, hideClosed, mine, region],
     enabled: ready,
-    queryFn: () => client.deals({ search, owner, stage, hideClosed }),
+    queryFn: () => client.deals({ search, owner, stage, hideClosed, mine, region }),
     staleTime: 60 * 1000,
     refetchOnMount: true,
     placeholderData: (previous, previousQuery) =>

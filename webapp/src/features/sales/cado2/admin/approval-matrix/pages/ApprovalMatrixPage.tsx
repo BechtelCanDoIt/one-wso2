@@ -35,7 +35,9 @@ import {
   TextField,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ArrowDownIcon, LayersIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowDownIcon, HistoryIcon, LayersIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
@@ -51,7 +53,7 @@ import type {
   MatchField,
 } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { BILLING_LABEL, BILLING_OPTIONS, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 
 const TABS = ["Discount groups", "Product mapping", "Commercial rules", "Change log"] as const;
 
@@ -77,6 +79,7 @@ export default function ApprovalMatrixPage(): JSX.Element {
   const [base, setBase] = useState<ApprovalMatrix | undefined>(undefined);
   const [impact, setImpact] = useState<readonly AffectedQuote[] | null>(null);
   const [savedNote, setSavedNote] = useState<string | null>(null);
+  const notify = useCado2Toast();
 
   // Start editing from the loaded matrix, and again after a save reloads it.
   if (loaded.data && loaded.data !== base) {
@@ -113,11 +116,13 @@ export default function ApprovalMatrixPage(): JSX.Element {
       {
         onSuccess: (res) => {
           setImpact(null);
-          setSavedNote(
-            res.affected.length
-              ? `Saved. ${res.affected.length} quote${res.affected.length === 1 ? " was" : "s were"} recalled for resubmission.`
-              : "Saved. No quote in approval was affected.",
-          );
+          // Quotes recalled: it stays until closed, as it concerns other
+          // people's quotes; nothing affected: a toast (2026-10-13).
+          if (res.affected.length) {
+            setSavedNote(`Saved. ${res.affected.length} quote${res.affected.length === 1 ? " was" : "s were"} recalled for resubmission.`);
+          } else {
+            notify("Saved. No quote in approval was affected.");
+          }
         },
       },
     );
@@ -137,7 +142,11 @@ export default function ApprovalMatrixPage(): JSX.Element {
           </>
         }
       />
-      {savedNote ? <Alert severity="success">{savedNote}</Alert> : null}
+      {savedNote ? (
+        <Alert severity="success" onClose={() => setSavedNote(null)}>
+          {savedNote}
+        </Alert>
+      ) : null}
       {problems.length ? <ProblemList issues={problems} matrix={draft} /> : null}
       {save.error && !problems.length ? <ErrorNotice error={save.error}>Couldn&apos;t save the matrix.</ErrorNotice> : null}
 
@@ -183,7 +192,8 @@ export default function ApprovalMatrixPage(): JSX.Element {
           <Button onClick={() => setImpact(null)} disabled={save.isPending}>
             Cancel
           </Button>
-          <Button variant="contained" onClick={confirm} disabled={save.isPending}>
+          {/* Red when it recalls other people's quotes (2026-10-13). */}
+          <Button variant="contained" color={impact?.length ? "error" : "primary"} onClick={confirm} disabled={save.isPending}>
             {save.isPending ? "Saving…" : impact?.length ? "Save and recall" : "Save"}
           </Button>
         </DialogActions>
@@ -242,15 +252,17 @@ function GroupsEditor({ matrix, onChange }: { matrix: ApprovalMatrix; onChange: 
               <Typography variant="caption" color="text.secondary">
                 {mapped(g.code)} mapping{mapped(g.code) === 1 ? "" : "s"}
               </Typography>
-              <IconButton
-                aria-label={`Remove ${g.name || "group"}`}
-                size="small"
-                disabled={mapped(g.code) > 0}
-                title={mapped(g.code) > 0 ? "Move its product mappings first" : "Remove the group"}
-                onClick={() => onChange(matrix.groups.filter((_, j) => j !== i))}
-              >
-                <Trash2Icon size={16} />
-              </IconButton>
+              {/* The hint sits on a wrapper: a disabled button shows no hint of its own (2026-10-13). */}
+              <Box component="span" title={mapped(g.code) > 0 ? "Move its product mappings first" : "Remove the group"}>
+                <IconButton
+                  aria-label={`Remove ${g.name || "group"}`}
+                  size="small"
+                  disabled={mapped(g.code) > 0}
+                  onClick={() => onChange(matrix.groups.filter((_, j) => j !== i))}
+                >
+                  <Trash2Icon size={16} />
+                </IconButton>
+              </Box>
             </Stack>
           }
         >
@@ -332,7 +344,7 @@ function GroupsEditor({ matrix, onChange }: { matrix: ApprovalMatrix; onChange: 
             </Box>
             <Box>
               <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                Always reviews every line
+                Always Reviews Every Line
               </Typography>
               <Stack direction="row" sx={{ flexWrap: "wrap" }}>
                 {reviewerRoles.map((r) => (
@@ -484,7 +496,7 @@ function SettingsEditor({ settings, onChange }: { settings: ApprovalSettings; on
       </Typography>
       {rule("Special or changed governing terms", "Legal", <Typography variant="body2">Always</Typography>)}
       {rule(
-        "Short term — First Sale or Renewal (Expansions are exempt)",
+        "Short-term deals",
         "Area GM → CRO → CFO",
         num("Under this many months", settings.shortTermMonths, (v) => set({ shortTermMonths: v })),
       )}
@@ -511,10 +523,35 @@ function SettingsEditor({ settings, onChange }: { settings: ApprovalSettings; on
         />,
       )}
       {rule(
+        "Billing frequency",
+        "CFO",
+        <Stack>
+          {BILLING_OPTIONS.map((bf) => (
+            <FormControlLabel
+              key={bf}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={settings.billingApproval.includes(bf)}
+                  onChange={(_, on) =>
+                    set({
+                      billingApproval: on
+                        ? BILLING_OPTIONS.filter((x) => x === bf || settings.billingApproval.includes(x))
+                        : settings.billingApproval.filter((x) => x !== bf),
+                    })
+                  }
+                />
+              }
+              label={<Typography variant="body2">{BILLING_LABEL[bf]}</Typography>}
+            />
+          ))}
+        </Stack>,
+        settings.billingApproval.length === 0 ? "No billing frequency needs the CFO." : undefined,
+      )}
+      {rule(
         "Renewal downsell",
         "RD → Area GM → CRO → Chief of Staff → CFO, then the CEO above the percentage",
         num("CEO above (% of previous ARR)", settings.downsellCeoPercent, (v) => set({ downsellCeoPercent: v })),
-        "5% replaces the sheet's $50K, pending Sales' approval.",
       )}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "text.secondary", pt: 1 }}>
         <ArrowDownIcon size={14} />
@@ -538,9 +575,7 @@ function ChangeLog(): JSX.Element {
   }
   if (!changes.data.length) {
     return (
-      <Typography variant="body2" color="text.secondary">
-        No changes yet: the matrix is the V1 sheet as seeded.
-      </Typography>
+      <EmptyState compact icon={<HistoryIcon size={20} />} title="No changes yet" body="The matrix is the V1 sheet as seeded." />
     );
   }
   return (

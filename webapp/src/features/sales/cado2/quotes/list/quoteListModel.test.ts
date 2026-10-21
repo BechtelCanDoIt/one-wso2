@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { QuoteListItem } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { changedAgo, countQuotes, filterQuotes } from "./quoteListModel";
+import { changedAgo, filterQuotes, groupQuotes, sortQuotes } from "./quoteListModel";
 
 const now = new Date("2026-10-01T12:00:00Z");
 const q = (id: number, over: Partial<QuoteListItem>): QuoteListItem => ({
@@ -24,12 +24,17 @@ const q = (id: number, over: Partial<QuoteListItem>): QuoteListItem => ({
   quoteNumber: `Q-26-0000${id}`,
   status: "DRAFT",
   ownerEmail: "rep@wso2.com",
+  sfAccountId: "001ACME",
+  sfOpportunityId: "006ACMEREN",
+  isPrimary: false,
+  canEdit: true,
   accountName: "Acme Corp",
   opportunityName: "Acme renewal",
   versionNumber: 1,
   currencyIsoCode: "USD",
   tcv: "100.00",
   expiryDate: null,
+  createdAt: "2026-09-30T09:00:00Z",
   updatedAt: "2026-10-01T11:00:00Z",
   ...over,
 });
@@ -41,29 +46,15 @@ const items = [
   q(5, { status: "RECALLED" }),
   q(6, { status: "CLOSED" }),
   q(7, { status: "APPROVED", expiryDate: "2026-10-03" }),
-  q(8, { status: "CHANGES_REQUESTED" }),
+  q(8, { status: "RETURNED" }),
 ];
 
 describe("My Quotes model", () => {
-  it("counts by status and flags quotes expiring within seven days", () => {
-    expect(countQuotes(items, now)).toEqual({
-      all: 8, drafts: 1, submitted: 3, approved: 1, toRevise: 2, expiringSoon: 2, recalled: 1, closed: 1,
-    });
-    // "To revise" gathers what is back with the owner.
-    expect(filterQuotes(items, "TO_REVISE", "", now).map((x) => x.id)).toEqual([5, 8]);
-  });
-
-  it("filters by status or expiring soon", () => {
-    expect(filterQuotes(items, "SUBMITTED", "", now).map((x) => x.id)).toEqual([2, 3, 4]);
-    expect(filterQuotes(items, "EXPIRING", "", now).map((x) => x.id)).toEqual([2, 7]); // in approval or approved
-    expect(filterQuotes(items, "", "", now)).toHaveLength(8);
-  });
-
   it("searches quote number, account and opportunity, ignoring case", () => {
-    expect(filterQuotes(items, "", "northWIND", now).map((x) => x.id)).toEqual([2]);
-    expect(filterQuotes(items, "", "api platform", now).map((x) => x.id)).toEqual([2]);
-    expect(filterQuotes(items, "", "Q-26-00005", now).map((x) => x.id)).toEqual([5]);
-    expect(filterQuotes(items, "DRAFT", "northwind", now)).toEqual([]);
+    expect(filterQuotes(items, "northWIND").map((x) => x.id)).toEqual([2]);
+    expect(filterQuotes(items, "api platform").map((x) => x.id)).toEqual([2]);
+    expect(filterQuotes(items, "Q-26-00005").map((x) => x.id)).toEqual([5]);
+    expect(filterQuotes(items, "  ")).toHaveLength(8);
   });
 
   it("says when a quote last changed", () => {
@@ -72,5 +63,48 @@ describe("My Quotes model", () => {
     expect(changedAgo("2026-10-01T10:00:00Z", now)).toBe("2 h ago");
     expect(changedAgo("2026-09-28T12:00:00Z", now)).toBe("3 d ago");
     expect(changedAgo("2026-09-01T12:00:00Z", now)).toBe("1 Sept 2026");
+  });
+});
+
+// D70: the Quotes page.
+describe("Quotes page model", () => {
+  it("searches owners too", () => {
+    const mixed = [q(1, {}), q(2, { ownerEmail: "nimesha@wso2.com" })];
+    expect(filterQuotes(mixed, "nimesha").map((x) => x.id)).toEqual([2]);
+  });
+
+  it("groups by account, then opportunity, in list order, naming each opportunity's primary quote", () => {
+    const groups = groupQuotes([
+      q(1, {}),
+      q(2, { sfAccountId: "001NW", accountName: "Northwind", sfOpportunityId: "006NW", opportunityName: "API Platform" }),
+      q(3, { sfOpportunityId: "006ACMEIAM", opportunityName: "Acme IAM", isPrimary: true }),
+      q(4, { isPrimary: true }),
+    ]);
+
+    expect(groups.map((g) => [g.accountName, g.quotes.map((x) => x.id)])).toEqual([
+      ["Acme Corp", [1, 3, 4]],
+      ["Northwind", [2]],
+    ]);
+    expect(groups[0].opportunities.map((o) => [o.opportunityName, o.quotes.map((x) => x.id), o.primary?.id])).toEqual([
+      ["Acme renewal", [1, 4], 4],
+      ["Acme IAM", [3], 3],
+    ]);
+    expect(groups[1].opportunities[0].primary).toBeUndefined();
+  });
+});
+
+describe("sortQuotes", () => {
+  const rows = [
+    q(1, { createdAt: "2026-10-03T00:00:00Z", accountName: "beta" }),
+    q(2, { createdAt: "2026-10-01T00:00:00Z", accountName: "Alpha" }),
+    q(3, { createdAt: "2026-10-02T00:00:00Z", accountName: "alpha" }),
+  ];
+  const ids = (s: Parameters<typeof sortQuotes>[1]) => sortQuotes(rows, s).map((x) => x.id);
+
+  it("sorts either way on a column; text ignores case and ties keep the list's order", () => {
+    expect(ids({ key: "created", dir: "asc" })).toEqual([2, 3, 1]);
+    expect(ids({ key: "created", dir: "desc" })).toEqual([1, 3, 2]);
+    expect(ids({ key: "account", dir: "asc" })).toEqual([2, 3, 1]);
+    expect(ids({ key: "account", dir: "desc" })).toEqual([1, 2, 3]);
   });
 });

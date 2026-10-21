@@ -26,7 +26,10 @@ export type Cado2AdminSection =
   | "approval-slas"
   | "legal-entities"
   | "currencies"
-  | "product-categories";
+  | "product-categories"
+  | "quote-access"
+  | "salesforce-sync"
+  | "pricing-formulas";
 
 /** The quote page's tabs, each its own route. */
 export type Cado2QuoteTab = "quote" | "approvals" | "versions" | "history";
@@ -37,14 +40,23 @@ export const cado2Paths = {
   newQuote: `${CADO2_PATH}/quotes/new`,
   /**
    * A quote's page, on one of its tabs. `fromApprovals` makes the back link
-   * lead to My Approvals; it is in the URL so a shared link opens the same
-   * screen.
+   * lead to My Approvals; `version` shows an older version (view mode,
+   * 2026-10-13; the latest when absent). Both are in the URL so a shared link
+   * opens the same screen.
    */
-  quote: (quoteId: number, tab: Cado2QuoteTab = "quote", fromApprovals = false): string =>
-    `${CADO2_PATH}/quotes/${quoteId}/${tab}${fromApprovals ? "?from=approvals" : ""}`,
+  quote: (quoteId: number, tab: Cado2QuoteTab = "quote", fromApprovals = false, version?: number): string => {
+    const q = new URLSearchParams();
+    if (fromApprovals) q.set("from", "approvals");
+    if (version) q.set("version", String(version));
+    const s = q.toString();
+    return `${CADO2_PATH}/quotes/${quoteId}/${tab}${s ? `?${s}` : ""}`;
+  },
   editVersion: (quoteId: number, version: number): string =>
     `${CADO2_PATH}/quotes/${quoteId}/versions/${version}/edit`,
   approvals: `${CADO2_PATH}/approvals`,
   admin: `${CADO2_PATH}/admin`,
   adminSection: (section: Cado2AdminSection): string => `${CADO2_PATH}/admin/${section}`,
+  /** One product's pricing formula and its version history (D82). */
+  adminPricingFormula: (productId: string): string =>
+    `${CADO2_PATH}/admin/pricing-formulas/${encodeURIComponent(productId)}`,
 } as const;

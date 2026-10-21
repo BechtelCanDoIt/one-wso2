@@ -202,12 +202,12 @@ describe("the tags", () => {
 
   it("counts what is actually narrowed", () => {
     showPanel({ salesRegions: ["EMEA", "APAC"], partnerType: "Channel" });
-    expect(screen.getByText("3 filters")).toBeInTheDocument();
+    expect(screen.getByText("3 active")).toBeInTheDocument();
   });
 
   it("counts one narrowing in the singular", () => {
     showPanel({ partnerType: "Channel" });
-    expect(screen.getByText("1 filter")).toBeInTheDocument();
+    expect(screen.getByText("1 active")).toBeInTheDocument();
   });
 
   it("drops one value of a list without touching the rest", async () => {

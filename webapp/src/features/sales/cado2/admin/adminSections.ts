@@ -33,16 +33,24 @@ export const ADMIN_SECTION_GROUPS: readonly AdminSectionGroup[] = [
   {
     label: "Approvals",
     sections: [
-      { id: "approval-matrix", label: "Approval matrix" },
+      { id: "approval-matrix", label: "Approval Matrix" },
       { id: "approval-slas", label: "Approval SLAs" },
     ],
   },
   {
-    label: "Reference data",
+    label: "Quotes",
     sections: [
-      { id: "legal-entities", label: "Legal entities" },
+      { id: "quote-access", label: "Quote Access" },
+      { id: "salesforce-sync", label: "Salesforce Sync" },
+      { id: "pricing-formulas", label: "Pricing Formulas" },
+    ],
+  },
+  {
+    label: "Reference Data",
+    sections: [
+      { id: "legal-entities", label: "Legal Entities" },
       { id: "currencies", label: "Currencies" },
-      { id: "product-categories", label: "Product categories" },
+      { id: "product-categories", label: "Product Categories" },
     ],
   },
 ];

@@ -14,30 +14,32 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useCallback, useState, type JSX, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type JSX, type ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Alert, AlertTitle, Box, Chip, DatePickers, MenuItem, Stack, TextField, Typography } from "@wso2/oxygen-ui";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { Alert, AlertTitle, Box, Chip, MenuItem, Stack, TextField, Typography } from "@wso2/oxygen-ui";
 import {
   useAccountContacts,
   useAccountOpportunities,
   useActiveLegalEntities,
   useCurrencies,
+  useOpportunityProducts,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { Account, Opportunity } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   BriefcaseIcon,
   Building2Icon,
-  CalendarDaysIcon,
   LandmarkIcon,
   RepeatIcon,
+  StarIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import {
   addressFrom,
   emptyAddress,
   emptyContact,
-  formatDate,
   parseDateString,
-  toDateString,
+  pulledLines,
+  termFromDates,
   type DraftFormValues,
 } from "@features/sales/cado2/quotes/form/draftForm";
 import SalesforceFindings, { type Finding } from "@features/sales/cado2/quotes/components/SalesforceFindings";
@@ -45,13 +47,16 @@ import { formatMoney } from "@features/sales/cado2/utils/money";
 import AccountPicker from "@features/sales/cado2/quotes/components/pickers/AccountPicker";
 import OpportunityPicker from "@features/sales/cado2/quotes/components/pickers/OpportunityPicker";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
+import { lockedRenewalStart } from "@features/sales/cado2/quotes/form/renewalStart";
+import { subscriptionPeriod } from "@features/sales/cado2/utils/subscription";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
-
-const { DatePicker } = DatePickers;
+import PrimaryQuoteField from "@features/sales/cado2/quotes/components/PrimaryQuoteField";
 
 interface OverviewStepProps {
   /** After the first save the account and opportunity are fixed (UI choice 3). */
   readonly locked: boolean;
+  /** The quote being edited; null before its first save. */
+  readonly quoteId?: number | null;
 }
 
 /** The saved opportunity, when Salesforce no longer lists it (shown locked). */
@@ -98,23 +103,34 @@ const DEAL_KIND_LABEL = { FIRST_SALE: "First Sale", RENEWAL: "Renewal", EXPANSIO
 /** Stage ②: what Salesforce has for the chosen account (the deal details belong to each opportunity). */
 function accountFindings(
   account: { place: string; salesRegion: string; subRegion: string },
-  opportunities: number,
-  contacts: number,
+  opportunities: number | null,
+  contacts: number | null,
 ): Finding[] {
+  // null = the lookup failed: say so, never "None found" (2026-10-13).
   // No "Account" line: the chosen account is shown just above, more prominently.
   return [
     ...(account.place ? [{ key: "location", label: "Location", value: account.place }] : []),
     // Required to quote (D59).
-    { key: "region", label: "Sales region", value: account.salesRegion || "Not set in Salesforce", warning: !account.salesRegion },
+    { key: "region", label: "Sales region", value: account.salesRegion || "Not set in Salesforce", },
     // Informational: never blocks.
     { key: "subRegion", label: "Sub-region", value: account.subRegion || "Not set in Salesforce" },
     {
       key: "opportunities",
-      label: "Opportunities",
-      value: opportunities ? `${opportunities} found, newest first` : "None found",
-      warning: opportunities === 0,
+      label: "Open opportunities",
+      value:
+        opportunities === null
+          ? "Couldn't load from Salesforce"
+          : opportunities
+            ? `${opportunities} found, newest first`
+            : "None found",
+      warning: !opportunities,
     },
-    { key: "contacts", label: "Contacts", value: contacts ? `${contacts} found` : "None found" },
+    {
+      key: "contacts",
+      label: "Contacts",
+      value: contacts === null ? "Couldn't load from Salesforce" : contacts ? `${contacts} found` : "None found",
+      warning: contacts === null,
+    },
   ];
 }
 
@@ -139,8 +155,8 @@ function dealFindings(v: DraftFormValues, o: Opportunity | undefined): Finding[]
   } else if (v.dealType === "PARTNER") {
     out.push(
       v.partner?.name
-        ? { key: "channel", label: "Channel", value: `Partner-led · ${v.partner.name}${v.partner.role ? ` (${v.partner.role})` : ""}` }
-        : { key: "channel", label: "Channel", value: "Partner-led, but no primary partner in Salesforce. Add it there.", warning: true },
+        ? { key: "channel", label: "Channel", value: `Partner deal · ${v.partner.name}${v.partner.role ? ` (${v.partner.role})` : ""}` }
+        : { key: "channel", label: "Channel", value: "Partner deal, but no primary partner in Salesforce. Add it there.", warning: true },
     );
   } else {
     out.push({
@@ -150,11 +166,12 @@ function dealFindings(v: DraftFormValues, o: Opportunity | undefined): Finding[]
       warning: true,
     });
   }
-  if (o?.stageName || o?.closeDate) {
+  // The subscription it covers (2026-10-09), not its pipeline stage.
+  if (o) {
     out.push({
-      key: "stage",
-      label: "Stage",
-      value: [o.stageName, o.closeDate ? `closes ${formatDate(o.closeDate)}` : null].filter(Boolean).join(" · "),
+      key: "subscription",
+      label: "Subscription",
+      value: subscriptionPeriod(o),
     });
   }
   if (o?.arr !== null && o?.arr !== undefined) {
@@ -164,7 +181,7 @@ function dealFindings(v: DraftFormValues, o: Opportunity | undefined): Finding[]
 }
 
 /** Step ① Overview. */
-export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element {
+export default function OverviewStep({ locked, quoteId = null }: OverviewStepProps): JSX.Element {
   const { control, setValue, getValues } = useFormContext<DraftFormValues>();
   const [accountId, isRenewal, opportunityId] = useWatch({
     control,
@@ -177,14 +194,31 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
   const markRevealed = useCallback(() => setRevealedFor(opportunityId), [opportunityId]);
   const showRest = Boolean(opportunityId) && (locked || revealedFor === opportunityId);
 
+  // A new quote starts from its opportunity's products (D72): only the
+  // products, 1 unit each, priced from its price book; once per opportunity
+  // chosen, before the first save fixes it.
+  const pulled = useOpportunityProducts(!locked && accountId ? accountId : null, !locked && opportunityId ? opportunityId : null);
+  const pulledFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (locked || !pulled.data || !opportunityId || pulledFor.current === opportunityId) return;
+    pulledFor.current = opportunityId;
+    setValue("lines", pulledLines(pulled.data.products), { shouldDirty: true });
+    setValue("notBroughtIn", pulled.data.notBroughtIn, { shouldDirty: true });
+  }, [locked, pulled.data, opportunityId, setValue]);
+  // Likewise, the opportunity list waits until the account's findings have
+  // all ticked in (2026-10-09), so the page doesn't change under them.
+  const [accountRevealedFor, setAccountRevealedFor] = useState<string | null>(null);
+  const markAccountRevealed = useCallback(() => setAccountRevealedFor(accountId), [accountId]);
+
+  // Open opportunities to quote (2026-10-09); a renewal renews closed-won ones.
   const opportunities = useAccountOpportunities(accountId || null);
+  const wonOpportunities = useAccountOpportunities(isRenewal && accountId ? accountId : null, "won");
   const contacts = useAccountContacts(accountId || null);
   const legalEntities = useActiveLegalEntities();
   // For pre-filling the quote's currency from the opportunity.
   const currencies = useCurrencies();
 
   const oppIssue = useFieldIssue("sfOpportunityId");
-  const startIssue = useFieldIssue("subscriptionStartDate");
 
   const accountAddress = useWatch({ control, name: "accountAddress" });
   const accountSalesRegion = useWatch({ control, name: "accountSalesRegion" });
@@ -223,6 +257,14 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
     setValue("recordTypeName", o.recordTypeName ?? "", { shouldDirty: true });
     setValue("isRenewal", o.dealKind === "RENEWAL", { shouldDirty: true });
     if (o.dealKind !== "RENEWAL") setValue("previousOpportunityIds", [], { shouldDirty: true });
+    // The term from the opportunity's subscription dates (D85): its start,
+    // and its end as a number of years when it makes one, else as a date.
+    const start = o.subsStartDate && parseDateString(o.subsStartDate) ? o.subsStartDate : "";
+    setValue("startDate", start, { shouldDirty: true });
+    const term = termFromDates(start, o.subsEndDate);
+    setValue("termMode", term.termMode, { shouldDirty: true });
+    setValue("termYears", term.termYears, { shouldDirty: true });
+    setValue("termEndDate", term.termEndDate, { shouldDirty: true });
     // Pre-fill addresses: partner deals bill the partner and ship
     // to the customer; direct deals bill and ship to the customer.
     const v = getValues();
@@ -247,7 +289,25 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
     }
   };
 
-  const previousOptions = (opportunities.data ?? []).filter((o) => o.id !== opportunityId);
+  const previousOptions = (wonOpportunities.data ?? []).filter((o) => o.id !== opportunityId);
+
+  // A renewal's start is locked (D85): its own opportunity's start date, else
+  // the day after the renewed opportunity ends, set when that is chosen;
+  // shown on Products & Pricing. Without either in Salesforce, the AM chooses it there.
+  const renewedOf = (ids: readonly string[]) => (wonOpportunities.data ?? []).filter((o) => ids.includes(o.id));
+  const chooseRenewed = (ids: string[]) => {
+    setValue("previousOpportunityIds", ids, { shouldDirty: true });
+    const own = opportunities.data?.find((o) => o.id === opportunityId);
+    const locked = lockedRenewalStart(own, renewedOf(ids));
+    setValue("startDate", locked?.date ?? "", { shouldDirty: true });
+    // The end is still the opportunity's own, now read against this start (D85).
+    if (own?.subsEndDate && locked && locked.source === "RENEWED") {
+      const term = termFromDates(locked.date, own.subsEndDate);
+      setValue("termMode", term.termMode, { shouldDirty: true });
+      setValue("termYears", term.termYears, { shouldDirty: true });
+      setValue("termEndDate", term.termEndDate, { shouldDirty: true });
+    }
+  };
 
   // Watched, not read once: picking an account re-renders on its id before
   // the name is set, and a one-off read would show the old (empty) name.
@@ -257,14 +317,13 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
   return (
     <Stack spacing={2.5}>
       <Section
-        title="Customer & opportunity"
+        title="Customer & Opportunity"
         icon={<Building2Icon size={18} />}
         aside={locked ? <Chip size="small" variant="outlined" label="Fixed after first save" /> : undefined}
       >
         {/* Account first; the opportunity list appears once it is chosen (F5 feedback). */}
         <AccountPicker
           chosenName={accountId ? accountName : ""}
-          chosenPlace={[accountAddress?.city, accountAddress?.country].filter(Boolean).join(", ")}
           locked={locked}
           onChoose={chooseAccount}
         />
@@ -278,7 +337,8 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
         {accountId ? (
           <SalesforceFindings
             key={accountId}
-            title="Found in Salesforce for this account"
+            title="Found in Salesforce for This Account"
+            onDone={markAccountRevealed}
             loading={opportunities.isPending || contacts.isPending}
             findings={accountFindings(
               {
@@ -286,8 +346,8 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
                 salesRegion: accountSalesRegion,
                 subRegion: accountSubRegion,
               },
-              (opportunities.data ?? []).length,
-              (contacts.data ?? []).length,
+              opportunities.error ? null : (opportunities.data ?? []).length,
+              contacts.error ? null : (contacts.data ?? []).length,
             )}
             animate={!locked}
           />
@@ -297,13 +357,13 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
         {accountId && !accountSalesRegion ? (
           <Alert severity="error" role="alert">
             <AlertTitle>This account has no sales region in Salesforce</AlertTitle>
-            CadO2 needs the account&apos;s Sales Region (<code>Sales_Regions__c</code>) to route approvals. Ask your
+            CADO2 needs the account&apos;s Sales Region (<code>Sales_Regions__c</code>) to route approvals. Ask your
             Salesforce admin to set it on the account, then choose the account again
             {locked ? " (or save the draft to refresh it)" : ""}.
           </Alert>
         ) : null}
 
-        {accountId && (locked || !opportunities.isPending) ? (
+        {accountId && (locked || accountRevealedFor === accountId) ? (
           <Box>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
               <BriefcaseIcon size={16} />
@@ -311,9 +371,20 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
                 Opportunity
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Newest first
+                Open ones, newest first
               </Typography>
             </Stack>
+            {/* A failed lookup is an error, not "no open opportunities" (2026-10-13). */}
+            {opportunities.error && !locked ? (
+              <ErrorNotice
+                error={opportunities.error}
+                onRetry={() => void opportunities.refetch()}
+                retrying={opportunities.isFetching}
+                sx={{ mb: 1.5 }}
+              >
+                Couldn&apos;t load the account&apos;s opportunities from Salesforce.
+              </ErrorNotice>
+            ) : (
             <OpportunityPicker
               label="Opportunity"
               opportunities={
@@ -326,14 +397,17 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
               onChange={([id]) => chooseOpportunity(opportunities.data?.find((o) => o.id === id))}
               locked={locked}
               error={oppIssue}
+              emptyText="This account has no open opportunities in Salesforce."
+              instruction="Choose the opportunity this quote is for"
             />
+            )}
           </Box>
         ) : null}
 
         {opportunityId ? (
           <SalesforceFindings
             key={opportunityId}
-            title="What Salesforce says about this deal"
+            title="What Salesforce Says About This Deal"
             loading={!locked && opportunities.isPending}
             findings={dealFindings(values, opportunities.data?.find((o) => o.id === opportunityId))}
             animate={!locked}
@@ -345,6 +419,10 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
       {/* Everything else waits for the account and the deal (2026-09-28). */}
       {showRest ? (
         <>
+          {/* Which of the opportunity's quotes is synced to Salesforce (D68). */}
+          <Section title="Primary Quote" icon={<StarIcon size={18} />}>
+            <PrimaryQuoteField quoteId={quoteId} opportunityId={opportunityId} />
+          </Section>
           {/* Salesforce says it's a renewal: which opportunities does it renew? */}
           {isRenewal ? (
             <Section title="Renewal" icon={<RepeatIcon size={18} />}>
@@ -354,17 +432,30 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
                 render={({ field }) => (
                   <Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Choose the opportunities this renews; several when co-terminated deals are consolidated. Their ARR is
-                      compared with this quote&apos;s to check for a downsell.
+                      Choose the closed-won opportunities this renews; several when co-terminated deals are consolidated. Their
+                      ARR is compared with this quote&apos;s to check for a downsell, and the quote starts the day after they end.
                     </Typography>
+                    {wonOpportunities.error ? (
+                      <ErrorNotice
+                        error={wonOpportunities.error}
+                        onRetry={() => void wonOpportunities.refetch()}
+                        retrying={wonOpportunities.isFetching}
+                        sx={{ mb: 1.5 }}
+                      >
+                        Couldn&apos;t load the account&apos;s closed-won opportunities from Salesforce.
+                      </ErrorNotice>
+                    ) : (
                     <OpportunityPicker
                       label="Previous opportunities"
                       multiple
                       opportunities={previousOptions}
-                      loading={opportunities.isPending}
+                      loading={wonOpportunities.isPending}
                       selected={field.value}
-                      onChange={field.onChange}
+                      onChange={chooseRenewed}
+                      emptyText="This account has no closed-won opportunities in Salesforce."
+                      instruction="Tick the opportunities this quote renews"
                     />
+                    )}
                   </Box>
                 )}
               />
@@ -372,7 +463,17 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
           ) : null}
 
           {/* The currency moved to Products & Pricing, next to the price book. */}
-          <Section title="WSO2 legal entity" icon={<LandmarkIcon size={18} />}>
+          <Section title="WSO2 Legal Entity" icon={<LandmarkIcon size={18} />}>
+            {legalEntities.error ? (
+              <ErrorNotice
+                error={legalEntities.error}
+                onRetry={() => void legalEntities.refetch()}
+                retrying={legalEntities.isFetching}
+                sx={{ mb: 1.5 }}
+              >
+                Couldn&apos;t load the legal entities.
+              </ErrorNotice>
+            ) : null}
             <Controller
               name="legalEntityId"
               control={control}
@@ -388,28 +489,6 @@ export default function OverviewStep({ locked }: OverviewStepProps): JSX.Element
             />
           </Section>
 
-          <Section title="Start date" icon={<CalendarDaysIcon size={18} />}>
-            <Controller
-              name="startDate"
-              control={control}
-              render={({ field }) => (
-                <DatePicker
-                  label="Start date"
-                  value={parseDateString(field.value)}
-                  onChange={(d: Date | null) => field.onChange(d && !Number.isNaN(d.getTime()) ? toDateString(d) : "")}
-                  slotProps={{
-                    textField: {
-                      size: "small",
-                      required: true,
-                      error: Boolean(startIssue),
-                      helperText: startIssue ?? "The subscription term is set with the products",
-                      sx: { maxWidth: 240 },
-                    },
-                  }}
-                />
-              )}
-            />
-          </Section>
         </>
       ) : null}
 

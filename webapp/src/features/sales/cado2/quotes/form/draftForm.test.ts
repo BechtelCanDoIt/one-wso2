@@ -19,16 +19,19 @@ import type { DraftResponse } from "@features/sales/cado2/quotes/api/quoteTypes"
 import {
   addressFrom,
   commissionProblem,
-  effectiveBilling,
+  durationText,
   emptyDraftForm,
   endDateFor,
+  endDateProblem,
   expiryFor,
   formatDate,
   fromVersion,
+  pulledLines,
+  alignPreview,
   isExpired,
   parseDateString,
-  shortTermProblem,
   splitStreet,
+  termFromDates,
   stepOfField,
   storedPricing,
   termEnd,
@@ -91,7 +94,7 @@ function filled(): DraftFormValues {
     opportunityId: "006VM00000O4AUSYA3",
     currencyIsoCode: "USD",
     startDate: "2027-01-01",
-    termMode: "MULTI_YEAR",
+    termMode: "YEARS",
     termYears: "3",
     billingFrequency: "ANNUAL",
     legalEntityId: "7",
@@ -134,6 +137,7 @@ function filled(): DraftFormValues {
         unitPrice: "360",
         category: "SUBSCRIPTION",
         categorySource: "REP",
+        recurring: true,
         unitOfMeasure: "",
         quantity: "20",
         discount: "10",
@@ -149,6 +153,7 @@ function filled(): DraftFormValues {
         unitPrice: "4800",
         category: "SUBSCRIPTION",
         categorySource: "REP",
+        recurring: true,
         unitOfMeasure: "Portals",
         quantity: "1",
         discount: "",
@@ -158,10 +163,15 @@ function filled(): DraftFormValues {
 }
 
 describe("toDraftInput", () => {
+  it("sends the Overview's primary tick, a setting of the quote (D68)", () => {
+    expect(toDraftInput({ ...emptyDraftForm(), isPrimary: true }).isPrimary).toBe(true);
+    expect(toDraftInput(emptyDraftForm()).isPrimary).toBe(false);
+  });
+
   it("sends choices, never prices, and keeps saved lines' snapshots", () => {
     const input = toDraftInput(filled(), "2026-09-25T10:00:00.123Z");
 
-    expect(input).toMatchObject({ termMode: "MULTI_YEAR", termYears: 3, billingFrequency: "ANNUAL" });
+    expect(input).toMatchObject({ termMode: "YEARS", termYears: 3, billingFrequency: "ANNUAL" });
     expect(input.subscriptionEndDate).toBeUndefined(); // derived by the backend
     expect(input.expectedUpdatedAt).toBe("2026-09-25T10:00:00.123Z");
     expect(input.legalEntityId).toBe(7);
@@ -181,6 +191,22 @@ describe("toDraftInput", () => {
     expect(JSON.stringify(input)).not.toContain("unitPrice");
   });
 
+  // D82: a saved line keeps its pricing; only a line the AM moved asks for the pricing in force.
+  it("keeps a saved line's pricing unless the AM moved it", () => {
+    const v = filled();
+    const keepPricing = { method: "FORMULA" as const, formulaVersionId: 6, formula: null };
+    const kept = { ...v, lines: [{ ...v.lines[0], keepPricing }] };
+    expect(toDraftInput(kept).lines[0].useLatestFormula).toBeUndefined();
+    expect((toPreviewBody(kept) as { lines: { keepPricing?: unknown }[] }).lines[0].keepPricing).toEqual({
+      method: "FORMULA",
+      formulaVersionId: 6,
+    });
+
+    const moved = { ...v, lines: [{ ...v.lines[0], keepPricing, useLatestPricing: true }] };
+    expect(toDraftInput(moved).lines[0].useLatestFormula).toBe(true);
+    expect((toPreviewBody(moved) as { lines: { keepPricing?: unknown }[] }).lines[0].keepPricing).toBeUndefined();
+  });
+
   it("maps contacts, addresses and switched-off terms", () => {
     const input = toDraftInput(filled());
 
@@ -196,17 +222,20 @@ describe("toDraftInput", () => {
     expect(input.specialTerms).toEqual({ enabled: false, text: undefined });
   });
 
-  it("sends only the term fields each mode uses", () => {
-    const one = toDraftInput({ ...filled(), termMode: "ONE_YEAR", termEndDate: "2027-06-30", billingFrequency: "UPFRONT" });
-    expect(one).toMatchObject({ termMode: "ONE_YEAR", termYears: undefined, subscriptionEndDate: undefined, billingFrequency: undefined });
-    const co = toDraftInput({ ...filled(), termMode: "CO_TERMED", termEndDate: "2027-06-30" });
-    expect(co).toMatchObject({ termMode: "CO_TERMED", subscriptionEndDate: "2027-06-30", billingFrequency: undefined });
+  it("sends only the term fields each mode uses, and the billing (D85)", () => {
+    const years = toDraftInput({ ...filled(), termMode: "YEARS", termYears: "2", termEndDate: "2027-06-30", billingFrequency: "MONTHLY" });
+    expect(years).toMatchObject({ termMode: "YEARS", termYears: 2, subscriptionEndDate: undefined, billingFrequency: "MONTHLY" });
+    const date = toDraftInput({ ...filled(), termMode: "END_DATE", termEndDate: "2028-01-01", billingFrequency: "UPFRONT" });
+    expect(date).toMatchObject({ termMode: "END_DATE", termYears: undefined, subscriptionEndDate: "2028-01-01", billingFrequency: "UPFRONT" });
+    expect(date).not.toHaveProperty("coTermOpportunityId");
   });
 
-  it("sends no term for a services-only quote", () => {
+  it("sends no term when no product recurs in Salesforce (D76), but still the billing (D88)", () => {
     const v = filled();
-    const input = toDraftInput({ ...v, lines: v.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) });
+    // Still under Subscription: the category doesn't decide.
+    const input = toDraftInput({ ...v, billingFrequency: "MONTHLY", lines: v.lines.map((l) => ({ ...l, recurring: false })) });
     expect(input.termMode).toBeUndefined();
+    expect(input.billingFrequency).toBe("MONTHLY");
     expect(input.subscriptionStartDate).toBe("2027-01-01");
   });
 
@@ -225,8 +254,17 @@ describe("toPreviewBody", () => {
     expect(toPreviewBody(emptyDraftForm())).toBeNull();
     expect(toPreviewBody({ ...filled(), billingFrequency: "" })).toBeNull();
     expect(toPreviewBody({ ...filled(), lines: [] })).toBeNull();
-    expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "" })).toBeNull();
-    expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "2028-01-01" })).toBeNull();
+    expect(toPreviewBody({ ...filled(), termMode: "END_DATE", termEndDate: "" })).toBeNull();
+    expect(toPreviewBody({ ...filled(), termMode: "END_DATE", termEndDate: "2037-01-01" })).toBeNull(); // over 10 years
+  });
+
+  it("prices a line waiting for its category too (D72, D76)", () => {
+    const v = filled();
+    const waiting = { ...v, lines: [...v.lines, { ...v.lines[0], pricebookEntryId: "01uWAIT", category: "" as const }] };
+    const body = toPreviewBody(waiting) as { lines: { pricebookEntryId: string; category: string }[] };
+    expect(body.lines.at(-1)).toMatchObject({ pricebookEntryId: "01uWAIT", category: "" });
+    // An uncategorised recurring product still needs the term.
+    expect(toPreviewBody({ ...v, termMode: "", lines: [{ ...v.lines[0], category: "" }] })).toBeNull();
   });
 
   it("carries the term and the lines' choices", () => {
@@ -238,41 +276,55 @@ describe("toPreviewBody", () => {
     expect(JSON.stringify(toPreviewBody(filled()))).not.toContain("uplift");
   });
 
-  it("bills every term but Multi-year annually", () => {
-    expect(toPreviewBody({ ...filled(), termMode: "ONE_YEAR", billingFrequency: "" })).toMatchObject({
-      subscriptionEndDate: "2027-12-31",
-      billingFrequency: "ANNUAL",
+  it("prices any end date, a year and a day included, with the chosen billing (D85)", () => {
+    expect(toPreviewBody({ ...filled(), termMode: "END_DATE", termEndDate: "2028-01-01", billingFrequency: "QUARTERLY" })).toMatchObject({
+      subscriptionEndDate: "2028-01-01",
+      billingFrequency: "QUARTERLY",
     });
   });
 
-  it("prices a services-only quote from its start date alone", () => {
+  it("prices a quote with no recurring product from its start date and billing (D88)", () => {
     const v = filled();
-    const body = toPreviewBody({ ...v, termMode: "", lines: v.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) });
-    expect(body).toMatchObject({ subscriptionStartDate: "2027-01-01", subscriptionEndDate: undefined });
+    const services = { ...v, termMode: "" as const, billingFrequency: "UPFRONT" as const, lines: v.lines.map((l) => ({ ...l, recurring: false })) };
+    expect(toPreviewBody(services)).toMatchObject({ subscriptionStartDate: "2027-01-01", subscriptionEndDate: undefined, billingFrequency: "UPFRONT" });
+    expect(toPreviewBody({ ...services, billingFrequency: "" })).toBeNull();
   });
 });
 
 describe("subscription term", () => {
   const term = { startDate: "2027-03-15", termYears: "4", termEndDate: "2027-09-30" };
 
-  it("derives the end for 1 year and Multi-year, and takes it as typed otherwise", () => {
-    expect(termEnd({ ...term, termMode: "ONE_YEAR" })).toBe("2028-03-14");
-    expect(termEnd({ ...term, termMode: "MULTI_YEAR" })).toBe("2031-03-14");
-    expect(termEnd({ ...term, termMode: "CO_TERMED" })).toBe("2027-09-30");
-    expect(termEnd({ ...term, termMode: "SHORTER" })).toBe("2027-09-30");
+  it("works out the end for a number of years, and takes an end date as set", () => {
+    expect(termEnd({ ...term, termMode: "YEARS", termYears: "1" })).toBe("2028-03-14");
+    expect(termEnd({ ...term, termMode: "YEARS" })).toBe("2031-03-14");
+    expect(termEnd({ ...term, termMode: "END_DATE" })).toBe("2027-09-30");
     expect(termEnd({ ...term, termMode: "" })).toBe("");
-    expect(termEnd({ ...term, startDate: "", termMode: "ONE_YEAR" })).toBe("");
+    expect(termEnd({ ...term, startDate: "", termMode: "YEARS" })).toBe("");
   });
 
-  it("keeps a typed end within a year of the start", () => {
-    expect(shortTermProblem("2027-03-15", "2028-03-14")).toBe("");
-    expect(shortTermProblem("2027-03-15", "2028-03-15")).toMatch(/within a year/);
-    expect(shortTermProblem("2027-03-15", "2027-03-14")).toMatch(/before the start/);
+  it("says the duration in words, as the backend does (D85)", () => {
+    expect(durationText("2027-01-01", "2027-12-31")).toBe("1 year");
+    expect(durationText("2027-01-01", "2029-12-31")).toBe("3 years");
+    expect(durationText("2027-01-01", "2028-01-01")).toBe("1 year + 1 day");
+    expect(durationText("2027-01-01", "2027-12-30")).toBe("11 months + 30 days");
+    expect(durationText("2027-01-01", "2029-03-31")).toBe("2 years + 3 months");
+    expect(durationText("2027-03-05", "2027-03-05")).toBe("1 day");
+    expect(durationText("2027-01-31", "2027-02-27")).toBe("1 month");
+    expect(durationText("2027-03-05", "2027-03-04")).toBe("");
   });
 
-  it("uses the chosen billing for Multi-year only", () => {
-    expect(effectiveBilling({ termMode: "MULTI_YEAR", billingFrequency: "UPFRONT" })).toBe("UPFRONT");
-    expect(effectiveBilling({ termMode: "CO_TERMED", billingFrequency: "UPFRONT" })).toBe("ANNUAL");
+  it("reads Salesforce's dates as whole years when they make them, else as an end date (D85)", () => {
+    expect(termFromDates("2027-01-01", "2029-12-31")).toEqual({ termMode: "YEARS", termYears: "3", termEndDate: "" });
+    expect(termFromDates("2027-01-01", "2028-01-01")).toEqual({ termMode: "END_DATE", termYears: "1", termEndDate: "2028-01-01" });
+    expect(termFromDates("2027-01-01", null)).toEqual({ termMode: "YEARS", termYears: "1", termEndDate: "" });
+    expect(termFromDates("", "2027-12-31")).toEqual({ termMode: "YEARS", termYears: "1", termEndDate: "" });
+  });
+
+  it("allows an end date from the start up to 10 years (D85)", () => {
+    expect(endDateProblem("2027-03-15", "2027-09-30")).toBe("");
+    expect(endDateProblem("2027-03-15", "2037-03-14")).toBe("");
+    expect(endDateProblem("2027-03-15", "2037-03-15")).toMatch(/at most 10 years/);
+    expect(endDateProblem("2027-03-15", "2027-03-14")).toMatch(/before the start/);
   });
 });
 
@@ -290,7 +342,7 @@ describe("fromVersion", () => {
         currencyIsoCode: "USD",
         subscriptionStartDate: "2027-01-01",
         subscriptionEndDate: "2027-06-30",
-        termMode: "CO_TERMED",
+        termMode: "END_DATE",
         termYears: null,
         billingFrequency: "ANNUAL",
         netTermsDays: 45,
@@ -360,9 +412,9 @@ describe("fromVersion", () => {
 
     const v = fromVersion(res);
 
-    expect(v.termMode).toBe("CO_TERMED");
+    expect(v.termMode).toBe("END_DATE");
     expect(v.termEndDate).toBe("2027-06-30");
-    expect(v.billingFrequency).toBe(""); // only kept for Multi-year
+    expect(v.billingFrequency).toBe("ANNUAL");
     expect(v.netTermsDays).toBe("45");
     expect(v.shipToSameAsBillTo).toBe(true);
     expect(v.securityContact).toMatchObject({
@@ -385,12 +437,15 @@ describe("stepOfField", () => {
     expect(stepOfField("defaultPricebookId")).toBe(1); // the price book card is on Products & Pricing
     expect(stepOfField("lines")).toBe(1);
     expect(stepOfField("lines[2].quantity")).toBe(1);
-    expect(stepOfField("subscriptionStartDate")).toBe(0);
+    expect(stepOfField("subscriptionStartDate")).toBe(1); // with the term (D73)
+    expect(stepOfField("billingFrequency")).toBe(2); // Commercials (D86)
     expect(stepOfField("termMode")).toBe(1);
     expect(stepOfField("subscriptionEndDate")).toBe(1);
     expect(stepOfField("billTo.city")).toBe(2);
     expect(stepOfField("contacts.billing")).toBe(2);
-    expect(stepOfField("netTermsDays")).toBe(2);
+    expect(stepOfField("netTermsDays")).toBe(2); // the Payment Terms card on Commercials (D86)
+    expect(stepOfField("poNumber")).toBe(2);
+    expect(stepOfField("specialTerms.billing")).toBe(2);
   });
 });
 
@@ -421,6 +476,15 @@ describe("storedPricing", () => {
       { yearNumber: 2, periodStart: "2028-01-01", periodEnd: "2028-06-30", net: "500.15", billing: "500.15", commission: "0.00", netBilling: "500.15" },
     ]);
     expect(p?.lines[1].annualNet).toBe("0.20");
+  });
+
+  it("shows a stored line waiting for its category with its amount (D75)", () => {
+    const waiting = {
+      version: { ...res.version, lines: [res.version.lines[0], { ...res.version.lines[1], category: "" }] },
+    } as unknown as DraftResponse;
+    const p = storedPricing(waiting);
+    expect(p?.lines[0].tcv).toBe("1500.15");
+    expect(p?.lines[1].tcv).toBe(res.version.lines[1].tcv);
   });
 
   it("is null when a line was stored unpriced", () => {
@@ -480,5 +544,44 @@ describe("partner commission", () => {
     expect(toPreviewBody(partner())).toMatchObject({ partnerCommissionPercent: "15" });
     expect(toPreviewBody({ ...partner(), partnerCommissionPercent: "abc" })).toMatchObject({ partnerCommissionPercent: undefined });
     expect(toPreviewBody({ ...partner(), dealType: "DIRECT" })).toMatchObject({ partnerCommissionPercent: undefined });
+  });
+});
+
+// D72: a new quote starts from its opportunity's products.
+describe("pulledLines", () => {
+  const entry = (id: string, isActive: boolean) => ({
+    id, unitPrice: "360", currencyIsoCode: "USD", isActive, pricebook: { id: "01sUSD", name: "USD Price Book" },
+  });
+  it("brings in each product at 1 unit, priced from the book, with its mapped category or none yet", () => {
+    const lines = pulledLines([
+      { id: "01tGW", name: "WSO2 Gateway", productCode: "GW", category: "SUBSCRIPTION", recurring: true, pricebookEntries: [entry("01uGW", true)] },
+      { id: "01tIS", name: "WSO2 Integrator", recurring: false, pricebookEntries: [entry("01uIS", true)] },
+      { id: "01tOLD", name: "Old", pricebookEntries: [entry("01uOLD", false)] },
+    ] as never);
+    expect(lines.map((l) => [l.pricebookEntryId, l.quantity, l.discount, l.unitPrice, l.category, l.categorySource, l.recurring])).toEqual([
+      ["01uGW", "1", "", "360", "SUBSCRIPTION", "MAPPED", true],
+      ["01uIS", "1", "", "360", "", "REP", false], // recurring from Salesforce, not the category (D76)
+    ]);
+    expect(lines[0].pricebookName).toBe("USD Price Book");
+  });
+});
+
+describe("alignPreview", () => {
+  const priced = (ids: string[]) => ({ lines: ids.map((pricebookEntryId) => ({ pricebookEntryId, tcv: `tcv-${pricebookEntryId}` })) }) as never;
+  const line = (pricebookEntryId: string, category: "" | "SUBSCRIPTION" = "SUBSCRIPTION") => ({ pricebookEntryId, category });
+
+  it("puts each price back on its line, with a gap for a line waiting for its category", () => {
+    const p = alignPreview(priced(["A", "C"]), [line("A"), line("B", ""), line("C")]);
+    expect(p?.lines.map((l) => l?.tcv)).toEqual(["tcv-A", undefined, "tcv-C"]);
+  });
+
+  it("never shows a line another's price while the preview catches up", () => {
+    // B just got its category; the preview still has A and C only.
+    const p = alignPreview(priced(["A", "C"]), [line("A"), line("B"), line("C")]);
+    expect(p?.lines.map((l) => l?.tcv)).toEqual(["tcv-A", undefined, "tcv-C"]); // B waits; C keeps its own
+
+    // C removed just now; the preview still has A and C: B doesn't take C's price.
+    const q = alignPreview(priced(["A", "C"]), [line("A"), line("B")]);
+    expect(q?.lines.map((l) => l?.tcv)).toEqual(["tcv-A", undefined]);
   });
 });

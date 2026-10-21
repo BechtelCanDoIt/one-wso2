@@ -37,17 +37,25 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
  * navigates to its `path` — and because someone who can see nothing here has to
  * be told that somewhere.
  *
- * Four states, in this order, and the order is the point:
+ * States, and the order is the point:
  *
- *   resolving → hold. Every gate fails closed while it answers, so "your first
- *               item" read mid-flight is the wrong item or none at all, and
- *               redirecting on it would land people on a screen they didn't
- *               ask for or refuse them one they have.
+ *   have one  → go to it NOW, even if another gate this perspective also
+ *               depends on is still resolving. `firstVisibleLeaf` is already
+ *               the RAIL-ORDER-correct answer — it does not report a leaf
+ *               until every section ranked above it has answered too, so
+ *               there is no lower-ranked leaf here to later get bumped by a
+ *               higher-ranked one landing late (see `firstVisibleLeaf` in
+ *               railActive.ts). Waiting past this point would only hold
+ *               someone on a backend that has nothing to do with the item
+ *               they are about to open.
+ *   resolving → hold. Nothing decidable YET could still resolve to a leaf once
+ *               every gate above it settles, and reporting "nothing here" on
+ *               an incomplete answer would send people chasing access they
+ *               already hold.
  *   failed    → say so, with a Retry. Checked BEFORE the empty state for the
  *               same reason MarketingOpsShell checks it there: a failed request
  *               also leaves us with nothing to show, and reporting that as "you
  *               have no access" sends people chasing a permission they hold.
- *   have one  → go to it.
  *   have none → one sentence saying so, and where access comes from.
  *
  * Everything here reads from usePerspectiveVisibility, which is the rail's own
@@ -56,8 +64,19 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
  */
 export default function PerspectiveLanding(): JSX.Element {
   const active = useActivePerspective();
-  const { visibleLeaves, isResolving, isError, error, retry } = usePerspectiveVisibility();
-  const first = visibleLeaves[0]?.path;
+  const { firstVisibleLeaf, isResolving, isError, error, retry } = usePerspectiveVisibility();
+  const first = firstVisibleLeaf?.path;
+
+  // `replace`, so Back leaves the perspective rather than bouncing off this
+  // route and forwarding again.
+  //
+  // `state` for the same reason SideRail's RouteItem passes it: some
+  // destinations sit outside their perspective's path prefix (Legal and Finance
+  // both forward into the shared /due-diligence/* routes), and the rail asks the
+  // URL first. Without this it falls through to the sessionStorage memory of the
+  // last non-Me perspective, which happens to hold the right answer here — but
+  // only because an effect ran before we left, which is not a thing to depend on.
+  if (first) return <Navigate to={first} replace state={{ fromPerspective: active.key }} />;
 
   if (isResolving) {
     return (
@@ -80,17 +99,6 @@ export default function PerspectiveLanding(): JSX.Element {
       </Box>
     );
   }
-
-  // `replace`, so Back leaves the perspective rather than bouncing off this
-  // route and forwarding again.
-  //
-  // `state` for the same reason SideRail's RouteItem passes it: some
-  // destinations sit outside their perspective's path prefix (Legal and Finance
-  // both forward into the shared /due-diligence/* routes), and the rail asks the
-  // URL first. Without this it falls through to the sessionStorage memory of the
-  // last non-Me perspective, which happens to hold the right answer here — but
-  // only because an effect ran before we left, which is not a thing to depend on.
-  if (first) return <Navigate to={first} replace state={{ fromPerspective: active.key }} />;
 
   return (
     <Box>

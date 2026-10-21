@@ -23,6 +23,10 @@
 import { AwardIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
 
+/** This item's own rail id, which the rail answers through promotionVisibility
+ * rather than `requires`/`caps` — interns have no promotion history to show. */
+export const PROMOTION_EMPLOYEE_ITEM_ID = "promotion-history";
+
 export const ME_PROMOTION_APPS: readonly MenuApp[] = [
   {
     key: "promotion",
@@ -31,7 +35,7 @@ export const ME_PROMOTION_APPS: readonly MenuApp[] = [
     purpose: "View your promotion history.",
     items: [
       {
-        id: "promotion-history",
+        id: PROMOTION_EMPLOYEE_ITEM_ID,
         label: "Promotion History",
         desc: "See every promotion cycle you've been approved for, since you joined.",
         path: "/me/promotion",

@@ -24,6 +24,7 @@ import { useAllClosedParCycles, useParEmployeeReviews, useParLegacyHistory } fro
 import { buildMergedCycleOptions } from "../util/parEmployeeHistory";
 import { decodeParComment } from "../util/parComment";
 import { ParCommentView } from "./ParContent";
+import { ParAutoAssignedChip } from "./ParChips";
 import ParEmptyState from "./ParEmptyState";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
 import ParLegacyRecordDetail from "./ParLegacyRecordDetail";
@@ -190,6 +191,9 @@ export default function ParEmployeeHistoryView({
                     sx={{ mt: 1 }}
                     label={`PAR shared by: ${rating.data.parRatingSharedBy}`}
                   />
+                )}
+                {rating.data.parRatingUpdatedBy === "SYSTEM" && (
+                  <ParAutoAssignedChip sx={{ mt: 1, ml: rating.data.parRatingSharedBy ? 1 : 0 }} />
                 )}
               </Grid>
               <InfoItem label="Employee" value={employeeName} secondaryValue={employeeEmail} />

@@ -18,7 +18,7 @@ import { useMemo, useState, type JSX } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import {
   Alert,
-  Box,
+  AlertTitle,
   Button,
   IconButton,
   Stack,
@@ -29,12 +29,19 @@ import {
 } from "@wso2/oxygen-ui";
 import { ChartColumnIcon, PackageIcon, PencilIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
+import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import OrderFormTable from "@features/sales/cado2/quotes/components/sheet/OrderFormTable";
 import DealFiguresSection from "@features/sales/cado2/quotes/components/sheet/DealFiguresSection";
 import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/ScheduleTable";
-import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import { hasYearlySchedule, orderForm, sheetFromForm, termShort } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { hasRecurring, isPartnerLed, type DraftFormValues, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
+import {
+  hasRecurring,
+  isPartnerLed,
+  termEnd,
+  type DraftFormValues,
+  type LineValue,
+} from "@features/sales/cado2/quotes/form/draftForm";
 import AddLineDialog from "@features/sales/cado2/quotes/components/AddLineDialog";
 import SubscriptionTermCard from "@features/sales/cado2/quotes/components/SubscriptionTermCard";
 import PartnerCommissionCard from "@features/sales/cado2/quotes/components/PartnerCommissionCard";
@@ -65,7 +72,19 @@ function LineIssue({ index }: { index: number }) {
   );
 }
 
-/** Step ② Products & Pricing. */
+/**
+ * Step ② Products & Pricing (D86): the products, priced from the
+ * opportunity's price book, then each section that changes the amounts, top
+ * to bottom, with the figures last:
+ *
+ *   Products → Subscription Term → Partner Commission → Deal Figures → Yearly Schedule
+ *
+ * Billing and payment terms are on Commercials.
+ *
+ * A new quote's
+ * products are brought in from the opportunity (D72); one not mapped to a
+ * category says so on its line, and is chosen in the line's dialog.
+ */
 export default function ProductsStep({ preview }: ProductsStepProps): JSX.Element {
   const { control, getValues } = useFormContext<DraftFormValues>();
   const { fields, append, update, remove } = useFieldArray({
@@ -81,8 +100,17 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
 
   const currency = values.currencyIsoCode;
   // The opportunity's book must be usable; the card says what to fix otherwise.
-  const ready = Boolean(currency && values.defaultPricebookId && values.startDate);
-  const recurring = hasRecurring(values.lines);
+  // Products can be added before the start date (D78); they are priced once it is chosen.
+  const ready = Boolean(currency && values.defaultPricebookId);
+  // Why the amounts are blank.
+  const amountsHint =
+    preview || values.lines.length === 0
+      ? null
+      : !values.startDate
+        ? "Amounts appear once the start date is chosen."
+        : hasRecurring(values.lines) && !termEnd(values)
+          ? "Amounts appear once the term is chosen."
+          : null;
   // The same lines, amounts and figures as the Review step's sheet.
   const sheet = useMemo(() => sheetFromForm(values, preview, null), [values, preview]);
 
@@ -99,40 +127,48 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
       disabled={!ready}
       onClick={() => setEditing({ open: true, index: null })}
     >
-      Add line
+      Add product
     </Button>
   );
 
   return (
     <Stack spacing={2.5}>
-      {!values.startDate ? (
-        <Alert severity="info">Choose the start date in Step 1 before adding products.</Alert>
-      ) : null}
       {linesIssue ? <Alert severity="error">{linesIssue}</Alert> : null}
+
+      {/* When it starts and how long it runs: set first, since the amounts
+          below depend on it (D90). */}
+      <SubscriptionTermCard />
 
       {/* The opportunity's currency and price book, locked. */}
       <PricingSetupCard />
 
-      {/* The term only matters once something recurs. */}
-      {recurring ? (
-        <SubscriptionTermCard />
-      ) : fields.length > 0 ? (
-        <Alert severity="info">
-          Services only: this quote has no subscription term. Only the contract total (TCV) applies.
+      {values.notBroughtIn?.length ? (
+        <Alert severity="info" variant="outlined">
+          <AlertTitle>Not brought in from Salesforce ({values.notBroughtIn.length})</AlertTitle>
+          {values.notBroughtIn.map((n) => `${n.productName}: ${n.reason}`).join(" · ")}
         </Alert>
+      ) : null}
+
+      {/* Partner-led: the commission, right above the products whose totals it
+          changes (D91); shown before any product too. */}
+      {isPartnerLed(values) ? (
+        <PartnerCommissionCard
+          commission={orderForm(sheet.lines, sheet.partnerCommissionPercent).commission}
+          total={orderForm(sheet.lines).total}
+          currency={currency}
+        />
       ) : null}
 
       <SectionCard title="Products" icon={<PackageIcon size={18} />} aside={fields.length > 0 ? addButton : undefined}>
         {fields.length === 0 ? (
-          <Box sx={{ py: 3, textAlign: "center" }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>
-              No products yet
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Add products from the {currency || "quote's"} price books. Prices come from the price book.
-            </Typography>
-            {addButton}
-          </Box>
+          <EmptyState
+            compact
+            icon={<PackageIcon size={20} />}
+            title="No products yet"
+            // One price book: the opportunity's (D57), named.
+            body={`Add products from ${values.defaultPricebookName ? `the ${values.defaultPricebookName} price book` : "the quote's price book"}. Prices come from this price book.`}
+            action={addButton}
+          />
         ) : (
           <OrderFormTable
             lines={sheet.lines}
@@ -153,23 +189,21 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               </>
             )}
             below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
+            flagUncategorised
+            duration={termShort(sheet)}
           />
         )}
+        {amountsHint ? (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {amountsHint}
+          </Typography>
+        ) : null}
       </SectionCard>
-
-      {/* Partner-led: the partner's commission. */}
-      {isPartnerLed(values) && fields.length > 0 ? (
-        <PartnerCommissionCard
-          commission={orderForm(sheet.lines, sheet.partnerCommissionPercent).commission}
-          total={orderForm(sheet.lines).total}
-          currency={currency}
-        />
-      ) : null}
 
       {fields.length > 0 ? <DealFiguresSection sheet={sheet} /> : null}
 
       {hasYearlySchedule(sheet) ? (
-        <SectionCard title="Yearly schedule" icon={<ChartColumnIcon size={18} />}>
+        <SectionCard title="Yearly Schedule" icon={<ChartColumnIcon size={18} />}>
           <ScheduleTable years={sheet.years} lines={sheet.lines} netOfCommission={sheet.partnerCommissionPercent !== null} />
         </SectionCard>
       ) : null}

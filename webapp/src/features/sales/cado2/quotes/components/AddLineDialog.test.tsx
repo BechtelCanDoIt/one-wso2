@@ -27,6 +27,7 @@ const gateway = {
   productCode: "APIM-GW",
   family: null,
   unitOfMeasure: "Gateways",
+  recurring: true, // from its Salesforce classification (D76)
   pricebookEntries: [
     { id: "01u000000000001", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01s1", name: "FY26 USD" } },
   ],
@@ -48,6 +49,7 @@ const support = {
 // next page still to load; `book` records the book asked for.
 const productPages = { more: false, fetchNextPage: vi.fn(), book: "" };
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
+  usePricingFormulas: () => ({ data: formulas.list }),
   useProducts: (_currency: string, _term: string, book: string) => {
     productPages.book = book;
     return {
@@ -62,6 +64,61 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
 }));
 
 const quoteBook = { id: "01s1", name: "FY26 USD" };
+
+// Support priced by an Admin's formula (D81), when a test sets it.
+const supportFormula = {
+  versionId: 6,
+  version: 3,
+  status: "ACTIVE" as "ACTIVE" | "REMOVED",
+  productId: support.id,
+  productName: support.name,
+  productCode: support.productCode,
+  expression: "max($1, $2 * $3)",
+  bindings: [
+    { name: "$1", kind: "VALUE" as const, value: "25000" },
+    { name: "$2", kind: "VALUE" as const, value: "10%" },
+    { name: "$3", kind: "PRODUCTS" as const, products: [{ id: gateway.id, name: gateway.name, code: gateway.productCode }] },
+  ],
+  unitOfMeasure: "Annual, higher of 25,000 or 10% of subscription",
+  updatedByEmail: "admin@wso2.com",
+  updatedAt: "2026-10-15T10:00:00Z",
+};
+const formulas: { list: (typeof supportFormula)[] } = { list: [] };
+
+// A saved Support line priced with formula v3 (quote 57's case).
+function savedSupportLine(): LineValue {
+  return {
+    lineId: 228,
+    pricebookEntryId: "01u000000000002",
+    productId: support.id,
+    productName: support.name,
+    productCode: "SUP-APIM",
+    productDescription: "",
+    pricebookId: "01s1",
+    pricebookName: "FY26 USD",
+    unitPrice: "414000",
+    category: "SUPPORT",
+    categorySource: "MAPPED",
+    recurring: true,
+    unitOfMeasure: "",
+    quantity: "1",
+    discount: "0",
+    keepPricing: {
+      method: "FORMULA",
+      formulaVersionId: 6,
+      formula: {
+        versionId: 6,
+        version: 3,
+        versionDate: "2026-10-15",
+        unitOfMeasure: "Annual, per v3",
+        expression: "max($1, $2 * 10%)",
+        explanation: "max(25,000, 4,140,000 × 10%)",
+        listPrice: "53000",
+        values: [],
+      },
+    },
+  };
+}
 
 function renderDialog(onSave = vi.fn(), line: LineValue | null = null) {
   render(
@@ -83,7 +140,7 @@ describe("AddLineDialog", () => {
   it("groups the fields and shows the chosen product and its price-book price", async () => {
     const onSave = renderDialog();
     const user = userEvent.setup();
-    for (const group of ["Product", "Quantity & discount"]) {
+    for (const group of ["Product", "Quantity & Discount"]) {
       expect(screen.getByRole("region", { name: group })).toBeInTheDocument();
     }
     // Lines have no dates of their own: they cover the quote's term.
@@ -117,6 +174,7 @@ describe("AddLineDialog", () => {
         unitOfMeasure: "",
         category: "SUBSCRIPTION",
         categorySource: "REP",
+        recurring: true,
       }),
     );
   });
@@ -146,6 +204,7 @@ describe("AddLineDialog", () => {
       unitPrice: "25000",
       category: "SUPPORT",
       categorySource: "MAPPED",
+      recurring: true,
       unitOfMeasure: "",
       quantity: "1",
       discount: "0",
@@ -153,7 +212,10 @@ describe("AddLineDialog", () => {
     const onSave = renderDialog(vi.fn(), line);
 
     expect(screen.queryByRole("combobox", { name: /Category/ })).toBeNull();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Update line" }));
+    // The product can't be changed on a line: remove it and add another (2026-10-12).
+    expect(screen.queryByRole("combobox", { name: /Product/ })).toBeNull();
+    expect(screen.getByText(/remove this line and add it/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Save line" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }));
   });
 
@@ -207,10 +269,6 @@ describe("AddLineDialog", () => {
 
     await user.click(option);
     expect(within(screen.getByLabelText("Chosen product")).getByText("Based on the number of production gateways.")).toBeInTheDocument();
-    // And again at the unit of measure, which the rep words from it.
-    expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveAccessibleDescription(
-      "Product description: Based on the number of production gateways.",
-    );
     await user.click(screen.getByRole("button", { name: "Add line" }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -219,9 +277,120 @@ describe("AddLineDialog", () => {
     );
   });
 
-  it("says nothing at the unit of measure for a product without a description", async () => {
+  // Locked until it comes from Salesforce (2026-10-14).
+  it("locks the unit of measure, saying it will come from Salesforce", async () => {
     renderDialog();
     await pick(/WSO2 API Manager/);
-    expect(screen.getByRole("textbox", { name: "Unit of measure" })).not.toHaveAccessibleDescription();
+    const uom = screen.getByRole("textbox", { name: "Unit of measure" });
+    expect(uom).toBeDisabled();
+    expect(uom).toHaveAccessibleDescription("Will come from Salesforce");
+  });
+});
+
+// A click outside the dialog doesn't throw the typed line away (2026-10-13).
+describe("AddLineDialog — closing", () => {
+  it("shows a formula product's formula instead of a price, and allows no discount (D81)", async () => {
+    formulas.list = [supportFormula];
+    try {
+      const onSave = renderDialog();
+      const user = await pick(/Enterprise Support Plan/);
+
+      const card = within(screen.getByLabelText("Chosen product"));
+      expect(card.getByText("By formula")).toBeInTheDocument();
+      expect(card.queryByText("USD 25,000")).toBeNull();
+      expect(card.getByText("Formula v3 · 15 Oct 2026")).toBeInTheDocument();
+      expect(card.getByText("max($1, $2 * $3)")).toBeInTheDocument();
+      expect(card.getByText("$1 = 25000 · $2 = 10% · $3 = total of WSO2 API Manager")).toBeInTheDocument();
+
+      const discount = screen.getByRole("textbox", { name: "Discount" });
+      expect(discount).toBeDisabled();
+      expect(discount).toHaveValue("0");
+      expect(screen.getByText("No discount on formula-priced products")).toBeInTheDocument();
+      // D83: the unit of measure comes from the formula version.
+      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, higher of 25,000 or 10% of subscription");
+      expect(screen.getByText("From the pricing formula v3")).toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: "Add line" }));
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ productId: support.id, discount: "0" }));
+    } finally {
+      formulas.list = [];
+    }
+  });
+
+  // D82, the case of quote 57: a saved formula line shows the price it was
+  // worked out at and its version, even after the formula was removed.
+  it("shows a saved formula line's own price and version, and lets the AM move it to the price book", async () => {
+    formulas.list = [{ ...supportFormula, versionId: 7, version: 4, status: "REMOVED", expression: "", bindings: [], updatedAt: "2026-10-16T10:00:00Z" }];
+    try {
+      const onSave = renderDialog(vi.fn(), savedSupportLine());
+      const card = within(screen.getByLabelText("Chosen product"));
+      expect(card.getByText("USD 414,000")).toBeInTheDocument();
+      expect(card.getByText("per unit, by formula")).toBeInTheDocument();
+      expect(card.queryByText("per unit, from the price book")).toBeNull();
+      expect(card.getByText("Formula v3 · 15 Oct 2026")).toBeInTheDocument();
+      expect(card.getByText("= max(25,000, 4,140,000 × 10%)")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Discount" })).toBeDisabled();
+      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, per v3");
+
+      expect(screen.getByText(/This formula was removed on 16 Oct 2026/)).toBeInTheDocument();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Use the price-book price" }));
+      const moved = within(screen.getByLabelText("Chosen product"));
+      expect(moved.getByText("USD 53,000")).toBeInTheDocument();
+      expect(moved.getByText("per unit, from the price book")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Discount" })).toBeEnabled();
+      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("");
+      await user.click(screen.getByRole("button", { name: "Save line" }));
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ lineId: 228, useLatestPricing: true, unitPrice: "53000", unitOfMeasure: "" }),
+      );
+    } finally {
+      formulas.list = [];
+    }
+  });
+
+  it("keeps a saved line on its version unless the AM moves it to the newer one", async () => {
+    formulas.list = [{ ...supportFormula, versionId: 8, version: 4, updatedAt: "2026-10-20T10:00:00Z" }];
+    try {
+      const onSave = renderDialog(vi.fn(), savedSupportLine());
+      expect(screen.getByText(/A newer version of this formula is in force: v4 · 20 Oct 2026/)).toBeInTheDocument();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Save line" }));
+      expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ useLatestPricing: undefined }));
+      expect(onSave.mock.lastCall?.[0].keepPricing.formulaVersionId).toBe(6);
+    } finally {
+      formulas.list = [];
+    }
+  });
+
+  it("offers a formula introduced since a price-book line was saved, without applying it", async () => {
+    formulas.list = [supportFormula];
+    try {
+      const line = { ...savedSupportLine(), unitPrice: "25000", keepPricing: { method: "PRICE_BOOK" as const, formulaVersionId: null, formula: null } };
+      renderDialog(vi.fn(), line);
+      expect(within(screen.getByLabelText("Chosen product")).getByText("per unit, from the price book")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Discount" })).toBeEnabled();
+      const user = userEvent.setup();
+      await user.click(screen.getByRole("button", { name: "Use the formula" }));
+      expect(within(screen.getByLabelText("Chosen product")).getByText("By formula")).toBeInTheDocument();
+      expect(screen.getByRole("textbox", { name: "Discount" })).toBeDisabled();
+    } finally {
+      formulas.list = [];
+    }
+  });
+
+  it("stays open on a click outside it; Cancel closes it", async () => {
+    const onClose = vi.fn();
+    render(
+      <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
+        <AddLineDialog open line={null} currency="USD" pricebook={quoteBook} onSave={vi.fn()} onClose={onClose} />
+      </DatePickers.LocalizationProvider>,
+    );
+    const user = userEvent.setup();
+    const backdrop = document.querySelector(".MuiBackdrop-root") as HTMLElement;
+    await user.click(backdrop);
+    expect(onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalled();
   });
 });

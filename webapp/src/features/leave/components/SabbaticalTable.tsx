@@ -28,7 +28,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import type { DatabaseLeave, LeaveStatus } from "../api/leaveTypes";
-import { StatusChip } from "./LeaveChips";
+import { LeaveTypeChip, StatusChip } from "./LeaveChips";
 import { SABBATICAL } from "../util/leaveCopy";
 import { describeError } from "../util/leaveError";
 import { isoDay } from "../util/leaveDates";
@@ -61,17 +61,22 @@ export function HeadCell({
  * ApprovalHistoryTable.tsx:25-127, shared by the lead's Approval history and the
  * sabbatical Report exactly as the source shares that component between
  * ApproveHistoryTab and AdminSabbaticalTab.
+ *
+ * `showLeaveType` adds a Leave Type column after Employee, the way the general
+ * report shows one. The Report turns it on; Approval history does not.
  */
 export default function SabbaticalHistoryTable({
   rows,
   isLoading,
   error,
   emptyMessage,
+  showLeaveType = false,
 }: {
   rows: DatabaseLeave[];
   isLoading: boolean;
   error: Error | null;
   emptyMessage: string;
+  showLeaveType?: boolean;
 }) {
   if (isLoading) {
     return <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 1.5 }} />;
@@ -91,6 +96,7 @@ export default function SabbaticalHistoryTable({
         <TableHead>
           <TableRow>
             <HeadCell>{SABBATICAL.columns.employee}</HeadCell>
+            {showLeaveType && <HeadCell>{SABBATICAL.columns.leaveType}</HeadCell>}
             <HeadCell>{SABBATICAL.columns.startDate}</HeadCell>
             <HeadCell>{SABBATICAL.columns.endDate}</HeadCell>
             <HeadCell>{SABBATICAL.columns.dayCount}</HeadCell>
@@ -102,6 +108,11 @@ export default function SabbaticalHistoryTable({
           {rows.map((lv) => (
             <TableRow key={lv.id} hover>
               <TableCell sx={{ fontSize: 12.5 }}>{lv.email}</TableCell>
+              {showLeaveType && (
+                <TableCell>
+                  <LeaveTypeChip leaveType={lv.leaveType ?? null} />
+                </TableCell>
+              )}
               <TableCell sx={{ fontSize: 12.5, fontVariantNumeric: "tabular-nums" }}>
                 {isoDay(lv.startDate)}
               </TableCell>

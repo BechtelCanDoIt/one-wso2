@@ -16,13 +16,16 @@
 
 import type { JSX, ReactNode } from "react";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Alert, Checkbox, FormControlLabel, MenuItem, Stack, Switch, TextField, Typography } from "@wso2/oxygen-ui";
-import { FileTextIcon, MapPinIcon, MessageSquareTextIcon, ReceiptIcon, TruckIcon } from "@wso2/oxygen-ui-icons-react";
+import { Alert, Checkbox, FormControlLabel, Stack, Switch, TextField, Typography } from "@wso2/oxygen-ui";
+import { FileTextIcon, MapPinIcon, MessageSquareTextIcon, TruckIcon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useAccountContacts } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { discountedLines, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
+import { SPECIAL_TERMS_BILLING } from "@features/sales/cado2/quotes/form/stepRules";
 import AddressFields from "@features/sales/cado2/quotes/components/AddressFields";
 import ContactPicker from "@features/sales/cado2/quotes/components/ContactPicker";
+import BillingFrequencyCard from "@features/sales/cado2/quotes/components/BillingFrequencyCard";
+import PaymentTermsCard from "@features/sales/cado2/quotes/components/PaymentTermsCard";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
 
 /** A step section: the app-wide section card, with an optional hint. */
@@ -96,48 +99,32 @@ function TermsSwitch({
   );
 }
 
-/** Step ③ Commercial details. */
+/**
+ * Step ③ Commercials (D86): how often it is invoiced (every quote, D88)
+ * and when each invoice is due, the contract's terms, who is billed
+ * and who receives it (each with its contact; the PO number in Bill To), and
+ * the justification. Billing sits right above Terms, so "See Special Terms"
+ * leads straight to the switch it needs.
+ */
 export default function CommercialStep(): JSX.Element {
   const { control } = useFormContext<DraftFormValues>();
-  const [accountId, dealType, sameAsBillTo, lines] = useWatch({
+  const [accountId, dealType, sameAsBillTo, lines, billing, specialOn] = useWatch({
     control,
-    name: ["accountId", "dealType", "shipToSameAsBillTo", "lines"],
+    name: ["accountId", "dealType", "shipToSameAsBillTo", "lines", "billingFrequency", "specialTermsEnabled"],
   });
   const contacts = useAccountContacts(accountId || null);
   const partnerDeal = dealType === "PARTNER";
   const discounted = discountedLines(lines);
+  // D86: "See Special Terms" billing needs the special terms on.
+  const billingNeedsSpecialTerms = billing === "SPECIAL_TERMS" && !specialOn;
 
   return (
     <Stack spacing={2.5}>
-      <Section title="Payment" icon={<ReceiptIcon size={18} />}>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-          <Controller
-            name="netTermsDays"
-            control={control}
-            render={({ field }) => (
-              <TextField {...field} select label="Net terms" size="small" sx={{ minWidth: 200 }} required>
-                <MenuItem value="30">30 days</MenuItem>
-                <MenuItem value="45">45 days</MenuItem>
-                <MenuItem value="60">60 days</MenuItem>
-              </TextField>
-            )}
-          />
-          <Controller
-            name="poNumber"
-            control={control}
-            render={({ field }) => (
-              <TextField
-                {...field}
-                label="PO number (optional)"
-                size="small"
-                helperText="The customer's purchase order reference"
-              />
-            )}
-          />
-        </Stack>
-      </Section>
+      <BillingFrequencyCard />
+      <PaymentTermsCard />
 
       <Section title="Terms" icon={<FileTextIcon size={18} />} hint="Switch on only what differs from WSO2's standard terms.">
+        {billingNeedsSpecialTerms ? <Alert severity="warning">{SPECIAL_TERMS_BILLING}</Alert> : null}
         <TermsSwitch
           enabled="specialTermsEnabled"
           text="specialTerms"
@@ -153,22 +140,37 @@ export default function CommercialStep(): JSX.Element {
       </Section>
 
       <Section
-        title="Bill to"
+        title="Bill To"
         icon={<MapPinIcon size={18} />}
         hint={partnerDeal ? "Partner deal: the partner is billed." : "Direct deal: the customer is billed."}
       >
         <AddressFields name="billTo" />
+        <Controller
+          name="poNumber"
+          control={control}
+          render={({ field }) => (
+            <TextField
+              {...field}
+              label="PO number (optional)"
+              size="small"
+              sx={{ maxWidth: 360 }}
+              helperText="The customer's purchase order reference, printed on invoices"
+            />
+          )}
+        />
         <ContactPicker
           name="billingContact"
           issueField="contacts.billing"
           label="Billing contact"
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
+          loadError={contacts.error}
+          onRetry={() => void contacts.refetch()}
           helperText="Receives invoices"
         />
       </Section>
 
-      <Section title="Ship to" icon={<TruckIcon size={18} />} hint={partnerDeal ? "Partner deal: shipped to the end customer." : undefined}>
+      <Section title="Ship To" icon={<TruckIcon size={18} />} hint={partnerDeal ? "Partner deal: shipped to the end customer." : undefined}>
         {!partnerDeal ? (
           <Controller
             name="shipToSameAsBillTo"
@@ -188,6 +190,8 @@ export default function CommercialStep(): JSX.Element {
           label="Security contact (optional)"
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
+          loadError={contacts.error}
+          onRetry={() => void contacts.refetch()}
           helperText="Receives WSO2 security bulletins"
         />
       </Section>

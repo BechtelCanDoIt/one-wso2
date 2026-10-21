@@ -96,6 +96,8 @@ export interface UmtUpdateSummary {
   // Drives whether Integration Tests shows the per-product Test PR/Ignore
   // Test fields or a single Helm Chart Tag field applied to every product.
   isContainerizedUpdate?: boolean | null;
+  // Set from the last PR analysis submission, alongside isContainerizedUpdate.
+  isInstructionsOnly?: boolean | null;
 }
 
 export interface UmtFileOperation {
@@ -135,8 +137,14 @@ export interface UmtPullRequestAnalysis {
   identifiedFileOperations?: UmtFileOperation[] | null;
   additionalFileOperations?: UmtFileOperation[] | null;
   unIdentifiedFileOperations?: UmtFileOperation[] | null;
-  bundlesInfoChanges?: UmtBundleInfoChange[] | null;
+  bundlesInfoChanges?: UmtBundleInfoChangeResult[] | null;
   diffResponses?: UmtDiffResponse[] | null;
+}
+
+// The analysis echoes each submitted bundle info change back with its change
+// type under `changeType`, where the request sends it as `entryType`.
+export interface UmtBundleInfoChangeResult extends UmtBundleInfoChange {
+  changeType?: string | null;
 }
 
 export interface UmtPullRequestAnalysisRequest {

@@ -18,8 +18,7 @@ import type { UmtLifecycleState } from "../api/umtTypes";
 import { umtLifecycle, umtLifecycleState } from "./umtLifecycleState";
 
 const NORMAL_NO_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "integration-tests",
   "testing",
@@ -29,8 +28,7 @@ const NORMAL_NO_FILES: UmtEditStepId[] = [
 ];
 
 const NORMAL_WITH_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "integration-tests",
   "testing",
@@ -41,8 +39,7 @@ const NORMAL_WITH_FILES: UmtEditStepId[] = [
 ];
 
 const SECURITY_NO_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "security-advisory",
   "integration-tests",
@@ -53,8 +50,7 @@ const SECURITY_NO_FILES: UmtEditStepId[] = [
 ];
 
 const SECURITY_WITH_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "security-advisory",
   "integration-tests",
@@ -81,7 +77,7 @@ describe("computeUmtEditSteps", () => {
     ]);
   });
 
-  it("returns the 8-step normal sequence with no additional files", () => {
+  it("returns the 7-step normal sequence with no additional files", () => {
     expect(ids(computeUmtEditSteps("UpdateLifecycle", false))).toEqual(NORMAL_NO_FILES);
   });
 
@@ -128,7 +124,7 @@ describe("umtHasAdditionalFileOperations", () => {
 
 describe("proceedWired", () => {
   const WIRED: UmtEditStepId[] = [
-    "product-analysis",
+    "files-analysis",
     "description-instruction",
     "security-advisory",
     "integration-tests",
@@ -206,8 +202,8 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
 
   it("maps each recognized lifecycleState to its step for the normal sequence", () => {
     const cases: [UmtLifecycleState, UmtEditStepId][] = [
-      ["Development", "pr-analysis"],
-      ["PRAnalyzed", "product-analysis"],
+      ["Development", "files-analysis"],
+      ["PRAnalyzed", "files-analysis"],
       ["ProductAnalyzed", "description-instruction"],
       ["StagingRequested", "testing"],
       ["Staging", "testing"],
@@ -241,7 +237,7 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
   });
 
   it("shifts indices correctly for the security and file-approval variants", () => {
-    expect(umtActiveStepIndex("ProductAnalyzed", securitySteps)).toBe(2);
+    expect(umtActiveStepIndex("ProductAnalyzed", securitySteps)).toBe(1);
     expect(umtActiveStepIndex("Released", securitySteps)).toBe(
       securitySteps.findIndex((step) => step.id === "verifying"),
     );
@@ -251,8 +247,8 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
   });
 
   it("defaults to the first step for null or unrecognized lifecycleState", () => {
-    expect(umtActiveStepId(null, normalSteps)).toBe("pr-analysis");
-    expect(umtActiveStepId(umtLifecycleState("SomeFutureState"), normalSteps)).toBe("pr-analysis");
+    expect(umtActiveStepId(null, normalSteps)).toBe("files-analysis");
+    expect(umtActiveStepId(umtLifecycleState("SomeFutureState"), normalSteps)).toBe("files-analysis");
     expect(umtActiveStepIndex(null, normalSteps)).toBe(0);
   });
 

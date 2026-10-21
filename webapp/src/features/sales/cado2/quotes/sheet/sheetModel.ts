@@ -29,6 +29,7 @@ import type {
   DealType,
   DraftResponse,
   LineCategory,
+  LineFormula,
   PricingPreview,
   PricingYear,
   ScheduleRow,
@@ -36,10 +37,11 @@ import type {
   Totals,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
+import { versionLabel } from "@features/sales/cado2/utils/pricingFormula";
 import {
   commissionProblem,
-  effectiveBilling,
-  endDateFor,
+  durationShort,
+  durationText,
   hasRecurring,
   isPartnerLed,
   storedPricing,
@@ -73,17 +75,25 @@ export interface SheetLine {
   /** The product's description, without the name if it repeats it. */
   readonly productDescription: string | null;
   readonly pricebookName: string;
-  readonly category: LineCategory;
+  /** "" = not chosen yet (D72): listed under "Uncategorised". */
+  readonly category: LineCategory | "";
   /** The rep chose the category, because the product isn't mapped: Deal Desk verifies it. */
   readonly categoryByRep: boolean;
+  /** Charged every year of the term, from its product's Salesforce classification (D76). */
+  readonly recurring: boolean;
   readonly quantity: string;
   readonly unitOfMeasure: string | null;
   readonly unitPrice: string;
-  /** e.g. "10" for 10%; "0" when none. */
+  /** e.g. "10" for 10%; "0" when none, and always on a formula line. */
   readonly discountPercent: string;
+  /**
+   * A formula line's version and how it worked the unit price out (D81, D82):
+   * "v3 · 15 Oct 2026" and "max(25,000, 10% × 320,000)"; null on a price-book line.
+   */
+  readonly formula: { readonly version: string; readonly explanation: string } | null;
   /** Every line covers the quote's term; a service is dated at the start. */
-  readonly startDate: string;
-  readonly endDate: string;
+  readonly startDate: string | null;
+  readonly endDate: string | null;
   /** From the pricing, when the quote can be priced. */
   readonly annualList: string | null;
   readonly annualNet: string | null;
@@ -98,6 +108,9 @@ export interface SheetLine {
 }
 
 export interface QuoteSheet {
+  /** Salesforce ids, for links to the records; "" when not chosen yet. */
+  readonly accountId: string;
+  readonly opportunityId: string;
   readonly accountName: string;
   /** Salesforce sales region, e.g. "APAC"; "" when none. */
   readonly salesRegion: string;
@@ -110,6 +123,12 @@ export interface QuoteSheet {
   /** Names when known (saved versions); the form only knows how many. */
   readonly previousOpportunities: readonly string[];
   readonly previousOpportunityCount: number;
+  /**
+   * A renewal's expected start: the day after the renewed opportunity ends,
+   * as saved (frozen at submission). `differs`: the quote starts another day.
+   * Null when unknown (no end date in Salesforce, an unsaved form) or not a renewal.
+   */
+  readonly renewalStart: { readonly date: string; readonly fromName: string; readonly differs: boolean } | null;
   readonly legalEntity: { readonly name: string; readonly address: string | null } | null;
   readonly currency: string;
   /** The quote's price book; null when none was chosen. */
@@ -144,6 +163,11 @@ export interface QuoteSheet {
 }
 
 const ROLES: readonly ContactRole[] = ["BILLING", "SECURITY"];
+
+/** A formula line's version label and explanation, for the order form. */
+function formulaOf(f: LineFormula | null | undefined): SheetLine["formula"] {
+  return f ? { version: versionLabel(f.version, f.versionDate), explanation: f.explanation } : null;
+}
 const blank = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
 
 function addressLines(a: {
@@ -176,6 +200,8 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
   };
   const le = v.legalEntity;
   return {
+    accountId: res.quote.sfAccountId ?? "",
+    opportunityId: res.quote.sfOpportunityId ?? "",
     accountName: v.accountName ?? "",
     salesRegion: v.accountSalesRegion ?? "",
     subRegion: v.accountSubRegion ?? "",
@@ -185,6 +211,9 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
     isRenewal: v.isRenewal,
     previousOpportunities: v.previousOpportunities.map((p) => p.name),
     previousOpportunityCount: v.previousOpportunities.length,
+    renewalStart: v.renewalStart
+      ? { date: v.renewalStart.expectedStartDate, fromName: v.renewalStart.fromOpportunityName, differs: v.renewalStart.differs }
+      : null,
     legalEntity: le ? { name: le.name, address: addressLines(le).join(", ") || null } : null,
     currency: v.currencyIsoCode ?? "",
     pricebookName: v.defaultPricebook?.name ?? null,
@@ -204,10 +233,12 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
       pricebookName: l.pricebookName,
       category: l.category,
       categoryByRep: l.categorySource !== "MAPPED",
+      recurring: l.recurring,
       quantity: String(l.quantity),
       unitOfMeasure: blank(l.unitOfMeasure),
       unitPrice: l.unitPrice,
       discountPercent: String(Number(l.discretionaryDiscountPercent)),
+      formula: l.pricingMethod === "FORMULA" ? formulaOf(l.formula) : null,
       startDate: l.startDate,
       endDate: l.endDate,
       annualList: pricing ? l.annualList : null,
@@ -256,6 +287,8 @@ export function sheetFromForm(
   const end = recurring ? termEnd(v) : "";
   const contacts = [v.billingContact, v.securityContact].map((c, i) => formContact(ROLES[i], c));
   return {
+    accountId: v.accountId,
+    opportunityId: v.opportunityId,
     accountName: v.accountName,
     salesRegion: v.accountSalesRegion,
     subRegion: v.accountSubRegion,
@@ -265,20 +298,23 @@ export function sheetFromForm(
     isRenewal: v.isRenewal,
     previousOpportunities: [],
     previousOpportunityCount: v.isRenewal ? v.previousOpportunityIds.length : 0,
+    renewalStart: null,
     legalEntity: legalEntity ? { name: legalEntity.name, address: legalEntity.country ?? null } : null,
     currency: v.currencyIsoCode,
     pricebookName: v.defaultPricebookName || null,
     startDate: v.startDate,
     endDate: end,
     termMode: recurring && v.termMode ? v.termMode : null,
-    termYears: recurring && v.termMode === "MULTI_YEAR" ? Number(v.termYears) : null,
+    termYears: recurring && v.termMode === "YEARS" ? Number(v.termYears) : null,
     recurring,
-    billingFrequency: recurring ? effectiveBilling(v) || null : null,
+    billingFrequency: v.billingFrequency || null,
     partnerCommissionPercent:
       isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? String(Number(v.partnerCommissionPercent)) : null,
     contacts: [contacts[0], contacts[1]],
     lines: v.lines.map((l, i) => {
       const p = preview?.lines[i];
+      // A formula line's price is the preview's: worked out from the rest of the quote (D81).
+      const byFormula = p?.pricingMethod === "FORMULA";
       return {
         number: i + 1,
         productName: l.productName,
@@ -287,12 +323,14 @@ export function sheetFromForm(
         pricebookName: l.pricebookName,
         category: l.category,
         categoryByRep: l.categorySource !== "MAPPED",
+        recurring: l.recurring,
         quantity: l.quantity,
         unitOfMeasure: blank(l.unitOfMeasure),
-        unitPrice: l.unitPrice,
-        discountPercent: String(Number(l.discount || "0")),
+        unitPrice: byFormula ? (p.unitPrice ?? l.unitPrice) : l.unitPrice,
+        discountPercent: byFormula ? "0" : String(Number(l.discount || "0")),
+        formula: byFormula ? formulaOf(p.formula) : null,
         startDate: v.startDate,
-        endDate: l.category === "PROFESSIONAL_SERVICE" ? v.startDate : end,
+        endDate: l.recurring ? end : v.startDate,
         annualList: p?.annualList ?? null,
         annualNet: p?.annualNet ?? null,
         arr: p?.arr ?? null,
@@ -320,32 +358,11 @@ export function sheetFromForm(
 // Labels
 // ---------------------------------------------------------------------------
 
-/** "3 years" when the term is whole years, else "18 months" (rounded), else "". */
-export function termLength(start: string, end: string): string {
-  if (!start || !end) return "";
-  for (let y = 1; y <= 10; y++) if (endDateFor(start, y) === end) return y === 1 ? "1 year" : `${y} years`;
-  const [sy, sm, sd] = start.split("-").map(Number);
-  const [ey, em, ed] = end.split("-").map(Number);
-  const months = (ey - sy) * 12 + (em - sm) + (ed + 1 >= sd ? 1 : 0);
-  return months > 0 ? `${months} month${months === 1 ? "" : "s"}` : "";
-}
+/** How long the term is, in words (D85): "3 years", "1 year + 1 day", or "". */
+export const termLabel = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationText(s.startDate, s.endDate);
 
-export const MODE_LABEL: Record<TermMode, string> = {
-  ONE_YEAR: "1 year",
-  MULTI_YEAR: "Multi-year",
-  CO_TERMED: "Co-termed",
-  SHORTER: "Shorter term",
-};
-
-/**
- * How the term reads: "3 years · Multi-year", "5 months · Co-termed",
- * "1 year". A version submitted before term modes shows its length only.
- */
-export function termLabel(s: Pick<QuoteSheet, "startDate" | "endDate" | "termMode">): string {
-  const length = termLength(s.startDate, s.endDate);
-  if (!s.termMode || s.termMode === "ONE_YEAR") return length;
-  return [length, MODE_LABEL[s.termMode]].filter(Boolean).join(" · ");
-}
+/** The term, short, e.g. "1Y 1D": the products table's Term column (D94, D96). */
+export const termShort = (s: Pick<QuoteSheet, "startDate" | "endDate">) => durationShort(s.startDate, s.endDate);
 
 /** The yearly schedule is shown only when the term runs over more than one contract year. */
 export const hasYearlySchedule = (s: Pick<QuoteSheet, "years">) => s.years.length > 1;
@@ -431,7 +448,6 @@ export interface DealFigures {
   readonly arr: string | null;
   readonly tcv: string;
   readonly acv: string | null;
-  readonly payableNow: string;
   /** The lines that make up ARR: one year of each Subscription and Support line. */
   readonly arrParts: readonly { readonly productName: string; readonly amount: string }[];
   /** Lines left out of ARR (one-time services). */
@@ -462,21 +478,21 @@ export function dealFigures(
 ): DealFigures | null {
   const t = s.totals;
   if (!t || s.lines.some((l) => l.tcv === null)) return null;
-  const recurring = s.lines.filter((l) => l.category !== "PROFESSIONAL_SERVICE");
+  // What recurs comes from the product's Salesforce classification, not its category (D76).
+  const recurring = s.lines.filter((l) => l.recurring);
   const years = t.acv && Number(t.acv) > 0 ? Number(t.tcv) / Number(t.acv) : null;
   return {
     arr: t.arr,
     tcv: t.tcv,
     acv: t.acv,
-    payableNow: t.payableNow,
     arrParts: recurring.map((l) => ({ productName: l.productName, amount: l.arr ?? "0.00" })),
-    arrExcluded: s.lines.filter((l) => l.category === "PROFESSIONAL_SERVICE").map((l) => l.productName),
+    arrExcluded: s.lines.filter((l) => !l.recurring).map((l) => l.productName),
     tcvParts: s.years.map((y) => ({ yearNumber: y.yearNumber, amount: y.net })),
     contractYears: years === null ? null : String(Math.round(years * 100) / 100),
     byProduct: s.lines.map((l) => ({
       number: l.number,
       productName: l.productName,
-      arr: l.category === "PROFESSIONAL_SERVICE" ? null : l.arr,
+      arr: l.recurring ? l.arr : null,
       tcv: l.tcv!,
       commission: s.partnerCommissionPercent ? l.commission : null,
     })),

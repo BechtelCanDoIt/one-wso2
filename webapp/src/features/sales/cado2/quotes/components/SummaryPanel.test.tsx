@@ -42,20 +42,22 @@ describe("SummaryPanel (F5 review)", () => {
     expect(customer.getByText("Acme Reseller")).toBeInTheDocument();
     expect(customer.queryByText(/contact/i)).toBeNull();
 
-    const terms = within(screen.getByRole("region", { name: "Deal terms" }));
+    const terms = within(screen.getByRole("region", { name: "Deal Terms" }));
     expect(terms.getByText("WSO2, LLC.")).toBeInTheDocument();
     expect(terms.getByText("USD")).toBeInTheDocument();
     expect(terms.queryByText(/uplift/i)).toBeNull(); // no uplift
     expect(terms.getByText(/1 Oct 2026 – 30 Sept 2027/)).toBeInTheDocument();
     expect(terms.getByText("1 year")).toBeInTheDocument();
-    expect(terms.getByText("Annually in advance")).toBeInTheDocument();
+    expect(terms.queryByText("Annually in Advance")).toBeNull(); // on Commercials (D86)
+    expect(screen.queryByText("First invoice")).toBeNull(); // removed (D85)
 
     const products = within(screen.getByRole("region", { name: "Products" }));
     expect(products.getByText("WSO2 Gateway")).toBeInTheDocument();
     expect(products.getByText("Quantity 20")).toBeInTheDocument();
 
     // …and the billing and security contacts with the commercial details.
-    const commercial = within(screen.getByRole("region", { name: "Commercial" }));
+    const commercial = within(screen.getByRole("region", { name: "Commercials" }));
+    expect(commercial.getByText("Annually in Advance")).toBeInTheDocument();
     expect(commercial.getByText("Net 45")).toBeInTheDocument();
     expect(commercial.getByText("PO-4471")).toBeInTheDocument();
     expect(commercial.getByText("Acme Reseller Ltd")).toBeInTheDocument();
@@ -94,12 +96,12 @@ describe("SummaryPanel (F5 review)", () => {
 
 describe("SummaryPanel — services only", () => {
   it("shows the start date without a term", () => {
-    const services = { ...values, lines: values.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const })) };
-    const t = { arr: null, acv: null, tcv: "720.00", payableNow: "720.00" };
+    const services = { ...values, lines: values.lines.map((l) => ({ ...l, category: "PROFESSIONAL_SERVICE" as const, recurring: false })) };
+    const t = { arr: null, acv: null, tcv: "720.00" };
     render(<SummaryPanel values={services} legalEntityName={null} totals={t} pricing={false} />);
-    expect(screen.getAllByText("USD 720.00")).toHaveLength(2); // total order value, first invoice
-    const terms = within(screen.getByRole("region", { name: "Deal terms" }));
-    expect(terms.getByText("No subscription term: services only")).toBeInTheDocument();
+    expect(screen.getAllByText("USD 720.00")).toHaveLength(1); // total order value
+    const terms = within(screen.getByRole("region", { name: "Deal Terms" }));
+    expect(terms.getByText("No subscription term: no recurring products")).toBeInTheDocument();
     expect(terms.queryByText("Billing")).toBeNull();
   });
 });
@@ -108,7 +110,7 @@ describe("SummaryPanel — ship to", () => {
   it("repeats the bill-to address, marked as the same, on a direct deal with the box ticked", () => {
     const direct = { ...values, dealType: "DIRECT" as const, shipToSameAsBillTo: true };
     render(<SummaryPanel values={direct} legalEntityName={null} totals={null} pricing={false} />);
-    const commercial = within(screen.getByRole("region", { name: "Commercial" }));
+    const commercial = within(screen.getByRole("region", { name: "Commercials" }));
     expect(commercial.getAllByText("Acme Reseller Ltd")).toHaveLength(2); // bill to and ship to
     expect(commercial.getByText("Same as bill to")).toBeInTheDocument();
   });

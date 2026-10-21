@@ -25,7 +25,6 @@ import { initialsOfName } from "@features/sales/cado2/utils/initials";
 interface AccountPickerProps {
   /** The chosen account's name, or "" when none. */
   readonly chosenName: string;
-  readonly chosenPlace: string;
   /** After the first save the account is fixed. */
   readonly locked: boolean;
   readonly onChoose: (account: Account | null) => void;
@@ -37,7 +36,7 @@ const place = (a: Account) => [a.billingAddress?.city, a.billingAddress?.country
  * Account first (F5 feedback): search Salesforce accounts with rich results;
  * once chosen, the account shows as a card with Change.
  */
-export default function AccountPicker({ chosenName, chosenPlace, locked, onChoose }: AccountPickerProps): JSX.Element {
+export default function AccountPicker({ chosenName, locked, onChoose }: AccountPickerProps): JSX.Element {
   const [term, setTerm] = useState("");
   const accounts = useAccountSearch(useDebouncedValue(term, 300));
 
@@ -61,11 +60,6 @@ export default function AccountPicker({ chosenName, chosenPlace, locked, onChoos
             <Typography variant="h6" component="p" sx={{ fontWeight: 700, lineHeight: 1.2 }}>
               {chosenName}
             </Typography>
-            {chosenPlace ? (
-              <Typography variant="body2" color="text.secondary">
-                {chosenPlace}
-              </Typography>
-            ) : null}
           </Box>
           {locked ? null : (
             <Button onClick={() => onChoose(null)} aria-label="Change account">
@@ -107,7 +101,13 @@ export default function AccountPicker({ chosenName, chosenPlace, locked, onChoos
         loading={accounts.isFetching}
         onInputChange={(_, v) => setTerm(v)}
         onChange={(_, a) => a && onChoose(a)}
-        noOptionsText={term.trim().length < MIN_ACCOUNT_SEARCH ? "Type at least 3 letters" : "No matching accounts"}
+        noOptionsText={
+          term.trim().length < MIN_ACCOUNT_SEARCH
+            ? "Type at least 3 letters"
+            : accounts.error
+              ? "Couldn't search Salesforce. Try again." // not "No matching accounts" (2026-10-13)
+              : "No matching accounts"
+        }
         renderOption={({ key, ...props }, a) => (
           <li key={key} {...props}>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ py: 0.5 }}>

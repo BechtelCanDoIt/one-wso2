@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { FormProvider, useForm } from "react-hook-form";
 import {
   emptyDraftForm,
@@ -44,14 +44,15 @@ const line = (discount: string): LineValue => ({
   unitPrice: "1000",
   category: "SUBSCRIPTION",
   categorySource: "MAPPED",
+  recurring: true,
   unitOfMeasure: "Gateways",
   quantity: "1",
   discount,
 });
 
-function Harness({ lines }: { lines: LineValue[] }) {
+function Harness({ lines, values = {} }: { lines: LineValue[]; values?: Partial<DraftFormValues> }) {
   const form = useForm<DraftFormValues>({
-    defaultValues: { ...emptyDraftForm(), lines },
+    defaultValues: { ...emptyDraftForm(), lines, ...values },
   });
   return (
     <FormProvider {...form}>
@@ -79,5 +80,43 @@ describe("CommercialStep — justification", () => {
         "A discount has been added to 2 lines, so a justification is required.",
       ),
     ).toBeInTheDocument();
+  });
+});
+
+// D86: Commercials opens with billing and payment terms, billing right above Terms.
+describe("CommercialStep — Commercials", () => {
+  it("orders billing, payment terms, terms, and keeps the PO number in Bill To", () => {
+    render(<Harness lines={[line("0")]} />);
+    const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    expect(regions.slice(0, 4)).toEqual(["Billing Frequency", "Payment Terms", "Terms", "Bill To"]);
+    expect(screen.queryByRole("region", { name: "Payment" })).toBeNull();
+    const billTo = within(screen.getByRole("region", { name: "Bill To" }));
+    expect(billTo.getByRole("textbox", { name: "PO number (optional)" })).toBeInTheDocument();
+  });
+
+  it("asks for the special terms when the billing says See Special Terms", () => {
+    render(<Harness lines={[line("0")]} values={{ billingFrequency: "SPECIAL_TERMS" }} />);
+    const terms = within(screen.getByRole("region", { name: "Terms" }));
+    expect(
+      terms.getByText("Billing says See Special Terms: switch on special terms and describe the billing"),
+    ).toBeInTheDocument();
+  });
+
+  it("asks nothing once the special terms are on, or for another billing", () => {
+    const { unmount } = render(
+      <Harness lines={[line("0")]} values={{ billingFrequency: "SPECIAL_TERMS", specialTermsEnabled: true }} />,
+    );
+    expect(screen.queryByText(/Billing says See Special Terms/)).toBeNull();
+    unmount();
+    render(<Harness lines={[line("0")]} values={{ billingFrequency: "ANNUAL" }} />);
+    expect(screen.queryByText(/Billing says See Special Terms/)).toBeNull();
+  });
+
+  // D88: services-only quotes choose their billing too, and the same to-do applies.
+  it("asks for the billing frequency when no product recurs", () => {
+    render(<Harness lines={[{ ...line("0"), recurring: false }]} values={{ billingFrequency: "SPECIAL_TERMS" }} />);
+    expect(screen.getByRole("region", { name: "Billing Frequency" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Payment Terms" })).toBeInTheDocument();
+    expect(screen.getByText(/Billing says See Special Terms/)).toBeInTheDocument();
   });
 });

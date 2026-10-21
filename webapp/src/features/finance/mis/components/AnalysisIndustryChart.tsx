@@ -35,6 +35,7 @@ import {
   TableHead,
   TableRow,
   Typography,
+  useColorScheme,
   useTheme,
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
@@ -45,6 +46,7 @@ import {
 } from "@components/charts/chartPalette";
 import { MIS_VALUE_TYPES, formatMisValue, misHeadlineAmount } from "../util/misMoney";
 import type { MisScale } from "../util/misViewVocabulary";
+import { analysisSurfaceSx } from "./misLookTokens";
 import { industrySeries } from "./analysisBreakdowns";
 import type { IndustryBreakdown } from "../api/useAnalysisBreakdowns";
 
@@ -84,7 +86,7 @@ export default function AnalysisIndustryChart({
   scale,
 }: AnalysisIndustryChartProps) {
   const { palette } = useTheme();
-  const mode = palette.mode === "dark" ? "dark" : "light";
+  const mode = useLiveScheme();
   const chrome = chartChrome(mode);
   const fill = seriesColor(CHART_SERIES_1, mode);
 
@@ -122,8 +124,8 @@ export default function AnalysisIndustryChart({
   const hasFigures = !breakdown.isLoading && !breakdown.isError && plotted.length > 0;
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, p: 2 }}>
-      <Typography variant="subtitle2" sx={{ mb: 0.25 }}>
+    <Box sx={(theme) => ({ ...analysisSurfaceSx(theme), height: "100%", p: 2 })}>
+      <Typography component="h2" variant="subtitle2" sx={{ mb: 0.25 }}>
         ARR by industry
       </Typography>
       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 1.5 }}>
@@ -272,6 +274,16 @@ export default function AnalysisIndustryChart({
 
 /** Tall enough for seven bars and their names without the axis being cropped. */
 const CHART_HEIGHT = 300;
+
+/**
+ * The live colour scheme. `palette.mode` stays "light" under Oxygen's
+ * CSS-variables theme, which is how these axes disappeared in dark mode.
+ */
+function useLiveScheme(): "light" | "dark" {
+  const { mode, systemMode } = useColorScheme();
+  const resolved = mode === "system" ? systemMode : mode;
+  return resolved === "dark" ? "dark" : "light";
+}
 
 const CELL_SX = { fontSize: 12.5, fontVariantNumeric: "tabular-nums" } as const;
 const HEAD_SX = { fontSize: 11, fontWeight: 700, color: "text.secondary" } as const;

@@ -18,10 +18,16 @@
 // comparison (worked out in the browser) and the history timeline.
 // Pure functions only, so each is unit-tested without rendering.
 
-import type { AuditEvent, ContactView, AddressView, DraftResponse, VersionStatus } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import type {
+  AuditEvent,
+  ContactView,
+  AddressView,
+  DraftResponse,
+  OpportunityQuote,
+  VersionStatus,
+} from "@features/sales/cado2/quotes/api/quoteTypes";
+import { BILLING_LABEL, durationText, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
-import { MODE_LABEL } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
 
 // ---------------------------------------------------------------------------
@@ -35,18 +41,16 @@ export const STATUS_LABEL: Record<VersionStatus, string> = {
   RECALLED: "Recalled",
   CLOSED: "Closed",
   APPROVED: "Approved",
-  REJECTED: "Rejected",
-  CHANGES_REQUESTED: "Changes requested",
+  RETURNED: "Returned",
 };
 
 export const STATUS_COLOR: Record<VersionStatus, "default" | "primary" | "warning" | "error" | "success"> = {
   DRAFT: "default",
   SUBMITTED: "primary",
   RECALLED: "warning",
-  CLOSED: "error",
+  CLOSED: "default", // an end, not an error (2026-10-14)
   APPROVED: "success",
-  REJECTED: "error",
-  CHANGES_REQUESTED: "warning",
+  RETURNED: "warning",
 };
 
 /** The label for a quote's status, which is its latest version's. */
@@ -61,7 +65,7 @@ export function quoteStatusLabel(status: VersionStatus, latestVersion: number): 
 export type Change = "same" | "changed" | "added" | "removed";
 
 export interface CompareRow {
-  readonly section: "Overview" | "Products" | "Commercial" | "Totals";
+  readonly section: "Overview" | "Products" | "Commercials" | "Totals";
   readonly label: string;
   readonly from: string;
   readonly to: string;
@@ -125,10 +129,9 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
   add("Overview", "Currency", text(va.currencyIsoCode), text(vb.currencyIsoCode));
   add("Overview", "Start date", formatDate(va.subscriptionStartDate), formatDate(vb.subscriptionStartDate));
   const termText = (v: typeof va) =>
-    v.termMode ? `${MODE_LABEL[v.termMode]}${v.termMode === "MULTI_YEAR" && v.termYears ? ` · ${v.termYears} years` : ""}` : DASH;
+    (v.subscriptionStartDate && v.subscriptionEndDate && durationText(v.subscriptionStartDate, v.subscriptionEndDate)) || DASH;
   add("Products", "Subscription term", termText(va), termText(vb));
   add("Products", "End date", formatDate(va.subscriptionEndDate), formatDate(vb.subscriptionEndDate));
-  add("Products", "Billing", text(va.billingFrequency), text(vb.billingFrequency));
   const commission = (p: string | null | undefined) => (p ? `${Number(p)}%` : DASH);
   add("Products", "Partner commission", commission(va.partnerCommissionPercent), commission(vb.partnerCommissionPercent));
 
@@ -153,22 +156,23 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
     }
   }
 
-  add("Commercial", "Payment terms", va.netTermsDays ? `Net ${va.netTermsDays}` : DASH, vb.netTermsDays ? `Net ${vb.netTermsDays}` : DASH);
-  add("Commercial", "PO number", text(va.poNumber), text(vb.poNumber));
-  add("Commercial", "Special terms", terms(va.specialTerms, "None"), terms(vb.specialTerms, "None"));
-  add("Commercial", "Governing terms", terms(va.governingTerms, "Standard"), terms(vb.governingTerms, "Standard"));
-  add("Commercial", "Bill to", address(a, "BILL_TO"), address(b, "BILL_TO"));
-  add("Commercial", "Ship to", address(a, "SHIP_TO"), address(b, "SHIP_TO"));
-  add("Commercial", "Billing contact", contact(a, "BILLING"), contact(b, "BILLING"));
-  add("Commercial", "Security contact", contact(a, "SECURITY"), contact(b, "SECURITY"));
-  add("Commercial", "Justification", text(va.justification), text(vb.justification));
+  // Billing and payment terms open Commercials (D86).
+  add("Commercials", "Billing", text(va.billingFrequency && BILLING_LABEL[va.billingFrequency]), text(vb.billingFrequency && BILLING_LABEL[vb.billingFrequency]));
+  add("Commercials", "Payment terms", va.netTermsDays ? `Net ${va.netTermsDays}` : DASH, vb.netTermsDays ? `Net ${vb.netTermsDays}` : DASH);
+  add("Commercials", "PO number", text(va.poNumber), text(vb.poNumber));
+  add("Commercials", "Special terms", terms(va.specialTerms, "None"), terms(vb.specialTerms, "None"));
+  add("Commercials", "Governing terms", terms(va.governingTerms, "Standard"), terms(vb.governingTerms, "Standard"));
+  add("Commercials", "Bill to", address(a, "BILL_TO"), address(b, "BILL_TO"));
+  add("Commercials", "Ship to", address(a, "SHIP_TO"), address(b, "SHIP_TO"));
+  add("Commercials", "Billing contact", contact(a, "BILLING"), contact(b, "BILLING"));
+  add("Commercials", "Security contact", contact(a, "SECURITY"), contact(b, "SECURITY"));
+  add("Commercials", "Justification", text(va.justification), text(vb.justification));
 
   // ARR and ACV are null on a services-only quote.
   const na = (x: string | null) => (x === null ? "Not applicable" : formatMoney(x));
   add("Totals", "ARR", na(va.totals.arr), na(vb.totals.arr));
   add("Totals", "ACV", na(va.totals.acv), na(vb.totals.acv));
   add("Totals", "TCV", formatMoney(va.totals.tcv), formatMoney(vb.totals.tcv));
-  add("Totals", "Payable now", formatMoney(va.totals.payableNow), formatMoney(vb.totals.payableNow));
   return rows;
 }
 
@@ -208,6 +212,11 @@ export function groupHistory(events: readonly AuditEvent[]): HistoryEntry[] {
 
 const roleOf = (meta: Record<string, unknown>) => (typeof meta.role === "string" ? roleLabel(meta.role) : "An approver");
 
+/** A primary quote named for others (D68): "Q-26-00031 (nimesha@wso2.com)", or "A draft by …" before its first submit. */
+export function primaryLabel(q: Pick<OpportunityQuote, "quoteNumber" | "ownerEmail">): string {
+  return q.quoteNumber ? `${q.quoteNumber} (${q.ownerEmail})` : `A draft by ${q.ownerEmail}`;
+}
+
 /**
  * A quote's name: its number once it has been submitted, otherwise its
  * customer and deal, e.g. "Acme Corp · APIM renewal 2026".
@@ -236,6 +245,26 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `${v} created${typeof meta.copiedFromVersion === "number" ? ` (revised from v${meta.copiedFromVersion})` : ""}`;
     case "QUOTE_CLOSED":
       return "Quote closed";
+    // Salesforce sync (D77): what changed there, or why it was refused.
+    case "QUOTE_SYNCED": {
+      const n = (k: string) => (typeof meta[k] === "number" ? (meta[k] as number) : 0);
+      return `${v} synced to Salesforce · ${n("updated")} updated, ${n("added")} added, ${n("removed")} removed`;
+    }
+    case "QUOTE_SYNC_FAILED":
+      return `Salesforce refused the sync of ${v.toLowerCase()}${
+        Array.isArray(meta.reasons) && meta.reasons.length ? `: ${meta.reasons.join("; ")}` : ""
+      }`;
+    // Primary quote (D68): metadata names the other quote involved, if any.
+    case "QUOTE_MADE_PRIMARY":
+      return typeof meta.releasedQuoteNumber === "string"
+        ? `Made the primary quote, releasing ${meta.releasedQuoteNumber}`
+        : "Made the primary quote";
+    case "QUOTE_PRIMARY_RELEASED":
+      return typeof meta.byQuoteNumber === "string"
+        ? `No longer the primary quote: ${meta.byQuoteNumber} was made primary`
+        : typeof meta.byQuoteId === "number"
+          ? "No longer the primary quote: another quote was made primary"
+          : "No longer the primary quote";
     case "APPROVAL_WORKFLOW_CREATED": {
       const n = Array.isArray(meta.steps) ? meta.steps.length : 0;
       return `${v} approval started${n ? ` · ${n} approval${n === 1 ? "" : "s"} needed` : ""}`;
@@ -244,10 +273,10 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `Waiting on ${roleOf(meta)}`;
     case "APPROVAL_APPROVED":
       return `${roleOf(meta)} approved ${v.toLowerCase()}`;
-    case "APPROVAL_REJECTED":
+    case "APPROVAL_REJECTED": // history from before Reject was merged into Return (2026-10-12)
       return `${roleOf(meta)} rejected ${v.toLowerCase()}`;
-    case "APPROVAL_CHANGES_REQUESTED":
-      return `${roleOf(meta)} asked for changes to ${v.toLowerCase()}`;
+    case "APPROVAL_RETURNED":
+      return `${roleOf(meta)} returned ${v.toLowerCase()}`;
     case "VERSION_APPROVED":
       return `${v} fully approved`;
     case "ORDER_FORM_PREVIEWED":

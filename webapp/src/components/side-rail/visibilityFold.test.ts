@@ -159,9 +159,9 @@ describe("foldVisibility", () => {
 
   it("hides a claimed section when its adapter is not in play", () => {
     const folded = foldVisibility(
-      claimsForPerspective("me").map((name) => adapter({ name, canSee: () => true })),
+      claimsForPerspective("finance").map((name) => adapter({ name, canSee: () => true })),
       shell({
-        perspectiveKey: "me",
+        perspectiveKey: "finance",
         sectionIds: new Set([PROMOTION_LEAD_PORTAL_ITEM_ID]),
         capabilities: new Set(),
       }),
@@ -226,21 +226,67 @@ describe("foldVisibility", () => {
     expect(folded.failed).toBe(false);
     expect(folded.canSee({ id: "claim-approval" })).toBe(false);
   });
+
+  // THE bug this exists for: a finance item already decided must not stay
+  // unreachable behind a backend it never read. `resolving: true` on the
+  // adapter itself (e.g. CC still pending) must not leak into `sectionAnswered`
+  // for an item `answered` says is already settled (e.g. finance-overview,
+  // decided by OPD alone).
+  describe("sectionAnswered", () => {
+    it("falls back to !resolving when the adapter provides no answered override", () => {
+      const folded = foldVisibility(
+        [adapter({ name: "sales", resolving: true })],
+        shell({ perspectiveKey: "sales", sectionIds: new Set(["sales-meetings"]) }),
+      );
+
+      expect(folded.sectionAnswered({ id: "sales-meetings" })).toBe(false);
+    });
+
+    it("defers to the adapter's own per-item answered when the aggregate is still resolving", () => {
+      const answered = vi.fn((id: string) => id === "finance-overview");
+      const folded = foldVisibility(
+        [adapter({ name: "finance", resolving: true, answered })],
+        shell({ perspectiveKey: "finance", sectionIds: new Set(["finance-overview", "claim-approval"]) }),
+      );
+
+      expect(folded.sectionAnswered({ id: "finance-overview" })).toBe(true);
+      expect(folded.sectionAnswered({ id: "claim-approval" })).toBe(false);
+      expect(answered).toHaveBeenCalledWith("finance-overview");
+    });
+
+    it("is true for a section no adapter claims, same as canSee's open default", () => {
+      const folded = foldVisibility([], shell({ sectionIds: new Set(["open-section"]) }));
+      expect(folded.sectionAnswered({ id: "open-section" })).toBe(true);
+    });
+
+    it("is false while the employee record is resolving, even for an adapter that has already answered", () => {
+      const folded = foldVisibility(
+        [adapter({ name: "finance", resolving: false, answered: () => true })],
+        shell({
+          perspectiveKey: "finance",
+          sectionIds: new Set(["finance-overview"]),
+          employeeRecordResolving: true,
+        }),
+      );
+
+      expect(folded.sectionAnswered({ id: "finance-overview" })).toBe(false);
+    });
+  });
 });
 
 describe("claimsForPerspective", () => {
-  it("includes promotion on People Ops only while the preview flag is on", () => {
+  it("includes Finance MIS on Finance with no preview config", () => {
     const previous = window.config;
     window.config = { ...(previous ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
-    expect(claimsForPerspective("people")).not.toContain("promotion");
-
-    window.config = {
-      ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { promotion: true },
-    } as Window["config"];
-    expect(claimsForPerspective("people")).toContain("promotion");
-    expect(claimsForPerspective("me")).not.toContain("promotion");
+    expect(claimsForPerspective("finance")).toContain("mis");
+    expect(claimsForPerspective("me")).not.toContain("mis");
     window.config = previous;
+  });
+
+  it("includes promotion on People Ops and Me", () => {
+    expect(claimsForPerspective("people")).toContain("promotion");
+    expect(claimsForPerspective("me")).toContain("promotion");
+    expect(claimsForPerspective("finance")).not.toContain("promotion");
   });
 
   it("puts the claiming adapter in play for every section of each real perspective", () => {
@@ -249,6 +295,7 @@ describe("claimsForPerspective", () => {
       "marketing",
       "due-diligence",
       "finance",
+      "mis",
       "leave",
       "banking",
       "banking-admin",
@@ -275,12 +322,12 @@ describe("claimsForPerspective", () => {
     }
   });
 
-  it("covers infra, engineering with umt, and promotion when those preview flags are on", async () => {
+  it("covers infra and shipped Engineering with UMT when those flags are on, and promotion regardless", async () => {
     const previous = window.config;
     vi.resetModules();
     window.config = {
       ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { infra: true, engineering: true, umt: true, promotion: true },
+      ONE_WSO2_PREVIEW_FEATURES: { infra: true, umt: true },
     } as Window["config"];
     const { PERSPECTIVES: flagged } = await import("@constants/perspectives");
     const fold = await import("./visibilityFold");
@@ -301,6 +348,7 @@ describe("claimsForPerspective", () => {
       "marketing",
       "due-diligence",
       "finance",
+      "mis",
       "leave",
       "banking",
       "banking-admin",

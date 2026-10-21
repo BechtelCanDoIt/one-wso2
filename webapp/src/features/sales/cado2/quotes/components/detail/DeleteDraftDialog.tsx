@@ -17,6 +17,7 @@
 import type { JSX } from "react";
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import { useDeleteDraft } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import { STATUS_LABEL } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 import type { DeleteDraftResult, QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
 
@@ -39,6 +40,7 @@ interface DeleteDraftDialogProps {
  */
 export default function DeleteDraftDialog({ quote, name, versionNumber, updatedAt, onDeleted, onClose }: DeleteDraftDialogProps): JSX.Element {
   const del = useDeleteDraft();
+  const notify = useCado2Toast();
   const previous = quote.versions.find((v) => v.versionNumber === versionNumber - 1);
   const only = !previous;
   return (
@@ -50,7 +52,13 @@ export default function DeleteDraftDialog({ quote, name, versionNumber, updatedA
       error={del.error}
       onClose={onClose}
       onConfirm={() =>
-        del.mutate({ quoteId: quote.id, version: versionNumber, expectedUpdatedAt: updatedAt }, { onSuccess: onDeleted })
+        del.mutate({ quoteId: quote.id, version: versionNumber, expectedUpdatedAt: updatedAt }, {
+          onSuccess: (res) => {
+            // Here rather than in each caller: the quote page, the wizard and the list.
+            notify(res.quoteDeleted ? "Quote deleted" : `Draft v${versionNumber} deleted`);
+            onDeleted(res);
+          },
+        })
       }
     >
       {only

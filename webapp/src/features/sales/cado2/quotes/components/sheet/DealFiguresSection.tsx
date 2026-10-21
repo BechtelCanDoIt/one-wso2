@@ -16,7 +16,7 @@
 
 import type { JSX, ReactNode } from "react";
 import { Box, Paper, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
-import { CalculatorIcon, HandshakeIcon, ReceiptIcon, RepeatIcon, ScaleIcon, SendIcon, WalletIcon } from "@wso2/oxygen-ui-icons-react";
+import { CalculatorIcon, ReceiptIcon, RepeatIcon, ScaleIcon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { dealFigures, NOT_APPLICABLE, type QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { formatMoney } from "@features/sales/cado2/utils/money";
@@ -61,13 +61,13 @@ function Figure({
 }
 
 /**
- * ARR, TCV, ACV and the first invoice, each with its workings, and each
+ * ARR, TCV and ACV, each with its workings, and each
  * product's share (a one-time service adds to TCV but not ARR).
  */
 export default function DealFiguresSection({
   sheet,
 }: {
-  sheet: Pick<QuoteSheet, "totals" | "lines" | "years" | "currency" | "billingFrequency"> &
+  sheet: Pick<QuoteSheet, "totals" | "lines" | "years" | "currency"> &
     Partial<Pick<QuoteSheet, "partnerCommissionPercent">>;
 }): JSX.Element {
   const f = dealFigures(sheet);
@@ -75,14 +75,14 @@ export default function DealFiguresSection({
   const plus = (parts: readonly string[]) => parts.join(" + ");
 
   return (
-    <SectionCard title="Deal figures" icon={<CalculatorIcon size={18} />}>
+    <SectionCard title="Deal Figures" icon={<CalculatorIcon size={18} />}>
       {!f ? (
         <Typography variant="body2" color="text.disabled" sx={{ fontStyle: "italic" }}>
           Appears once the quote can be priced
         </Typography>
       ) : (
         <Stack spacing={2}>
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(2, minmax(0,1fr))" }, gap: 1.5 }}>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" }, gap: 1.5 }}>
             <Figure icon={<RepeatIcon size={20} />} tone="secondary" label="ARR · annual recurring revenue" value={f.arr ? money(f.arr) : NOT_APPLICABLE}>
               {f.arr ? (
                 <>
@@ -114,26 +114,7 @@ export default function DealFiguresSection({
                 ? `TCV ÷ ${f.contractYears} contract year${f.contractYears === "1" ? "" : "s"}${Number(f.contractYears) < 1 ? " (a shorter term is scaled up to a year)" : ""}`
                 : "No subscriptions or support: only TCV applies"}
             </Figure>
-            <Figure icon={<SendIcon size={20} />} tone="success" label="First invoice" value={money(f.payableNow)}>
-              {!f.arr
-                ? "Everything, billed once"
-                : sheet.billingFrequency === "UPFRONT"
-                  ? "The whole term, billed upfront"
-                  : f.tcvParts.length > 1
-                    ? "Year 1, billed annually in advance"
-                    : "The whole term, billed in advance"}
-              {f.partner ? ", net of the partner's commission" : ""}
-            </Figure>
-            {f.partner ? (
-              <>
-                <Figure icon={<HandshakeIcon size={20} />} tone="secondary" label="Partner commission" value={money(f.partner.commission)}>
-                  {f.partner.percent}% of every line; the partner keeps it
-                </Figure>
-                <Figure icon={<WalletIcon size={20} />} tone="primary" label="Net order value" value={money(f.partner.netOrderValue)}>
-                  TCV {formatMoney(f.tcv)} − commission {formatMoney(f.partner.commission)}: what WSO2 invoices in all
-                </Figure>
-              </>
-            ) : null}
+            {/* Commission and net order value are in the order form's totals (C2, 2026-10-14). */}
           </Box>
 
           <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>

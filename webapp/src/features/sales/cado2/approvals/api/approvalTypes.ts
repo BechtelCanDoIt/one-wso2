@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { DraftInput, Issue } from "@features/sales/cado2/quotes/api/quoteTypes";
+import type { BillingFrequency, DraftInput, Issue } from "@features/sales/cado2/quotes/api/quoteTypes";
 
 /** Approval roles. Each is an Asgardeo group. */
 export type ApprovalRole =
@@ -34,9 +34,9 @@ export type ApprovalRole =
 export type ApprovalBranch = "DISCOUNT" | "COMMERCIAL";
 
 /** WAITING → PENDING (its turn) → a decision, or CANCELLED. */
-export type StepStatus = "WAITING" | "PENDING" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED" | "CANCELLED";
+export type StepStatus = "WAITING" | "PENDING" | "APPROVED" | "RETURNED" | "CANCELLED";
 
-export type WorkflowStatus = "IN_PROGRESS" | "APPROVED" | "REJECTED" | "CHANGES_REQUESTED" | "RECALLED";
+export type WorkflowStatus = "IN_PROGRESS" | "APPROVED" | "RETURNED" | "RECALLED";
 
 /** One reason a step exists. */
 export interface ApprovalTrigger {
@@ -102,7 +102,7 @@ export interface ApprovalWorkflow {
   readonly steps: readonly ApprovalStep[];
 }
 
-export type ApprovalOutcome = "approve" | "reject" | "request-changes";
+export type ApprovalOutcome = "approve" | "return";
 
 /** GET /approvals/inbox: a step waiting for the caller. */
 export interface ApprovalInboxItem {
@@ -155,6 +155,8 @@ export interface ApprovalSettings {
   readonly paymentTermsDays: number;
   readonly downsellCeoPercent: string;
   readonly saasClassification: string;
+  /** Billing frequencies that need the CFO (D89); none = the rule is off. */
+  readonly billingApproval: readonly BillingFrequency[];
 }
 
 export interface ApprovalRoleInfo {

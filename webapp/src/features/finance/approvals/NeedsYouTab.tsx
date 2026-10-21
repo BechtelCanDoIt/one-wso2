@@ -46,6 +46,7 @@ import { ExpenseApprovalReview } from "../expense/approvals/ExpenseApprovalRevie
 import { makeNameResolver } from "../expense/approvals/expenseApprovalTypes";
 import { OpdApprovalReview } from "../opd/approvals/OpdApprovalReview";
 import { byLongestWait, daysWaiting, waitingLabel, waitingSince } from "./claimWaiting";
+import { ClaimGroupHeading, useCollapsedGroups } from "./ClaimGroupHeading";
 
 // Everything waiting on the person looking, grouped by which app it came from.
 //
@@ -84,6 +85,21 @@ export default function NeedsYouTab() {
   // leaving a dual-role approver stuck on Finance.
   const [picked, setPicked] = useState<ApproverView | null>(null);
   const expenseStage: ApproverView = picked ?? (canLead ? "LEAD" : "FINANCE");
+  // The toggle only exists for someone holding both expense flags — the same
+  // condition it renders under below.
+  const showsStageToggle = canLead && canExpenseFinance;
+  // OPD has no lead stage to show: its only roles are CLAIM_SUBMITTER and
+  // FINANCE_APPROVER (opdTypes.ts), and its statuses carry a single PENDING
+  // rather than the PENDING_LEAD/PENDING_FINANCE split expense claims use.
+  // So while the toggle is on As lead, OPD is not this reader's to decide and
+  // is left out entirely, rather than sitting under a lead view labelled "you
+  // decide as finance".
+  //
+  // Gated on the toggle being shown, not on the stage alone: someone who
+  // leads expense claims without holding expense finance never sees a toggle,
+  // so their stage is permanently "LEAD" — and if they hold OPD finance, that
+  // queue is genuinely theirs with no switch to reach it by.
+  const viewingAsLead = showsStageToggle && expenseStage === "LEAD";
 
   // For the review screen's name display — falls back to the bare email until
   // this arrives, same as the standalone Lead/Finance Approvals screens do.
@@ -135,6 +151,7 @@ export default function NeedsYouTab() {
 
   const [expenseTarget, setExpenseTarget] = useState<ExpenseClaim | null>(null);
   const [opdTarget, setOpdTarget] = useState<OpdClaim | null>(null);
+  const { isCollapsed, toggleGroup } = useCollapsedGroups();
 
   const expenseRows = useMemo(
     () =>
@@ -144,9 +161,13 @@ export default function NeedsYouTab() {
       ),
     [expenseStage, leadQueue.data, financeQueue.data],
   );
+  // Emptied rather than hidden at the render site, so the count behind
+  // "Nothing is waiting on you" below follows from the same decision — a lead
+  // with only OPD pending is waiting on nothing AS LEAD, and a total still
+  // carrying those rows would claim otherwise while showing no list.
   const opdRows = useMemo(
-    () => byLongestWait(opdQueue.data ?? [], waitingSince),
-    [opdQueue.data],
+    () => (viewingAsLead ? [] : byLongestWait(opdQueue.data ?? [], waitingSince)),
+    [viewingAsLead, opdQueue.data],
   );
 
   // `isLoading`, not `isPending`. React Query leaves a DISABLED query pending
@@ -238,7 +259,7 @@ export default function NeedsYouTab() {
         </Alert>
       )}
 
-      {canLead && canExpenseFinance && (
+      {showsStageToggle && (
         <ToggleButtonGroup
           size="small"
           exclusive
@@ -295,13 +316,16 @@ export default function NeedsYouTab() {
           <Table size="small">
             <TableBody>
               {opdRows.length > 0 && (
-                <GroupHeading
+                <ClaimGroupHeading
                   label="OPD claims"
                   count={opdRows.length}
                   note="you decide as finance"
+                  colSpan={6}
+                  collapsed={isCollapsed("opd")}
+                  onToggle={() => toggleGroup("opd")}
                 />
               )}
-              {opdRows.map((claim) => (
+              {!isCollapsed("opd") && opdRows.map((claim) => (
                 <TableRow key={claim.id} hover>
                   <IdCell id={claim.id} />
                   <WhoCell email={claim.employeeEmail} />
@@ -315,13 +339,16 @@ export default function NeedsYouTab() {
               ))}
 
               {expenseRows.length > 0 && (
-                <GroupHeading
+                <ClaimGroupHeading
                   label="Expense claims"
                   count={expenseRows.length}
                   note={`you decide as ${expenseStage === "LEAD" ? "lead" : "finance"}`}
+                  colSpan={6}
+                  collapsed={isCollapsed("expense")}
+                  onToggle={() => toggleGroup("expense")}
                 />
               )}
-              {expenseRows.map((claim) => (
+              {!isCollapsed("expense") && expenseRows.map((claim) => (
                 <TableRow key={claim.id} hover>
                   <IdCell id={claim.id} />
                   <WhoCell email={claim.employeeEmail} />
@@ -343,35 +370,6 @@ export default function NeedsYouTab() {
 }
 
 const CELL = { fontSize: 12.5, fontVariantNumeric: "tabular-nums" } as const;
-
-function GroupHeading({
-  label,
-  count,
-  note,
-}: {
-  label: string;
-  count: number;
-  note: string;
-}) {
-  return (
-    <TableRow>
-      <TableCell colSpan={6} sx={{ border: 0, pt: 2, pb: 0.75 }}>
-        <Typography
-          component="span"
-          sx={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.08em",
-            textTransform: "uppercase",
-            color: "text.secondary",
-          }}
-        >
-          {label} · {count} · {note}
-        </Typography>
-      </TableCell>
-    </TableRow>
-  );
-}
 
 function IdCell({ id }: { id: string }) {
   return <TableCell sx={{ ...CELL, fontWeight: 600 }}>{id}</TableCell>;
