@@ -56,7 +56,8 @@ export const misPaths = {
   arrBuild: `${MIS_PATH}/arr-build`,
   qrrBuild: `${MIS_PATH}/qrr-build`,
   mrrBuild: `${MIS_PATH}/mrr-build`,
-  analysis: `${MIS_PATH}/analysis`,
+  portfolio: `${MIS_PATH}/portfolio`,
+  legacyAnalysis: `${MIS_PATH}/analysis`,
 } as const;
 
 /**
@@ -119,7 +120,7 @@ export const MIS_APPS: readonly MenuApp[] = [
         label: "Portfolio",
         desc: "Current ARR by partner model, region and industry, over an account-level table.",
         requires: ["admin"],
-        path: misPaths.analysis,
+        path: misPaths.portfolio,
       },
     ],
   },

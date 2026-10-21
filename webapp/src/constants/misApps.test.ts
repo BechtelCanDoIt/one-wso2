@@ -60,7 +60,7 @@ describe("the Finance MIS registry", () => {
   it("lists Portfolio, and leaves the flag to the gate", () => {
     const analysis = items.find((item) => item.id === "mis-analysis");
     expect(analysis?.label).toBe("Portfolio");
-    expect(analysis?.path).toBe("/finance/mis/analysis");
+    expect(analysis?.path).toBe("/finance/mis/portfolio");
   });
 
   // The load-bearing one. SideRail dispatches by id-set: an id in no set falls

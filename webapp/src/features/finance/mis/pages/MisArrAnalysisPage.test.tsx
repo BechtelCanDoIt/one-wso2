@@ -156,9 +156,9 @@ const NOT_ARR = 789;
 function show() {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={[misPaths.analysis]}>
+      <MemoryRouter initialEntries={[misPaths.portfolio]}>
         <Routes>
-          <Route path={misPaths.analysis} element={<MisArrAnalysisPage />} />
+          <Route path={misPaths.portfolio} element={<MisArrAnalysisPage />} />
           <Route path={misPaths.arrBuild} element={<p>the ARR Build</p>} />
         </Routes>
       </MemoryRouter>
