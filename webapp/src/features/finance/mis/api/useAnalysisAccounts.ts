@@ -35,7 +35,7 @@ import { useColumnQueries } from "./useColumnQueries";
 // no columns, but everything else that engine does is exactly what a POST-that-
 // is-a-read needs. The body as the cache key (there is no URL to key on — spec
 // §6), sub-scoping so switching accounts in one tab cannot paint the previous
-// reader's revenue, `httpRetry`, `humanizeHttpError`, the identity-error fold,
+// reader's revenue, `misReadRetry`, `humanizeHttpError`, the identity-error fold,
 // and a clean idle state while disabled.
 //
 // ---- what the source does instead, and what is not ported ------------------

@@ -122,12 +122,32 @@ describe("before the call answers", () => {
   });
 });
 
+describe("a transient failure", () => {
+  it("recovers after two 503s without the reader doing anything", async () => {
+    authedGet
+      .mockRejectedValueOnce(new HttpError("https://mis.example", 503, ""))
+      .mockRejectedValueOnce(new HttpError("https://mis.example", 503, ""));
+    const { result } = renderConfigs();
+    await waitFor(() => expect(result.current.isLoading).toBe(false), { timeout: 5000 });
+    expect(result.current.isError).toBe(false);
+    expect(result.current.options.salesRegions).toEqual(["APAC", "EMEA"]);
+    expect(authedGet).toHaveBeenCalledTimes(3);
+  });
+
+  it("is not retried when the backend refuses with a 403", async () => {
+    answer.value = new HttpError("https://mis.example", 403, "");
+    const { result } = renderConfigs();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(authedGet).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("when the call fails", () => {
   // The menus are the only casualty: every OTHER control on the bar — Type,
   // View, Years Back, YTD, Channel, Scale — has its options written down in
   // this app, so a bar whose lists came back empty is still a usable bar.
   it("says so, offers a retry, and still leaves the bar usable", async () => {
-    // A 4xx, which `httpRetry` refuses to retry — so the failure is the
+    // A 4xx, which `misReadRetry` refuses to retry — so the failure is the
     // hook's answer rather than a race with a backoff.
     answer.value = new HttpError("https://mis.example", 403, "");
     const { result } = renderConfigs();
