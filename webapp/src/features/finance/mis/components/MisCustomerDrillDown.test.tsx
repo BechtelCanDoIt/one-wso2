@@ -61,6 +61,7 @@ function renderDialog(over: Partial<Parameters<typeof MisCustomerDrillDown>[0]> 
       rowLabel="New"
       periodColumn="2024/12/31 - 2025/12/31"
       chips={[]}
+      requestKey="new-arr|2025-12-31"
       state={loaded([NORTHWIND])}
       {...over}
     />,
@@ -291,5 +292,43 @@ describe("finding one customer in the list", () => {
     workbook.getWorksheet("Customers")!.eachRow((row) => names.push(String(row.getCell(2).value ?? "")));
     expect(names.filter((name) => /north/i.test(name))).toEqual(["North Star Ltd", "Northwind Bank"]);
     expect(names).not.toContain("Contoso");
+  });
+});
+
+describe("a filter stays with its request", () => {
+  const BOOK: DrillDownCustomer[] = [
+    NORTHWIND,
+    { ...NORTHWIND, accountId: "a2", name: "Contoso", amount: 90_000 },
+    { ...NORTHWIND, accountId: "a3", name: "North Star Ltd", amount: 12_000 },
+  ];
+  const view = (customers: DrillDownCustomer[], requestKey: string) => (
+    <MisCustomerDrillDown
+      open
+      onClose={() => {}}
+      rowId="new-arr"
+      rowLabel="New"
+      periodColumn="2024/12/31 - 2025/12/31"
+      chips={[]}
+      requestKey={requestKey}
+      state={loaded(customers)}
+    />
+  );
+  const names = () =>
+    within(screen.getByRole("table", { name: "Customers behind this figure", hidden: true }))
+      .getAllByRole("row", { hidden: true })
+      .slice(1)
+      .map((row) => row.children[1]?.textContent ?? "");
+
+  it("keeps the filter when the same request returns a new list, and clears it for a new request", async () => {
+    const { rerender } = render(view(BOOK, "new-arr|2025-12-31"));
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Account Name/, hidden: true }));
+    await userEvent.type(await screen.findByLabelText("Filter Account Name"), "NORTH");
+    expect(names()).toEqual(["Northwind Bank", "North Star Ltd"]);
+
+    rerender(view(BOOK.map((customer) => ({ ...customer })), "new-arr|2025-12-31"));
+    expect(names()).toEqual(["Northwind Bank", "North Star Ltd"]);
+
+    rerender(view(BOOK, "lost|2025-12-31"));
+    expect(names()).toEqual(["Northwind Bank", "Contoso", "North Star Ltd"]);
   });
 });

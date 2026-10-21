@@ -18,6 +18,7 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import AnalysisIndustryChart from "./AnalysisIndustryChart";
 import { ANALYSIS_INDUSTRIES } from "./analysisBreakdowns";
 import type { AnalysisAccountRow } from "./analysisAccountRows";
@@ -104,15 +105,31 @@ function showChart(
     scale?: MisScale;
     accounts?: AnalysisAccountRow[];
     bySubRegion?: boolean;
+    accountsLoading?: boolean;
+    accountsFailed?: boolean;
+    accountsErrorMessage?: string;
+    onRetryAccounts?: () => void;
   } = {},
 ) {
-  const { breakdown: over = {}, scale = MIS_SCALES.UNITS, accounts = book, bySubRegion = false } =
-    options;
+  const {
+    breakdown: over = {},
+    scale = MIS_SCALES.UNITS,
+    accounts = book,
+    bySubRegion = false,
+    accountsLoading = false,
+    accountsFailed = false,
+    accountsErrorMessage = "",
+    onRetryAccounts = () => {},
+  } = options;
   const totalArr = "totalArr" in options ? options.totalArr : 10_000;
   return render(
     <AnalysisIndustryChart
       breakdown={breakdown(over)}
       accounts={accounts}
+      accountsLoading={accountsLoading}
+      accountsFailed={accountsFailed}
+      accountsErrorMessage={accountsErrorMessage}
+      onRetryAccounts={onRetryAccounts}
       bySubRegion={bySubRegion}
       totalArr={totalArr}
       scale={scale}
@@ -300,6 +317,29 @@ describe("the states that are not a chart", () => {
     const { container } = showChart({ breakdown: { isLoading: true } });
     expect(axisLabels(container)).toHaveLength(0);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("withholds the stacks while the accounts are loading, and keeps the industry figures", () => {
+    const { container } = showChart({ accounts: [], accountsLoading: true });
+    expect(axisLabels(container)).toHaveLength(0);
+    expect(screen.queryByRole("list", { name: "Region legend" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/Loading the regions/);
+    expect(tableRows().map(([industry]) => industry)).toContain("Utilities");
+  });
+
+  it("says the regions failed rather than stacking every bar as Other", async () => {
+    const retry = vi.fn();
+    const { container } = showChart({
+      accounts: [],
+      accountsFailed: true,
+      accountsErrorMessage: "Gateway timed out.",
+      onRetryAccounts: retry,
+    });
+    expect(axisLabels(container)).toHaveLength(0);
+    expect(screen.queryByRole("list", { name: "Region legend" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Couldn't load the regions/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: /retry/i }));
+    expect(retry).toHaveBeenCalled();
   });
 
   // No ARR in this view is an ANSWER. An empty plot area would read as a chart

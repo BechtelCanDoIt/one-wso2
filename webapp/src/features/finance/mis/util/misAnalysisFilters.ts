@@ -17,14 +17,11 @@
 // What the reader has narrowed Portfolio to, and the rules its ten controls
 // obey.
 //
-// Ported from the `filters` state in digiops-finance
-// `arrAnalysis/ArrAnalysisDashboard.js:118-131` and the handlers over it.
-//
 // ---- these are NOT the Build's filters, and not its `MisAppliedFilters` -----
 //
 // Different set, different endpoints, different codec: `misAnalysisViewState`
-// carries this set in the query string under the keys the standalone's
-// Portfolio writes, and the Build's applied set has its own contract.
+// carries this set in the query string under its own keys, and the Build's
+// applied set has its own contract.
 //
 // ---- on the two words that look interchangeable and are not -----------------
 //
@@ -32,10 +29,9 @@
 // and it is what the Business Units control selects. **Products in use** is how
 // many distinct products an account actually runs, which is a property of the
 // ACCOUNT rather than of the figure — the backend sends it as `productsInUse`
-// per account and takes `numberOfProductsInUse` as a filter. The source keeps
-// them apart in its labels and runs them together in its state, calling the
-// first one `products`. This keeps the labels' distinction and drops the
-// state's confusion.
+// per account and takes `numberOfProductsInUse` as a filter. The two stay
+// apart: the labels keep that distinction, and the state does not call the
+// first one `products`.
 
 import { misHeadlineAmount } from "./misMoney";
 import { pacificCivilDate, type MisCivilDate } from "./misPacificTime";

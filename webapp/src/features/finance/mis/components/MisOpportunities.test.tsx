@@ -214,4 +214,35 @@ describe("finding one opportunity in the list", () => {
     expect(exported.filter((name) => /renewal/i.test(name))).toEqual(["renewal west", "Renewal FY26"]);
     expect(exported).not.toContain("Expansion Apac");
   });
+
+  it("keeps the filter when the same account returns a new list, and clears it for another account", async () => {
+    const { rerender } = showDialog({ over: { opportunities: BOOK } });
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Opportunity Name/, hidden: true }));
+    await userEvent.type(await screen.findByLabelText("Filter Opportunity Name"), "RENEWAL");
+    expect(names()).toEqual(["Renewal FY26", "renewal west"]);
+
+    rerender(
+      <MisOpportunities
+        open
+        onClose={() => {}}
+        account={ACCOUNT}
+        asOf="2026/06/30"
+        state={state({ opportunities: BOOK.map((row) => ({ ...row })) })}
+        scale={MIS_SCALES.UNITS}
+      />,
+    );
+    expect(names()).toEqual(["Renewal FY26", "renewal west"]);
+
+    rerender(
+      <MisOpportunities
+        open
+        onClose={() => {}}
+        account={{ id: "ACC-2", name: "Contoso" }}
+        asOf="2026/06/30"
+        state={state({ opportunities: BOOK })}
+        scale={MIS_SCALES.UNITS}
+      />,
+    );
+    expect(names()).toEqual(["Renewal FY26", "Expansion Apac", "renewal west"]);
+  });
 });

@@ -461,8 +461,8 @@ beforeEach(() => {
 });
 
 describe("a Custom Build with nothing chosen", () => {
-  // The standalone's TableNavigation shows this card, not an empty grid, when
-  // Custom is on and no business or product unit is picked.
+  // With Custom on and no business or product unit picked, there is nothing to
+  // build, so the reader is asked to choose units rather than shown an empty grid.
   it("asks the reader to choose units instead of showing the generic empty sentence", () => {
     renderPage("?unit=custom");
     expect(screen.getByText("Choose units to generate a build")).toBeInTheDocument();
@@ -629,9 +629,8 @@ describe("how the customer table breaks a customer's revenue down", () => {
     expect(screen.getByRole("checkbox", { name: "BU only" })).toBeChecked();
   });
 
-  it("shows the Software/Cloud breakdown when BU only is unchecked, as the standalone grid does", async () => {
-    // Standalone DataGrid.js at ce5c0db1e: `buOnly` false builds the
-    // Software and Cloud sub-columns instead of the per-BU ones.
+  it("shows the Software/Cloud breakdown when BU only is unchecked", async () => {
+    // Unchecked, the grid shows Software and Cloud sub-columns instead of the per-BU ones.
     renderPage("?table=customers");
     await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(screen.getAllByText("Software Total").length).toBeGreaterThan(0);
@@ -1999,7 +1998,7 @@ describe("the Region Summary's two views", () => {
   ];
   const metricsUnit = () => within(screen.getByRole("group", { name: "Unit" }));
 
-  it("offers its own eight Unit pills, in the standalone's order, opening on All BU", async () => {
+  it("offers its own eight Unit pills, business units first, opening on All BU", async () => {
     await openMetrics();
     const pills = metricsUnit().getAllByRole("button");
     expect(pills.map((pill) => pill.textContent)).toEqual(METRICS_PILLS);

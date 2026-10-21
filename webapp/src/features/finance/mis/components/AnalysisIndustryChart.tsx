@@ -74,6 +74,14 @@ import type { IndustryBreakdown } from "../api/useAnalysisBreakdowns";
 export interface AnalysisIndustryChartProps {
   breakdown: IndustryBreakdown;
   accounts: readonly AnalysisAccountRow[];
+  /**
+   * The account read supplies the stacks. While it is pending or failed,
+   * `accounts` is empty and must not be drawn as every bar belonging to Other.
+   */
+  accountsLoading?: boolean;
+  accountsFailed?: boolean;
+  accountsErrorMessage?: string;
+  onRetryAccounts?: () => void;
   /** Whether a region filter is applied, which cuts the stacks by sub-region instead. */
   bySubRegion: boolean;
   /** The whole book, for Other and for every share. Absent if that read failed. */
@@ -84,6 +92,10 @@ export interface AnalysisIndustryChartProps {
 export default function AnalysisIndustryChart({
   breakdown,
   accounts,
+  accountsLoading = false,
+  accountsFailed = false,
+  accountsErrorMessage = "",
+  onRetryAccounts = () => {},
   bySubRegion,
   totalArr,
   scale,
@@ -143,6 +155,7 @@ export default function AnalysisIndustryChart({
   // queries — a change to `useColumnQueries` affecting every MIS table, so it
   // belongs to whoever decides it for all of them rather than to this chart.
   const hasFigures = !breakdown.isLoading && !breakdown.isError && plotted.length > 0;
+  const regionCutReady = hasFigures && !accountsLoading && !accountsFailed;
 
   return (
     <Box sx={(theme) => ({ ...analysisSurfaceSx(theme), height: "100%", p: 2 })}>
@@ -161,6 +174,12 @@ export default function AnalysisIndustryChart({
         <Box sx={{ height: CHART_HEIGHT, borderRadius: 0.5, bgcolor: "action.hover" }} />
       ) : plotted.length === 0 ? (
         <Box sx={{ height: CHART_HEIGHT }} />
+      ) : accountsFailed ? (
+        <ErrorNotice onRetry={onRetryAccounts}>
+          Couldn&apos;t load the regions behind these industries. {accountsErrorMessage}
+        </ErrorNotice>
+      ) : accountsLoading ? (
+        <Box sx={{ height: CHART_HEIGHT, borderRadius: 0.5, bgcolor: "action.hover" }} />
       ) : (
         <Box sx={{ height: CHART_HEIGHT }}>
           <ResponsiveContainer width="100%" height="100%">
@@ -213,7 +232,7 @@ export default function AnalysisIndustryChart({
         </Box>
       )}
 
-      {hasFigures && (
+      {regionCutReady && (
         <Box
           component="ul"
           aria-label="Region legend"
@@ -264,6 +283,11 @@ export default function AnalysisIndustryChart({
                 Didn&apos;t load: {unanswered.map((row) => row.industry).join(", ")}. These were
                 asked for and did not answer, so they are left out rather than shown as zero — and
                 Other is withheld, because it would otherwise absorb them.
+              </Typography>
+            )}
+            {hasFigures && accountsLoading && (
+              <Typography variant="body2" color="text.secondary">
+                Loading the regions behind each industry…
               </Typography>
             )}
           </>

@@ -23,9 +23,7 @@ import {
   type AnalysisAccountsResponse,
 } from "./analysisAccountRows";
 
-// `POST /accounts` as Portfolio reads it. Ported from
-// digiops-finance `arrAnalysis/ArrAnalysisDashboard.js:345-368`
-// (`toDashboardRows`) and `:283-300` (`parseProductsInUse`).
+// `POST /accounts` as Portfolio reads it: one row per account.
 
 const account = (over: Partial<AnalysisAccountsResponse> = {}): AnalysisAccountsResponse => ({
   id: "001",

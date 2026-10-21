@@ -29,8 +29,12 @@ const RETRYABLE_CLIENT_STATUSES = new Set([408, 429]);
 
 export function misReadRetry(failureCount: number, error: unknown): boolean {
   if (failureCount >= MAX_RETRIES) return false;
-  if (!(error instanceof HttpError)) return true;
-  return error.status >= 500 || RETRYABLE_CLIENT_STATUSES.has(error.status);
+  if (error instanceof HttpError) {
+    return error.status >= 500 || RETRYABLE_CLIENT_STATUSES.has(error.status);
+  }
+  // `fetch` throws TypeError when the request never gets a response. A parser
+  // Error is a payload this client cannot read; asking again will not change it.
+  return error instanceof TypeError;
 }
 
 export function misReadRetryDelay(failureCount: number): number {

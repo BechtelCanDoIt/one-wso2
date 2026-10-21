@@ -230,12 +230,20 @@ function ArrAnalysis() {
         <AnalysisBreakdownDonut
           breakdown={partnerModels}
           accounts={accounts.rows}
+          accountsLoading={accounts.isLoading}
+          accountsFailed={accounts.isError}
+          accountsErrorMessage={accounts.errorMessage}
+          onRetryAccounts={accounts.retry}
           bySubRegion={settled.salesRegions.length > 0}
           scale={scale}
         />
         <AnalysisIndustryChart
           breakdown={industries}
           accounts={accounts.rows}
+          accountsLoading={accounts.isLoading}
+          accountsFailed={accounts.isError}
+          accountsErrorMessage={accounts.errorMessage}
+          onRetryAccounts={accounts.retry}
           bySubRegion={settled.salesRegions.length > 0}
           totalArr={headline.arr}
           scale={scale}

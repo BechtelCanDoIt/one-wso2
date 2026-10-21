@@ -466,6 +466,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
         // The Build's own Applied filters, shown but not editable — the list
         // describes a figure computed under exactly these.
         chips={describeAppliedFilters(view.filters, { period: view.period, table: view.table })}
+        requestKey={JSON.stringify(request)}
         state={drillDown}
       />
       )}

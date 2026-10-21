@@ -69,12 +69,28 @@ function showChart(
     scale = MIS_SCALES.UNITS,
     rows = book,
     bySubRegion = false,
-  }: { scale?: MisScale; rows?: AnalysisAccountRow[]; bySubRegion?: boolean } = {},
+    accountsLoading = false,
+    accountsFailed = false,
+    accountsErrorMessage = "",
+    onRetryAccounts = () => {},
+  }: {
+    scale?: MisScale;
+    rows?: AnalysisAccountRow[];
+    bySubRegion?: boolean;
+    accountsLoading?: boolean;
+    accountsFailed?: boolean;
+    accountsErrorMessage?: string;
+    onRetryAccounts?: () => void;
+  } = {},
 ) {
   return render(
     <AnalysisBreakdownDonut
       breakdown={breakdown(over)}
       accounts={rows}
+      accountsLoading={accountsLoading}
+      accountsFailed={accountsFailed}
+      accountsErrorMessage={accountsErrorMessage}
+      onRetryAccounts={onRetryAccounts}
       bySubRegion={bySubRegion}
       scale={scale}
     />,
@@ -203,5 +219,26 @@ describe("the states that are not a split", () => {
     const { container } = showChart({ channel: undefined, direct: undefined, isLoading: true });
     expect(container.querySelector(".recharts-pie")).toBeNull();
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("keeps the partner split and withholds the regions while the accounts are loading", () => {
+    const { container } = showChart({}, { rows: [], accountsLoading: true });
+    expect(container.querySelectorAll(".recharts-pie")).toHaveLength(1);
+    expect(legendRows().map((row) => row[0])).toEqual(["Channel", "Direct"]);
+    expect(screen.getByRole("status")).toHaveTextContent(/Loading the regions/);
+    expect(screen.queryByText("Unspecified")).not.toBeInTheDocument();
+  });
+
+  it("says the regions failed rather than drawing them as Unspecified", async () => {
+    const retry = vi.fn();
+    const { container } = showChart(
+      {},
+      { rows: [], accountsFailed: true, accountsErrorMessage: "Gateway timed out.", onRetryAccounts: retry },
+    );
+    expect(container.querySelectorAll(".recharts-pie")).toHaveLength(1);
+    expect(screen.getByText(/Couldn't load the regions/)).toBeInTheDocument();
+    expect(screen.queryByText("Unspecified")).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: /retry/i }));
+    expect(retry).toHaveBeenCalled();
   });
 });

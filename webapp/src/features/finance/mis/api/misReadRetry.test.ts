@@ -35,6 +35,10 @@ describe("retrying a MIS read", () => {
     expect(misReadRetry(0, new TypeError("Failed to fetch"))).toBe(true);
   });
 
+  it("does not retry a payload the parser rejected", () => {
+    expect(misReadRetry(0, new Error("not an account"))).toBe(false);
+  });
+
   it("waits longer before each further attempt, up to a ceiling", () => {
     expect(misReadRetryDelay(0)).toBe(500);
     expect(misReadRetryDelay(1)).toBe(1000);

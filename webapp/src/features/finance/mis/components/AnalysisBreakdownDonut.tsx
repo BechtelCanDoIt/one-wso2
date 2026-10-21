@@ -64,6 +64,14 @@ const OUTER_RING = { inner: 78, outer: 108 };
 export interface AnalysisBreakdownDonutProps {
   breakdown: PartnerModelBreakdown;
   accounts: readonly AnalysisAccountRow[];
+  /**
+   * The account read supplies the outer ring. While it is pending or failed,
+   * `accounts` is empty and must not be drawn as an Unspecified split.
+   */
+  accountsLoading?: boolean;
+  accountsFailed?: boolean;
+  accountsErrorMessage?: string;
+  onRetryAccounts?: () => void;
   bySubRegion: boolean;
   scale: MisScale;
 }
@@ -71,6 +79,10 @@ export interface AnalysisBreakdownDonutProps {
 export default function AnalysisBreakdownDonut({
   breakdown,
   accounts,
+  accountsLoading = false,
+  accountsFailed = false,
+  accountsErrorMessage = "",
+  onRetryAccounts = () => {},
   bySubRegion,
   scale,
 }: AnalysisBreakdownDonutProps) {
@@ -90,9 +102,13 @@ export default function AnalysisBreakdownDonut({
   const askedNeither = breakdown.asked.size === 0;
 
   const hasFigures = !breakdown.isLoading && !breakdown.isError && models.length > 0;
+  // The partner-model ring comes from its own read. The outer ring is the
+  // account mix, and an empty list while that read is pending or failed is
+  // not a book with no regions.
+  const regionCutReady = hasFigures && !accountsLoading && !accountsFailed;
 
   const entities = analysisRegionEntities(accounts, { bySubRegion });
-  const groups = entitiesWithinPartnerModels(models, accounts, entities);
+  const groups = regionCutReady ? entitiesWithinPartnerModels(models, accounts, entities) : [];
   const total = models.reduce((sum, model) => sum + model.amount, 0);
 
   const modelColour = (slot: 1 | 2) =>
@@ -143,35 +159,48 @@ export default function AnalysisBreakdownDonut({
                 <Cell key={model.id} fill={modelColour(model.slot)} />
               ))}
             </Pie>
-            <Pie
-              data={groups.flatMap((group) => group.entities)}
-              dataKey="amount"
-              nameKey="name"
-              innerRadius={OUTER_RING.inner}
-              outerRadius={OUTER_RING.outer}
-              startAngle={90}
-              endAngle={-270}
-              stroke="none"
-              isAnimationActive={false}
-            >
-              {groups.flatMap((group) =>
-                group.entities.map((entity) => (
-                  <Cell key={`${group.model.id}:${entity.name}`} fill={entityColour(entity)} />
-                )),
-              )}
-            </Pie>
+            {regionCutReady && (
+              <Pie
+                data={groups.flatMap((group) => group.entities)}
+                dataKey="amount"
+                nameKey="name"
+                innerRadius={OUTER_RING.inner}
+                outerRadius={OUTER_RING.outer}
+                startAngle={90}
+                endAngle={-270}
+                stroke="none"
+                isAnimationActive={false}
+              >
+                {groups.flatMap((group) =>
+                  group.entities.map((entity) => (
+                    <Cell key={`${group.model.id}:${entity.name}`} fill={entityColour(entity)} />
+                  )),
+                )}
+              </Pie>
+            )}
           </PieChart>
         </Box>
       )}
 
       {/* Always mounted: a live region created as its text appears is announced
           unreliably or not at all. */}
+      {hasFigures && accountsFailed && (
+        <ErrorNotice onRetry={onRetryAccounts}>
+          Couldn&apos;t load the regions behind this split. {accountsErrorMessage}
+        </ErrorNotice>
+      )}
+
       <Box role="status" sx={{ minHeight: 18, mt: 1 }}>
         {!breakdown.isLoading && !breakdown.isError && !unanswered && models.length === 0 && (
           <Typography variant="body2" color="text.secondary">
             {askedNeither
               ? "Channel and Direct don't apply to the partner type this view is narrowed to."
               : "No ARR in this view."}
+          </Typography>
+        )}
+        {hasFigures && accountsLoading && (
+          <Typography variant="body2" color="text.secondary">
+            Loading the regions behind each partner model…
           </Typography>
         )}
       </Box>
@@ -190,25 +219,28 @@ export default function AnalysisBreakdownDonut({
             </TableRow>
           </TableHead>
           <TableBody>
-            {groups.map(({ model, entities: arcs }) => [
-              <LegendRow
-                key={model.id}
-                name={model.label}
-                colour={modelColour(model.slot)}
-                amount={amountText(model.amount)}
-                share={shareText(model.amount)}
-                bold
-              />,
-              ...arcs.map((arc) => (
+            {models.map((model) => {
+              const arcs = groups.find((group) => group.model.id === model.id)?.entities ?? [];
+              return [
                 <LegendRow
-                  key={`${model.id}:${arc.name}`}
-                  name={arc.name}
-                  colour={entityColour(arc)}
-                  amount={amountText(arc.amount)}
-                  share={shareText(arc.amount)}
-                />
-              )),
-            ])}
+                  key={model.id}
+                  name={model.label}
+                  colour={modelColour(model.slot)}
+                  amount={amountText(model.amount)}
+                  share={shareText(model.amount)}
+                  bold
+                />,
+                ...arcs.map((arc) => (
+                  <LegendRow
+                    key={`${model.id}:${arc.name}`}
+                    name={arc.name}
+                    colour={entityColour(arc)}
+                    amount={amountText(arc.amount)}
+                    share={shareText(arc.amount)}
+                  />
+                )),
+              ];
+            })}
           </TableBody>
         </Table>
       )}

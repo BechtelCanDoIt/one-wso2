@@ -29,8 +29,8 @@ import {
 import { lastDayOfMonth, type MisCivilDate } from "./misPacificTime";
 import { MIS_SCALES, type MisScale } from "./misViewVocabulary";
 
-// Portfolio's filters as a query string, in the keys the standalone's Portfolio
-// writes, so a link from either app opens in the other.
+// Portfolio's filters as a query string. The keys are a stable link format, so
+// a copied link opens the same view.
 //
 // Every value is hostile: a link is typed, truncated and edited by hand. A value
 // is recognised in full or it has no effect, and the filter keeps its default.

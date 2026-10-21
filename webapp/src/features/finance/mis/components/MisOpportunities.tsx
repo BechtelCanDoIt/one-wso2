@@ -132,8 +132,11 @@ export default function MisOpportunities({
     () => rows.map((row) => ({ id: row.rowId, label: row.accountId })),
     [rows],
   );
-  const { sort, toggle } = useBuildSort(state.opportunities);
-  const { filters, setFilter } = useBuildFilters(state.opportunities);
+  // The account and the date are the request. The opportunities array is the
+  // answer, and a refetch replaces it while the reader may be typing a filter.
+  const requestKey = `${account?.id ?? ""}\u0000${asOf ?? ""}`;
+  const { sort, toggle } = useBuildSort(requestKey);
+  const { filters, setFilter } = useBuildFilters(requestKey);
   const columnOf = (key: string) => OPPORTUNITY_COLUMNS.find((column) => column.key === key);
   const shownBuildRows = sortRows(
     filterRows(buildRows, filters, (row, key) => {

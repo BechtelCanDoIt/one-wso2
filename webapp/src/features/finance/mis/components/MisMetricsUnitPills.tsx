@@ -21,10 +21,10 @@ import { unitPillSx } from "./misLookTokens";
 import { CustomUnitCard } from "./MisUnitPills";
 import type { MisUnitSelection } from "./MisUnitTabs";
 
-// The Unit pills under Region Summary › All ARR Metrics: the eight the
-// standalone shows (`RegionSummaryTabs.js`), starting on All BU. Custom Product
-// Selection is a pill here rather than a tab, and opens the same chip lists the
-// Build's Custom tab does.
+// The Unit pills under Region Summary › All ARR Metrics: eight of them,
+// business units first, opening on All BU. Custom Product Selection is a pill
+// here rather than a tab, and opens the same chip lists the Build's Custom tab
+// does.
 //
 // The three fields are the metrics view's own copy; the Build's Unit above the
 // grid is a different selection and is never read or written from here.

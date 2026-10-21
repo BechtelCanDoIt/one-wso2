@@ -27,15 +27,13 @@ import {
   type MisAnalysisFilters,
 } from "../util/misAnalysisFilters";
 
-// What Portfolio tells the backend. Ported from
-// digiops-finance `arrAnalysis/api/arrAnalysisApi.js` — `buildBasePayload`,
-// `resolveProducts` and `buildOptionalFilters`.
+// What Portfolio tells the backend: the `/accounts` and `/exit-arr/search` bodies.
 //
 // The two bodies are NOT the same body, which is the thing most worth pinning:
 // `/accounts` is asked what the customer book looks like on one day, and
 // `/exit-arr/search` is asked for a figure over a span. So the first carries no
 // `startDate` and drops `businessUnits` at its default, and the second carries
-// both. Nothing says so in the source but the two functions' shapes.
+// both.
 
 const ON = { year: 2026, month: 9, day: 21 };
 

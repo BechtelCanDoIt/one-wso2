@@ -85,6 +85,11 @@ export interface MisCustomerDrillDownProps {
   periodColumn: string;
   /** The Build's Applied filters, shown but not editable. */
   chips: readonly MisFilterChip[];
+  /**
+   * The request this list was asked for. A refetch replaces `state.customers`
+   * and must not clear a filter or a sort; a different request does.
+   */
+  requestKey: string;
   state: DrillDownState;
 }
 
@@ -95,6 +100,7 @@ export default function MisCustomerDrillDown({
   rowLabel,
   periodColumn,
   chips,
+  requestKey,
   state,
 }: MisCustomerDrillDownProps) {
   const columns = useMemo(() => drillDownColumns(rowId), [rowId]);
@@ -112,8 +118,8 @@ export default function MisCustomerDrillDown({
   // only thing tying the list back to the cell the reader clicked.
   const title = `${rowLabel} · ${periodColumn}`;
 
-  const { sort, toggle } = useBuildSort(state.customers);
-  const { filters, setFilter } = useBuildFilters(state.customers);
+  const { sort, toggle } = useBuildSort(requestKey);
+  const { filters, setFilter } = useBuildFilters(requestKey);
   const textOf = (row: BuildRow, key: string): string => {
     const customer = byRowId.get(row.id);
     const column = columns.find((one) => one.key === key);
