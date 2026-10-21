@@ -1188,6 +1188,14 @@ export default function RiskDetailDrawer({
                       );
                     })()
                   )}
+                  {detail.treatment_strategy && (
+                    <Chip
+                      label={detail.treatment_strategy}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
+                  )}
                 </Stack>
               </>
             ) : (
