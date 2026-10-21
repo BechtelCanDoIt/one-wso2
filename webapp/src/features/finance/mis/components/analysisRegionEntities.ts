@@ -17,6 +17,7 @@
 // What the two breakdowns above the account table are made of, as data.
 
 import type { AnalysisAccountRow } from "./analysisAccountRows";
+import type { PartnerModelSlice } from "./analysisBreakdowns";
 
 export const OTHER_ENTITY = "Other";
 export const UNSPECIFIED_ENTITY = "Unspecified";
@@ -25,6 +26,7 @@ export const UNSPECIFIED_ENTITY = "Unspecified";
 const NAMED_ENTITY_COUNT = 5;
 
 type EntityAccount = Pick<AnalysisAccountRow, "salesRegion" | "subRegion" | "totalArr">;
+type PartnerAccount = EntityAccount & Pick<AnalysisAccountRow, "partnerType">;
 
 export interface RegionEntity {
   name: string;
@@ -74,4 +76,53 @@ export function analysisRegionEntities(
       return folded.has(name) ? OTHER_ENTITY : name;
     },
   };
+}
+
+export interface EntityArc extends RegionEntity {
+  amount: number;
+}
+
+export interface PartnerModelEntities {
+  model: PartnerModelSlice;
+  entities: EntityArc[];
+}
+
+/**
+ * What each partner model is made of, region entity by region entity.
+ *
+ * A model's total is the figure the exit-ARR read gave, not the sum of its
+ * accounts; the accounts only supply the mix, which is spread over that total
+ * so the outer ring covers exactly the arc of the inner slice it sits on.
+ */
+export function entitiesWithinPartnerModels(
+  models: readonly PartnerModelSlice[],
+  accounts: readonly PartnerAccount[],
+  { order, bucketOf }: RegionEntities,
+): PartnerModelEntities[] {
+  const rankOf = new Map(order.map((entity) => [entity.name, entity.rank]));
+
+  return models.map((model) => {
+    const mix = new Map<string, number>();
+    for (const account of accounts) {
+      if (account.partnerType.trim().toLowerCase() !== model.id) continue;
+      const name = bucketOf(account);
+      mix.set(name, (mix.get(name) ?? 0) + account.totalArr);
+    }
+    const contributing = [...mix.entries()].filter(([, amount]) => amount > 0);
+    const mixTotal = contributing.reduce((sum, [, amount]) => sum + amount, 0);
+
+    if (contributing.length === 0) {
+      return { model, entities: [{ name: UNSPECIFIED_ENTITY, rank: null, amount: model.amount }] };
+    }
+    return {
+      model,
+      entities: contributing
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, amount]) => ({
+          name,
+          rank: rankOf.get(name) ?? null,
+          amount: (amount / mixTotal) * model.amount,
+        })),
+    };
+  });
 }
