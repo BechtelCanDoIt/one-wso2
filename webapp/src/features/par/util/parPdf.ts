@@ -257,7 +257,7 @@ export function downloadLegacyParPdf(
   const leadTopRows: PdfRow[] = [];
   if (!isLegacy2017ScoreCycle) {
     if (hasLegacyContent(record.overallCommentManager)) {
-      leadTopRows.push(["Lead Comment", { content: record.overallCommentManager!, styles: contentStyles }]);
+      leadTopRows.push(["Lead Comment", { content: htmlToPdfText(record.overallCommentManager!), styles: contentStyles }]);
     } else if (leadGroups.length > 0 && leadGroups[0]?.layout !== "flat") {
       leadTopRows.push(["Lead Comment", { content: "N/A", styles: contentStyles }]);
     }
@@ -271,7 +271,11 @@ export function downloadLegacyParPdf(
   }
   addBlock("Lead's Feedback", leadTopRows, "section");
   if (threeSixtyConfirmationAnswer) {
-    addBlock("360 Confirmation", [["360 Confirmation", { content: threeSixtyConfirmationAnswer, styles: contentStyles }]], "section");
+    addBlock(
+      "360 Confirmation",
+      [["360 Confirmation", { content: htmlToPdfText(threeSixtyConfirmationAnswer), styles: contentStyles }]],
+      "section",
+    );
   }
   if (!isLegacy2021H1) {
     for (const group of leadGroups) {
@@ -283,7 +287,7 @@ export function downloadLegacyParPdf(
     }
   }
   if (isLegacy2017ScoreCycle && hasLegacyContent(record.overallCommentManager)) {
-    addBlock("Score", [["Score", { content: record.overallCommentManager!, styles: contentStyles }]], "section");
+    addBlock("Score", [["Score", { content: htmlToPdfText(record.overallCommentManager!), styles: contentStyles }]], "section");
   }
 
   // ---- 360° Feedback ----
@@ -292,7 +296,10 @@ export function downloadLegacyParPdf(
     const reviewRows: PdfRow[] = reviews.map((review) => {
       const rating = review.reviewRating ? stripRedundantRatingPrefix(review.reviewRating) : "";
       const ratingSuffix = rating ? ` (Rating: ${rating})` : "";
-      return [`${review.reviewerName}${ratingSuffix}`, { content: review.reviewComment || "No comment provided", styles: contentStyles }];
+      return [
+        `${review.reviewerName}${ratingSuffix}`,
+        { content: review.reviewComment ? htmlToPdfText(review.reviewComment) : "No comment provided", styles: contentStyles },
+      ];
     });
     addBlock("360° Feedback", reviewRows, "section");
   }
