@@ -19,6 +19,7 @@ import { Accordion, AccordionDetails, AccordionSummary, Avatar, Card, Chip, Comp
 import { ChevronDownIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
+import { formatLegacyCycleName } from "../util/parLegacyHistory";
 import { useParRating } from "../api/useParData";
 import { useAllClosedParCycles, useParEmployeeReviews, useParLegacyHistory } from "../api/useLeadHistory";
 import { buildMergedCycleOptions } from "../util/parEmployeeHistory";
@@ -65,7 +66,14 @@ export default function ParEmployeeHistoryView({
   employeeName: string;
 }) {
   const realCycles = useAllClosedParCycles();
-  const legacyHistory = useParLegacyHistory(employeeEmail);
+  // This component is only ever rendered via ParLeadHistoryModal.tsx, for
+  // a LEAD viewing one of their reports -- a lead must never see a report's
+  // legacy history, not in this UI and not as a backend call visible in
+  // the network trace either. GET /legacy-par-history/{email} is
+  // admin-or-self only on the backend, which excludes team-lead/manager
+  // relationships entirely; `enabled: false` here is defense-in-depth, not
+  // the actual security boundary, which lives in the backend.
+  const legacyHistory = useParLegacyHistory(employeeEmail, false);
   const thumbnails = useLeaveEmployees();
   const thumbnailByEmail = useMemo(
     () => new Map(thumbnails.data?.map((e) => [e.workEmail, e.employeeThumbnail]) ?? []),
@@ -81,7 +89,7 @@ export default function ParEmployeeHistoryView({
   const rating = useParRating(realCycleId, employeeEmail, isRealCycle);
   const reviews = useParEmployeeReviews(realCycleId, isRealCycle ? employeeEmail : undefined);
 
-  const legacyByEmail: ParLegacyHistoryByEmail = { [employeeEmail]: legacyHistory.data };
+  const legacyByEmail: ParLegacyHistoryByEmail = { [employeeEmail]: legacyHistory.data ?? undefined };
   const cycleOptions = buildMergedCycleOptions(realCycles.data ?? [], legacyByEmail);
   const cyclePickerValue = isLegacyCycle ? `legacy-${cycleSelection.cycleName}` : isRealCycle ? String(cycleSelection.parCycleId) : "none";
 
@@ -97,7 +105,7 @@ export default function ParEmployeeHistoryView({
 
   const legacyRecords = legacyHistory.data ?? [];
   const selectedLegacyRecord = isLegacyCycle
-    ? legacyRecords.find((record) => record.cycleName === cycleSelection.cycleName)
+    ? legacyRecords.find((record) => formatLegacyCycleName(record.cycleName) === cycleSelection.cycleName)
     : undefined;
 
   // "No record" wording stays deliberately vague: the backend can't tell "no
@@ -157,8 +165,6 @@ export default function ParEmployeeHistoryView({
       {showLegacyDetails && selectedLegacyRecord && (
         <ParLegacyRecordDetail
           record={selectedLegacyRecord}
-          employeeEmail={employeeEmail}
-          employeeName={employeeName}
           thumbnail={thumbnailByEmail.get(employeeEmail)}
         />
       )}
