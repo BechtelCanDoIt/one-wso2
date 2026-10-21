@@ -286,7 +286,9 @@ function EditableWorstCaseDate({
   const [editing, setEditing] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [draft, setDraft] = useState<Date | null>(() => parseDate(value));
-  const [reason, setReason] = useState(UMT_DEFAULT_ETA_REASON);
+  // Required: the backend quotes it in the updated-ETA comment on the
+  // customer's case and the update's issues.
+  const [reason, setReason] = useState("");
   const etaLog = useUmtWorstCaseEstimateLog(id, logOpen);
 
   // Same reasoning as EditableUserField above.
@@ -296,12 +298,13 @@ function EditableWorstCaseDate({
     if (!canEdit) {
       setEditing(false);
       setDraft(parseDate(value));
+      setReason("");
     }
   }
 
   const cancel = () => {
     setDraft(parseDate(value));
-    setReason(UMT_DEFAULT_ETA_REASON);
+    setReason("");
     setEditing(false);
   };
 
@@ -317,8 +320,8 @@ function EditableWorstCaseDate({
   const save = async () => {
     if (!isSelectableDate(draft) || !reason.trim()) return;
     try {
-      await onSave({ field: "worstCaseEstimate", value: toDateInputValue(draft), reason: reason.trim() });
-      setReason(UMT_DEFAULT_ETA_REASON);
+      await onSave({ field: "worstCaseEstimate", value: toDateInputValue(draft), reason });
+      setReason("");
       setEditing(false);
     } catch {
       // The page-level notification explains the backend error. Keep the
@@ -347,7 +350,7 @@ function EditableWorstCaseDate({
                     size="small"
                     onClick={() => {
                       setDraft(parseDate(value));
-                      setReason(UMT_DEFAULT_ETA_REASON);
+                      setReason("");
                       setEditing(true);
                     }}
                   >
@@ -380,15 +383,14 @@ function EditableWorstCaseDate({
             />
           </LocalizationProvider>
           <TextField
-            label="Reason for extending ETA"
-            multiline
-            required
-            rows={3}
-            size="small"
+            label="Reason for the change"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
-            error={!reason.trim()}
-            helperText={!reason.trim() ? "A reason is required" : undefined}
+            required
+            multiline
+            minRows={2}
+            size="small"
+            helperText="Posted with the new ETA on the customer's case and the update's issues."
           />
           <EditActions
             label={label}
@@ -630,10 +632,6 @@ function toDateInputValue(date: Date): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
-
-// Pre-filled so the common case needs no typing; it is recorded in the ETA log.
-const UMT_DEFAULT_ETA_REASON =
-  "This update has been delayed due to unforeseen circumstances. Please find the new ETA below. Sorry for the inconvenience caused.";
 
 // UMT releases on Thursdays; Date.getDay() numbers Sunday 0..Saturday 6.
 const UMT_RELEASE_WEEKDAY = 4;

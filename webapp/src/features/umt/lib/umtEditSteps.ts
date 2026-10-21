@@ -213,20 +213,60 @@ export function umtActiveStepIndex(
   return index === -1 ? 0 : index;
 }
 
+// The run of steps each shared lifecycleState spans (see
+// LIFECYCLE_STATE_TO_STEP): the only steps a local override can legitimately
+// point at while the update is in that state. File Approval is in Staging's
+// run only when the update has one (computeUmtEditSteps). A state with no
+// entry spans just its own step. StagingRequested deliberately has none:
+// Testing can't move on before Staging.
+const LIFECYCLE_STATE_RUNS: Record<string, readonly UmtEditStepId[]> = {
+  ProductAnalyzed: ["description-instruction", "security-advisory", "integration-tests"],
+  Staging: ["testing", "validate", "file-approval"],
+};
+
 // Resolves the Edit tab's displayed step: a persisted `localStepOverride`
 // (see UmtUpdateEditTab.tsx) only ever means "further along than the backend
 // knows about" — an advancesLocallyToNextStep step moving the pointer ahead
-// of a shared lifecycleState. If the persisted override is *behind* the
-// backend-derived step instead (the update was promoted elsewhere, or by
-// someone else, while this browser still had an older step persisted for
-// it), the backend position must win.
+// within the run of steps that share the current lifecycleState. Anything
+// else is a pointer left from another state — the update was promoted,
+// demoted or reopened elsewhere while this browser kept an older step — and
+// the backend position must win: honouring it would put the user on a step
+// whose Proceed skips every check between the two.
 export function resolveUmtEditActiveIndex(
   steps: UmtEditStepDefinition[],
   backendActiveIndex: number,
   overrideId: UmtEditStepId | null,
+  lifecycleState: string | null | undefined,
 ): number {
   if (!overrideId) return backendActiveIndex;
   const overrideIndex = steps.findIndex((step) => step.id === overrideId);
   if (overrideIndex === -1 || overrideIndex < backendActiveIndex) return backendActiveIndex;
+  const run = (lifecycleState && LIFECYCLE_STATE_RUNS[lifecycleState]) || [];
+  if (!run.includes(overrideId)) return backendActiveIndex;
   return overrideIndex;
+}
+
+// Whether a step's Proceed needs every product to have a description and
+// instruction. Not only the Description and Instruction step itself: a
+// product can be added, or lose its description, after that step was passed,
+// and the backend checks descriptions on no transition. So every later step
+// that fires — or leads straight into — the move out of its lifecycleState
+// checks again: Integration Tests (ProductAnalyzed → StagingRequested),
+// Validate, which hosts the same description form, and File Approval at
+// Staging (Staging → UATStaging). At WaitingFileApproval only the files are
+// being approved.
+export function umtStepRequiresDescriptions(
+  stepId: UmtEditStepId,
+  lifecycleState: string | null | undefined,
+): boolean {
+  switch (stepId) {
+    case "description-instruction":
+    case "integration-tests":
+    case "validate":
+      return true;
+    case "file-approval":
+      return lifecycleState !== "WaitingFileApproval";
+    default:
+      return false;
+  }
 }
