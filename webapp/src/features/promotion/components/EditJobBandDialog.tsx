@@ -90,8 +90,7 @@ function EditJobBandDialogContent({
     const roles = designations.data?.roles ?? [];
     const fromApi: JobBandOption[] = roles
       .filter((r): r is typeof r & { jobBand: number } => r.jobBand != null)
-      .map((r) => ({ band: r.jobBand, role: r.designation }))
-      .sort((a, b) => a.band - b.band || (a.role ?? "").localeCompare(b.role ?? ""));
+      .map((r) => ({ band: r.jobBand, role: r.designation }));
     if (fromApi.length === 0) {
       return JOB_BANDS.filter((band) => band > request.currentJobBand).map((band) => ({
         band,
@@ -103,9 +102,9 @@ function EditJobBandDialogContent({
       request.nextJobBand != null &&
       !fromApi.some((o) => o.band === request.nextJobBand && o.role === request.promotedJobRole)
     ) {
-      fromApi.unshift({ band: request.nextJobBand, role: request.promotedJobRole });
+      fromApi.push({ band: request.nextJobBand, role: request.promotedJobRole });
     }
-    return fromApi;
+    return fromApi.sort((a, b) => a.band - b.band || (a.role ?? "").localeCompare(b.role ?? ""));
   }, [designations.data, request.currentJobBand, request.nextJobBand, request.promotedJobRole]);
 
   const handleSave = () => {
