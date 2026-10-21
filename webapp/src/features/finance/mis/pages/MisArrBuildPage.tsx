@@ -346,7 +346,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
     () => new Map(ranges.map((range) => [buildColumnLabel(range), range])),
     [ranges],
   );
-  const columnGroups = summary.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = summary.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   // The figure ITSELF, before the formatter. Shared by the cell below and by
   // the export, so the sheet cannot read a different number from the screen —
   // and so that the export never reaches for `BuildCell.text`, which is already
@@ -476,6 +476,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
         collapseLoneSubHeader
         rowLabelHeader="Summary"
         columnGroups={columnGroups}
+        onRetryFailed={summary.retry}
         subColumns={SUB_COLUMNS}
         rows={shownRows}
         sort={sort}
@@ -579,9 +580,10 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // Exit ARR summaries — not "{opening} - {end}". Read off the range label by
   // splitting on " - "; `misPeriods.ts` has the helper the Exit ARR tables use
   // to take the end off the range itself, which this could move to.
-  const columnGroups = book.columns.map(({ label }) => ({
+  const columnGroups = book.columns.map(({ label, isError }) => ({
     key: label,
     label: label.includes(" - ") ? `As of ${label.split(" - ")[1]}` : label,
+    failed: isError,
   }));
   const breakdown = buOnly ? CUSTOMER_BU_SUB_COLUMNS : CUSTOMER_SUB_COLUMNS;
   const breakdownByKey = buOnly ? CUSTOMER_BU_SUB_COLUMN_BY_KEY : CUSTOMER_SUB_COLUMN_BY_KEY;
@@ -742,6 +744,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
         leadColumns={leadColumns}
         leadCell={leadCell}
         columnGroups={columnGroups}
+        onRetryFailed={book.retry}
         subColumns={subColumns}
         rows={shownRows}
         sort={sort}
@@ -860,7 +863,7 @@ function RegionExitGrid({
   // `summary.columns` is rebuilt every render, so a useMemo over it never hits.
   const { rows, figures } = regionExitTable(summary.columns);
 
-  const columnGroups = summary.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = summary.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   const subColumns = totalsOnly
     ? REGION_EXIT_SUB_COLUMNS.filter((column) => column.key === "total")
     : REGION_EXIT_SUB_COLUMNS;
@@ -932,6 +935,7 @@ function RegionExitGrid({
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
+        onRetryFailed={summary.retry}
         subColumns={subColumns}
         rows={shownRows}
         sort={sort}
@@ -981,7 +985,7 @@ function RegionMetricsGrid({
   // `metrics.columns` is rebuilt every render, so a useMemo over it never hits.
   const { rows, figures } = regionMetricsTable(metrics.columns);
 
-  const columnGroups = metrics.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = metrics.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   /** The figure itself, shared by the cell below and by the export. */
   const rawFigure = (row: BuildRow, group: BuildColumnGroup, subColumnKey: string) => {
     const definition = REGION_METRICS_SUB_COLUMN_BY_KEY.get(subColumnKey)!;
@@ -1048,6 +1052,7 @@ function RegionMetricsGrid({
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
+        onRetryFailed={metrics.retry}
         subColumns={REGION_METRICS_SUB_COLUMNS}
         rows={shownRows}
         sort={sort}
@@ -1075,7 +1080,7 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   const summary = useExitArrByBU(ranges, view.filters);
   const byColumn = new Map(summary.columns.map((column) => [column.label, column.response]));
 
-  const columnGroups = summary.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = summary.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   /** The figure itself, shared by the cell below and by the export. */
   const rawFigure = (row: BuildRow, group: BuildColumnGroup) =>
     buExitFigure(byColumn.get(group.key), row.id);
@@ -1131,6 +1136,7 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
         rowLabelHeader="Business Unit"
         rowLabelWidth={BU_LABEL_WIDTH}
         columnGroups={columnGroups}
+        onRetryFailed={summary.retry}
         subColumns={EXIT_ARR_SUB_COLUMNS}
         rows={shownRows}
         sort={sort}

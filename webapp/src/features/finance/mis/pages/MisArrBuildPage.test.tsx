@@ -763,6 +763,98 @@ describe("when every column fails", () => {
   });
 });
 
+const FAILED_YEAR = "2024/12/31 - 2025/12/31";
+
+/** Two columns: the current year answered, an earlier one did not. */
+const oneColumnFailed = (retry: () => void): ArrSummaryState => ({
+  columns: [
+    { label: THIS_YEAR, response: { openingArr: 1_234_567.5 }, isError: false },
+    { label: FAILED_YEAR, response: undefined, isError: true },
+  ],
+  isLoading: false,
+  isError: false,
+  errorMessage: "",
+  retry,
+});
+
+describe("when one column of several fails", () => {
+  it("says on that column's header that it did not load, and leaves the others alone", () => {
+    summary.value = oneColumnFailed(() => {});
+    renderPage();
+    const table = screen.getByRole("table");
+    const failedHeader = within(table).getByRole("columnheader", { name: new RegExp(FAILED_YEAR) });
+    expect(within(failedHeader).getByText("Couldn't load")).toBeInTheDocument();
+    expect(within(table).getAllByText("Couldn't load")).toHaveLength(1);
+    expect(within(table).getByText("1,234,567.50")).toBeInTheDocument();
+  });
+
+  it("reads the failed column's cells as unavailable rather than as blank figures", () => {
+    summary.value = oneColumnFailed(() => {});
+    renderPage();
+    const table = screen.getByRole("table");
+    const unavailable = within(table).getAllByLabelText("Not loaded");
+    expect(unavailable.length).toBeGreaterThan(0);
+    for (const cell of unavailable) expect(cell).toHaveTextContent("\u2014");
+  });
+
+  it("offers a Retry on that column, named for it, that asks again", async () => {
+    const retry = vi.fn();
+    summary.value = oneColumnFailed(retry);
+    renderPage();
+    await userEvent.click(
+      screen.getByRole("button", { name: `Retry loading ${FAILED_YEAR}` }),
+    );
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Retry when every column answered", () => {
+    renderPage();
+    expect(screen.queryByRole("button", { name: /^retry loading/i })).not.toBeInTheDocument();
+  });
+
+  it("exports the failed column empty, never as zeros", async () => {
+    summary.value = oneColumnFailed(() => {});
+    renderPage();
+    const sheet = await exportedSheet("Subscription");
+    const openingArr = sheet.getRow(6);
+    expect(openingArr.getCell(2).value).toBe(1_234_567.5);
+    expect(openingArr.getCell(3).value).toBeNull();
+    sheet.eachRow((row) => expect(row.getCell(3).value).not.toBe(0));
+  });
+});
+
+describe("when one column of the other tables fails", () => {
+  const failedColumn = { label: FAILED_YEAR, response: undefined, isError: true };
+
+  const cases: [string, string, () => () => void][] = [
+    ["Customers", "?table=customers", () => {
+      const retry = vi.fn();
+      customers.value = { ...customerBook([NORTHWIND]), retry, columns: [...customerBook([NORTHWIND]).columns, { label: FAILED_YEAR, accounts: undefined, isError: true }] };
+      return retry;
+    }],
+    ["Region Summary", "?table=region-summary", () => {
+      const retry = vi.fn();
+      regionExit.value = { ...regionExit.value, retry, columns: [...regionExit.value.columns, failedColumn] };
+      return retry;
+    }],
+    ["BU Summary", "?table=bu-summary", () => {
+      const retry = vi.fn();
+      buExit.value = { ...buExit.value, retry, columns: [...buExit.value.columns, failedColumn] };
+      return retry;
+    }],
+  ];
+
+  it.each(cases)("marks the failed column on the %s and offers its Retry", async (_name, search, arrange) => {
+    const retry = arrange();
+    renderPage(search);
+    const table = screen.getByRole("table");
+    expect(within(table).getAllByText("Couldn't load")).toHaveLength(1);
+    expect(within(table).getAllByLabelText("Not loaded").length).toBeGreaterThan(0);
+    await userEvent.click(within(table).getByRole("button", { name: /^retry loading/i }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("the Build itself", () => {
   it("renders the movement from an Opening balance to a Closing one", () => {
     renderPage();

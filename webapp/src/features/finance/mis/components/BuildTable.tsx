@@ -147,6 +147,8 @@ export interface BuildTableProps<L extends BuildLeadColumn = BuildLeadColumn> {
   leadCell?: (row: BuildRow, column: L) => string;
   /** One per Period, in display order. */
   columnGroups: readonly BuildColumnGroup[];
+  /** Asks again for the Periods whose group is `failed`; each such header offers it. */
+  onRetryFailed?: () => void;
   /** Repeated under every Period — Amount, % of Opening. */
   subColumns: readonly BuildSubColumn[];
   rows: readonly BuildRow[];
@@ -206,6 +208,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
   leadColumns,
   leadCell,
   columnGroups,
+  onRetryFailed,
   subColumns,
   rows,
   cell,
@@ -426,6 +429,9 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                     {singleHeaderRow
                       ? sortable(group.label, { kind: "figure", groupKey: group.key, subKey: subColumns[0].key })
                       : group.label}
+                    {group.failed && (
+                      <FailedColumnNote label={group.label} onRetry={onRetryFailed} />
+                    )}
                   </ListingTable.Cell>
                 ))}
               </ListingTable.Row>
@@ -659,7 +665,7 @@ const WindowedRow = memo(function WindowedRow({
                 grand(subColumn.key),
               ]}
             >
-              {figure.onActivate ? (
+              {figure.onActivate && !group.failed ? (
                 // A real button inside the cell, not a click handler
                 // on the cell. A `<td onClick>` is invisible to the
                 // keyboard and announces nothing, and a drill-down
@@ -695,6 +701,10 @@ const WindowedRow = memo(function WindowedRow({
                 >
                   {figure.text}
                 </ButtonBase>
+              ) : group.failed ? (
+                <span role="img" aria-label="Not loaded">
+                  {"\u2014"}
+                </span>
               ) : (
                 figure.text
               )}
@@ -707,6 +717,38 @@ const WindowedRow = memo(function WindowedRow({
 });
 
 /** The space rows outside the window would have taken, as one empty row. */
+function FailedColumnNote({ label, onRetry }: { label: string; onRetry?: () => void }) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "inherit",
+        gap: 0.5,
+        fontWeight: 400,
+        color: "error.main",
+      }}
+    >
+      <span>Couldn't load</span>
+      {onRetry && (
+        <ButtonBase
+          onClick={onRetry}
+          aria-label={`Retry loading ${label}`}
+          sx={{
+            font: "inherit",
+            color: "inherit",
+            textDecoration: "underline",
+            borderRadius: 0.5,
+            px: 0.25,
+          }}
+        >
+          Retry
+        </ButtonBase>
+      )}
+    </Box>
+  );
+}
+
 function RowSpacer({ height, columnCount }: { height: number; columnCount: number }) {
   if (height <= 0) return null;
   return (

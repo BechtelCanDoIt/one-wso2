@@ -31,6 +31,8 @@
 export interface BuildColumnGroup {
   key: string;
   label: string;
+  /** Its figures could not be fetched: the header says so and its cells read as unavailable. */
+  failed?: boolean;
 }
 
 /** A sub-column repeated under every Period — Amount, % of Opening. */
