@@ -71,7 +71,17 @@ import UmtPrAnalysisResults from "./UmtPrAnalysisResults";
 
 const { DataGrid: DataGridComponent } = DataGrid;
 
-export default function UmtPrAnalysisStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
+export default function UmtPrAnalysisStep({
+  id,
+  update,
+  onDirtyChange,
+}: {
+  id: string;
+  update: UmtUpdateSummary;
+  // Reports inputs changed since the last analysis, so the Files Analysis
+  // Proceed can ask before promoting past them.
+  onDirtyChange?: (isDirty: boolean) => void;
+}) {
   const { showSuccess, showError } = useNotifications();
   const pullRequestAnalysis = useUmtPullRequestAnalysis(id, update.lifecycleState, { alwaysEnabled: true });
   const isDevelopment = update.lifecycleState === "Development";
@@ -105,6 +115,15 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
   // memory until Analyze uploads them, so they are never persisted.
   const [pendingUploads, setPendingUploads] = useState<UmtPendingManualUpload[]>([]);
   const [hasNewInputs, setHasNewInputs] = useState(true);
+  // Unlike hasNewInputs (true on mount so Analyze starts enabled), this is
+  // set only by an edit made in this session — not by filling the inputs from
+  // the saved analysis — so Proceed can ask before it drops changes the last
+  // analysis never saw.
+  const [hasUnanalyzedChanges, setHasUnanalyzedChanges] = useState(false);
+  useEffect(() => {
+    onDirtyChange?.(hasUnanalyzedChanges);
+  }, [hasUnanalyzedChanges, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   // On reaching PRAnalyzed, the inputs start from what the backend analyzed
   // rather than this browser's drafts, which may be stale or missing entirely.
@@ -184,7 +203,10 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
   const [deletePr, setDeletePr] = useState<string | null>(null);
   const [missingBundleInfoFiles, setMissingBundleInfoFiles] = useState<UmtFileOperation[]>([]);
 
-  const markDirty = () => setHasNewInputs(true);
+  const markDirty = () => {
+    setHasNewInputs(true);
+    setHasUnanalyzedChanges(true);
+  };
 
   const isInFlight = status.data === "QUEUED" || status.data === "PROCESSING";
   const isCompleted = status.data === "COMPLETED";
@@ -327,6 +349,7 @@ export default function UmtPrAnalysisStep({ id, update }: { id: string; update: 
         isContainerizedUpdate: updateType === "containerizedProductUpdate",
       });
       setHasNewInputs(false);
+      setHasUnanalyzedChanges(false);
       showSuccess("PR analysis started.");
     } catch (error) {
       showError(`Failed to start PR analysis. ${describeError(error)}`);

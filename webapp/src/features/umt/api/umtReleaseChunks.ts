@@ -26,6 +26,9 @@
 export interface UmtReleaseChunkUpdateLevel {
   productName?: string | null;
   productVersion?: string | null;
+  // The level's channel ("full", "security", ...). Build retriggers name it,
+  // so they act on this level's own build.
+  channel?: string | null;
   updateLevel?: number | null;
   buildStatus?: string | null;
   tgBuildStatus?: string | null;
@@ -125,6 +128,7 @@ export interface UmtReleaseChunkReleaseRequest {
 interface RawUmtReleaseChunkUpdateLevel {
   "product-name"?: string | null;
   "product-version"?: string | null;
+  channel?: string | null;
   "update-level"?: number | null;
   "build-status"?: string | null;
   "tg-build-status"?: string | null;
@@ -134,6 +138,7 @@ function mapUmtReleaseChunkUpdateLevel(raw: RawUmtReleaseChunkUpdateLevel): UmtR
   return {
     productName: raw["product-name"],
     productVersion: raw["product-version"],
+    channel: raw.channel,
     updateLevel: raw["update-level"],
     buildStatus: raw["build-status"],
     tgBuildStatus: raw["tg-build-status"],

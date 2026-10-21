@@ -24,12 +24,15 @@ const { DataGrid: DataGridComponent } = DataGrid;
 
 // A read-only review of the additional files PR Analysis found but couldn't
 // confirm belong in the product pack — there's no dedicated "approve"
-// endpoint. The shell's shared Proceed bar (real transition, "Approve and
-// Proceed" label, role-gated to UMT_ADMIN/PRODUCT_LEAD) is what actually
-// promotes the update; this component only needs to show what's being approved.
+// endpoint. The shell's shared Proceed bar is what actually promotes the
+// update: at Staging anyone sends it for approval (it then waits in
+// WaitingFileApproval), and there only a UMT_ADMIN or PRODUCT_LEAD can
+// "Approve and Proceed". This component only needs to show what's being
+// approved.
 export default function UmtFileApprovalStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
   const gate = useUmtGate();
   const pullRequestAnalysis = useUmtPullRequestAnalysis(id, update.lifecycleState);
+  const isAwaitingApproval = update.lifecycleState === "WaitingFileApproval";
 
   if (pullRequestAnalysis.isPending) {
     return (
@@ -106,7 +109,10 @@ export default function UmtFileApprovalStep({ id, update }: { id: string; update
         />
       </Paper>
 
-      {!(gate.isAdmin || gate.isProductLead) && (
+      {!isAwaitingApproval && (
+        <Alert severity="info">Proceeding sends these files to a lead for approval.</Alert>
+      )}
+      {isAwaitingApproval && !(gate.isAdmin || gate.isProductLead) && (
         <Alert severity="warning">
           You are not authorized to approve the manual files and promote this update. Please request a lead for
           approval.

@@ -50,6 +50,7 @@ import {
   isManualFileTooLarge,
   isZipDisallowedForPath,
   jarNameError,
+  jarVersionError,
   manualFileNameMatchesPath,
   manualFilePathError,
   relativeJarPathError,
@@ -66,7 +67,8 @@ const { DataGrid: DataGridComponent } = DataGrid;
 
 type UmtManualFileOperation = "Added" | "Modified" | "Removed";
 type UmtManualFileSource = "upload" | "svn" | "github";
-type UmtBundleEntryType = "New" | "Update" | "Delete";
+// The change types a bundle-info entry can carry, sent as they are.
+type UmtBundleEntryType = "add" | "remove";
 
 interface UmtAddManualFilesSectionProps {
   updateId: string;
@@ -106,7 +108,7 @@ export default function UmtAddManualFilesSection({
   const [jarName, setJarName] = useState("");
   const [jarVersion, setJarVersion] = useState("");
   const [relativeJarPath, setRelativeJarPath] = useState("");
-  const [entryType, setEntryType] = useState<UmtBundleEntryType>("New");
+  const [entryType, setEntryType] = useState<UmtBundleEntryType>("add");
 
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [deleteBundleTarget, setDeleteBundleTarget] = useState<string | null>(null);
@@ -159,7 +161,7 @@ export default function UmtAddManualFilesSection({
     setJarName("");
     setJarVersion("");
     setRelativeJarPath("");
-    setEntryType("New");
+    setEntryType("add");
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
@@ -227,10 +229,17 @@ export default function UmtAddManualFilesSection({
     if (needsBundleInfo) {
       const errors = [
         bundlesInfoPathError(bundlesInfoPath),
-        jarNameError(jarName, jarVersion),
+        jarNameError(jarName, jarVersion.trim()),
+        jarVersionError(jarVersion),
         relativeJarPathError(relativeJarPath),
       ].filter(Boolean);
-      if (!bundlesInfoPath.trim() || !jarName.trim() || !relativeJarPath.trim() || errors.length > 0) {
+      if (
+        !bundlesInfoPath.trim() ||
+        !jarName.trim() ||
+        !jarVersion.trim() ||
+        !relativeJarPath.trim() ||
+        errors.length > 0
+      ) {
         setFormError(errors[0] ?? "Bundle info fields are required for plugin JAR changes.");
         return;
       }
@@ -282,7 +291,7 @@ export default function UmtAddManualFilesSection({
           {
             bundlesInfoPath: bundlesInfoPath.trim(),
             jarName: jarName.trim(),
-            jarVersion,
+            jarVersion: jarVersion.trim(),
             relativeJarPath: relativeJarPath.trim(),
             entryType,
           },
@@ -628,9 +637,8 @@ export default function UmtAddManualFilesSection({
                     value={entryType}
                     onChange={(e) => setEntryType(e.target.value as UmtBundleEntryType)}
                   >
-                    <MenuItem value="New">New</MenuItem>
-                    <MenuItem value="Update">Update</MenuItem>
-                    <MenuItem value="Delete">Delete</MenuItem>
+                    <MenuItem value="add">Add</MenuItem>
+                    <MenuItem value="remove">Remove</MenuItem>
                   </Select>
                 </FormControl>
               </>

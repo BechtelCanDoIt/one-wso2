@@ -356,6 +356,12 @@ export function jarNameError(jarName: string, jarVersion: string): string | unde
   return undefined;
 }
 
+// A bundle-info entry needs a JAR version, so it's required here rather than
+// left to fail at Analyze.
+export function jarVersionError(value: string): string | undefined {
+  return value.trim() ? undefined : "The JAR version is required.";
+}
+
 export function relativeJarPathError(value: string): string | undefined {
   if (!value.startsWith("../")) {
     return "The relative JAR path should start with '../'.";

@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { useEffect, useState } from "react";
 import { Divider, Stack } from "@wso2/oxygen-ui";
 import type { UmtUpdateSummary } from "../../../api/umtUpdates";
 import { useUmtIsAdvancingToPrAnalyzed } from "../../../api/useUmtPrAnalysis";
@@ -22,16 +23,32 @@ import UmtProductAnalysisStep from "../product-analysis/UmtProductAnalysisStep";
 
 // Development shows the PR analysis alone; PRAnalyzed adds the product
 // analysis below it, once the run that got it there has finished.
-export default function UmtFilesAnalysisStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
+export default function UmtFilesAnalysisStep({
+  id,
+  update,
+  onDirtyChange,
+}: {
+  id: string;
+  update: UmtUpdateSummary;
+  // True while either analysis has changes it hasn't analysed yet, so the
+  // shell's Proceed can ask first.
+  onDirtyChange?: (isDirty: boolean) => void;
+}) {
   const isAdvancing = useUmtIsAdvancingToPrAnalyzed(id);
+  const [isPrAnalysisDirty, setIsPrAnalysisDirty] = useState(false);
+  const [isProductAnalysisDirty, setIsProductAnalysisDirty] = useState(false);
+  const isDirty = isPrAnalysisDirty || isProductAnalysisDirty;
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
 
   return (
     <Stack spacing={3}>
-      <UmtPrAnalysisStep id={id} update={update} />
+      <UmtPrAnalysisStep id={id} update={update} onDirtyChange={setIsPrAnalysisDirty} />
       {update.lifecycleState === "PRAnalyzed" && !isAdvancing && (
         <>
           <Divider />
-          <UmtProductAnalysisStep id={id} update={update} />
+          <UmtProductAnalysisStep id={id} update={update} onDirtyChange={setIsProductAnalysisDirty} />
         </>
       )}
     </Stack>

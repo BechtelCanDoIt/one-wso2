@@ -704,8 +704,10 @@ export const umtServiceUrls = {
   createBaseProduct: `${umtBackendUrl}/update/product`,
   // PUT — deprecates an existing base product by name+version.
   deprecateBaseProduct: `${umtBackendUrl}/update/product/deprecate`,
-  // PUT — per-product description/instruction update (only these 3 keys are
-  // ever sent), distinct from updateProducts's whole-list replace above.
+  // PUT — per-product description/instruction update (each product's Test PR,
+  // ignore reason and Helm Chart Tag travel back unchanged, so saving
+  // descriptions doesn't clear them), distinct from updateProducts's
+  // whole-list replace above.
   updateProductsDetails: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/products/details`,
   // GET/PUT — per-product manual test-result review for the Testing step.
@@ -714,10 +716,22 @@ export const umtServiceUrls = {
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/integrationTest/staging`,
   updateHotfixInfo: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixInfo`,
+  // GET — the hotfix's Jenkins integration-test status ({ buildStatus });
+  // 400 "Jenkins job is not triggered" until a run has been started.
+  updateHotfixJenkinsJobStatus: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixJenkinsJobStatus`,
+  // POST — starts the hotfix's Jenkins integration-test run.
+  updateHotfixJenkinsJobTrigger: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/jenkinsJob/trigger`,
+  // POST { reason } — releases a hotfix from TestingEnvironmentCreated. The
+  // reason is required, and only a lead or admin may release, while the
+  // integration tests haven't passed.
+  updateReleaseHotfix: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/releaseHotfix`,
   // POST subscribes the caller; DELETE removes the caller's subscription.
   updateSubscription: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/subscribe`,
-  // PUT — moves an update to OnHold with a reason, from the View tab's
+  // POST — moves an update to OnHold with a reason, from the View tab's
   // action row (Development/PRAnalyzed/ProductAnalyzed only).
   updateOnHold: (id: string | number) => `${umtBackendUrl}/update/${encodeURIComponent(id)}/onHold`,
   // POST — records a "Duplicate" relationship between two updates, from the
