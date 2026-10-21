@@ -18,6 +18,6 @@ import { Navigate, useLocation } from "react-router";
 import { misPaths } from "@constants/misApps";
 
 export default function MisAnalysisRedirect() {
-  const { search } = useLocation();
-  return <Navigate to={`${misPaths.portfolio}${search}`} replace />;
+  const { search, hash } = useLocation();
+  return <Navigate to={`${misPaths.portfolio}${search}${hash}`} replace />;
 }

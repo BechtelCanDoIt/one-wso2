@@ -21,8 +21,8 @@ import { misPaths } from "@constants/misApps";
 import MisAnalysisRedirect from "./MisAnalysisRedirect";
 
 function PortfolioStub() {
-  const { pathname, search } = useLocation();
-  return <p>{`${pathname}${search}`}</p>;
+  const { pathname, search, hash } = useLocation();
+  return <p>{`${pathname}${search}${hash}`}</p>;
 }
 
 function open(entry: string) {
@@ -45,5 +45,10 @@ describe("the old ARR Analysis address", () => {
   it("keeps the query string, so a saved link opens the same view", () => {
     open(`${misPaths.legacyAnalysis}?region=EMEA&scale=thousands`);
     expect(screen.getByText("/finance/mis/portfolio?region=EMEA&scale=thousands")).toBeInTheDocument();
+  });
+
+  it("keeps the hash, so a link to a place on the page still lands there", () => {
+    open(`${misPaths.legacyAnalysis}?region=EMEA#accounts`);
+    expect(screen.getByText("/finance/mis/portfolio?region=EMEA#accounts")).toBeInTheDocument();
   });
 });
