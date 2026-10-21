@@ -166,6 +166,7 @@ vi.mock("recharts", async () => {
 });
 
 const { default: MisArrAnalysisPage } = await import("./MisArrAnalysisPage");
+const { default: MisAnalysisRedirect } = await import("./MisAnalysisRedirect");
 const { misPaths } = await import("@constants/misApps");
 
 const ARR = 987;
@@ -184,13 +185,14 @@ function AddressProbe() {
 }
 
 /** The route under its real path, with somewhere for a redirect to land. */
-function show(search = "") {
+function show(search = "", path: string = misPaths.portfolio) {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={[`${misPaths.portfolio}${search}`]}>
+      <MemoryRouter initialEntries={[`${path}${search}`]}>
         <AddressProbe />
         <Routes>
           <Route path={misPaths.portfolio} element={<MisArrAnalysisPage />} />
+          <Route path={misPaths.legacyAnalysis} element={<MisAnalysisRedirect />} />
           <Route path={misPaths.arrBuild} element={<p>the ARR Build</p>} />
         </Routes>
       </MemoryRouter>
@@ -414,6 +416,14 @@ describe("with the flag off", () => {
     state.analysisEnabled = false;
     show();
     expect(screen.getByText("the ARR Build")).toBeInTheDocument();
+  });
+
+  it("sends the old analysis address, query and all, on to the ARR Build", () => {
+    state.analysisEnabled = false;
+    show("?region=EMEA", misPaths.legacyAnalysis);
+    expect(screen.getByText("the ARR Build")).toBeInTheDocument();
+    expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+    expect(screen.getByTestId("address")).toHaveTextContent(/^$/);
   });
 
   // The flag is about the APP, not the reader — so it decides first. Someone
