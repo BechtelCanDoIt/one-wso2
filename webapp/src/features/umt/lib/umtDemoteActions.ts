@@ -15,7 +15,7 @@
 // under the License.
 
 import type { UmtLifecycleState } from "../api/umtTypes";
-import type { UmtEditStepId } from "./umtEditSteps";
+import { isFilesAnalysisPrAnalyzed, type UmtEditStepId } from "./umtEditSteps";
 import { umtLifecycleState } from "./umtLifecycleState";
 
 export interface UmtDemoteAction {
@@ -37,7 +37,7 @@ export function computeUmtDemoteActions(
 ): UmtDemoteAction[] {
   switch (stepId) {
     case "files-analysis":
-      return lifecycleState === "PRAnalyzed"
+      return isFilesAnalysisPrAnalyzed(lifecycleState)
         ? [{ label: "Demote to Development", targetLifecycleState: "Development" }]
         : [];
     case "description-instruction":

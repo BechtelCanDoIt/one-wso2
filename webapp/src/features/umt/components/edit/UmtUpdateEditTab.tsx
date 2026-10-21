@@ -26,6 +26,7 @@ import { useUmtIsAdvancingToPrAnalyzed } from "../../api/useUmtPrAnalysis";
 import { useUmtProductAnalysis, useUmtPullRequestAnalysis } from "../../api/useUmtUpdateViewData";
 import {
   computeUmtEditSteps,
+  isFilesAnalysisPrAnalyzed,
   resolveUmtEditActiveIndex,
   umtActiveStepIndex,
   umtHasAdditionalFileOperations,
@@ -133,7 +134,7 @@ export default function UmtUpdateEditTab({
   // Files Analysis spans Development and PRAnalyzed; the product analysis
   // (and the shared step actions under it) only exists once PRAnalyzed, and
   // only once the run that promoted the update has finished its analysis.
-  const isProductAnalysis = isFilesAnalysis && update.lifecycleState === "PRAnalyzed" && !isAdvancingToPrAnalyzed;
+  const isProductAnalysis = isFilesAnalysis && isFilesAnalysisPrAnalyzed(update.lifecycleState) && !isAdvancingToPrAnalyzed;
   const isDescriptionInstruction = currentStep.id === "description-instruction";
   const isIntegrationTests = currentStep.id === "integration-tests";
   const isSecurityAdvisory = currentStep.id === "security-advisory";

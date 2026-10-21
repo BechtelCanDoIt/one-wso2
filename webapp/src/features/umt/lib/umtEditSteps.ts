@@ -178,6 +178,14 @@ const LIFECYCLE_STATE_TO_STEP: Partial<Record<UmtLifecycleState, UmtEditStepId>>
   Completed: "completed",
 };
 
+// The Files Analysis step is in its second phase, the product analysis shown
+// below the PR analysis, only in PRAnalyzed. Everything that depends on that
+// phase (the product analysis, the shared step actions, the locked PR block,
+// the demote button) reads it from here so they always agree.
+export function isFilesAnalysisPrAnalyzed(lifecycleState: string | null | undefined): boolean {
+  return lifecycleState === "PRAnalyzed";
+}
+
 const CLOUD_SUPPORT_STATE_TO_STEP: Partial<Record<UmtLifecycleState, UmtEditStepId>> = {
   Development: "cloud-development",
   Released: "cloud-released",
