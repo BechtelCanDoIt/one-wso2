@@ -39,13 +39,14 @@ const SCALE_THOUSANDS = "k";
 const AS_OF_CLEARED = "none";
 const MAX_LIST_ITEMS = 50;
 const MAX_TEXT_LENGTH = 80;
-const PARTNER_NAME_PATTERN = /^[\p{L}\p{N} &'().-]{1,40}$/u;
+// Partner types come from the data, so any printable name is real; markup and control characters are not.
+const UNSAFE_TEXT_PATTERN = /[<>\p{C}]/u;
 const AS_OF_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const PRODUCT_COUNT_RANGE = { min: 1, max: 5 };
 const LIFETIME_YEARS_RANGE = { min: 0, max: 20 };
 
 const partnerParam: QueryParamCodec<string> = {
-  parse: (raw) => (PARTNER_NAME_PATTERN.test(raw) ? raw : undefined),
+  parse: (raw) => (raw.length <= MAX_TEXT_LENGTH && !UNSAFE_TEXT_PATTERN.test(raw) ? raw : undefined),
   format: String,
 };
 
@@ -114,6 +115,7 @@ export interface MisAnalysisView {
   scale?: MisScale;
 }
 
+/** The query string for a view: empty for the view Portfolio opens on, `scale=k` for thousands. */
 export function serializeAnalysisView(
   filters: MisAnalysisFilters,
   { scale, today }: { scale: MisScale; today: MisCivilDate },
@@ -135,6 +137,7 @@ export function serializeAnalysisView(
   return query.toString();
 }
 
+/** The view a query string describes; each value it cannot use leaves that filter on its default. */
 export function parseAnalysisView(search: string, { today }: { today: MisCivilDate }): MisAnalysisView {
   const query = queryReader(search);
   const defaults = defaultAnalysisFilters(today);

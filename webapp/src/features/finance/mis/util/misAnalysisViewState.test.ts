@@ -74,6 +74,11 @@ describe("a Portfolio link with values it cannot use", () => {
     expect(opened(search)).toEqual({ filters: defaults, scale: undefined });
   });
 
+  it("accepts a partner type with punctuation and rejects markup", () => {
+    expect(opened("partner=Reseller%20%2F%20Distributor%2C%20Inc.").filters.partnerType).toBe("Reseller / Distributor, Inc.");
+    expect(opened("partner=a%3Cb").filters.partnerType).toBe("all");
+  });
+
   it("keeps the valid values beside an invalid one", () => {
     expect(opened("region=EMEA&firstSale=maybe&bu=IAM,Hardware").filters).toEqual({
       ...defaults,
