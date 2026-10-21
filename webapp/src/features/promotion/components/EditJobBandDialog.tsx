@@ -162,10 +162,17 @@ function EditJobBandDialogContent({
               isOptionEqualToValue={(option, value) => option.band === value.band && option.role === value.role}
               value={selected}
               onChange={(_e, value) => setSelected(value)}
+              loading={designations.isLoading}
+              disabled={designations.isLoading}
               renderInput={(params) => <TextField {...params} />}
             />
           </Grid>
         </Grid>
+        {designations.isError && (
+          <Alert severity="warning" sx={{ mt: 1.5 }}>
+            Couldn&apos;t load the job roles, so only job bands are listed. {humanizeHttpError(designations.error)}
+          </Alert>
+        )}
         {warning && (
           <Typography variant="caption" sx={{ display: "block", color: "warning.main", mt: 1.5 }}>
             {warning}
@@ -179,7 +186,12 @@ function EditJobBandDialogContent({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" color="primary" onClick={handleSave} disabled={update.isPending}>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSave}
+          disabled={update.isPending || designations.isLoading}
+        >
           Save
         </Button>
       </DialogActions>
