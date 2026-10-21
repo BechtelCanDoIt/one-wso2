@@ -81,6 +81,7 @@ function legacyRecord(overrides: Partial<ParLegacyHistory>): ParLegacyHistory {
     overallCommentManager: null,
     employeeScoreCode: null,
     managerScoreCode: null,
+    employeeHasQuestionAnswer: false,
     questionAnswers: null,
     feedback360: null,
     ...overrides,

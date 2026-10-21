@@ -52,7 +52,7 @@ import {
   resolveEmployeeCycleRating,
 } from "../util/parEmployeeHistory";
 import type { MergedCycleOption } from "../util/parEmployeeHistory";
-import { deriveLegacyRatingFromScore, parseLegacyQuestionAnswers } from "../util/parLegacyHistory";
+import { deriveLegacyRatingFromScore, formatLegacyCycleName, formatLegacyQuestionAnswers, parseLegacyQuestionAnswers } from "../util/parLegacyHistory";
 import { decodeParComment } from "../util/parComment";
 import ParEmptyState from "../components/ParEmptyState";
 import { ParCommentView } from "../components/ParContent";
@@ -223,7 +223,18 @@ export default function ParLeadEmployeeHistoryTab() {
   const workEmail = profile.data?.userInfo.workEmail;
   const employees = useParLeadEmployees(workEmail);
   const realCycles = useAllClosedParCycles();
-  const legacyFanOut = useParLegacyHistoryFanOut((employees.data ?? []).map((e) => e.workEmail));
+  // A lead must never be able to view a report's legacy (pre-par-app)
+  // history -- not from this UI, and not as a backend call visible in the
+  // network trace either (see useParLegacyHistoryFanOut's own comment:
+  // GET /legacy-par-history/{email} is admin-or-self only, so a lead
+  // fanning this out across their reports got 403 for every one of them).
+  // par-app's own EmployeeHistoryView.tsx made this exact fix -- pass []
+  // instead of the reports' emails, so legacyFanOut.byEmail stays empty,
+  // cycleOptions below naturally never produces a "(Legacy)" entry for a
+  // lead to click, and no GET /legacy-par-history/{email} call is ever
+  // made from this view. Real access control lives in the backend; this
+  // is defense-in-depth so a lead never even sees the option or request.
+  const legacyFanOut = useParLegacyHistoryFanOut([]);
   // No org-wide employee directory of our own — reuses Leave's for avatars.
   const thumbnails = useLeaveEmployees();
   const thumbnailByEmail = useMemo(
@@ -321,7 +332,7 @@ export default function ParLeadEmployeeHistoryTab() {
 
   const legacyRecords = selectedEmployeeEmail ? (legacyFanOut.byEmail[selectedEmployeeEmail] ?? []) : [];
   const selectedLegacyRecord = isLegacyCycle
-    ? legacyRecords.find((record) => record.cycleName === cycleSelection.cycleName)
+    ? legacyRecords.find((record) => formatLegacyCycleName(record.cycleName) === cycleSelection.cycleName)
     : undefined;
 
   // Legacy feedback is split into per-question rubric segments
@@ -331,10 +342,9 @@ export default function ParLeadEmployeeHistoryTab() {
   // the lead's actual feedback.
   const isMeaningfulLegacyText = (text: string | null | undefined): text is string =>
     Boolean(text) && text!.trim() !== "" && text!.trim() !== "N/A";
-  const legacyEmployeeContent = parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null)
-    .map((qa) => qa.employeeAnswer)
-    .filter(isMeaningfulLegacyText)
-    .join("\n\n");
+  const legacyEmployeeContent = formatLegacyQuestionAnswers(
+    parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null),
+  );
   const legacyLeadContent = isMeaningfulLegacyText(selectedLegacyRecord?.overallCommentManager)
     ? selectedLegacyRecord!.overallCommentManager!
     : "";
@@ -554,7 +564,10 @@ export default function ParLeadEmployeeHistoryTab() {
             </AccordionDetails>
           </Accordion>
 
-          <ParLegacyReviewSection feedback360={selectedLegacyRecord.feedback360} />
+          <ParLegacyReviewSection
+            feedback360={selectedLegacyRecord.feedback360}
+            cycleName={formatLegacyCycleName(selectedLegacyRecord.cycleName)}
+          />
         </Stack>
       )}
 

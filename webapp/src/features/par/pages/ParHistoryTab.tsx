@@ -14,12 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   Box,
   Button,
+  Chip,
   Skeleton,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -32,23 +34,60 @@ import { ArrowLeftIcon, ChevronRightIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { formatShortDate } from "../util/parDate";
-import { sortClosedCyclesLatestFirst } from "../util/parEmployeeHistory";
-import { useClosedParCycles, useParRating } from "../api/useParData";
+import { deriveLegacyCycleDates, formatLegacyCycleName } from "../util/parLegacyHistory";
+import { useAllClosedParCycles, useParLegacyHistory } from "../api/useLeadHistory";
+import { useParRating } from "../api/useParData";
 import ParRatingSummary from "../components/ParRatingSummary";
-import type { ParCycle } from "../api/types";
+import ParLegacyRecordDetail from "../components/ParLegacyRecordDetail";
+import type { ParCycle, ParLegacyHistory } from "../api/types";
+
+type Row =
+  | { kind: "real"; cycle: ParCycle; cycleName: string; start: string | null; end: string | null }
+  | { kind: "legacy"; record: ParLegacyHistory; cycleName: string; start: string | null; end: string | null };
 
 // People Ops → Performance → History: par-app's ParHistory.tsx "My History" tab
 // (its lead-only "Report Chain" tab belongs with the Lead Portal work, not
-// here). A row's own record is fetched
-// only once opened, not one request per row on load.
+// here). LOCAL TEST PATCH: merges in the employee's own legacy PAR history
+// (2015+) alongside current-system cycles, same table-row layout this tab
+// always had -- matching par-app's own ParHistory.tsx behavior
+// (fetchLegacyParHistoryOfEmployee alongside fetchPreviousParCyclesOfEmployee
+// for the signed-in user's own email). Backend already supports this: see
+// isAuthorizedToViewEmployeeLegacyParHistoryGiven in manager.bal
+// (invokerDetails.isAdmin || employeeEmail == invokerDetails.email).
 export default function ParHistoryTab() {
   const profile = useMeProfile();
   const workEmail = profile.data?.userInfo.workEmail;
-  const cycles = useClosedParCycles(workEmail, Boolean(workEmail));
-  const [opened, setOpened] = useState<ParCycle | undefined>(undefined);
+  const realCycles = useAllClosedParCycles();
+  const legacyHistory = useParLegacyHistory(workEmail, Boolean(workEmail));
+  const [opened, setOpened] = useState<Row | undefined>(undefined);
 
-  if (profile.isLoading || cycles.isLoading) {
-    return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 880 }} />;
+  // Hoisted above every early return (Rules of Hooks) and memoized so
+  // re-renders (e.g. opening/closing a record) don't re-sort/re-derive the
+  // whole list every time.
+  const rows = useMemo<Row[]>(() => {
+    const realRows: Row[] = (realCycles.data ?? []).map((cycle) => ({
+      kind: "real",
+      cycle,
+      cycleName: cycle.parCycleName,
+      start: cycle.parCycleStartDate,
+      end: cycle.parCycleEndDate,
+    }));
+    const legacyRows: Row[] = (legacyHistory.data ?? []).map((record) => {
+      // Real migrated data can carry either the raw or canonical 2015 cycle
+      // name -- normalize before computing dates or showing it anywhere.
+      const cycleName = formatLegacyCycleName(record.cycleName);
+      const { startDate, endDate } = deriveLegacyCycleDates(cycleName);
+      return { kind: "legacy", record, cycleName, start: startDate, end: endDate };
+    });
+    return [...realRows, ...legacyRows].sort((a, b) => {
+      if (!a.start) return 1;
+      if (!b.start) return -1;
+      return b.start.localeCompare(a.start);
+    });
+  }, [realCycles.data, legacyHistory.data]);
+
+  if (profile.isLoading || realCycles.isLoading || legacyHistory.isLoading) {
+    return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />;
   }
   if (profile.isError) {
     return (
@@ -57,53 +96,91 @@ export default function ParHistoryTab() {
       </ErrorNotice>
     );
   }
-  if (cycles.isError) {
+  if (realCycles.isError) {
     return (
-      <ErrorNotice error={cycles.error} onRetry={() => cycles.refetch()} retrying={cycles.isFetching}>
+      <ErrorNotice error={realCycles.error} onRetry={() => realCycles.refetch()} retrying={realCycles.isFetching}>
         Couldn't load your past PAR cycles.
       </ErrorNotice>
     );
   }
+  if (legacyHistory.isError) {
+    return (
+      <ErrorNotice error={legacyHistory.error} onRetry={() => legacyHistory.refetch()} retrying={legacyHistory.isFetching}>
+        Couldn't load your legacy PAR history.
+      </ErrorNotice>
+    );
+  }
 
-  const rows = sortClosedCyclesLatestFirst(cycles.data ?? []);
-
-  return (
-    <Box sx={{ maxWidth: 880 }}>
-      {/* ParHistory.tsx's own notice — shown above both the list and the
-          detail view, not just the list. */}
-      <Alert severity="info" sx={{ mb: 2 }}>
-        PAR history data is available only for PAR cycles from 2024 H2 onwards. Please refer to
-        PeopleHR for the history data.
-      </Alert>
-
-      {opened ? (
-        <>
-          <Button
-            size="small"
-            startIcon={<ArrowLeftIcon size={14} />}
-            onClick={() => setOpened(undefined)}
-            sx={{ mb: 1.5 }}
-          >
-            History
-          </Button>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1.5 }}>
-            {opened.parCycleName} review
+  if (opened) {
+    return (
+      <Box>
+        <Button
+          size="small"
+          startIcon={<ArrowLeftIcon size={14} />}
+          onClick={() => setOpened(undefined)}
+          sx={{ mb: 1.5 }}
+        >
+          History
+        </Button>
+        <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            {opened.cycleName}
           </Typography>
-          <HistoryCycleDetail cycle={opened} workEmail={workEmail} />
-        </>
-      ) : rows.length === 0 ? (
-        <Alert severity="info">No past PAR cycles on file.</Alert>
-      ) : (
-        <HistoryTable rows={rows} onOpen={setOpened} />
+          {opened.kind === "legacy" && (
+            <Chip
+              label="Legacy - PeopleHR"
+              size="small"
+              color="warning"
+              variant="outlined"
+              sx={{ height: 20, fontSize: 10.5, fontWeight: 600 }}
+            />
+          )}
+        </Stack>
+        {opened.kind === "real" ? (
+          <Box sx={{ maxWidth: 880 }}>
+            <RealCycleDetail cycle={opened.cycle} workEmail={workEmail} />
+          </Box>
+        ) : (
+          <ParLegacyRecordDetail record={opened.record} hideThreeSixtyFeedback />
+        )}
+      </Box>
+    );
+  }
+
+  // legacyHistory.data === null means enableLegacyParDataView is off
+  // server-side (see useParLegacyHistory's own comment) -- not "no legacy
+  // records". Restores one-wso2's own original notice for exactly that
+  // case, same wording it always had before legacy support was added here.
+  const legacyDisabled = legacyHistory.data === null;
+
+  // Unlike the single-column rating-summary detail view above (which stays
+  // reading-width capped), the history LIST uses the full page width, same
+  // as every other admin DataGrid screen in this feature (e.g.
+  // ParOrgEmployeeViewTab.tsx) -- a fixed 880px cap made the table look
+  // boxed-in with a large dead strip of empty page to its right.
+  return (
+    <Box>
+      {legacyDisabled && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          PAR history data is available only for PAR cycles from 2024 H2 onwards. Please refer to
+          PeopleHR for the history data.
+        </Alert>
       )}
+      {rows.length === 0 ? <Alert severity="info">No past PAR cycles on file.</Alert> : <HistoryTable rows={rows} onOpen={setOpened} />}
     </Box>
   );
 }
 
-function HistoryTable({ rows, onOpen }: { rows: ParCycle[]; onOpen: (cycle: ParCycle) => void }) {
+// Plain scrollable table, no pagination -- reverted per explicit request:
+// a paginated DataGrid felt less human-friendly here than just scrolling
+// the full list, unlike the admin drill-down views where pagination stays.
+function HistoryTable({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => void }) {
+  // Default (not size="small") to match the row height of par-app's own
+  // ParHistory.tsx list view -- that reference uses a plain <Table
+  // stickyHeader>, and "small" made every row noticeably more cramped.
   return (
     <TableContainer>
-      <Table size="small">
+      <Table>
         <TableHead>
           <TableRow>
             <TableCell sx={{ fontWeight: 700 }}>Cycle</TableCell>
@@ -113,25 +190,36 @@ function HistoryTable({ rows, onOpen }: { rows: ParCycle[]; onOpen: (cycle: ParC
           </TableRow>
         </TableHead>
         <TableBody>
-          {rows.map((cycle) => (
+          {rows.map((row) => (
             <TableRow
-              key={cycle.parCycleId}
+              key={row.kind === "real" ? `real-${row.cycle.parCycleId}` : `legacy-${row.cycleName}`}
               hover
               tabIndex={0}
               role="button"
-              aria-label={`Open ${cycle.parCycleName} review`}
+              aria-label={`Open ${row.cycleName} review`}
               sx={{ cursor: "pointer" }}
-              onClick={() => onOpen(cycle)}
+              onClick={() => onOpen(row)}
               onKeyDown={(e) => {
                 if (e.key === "Enter" || e.key === " ") {
                   e.preventDefault();
-                  onOpen(cycle);
+                  onOpen(row);
                 }
               }}
             >
-              <TableCell>{cycle.parCycleName}</TableCell>
-              <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{formatShortDate(cycle.parCycleStartDate)}</TableCell>
-              <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{formatShortDate(cycle.parCycleEndDate)}</TableCell>
+              <TableCell>
+                {row.cycleName}
+                {row.kind === "legacy" && (
+                  <Chip
+                    label="Legacy"
+                    size="small"
+                    color="warning"
+                    variant="outlined"
+                    sx={{ ml: 1, height: 20, fontSize: 10.5, fontWeight: 600 }}
+                  />
+                )}
+              </TableCell>
+              <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{formatShortDate(row.start ?? undefined)}</TableCell>
+              <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{formatShortDate(row.end ?? undefined)}</TableCell>
               <TableCell align="right">
                 <ChevronRightIcon size={16} />
               </TableCell>
@@ -143,7 +231,7 @@ function HistoryTable({ rows, onOpen }: { rows: ParCycle[]; onOpen: (cycle: ParC
   );
 }
 
-function HistoryCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
+function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
   const rating = useParRating(cycle.parCycleId, workEmail);
 
   if (rating.isLoading) {

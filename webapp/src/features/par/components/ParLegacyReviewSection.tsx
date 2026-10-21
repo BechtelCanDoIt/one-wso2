@@ -17,9 +17,8 @@
 import { Accordion, AccordionDetails, AccordionSummary, Chip, IconButton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ChevronDownIcon, CopyIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { parseLegacyFeedback360 } from "../util/parLegacyHistory";
+import { parseLegacyFeedback360, stripRedundantRatingPrefix } from "../util/parLegacyHistory";
 import { ParCommentView } from "./ParContent";
-import ParEmptyState from "./ParEmptyState";
 import type { ParLegacyThreeSixtyReview } from "../api/types";
 
 // Read-only legacy counterpart of ParHistoryReviewSection, ported from
@@ -27,14 +26,36 @@ import type { ParLegacyThreeSixtyReview } from "../api/types";
 // `par_360_feedback` JSON column instead of a fetched review list. Legacy
 // data has no reviewer email, only a name, and no rejected/pending state to
 // filter on — every parsed entry is shown.
-export default function ParLegacyReviewSection({ feedback360 }: { feedback360: string | null }) {
+// hideQuestionCaptions matches par-app's own hideThreeSixtyQuestionCaptions:
+// 2021 H2 onward hides the redundant question-caption subtext (the rating
+// chip and comment box already say everything they need to by then); 2021
+// H1 and earlier keep showing them.
+function hideQuestionCaptions(cycleName: string): boolean {
+  return (
+    (cycleName.startsWith("2021") && cycleName.includes("H2")) ||
+    cycleName.startsWith("2022") ||
+    cycleName.startsWith("2023") ||
+    cycleName.startsWith("2024")
+  );
+}
+
+export default function ParLegacyReviewSection({ feedback360, cycleName }: { feedback360: string | null; cycleName: string }) {
   const { showSuccess, showError } = useNotifications();
   const reviews = parseLegacyFeedback360(feedback360);
+  const showCaptions = !hideQuestionCaptions(cycleName);
+
+  // Cycles with no 360 feedback at all shouldn't show a disabled "360°
+  // Feedback" placeholder -- just show nothing, same as the on-screen
+  // Employee/Lead Comment boxes above, which are likewise omitted entirely
+  // when there's no real content rather than shown empty/disabled.
+  if (reviews.length === 0) {
+    return null;
+  }
 
   const copyReview = (review: ParLegacyThreeSixtyReview) => {
-    const text = `${review.reviewerName}:\nRating: ${review.reviewRating}\nFeedback: ${
-      review.reviewComment ?? "No comment provided"
-    }`;
+    const rating = review.reviewRating ? stripRedundantRatingPrefix(review.reviewRating) : "";
+    const ratingLine = rating ? `\nRating: ${rating}` : "";
+    const text = `${review.reviewerName}:${ratingLine}\nFeedback: ${review.reviewComment ?? "No comment provided"}`;
     navigator.clipboard.writeText(text).then(
       () => showSuccess("Review copied to clipboard"),
       () => showError("Unable to copy review to clipboard"),
@@ -42,21 +63,29 @@ export default function ParLegacyReviewSection({ feedback360 }: { feedback360: s
   };
 
   return (
-    <Accordion variant="outlined" disabled={reviews.length === 0}>
+    <Accordion variant="outlined">
       <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>
         <Typography variant="h6">360° Feedback</Typography>
       </AccordionSummary>
       <AccordionDetails>
-        {reviews.length === 0 ? (
-          <ParEmptyState text="No 360° feedback available for this cycle" />
-        ) : (
-          <Stack spacing={1.5}>
-            {reviews.map((review) => (
-              <Accordion key={review.reviewerName} variant="outlined">
-                <AccordionSummary expandIcon={<ChevronDownIcon size={16} />}>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ width: "100%" }}>
+        <Stack spacing={1.5}>
+          {reviews.map((review, index) => {
+            const rating = review.reviewRating ? stripRedundantRatingPrefix(review.reviewRating) : "";
+            // Real org-wide data can plausibly have two 360 reviewers share a
+            // name -- reviewerName alone isn't a safe React key there
+            // (silent mis-render, not a crash), so the index disambiguates.
+            return (
+            <Accordion key={`${review.reviewerName}-${index}`} variant="outlined">
+              <AccordionSummary expandIcon={<ChevronDownIcon size={16} />}>
+                <Stack sx={{ width: "100%" }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography sx={{ mr: "auto", fontWeight: 500 }}>{review.reviewerName}</Typography>
-                    <Chip size="small" label={`Rating: ${review.reviewRating}`} />
+                    {/* The rating belongs next to its own question, not the
+                    reviewer's name -- shown there below when the question
+                    caption is visible. Only falls back to here when captions
+                    are hidden (2021 H2+), since there's no caption line to
+                    attach it to in that case. */}
+                    {!showCaptions && <Chip size="small" label={`Rating: ${rating || "N/A"}`} />}
                     <Tooltip title="Copy review">
                       <IconButton
                         size="small"
@@ -69,14 +98,32 @@ export default function ParLegacyReviewSection({ feedback360 }: { feedback360: s
                       </IconButton>
                     </Tooltip>
                   </Stack>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <ParCommentView html={review.reviewComment ?? ""} />
-                </AccordionDetails>
-              </Accordion>
-            ))}
-          </Stack>
-        )}
+                  {showCaptions && (
+                    <Stack direction="row" alignItems="center" spacing={1}>
+                      <Typography variant="caption" color="text.secondary">
+                        {review.ratingQuestion}
+                      </Typography>
+                      {/* par-app's own LegacyThreeSixtyFeedbackSection.tsx
+                      hides this chip entirely when there's no real rating --
+                      explicit local override: always show it, with "N/A"
+                      when blank. */}
+                      <Chip size="small" label={`Rating: ${rating || "N/A"}`} />
+                    </Stack>
+                  )}
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails>
+                {showCaptions && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                    {review.commentQuestion}
+                  </Typography>
+                )}
+                <ParCommentView html={review.reviewComment ?? ""} />
+              </AccordionDetails>
+            </Accordion>
+            );
+          })}
+        </Stack>
       </AccordionDetails>
     </Accordion>
   );

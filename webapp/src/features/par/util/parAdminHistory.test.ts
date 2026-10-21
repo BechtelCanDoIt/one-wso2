@@ -59,6 +59,7 @@ function legacyRecord(overrides: Partial<ParLegacyHistory> = {}): ParLegacyHisto
     overallCommentManager: "Some manager comment",
     employeeScoreCode: null,
     managerScoreCode: 3,
+    employeeHasQuestionAnswer: false,
     questionAnswers: null,
     feedback360: null,
     ...overrides,
@@ -119,13 +120,14 @@ describe("groupLegacyParticipantsByTeam", () => {
     expect(groups[0]).toMatchObject({ employeeParCompletion: "1/2", leadFeedbackCompletion: "1/2" });
   });
 
-  it("counts employee PAR as done from questionAnswers content even with no overallCommentEmployee", () => {
+  it("counts employee PAR as done from employeeHasQuestionAnswer even with no overallCommentEmployee", () => {
+    // employeeHasQuestionAnswer is the server-computed signal for "answered
+    // some per-question row" -- the roster this feeds is fetched in summary
+    // mode, where questionAnswers itself is always null, so the completion
+    // count can't derive this by parsing questionAnswers client-side.
     const groups = groupLegacyParticipantsByTeam([
-      legacyRecord({
-        overallCommentEmployee: null,
-        questionAnswers: JSON.stringify([{ title: "Q1", employeeAnswer: "A real answer", managerFeedback: null }]),
-      }),
-      legacyRecord({ overallCommentEmployee: null, questionAnswers: null }),
+      legacyRecord({ overallCommentEmployee: null, employeeHasQuestionAnswer: true, questionAnswers: null }),
+      legacyRecord({ overallCommentEmployee: null, employeeHasQuestionAnswer: false, questionAnswers: null }),
     ]);
     expect(groups[0]).toMatchObject({ employeeParCompletion: "1/2" });
   });

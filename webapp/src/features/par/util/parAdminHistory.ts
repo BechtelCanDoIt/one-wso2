@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deriveLegacyCycleDates, hasLegacyContent, parseLegacyQuestionAnswers } from "./parLegacyHistory";
+import { deriveLegacyCycleDates, hasLegacyContent } from "./parLegacyHistory";
 import type { ParCycle, ParLegacyCycleSummary, ParLegacyHistory } from "../api/types";
 
 export interface AdminHistoryRow {
@@ -102,11 +102,14 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
       // as its own fallback for older records that never got question-level
       // data — this count must recognize the same content or a record can
       // show real Employee PAR content once opened while counting here as
-      // not done.
+      // not done. employeeHasQuestionAnswer is the server-computed version
+      // of that same per-question check (not a client-side
+      // parseLegacyQuestionAnswers(m.questionAnswers) parse) -- this list is
+      // fetched in summary mode, where the full questionAnswers JSON is
+      // deliberately null, so the per-question half of this check has to
+      // come from the server instead.
       const employeeParDone = members.filter(
-        (m) =>
-          parseLegacyQuestionAnswers(m.questionAnswers).some((answer) => hasLegacyContent(answer.employeeAnswer)) ||
-          hasLegacyContent(m.overallCommentEmployee),
+        (m) => m.employeeHasQuestionAnswer || hasLegacyContent(m.overallCommentEmployee),
       ).length;
       const leadFeedbackDone = members.filter((m) => hasLegacyContent(m.overallCommentManager)).length;
       return {

@@ -23,6 +23,80 @@ export function hasLegacyContent(text: string | null | undefined): boolean {
   return Boolean(text) && text!.trim() !== "" && text!.trim().toUpperCase() !== "N/A";
 }
 
+// A 360 reviewer's rating answer is free text they typed, not a constrained
+// field -- some real migrated rows have values like "Rating : 5" instead of
+// just "5". Showing those verbatim in a label that already says "Rating: "
+// produces a doubled-up "Rating: Rating : 5". Strips a redundant leading
+// "Rating"/"Rating:" prefix -- LOCAL TEST PORT of par-app's own
+// LegacyThreeSixtyFeedbackSection.tsx stripRedundantRatingPrefix.
+export function stripRedundantRatingPrefix(text: string): string {
+  return text.replace(/^\s*rating\s*:?\s*/i, "").trim();
+}
+
+// LOCAL TEST PORT of par-app's own src/utils/types.ts formatLegacyCycleName.
+// The four 2015 canonical cycle names carry their year at the END
+// ("ANNUAL PERFORMANCE REVIEW for Team Leads -2015"), unlike every other
+// legacy cycle's "<year> ..." convention (e.g. "2016 Quarterly Review -
+// Q2") -- real migrated data has been seen with BOTH this raw form and the
+// translated one, depending on which import path produced the row.
+// Display-only -- does not touch par_cycle_name as stored. Every catalog/
+// rating lookup and cycle-name display in this feature should normalize
+// through this first, same as par-app's own normalizedCycleName.
+const LEGACY_CYCLE_DISPLAY_NAMES: Record<string, string> = {
+  "ANNUAL PERFORMANCE REVIEW -2015": "2015 ANNUAL PERFORMANCE REVIEW",
+  "ANNUAL PERFORMANCE REVIEW for Team Leads -2015": "2015 ANNUAL PERFORMANCE REVIEW for Team Leads",
+  "ANNUAL PERFORMANCE REVIEW for Engineering Team Leads - 2015":
+    "2015 ANNUAL PERFORMANCE REVIEW for Engineering Team Leads",
+  "ANNUAL PERFORMANCE REVIEW for Engineering Employees - 2015":
+    "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees",
+};
+
+// Every catalog/rating lookup throughout this feature is an exact-string
+// match against a small set of cycle names hand-confirmed from one
+// employee's real data -- at real migration scale across many employees and
+// a decade of PeopleHR exports, whitespace drift in the source system is a
+// near-certainty, not a hypothetical (already hit once for real: "2019
+// Performance Evaluation - Q2" was exported with a double space). Collapsing
+// internal whitespace here, the single funnel point every lookup already
+// goes through, means a stray double space or trailing space degrades
+// nowhere instead of silently falling through to the generic flat view for
+// that one employee's record. Deliberately NOT case-folded -- case drift
+// hasn't been observed in the real data, and folding case risks masking a
+// genuinely different cycle name rather than a formatting accident.
+export const formatLegacyCycleName = (cycleName: string): string => {
+  const normalized = cycleName.trim().replace(/\s+/g, " ");
+  return LEGACY_CYCLE_DISPLAY_NAMES[normalized] ?? normalized;
+};
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// Renders each legacy question + answer as its own labeled block, separated
+// by real <br/> breaks (ParCommentView's own CSS zeroes <p> margins, so a
+// bare <p> join collapses visually) -- previously this just joined every
+// answer with a plain "\n\n", which a raw-HTML renderer collapses entirely,
+// losing both the question labels AND any visible separation between
+// answers (looked like one run-on blob of every question's answer back to
+// back). Output already goes through ParCommentView's own sanitizeParHtml
+// before rendering; title/answer are still escaped here since they're raw
+// PeopleHR export text, not markup.
+export function formatLegacyQuestionAnswers(answers: ParLegacyQuestionAnswer[]): string {
+  return answers
+    .filter((qa) => hasLegacyContent(qa.employeeAnswer))
+    .map((qa) => {
+      const title = qa.title?.trim();
+      const answer = escapeHtml(qa.employeeAnswer!.trim());
+      return title ? `<strong>${escapeHtml(title)}:</strong> ${answer}` : answer;
+    })
+    .join("<br/><br/>");
+}
+
 // Ports utils/types.ts's own parseLegacyQuestionAnswers/parseLegacyFeedback360:
 // both fields are raw JSON strings on the wire; a parse failure reads as "no
 // data" rather than throwing.
@@ -71,11 +145,45 @@ export function deriveLegacyRatingFromScore(score: number | null): { rating: str
 // convention as the current app — derive display dates from that, since the
 // legacy PeopleHR system doesn't expose explicit cycle start/end dates.
 // Used purely for sort ordering of the merged (real + legacy) cycle picker.
+// LOCAL TEST PORT of par-app's own src/utils/types.ts deriveLegacyCycleDates.
+// Not every legacy cycle name fits the H1/H2 convention: 2016-2019 cycles
+// are quarterly ("2017 Quarterly Review - Q1", or a combined "2016
+// Quarterly Review - Q3/Q4"), and the four 2015 cycles have no half/quarter
+// marker at all. Those used to fall through to {null, null} here, which
+// sorted them after every dated cycle (showing "-" for Start/End) instead
+// of correctly before -- 2015 is the oldest data there is.
+const QUARTER_BOUNDS: Record<number, [string, string]> = {
+  1: ["01-01", "03-31"],
+  2: ["04-01", "06-30"],
+  3: ["07-01", "09-30"],
+  4: ["10-01", "12-31"],
+};
+
 export function deriveLegacyCycleDates(cycleName: string): { startDate: string | null; endDate: string | null } {
-  const match = cycleName.match(/(\d{4}).*H([12])/);
-  if (!match) return { startDate: null, endDate: null };
-  const [, year, half] = match;
-  return half === "1"
-    ? { startDate: `${year}-01-01`, endDate: `${year}-06-30` }
-    : { startDate: `${year}-07-01`, endDate: `${year}-12-31` };
+  const yearMatch = cycleName.match(/(\d{4})/);
+  if (!yearMatch) {
+    return { startDate: null, endDate: null };
+  }
+  const year = yearMatch[1];
+
+  const halfMatch = cycleName.match(/H([12])/);
+  if (halfMatch) {
+    return halfMatch[1] === "1"
+      ? { startDate: `${year}-01-01`, endDate: `${year}-06-30` }
+      : { startDate: `${year}-07-01`, endDate: `${year}-12-31` };
+  }
+
+  // A combined "Q3/Q4" cell should span the whole second half, not just
+  // its last-mentioned quarter -- take the earliest/latest quarter number
+  // found rather than matching a single Q<n> greedily.
+  const quarters = [...cycleName.matchAll(/Q([1-4])/g)].map((m) => Number(m[1]));
+  if (quarters.length > 0) {
+    const [startMonthDay] = QUARTER_BOUNDS[Math.min(...quarters)];
+    const [, endMonthDay] = QUARTER_BOUNDS[Math.max(...quarters)];
+    return { startDate: `${year}-${startMonthDay}`, endDate: `${year}-${endMonthDay}` };
+  }
+
+  // Bare-year cycles (the four 2015 names) -- fall back to the full
+  // calendar year so they still sort chronologically instead of null.
+  return { startDate: `${year}-01-01`, endDate: `${year}-12-31` };
 }

@@ -16,9 +16,12 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { Par360Review, ParRating } from "../api/types";
+import type { Par360Review, ParLegacyHistory, ParLegacyQuestionAnswer, ParRating } from "../api/types";
 import { decodeParComment, sanitizeParHtml } from "./parComment";
 import { pdfRatingText } from "./parLabels";
+import { formatLegacyCycleName, hasLegacyContent, parseLegacyFeedback360, stripRedundantRatingPrefix } from "./parLegacyHistory";
+import { getLegacyQuestionGroups } from "./legacyParCatalogs";
+import { resolveLegacy2015EmployeeRatingLabel, resolveLegacyRating } from "./legacyParRatingResolvers";
 
 type PdfRow = (string | { content: string; colSpan?: number; styles: Record<string, unknown> })[];
 
@@ -83,6 +86,217 @@ export function downloadParPdf(rating: ParRating, selfComment: string, leadComme
   });
 
   doc.save(`${rating.parEmployeeEmail}_par_summary.pdf`);
+}
+
+// Legacy counterpart to downloadParPdf above -- ports par-app's own
+// LegacyParDetail.tsx downloadPDF: every titled group (Employee PAR /
+// Lead's Feedback, and each era's own category -- "General", "Quality &
+// Dependability, Job Knowledge", etc.) is its own autoTable call, chained
+// down the page via startY = the previous call's finalY. A real `head`
+// (not a styled body row) makes jsPDF-autotable repeat that header at the
+// top of a continuation page if the group's content spans pages.
+//
+// hideThreeSixtyFeedback mirrors source's own privacy gate: an employee's
+// own self-view PDF must never leak reviewer-identifiable 360 feedback that
+// the on-screen self-view already hides -- every admin call site passes
+// false (or omits it) so 360 feedback is included there as normal.
+export function downloadLegacyParPdf(
+  record: ParLegacyHistory,
+  questionAnswers: ParLegacyQuestionAnswer[],
+  hideThreeSixtyFeedback = false,
+): void {
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+
+  const cycleName = formatLegacyCycleName(record.cycleName);
+  const employeeGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "employee") ?? [];
+  const leadGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "lead") ?? [];
+  // "category" layout is exclusive to the 2015 catalog -- same fix as
+  // ParLegacyRecordDetail.tsx's own legacy2015EmployeeRating: gating on
+  // employeeGroups alone showed this PAR Rating row for every catalogued
+  // era (2016-2019 too), using the 2015 label table on scores it was never
+  // meant for. Only 2015 cycles have a real employee-side rating.
+  const legacy2015EmployeeRating =
+    employeeGroups[0]?.layout === "category" ? resolveLegacy2015EmployeeRatingLabel(record.employeeScoreCode) : null;
+  const resolved = resolveLegacyRating(cycleName, record.managerScoreCode, questionAnswers);
+  const rating = resolved.rating ?? record.overallRating;
+  const special = resolved.special ?? record.overallSpecialRating;
+
+  // Same 2017 Q3/Q4 "score, not a narrative comment" special case as
+  // ParLegacyRecordDetail.tsx's own isLegacy2017ScoreCycle -- the Manager
+  // Overall Comments value is a bare score (e.g. "68.0"), shown after the
+  // per-question group blocks as "Score", not as "Lead Comment" before them.
+  const isLegacy2017ScoreCycle =
+    (cycleName === "2017 Quarterly Review - Q3" || cycleName === "2017 Quarterly Review - Q4") &&
+    record.managerScoreCode === 3;
+
+  // Same "360 Confirmation" workflow-note section as
+  // ParLegacyRecordDetail.tsx's own threeSixtyConfirmationAnswer -- shown
+  // here too (not gated to admin), per explicit local request.
+  const threeSixtyConfirmationAnswer = questionAnswers.find(
+    (qa) => qa.title?.trim().replace(/\.$/, "") === "360 Confirmation" && hasLegacyContent(qa.managerFeedback),
+  )?.managerFeedback;
+
+  const contentStyles = { textColor: [50, 50, 50] as [number, number, number], cellPadding: 6 };
+  const baseTableStyles = { fontSize: 9, cellPadding: 4, overflow: "linebreak" as const, valign: "top" as const };
+  const columnStyles = { 0: { cellWidth: 220 }, 1: { cellWidth: "auto" as const } };
+
+  let cursorY = 30;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  // Reserve enough room for a header plus at least one short row before
+  // ever starting a block -- otherwise a block's head alone can fit in the
+  // little room left at the bottom of a page even when its first body row
+  // can't, and autoTable reprints the same head again at the top of the
+  // next page right above itself.
+  const MIN_BLOCK_HEIGHT = 90;
+  const addBlock = (title: string, rows: PdfRow[], level: "section" | "group") => {
+    if (rows.length === 0) return;
+    if (pageHeight - cursorY < MIN_BLOCK_HEIGHT) {
+      doc.addPage();
+      cursorY = 30;
+    }
+    autoTable(doc, {
+      head: [
+        [
+          {
+            content: title,
+            colSpan: 2,
+            styles:
+              level === "section"
+                ? { fontStyle: "bold", fontSize: 11, halign: "left" }
+                : {
+                    fontStyle: "bold",
+                    fontSize: 9,
+                    halign: "left",
+                    fillColor: [245, 245, 245] as [number, number, number],
+                    textColor: [20, 20, 20] as [number, number, number],
+                  },
+          },
+        ],
+      ],
+      body: rows,
+      startY: cursorY,
+      showHead: "everyPage",
+      styles: baseTableStyles,
+      columnStyles,
+      margin: { top: 30, bottom: 30 },
+    });
+    cursorY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
+  };
+
+  // Top 5%/20% was only introduced starting 2021 -- every earlier era never
+  // captured it at all, so the line is omitted entirely there instead of
+  // always printing "Not Assigned" clutter. 2021 onward always prints it
+  // (even as "Not Assigned"), matching ParLegacyRecordDetail.tsx's own
+  // hideSpecialRating / dedicated Top 5%/20% Rating row.
+  const hideSpecialRating = (Number(cycleName.match(/^(\d{4})/)?.[1]) || 0) < 2021;
+  const headerLines = [
+    ` - Employee: ${record.employeeEmail}`,
+    ` - Cycle: ${cycleName} (Legacy - PeopleHR)`,
+    ` - PAR Rating: ${pdfRatingText(rating ?? undefined)}`,
+    ...(hideSpecialRating ? [] : [` - Top 5%/20% Rating: ${pdfRatingText(special ?? undefined)}`]),
+    ` - PAR Shared By: ${record.reviewerEmail || record.reviewerName || "Not Provided"}`,
+  ];
+
+  autoTable(doc, {
+    head: [
+      [
+        {
+          content: headerLines.join("\n"),
+          colSpan: 2,
+          styles: { halign: "left", fontSize: 12, cellPadding: 10 },
+        },
+      ],
+    ],
+    showHead: "firstPage",
+    body: [],
+    startY: cursorY,
+    styles: baseTableStyles,
+    columnStyles,
+  });
+  cursorY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
+
+  // ---- Employee PAR ----
+  const employeeTopRows: PdfRow[] = [];
+  if (legacy2015EmployeeRating) {
+    employeeTopRows.push(["PAR Rating", { content: legacy2015EmployeeRating, styles: contentStyles }]);
+  }
+  // Same "N/A" (and flat-layout-suppressed) treatment as
+  // ParLegacyRecordDetail.tsx's own employeeComment -- see its comment for
+  // the two reference screenshots this is confirmed against.
+  if (hasLegacyContent(record.overallCommentEmployee)) {
+    employeeTopRows.push(["Employee Comment", { content: record.overallCommentEmployee!, styles: contentStyles }]);
+  } else if (employeeGroups.length > 0 && employeeGroups[0]?.layout !== "flat") {
+    employeeTopRows.push(["Employee Comment", { content: "N/A", styles: contentStyles }]);
+  }
+  addBlock("Employee PAR", employeeTopRows, "section");
+  for (const group of employeeGroups) {
+    addBlock(
+      group.title,
+      group.rows.map((row) => [row.label, { content: row.employeeAnswer || "-", styles: contentStyles }]),
+      "group",
+    );
+  }
+
+  // ---- Lead's Feedback ----
+  // Explicit local request, scoped to this one cycle: "Is the employees in
+  // the top 5% or top 20% in the team?" goes right after Lead Comment inside
+  // the main Lead's Feedback table, not as its own separate "Performance
+  // Questions and Answers" block below it.
+  const isLegacy2021H1 = cycleName === "2021 Performance Evaluation - H1";
+  const leadTopRows: PdfRow[] = [];
+  if (!isLegacy2017ScoreCycle) {
+    if (hasLegacyContent(record.overallCommentManager)) {
+      leadTopRows.push(["Lead Comment", { content: record.overallCommentManager!, styles: contentStyles }]);
+    } else if (leadGroups.length > 0 && leadGroups[0]?.layout !== "flat") {
+      leadTopRows.push(["Lead Comment", { content: "N/A", styles: contentStyles }]);
+    }
+  }
+  if (isLegacy2021H1) {
+    for (const group of leadGroups) {
+      for (const row of group.rows) {
+        leadTopRows.push([row.label, { content: row.managerFeedback || "-", styles: contentStyles }]);
+      }
+    }
+  }
+  addBlock("Lead's Feedback", leadTopRows, "section");
+  if (threeSixtyConfirmationAnswer) {
+    addBlock("360 Confirmation", [["360 Confirmation", { content: threeSixtyConfirmationAnswer, styles: contentStyles }]], "section");
+  }
+  if (!isLegacy2021H1) {
+    for (const group of leadGroups) {
+      addBlock(
+        group.title,
+        group.rows.map((row) => [row.label, { content: row.managerFeedback || "-", styles: contentStyles }]),
+        "group",
+      );
+    }
+  }
+  if (isLegacy2017ScoreCycle && hasLegacyContent(record.overallCommentManager)) {
+    addBlock("Score", [["Score", { content: record.overallCommentManager!, styles: contentStyles }]], "section");
+  }
+
+  // ---- 360° Feedback ----
+  if (!hideThreeSixtyFeedback) {
+    const reviews = parseLegacyFeedback360(record.feedback360);
+    const reviewRows: PdfRow[] = reviews.map((review) => {
+      const rating = review.reviewRating ? stripRedundantRatingPrefix(review.reviewRating) : "";
+      const ratingSuffix = rating ? ` (Rating: ${rating})` : "";
+      return [`${review.reviewerName}${ratingSuffix}`, { content: review.reviewComment || "No comment provided", styles: contentStyles }];
+    });
+    addBlock("360° Feedback", reviewRows, "section");
+  }
+
+  // Includes the cycle name -- without it, downloading PDFs for several
+  // different cycles all produced the exact same filename
+  // (`{email}_legacy_par_summary.pdf`), so the browser just appended
+  // "(1)", "(2)"... instead of giving each cycle its own distinguishable
+  // file. Sanitized for the filesystem: spaces/slashes/other punctuation
+  // in a real cycle name (e.g. "2017 Quarterly Review - Q1") replaced
+  // with underscores, collapsed, and trimmed.
+  const safeCycleName = cycleName
+    .replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+  doc.save(`${record.employeeEmail}_${safeCycleName}_legacy_par_summary.pdf`);
 }
 
 // Converts sanitized comment HTML into indented plain text for the PDF body
