@@ -36,7 +36,7 @@ interface NewPullRequestRow {
   id: string;
   value: string;
 }
-import { isCompleteUpdateValid } from "../../../lib/umtVerifying";
+import { isCompleteUpdateValid, umtPublicPrError } from "../../../lib/umtVerifying";
 
 // Existing public PRs are shown disabled, new ones can be appended, and the
 // update completes with either at least one non-blank PR or a reason to
@@ -76,7 +76,11 @@ export default function UmtCompleteUpdateDialog({
 
   const allPullRequests = [...existingPullRequests, ...newPullRequests.map((row) => row.value)];
   const trimmedPullRequests = allPullRequests.map((pr) => pr.trim()).filter((pr) => pr !== "");
-  const isValid = isCompleteUpdateValid({ publicPullRequests: allPullRequests, reason });
+  const isValid = isCompleteUpdateValid({
+    existingPullRequests,
+    publicPullRequests: newPullRequests.map((row) => row.value),
+    reason,
+  });
 
   async function handleSubmit() {
     try {
@@ -110,6 +114,8 @@ export default function UmtCompleteUpdateDialog({
               <TextField
                 label="Public Pull Request"
                 value={row.value}
+                error={Boolean(umtPublicPrError(row.value))}
+                helperText={umtPublicPrError(row.value)}
                 onChange={(event) =>
                   setNewPullRequests((prev) =>
                     prev.map((current) =>

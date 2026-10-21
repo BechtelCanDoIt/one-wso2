@@ -14,7 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deriveLegacyCycleDates, hasLegacyContent, parseLegacyQuestionAnswers } from "./parLegacyHistory";
+import { deriveLegacyCycleDates, formatLegacyCycleName, hasLegacyContent } from "./parLegacyHistory";
+import { resolveLegacyRating } from "./legacyParRatingResolvers";
 import type { ParCycle, ParLegacyCycleSummary, ParLegacyHistory } from "../api/types";
 
 export interface AdminHistoryRow {
@@ -102,11 +103,14 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
       // as its own fallback for older records that never got question-level
       // data — this count must recognize the same content or a record can
       // show real Employee PAR content once opened while counting here as
-      // not done.
+      // not done. employeeHasQuestionAnswer is the server-computed version
+      // of that same per-question check (not a client-side
+      // parseLegacyQuestionAnswers(m.questionAnswers) parse) -- this list is
+      // fetched in summary mode, where the full questionAnswers JSON is
+      // deliberately null, so the per-question half of this check has to
+      // come from the server instead.
       const employeeParDone = members.filter(
-        (m) =>
-          parseLegacyQuestionAnswers(m.questionAnswers).some((answer) => hasLegacyContent(answer.employeeAnswer)) ||
-          hasLegacyContent(m.overallCommentEmployee),
+        (m) => m.employeeHasQuestionAnswer || hasLegacyContent(m.overallCommentEmployee),
       ).length;
       const leadFeedbackDone = members.filter((m) => hasLegacyContent(m.overallCommentManager)).length;
       return {
@@ -118,8 +122,19 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
         parLeadEmail: first.reviewerName ?? "-",
         employeeParCompletion: `${employeeParDone}/${members.length}`,
         leadFeedbackCompletion: `${leadFeedbackDone}/${members.length}`,
-        numberOf5pSlots: members.filter((m) => m.overallSpecialRating === "TOP5P").length,
-        numberOf20pSlots: members.filter((m) => m.overallSpecialRating === "TOP20P").length,
+        // overallSpecialRating is always null on migrated rows (the old
+        // system never populated it) -- the real signal is derived from
+        // managerScoreCode via resolveLegacyRating, same resolver the
+        // detail view uses. 2021 H1 is the one cycle whose special rating
+        // depends on questionAnswers, which this summary-mode list doesn't
+        // carry -- passing [] here means that cycle's slots correctly read
+        // as 0 rather than silently miscounting them.
+        numberOf5pSlots: members.filter(
+          (m) => resolveLegacyRating(formatLegacyCycleName(m.cycleName), m.managerScoreCode, []).special === "TOP5P",
+        ).length,
+        numberOf20pSlots: members.filter(
+          (m) => resolveLegacyRating(formatLegacyCycleName(m.cycleName), m.managerScoreCode, []).special === "TOP20P",
+        ).length,
         participants: members,
       };
     })

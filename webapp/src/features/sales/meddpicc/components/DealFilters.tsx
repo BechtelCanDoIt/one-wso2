@@ -107,10 +107,10 @@ export default function DealFilters({
         row
         value={scope}
         onChange={(event) => onScopeChange(event.target.value as DealScope)}
-        aria-label="Whose deals to show"
+        aria-label="Whose opportunities to show"
       >
-        <FormControlLabel value="mine" control={<Radio size="small" />} label="My deals" />
-        <FormControlLabel value="all" control={<Radio size="small" />} label="All deals" />
+        <FormControlLabel value="mine" control={<Radio size="small" />} label="My opportunities" />
+        <FormControlLabel value="all" control={<Radio size="small" />} label="All opportunities" />
       </RadioGroup>
 
       <Box component="form" role="search" onSubmit={submit} sx={{ flex: 1, minWidth: 240 }}>
@@ -119,7 +119,7 @@ export default function DealFilters({
           size="small"
           type="search"
           label="Search"
-          placeholder="Deal or account name"
+          placeholder="Opportunity or account name"
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           autoCorrect="off"
@@ -141,7 +141,7 @@ export default function DealFilters({
                       <XIcon size={16} />
                     </IconButton>
                   )}
-                  <IconButton size="small" type="submit" aria-label="Search deals">
+                  <IconButton size="small" type="submit" aria-label="Search opportunities">
                     <SearchIcon size={16} />
                   </IconButton>
                 </InputAdornment>

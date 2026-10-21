@@ -95,15 +95,15 @@ describe("the Sales perspective", () => {
     expect(findPerspectiveByKey("sales")?.sections?.map((section) => section.id)).toContain("sales-echo");
   });
 
-  // Echo is a group of its screens, like CadO2: Meetings is the one so far, and the group
-  // stays a group so its name and the screen's both show in the rail.
-  it("lists Echo as a group with Meetings inside it", async () => {
+  // Echo is a group of its screens, like CadO2: Calls and Deals.
+  it("lists Echo as a group with Calls and Deals inside it", async () => {
     const { findPerspectiveByKey } = await load();
     const echo = findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-echo");
     expect(echo?.label).toBe("Echo");
     expect(echo?.alwaysGroup).toBe(true);
     expect(echo?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
-      ["sales-meetings", "Meetings", "/sales/meetings"],
+      ["sales-meetings", "Calls", "/sales/meetings"],
+      ["sales-deals", "Opportunities", "/sales/deals"],
     ]);
   });
 });
@@ -118,7 +118,7 @@ describe("CadO2's rail entries", () => {
   it("are a CadO2 group under Sales once the flag is on", async () => {
     const perspectives = await load({ cado2: true });
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sec-app-cado2");
-    expect(group?.label).toBe("CadO2");
+    expect(group?.label).toBe("CADO2");
     expect(group?.alwaysGroup).toBe(true);
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
       ["Quotes", "/sales/cado2/quotes"],
@@ -141,27 +141,25 @@ describe("CadO2's rail entries", () => {
   });
 });
 
-// The Library lands behind its own flag, as one row inside the Sales perspective.
-describe("the Library's rail entry", () => {
+// The Library lands behind its own flag, inside a Sales Pitstop group in the Sales perspective.
+describe("the Ask Sales rail entry", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
 
-  it("is a Library row inside a Sales Pitstop group, after Deals, once the flag is on", async () => {
+  it("is an Ask Sales row in a Sales Pitstop group, after Echo, once the flag is on", async () => {
     const perspectives = await load({ smartSearch: true });
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-pitstop");
     expect(group?.label).toBe("Sales Pitstop");
     expect(group?.alwaysGroup).toBe(true);
-    expect(group?.children?.map((child) => child.id)).toEqual(["sales-library"]);
-    const row = group?.children?.[0];
-    expect(row?.label).toBe("Library");
-    expect(row?.path).toBe("/sales/library");
-    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-deals", "sales-pitstop"]);
+    expect(group?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
+      ["sales-library", "Ask Sales", "/sales/library"],
+    ]);
+    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-pitstop"]);
   });
 
   it("sits before CadO2 when both flags are on", async () => {
     expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
       "sales-echo",
-      "sales-deals",
       "sales-pitstop",
       "sec-app-cado2",
     ]);
@@ -169,7 +167,7 @@ describe("the Library's rail entry", () => {
 
   it("is gone when the flag is off, or never mentioned", async () => {
     for (const preview of [{ smartSearch: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo", "sales-deals"]);
+      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo"]);
     }
   });
 
@@ -201,6 +199,7 @@ describe("UMT inside Engineering", () => {
       ["Product Management", "/engineering/umt/products"],
       ["Release Chunks", "/engineering/umt/release-chunks"],
       ["Statistics", "/engineering/umt/statistics"],
+      ["Documentation", undefined],
     ]);
     expect(perspectives.findPerspectiveByPath("/engineering/umt/updates/42")?.key).toBe("engineering");
   });
@@ -304,5 +303,41 @@ describe("perspectives whose landing forwards to the first rail item", () => {
       expect(labels).toContain("Repository Stats");
       expect(labels).toContain("Admin");
     });
+  });
+});
+
+// A rail row does exactly one thing when chosen: go to a page (`path`), open a
+// site (`externalUrl`), or run an action (`onSelect`). Only this test stops a
+// row from carrying two. SideRail hands every click, links included, to its
+// `onSelect`, so a row with a `path` or an `externalUrl` and an action would
+// follow its link and run the action.
+describe("a rail row does one thing", () => {
+  type Row = NonNullable<Perspectives["PERSPECTIVES"][number]["sections"]>[number];
+  const rowsOf = (rows: readonly Row[] | undefined): Row[] =>
+    (rows ?? []).flatMap((row) => [row, ...rowsOf(row.children)]);
+
+  it.each([[true], [false]])("across every perspective, with the preview flags on = %s", async (previewOn) => {
+    vi.resetModules();
+    window.config = {
+      ...(window.config ?? {}),
+      ONE_WSO2_PREVIEW_FEATURES: previewOn
+        ? { umt: true, infra: true, cado2: true, nda: true, smartSearch: true }
+        : {},
+      // ISAC and CSM are only in the registry once their addresses are set.
+      ONE_WSO2_MARKETINGOPS_ISAC_URL: "https://isac.example",
+      ONE_WSO2_CSM_URL: "https://csm.example",
+    } as Window["config"];
+    const { PERSPECTIVES } = await import("./perspectives");
+
+    const rows = PERSPECTIVES.flatMap((perspective) => rowsOf(perspective.sections));
+    const ids = rows.map((row) => row.id);
+    // Guards against this walking nothing and passing for the wrong reason.
+    expect(ids).toContain("mops-isac");
+    expect(ids.includes("umt-documentation")).toBe(previewOn);
+
+    const doingMoreThanOne = rows
+      .filter((row) => [row.path, row.externalUrl, row.onSelect].filter((field) => field !== undefined).length > 1)
+      .map((row) => row.id);
+    expect(doingMoreThanOne).toEqual([]);
   });
 });

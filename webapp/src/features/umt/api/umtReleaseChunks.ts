@@ -26,6 +26,9 @@
 export interface UmtReleaseChunkUpdateLevel {
   productName?: string | null;
   productVersion?: string | null;
+  // The level's channel ("full", "security", ...). Build retriggers name it,
+  // so they act on this level's own build.
+  channel?: string | null;
   updateLevel?: number | null;
   buildStatus?: string | null;
   tgBuildStatus?: string | null;
@@ -125,6 +128,7 @@ export interface UmtReleaseChunkReleaseRequest {
 interface RawUmtReleaseChunkUpdateLevel {
   "product-name"?: string | null;
   "product-version"?: string | null;
+  channel?: string | null;
   "update-level"?: number | null;
   "build-status"?: string | null;
   "tg-build-status"?: string | null;
@@ -134,6 +138,7 @@ function mapUmtReleaseChunkUpdateLevel(raw: RawUmtReleaseChunkUpdateLevel): UmtR
   return {
     productName: raw["product-name"],
     productVersion: raw["product-version"],
+    channel: raw.channel,
     updateLevel: raw["update-level"],
     buildStatus: raw["build-status"],
     tgBuildStatus: raw["tg-build-status"],
@@ -171,6 +176,36 @@ export function mapUmtReleasedChunk(raw: RawUmtReleasedChunk): UmtReleasedChunk 
     status: raw.status,
     releaseMessage: raw.releaseMessage,
     releasedOn: raw.releasedOn,
+  };
+}
+
+// One page of GET /update/releaseChunk?page=&pageSize=, for either list.
+export interface RawUmtReleaseChunksPage<T> {
+  releaseChunks: T[];
+  totalPages: number;
+  pageSize: number;
+  totalCount: number;
+}
+
+// Which page of a chunk list to load. `page` is 0-based; the backend's is
+// 1-based, and releaseChunksPage does the conversion.
+export interface UmtPageRequest {
+  page: number;
+  pageSize: number;
+}
+
+export interface UmtReleaseChunksPage<T> {
+  chunks: T[];
+  totalCount: number;
+}
+
+export function mapUmtReleaseChunksPage<Raw, T>(
+  raw: RawUmtReleaseChunksPage<Raw>,
+  mapChunk: (chunk: Raw) => T,
+): UmtReleaseChunksPage<T> {
+  return {
+    chunks: raw.releaseChunks.map(mapChunk),
+    totalCount: raw.totalCount,
   };
 }
 

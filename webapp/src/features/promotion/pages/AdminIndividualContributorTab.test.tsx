@@ -54,6 +54,8 @@ function promotionRequest(overrides: Partial<PromotionRequestFull> = {}): Promot
     currentJobBand: 5,
     currentJobRole: "Engineer",
     nextJobBand: 6,
+    promotedJobRole: null,
+    promotedDate: null,
     promotionCycle: "2026-A",
     promotionStatement: null,
     businessUnit: "Engineering",

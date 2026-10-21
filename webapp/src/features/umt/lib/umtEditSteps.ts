@@ -17,8 +17,7 @@
 import type { UmtPullRequestAnalysis } from "../api/umtUpdates";
 
 export type UmtEditStepId =
-  | "pr-analysis"
-  | "product-analysis"
+  | "files-analysis"
   | "description-instruction"
   | "security-advisory"
   | "integration-tests"
@@ -35,7 +34,7 @@ export interface UmtEditStepDefinition {
   label: string;
   // True only for the steps whose Proceed action is real, wired-up
   // behavior in this pass (File Approval, Cloud Support's Development step,
-  // Product Analysis, Description and Instruction, Security Advisory,
+  // Files Analysis, Description and Instruction, Security Advisory,
   // Integration Tests, and Testing). Every other step is a placeholder
   // pending its own future implementation.
   proceedWired: boolean;
@@ -48,8 +47,7 @@ export interface UmtEditStepDefinition {
 }
 
 const NORMAL_STEPS_BASE: UmtEditStepDefinition[] = [
-  { id: "pr-analysis", label: "PR Analysis", proceedWired: false },
-  { id: "product-analysis", label: "Product Analysis", proceedWired: true },
+  { id: "files-analysis", label: "Files Analysis", proceedWired: true },
   {
     id: "description-instruction",
     label: "Description and Instruction",
@@ -158,16 +156,21 @@ export function umtHasAdditionalFileOperations(
 // reached via the local override from Testing's Proceed, never restored
 // directly from a backend lifecycleState on reload.
 // TestingEnvironmentRequested/Created/Failed all map to "testing" so the step
-// doesn't get stuck at its default.
+// doesn't get stuck at its default. So does DemoteStagingRequested — the update
+// is still on its way out of Staging, and the Edit tab shows it locked there.
+// Development and PRAnalyzed both map to "files-analysis": the step shows the
+// PR analysis in Development, and the PR analysis followed by the product
+// analysis in PRAnalyzed.
 const LIFECYCLE_STATE_TO_STEP: Record<string, UmtEditStepId> = {
-  Development: "pr-analysis",
-  PRAnalyzed: "product-analysis",
+  Development: "files-analysis",
+  PRAnalyzed: "files-analysis",
   ProductAnalyzed: "description-instruction",
   TestingEnvironmentRequested: "testing",
   TestingEnvironmentCreated: "testing",
   TestingEnvironmentFailed: "testing",
   StagingRequested: "testing",
   Staging: "testing",
+  DemoteStagingRequested: "testing",
   WaitingFileApproval: "file-approval",
   Released: "verifying",
   UATStaging: "verifying",
@@ -188,7 +191,7 @@ export function umtActiveStepId(
 ): UmtEditStepId {
   const isCloudSupport = steps.some((step) => step.id === "cloud-development");
   const table = isCloudSupport ? CLOUD_SUPPORT_STATE_TO_STEP : LIFECYCLE_STATE_TO_STEP;
-  const fallback: UmtEditStepId = isCloudSupport ? "cloud-development" : "pr-analysis";
+  const fallback: UmtEditStepId = isCloudSupport ? "cloud-development" : "files-analysis";
 
   const mapped = lifecycleState ? table[lifecycleState] : undefined;
   if (mapped && steps.some((step) => step.id === mapped)) return mapped;
@@ -204,20 +207,60 @@ export function umtActiveStepIndex(
   return index === -1 ? 0 : index;
 }
 
+// The run of steps each shared lifecycleState spans (see
+// LIFECYCLE_STATE_TO_STEP): the only steps a local override can legitimately
+// point at while the update is in that state. File Approval is in Staging's
+// run only when the update has one (computeUmtEditSteps). A state with no
+// entry spans just its own step. StagingRequested deliberately has none:
+// Testing can't move on before Staging.
+const LIFECYCLE_STATE_RUNS: Record<string, readonly UmtEditStepId[]> = {
+  ProductAnalyzed: ["description-instruction", "security-advisory", "integration-tests"],
+  Staging: ["testing", "validate", "file-approval"],
+};
+
 // Resolves the Edit tab's displayed step: a persisted `localStepOverride`
 // (see UmtUpdateEditTab.tsx) only ever means "further along than the backend
 // knows about" — an advancesLocallyToNextStep step moving the pointer ahead
-// of a shared lifecycleState. If the persisted override is *behind* the
-// backend-derived step instead (the update was promoted elsewhere, or by
-// someone else, while this browser still had an older step persisted for
-// it), the backend position must win.
+// within the run of steps that share the current lifecycleState. Anything
+// else is a pointer left from another state — the update was promoted,
+// demoted or reopened elsewhere while this browser kept an older step — and
+// the backend position must win: honouring it would put the user on a step
+// whose Proceed skips every check between the two.
 export function resolveUmtEditActiveIndex(
   steps: UmtEditStepDefinition[],
   backendActiveIndex: number,
   overrideId: UmtEditStepId | null,
+  lifecycleState: string | null | undefined,
 ): number {
   if (!overrideId) return backendActiveIndex;
   const overrideIndex = steps.findIndex((step) => step.id === overrideId);
   if (overrideIndex === -1 || overrideIndex < backendActiveIndex) return backendActiveIndex;
+  const run = (lifecycleState && LIFECYCLE_STATE_RUNS[lifecycleState]) || [];
+  if (!run.includes(overrideId)) return backendActiveIndex;
   return overrideIndex;
+}
+
+// Whether a step's Proceed needs every product to have a description and
+// instruction. Not only the Description and Instruction step itself: a
+// product can be added, or lose its description, after that step was passed,
+// and the backend checks descriptions on no transition. So every later step
+// that fires — or leads straight into — the move out of its lifecycleState
+// checks again: Integration Tests (ProductAnalyzed → StagingRequested),
+// Validate, which hosts the same description form, and File Approval at
+// Staging (Staging → UATStaging). At WaitingFileApproval only the files are
+// being approved.
+export function umtStepRequiresDescriptions(
+  stepId: UmtEditStepId,
+  lifecycleState: string | null | undefined,
+): boolean {
+  switch (stepId) {
+    case "description-instruction":
+    case "integration-tests":
+    case "validate":
+      return true;
+    case "file-approval":
+      return lifecycleState !== "WaitingFileApproval";
+    default:
+      return false;
+  }
 }

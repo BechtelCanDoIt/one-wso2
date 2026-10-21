@@ -48,8 +48,17 @@ describe("useUmtSaveDescriptionInstruction", () => {
     const invalidateQueries = vi.spyOn(client, "invalidateQueries");
     const { result } = renderHook(() => useUmtSaveDescriptionInstruction("42"), { wrapper: wrapper(client) });
 
-    const products = [{ productId: 1, description: "Does a thing", instruction: "Do the thing" }];
-    const behaviorChange = { isBehaviorChanged: true, isBehaviorChangeApproved: true };
+    const products = [
+      {
+        productId: 1,
+        description: "Does a thing",
+        instruction: "Do the thing",
+        testPr: "https://github.com/wso2/product-apim/pull/1",
+        ignoreTestReason: "",
+        helmChartTag: "",
+      },
+    ];
+    const behaviorChange = { productBehaviourChanges: true };
 
     await act(async () => {
       await result.current.mutateAsync({ products, behaviorChange });
@@ -66,7 +75,16 @@ describe("useUmtSaveDescriptionInstruction", () => {
     const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
     const { result } = renderHook(() => useUmtSaveDescriptionInstruction("42"), { wrapper: wrapper(client) });
 
-    const products = [{ productId: 1, description: "Hotfix description", instruction: "Hotfix instruction" }];
+    const products = [
+      {
+        productId: 1,
+        description: "Hotfix description",
+        instruction: "Hotfix instruction",
+        testPr: "",
+        ignoreTestReason: "",
+        helmChartTag: "",
+      },
+    ];
 
     await act(async () => {
       await result.current.mutateAsync({ products, behaviorChange: null });

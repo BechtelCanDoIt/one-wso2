@@ -33,14 +33,25 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { describeError } from "../util/financeError";
-import { Field, FieldLabel, FieldRow, Placeholder, SearchableSelect } from "./ccFormFields";
+import {
+  Field,
+  FieldLabel,
+  FieldRow,
+  FundingSources,
+  INFO_SIDEBAR_WIDTH,
+  JobNumberAutocomplete,
+  JobNumberSideBar,
+  Placeholder,
+  SearchableSelect,
+} from "./ccFormFields";
+import { isValidJobNumberFormat, normalizeJobNumber } from "./ccJobNumber";
 import {
   applyBulkEdit,
   clearBulkDependents,
   CC_BULK_EDIT_EMPTY,
   type CcBulkEditForm,
 } from "./ccPendingSubmissions";
-import { useCcMenus } from "./useCc";
+import { useCcJobNumberDetails, useCcMenus } from "./useCc";
 import { CC_MARKETING_CATEGORY, CC_TRAVEL_CATEGORY, type CcTransaction } from "./ccTypes";
 
 const COMMENT_MAX = 30;
@@ -73,6 +84,7 @@ export function CcBulkEditDialog({
   const [form, setForm] = useState<CcBulkEditForm>(CC_BULK_EDIT_EMPTY);
   const [applying, setApplying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fundingOpen, setFundingOpen] = useState(false);
 
   const categories = useMemo(
     () => [...(menus.expenseTypes.data?.categories ?? [])].sort((a, b) => a.localeCompare(b)),
@@ -114,6 +126,44 @@ export function CcBulkEditDialog({
     ? form.expenseCategory !== CC_TRAVEL_CATEGORY
     : txns.some((t) => t.expenseCategoryLabel !== CC_TRAVEL_CATEGORY);
   const showSubRegion = form.expenseCategory.startsWith(CC_MARKETING_CATEGORY);
+  const showJobNumber = form.expenseCategory === CC_TRAVEL_CATEGORY;
+
+  const jobNumbers = menus.jobNumbers.data?.jobNumbers ?? [];
+  // Only look a job up once it could exist. The list holds the past year, so a
+  // number typed in full is checked on its shape before the request.
+  const jobLookupKey =
+    showJobNumber && form.travelJobNumber &&
+    (jobNumbers.includes(form.travelJobNumber) || isValidJobNumberFormat(form.travelJobNumber))
+      ? normalizeJobNumber(form.travelJobNumber)
+      : undefined;
+  const jobDetails = useCcJobNumberDetails(jobLookupKey);
+  const jobUnits = jobDetails.data;
+
+  const jobMalformed = Boolean(
+    showJobNumber && form.travelJobNumber && !jobLookupKey,
+  );
+  const jobNotFound = Boolean(jobLookupKey) && jobDetails.isError;
+  const jobPending = Boolean(jobLookupKey) && !jobUnits && !jobNotFound;
+  // A job with no funding sources cannot be charged against, so it is refused
+  // rather than written across the selection — as the single-row panel does.
+  const jobUnusable = Boolean(jobUnits) && (jobUnits?.fundingSources.length ?? 0) === 0;
+  const fundingSources = jobUnits?.fundingSources ?? [];
+  // Warned about rather than refused: a job can come back without units and
+  // still be charged against, as the single-row panel treats it.
+  const jobMissingUnits = Boolean(jobUnits) && !(jobUnits?.productUnit && jobUnits?.businessUnit);
+  // The funding shares split what is being charged, which across a bulk edit
+  // is every selected row's amount, not one transaction's.
+  const selectionAmount = txns.reduce((sum, t) => sum + t.txnAmount, 0);
+  const jobBlocked = jobMalformed || jobNotFound || jobPending || jobUnusable;
+  const jobHelperText = jobMalformed
+    ? "Enter a valid value in the format TRV-YYYY-MM-NNNN"
+    : jobNotFound
+      ? "Could not verify this job number"
+      : jobUnusable
+        ? "That job has no funding sources to charge against."
+        : jobPending
+          ? "Checking the job number…"
+          : "Not listed? Type the full job number.";
 
   const set = (field: keyof CcBulkEditForm, value: string) =>
     setForm((prev) => ({ ...prev, [field]: value, ...clearBulkDependents(field, prev) }));
@@ -128,7 +178,17 @@ export function CcBulkEditDialog({
     setApplying(true);
     setError(null);
     try {
-      await onApply(applyBulkEdit(form, txns, { productUnits, businessUnits }));
+      await onApply(
+        applyBulkEdit(
+          form,
+          txns,
+          { productUnits, businessUnits },
+          // The job's units as returned, even if only one of the pair is set.
+          jobUnits
+            ? { productUnit: jobUnits.productUnit, businessUnit: jobUnits.businessUnit }
+            : null,
+        ),
+      );
       setForm(CC_BULK_EDIT_EMPTY);
       onClose();
     } catch (err) {
@@ -166,6 +226,36 @@ export function CcBulkEditDialog({
               />
             </Field>
           </FieldRow>
+
+          {showJobNumber && (
+            <FieldRow>
+              <Field label="Travel Job Number">
+                <JobNumberAutocomplete
+                  value={form.travelJobNumber}
+                  options={jobNumbers}
+                  disabled={applying}
+                  error={jobMalformed || jobNotFound || jobUnusable}
+                  helperText={jobHelperText}
+                  infoWidth={INFO_SIDEBAR_WIDTH}
+                  info={
+                    jobUnits ? (
+                      <JobNumberSideBar
+                        details={jobUnits}
+                        fundingCount={fundingSources.length}
+                        onOpenFunding={() => setFundingOpen(true)}
+                      />
+                    ) : undefined
+                  }
+                  onChange={(v) => set("travelJobNumber", v ?? "")}
+                />
+                {!jobUnusable && jobMissingUnits && (
+                  <Alert severity="warning" sx={{ mt: 1, fontSize: 12.5 }}>
+                    No Product unit and/or Business unit found for the selected Job number.
+                  </Alert>
+                )}
+              </Field>
+            </FieldRow>
+          )}
 
           <Box>
             <FieldLabel>Comment</FieldLabel>
@@ -272,10 +362,32 @@ export function CcBulkEditDialog({
         <Button size="small" variant="outlined" onClick={close} disabled={applying}>
           Close
         </Button>
-        <Button size="small" variant="contained" onClick={() => void apply()} disabled={applying}>
+        <Button
+          size="small"
+          variant="contained"
+          onClick={() => void apply()}
+          disabled={applying || jobBlocked}
+        >
           {applying ? "Applying…" : "Apply"}
         </Button>
       </DialogActions>
+
+      <Dialog open={fundingOpen} onClose={() => setFundingOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ fontSize: 17, fontWeight: 700 }}>
+          Funding Sources
+          <Typography sx={{ fontSize: 12.5, color: "text.secondary", fontWeight: 400 }}>
+            What the selected transactions cost each share of the job.
+          </Typography>
+        </DialogTitle>
+        <DialogContent dividers>
+          <FundingSources sources={fundingSources} totalAmount={selectionAmount} />
+        </DialogContent>
+        <DialogActions>
+          <Button size="small" onClick={() => setFundingOpen(false)}>
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   );
 }

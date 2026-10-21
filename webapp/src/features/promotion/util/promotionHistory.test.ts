@@ -31,6 +31,8 @@ function entry(p: Partial<PromotionHistoryEntry> = {}): PromotionHistoryEntry {
     currentJobBand: 4,
     currentJobRole: "Senior Software Engineer",
     nextJobBand: 5,
+    promotedJobRole: null,
+    promotedDate: null,
     promotionCycle: "2021-H1",
     promotionStatement: null,
     businessUnit: "Engineering",

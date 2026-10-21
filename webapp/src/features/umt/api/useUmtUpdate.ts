@@ -22,6 +22,7 @@ import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { umtShouldPollStagingTestResults } from "../lib/umtTesting";
+import { umtIsUpdateLocked } from "../lib/umtUpdateLock";
 import type { UmtUpdateSummary } from "./umtUpdates";
 
 export function useUmtUpdate(id: string | undefined) {
@@ -46,9 +47,13 @@ export function useUmtUpdate(id: string | undefined) {
     // The testing-environment states are transient and change server-side with
     // no client action: the Edit tab's Proceed gate and the Testing step both
     // read lifecycleState, so the update resource has to notice the transition
-    // itself. Mirrors useUmtPrAnalysisStatus's self-terminating poll.
-    refetchInterval: (query) =>
-      umtShouldPollStagingTestResults(query.state.data?.lifecycleState) ? 3000 : false,
+    // itself. Mirrors useUmtPrAnalysisStatus's self-terminating poll. The same
+    // goes for a demotion from Staging, which keeps the update locked until it
+    // lands in Development.
+    refetchInterval: (query) => {
+      const lifecycleState = query.state.data?.lifecycleState;
+      return umtShouldPollStagingTestResults(lifecycleState) || umtIsUpdateLocked(lifecycleState) ? 3000 : false;
+    },
     retry: httpRetry,
   });
 

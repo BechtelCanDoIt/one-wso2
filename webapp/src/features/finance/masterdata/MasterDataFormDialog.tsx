@@ -42,6 +42,7 @@ import {
   useCreateMasterData,
   useUpdateMasterData,
 } from "./useMasterDataMutations";
+import { useCountries } from "./useMasterData";
 import {
   CREDIT_CARD_PROVIDERS,
   MASTER_DATA_STATUS,
@@ -93,6 +94,9 @@ export default function MasterDataFormDialog({
   const { showSuccess, showError } = useNotifications();
   const create = useCreateMasterData(tab);
   const update = useUpdateMasterData(tab);
+  // Only the subsidiary form asks for a country, so the other three tabs do
+  // not pay for the request.
+  const countries = useCountries(tab === "subsidiaries" && open);
 
   // Seeded once per mount. The page keys this dialog on the row being edited,
   // so opening a different record remounts it rather than carrying the last
@@ -161,6 +165,7 @@ export default function MasterDataFormDialog({
           glCodes={glCodes}
           autoComplete={autoComplete}
           employeeEmails={employeeEmails}
+          countryCurrency={countries.data ?? {}}
         />
       </DialogContent>
       <DialogActions>
@@ -188,6 +193,7 @@ function Fields({
   glCodes,
   autoComplete,
   employeeEmails,
+  countryCurrency,
 }: {
   tab: MasterDataTab;
   form: MasterDataPayload;
@@ -195,6 +201,8 @@ function Fields({
   glCodes?: GlCode[];
   autoComplete?: ExpenseTypeAutoComplete;
   employeeEmails?: string[];
+  /** ISO 4217 currency code by country. */
+  countryCurrency: Readonly<Record<string, string>>;
 }) {
   switch (tab) {
     case "subsidiaries": {
@@ -218,6 +226,23 @@ function Fields({
             onChange={set}
           />
           <TextInput id="taxCode" label="Tax Code" value={f.taxCode} required onChange={set} />
+          <SelectInput
+            id="country"
+            label="Country"
+            value={f.country}
+            options={Object.keys(countryCurrency)}
+            required
+            onChange={set}
+          />
+          {/* Read-only preview, not part of the payload. */}
+          <TextInput
+            id="currencyCodePreview"
+            label="Currency Code"
+            value={countryCurrency[f.country] ?? ""}
+            required={false}
+            disabled
+            onChange={() => {}}
+          />
         </>
       );
     }

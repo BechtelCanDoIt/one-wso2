@@ -12,12 +12,12 @@ import {
   umtActiveStepId,
   umtActiveStepIndex,
   umtHasAdditionalFileOperations,
+  umtStepRequiresDescriptions,
   type UmtEditStepId,
 } from "./umtEditSteps";
 
 const NORMAL_NO_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "integration-tests",
   "testing",
@@ -27,8 +27,7 @@ const NORMAL_NO_FILES: UmtEditStepId[] = [
 ];
 
 const NORMAL_WITH_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "integration-tests",
   "testing",
@@ -39,8 +38,7 @@ const NORMAL_WITH_FILES: UmtEditStepId[] = [
 ];
 
 const SECURITY_NO_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "security-advisory",
   "integration-tests",
@@ -51,8 +49,7 @@ const SECURITY_NO_FILES: UmtEditStepId[] = [
 ];
 
 const SECURITY_WITH_FILES: UmtEditStepId[] = [
-  "pr-analysis",
-  "product-analysis",
+  "files-analysis",
   "description-instruction",
   "security-advisory",
   "integration-tests",
@@ -79,7 +76,7 @@ describe("computeUmtEditSteps", () => {
     ]);
   });
 
-  it("returns the 8-step normal sequence with no additional files", () => {
+  it("returns the 7-step normal sequence with no additional files", () => {
     expect(ids(computeUmtEditSteps("UpdateLifecycle", false))).toEqual(NORMAL_NO_FILES);
   });
 
@@ -126,7 +123,7 @@ describe("umtHasAdditionalFileOperations", () => {
 
 describe("proceedWired", () => {
   const WIRED: UmtEditStepId[] = [
-    "product-analysis",
+    "files-analysis",
     "description-instruction",
     "security-advisory",
     "integration-tests",
@@ -204,8 +201,8 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
 
   it("maps each recognized lifecycleState to its step for the normal sequence", () => {
     const cases: [string, UmtEditStepId][] = [
-      ["Development", "pr-analysis"],
-      ["PRAnalyzed", "product-analysis"],
+      ["Development", "files-analysis"],
+      ["PRAnalyzed", "files-analysis"],
       ["ProductAnalyzed", "description-instruction"],
       ["StagingRequested", "testing"],
       ["Staging", "testing"],
@@ -239,7 +236,7 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
   });
 
   it("shifts indices correctly for the security and file-approval variants", () => {
-    expect(umtActiveStepIndex("ProductAnalyzed", securitySteps)).toBe(2);
+    expect(umtActiveStepIndex("ProductAnalyzed", securitySteps)).toBe(1);
     expect(umtActiveStepIndex("Released", securitySteps)).toBe(
       securitySteps.findIndex((step) => step.id === "verifying"),
     );
@@ -249,8 +246,8 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
   });
 
   it("defaults to the first step for null or unrecognized lifecycleState", () => {
-    expect(umtActiveStepId(null, normalSteps)).toBe("pr-analysis");
-    expect(umtActiveStepId("SomeFutureState", normalSteps)).toBe("pr-analysis");
+    expect(umtActiveStepId(null, normalSteps)).toBe("files-analysis");
+    expect(umtActiveStepId("SomeFutureState", normalSteps)).toBe("files-analysis");
     expect(umtActiveStepIndex(null, normalSteps)).toBe(0);
   });
 
@@ -264,30 +261,74 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
 
 describe("resolveUmtEditActiveIndex", () => {
   const steps = computeUmtEditSteps("UpdateLifecycle", false);
-  const validateIndex = steps.findIndex((step) => step.id === "validate");
-  const verifyingIndex = steps.findIndex((step) => step.id === "verifying");
-  const descriptionIndex = steps.findIndex((step) => step.id === "description-instruction");
+  const withFiles = computeUmtEditSteps("UpdateLifecycle", true);
+  const security = computeUmtEditSteps("SecurityUpdateLifecycle", false);
+  const indexIn = (list: typeof steps, id: UmtEditStepId) => list.findIndex((step) => step.id === id);
+  const filesAnalysisIndex = indexIn(steps, "files-analysis");
+  const descriptionIndex = indexIn(steps, "description-instruction");
+  const integrationTestsIndex = indexIn(steps, "integration-tests");
+  const testingIndex = indexIn(steps, "testing");
+  const validateIndex = indexIn(steps, "validate");
+  const verifyingIndex = indexIn(steps, "verifying");
 
   it("has no override: uses the backend-derived index", () => {
-    expect(resolveUmtEditActiveIndex(steps, verifyingIndex, null)).toBe(verifyingIndex);
+    expect(resolveUmtEditActiveIndex(steps, verifyingIndex, null, "Released")).toBe(verifyingIndex);
   });
 
-  it("honours an override that is ahead of the backend-derived step", () => {
-    // e.g. Testing's advancesLocallyToNextStep moved the user on to Validate
-    // while the backend still reports the shared lifecycleState behind it.
-    expect(resolveUmtEditActiveIndex(steps, descriptionIndex, "validate")).toBe(validateIndex);
+  it("honours an override ahead of the backend step within the run of the current state", () => {
+    // Testing's advancesLocallyToNextStep moved the user on to Validate while
+    // the backend still reports Staging; Description's Next moved them on to
+    // Integration Tests under ProductAnalyzed.
+    expect(resolveUmtEditActiveIndex(steps, testingIndex, "validate", "Staging")).toBe(validateIndex);
+    expect(resolveUmtEditActiveIndex(steps, descriptionIndex, "integration-tests", "ProductAnalyzed")).toBe(
+      integrationTestsIndex,
+    );
+    expect(
+      resolveUmtEditActiveIndex(security, indexIn(security, "description-instruction"), "security-advisory", "ProductAnalyzed"),
+    ).toBe(indexIn(security, "security-advisory"));
+    expect(
+      resolveUmtEditActiveIndex(withFiles, indexIn(withFiles, "testing"), "file-approval", "Staging"),
+    ).toBe(indexIn(withFiles, "file-approval"));
+  });
+
+  it("discards an override from a later state's run, which would skip that state's checks", () => {
+    // A "validate" saved during an earlier Staging visit, after the update was
+    // demoted elsewhere: Validate's Proceed would promote straight out of
+    // ProductAnalyzed with no description, advisory or Test PR check.
+    expect(resolveUmtEditActiveIndex(steps, descriptionIndex, "validate", "ProductAnalyzed")).toBe(descriptionIndex);
+    expect(resolveUmtEditActiveIndex(steps, filesAnalysisIndex, "integration-tests", "PRAnalyzed")).toBe(
+      filesAnalysisIndex,
+    );
+    expect(resolveUmtEditActiveIndex(steps, filesAnalysisIndex, "validate", "Development")).toBe(filesAnalysisIndex);
+    expect(resolveUmtEditActiveIndex(steps, testingIndex, "validate", "StagingRequested")).toBe(testingIndex);
   });
 
   it("discards a persisted override that sits BEHIND a newer backend lifecycle state", () => {
-    // The scenario this fixes: the user left the tab on Validate, the update
-    // was promoted elsewhere (or by someone else) all the way to Released,
-    // and reopening it must land on Verifying, not the stale Validate.
-    expect(resolveUmtEditActiveIndex(steps, verifyingIndex, "validate")).toBe(verifyingIndex);
+    // The user left the tab on Validate, the update was promoted elsewhere
+    // all the way to Released, and reopening it must land on Verifying.
+    expect(resolveUmtEditActiveIndex(steps, verifyingIndex, "validate", "Released")).toBe(verifyingIndex);
   });
 
   it("discards an override whose step id no longer exists in the current step list", () => {
-    expect(resolveUmtEditActiveIndex(steps, descriptionIndex, "cloud-development" as UmtEditStepId)).toBe(
-      descriptionIndex,
-    );
+    expect(
+      resolveUmtEditActiveIndex(steps, descriptionIndex, "cloud-development" as UmtEditStepId, "ProductAnalyzed"),
+    ).toBe(descriptionIndex);
+  });
+});
+
+describe("umtStepRequiresDescriptions", () => {
+  it("checks descriptions on every step that moves the update out of its state", () => {
+    expect(umtStepRequiresDescriptions("description-instruction", "ProductAnalyzed")).toBe(true);
+    expect(umtStepRequiresDescriptions("integration-tests", "ProductAnalyzed")).toBe(true);
+    expect(umtStepRequiresDescriptions("validate", "Staging")).toBe(true);
+    expect(umtStepRequiresDescriptions("file-approval", "Staging")).toBe(true);
+  });
+
+  it("leaves the rest alone, including the file approval itself", () => {
+    expect(umtStepRequiresDescriptions("file-approval", "WaitingFileApproval")).toBe(false);
+    expect(umtStepRequiresDescriptions("files-analysis", "PRAnalyzed")).toBe(false);
+    expect(umtStepRequiresDescriptions("security-advisory", "ProductAnalyzed")).toBe(false);
+    expect(umtStepRequiresDescriptions("testing", "Staging")).toBe(false);
+    expect(umtStepRequiresDescriptions("verifying", "Released")).toBe(false);
   });
 });

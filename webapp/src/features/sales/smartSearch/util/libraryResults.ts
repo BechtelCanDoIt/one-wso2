@@ -70,12 +70,14 @@ export function kindOf(source: SmartSearchSource): ResultKind {
   }
 }
 
-// The video moment is already in the link's query string or hash (?t=90 or #t=90s).
+// The video moment is already in the link's query string or hash (?t=90 or #t=90s). Anything else, such as -5, 1h2m or a number too big to count, is not a moment we can show.
 export function parseVideoTimestampSeconds(nativeLink: string): number | null {
   try {
     const url = new URL(nativeLink);
-    const seconds = parseInt(url.searchParams.get("t") ?? url.hash.match(/t=(\d+)/)?.[1] ?? "", 10);
-    return Number.isFinite(seconds) ? seconds : null;
+    const raw = url.searchParams.get("t") ?? url.hash.match(/t=([^&]*)/)?.[1] ?? "";
+    const match = raw.match(/^(\d+)s?$/);
+    const seconds = match ? parseInt(match[1], 10) : NaN;
+    return Number.isSafeInteger(seconds) ? seconds : null;
   } catch {
     return null;
   }
@@ -185,20 +187,39 @@ const MONTH_FORMAT = new Intl.DateTimeFormat("en", { month: "short", year: "nume
 
 export interface Freshness {
   label: string;
-  /** True once the item is a year or more old, so a seller double-checks it before sending it on. */
+  /** True once the date is a year or more old, so a seller double-checks the item before sending it on. */
   stale: boolean;
 }
 
-/** When an item was added to Pitstop, as a label. Null when the date can't be read. */
-export function freshnessOf(createdOn: string | undefined, now: Date = new Date()): Freshness | null {
-  const match = createdOn?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+// A date, optionally followed by a time ("2026-09-02", "2026-09-02 08:00:00.123456", "2026-09-02T08:00:00Z"). Anything after the seconds is ignored.
+const TIMESTAMP = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?(?:[.,Z+-].*)?)?$/;
+
+/** The date of a Pitstop timestamp, or null when it can't be read or isn't a real date and time (2026-02-30, 0000-00-00, 08:99:99). */
+function dateOf(timestamp: string | null | undefined): Date | null {
+  const match = timestamp?.match(TIMESTAMP);
   if (!match) return null;
-  const added = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
-  if (Number.isNaN(added.getTime())) return null;
-  const months = (now.getUTCFullYear() - added.getUTCFullYear()) * 12 + (now.getUTCMonth() - added.getUTCMonth());
-  const stale = months >= 12;
-  const when = MONTH_FORMAT.format(added);
-  return { label: stale ? `Added ${when} - check it is still current` : `Added ${when}`, stale };
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])];
+  const [hour, minute, second] = [match[4], match[5], match[6]].map((part) => (part === undefined ? 0 : Number(part)));
+  if (hour > 23 || minute > 59 || second > 59) return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  const real = date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+  return real && year >= 2000 ? date : null;
+}
+
+/** When an item was last verified in Pitstop, or else when it was added, as a label. Null when neither date can be read. */
+export function freshnessOf(
+  createdOn: string | undefined,
+  now: Date = new Date(),
+  lastVerifiedOn?: string | null,
+): Freshness | null {
+  const verified = dateOf(lastVerifiedOn);
+  const date = verified ?? dateOf(createdOn);
+  if (!date) return null;
+  // A full year, to the day: the same date a year ago still counts, the day after does not.
+  const aYearAgo = Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate());
+  const stale = date.getTime() <= aYearAgo;
+  const when = `${verified ? "Last verified" : "Added"} ${MONTH_FORMAT.format(date)}`;
+  return { label: stale ? `${when} - check it is still current` : when, stale };
 }
 
 /** False when the index changed between the two calls, so the answer would cite documents the reader can't see. */

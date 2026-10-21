@@ -346,6 +346,12 @@ export interface ParLegacyHistory {
   overallCommentManager: string | null;
   employeeScoreCode: number | null;
   managerScoreCode: number | null;
+  // Whether the employee gave any meaningful answer to any per-question
+  // row -- always computed server-side, independent of whether
+  // questionAnswers below was requested in full or stripped to a summary
+  // (admin roster/grouping view). Use this for a completion check instead
+  // of parsing questionAnswers, which can be null in summary mode.
+  employeeHasQuestionAnswer: boolean;
   // Raw JSON string — array of ParLegacyQuestionAnswer, one per review
   // question (variable length). Parse with parseLegacyQuestionAnswers.
   questionAnswers: string | null;
@@ -368,7 +374,9 @@ export interface ParLegacyQuestionAnswer {
 // email — unlike Par360Review, which is keyed by reviewerEmail.
 export interface ParLegacyThreeSixtyReview {
   reviewerName: string;
+  ratingQuestion: string;
   reviewRating: string;
+  commentQuestion: string;
   reviewComment: string | null;
 }
 

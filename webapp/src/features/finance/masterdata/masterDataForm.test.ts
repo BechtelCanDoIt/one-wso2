@@ -60,7 +60,13 @@ describe("isCreditCardNumberValid — the two formats it enforces", () => {
 
 describe("isFormComplete — subsidiaries and departments (every field required)", () => {
   it("is false until every field is filled", () => {
-    const empty: SubsidiaryPayload = { taxCodeInternalId: 0, taxCode: "", legalName: "", code: "" };
+    const empty: SubsidiaryPayload = {
+      taxCodeInternalId: 0,
+      taxCode: "",
+      legalName: "",
+      code: "",
+      country: "",
+    };
     expect(isFormComplete("subsidiaries", empty)).toBe(false);
   });
   it("is true once every field is filled, including a numeric field at a non-zero value", () => {
@@ -69,6 +75,7 @@ describe("isFormComplete — subsidiaries and departments (every field required)
       taxCode: "UNDEF_LK",
       legalName: "WSO2 Lanka",
       code: "WSO2-LK",
+      country: "Sri Lanka",
     };
     expect(isFormComplete("subsidiaries", filled)).toBe(true);
   });
@@ -78,6 +85,7 @@ describe("isFormComplete — subsidiaries and departments (every field required)
       taxCode: "UNDEF_LK",
       legalName: "WSO2 Lanka",
       code: "WSO2-LK",
+      country: "Sri Lanka",
     };
     expect(isFormComplete("subsidiaries", almost)).toBe(false);
   });
@@ -297,6 +305,7 @@ describe("initialFormData — seeding the payload from an existing row, or blank
       taxCode: "",
       legalName: "",
       code: "",
+      country: "",
     });
   });
   it("flattens an existing row into its payload shape", () => {

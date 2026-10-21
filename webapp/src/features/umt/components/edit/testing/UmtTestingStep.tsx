@@ -138,7 +138,7 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
           baseVersion: row.baseVersion ?? "",
           manualTestResult: draft.result,
           manualTestComment: draft.comment,
-          channel: "full",
+          channel: row.channel ?? "full",
         },
       ];
     });

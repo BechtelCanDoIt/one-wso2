@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deriveLegacyCycleDates, deriveLegacyRatingFromScore } from "./parLegacyHistory";
-import type { ParCycle, ParEmployee, ParLegacyHistory } from "../api/types";
+import { deriveLegacyCycleDates, deriveLegacyRatingFromScore, formatLegacyCycleName } from "./parLegacyHistory";
+import type { ParCycle, ParEmployee } from "../api/types";
 import type { ParLegacyHistoryByEmail, ParRatingByEmail } from "../api/useLeadHistory";
 
 export interface MergedCycleOption {
@@ -48,10 +48,14 @@ export function buildMergedCycleOptions(
   realCycles: ParCycle[],
   legacyHistoryByEmail: ParLegacyHistoryByEmail,
 ): MergedCycleOption[] {
-  const legacyCycleMap = new Map<string, ParLegacyHistory>();
+  // Real migrated data can carry either the raw or canonical 2015 cycle
+  // name (see formatLegacyCycleName's own comment) -- normalize before
+  // dedup, or the same logical cycle can appear twice (once per spelling).
+  const legacyCycleMap = new Map<string, string>();
   Object.values(legacyHistoryByEmail).forEach((records) => {
     (records ?? []).forEach((record) => {
-      if (!legacyCycleMap.has(record.cycleName)) legacyCycleMap.set(record.cycleName, record);
+      const cycleName = formatLegacyCycleName(record.cycleName);
+      if (!legacyCycleMap.has(cycleName)) legacyCycleMap.set(cycleName, cycleName);
     });
   });
 
@@ -64,12 +68,12 @@ export function buildMergedCycleOptions(
       cycleName: cycle.parCycleName,
       sortDate: cycle.parCycleStartDate,
     })),
-    ...Array.from(legacyCycleMap.values()).map((record) => ({
-      key: `legacy-${record.cycleName}`,
-      label: `${record.cycleName} (Legacy)`,
+    ...Array.from(legacyCycleMap.values()).map((cycleName) => ({
+      key: `legacy-${cycleName}`,
+      label: `${cycleName} (Legacy)`,
       isLegacy: true,
-      cycleName: record.cycleName,
-      sortDate: deriveLegacyCycleDates(record.cycleName).startDate,
+      cycleName,
+      sortDate: deriveLegacyCycleDates(cycleName).startDate,
     })),
   ];
 
@@ -103,7 +107,9 @@ export function filterEmployeesForCycle(
   const inScope = (email: string): boolean => {
     if (!scope) return true;
     if ("legacyCycleName" in scope) {
-      return (scope.legacyHistoryByEmail[email] ?? []).some((record) => record.cycleName === scope.legacyCycleName);
+      return (scope.legacyHistoryByEmail[email] ?? []).some(
+        (record) => formatLegacyCycleName(record.cycleName) === scope.legacyCycleName,
+      );
     }
     return scope.participantEmails.has(email);
   };
@@ -164,7 +170,7 @@ export function resolveEmployeeCycleRating(
     };
   }
   const record = legacyCycleName
-    ? legacyByEmail[employee.workEmail]?.find((r) => r.cycleName === legacyCycleName)
+    ? legacyByEmail[employee.workEmail]?.find((r) => formatLegacyCycleName(r.cycleName) === legacyCycleName)
     : undefined;
   if (!record) return { rating: null, special: null, hasRecord: false, isLoading: false, isError: false };
   const derived = deriveLegacyRatingFromScore(record.managerScoreCode);

@@ -59,6 +59,16 @@ interface DescriptionInstructionRow {
   instruction: string;
 }
 
+// The products/details PUT overwrites these on every product, so a description
+// save sends back whatever each product already has.
+function integrationTestFieldsOf(product: UmtUpdateProduct | undefined) {
+  return {
+    testPr: product?.testPr ?? "",
+    ignoreTestReason: product?.ignoreTestReason ?? "",
+    helmChartTag: product?.helmChartTag ?? "",
+  };
+}
+
 function toRow(product: ProductWithId): DescriptionInstructionRow {
   return {
     productId: product.productId,
@@ -143,6 +153,7 @@ export default function UmtDescriptionInstructionForm({
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [productDescription, setProductDescription] = useState("");
   const [productInstruction, setProductInstruction] = useState("");
+  const isSingleProductUpdate = products.length === 1;
 
   function closeAddModal() {
     setIsAddModalOpen(false);
@@ -196,8 +207,10 @@ export default function UmtDescriptionInstructionForm({
   // ---- Behavior-change block, seeded/kept in sync from the backend ----
   // (unlike the verification checkboxes above, these ARE backend-persisted,
   // so they must not be force-reset after a successful save.)
-  const backendBehaviorChanged = update.isBehaviorChanged ?? false;
-  const backendBehaviorChangeApproved = update.isBehaviorChangeApproved ?? false;
+  const backendBehaviorChanged = update.productBehaviourChanges ?? false;
+  // Not stored separately: a saved behaviour change was approved, since Save
+  // requires the approval box for one.
+  const backendBehaviorChangeApproved = backendBehaviorChanged;
   const [isBehaviorChanged, setIsBehaviorChanged] = useState<"Yes" | "No">(backendBehaviorChanged ? "Yes" : "No");
   const [isBehaviorChangeApproved, setIsBehaviorChangeApproved] = useState(backendBehaviorChangeApproved);
   const [lastBackendBehaviorChanged, setLastBackendBehaviorChanged] = useState(backendBehaviorChanged);
@@ -221,13 +234,13 @@ export default function UmtDescriptionInstructionForm({
 
   async function handleSave() {
     const productsPayload: UmtProductDetailsRequest[] = rows.map((row) => ({
+      ...integrationTestFieldsOf(products.find((product) => product.productId === row.productId)),
       productId: row.productId,
       description: row.description,
       instruction: row.instruction,
     }));
     const behaviorChange: UmtBehaviorChangeRequest = {
-      isBehaviorChanged: isBehaviorChanged === "Yes",
-      isBehaviorChangeApproved: isBehaviorChanged === "Yes" ? isBehaviorChangeApproved : false,
+      productBehaviourChanges: isBehaviorChanged === "Yes",
     };
     try {
       await saveMutation.mutateAsync({ products: productsPayload, behaviorChange });
@@ -241,8 +254,14 @@ export default function UmtDescriptionInstructionForm({
     }
   }
 
+  // A hotfix must have a description, and saving a blank one would overwrite
+  // the real one.
+  const isHotfixDescriptionBlank = !hotfixDescription.trim();
+
   async function handleSaveHotfix() {
+    if (isHotfixDescriptionBlank) return;
     const productsPayload: UmtProductDetailsRequest[] = products.map((product) => ({
+      ...integrationTestFieldsOf(product),
       productId: product.productId,
       description: hotfixDescription,
       instruction: hotfixInstruction,
@@ -263,6 +282,8 @@ export default function UmtDescriptionInstructionForm({
           label="Hotfix Description"
           value={hotfixDescription}
           onChange={(event) => setHotfixDescription(event.target.value)}
+          required
+          helperText={isHotfixDescriptionBlank ? "Add a hotfix description." : undefined}
           fullWidth
           multiline
           minRows={4}
@@ -278,7 +299,12 @@ export default function UmtDescriptionInstructionForm({
           maxRows={12}
         />
         <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
-          <Button variant="contained" loading={saveMutation.isPending} onClick={() => void handleSaveHotfix()}>
+          <Button
+            variant="contained"
+            disabled={isHotfixDescriptionBlank}
+            loading={saveMutation.isPending}
+            onClick={() => void handleSaveHotfix()}
+          >
             Save
           </Button>
         </Stack>
@@ -456,12 +482,14 @@ export default function UmtDescriptionInstructionForm({
         <DialogTitle>Add Description and Instructions</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <FormControlLabel
-              control={
-                <Checkbox checked={isProductSpecific} onChange={(event) => setIsProductSpecific(event.target.checked)} />
-              }
-              label="Product Specific"
-            />
+            {!isSingleProductUpdate && (
+              <FormControlLabel
+                control={
+                  <Checkbox checked={isProductSpecific} onChange={(event) => setIsProductSpecific(event.target.checked)} />
+                }
+                label="Product Specific"
+              />
+            )}
             {isProductSpecific ? (
               <>
                 <Autocomplete<string, false, false, false>

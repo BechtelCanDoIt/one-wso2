@@ -33,8 +33,10 @@ export function computeUmtDemoteActions(
   isAdmin: boolean,
 ): UmtDemoteAction[] {
   switch (stepId) {
-    case "product-analysis":
-      return [{ label: "Demote to Development", targetLifecycleState: "Development" }];
+    case "files-analysis":
+      return lifecycleState === "PRAnalyzed"
+        ? [{ label: "Demote to Development", targetLifecycleState: "Development" }]
+        : [];
     case "description-instruction":
       // Both of this step's demote buttons are gated on !isHotfix; there is
       // no separate rule for the hotfix branch.
@@ -51,7 +53,15 @@ export function computeUmtDemoteActions(
       return isAdmin ? [{ label: "Demote to Staging", targetLifecycleState: "Staging" }] : [];
     case "testing":
     case "validate":
-      return [{ label: "Demote to Development", targetLifecycleState: "Development" }];
+      // From Staging, the demotion is requested through DemoteStagingRequested,
+      // which tears staging down before the update lands in Development; it
+      // can't go straight to Development.
+      return [
+        {
+          label: "Demote to Development",
+          targetLifecycleState: lifecycleState === "Staging" ? "DemoteStagingRequested" : "Development",
+        },
+      ];
     case "verifying":
       if (lifecycleState === "UATStaging") {
         return [{ label: "Demote to Testing", targetLifecycleState: "Staging" }];

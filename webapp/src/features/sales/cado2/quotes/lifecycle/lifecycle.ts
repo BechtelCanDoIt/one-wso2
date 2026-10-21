@@ -26,9 +26,8 @@ import type {
   OpportunityQuote,
   VersionStatus,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { BILLING_LABEL, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { BILLING_LABEL, durationText, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
-import { MODE_LABEL } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
 
 // ---------------------------------------------------------------------------
@@ -66,7 +65,7 @@ export function quoteStatusLabel(status: VersionStatus, latestVersion: number): 
 export type Change = "same" | "changed" | "added" | "removed";
 
 export interface CompareRow {
-  readonly section: "Overview" | "Products" | "Commercial" | "Totals";
+  readonly section: "Overview" | "Products" | "Commercials" | "Totals";
   readonly label: string;
   readonly from: string;
   readonly to: string;
@@ -130,10 +129,9 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
   add("Overview", "Currency", text(va.currencyIsoCode), text(vb.currencyIsoCode));
   add("Overview", "Start date", formatDate(va.subscriptionStartDate), formatDate(vb.subscriptionStartDate));
   const termText = (v: typeof va) =>
-    v.termMode ? `${MODE_LABEL[v.termMode]}${v.termMode === "MULTI_YEAR" && v.termYears ? ` · ${v.termYears} years` : ""}` : DASH;
+    (v.subscriptionStartDate && v.subscriptionEndDate && durationText(v.subscriptionStartDate, v.subscriptionEndDate)) || DASH;
   add("Products", "Subscription term", termText(va), termText(vb));
   add("Products", "End date", formatDate(va.subscriptionEndDate), formatDate(vb.subscriptionEndDate));
-  add("Products", "Billing", text(va.billingFrequency && BILLING_LABEL[va.billingFrequency]), text(vb.billingFrequency && BILLING_LABEL[vb.billingFrequency]));
   const commission = (p: string | null | undefined) => (p ? `${Number(p)}%` : DASH);
   add("Products", "Partner commission", commission(va.partnerCommissionPercent), commission(vb.partnerCommissionPercent));
 
@@ -158,22 +156,23 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
     }
   }
 
-  add("Commercial", "Payment terms", va.netTermsDays ? `Net ${va.netTermsDays}` : DASH, vb.netTermsDays ? `Net ${vb.netTermsDays}` : DASH);
-  add("Commercial", "PO number", text(va.poNumber), text(vb.poNumber));
-  add("Commercial", "Special terms", terms(va.specialTerms, "None"), terms(vb.specialTerms, "None"));
-  add("Commercial", "Governing terms", terms(va.governingTerms, "Standard"), terms(vb.governingTerms, "Standard"));
-  add("Commercial", "Bill to", address(a, "BILL_TO"), address(b, "BILL_TO"));
-  add("Commercial", "Ship to", address(a, "SHIP_TO"), address(b, "SHIP_TO"));
-  add("Commercial", "Billing contact", contact(a, "BILLING"), contact(b, "BILLING"));
-  add("Commercial", "Security contact", contact(a, "SECURITY"), contact(b, "SECURITY"));
-  add("Commercial", "Justification", text(va.justification), text(vb.justification));
+  // Billing and payment terms open Commercials (D86).
+  add("Commercials", "Billing", text(va.billingFrequency && BILLING_LABEL[va.billingFrequency]), text(vb.billingFrequency && BILLING_LABEL[vb.billingFrequency]));
+  add("Commercials", "Payment terms", va.netTermsDays ? `Net ${va.netTermsDays}` : DASH, vb.netTermsDays ? `Net ${vb.netTermsDays}` : DASH);
+  add("Commercials", "PO number", text(va.poNumber), text(vb.poNumber));
+  add("Commercials", "Special terms", terms(va.specialTerms, "None"), terms(vb.specialTerms, "None"));
+  add("Commercials", "Governing terms", terms(va.governingTerms, "Standard"), terms(vb.governingTerms, "Standard"));
+  add("Commercials", "Bill to", address(a, "BILL_TO"), address(b, "BILL_TO"));
+  add("Commercials", "Ship to", address(a, "SHIP_TO"), address(b, "SHIP_TO"));
+  add("Commercials", "Billing contact", contact(a, "BILLING"), contact(b, "BILLING"));
+  add("Commercials", "Security contact", contact(a, "SECURITY"), contact(b, "SECURITY"));
+  add("Commercials", "Justification", text(va.justification), text(vb.justification));
 
   // ARR and ACV are null on a services-only quote.
   const na = (x: string | null) => (x === null ? "Not applicable" : formatMoney(x));
   add("Totals", "ARR", na(va.totals.arr), na(vb.totals.arr));
   add("Totals", "ACV", na(va.totals.acv), na(vb.totals.acv));
   add("Totals", "TCV", formatMoney(va.totals.tcv), formatMoney(vb.totals.tcv));
-  add("Totals", "Payable now", formatMoney(va.totals.payableNow), formatMoney(vb.totals.payableNow));
   return rows;
 }
 

@@ -30,7 +30,7 @@ export default function WelcomeCard(): JSX.Element | null {
           <CompassIcon size={20} />
         </Box>
         <Box sx={{ flex: 1 }}>
-          <Typography variant="subtitle2">New in Sales: Library</Typography>
+          <Typography variant="subtitle2">New in Sales: Ask Sales</Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
             Ask a question about Pitstop content and jump straight to the right page, slide or video moment.
           </Typography>

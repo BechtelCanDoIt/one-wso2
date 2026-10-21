@@ -19,22 +19,39 @@ import { InboxIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { UmtReleasedChunk } from "../../api/umtReleaseChunks";
 import { useUmtReleasedChunks } from "../../api/useUmtReleaseChunks";
-import { ChunkCell, ChunkLine } from "./umtReleaseChunkGridPrimitives";
+import { BuildStatusChip, ChunkCell, ChunkLine } from "./umtReleaseChunkGridPrimitives";
 import { UMT_CHUNK_GRID_SX } from "./umtReleaseChunkGridSx";
+import { useChunkGridPagination } from "./useChunkGridPagination";
 
 const { DataGrid: DataGridComponent } = DataGrid;
-const PAGE_SIZE_OPTIONS = [20, 30, 50];
+
+// The two per-update-level columns sit under one "Updates" title, the same way
+// the pending grid groups its build columns. The standalone columns carry their
+// name on the group instead of on the column, which is why their own
+// headerName is blank below.
+const COLUMN_GROUPING_MODEL: DataGrid.GridColumnGroupingModel = [
+  { groupId: "idGroup", headerName: "ID", children: [{ field: "id" }] },
+  { groupId: "updateIdsGroup", headerName: "Update IDs", children: [{ field: "updateIds" }] },
+  {
+    groupId: "updates",
+    headerName: "Updates",
+    headerAlign: "center",
+    children: [{ field: "updateLevels" }, { field: "buildStatus" }],
+  },
+  { groupId: "releaseMessageGroup", headerName: "Release Message", children: [{ field: "releaseMessage" }] },
+  { groupId: "releasedOnGroup", headerName: "Released On", children: [{ field: "releasedOn" }] },
+];
 
 // Purely informational: a released chunk is finished, so there is nothing to
 // act on here even for an administrator.
 export default function UmtReleasedChunksGrid() {
-  const releasedChunks = useUmtReleasedChunks();
-  const rows = [...(releasedChunks.data ?? [])].sort((a, b) => b.id - a.id);
+  const { chunks: releasedChunks, gridProps } = useChunkGridPagination(useUmtReleasedChunks);
+  const rows = releasedChunks.data?.chunks ?? [];
 
   const columns: DataGrid.GridColDef<UmtReleasedChunk>[] = [
     {
       field: "id",
-      headerName: "ID",
+      headerName: "",
       width: 80,
       sortable: false,
       renderCell: (params) => (
@@ -49,7 +66,7 @@ export default function UmtReleasedChunksGrid() {
     },
     {
       field: "updateIds",
-      headerName: "Update IDs",
+      headerName: "",
       width: 110,
       sortable: false,
       renderCell: (params) => (
@@ -71,7 +88,7 @@ export default function UmtReleasedChunksGrid() {
       renderCell: (params) => (
         <ChunkCell divided>
           {params.row.updateLevels.map((level, index) => (
-            <ChunkLine key={index} gap={1}>
+            <ChunkLine key={index}>
               {/* The trailing update level is what identifies which release
                   of the product this row is about; without it two releases of
                   the same product read identically. */}
@@ -81,18 +98,21 @@ export default function UmtReleasedChunksGrid() {
                   ? ""
                   : `.${level.updateLevel}`}
               </Typography>
-              <Box
-                sx={{
-                  bgcolor: level.buildStatus === "SUCCESS" ? "success.main" : "error.main",
-                  borderRadius: "50%",
-                  flexShrink: 0,
-                  height: 8,
-                  width: 8,
-                }}
-              />
-              <Typography variant="body2" sx={{ textTransform: "capitalize" }}>
-                {(level.buildStatus ?? "unknown").toLowerCase()}
-              </Typography>
+            </ChunkLine>
+          ))}
+        </ChunkCell>
+      ),
+    },
+    {
+      field: "buildStatus",
+      headerName: "Status",
+      width: 150,
+      sortable: false,
+      renderCell: (params) => (
+        <ChunkCell divided>
+          {params.row.updateLevels.map((level, index) => (
+            <ChunkLine key={index}>
+              <BuildStatusChip status={level.buildStatus} />
             </ChunkLine>
           ))}
         </ChunkCell>
@@ -100,7 +120,7 @@ export default function UmtReleasedChunksGrid() {
     },
     {
       field: "releaseMessage",
-      headerName: "Release Message",
+      headerName: "",
       flex: 2,
       minWidth: 200,
       sortable: false,
@@ -114,7 +134,7 @@ export default function UmtReleasedChunksGrid() {
     },
     {
       field: "releasedOn",
-      headerName: "Released On",
+      headerName: "",
       width: 170,
       sortable: false,
       renderCell: (params) => (
@@ -157,14 +177,14 @@ export default function UmtReleasedChunksGrid() {
         <Box sx={{ flex: 1, minHeight: 0 }}>
           <DataGridComponent
             columnHeaderHeight={40}
+            columnGroupingModel={COLUMN_GROUPING_MODEL}
             columns={columns}
             disableColumnMenu
             disableRowSelectionOnClick
             getRowHeight={() => "auto"}
-            initialState={{ pagination: { paginationModel: { pageSize: PAGE_SIZE_OPTIONS[0], page: 0 } } }}
             loading={releasedChunks.isPending}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
             rows={rows}
+            {...gridProps}
             slots={{ noRowsOverlay: ReleasedChunksEmptyState }}
             sx={UMT_CHUNK_GRID_SX}
           />

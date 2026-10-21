@@ -26,6 +26,12 @@ export interface UmtUserInfo {
   roles: number[];
 }
 
+// GET /update/documentation. `url` is null when the environment has none
+// configured.
+export interface UmtDocumentation {
+  url: string | null;
+}
+
 // Product rows returned by GET /meta. The latest-version fields are kept on
 // the metadata subtype because the Create dialog switches between the source
 // product version and its latest supported version.

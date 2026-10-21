@@ -19,9 +19,10 @@ import type { DraftResponse } from "@features/sales/cado2/quotes/api/quoteTypes"
 import {
   addressFrom,
   commissionProblem,
-  effectiveBilling,
+  durationText,
   emptyDraftForm,
   endDateFor,
+  endDateProblem,
   expiryFor,
   formatDate,
   fromVersion,
@@ -29,9 +30,8 @@ import {
   alignPreview,
   isExpired,
   parseDateString,
-  shortTermLatestEnd,
-  shortTermProblem,
   splitStreet,
+  termFromDates,
   stepOfField,
   storedPricing,
   termEnd,
@@ -94,7 +94,7 @@ function filled(): DraftFormValues {
     opportunityId: "006VM00000O4AUSYA3",
     currencyIsoCode: "USD",
     startDate: "2027-01-01",
-    termMode: "MULTI_YEAR",
+    termMode: "YEARS",
     termYears: "3",
     billingFrequency: "ANNUAL",
     legalEntityId: "7",
@@ -171,7 +171,7 @@ describe("toDraftInput", () => {
   it("sends choices, never prices, and keeps saved lines' snapshots", () => {
     const input = toDraftInput(filled(), "2026-09-25T10:00:00.123Z");
 
-    expect(input).toMatchObject({ termMode: "MULTI_YEAR", termYears: 3, billingFrequency: "ANNUAL" });
+    expect(input).toMatchObject({ termMode: "YEARS", termYears: 3, billingFrequency: "ANNUAL" });
     expect(input.subscriptionEndDate).toBeUndefined(); // derived by the backend
     expect(input.expectedUpdatedAt).toBe("2026-09-25T10:00:00.123Z");
     expect(input.legalEntityId).toBe(7);
@@ -222,21 +222,20 @@ describe("toDraftInput", () => {
     expect(input.specialTerms).toEqual({ enabled: false, text: undefined });
   });
 
-  it("sends only the term fields each mode uses", () => {
-    const one = toDraftInput({ ...filled(), termMode: "ONE_YEAR", termEndDate: "2027-06-30", billingFrequency: "UPFRONT" });
-    expect(one).toMatchObject({ termMode: "ONE_YEAR", termYears: undefined, subscriptionEndDate: undefined, billingFrequency: undefined });
-    // Co-termed: the opportunity it ends with, not a typed date (D73).
-    const co = toDraftInput({ ...filled(), termMode: "CO_TERMED", termEndDate: "2027-06-30", coTermOpportunityId: "006CO" });
-    expect(co).toMatchObject({ termMode: "CO_TERMED", coTermOpportunityId: "006CO", subscriptionEndDate: undefined, billingFrequency: undefined });
-    const short = toDraftInput({ ...filled(), termMode: "SHORTER", termEndDate: "2027-06-30", coTermOpportunityId: "006CO" });
-    expect(short).toMatchObject({ termMode: "SHORTER", subscriptionEndDate: "2027-06-30", coTermOpportunityId: undefined });
+  it("sends only the term fields each mode uses, and the billing (D85)", () => {
+    const years = toDraftInput({ ...filled(), termMode: "YEARS", termYears: "2", termEndDate: "2027-06-30", billingFrequency: "MONTHLY" });
+    expect(years).toMatchObject({ termMode: "YEARS", termYears: 2, subscriptionEndDate: undefined, billingFrequency: "MONTHLY" });
+    const date = toDraftInput({ ...filled(), termMode: "END_DATE", termEndDate: "2028-01-01", billingFrequency: "UPFRONT" });
+    expect(date).toMatchObject({ termMode: "END_DATE", termYears: undefined, subscriptionEndDate: "2028-01-01", billingFrequency: "UPFRONT" });
+    expect(date).not.toHaveProperty("coTermOpportunityId");
   });
 
-  it("sends no term when no product recurs in Salesforce (D76)", () => {
+  it("sends no term when no product recurs in Salesforce (D76), but still the billing (D88)", () => {
     const v = filled();
     // Still under Subscription: the category doesn't decide.
-    const input = toDraftInput({ ...v, lines: v.lines.map((l) => ({ ...l, recurring: false })) });
+    const input = toDraftInput({ ...v, billingFrequency: "MONTHLY", lines: v.lines.map((l) => ({ ...l, recurring: false })) });
     expect(input.termMode).toBeUndefined();
+    expect(input.billingFrequency).toBe("MONTHLY");
     expect(input.subscriptionStartDate).toBe("2027-01-01");
   });
 
@@ -255,8 +254,8 @@ describe("toPreviewBody", () => {
     expect(toPreviewBody(emptyDraftForm())).toBeNull();
     expect(toPreviewBody({ ...filled(), billingFrequency: "" })).toBeNull();
     expect(toPreviewBody({ ...filled(), lines: [] })).toBeNull();
-    expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "" })).toBeNull();
-    expect(toPreviewBody({ ...filled(), termMode: "SHORTER", termEndDate: "2028-01-01" })).toBeNull();
+    expect(toPreviewBody({ ...filled(), termMode: "END_DATE", termEndDate: "" })).toBeNull();
+    expect(toPreviewBody({ ...filled(), termMode: "END_DATE", termEndDate: "2037-01-01" })).toBeNull(); // over 10 years
   });
 
   it("prices a line waiting for its category too (D72, D76)", () => {
@@ -277,46 +276,55 @@ describe("toPreviewBody", () => {
     expect(JSON.stringify(toPreviewBody(filled()))).not.toContain("uplift");
   });
 
-  it("bills every term but Multi-year annually", () => {
-    expect(toPreviewBody({ ...filled(), termMode: "ONE_YEAR", billingFrequency: "" })).toMatchObject({
-      subscriptionEndDate: "2027-12-31",
-      billingFrequency: "ANNUAL",
+  it("prices any end date, a year and a day included, with the chosen billing (D85)", () => {
+    expect(toPreviewBody({ ...filled(), termMode: "END_DATE", termEndDate: "2028-01-01", billingFrequency: "QUARTERLY" })).toMatchObject({
+      subscriptionEndDate: "2028-01-01",
+      billingFrequency: "QUARTERLY",
     });
   });
 
-  it("prices a quote with no recurring product from its start date alone", () => {
+  it("prices a quote with no recurring product from its start date and billing (D88)", () => {
     const v = filled();
-    const body = toPreviewBody({ ...v, termMode: "", lines: v.lines.map((l) => ({ ...l, recurring: false })) });
-    expect(body).toMatchObject({ subscriptionStartDate: "2027-01-01", subscriptionEndDate: undefined });
+    const services = { ...v, termMode: "" as const, billingFrequency: "UPFRONT" as const, lines: v.lines.map((l) => ({ ...l, recurring: false })) };
+    expect(toPreviewBody(services)).toMatchObject({ subscriptionStartDate: "2027-01-01", subscriptionEndDate: undefined, billingFrequency: "UPFRONT" });
+    expect(toPreviewBody({ ...services, billingFrequency: "" })).toBeNull();
   });
 });
 
 describe("subscription term", () => {
   const term = { startDate: "2027-03-15", termYears: "4", termEndDate: "2027-09-30" };
 
-  it("derives the end for 1 year and Multi-year, and takes it as typed otherwise", () => {
-    expect(termEnd({ ...term, termMode: "ONE_YEAR" })).toBe("2028-03-14");
-    expect(termEnd({ ...term, termMode: "MULTI_YEAR" })).toBe("2031-03-14");
-    expect(termEnd({ ...term, termMode: "CO_TERMED" })).toBe("2027-09-30");
-    expect(termEnd({ ...term, termMode: "SHORTER" })).toBe("2027-09-30");
+  it("works out the end for a number of years, and takes an end date as set", () => {
+    expect(termEnd({ ...term, termMode: "YEARS", termYears: "1" })).toBe("2028-03-14");
+    expect(termEnd({ ...term, termMode: "YEARS" })).toBe("2031-03-14");
+    expect(termEnd({ ...term, termMode: "END_DATE" })).toBe("2027-09-30");
     expect(termEnd({ ...term, termMode: "" })).toBe("");
-    expect(termEnd({ ...term, startDate: "", termMode: "ONE_YEAR" })).toBe("");
+    expect(termEnd({ ...term, startDate: "", termMode: "YEARS" })).toBe("");
   });
 
-  it("ends Less than a year at least a day short of a full year; a co-termed end may fall on it", () => {
-    expect(shortTermLatestEnd("2027-03-15")).toBe("2028-03-13");
-    expect(shortTermProblem("2027-03-15", "2028-03-13", "SHORTER")).toBe("");
-    expect(shortTermProblem("2027-03-15", "2028-03-14", "SHORTER")).toBe(
-      "Less than a year must end before 14 Mar 2028. For a full year, choose 1 year",
-    );
-    expect(shortTermProblem("2027-03-15", "2028-03-14", "CO_TERMED")).toBe("");
-    expect(shortTermProblem("2027-03-15", "2028-03-15", "CO_TERMED")).toMatch(/within a year/);
-    expect(shortTermProblem("2027-03-15", "2027-03-14", "SHORTER")).toMatch(/before the start/);
+  it("says the duration in words, as the backend does (D85)", () => {
+    expect(durationText("2027-01-01", "2027-12-31")).toBe("1 year");
+    expect(durationText("2027-01-01", "2029-12-31")).toBe("3 years");
+    expect(durationText("2027-01-01", "2028-01-01")).toBe("1 year + 1 day");
+    expect(durationText("2027-01-01", "2027-12-30")).toBe("11 months + 30 days");
+    expect(durationText("2027-01-01", "2029-03-31")).toBe("2 years + 3 months");
+    expect(durationText("2027-03-05", "2027-03-05")).toBe("1 day");
+    expect(durationText("2027-01-31", "2027-02-27")).toBe("1 month");
+    expect(durationText("2027-03-05", "2027-03-04")).toBe("");
   });
 
-  it("uses the chosen billing for Multi-year only", () => {
-    expect(effectiveBilling({ termMode: "MULTI_YEAR", billingFrequency: "UPFRONT" })).toBe("UPFRONT");
-    expect(effectiveBilling({ termMode: "CO_TERMED", billingFrequency: "UPFRONT" })).toBe("ANNUAL");
+  it("reads Salesforce's dates as whole years when they make them, else as an end date (D85)", () => {
+    expect(termFromDates("2027-01-01", "2029-12-31")).toEqual({ termMode: "YEARS", termYears: "3", termEndDate: "" });
+    expect(termFromDates("2027-01-01", "2028-01-01")).toEqual({ termMode: "END_DATE", termYears: "1", termEndDate: "2028-01-01" });
+    expect(termFromDates("2027-01-01", null)).toEqual({ termMode: "YEARS", termYears: "1", termEndDate: "" });
+    expect(termFromDates("", "2027-12-31")).toEqual({ termMode: "YEARS", termYears: "1", termEndDate: "" });
+  });
+
+  it("allows an end date from the start up to 10 years (D85)", () => {
+    expect(endDateProblem("2027-03-15", "2027-09-30")).toBe("");
+    expect(endDateProblem("2027-03-15", "2037-03-14")).toBe("");
+    expect(endDateProblem("2027-03-15", "2037-03-15")).toMatch(/at most 10 years/);
+    expect(endDateProblem("2027-03-15", "2027-03-14")).toMatch(/before the start/);
   });
 });
 
@@ -334,7 +342,7 @@ describe("fromVersion", () => {
         currencyIsoCode: "USD",
         subscriptionStartDate: "2027-01-01",
         subscriptionEndDate: "2027-06-30",
-        termMode: "CO_TERMED",
+        termMode: "END_DATE",
         termYears: null,
         billingFrequency: "ANNUAL",
         netTermsDays: 45,
@@ -404,9 +412,9 @@ describe("fromVersion", () => {
 
     const v = fromVersion(res);
 
-    expect(v.termMode).toBe("CO_TERMED");
+    expect(v.termMode).toBe("END_DATE");
     expect(v.termEndDate).toBe("2027-06-30");
-    expect(v.billingFrequency).toBe(""); // only kept for Multi-year
+    expect(v.billingFrequency).toBe("ANNUAL");
     expect(v.netTermsDays).toBe("45");
     expect(v.shipToSameAsBillTo).toBe(true);
     expect(v.securityContact).toMatchObject({
@@ -426,16 +434,18 @@ describe("stepOfField", () => {
   it("sends each issue to the step that owns the field", () => {
     expect(stepOfField("legalEntityId")).toBe(0);
     expect(stepOfField("contacts.billing")).toBe(2);
-    expect(stepOfField("defaultPricebookId")).toBe(1); // the price book card is on Term & Products
+    expect(stepOfField("defaultPricebookId")).toBe(1); // the price book card is on Products & Pricing
     expect(stepOfField("lines")).toBe(1);
     expect(stepOfField("lines[2].quantity")).toBe(1);
     expect(stepOfField("subscriptionStartDate")).toBe(1); // with the term (D73)
-    expect(stepOfField("coTermOpportunityId")).toBe(1);
+    expect(stepOfField("billingFrequency")).toBe(2); // Commercials (D86)
     expect(stepOfField("termMode")).toBe(1);
     expect(stepOfField("subscriptionEndDate")).toBe(1);
     expect(stepOfField("billTo.city")).toBe(2);
     expect(stepOfField("contacts.billing")).toBe(2);
-    expect(stepOfField("netTermsDays")).toBe(2);
+    expect(stepOfField("netTermsDays")).toBe(2); // the Payment Terms card on Commercials (D86)
+    expect(stepOfField("poNumber")).toBe(2);
+    expect(stepOfField("specialTerms.billing")).toBe(2);
   });
 });
 

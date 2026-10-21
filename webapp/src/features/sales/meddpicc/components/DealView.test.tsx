@@ -17,14 +17,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
-// The backend is replaced by the in-memory test double in ../mock, behind the
+// The backend is replaced by the in-memory test double in ../testing, behind the
 // same client interface, so the real hooks, cache and mutations run against it.
 vi.mock("@config/apiConfig", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@config/apiConfig")>()),
   isEchoBackendConfigured: () => true,
 }));
 vi.mock("@features/sales/meddpicc/api/meddpiccClient", async (importOriginal) => {
-  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/mock/mockStore");
+  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/testing/mockStore");
   return {
     ...(await importOriginal<typeof import("@features/sales/meddpicc/api/meddpiccClient")>()),
     httpMeddpiccClient: () => mockMeddpiccClient,
@@ -36,6 +36,13 @@ vi.mock("@hooks/useAsgardeoSub", () => ({
   foldIdentityError: (query: unknown) => query,
 }));
 vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "token" }));
+// Ask AI's two requests, answered by each test.
+const ask = vi.hoisted(() => ({ searchLibrary: vi.fn(), askDeal: vi.fn() }));
+vi.mock("@features/sales/meddpicc/api/askAi", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@features/sales/meddpicc/api/askAi")>()),
+  searchLibrary: ask.searchLibrary,
+  askDeal: ask.askDeal,
+}));
 const showSuccess = vi.fn();
 vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showSuccess, showError: vi.fn(), showWarning: vi.fn() }),
@@ -47,8 +54,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter } from "react-router";
 import DealView from "./DealView";
 import { useDeal } from "../api/useMeddpiccData";
-import { mockMeddpiccClient, resetMockStore } from "../mock/mockStore";
+import { mockMeddpiccClient, resetMockStore } from "../testing/mockStore";
 import type { DealTab } from "../../util/salesPaths";
+import { HttpError } from "@api/http";
+import type { AskAnswer } from "../types";
 
 /** What DealPage does once the deal has loaded, without the page's shell around it. */
 function LoadedDeal({ opportunityId, tab }: { opportunityId: string; tab?: DealTab }) {
@@ -78,6 +87,8 @@ function renderPanel(opportunityId: string, tab?: DealTab) {
 const approveButton = () => screen.getByRole("button", { name: /^Approve all/ });
 
 beforeEach(() => {
+  ask.searchLibrary.mockReset();
+  ask.askDeal.mockReset();
   resetMockStore();
   showSuccess.mockClear();
 });
@@ -202,7 +213,7 @@ describe("DealView", { timeout: 20000 }, () => {
   it("is read-only for someone who can't edit the deal", async () => {
     renderPanel("006MOCK0000ASTE");
     await screen.findByRole("heading", { name: "Asterra Health – FHIR gateway" });
-    expect(screen.getByText(/You can view this deal/)).toBeInTheDocument();
+    expect(screen.getByText(/You can view this opportunity/)).toBeInTheDocument();
     // The notice says why; there is no disabled Approve all to puzzle over.
     expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
@@ -245,6 +256,16 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toHaveTextContent("Nothing is missing in Qualify.");
   });
 
+  it("leaves out Needs your review on a stage with nothing to review", async () => {
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    await user.click(screen.getByRole("button", { name: /^Validate: / }));
+    expect(screen.queryByRole("region", { name: "Needs your review" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Nothing is waiting for review/)).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Missing" })).toBeInTheDocument();
+  });
+
   it("leads with the deal's facts, its Letters in Salesforce and what is waiting for review", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
@@ -254,6 +275,15 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByText(/^\d of 8 in Salesforce/)).toBeInTheDocument();
     // The review count rides on the MEDDPICC tab, so it shows from the Activity tab too.
     expect(screen.getByRole("tab", { name: /^MEDDPICC, \d+ to review$/ })).toBeInTheDocument();
+  });
+
+  // The score and flags themselves are covered in DealScore.test and DealFlags.test.
+  it("has a deal score card, a dash with no score, and no attention box with no flags", async () => {
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    expect(screen.getByText("Opportunity score")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
   });
 
   it("re-reads the deal from Salesforce on Refresh, and shows what came back", async () => {
@@ -276,26 +306,89 @@ describe("DealView", { timeout: 20000 }, () => {
     spy.mockRestore();
   });
 
-  it("asks about the deal on the Ask AI tab, saying it is not connected yet", async () => {
+  it("answers a question from the opportunity and the Library, with its sources, and carries the thread", async () => {
+    const answer: AskAnswer = {
+      answer: "The CFO signs [1]. API Manager ships Helm charts [2].",
+      covered: true,
+      nextQuestion: null,
+      libraryUnavailable: false,
+      sources: [
+        { n: 1, group: "OPPORTUNITY", type: "CALL", title: "Architecture review", detail: "Call · Aisha Rahman (customer)",
+          quote: "Anything over budget goes to the CFO.", occurredAt: "2026-09-22T14:30:00Z", url: null, meetingId: 91013, offsetSeconds: 600 },
+        { n: 2, group: "LIBRARY", type: "LIBRARY", title: "API Manager on Kubernetes", detail: "Sales Library · Slide 4",
+          quote: "Helm charts for Kubernetes.", occurredAt: null, url: "https://drive.example/doc#slide=4", meetingId: null, offsetSeconds: null },
+      ],
+    };
+    ask.searchLibrary.mockResolvedValue([{ title: "API Manager on Kubernetes", content: "Helm charts.", link: null, page: 4, unitLabel: "Slide", documentId: "42" }]);
+    ask.askDeal.mockResolvedValue(answer);
     const user = userEvent.setup();
     renderPanel("006MOCK0000MERI", "ask");
-    await screen.findByRole("heading", { name: "Ask about this deal" });
-    expect(screen.getByText("Preview")).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "Ask about this opportunity" });
 
     await user.click(screen.getByRole("button", { name: "What's blocking the next stage?" }));
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
+    expect(await within(log).findByText(/The CFO signs/)).toBeInTheDocument();
+    expect(within(log).getByRole("link", { name: "Source 1" })).toHaveAttribute("href", expect.stringMatching(/#ask-.*-source-1$/));
+    const fromOpportunity = within(log).getByRole("region", { name: "From this opportunity" });
+    expect(within(fromOpportunity).getByRole("link", { name: /Architecture review/ })).toHaveAttribute("href", "/sales/meetings/91013?tab=meddpicc");
+    const fromLibrary = within(log).getByRole("region", { name: "From the Sales Library" });
+    expect(within(fromLibrary).getByRole("link", { name: /API Manager on Kubernetes/ })).toHaveAttribute("href", "https://drive.example/doc#slide=4");
 
-    const log = screen.getByRole("log", { name: "Conversation about this deal" });
-    expect(within(log).getByText("What's blocking the next stage?")).toBeInTheDocument();
-    expect(within(log).getByText(/Ask AI isn't connected yet/)).toBeInTheDocument();
+    const [, first] = ask.askDeal.mock.calls[0];
+    expect(first).toEqual(expect.objectContaining({ question: "What's blocking the next stage?", history: [], libraryUnavailable: false }));
+    expect(first.librarySources).toHaveLength(1);
 
-    // A typed follow-up, sent with Enter.
+    // A typed follow-up carries the first turn, and the Library search carries the first question.
     await user.type(screen.getByRole("textbox", { name: "Your question" }), "Who signs the contract?{Enter}");
-    expect(within(log).getByText("Who signs the contract?")).toBeInTheDocument();
-    expect(within(log).getAllByText(/Ask AI isn't connected yet/)).toHaveLength(2);
+    await waitFor(() => expect(ask.askDeal).toHaveBeenCalledTimes(2));
+    const [, second] = ask.askDeal.mock.calls[1];
+    expect(second.history).toEqual([{ question: "What's blocking the next stage?", answer: answer.answer }]);
+    expect(ask.searchLibrary.mock.calls[1][0]).toBe("Who signs the contract? | What's blocking the next stage?");
 
-    await user.click(screen.getByRole("button", { name: "New conversation" }));
+    await user.click(await screen.findByRole("button", { name: "New conversation" }));
     expect(within(log).queryByText("Who signs the contract?")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Summarise where this deal stands." })).toBeInTheDocument();
+  });
+
+  it("sends a question once, however fast it is sent again", async () => {
+    let finish: (a: AskAnswer) => void = () => {};
+    ask.searchLibrary.mockResolvedValue([]);
+    ask.askDeal.mockReturnValue(new Promise<AskAnswer>((resolve) => (finish = resolve)));
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI", "ask");
+    const box = await screen.findByRole("textbox", { name: "Your question" });
+    await user.type(box, "Who signs?{Enter}");
+    await user.type(box, "Who signs?{Enter}");
+    expect(await screen.findByRole("status")).toHaveTextContent(/Searching the Library|Writing the answer/);
+    finish({ answer: "Not covered.", covered: false, nextQuestion: null, libraryUnavailable: false, sources: [] });
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
+    expect(await within(log).findByText("Not covered.")).toBeInTheDocument();
+    expect(ask.askDeal).toHaveBeenCalledTimes(1);
+    expect(within(log).getAllByText("Who signs?")).toHaveLength(1);
+  });
+
+  it("answers without the Library when it can't be searched, and says so", async () => {
+    ask.searchLibrary.mockResolvedValue(null);
+    ask.askDeal.mockResolvedValue({ answer: "Not covered.", covered: false, nextQuestion: "Who signs off the purchase?",
+      libraryUnavailable: true, sources: [] } satisfies AskAnswer);
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI", "ask");
+    await user.click(await screen.findByRole("button", { name: "Who is the economic buyer, and how do we know?" }));
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
+    expect(await within(log).findByText("Who signs off the purchase?")).toBeInTheDocument();
+    expect(within(log).getByText(/Library unavailable/)).toBeInTheDocument();
+    expect(ask.askDeal.mock.calls[0][1]).toEqual(expect.objectContaining({ librarySources: [], libraryUnavailable: true }));
+  });
+
+  it("says when Ask AI isn't connected, or the question was too many", async () => {
+    ask.searchLibrary.mockResolvedValue([]);
+    ask.askDeal.mockRejectedValueOnce(new HttpError("/ask", 404, "")).mockRejectedValueOnce(new HttpError("/ask", 429, ""));
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000MERI", "ask");
+    await user.click(await screen.findByRole("button", { name: "What's blocking the next stage?" }));
+    const log = screen.getByRole("log", { name: "Conversation about this opportunity" });
+    expect(await within(log).findByText("Ask AI isn't connected yet, so this question wasn't answered.")).toBeInTheDocument();
+    await user.type(screen.getByRole("textbox", { name: "Your question" }), "Again?{Enter}");
+    expect(await within(log).findByText(/asked a lot in the last minute/)).toBeInTheDocument();
   });
 
   it("filters the activity list and the journey by source with the chips", async () => {
@@ -322,7 +415,7 @@ describe("DealView", { timeout: 20000 }, () => {
     renderPanel("006MOCK0000MERI", "activity");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     const activity = () => screen.getByRole("region", { name: "Activity" });
-    const marks = () => within(screen.getByRole("list", { name: /^Deal journey/ })).getAllByRole("listitem");
+    const marks = () => within(screen.getByRole("list", { name: /^Opportunity journey/ })).getAllByRole("listitem");
     const all = marks().length;
     expect(within(activity()).getByText("Re: pricing")).toBeInTheDocument();
     expect(within(activity()).getByText("Sent the proposal")).toBeInTheDocument();
@@ -343,13 +436,13 @@ describe("DealView", { timeout: 20000 }, () => {
     const { unmount } = renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     expect(screen.getByRole("tab", { name: /^MEDDPICC/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("list", { name: /^Deal journey/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: /^Opportunity journey/ })).not.toBeInTheDocument();
     unmount();
 
     renderPanel("006MOCK0000MERI", "activity");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     expect(screen.getByRole("tab", { name: /^Activity/ })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    expect(screen.getByRole("list", { name: /^Opportunity journey/ })).toBeInTheDocument();
     // The fields and their approval bar stay on the MEDDPICC tab.
     expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
     // Each activity entry says what it was; without the backend's kind, a call is a customer call.

@@ -16,7 +16,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { authedGet, defaultQueryRetry } from "@api/http";
+import { authedGet, defaultQueryRetry, HttpError } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { parBackendUrl, parServiceUrls } from "@config/apiConfig";
 import { digiopsHeaders } from "@features/my/util/digiopsHeaders";
@@ -176,14 +176,24 @@ export function useParAllRatings(parCycleId: number | undefined, enabled = true)
 
 // GET every distinct legacy cycle org-wide — HistoryPanel.tsx's own
 // fetchDistinctLegacyParCycles, for the History tab's merged cycle list.
+//
+// Same 404-means-"feature off" signal as useParLegacyHistory (see its own
+// comment) -- this endpoint has the identical enableLegacyParDataView gate,
+// checked before auth, in service.bal. `null` (vs `[]`) carries that here
+// too, so admin callers get the same "disabled" distinction self-view does.
 export function useDistinctLegacyParCycles(enabled = true) {
   const { isSignedIn, getAccessToken, backendConfigured } = useParBaseline();
-  return useQuery<ParLegacyCycleSummary[]>({
+  return useQuery<ParLegacyCycleSummary[] | null>({
     queryKey: ["par-admin-legacy-cycles"],
     enabled: enabled && isSignedIn && backendConfigured,
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      return authedGet<ParLegacyCycleSummary[]>(parServiceUrls.legacyParHistoryCycles(), accessToken, digiopsHeaders());
+      try {
+        return await authedGet<ParLegacyCycleSummary[]>(parServiceUrls.legacyParHistoryCycles(), accessToken, digiopsHeaders());
+      } catch (e) {
+        if (e instanceof HttpError && e.status === 404) return null;
+        throw e;
+      }
     },
     staleTime: 10 * 60 * 1000,
     retry: defaultQueryRetry,
@@ -192,6 +202,13 @@ export function useDistinctLegacyParCycles(enabled = true) {
 
 // GET every employee's legacy row for one cycle name — HistoryPanel.tsx's own
 // fetchLegacyParHistoryByCycle, for the History tab's legacy drill-down.
+// Always summary-mode (names/scores only, no full submitted answers) --
+// hundreds to low thousands of participants org-wide is the confirmed real
+// scale, and fetching every one of those rows' full AES-decrypted comments
+// plus two JSON-aggregated fields just to render a roster/grouping list is
+// real per-row backend work (and payload size) spent on data this view never
+// displays. ParAdminLegacyCycleView.tsx fetches one record's full detail
+// separately, via useParLegacyHistory below, only once it's actually opened.
 export function useLegacyParHistoryByCycle(cycleName: string | undefined, enabled = true) {
   const { isSignedIn, getAccessToken, backendConfigured } = useParBaseline();
   return useQuery<ParLegacyHistory[]>({
@@ -200,7 +217,7 @@ export function useLegacyParHistoryByCycle(cycleName: string | undefined, enable
     queryFn: async () => {
       const accessToken = await getAccessToken();
       return authedGet<ParLegacyHistory[]>(
-        parServiceUrls.legacyParHistoryCyclesParticipants(cycleName!),
+        parServiceUrls.legacyParHistoryCyclesParticipants(cycleName!, true),
         accessToken,
         digiopsHeaders(),
       );

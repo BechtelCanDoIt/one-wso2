@@ -59,57 +59,83 @@ describe("useUmtReleaseChunks", () => {
     // umtReleaseChunks.test.ts. A hook that forgot to map this would hand the
     // UI an update level with no productName/productVersion/buildStatus at
     // all, which is what made every row render "N/A".
-    authedGet.mockResolvedValue([
-      {
-        id: 1,
-        updateIds: [1],
-        updateLevels: [
-          { "product-name": "wso2am", "product-version": "4.2.0", "build-status": "SUCCESS" },
-        ],
-      },
-    ]);
+    authedGet.mockResolvedValue({
+      releaseChunks: [
+        {
+          id: 1,
+          updateIds: [1],
+          updateLevels: [
+            { "product-name": "wso2am", "product-version": "4.2.0", "build-status": "SUCCESS" },
+          ],
+        },
+      ],
+      totalPages: 3,
+      pageSize: 20,
+      totalCount: 41,
+    });
     const { Wrapper } = wrapper();
-    const { result } = renderHook(() => useUmtReleaseChunks(), { wrapper: Wrapper });
+    const { result } = renderHook(() => useUmtReleaseChunks({ page: 2, pageSize: 20 }), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => expect(result.current.data).toBeDefined());
 
-    expect(authedGet).toHaveBeenCalledWith(umtServiceUrls.releaseChunks, "token");
-    expect(result.current.data).toEqual([
-      {
-        id: 1,
-        updateIds: [1],
-        updateLevels: [
-          {
-            productName: "wso2am",
-            productVersion: "4.2.0",
-            buildStatus: "SUCCESS",
-            tgBuildStatus: undefined,
-          },
-        ],
-      },
-    ]);
+    // The grid's pages are 0-based and the backend's 1-based, so the grid's
+    // third page goes out as page=3.
+    expect(authedGet).toHaveBeenCalledWith(
+      umtServiceUrls.releaseChunksPage({ page: 2, pageSize: 20 }),
+      "token",
+    );
+    expect(authedGet.mock.calls[0]?.[0]).toMatch(/\/update\/releaseChunk\?page=3&pageSize=20$/);
+    expect(result.current.data).toEqual({
+      chunks: [
+        {
+          id: 1,
+          updateIds: [1],
+          updateLevels: [
+            {
+              productName: "wso2am",
+              productVersion: "4.2.0",
+              buildStatus: "SUCCESS",
+              tgBuildStatus: undefined,
+            },
+          ],
+        },
+      ],
+      totalCount: 41,
+    });
   });
 });
 
 describe("useUmtReleasedChunks", () => {
   it("GETs the released chunks list and maps its kebab-case update levels to camelCase", async () => {
-    authedGet.mockResolvedValue([
-      {
-        id: 2,
-        updateIds: [2],
-        updateLevels: [
-          { "product-name": "wso2is", "product-version": "7.0.0", "build-status": "SUCCESS" },
-        ],
-        status: "Released",
-      },
-    ]);
+    authedGet.mockResolvedValue({
+      releaseChunks: [
+        {
+          id: 2,
+          updateIds: [2],
+          updateLevels: [
+            { "product-name": "wso2is", "product-version": "7.0.0", "build-status": "SUCCESS" },
+          ],
+          status: "Released",
+        },
+      ],
+      totalPages: 1,
+      pageSize: 20,
+      totalCount: 1,
+    });
     const { Wrapper } = wrapper();
-    const { result } = renderHook(() => useUmtReleasedChunks(), { wrapper: Wrapper });
+    const { result } = renderHook(() => useUmtReleasedChunks({ page: 0, pageSize: 20 }), {
+      wrapper: Wrapper,
+    });
 
     await waitFor(() => expect(result.current.data).toBeDefined());
 
-    expect(authedGet).toHaveBeenCalledWith(umtServiceUrls.releasedChunks, "token");
-    expect(result.current.data?.[0]?.updateLevels).toEqual([
+    expect(authedGet.mock.calls[0]?.[0]).toMatch(
+      /\/update\/releaseChunk\?states=released&page=1&pageSize=20$/,
+    );
+    expect(result.current.data?.totalCount).toBe(1);
+    expect(result.current.data?.chunks[0]?.updateLevels).toEqual([
       { productName: "wso2is", productVersion: "7.0.0", buildStatus: "SUCCESS", tgBuildStatus: undefined },
     ]);
   });

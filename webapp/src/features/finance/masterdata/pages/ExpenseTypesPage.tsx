@@ -15,7 +15,7 @@
 // under the License.
 
 import { useEffect, useState } from "react";
-import { Collapse, ToggleButton } from "@wso2/oxygen-ui";
+import { Box, Collapse, ToggleButton } from "@wso2/oxygen-ui";
 import { FilterIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import ExpenseTypeFilters from "../ExpenseTypeFilters";
@@ -23,6 +23,19 @@ import MasterDataScreen from "../MasterDataScreen";
 import { MASTER_DATA_SNACK } from "../masterDataCopy";
 import { useExpenseTypeAutoComplete, useExpenseTypes } from "../useMasterData";
 import type { ExpenseTypeFilter } from "../masterDataTypes";
+
+// The filter panel's height slide, and the fade that covers it.
+const FILTER_EASE_IN = "cubic-bezier(0.4, 0, 0.2, 1)";
+const FILTER_EASE_OUT = "cubic-bezier(0.4, 0, 1, 1)";
+const FILTER_SLIDE_MS = 260;
+const FILTER_FADE_IN_MS = 220;
+const FILTER_FADE_OUT_MS = 120;
+// Lets the height open before the contents arrive.
+const FILTER_FADE_DELAY_MS = 40;
+
+const FADE_PROPS = ["opacity", "transform"];
+const fadeTransition = (ms: number, ease: string, delay = 0) =>
+  FADE_PROPS.map((prop) => `${prop} ${ms}ms ${ease} ${delay}ms`).join(", ");
 
 /**
  * The expense-type catalogue — `pages/ExpenseTypes.tsx`.
@@ -73,30 +86,45 @@ export default function ExpenseTypesPage() {
           size="small"
           selected={showFilters}
           onChange={() => setShowFilters((v) => !v)}
-          sx={{ textTransform: "none", gap: 0.75, px: 1.5 }}
+          // One width for both labels: the toolbar is right-aligned, so a
+          // button that resizes on click nudges "Add New Expense Type" too.
+          sx={{ textTransform: "none", gap: 0.75, px: 1.5, minWidth: 140 }}
         >
           <FilterIcon size={16} />
           {showFilters ? "Hide Filters" : "Show Filters"}
         </ToggleButton>
       }
     >
-      <Collapse in={showFilters} unmountOnExit>
-        <ExpenseTypeFilters
-          draft={draft}
-          options={options.data}
-          optionsLoading={options.isLoading}
-          busy={query.isFetching}
-          onChange={setDraft}
-          onApply={() => setApplied(draft)}
-          // Clears what the table is showing too, not just the bar. With the
-          // catalogue as the starting point, "Clear" means "back to all of
-          // it" — emptying the fields while the table stayed narrowed would
-          // leave no way to read what it was still narrowed by.
-          onClear={() => {
-            setDraft({});
-            setApplied({});
+      {/* flexShrink: 0 stops the flex-column parent squeezing Collapse and
+          clipping the buttons. The fade hides Collapse un-clipping the
+          filters a row at a time. */}
+      <Collapse in={showFilters} timeout={FILTER_SLIDE_MS} easing={FILTER_EASE_IN} sx={{ flexShrink: 0 }}>
+        <Box
+          sx={{
+            opacity: showFilters ? 1 : 0,
+            transform: showFilters ? "translateY(0)" : "translateY(-4px)",
+            transition: showFilters
+              ? fadeTransition(FILTER_FADE_IN_MS, FILTER_EASE_IN, FILTER_FADE_DELAY_MS)
+              : fadeTransition(FILTER_FADE_OUT_MS, FILTER_EASE_OUT),
           }}
-        />
+        >
+          <ExpenseTypeFilters
+            draft={draft}
+            options={options.data}
+            optionsLoading={options.isLoading}
+            busy={query.isFetching}
+            onChange={setDraft}
+            onApply={() => setApplied(draft)}
+            // Clears what the table is showing too, not just the bar. With the
+            // catalogue as the starting point, "Clear" means "back to all of
+            // it" — emptying the fields while the table stayed narrowed would
+            // leave no way to read what it was still narrowed by.
+            onClear={() => {
+              setDraft({});
+              setApplied({});
+            }}
+          />
+        </Box>
       </Collapse>
     </MasterDataScreen>
   );

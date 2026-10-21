@@ -105,7 +105,7 @@ export default function MeetingCoverageCell({
         {coverage.stageAtCall && (
           <StageChip
             stage={coverage.stageAtCall}
-            title={`${coverage.stageAtCall}: the deal's stage at the time of the call`}
+            title={`${coverage.stageAtCall}: the opportunity's stage at the time of the call`}
             sx={{ width: "100%" }}
           />
         )}
@@ -131,7 +131,7 @@ export default function MeetingCoverageCell({
       </Stack>
       {coverage.missed.length > 0 && (
         <Tooltip
-          title={`This call didn't cover ${coverage.missed.map(letterLabel).join(", ")}, which the deal's current Gate needs.`}
+          title={`This call didn't cover ${coverage.missed.map(letterLabel).join(", ")}, which the opportunity's current Gate needs.`}
           arrow
         >
           <Typography variant="caption" sx={{ color: "warning.dark", cursor: "help", whiteSpace: "nowrap" }}>

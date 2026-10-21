@@ -28,6 +28,8 @@ import {
   useUmtSaveTestPullRequests,
 } from "../api/useUmtUpdateActions";
 import { isValidGithubIssueUrl } from "../lib/umtCreateUpdate";
+import { umtTestPrError } from "../lib/umtIntegrationTests";
+import { umtPublicPrError } from "../lib/umtVerifying";
 import { useUmtUpdateViewData } from "../api/useUmtUpdateViewData";
 import EditableLinkSection from "./UmtEditableLinkSection";
 import {
@@ -48,9 +50,12 @@ import {
 export default function UmtUpdateViewSections({
   id,
   update,
+  readOnly = false,
 }: {
   id: string;
   update: UmtUpdateSummary;
+  // No adds or deletes at all, e.g. while the update is mid-demotion.
+  readOnly?: boolean;
 }) {
   const viewData = useUmtUpdateViewData(id, update.lifecycleState, Boolean(update.isHotfix));
   const publicPullRequests = update.publicPullRequests ?? [];
@@ -61,7 +66,8 @@ export default function UmtUpdateViewSections({
   // The add action is hidden once an update is Released; the admin-only
   // delete column follows the same rule this codebase already applies
   // elsewhere (e.g. File Approval's promote gate).
-  const canAddLinks = update.lifecycleState !== "Released";
+  const canAddLinks = !readOnly && update.lifecycleState !== "Released";
+  const canDeleteLinks = !readOnly && gate.isAdmin;
 
   return (
     <Stack spacing={3} sx={{ mt: 3 }}>
@@ -74,7 +80,7 @@ export default function UmtUpdateViewSections({
             emptyText="No Public GitHub Issues Available"
             items={update.issues ?? []}
             canAdd={canAddLinks}
-            canDelete={gate.isAdmin}
+            canDelete={canDeleteLinks}
             requireAtLeastOne
             addDialogTitle="Add Public GitHub Issues"
             addFieldLabel="Public GitHub Issue"
@@ -91,9 +97,10 @@ export default function UmtUpdateViewSections({
             emptyText="No Public Pull Requests Available"
             items={publicPullRequests}
             canAdd={canAddLinks}
-            canDelete={gate.isAdmin}
+            canDelete={canDeleteLinks}
             addDialogTitle="Add Public Pull Requests"
             addFieldLabel="Public Pull Request"
+            validate={umtPublicPrError}
             isSaving={savePublicPrs.isPending}
             onSave={(next) => savePublicPrs.mutateAsync(next)}
           />
@@ -109,9 +116,10 @@ export default function UmtUpdateViewSections({
         emptyText="No Integration Test Pull Requests Available"
         items={update.testPullRequests ?? []}
         canAdd={canAddLinks}
-        canDelete={gate.isAdmin}
+        canDelete={canDeleteLinks}
         addDialogTitle="Add Integration Test Pull Requests"
         addFieldLabel="Integration Test Pull Request"
+        validate={umtTestPrError}
         isSaving={saveTestPrs.isPending}
         onSave={(next) => saveTestPrs.mutateAsync(next)}
       />

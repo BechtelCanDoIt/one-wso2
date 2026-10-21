@@ -16,6 +16,8 @@
 
 import { useState, type JSX, type ReactNode } from "react";
 import {
+  alpha,
+  Button,
   Divider,
   IconButton,
   ListItemIcon,
@@ -23,7 +25,7 @@ import {
   Menu,
   MenuItem,
 } from "@wso2/oxygen-ui";
-import { EllipsisIcon } from "@wso2/oxygen-ui-icons-react";
+import { ChevronDownIcon, EllipsisIcon } from "@wso2/oxygen-ui-icons-react";
 
 export interface QuoteMenuAction {
   readonly label: string;
@@ -35,8 +37,8 @@ export interface QuoteMenuAction {
 }
 
 /**
- * The "⋯ More actions" of the quote page (2026-10-12) and the wizard
- * (2026-10-13): everyday actions first,
+ * The "Actions ▾" menu of the quote page (2026-10-12) and the wizard
+ * (2026-10-13; a labelled button since D100, was "⋯"): everyday actions first,
  * then, below a line and in red, the destructive ones, so neither sits next
  * to the page's one main button. Hidden when there is nothing to offer.
  * Also a Quotes list row's "⋯" (2026-10-13): `inRow` gives a small borderless
@@ -77,19 +79,35 @@ export default function QuoteActionsMenu({
 
   return (
     <>
-      <IconButton
-        aria-label={label}
-        aria-haspopup="menu"
-        aria-expanded={anchorEl !== null}
-        size={inRow ? "small" : "medium"}
-        onClick={(e) => {
-          e.stopPropagation();
-          setAnchorEl(e.currentTarget);
-        }}
-        sx={inRow ? undefined : { border: 1, borderColor: "divider", borderRadius: 1 }}
-      >
-        <EllipsisIcon size={inRow ? 16 : 18} />
-      </IconButton>
+      {inRow ? (
+        <IconButton
+          aria-label={label}
+          aria-haspopup="menu"
+          aria-expanded={anchorEl !== null}
+          size="small"
+          onClick={(e) => {
+            e.stopPropagation();
+            setAnchorEl(e.currentTarget);
+          }}
+        >
+          <EllipsisIcon size={16} />
+        </IconButton>
+      ) : (
+        // In a page header: a labelled "Actions" button, clearer than "⋯",
+        // also when there is no main button beside it (D100).
+        <Button
+          variant="outlined"
+          color="inherit"
+          aria-label={label}
+          aria-haspopup="menu"
+          aria-expanded={anchorEl !== null}
+          endIcon={<ChevronDownIcon size={16} />}
+          onClick={(e) => setAnchorEl(e.currentTarget)}
+          sx={{ borderColor: (t) => alpha(t.palette.text.primary, 0.4), "&:hover": { borderColor: "text.primary" } }}
+        >
+          Actions
+        </Button>
+      )}
       <Menu
         anchorEl={anchorEl}
         open={anchorEl !== null}

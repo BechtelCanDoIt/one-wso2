@@ -27,25 +27,15 @@ import {
 } from "@features/sales/cado2/quotes/form/draftForm";
 import SubscriptionTermCard from "./SubscriptionTermCard";
 
-// D73: the Term card on Term & Products.
+// D85: the Term card on Products & Pricing.
 
-const won = [
-  {
-    id: "006W",
-    name: "APIM Subs 2026",
-    subsStartDate: "2026-02-01",
-    subsEndDate: "2027-01-31",
-  },
-  {
-    id: "006C",
-    name: "IS Subs 2027",
-    subsStartDate: "2026-07-01",
-    subsEndDate: "2027-06-30",
-  },
-];
+// The account's open opportunities (this quote's, with its own start date)
+// and won ones (the ones a renewal renews).
+const open = [{ id: "006R", name: "API Platform 2027", subsStartDate: "2027-03-01", subsEndDate: "2028-02-29" }];
+const won = [{ id: "006W", name: "APIM Subs 2026", subsStartDate: "2026-02-01", subsEndDate: "2027-01-31" }];
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
-  useAccountOpportunities: () => ({
-    data: won,
+  useAccountOpportunities: (_: string | null, status = "open") => ({
+    data: status === "won" ? won : open,
     error: null,
     isPending: false,
     isFetching: false,
@@ -69,32 +59,17 @@ const line: LineValue = {
   discount: "",
 };
 
-/** What the form holds for the term. */
+/** What the form holds for the term and its billing. */
 function Held(): JSX.Element {
-  const [mode, end, coTerm] = useWatch<
-    DraftFormValues,
-    ["termMode", "termEndDate", "coTermOpportunityId"]
-  >({
-    name: ["termMode", "termEndDate", "coTermOpportunityId"],
+  const [mode, end, billing] = useWatch<DraftFormValues, ["termMode", "termEndDate", "billingFrequency"]>({
+    name: ["termMode", "termEndDate", "billingFrequency"],
   });
-  return (
-    <output aria-label="Held">{`${mode || "none"} · ${end || "no end"} · ${coTerm || "no co-term"}`}</output>
-  );
+  return <output aria-label="Held">{`${mode || "none"} · ${end || "no end"} · ${billing || "no billing"}`}</output>;
 }
 
-function Harness({
-  values,
-}: {
-  values: Partial<DraftFormValues>;
-}): JSX.Element {
+function Harness({ values }: { values: Partial<DraftFormValues> }): JSX.Element {
   const form = useForm<DraftFormValues>({
-    defaultValues: {
-      ...emptyDraftForm(),
-      accountId: "001A",
-      termMode: "",
-      lines: [line],
-      ...values,
-    },
+    defaultValues: { ...emptyDraftForm(), accountId: "001A", startDate: "2027-01-01", lines: [line], ...values },
   });
   return (
     <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -107,99 +82,85 @@ function Harness({
 }
 
 describe("Term card", () => {
-  it("locks a renewal's start: the day after the renewed opportunity ends", () => {
-    render(
-      <Harness
-        values={{
-          isRenewal: true,
-          dealKind: "RENEWAL",
-          previousOpportunityIds: ["006W"],
-          startDate: "2027-02-01",
-        }}
-      />,
-    );
+  it("locks a renewal's start to its own opportunity's Subs_Start_Date__c", () => {
+    render(<Harness values={{ isRenewal: true, opportunityId: "006R", previousOpportunityIds: ["006W"], startDate: "2027-03-01" }} />);
     expect(screen.getByLabelText("Locked")).toBeInTheDocument();
-    expect(
-      screen.getByText("The day after APIM Subs 2026 ends, in Salesforce"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("The opportunity's subscription start date in Salesforce")).toBeInTheDocument();
   });
 
-  it("lets a fresh sale or an expansion choose its start", () => {
-    render(
-      <Harness values={{ dealKind: "FIRST_SALE", startDate: "2027-02-01" }} />,
-    );
+  it("falls back to the day after the renewed opportunity ends, still locked", () => {
+    render(<Harness values={{ isRenewal: true, opportunityId: "006N", previousOpportunityIds: ["006W"], startDate: "2027-02-01" }} />);
+    expect(screen.getByLabelText("Locked")).toBeInTheDocument();
+    expect(screen.getByText("The day after APIM Subs 2026 ends, in Salesforce")).toBeInTheDocument();
+  });
+
+  it("lets anything but a renewal change its start", () => {
+    render(<Harness values={{ dealKind: "EXPANSION" }} />);
     expect(screen.queryByLabelText("Locked")).toBeNull();
   });
 
-  it("co-terminates an expansion with the opportunity it ends with", async () => {
-    const user = userEvent.setup();
-    render(
-      <Harness values={{ dealKind: "EXPANSION", startDate: "2027-01-01" }} />,
-    );
-
-    await user.click(screen.getByRole("radio", { name: "Less than a year" }));
-    expect(screen.getByLabelText("Held")).toHaveTextContent("none"); // the question comes first
-    await user.click(screen.getByRole("radio", { name: "Yes" }));
-    await user.click(
-      screen.getByRole("combobox", { name: "Co-terminates with" }),
-    );
-    // Contracts running past the start, ending soonest first.
-    await user.click(screen.getByRole("option", { name: /IS Subs 2027/ }));
-
-    expect(screen.getByLabelText("Held")).toHaveTextContent(
-      "CO_TERMED · 2027-06-30 · 006C",
-    );
-    expect(screen.getByText("Ends 30 Jun 2027, with it")).toBeInTheDocument();
+  it("starts on 1 year, annually in advance, with the end and duration shown", () => {
+    render(<Harness values={{}} />);
+    expect(screen.getByRole("radio", { name: "Number of years" })).toBeChecked();
+    expect(screen.getByText("Ends 31 Dec 2027")).toBeInTheDocument();
+    expect(screen.getByLabelText("Duration")).toHaveTextContent("Duration: 1 year");
+    expect(screen.getByLabelText("Held")).toHaveTextContent("YEARS · no end · ANNUAL");
   });
 
-  it("makes an expansion that isn't co-terminated a short term, with its own end date", async () => {
+  it("works out the end from a number of years", async () => {
     const user = userEvent.setup();
-    render(
-      <Harness values={{ dealKind: "EXPANSION", startDate: "2027-01-01" }} />,
-    );
-    await user.click(screen.getByRole("radio", { name: "Less than a year" }));
-    await user.click(screen.getByRole("radio", { name: "No" }));
-    expect(screen.getByLabelText("Held")).toHaveTextContent("SHORTER");
+    render(<Harness values={{}} />);
+    await user.click(screen.getByRole("combobox", { name: "Years" }));
+    await user.click(screen.getByRole("option", { name: "3 years" }));
+    expect(screen.getByText("Ends 31 Dec 2029")).toBeInTheDocument();
+    expect(screen.getByLabelText("Duration")).toHaveTextContent("Duration: 3 years");
+  });
+
+  it("keeps the same end when switching to an end date", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={{}} />);
+    await user.click(screen.getByRole("radio", { name: "End date" }));
+    expect(screen.getByLabelText("Held")).toHaveTextContent("END_DATE · 2027-12-31");
     expect(screen.getByRole("group", { name: "End date" })).toBeInTheDocument();
   });
 
-  it("never co-terminates a renewal or a fresh sale: under a year is a short term needing approval", async () => {
-    const user = userEvent.setup();
-    render(
-      <Harness values={{ dealKind: "FIRST_SALE", startDate: "2027-01-01" }} />,
-    );
-    await user.click(screen.getByRole("radio", { name: "Less than a year" }));
-    expect(screen.queryByRole("radio", { name: "Yes" })).toBeNull();
-    expect(screen.getByLabelText("Held")).toHaveTextContent("SHORTER");
-    expect(
-      screen.getByText("A term under a year needs approval."),
-    ).toBeInTheDocument();
+  it("shows an odd end date's duration in words", () => {
+    render(<Harness values={{ termMode: "END_DATE", termEndDate: "2028-01-01" }} />);
+    expect(screen.getByLabelText("Duration")).toHaveTextContent("Duration: 1 year + 1 day");
+    expect(screen.queryByText(/needs approval/)).toBeNull();
   });
 
-  it("says why there's no duration yet when nothing is added", () => {
-    render(<Harness values={{ dealKind: "FIRST_SALE", lines: [] }} />);
-    expect(
-      screen.getByText("The duration is asked once a recurring product (charged every year) is added below."),
-    ).toBeInTheDocument();
+  // Every deal, co-terminated or not (D85).
+  it.each([["FIRST_SALE"], ["RENEWAL"], ["EXPANSION"]] as const)("says a %s term under a year needs approval", (dealKind) => {
+    render(<Harness values={{ dealKind, termMode: "END_DATE", termEndDate: "2027-06-30" }} />);
+    expect(screen.getByLabelText("Duration")).toHaveTextContent("6 months");
+    expect(screen.getByText("A term under a year needs approval.")).toBeInTheDocument();
+    expect(screen.queryByText(/co-terminated/)).toBeNull();
   });
 
-  it("asks the duration for a recurring product even without a category (D76)", () => {
-    render(<Harness values={{ dealKind: "FIRST_SALE", lines: [{ ...line, category: "" }] }} />);
-    expect(screen.getByRole("radiogroup", { name: "Duration" })).toBeInTheDocument();
+  it("says a term over 3 years needs extended-term approval", () => {
+    render(<Harness values={{ termMode: "YEARS", termYears: "4" }} />);
+    expect(screen.getByText("A term over 3 years needs extended-term approval.")).toBeInTheDocument();
   });
 
-  it("has no duration when no product recurs, whatever its category (D76)", () => {
-    render(
-      <Harness
-        values={{
-          dealKind: "FIRST_SALE",
-          lines: [{ ...line, category: "SUBSCRIPTION", recurring: false }],
-        }}
-      />,
-    );
-    expect(screen.queryByRole("radiogroup", { name: "Duration" })).toBeNull();
-    expect(
-      screen.getByText("No recurring products: no subscription term. Only the contract total (TCV) applies."),
-    ).toBeInTheDocument();
+  it("has no billing frequency: it has its own card (D86)", () => {
+    render(<Harness values={{}} />);
+    expect(screen.queryByRole("combobox", { name: /Billing frequency/ })).toBeNull();
+  });
+
+  // D90: the card is first on the step, so the term can be set before any product.
+  it("asks for the term before there are products", () => {
+    render(<Harness values={{ lines: [] }} />);
+    expect(screen.getByText("Subscription Term")).toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "Set the end by" })).toBeInTheDocument();
+    expect(screen.queryByText(/No recurring products/)).toBeNull();
+  });
+
+  it("is only the start date when no product recurs, whatever its category (D76)", () => {
+    render(<Harness values={{ lines: [{ ...line, recurring: false }] }} />);
+    expect(screen.getByText("Start Date")).toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "Set the end by" })).toBeNull();
+    expect(screen.queryByRole("combobox", { name: /Billing frequency/ })).toBeNull();
+    expect(screen.getByText(/No recurring products, so no subscription term/)).toBeInTheDocument();
   });
 });

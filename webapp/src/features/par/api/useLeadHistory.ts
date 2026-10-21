@@ -84,22 +84,36 @@ export function useParEmployeeReviews(parCycleId: number | undefined, employeeEm
   });
 }
 
-// GET one employee's pre-migration legacy history — EmployeeHistoryView.tsx's
-// own fetchLegacyParHistoryOfEmployee.
+// GET one employee's pre-migration legacy history.
+//
+// The backend deliberately returns 404 for exactly one reason here:
+// enableLegacyParDataView is off (checked before auth or any query -- every
+// caller, including admin, must get a response indistinguishable from this
+// resource not existing at all). A genuinely
+// empty legacy history (flag on, employee just has no rows) comes back as a
+// normal 200 with `[]`, never 404 -- so 404 is a reliable, privacy-preserving
+// signal for "feature off" distinct from "no data", without this frontend
+// ever needing its own separate flag-check call. `null` (vs `[]`) is that
+// signal for callers.
 export function useParLegacyHistory(employeeEmail: string | undefined, enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const backendConfigured = Boolean(parBackendUrl);
-  return useQuery<ParLegacyHistory[]>({
+  return useQuery<ParLegacyHistory[] | null>({
     queryKey: ["par-legacy-history", employeeEmail],
     enabled: enabled && isSignedIn && backendConfigured && Boolean(employeeEmail),
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      return authedGet<ParLegacyHistory[]>(
-        parServiceUrls.parLegacyHistory(employeeEmail!),
-        accessToken,
-        digiopsHeaders(),
-      );
+      try {
+        return await authedGet<ParLegacyHistory[]>(
+          parServiceUrls.parLegacyHistory(employeeEmail!),
+          accessToken,
+          digiopsHeaders(),
+        );
+      } catch (e) {
+        if (e instanceof HttpError && e.status === 404) return null;
+        throw e;
+      }
     },
     staleTime: 10 * 60 * 1000,
     retry: defaultQueryRetry,
@@ -111,11 +125,16 @@ export interface ParLegacyHistoryByEmail {
   [workEmail: string]: ParLegacyHistory[] | undefined;
 }
 
-// Fans useParLegacyHistory out across every one of the lead's reports at
-// once — EmployeeHistoryView.tsx's own fan-out effect (see the comment on
-// the type above): there's no lead-scoped "every legacy cycle" endpoint (the
-// org-wide one is admin-only), so the merged cycle picker instead comes from
-// calling the same per-employee, lead-authorized endpoint once per report.
+// Fans useParLegacyHistory out across a given set of employee emails.
+//
+// CALLER NOTE: GET /legacy-par-history/{email} is admin-or-self ONLY -- no
+// lead/manager access at all, ever. A team lead, additional lead, or
+// current direct manager must NOT be able to view a report's legacy
+// history, not from this UI and not as a backend call visible in the
+// network trace either. A lead calling this for their own reports' emails
+// gets 403 for every one of them, so only ever pass emails this caller is
+// actually allowed to query (its own email, or -- for an admin context --
+// any email).
 // `useQueries` keeps each fetch independently cached/retried, and results
 // merge here into one lookup so the caller doesn't juggle N query objects.
 export function useParLegacyHistoryFanOut(emails: string[]): {

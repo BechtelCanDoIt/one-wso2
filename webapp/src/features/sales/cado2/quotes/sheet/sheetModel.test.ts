@@ -17,7 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { emptyDraftForm, fromVersion } from "@features/sales/cado2/quotes/form/draftForm";
 import { draft, fullPartnerQuote } from "@features/sales/cado2/quotes/testing/fixtures";
-import { expiryState, sheetFromForm, sheetFromVersion, hasYearlySchedule, orderForm, termLabel, termLength, yearOpportunity } from "./sheetModel";
+import { expiryState, sheetFromForm, sheetFromVersion, hasYearlySchedule, orderForm, termLabel, termShort, yearOpportunity } from "./sheetModel";
 import { initialsOfName as initialsFor } from "@features/sales/cado2/utils/initials";
 import { lifecycleSteps } from "./lifecycleSteps";
 
@@ -37,7 +37,7 @@ describe("sheetFromVersion", () => {
       startDate: "2026-10-01",
       endDate: "2027-09-30",
       billingFrequency: "ANNUAL",
-      termMode: "ONE_YEAR",
+      termMode: "YEARS",
       recurring: true,
       netTermsDays: 45,
       poNumber: "PO-4471",
@@ -140,18 +140,18 @@ describe("sheetFromForm", () => {
 });
 
 describe("labels", () => {
-  it("names the term length", () => {
-    expect(termLength("2027-01-01", "2029-12-31")).toBe("3 years");
-    expect(termLength("2027-01-01", "2027-12-31")).toBe("1 year");
-    expect(termLength("2027-01-01", "2028-06-30")).toBe("18 months");
-    expect(termLength("", "")).toBe("");
-  });
-
-  it("names the term with its mode", () => {
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-12-31", termMode: "ONE_YEAR" })).toBe("1 year");
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2029-12-31", termMode: "MULTI_YEAR" })).toBe("3 years · Multi-year");
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-06-30", termMode: "CO_TERMED" })).toBe("6 months · Co-termed");
-    expect(termLabel({ startDate: "2027-01-01", endDate: "2028-06-30", termMode: null })).toBe("18 months");
+  it("names the term by its length, in words (D85)", () => {
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-12-31" })).toBe("1 year");
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2029-12-31" })).toBe("3 years");
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2027-06-30" })).toBe("6 months");
+    expect(termLabel({ startDate: "2027-01-01", endDate: "2028-01-01" })).toBe("1 year + 1 day");
+    expect(termLabel({ startDate: "", endDate: "" })).toBe("");
+    // Short, for the products table (D94).
+    expect(termShort({ startDate: "2027-01-01", endDate: "2029-12-31" })).toBe("3Y");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2028-01-01" })).toBe("1Y 1D");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2028-02-01" })).toBe("1Y 1M 1D");
+    expect(termShort({ startDate: "2027-01-01", endDate: "2027-12-30" })).toBe("11M 30D");
+    expect(termShort({ startDate: "", endDate: "" })).toBe("");
   });
 
   it("names each year's opportunity, and shows a schedule only past one year", () => {
