@@ -43,7 +43,9 @@ export default function ManagedDeploymentRisks({ data }: ManagedDeploymentRisksP
   const scale = maxThemeTotal(data.themes);
   const callout = highSeverityCallout(data);
 
-  if (data.themes.length === 0) {
+  // Themes only cover categorised risks, so an empty list does not mean zero
+  // open risks; the High-severity callout must still render in that case.
+  if (data.open_risks === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
         No open risks in Managed Services registers.
