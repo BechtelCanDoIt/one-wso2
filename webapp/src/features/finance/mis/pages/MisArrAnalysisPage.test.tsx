@@ -17,7 +17,8 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
@@ -45,6 +46,7 @@ vi.setConfig({ testTimeout: 20_000 });
 // silently relocate someone with no explanation.
 
 const state = {
+  accountRows: [] as Record<string, unknown>[],
   privileges: [] as number[],
   analysisEnabled: true,
   configsLoading: false,
@@ -105,7 +107,7 @@ vi.mock("../api/useMisAppConfigs", () => ({
 // the table is the thing that rendered.
 vi.mock("../api/useAnalysisAccounts", () => ({
   useAnalysisAccounts: () => ({
-    rows: [],
+    rows: state.accountRows,
     isLoading: false,
     isError: false,
     errorMessage: "",
@@ -123,8 +125,8 @@ vi.mock("../api/useAnalysisAccounts", () => ({
 // test is the flag and the gate, not what the charts say.
 vi.mock("../api/useAnalysisBreakdowns", () => ({
   useAnalysisPartnerModels: () => ({
-    channel: 0,
-    direct: 0,
+    channel: 300,
+    direct: 700,
     // Both models asked about — the shape the real hook always returns. A
     // `vi.mock` factory is untyped, so nothing but a test run catches a mock
     // that has fallen behind the interface it stands in for; this one did,
@@ -167,6 +169,7 @@ function show() {
 }
 
 beforeEach(() => {
+  state.accountRows = [];
   state.privileges = [ARR];
   state.analysisEnabled = true;
   state.configsLoading = false;
@@ -193,6 +196,48 @@ describe("with the flag on", () => {
     show();
     expect(screen.queryByText("the ARR Build")).not.toBeInTheDocument();
     expect(screen.queryByRole("grid")).not.toBeInTheDocument();
+  });
+});
+
+describe("the ARR Breakdown donut", () => {
+  const accountRow = (partnerType: string, salesRegion: string, subRegion: string, totalArr: number) => ({
+    id: `${partnerType}-${subRegion}`,
+    partnerType,
+    salesRegion,
+    subRegion,
+    totalArr,
+    products: [],
+  });
+  const legendNames = () =>
+    within(screen.getByRole("table", { name: "ARR Breakdown legend" }))
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => within(row).getAllByRole("cell")[0]?.textContent);
+
+  beforeEach(() => {
+    state.accountRows = [
+      accountRow("Channel", "EMEA", "UK", 300),
+      accountRow("Direct", "AMER", "US East", 400),
+      accountRow("Direct", "EMEA", "DACH", 300),
+    ];
+  });
+
+  it("draws both rings and a legend of shares and dollars", () => {
+    const { container } = show();
+    expect(container.querySelectorAll(".recharts-pie")).toHaveLength(2);
+    expect(legendNames()).toEqual(["Channel", "EMEA", "Direct", "AMER", "EMEA"]);
+    expect(screen.getByRole("cell", { name: "70.00%" })).toBeInTheDocument();
+  });
+
+  it("cuts the outer ring by sub-region once a region filter is applied", async () => {
+    show();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: "Sales Region" }));
+    await user.click(await screen.findByRole("option", { name: "EMEA" }));
+    await waitFor(() =>
+      expect(legendNames()).toEqual(["Channel", "UK", "Direct", "US East", "DACH"]),
+    );
+    expect(screen.getByRole("columnheader", { name: "Partner model / Sub Region" })).toBeInTheDocument();
   });
 });
 
@@ -225,7 +270,6 @@ describe("while the flag is unknown", () => {
   });
 
   it("says so with a retry when the call failed, rather than relocating anyone", async () => {
-    const { default: userEvent } = await import("@testing-library/user-event");
     state.configsError = true;
     show();
     expect(screen.queryByText("the ARR Build")).not.toBeInTheDocument();
