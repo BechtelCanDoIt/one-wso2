@@ -100,4 +100,13 @@ describe("a Portfolio link with values it cannot use", () => {
     expect(opened(`region=${tooMany}`).filters.salesRegions).toHaveLength(50);
     expect(opened(`region=${"x".repeat(500)}`).filters.salesRegions).toEqual([]);
   });
+
+  it.each([
+    ["region", "salesRegions"],
+    ["subRegion", "subRegions"],
+    ["country", "countries"],
+  ] as const)("drops markup and control characters from the %s list", (key, field) => {
+    expect(opened(`${key}=EMEA,%3Cscript%3E,APAC%00,Sri%20Lanka`).filters[field]).toEqual(["EMEA", "Sri Lanka"]);
+    expect(opened(`${key}=%3Cb%3E`).filters[field]).toEqual([]);
+  });
 });

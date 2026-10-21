@@ -45,8 +45,12 @@ const AS_OF_PATTERN = /^(\d{4})-(\d{2})-(\d{2})$/;
 const PRODUCT_COUNT_RANGE = { min: 1, max: 5 };
 const LIFETIME_YEARS_RANGE = { min: 0, max: 20 };
 
+function isSafeText(text: string): boolean {
+  return text.length <= MAX_TEXT_LENGTH && !UNSAFE_TEXT_PATTERN.test(text);
+}
+
 const partnerParam: QueryParamCodec<string> = {
-  parse: (raw) => (raw.length <= MAX_TEXT_LENGTH && !UNSAFE_TEXT_PATTERN.test(raw) ? raw : undefined),
+  parse: (raw) => (isSafeText(raw) ? raw : undefined),
   format: String,
 };
 
@@ -56,10 +60,10 @@ const firstSaleParam: QueryParamCodec<MisAnalysisFilters["firstSale"]> = {
   format: String,
 };
 
-/** A list of names, bounded in count and in the length of each. */
+/** A list of names, bounded in count and in the length of each, with unsafe names dropped. */
 const textListParam: QueryParamCodec<string[]> = {
   parse: (raw) => {
-    const items = listParam.parse(raw)?.filter((item) => item.length <= MAX_TEXT_LENGTH);
+    const items = listParam.parse(raw)?.filter(isSafeText);
     return items?.length ? items.slice(0, MAX_LIST_ITEMS) : undefined;
   },
   format: listParam.format,
