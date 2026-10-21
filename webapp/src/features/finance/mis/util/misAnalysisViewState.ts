@@ -69,6 +69,21 @@ const textListParam: QueryParamCodec<string[]> = {
   format: listParam.format,
 };
 
+/**
+ * A text list held to the names a control offers, when it offers any. A control
+ * with no list has nothing to hold the link to, so any safe name stands.
+ */
+function offeredListParam(offered: readonly string[] | undefined): QueryParamCodec<string[]> {
+  if (!offered?.length) return textListParam;
+  return {
+    parse: (raw) => {
+      const known = textListParam.parse(raw)?.filter((name) => offered.includes(name));
+      return known?.length ? known : undefined;
+    },
+    format: listParam.format,
+  };
+}
+
 const businessUnitListParam: QueryParamCodec<string[]> = {
   parse: (raw) => {
     const known = textListParam.parse(raw)?.filter((unit) => ANALYSIS_BUSINESS_UNITS.some((offered) => offered === unit));
@@ -113,6 +128,13 @@ const scaleParam = {
   parse: (raw: string): MisScale | undefined => (raw === SCALE_THOUSANDS ? MIS_SCALES.THOUSANDS : undefined),
 };
 
+/** The places the backend says exist, which a link's places are held to. */
+export interface OfferedPlaces {
+  salesRegions?: readonly string[];
+  subRegions?: readonly string[];
+  countries?: readonly string[];
+}
+
 export interface MisAnalysisView {
   filters: MisAnalysisFilters;
   /** Present only when the link carried a Scale. */
@@ -142,7 +164,10 @@ export function serializeAnalysisView(
 }
 
 /** The view a query string describes; each value it cannot use leaves that filter on its default. */
-export function parseAnalysisView(search: string, { today }: { today: MisCivilDate }): MisAnalysisView {
+export function parseAnalysisView(
+  search: string,
+  { today, offered = {} }: { today: MisCivilDate; offered?: OfferedPlaces },
+): MisAnalysisView {
   const query = queryReader(search);
   const defaults = defaultAnalysisFilters(today);
 
@@ -163,9 +188,9 @@ export function parseAnalysisView(search: string, { today }: { today: MisCivilDa
       firstSale: query.read("firstSale", firstSaleParam) ?? defaults.firstSale,
       businessUnits: defaults.businessUnits,
       productCounts: query.read("productsInUse", integerListParam(PRODUCT_COUNT_RANGE)) ?? defaults.productCounts,
-      salesRegions: query.read("region", textListParam) ?? defaults.salesRegions,
-      subRegions: query.read("subRegion", textListParam) ?? defaults.subRegions,
-      countries: query.read("country", textListParam) ?? defaults.countries,
+      salesRegions: query.read("region", offeredListParam(offered.salesRegions)) ?? defaults.salesRegions,
+      subRegions: query.read("subRegion", offeredListParam(offered.subRegions)) ?? defaults.subRegions,
+      countries: query.read("country", offeredListParam(offered.countries)) ?? defaults.countries,
       lifetimeYears: query.read("lifetime", integerListParam(LIFETIME_YEARS_RANGE)) ?? defaults.lifetimeYears,
       arrRange: orderedBounds,
       asOf: asOf === undefined ? defaults.asOf : asOf,

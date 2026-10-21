@@ -53,6 +53,7 @@ const state = {
   analysisEnabled: true,
   configsLoading: false,
   configsError: false,
+  salesRegions: [] as string[],
   industries: {} as Record<string, number>,
   headlineArr: 0,
 };
@@ -82,7 +83,7 @@ vi.mock("../api/useMisUserInfo", () => ({
 vi.mock("../api/useMisAppConfigs", () => ({
   useMisAppConfigs: () => ({
     options: {
-      salesRegions: [],
+      salesRegions: state.salesRegions,
       subRegions: [],
       countries: [],
       billingCountries: [],
@@ -203,6 +204,7 @@ function show(search = "", path: string = misPaths.portfolio) {
 beforeEach(() => {
   localStorage.clear();
   state.accountRows = [];
+  state.salesRegions = [];
   state.industries = {};
   state.headlineArr = 0;
   state.privileges = [ARR];
@@ -333,6 +335,19 @@ describe("the filters in the address", () => {
     expect(screen.getByText("Sales Region: EMEA")).toBeInTheDocument();
     expect(screen.queryByText(/First Sale:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Business Unit:/)).not.toBeInTheDocument();
+  });
+
+  it("opens a Sales Region the backend does not offer on the unfiltered view", async () => {
+    state.salesRegions = ["EU", "NA"];
+    show("?region=EMEA");
+    expect(screen.queryByText(/Sales Region:/)).not.toBeInTheDocument();
+    await waitFor(() => expect(address()).toHaveTextContent(/^$/));
+  });
+
+  it("keeps a Sales Region the backend offers", () => {
+    state.salesRegions = ["EU", "NA"];
+    show("?region=EU");
+    expect(screen.getByText("Sales Region: EU")).toBeInTheDocument();
   });
 
   describe("As Of Date", () => {

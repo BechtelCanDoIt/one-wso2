@@ -110,3 +110,35 @@ describe("a Portfolio link with values it cannot use", () => {
     expect(opened(`${key}=%3Cb%3E`).filters[field]).toEqual([]);
   });
 });
+
+describe("a Portfolio link naming places the backend does not offer", () => {
+  const offered = { salesRegions: ["EU", "NA", "APAC"], subRegions: ["UK", "DACH"], countries: ["Sri Lanka", "Germany"] };
+  const opened = (search: string) => parseAnalysisView(search, { today: TODAY, offered });
+  const defaults = defaultAnalysisFilters(TODAY);
+
+  it("keeps a Sales Region the backend offers", () => {
+    expect(opened("region=EU").filters.salesRegions).toEqual(["EU"]);
+  });
+
+  it("drops a Sales Region the backend does not offer", () => {
+    expect(opened("region=EU,EMEA,NA").filters.salesRegions).toEqual(["EU", "NA"]);
+  });
+
+  it("opens on the default when no Sales Region in the link is offered", () => {
+    expect(opened("region=EMEA").filters.salesRegions).toEqual(defaults.salesRegions);
+    expect(opened("region=EMEA,Americas").filters).toEqual(defaults);
+  });
+
+  it.each([
+    ["subRegion", "subRegions", "UK", "Atlantis"],
+    ["country", "countries", "Sri Lanka", "Narnia"],
+  ] as const)("holds the %s list to what the backend offers too", (key, field, real, fake) => {
+    expect(opened(`${key}=${real},${fake}`).filters[field]).toEqual([real]);
+    expect(opened(`${key}=${fake}`).filters[field]).toEqual([]);
+  });
+
+  it("takes any safe name when the backend offered no list for it", () => {
+    const noRegions = { ...offered, salesRegions: [] };
+    expect(parseAnalysisView("region=EMEA", { today: TODAY, offered: noRegions }).filters.salesRegions).toEqual(["EMEA"]);
+  });
+});

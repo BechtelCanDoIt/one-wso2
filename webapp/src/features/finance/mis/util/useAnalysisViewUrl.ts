@@ -17,7 +17,7 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import type { MisAnalysisFilters } from "./misAnalysisFilters";
-import { parseAnalysisView, serializeAnalysisView } from "./misAnalysisViewState";
+import { parseAnalysisView, serializeAnalysisView, type OfferedPlaces } from "./misAnalysisViewState";
 import type { MisCivilDate } from "./misPacificTime";
 import { useScalePreference } from "./ScalePreferenceContext";
 
@@ -30,14 +30,17 @@ import { useScalePreference } from "./ScalePreferenceContext";
  * them. The write replaces the history entry, so Back leaves Portfolio instead
  * of stepping through every filter tried.
  *
+ * A place in the link that the backend does not offer is dropped on load, so
+ * a link naming a Sales Region that does not exist opens unfiltered.
+ *
  * A Scale in the link is adopted into the shared Scale preference, so a link
  * opens in the Scale it was copied in and the reader's later screens follow it.
  */
-export function useAnalysisViewUrl(today: MisCivilDate) {
+export function useAnalysisViewUrl(today: MisCivilDate, offered: OfferedPlaces) {
   const { search, hash } = useLocation();
   const navigate = useNavigate();
   const { preference, setPreference } = useScalePreference();
-  const [opened] = useState(() => parseAnalysisView(search, { today }));
+  const [opened] = useState(() => parseAnalysisView(search, { today, offered }));
   const [filters, setFilters] = useState<MisAnalysisFilters>(opened.filters);
   const [linkScalePending, setLinkScalePending] = useState(opened.scale !== undefined);
 

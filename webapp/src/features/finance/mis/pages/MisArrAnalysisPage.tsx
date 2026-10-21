@@ -122,9 +122,12 @@ function ArrAnalysis() {
   // chosen" against it, and a value that moved mid-session would silently
   // re-key every query at midnight Pacific.
   const [today] = useState(pacificCivilDate);
-  const { filters, setFilters } = useAnalysisViewUrl(today);
-
   const configs = useMisAppConfigs();
+  const { filters, setFilters } = useAnalysisViewUrl(today, {
+    salesRegions: configs.options.salesRegions,
+    subRegions: configs.options.subRegions,
+    countries: configs.options.billingCountries,
+  });
 
   // The reads are keyed on the SETTLED filters, the controls on the live ones.
   // The charts take the reads to ten — one per industry, two for the partner
