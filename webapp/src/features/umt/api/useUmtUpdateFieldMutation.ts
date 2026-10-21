@@ -21,24 +21,28 @@ import { useAccessToken } from "@hooks/useAccessToken";
 
 export type UmtEditableUpdateField = "assignedTo" | "developedBy" | "worstCaseEstimate";
 
-export interface UmtUpdateFieldChange {
-  field: UmtEditableUpdateField;
-  value: string;
-}
+// A new worst-case estimate travels with the reason for it: the backend
+// quotes that reason in the updated-ETA comment it posts on the customer's
+// case and on the update's issues.
+export type UmtUpdateFieldChange =
+  | { field: "assignedTo" | "developedBy"; value: string }
+  | { field: "worstCaseEstimate"; value: string; reason: string };
 
 export function useUmtUpdateFieldMutation(id: string) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, UmtUpdateFieldChange>({
-    mutationFn: async ({ field, value }) => {
+    mutationFn: async (change) => {
       const accessToken = await getAccessToken();
-      const url =
-        field === "worstCaseEstimate"
-          ? umtServiceUrls.updateWorstCaseEstimate(id)
-          : umtServiceUrls.update(id);
-
-      await authedPut(url, accessToken, { [field]: value });
+      if (change.field === "worstCaseEstimate") {
+        await authedPut(umtServiceUrls.updateWorstCaseEstimate(id), accessToken, {
+          worstCaseEstimate: change.value,
+          reason: change.reason.trim(),
+        });
+        return;
+      }
+      await authedPut(umtServiceUrls.update(id), accessToken, { [change.field]: change.value });
     },
     onSuccess: async () => {
       await Promise.all([

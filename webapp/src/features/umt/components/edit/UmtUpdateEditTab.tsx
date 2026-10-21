@@ -28,6 +28,7 @@ import {
   resolveUmtEditActiveIndex,
   umtActiveStepIndex,
   umtHasAdditionalFileOperations,
+  umtStepRequiresDescriptions,
   type UmtEditStepId,
 } from "../../lib/umtEditSteps";
 import { computeUmtDemoteActions } from "../../lib/umtDemoteActions";
@@ -95,11 +96,14 @@ export default function UmtUpdateEditTab({
     setLocalStepOverride(null);
   }
   // See resolveUmtEditActiveIndex: a persisted override behind the
-  // backend-derived step is stale (the update moved on without this
-  // browser's knowledge) and must be discarded rather than honoured.
-  const activeIndex = resolveUmtEditActiveIndex(steps, backendActiveIndex, localStepOverride);
+  // backend-derived step, or outside the run of steps the current
+  // lifecycleState spans, is stale (the update moved without this browser's
+  // knowledge) and must be discarded rather than honoured. An override for a
+  // step not in the list yet (File Approval before the PR analysis loads) is
+  // kept until the list settles.
+  const activeIndex = resolveUmtEditActiveIndex(steps, backendActiveIndex, localStepOverride, update.lifecycleState);
   const overrideIndex = localStepOverride ? steps.findIndex((step) => step.id === localStepOverride) : -1;
-  const isOverrideStale = overrideIndex !== -1 && overrideIndex < backendActiveIndex;
+  const isOverrideStale = overrideIndex !== -1 && overrideIndex !== activeIndex;
   if (isOverrideStale) setLocalStepOverride(null);
   const currentStep = steps[activeIndex];
 
@@ -112,7 +116,6 @@ export default function UmtUpdateEditTab({
   // (and the shared step actions under it) only exists once PRAnalyzed, and
   // only once the run that promoted the update has finished its analysis.
   const isProductAnalysis = isFilesAnalysis && update.lifecycleState === "PRAnalyzed" && !isAdvancingToPrAnalyzed;
-  const isDescriptionInstruction = currentStep.id === "description-instruction";
   const isIntegrationTests = currentStep.id === "integration-tests";
   const isSecurityAdvisory = currentStep.id === "security-advisory";
   const isTesting = currentStep.id === "testing";
@@ -124,10 +127,12 @@ export default function UmtUpdateEditTab({
   // until the product-analysis results this step promises have actually
   // loaded.
   const productAnalysisReady = !isProductAnalysis || productAnalysis.isSuccess;
-  // Proceed is disabled here until every product already has a non-blank
-  // description and instruction.
+  // Proceed is disabled until every product already has a non-blank
+  // description and instruction — here and on each later step that moves the
+  // update out of its state (see umtStepRequiresDescriptions).
   const descriptionInstructionReady =
-    !isDescriptionInstruction || isDescriptionInstructionComplete(update.products);
+    !umtStepRequiresDescriptions(currentStep.id, update.lifecycleState) ||
+    isDescriptionInstructionComplete(update.products);
   // Proceed is disabled here until every product already has a Test PR or
   // an ignore reason (or, for a containerized update, a non-blank Helm
   // Chart Tag). Checks only persisted state, not a sibling component's

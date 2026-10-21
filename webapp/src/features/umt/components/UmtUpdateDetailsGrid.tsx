@@ -285,6 +285,9 @@ function EditableWorstCaseDate({
   const [editing, setEditing] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
   const [draft, setDraft] = useState<Date | null>(() => parseDate(value));
+  // Required: the backend quotes it in the updated-ETA comment on the
+  // customer's case and the update's issues.
+  const [reason, setReason] = useState("");
   const etaLog = useUmtWorstCaseEstimateLog(id, logOpen);
 
   // Same reasoning as EditableUserField above.
@@ -294,18 +297,22 @@ function EditableWorstCaseDate({
     if (!canEdit) {
       setEditing(false);
       setDraft(parseDate(value));
+      setReason("");
     }
   }
 
   const cancel = () => {
     setDraft(parseDate(value));
+    setReason("");
     setEditing(false);
   };
 
+  const isDraftValid = draft !== null && !Number.isNaN(draft.getTime());
   const save = async () => {
-    if (!draft || Number.isNaN(draft.getTime())) return;
+    if (draft === null || !isDraftValid || !reason.trim()) return;
     try {
-      await onSave({ field: "worstCaseEstimate", value: toDateInputValue(draft) });
+      await onSave({ field: "worstCaseEstimate", value: toDateInputValue(draft), reason });
+      setReason("");
       setEditing(false);
     } catch {
       // The page-level notification explains the backend error. Keep the
@@ -334,6 +341,7 @@ function EditableWorstCaseDate({
                     size="small"
                     onClick={() => {
                       setDraft(parseDate(value));
+                      setReason("");
                       setEditing(true);
                     }}
                   >
@@ -365,10 +373,20 @@ function EditableWorstCaseDate({
               slotProps={{ textField: { required: true, size: "small" } }}
             />
           </LocalizationProvider>
+          <TextField
+            label="Reason for the change"
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            required
+            multiline
+            minRows={2}
+            size="small"
+            helperText="Posted with the new ETA on the customer's case and the update's issues."
+          />
           <EditActions
             label={label}
             saving={saving}
-            saveDisabled={!draft || Number.isNaN(draft.getTime())}
+            saveDisabled={!isDraftValid || !reason.trim()}
             onCancel={cancel}
             onSave={() => void save()}
           />
