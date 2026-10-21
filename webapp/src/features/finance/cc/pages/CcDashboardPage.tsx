@@ -891,12 +891,16 @@ function ManagerComplianceTable({
                   </Cell>
                   <Cell align="right">
                     <Tooltip
+                      // Narrow enough to wrap rather than run off the last
+                      // column: this sits in the rightmost cell, where an
+                      // unbounded tooltip opens past the edge of the table.
+                      slotProps={{ tooltip: { sx: { maxWidth: 220 } } }}
                       title={
                         isUnassigned
                           ? "No reporting manager to remind"
                           : sending
                             ? "Sending the reminder..."
-                            : "Email this manager a reminder about unsubmitted transactions"
+                            : "Email this manager about unsubmitted transactions"
                       }
                     >
                       <span>
