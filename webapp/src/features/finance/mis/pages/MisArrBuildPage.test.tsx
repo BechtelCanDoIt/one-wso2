@@ -1427,6 +1427,37 @@ describe("sorting a table from its header", () => {
     expect(firstCells().slice(-2)).toEqual(["API Platform", "Total"]);
   });
 
+  it("lets go of a sort whose column the Breakdown has taken away", async () => {
+    renderPage("?table=customers");
+    const total = screen.getByRole("columnheader", { name: /^Total/ });
+    await userEvent.click(within(total).getByRole("button", { name: "Total" }));
+    expect(total).toHaveAttribute("aria-sort", "descending");
+    await userEvent.click(
+      within(screen.getByRole("group", { name: "Breakdown" })).getByRole("button", { name: "Software / Cloud" }),
+    );
+    expect(screen.getAllByRole("columnheader").some((header) => header.hasAttribute("aria-sort"))).toBe(false);
+    expect(screen.getByRole("table", { name: /Customers/ })).toBeInTheDocument();
+  });
+
+  it("lets go of a sort whose column Totals only has hidden, and the order with it", async () => {
+    customers.value = customerBook([
+      { ...NORTHWIND, id: "a1", name: "Small", apimBuTotal: 100 },
+      { ...NORTHWIND, id: "a2", name: "Large", apimBuTotal: 900_000 },
+    ]);
+    renderPage("?table=customers");
+    const names = () =>
+      within(screen.getByRole("table", { name: /Customers/ }))
+        .getAllByRole("row")
+        .slice(3)
+        .map((row) => row.children[0]?.textContent ?? "");
+    expect(names()).toEqual(["Small", "Large"]);
+    const apim = screen.getByRole("columnheader", { name: /^API Platform BU/ });
+    await userEvent.click(within(apim).getByRole("button", { name: "API Platform BU" }));
+    expect(names()).toEqual(["Large", "Small"]);
+    await userEvent.click(screen.getByLabelText("Totals only"));
+    expect(names()).toEqual(["Small", "Large"]);
+  });
+
   it("starts again when the applied filters change", async () => {
     renderPage();
     await userEvent.click(sortButton());

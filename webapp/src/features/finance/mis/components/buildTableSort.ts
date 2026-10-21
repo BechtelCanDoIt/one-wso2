@@ -71,6 +71,26 @@ export const sortValueReader =
   (row: BuildRow, column: BuildSortColumn): BuildSortValue =>
     column.kind === "figure" ? figureSortValue(figure(row, column.groupKey, column.subKey)) : lead(row, column.key);
 
+/**
+ * The sort, unless its column is no longer on screen.
+ *
+ * A toggle inside the table (Totals only, the Breakdown) can take away the
+ * column a sort was set on. The sort then has no header to show it, so it is
+ * dropped rather than left ordering the rows by something hidden.
+ */
+export function sortOnShownColumn(
+  sort: BuildSort | null,
+  shown: { leadKeys: readonly string[]; groupKeys: readonly string[]; subKeys: readonly string[] },
+): BuildSort | null {
+  if (!sort) return null;
+  const { column } = sort;
+  const isShown =
+    column.kind === "lead"
+      ? shown.leadKeys.includes(column.key)
+      : shown.groupKeys.includes(column.groupKey) && shown.subKeys.includes(column.subKey);
+  return isShown ? sort : null;
+}
+
 /** Descending, then ascending, then off; another column starts at descending. */
 export function nextSort(current: BuildSort | null, column: BuildSortColumn): BuildSort | null {
   if (!sortsColumn(current, column)) return { column, direction: "desc" };

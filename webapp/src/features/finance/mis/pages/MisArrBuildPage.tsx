@@ -20,7 +20,7 @@ import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import MisShell from "../components/MisShell";
 import { filterRows, useBuildFilters } from "../components/buildTableFilter";
-import { sortRows, sortValueReader, useBuildSort } from "../components/buildTableSort";
+import { sortOnShownColumn, sortRows, sortValueReader, useBuildSort } from "../components/buildTableSort";
 import BuildTable, { type BuildCellFor } from "../components/BuildTable";
 import { MAX_BODY_HEIGHT } from "../components/buildTableSx";
 import {
@@ -624,7 +624,12 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
           : undefined,
     };
   };
-  const { sort, toggle } = useBuildSort(view.filters);
+  const { sort: chosenSort, toggle } = useBuildSort(view.filters);
+  const sort = sortOnShownColumn(chosenSort, {
+    leadKeys: leadColumns.map(({ key }) => key),
+    groupKeys: columnGroups.map(({ key }) => key),
+    subKeys: subColumns.map(({ key }) => key),
+  });
   const shownRows = sortRows(
     filteredRows,
     sort,
@@ -856,7 +861,12 @@ function RegionExitGrid({
       muted: raw === undefined,
     };
   };
-  const { sort, toggle } = useBuildSort(view.filters);
+  const { sort: chosenSort, toggle } = useBuildSort(view.filters);
+  const sort = sortOnShownColumn(chosenSort, {
+    leadKeys: ["__label"],
+    groupKeys: columnGroups.map(({ key }) => key),
+    subKeys: subColumns.map(({ key }) => key),
+  });
   const shownRows = sortRows(
     rows,
     sort,
