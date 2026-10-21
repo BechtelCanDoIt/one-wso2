@@ -90,6 +90,23 @@ export const MIS_UNITS_BY_CATEGORY: Readonly<
   ],
 };
 
+/**
+ * The pills under Region Summary › All ARR Metrics, in the source's order
+ * (`RegionSummaryTabs.js`, `buTabs`). Selection codes, like the Build's, so
+ * `businessUnitsFor` translates them the same way; Moesif is the cloud code
+ * because it has no BU of its own, and it appears here only.
+ */
+export const MIS_METRICS_UNITS: readonly MisUnit[] = [
+  { code: "BU_APIM", label: "API Platform BU" },
+  { code: "BU_IAM", label: "IAM BU" },
+  { code: "BU_INTEGRATION", label: "Integration BU" },
+  { code: "BU_CHOREO", label: "Choreo BU" },
+  { code: "BU_AGENT_PLATFORM", label: "Agent Platform BU" },
+  { code: "CL_MOESIF", label: "Moesif" },
+  { code: "BU_ALL", label: "All BU" },
+  { code: CUSTOM_UNIT, label: "Custom Product Selection" },
+];
+
 /** The code a category opens on: the whole of it. */
 export function defaultUnitCode(category: MisUnitCategory): string {
   if (category === "Custom") return CUSTOM_UNIT;

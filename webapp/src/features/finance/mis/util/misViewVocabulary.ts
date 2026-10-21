@@ -238,6 +238,13 @@ export interface MisAppliedFilters {
   buProductSelection: string;
   customBusinessUnits: string[];
   customProductUnits: string[];
+  /**
+   * The Region Summary's All ARR Metrics Unit: one of `MIS_METRICS_UNITS`'s
+   * codes. Its own value, so a Build's Unit never reaches the metrics.
+   */
+  metricsUnit: string;
+  metricsCustomBusinessUnits: string[];
+  metricsCustomProductUnits: string[];
   /** Derived from the type on every apply. Never a URL parameter. */
   forecast: MisForecastState;
   salesRegion: string[];

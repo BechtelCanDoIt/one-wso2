@@ -46,6 +46,7 @@ import {
   type QueryParamCodec,
   type QueryParamReader,
 } from "@utils/queryState";
+import { MIS_METRICS_UNITS } from "./misUnits";
 import {
   CUMULATIVE_KEY_BY_PERIOD,
   CUSTOM_UNIT,
@@ -111,6 +112,19 @@ const unitParam: QueryParamCodec<string> = {
   format: (code) => code.toLowerCase().replace(/_/g, "-"),
 };
 
+/**
+ * One of the eight All ARR Metrics pills. Anything else is unrecognised, so a
+ * link carrying a Build-only unit such as `sw-apim` opens on All BU.
+ */
+const METRICS_UNIT_CODES: ReadonlySet<string> = new Set(MIS_METRICS_UNITS.map((unit) => unit.code));
+const metricsUnitParam: QueryParamCodec<string> = {
+  parse: (raw) => {
+    const code = unitParam.parse(raw);
+    return code !== undefined && METRICS_UNIT_CODES.has(code) ? code : undefined;
+  },
+  format: unitParam.format,
+};
+
 /** The only Scale that reaches a URL; units is the default and is never written. */
 const SCALE_THOUSANDS = "k";
 
@@ -141,6 +155,7 @@ const windowParam: QueryParamReader<MisWindow> = {
 function codecsFor(period: MisPeriod, table: MisTable, viewWindow: MisWindow) {
   return {
     unit: unitParam,
+    metricsUnit: metricsUnitParam,
     years: integerParam(YEARS_BACK_RANGE),
     ytd: booleanParam,
     endingMonth: oneOfParam(ENDING_MONTH_VALUES),
@@ -302,6 +317,9 @@ export function defaultAppliedFilters(period: MisPeriod, table: MisTable): MisAp
     buProductSelection: "BU_ALL",
     customBusinessUnits: [],
     customProductUnits: [],
+    metricsUnit: "BU_ALL",
+    metricsCustomBusinessUnits: [],
+    metricsCustomProductUnits: [],
     forecast: FORECAST_STATES.DISABLE,
     salesRegion: [],
     subRegion: [],
@@ -360,6 +378,13 @@ export function serializeViewState({
   if (filters.buProductSelection === CUSTOM_UNIT) {
     query.setIfChanged("customBu", filters.customBusinessUnits, defaults.customBusinessUnits, codecs.list);
     query.setIfChanged("customProduct", filters.customProductUnits, defaults.customProductUnits, codecs.list);
+  }
+  if (table === MIS_TABLES.EXIT_ARR_BY_REGION) {
+    query.setIfChanged("metrics", filters.metricsUnit, defaults.metricsUnit, codecs.metricsUnit);
+    if (filters.metricsUnit === CUSTOM_UNIT) {
+      query.setIfChanged("metricsBu", filters.metricsCustomBusinessUnits, defaults.metricsCustomBusinessUnits, codecs.list);
+      query.setIfChanged("metricsProduct", filters.metricsCustomProductUnits, defaults.metricsCustomProductUnits, codecs.list);
+    }
   }
   query.setIfChanged("years", filters.yearsBack, defaults.yearsBack, codecs.years);
   // A TTM window runs twelve months back from its end date, so year-to-date has
@@ -441,6 +466,13 @@ export function parseViewState(search: string, { period }: { period: MisPeriod }
   if (filters.buProductSelection === CUSTOM_UNIT) {
     read("customBu", "customBusinessUnits", codecs.list);
     read("customProduct", "customProductUnits", codecs.list);
+  }
+  if (effectiveTable === MIS_TABLES.EXIT_ARR_BY_REGION) {
+    read("metrics", "metricsUnit", codecs.metricsUnit);
+    if (filters.metricsUnit === CUSTOM_UNIT) {
+      read("metricsBu", "metricsCustomBusinessUnits", codecs.list);
+      read("metricsProduct", "metricsCustomProductUnits", codecs.list);
+    }
   }
   read("years", "yearsBack", codecs.years);
   if (!isTtm) read("ytd", "isYtd", codecs.ytd);

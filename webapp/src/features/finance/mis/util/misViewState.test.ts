@@ -266,6 +266,81 @@ describe("the Unit parameter", () => {
   });
 });
 
+describe("the All ARR Metrics Unit", () => {
+  // The Region Summary's second view cuts by a Unit of its own, independent of
+  // the Build tab's. It is the only Table that writes it.
+  const base = defaultAppliedFilters(ANNUALLY, EXIT_ARR_BY_REGION);
+
+  it("opens on All BU and writes nothing while it is there", () => {
+    expect(base.metricsUnit).toBe("BU_ALL");
+    expect(serializeViewState({ period: ANNUALLY, table: EXIT_ARR_BY_REGION, filters: base })).toBe(
+      "table=region-summary",
+    );
+  });
+
+  it("round-trips a unit, Moesif included", () => {
+    for (const metricsUnit of ["BU_APIM", "BU_AGENT_PLATFORM", "CL_MOESIF"]) {
+      const search = serializeViewState({
+        period: ANNUALLY,
+        table: EXIT_ARR_BY_REGION,
+        filters: { ...base, metricsUnit },
+      });
+      expect(parseViewState(search, { period: ANNUALLY }).filters).toEqual({ metricsUnit });
+    }
+    expect(
+      params(serializeViewState({
+        period: ANNUALLY,
+        table: EXIT_ARR_BY_REGION,
+        filters: { ...base, metricsUnit: "CL_MOESIF" },
+      })),
+    ).toEqual({ table: "region-summary", metrics: "cl-moesif" });
+  });
+
+  it("round-trips a custom selection, and reads its lists only beside Custom", () => {
+    const search = serializeViewState({
+      period: ANNUALLY,
+      table: EXIT_ARR_BY_REGION,
+      filters: {
+        ...base,
+        metricsUnit: "CUSTOM",
+        metricsCustomBusinessUnits: ["APIM_BU", "IAM_BU"],
+      },
+    });
+    expect(params(search)).toEqual({
+      table: "region-summary",
+      metrics: "custom",
+      metricsBu: "APIM_BU,IAM_BU",
+    });
+    expect(parseViewState(search, { period: ANNUALLY }).filters).toEqual({
+      metricsUnit: "CUSTOM",
+      metricsCustomBusinessUnits: ["APIM_BU", "IAM_BU"],
+    });
+    expect(
+      parseViewState("?table=region-summary&metrics=bu-iam&metricsBu=APIM_BU", { period: ANNUALLY }).filters,
+    ).toEqual({ metricsUnit: "BU_IAM" });
+  });
+
+  it("falls back to All for a value that is not one of the eight", () => {
+    for (const metrics of ["bu-nope", "sw-apim", "cl-apim", "x", ""]) {
+      const parsed = parseViewState(`?table=region-summary&metrics=${metrics}`, { period: ANNUALLY });
+      expect(parsed.filters.metricsUnit).toBeUndefined();
+      expect(
+        hydrateAppliedFilters(parsed.filters, ANNUALLY, EXIT_ARR_BY_REGION).metricsUnit,
+      ).toBe("BU_ALL");
+    }
+  });
+
+  it("is neither written nor read on any other Table", () => {
+    const search = serializeViewState({
+      period: ANNUALLY,
+      table: SUBSCRIPTION,
+      filters: { ...defaultAppliedFilters(ANNUALLY, SUBSCRIPTION), metricsUnit: "BU_APIM" },
+    });
+    expect(search).toBe("");
+    expect(parseViewState("?metrics=bu-apim", { period: ANNUALLY }).filters).toEqual({});
+  });
+});
+
 describe("the Type parameter", () => {
   // The Table decides which types exist, so validating against a single global
   // list would restore a view the filter bar cannot show — a Renewal column on
