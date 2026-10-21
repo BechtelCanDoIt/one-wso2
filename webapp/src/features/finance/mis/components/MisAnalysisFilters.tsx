@@ -58,7 +58,7 @@ import {
 } from "../util/misAnalysisFilters";
 import type { AnalysisMenus } from "../util/misAnalysisMenus";
 
-// ARR Analysis's filter panel: ten controls, the tags for whatever they have
+// Portfolio's filter panel: ten controls, the tags for whatever they have
 // narrowed, and a way back to none of it.
 //
 // ---- no Apply, where the Build's bar has one -------------------------------

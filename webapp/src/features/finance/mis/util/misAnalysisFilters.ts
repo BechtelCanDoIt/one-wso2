@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// What the reader has narrowed ARR Analysis to, and the rules its ten controls
+// What the reader has narrowed Portfolio to, and the rules its ten controls
 // obey.
 //
 // Ported from the `filters` state in digiops-finance
@@ -131,7 +131,7 @@ export interface MisAnalysisFilters {
 }
 
 /**
- * The view ARR Analysis opens on: no narrowing at all, as at today.
+ * The view Portfolio opens on: no narrowing at all, as at today.
  *
  * `today` is a parameter rather than a call to `pacificCivilDate()` inside,
  * because the source's equivalent is a module-level `new Date()` frozen at

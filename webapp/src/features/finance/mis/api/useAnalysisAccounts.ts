@@ -27,7 +27,7 @@ import { analysisAccountsRequest, analysisExitArrRequest } from "./misAnalysisRe
 import { arrayIn } from "./misResponseArray";
 import { useColumnQueries } from "./useColumnQueries";
 
-// ARR Analysis's two reads: `POST /accounts` for the table, and
+// Portfolio's two reads: `POST /accounts` for the table, and
 // `POST /exit-arr/search` for the figure above it.
 //
 // Both go through `useColumnQueries` with a list of ONE body, which is the same

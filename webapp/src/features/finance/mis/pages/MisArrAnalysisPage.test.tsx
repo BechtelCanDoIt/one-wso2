@@ -31,7 +31,7 @@ import { ANALYSIS_INDUSTRIES } from "../components/analysisBreakdowns";
 // timer or a network, so a timeout is always machine load rather than a hang.
 vi.setConfig({ testTimeout: 20_000 });
 
-// ARR Analysis's front door: a server-side flag on top of a privilege.
+// Portfolio's front door: a server-side flag on top of a privilege.
 //
 // The two refusals are deliberately DIFFERENT, and the difference is the whole
 // design here:

@@ -27,7 +27,7 @@ import {
   type MisAnalysisFilters,
 } from "../util/misAnalysisFilters";
 
-// What ARR Analysis tells the backend. Ported from
+// What Portfolio tells the backend. Ported from
 // digiops-finance `arrAnalysis/api/arrAnalysisApi.js` — `buildBasePayload`,
 // `resolveProducts` and `buildOptionalFilters`.
 //
@@ -129,7 +129,7 @@ describe("the optional filters, which both bodies share", () => {
     );
     expect(body.salesRegions).toEqual(["EMEA"]);
     expect(body.subRegions).toEqual(["UK & Ireland"]);
-    // `billingCountries`, not `shippingCountries` — ARR Analysis filters on
+    // `billingCountries`, not `shippingCountries` — Portfolio filters on
     // where an account is BILLED, where the Build's region cut filters on where
     // it ships. Two different questions that read alike.
     expect(body.billingCountries).toEqual(["Sri Lanka"]);

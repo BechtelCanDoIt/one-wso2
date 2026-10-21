@@ -53,7 +53,7 @@ export interface MisAppConfigsState {
   /** Always a complete set of menus; empty ones before the call has answered. */
   options: MisFilterOptions;
   /**
-   * Whether ARR Analysis exists — `productsUsageEnabled`, the one field on this
+   * Whether Portfolio exists — `productsUsageEnabled`, the one field on this
    * response that is not a menu.
    *
    * False until the backend has actually said `true`, so it is false while the
@@ -118,7 +118,7 @@ export function useMisAppConfigs(enabled = true): MisAppConfigsState {
     // ask, which is `useMisGate`'s rule for `isResolving`. Not `fetchStatus`:
     // useAsgardeoSub starts at "loading" on every mount, and until it resolves
     // the query is switched off, pending AND idle. Read as settled, that was the
-    // backend saying ARR Analysis is off, and the route redirected on every
+    // backend saying Portfolio is off, and the route redirected on every
     // visit. Switched off for any other reason, it stays not loading, so a
     // perspective without MIS never waits on it.
     isLoading: folded.isPending && enabled && isSignedIn && isMisArrConfigured(),

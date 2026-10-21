@@ -101,7 +101,7 @@ describe("the ladder above the page", () => {
     expect(screen.queryByText("the real page")).not.toBeInTheDocument();
   });
 
-  it("does not call a switched-off ARR Analysis screen a missing permission", () => {
+  it("does not call a switched-off Portfolio screen a missing permission", () => {
     gate.value = {
       ...ALLOWED,
       canSee: (itemId) => itemId === "mis-arr-build",

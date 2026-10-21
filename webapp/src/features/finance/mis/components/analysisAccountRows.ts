@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// `POST /accounts` as ARR Analysis reads it: one row per account, and the
+// `POST /accounts` as Portfolio reads it: one row per account, and the
 // option lists the loaded accounts can supply when the backend's cannot.
 //
 // Ported from digiops-finance `arrAnalysis/ArrAnalysisDashboard.js` —

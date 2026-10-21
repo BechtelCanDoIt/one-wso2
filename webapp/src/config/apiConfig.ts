@@ -2149,7 +2149,7 @@ export const misArrServiceUrls = {
   // Drives useMisGate.
   userInfo: `${misArrBackendUrl}/user-info`,
   // Every option list the filter bar's menus are made of, in one response —
-  // and the ARR Analysis feature flag. A plain GET, so the URL is the key.
+  // and the Portfolio feature flag. A plain GET, so the URL is the key.
   appConfigs: `${misArrBackendUrl}/app-configs`,
   // A read that takes a filter body, so it is a POST — which makes the React
   // Query key the body rather than the URL. See §6 of the port spec.

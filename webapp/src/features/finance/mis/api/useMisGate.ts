@@ -22,7 +22,7 @@ import { useMisAppConfigs } from "./useMisAppConfigs";
 import { MIS_PRIVILEGE, misHasPrivilege } from "./misTypes";
 
 // The screens the ARR privilege opens, named one by one. The source app gates
-// ARR Build, QRR, MRR and ARR Analysis on a single ARR_DASHBOARD number
+// ARR Build, QRR, MRR and Portfolio on a single ARR_DASHBOARD number
 // (Config.js:56), so this is a set rather than useMarketingOpsGate's per-item
 // ITEM_CAPABILITY map: a map whose every value is the same number says nothing.
 //
@@ -33,7 +33,7 @@ import { MIS_PRIVILEGE, misHasPrivilege } from "./misTypes";
 // useMisGate.test.tsx turns red on a registry entry left out, which is the cue
 // to decide who it is for and add it.
 //
-// ARR Analysis needs a second condition on top, and it is not a privilege —
+// Portfolio needs a second condition on top, and it is not a privilege —
 // see ANALYSIS_ITEM_ID below.
 /**
  * The one screen whose existence is a server-side decision as well as an

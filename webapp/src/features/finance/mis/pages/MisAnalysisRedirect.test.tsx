@@ -36,7 +36,7 @@ function open(entry: string) {
   );
 }
 
-describe("the old ARR Analysis address", () => {
+describe("the old analysis address", () => {
   it("lands on Portfolio", () => {
     open(misPaths.legacyAnalysis);
     expect(screen.getByText("/finance/mis/portfolio")).toBeInTheDocument();

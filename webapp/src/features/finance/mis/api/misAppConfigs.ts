@@ -50,7 +50,7 @@ export interface MisAppConfigs {
   businessUnits?: string[];
   productUnits?: string[];
   helpEmail?: string;
-  /** Whether the ARR Analysis screen is on. Ticket 13's, not this module's. */
+  /** Whether the Portfolio screen is on. Ticket 13's, not this module's. */
   productsUsageEnabled?: boolean;
 }
 
@@ -69,7 +69,7 @@ export interface MisFilterOptions {
    * Both exist because the two screens filter on different fields. The Build's
    * Billing Country control sends `billingCountries` and is fed
    * `shippingCountries` — the source's substitution, reproduced for parity
-   * and described below. ARR Analysis's Country control also sends
+   * and described below. Portfolio's Country control also sends
    * `billingCountries`, and is fed THIS, which is the list that actually
    * answers it.
    *
@@ -146,7 +146,7 @@ const ownerNames = (owners: MisAppConfigs["accountOwners"]): string[] =>
  * filter mean two different things depending on which app you opened. Worth
  * raising with Finance, not worth fixing unilaterally.
  *
- * `billingCountries` is nonetheless SHAPED here, because ARR Analysis does read
+ * `billingCountries` is nonetheless SHAPED here, because Portfolio does read
  * it — see the field's own note. The Build's substitution stands; the list it
  * declines is simply no longer thrown away on the way past.
  */

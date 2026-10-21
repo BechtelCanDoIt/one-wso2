@@ -57,7 +57,7 @@ import { useScalePreference } from "../util/ScalePreferenceContext";
 import { MIS_SCALES, type MisScale } from "../util/misViewVocabulary";
 import { analysisSurfaceSx, brandText, primaryTint } from "../components/misLookTokens";
 
-// ARR Analysis — current ARR over an account-level table, behind a server-side
+// Portfolio — current ARR over an account-level table, behind a server-side
 // flag.
 //
 // ---- two refusals that must not be confused with each other ----------------
