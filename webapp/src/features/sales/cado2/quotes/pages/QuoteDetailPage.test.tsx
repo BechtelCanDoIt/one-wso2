@@ -413,7 +413,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show({ ...submitted.quote, actions: [] }, allMapped);
     expect(screen.getByRole("region", { name: "Your approval as Deal Desk" })).toHaveTextContent(
-      "Nothing non-standard: no further approvals are needed.",
+      "Standard quote: your approval is the only one needed.",
     );
   });
 
@@ -425,7 +425,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     show({ ...submitted.quote, actions: [] }, allMapped);
     const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
     expect(panel).toHaveTextContent("Further approvals follow, with no specific points recorded.");
-    expect(panel).not.toHaveTextContent("no further approvals are needed");
+    expect(panel).not.toHaveTextContent("your approval is the only one needed");
   });
 
   // The decision note is a toast now (2026-10-13), so it no longer belongs to a quote.
