@@ -16,7 +16,6 @@
 
 import type { UmtLifecycleState } from "../api/umtTypes";
 import { isFilesAnalysisPrAnalyzed, type UmtEditStepId } from "./umtEditSteps";
-import { umtLifecycleState } from "./umtLifecycleState";
 
 export interface UmtDemoteAction {
   label: string;
@@ -33,7 +32,6 @@ export function computeUmtDemoteActions(
   lifecycleState: UmtLifecycleState | null | undefined,
   isHotfix: boolean,
   isAdmin: boolean,
-  demoteStages: readonly string[] | null | undefined,
 ): UmtDemoteAction[] {
   switch (stepId) {
     case "files-analysis":
@@ -56,14 +54,15 @@ export function computeUmtDemoteActions(
       return isAdmin ? [{ label: "Demote to Staging", targetLifecycleState: "Staging" }] : [];
     case "testing":
     case "validate":
-      // The valid targets differ across the testing states (Staging, for one,
-      // can only request a demotion), so they come from the backend.
-      return (demoteStages ?? []).flatMap((stage) => {
-        const targetLifecycleState = umtLifecycleState(stage);
-        return targetLifecycleState
-          ? [{ label: umtDemoteStageLabel(targetLifecycleState), targetLifecycleState }]
-          : [];
-      });
+      // From Staging, the demotion is requested through DemoteStagingRequested,
+      // which tears staging down before the update lands in Development; it
+      // can't go straight to Development.
+      return [
+        {
+          label: "Demote to Development",
+          targetLifecycleState: lifecycleState === "Staging" ? "DemoteStagingRequested" : "Development",
+        },
+      ];
     case "verifying":
       if (lifecycleState === "UATStaging") {
         return [{ label: "Demote to Testing", targetLifecycleState: "Staging" }];
@@ -75,13 +74,4 @@ export function computeUmtDemoteActions(
     default:
       return [];
   }
-}
-
-// A staging demotion is requested rather than applied directly; the update
-// ends up back in Development once it completes, which is what the user asked
-// for.
-function umtDemoteStageLabel(stage: UmtLifecycleState): string {
-  if (stage === "DemoteStagingRequested") return "Demote to Development";
-  if (stage === "OnHold") return "Change to On Hold";
-  return `Demote to ${stage}`;
 }

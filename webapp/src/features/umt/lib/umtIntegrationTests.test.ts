@@ -19,7 +19,7 @@ function product(testPr: string | null | undefined, ignoreTestReason: string | n
 
 describe("umtProductHasIntegrationTestInfo", () => {
   it("is true with a non-blank Test PR", () => {
-    expect(umtProductHasIntegrationTestInfo(product("https://github.com/wso2/x/pull/1", null))).toBe(true);
+    expect(umtProductHasIntegrationTestInfo(product("https://github.com/wso2-support/x/pull/1", null))).toBe(true);
   });
 
   it("is true with a non-blank Ignore Test Reason", () => {
@@ -48,7 +48,7 @@ describe("isIntegrationTestsComplete", () => {
   it("is true when every product has a Test PR or an ignore reason", () => {
     expect(
       isIntegrationTestsComplete(
-        [product("https://github.com/wso2/x/pull/1", null), product(null, "Skipping")],
+        [product("https://github.com/wso2-support/x/pull/1", null), product(null, "Skipping")],
         false,
       ),
     ).toBe(true);
@@ -56,7 +56,7 @@ describe("isIntegrationTestsComplete", () => {
 
   it("is false when one product among several has neither", () => {
     expect(
-      isIntegrationTestsComplete([product("https://github.com/wso2/x/pull/1", null), product(null, null)], false),
+      isIntegrationTestsComplete([product("https://github.com/wso2-support/x/pull/1", null), product(null, null)], false),
     ).toBe(false);
   });
 
@@ -118,7 +118,7 @@ describe("isIntegrationTestsSaveDisabled", () => {
         isContainerizedUpdate: false,
         helmChartTag: "",
         rows: [
-          { testPr: "https://github.com/wso2/x/pull/1", isIgnored: false, ignoreReason: "" },
+          { testPr: "https://github.com/wso2-support/x/pull/1", isIgnored: false, ignoreReason: "" },
           { testPr: "", isIgnored: true, ignoreReason: "Skipping" },
         ],
       }),

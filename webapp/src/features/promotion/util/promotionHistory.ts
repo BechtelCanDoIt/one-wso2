@@ -43,11 +43,8 @@ export function latestPromotion(
 }
 
 // One-line summary for the profile card: cycle plus the band jump, e.g.
-// "2023-H2 · JB 5 → 6". Deliberately not a date — /promotion/requests
-// exposes only createdOn/updatedOn, neither of which is the date the
-// promotion took effect, so naming the cycle states what the backend
-// actually knows. See docs note in PromotionHistoryDialog for the
-// promotedDate field that would let this show a real date.
+// "2023-H2 · JB 5 → 6". Named by cycle rather than promotedDate, which older
+// records don't have, so every record reads the same way.
 export function promotionSummary(entry: PromotionHistoryEntry): string {
   return `${entry.promotionCycle} · JB ${entry.currentJobBand} → ${entry.nextJobBand}`;
 }

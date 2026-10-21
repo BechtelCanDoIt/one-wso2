@@ -6,18 +6,24 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 import { describe, expect, it } from "vitest";
-import { isCompleteUpdateValid, isValidHttpUrl } from "./umtVerifying";
+import { isCompleteUpdateValid, umtPublicPrError } from "./umtVerifying";
 
-describe("isValidHttpUrl", () => {
-  it("accepts http/https URLs", () => {
-    expect(isValidHttpUrl("https://github.com/wso2/carbon-kernel/pull/123")).toBe(true);
-    expect(isValidHttpUrl("http://example.com")).toBe(true);
+describe("umtPublicPrError", () => {
+  it("accepts a pull request under https://github.com/wso2/", () => {
+    expect(umtPublicPrError("https://github.com/wso2/carbon-kernel/pull/123")).toBeUndefined();
+    expect(umtPublicPrError("")).toBeUndefined();
   });
 
-  it("rejects non-URL strings and non-http(s) protocols", () => {
-    expect(isValidHttpUrl("not a url")).toBe(false);
-    expect(isValidHttpUrl("")).toBe(false);
-    expect(isValidHttpUrl("ftp://example.com/file")).toBe(false);
+  it("rejects anything else", () => {
+    for (const value of [
+      "not a url",
+      "http://example.com",
+      "ftp://example.com/file",
+      "https://github.com/wso2-support/carbon-kernel/pull/123",
+      "https://github.com/wso2/carbon-kernel/issues/123",
+    ]) {
+      expect(umtPublicPrError(value), value).toBeDefined();
+    }
   });
 });
 

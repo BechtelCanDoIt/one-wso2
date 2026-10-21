@@ -146,19 +146,25 @@ function updateProductVersions(updates: UmtUpdateSummary[]): { name: string; ver
   );
 }
 
+// A product version travels as X.Y.Z.<update level>.<channel>; two updates
+// collide on the product's base X.Y.Z, whatever level each carries.
+function umtBaseVersion(version: string): string {
+  return /^\d+\.\d+\.\d+/.exec(version)?.[0] ?? version;
+}
+
 // The Create Release Chunk page's "already in UAT" guard. A UATStaging update
-// cannot be promoted while another update for the same product and version is
-// still sitting in UAT — that one has to be released first, or the two would
-// race for the same update level. Returns the blocking product names,
-// de-duplicated, for the dialog that explains the refusal.
+// cannot be promoted while another update for the same product and base
+// version is still sitting in UAT — that one has to be released first, or the
+// two would race for the same update level. Names match case-insensitively.
+// Returns the blocking product names, de-duplicated, for the dialog that
+// explains the refusal.
 export function umtReleaseChunkCollisionProducts(
   selectedUpdates: UmtUpdateSummary[],
   uatUpdates: UmtUpdateSummary[],
 ): string[] {
-  const uatProducts = updateProductVersions(uatUpdates);
-  const selectedProducts = updateProductVersions(selectedUpdates);
-  const blocking = selectedProducts.filter((selected) =>
-    uatProducts.some((uat) => uat.name === selected.name && uat.version === selected.version),
-  );
+  const productKey = (product: { name: string; version: string }) =>
+    `${product.name.toLowerCase()} ${umtBaseVersion(product.version)}`;
+  const uatKeys = new Set(updateProductVersions(uatUpdates).map(productKey));
+  const blocking = updateProductVersions(selectedUpdates).filter((selected) => uatKeys.has(productKey(selected)));
   return [...new Set(blocking.map((product) => product.name))];
 }

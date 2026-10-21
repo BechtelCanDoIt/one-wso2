@@ -39,8 +39,7 @@ export default function PreviewPanel({ group, passage }: PreviewPanelProps): JSX
     <Paper variant="outlined" aria-label="Preview" component="aside" sx={{ borderRadius: 1.5, overflow: "hidden" }}>
       <Stack
         direction="row"
-        spacing={1.5}
-        sx={{ alignItems: "center", p: 2, borderBottom: 1, borderColor: "divider", flexWrap: "wrap", rowGap: 1 }}
+        sx={{ alignItems: "center", p: 2, borderBottom: 1, borderColor: "divider", flexWrap: "wrap", columnGap: 1.5, rowGap: 1 }}
       >
         <Box sx={{ minWidth: 0, flex: "1 1 200px" }}>
           <Typography variant="subtitle2">{group.title}</Typography>
@@ -68,7 +67,7 @@ export default function PreviewPanel({ group, passage }: PreviewPanelProps): JSX
         )}
       </Stack>
 
-      <Box sx={{ bgcolor: "action.hover", minHeight: 420, display: "flex", alignItems: "stretch" }}>
+      <Box sx={{ bgcolor: "action.hover", minHeight: 360, display: "flex", alignItems: "stretch" }}>
         {passage.embedUrl ? (
           <Box
             component="iframe"
@@ -77,7 +76,7 @@ export default function PreviewPanel({ group, passage }: PreviewPanelProps): JSX
             loading="lazy"
             referrerPolicy="no-referrer"
             sandbox="allow-same-origin allow-scripts allow-presentation allow-popups"
-            sx={{ border: 0, width: "100%", minHeight: 420 }}
+            sx={{ border: 0, width: "100%", minHeight: 360 }}
           />
         ) : (
           <Stack spacing={1.5} sx={{ m: "auto", p: 3, maxWidth: 340, alignItems: "center", textAlign: "center" }}>

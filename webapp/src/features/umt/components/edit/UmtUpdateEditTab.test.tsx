@@ -55,6 +55,15 @@ vi.mock("../../api/useUmtLifecycleHistory", () => ({
   useUmtLifecycleHistory: () => ({ isSuccess: true, data: [{}, {}] }),
 }));
 
+vi.mock("../../api/useUmtHotfixRelease", () => ({
+  useUmtHotfixTestStatus: () => ({ isSuccess: true, isPending: false, data: null }),
+  useUmtReleaseHotfix: () => ({ isPending: false, mutateAsync: vi.fn() }),
+}));
+
+vi.mock("./hotfix-release/UmtHotfixReleaseStep", () => ({
+  default: () => <div data-testid="step-hotfix-release" />,
+}));
+
 vi.mock("../../api/useUmtGate", () => ({
   useUmtGate: () => ({
     isAuthorized: true,

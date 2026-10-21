@@ -844,7 +844,7 @@ function LevelBuildRetriggerButton({
       await trigger.mutateAsync({
         productName: level.productName ?? "",
         productVersion: level.productVersion ?? "",
-        channel: "full",
+        channel: level.channel ?? "full",
       });
       setConfirmOpen(false);
       showSuccess(successMessage);

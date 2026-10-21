@@ -105,10 +105,10 @@ export default function EditableLinkSection({
       return;
     }
     // Delete by position, not by value: nothing stops these lists holding two
-    // identical entries (add has no duplicate check, and two of the three
-    // sections pass no `validate` at all), and a value filter would remove
-    // every copy. The value is re-checked here so a reorder can't redirect the
-    // delete onto a different row.
+    // identical entries (add has no duplicate check, and entries saved before
+    // a section gained its `validate` were never checked), and a value filter
+    // would remove every copy. The value is re-checked here so a reorder can't
+    // redirect the delete onto a different row.
     if (items[deleteTarget.index] !== deleteTarget.value) {
       showError(
         `This ${addFieldLabel.toLowerCase()} changed while the dialog was open. Reopen and try again.`,

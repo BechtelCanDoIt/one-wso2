@@ -16,7 +16,7 @@
 
 import { useEffect, useRef, type JSX } from "react";
 import { useNavigate } from "react-router";
-import { Box, ButtonBase, IconButton, Link, Paper, Stack, Tooltip, Typography, alpha } from "@wso2/oxygen-ui";
+import { Box, ButtonBase, IconButton, Link, Paper, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import {
   CompassIcon,
   HistoryIcon,
@@ -84,33 +84,18 @@ export default function LibraryStart({ onSearch }: LibraryStartProps): JSX.Eleme
   return (
     <Box ref={page}>
       <PerspectiveHeader
-        title="Library"
-        subtitle="Ask a question in plain language. The Library finds the exact page, slide, sheet or video moment in Pitstop content that answers it."
+        title="Ask Sales"
+        subtitle="Ask a question in plain language. Ask Sales finds the exact page, slide, sheet or video moment in Pitstop content that answers it."
       />
       <Box>
-        <Box
-          sx={(theme) => ({
-            position: "relative",
-            isolation: "isolate",
-            "&::before": {
-              content: '""',
-              position: "absolute",
-              inset: "-48px -24px -16px",
-              zIndex: -1,
-              pointerEvents: "none",
-              background: `radial-gradient(60% 90% at 50% 0%, ${alpha(theme.palette.primary.main, 0.14)}, transparent 70%)`,
-            },
-          })}
-        >
-          <SearchBox
-            autoFocus
-            large
-            shortcut="/"
-            inputRef={searchInput}
-            examples={LIBRARY_TOPICS.map((topic) => topic.question)}
-            onSubmit={onSearch}
-          />
-        </Box>
+        <SearchBox
+          autoFocus
+          large
+          shortcut="/"
+          inputRef={searchInput}
+          examples={LIBRARY_TOPICS.map((topic) => topic.question)}
+          onSubmit={onSearch}
+        />
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", mt: 1, ml: 1, color: "text.secondary" }}>
           <LockIcon size={13} />
           <Typography variant="caption">

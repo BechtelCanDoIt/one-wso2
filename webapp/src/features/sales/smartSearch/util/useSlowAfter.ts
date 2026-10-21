@@ -14,18 +14,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { defineConfig } from "@playwright/test";
+import { useEffect, useState } from "react";
 
-export default defineConfig({
-  testDir: "./e2e",
-  fullyParallel: false,
-  workers: 1,
-  timeout: 300_000,
-  expect: { timeout: 20_000 },
-  use: {
-    baseURL: "http://localhost:3000",
-    viewport: { width: 1440, height: 900 },
-    trace: "retain-on-failure",
-  },
-  reporter: [["list"]],
-});
+/**
+ * True once something has been going on for this long, so a wait that has dragged on can say so. Goes back to false as
+ * soon as it stops, and starts counting again from nothing the next time.
+ */
+export function useSlowAfter(active: boolean, delayMs: number): boolean {
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (!active) return;
+    const timer = setTimeout(() => setSlow(true), delayMs);
+    return () => {
+      clearTimeout(timer);
+      setSlow(false);
+    };
+  }, [active, delayMs]);
+
+  return active && slow;
+}

@@ -403,9 +403,15 @@ export const parServiceUrls = {
   // legacy endpoint above.
   legacyParHistoryCycles: () => `${parBackendUrl}/legacy-par-history-cycles`,
   // GET every employee's legacy row for one cycle name — the History tab's
-  // legacy drill-down.
-  legacyParHistoryCyclesParticipants: (cycleName: string) =>
-    `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants`,
+  // legacy drill-down. summary=true skips the two JSON-aggregated
+  // (questions, 360 feedback) fields per row -- the decrypted overall
+  // employee/lead comments are still returned either way, since the
+  // roster's own completion counts rely on them. The roster/grouping view
+  // only needs names/scores, not full submitted answers, for every
+  // participant in the cycle; a specific opened record is fetched
+  // separately, in full, via parLegacyHistory below.
+  legacyParHistoryCyclesParticipants: (cycleName: string, summary = false) =>
+    `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants${summary ? "?summary=true" : ""}`,
 };
 
 // Leave app backend (people-ops-suite/apps/leave-app). Its own service
@@ -704,8 +710,10 @@ export const umtServiceUrls = {
   createBaseProduct: `${umtBackendUrl}/update/product`,
   // PUT — deprecates an existing base product by name+version.
   deprecateBaseProduct: `${umtBackendUrl}/update/product/deprecate`,
-  // PUT — per-product description/instruction update (only these 3 keys are
-  // ever sent), distinct from updateProducts's whole-list replace above.
+  // PUT — per-product description/instruction update (each product's Test PR,
+  // ignore reason and Helm Chart Tag travel back unchanged, so saving
+  // descriptions doesn't clear them), distinct from updateProducts's
+  // whole-list replace above.
   updateProductsDetails: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/products/details`,
   // GET/PUT — per-product manual test-result review for the Testing step.
@@ -714,10 +722,22 @@ export const umtServiceUrls = {
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/integrationTest/staging`,
   updateHotfixInfo: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixInfo`,
+  // GET — the hotfix's Jenkins integration-test status ({ buildStatus });
+  // 400 "Jenkins job is not triggered" until a run has been started.
+  updateHotfixJenkinsJobStatus: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixJenkinsJobStatus`,
+  // POST — starts the hotfix's Jenkins integration-test run.
+  updateHotfixJenkinsJobTrigger: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/jenkinsJob/trigger`,
+  // POST { reason } — releases a hotfix from TestingEnvironmentCreated. The
+  // reason is required, and only a lead or admin may release, while the
+  // integration tests haven't passed.
+  updateReleaseHotfix: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/releaseHotfix`,
   // POST subscribes the caller; DELETE removes the caller's subscription.
   updateSubscription: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/subscribe`,
-  // PUT — moves an update to OnHold with a reason, from the View tab's
+  // POST — moves an update to OnHold with a reason, from the View tab's
   // action row (Development/PRAnalyzed/ProductAnalyzed only).
   updateOnHold: (id: string | number) => `${umtBackendUrl}/update/${encodeURIComponent(id)}/onHold`,
   // POST — records a "Duplicate" relationship between two updates, from the
@@ -1561,14 +1581,19 @@ export const promotionServiceUrls = {
   // the request lands in (service.bal's own GET .../approve handler).
   promotionRequestApprove: (id: number, from: "functional_lead" | "promotion_board") =>
     `${promotionBackendUrl}/promotion/requests/${id}/approve?from=${from}`,
+  // GET /promotion/requests/{id}/promotable-roles — the roles the request's
+  // job band can be changed to.
+  promotionRequestPromotableRoles: (id: number) =>
+    `${promotionBackendUrl}/promotion/requests/${id}/promotable-roles`,
   promotionRequestReject: (id: number, from: "functional_lead" | "promotion_board", reason: string) =>
     `${promotionBackendUrl}/promotion/requests/${id}/reject?from=${from}&reason=${encodeURIComponent(reason)}`,
   // PATCH /promotion/requests — body is ApplicationUpdateData. Two different
-  // shapes share this one endpoint: {id, promotingJobBand} (Functional
-  // Lead's job-band edit dialog) and {id, reasonForRejection} (the Admin
-  // Portal's Individual Contributor tab, editing a declined reason after
-  // the fact) — same URL, same HR_ADMIN/FUNCTIONAL_LEAD/PROMOTION_BOARD_MEMBER
-  // server-side gate, the caller just sends whichever fields it's editing.
+  // shapes share this one endpoint: {id, promotingJobBand, promotedJobRole?}
+  // (Functional Lead's job-band edit dialog, with the role only when one is
+  // picked) and {id, reasonForRejection} (the Admin Portal's Individual
+  // Contributor tab, editing a declined reason after the fact) — same URL,
+  // same HR_ADMIN/FUNCTIONAL_LEAD/PROMOTION_BOARD_MEMBER server-side gate, the
+  // caller just sends whichever fields it's editing.
   promotionRequestUpdate: () => `${promotionBackendUrl}/promotion/requests`,
 
   // ---- Admin Portal --------------------------------------------------------
@@ -2074,6 +2099,8 @@ export const smartSearchServiceUrls = {
   // first. The query is encoded by hand: a comma left raw is read by the backend as a list separator.
   search: (userQuery: string, includeAnswer: boolean): string =>
     `${smartSearchBackendUrl}/smart-search?userQuery=${encodeURIComponent(userQuery)}&includeAnswer=${includeAnswer}`,
+  // Writes a short message from the results of a search, all of them together.
+  compose: (): string => `${smartSearchBackendUrl}/smart-search/compose`,
 };
 
 // Finance MIS backend (digiops-finance/apps/mis) — the ARR service. The port

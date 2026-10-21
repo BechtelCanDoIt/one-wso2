@@ -20,7 +20,11 @@ import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtProductIntegrationTestRequest, UmtUpdateProduct, UmtUpdateSummary } from "../../../api/umtUpdates";
 import { useUmtSaveIntegrationTests } from "../../../api/useUmtIntegrationTests";
-import { isIntegrationTestsSaveDisabled, type UmtIntegrationTestDraftRow } from "../../../lib/umtIntegrationTests";
+import {
+  isIntegrationTestsSaveDisabled,
+  umtTestPrError,
+  type UmtIntegrationTestDraftRow,
+} from "../../../lib/umtIntegrationTests";
 
 type ProductWithId = UmtUpdateProduct & { productId: string | number };
 
@@ -136,6 +140,7 @@ export default function UmtIntegrationTestsStep({ id, update }: { id: string; up
           {products.map((product) => {
             const key = String(product.productId);
             const isIgnored = ignoreDrafts[key] ?? false;
+            const testPrError = isIgnored ? undefined : umtTestPrError(testPrDrafts[key] ?? "");
             return (
               <Paper key={key} variant="outlined" sx={{ p: 2 }}>
                 <Stack spacing={1.5}>
@@ -155,6 +160,8 @@ export default function UmtIntegrationTestsStep({ id, update }: { id: string; up
                       setIsDirty(true);
                     }}
                     disabled={isIgnored}
+                    error={Boolean(testPrError)}
+                    helperText={testPrError}
                     fullWidth
                     multiline
                   />

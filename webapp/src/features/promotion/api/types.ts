@@ -61,6 +61,8 @@ export interface PromotionHistoryEntry {
   currentJobBand: number;
   currentJobRole: string;
   nextJobBand: number;
+  promotedJobRole: string | null;
+  promotedDate: string | null;
   promotionCycle: string;
   promotionStatement: string | null;
   businessUnit: string;
@@ -206,6 +208,8 @@ export interface PromotionRequestFull {
   currentJobBand: number;
   currentJobRole: string;
   nextJobBand: number;
+  promotedJobRole: string | null;
+  promotedDate: string | null;
   promotionCycle: string;
   promotionStatement: string | null;
   businessUnit: string;
@@ -221,6 +225,19 @@ export interface PromotionRequestFull {
   status: PromotionRequestStatus;
   reasonForRejection: string | null;
   isNotificationEmailSent: boolean;
+}
+
+// GET /promotion/requests/{id}/promotable-roles — designations above the
+// request's current job band in the employee's career function. A band can
+// appear more than once; the backend fills promotedJobRole by itself only when
+// a band has exactly one designation.
+export interface PromotableRole {
+  designation: string;
+  jobBand: number | null;
+}
+
+export interface PromotableRolesResponse {
+  roles: PromotableRole[];
 }
 
 export interface PromotionRequestsResponse {
