@@ -52,7 +52,13 @@ import {
   resolveEmployeeCycleRating,
 } from "../util/parEmployeeHistory";
 import type { MergedCycleOption } from "../util/parEmployeeHistory";
-import { deriveLegacyRatingFromScore, formatLegacyCycleName, formatLegacyQuestionAnswers, parseLegacyQuestionAnswers } from "../util/parLegacyHistory";
+import {
+  deriveLegacyRatingFromScore,
+  formatLegacyCycleName,
+  formatLegacyQuestionAnswers,
+  hasLegacyContent,
+  parseLegacyQuestionAnswers,
+} from "../util/parLegacyHistory";
 import { decodeParComment } from "../util/parComment";
 import ParEmptyState from "../components/ParEmptyState";
 import { ParCommentView } from "../components/ParContent";
@@ -339,12 +345,10 @@ export default function ParLeadEmployeeHistoryTab() {
   // the employee's own answers get concatenated. The lead's side stays a
   // single overall comment — per-question managerFeedback entries aren't
   // the lead's actual feedback.
-  const isMeaningfulLegacyText = (text: string | null | undefined): text is string =>
-    Boolean(text) && text!.trim() !== "" && text!.trim() !== "N/A";
   const legacyEmployeeContent = formatLegacyQuestionAnswers(
     parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null),
   );
-  const legacyLeadContent = isMeaningfulLegacyText(selectedLegacyRecord?.overallCommentManager)
+  const legacyLeadContent = hasLegacyContent(selectedLegacyRecord?.overallCommentManager)
     ? selectedLegacyRecord!.overallCommentManager!
     : "";
 

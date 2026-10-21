@@ -14,7 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deriveLegacyCycleDates, hasLegacyContent } from "./parLegacyHistory";
+import { deriveLegacyCycleDates, formatLegacyCycleName, hasLegacyContent } from "./parLegacyHistory";
+import { resolveLegacyRating } from "./legacyParRatingResolvers";
 import type { ParCycle, ParLegacyCycleSummary, ParLegacyHistory } from "../api/types";
 
 export interface AdminHistoryRow {
@@ -121,8 +122,19 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
         parLeadEmail: first.reviewerName ?? "-",
         employeeParCompletion: `${employeeParDone}/${members.length}`,
         leadFeedbackCompletion: `${leadFeedbackDone}/${members.length}`,
-        numberOf5pSlots: members.filter((m) => m.overallSpecialRating === "TOP5P").length,
-        numberOf20pSlots: members.filter((m) => m.overallSpecialRating === "TOP20P").length,
+        // overallSpecialRating is always null on migrated rows (the old
+        // system never populated it) -- the real signal is derived from
+        // managerScoreCode via resolveLegacyRating, same resolver the
+        // detail view uses. 2021 H1 is the one cycle whose special rating
+        // depends on questionAnswers, which this summary-mode list doesn't
+        // carry -- passing [] here means that cycle's slots correctly read
+        // as 0 rather than silently miscounting them.
+        numberOf5pSlots: members.filter(
+          (m) => resolveLegacyRating(formatLegacyCycleName(m.cycleName), m.managerScoreCode, []).special === "TOP5P",
+        ).length,
+        numberOf20pSlots: members.filter(
+          (m) => resolveLegacyRating(formatLegacyCycleName(m.cycleName), m.managerScoreCode, []).special === "TOP20P",
+        ).length,
         participants: members,
       };
     })

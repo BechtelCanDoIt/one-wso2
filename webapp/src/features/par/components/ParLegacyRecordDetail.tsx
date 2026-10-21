@@ -30,7 +30,12 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { ChevronDownIcon, FileDownIcon } from "@wso2/oxygen-ui-icons-react";
-import { formatLegacyCycleName, formatLegacyQuestionAnswers, parseLegacyQuestionAnswers } from "../util/parLegacyHistory";
+import {
+  formatLegacyCycleName,
+  formatLegacyQuestionAnswers,
+  hasLegacyContent,
+  parseLegacyQuestionAnswers,
+} from "../util/parLegacyHistory";
 import { getLegacyQuestionGroups } from "../util/legacyParCatalogs";
 import type { LegacyGroup } from "../util/legacyParCatalogs";
 import { resolveLegacy2015EmployeeRatingLabel, resolveLegacyRating } from "../util/legacyParRatingResolvers";
@@ -39,10 +44,6 @@ import { ParCommentView } from "./ParContent";
 import ParLegacyReviewSection from "./ParLegacyReviewSection";
 import ParStatusChip from "./ParStatusChip";
 import type { ParLegacyHistory } from "../api/types";
-
-function isMeaningfulLegacyText(text: string | null | undefined): text is string {
-  return Boolean(text) && text!.trim() !== "" && text!.trim() !== "N/A";
-}
 
 // "PAR Rating"/"Top 5%/20% Rating"/"PAR Shared By" render as rows of ONE
 // compact bordered table, not three separately-bordered, separately-rounded
@@ -253,12 +254,12 @@ export default function ParLegacyRecordDetail({
   // back to the flat per-question dump when there's no catalogued groups
   // at all.
   const isFlatLayout = (groups: LegacyGroup[] | null) => groups?.[0]?.layout === "flat";
-  const employeeComment = isMeaningfulLegacyText(record.overallCommentEmployee)
+  const employeeComment = hasLegacyContent(record.overallCommentEmployee)
     ? record.overallCommentEmployee!
     : employeeGroups
       ? (isFlatLayout(employeeGroups) ? "" : "N/A")
       : formatLegacyQuestionAnswers(questionAnswers);
-  const leadComment = isMeaningfulLegacyText(record.overallCommentManager)
+  const leadComment = hasLegacyContent(record.overallCommentManager)
     ? record.overallCommentManager!
     : leadGroups
       ? (isFlatLayout(leadGroups) ? "" : "N/A")
@@ -294,7 +295,7 @@ export default function ParLegacyRecordDetail({
   // its own section -- explicit local request: shown to the employee too,
   // on their own Lead's Feedback panel, not admin-only.
   const threeSixtyConfirmationAnswer = questionAnswers.find(
-    (qa) => qa.title?.trim().replace(/\.$/, "") === "360 Confirmation" && isMeaningfulLegacyText(qa.managerFeedback),
+    (qa) => qa.title?.trim().replace(/\.$/, "") === "360 Confirmation" && hasLegacyContent(qa.managerFeedback),
   )?.managerFeedback;
 
   return (

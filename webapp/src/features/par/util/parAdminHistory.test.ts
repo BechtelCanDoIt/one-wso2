@@ -132,12 +132,15 @@ describe("groupLegacyParticipantsByTeam", () => {
     expect(groups[0]).toMatchObject({ employeeParCompletion: "1/2" });
   });
 
-  it("counts 5% and 20% special-rating slots from overallSpecialRating", () => {
+  // overallSpecialRating is always null on real migrated rows -- the slot
+  // count is derived from managerScoreCode via resolveLegacyRating instead
+  // (same resolver the detail view uses), not the raw (unpopulated) field.
+  it("counts 5% and 20% special-rating slots via resolveLegacyRating, not the always-null overallSpecialRating field", () => {
     const groups = groupLegacyParticipantsByTeam([
-      legacyRecord({ overallSpecialRating: "TOP5P" }),
-      legacyRecord({ overallSpecialRating: "TOP20P" }),
-      legacyRecord({ overallSpecialRating: "TOP20P" }),
-      legacyRecord({ overallSpecialRating: null }),
+      legacyRecord({ managerScoreCode: 1 }), // "Successful - Top 5%" for 2024 H1
+      legacyRecord({ managerScoreCode: 2 }), // "Successful - Top 20%"
+      legacyRecord({ managerScoreCode: 2 }),
+      legacyRecord({ managerScoreCode: 3 }), // "Successful", no special rating
     ]);
     expect(groups[0]).toMatchObject({ numberOf5pSlots: 1, numberOf20pSlots: 2 });
   });

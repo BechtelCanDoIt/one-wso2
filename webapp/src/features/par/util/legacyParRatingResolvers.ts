@@ -198,15 +198,20 @@ const TOP_5_OR_20_QUESTION_LABEL = "Is the employees in the top 5% or top 20% in
 // forms -- "5", "5%", "top 5", "top 5%", "top5", "top5%" (and the 20%
 // equivalents) -- explicit local request: catch all of them, not just the
 // "top"-prefixed or "%"-suffixed ones.
-const TOP_5_PATTERN = /top\s*5\b|\b5\b/i;
-const TOP_20_PATTERN = /top\s*20\b|\b20\b/i;
+const TOP_5_PATTERN = /top\s*5\b/i;
+const TOP_20_PATTERN = /top\s*20\b/i;
+// A bare number only counts when it's the WHOLE answer (optionally with a
+// trailing %) -- an unanchored \b5\b/\b20\b also matched "5 years" or "Top
+// 20% (5 people in team)" as a Top 5% answer, since it's tested first.
+const BARE_5_PATTERN = /^5\s*%?$/;
+const BARE_20_PATTERN = /^20\s*%?$/;
 const normalizeLabel = (text: string | null | undefined): string => (text ?? "").trim().replace(/\s+/g, " ");
 
 function parseSpecialFromText(text: string | null | undefined): string | null {
   if (!text) return null;
-  if (TOP_5_PATTERN.test(text)) return TOP_FIVE_PERCENT;
-  if (TOP_20_PATTERN.test(text)) return TOP_TWENTY_PERCENT;
   const trimmed = text.trim();
+  if (TOP_5_PATTERN.test(trimmed) || BARE_5_PATTERN.test(trimmed)) return TOP_FIVE_PERCENT;
+  if (TOP_20_PATTERN.test(trimmed) || BARE_20_PATTERN.test(trimmed)) return TOP_TWENTY_PERCENT;
   return trimmed && trimmed !== "N/A" ? trimmed : null;
 }
 

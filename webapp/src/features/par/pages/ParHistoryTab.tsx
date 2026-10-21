@@ -35,8 +35,8 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { formatShortDate } from "../util/parDate";
 import { deriveLegacyCycleDates, formatLegacyCycleName } from "../util/parLegacyHistory";
-import { useAllClosedParCycles, useParLegacyHistory } from "../api/useLeadHistory";
-import { useParRating } from "../api/useParData";
+import { useParLegacyHistory } from "../api/useLeadHistory";
+import { useClosedParCycles, useParRating } from "../api/useParData";
 import ParRatingSummary from "../components/ParRatingSummary";
 import ParLegacyRecordDetail from "../components/ParLegacyRecordDetail";
 import type { ParCycle, ParLegacyHistory } from "../api/types";
@@ -53,7 +53,7 @@ type Row =
 export default function ParHistoryTab() {
   const profile = useMeProfile();
   const workEmail = profile.data?.userInfo.workEmail;
-  const realCycles = useAllClosedParCycles();
+  const realCycles = useClosedParCycles(workEmail, Boolean(workEmail));
   const legacyHistory = useParLegacyHistory(workEmail, Boolean(workEmail));
   const [opened, setOpened] = useState<Row | undefined>(undefined);
 
