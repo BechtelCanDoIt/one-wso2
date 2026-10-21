@@ -581,9 +581,9 @@ describe("the Software/Cloud Customers table", () => {
 
   it("heads the figure columns so the three Totals can be told apart", async () => {
     // Two header rows, so the labels have to carry which Total is which.
-    // Reached through the breakdown control, because BU only is the default.
+    // Reached by unchecking BU only, because BU only is the default.
     renderPage("?table=customers");
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(screen.getAllByText("Software Total").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Cloud Total").length).toBeGreaterThan(0);
   });
@@ -624,9 +624,16 @@ describe("how the customer table breaks a customer's revenue down", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("swaps to the Software/Cloud breakdown when the reader asks for it", async () => {
+  it("offers BU only as a checkbox in the grid head, checked by default", () => {
     renderPage("?table=customers");
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    expect(screen.getByRole("checkbox", { name: "BU only" })).toBeChecked();
+  });
+
+  it("shows the Software/Cloud breakdown when BU only is unchecked, as the standalone grid does", async () => {
+    // Standalone DataGrid.js at ce5c0db1e: `buOnly` false builds the
+    // Software and Cloud sub-columns instead of the per-BU ones.
+    renderPage("?table=customers");
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(screen.getAllByText("Software Total").length).toBeGreaterThan(0);
     expect(screen.queryByText("API Platform BU")).not.toBeInTheDocument();
   });
@@ -639,9 +646,8 @@ describe("how the customer table breaks a customer's revenue down", () => {
     expect(within(row).getByText("400,000.00")).toBeInTheDocument();
   });
 
-  it("keeps the control on screen when the whole book failed", () => {
-    // The control is gated on `!loading` alone, so an error keeps it — and an
-    // error is where a reader most wants the switch still there.
+  it("keeps the checkbox on screen when the whole book failed", () => {
+    // An error is where a reader most wants the switch still there.
     customers.value = {
       columns: [],
       isLoading: false,
@@ -650,20 +656,20 @@ describe("how the customer table breaks a customer's revenue down", () => {
       retry: () => {},
     };
     renderPage("?table=customers");
-    expect(screen.getByRole("group", { name: "Breakdown" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "BU only" })).toBeInTheDocument();
   });
 
-  it("keeps the control on screen when the book came back empty", () => {
+  it("keeps the checkbox on screen when the book came back empty", () => {
     customers.value = customerBook([]);
     renderPage("?table=customers");
     expect(screen.getByText(/no customers to show/i)).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Breakdown" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "BU only" })).toBeInTheDocument();
   });
 
-  it("holds the control back while the book is still loading", () => {
+  it("holds the checkbox back while the book is still loading", () => {
     customers.value = { ...customerBook([]), isLoading: true, columns: [] };
     renderPage("?table=customers");
-    expect(screen.queryByRole("group", { name: "Breakdown" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "BU only" })).not.toBeInTheDocument();
   });
 
   it("asks the backend for nothing more when the breakdown changes", async () => {
@@ -672,7 +678,7 @@ describe("how the customer table breaks a customer's revenue down", () => {
     // is pinned is that the columns handed in are the same object.
     renderPage("?table=customers");
     const before = customers.value;
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(customers.value).toBe(before);
   });
 });
@@ -727,7 +733,7 @@ describe("the customer table's Total row", () => {
 
   it("totals the Software/Cloud breakdown too, not only the units", async () => {
     renderPage("?table=customers");
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     const total = within(screen.getByRole("table", { name: /Customers/ })).getAllByRole("row")[2];
     expect(within(total).getByText("600,000.00")).toBeInTheDocument();
   });
@@ -1458,14 +1464,12 @@ describe("sorting a table from its header", () => {
     expect(firstCells().slice(-2)).toEqual(["API Platform", "Total"]);
   });
 
-  it("lets go of a sort whose column the Breakdown has taken away", async () => {
+  it("lets go of a sort whose column unchecking BU only has taken away", async () => {
     renderPage("?table=customers");
     const total = screen.getByRole("columnheader", { name: /^Total/ });
     await userEvent.click(within(total).getByRole("button", { name: "Total" }));
     expect(total).toHaveAttribute("aria-sort", "descending");
-    await userEvent.click(
-      within(screen.getByRole("group", { name: "Breakdown" })).getByRole("button", { name: "Software / Cloud" }),
-    );
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(screen.getAllByRole("columnheader").some((header) => header.hasAttribute("aria-sort"))).toBe(false);
     expect(screen.getByRole("table", { name: /Customers/ })).toBeInTheDocument();
   });

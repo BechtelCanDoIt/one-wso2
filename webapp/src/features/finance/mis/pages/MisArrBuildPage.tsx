@@ -75,7 +75,6 @@ import {
 } from "../components/customerAccountRows";
 import { useMisAppConfigs } from "../api/useMisAppConfigs";
 import MisFilterBar from "../components/MisFilterBar";
-import MisCustomerBreakdownTabs from "../components/MisCustomerBreakdownTabs";
 import MisCustomerDrillDown from "../components/MisCustomerDrillDown";
 import MisOpportunities from "../components/MisOpportunities";
 import { opportunitiesRequest, useOpportunities } from "../api/useOpportunities";
@@ -662,9 +661,9 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // export, so a reader who lands on an empty book keeps the switch rather than
   // losing it at the moment they most want to try the other side of it.
   const toggles: GridToggle[] = [
+    { label: "BU only", checked: buOnly, onChange: setBuOnly },
     { label: "Totals only", checked: totalsOnly, onChange: setTotalsOnly },
   ];
-  const breakdownTabs = <MisCustomerBreakdownTabs buOnly={buOnly} onChange={setBuOnly} />;
   const header = (exportMenu?: ReactNode) => (
     <MisGridHeader
       title={gridTitle(view)}
@@ -690,7 +689,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   if (book.isError) {
     return (
       <Box>
-        {breakdownTabs}
         {header()}
         <ErrorNotice onRetry={book.retry} sx={{ mt: 1.5 }}>
           Couldn't load the customers. {book.errorMessage}
@@ -702,7 +700,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   if (!book.columns.length || !rows.length) {
     return (
       <Box>
-        {breakdownTabs}
         {header()}
         <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
           No customers to show. Widen Years Back, or loosen the filters.
@@ -713,7 +710,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
 
   return (
     <Box sx={gridColumnSx}>
-      {breakdownTabs}
       {header(
           <MisExportMenu scale={scale}
             workbook={() =>
