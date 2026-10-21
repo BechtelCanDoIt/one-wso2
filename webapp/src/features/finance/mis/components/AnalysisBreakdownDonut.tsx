@@ -25,7 +25,6 @@ import {
   TableHead,
   TableRow,
   Typography,
-  useColorScheme,
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
@@ -35,6 +34,7 @@ import {
   CHART_SERIES_2,
   seriesColor,
 } from "@components/charts/chartPalette";
+import { useLiveScheme } from "@components/charts/useLiveScheme";
 import { MIS_VALUE_TYPES, formatMisValue } from "../util/misMoney";
 import type { MisScale } from "../util/misViewVocabulary";
 import { analysisSurfaceSx } from "./misLookTokens";
@@ -258,13 +258,6 @@ function LegendRow({
       </TableCell>
     </TableRow>
   );
-}
-
-/** See AnalysisIndustryChart: palette.mode does not track the live scheme. */
-function useLiveScheme(): "light" | "dark" {
-  const { mode, systemMode } = useColorScheme();
-  const resolved = mode === "system" ? systemMode : mode;
-  return resolved === "dark" ? "dark" : "light";
 }
 
 /** `tabular-nums` so a column of figures lines up when scanned down. */
