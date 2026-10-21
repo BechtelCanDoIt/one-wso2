@@ -52,3 +52,47 @@ describe("a Portfolio view in a link", () => {
     expect(parseAnalysisView(search, { today: TODAY }).filters.asOf).toBeNull();
   });
 });
+
+describe("a Portfolio link with values it cannot use", () => {
+  const opened = (search: string) => parseAnalysisView(search, { today: TODAY });
+  const defaults = defaultAnalysisFilters(TODAY);
+
+  it.each([
+    ["an unknown first sale", "firstSale=maybe"],
+    ["a Business Unit the control does not offer", "bu=Hardware"],
+    ["both API Platform and Moesif", "bu=API%20Platform,Moesif"],
+    ["a product count out of range", "productsInUse=0,9,x"],
+    ["a lifetime out of range", "lifetime=-1,21,1.5"],
+    ["a non-numeric ARR bound", "arrMin=lots&arrMax=Infinity"],
+    ["an empty ARR bound", "arrMin=&arrMax="],
+    ["an impossible As Of Date", "asOf=2026-02-31"],
+    ["a malformed As Of Date", "asOf=yesterday"],
+    ["a Scale it does not know", "scale=millions"],
+    ["an empty list", "region=,,"],
+    ["a partner type that is not a plain name", "partner=%3Cscript%3Ealert(1)%3C/script%3E"],
+  ])("opens on the defaults for %s", (_, search) => {
+    expect(opened(search)).toEqual({ filters: defaults, scale: undefined });
+  });
+
+  it("keeps the valid values beside an invalid one", () => {
+    expect(opened("region=EMEA&firstSale=maybe&bu=IAM,Hardware").filters).toEqual({
+      ...defaults,
+      salesRegions: ["EMEA"],
+      businessUnits: ["IAM"],
+    });
+  });
+
+  it("drops a product count the Business Units make impossible", () => {
+    expect(opened("bu=IAM,Choreo,Moesif&productsInUse=1,3").filters.productCounts).toEqual([3]);
+  });
+
+  it("ignores a lower ARR bound above the upper one", () => {
+    expect(opened("arrMin=500&arrMax=100").filters.arrRange).toEqual({ lower: null, upper: null });
+  });
+
+  it("caps how many values a list takes and how long each may be", () => {
+    const tooMany = Array.from({ length: 200 }, (_, i) => `R${i}`).join(",");
+    expect(opened(`region=${tooMany}`).filters.salesRegions).toHaveLength(50);
+    expect(opened(`region=${"x".repeat(500)}`).filters.salesRegions).toEqual([]);
+  });
+});
