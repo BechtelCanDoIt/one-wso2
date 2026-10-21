@@ -401,7 +401,7 @@ export default function ParLegacyRecordDetail({
                 </Box>
               </Box>
             )}
-            {!hideThreeSixtyFeedback && <ParLegacyReviewSection feedback360={record.feedback360} cycleName={cycleName} />}
+            {!hideThreeSixtyFeedback && <ParLegacyReviewSection feedback360={record.feedback360} />}
           </Stack>
         </Card>
       </Grid>

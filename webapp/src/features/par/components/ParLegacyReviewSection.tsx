@@ -25,23 +25,15 @@ import type { ParLegacyThreeSixtyReview } from "../api/types";
 // LegacyThreeSixtyFeedbackSection.tsx — sourced from the migrated
 // `par_360_feedback` JSON column instead of a fetched review list. Legacy
 // data has no reviewer email, only a name, and no rejected/pending state to
-// filter on — every parsed entry is shown.
-// From 2021 H2 onward, the redundant question-caption subtext is hidden
-// (the rating chip and comment box already say everything they need to by
-// then); 2021 H1 and earlier keep showing them.
-function hideQuestionCaptions(cycleName: string): boolean {
-  return (
-    (cycleName.startsWith("2021") && cycleName.includes("H2")) ||
-    cycleName.startsWith("2022") ||
-    cycleName.startsWith("2023") ||
-    cycleName.startsWith("2024")
-  );
-}
+// filter on — every parsed entry is shown. The question caption (the
+// actual reviewer prompt, e.g. "What is the overall rating you would give
+// based on your interactions?") is always shown, for every era -- an
+// earlier version of this component hid it for 2021 H2 onward, which
+// turned out to not match the real legacy data's intent.
 
-export default function ParLegacyReviewSection({ feedback360, cycleName }: { feedback360: string | null; cycleName: string }) {
+export default function ParLegacyReviewSection({ feedback360 }: { feedback360: string | null }) {
   const { showSuccess, showError } = useNotifications();
   const reviews = parseLegacyFeedback360(feedback360);
-  const showCaptions = !hideQuestionCaptions(cycleName);
 
   // Cycles with no 360 feedback at all shouldn't show a disabled "360°
   // Feedback" placeholder -- just show nothing, same as the on-screen
@@ -79,12 +71,6 @@ export default function ParLegacyReviewSection({ feedback360, cycleName }: { fee
                 <Stack sx={{ width: "100%" }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography sx={{ mr: "auto", fontWeight: 500 }}>{review.reviewerName}</Typography>
-                    {/* The rating belongs next to its own question, not the
-                    reviewer's name -- shown there below when the question
-                    caption is visible. Only falls back to here when captions
-                    are hidden (2021 H2+), since there's no caption line to
-                    attach it to in that case. */}
-                    {!showCaptions && <Chip size="small" label={`Rating: ${rating || "N/A"}`} />}
                     <Tooltip title="Copy review">
                       <IconButton
                         size="small"
@@ -97,24 +83,20 @@ export default function ParLegacyReviewSection({ feedback360, cycleName }: { fee
                       </IconButton>
                     </Tooltip>
                   </Stack>
-                  {showCaptions && (
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Typography variant="caption" color="text.secondary">
-                        {review.ratingQuestion}
-                      </Typography>
-                      {/* Always show the rating chip, with "N/A" when the
-                      rating is blank. */}
-                      <Chip size="small" label={`Rating: ${rating || "N/A"}`} />
-                    </Stack>
-                  )}
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="caption" color="text.secondary">
+                      {review.ratingQuestion}
+                    </Typography>
+                    {/* Always show the rating chip, with "N/A" when the
+                    rating is blank. */}
+                    <Chip size="small" label={`Rating: ${rating || "N/A"}`} />
+                  </Stack>
                 </Stack>
               </AccordionSummary>
               <AccordionDetails>
-                {showCaptions && (
-                  <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
-                    {review.commentQuestion}
-                  </Typography>
-                )}
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                  {review.commentQuestion}
+                </Typography>
                 <ParCommentView html={review.reviewComment ?? ""} />
               </AccordionDetails>
             </Accordion>
