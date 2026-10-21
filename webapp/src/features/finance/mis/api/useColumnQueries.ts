@@ -17,10 +17,10 @@
 import { useQueries } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedPost, humanizeHttpError } from "@api/http";
-import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { isMisArrConfigured } from "@config/apiConfig";
+import { misReadRetry, misReadRetryDelay } from "./misReadRetry";
 
 // One POST per Build column — the engine under `useArrSummary` and
 // `useCustomerAccounts`.
@@ -112,7 +112,8 @@ export function useColumnQueries<TBody, TData>({
       enabled: ready,
       queryFn: async () => parse(await authedPost<unknown>(url, await getAccessToken(), body)),
       staleTime: 5 * 60 * 1000,
-      retry: httpRetry,
+      retry: misReadRetry,
+      retryDelay: misReadRetryDelay,
     })),
   });
 
