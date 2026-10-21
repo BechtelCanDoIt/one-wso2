@@ -74,10 +74,19 @@ export default function PromotionTimeline({
         {entry.promotionType === "SPECIAL" && (
           <Chip label="Special" size="small" color="warning" variant="outlined" sx={{ mb: 0.5 }} />
         )}
+        <Typography variant="overline" color="text.secondary" component="div" sx={{ lineHeight: 1.5 }}>
+          Promoted to
+        </Typography>
         <Typography variant="h6" component="div">
-          Promoted to JB: {entry.nextJobBand}
+          {entry.promotedJobRole ? `${entry.promotedJobRole} / JB ${entry.nextJobBand}` : `JB ${entry.nextJobBand}`}
         </Typography>
         <Typography variant="caption" color="text.secondary" component="div">
+          {entry.promotedDate && (
+            <>
+              Promoted on {formatDate(entry.promotedDate)}
+              <br />
+            </>
+          )}
           BU: {entry.businessUnit}
           <br />
           Dept: {entry.department}

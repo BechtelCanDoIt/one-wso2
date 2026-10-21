@@ -32,7 +32,7 @@ import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
 import { useInactivePromotionCycles } from "../api/usePromotionCycle";
 import { usePromotionPrivileges } from "../api/usePromotionRoles";
 import { usePromotionRequests } from "../api/usePromotionRequests";
-import { basePromotionRequestColumns } from "../components/promotionRequestColumns";
+import { basePromotionRequestColumns, promotedDateColumn } from "../components/promotionRequestColumns";
 import PromotionEmptyState from "../components/PromotionEmptyState";
 import PromotionRequestDetailDialog from "../components/PromotionRequestDetailDialog";
 import { PromotionGridToolbar } from "../components/PromotionGridToolbar";
@@ -72,6 +72,7 @@ export default function CycleHistoryTab() {
 
   const columns: DataGrid.GridColDef<PromotionRequestFull>[] = [
     ...basePromotionRequestColumns(),
+    promotedDateColumn(),
     {
       display: "flex",
       field: "status",

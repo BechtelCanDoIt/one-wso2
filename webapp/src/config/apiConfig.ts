@@ -1580,14 +1580,19 @@ export const promotionServiceUrls = {
   // the request lands in (service.bal's own GET .../approve handler).
   promotionRequestApprove: (id: number, from: "functional_lead" | "promotion_board") =>
     `${promotionBackendUrl}/promotion/requests/${id}/approve?from=${from}`,
+  // GET /promotion/requests/{id}/promotable-roles — the roles the request's
+  // job band can be changed to.
+  promotionRequestPromotableRoles: (id: number) =>
+    `${promotionBackendUrl}/promotion/requests/${id}/promotable-roles`,
   promotionRequestReject: (id: number, from: "functional_lead" | "promotion_board", reason: string) =>
     `${promotionBackendUrl}/promotion/requests/${id}/reject?from=${from}&reason=${encodeURIComponent(reason)}`,
   // PATCH /promotion/requests — body is ApplicationUpdateData. Two different
-  // shapes share this one endpoint: {id, promotingJobBand} (Functional
-  // Lead's job-band edit dialog) and {id, reasonForRejection} (the Admin
-  // Portal's Individual Contributor tab, editing a declined reason after
-  // the fact) — same URL, same HR_ADMIN/FUNCTIONAL_LEAD/PROMOTION_BOARD_MEMBER
-  // server-side gate, the caller just sends whichever fields it's editing.
+  // shapes share this one endpoint: {id, promotingJobBand, promotedJobRole?}
+  // (Functional Lead's job-band edit dialog, with the role only when one is
+  // picked) and {id, reasonForRejection} (the Admin Portal's Individual
+  // Contributor tab, editing a declined reason after the fact) — same URL,
+  // same HR_ADMIN/FUNCTIONAL_LEAD/PROMOTION_BOARD_MEMBER server-side gate, the
+  // caller just sends whichever fields it's editing.
   promotionRequestUpdate: () => `${promotionBackendUrl}/promotion/requests`,
 
   // ---- Admin Portal --------------------------------------------------------

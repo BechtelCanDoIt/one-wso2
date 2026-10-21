@@ -17,6 +17,7 @@
 import type { DataGrid } from "@wso2/oxygen-ui";
 import type { PromotionRequestFull } from "../api/types";
 import { capitalizeWords } from "../util/promotionText";
+import { formatDate } from "../util/promotionHistory";
 
 // The column set every Functional Lead Portal grid shares (Active/Approved/
 // Rejected all render these, each appending its own status/action columns).
@@ -55,5 +56,23 @@ export function basePromotionRequestColumns(): DataGrid.GridColDef<PromotionRequ
     },
     { field: "currentJobBand", headerName: "Current Job Band", type: "number", flex: 0.8, minWidth: 130 },
     { field: "nextJobBand", headerName: "Applied Job Band", type: "number", flex: 0.8, minWidth: 130 },
+    {
+      field: "promotedJobRole",
+      headerName: "New Job Role",
+      flex: 1.1,
+      minWidth: 160,
+      valueFormatter: (value: string | null) => value ?? "",
+    },
   ];
+}
+
+// Only for grids that can hold approved requests; promotedDate is set on approval.
+export function promotedDateColumn(): DataGrid.GridColDef<PromotionRequestFull> {
+  return {
+    field: "promotedDate",
+    headerName: "Promoted Date",
+    flex: 0.9,
+    minWidth: 140,
+    valueFormatter: (value: string | null) => (value ? formatDate(value) : ""),
+  };
 }

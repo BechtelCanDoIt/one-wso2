@@ -25,7 +25,7 @@ import { ChevronDownIcon } from "@wso2/oxygen-ui-icons-react";
 import { humanizeHttpError } from "@api/http";
 import { useActivePromotionCycle } from "../api/usePromotionCycle";
 import { usePromotionRequests } from "../api/usePromotionRequests";
-import { basePromotionRequestColumns } from "../components/promotionRequestColumns";
+import { basePromotionRequestColumns, promotedDateColumn } from "../components/promotionRequestColumns";
 import PromotionEmptyState from "../components/PromotionEmptyState";
 import { PromotionGridToolbar } from "../components/PromotionGridToolbar";
 import PromotionRequestDetailDialog from "../components/PromotionRequestDetailDialog";
@@ -48,6 +48,7 @@ export default function PBApprovedListTab() {
 
   const columns: DataGrid.GridColDef<PromotionRequestFull>[] = [
     ...basePromotionRequestColumns(),
+    promotedDateColumn(),
     {
       display: "flex",
       field: "action",
