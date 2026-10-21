@@ -239,6 +239,8 @@ function ArrAnalysis() {
         />
         <AnalysisIndustryChart
           breakdown={industries}
+          accounts={accounts.rows}
+          bySubRegion={settled.salesRegions.length > 0}
           totalArr={headline.arr}
           scale={scale}
         />
