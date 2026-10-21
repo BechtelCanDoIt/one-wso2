@@ -15,7 +15,7 @@
 // under the License.
 
 // The eight routes of contract §3.6, behind one interface: the backend over
-// HTTP here, and an in-memory test double in ../mock that the tests swap in,
+// HTTP here, and an in-memory test double in ../testing that the tests swap in,
 // so they exercise the same loading, error and cache paths the real screens do.
 
 import { HttpError, authedGet, authedPost } from "@api/http";

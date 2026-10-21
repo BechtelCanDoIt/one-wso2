@@ -18,14 +18,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 
 // The shell has its own suite; here it only frames the page.
-// The backend is replaced by the in-memory test double in ../mock, behind the
+// The backend is replaced by the in-memory test double in ../testing, behind the
 // same client interface, so the real hooks, cache and mutations run against it.
 vi.mock("@config/apiConfig", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@config/apiConfig")>()),
   isEchoBackendConfigured: () => true,
 }));
 vi.mock("@features/sales/meddpicc/api/meddpiccClient", async (importOriginal) => {
-  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/mock/mockStore");
+  const { mockMeddpiccClient } = await import("@features/sales/meddpicc/testing/mockStore");
   return {
     ...(await importOriginal<typeof import("@features/sales/meddpicc/api/meddpiccClient")>()),
     httpMeddpiccClient: () => mockMeddpiccClient,
@@ -54,7 +54,7 @@ import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, useLocation } from "react-router";
 import SalesDealsPage from "./SalesDealsPage";
-import { mockMeddpiccClient, resetMockStore } from "../meddpicc/mock/mockStore";
+import { mockMeddpiccClient, resetMockStore } from "../meddpicc/testing/mockStore";
 
 function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>;
@@ -79,7 +79,7 @@ beforeEach(() => resetMockStore());
 // A page full of MUI selects and tooltips, driven by userEvent: well under a
 // second each on an idle machine, but the default 5s is too tight on a busy runner.
 describe("SalesDealsPage", { timeout: 20000 }, () => {
-  it("lists the demo deals, one row each, with their stage, activity, circles and pending count", async () => {
+  it("lists the demo deals, one row each, with their stage, activity, circles and count to review", async () => {
     renderPage();
 
     const brightwater = (await screen.findByRole("button", { name: "Brightwater – API Manager first sale" })).closest("tr");
@@ -89,7 +89,7 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(row.getByText("Qualify")).toBeInTheDocument();
     // Amount and close date ride under the name now, to give the timeline the width.
     expect(row.getByText("120,000 USD · closes 31/12/2026")).toBeInTheDocument();
-    expect(row.getByRole("list", { name: /^Deal journey/ })).toBeInTheDocument();
+    expect(row.getByRole("list", { name: /^Opportunity journey/ })).toBeInTheDocument();
     // The journey's key is behind the column title's info button, not spread across the header.
     expect(screen.getByRole("columnheader", { name: /^Journey/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "What the journey shows" })).toBeInTheDocument();
@@ -98,7 +98,13 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(await screen.findByText("Internal discussion")).toBeInTheDocument();
     expect(row.getByRole("group", { name: /^MEDDPICC for Brightwater/ })).toBeInTheDocument();
     expect(row.getByRole("button", { name: "Champion: AI suggestion waiting for approval" })).toBeInTheDocument();
-    expect(row.getByLabelText(/AI proposals waiting for approval/)).toBeInTheDocument();
+    expect(row.getByLabelText(/AI proposals waiting for approval/)).toHaveTextContent(/to review$/);
+    // The stage rides in the Opportunity cell; its own column made way for the deal score.
+    expect(screen.getByRole("columnheader", { name: "Opportunity" })).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Stage" })).not.toBeInTheDocument();
+    // Salesforce's deal score has its own column (DealScore.test covers the badge).
+    expect(screen.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
+    expect(row.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
 
     for (const name of [
       "Meridian Bank – integration platform",
@@ -120,13 +126,13 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     renderPage();
     await screen.findByRole("button", { name: "Brightwater – API Manager first sale" });
 
-    expect(screen.getByRole("radio", { name: "My deals" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "My opportunities" })).toBeChecked();
     expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: true }));
     expect(screen.queryByRole("button", { name: "Asterra Health – FHIR gateway" })).not.toBeInTheDocument();
     // An owner filter means nothing on your own deals.
     expect(screen.getByRole("combobox", { name: "Owner" })).toHaveAttribute("aria-disabled", "true");
 
-    await user.click(screen.getByRole("radio", { name: "All deals" }));
+    await user.click(screen.getByRole("radio", { name: "All opportunities" }));
 
     expect(await screen.findByRole("button", { name: "Asterra Health – FHIR gateway" })).toBeInTheDocument();
     expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: false }));

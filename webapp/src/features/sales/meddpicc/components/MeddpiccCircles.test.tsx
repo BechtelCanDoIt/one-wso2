@@ -61,7 +61,7 @@ describe("MeddpiccCircles", () => {
 
   it("reads deal state as empty, AI-suggested or filled, and marks a suggestion with a sparkle", () => {
     const { container } = render(<MeddpiccCircles variant="dealState" values={dealState} />);
-    expect(screen.getByRole("group", { name: "MEDDPICC deal state" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "MEDDPICC opportunity state" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Metrics: filled in Salesforce" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "Economic Buyer: empty" })).toBeInTheDocument();
     expect(

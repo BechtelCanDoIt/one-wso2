@@ -154,3 +154,31 @@ export function describeSources(summary: SourceSummary): string {
   add(summary.activities, "activity", "activities");
   return parts.join(" · ");
 }
+
+/**
+ * Where a proposal's quotes come from, counted by record: "2 calls · 1 email · 1 note".
+ * A Salesforce activity behind a quote is its notes, so it is called a note here. With a
+ * single source, its title instead: "Catch up with WSO2".
+ */
+export function describeEvidenceSources(evidence: readonly EvidenceQuote[]): string {
+  const seen = new Map<string, EvidenceSource>();
+  for (const q of evidence) {
+    const s = sourceOf(q);
+    seen.set(`${s.type}:${s.id}`, s);
+  }
+  if (seen.size === 0) return "";
+  if (seen.size === 1) {
+    const [only] = seen.values();
+    const kind = only.type === "CALL" ? "call" : only.type === "EMAIL" ? "email" : "note";
+    return only.title ? `${kind} “${only.title}”` : `1 ${kind}`;
+  }
+  const count = (type: EvidenceSourceType) => [...seen.values()].filter((s) => s.type === type).length;
+  const parts: string[] = [];
+  const add = (n: number, one: string, many: string) => {
+    if (n > 0) parts.push(`${n} ${n === 1 ? one : many}`);
+  };
+  add(count("CALL"), "call", "calls");
+  add(count("EMAIL"), "email", "emails");
+  add(count("ACTIVITY"), "note", "notes");
+  return parts.join(" · ");
+}

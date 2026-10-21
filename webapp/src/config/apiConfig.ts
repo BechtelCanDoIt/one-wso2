@@ -2182,6 +2182,9 @@ export const echoServiceUrls = {
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/move-stage`,
   includeCalls: (opportunityId: string): string =>
     `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/include-calls`,
+  // Ask AI: a question about the opportunity, answered from it and the Library passages sent.
+  ask: (opportunityId: string): string =>
+    `${echoBackendUrl}/deals/${encodeURIComponent(opportunityId)}/ask`,
 };
 
 /**

@@ -103,7 +103,7 @@ describe("the Sales perspective", () => {
     expect(echo?.alwaysGroup).toBe(true);
     expect(echo?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
       ["sales-meetings", "Calls", "/sales/meetings"],
-      ["sales-deals", "Deals", "/sales/deals"],
+      ["sales-deals", "Opportunities", "/sales/deals"],
     ]);
   });
 });

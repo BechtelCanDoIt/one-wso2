@@ -64,6 +64,8 @@ import { activityOf, describeSources, journeyOf, kindOf, sourcesOf } from "../ut
 import { defaultGate, gateSummaries, sectionsFor } from "../util/dealSections";
 import { useNow } from "../../util/useNow";
 import DealJourney, { KindMark, QUIET_AFTER_DAYS } from "./DealJourney";
+import DealScore from "./DealScore";
+import { DealFlags } from "./DealFlags";
 import { KINDS } from "../util/timelineKinds";
 import StagePath from "./StagePath";
 import DealChat, { type ChatEntry } from "./DealChat";
@@ -298,7 +300,7 @@ export default function DealView({
         <Box
           sx={{
             display: "grid",
-            gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(5, minmax(0, 1fr))" },
+            gridTemplateColumns: { xs: "repeat(2, minmax(0, 1fr))", md: "repeat(6, minmax(0, 1fr))" },
             gap: 1.25,
           }}
         >
@@ -317,7 +319,14 @@ export default function DealView({
             detail={describeSources(sources) || undefined}
             warn={quietDays !== null && quietDays > QUIET_AFTER_DAYS}
           />
+          <Fact label="Opportunity score" value={<DealScore score={deal.dealScore} />} detail="From Salesforce" />
         </Box>
+
+        {deal.flags && deal.flags.length > 0 && (
+          <Box sx={{ mt: 1.5 }}>
+            <DealFlags flags={deal.flags} />
+          </Box>
+        )}
 
         <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1, mt: 2 }}>
           <StageChip stage={deal.stage} />
@@ -363,7 +372,7 @@ export default function DealView({
           )}
           {/* The backend keeps Salesforce's answer for ten minutes; this asks again, for
               when a change made in Salesforce should show now. */}
-          <Tooltip title="Read this deal from Salesforce again" arrow>
+          <Tooltip title="Read this opportunity from Salesforce again" arrow>
             <Box component="span" sx={{ ml: "auto !important", display: "inline-flex" }}>
               <Button
                 size="small"
@@ -399,7 +408,7 @@ export default function DealView({
       <Tabs
         value={tab}
         onChange={(_, next: DealTab) => onTabChange?.(next)}
-        aria-label="Deal views"
+        aria-label="Opportunity views"
         sx={{
           mb: 2.5,
           minHeight: 40,
@@ -437,7 +446,7 @@ export default function DealView({
           <Stack spacing={1.5} sx={{ minWidth: 0 }}>
             {readOnly && (
               <Alert severity="info">
-                You can view this deal. Only its Opportunity owner can approve, include calls or
+                You can view this opportunity. Only its Opportunity owner can approve, include calls or
                 move its stage.
               </Alert>
             )}
@@ -460,8 +469,8 @@ export default function DealView({
               >
                 <Typography variant="body2" sx={{ fontWeight: 600 }}>
                   {detail.unassignedCalls.length === 1
-                    ? `An earlier call with ${deal.accountName} isn't linked to this deal.`
-                    : `${detail.unassignedCalls.length} earlier calls with ${deal.accountName} aren't linked to this deal.`}
+                    ? `An earlier call with ${deal.accountName} isn't linked to this opportunity.`
+                    : `${detail.unassignedCalls.length} earlier calls with ${deal.accountName} aren't linked to this opportunity.`}
                 </Typography>
                 <Stack component="ul" spacing={0.5} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
                   {detail.unassignedCalls.map((call) => (
@@ -571,7 +580,7 @@ export default function DealView({
                       <Typography variant="body2">
                         {somethingToApprove
                           ? "Approve all writes your reviewed answers to Salesforce."
-                          : `This stage is complete. Move the deal on when you're ready.`}
+                          : `This stage is complete. Move the opportunity on when you're ready.`}
                       </Typography>
                     )}
                     {lastApproved}
@@ -631,7 +640,7 @@ export default function DealView({
               tone="warning"
               count={sections.review.length}
               description="Heard on calls and proposed by the AI. Approve all writes them to Salesforce; edit one first if it isn't right."
-              empty={`Nothing is waiting for review in ${scopeName}.`}
+              hideWhenEmpty
             >
               {sections.review.map((field) => renderField(field))}
             </FieldSection>
@@ -645,7 +654,7 @@ export default function DealView({
                 letter
                   ? `Nothing is missing for ${scopeName}.`
                   : deal.isClosed
-                    ? "This deal is closed."
+                    ? "This opportunity is closed."
                     : `Nothing is missing in ${scopeName}.`
               }
             >
@@ -699,7 +708,7 @@ export default function DealView({
                 {sourceFilter ? ` of ${activity.length}` : ""})
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                Everything the deal's MEDDPICC is drawn from, newest first.
+                Everything the opportunity's MEDDPICC is drawn from, newest first.
               </Typography>
               <Stack component="ul" spacing={0.75} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
                 {shownActivity.map((entry) => (
@@ -715,7 +724,7 @@ export default function DealView({
           )}
         </Stack>
       ) : (
-        <DealChat entries={chat} onChange={setChat} />
+        <DealChat opportunityId={deal.opportunityId} entries={chat} onChange={setChat} />
       )}
     </>
   );
@@ -788,8 +797,9 @@ function ActivityRow({
 
 /**
  * One of the two sections the AM works through: a heading with its count, a line on what
- * it holds, and the fields. A coloured edge marks the section; when it is empty it says
- * so in a line rather than disappearing, so "nothing to review" reads as an answer.
+ * it holds, and the fields. A coloured edge marks the section. When it is empty it says
+ * so in a line, or with `hideWhenEmpty` is left out: the review section, whose "nothing
+ * to approve" the approval bar above already says.
  */
 function FieldSection({
   title,
@@ -797,15 +807,18 @@ function FieldSection({
   count,
   description,
   empty,
+  hideWhenEmpty = false,
   children,
 }: {
   title: string;
   tone: "warning" | "info";
   count: number;
   description: string;
-  empty: string;
+  empty?: string;
+  hideWhenEmpty?: boolean;
   children: ReactNode;
 }) {
+  if (count === 0 && hideWhenEmpty) return null;
   return (
     <Box
       component="section"
