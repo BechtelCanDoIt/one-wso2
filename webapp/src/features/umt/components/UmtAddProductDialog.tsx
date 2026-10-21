@@ -33,6 +33,7 @@ import {
   EMPTY_CREATE_PRODUCT_FORM,
   buildUmtCreateProductRequest,
   isCreateProductFormValid,
+  isValidProductVersion,
   type UmtCreateProductFormValues,
 } from "../lib/umtProducts";
 import { useUmtCreateProduct } from "../api/useUmtProducts";
@@ -103,7 +104,20 @@ export default function UmtAddProductDialog({ open, onClose }: { open: boolean; 
           {submitError && <Alert severity="error">{submitError}</Alert>}
 
           <TextField label="Product Name (eg: wso2am)" required size="small" {...field("name", "Product name")} />
-          <TextField label="Product Version (eg: 4.0.0)" required size="small" {...field("version", "Product version")} />
+          <TextField
+            label="Product Version (eg: 4.0.0)"
+            required
+            size="small"
+            {...field("version", "Product version")}
+            error={submitted && !isValidProductVersion(values.version)}
+            helperText={
+              submitted && !isValidProductVersion(values.version)
+                ? values.version.trim().length === 0
+                  ? "Product version is required"
+                  : "Use the X.Y.Z format, for example 4.0.0."
+                : undefined
+            }
+          />
           <TextField label="Lead Email" required size="small" {...field("leadMail", "Lead email")} />
           <TextField label="ED Email" required size="small" {...field("edMail", "ED email")} />
           <TextField label="FTP Host" required size="small" {...field("ftpHost", "FTP host")} />

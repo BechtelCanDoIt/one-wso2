@@ -225,8 +225,11 @@ export default function UmtDescriptionInstructionForm({
     setIsBehaviorChangeApproved(backendBehaviorChangeApproved);
   }
 
+  // Every product has to be covered by a row: a save carries exactly the rows
+  // shown, so a product left out would have nothing saved for it.
   const isSaveDisabled =
     rows.length === 0 ||
+    missingProducts.length > 0 ||
     !isGeneralDescriptionChecked ||
     !isImplementationDetailsChecked ||
     !isImpactChecked ||
@@ -403,6 +406,11 @@ export default function UmtDescriptionInstructionForm({
         {missingProducts.length === 0 && products.length > 0 && (
           <Typography variant="body2" color="text.secondary">
             All products already have a description and instruction.
+          </Typography>
+        )}
+        {missingProducts.length > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            Every product needs a description and instruction before saving.
           </Typography>
         )}
       </Stack>

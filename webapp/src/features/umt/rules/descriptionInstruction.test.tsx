@@ -19,7 +19,7 @@
 // runs; only the HTTP helper is stubbed.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { UmtUpdateProduct, UmtUpdateSummary } from "../api/umtUpdates";
@@ -157,6 +157,49 @@ describe("Description and Instruction save", () => {
     renderForm(makeUpdate({ productBehaviourChanges: true } as Partial<UmtUpdateSummary>));
 
     expect(screen.getByRole("radio", { name: "Yes" })).toBeChecked();
+  });
+
+  it("holds Save while a product is left without a description, and says so", async () => {
+    renderForm(makeUpdate({ products: [DESCRIBED, UNDESCRIBED] }));
+    await tickVerificationBoxes();
+
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText("Every product needs a description and instruction before saving.")).toBeInTheDocument();
+  });
+
+  it("holds Save after the row for a product is deleted", async () => {
+    renderForm(makeUpdate({ products: [DESCRIBED, { ...UNDESCRIBED, description: "Fixes login.", instruction: "None." }] }));
+    await tickVerificationBoxes();
+    expect(saveButton()).toBeEnabled();
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Delete row" })[0]);
+
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("saves every product once the missing one has been given a description", async () => {
+    renderForm(makeUpdate({ products: [DESCRIBED, UNDESCRIBED] }));
+    await tickVerificationBoxes();
+
+    await userEvent.click(screen.getByRole("button", { name: "Description and Instructions" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Common Description/ }), {
+      target: { value: "Fixes SSO login." },
+    });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Common Instructions/ }), {
+      target: { value: "Restart the server." },
+    });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    expect(saveButton()).toBeEnabled();
+    await userEvent.click(saveButton());
+
+    await waitFor(() => expect(bodySentTo(umtServiceUrls.updateProductsDetails("42"))).toBeDefined());
+    expect(bodySentTo(umtServiceUrls.updateProductsDetails("42"))).toEqual([
+      expect.objectContaining({ productId: 1 }),
+      expect.objectContaining({ productId: 2, description: "Fixes SSO login.", instruction: "Restart the server." }),
+    ]);
   });
 });
 
