@@ -567,10 +567,7 @@ export default function ParLeadEmployeeHistoryTab() {
             </AccordionDetails>
           </Accordion>
 
-          <ParLegacyReviewSection
-            feedback360={selectedLegacyRecord.feedback360}
-            cycleName={formatLegacyCycleName(selectedLegacyRecord.cycleName)}
-          />
+          <ParLegacyReviewSection feedback360={selectedLegacyRecord.feedback360} />
         </Stack>
       )}
 
