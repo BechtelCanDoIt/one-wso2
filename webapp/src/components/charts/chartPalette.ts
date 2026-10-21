@@ -98,6 +98,10 @@ export const CHART_OTHER: ChartSeriesColor = { light: "#94a3b8", dark: "#94a3b8"
 export const seriesColor = (slot: ChartSeriesColor, mode: "light" | "dark"): string =>
   mode === "dark" ? slot.dark : slot.light;
 
+/** The hue of a ranked entity in this theme mode; Other, which has no rank, is grey. */
+export const entitySeriesColor = (rank: number | null, mode: "light" | "dark"): string =>
+  seriesColor(rank === null ? CHART_OTHER : (CHART_ENTITY_SERIES[rank] ?? CHART_OTHER), mode);
+
 /**
  * Gridlines, axes and the rest of the recessive furniture.
  *

@@ -28,10 +28,9 @@ import {
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
-  CHART_ENTITY_SERIES,
-  CHART_OTHER,
   CHART_SERIES_1,
   CHART_SERIES_2,
+  entitySeriesColor,
   seriesColor,
 } from "@components/charts/chartPalette";
 import { useLiveScheme } from "@components/charts/useLiveScheme";
@@ -98,8 +97,7 @@ export default function AnalysisBreakdownDonut({
 
   const modelColour = (slot: 1 | 2) =>
     seriesColor(slot === 1 ? CHART_SERIES_1 : CHART_SERIES_2, mode);
-  const entityColour = ({ rank }: RegionEntity) =>
-    seriesColor(rank === null ? CHART_OTHER : (CHART_ENTITY_SERIES[rank] ?? CHART_OTHER), mode);
+  const entityColour = ({ rank }: RegionEntity) => entitySeriesColor(rank, mode);
 
   const share = (amount: number) => (total > 0 ? (amount / total) * 100 : 0);
   const amountText = (amount: number) => formatMisValue(amount, MIS_VALUE_TYPES.CURRENCY, { scale });

@@ -38,11 +38,9 @@ import {
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
-  CHART_ENTITY_SERIES,
   CHART_FILL_GAP,
-  CHART_OTHER,
   chartChrome,
-  seriesColor,
+  entitySeriesColor,
 } from "@components/charts/chartPalette";
 import { useLiveScheme } from "@components/charts/useLiveScheme";
 import { MIS_VALUE_TYPES, formatMisValue, misHeadlineAmount } from "../util/misMoney";
@@ -53,9 +51,9 @@ import type { AnalysisAccountRow } from "./analysisAccountRows";
 import {
   analysisRegionEntities,
   industryRegionStacks,
+  type IndustryBar,
   type RegionEntity,
 } from "./analysisRegionEntities";
-import type { IndustryBar } from "./analysisRegionEntities";
 import type { IndustryBreakdown } from "../api/useAnalysisBreakdowns";
 
 // ARR by industry — six named industries and whatever else the book holds, as
@@ -92,8 +90,7 @@ export default function AnalysisIndustryChart({
   const { palette } = useTheme();
   const mode = useLiveScheme();
   const chrome = chartChrome(mode);
-  const entityColour = ({ rank }: RegionEntity) =>
-    seriesColor(rank === null ? CHART_OTHER : (CHART_ENTITY_SERIES[rank] ?? CHART_OTHER), mode);
+  const entityColour = ({ rank }: RegionEntity) => entitySeriesColor(rank, mode);
 
   const rows = useMemo(
     () => industrySeries({ byIndustry: breakdown.byIndustry, asked: breakdown.asked, totalArr }),
@@ -118,14 +115,6 @@ export default function AnalysisIndustryChart({
   // read fell over is a fact about today.
   const unasked = rows.filter((row) => !row.asked);
   const unanswered = rows.filter((row) => row.asked && !row.answered);
-  // Nothing below the chart while there is no answer to put in it.
-  //
-  // This DOES blank on a filter change, and saying otherwise would be wrong:
-  // every MIS read is keyed on its request body, so a new narrowing is a new
-  // key with no cached figures, and `isPending` is true. Holding the previous
-  // answer across that would take a `placeholderData: (prev) => prev` on the
-  // queries — a change to `useColumnQueries` affecting every MIS table, so it
-  // belongs to whoever decides it for all of them rather than to this chart.
   const { bars, legend } = useMemo(
     () =>
       industryRegionStacks(
@@ -144,6 +133,14 @@ export default function AnalysisIndustryChart({
     ]),
   );
 
+  // Nothing below the chart while there is no answer to put in it.
+  //
+  // This DOES blank on a filter change, and saying otherwise would be wrong:
+  // every MIS read is keyed on its request body, so a new narrowing is a new
+  // key with no cached figures, and `isPending` is true. Holding the previous
+  // answer across that would take a `placeholderData: (prev) => prev` on the
+  // queries — a change to `useColumnQueries` affecting every MIS table, so it
+  // belongs to whoever decides it for all of them rather than to this chart.
   const hasFigures = !breakdown.isLoading && !breakdown.isError && plotted.length > 0;
 
   return (
