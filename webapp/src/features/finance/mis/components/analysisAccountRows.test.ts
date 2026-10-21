@@ -92,6 +92,12 @@ describe("analysisAccountRows", () => {
     expect(row.totalArr).toBe(210);
   });
 
+  it("carries the account's industry, which the industry chart stacks by", () => {
+    const [row] = analysisAccountRows([account({ naicsIndustry: "Utilities" })]);
+    expect(row.industry).toBe("Utilities");
+    expect(analysisAccountRows([account()])[0].industry).toBe("");
+  });
+
   it("carries both readings of the products field", () => {
     const [row] = analysisAccountRows([account({ productsInUse: "IAM, Choreo" })]);
     // The parsed list is what the chips render…

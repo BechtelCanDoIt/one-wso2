@@ -21,6 +21,8 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { CHART_ENTITY_SERIES, CHART_OTHER } from "@components/charts/chartPalette";
+import { ANALYSIS_INDUSTRIES } from "../components/analysisBreakdowns";
 
 // Vitest's 5s default is the wrong one for this file: every test mounts the
 // whole screen, which is a real DataGrid under a panel of real Autocompletes,
@@ -51,6 +53,8 @@ const state = {
   analysisEnabled: true,
   configsLoading: false,
   configsError: false,
+  industries: {} as Record<string, number>,
+  headlineArr: 0,
 };
 const retryConfigs = vi.fn();
 
@@ -114,7 +118,7 @@ vi.mock("../api/useAnalysisAccounts", () => ({
     retry: () => {},
   }),
   useAnalysisHeadlineArr: () => ({
-    arr: 0,
+    arr: state.headlineArr,
     isLoading: false,
     isError: false,
     errorMessage: "",
@@ -138,14 +142,28 @@ vi.mock("../api/useAnalysisBreakdowns", () => ({
     retry: () => {},
   }),
   useAnalysisIndustries: () => ({
-    byIndustry: {},
-    asked: new Set<string>(),
+    byIndustry: state.industries,
+    asked: new Set(Object.keys(state.industries)),
     isLoading: false,
     isError: false,
     errorMessage: "",
     retry: () => {},
   }),
 }));
+
+// jsdom gives every element a zero box, so a responsive chart would draw into
+// nothing; see AnalysisIndustryChart.test.tsx.
+vi.mock("recharts", async () => {
+  const actual = await vi.importActual<typeof import("recharts")>("recharts");
+  return {
+    ...actual,
+    ResponsiveContainer: ({ children }: { children: React.ReactNode }) => (
+      <actual.ResponsiveContainer width={800} height={300}>
+        {children as never}
+      </actual.ResponsiveContainer>
+    ),
+  };
+});
 
 const { default: MisArrAnalysisPage } = await import("./MisArrAnalysisPage");
 const { misPaths } = await import("@constants/misApps");
@@ -183,6 +201,8 @@ function show(search = "") {
 beforeEach(() => {
   localStorage.clear();
   state.accountRows = [];
+  state.industries = {};
+  state.headlineArr = 0;
   state.privileges = [ARR];
   state.analysisEnabled = true;
   state.configsLoading = false;
@@ -324,6 +344,68 @@ describe("the filters in the address", () => {
       expect(screen.getByText("ARR AS OF today")).toBeInTheDocument();
       expect(screen.queryByText(/As Of:/)).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("the ARR by Industry bars", () => {
+  const inIndustry = (
+    partnerType: string,
+    salesRegion: string,
+    subRegion: string,
+    totalArr: number,
+  ) => ({
+    id: `${partnerType}-${subRegion}`,
+    partnerType,
+    industry: "Utilities",
+    salesRegion,
+    subRegion,
+    totalArr,
+    products: [],
+  });
+  const axisLabels = (container: HTMLElement) =>
+    [...container.querySelectorAll(".recharts-xAxis-tick-labels text")].map((label) =>
+      [...label.querySelectorAll("tspan")].map((line) => line.textContent).join(" "),
+    );
+  const legendItems = () =>
+    within(screen.getByRole("list", { name: "Region legend" }))
+      .getAllByRole("listitem")
+      .map((item) => item.textContent);
+
+  beforeEach(() => {
+    state.industries = Object.fromEntries(ANALYSIS_INDUSTRIES.map((name) => [name, 1000]));
+    state.headlineArr = 6000;
+    state.accountRows = [
+      inIndustry("Channel", "EMEA", "UK", 300),
+      inIndustry("Direct", "AMER", "US East", 400),
+      inIndustry("Direct", "EMEA", "DACH", 300),
+    ];
+  });
+
+  it("stacks the bars by region, with the industry's share on its axis label", () => {
+    const { container } = show();
+    expect(legendItems()).toEqual(["EMEA", "AMER", "Other"]);
+    expect(axisLabels(container)).toContain("Utilities 16.67%");
+  });
+
+  it("stacks by sub-region once a region filter is applied", async () => {
+    show();
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("combobox", { name: "Sales Region" }));
+    await user.click(await screen.findByRole("option", { name: "EMEA" }));
+    await waitFor(() => expect(legendItems()).toEqual(["US East", "UK", "DACH", "Other"]));
+  });
+
+  it("draws a region in the hue the donut gives it", () => {
+    const { container } = show();
+    const donutOuterRing = [
+      ...container.querySelectorAll(".recharts-pie")[1]!.querySelectorAll(".recharts-sector"),
+    ].map((sector) => sector.getAttribute("fill"));
+    const barSegments = [...container.querySelectorAll(".recharts-bar-rectangle path")].map(
+      (segment) => segment.getAttribute("fill"),
+    );
+    const [emea, amer] = CHART_ENTITY_SERIES.map((slot) => slot.light);
+    expect(new Set(donutOuterRing)).toEqual(new Set([emea, amer]));
+    expect(new Set(barSegments)).toEqual(new Set([emea, amer, CHART_OTHER.light]));
   });
 });
 

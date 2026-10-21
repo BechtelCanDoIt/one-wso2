@@ -21,7 +21,6 @@ import {
   Bar,
   BarChart,
   CartesianGrid,
-  Cell,
   ResponsiveContainer,
   Tooltip as RTooltip,
   XAxis,
@@ -35,36 +34,34 @@ import {
   TableHead,
   TableRow,
   Typography,
-  useColorScheme,
   useTheme,
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
-  CHART_SERIES_1,
+  CHART_FILL_GAP,
   chartChrome,
-  seriesColor,
+  entitySeriesColor,
 } from "@components/charts/chartPalette";
+import { useLiveScheme } from "@components/charts/useLiveScheme";
 import { MIS_VALUE_TYPES, formatMisValue, misHeadlineAmount } from "../util/misMoney";
 import type { MisScale } from "../util/misViewVocabulary";
 import { analysisSurfaceSx } from "./misLookTokens";
 import { industrySeries } from "./analysisBreakdowns";
+import type { AnalysisAccountRow } from "./analysisAccountRows";
+import {
+  analysisRegionEntities,
+  industryRegionStacks,
+  type IndustryBar,
+  type RegionEntity,
+} from "./analysisRegionEntities";
 import type { IndustryBreakdown } from "../api/useAnalysisBreakdowns";
 
-// ARR by industry — six named industries and whatever else the book holds.
+// ARR by industry — six named industries and whatever else the book holds, as
+// vertical bars stacked by region entity.
 //
-// ---- horizontal bars, one hue ----------------------------------------------
-//
-// Two form decisions, both from the `dataviz` skill.
-//
-// **Horizontal**, because the categories have long names. "Health Care and
-// Social Assistance" does not fit under a vertical bar. Turned sideways the
-// names are simply read left to right.
-//
-// **One hue for every bar**, because these are NOMINAL categories and the
-// measure is magnitude. Colouring each bar by its own value would double-encode
-// what bar length already shows and spend the identity channel on nothing; the
-// skill names that one outright ("Bad: a value-ramp on nominal categories").
-// One series also means no legend box — the title names it.
+// A region keeps its hue here and in the ARR Breakdown donut, because both take
+// it from the same ranking (`analysisRegionEntities`). Each industry's share
+// sits on its axis label, so the mix reads without hovering.
 //
 // ---- and the thing this chart will NOT claim -------------------------------
 //
@@ -75,6 +72,9 @@ import type { IndustryBreakdown } from "../api/useAnalysisBreakdowns";
 
 export interface AnalysisIndustryChartProps {
   breakdown: IndustryBreakdown;
+  accounts: readonly AnalysisAccountRow[];
+  /** Whether a region filter is applied, which cuts the stacks by sub-region instead. */
+  bySubRegion: boolean;
   /** The whole book, for Other and for every share. Absent if that read failed. */
   totalArr?: number;
   scale: MisScale;
@@ -82,13 +82,15 @@ export interface AnalysisIndustryChartProps {
 
 export default function AnalysisIndustryChart({
   breakdown,
+  accounts,
+  bySubRegion,
   totalArr,
   scale,
 }: AnalysisIndustryChartProps) {
   const { palette } = useTheme();
   const mode = useLiveScheme();
   const chrome = chartChrome(mode);
-  const fill = seriesColor(CHART_SERIES_1, mode);
+  const entityColour = ({ rank }: RegionEntity) => entitySeriesColor(rank, mode);
 
   const rows = useMemo(
     () => industrySeries({ byIndustry: breakdown.byIndustry, asked: breakdown.asked, totalArr }),
@@ -113,6 +115,24 @@ export default function AnalysisIndustryChart({
   // read fell over is a fact about today.
   const unasked = rows.filter((row) => !row.asked);
   const unanswered = rows.filter((row) => row.asked && !row.answered);
+  const { bars, legend } = useMemo(
+    () =>
+      industryRegionStacks(
+        plotted,
+        accounts,
+        analysisRegionEntities(accounts, { bySubRegion }),
+      ),
+    [plotted, accounts, bySubRegion],
+  );
+  const shareByIndustry = new Map(
+    bars.map((bar) => [
+      bar.industry,
+      bar.share == null
+        ? undefined
+        : `${formatMisValue(bar.share, MIS_VALUE_TYPES.PERCENTAGE, { scale })}%`,
+    ]),
+  );
+
   // Nothing below the chart while there is no answer to put in it.
   //
   // This DOES blank on a filter change, and saying otherwise would be wrong:
@@ -144,30 +164,29 @@ export default function AnalysisIndustryChart({
         <Box sx={{ height: CHART_HEIGHT }}>
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={plotted}
-              layout="vertical"
+              data={bars}
               margin={{ top: 4, right: 16, bottom: 4, left: 8 }}
               barCategoryGap="28%"
             >
               {/* Solid hairlines, one shade off the surface, and only along the
                   measure. A dashed grid reads as a projection or a threshold
-                  when it is only a grid; gridlines across the CATEGORY axis
-                  would separate names that need no separating. */}
-              <CartesianGrid horizontal={false} stroke={chrome.line} />
+                  when it is only a grid. */}
+              <CartesianGrid vertical={false} stroke={chrome.line} />
               <XAxis
+                dataKey="industry"
+                interval={0}
+                height={AXIS_HEIGHT}
+                tick={<IndustryTick shares={shareByIndustry} fill={chrome.tick} />}
+                stroke={chrome.line}
+                tickLine={false}
+              />
+              <YAxis
                 type="number"
                 tickFormatter={(value: number) => misHeadlineAmount(value)}
                 tick={{ fill: chrome.tick, fontSize: 11 }}
                 stroke={chrome.line}
                 tickLine={false}
-              />
-              <YAxis
-                type="category"
-                dataKey="industry"
-                width={190}
-                tick={{ fill: chrome.tick, fontSize: 11 }}
-                stroke={chrome.line}
-                tickLine={false}
+                width={56}
               />
               <RTooltip
                 cursor={{ fill: chrome.line }}
@@ -178,11 +197,9 @@ export default function AnalysisIndustryChart({
                 // The exact figure, at the reader's Scale, is one row down in
                 // the companion table, which is what a table is for.
                 //
-                // Recharts types the value as possibly absent. It cannot
-                // actually be — `data` is `plotted`, which is exactly the rows
-                // that have a figure — so the coercion is satisfying the type
-                // rather than handling a case.
-                formatter={(value) => [misHeadlineAmount(Number(value)), "ARR"]}
+                // Recharts types the value as possibly absent; a stack is only
+                // drawn for a figure, so the coercion satisfies the type.
+                formatter={(value) => misHeadlineAmount(Number(value))}
                 contentStyle={{
                   background: palette.background.paper,
                   border: `1px solid ${palette.divider}`,
@@ -190,15 +207,46 @@ export default function AnalysisIndustryChart({
                   fontSize: 12,
                 }}
               />
-              <Bar dataKey="amount" radius={[0, 4, 4, 0]} isAnimationActive={false}>
-                {/* Every bar the same hue — see the note above. `Cell` is here
-                    only so the fill is explicit rather than recharts' default. */}
-                {plotted.map((row) => (
-                  <Cell key={row.industry} fill={fill} />
-                ))}
-              </Bar>
+              {legend.map((entity) => (
+                <Bar
+                  key={entity.name}
+                  name={entity.name}
+                  dataKey={(bar: IndustryBar) => bar.stacks[entity.name] ?? 0}
+                  stackId="region"
+                  fill={entityColour(entity)}
+                  stroke={palette.background.paper}
+                  strokeWidth={CHART_FILL_GAP / 2}
+                  isAnimationActive={false}
+                />
+              ))}
             </BarChart>
           </ResponsiveContainer>
+        </Box>
+      )}
+
+      {hasFigures && (
+        <Box
+          component="ul"
+          aria-label="Region legend"
+          sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, listStyle: "none", m: 0, mt: 1, p: 0 }}
+        >
+          {legend.map((entity) => (
+            <Typography key={entity.name} component="li" variant="caption" color="text.secondary">
+              <Box
+                aria-hidden
+                component="span"
+                sx={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  borderRadius: "2px",
+                  mr: 0.75,
+                  bgcolor: entityColour(entity),
+                }}
+              />
+              {entity.name}
+            </Typography>
+          ))}
         </Box>
       )}
 
@@ -272,17 +320,47 @@ export default function AnalysisIndustryChart({
   );
 }
 
-/** Tall enough for seven bars and their names without the axis being cropped. */
 const CHART_HEIGHT = 300;
+const AXIS_HEIGHT = 64;
+const TICK_LINE_CHARS = 14;
+const TICK_LINE_HEIGHT = 12;
 
-/**
- * The live colour scheme. `palette.mode` stays "light" under Oxygen's
- * CSS-variables theme, which is how these axes disappeared in dark mode.
- */
-function useLiveScheme(): "light" | "dark" {
-  const { mode, systemMode } = useColorScheme();
-  const resolved = mode === "system" ? systemMode : mode;
-  return resolved === "dark" ? "dark" : "light";
+/** Breaks a name into lines no longer than a vertical bar's width can carry. */
+function wrapName(name: string): string[] {
+  const lines: string[] = [];
+  for (const word of name.split(" ")) {
+    const last = lines.at(-1);
+    if (last !== undefined && last.length + 1 + word.length <= TICK_LINE_CHARS) {
+      lines[lines.length - 1] = `${last} ${word}`;
+    } else {
+      lines.push(word);
+    }
+  }
+  return lines;
+}
+
+interface IndustryTickProps {
+  x?: number;
+  y?: number;
+  payload?: { value: string };
+  shares: ReadonlyMap<string, string | undefined>;
+  fill: string;
+}
+
+/** An industry's name, wrapped, with its share on the line below. */
+function IndustryTick({ x = 0, y = 0, payload, shares, fill }: IndustryTickProps) {
+  const name = payload?.value ?? "";
+  const share = shares.get(name);
+  const lines = share === undefined ? wrapName(name) : [...wrapName(name), share];
+  return (
+    <text x={x} y={y + 10} textAnchor="middle" fill={fill} fontSize={10.5}>
+      {lines.map((line, index) => (
+        <tspan key={line} x={x} dy={index === 0 ? 0 : TICK_LINE_HEIGHT}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
 }
 
 const CELL_SX = { fontSize: 12.5, fontVariantNumeric: "tabular-nums" } as const;

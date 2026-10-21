@@ -30,9 +30,9 @@
 // here rather than being imported from there, where it carries the other
 // table's fields.
 //
-// ---- four fields the source builds and nothing reads -----------------------
+// ---- three fields the source builds and nothing reads -----------------------
 //
-// `toDashboardRows` also writes `accountId`, `businessUnits`, `industry` and
+// `toDashboardRows` also writes `accountId`, `businessUnits` and
 // `activationDate` onto every row. No column definition reads any of them, and
 // neither does the filter-option scrape. Not ported — spec §9.
 // (`businessUnits` is not even on `AccountDetails`, so the source's branch
@@ -57,6 +57,7 @@ export interface AnalysisAccountsResponse {
   /** Plural on the wire, singular in meaning — one region per account. */
   salesRegions?: string;
   subRegion?: string;
+  naicsIndustry?: string;
   billingCountry?: string;
   /** Years, as a string. */
   customerLifetime?: string;
@@ -93,6 +94,8 @@ export interface AnalysisAccountRow {
   partnerType: string;
   salesRegion: string;
   subRegion: string;
+  /** The account's NAICS industry, which the industry chart apportions each bar by. */
+  industry: string;
   country: string;
   /**
    * A NUMBER, where the wire sends a string — a deliberate deviation. The
@@ -161,6 +164,7 @@ export function analysisAccountRows(
     partnerType: account?.partnerType ?? "",
     salesRegion: account?.salesRegions ?? "",
     subRegion: account?.subRegion ?? "",
+    industry: account?.naicsIndustry ?? "",
     country: account?.billingCountry ?? "",
     lifetimeYears: figure(account?.customerLifetime),
     apimBu: figure(account?.apimBuTotal),
