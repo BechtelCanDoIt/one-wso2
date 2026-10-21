@@ -40,8 +40,8 @@ import AnalysisBreakdownDonut from "../components/AnalysisBreakdownDonut";
 import AnalysisIndustryChart from "../components/AnalysisIndustryChart";
 import { useDebouncedValue } from "../util/useDebouncedValue";
 import { analysisMenus } from "../util/misAnalysisMenus";
+import { useAnalysisViewUrl } from "../util/useAnalysisViewUrl";
 import {
-  defaultAnalysisFilters,
   isoCivilDate,
   isSameCivilDate,
   type MisAnalysisFilters as Filters,
@@ -78,11 +78,10 @@ import { analysisSurfaceSx, brandText, primaryTint } from "../components/misLook
 // load; failed, it would relocate someone because of a gateway blip and tell
 // them nothing. Both are held by `MisShell`'s prerequisite rung instead.
 //
-// ---- where the Build's screens have a URL and this one does not ------------
+// ---- the filters are in the address ----------------------------------------
 //
-// Every filter here is component state, so a shared link opens on the defaults.
-// Putting them in the query string would be a new contract: nothing on this
-// screen is serialised today.
+// Every filter, and Scale, is written to the query string as it is applied and
+// read back once on load — see `useAnalysisViewUrl`.
 
 /** The screen's own name, in the rail, the tab title and the heading. */
 const TITLE = "Portfolio";
@@ -123,13 +122,11 @@ function ArrAnalysis() {
   // chosen" against it, and a value that moved mid-session would silently
   // re-key every query at midnight Pacific.
   const [today] = useState(pacificCivilDate);
-  const [filters, setFilters] = useState<Filters>(() => defaultAnalysisFilters(today));
+  const { filters, setFilters } = useAnalysisViewUrl(today);
 
   const configs = useMisAppConfigs();
 
   // The reads are keyed on the SETTLED filters, the controls on the live ones.
-  // Named `settled` rather than `applied`: an applied filter is one serialised
-  // into the query string, and nothing on this screen is.
   // The charts take the reads to ten — one per industry, two for the partner
   // split — so a reader stepping through four Sales Regions would fire forty.
   // Debounced in ONE
@@ -156,13 +153,9 @@ function ArrAnalysis() {
 
   const menus = useMemo(() => analysisMenus(configs.options, scraped), [configs.options, scraped]);
 
-  // The stored preference DIRECTLY, not through `useMisScale`. That hook
-  // reconciles a Scale carried in a link against the stored one, and this
-  // screen's view reaches no link — so there is nothing to reconcile, and
-  // asking it would mean inventing a view state for a screen that has none.
-  // The preference is shared with every Build screen either way, which is the
-  // half that matters: a reader who works in thousands keeps working in
-  // thousands on the way here.
+  // The shared preference, which `useAnalysisViewUrl` has already adopted a
+  // link's Scale into. It is the same one every Build screen reads, so a reader
+  // who works in thousands keeps working in thousands on the way here.
   const { preference: scale, setPreference: setScale } = useScalePreference();
 
   return (

@@ -22,15 +22,9 @@
 //
 // ---- these are NOT the Build's filters, and not its `MisAppliedFilters` -----
 //
-// Different set, different endpoints, different lifetime. The Build's applied
-// set is serialised into the query string under the contract ticket 02 pinned;
-// this one is component state and reaches no address, exactly as in the source.
-// A shared ARR Analysis link therefore opens on defaults. That is reproduced
-// for parity rather than fixed here: extending the URL contract is a
-// contract decision — what an unrecognised value degrades to, what a stale link
-// means — and not a side effect of porting a table. It is recorded as an open
-// question in spec §11, beside the identical one already standing for the
-// Region Summary's cut (§11.11).
+// Different set, different endpoints, different codec: `misAnalysisViewState`
+// carries this set in the query string under the keys the standalone's
+// Portfolio writes, and the Build's applied set has its own contract.
 //
 // ---- on the two words that look interchangeable and are not -----------------
 //
@@ -232,10 +226,6 @@ export interface AnalysisFilterTag {
  * "active" is never below two, on a screen narrowing nothing, and "Clear all"
  * is always offered with nothing to clear. A count that cannot reach zero
  * cannot answer the one question it is on the page to answer.
- *
- * (The port's chip reads "3 filters". "Active" would be a second name for Applied, and
- * "Applied" is no better here — it is defined as a filter serialised into the
- * query string, and nothing on this screen is. See MisAnalysisFilters.)
  *
  * Here a tag appears only for a control away from its default, so the count IS
  * the number of narrowings and an empty strip means an unnarrowed view. Spec §7.

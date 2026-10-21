@@ -16,10 +16,10 @@
  * under the License.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation, useNavigationType } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Vitest's 5s default is the wrong one for this file: every test mounts the
@@ -154,11 +154,23 @@ const ARR = 987;
 // 789 arrives beside 987 from the ARR service and opens nothing here.
 const NOT_ARR = 789;
 
+/** What the address bar says, and how the router got there. */
+function AddressProbe() {
+  const { search } = useLocation();
+  const navigationType = useNavigationType();
+  return (
+    <output data-testid="address" data-navigation={navigationType}>
+      {search}
+    </output>
+  );
+}
+
 /** The route under its real path, with somewhere for a redirect to land. */
-function show() {
+function show(search = "") {
   return render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-      <MemoryRouter initialEntries={[misPaths.portfolio]}>
+      <MemoryRouter initialEntries={[`${misPaths.portfolio}${search}`]}>
+        <AddressProbe />
         <Routes>
           <Route path={misPaths.portfolio} element={<MisArrAnalysisPage />} />
           <Route path={misPaths.arrBuild} element={<p>the ARR Build</p>} />
@@ -169,6 +181,7 @@ function show() {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   state.accountRows = [];
   state.privileges = [ARR];
   state.analysisEnabled = true;
@@ -239,6 +252,78 @@ describe("the ARR Breakdown donut", () => {
       expect(legendNames()).toEqual(["Channel", "UK", "Direct", "US East", "DACH"]),
     );
     expect(screen.getByRole("columnheader", { name: "Partner model / Sub Region" })).toBeInTheDocument();
+  });
+});
+
+describe("the filters in the address", () => {
+  const address = () => screen.getByTestId("address");
+
+  it("writes an applied filter to the address without adding a history entry", async () => {
+    state.accountRows = [{ id: "a", partnerType: "Channel", salesRegion: "EMEA", subRegion: "UK", totalArr: 1, products: [] }];
+    show();
+    const user = userEvent.setup();
+    expect(address()).toHaveTextContent("");
+    await user.click(screen.getByRole("combobox", { name: "Sales Region" }));
+    await user.click(await screen.findByRole("option", { name: "EMEA" }));
+    await waitFor(() => expect(address()).toHaveTextContent("?region=EMEA"));
+    expect(address()).toHaveAttribute("data-navigation", "REPLACE");
+  });
+
+  it("opens a link with every filter set on that view and its Scale", () => {
+    show(
+      "?partner=Channel&firstSale=include&bu=IAM,Choreo&productsInUse=2,3&region=EMEA" +
+        "&subRegion=UK&country=Sri%20Lanka&lifetime=3&arrMin=1000&arrMax=5000&asOf=2026-03-01&scale=k",
+    );
+    for (const tag of [
+      "Partner Type: Channel",
+      "First Sale: Only",
+      "Business Unit: IAM",
+      "Business Unit: Choreo",
+      "# Products In Use: 2",
+      "# Products In Use: 3",
+      "Sales Region: EMEA",
+      "Sub Region: UK",
+      "Country: Sri Lanka",
+      "Lifetime: 3 yrs",
+      "ARR from $1K",
+      "ARR to $5K",
+      "As Of: 2026-03-01",
+    ]) {
+      expect(screen.getByText(tag)).toBeInTheDocument();
+    }
+    expect(screen.getByRole("checkbox", { name: "Values in '000" })).toBeChecked();
+  });
+
+  it("adopts the Scale in a link into the shared Scale preference", async () => {
+    show("?scale=k");
+    await waitFor(() => expect(localStorage.getItem("one-wso2.scale")).toBe("thousands"));
+    expect(address()).toHaveTextContent("?scale=k");
+  });
+
+  it("writes the Scale into the address when the reader changes it", async () => {
+    show();
+    await userEvent.setup().click(screen.getByRole("checkbox", { name: "Values in '000" }));
+    await waitFor(() => expect(address()).toHaveTextContent("?scale=k"));
+  });
+
+  it("opens a filter it cannot read on that filter's default", () => {
+    show("?firstSale=maybe&bu=Hardware&region=EMEA");
+    expect(screen.getByText("Sales Region: EMEA")).toBeInTheDocument();
+    expect(screen.queryByText(/First Sale:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Business Unit:/)).not.toBeInTheDocument();
+  });
+
+  describe("As Of Date", () => {
+    afterEach(() => vi.useRealTimers());
+
+    // 03:00 UTC on 1 March is still 28 February in California.
+    it("defaults to today's date in Pacific Time", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(new Date("2026-03-01T03:00:00Z"));
+      show("?asOf=2026-02-28");
+      expect(screen.getByText("ARR AS OF today")).toBeInTheDocument();
+      expect(screen.queryByText(/As Of:/)).not.toBeInTheDocument();
+    });
   });
 });
 
