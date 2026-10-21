@@ -47,11 +47,14 @@ describe("computeUmtDemoteActions", () => {
     expect(computeUmtDemoteActions("file-approval", "WaitingFileApproval", false, false)).toEqual([]);
   });
 
-  it("returns Demote to Development for testing and validate", () => {
+  it("returns Demote to Development for testing and validate, via DemoteStagingRequested from Staging", () => {
     expect(computeUmtDemoteActions("testing", "Staging", false, false)).toEqual([
-      { label: "Demote to Development", targetLifecycleState: "Development" },
+      { label: "Demote to Development", targetLifecycleState: "DemoteStagingRequested" },
     ]);
     expect(computeUmtDemoteActions("validate", "Staging", false, false)).toEqual([
+      { label: "Demote to Development", targetLifecycleState: "DemoteStagingRequested" },
+    ]);
+    expect(computeUmtDemoteActions("testing", "TestingEnvironmentCreated", true, false)).toEqual([
       { label: "Demote to Development", targetLifecycleState: "Development" },
     ]);
   });

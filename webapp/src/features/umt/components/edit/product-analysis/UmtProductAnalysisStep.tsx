@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -65,7 +65,17 @@ function productKey(name: string | null | undefined, version: string | null | un
   return JSON.stringify([name ?? "", version ?? ""]);
 }
 
-export default function UmtProductAnalysisStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
+export default function UmtProductAnalysisStep({
+  id,
+  update,
+  onDirtyChange,
+}: {
+  id: string;
+  update: UmtUpdateSummary;
+  // Reports unanalysed additions to the shell, whose Proceed asks before
+  // promoting past them.
+  onDirtyChange?: (isDirty: boolean) => void;
+}) {
   const { showSuccess, showError } = useNotifications();
   const productAnalysis = useUmtProductAnalysis(id, update.lifecycleState, { alwaysEnabled: true });
   const meta = useUmtMeta();
@@ -83,6 +93,10 @@ export default function UmtProductAnalysisStep({ id, update }: { id: string; upd
   const [addedProducts, setAddedProducts] = useState<UmtUpdateProduct[]>([]);
   const [applicableProductRows, setApplicableProductRows] = useState<Record<string, UmtFileOperation[]>>({});
   const isDirty = addedProducts.length > 0 || Object.keys(applicableProductRows).length > 0;
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   const [isAddProductOpen, setIsAddProductOpen] = useState(false);
   const [selectedProductName, setSelectedProductName] = useState<string | null>(null);

@@ -781,7 +781,7 @@ function ProductBuildRetriggerButton({
               await trigger.mutateAsync({
                 productName: level.productName ?? "",
                 productVersion: level.productVersion ?? "",
-                channel: "full",
+                channel: level.channel ?? "full",
               });
               showSuccess("Build triggered successfully!");
             } catch (error) {
@@ -826,7 +826,7 @@ function TgBuildRetriggerButton({
               await trigger.mutateAsync({
                 productName: level.productName ?? "",
                 productVersion: level.productVersion ?? "",
-                channel: "full",
+                channel: level.channel ?? "full",
               });
               showSuccess("TG build triggered successfully!");
             } catch (error) {

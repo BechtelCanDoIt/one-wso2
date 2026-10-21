@@ -156,9 +156,11 @@ export function umtHasAdditionalFileOperations(
 // reached via the local override from Testing's Proceed, never restored
 // directly from a backend lifecycleState on reload.
 // TestingEnvironmentRequested/Created/Failed all map to "testing" so the step
-// doesn't get stuck at its default. Development and PRAnalyzed both map to
-// "files-analysis": the step shows the PR analysis in Development, and the PR
-// analysis followed by the product analysis in PRAnalyzed.
+// doesn't get stuck at its default. So does DemoteStagingRequested — the update
+// is still on its way out of Staging, and the Edit tab shows it locked there.
+// Development and PRAnalyzed both map to "files-analysis": the step shows the
+// PR analysis in Development, and the PR analysis followed by the product
+// analysis in PRAnalyzed.
 const LIFECYCLE_STATE_TO_STEP: Record<string, UmtEditStepId> = {
   Development: "files-analysis",
   PRAnalyzed: "files-analysis",
@@ -168,6 +170,7 @@ const LIFECYCLE_STATE_TO_STEP: Record<string, UmtEditStepId> = {
   TestingEnvironmentFailed: "testing",
   StagingRequested: "testing",
   Staging: "testing",
+  DemoteStagingRequested: "testing",
   WaitingFileApproval: "file-approval",
   Released: "verifying",
   UATStaging: "verifying",

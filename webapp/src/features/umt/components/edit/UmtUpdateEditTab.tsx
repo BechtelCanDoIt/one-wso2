@@ -15,11 +15,12 @@
 // under the License.
 
 import { useEffect, useState } from "react";
-import { Box, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Stack, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtUpdateSummary } from "../../api/umtUpdates";
 import { useUmtGate } from "../../api/useUmtGate";
+import { useUmtHotfixTestStatus, useUmtReleaseHotfix } from "../../api/useUmtHotfixRelease";
 import { useUmtLifecycleTransition } from "../../api/useUmtLifecycleTransition";
 import { useUmtIsAdvancingToPrAnalyzed } from "../../api/useUmtPrAnalysis";
 import { useUmtProductAnalysis, useUmtPullRequestAnalysis } from "../../api/useUmtUpdateViewData";
@@ -35,14 +36,20 @@ import { computeUmtDemoteActions } from "../../lib/umtDemoteActions";
 import { readPersistedEditStep, writePersistedEditStep } from "../../lib/umtLocalState";
 import { isDescriptionInstructionComplete } from "../../lib/umtDescriptionInstruction";
 import { isIntegrationTestsComplete } from "../../lib/umtIntegrationTests";
+import { umtHasSecurityAdvisory } from "../../lib/umtSecurityAdvisory";
+import { umtCanReleaseHotfix, umtHotfixTestsPassed } from "../../lib/umtHotfixRelease";
+import { UMT_UPDATE_LOCKED_MESSAGE, umtIsUpdateLocked } from "../../lib/umtUpdateLock";
 import { isTestingComplete } from "../../lib/umtTesting";
 import { useUmtStagingTestResults } from "../../api/useUmtTesting";
 import UmtEditStepActions from "./UmtEditStepActions";
 import UmtEditStepPlaceholder from "./UmtEditStepPlaceholder";
 import UmtEditStepper from "./UmtEditStepper";
+import UmtUnanalyzedChangesDialog from "./UmtUnanalyzedChangesDialog";
 import UmtDescriptionInstructionStep from "./description-instruction/UmtDescriptionInstructionStep";
 import UmtFileApprovalStep from "./file-approval/UmtFileApprovalStep";
 import UmtFilesAnalysisStep from "./files-analysis/UmtFilesAnalysisStep";
+import UmtHotfixReleaseReasonDialog from "./hotfix-release/UmtHotfixReleaseReasonDialog";
+import UmtHotfixReleaseStep from "./hotfix-release/UmtHotfixReleaseStep";
 import UmtIntegrationTestsStep from "./integration-tests/UmtIntegrationTestsStep";
 import UmtSecurityAdvisoryStep from "./security-advisory/UmtSecurityAdvisoryStep";
 import UmtTestingStep from "./testing/UmtTestingStep";
@@ -60,9 +67,11 @@ export default function UmtUpdateEditTab({
   const pullRequestAnalysis = useUmtPullRequestAnalysis(id, update.lifecycleState);
   const productAnalysis = useUmtProductAnalysis(id, update.lifecycleState, { alwaysEnabled: true });
   const stagingTestResults = useUmtStagingTestResults(id, update.lifecycleState);
+  const hotfixTestStatus = useUmtHotfixTestStatus(id, update.isHotfix ? update.lifecycleState : null);
   const gate = useUmtGate();
   const transition = useUmtLifecycleTransition(id);
   const isAdvancingToPrAnalyzed = useUmtIsAdvancingToPrAnalyzed(id);
+  const releaseHotfix = useUmtReleaseHotfix(id);
   const { showSuccess, showError } = useNotifications();
 
   const hasFileOps = umtHasAdditionalFileOperations(pullRequestAnalysis.data, update.lifecycleState);
@@ -108,6 +117,9 @@ export default function UmtUpdateEditTab({
   const currentStep = steps[activeIndex];
 
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
+  const [isFilesAnalysisDirty, setIsFilesAnalysisDirty] = useState(false);
+  const [isUnanalyzedConfirmOpen, setIsUnanalyzedConfirmOpen] = useState(false);
+  const [isHotfixReasonOpen, setIsHotfixReasonOpen] = useState(false);
 
   const isFileApproval = currentStep.id === "file-approval";
   const isCloudDevelopment = currentStep.id === "cloud-development";
@@ -122,7 +134,23 @@ export default function UmtUpdateEditTab({
   const isVerifying = currentStep.id === "verifying";
   const isReleasedVerifying = isVerifying && update.lifecycleState === "Released";
   const isTerminal = currentStep.id === "completed" || currentStep.id === "cloud-released";
-  const roleAllowed = !isFileApproval || gate.isAdmin || gate.isProductLead;
+  // Mid-demotion from Staging nothing here may change: no step body, no
+  // Proceed, Back or demote.
+  const isLocked = umtIsUpdateLocked(update.lifecycleState);
+  // A hotfix's Testing step is its release step: it leaves by its own
+  // transitions (released from TestingEnvironmentCreated, or marked created
+  // from TestingEnvironmentFailed), never by the regular local advance to
+  // Validate.
+  const isHotfixTesting = isTesting && Boolean(update.isHotfix);
+  const isHotfixRelease = isHotfixTesting && update.lifecycleState === "TestingEnvironmentCreated";
+  const advancesLocally = Boolean(currentStep.advancesLocallyToNextStep) && !isHotfixTesting;
+  const hotfixTestsPassed = hotfixTestStatus.isSuccess && umtHotfixTestsPassed(hotfixTestStatus.data ?? null);
+  // Only WaitingFileApproval is the approval itself. At Staging, File
+  // Approval's Proceed is the developer's hand-off: with manual files it sends
+  // the update to WaitingFileApproval, where a lead or admin approves, so
+  // anyone may take this step.
+  const isAwaitingFileApproval = isFileApproval && update.lifecycleState === "WaitingFileApproval";
+  const roleAllowed = !isAwaitingFileApproval || gate.isAdmin || gate.isProductLead;
   // Proceed here promotes lifecycle state, so it shouldn't be available
   // until the product-analysis results this step promises have actually
   // loaded.
@@ -140,18 +168,36 @@ export default function UmtUpdateEditTab({
   // above already makes.
   const integrationTestsReady =
     !isIntegrationTests || isIntegrationTestsComplete(update.products, update.isContainerizedUpdate ?? false);
+  // A security update needs a saved advisory before ProductAnalyzed →
+  // StagingRequested. Checked on Security Advisory's own Next and again on
+  // Integration Tests' Proceed — the step that fires that transition, and
+  // one a persisted step pointer can land on directly.
+  const securityAdvisoryReady =
+    update.lifecycle !== "SecurityUpdateLifecycle" ||
+    !(isSecurityAdvisory || isIntegrationTests) ||
+    umtHasSecurityAdvisory(update.securityAdvisories);
   // Proceed here requires a two-part gate: the environment/backend side
   // must have reached Staging, AND every product's manual test result must
   // already be submitted.
   const testingReady =
-    !isTesting || (stagingTestResults.isSuccess && isTestingComplete(update.lifecycleState, stagingTestResults.data));
+    !isTesting ||
+    (isHotfixTesting
+      ? update.lifecycleState === "TestingEnvironmentFailed" ||
+        (isHotfixRelease &&
+          umtCanReleaseHotfix({ testsPassed: hotfixTestsPassed, isAdmin: gate.isAdmin, isProductLead: gate.isProductLead }))
+      : stagingTestResults.isSuccess && isTestingComplete(update.lifecycleState, stagingTestResults.data));
   // Only Released has a real forward action (the Complete Update dialog);
   // every other verifying-family state (UATStaging/UAT/UATRequested/OnHold)
   // has no working transition in this pass, so Proceed stays disabled for
   // all of them uniformly.
   const verifyingReady = !isVerifying || update.lifecycleState === "Released";
   const stepReady =
-    productAnalysisReady && descriptionInstructionReady && integrationTestsReady && testingReady && verifyingReady;
+    productAnalysisReady &&
+    descriptionInstructionReady &&
+    securityAdvisoryReady &&
+    integrationTestsReady &&
+    testingReady &&
+    verifyingReady;
   // File Approval, Cloud Support's Development step, Files Analysis,
   // Description and Instruction, and Integration Tests are wired
   // (currentStep.proceedWired); every other step's Proceed is a stub. Cloud
@@ -179,6 +225,7 @@ export default function UmtUpdateEditTab({
     gate.isAdmin,
   );
   const handleDemote = async (target: string) => {
+    if (isLocked) return;
     try {
       await transition.mutateAsync(target);
       showSuccess(`Update ${id} demoted to ${target}`);
@@ -187,9 +234,20 @@ export default function UmtUpdateEditTab({
     }
   };
 
-  const handleProceed = async () => {
-    if (!currentStep.proceedWired || !roleAllowed || !stepReady) return;
-    if (currentStep.advancesLocallyToNextStep) {
+  const handleProceed = async (confirmedUnanalyzed = false) => {
+    if (isLocked || !currentStep.proceedWired || !roleAllowed || !stepReady) return;
+    if (isProductAnalysis && isFilesAnalysisDirty && !confirmedUnanalyzed) {
+      setIsUnanalyzedConfirmOpen(true);
+      return;
+    }
+    setIsUnanalyzedConfirmOpen(false);
+    if (isHotfixRelease) {
+      // A release without passing tests needs a reason; the dialog asks.
+      if (hotfixTestsPassed) void handleReleaseHotfix(null);
+      else setIsHotfixReasonOpen(true);
+      return;
+    }
+    if (advancesLocally) {
       const nextStep = steps[activeIndex + 1];
       if (nextStep) setLocalStepOverride(nextStep.id);
       return;
@@ -207,16 +265,28 @@ export default function UmtUpdateEditTab({
     }
   };
 
+  const handleReleaseHotfix = async (reason: string | null) => {
+    try {
+      await releaseHotfix.mutateAsync(reason);
+      setIsHotfixReasonOpen(false);
+      showSuccess(`Hotfix ${id} released.`);
+    } catch (error) {
+      showError(`Release failed. ${describeError(error)}`);
+    }
+  };
+
   return (
     <Stack spacing={3}>
       <UmtEditStepper steps={steps} activeIndex={activeIndex} />
       <Box sx={{ pt: 2 }}>
-        {isTerminal ? (
+        {isLocked ? (
+          <Alert severity="info">{UMT_UPDATE_LOCKED_MESSAGE}</Alert>
+        ) : isTerminal ? (
           <Typography variant="h6" sx={{ color: "info.main", fontWeight: 700, textAlign: "center", py: 4 }}>
             All states completed.
           </Typography>
         ) : isFilesAnalysis ? (
-          <UmtFilesAnalysisStep id={id} update={update} />
+          <UmtFilesAnalysisStep id={id} update={update} onDirtyChange={setIsFilesAnalysisDirty} />
         ) : currentStep.id === "description-instruction" ? (
           <UmtDescriptionInstructionStep id={id} update={update} />
         ) : currentStep.id === "security-advisory" ? (
@@ -224,7 +294,7 @@ export default function UmtUpdateEditTab({
         ) : currentStep.id === "integration-tests" ? (
           <UmtIntegrationTestsStep id={id} update={update} />
         ) : currentStep.id === "testing" ? (
-          <UmtTestingStep id={id} update={update} />
+          update.isHotfix ? <UmtHotfixReleaseStep id={id} update={update} /> : <UmtTestingStep id={id} update={update} />
         ) : currentStep.id === "validate" ? (
           <UmtValidateStep id={id} update={update} />
         ) : currentStep.id === "file-approval" ? (
@@ -242,24 +312,26 @@ export default function UmtUpdateEditTab({
           <UmtEditStepPlaceholder stepLabel={currentStep.label} />
         )}
       </Box>
-      {!isTerminal && (!isFilesAnalysis || isProductAnalysis) && (
+      {!isTerminal && !isLocked && (!isFilesAnalysis || isProductAnalysis) && (
         <UmtEditStepActions
           proceedLabel={
-            isFileApproval
+            isAwaitingFileApproval
               ? "Approve and Proceed"
               : isReleasedVerifying
                 ? "Complete Update"
-                : currentStep.advancesLocallyToNextStep
-                  ? "Next"
-                  : "Proceed"
+                : isHotfixRelease
+                  ? "Release Hotfix"
+                  : advancesLocally
+                    ? "Next"
+                    : "Proceed"
           }
           proceedDisabled={
             !currentStep.proceedWired ||
             !roleAllowed ||
             !stepReady ||
-            (!currentStep.advancesLocallyToNextStep && !isReleasedVerifying && !nextLifecycleState)
+            (!advancesLocally && !isReleasedVerifying && !isHotfixRelease && !nextLifecycleState)
           }
-          proceedLoading={transition.isPending}
+          proceedLoading={transition.isPending || releaseHotfix.isPending}
           explanation={
             !currentStep.proceedWired
               ? "This step isn't wired up yet."
@@ -269,15 +341,21 @@ export default function UmtUpdateEditTab({
                   ? "Waiting for product analysis results."
                   : !descriptionInstructionReady
                     ? "Every product needs a description and instruction before proceeding."
-                    : !integrationTestsReady
-                      ? "Every product needs a Test PR or an ignore reason before proceeding (or a Helm Chart Tag for a containerized update)."
-                      : !testingReady
-                        ? update.lifecycleState !== "Staging"
-                          ? "Waiting for the testing environment to reach Staging before proceeding."
-                          : "Every product needs a submitted test result before proceeding."
-                        : !verifyingReady
-                          ? "This state has no further action available yet."
-                          : undefined
+                    : !securityAdvisoryReady
+                      ? "A security update needs at least one security advisory before proceeding."
+                      : !integrationTestsReady
+                        ? "Every product needs a Test PR or an ignore reason before proceeding (or a Helm Chart Tag for a containerized update)."
+                        : !testingReady
+                          ? isHotfixRelease
+                            ? "The integration tests must pass before release. A lead or admin can release without a pass, with a reason."
+                            : isHotfixTesting
+                              ? "Waiting for the hotfix testing environment to be created."
+                              : update.lifecycleState !== "Staging"
+                                ? "Waiting for the testing environment to reach Staging before proceeding."
+                                : "Every product needs a submitted test result before proceeding."
+                          : !verifyingReady
+                            ? "This state has no further action available yet."
+                            : undefined
           }
           onProceed={() => void handleProceed()}
           onBack={canGoBack ? handleBack : undefined}
@@ -289,6 +367,20 @@ export default function UmtUpdateEditTab({
           demoteLoading={transition.isPending}
         />
       )}
+      {isHotfixReasonOpen && (
+        <UmtHotfixReleaseReasonDialog
+          open
+          loading={releaseHotfix.isPending}
+          onCancel={() => setIsHotfixReasonOpen(false)}
+          onRelease={(reason) => void handleReleaseHotfix(reason)}
+        />
+      )}
+      <UmtUnanalyzedChangesDialog
+        open={isUnanalyzedConfirmOpen}
+        message="Pull requests, manual files, products or files were changed here but haven't been analysed yet."
+        onCancel={() => setIsUnanalyzedConfirmOpen(false)}
+        onConfirm={() => void handleProceed(true)}
+      />
       {isVerifying && (
         <UmtCompleteUpdateDialog
           id={id}

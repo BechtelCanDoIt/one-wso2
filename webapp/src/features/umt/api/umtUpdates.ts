@@ -88,9 +88,9 @@ export interface UmtUpdateSummary {
   // Behavior-change attestation from the Description and Instruction step.
   // Persisted on the backend (unlike the step's own verification checkboxes,
   // which are not) — seeded into local state on mount/refetch so revisiting
-  // this step doesn't require re-answering an already-answered question.
-  isBehaviorChanged?: boolean | null;
-  isBehaviorChangeApproved?: boolean | null;
+  // this step doesn't require re-answering an already-answered question. It
+  // drives the behaviour-change release email.
+  productBehaviourChanges?: boolean | null;
   // Drives whether Integration Tests shows the per-product Test PR/Ignore
   // Test fields or a single Helm Chart Tag field applied to every product.
   isContainerizedUpdate?: boolean | null;
@@ -190,18 +190,24 @@ export interface UmtProductAnalysisRequest {
   };
 }
 
-// Body for PUT /update/{id}/products/details — a per-product partial update
-// of just these three fields, distinct from updateProducts's whole-list
-// replace (used by Product Analysis's save).
+// Body for PUT /update/{id}/products/details from the Description and
+// Instruction save, distinct from updateProducts's whole-list replace (used by
+// Product Analysis's save). Each product's current testPr, ignoreTestReason
+// and helmChartTag travel back unchanged, so saving descriptions doesn't clear
+// them.
 export interface UmtProductDetailsRequest {
   productId: string | number;
   description: string;
   instruction: string;
+  testPr: string;
+  ignoreTestReason: string;
+  helmChartTag: string;
 }
 
+// Body for the behaviour-change PUT /update/{id}. The approval checkbox isn't
+// sent: it only gates Save.
 export interface UmtBehaviorChangeRequest {
-  isBehaviorChanged: boolean;
-  isBehaviorChangeApproved: boolean;
+  productBehaviourChanges: boolean;
 }
 
 // Body for PUT /update/{id}/products/details from Integration Tests' own
@@ -231,6 +237,8 @@ export interface UmtStagingTestResultRecord {
   // enters below it — shown as a colour-coded dot so the reviewer can see
   // what the automated run concluded before entering their own verdict.
   automatedTestResult?: string | null;
+  // The product's channel; the save looks the record up by it.
+  channel?: string | null;
 }
 
 // Body for one PUT /update/{id}/integrationTest/staging call — the endpoint
@@ -242,7 +250,7 @@ export interface UmtStagingTestResultRequest {
   baseVersion: string;
   manualTestResult: string;
   manualTestComment: string;
-  channel: "full";
+  channel: string;
 }
 
 export interface UmtUpdateDependency {

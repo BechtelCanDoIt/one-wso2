@@ -44,6 +44,8 @@ import { useUmtUpdate } from "../api/useUmtUpdate";
 import { useUmtMarkAsDuplicate, useUmtOnHoldUpdate } from "../api/useUmtUpdateActions";
 import { useUmtUpdateSubscription } from "../api/useUmtUpdateSubscription";
 import { useUmtUserInfo } from "../api/useUmtUserInfo";
+import { umtDuplicateTargetError } from "../lib/umtDuplicate";
+import { UMT_UPDATE_LOCKED_MESSAGE, umtIsUpdateLocked } from "../lib/umtUpdateLock";
 import { readPersistedSelectedTab, writePersistedSelectedTab } from "../lib/umtLocalState";
 import { umtPaths } from "../lib/umtPaths";
 import { useNotifications } from "@context/notifications/NotificationsContext";
@@ -141,6 +143,9 @@ function UmtUpdateBody({ id }: { id: string | undefined }) {
     update.data?.lifecycleState ?? "",
   );
   const canReopen = update.data?.lifecycleState === "OnHold";
+  // Mid-demotion from Staging the whole update is read-only (the field edits
+  // and action row above are already out of reach in that state).
+  const isLocked = umtIsUpdateLocked(update.data?.lifecycleState);
 
   const handleSubscription = () => {
     subscription.mutate(subscriptionAction, {
@@ -178,9 +183,11 @@ function UmtUpdateBody({ id }: { id: string | undefined }) {
     }
   }
 
+  const duplicateTargetError = umtDuplicateTargetError(duplicateOfId, id ?? "");
+
   async function handleMarkDuplicateSubmit() {
     const targetId = duplicateOfId.trim();
-    if (!targetId) return;
+    if (!targetId || duplicateTargetError) return;
     try {
       await markDuplicateMutation.mutateAsync(targetId);
       showSuccess(`Update ${id} marked as a duplicate of ${targetId}.`);
@@ -263,6 +270,11 @@ function UmtUpdateBody({ id }: { id: string | undefined }) {
           </Stack>
         }
       >
+        {isLocked && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            {UMT_UPDATE_LOCKED_MESSAGE}
+          </Alert>
+        )}
         <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Tabs
             value={selectedTab}
@@ -290,7 +302,7 @@ function UmtUpdateBody({ id }: { id: string | undefined }) {
             {update.data && (
               <>
                 <Divider sx={{ mt: 3 }} />
-                <UmtUpdateViewSections id={id} update={update.data} />
+                <UmtUpdateViewSections id={id} update={update.data} readOnly={isLocked} />
               </>
             )}
           </Box>
@@ -301,6 +313,7 @@ function UmtUpdateBody({ id }: { id: string | undefined }) {
               id={id}
               products={meta.data?.products ?? {}}
               update={update.data}
+              readOnly={isLocked}
             />
           </Box>
         )}
@@ -356,13 +369,15 @@ function UmtUpdateBody({ id }: { id: string | undefined }) {
             label="Update Id"
             value={duplicateOfId}
             onChange={(event) => setDuplicateOfId(event.target.value)}
+            error={Boolean(duplicateTargetError)}
+            helperText={duplicateTargetError}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDuplicateDialogOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
-            disabled={!duplicateOfId.trim()}
+            disabled={!duplicateOfId.trim() || Boolean(duplicateTargetError)}
             loading={markDuplicateMutation.isPending}
             onClick={() => void handleMarkDuplicateSubmit()}
           >
