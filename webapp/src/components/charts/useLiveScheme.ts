@@ -16,10 +16,7 @@
 
 import { useColorScheme } from "@wso2/oxygen-ui";
 
-/**
- * The live colour scheme. `palette.mode` stays "light" under Oxygen's
- * CSS-variables theme, which is how chart axes disappeared in dark mode.
- */
+/** The live colour scheme; `palette.mode` stays "light" under Oxygen's CSS-variables theme. */
 export function useLiveScheme(): "light" | "dark" {
   const { mode, systemMode } = useColorScheme();
   const resolved = mode === "system" ? systemMode : mode;
