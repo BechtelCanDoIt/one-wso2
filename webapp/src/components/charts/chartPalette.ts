@@ -74,6 +74,26 @@ export const CHART_SERIES_1: ChartSeriesColor = { light: "#2a78d6", dark: "#3987
 /** Slot 2 — orange. The second of a pair. */
 export const CHART_SERIES_2: ChartSeriesColor = { light: "#eb6834", dark: "#d95926" };
 
+/**
+ * Slots 3 to 7 — the five named entities of a ranked cut, by rank.
+ *
+ * Green, pink, purple, red and brown, kept clear of blue and orange so a ring
+ * of entities can sit against Channel and Direct. Unlike slots 1 and 2 these
+ * were not run through the validator, which is not in this repo: re-run it over
+ * the seven before relying on them for anything but a chart that also labels
+ * every mark.
+ */
+export const CHART_ENTITY_SERIES: readonly ChartSeriesColor[] = [
+  { light: "#1baf7a", dark: "#2cc58d" },
+  { light: "#e87ba4", dark: "#ef8fb3" },
+  { light: "#8a63d2", dark: "#a085e8" },
+  { light: "#d63a39", dark: "#e5504f" },
+  { light: "#9a6b3f", dark: "#b8885c" },
+];
+
+/** The folded tail of a ranked cut. Grey, so it recedes beside the named hues. */
+export const CHART_OTHER: ChartSeriesColor = { light: "#94a3b8", dark: "#94a3b8" };
+
 /** Which half of a slot this theme mode wants. */
 export const seriesColor = (slot: ChartSeriesColor, mode: "light" | "dark"): string =>
   mode === "dark" ? slot.dark : slot.light;
