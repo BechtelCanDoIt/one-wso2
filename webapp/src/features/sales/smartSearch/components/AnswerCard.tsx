@@ -15,30 +15,13 @@
 // under the License.
 
 import { useState, type JSX } from "react";
-import {
-  Box,
-  Button,
-  Chip,
-  Paper,
-  Skeleton,
-  Stack,
-  ToggleButton,
-  ToggleButtonGroup,
-  Typography,
-  alpha,
-} from "@wso2/oxygen-ui";
+import { Box, Button, Paper, Skeleton, Stack, Typography, alpha } from "@wso2/oxygen-ui";
 import { CheckIcon, CopyIcon, SparklesIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import {
-  COPY_FORMATS,
-  buildCopyHtml,
-  buildCopyText,
-  canCopyRich,
-  writeToClipboard,
-  type CopyFormat,
-} from "../util/libraryCopyText";
+import { writeToClipboard } from "../util/libraryCopyText";
 import { canAnimate, pop, useTypedText } from "../util/libraryMotion";
 import type { ResultGroup } from "../util/libraryResults";
+import { useSlowAfter } from "../util/useSlowAfter";
 
 const visuallyHidden = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" } as const;
 
@@ -46,8 +29,8 @@ const visuallyHidden = { position: "absolute", width: 1, height: 1, overflow: "h
 const COLLAPSED_LINES = 7;
 const LONG_ANSWER_LENGTH = 500;
 
-/** How many source chips sit under the answer. */
-const MAX_SOURCE_CHIPS = 6;
+// A wait this long is longer than usual, so the card says so.
+const SLOW_AFTER_MS = 15_000;
 
 interface AnswerCardProps {
   /** The answer is fetched after the documents, so it is loading for a moment first. */
@@ -55,43 +38,38 @@ interface AnswerCardProps {
   readonly text: string | null;
   /** Why there is no answer, when that is known (for example a rate limit). */
   readonly notice: string | null;
-  readonly query: string;
-  /** The results on screen, in order: their numbers are the chips' numbers. */
+  /** The results on screen, which the answer was written from. */
   readonly groups: readonly ResultGroup[];
-  readonly onSelectGroup: (key: string) => void;
 }
 
 /**
- * The written answer, its sources, and copy as email, chat or plain text.
+ * The written answer. The sources it was written from are the list beside it.
  * The answer is model-written, so it is always plain text, never markup.
  */
 export default function AnswerCard({
   status,
   text,
   notice,
-  query,
   groups,
-  onSelectGroup,
 }: AnswerCardProps): JSX.Element {
   const { showWarning } = useNotifications();
-  const [format, setFormat] = useState<CopyFormat>("email");
-  // The text last copied; "Copied" shows only while it is still what the box says.
+  // The text last copied; "Copied" shows only while it is still the answer on screen.
   const [copiedText, setCopiedText] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   // Only an answer that arrives while the card is open is typed out; one that was already there (back to a search) is not.
   const [animate] = useState(() => status !== "ready" && canAnimate());
   const typed = useTypedText(text ?? "", animate);
+  const slow = useSlowAfter(status === "loading", SLOW_AFTER_MS);
   const isLong = (text?.length ?? 0) > LONG_ANSWER_LENGTH;
-
-  const copyText = buildCopyText(format, { query, answer: text, groups });
-  const copied = copiedText === copyText;
+  const copied = text !== null && copiedText === text;
 
   const copy = async () => {
+    if (!text) return;
     try {
-      await writeToClipboard(copyText, format === "email" ? buildCopyHtml({ query, answer: text, groups }) : undefined);
-      setCopiedText(copyText);
+      await writeToClipboard(text);
+      setCopiedText(text);
     } catch {
-      showWarning("Couldn't copy. Select the text in the box and copy it yourself.");
+      showWarning("Couldn't copy. Select the answer and copy it yourself.");
     }
   };
 
@@ -107,7 +85,7 @@ export default function AnswerCard({
         bgcolor: alpha(theme.palette.primary.main, 0.07),
       })}
     >
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
+      <Stack direction="row" sx={{ alignItems: "center", columnGap: 1, flexWrap: "wrap", rowGap: 0.5 }}>
         <Box sx={{ color: "primary.main", display: "flex" }}>
           <SparklesIcon size={16} />
         </Box>
@@ -116,7 +94,7 @@ export default function AnswerCard({
         </Typography>
         {status === "ready" && (
           <Typography variant="caption" color="text.secondary">
-            Written from the sources below
+            Written from the sources
           </Typography>
         )}
       </Stack>
@@ -125,9 +103,11 @@ export default function AnswerCard({
         {status === "loading" && (
           <Box role="status" aria-label="Writing an answer">
             <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              {groups.length > 0
-                ? `Found ${groups.length} ${groups.length === 1 ? "document" : "documents"}. Writing your answer…`
-                : "Writing your answer…"}
+              {slow
+                ? "This is taking longer than usual - the service may be busy. The documents are already here to use."
+                : groups.length > 0
+                  ? `Found ${groups.length} ${groups.length === 1 ? "document" : "documents"}. Writing your answer…`
+                  : "Writing your answer…"}
             </Typography>
             <Skeleton variant="text" width="95%" />
             <Skeleton variant="text" width="88%" />
@@ -171,93 +151,28 @@ export default function AnswerCard({
         )}
         {status === "none" && (
           <Typography variant="body2" color="text.secondary">
-            {notice ?? "No written answer for this search. The matching documents are below."}
+            {notice ?? "No written answer for this search. The matching documents are in the list of sources."}
           </Typography>
         )}
       </Box>
 
-      {groups.length > 0 && (
-        <Stack direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: "wrap", rowGap: 0.75 }}>
-          {groups.slice(0, MAX_SOURCE_CHIPS).map((group, index) => (
-            <Chip
-              key={group.key}
-              size="small"
-              variant="outlined"
-              label={`${index + 1} · ${group.title}`}
-              onClick={() => onSelectGroup(group.key)}
-              sx={{ maxWidth: "100%" }}
-            />
-          ))}
-        </Stack>
-      )}
-
-      {status !== "loading" && groups.length > 0 && (
-        <Box sx={{ mt: 2, pt: 2, borderTop: 1, borderColor: "divider" }}>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
-            <Typography variant="overline" color="text.secondary">
-              Copy as
-            </Typography>
-            <ToggleButtonGroup
-              exclusive
-              size="small"
-              value={format}
-              aria-label="Copy format"
-              onChange={(_event, next: CopyFormat | null) => {
-                if (next) setFormat(next);
-              }}
-            >
-              {COPY_FORMATS.map((option) => (
-                <ToggleButton key={option.id} value={option.id} sx={{ px: 1.5, textTransform: "none" }}>
-                  {option.label}
-                </ToggleButton>
-              ))}
-            </ToggleButtonGroup>
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => void copy()}
-              startIcon={
-                copied ? (
-                  <Box component="span" sx={{ display: "flex", ...pop }}>
-                    <CheckIcon size={14} />
-                  </Box>
-                ) : (
-                  <CopyIcon size={14} />
-                )
-              }
-            >
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </Stack>
-          <Box
-            component="pre"
-            aria-label="What will be copied"
-            sx={{
-              m: 0,
-              mt: 1.5,
-              p: 1.5,
-              borderRadius: 1,
-              bgcolor: "action.hover",
-              border: 1,
-              borderColor: "divider",
-              fontFamily: "inherit",
-              fontSize: 13,
-              lineHeight: 1.6,
-              color: "text.secondary",
-              whiteSpace: "pre-wrap",
-              overflowWrap: "anywhere",
-              userSelect: "text",
-              maxHeight: 240,
-              overflow: "auto",
-            }}
-          >
-            {copyText}
-          </Box>
-          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
-            Links point to the exact spot. Check the source before sending anything to a customer.
-            {format === "email" && canCopyRich() && " Pasted into Gmail or Outlook, the links come out clickable."}
-          </Typography>
-        </Box>
+      {status === "ready" && text && !typed.typing && (
+        <Button
+          size="small"
+          onClick={() => void copy()}
+          startIcon={
+            copied ? (
+              <Box component="span" sx={{ display: "flex", ...pop }}>
+                <CheckIcon size={14} />
+              </Box>
+            ) : (
+              <CopyIcon size={14} />
+            )
+          }
+          sx={{ mt: 1.5, ml: -1 }}
+        >
+          {copied ? "Copied" : "Copy answer"}
+        </Button>
       )}
     </Paper>
   );

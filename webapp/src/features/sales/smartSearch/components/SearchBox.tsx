@@ -71,7 +71,7 @@ export default function SearchBox({
   };
 
   return (
-    <Box component="form" role="search" aria-label="Search the Library" onSubmit={submit}>
+    <Box component="form" role="search" aria-label="Search Ask Sales" onSubmit={submit}>
       <TextField
         fullWidth
         autoFocus={autoFocus}

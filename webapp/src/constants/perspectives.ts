@@ -552,7 +552,7 @@ const SALES_PITSTOP_SECTION: PerspectiveSection = {
   label: "Sales Pitstop",
   icon: SalesPitstopLogoIcon,
   alwaysGroup: true,
-  children: [{ id: "sales-library", label: "Library", icon: BookOpenIcon, path: SMART_SEARCH_LIBRARY_PATH }],
+  children: [{ id: "sales-library", label: "Ask Sales", icon: BookOpenIcon, path: SMART_SEARCH_LIBRARY_PATH }],
 };
 
 const SALES_SECTIONS: PerspectiveSection[] = [

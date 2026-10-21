@@ -2073,6 +2073,8 @@ export const smartSearchServiceUrls = {
   // first. The query is encoded by hand: a comma left raw is read by the backend as a list separator.
   search: (userQuery: string, includeAnswer: boolean): string =>
     `${smartSearchBackendUrl}/smart-search?userQuery=${encodeURIComponent(userQuery)}&includeAnswer=${includeAnswer}`,
+  // Writes a short message from the results of a search, all of them together.
+  compose: (): string => `${smartSearchBackendUrl}/smart-search/compose`,
 };
 
 // Finance MIS backend (digiops-finance/apps/mis) — the ARR service. The port

@@ -142,17 +142,17 @@ describe("CadO2's rail entries", () => {
 });
 
 // The Library lands behind its own flag, inside a Sales Pitstop group in the Sales perspective.
-describe("the Library's rail entry", () => {
+describe("the Ask Sales rail entry", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
 
-  it("is a Library row in a Sales Pitstop group, after Echo, once the flag is on", async () => {
+  it("is an Ask Sales row in a Sales Pitstop group, after Echo, once the flag is on", async () => {
     const perspectives = await load({ smartSearch: true });
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-pitstop");
     expect(group?.label).toBe("Sales Pitstop");
     expect(group?.alwaysGroup).toBe(true);
     expect(group?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
-      ["sales-library", "Library", "/sales/library"],
+      ["sales-library", "Ask Sales", "/sales/library"],
     ]);
     expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-pitstop"]);
   });
