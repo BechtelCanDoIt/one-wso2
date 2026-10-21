@@ -47,6 +47,7 @@ import { MIS_VALUE_TYPES, formatMisValue, misHeadlineAmount } from "../util/misM
 import type { MisScale } from "../util/misViewVocabulary";
 import { analysisSurfaceSx } from "./misLookTokens";
 import { industrySeries } from "./analysisBreakdowns";
+import IndustryTooltip from "./IndustryTooltip";
 import type { AnalysisAccountRow } from "./analysisAccountRows";
 import {
   analysisRegionEntities,
@@ -188,25 +189,13 @@ export default function AnalysisIndustryChart({
                 tickLine={false}
                 width={56}
               />
-              <RTooltip
-                cursor={{ fill: chrome.line }}
-                // `misHeadlineAmount`, the same formatter as the axis —
-                // NOT the reader's Scale. Everything ON a chart is a Headline
-                // and never scaled, so an axis reading `$1.2M` beside a tooltip
-                // reading `1,234.57` would be one chart contradicting itself.
-                // The exact figure, at the reader's Scale, is one row down in
-                // the companion table, which is what a table is for.
-                //
-                // Recharts types the value as possibly absent; a stack is only
-                // drawn for a figure, so the coercion satisfies the type.
-                formatter={(value) => misHeadlineAmount(Number(value))}
-                contentStyle={{
-                  background: palette.background.paper,
-                  border: `1px solid ${palette.divider}`,
-                  borderRadius: 6,
-                  fontSize: 12,
-                }}
-              />
+              {/* The tooltip uses `misHeadlineAmount`, the same formatter as the
+                  axis — NOT the reader's Scale. Everything ON a chart is a
+                  Headline and never scaled, so an axis reading `$1.2M` beside a
+                  tooltip reading `1,234.57` would be one chart contradicting
+                  itself. The exact figure, at the reader's Scale, is one row
+                  down in the companion table. */}
+              <RTooltip cursor={{ fill: chrome.line }} content={<IndustryTooltip />} />
               {legend.map((entity) => (
                 <Bar
                   key={entity.name}
