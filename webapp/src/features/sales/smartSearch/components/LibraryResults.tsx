@@ -214,7 +214,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   } else if (isStatus(sources.error, 403)) {
     body = (
       <ErrorNotice severity="info">
-        You don&apos;t have access to Pitstop content, so the Library can&apos;t search for you. Ask the Sales team
+        You don&apos;t have access to Pitstop content, so Ask Sales can&apos;t search for you. Ask the Sales team
         admins to check your Pitstop access.
       </ErrorNotice>
     );
@@ -329,7 +329,7 @@ export default function LibraryResults({ query, onSearch, onBack }: LibraryResul
   return (
     <Box ref={page} sx={rise()}>
       <Typography variant="h5" component="h1" sx={{ mb: 2 }}>
-        Library
+        Ask Sales
       </Typography>
       <Stack direction="row" sx={{ alignItems: "center", columnGap: 1.5, flexWrap: "wrap", rowGap: 1.5, mb: 2.5 }}>
         <Tooltip title="Back to Ask Sales">

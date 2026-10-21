@@ -305,6 +305,12 @@ describe("the results", () => {
     expect(within(answer).queryByText(/WSO2Con NA 2026/)).not.toBeInTheDocument();
   });
 
+  it("is titled Ask Sales, never Library", () => {
+    renderAt(RESULTS_PATH);
+    expect(screen.getByRole("heading", { level: 1, name: "Ask Sales" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Library" })).not.toBeInTheDocument();
+  });
+
   it("puts the sources first, then the preview and the written answer beside them", () => {
     renderAt(RESULTS_PATH);
     const sources = screen.getByRole("region", { name: "Sources" });
@@ -1083,7 +1089,7 @@ describe("when the search does not give results", () => {
   it("says plainly when the caller isn't admitted to Pitstop", () => {
     mocks.state.sources = failure(new HttpError("https://x/smart-search", 403, ""));
     renderAt(RESULTS_PATH);
-    expect(screen.getByText(/You don.t have access to Pitstop content/)).toBeInTheDocument();
+    expect(screen.getByText(/You don.t have access to Pitstop content, so Ask Sales can.t search for you/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
   });
 
