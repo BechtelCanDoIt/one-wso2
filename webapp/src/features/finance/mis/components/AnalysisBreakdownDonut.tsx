@@ -53,7 +53,7 @@ import type { PartnerModelBreakdown } from "../api/useAnalysisBreakdowns";
 //
 // Channel is always slot 1 and Direct slot 2, whichever is larger, so a view
 // where Direct overtakes Channel does not repaint either. The outer hues go by
-// the entity's rank and are shared with the industry bars.
+// the entity's rank.
 //
 // The legend table is the accessible presentation of the same figures, and the
 // only place the dollars are written.

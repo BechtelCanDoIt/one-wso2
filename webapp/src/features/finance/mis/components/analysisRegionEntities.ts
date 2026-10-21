@@ -16,6 +16,7 @@
 
 // What the two breakdowns above the account table are made of, as data.
 
+import { CHART_ENTITY_SERIES } from "@components/charts/chartPalette";
 import type { AnalysisAccountRow } from "./analysisAccountRows";
 import type { PartnerModelSlice } from "./analysisBreakdowns";
 
@@ -23,7 +24,7 @@ export const OTHER_ENTITY = "Other";
 export const UNSPECIFIED_ENTITY = "Unspecified";
 
 /** How many entities keep a name and a hue of their own. */
-const NAMED_ENTITY_COUNT = 5;
+const NAMED_ENTITY_COUNT = CHART_ENTITY_SERIES.length;
 
 type EntityAccount = Pick<AnalysisAccountRow, "salesRegion" | "subRegion" | "totalArr">;
 type PartnerAccount = EntityAccount & Pick<AnalysisAccountRow, "partnerType">;
