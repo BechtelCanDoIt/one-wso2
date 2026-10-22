@@ -13,8 +13,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Add Advisory sits in the heading row, to the right of the Security Advisory
-// heading and above the table it adds to.
+// Add Advisory sits at the right, above the table it adds to.
 
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
@@ -40,17 +39,13 @@ function renderStep() {
   render(<UmtSecurityAdvisoryStep id="42" update={update} />);
 }
 
-const heading = () => screen.getByRole("heading", { name: "Security Advisory" });
 const addButton = () => screen.getByRole("button", { name: "Add Advisory" });
 
 describe("Add Advisory on the Security Advisory step", () => {
-  it("sits in the heading's row, after the heading", () => {
+  it("sits at the right end of its row", () => {
     renderStep();
 
-    const row = heading().parentElement as HTMLElement;
-    expect(row).toContainElement(addButton());
-    expect(heading().compareDocumentPosition(addButton()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(row).toHaveStyle({ justifyContent: "space-between" });
+    expect(addButton().parentElement).toHaveStyle({ justifyContent: "flex-end" });
   });
 
   it("is above the advisory table", () => {

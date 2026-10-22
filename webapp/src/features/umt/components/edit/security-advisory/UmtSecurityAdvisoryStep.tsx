@@ -29,7 +29,6 @@ import {
   Paper,
   Stack,
   TextField,
-  Typography,
 } from "@wso2/oxygen-ui";
 import { AlertTriangle, CheckCircle, PlusIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
@@ -179,8 +178,7 @@ export default function UmtSecurityAdvisoryStep({
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "space-between" }}>
-        <Typography variant="h5">Security Advisory</Typography>
+      <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
         <Button variant="outlined" startIcon={<PlusIcon size={16} />} onClick={() => setIsAddModalOpen(true)}>
           Add Advisory
         </Button>
