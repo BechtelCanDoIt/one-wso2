@@ -16,6 +16,13 @@
 
 import type { UmtUpdateProduct } from "../api/umtUpdates";
 
+// The products in the order the Integration Tests step lists them: the
+// Compatible Initial product first, then the others in the order given.
+export function umtCompatibleInitialFirst<T extends { type?: string | null }>(products: T[]): T[] {
+  const isCompatibleInitial = (product: T) => product.type === "CompatibleInitial";
+  return [...products.filter(isCompatibleInitial), ...products.filter((product) => !isCompatibleInitial(product))];
+}
+
 // A single product's persisted Test PR / Ignore Test Reason already
 // satisfies Integration Tests' own completeness rule: a non-blank Test PR,
 // OR a non-blank Ignore Test Reason.

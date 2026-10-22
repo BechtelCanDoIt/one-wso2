@@ -22,6 +22,7 @@ import type { UmtProductIntegrationTestRequest, UmtUpdateProduct, UmtUpdateSumma
 import { useUmtSaveIntegrationTests } from "../../../api/useUmtIntegrationTests";
 import {
   isIntegrationTestsSaveDisabled,
+  umtCompatibleInitialFirst,
   umtTestPrError,
   type UmtIntegrationTestDraftRow,
 } from "../../../lib/umtIntegrationTests";
@@ -137,7 +138,7 @@ export default function UmtIntegrationTestsStep({ id, update }: { id: string; up
         />
       ) : (
         <Stack spacing={2}>
-          {products.map((product) => {
+          {umtCompatibleInitialFirst(products).map((product) => {
             const key = String(product.productId);
             const isIgnored = ignoreDrafts[key] ?? false;
             const testPrError = isIgnored ? undefined : umtTestPrError(testPrDrafts[key] ?? "");
