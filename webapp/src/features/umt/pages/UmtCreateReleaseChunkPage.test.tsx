@@ -153,6 +153,32 @@ describe("UmtCreateReleaseChunkPage", () => {
     expect(createButton()).toBeEnabled();
   });
 
+  // A restored id with no row behind it was never checked against UAT and is
+  // not shown ticked, so it must not reach the request.
+  it("submits only the restored updates that are on screen", async () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    render(
+      <MemoryRouter initialEntries={[{ pathname: umtPaths.newReleaseChunk, state: { selectedIds: [11, 42] } }]}>
+        <UmtCreateReleaseChunkPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(createButton());
+
+    expect(state.create).toHaveBeenCalledWith([11]);
+  });
+
+  it("refuses to create when none of the restored updates are on screen", () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    render(
+      <MemoryRouter initialEntries={[{ pathname: umtPaths.newReleaseChunk, state: { selectedIds: [42] } }]}>
+        <UmtCreateReleaseChunkPage />
+      </MemoryRouter>,
+    );
+
+    expect(createButton()).toBeDisabled();
+  });
+
   it("links to an update with a way back that keeps the selection", async () => {
     state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
     function LocationState() {

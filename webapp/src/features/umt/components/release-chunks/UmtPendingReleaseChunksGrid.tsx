@@ -247,7 +247,7 @@ export default function UmtPendingReleaseChunksGrid() {
           return;
         default:
           showWarning(
-            "Build status for this release chunk is unavailable, so it cannot be released yet. Reload the page and try again.",
+            "Build status for this release chunk is unavailable, so it cannot be released yet. Refresh the table and try again.",
           );
       }
     },
@@ -290,7 +290,7 @@ export default function UmtPendingReleaseChunksGrid() {
           // runs afterwards and can still fail, which the chunk's row shows.
           await releaseMutation.mutateAsync();
           showSuccess(
-            `Release of release chunk ${actionTarget.chunkId} has started. Reload the page later to see whether it completed.`,
+            `Release of release chunk ${actionTarget.chunkId} has started. Refresh the table later to see whether it completed.`,
           );
           break;
       }
@@ -627,7 +627,7 @@ function RowActionsCell({
 }: {
   action: UmtReleaseChunkRowAction;
   chunkId: number;
-  onRelease: (chunkId: number) => void;
+  onRelease: (chunkId: number) => Promise<void>;
   onRequestAction: (kind: ActionKind, chunkId: number) => void;
   onShowBuildInfo: (chunkId: number) => void;
 }) {
@@ -636,15 +636,7 @@ function RowActionsCell({
       return (
         <ChunkCell>
           <ChunkLine>
-            <Tooltip title="Release">
-              <IconButton
-                size="small"
-                aria-label="Release"
-                onClick={() => onRelease(chunkId)}
-              >
-                <RocketIcon size={16} />
-              </IconButton>
-            </Tooltip>
+            <ReleaseButton chunkId={chunkId} onRelease={onRelease} />
           </ChunkLine>
           {action.failedReason && (
             <ChunkLine>
@@ -720,15 +712,7 @@ function RowActionsCell({
                 <MailIcon size={16} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Release">
-              <IconButton
-                size="small"
-                aria-label="Release"
-                onClick={() => onRelease(chunkId)}
-              >
-                <RocketIcon size={16} />
-              </IconButton>
-            </Tooltip>
+            <ReleaseButton chunkId={chunkId} onRelease={onRelease} />
           </ChunkLine>
         </ChunkCell>
       );
@@ -736,6 +720,38 @@ function RowActionsCell({
     default:
       return null;
   }
+}
+
+// Release first fetches the chunk's build status afresh, so the click waits on
+// the network before anything opens. The spinner is held here rather than in
+// the grid, so that a check starting or ending doesn't rebuild the columns.
+function ReleaseButton({
+  chunkId,
+  onRelease,
+}: {
+  chunkId: number;
+  onRelease: (chunkId: number) => Promise<void>;
+}) {
+  const [checking, setChecking] = useState(false);
+  return (
+    <Tooltip title="Release">
+      <IconButton
+        size="small"
+        aria-label="Release"
+        disabled={checking}
+        onClick={async () => {
+          setChecking(true);
+          try {
+            await onRelease(chunkId);
+          } finally {
+            setChecking(false);
+          }
+        }}
+      >
+        {checking ? <CircularProgress size={16} /> : <RocketIcon size={16} />}
+      </IconButton>
+    </Tooltip>
+  );
 }
 
 // Unlocking removes the chunk and demotes its updates back out of it, freeing

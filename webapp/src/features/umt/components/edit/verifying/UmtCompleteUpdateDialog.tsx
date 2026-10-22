@@ -83,6 +83,13 @@ export default function UmtCompleteUpdateDialog({
   });
   const hasPullRequestText = trimmedPullRequests.length > 0;
   const hasReasonText = reason.trim() !== "";
+  // A disabled field is skipped by keyboard focus and reads as dead, so it
+  // says why. The update's own public PRs can't be removed here, so with any
+  // of them the reason stays closed for good.
+  const hasExistingPullRequests = existingPullRequests.some((pr) => pr.trim() !== "");
+  const reasonDisabledText = hasExistingPullRequests
+    ? "This update already has public pull requests."
+    : "Clear the pull requests to enter a reason.";
 
   async function handleSubmit() {
     try {
@@ -117,7 +124,9 @@ export default function UmtCompleteUpdateDialog({
                 label="Public Pull Request"
                 value={row.value}
                 error={Boolean(umtPublicPrError(row.value))}
-                helperText={umtPublicPrError(row.value)}
+                helperText={
+                  umtPublicPrError(row.value) ?? (hasReasonText ? "Clear the reason to add pull requests." : undefined)
+                }
                 onChange={(event) =>
                   setNewPullRequests((prev) =>
                     prev.map((current) =>
@@ -164,6 +173,7 @@ export default function UmtCompleteUpdateDialog({
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             disabled={hasPullRequestText}
+            helperText={hasPullRequestText ? reasonDisabledText : undefined}
             fullWidth
             multiline
             rows={3}

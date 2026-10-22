@@ -186,27 +186,45 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("ignores a Release check that finishes after a later click", async () => {
-    // The first click's check is slow and reports a failure; the second
-    // click's check answers first with every level succeeded. Only the
-    // second click may decide.
-    let resolveFirst: (status: unknown) => void = () => {};
-    const responses = [
+  it("shows a spinner on Release, and holds it, until the check answers", async () => {
+    let resolveCheck: (status: unknown) => void = () => {};
+    state.fetchFresh = () =>
       new Promise((resolve) => {
-        resolveFirst = resolve;
-      }),
-      Promise.resolve({ id: 42, updateIds: [101], updateLevels: [{ buildStatus: "SUCCESS" }] }),
-    ];
-    state.fetchFresh = () => responses.shift() as Promise<unknown>;
+        resolveCheck = resolve;
+      });
     render(<UmtPendingReleaseChunksGrid />);
 
     await clickRelease();
-    await clickRelease();
+
+    expect(screen.getByRole("button", { name: "Release" })).toBeDisabled();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+
+    resolveCheck({ id: 42, updateIds: [101], updateLevels: [{ buildStatus: "SUCCESS" }] });
+
     expect(await screen.findByRole("dialog")).toHaveTextContent("Proceed and Release");
+    // The open dialog hides the grid behind it from the accessibility tree.
+    expect(screen.getByRole("button", { name: "Release", hidden: true })).toBeEnabled();
+  });
 
-    resolveFirst({ id: 42, updateIds: [101], updateLevels: [{ buildStatus: "FAILURE" }] });
-    await new Promise((resolve) => setTimeout(resolve, 0));
+  it("ignores a Release check that finishes after another action was asked for", async () => {
+    // The check is slow; meanwhile the status email is asked for. The check
+    // then answers with every level succeeded, which must not open the
+    // release dialog over the email one.
+    let resolveCheck: (status: unknown) => void = () => {};
+    state.fetchFresh = () =>
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      });
+    render(<UmtPendingReleaseChunksGrid />);
 
+    await clickRelease();
+    await userEvent.click(screen.getByRole("button", { name: "Send status email" }));
+    const dialog = await screen.findByRole("dialog");
+
+    resolveCheck({ id: 42, updateIds: [101], updateLevels: [{ buildStatus: "SUCCESS" }] });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Release", hidden: true })).toBeEnabled());
+
+    expect(dialog).not.toHaveTextContent("Proceed and Release");
     expect(state.showWarning).not.toHaveBeenCalled();
   });
 });

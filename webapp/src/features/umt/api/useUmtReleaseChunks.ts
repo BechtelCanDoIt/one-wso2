@@ -87,16 +87,6 @@ export interface UmtReleaseChunkRowStatus {
   chunkStatusLoading: boolean;
 }
 
-// A chunk's build statuses and its own lifecycle status live behind two
-// further endpoints, one request each per row, so the pending list needs both
-// for every chunk it shows. They are issued as two parallel query sets keyed
-// by chunk id, which keeps them cached and deduplicated per row rather than
-// refetching the lot whenever the list re-renders.
-//
-// A row whose requests fail is left to render its fallback chip rather than
-// reporting the failure itself: a grid of per-row error banners would drown
-// out the list, and every action that depends on a status checks for one
-// before it runs.
 async function fetchUmtReleaseChunkBuildStatus(
   id: number,
   accessToken: string,
@@ -136,6 +126,16 @@ export function useFetchFreshUmtReleaseChunkBuildStatus() {
   );
 }
 
+// A chunk's build statuses and its own lifecycle status live behind two
+// further endpoints, one request each per row, so the pending list needs both
+// for every chunk it shows. They are issued as two parallel query sets keyed
+// by chunk id, which keeps them cached and deduplicated per row rather than
+// refetching the lot whenever the list re-renders.
+//
+// A row whose requests fail is left to render its fallback chip rather than
+// reporting the failure itself: a grid of per-row error banners would drown
+// out the list, and every action that depends on a status checks for one
+// before it runs.
 export function useUmtReleaseChunkRowStatuses(ids: number[]): Record<number, UmtReleaseChunkRowStatus> {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();

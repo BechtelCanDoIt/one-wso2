@@ -68,6 +68,7 @@ import {
   writePersistedPullRequests,
 } from "../../../lib/umtLocalState";
 import { isFilesAnalysisPrAnalyzed } from "../../../lib/umtEditSteps";
+import { isNotFound } from "../../../lib/umtNotFound";
 import { SectionError } from "../../umtViewSectionPrimitives";
 import UmtAddManualFilesSection from "./UmtAddManualFilesSection";
 import UmtPrAnalysisInputsSkeleton from "./UmtPrAnalysisInputsSkeleton";
@@ -159,6 +160,17 @@ export default function UmtPrAnalysisStep({
     );
     setPendingUploads([]);
     setHasNewInputs(false);
+  }
+  // A 404 means no analysis is stored for this update, so there is nothing to
+  // fill the inputs from and nothing a retry could load. The drafts are all
+  // there is, so they stay, and Analyze runs from them. Like the seeding
+  // above, it waits out a refetch: a 404 cached from Development, before the
+  // analysis ran, says nothing about PRAnalyzed.
+  const analysisNotFound =
+    isPrAnalyzed && !analyzed && !pullRequestAnalysis.isFetching && isNotFound(pullRequestAnalysis.error);
+  if (analysisNotFound && !seededForPrAnalyzed) {
+    setSeededForPrAnalyzed(true);
+    setHasNewInputs(true);
   }
   // Back in Development the inputs are open to a new analysis, so Analyze
   // can't stay locked by the PRAnalyzed seeding above.
@@ -551,6 +563,9 @@ export default function UmtPrAnalysisStep({
       {/* Only once the product analysis has finished too, i.e. in PRAnalyzed. */}
       {isPrAnalyzed && !isRunningProductAnalysis && pullRequestAnalysis.data && (
         <UmtPrAnalysisResults result={pullRequestAnalysis.data} />
+      )}
+      {analysisNotFound && !isRunningProductAnalysis && (
+        <Alert severity="info">Pull Request Analysis has not been performed for this update yet.</Alert>
       )}
 
       <Dialog open={isPrDialogOpen} onClose={() => setIsPrDialogOpen(false)} fullWidth maxWidth="sm">

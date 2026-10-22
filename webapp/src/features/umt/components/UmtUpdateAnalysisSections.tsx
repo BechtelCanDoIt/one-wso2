@@ -15,7 +15,7 @@
 // under the License.
 
 import { Alert, Chip, Stack, Typography } from "@wso2/oxygen-ui";
-import { HttpError } from "@api/http";
+import { isNotFound } from "../lib/umtNotFound";
 import type {
   UmtFileOperation,
   UmtProductAnalysis,
@@ -32,10 +32,6 @@ import {
   type DenseColumn,
   type ViewQueryState,
 } from "./umtViewSectionPrimitives";
-
-function isNotFound(error: unknown): boolean {
-  return error instanceof HttpError && error.status === 404;
-}
 
 export function PullRequestAnalysisSection({ query }: { query: ViewQueryState<UmtPullRequestAnalysis> }) {
   if (query.isPending) return null;

@@ -20,6 +20,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { HttpError } from "@api/http";
 import type { UmtFileOperation, UmtUpdateSummary } from "../../../api/umtUpdates";
 import type { UmtPendingManualUpload } from "../../../lib/umtPrAnalysis";
 
@@ -35,6 +36,7 @@ const state = vi.hoisted(() => ({
   analysisFetching: false,
   analysisLoaded: true,
   analysisFailed: false,
+  analysisError: null as unknown,
   analysisRefetch: vi.fn(),
   showError: vi.fn(),
 }));
@@ -43,6 +45,7 @@ vi.mock("../../../api/useUmtUpdateViewData", () => ({
   useUmtPullRequestAnalysis: () => ({
     isFetching: state.analysisFetching,
     isError: state.analysisFailed,
+    error: state.analysisError,
     refetch: state.analysisRefetch,
     data: !state.analysisLoaded ? undefined : {
       pullRequests: [{ pr: "https://github.com/wso2/carbon/pull/1", preferredVersion: "4.9.0" }],
@@ -161,6 +164,7 @@ describe("UmtPrAnalysisStep", () => {
     state.analysisFetching = false;
     state.analysisLoaded = true;
     state.analysisFailed = false;
+    state.analysisError = null;
     state.analysisRefetch.mockReset();
     state.showError.mockClear();
   });
@@ -270,6 +274,41 @@ describe("UmtPrAnalysisStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(state.analysisRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  // A 404 is an analysis that was never stored, which no retry can load. The
+  // drafts are all there is, so the inputs open on them and Analyze runs.
+  it("says the analysis hasn't been performed when it 404s in PRAnalyzed, and lets Analyze run from the drafts", async () => {
+    localStorage.setItem(
+      "one-wso2.umt-pr-analysis-prs.v1.42",
+      JSON.stringify([{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }]),
+    );
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    state.analysisError = new HttpError("https://umt.example.com/update/42/pullRequestAnalysis", 404, "");
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.getByText("Pull Request Analysis has not been performed for this update yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this section.")).not.toBeInTheDocument();
+    expect(screen.getByText("https://github.com/wso2/carbon/pull/999")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "start"]));
+    expect(state.start).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequests: [{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }] }),
+    );
+  });
+
+  it("waits out a refetch before treating a 404 as an analysis that was never performed", () => {
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    state.analysisFetching = true;
+    state.analysisError = new HttpError("https://umt.example.com/update/42/pullRequestAnalysis", 404, "");
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.queryByText("Pull Request Analysis has not been performed for this update yet.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
   });
 
   it("doesn't hold up the inputs in Development while the analysis is missing", () => {

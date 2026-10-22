@@ -120,7 +120,12 @@ function UmtCreateReleaseChunkForm() {
   // there really were no conflict. An absent list is not evidence of a clear
   // selection, so it blocks rather than passes.
   const uatUpdates = uat.data?.data;
-  const canCreate = selectedIds.length > 0 && uatUpdates !== undefined && !createChunk.isPending;
+  // The selection is restored from history, so it can name updates that are
+  // not on screen: ones that have since left UATStaging, or all of them while
+  // the list is still loading or has failed to. Only the ticked rows actually
+  // shown are checked and submitted.
+  const selectedUpdates = rows.filter((row) => selectedIds.includes(row.id));
+  const canCreate = selectedUpdates.length > 0 && uatUpdates !== undefined && !createChunk.isPending;
 
   async function submitCreate(updateIds: number[]) {
     try {
@@ -134,13 +139,12 @@ function UmtCreateReleaseChunkForm() {
 
   function handleCreateClick() {
     if (!canCreate || uatUpdates === undefined) return;
-    const selectedUpdates = rows.filter((row) => selectedIds.includes(row.id));
     const collisions = umtReleaseChunkCollisionProducts(selectedUpdates, uatUpdates);
     if (collisions.length > 0) {
       setCollisionProducts(collisions);
       return;
     }
-    void submitCreate(selectedIds);
+    void submitCreate(selectedUpdates.map((row) => row.id));
   }
 
   const columns: DataGrid.GridColDef<UmtUpdateSummary>[] = [

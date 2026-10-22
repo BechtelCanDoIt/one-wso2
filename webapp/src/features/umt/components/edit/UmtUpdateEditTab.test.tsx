@@ -286,3 +286,21 @@ describe("descriptions on the way out of a state", () => {
     expect(state.transition).toHaveBeenCalledWith("UATStaging");
   });
 });
+
+describe("a step with no usable next lifecycle state", () => {
+  it("says why Proceed is disabled when the backend sends none", () => {
+    persistStep("integration-tests");
+    renderTab(makeUpdate({ promoteStages: [] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/didn't provide a usable next lifecycle state/)).toBeInTheDocument();
+  });
+
+  it("says why Proceed is disabled when the backend sends a state it doesn't know", () => {
+    persistStep("integration-tests");
+    renderTab(makeUpdate({ promoteStages: ["SomeFutureState"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/didn't provide a usable next lifecycle state/)).toBeInTheDocument();
+  });
+});

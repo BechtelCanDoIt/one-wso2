@@ -389,7 +389,9 @@ export default function UmtUpdateEditTab({
                                 : "Every product needs a submitted test result before proceeding."
                           : !verifyingReady
                             ? "This state has no further action available yet."
-                            : undefined
+                            : !advancesLocally && !isReleasedVerifying && !isHotfixRelease && !nextLifecycleState
+                              ? "The backend didn't provide a usable next lifecycle state for this update."
+                              : undefined
           }
           onProceed={() => void handleProceed()}
           onBack={canGoBack ? handleBack : undefined}
