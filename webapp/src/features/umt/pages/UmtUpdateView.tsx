@@ -217,7 +217,8 @@ function UmtUpdateBody({ id }: { id: string | undefined }) {
           <Stack component="span" direction="row" spacing={2} sx={{ alignItems: "center" }}>
             <Box component="span">Update #{id}</Box>
             <Button
-              variant={isSubscribed ? "outlined" : "contained"}
+              variant="outlined"
+              color="error"
               size="small"
               disabled={update.isPending || userInfo.isPending || !workEmail}
               loading={subscription.isPending}
