@@ -130,3 +130,52 @@ export function nextSort(current: { sort: GroupSort; dir: SortDir }, col: GroupS
   if (current.sort === col) return { sort: col, dir: current.dir === "asc" ? "desc" : "asc" };
   return { sort: col, dir: col === "name" || col === "rank" ? "asc" : "desc" };
 }
+
+/** How a scorecard measure draws as a bar. Positions are fractions of the bar's width, 0 to 1. */
+export interface ScoreBar {
+  /** How much of the bar is filled. */
+  fill: number;
+  /** Where the target (or the ceiling) is marked. */
+  tick: number;
+  /** For `role="progressbar"`: the scale's top and the value on it, in the measure's own unit. */
+  max: number;
+  now: number;
+  /** The words for assistive tech, e.g. "18% of 25% target". */
+  text: string;
+}
+
+/** A value in the measure's unit, whole or to one decimal, e.g. "25%" or "187". */
+function inUnit(m: Pick<ScorecardMeasure, "unit">, v: number): string {
+  const r = Math.round(v * 10) / 10;
+  return m.unit === "PERCENT" ? `${r}%` : num(r);
+}
+
+/**
+ * The fill maths for a scorecard bar.
+ *  - AT_LEAST (and COUNT): the bar's full width is the target, filled to min(value / target, 1), tick at the end.
+ *    A zero target reads as met when there is any value, otherwise empty.
+ *  - AT_MOST (a ceiling): the scale runs to twice the ceiling, or to the value if that is larger, so the ceiling
+ *    tick sits inside the bar and a breach fills past it.
+ */
+export function scoreBar(m: Pick<ScorecardMeasure, "unit" | "value" | "target" | "comparison">): ScoreBar {
+  const value = Math.max(0, Number.isFinite(m.value) ? m.value : 0);
+  const target = Math.max(0, Number.isFinite(m.target) ? m.target : 0);
+  if (m.comparison === "AT_MOST") {
+    const max = target > 0 ? Math.max(target * 2, value) : Math.max(value, 1);
+    return {
+      fill: value / max,
+      tick: target / max,
+      max,
+      now: value,
+      text: `${inUnit(m, value)} against a ${inUnit(m, target)} ceiling`,
+    };
+  }
+  const fill = target > 0 ? Math.min(value / target, 1) : value > 0 ? 1 : 0;
+  return {
+    fill,
+    tick: 1,
+    max: target > 0 ? target : 1,
+    now: target > 0 ? Math.min(value, target) : fill,
+    text: `${inUnit(m, value)} of ${inUnit(m, target)} target`,
+  };
+}

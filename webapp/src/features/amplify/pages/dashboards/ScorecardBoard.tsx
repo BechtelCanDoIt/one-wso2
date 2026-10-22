@@ -19,7 +19,42 @@ import type { DashboardScorecard } from "../../api/amplifyTypes";
 import { useDashboardScorecard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
 import { Block, BoardState, Empty, StateChip } from "../../components/DashboardParts";
-import { updatedStamp, fraction, measureValue, targetText } from "../../util/dashboardFormat";
+import type { ScorecardMeasure } from "../../api/amplifyTypes";
+import { updatedStamp, fraction, measureValue, scoreBar, targetText } from "../../util/dashboardFormat";
+
+/**
+ * A measure's value against its target: blue when on track, orange on watch (the status chip says it in
+ * words too, so colour is never the only signal). A tick marks the target, or the ceiling for AT_MOST.
+ */
+export function MeasureBar({ measure }: { measure: ScorecardMeasure }) {
+  const bar = scoreBar(measure);
+  const color = measure.status === "ON_TRACK" ? "#60A5FA" : "#FF7300";
+  return (
+    <Box
+      role="progressbar"
+      aria-label={measure.label}
+      aria-valuemin={0}
+      aria-valuemax={bar.max}
+      aria-valuenow={bar.now}
+      aria-valuetext={bar.text}
+      sx={{ position: "relative", height: 12, borderRadius: 6, bgcolor: "action.hover", overflow: "visible", minWidth: 0 }}
+    >
+      <Box sx={{ width: `${bar.fill * 100}%`, height: "100%", borderRadius: 6, bgcolor: color }} />
+      <Box
+        aria-hidden="true"
+        sx={{
+          position: "absolute",
+          top: -4,
+          bottom: -4,
+          left: `calc(${Math.min(bar.tick, 1) * 100}% - 1px)`,
+          width: 2,
+          bgcolor: "text.primary",
+          borderRadius: 1,
+        }}
+      />
+    </Box>
+  );
+}
 
 /** Each measure against its target. Status comes from the API; nothing is recomputed here. */
 export function ScorecardBoard({ data }: { data: DashboardScorecard }) {
@@ -47,44 +82,41 @@ export function ScorecardBoard({ data }: { data: DashboardScorecard }) {
           <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
             {data.measures.map((m) => {
               const detail = fraction(m);
+              const onTrack = m.status === "ON_TRACK";
               return (
                 <Box
                   component="li"
                   key={m.key}
                   sx={{
-                    display: "flex",
-                    flexWrap: "wrap",
+                    display: "grid",
+                    gridTemplateColumns: { xs: "1fr", md: "minmax(220px, 1fr) minmax(200px, 2fr) auto" },
                     alignItems: "center",
-                    gap: 1.5,
-                    py: 1.75,
+                    columnGap: 3,
+                    rowGap: 1,
+                    py: 2,
                     borderTop: "1px solid",
                     borderColor: "divider",
                   }}
                 >
-                  <Box sx={{ flex: "1 1 220px", minWidth: 0 }}>
-                    {m.label}
+                  <Box sx={{ minWidth: 0 }}>
+                    <Box>{m.label}</Box>
+                    <Box sx={{ fontSize: 26, fontWeight: 600, lineHeight: 1.2 }}>
+                      {measureValue(m)}
+                      {detail && (
+                        <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1, fontWeight: 400 }}>
+                          {detail}
+                        </Typography>
+                      )}
+                    </Box>
                     <Typography variant="body2" color="text.secondary" component="div">
                       {targetText(m)}
                       {m.note ? ` · ${m.note}` : ""}
                     </Typography>
                   </Box>
-                  <Box sx={{ flex: "0 0 170px", fontSize: 20, fontWeight: 600 }}>
-                    {measureValue(m)}
-                    {detail && (
-                      <Typography
-                        component="span"
-                        variant="caption"
-                        color="text.secondary"
-                        sx={{ ml: 1, fontWeight: 400 }}
-                      >
-                        {detail}
-                      </Typography>
-                    )}
+                  <MeasureBar measure={m} />
+                  <Box sx={{ justifySelf: { xs: "start", md: "end" } }}>
+                    <StateChip label={onTrack ? "On track" : "Watch"} tone={onTrack ? "info" : "warning"} />
                   </Box>
-                  <StateChip
-                    label={m.status === "ON_TRACK" ? "On track" : "Watch"}
-                    tone={m.status === "ON_TRACK" ? "info" : "warning"}
-                  />
                 </Box>
               );
             })}

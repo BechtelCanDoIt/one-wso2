@@ -27,6 +27,7 @@ import {
   num,
   percentOf,
   rate,
+  scoreBar,
   targetText,
 } from "./dashboardFormat";
 
@@ -102,5 +103,51 @@ describe("reposts split", () => {
     expect(commentedReposts({ reposts: 48, repostsWithCommentary: 18 })).toBe(18);
     expect(plainReposts({ reposts: 48 })).toBe(48);
     expect(commentedReposts({ reposts: 48 })).toBe(0);
+  });
+});
+
+describe("scoreBar", () => {
+  const m = (over: Partial<ScorecardMeasure>) => measure(over);
+
+  it("fills value / target for an at-least measure, with the tick at the target", () => {
+    const b = scoreBar(m({ value: 18, target: 25, comparison: "AT_LEAST" }));
+    expect(b.fill).toBeCloseTo(0.72);
+    expect(b.tick).toBe(1);
+    expect(b.text).toBe("18% of 25% target");
+    expect(b.max).toBe(25);
+    expect(b.now).toBe(18);
+  });
+
+  it("stops at full when the value is over the target", () => {
+    const b = scoreBar(m({ value: 187, target: 150, unit: "COUNT", comparison: "AT_LEAST" }));
+    expect(b.fill).toBe(1);
+    expect(b.now).toBe(150);
+    expect(b.text).toBe("187 of 150 target");
+  });
+
+  it("fills COUNT measures value / target", () => {
+    expect(scoreBar(m({ value: 25, target: 100, unit: "COUNT", comparison: "AT_LEAST" })).fill).toBe(0.25);
+  });
+
+  it("does not divide by a zero target: met with any value, empty with none", () => {
+    expect(scoreBar(m({ value: 4, target: 0, comparison: "AT_LEAST" })).fill).toBe(1);
+    expect(scoreBar(m({ value: 0, target: 0, comparison: "AT_LEAST" })).fill).toBe(0);
+  });
+
+  it("marks the ceiling inside the bar for an at-most measure and fills past it on a breach", () => {
+    const ok = scoreBar(m({ value: 2.7, target: 5, comparison: "AT_MOST" }));
+    expect(ok.tick).toBeCloseTo(0.5);
+    expect(ok.fill).toBeCloseTo(0.27);
+    expect(ok.text).toBe("2.7% against a 5% ceiling");
+    const breach = scoreBar(m({ value: 20, target: 5, comparison: "AT_MOST" }));
+    expect(breach.fill).toBe(1);
+    expect(breach.tick).toBeCloseTo(0.25);
+    const none = scoreBar(m({ value: 0, target: 0, comparison: "AT_MOST" }));
+    expect(none.fill).toBe(0);
+    expect(none.tick).toBe(0);
+  });
+
+  it("treats a bad number as zero", () => {
+    expect(scoreBar(m({ value: Number.NaN, target: 25 })).fill).toBe(0);
   });
 });

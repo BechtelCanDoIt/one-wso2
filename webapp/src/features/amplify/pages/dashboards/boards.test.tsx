@@ -294,6 +294,18 @@ describe("ScorecardBoard", () => {
     expect(screen.queryByText(/novera/i)).toBeNull();
   });
 
+  it("gives every measure a progress bar with words, in the status colour's place as well as beside the chip", () => {
+    render(<ScorecardBoard data={card} />);
+    const bars = screen.getAllByRole("progressbar");
+    expect(bars).toHaveLength(2);
+    expect(bars[0].getAttribute("aria-valuetext")).toBe("18% of 25% target");
+    expect(bars[0].getAttribute("aria-valuemin")).toBe("0");
+    expect(bars[0].getAttribute("aria-valuemax")).toBe("25");
+    expect(bars[0].getAttribute("aria-valuenow")).toBe("18");
+    expect(bars[1].getAttribute("aria-valuetext")).toBe("2.7% against a 5% ceiling");
+    expect(screen.getByText("Watch", { selector: "span" })).toBeTruthy();
+  });
+
   it("says so with no measures", () => {
     render(<ScorecardBoard data={{ ...card, measures: [] }} />);
     expect(screen.getByText(/No measures yet/)).toBeTruthy();
