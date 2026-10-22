@@ -488,6 +488,12 @@ function SectionNode({
  * The frame is always rendered and only its look changes: dropping it on close would give the
  * group a different parent, remount it, and cut Collapse's closing animation short. It is an
  * <li> holding its own <ul>, because Sidebar.Category lays its rows out in a list.
+ *
+ * The outline is drawn by a pseudo-element, never by a margin or border on the <li>: those take
+ * room even while transparent, and pushed every row in the group 9px right of the icon and label
+ * columns the rest of the rail uses — open, closed and collapsed. Oxygen insets each row by
+ * spacing(1), so an outline at spacing(0.5) sits in that gutter, clear of a row's hover and
+ * selected fill, without moving the row.
  */
 function GroupFrame({ id, children }: { id: string; children: ReactNode }): JSX.Element {
   const { collapsed, expandedMenus } = useSidebar();
@@ -497,13 +503,23 @@ function GroupFrame({ id, children }: { id: string; children: ReactNode }): JSX.
       component="li"
       sx={(theme) => ({
         listStyle: "none",
-        mx: 1,
-        border: "1px solid",
-        borderRadius: 1.5,
-        borderColor: framed ? alpha(theme.palette.primary.main, 0.24) : "transparent",
-        bgcolor: framed ? alpha(theme.palette.primary.main, 0.04) : "transparent",
+        position: "relative",
+        // Its own stacking context, so the outline can sit behind the rows without also sinking
+        // behind the rail's background.
+        isolation: "isolate",
         py: framed ? 0.5 : 0,
         my: framed ? 0.5 : 0,
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          inset: theme.spacing(0, 0.5),
+          zIndex: -1,
+          pointerEvents: "none",
+          border: "1px solid",
+          borderRadius: 1.5,
+          borderColor: framed ? alpha(theme.palette.primary.main, 0.24) : "transparent",
+          bgcolor: framed ? alpha(theme.palette.primary.main, 0.04) : "transparent",
+        },
       })}
     >
       <List disablePadding>{children}</List>
