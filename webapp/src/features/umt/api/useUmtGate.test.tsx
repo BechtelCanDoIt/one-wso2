@@ -37,6 +37,14 @@ vi.mock("./useUmtUserInfo", () => ({
   useUmtUserInfo: () => userInfo,
 }));
 
+const documentation: { url?: string; asked: boolean[] } = { asked: [] };
+vi.mock("./useUmtDocumentationUrl", () => ({
+  useUmtDocumentationUrl: (enabled: boolean) => {
+    documentation.asked.push(enabled);
+    return enabled ? documentation.url : undefined;
+  },
+}));
+
 vi.mock("@asgardeo/react", () => ({
   useAsgardeo: () => asgardeo,
 }));
@@ -46,7 +54,7 @@ vi.mock("@config/apiConfig", async (importOriginal) => ({
   isUmtBackendConfigured: () => backend.configured,
 }));
 
-const { __resetUmtGateCacheForTests, useUmtGate } = await import("./useUmtGate");
+const { __resetUmtGateCacheForTests, umtVisibility, useUmtGate } = await import("./useUmtGate");
 const gate = () => renderHook(() => useUmtGate()).result.current;
 
 beforeEach(() => {
@@ -57,7 +65,62 @@ beforeEach(() => {
   userInfo.refetch.mockReset();
   asgardeo.isSignedIn = true;
   backend.configured = true;
+  documentation.url = undefined;
+  documentation.asked = [];
   __resetUmtGateCacheForTests();
+});
+
+describe("the documentation link", () => {
+  it("is asked for, and carried on the gate, once UMT gives the caller a role", () => {
+    userInfo.data = { roles: [444] };
+    documentation.url = "https://docs.example";
+    expect(gate().documentationUrl).toBe("https://docs.example");
+    expect(documentation.asked.at(-1)).toBe(true);
+  });
+
+  it("is not asked for when UMT gives the caller no role", () => {
+    userInfo.data = { roles: [] };
+    documentation.url = "https://docs.example";
+    expect(gate().documentationUrl).toBeUndefined();
+    expect(documentation.asked.some(Boolean)).toBe(false);
+  });
+
+  it("is not asked for while the gate is disabled", () => {
+    userInfo.data = { roles: [444] };
+    renderHook(() => useUmtGate(false));
+    expect(documentation.asked.some(Boolean)).toBe(false);
+  });
+});
+
+describe("umtVisibility for the Documentation row", () => {
+  const answer = (over: { isAuthorized?: boolean; documentationUrl?: string }) =>
+    umtVisibility({
+      isAuthorized: true,
+      isUser: true,
+      isAdmin: false,
+      isProductLead: false,
+      hasRole: () => false,
+      isResolving: false,
+      isError: false,
+      retry: () => undefined,
+      ...over,
+    });
+
+  it("shows to a UMT user once the link is known", () => {
+    expect(answer({ documentationUrl: "https://docs.example" }).canSee("umt-documentation")).toBe(true);
+  });
+
+  it("stays hidden without a link to open, even while the backend is unset", () => {
+    expect(answer({}).canSee("umt-documentation")).toBe(false);
+    backend.configured = false;
+    expect(answer({}).canSee("umt-documentation")).toBe(false);
+  });
+
+  it("stays hidden from someone UMT gives no role", () => {
+    expect(
+      answer({ isAuthorized: false, documentationUrl: "https://docs.example" }).canSee("umt-documentation"),
+    ).toBe(false);
+  });
 });
 
 describe("UMT role mapping", () => {

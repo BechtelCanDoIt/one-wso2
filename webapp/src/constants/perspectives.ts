@@ -25,6 +25,7 @@ import {
   AwardIcon,
   Box as BoxIcon,
   BarChart3,
+  Book,
   BookOpenIcon,
   CheckCheckIcon,
   ClipboardCheckIcon,
@@ -55,6 +56,7 @@ import {
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { ComponentType } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import type { Capability, MenuApp } from "@constants/appMenu";
 import {
   FINANCE_OVERVIEW_APPS,
@@ -73,6 +75,7 @@ import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
+import { UMT_DOCUMENTATION_ITEM_ID, openUmtDocumentation } from "@features/umt/lib/umtDocumentation";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 import {
   Cado2LogoIcon,
@@ -108,6 +111,11 @@ export interface PerspectiveSection {
   // of ours is active while the user is over there. Mutually exclusive with
   // `path` — a section is either somewhere we host or somewhere we don't.
   externalUrl?: string;
+  // When set, choosing the row runs this instead of navigating — for a row
+  // whose destination is only known at runtime. It is handed the app's
+  // QueryClient, so it can read what a hook has already fetched. Mutually
+  // exclusive with `path`.
+  onSelect?: (context: { queryClient: QueryClient }) => void;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group
@@ -505,6 +513,10 @@ const UMT_SECTION: PerspectiveSection = {
     { id: "umt-products", label: "Products", icon: BoxIcon, path: umtPaths.products },
     { id: "umt-release-chunks", label: "Releases", icon: LucideLayoutGrid, path: umtPaths.releaseChunks },
     { id: "umt-statistics", label: "Statistics", icon: BarChart3, path: umtPaths.statistics },
+    // Opens the documentation site in a new tab. The address is UMT backend
+    // configuration (/update/documentation), not a build-time value, so the
+    // row runs an action that reads it at click time.
+    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Documentation", icon: Book, onSelect: openUmtDocumentation },
   ],
 };
 

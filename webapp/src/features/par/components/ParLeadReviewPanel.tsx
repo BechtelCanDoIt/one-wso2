@@ -356,12 +356,12 @@ export default function ParLeadReviewPanel({
 
       <Grid size={12}>
         <Card variant="outlined" sx={{ height: "100%" }}>
-          <CardHeader title={<Typography variant="h6">Employee PAR</Typography>} />
+          <CardHeader title={<Typography variant="h6">Employee's Feedback</Typography>} />
           <CardContent>
             {employeeComment ? (
               <ParCommentView html={employeeComment} />
             ) : (
-              <ParEmptyState text="Employee PAR hasn't been shared" />
+              <ParEmptyState text="Employee's Feedback hasn't been shared" />
             )}
           </CardContent>
         </Card>

@@ -42,15 +42,18 @@ vi.mock("../api/useUmtGate", () => ({
 
 vi.mock("../api/useUmtReleaseChunks", () => ({
   useUmtReleaseChunks: () => ({
-    data: [
-      {
-        id: 42,
-        updateIds: [101],
-        updateLevels: [
-          { productName: "wso2am", productVersion: "4.2.0", channel: "security", buildStatus: "UNSTABLE" },
-        ],
-      },
-    ],
+    data: {
+      chunks: [
+        {
+          id: 42,
+          updateIds: [101],
+          updateLevels: [
+            { productName: "wso2am", productVersion: "4.2.0", channel: "security", buildStatus: "UNSTABLE" },
+          ],
+        },
+      ],
+      totalCount: 1,
+    },
     isError: false,
     isFetching: false,
     isPending: false,

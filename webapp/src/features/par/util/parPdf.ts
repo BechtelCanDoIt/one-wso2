@@ -221,7 +221,7 @@ export function downloadLegacyParPdf(
   });
   cursorY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
 
-  // ---- Employee PAR ----
+  // ---- Employee's Feedback ----
   const employeeTopRows: PdfRow[] = [];
   if (legacy2015EmployeeRating) {
     employeeTopRows.push(["PAR Rating", { content: legacy2015EmployeeRating, styles: contentStyles }]);
@@ -239,7 +239,7 @@ export function downloadLegacyParPdf(
     const flat = formatLegacyQuestionAnswers(questionAnswers);
     if (flat) employeeTopRows.push(["Employee Comment", { content: htmlToPdfText(flat), styles: contentStyles }]);
   }
-  addBlock("Employee PAR", employeeTopRows, "section");
+  addBlock("Employee's Feedback", employeeTopRows, "section");
   for (const group of employeeGroups) {
     addBlock(
       group.title,
@@ -296,10 +296,8 @@ export function downloadLegacyParPdf(
     const reviewRows: PdfRow[] = reviews.map((review) => {
       const rating = review.reviewRating ? stripRedundantRatingPrefix(review.reviewRating) : "";
       const ratingSuffix = rating ? ` (Rating: ${rating})` : "";
-      return [
-        `${review.reviewerName}${ratingSuffix}`,
-        { content: review.reviewComment ? htmlToPdfText(review.reviewComment) : "No comment provided", styles: contentStyles },
-      ];
+      const content = review.reviewComment ? htmlToPdfText(review.reviewComment) : "No comment provided";
+      return [`${review.reviewerName}${ratingSuffix}`, { content, styles: contentStyles }];
     });
     addBlock("360° Feedback", reviewRows, "section");
   }

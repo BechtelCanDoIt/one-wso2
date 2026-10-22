@@ -76,6 +76,7 @@ import {
   ChunkLine,
 } from "./umtReleaseChunkGridPrimitives";
 import { UMT_CHUNK_GRID_BORDERED_SX } from "./umtReleaseChunkGridSx";
+import { useChunkGridPagination } from "./useChunkGridPagination";
 
 const { DataGrid: DataGridComponent } = DataGrid;
 
@@ -194,9 +195,9 @@ function columnGroupingModel(
 }
 
 export default function UmtPendingReleaseChunksGrid() {
-  const chunks = useUmtReleaseChunks();
+  const { chunks, gridProps } = useChunkGridPagination(useUmtReleaseChunks);
   const gate = useUmtGate();
-  const rows = chunks.data ?? [];
+  const rows = chunks.data?.chunks ?? [];
   const rowStatuses = useUmtReleaseChunkRowStatuses(rows.map((row) => row.id));
   const fetchFreshBuildStatus = useFetchFreshUmtReleaseChunkBuildStatus();
   const { showSuccess, showError, showWarning } = useNotifications();
@@ -582,9 +583,9 @@ export default function UmtPendingReleaseChunksGrid() {
             disableColumnMenu
             disableRowSelectionOnClick
             getRowHeight={() => "auto"}
-            hideFooter
             loading={chunks.isPending}
             rows={rows}
+            {...gridProps}
             slots={{ noRowsOverlay: PendingChunksEmptyState }}
             sx={UMT_CHUNK_GRID_BORDERED_SX}
           />

@@ -642,6 +642,8 @@ export const umtServiceUrls = {
   // GET — products, versions, issue types, lifecycles and user emails shared
   // by the update workflows. This endpoint deliberately sits outside /update.
   meta: `${umtBackendUrl}/meta`,
+  // GET — the environment's Update Manager documentation link, as `{ url }`.
+  documentation: `${umtBackendUrl}/update/documentation`,
   // GET — aggregate update lifecycle and release-chunk build counts.
   updatesStats: `${umtBackendUrl}/update/stats`,
   // GET — Statistics page's monthly stacked-bar chart data, one endpoint per
@@ -751,12 +753,20 @@ export const umtServiceUrls = {
   // POST — replaces an update's whole Integration Test Pull Requests list.
   updateTestPullRequests: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/testPullRequest`,
-  // GET — pending (not yet released) release chunks. POST (with a raw
-  // `number[]` of update ids as the body, not an object) creates a new one.
+  // POST (with a raw `number[]` of update ids as the body, not an object)
+  // creates a new release chunk. Lists are read through releaseChunksPage.
   releaseChunks: `${umtBackendUrl}/update/releaseChunk`,
-  // GET — released chunks only. Same resource as releaseChunks above, filtered
-  // by the backend's own `states` query param.
-  releasedChunks: `${umtBackendUrl}/update/releaseChunk?states=released`,
+  // GET — one page of release chunks, newest first. Without `states` the
+  // backend lists the pending (not yet released) chunks; `states=released`
+  // lists the released ones. `page` is 0-based, the way the grid counts it;
+  // the backend's is 1-based, so it is sent as `page + 1`.
+  releaseChunksPage: (options: { states?: string; page: number; pageSize: number }) => {
+    const params = new URLSearchParams();
+    if (options.states) params.set("states", options.states);
+    params.set("page", String(options.page + 1));
+    params.set("pageSize", String(options.pageSize));
+    return `${umtBackendUrl}/update/releaseChunk${query(params)}`;
+  },
   // GET — one chunk's lifecycle status (created/releasing/releasingFailed/
   // releasingDockerFailed/retriggering) and per-update-level detail.
   releaseChunk: (id: string | number) => `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}`,

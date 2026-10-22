@@ -15,6 +15,7 @@
 // under the License.
 
 import { useMemo, useState, type JSX, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { alpha, Box, Link, List, Sidebar, Typography, useSidebar } from "@wso2/oxygen-ui";
 import { BookOpenIcon, ExternalLinkIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, matchPath, useLocation, useNavigate } from "react-router";
@@ -92,6 +93,8 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
   const active = useActivePerspective();
   const navigate = useNavigate();
   const location = useLocation();
+  // Handed to a row's `onSelect` action — see PerspectiveSection.onSelect.
+  const queryClient = useQueryClient();
 
   // Who can see what. This used to be ~100 lines of gate wiring right here,
   // which made the rail the only thing in the app that knew — see
@@ -198,6 +201,19 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
     return map;
   }, [sections]);
 
+  // Every row that runs an action instead of navigating — see
+  // PerspectiveSection.onSelect.
+  const actionById = useMemo(() => {
+    const map = new Map<string, NonNullable<PerspectiveSection["onSelect"]>>();
+    for (const s of sections) {
+      if (s.onSelect) map.set(s.id, s.onSelect);
+      for (const c of s.children ?? []) {
+        if (c.onSelect) map.set(c.id, c.onSelect);
+      }
+    }
+    return map;
+  }, [sections]);
+
   // Top-level route rows navigate through their own wrapping anchor; nested
   // rows and scroll-anchors arrive here.
   const onSelect = (id: string) => {
@@ -213,6 +229,11 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
       return;
     }
     if (id === OVERVIEW_ID) return;
+    const action = actionById.get(id);
+    if (action) {
+      action({ queryClient });
+      return;
+    }
     const path = pathById.get(id);
     if (path) {
       // Carry the perspective along, same as the Settings navigation above.
