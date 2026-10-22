@@ -15,8 +15,9 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import type { ManagedServicesRisks, ManagedServicesTheme } from "../../api/riskApi";
-import { highSeverityCallout, managedSubtitle, maxThemeTotal, themeSegments } from "./managedDeployments";
+import type { ManagedServicesRisks, ManagedServicesTheme, RiskScore } from "../../api/riskApi";
+import { LEVEL_FALLBACK_COLORS } from "./constants";
+import { highSeverityCallout, levelColors, managedSubtitle, maxThemeTotal, themeSegments } from "./managedDeployments";
 
 const theme = (over: Partial<ManagedServicesTheme>): ManagedServicesTheme => ({
   category_id: 1,
@@ -39,13 +40,36 @@ const data = (over: Partial<ManagedServicesRisks>): ManagedServicesRisks => ({
   ...over,
 });
 
+const score = (risk_level: RiskScore["risk_level"], color_code: string): RiskScore => ({
+  id: 1,
+  likelihood: 1,
+  impact: 1,
+  risk_rating: 1,
+  risk_level,
+  color_code,
+});
+
+describe("levelColors", () => {
+  it("uses the configured score colour per level", () => {
+    expect(levelColors([score("HIGH", "#111111"), score("HIGH", "#222222")]).HIGH).toBe("#111111");
+  });
+  it("falls back when a level has no score or colour", () => {
+    const got = levelColors([score("LOW", "")]);
+    expect(got).toEqual(LEVEL_FALLBACK_COLORS);
+  });
+});
+
 describe("themeSegments", () => {
   it("keeps only non-empty levels, High first", () => {
-    const got = themeSegments(theme({ total: 12, high: 2, medium: 0, low: 10 }));
+    const got = themeSegments(theme({ total: 12, high: 2, medium: 0, low: 10 }), LEVEL_FALLBACK_COLORS);
     expect(got.map((s) => [s.level, s.count])).toEqual([
       ["HIGH", 2],
       ["LOW", 10],
     ]);
+  });
+  it("colours segments from the given map", () => {
+    const got = themeSegments(theme({ total: 2, high: 2 }), { ...LEVEL_FALLBACK_COLORS, HIGH: "#123456" });
+    expect(got[0].color).toBe("#123456");
   });
 });
 

@@ -33,7 +33,7 @@ const data: ManagedServicesRisks = {
 
 describe("ManagedDeploymentRisks", () => {
   it("lists each theme with its customers out of the total and its risk count", () => {
-    render(<ManagedDeploymentRisks data={data} />);
+    render(<ManagedDeploymentRisks data={data} scores={[]} />);
 
     const row = screen.getByRole("row", { name: /Disaster Recovery/ });
     expect(within(row).getByText("4/5")).toBeInTheDocument();
@@ -42,7 +42,7 @@ describe("ManagedDeploymentRisks", () => {
   });
 
   it("draws one labelled segment per non-empty level", () => {
-    render(<ManagedDeploymentRisks data={data} />);
+    render(<ManagedDeploymentRisks data={data} scores={[]} />);
 
     const bars = within(screen.getByRole("list", { name: /open risks by theme/i }));
     const waf = bars.getAllByRole("listitem")[1];
@@ -52,17 +52,17 @@ describe("ManagedDeploymentRisks", () => {
   });
 
   it("calls out High severity risks when any exist", () => {
-    render(<ManagedDeploymentRisks data={data} />);
+    render(<ManagedDeploymentRisks data={data} scores={[]} />);
     expect(screen.getByText(/3 High severity risks — none closed/)).toBeInTheDocument();
   });
 
   it("omits the callout when there are no High risks", () => {
-    render(<ManagedDeploymentRisks data={{ ...data, high_open: 0 }} />);
+    render(<ManagedDeploymentRisks data={{ ...data, high_open: 0 }} scores={[]} />);
     expect(screen.queryByText(/High severity/)).not.toBeInTheDocument();
   });
 
   it("says so when no risks are open", () => {
-    render(<ManagedDeploymentRisks data={{ ...data, open_risks: 0, high_open: 0, themes: [] }} />);
+    render(<ManagedDeploymentRisks data={{ ...data, open_risks: 0, high_open: 0, themes: [] }} scores={[]} />);
     expect(screen.getByText(/No open risks in Managed Services registers/)).toBeInTheDocument();
   });
 
@@ -70,6 +70,7 @@ describe("ManagedDeploymentRisks", () => {
     render(
       <ManagedDeploymentRisks
         data={{ ...data, open_risks: 0, closed_risks: 4, high_open: 0, high_closed: 2, themes: [] }}
+        scores={[]}
       />,
     );
     expect(screen.getByText(/No open risks in Managed Services registers/)).toBeInTheDocument();
@@ -77,7 +78,7 @@ describe("ManagedDeploymentRisks", () => {
   });
 
   it("still shows the callout when open risks have no themes", () => {
-    render(<ManagedDeploymentRisks data={{ ...data, themes: [] }} />);
+    render(<ManagedDeploymentRisks data={{ ...data, themes: [] }} scores={[]} />);
     expect(screen.queryByText(/No open risks/)).not.toBeInTheDocument();
     expect(screen.getByText(/3 High severity risks — none closed/)).toBeInTheDocument();
   });

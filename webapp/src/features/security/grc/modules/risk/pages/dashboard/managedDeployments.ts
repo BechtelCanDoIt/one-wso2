@@ -16,7 +16,7 @@
 
 // Pure helpers behind the "Most Common Risks — Managed Deployments" card.
 
-import type { ManagedServicesRisks, ManagedServicesTheme } from "../../api/riskApi";
+import type { ManagedServicesRisks, ManagedServicesTheme, RiskScore } from "../../api/riskApi";
 import { LEVEL_FALLBACK_COLORS } from "./constants";
 
 export interface ThemeSegment {
@@ -26,12 +26,26 @@ export interface ThemeSegment {
   color: string;
 }
 
+// Level -> colour for the card: the configured score colour (first set one per
+// level), else the shared fallback, so it matches the other dashboard cards.
+export function levelColors(scores: RiskScore[]): Record<string, string> {
+  const colors: Record<string, string> = { ...LEVEL_FALLBACK_COLORS };
+  const seen = new Set<string>();
+  for (const score of scores) {
+    if (score.color_code && !seen.has(score.risk_level)) {
+      colors[score.risk_level] = score.color_code;
+      seen.add(score.risk_level);
+    }
+  }
+  return colors;
+}
+
 // A theme's non-empty High / Medium / Low segments, left to right.
-export function themeSegments(theme: ManagedServicesTheme): ThemeSegment[] {
+export function themeSegments(theme: ManagedServicesTheme, colors: Record<string, string>): ThemeSegment[] {
   const all: ThemeSegment[] = [
-    { level: "HIGH", label: "High", count: theme.high, color: LEVEL_FALLBACK_COLORS.HIGH },
-    { level: "MEDIUM", label: "Medium", count: theme.medium, color: LEVEL_FALLBACK_COLORS.MEDIUM },
-    { level: "LOW", label: "Low", count: theme.low, color: LEVEL_FALLBACK_COLORS.LOW },
+    { level: "HIGH", label: "High", count: theme.high, color: colors.HIGH },
+    { level: "MEDIUM", label: "Medium", count: theme.medium, color: colors.MEDIUM },
+    { level: "LOW", label: "Low", count: theme.low, color: colors.LOW },
   ];
   return all.filter((s) => s.count > 0);
 }

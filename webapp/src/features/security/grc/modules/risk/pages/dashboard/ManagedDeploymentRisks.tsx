@@ -26,14 +26,15 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
-import type { ManagedServicesRisks } from "../../api/riskApi";
-import { LEVEL_FALLBACK_COLORS, LEVEL_LABELS, LEVEL_ORDER, OPEN_COLOR, labelColorOn } from "./constants";
-import { highSeverityCallout, maxThemeTotal, themeSegments } from "./managedDeployments";
+import type { ManagedServicesRisks, RiskScore } from "../../api/riskApi";
+import { LEVEL_LABELS, LEVEL_ORDER, OPEN_COLOR, labelColorOn } from "./constants";
+import { highSeverityCallout, levelColors, maxThemeTotal, themeSegments } from "./managedDeployments";
 
 const LABEL_WIDTH = { xs: 120, md: 200 };
 
 interface ManagedDeploymentRisksProps {
   data: ManagedServicesRisks;
+  scores: RiskScore[];
 }
 
 function HighSeverityCallout({ text }: { text: string }): JSX.Element {
@@ -58,9 +59,10 @@ function HighSeverityCallout({ text }: { text: string }): JSX.Element {
 // "Most Common Risks — Managed Deployments": per Risk Category, a stacked bar
 // of open risks by level beside a table of how many customers it affects. Rows
 // follow the service's order (most open risks first) in both panels.
-export default function ManagedDeploymentRisks({ data }: ManagedDeploymentRisksProps): JSX.Element {
+export default function ManagedDeploymentRisks({ data, scores }: ManagedDeploymentRisksProps): JSX.Element {
   const scale = maxThemeTotal(data.themes);
   const callout = highSeverityCallout(data);
+  const colors = levelColors(scores);
 
   // Themes only cover categorised risks, so an empty list does not mean zero
   // open risks. With none open, show the message but keep the callout, which
@@ -88,7 +90,7 @@ export default function ManagedDeploymentRisks({ data }: ManagedDeploymentRisksP
                 </Typography>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
                   <Box sx={{ display: "flex", height: 28, width: `${(theme.total / scale) * 100}%` }}>
-                    {themeSegments(theme).map((segment) => (
+                    {themeSegments(theme, colors).map((segment) => (
                       <Box
                         key={segment.level}
                         title={`${segment.label}: ${segment.count}`}
@@ -115,7 +117,7 @@ export default function ManagedDeploymentRisks({ data }: ManagedDeploymentRisksP
           <Stack direction="row" justifyContent="center" gap={2} sx={{ mt: 2 }}>
             {LEVEL_ORDER.map((level) => (
               <Stack key={level} direction="row" alignItems="center" gap={0.5}>
-                <Box sx={{ width: 10, height: 10, bgcolor: LEVEL_FALLBACK_COLORS[level] }} />
+                <Box sx={{ width: 10, height: 10, bgcolor: colors[level] }} />
                 <Typography variant="body2" color="text.secondary">
                   {LEVEL_LABELS[level]}
                 </Typography>

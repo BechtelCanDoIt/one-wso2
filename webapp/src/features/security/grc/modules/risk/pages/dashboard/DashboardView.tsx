@@ -231,7 +231,7 @@ export default function DashboardView({
 
       {managed && managed.customer_count > 0 && (
         <ChartCard title="Most Common Risks — Managed Deployments" subtitle={managedSubtitle(managed)}>
-          <ManagedDeploymentRisks data={managed} />
+          <ManagedDeploymentRisks data={managed} scores={scores} />
         </ChartCard>
       )}
 
