@@ -471,6 +471,30 @@ export interface CommonOpenCategory extends CategoryCounts {
   register_ids: number[];
 }
 
+// One Risk Category's open managed-services risks, split by effective residual
+// level. customers counts distinct customers; total = high + medium + low.
+export interface ManagedServicesTheme {
+  category_id: number;
+  category_name: string;
+  customers: number;
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+// Risks raised in MANAGED_SERVICES registers. open_risks / closed_risks count
+// distinct risks; themes count open risks only, so a risk in several
+// categories appears under each and the themes can sum past open_risks.
+export interface ManagedServicesRisks {
+  customer_count: number;
+  open_risks: number;
+  closed_risks: number;
+  high_open: number;
+  high_closed: number;
+  themes: ManagedServicesTheme[];
+}
+
 export interface HighRiskItem {
   id: number;
   risk_code: string;
@@ -493,6 +517,8 @@ export interface DashboardSummary {
   // Optional: absent when served by a backend older than these fields.
   repeated_categories?: RepeatedCategory[];
   common_open_categories?: CommonOpenCategory[];
+  // Optional: absent when served by a backend older than this field.
+  managed_services?: ManagedServicesRisks;
   high_risks: HighRiskItem[];
 }
 
