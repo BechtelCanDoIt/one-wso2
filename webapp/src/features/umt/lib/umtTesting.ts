@@ -98,18 +98,40 @@ export function umtCanRetriggerAutomatedTest(value: string | null | undefined): 
   return !isAutomatedTestResult(value, "success") && !isAutomatedTestResult(value, "building");
 }
 
+// Whether a staging row offers Retrigger: the request names a product and its
+// base version but no channel, so only a full-channel row with both can use
+// it, and only while its automated result allows another run.
+export function umtCanRetriggerStagingRow(row: UmtStagingTestResultRecord): boolean {
+  return (
+    (row.channel ?? "full") === "full" &&
+    Boolean(row.productName && row.baseVersion) &&
+    umtCanRetriggerAutomatedTest(row.automatedTestResult)
+  );
+}
+
+// How long the results keep polling after a retrigger was accepted, so the
+// new run's state shows up even when the first refetch still has the
+// previous result.
+export const UMT_RETRIGGER_POLL_WINDOW_MS = 60_000;
+
 // Whether polling for staging test results should keep running: true while
 // lifecycleState is one of the transient in-between states, false once it's
 // reached a terminal state (Staging or Failed) — stops polling on failure
 // too, not just success, so a permanently-failed environment isn't polled
-// forever. At Staging it also continues while an automated run is building,
-// so a retriggered run's outcome shows up without a reload.
+// forever. At Staging it also continues while an automated run is building
+// and for UMT_RETRIGGER_POLL_WINDOW_MS after a retrigger (`retriggeredAt`, an
+// epoch time in ms), so a retriggered run's outcome shows up without a reload.
 export function umtShouldPollStagingTestResults(
   lifecycleState: string | null | undefined,
   records?: UmtStagingTestResultRecord[] | null,
+  retriggeredAt?: number | null,
+  now: number = Date.now(),
 ): boolean {
   if (lifecycleState === "Staging") {
-    return (records ?? []).some((record) => isAutomatedTestResult(record.automatedTestResult, "building"));
+    const retriggerPending = retriggeredAt != null && now - retriggeredAt < UMT_RETRIGGER_POLL_WINDOW_MS;
+    return (
+      retriggerPending || (records ?? []).some((record) => isAutomatedTestResult(record.automatedTestResult, "building"))
+    );
   }
   return (
     lifecycleState === "TestingEnvironmentRequested" ||

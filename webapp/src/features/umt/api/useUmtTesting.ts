@@ -24,14 +24,21 @@ import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { UMT_TESTING_LIFECYCLE_STATES, umtShouldPollStagingTestResults } from "../lib/umtTesting";
 import type { UmtStagingTestResultRecord, UmtStagingTestResultRequest } from "./umtUpdates";
 
+// When a retrigger was last accepted for an update, as epoch ms. It lives in
+// the query cache so the results query, shared by the shell and the Testing
+// step, can read what the retrigger mutation wrote.
+const retriggeredAtKey = (id: string) => ["umt-staging-test-retriggered-at", id] as const;
+
 // Shared by the shell (Proceed-gating) and UmtTestingStep (its own render) —
 // same query key, so TanStack dedupes the fetch. Enabled only while
 // lifecycleState is in the testing-state family; polls every 3s while
 // umtShouldPollStagingTestResults is true (mirrors useUmtPrAnalysisStatus's
-// existing polling precedent), stopping once Staging or Failed is reached.
+// existing polling precedent). That ends at Failed, and at Staging once no run
+// is building and the post-retrigger window has passed.
 export function useUmtStagingTestResults(id: string, lifecycleState: string | null | undefined) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
+  const queryClient = useQueryClient();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
   const userSub = subState.status === "ready" ? subState.sub : undefined;
   const baseEnabled =
@@ -47,7 +54,14 @@ export function useUmtStagingTestResults(id: string, lifecycleState: string | nu
         umtServiceUrls.updateIntegrationTestStaging(id),
         await getAccessToken(),
       ),
-    refetchInterval: (query) => (umtShouldPollStagingTestResults(lifecycleState, query.state.data) ? 3000 : false),
+    refetchInterval: (query) =>
+      umtShouldPollStagingTestResults(
+        lifecycleState,
+        query.state.data,
+        queryClient.getQueryData<number>(retriggeredAtKey(id)),
+      )
+        ? 3000
+        : false,
     retry: httpRetry,
   });
 
@@ -59,9 +73,9 @@ export interface UmtRetriggerStagingTestRequest {
   baseVersion: string;
 }
 
-// Starts one product's automated staging test run again. The refetch that
-// follows picks up the run as building, which keeps the results polling until
-// it ends.
+// Starts one product's automated staging test run again. Success records the
+// time, which keeps the results polling for a bounded window, and refetches
+// the results; once a run reads as building, the polling follows it to its end.
 export function useUmtRetriggerStagingTest(id: string) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
@@ -75,6 +89,7 @@ export function useUmtRetriggerStagingTest(id: string) {
       );
     },
     onSuccess: async () => {
+      queryClient.setQueryData(retriggeredAtKey(id), Date.now());
       await queryClient.invalidateQueries({ queryKey: ["umt-update-staging-test-results"] });
     },
   });

@@ -23,7 +23,11 @@ import { render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { UmtStagingTestResultRecord, UmtUpdateSummary } from "../api/umtUpdates";
-import { umtCanRetriggerAutomatedTest, umtShouldPollStagingTestResults } from "../lib/umtTesting";
+import {
+  UMT_RETRIGGER_POLL_WINDOW_MS,
+  umtCanRetriggerAutomatedTest,
+  umtShouldPollStagingTestResults,
+} from "../lib/umtTesting";
 
 vi.mock("@asgardeo/react", () => ({ useAsgardeo: () => ({ isSignedIn: true }) }));
 vi.mock("@hooks/useAsgardeoSub", () => ({
@@ -63,8 +67,9 @@ function record(
   productName: string,
   baseVersion: string,
   automatedTestResult: string,
+  channel?: string,
 ): UmtStagingTestResultRecord {
-  return { productId, productName, baseVersion, automatedTestResult, manualTestResult: "success" };
+  return { productId, productName, baseVersion, automatedTestResult, manualTestResult: "success", channel };
 }
 
 const FAILED = record(1, "wso2am", "4.2.0", "failure");
@@ -76,11 +81,18 @@ const BUILDING = record(5, "wso2sp", "4.4.0", "building");
 function renderStep(lifecycleState = "Staging") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   const update = { id: 42, lifecycleState, products: [] } as UmtUpdateSummary;
-  return render(
+  render(
     <QueryClientProvider client={client}>
       <UmtTestingStep id="42" update={update} />
     </QueryClientProvider>,
   );
+  return client;
+}
+
+// The refetchInterval the results query is currently polling by.
+function resultsInterval(client: QueryClient) {
+  const [query] = client.getQueryCache().findAll({ queryKey: ["umt-update-staging-test-results"] });
+  return (query?.options as unknown as { refetchInterval: (q: unknown) => number | false }).refetchInterval(query);
 }
 
 const retriggerButton = (productName: string) => screen.queryByRole("button", { name: new RegExp(`Retrigger.*${productName}`) });
@@ -103,6 +115,32 @@ describe("Retrigger on the Testing step", () => {
     expect(retriggerButton("wso2mi")).toBeInTheDocument();
     expect(retriggerButton("wso2si")).not.toBeInTheDocument();
     expect(retriggerButton("wso2sp")).not.toBeInTheDocument();
+  });
+
+  it("is offered on a full-channel row, or one with no channel, and not on another channel", async () => {
+    state.records = [
+      record(1, "wso2am", "4.2.0", "failure", "full"),
+      record(2, "wso2is", "7.0.0", "failure"),
+      record(3, "wso2mi", "4.3.0", "failure", "security"),
+    ];
+    renderStep();
+    await screen.findByText("wso2am - 4.2.0");
+
+    expect(retriggerButton("wso2am")).toBeInTheDocument();
+    expect(retriggerButton("wso2is")).toBeInTheDocument();
+    expect(retriggerButton("wso2mi")).not.toBeInTheDocument();
+  });
+
+  it("is not offered on a row missing its product name or base version", async () => {
+    state.records = [
+      { ...FAILED, productId: 6, productName: null },
+      { ...FAILED, productId: 7, baseVersion: undefined },
+      FAILED,
+    ];
+    renderStep();
+    await screen.findByText("wso2am - 4.2.0");
+
+    expect(screen.getAllByRole("button", { name: /Retrigger/ })).toHaveLength(1);
   });
 
   it("is not offered before the update reaches Staging", async () => {
@@ -130,6 +168,19 @@ describe("Retrigger on the Testing step", () => {
     );
     expect(await screen.findByText("Building")).toBeInTheDocument();
     expect(retriggerButton("wso2am")).not.toBeInTheDocument();
+  });
+
+  it("keeps polling after a retrigger even when the refetch still shows the previous result", async () => {
+    state.records = [FAILED];
+    const client = renderStep();
+    await screen.findByText("wso2am - 4.2.0");
+    expect(resultsInterval(client)).toBe(false);
+
+    await userEvent.click(await screen.findByRole("button", { name: /Retrigger.*wso2am/ }));
+
+    await waitFor(() => expect(notify.showSuccess).toHaveBeenCalledWith("Retrigger request submitted."));
+    expect(screen.getByText("Failure")).toBeInTheDocument();
+    await waitFor(() => expect(resultsInterval(client)).toBe(3000));
   });
 
   it("reports a failed retrigger and keeps the button", async () => {
@@ -163,6 +214,18 @@ describe("polling the staging results at Staging", () => {
     expect(umtShouldPollStagingTestResults("Staging", [SUCCEEDED, FAILED])).toBe(false);
     expect(umtShouldPollStagingTestResults("Staging", [])).toBe(false);
     expect(umtShouldPollStagingTestResults("Staging", undefined)).toBe(false);
+  });
+
+  it("continues for a bounded window after a retrigger, even with no run building", () => {
+    const retriggeredAt = 1_000_000;
+    const within = retriggeredAt + UMT_RETRIGGER_POLL_WINDOW_MS - 1;
+    const after = retriggeredAt + UMT_RETRIGGER_POLL_WINDOW_MS;
+
+    expect(umtShouldPollStagingTestResults("Staging", [FAILED], retriggeredAt, within)).toBe(true);
+    expect(umtShouldPollStagingTestResults("Staging", [FAILED], retriggeredAt, after)).toBe(false);
+    expect(umtShouldPollStagingTestResults("Staging", [BUILDING], retriggeredAt, after)).toBe(true);
+    expect(umtShouldPollStagingTestResults("Staging", [FAILED], null, within)).toBe(false);
+    expect(umtShouldPollStagingTestResults("Failed", [FAILED], retriggeredAt, within)).toBe(false);
   });
 
   it("is what the results query follows", async () => {

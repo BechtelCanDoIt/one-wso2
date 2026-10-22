@@ -43,7 +43,7 @@ import {
   UMT_TESTING_RESULT_OPTIONS,
   umtAutomatedTestResultColor,
   umtAutomatedTestResultLabel,
-  umtCanRetriggerAutomatedTest,
+  umtCanRetriggerStagingRow,
   umtTestingResultRequiresComment,
 } from "../../../lib/umtTesting";
 
@@ -132,8 +132,10 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
     });
 
   async function handleRetrigger(row: UmtStagingTestResultRecord) {
+    const { productName, baseVersion } = row;
+    if (!productName || !baseVersion) return;
     try {
-      await retriggerMutation.mutateAsync({ productName: row.productName ?? "", baseVersion: row.baseVersion ?? "" });
+      await retriggerMutation.mutateAsync({ productName, baseVersion });
       showSuccess("Retrigger request submitted.");
     } catch (error) {
       showError(`Failed to retrigger the automated tests. ${describeError(error)}`);
@@ -209,7 +211,7 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
                     }}
                   />
                   <Typography variant="body2">{umtAutomatedTestResultLabel(row.automatedTestResult)}</Typography>
-                  {update.lifecycleState === "Staging" && umtCanRetriggerAutomatedTest(row.automatedTestResult) && (
+                  {update.lifecycleState === "Staging" && umtCanRetriggerStagingRow(row) && (
                     <Button
                       size="small"
                       variant="outlined"
