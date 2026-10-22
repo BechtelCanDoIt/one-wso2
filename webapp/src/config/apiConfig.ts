@@ -1756,6 +1756,14 @@ export const amplifyServiceUrls = {
   categories: `${amplifyBackendUrl}/categories`,
   // Company top N, the caller's standing and My Team.
   leaderboard: `${amplifyBackendUrl}/leaderboard`,
+  // Teams or BUs ranked against each other (open to every employee, ADR-035).
+  leaderboardGroups: `${amplifyBackendUrl}/leaderboard/groups`,
+  // The boards under Dashboarding (amplify_po / marketing / slt / admin only, 403 for anyone else).
+  dashboardOperations: `${amplifyBackendUrl}/dashboards/operations`,
+  dashboardCampaigns: `${amplifyBackendUrl}/dashboards/campaigns`,
+  dashboardParticipation: `${amplifyBackendUrl}/dashboards/participation`,
+  dashboardGlance: `${amplifyBackendUrl}/dashboards/glance`,
+  dashboardScorecard: `${amplifyBackendUrl}/dashboards/scorecard`,
   connectStart: `${amplifyBackendUrl}/connections/linkedin/start`,
   connectComplete: `${amplifyBackendUrl}/connections/linkedin/complete`,
 };
