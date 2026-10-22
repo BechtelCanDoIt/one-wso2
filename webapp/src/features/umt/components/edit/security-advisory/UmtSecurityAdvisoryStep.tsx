@@ -178,6 +178,12 @@ export default function UmtSecurityAdvisoryStep({
 
   return (
     <Stack spacing={3}>
+      <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
+        <Button variant="outlined" startIcon={<PlusIcon size={16} />} onClick={() => setIsAddModalOpen(true)}>
+          Add Advisory
+        </Button>
+      </Stack>
+
       <Paper variant="outlined" sx={{ minWidth: 0, overflow: "hidden" }}>
         <DataGridComponent
           autoHeight
@@ -192,12 +198,6 @@ export default function UmtSecurityAdvisoryStep({
           sx={{ border: 0 }}
         />
       </Paper>
-
-      <Stack direction="row" spacing={2} sx={{ alignItems: "center" }}>
-        <Button variant="outlined" startIcon={<PlusIcon size={16} />} onClick={() => setIsAddModalOpen(true)}>
-          Add Advisory
-        </Button>
-      </Stack>
 
       <Stack direction="row" sx={{ justifyContent: "flex-end" }}>
         <Button variant="contained" disabled={!isDirty} loading={saveMutation.isPending} onClick={() => void handleSave()}>

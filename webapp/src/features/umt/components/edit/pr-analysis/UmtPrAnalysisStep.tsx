@@ -54,6 +54,7 @@ import {
 import {
   bundleInfoApplies,
   GITHUB_PR_REGEX,
+  groupFileOperationsByType,
   isPrAnalyzeDisabled,
   pluginsFileHasMatchingBundleInfo,
   prAnalysisStatusMessage,
@@ -317,16 +318,17 @@ export default function UmtPrAnalysisStep({
         setMissingBundleInfoFiles(missing);
         return;
       }
-      // Warns before analyzing that added/modified files will be copied into
-      // all applicable products once the analysis moves the update on.
+      // Warns before analyzing that the added files will be copied into all
+      // applicable products once the analysis moves the update on. It asks
+      // only when the update also modifies files, since the remedy it offers
+      // is to move the added files into a separate update, and an update of
+      // only added files has nothing left to separate from.
       //
       // Manually added files only, not PR-identified ones: the dialog's remedy
       // (remove them and make a separate update) only applies to files the
       // user added by hand.
-      const hasAddedOrModifiedFiles = manualFiles.some(
-        (op) => op.operation?.toLowerCase() === "added" || op.operation?.toLowerCase() === "modified",
-      );
-      if (hasAddedOrModifiedFiles) {
+      const { added, modified } = groupFileOperationsByType(manualFiles);
+      if (added.length > 0 && modified.length > 0) {
         setIsFilesWarningOpen(true);
         return;
       }
