@@ -91,6 +91,17 @@ describe("Create Update", () => {
     );
   });
 
+  it("accepts a trailing slash on a security issue URL, as it does on a public one", () => {
+    const withIssue = (publicOrSecurityGitIssue: string) => ({ ...SECURITY, publicOrSecurityGitIssue });
+
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2-enterprise/security-internals/issues/5/"))).toBe(
+      true,
+    );
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2-enterprise/security-internals/issues/5//"))).toBe(
+      false,
+    );
+  });
+
   it("keeps accepting any WSO2 issue as the public issue of a non-security update", () => {
     expect(
       isCreateUpdateFormValid({

@@ -54,7 +54,7 @@ export function isValidGithubIssueUrl(value: string): boolean {
 // A security update's issue is tracked in the security-internals repository,
 // not in just any WSO2 repository.
 const SECURITY_ISSUE_URL_REGEX =
-  /^https:\/\/github\.com\/wso2-enterprise\/security-internals\/issues\/[0-9]+$/;
+  /^https:\/\/github\.com\/wso2-enterprise\/security-internals\/issues\/[0-9]+\/?$/;
 
 // Checks the form's public-or-security issue field against the rule for the
 // update type it belongs to.
