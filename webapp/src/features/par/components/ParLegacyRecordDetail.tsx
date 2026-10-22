@@ -146,7 +146,7 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[]; side
   // Questions and Answers" heading -- for these shorter cycles.
   if (groups.length === 1 && groups[0].layout === "flat") {
     return (
-      <Stack spacing={2} sx={{ mt: 2 }}>
+      <Stack spacing={2}>
         {groups[0].rows.map((row) => (
           <QuestionRow key={row.label} row={row} type={groups[0].type} side={side} />
         ))}
@@ -160,7 +160,7 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[]; side
   // "Communication"/"Teamwork" accordions, not one wrapping all 3).
   if (groups.length === 1 && groups[0].layout === "perQuestion") {
     return (
-      <Box sx={{ mt: 2 }}>
+      <Box>
         <Typography sx={{ fontWeight: 600, mb: 1.5 }}>{groups[0].title}</Typography>
         {groups[0].rows.map((row) => (
           <Accordion key={row.label} variant="outlined" disableGutters sx={{ mb: 1.5, "&:last-of-type": { mb: 0 } }}>
@@ -182,7 +182,7 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[]; side
   // 2015: each GROUP (category) is its own accordion, with every question
   // inside rendered as a plain labeled box, not its own accordion.
   return (
-    <Box sx={{ mt: 2 }}>
+    <Box>
       <Typography sx={{ fontWeight: 600, mb: 1.5 }}>Performance Questions and Answers</Typography>
       {groups.map((group) => (
         <Accordion key={group.title} variant="outlined" disableGutters sx={{ mb: 1.5, "&:last-of-type": { mb: 0 } }}>
@@ -302,7 +302,7 @@ export default function ParLegacyRecordDetail({
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, md: 6 }}>
         <Card variant="outlined" sx={{ p: 1.75 }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 3 }}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Avatar variant="rounded" src={thumbnail} alt="Employee Thumbnail" />
               <Typography sx={{ fontWeight: 600 }}>Employee's Feedback</Typography>
@@ -317,7 +317,7 @@ export default function ParLegacyRecordDetail({
             </Button>
           </Stack>
 
-          <Stack spacing={1.5}>
+          <Stack spacing={4}>
             {legacy2015EmployeeRating && (
               <InfoRowGroup>
                 <InfoRow label="PAR Rating">
@@ -342,7 +342,7 @@ export default function ParLegacyRecordDetail({
 
       <Grid size={{ xs: 12, md: 6 }}>
         <Card variant="outlined" sx={{ p: 1.75 }}>
-          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 3 }}>
             <Avatar variant="rounded" alt="Lead Thumbnail" />
             <Stack>
               <Typography sx={{ fontWeight: 600 }}>Lead's Feedback</Typography>
@@ -354,7 +354,7 @@ export default function ParLegacyRecordDetail({
             </Stack>
           </Stack>
 
-          <Stack spacing={1.5}>
+          <Stack spacing={4}>
             <InfoRowGroup>
               <InfoRow label="PAR Rating">
                 <ParStatusChip content={rating && rating !== "NOT_ASSIGNED" ? rating : "Not Assigned"} />
