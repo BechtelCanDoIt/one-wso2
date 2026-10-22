@@ -14,10 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Avatar, Box, Chip, Divider, Paper, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
-import type { Leaderboard } from "../api/amplifyTypes";
+import { Avatar, Box, Chip, Divider, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import type { Leaderboard, TopBoard } from "../api/amplifyTypes";
 import type { PeopleByEmail } from "../api/useAmplifyPeople";
 import { AmplifyPanel } from "./AmplifyShell";
+import TopAmplifiersPodium from "./TopAmplifiersPodium";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -53,68 +54,39 @@ function pts(n: number | null | undefined): string {
   return `${(n ?? 0).toLocaleString()} pts`;
 }
 
-function RankBadge({ rank }: { rank: number }) {
-  return (
-    <Box
-      sx={{
-        width: 28,
-        height: 28,
-        borderRadius: "50%",
-        bgcolor: "primary.main",
-        color: "primary.contrastText",
-        fontWeight: 700,
-        fontSize: 13,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      {rank}
-    </Box>
-  );
-}
-
-/** The company's top three, one card each. */
-function TopThree({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
+/** The company's top three, on a podium. */
+function TopThree({ board, people }: { board: TopBoard; people: PeopleByEmail }) {
   const leaders = board.company.slice(0, 3);
   return (
     <>
       {leaders.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          No points yet. Amplify a post and be first on the board.
+          {board.period === "WEEK"
+            ? "No points yet this week. Amplify a post and be first on the board."
+            : "No points yet. Amplify a post and be first on the board."}
         </Typography>
       ) : (
-        <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: { xs: "1fr", sm: "repeat(3, minmax(0, 1fr))" } }}>
-          {leaders.map((leader) => (
-            <Paper
-              key={leader.employeeId}
-              variant="outlined"
-              sx={{ p: 1.5, display: "flex", alignItems: "center", gap: 1.5, minWidth: 0 }}
-            >
-              <RankBadge rank={leader.rank} />
-              <PersonAvatar email={leader.email} fallbackName={leader.displayName} people={people} size={40} />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography sx={{ fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {nameOf(leader.email, leader.displayName, people)}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {pts(leader.points)}
-                </Typography>
-              </Box>
-            </Paper>
-          ))}
-        </Box>
+        <TopAmplifiersPodium
+          amplifiers={leaders.map((leader) => {
+            const person = people.get(leader.email.toLowerCase());
+            return {
+              name: person?.name || leader.displayName,
+              points: leader.points ?? 0,
+              avatarUrl: person?.photoUrl ?? undefined,
+            };
+          })}
+        />
       )}
     </>
   );
 }
 
 /** The caller's own rank, points and gap. Points only; no Coin value in phase 1. */
-function MyPosition({ board }: { board: Leaderboard }) {
+function MyPosition({ board }: { board: TopBoard }) {
   const me = board.me;
   const ranked = me.rank != null;
-  let tagline = "Amplify your first post to get on the board.";
+  const weekly = board.period === "WEEK";
+  let tagline = weekly ? "Amplify a post this week to get on the board." : "Amplify your first post to get on the board.";
   if (ranked && me.inTopN) tagline = `You're in the top ${board.topN}. Keep it up!`;
   else if (ranked && me.pointsToTopN != null) tagline = `${pts(me.pointsToTopN)} to the top ${board.topN}.`;
   else if (ranked && me.pointsToNextRank != null) tagline = `${pts(me.pointsToNextRank)} to the next rank.`;
@@ -125,7 +97,7 @@ function MyPosition({ board }: { board: Leaderboard }) {
         variant="overline"
         sx={{ display: "block", fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary", lineHeight: 1.5, mb: 1 }}
       >
-        My position
+        {board.period === "WEEK" ? "My position this week" : "My position"}
       </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 2, sm: 4 } }}>
         <Box>
@@ -153,9 +125,12 @@ function MyPosition({ board }: { board: Leaderboard }) {
 }
 
 /** One box: the company's top three, a rule, then the caller's own position. */
-export function TopAmplifiersPanel({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
+export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people: PeopleByEmail }) {
   return (
-    <AmplifyPanel title="Top three amplifiers 🏆🎉" ariaLabel="top-amplifiers">
+    <AmplifyPanel
+      title={board.period === "WEEK" ? "Top three amplifiers this week 🏆🎉" : "Top three amplifiers 🏆🎉"}
+      ariaLabel="top-amplifiers"
+    >
       <TopThree board={board} people={people} />
       <Divider sx={{ my: 2 }} />
       <MyPosition board={board} />

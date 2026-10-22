@@ -26,7 +26,7 @@ import { useAccessToken } from "@hooks/useAccessToken";
 import { amplifyServiceUrls, isAmplifyBackendConfigured } from "@config/apiConfig";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { amplifyRetry } from "../util/amplifyError";
-import type { AmplifyMe, CampaignPage, Category, Leaderboard, Share } from "./amplifyTypes";
+import type { AmplifyMe, CampaignPage, Category, Leaderboard, Share, TopBoard } from "./amplifyTypes";
 
 export { isAmplifyBackendConfigured };
 
@@ -104,6 +104,24 @@ export function useAmplifyLeaderboard() {
     queryFn: async () => authedGet<Leaderboard>(amplifyServiceUrls.leaderboard, await getAccessToken()),
     // The API caches for 30 s itself (Cache-Control: private, max-age=30).
     staleTime: 30 * 1000,
+    retry: amplifyRetry,
+  });
+  return foldIdentityError(query, subState, retryIdentity);
+}
+
+/**
+ * The company top three and the caller's own position (Celebrate), for the scope the server is set to,
+ * this week by default. The server sums the week once and every caller reuses it for 2 hours, so a short
+ * client stale time only costs a cheap cache hit.
+ */
+export function useAmplifyTopBoard() {
+  const { getAccessToken, subState, retryIdentity, userSub, ready } = useAmplifyQueryBasis();
+  const query = useQuery<TopBoard>({
+    queryKey: amplifyKey("leaderboard-top", userSub),
+    enabled: ready,
+    queryFn: async () => authedGet<TopBoard>(amplifyServiceUrls.leaderboardTop, await getAccessToken()),
+    // The API sends Cache-Control: private, max-age=60.
+    staleTime: 60 * 1000,
     retry: amplifyRetry,
   });
   return foldIdentityError(query, subState, retryIdentity);

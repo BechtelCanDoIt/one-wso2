@@ -15,7 +15,7 @@
 // under the License.
 
 import { useMemo, useState } from "react";
-import { Box, Button, Skeleton } from "@wso2/oxygen-ui";
+import { Button, Skeleton } from "@wso2/oxygen-ui";
 import { Volume2Icon } from "@wso2/oxygen-ui-icons-react";
 import { useSearchParams } from "react-router";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
@@ -26,6 +26,7 @@ import {
   useAmplifyCategories,
   useAmplifyLeaderboard,
   useAmplifyMe,
+  useAmplifyTopBoard,
   useMyShares,
 } from "../api/useAmplifyData";
 import { useAmplifyPeople } from "../api/useAmplifyPeople";
@@ -39,8 +40,8 @@ import ShareDialog from "../components/ShareDialog";
 // Celebrate: every employee's Amplify page. In order (phase 1 UX review):
 //  1. Posts to amplify, priority first then newest. Gone once you've shared
 //     them all ("all caught up").
-//  2. Top three leaders.
-//  3. My position.
+//  2. Top three leaders, company wide, this week by default (leaderboard.top_scope).
+//  3. My position, for the same scope.
 //  4. Team leaderboard.
 // No My Coins section in phase 1.
 export default function CelebratePage() {
@@ -48,6 +49,7 @@ export default function CelebratePage() {
   const campaigns = useAmplifyCampaigns("open");
   const shares = useMyShares();
   const board = useAmplifyLeaderboard();
+  const topBoard = useAmplifyTopBoard();
   const categories = useAmplifyCategories();
   const people = useAmplifyPeople();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -138,21 +140,24 @@ export default function CelebratePage() {
         )
       )}
 
-      {board.isPending ? (
-        <Box>
-          <Skeleton variant="rounded" height={110} sx={{ mb: 3 }} />
-          <Skeleton variant="rounded" height={90} sx={{ mb: 3 }} />
-          <Skeleton variant="rounded" height={220} />
-        </Box>
-      ) : board.isError ? (
-        <ErrorNotice error={board.error} onRetry={() => void board.refetch()} retrying={board.isFetching}>
-          Couldn&apos;t load the leaderboard.
+      {topBoard.isPending ? (
+        <Skeleton variant="rounded" height={320} sx={{ mb: 3 }} />
+      ) : topBoard.isError ? (
+        <ErrorNotice error={topBoard.error} onRetry={() => void topBoard.refetch()} retrying={topBoard.isFetching} sx={{ mb: 3 }}>
+          Couldn&apos;t load the top amplifiers.
         </ErrorNotice>
       ) : (
-        <>
-          <TopAmplifiersPanel board={board.data} people={people} />
-          <TeamLeaderboardPanel board={board.data} people={people} />
-        </>
+        <TopAmplifiersPanel board={topBoard.data} people={people} />
+      )}
+
+      {board.isPending ? (
+        <Skeleton variant="rounded" height={220} />
+      ) : board.isError ? (
+        <ErrorNotice error={board.error} onRetry={() => void board.refetch()} retrying={board.isFetching}>
+          Couldn&apos;t load the team leaderboard.
+        </ErrorNotice>
+      ) : (
+        <TeamLeaderboardPanel board={board.data} people={people} />
       )}
 
       <LinkLinkedInDialog

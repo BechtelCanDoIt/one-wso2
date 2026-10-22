@@ -133,6 +133,19 @@ export interface Leaderboard {
   teamStatus: "OK" | "NO_TEAM" | "UNAVAILABLE";
 }
 
+/** GET /leaderboard/top: the Celebrate top three and the caller's own line, company wide. */
+export interface TopBoard {
+  /** WEEK = this calendar week (Monday to Sunday UTC); ALL = all time. Set by `leaderboard.top_scope`. */
+  period: "WEEK" | "ALL";
+  weekStart?: string | null;
+  weekEnd?: string | null;
+  topN: number;
+  /** When the weekly totals were read; the server reuses them for 2 hours. */
+  generatedAt: string;
+  company: LeaderboardEntry[];
+  me: PersonalStanding;
+}
+
 export interface ConnectAuthorization {
   authorizationUrl: string;
   state: string;
