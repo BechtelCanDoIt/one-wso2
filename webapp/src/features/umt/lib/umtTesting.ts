@@ -99,21 +99,33 @@ export function umtCanRetriggerAutomatedTest(value: string | null | undefined): 
   return !isAutomatedTestResult(value, "success") && !isAutomatedTestResult(value, "building");
 }
 
+// How long a retrigger counts as pending after it was accepted: the results
+// keep polling and the row withholds Retrigger, so the new run's state shows up
+// without a second request even when the first refetch still has the previous
+// result.
+export const UMT_RETRIGGER_POLL_WINDOW_MS = 60_000;
+
+// Whether a retrigger accepted at `retriggeredAt` (epoch ms) is still pending.
+export function umtRetriggerIsPending(retriggeredAt: number | null | undefined, now: number): boolean {
+  return retriggeredAt != null && now - retriggeredAt < UMT_RETRIGGER_POLL_WINDOW_MS;
+}
+
 // Whether a staging row offers Retrigger: the request names a product and its
 // base version but no channel, so only a full-channel row with both can use
-// it, and only while its automated result allows another run.
-export function umtCanRetriggerStagingRow(row: UmtStagingTestResultRecord): boolean {
+// it, and only while its automated result allows another run and no retrigger
+// accepted at `retriggeredAt` is still pending.
+export function umtCanRetriggerStagingRow(
+  row: UmtStagingTestResultRecord,
+  retriggeredAt?: number | null,
+  now: number = Date.now(),
+): boolean {
   return (
     (row.channel ?? "full") === "full" &&
     Boolean(row.productName && row.baseVersion) &&
+    !umtRetriggerIsPending(retriggeredAt, now) &&
     umtCanRetriggerAutomatedTest(row.automatedTestResult)
   );
 }
-
-// How long the results keep polling after a retrigger was accepted, so the
-// new run's state shows up even when the first refetch still has the
-// previous result.
-export const UMT_RETRIGGER_POLL_WINDOW_MS = 60_000;
 
 // Whether polling for staging test results should keep running: true while
 // lifecycleState is one of the transient in-between states, false once it's
@@ -129,9 +141,9 @@ export function umtShouldPollStagingTestResults(
   now: number = Date.now(),
 ): boolean {
   if (lifecycleState === "Staging") {
-    const retriggerPending = retriggeredAt != null && now - retriggeredAt < UMT_RETRIGGER_POLL_WINDOW_MS;
     return (
-      retriggerPending || (records ?? []).some((record) => isAutomatedTestResult(record.automatedTestResult, "building"))
+      umtRetriggerIsPending(retriggeredAt, now) ||
+      (records ?? []).some((record) => isAutomatedTestResult(record.automatedTestResult, "building"))
     );
   }
   return (

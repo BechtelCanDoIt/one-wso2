@@ -19,7 +19,7 @@
 // are stubbed.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, render, renderHook, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { UmtStagingTestResultRecord, UmtUpdateSummary } from "../api/umtUpdates";
@@ -181,6 +181,30 @@ describe("Retrigger on the Testing step", () => {
     await waitFor(() => expect(notify.showSuccess).toHaveBeenCalledWith("Retrigger request submitted."));
     expect(screen.getByText("Failure")).toBeInTheDocument();
     await waitFor(() => expect(resultsInterval(client)).toBe(3000));
+  });
+
+  it("withholds Retrigger from an accepted row while the refetch still shows the previous result, then offers it again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: (ms) => vi.advanceTimersByTime(ms) });
+      state.records = [FAILED, UNSTABLE];
+      renderStep();
+      await user.click(await screen.findByRole("button", { name: /Retrigger.*wso2am/ }));
+
+      await waitFor(() => expect(notify.showSuccess).toHaveBeenCalledWith("Retrigger request submitted."));
+      expect(screen.getByText("Failure")).toBeInTheDocument();
+      expect(retriggerButton("wso2am")).not.toBeInTheDocument();
+      expect(retriggerButton("wso2is")).toBeInTheDocument();
+      expect(authedPost).toHaveBeenCalledTimes(1);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(UMT_RETRIGGER_POLL_WINDOW_MS);
+      });
+
+      expect(retriggerButton("wso2am")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("reports a failed retrigger and keeps the button", async () => {

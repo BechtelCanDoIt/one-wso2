@@ -74,23 +74,25 @@ export interface UmtRetriggerStagingTestRequest {
   baseVersion: string;
 }
 
-// Starts one product's automated staging test run again. Success records the
-// time, which keeps the results polling for a bounded window, and refetches
-// the results; once a run reads as building, the polling follows it to its end.
+// Starts one product's automated staging test run again and resolves to the
+// time (epoch ms) the request was accepted. Success keeps the results polling
+// for a bounded window from that time and refetches them; once a run reads as
+// building, the polling follows it to its end.
 export function useUmtRetriggerStagingTest(id: string) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
 
-  return useMutation<void, Error, UmtRetriggerStagingTestRequest>({
+  return useMutation<number, Error, UmtRetriggerStagingTestRequest>({
     mutationFn: async ({ productName, baseVersion }) => {
       await authedPost(
         umtServiceUrls.updateIntegrationTestStagingRetrigger(id, productName, baseVersion),
         await getAccessToken(),
         null,
       );
+      return Date.now();
     },
-    onSuccess: async () => {
-      queryClient.setQueryData(retriggeredAtKey(id), Date.now());
+    onSuccess: async (acceptedAt) => {
+      queryClient.setQueryData(retriggeredAtKey(id), acceptedAt);
       await queryClient.invalidateQueries({ queryKey: ["umt-update-staging-test-results"] });
     },
   });
