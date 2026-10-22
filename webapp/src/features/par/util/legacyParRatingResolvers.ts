@@ -30,7 +30,7 @@ export interface LegacyRatingResult {
   special: string | null;
 }
 
-// ---- 2015 -- employee's own score, shown on the Employee PAR panel ------
+// ---- 2015 -- employee's own score, shown on the Employee's Feedback panel ------
 
 const EMPLOYEE_2015_LABELS: Record<number, string> = {
   0: "Not Completed",

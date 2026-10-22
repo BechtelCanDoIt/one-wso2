@@ -210,8 +210,8 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[]; side
   );
 }
 
-// One legacy record's full detail -- two side-by-side panels (Employee PAR
-// | Lead's Feedback) with per-era question-catalog grouping (see
+// One legacy record's full detail -- two side-by-side panels (Employee's
+// Feedback | Lead's Feedback) with per-era question-catalog grouping (see
 // util/legacyParCatalogs.ts and util/legacyParRatingResolvers.ts for each
 // cycle's own question set and rating scale). Shared by ParHistoryTab.tsx
 // (employee self-view) and ParAdminLegacyCycleView.tsx (admin org-wide
