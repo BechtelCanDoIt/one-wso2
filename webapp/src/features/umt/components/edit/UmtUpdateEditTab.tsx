@@ -357,11 +357,15 @@ export default function UmtUpdateEditTab({
                               ? "Waiting for the hotfix testing environment to be created."
                               : update.lifecycleState !== "Staging"
                                 ? "Waiting for the testing environment to reach Staging before proceeding."
-                                : testingBlocker === "no-results"
-                                  ? "There are no test results to review yet."
-                                  : testingBlocker === "automated-run"
-                                    ? "The automated tests must pass before proceeding. Only an admin can proceed without a pass."
-                                    : "Every product needs a submitted test result before proceeding."
+                                : stagingTestResults.isError
+                                  ? "The test results couldn't be loaded. Refresh the page to try again."
+                                  : !stagingTestResults.isSuccess
+                                    ? "Loading the test results."
+                                    : testingBlocker === "no-results"
+                                      ? "There are no test results to review yet."
+                                      : testingBlocker === "automated-run"
+                                        ? "The automated tests must pass before proceeding. Only an admin can proceed without a pass."
+                                        : "Every product needs a submitted test result before proceeding."
                           : !verifyingReady
                             ? "This state has no further action available yet."
                             : undefined

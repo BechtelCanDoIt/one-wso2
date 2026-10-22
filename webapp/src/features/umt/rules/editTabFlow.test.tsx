@@ -31,6 +31,7 @@ const state = vi.hoisted(() => ({
   isProductLead: false,
   additionalFileOperations: [] as unknown[],
   stagingResults: [] as unknown[],
+  stagingQuery: "success" as "success" | "pending" | "error",
   hotfixTestStatus: null as string | null,
   releaseHotfix: vi.fn<(reason: string | null) => Promise<void>>(async () => undefined),
 }));
@@ -44,7 +45,11 @@ vi.mock("../api/useUmtUpdateViewData", () => ({
 }));
 
 vi.mock("../api/useUmtTesting", () => ({
-  useUmtStagingTestResults: () => ({ isSuccess: true, data: state.stagingResults }),
+  useUmtStagingTestResults: () => ({
+    isSuccess: state.stagingQuery === "success",
+    isError: state.stagingQuery === "error",
+    data: state.stagingQuery === "success" ? state.stagingResults : undefined,
+  }),
 }));
 
 vi.mock("../api/useUmtHotfixRelease", () => ({
@@ -169,6 +174,7 @@ beforeEach(() => {
   state.isProductLead = false;
   state.additionalFileOperations = [];
   state.stagingResults = [];
+  state.stagingQuery = "success";
   state.hotfixTestStatus = null;
   state.releaseHotfix.mockClear();
 });
@@ -323,6 +329,24 @@ describe("Testing and Validate (Staging)", () => {
 
     expect(forwardButton()).toBeDisabled();
     expect(screen.getByText("There are no test results to review yet.")).toBeInTheDocument();
+  });
+
+  it("holds Testing's Next while the staging results are loading, and says so", () => {
+    state.stagingQuery = "pending";
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText("Loading the test results.")).toBeInTheDocument();
+    expect(screen.queryByText(/needs a submitted test result/)).not.toBeInTheDocument();
+  });
+
+  it("holds Testing's Next when the staging results fail to load, and says so", () => {
+    state.stagingQuery = "error";
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/The test results couldn't be loaded/)).toBeInTheDocument();
+    expect(screen.queryByText(/needs a submitted test result/)).not.toBeInTheDocument();
   });
 
   it("holds Testing's Next while an automated run has not succeeded, and says why", () => {
