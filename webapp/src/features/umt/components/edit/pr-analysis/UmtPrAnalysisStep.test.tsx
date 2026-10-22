@@ -20,6 +20,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { HttpError } from "@api/http";
 import type { UmtFileOperation, UmtUpdateSummary } from "../../../api/umtUpdates";
 import type { UmtPendingManualUpload } from "../../../lib/umtPrAnalysis";
 
@@ -33,13 +34,20 @@ const state = vi.hoisted(() => ({
   advancePending: false,
   advanceFailed: false,
   analysisFetching: false,
+  analysisLoaded: true,
+  analysisFailed: false,
+  analysisError: null as unknown,
+  analysisRefetch: vi.fn(),
   showError: vi.fn(),
 }));
 
 vi.mock("../../../api/useUmtUpdateViewData", () => ({
   useUmtPullRequestAnalysis: () => ({
     isFetching: state.analysisFetching,
-    data: {
+    isError: state.analysisFailed,
+    error: state.analysisError,
+    refetch: state.analysisRefetch,
+    data: !state.analysisLoaded ? undefined : {
       pullRequests: [{ pr: "https://github.com/wso2/carbon/pull/1", preferredVersion: "4.9.0" }],
       additionalFileOperations: [
         {
@@ -154,6 +162,10 @@ describe("UmtPrAnalysisStep", () => {
     state.advancePending = false;
     state.advanceFailed = false;
     state.analysisFetching = false;
+    state.analysisLoaded = true;
+    state.analysisFailed = false;
+    state.analysisError = null;
+    state.analysisRefetch.mockReset();
     state.showError.mockClear();
   });
 
@@ -190,6 +202,14 @@ describe("UmtPrAnalysisStep", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
+  it("shows the results as completed in PRAnalyzed even when praStatus isn't COMPLETED", () => {
+    state.status = "NONE";
+    renderStep(summary("PRAnalyzed", { praStatus: "NONE" }));
+
+    expect(screen.getByText("PR analysis results")).toBeInTheDocument();
+    expect(screen.getByText("PR Analysis was successfully completed.")).toBeInTheDocument();
+  });
+
   it("holds the results back in PRAnalyzed while the product analysis is still running", () => {
     state.advancePending = true;
     renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
@@ -211,7 +231,7 @@ describe("UmtPrAnalysisStep", () => {
     expect(state.advance).not.toHaveBeenCalled();
   });
 
-  it("waits for a refetch of the analysis to land before filling the inputs from it", () => {
+  it("holds the placeholder, not stale drafts, until a refetch of the analysis lands", () => {
     localStorage.setItem(
       "one-wso2.umt-pr-analysis-prs.v1.42",
       JSON.stringify([{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }]),
@@ -220,14 +240,84 @@ describe("UmtPrAnalysisStep", () => {
     const update = summary("PRAnalyzed", { praStatus: "COMPLETED" });
     const { rerender } = renderStep(update);
 
-    expect(screen.getByText("https://github.com/wso2/carbon/pull/999")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading pull request analysis" })).toBeInTheDocument();
+    expect(screen.queryByText("https://github.com/wso2/carbon/pull/999")).not.toBeInTheDocument();
     expect(screen.queryByText("https://github.com/wso2/carbon/pull/1")).not.toBeInTheDocument();
 
     state.analysisFetching = false;
     rerender(<UmtPrAnalysisStep id="42" update={update} />);
 
+    expect(screen.queryByRole("status", { name: "Loading pull request analysis" })).not.toBeInTheDocument();
     expect(screen.getByText("https://github.com/wso2/carbon/pull/1")).toBeInTheDocument();
     expect(screen.queryByText("https://github.com/wso2/carbon/pull/999")).not.toBeInTheDocument();
+  });
+
+  it("shows a placeholder shaped like the section while the analysis loads, with Analyze disabled", () => {
+    state.analysisLoaded = false;
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.getByRole("status", { name: "Loading pull request analysis" })).toBeInTheDocument();
+    expect(screen.queryByText("Update Type")).not.toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this section.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+  });
+
+  it("shows an error with a retry when the analysis can't be loaded, and keeps Analyze disabled", () => {
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.getByText("Couldn't load this section.")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Loading pull request analysis" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(state.analysisRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  // A 404 is an analysis that was never stored, which no retry can load. The
+  // drafts are all there is, so the inputs open on them and Analyze runs.
+  it("says the analysis hasn't been performed when it 404s in PRAnalyzed, and lets Analyze run from the drafts", async () => {
+    localStorage.setItem(
+      "one-wso2.umt-pr-analysis-prs.v1.42",
+      JSON.stringify([{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }]),
+    );
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    state.analysisError = new HttpError("https://umt.example.com/update/42/pullRequestAnalysis", 404, "");
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.getByText("Pull Request Analysis has not been performed for this update yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this section.")).not.toBeInTheDocument();
+    expect(screen.getByText("https://github.com/wso2/carbon/pull/999")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "start"]));
+    expect(state.start).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequests: [{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }] }),
+    );
+  });
+
+  it("waits out a refetch before treating a 404 as an analysis that was never performed", () => {
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    state.analysisFetching = true;
+    state.analysisError = new HttpError("https://umt.example.com/update/42/pullRequestAnalysis", 404, "");
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.queryByText("Pull Request Analysis has not been performed for this update yet.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+  });
+
+  it("doesn't hold up the inputs in Development while the analysis is missing", () => {
+    state.status = "NONE";
+    state.analysisLoaded = false;
+    renderStep(summary("Development"));
+
+    expect(screen.queryByRole("status", { name: "Loading pull request analysis" })).not.toBeInTheDocument();
+    expect(screen.getByText("Update Type")).toBeInTheDocument();
   });
 
   it("lets Analyze be run again after the advance has failed", async () => {
@@ -273,6 +363,25 @@ describe("UmtPrAnalysisStep", () => {
     renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED", ...flags }));
 
     expect(screen.getByRole("radio", { name: label })).toBeChecked();
+  });
+
+  it("lets Analyze be run after a demote to Development, without editing an input", async () => {
+    const { rerender } = renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+
+    state.status = "NONE";
+    rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { praStatus: "NONE" })} />);
+
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled());
+  });
+
+  it("follows the recorded update type when it changes while the step stays mounted", () => {
+    const { rerender } = renderStep(summary("Development"));
+    expect(screen.getByRole("radio", { name: "General Update" })).toBeChecked();
+
+    rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { isInstructionsOnly: true })} />);
+
+    expect(screen.getByRole("radio", { name: "Instructions Only Update" })).toBeChecked();
   });
 
   it("warns about added files, then demotes, uploads and submits, in that order", async () => {

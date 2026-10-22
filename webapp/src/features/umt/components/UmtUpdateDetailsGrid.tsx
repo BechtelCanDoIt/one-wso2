@@ -42,6 +42,7 @@ import type { UmtUpdateSummary, UmtWorstCaseEstimateLogEntry } from "../api/umtU
 import type { UmtUpdateFieldChange } from "../api/useUmtUpdateFieldMutation";
 import { useUmtWorstCaseEstimateLog } from "../api/useUmtWorstCaseEstimateLog";
 import { formatCalendarDate, formatTimestamp } from "../lib/umtDates";
+import { renderLinkValue } from "./umtViewSectionPrimitives";
 
 const { DatePicker, LocalizationProvider } = DatePickers;
 const { DataGrid: DataGridComponent } = DataGrid;
@@ -148,11 +149,11 @@ export default function UmtUpdateDetailsGrid({
           loading={loading}
           value={update?.highlightInstructions}
         />
-        <UpdateField
-          label="QA Artifacts Location"
-          loading={loading}
-          value={update?.qaArtifactsLocation}
-        />
+        <UpdateField label="QA Artifacts Location" loading={loading}>
+          <Typography variant="body1" sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>
+            {renderLinkValue(update?.qaArtifactsLocation)}
+          </Typography>
+        </UpdateField>
       </Grid>
     </Stack>
   );
@@ -307,9 +308,17 @@ function EditableWorstCaseDate({
     setEditing(false);
   };
 
-  const isDraftValid = draft !== null && !Number.isNaN(draft.getTime());
+  // The picker enforces these rules only on its calendar; its text field also
+  // accepts a typed date, which must pass the same checks before it is saved.
+  const minSelectableDate = parseDate(value) ?? new Date();
+  const isSelectableDate = (date: Date | null): date is Date => {
+    if (!date || Number.isNaN(date.getTime())) return false;
+    if (date.getDay() !== UMT_RELEASE_WEEKDAY) return false;
+    return startOfDay(date) >= startOfDay(minSelectableDate);
+  };
+
   const save = async () => {
-    if (draft === null || !isDraftValid || !reason.trim()) return;
+    if (!isSelectableDate(draft) || !reason.trim()) return;
     try {
       await onSave({ field: "worstCaseEstimate", value: toDateInputValue(draft), reason });
       setReason("");
@@ -362,14 +371,14 @@ function EditableWorstCaseDate({
           )}
         </>
       ) : (
-        <Stack spacing={1}>
+        <Stack spacing={2} useFlexGap>
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <DatePicker
               label={label}
               value={draft}
               onChange={setDraft}
-              minDate={parseDate(value) ?? new Date()}
-              shouldDisableDate={(date) => date.getDay() !== 4}
+              minDate={minSelectableDate}
+              shouldDisableDate={(date) => date.getDay() !== UMT_RELEASE_WEEKDAY}
               slotProps={{ textField: { required: true, size: "small" } }}
             />
           </LocalizationProvider>
@@ -386,7 +395,7 @@ function EditableWorstCaseDate({
           <EditActions
             label={label}
             saving={saving}
-            saveDisabled={!isDraftValid || !reason.trim()}
+            saveDisabled={!isSelectableDate(draft) || !reason.trim()}
             onCancel={cancel}
             onSave={() => void save()}
           />
@@ -420,7 +429,7 @@ function EtaLogDialog({
   onRetry: () => void;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>ETA Log</DialogTitle>
       <DialogContent>
         {loading ? (
@@ -466,6 +475,7 @@ const etaLogColumns: DataGrid.GridColDef[] = [
   etaLogColumn("newDate", "New Date", 140, formatCalendarDate),
   etaLogColumn("timestamp", "Updated Timestamp", 200, formatTimestamp),
   etaLogColumn("changedBy", "Changed By", 180, displayValue),
+  etaLogColumn("reason", "Reason", 260, displayValue, 2),
 ];
 
 function etaLogColumn(
@@ -473,10 +483,11 @@ function etaLogColumn(
   headerName: string,
   minWidth: number,
   format: (value: string | null | undefined) => string,
+  flex = 1,
 ): DataGrid.GridColDef {
   return {
     field,
-    flex: 1,
+    flex,
     headerName,
     minWidth,
     sortable: false,
@@ -489,10 +500,19 @@ function etaLogColumn(
 }
 
 function EtaLogEmptyState() {
-  return <Typography color="text.secondary">No ETA changes recorded.</Typography>;
+  return (
+    <Stack sx={{ alignItems: "center", color: "text.secondary", height: "100%", justifyContent: "center", py: 3 }}>
+      <Typography variant="body2">No ETA changes recorded.</Typography>
+    </Stack>
+  );
 }
 
-const etaLogGridSx = { border: 0, minHeight: 100 } as const;
+// Reasons are free text, so cells wrap instead of clipping with an ellipsis.
+const etaLogGridSx = {
+  border: 0,
+  minHeight: 100,
+  "& .MuiDataGrid-cell": { overflowWrap: "anywhere", whiteSpace: "normal" },
+} as const;
 
 function EditActions({
   label,
@@ -611,6 +631,16 @@ function toDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+// UMT releases on Thursdays; Date.getDay() numbers Sunday 0..Saturday 6.
+const UMT_RELEASE_WEEKDAY = 4;
+
+// Day-granularity comparison, matching how the DatePicker applies `minDate`:
+// comparing raw timestamps would reject today whenever `minDate` defaults to
+// `new Date()`, which carries the current time of day.
+function startOfDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
 function displayValue(value: string | number | null | undefined): string {

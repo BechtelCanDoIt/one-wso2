@@ -15,7 +15,7 @@
 // under the License.
 
 import { useState } from "react";
-import { Link as RouterLink, useNavigate } from "react-router";
+import { Link as RouterLink, useLocation, useNavigate } from "react-router";
 import {
   Alert,
   Box,
@@ -44,13 +44,13 @@ import { useUmtGate } from "../api/useUmtGate";
 import { umtReleaseChunkCollisionProducts } from "../lib/umtReleaseChunks";
 import { umtPaths } from "../lib/umtPaths";
 import UmtShell from "../components/UmtShell";
+import type { UmtBackLinkState } from "../lib/umtBackLink";
 import { ChunkCell, ChunkLine } from "../components/release-chunks/umtReleaseChunkGridPrimitives";
 import { UMT_CHUNK_GRID_SX } from "../components/release-chunks/umtReleaseChunkGridSx";
 
 const { DataGrid: DataGridComponent } = DataGrid;
 
-// Small pages by default: this is a list to read through and tick, not scan.
-const PAGE_SIZE_OPTIONS = [5, 10, 20];
+const PAGE_SIZE_OPTIONS = [10, 25, 50];
 
 // The grid reports selection as an include/exclude set (GridRowSelectionModel),
 // not a plain id array — resolving it against the rows on screen keeps
@@ -61,6 +61,12 @@ function selectedRowIds(
 ): number[] {
   if (model.type === "include") return [...model.ids].map(Number);
   return rows.map((row) => row.id).filter((id) => !model.ids.has(id));
+}
+
+function restoredSelectedIds(state: unknown): number[] {
+  if (!state || typeof state !== "object" || !("selectedIds" in state)) return [];
+  const { selectedIds } = state as { selectedIds: unknown };
+  return Array.isArray(selectedIds) ? selectedIds.filter((id): id is number => typeof id === "number") : [];
 }
 
 export default function UmtCreateReleaseChunkPage() {
@@ -96,7 +102,16 @@ function UmtCreateReleaseChunkForm() {
   const uat = useUmtUpdatesByLifecycleState("UAT");
   const rows = uatStaging.data?.data ?? [];
 
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const location = useLocation();
+  // The selection lives in this page's history entry as well, so leaving to
+  // read an update and coming back (by the back arrow or the browser) finds
+  // it still ticked.
+  const [selectedIds, setSelectedIds] = useState<number[]>(() => restoredSelectedIds(location.state));
+
+  function changeSelection(ids: number[]) {
+    setSelectedIds(ids);
+    void navigate(location, { replace: true, state: { selectedIds: ids } });
+  }
   const [collisionProducts, setCollisionProducts] = useState<string[] | null>(null);
 
   // Creating is held until the UAT list is actually in hand. Without it the
@@ -105,7 +120,12 @@ function UmtCreateReleaseChunkForm() {
   // there really were no conflict. An absent list is not evidence of a clear
   // selection, so it blocks rather than passes.
   const uatUpdates = uat.data?.data;
-  const canCreate = selectedIds.length > 0 && uatUpdates !== undefined && !createChunk.isPending;
+  // The selection is restored from history, so it can name updates that are
+  // not on screen: ones that have since left UATStaging, or all of them while
+  // the list is still loading or has failed to. Only the ticked rows actually
+  // shown are checked and submitted.
+  const selectedUpdates = rows.filter((row) => selectedIds.includes(row.id));
+  const canCreate = selectedUpdates.length > 0 && uatUpdates !== undefined && !createChunk.isPending;
 
   async function submitCreate(updateIds: number[]) {
     try {
@@ -119,13 +139,12 @@ function UmtCreateReleaseChunkForm() {
 
   function handleCreateClick() {
     if (!canCreate || uatUpdates === undefined) return;
-    const selectedUpdates = rows.filter((row) => selectedIds.includes(row.id));
     const collisions = umtReleaseChunkCollisionProducts(selectedUpdates, uatUpdates);
     if (collisions.length > 0) {
       setCollisionProducts(collisions);
       return;
     }
-    void submitCreate(selectedIds);
+    void submitCreate(selectedUpdates.map((row) => row.id));
   }
 
   const columns: DataGrid.GridColDef<UmtUpdateSummary>[] = [
@@ -193,6 +212,7 @@ function UmtCreateReleaseChunkForm() {
                 aria-label={`View update ${params.row.id}`}
                 component={RouterLink}
                 to={umtPaths.update(params.row.id)}
+                state={{ backTo: umtPaths.newReleaseChunk, backState: { selectedIds } } satisfies UmtBackLinkState}
               >
                 <EyeIcon size={16} />
               </IconButton>
@@ -260,7 +280,7 @@ function UmtCreateReleaseChunkForm() {
             sx={UMT_CHUNK_GRID_SX}
             rowSelectionModel={{ type: "include", ids: new Set(selectedIds) }}
             onRowSelectionModelChange={(model) =>
-              setSelectedIds(selectedRowIds(model as { type: "include" | "exclude"; ids: Set<DataGrid.GridRowId> }, rows))
+              changeSelection(selectedRowIds(model as { type: "include" | "exclude"; ids: Set<DataGrid.GridRowId> }, rows))
             }
           />
         </Box>

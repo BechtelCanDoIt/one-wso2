@@ -22,6 +22,7 @@ import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { umtShouldPollStagingTestResults } from "../lib/umtTesting";
+import { umtLifecycleState } from "../lib/umtLifecycleState";
 import { umtIsUpdateLocked } from "../lib/umtUpdateLock";
 import type { UmtUpdateSummary } from "./umtUpdates";
 
@@ -51,7 +52,7 @@ export function useUmtUpdate(id: string | undefined) {
     // goes for a demotion from Staging, which keeps the update locked until it
     // lands in Development.
     refetchInterval: (query) => {
-      const lifecycleState = query.state.data?.lifecycleState;
+      const lifecycleState = umtLifecycleState(query.state.data?.lifecycleState);
       return umtShouldPollStagingTestResults(lifecycleState) || umtIsUpdateLocked(lifecycleState) ? 3000 : false;
     },
     retry: httpRetry,

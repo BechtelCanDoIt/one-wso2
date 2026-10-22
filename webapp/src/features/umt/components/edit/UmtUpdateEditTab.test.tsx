@@ -49,6 +49,12 @@ vi.mock("../../api/useUmtPrAnalysis", () => ({
   useUmtIsAdvancingToPrAnalyzed: () => false,
 }));
 
+// Two log entries: the stay a saved pointer belongs to is the lifecycle state
+// plus the length of this log.
+vi.mock("../../api/useUmtLifecycleHistory", () => ({
+  useUmtLifecycleHistory: () => ({ isSuccess: true, data: [{}, {}] }),
+}));
+
 vi.mock("../../api/useUmtHotfixRelease", () => ({
   useUmtHotfixTestStatus: () => ({ isSuccess: true, isPending: false, data: null }),
   useUmtReleaseHotfix: () => ({ isPending: false, mutateAsync: vi.fn() }),
@@ -140,8 +146,13 @@ function makeUpdate(overrides: Partial<UmtUpdateSummary> = {}): UmtUpdateSummary
   };
 }
 
-function persistStep(stepId: string) {
-  window.localStorage.setItem("one-wso2.umt-edit-step.v1.42", stepId);
+const PERSISTED_STEP_KEY = "one-wso2.umt-edit-step.v2.42";
+
+// Saved as reached in the current stay of `lifecycleState`, so only the run
+// rules decide whether it is honoured; pass a different `stayKey` to save it
+// under another stay instead.
+function persistStep(stepId: string, lifecycleState = "ProductAnalyzed", stayKey = `${lifecycleState}#2`) {
+  window.localStorage.setItem(PERSISTED_STEP_KEY, JSON.stringify({ stayKey, stepId }));
 }
 
 function renderTab(update: UmtUpdateSummary) {
@@ -189,14 +200,26 @@ describe("a step pointer saved under another lifecycle state", () => {
     persistStep("validate");
     renderTab(makeUpdate());
 
-    expect(window.localStorage.getItem("one-wso2.umt-edit-step.v1.42")).toBeNull();
+    expect(window.localStorage.getItem(PERSISTED_STEP_KEY)).toBeNull();
   });
 
   it("from a later state also leaves Files Analysis alone", () => {
-    persistStep("integration-tests");
+    persistStep("integration-tests", "PRAnalyzed");
     renderTab(makeUpdate({ lifecycleState: "PRAnalyzed", promoteStages: ["ProductAnalyzed"] }));
 
     expect(screen.getByTestId("step-files-analysis")).toBeInTheDocument();
+  });
+});
+
+describe("a step pointer saved in another stay of the same state", () => {
+  // The update left this state and came back since, so the pointer says
+  // nothing about where it is now, though the step is within the state's run.
+  it("is not restored", () => {
+    persistStep("integration-tests", "ProductAnalyzed", "ProductAnalyzed#1");
+    renderTab(makeUpdate());
+
+    expect(screen.queryByTestId("step-integration-tests")).not.toBeInTheDocument();
+    expect(screen.getByTestId("step-description-instruction")).toBeInTheDocument();
   });
 });
 
@@ -209,7 +232,7 @@ describe("a step pointer within the current state's run", () => {
   });
 
   it("is still honoured under Staging", () => {
-    persistStep("validate");
+    persistStep("validate", "Staging");
     renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
 
     expect(screen.getByTestId("step-validate")).toBeInTheDocument();
@@ -234,7 +257,7 @@ describe("descriptions on the way out of a state", () => {
   });
 
   it("are re-checked by Validate's Proceed at Staging", () => {
-    persistStep("validate");
+    persistStep("validate", "Staging");
     renderTab(
       makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"], products: [COMPLETE, UNDESCRIBED] }),
     );
@@ -261,5 +284,23 @@ describe("descriptions on the way out of a state", () => {
     await userEvent.click(forwardButton());
 
     expect(state.transition).toHaveBeenCalledWith("UATStaging");
+  });
+});
+
+describe("a step with no usable next lifecycle state", () => {
+  it("says why Proceed is disabled when the backend sends none", () => {
+    persistStep("integration-tests");
+    renderTab(makeUpdate({ promoteStages: [] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/didn't provide a usable next lifecycle state/)).toBeInTheDocument();
+  });
+
+  it("says why Proceed is disabled when the backend sends a state it doesn't know", () => {
+    persistStep("integration-tests");
+    renderTab(makeUpdate({ promoteStages: ["SomeFutureState"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/didn't provide a usable next lifecycle state/)).toBeInTheDocument();
   });
 });

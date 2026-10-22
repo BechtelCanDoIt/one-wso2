@@ -141,9 +141,9 @@ export interface UmtPullRequestAnalysis {
 
 // The analysis echoes each submitted bundle info change back with its change
 // type under `changeType`, where the request sends it as `entryType`.
-export interface UmtBundleInfoChangeResult extends UmtBundleInfoChange {
+export type UmtBundleInfoChangeResult = Omit<UmtBundleInfoChange, "entryType"> & {
   changeType?: string | null;
-}
+};
 
 export interface UmtPullRequestAnalysisRequest {
   updateId: string;

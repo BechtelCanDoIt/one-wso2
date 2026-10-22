@@ -19,6 +19,7 @@ import { Alert, Button, DataGrid, Link, Paper, Stack, Typography } from "@wso2/o
 import type { UmtUpdateSummary } from "../../../api/umtUpdates";
 import { useUmtGate } from "../../../api/useUmtGate";
 import { useUmtPullRequestAnalysis } from "../../../api/useUmtUpdateViewData";
+import { umtLifecycleState } from "../../../lib/umtLifecycleState";
 
 const { DataGrid: DataGridComponent } = DataGrid;
 
@@ -31,7 +32,7 @@ const { DataGrid: DataGridComponent } = DataGrid;
 // approved.
 export default function UmtFileApprovalStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
   const gate = useUmtGate();
-  const pullRequestAnalysis = useUmtPullRequestAnalysis(id, update.lifecycleState);
+  const pullRequestAnalysis = useUmtPullRequestAnalysis(id, umtLifecycleState(update.lifecycleState));
   const isAwaitingApproval = update.lifecycleState === "WaitingFileApproval";
 
   if (pullRequestAnalysis.isPending) {

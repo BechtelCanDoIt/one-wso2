@@ -196,10 +196,10 @@ describe("UMT inside Engineering", () => {
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
       ["Overview", "/engineering/umt"],
       ["Updates", "/engineering/umt/updates"],
-      ["Product Management", "/engineering/umt/products"],
-      ["Release Chunks", "/engineering/umt/release-chunks"],
+      ["Products", "/engineering/umt/products"],
+      ["Releases", "/engineering/umt/release-chunks"],
       ["Statistics", "/engineering/umt/statistics"],
-      ["Documentation", undefined],
+      ["Docs", undefined],
     ]);
     expect(perspectives.findPerspectiveByPath("/engineering/umt/updates/42")?.key).toBe("engineering");
   });
