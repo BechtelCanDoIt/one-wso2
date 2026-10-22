@@ -85,6 +85,12 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 vi.mock("../api/useUmtPrAnalysis", () => ({
   useUmtIsAdvancingToPrAnalyzed: () => false,
 }));
+
+// Two log entries: the stay a saved pointer belongs to is the lifecycle state
+// plus the length of this log.
+vi.mock("../api/useUmtLifecycleHistory", () => ({
+  useUmtLifecycleHistory: () => ({ isSuccess: true, data: [{}, {}] }),
+}));
 // Stands in for changing an input without clicking Analyze.
 vi.mock("../components/edit/files-analysis/UmtFilesAnalysisStep", () => ({
   default: ({ onDirtyChange }: { onDirtyChange?: (isDirty: boolean) => void }) => (
@@ -154,8 +160,12 @@ function makeUpdate(overrides: Partial<UmtUpdateSummary> = {}): UmtUpdateSummary
   };
 }
 
-function persistStep(stepId: string) {
-  window.localStorage.setItem("one-wso2.umt-edit-step.v1.42", stepId);
+// Saved as reached in the current stay of `lifecycleState`.
+function persistStep(stepId: string, lifecycleState = "ProductAnalyzed") {
+  window.localStorage.setItem(
+    "one-wso2.umt-edit-step.v2.42",
+    JSON.stringify({ stayKey: `${lifecycleState}#2`, stepId }),
+  );
 }
 
 function renderTab(update: UmtUpdateSummary) {
@@ -398,14 +408,14 @@ describe("File Approval", () => {
   // goes to WaitingFileApproval for a lead to approve. Only that second step is
   // lead-only.
   it("lets a developer hand a Staging update with manual files over for approval", () => {
-    persistStep("file-approval");
+    persistStep("file-approval", "Staging");
     renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
 
     expect(forwardButton()).toBeEnabled();
   });
 
   it("calls the hand-off Proceed, not an approval, and sends UATStaging", async () => {
-    persistStep("file-approval");
+    persistStep("file-approval", "Staging");
     renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
 
     expect(screen.queryByRole("button", { name: "Approve and Proceed" })).not.toBeInTheDocument();
@@ -428,7 +438,7 @@ describe("while a demotion from Staging is in flight (DemoteStagingRequested)", 
   });
 
   it("stays locked even on a step pointer saved before the demotion", () => {
-    persistStep("validate");
+    persistStep("validate", "Staging");
     renderTab(demoting());
 
     expect(screen.queryByTestId("step-validate")).not.toBeInTheDocument();

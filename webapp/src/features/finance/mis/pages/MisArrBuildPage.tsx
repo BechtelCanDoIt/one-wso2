@@ -16,9 +16,12 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { Box, Skeleton, Typography } from "@wso2/oxygen-ui";
+import { ChartLineIcon } from "@wso2/oxygen-ui-icons-react";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import MisShell from "../components/MisShell";
+import { filterRows, useBuildFilters } from "../components/buildTableFilter";
+import { sortOnShownColumn, sortRows, sortValueReader, useBuildSort } from "../components/buildTableSort";
 import BuildTable, { type BuildCellFor } from "../components/BuildTable";
 import { MAX_BODY_HEIGHT } from "../components/buildTableSx";
 import {
@@ -26,10 +29,12 @@ import {
   arrBuildRows,
   type ArrSummaryResponse,
 } from "../components/arrBuildRows";
+import { businessUnitsFor } from "../api/misRequestParts";
 import { useArrSummary, type ArrSummaryColumn } from "../api/useArrSummary";
 import {
   buildColumnLabel,
   buildColumnRanges,
+  summaryColumnRanges,
   customerColumnRanges,
   pacificColumnRanges,
 } from "../util/misPeriods";
@@ -70,7 +75,6 @@ import {
 } from "../components/customerAccountRows";
 import { useMisAppConfigs } from "../api/useMisAppConfigs";
 import MisFilterBar from "../components/MisFilterBar";
-import MisCustomerBreakdownTabs from "../components/MisCustomerBreakdownTabs";
 import MisCustomerDrillDown from "../components/MisCustomerDrillDown";
 import MisOpportunities from "../components/MisOpportunities";
 import { opportunitiesRequest, useOpportunities } from "../api/useOpportunities";
@@ -104,11 +108,12 @@ import {
 import type { MisWorkbookSpec } from "../export/misWorkbook";
 import { misExportFilename, misFilenameWord } from "../export/misExportFilename";
 import type { MisScaleState } from "../util/useMisScale";
-import { MIS_UNITS_BY_CATEGORY, unitCategoryOf } from "../util/misUnits";
+import { MIS_METRICS_UNITS, MIS_UNITS_BY_CATEGORY, unitCategoryOf } from "../util/misUnits";
 import type { MisUnitSelection } from "../components/MisUnitTabs";
 import MisPeriodRow from "../components/MisPeriodRow";
 import MisTableTabs from "../components/MisTableTabs";
 import MisUnitPills from "../components/MisUnitPills";
+import MisMetricsUnitPills from "../components/MisMetricsUnitPills";
 import MisGridHeader, { type GridToggle } from "../components/MisGridHeader";
 import MisExportMenu from "../components/MisExportMenu";
 
@@ -341,7 +346,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
     () => new Map(ranges.map((range) => [buildColumnLabel(range), range])),
     [ranges],
   );
-  const columnGroups = summary.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = summary.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   // The figure ITSELF, before the formatter. Shared by the cell below and by
   // the export, so the sheet cannot read a different number from the screen —
   // and so that the export never reaches for `BuildCell.text`, which is already
@@ -376,6 +381,26 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
           : undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    rows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey) => rawFigure(row, { key: groupKey, label: groupKey }),
+      lead: (row) => row.label,
+    }),
+  );
+
+  if (businessUnitsFor(view.filters) === null) {
+    return (
+      <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 1, py: 6 }}>
+        <ChartLineIcon size={32} />
+        <Typography variant="h6" component="h3" color="text.secondary">
+          Choose units to generate a build
+        </Typography>
+      </Box>
+    );
+  }
 
   if (summary.isLoading) {
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;
@@ -419,7 +444,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
               // were exported.
                 columnGroups,
                 subColumns: SUB_COLUMNS,
-                rows,
+                rows: shownRows,
                 value: rawFigure,
               })
             }
@@ -441,6 +466,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
         // The Build's own Applied filters, shown but not editable — the list
         // describes a figure computed under exactly these.
         chips={describeAppliedFilters(view.filters, { period: view.period, table: view.table })}
+        requestKey={JSON.stringify(request)}
         state={drillDown}
       />
       )}
@@ -451,8 +477,11 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
         collapseLoneSubHeader
         rowLabelHeader="Summary"
         columnGroups={columnGroups}
+        onRetryFailed={summary.retry}
         subColumns={SUB_COLUMNS}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </Box>
@@ -468,8 +497,8 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
  * customer and there are hundreds of them, which is why this is the first
  * screen where `BuildTable`'s row windowing actually runs.
  *
- * Its columns are `buildColumnRanges`, the same slice the Subscription Build
- * takes. The fetch asks for one year more than those columns render
+ * Its columns are `summaryColumnRanges`, the same slice the Subscription Build
+ * takes except under a forecast type. The fetch asks for one year more than those columns render
  * (`generateFullYearRanges(-yearsBack, 0)` versus `-(yearsBack - 1)`), so
  * reading the fetch as the column list would put six Periods on screen where
  * five belong.
@@ -483,7 +512,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // Totals only collapses each Period group to its Total column(s). Off by
   // default; component state like BU only, for the same reason.
   const [totalsOnly, setTotalsOnly] = useState(false);
-  // `customerColumnRanges`, not `buildColumnRanges`: this is the one table with
+  // `customerColumnRanges`, not `summaryColumnRanges`: this is the one table with
   // ranges of its own, and only on a Delayed type, where the columns are a
   // recent run plus today rather than the whole Period. See misPeriods.ts.
   const ranges = useMemo(
@@ -522,12 +551,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
       new Map((column.accounts ?? []).map((account) => [account.id, account])),
     ]),
   );
-  // The Total row adds a column down the whole book, so it needs the LIST and
-  // not the by-id map above. Absent for a column that never answered, which is
-  // what keeps its cells blank rather than zero.
-  const accountsByColumn = new Map<string, readonly AccountsResponse[] | undefined>(
-    book.columns.map((column) => [column.label, column.accounts]),
-  );
 
   // The column hands back its own reader — `BuildTable` is generic over the
   // caller's column type, so this is the very object `leadColumns` holds and
@@ -535,14 +558,33 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // difference between one call and seventeen comparisons per identity cell.
   const leadCell = (row: { id: string }, column: CustomerLeadColumn) =>
     customerIdentityText(row.id, accountById.get(row.id), column);
+  /** What an identity column says for a row, which is what a filter and a sort read. */
+  const identityText = (row: BuildRow, key: string): string =>
+    key === leadColumns[0].key
+      ? row.label
+      : leadCell(row, leadColumns.find((column) => column.key === key)!);
+
+  const { filters, setFilter } = useBuildFilters(view.filters);
+  const filteredRows = filterRows(rows, filters, identityText);
+  // The Total row adds a column down the customers that are LEFT, so it needs
+  // the LIST and not the by-id map above. Absent for a column that never
+  // answered, which is what keeps its cells blank rather than zero.
+  const keptIds = new Set(filteredRows.map((row) => row.id));
+  const accountsByColumn = new Map<string, readonly AccountsResponse[] | undefined>(
+    book.columns.map((column) => [
+      column.label,
+      filteredRows === rows ? column.accounts : column.accounts?.filter((account) => keptIds.has(account.id)),
+    ]),
+  );
 
   // A Customers Period is headed "As of {end}" — a balance at a date, like the
   // Exit ARR summaries — not "{opening} - {end}". Read off the range label by
   // splitting on " - "; `misPeriods.ts` has the helper the Exit ARR tables use
   // to take the end off the range itself, which this could move to.
-  const columnGroups = book.columns.map(({ label }) => ({
+  const columnGroups = book.columns.map(({ label, isError }) => ({
     key: label,
     label: label.includes(" - ") ? `As of ${label.split(" - ")[1]}` : label,
+    failed: isError,
   }));
   const breakdown = buOnly ? CUSTOMER_BU_SUB_COLUMNS : CUSTOMER_SUB_COLUMNS;
   const breakdownByKey = buOnly ? CUSTOMER_BU_SUB_COLUMN_BY_KEY : CUSTOMER_SUB_COLUMN_BY_KEY;
@@ -598,6 +640,20 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
           : undefined,
     };
   };
+  const { sort: chosenSort, toggle } = useBuildSort(view.filters);
+  const sort = sortOnShownColumn(chosenSort, {
+    leadKeys: leadColumns.map(({ key }) => key),
+    groupKeys: columnGroups.map(({ key }) => key),
+    subKeys: subColumns.map(({ key }) => key),
+  });
+  const shownRows = sortRows(
+    filteredRows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey, subKey) => rawFigure(row, { key: groupKey, label: groupKey }, subKey),
+      lead: identityText,
+    }),
+  );
 
   if (book.isLoading) {
     return <Skeleton variant="rectangular" height={320} sx={{ borderRadius: 1.5, mt: 1.5 }} />;
@@ -608,9 +664,9 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   // export, so a reader who lands on an empty book keeps the switch rather than
   // losing it at the moment they most want to try the other side of it.
   const toggles: GridToggle[] = [
+    { label: "BU only", checked: buOnly, onChange: setBuOnly },
     { label: "Totals only", checked: totalsOnly, onChange: setTotalsOnly },
   ];
-  const breakdownTabs = <MisCustomerBreakdownTabs buOnly={buOnly} onChange={setBuOnly} />;
   const header = (exportMenu?: ReactNode) => (
     <MisGridHeader
       title={gridTitle(view)}
@@ -636,7 +692,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   if (book.isError) {
     return (
       <Box>
-        {breakdownTabs}
         {header()}
         <ErrorNotice onRetry={book.retry} sx={{ mt: 1.5 }}>
           Couldn't load the customers. {book.errorMessage}
@@ -648,7 +703,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
   if (!book.columns.length || !rows.length) {
     return (
       <Box>
-        {breakdownTabs}
         {header()}
         <Typography variant="body2" color="text.secondary" sx={{ py: 3 }}>
           No customers to show. Widen Years Back, or loosen the filters.
@@ -659,7 +713,6 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
 
   return (
     <Box sx={gridColumnSx}>
-      {breakdownTabs}
       {header(
           <MisExportMenu scale={scale}
             workbook={() =>
@@ -675,7 +728,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
                 leadCell,
                 columnGroups,
                 subColumns,
-                rows,
+                rows: shownRows,
                 value: rawFigure,
                 valueType: ALL_CURRENCY,
               })
@@ -692,8 +745,13 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
         leadColumns={leadColumns}
         leadCell={leadCell}
         columnGroups={columnGroups}
+        onRetryFailed={book.retry}
         subColumns={subColumns}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
+        filters={filters}
+        onFilter={setFilter}
         cell={cell}
         grandTotalKeys={grandTotalKeys}
       />
@@ -720,6 +778,7 @@ function CustomersGrid({ view, scaleState }: { view: MisViewState; scaleState: M
  * failed has to be able to get back to Sales Region.
  */
 function RegionSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
+  const configs = useMisAppConfigs();
   // Component state, and not in the URL — see `MisRegionSummaryTabs` and
   // `MisRegionTypeTabs`. The two views are not part of the shared address.
   const [summaryView, setSummaryView] = useState<MisRegionSummaryView>(
@@ -742,6 +801,14 @@ function RegionSummaryGrid({ view, scaleState }: { view: MisViewState; scaleStat
     <Box sx={gridColumnSx}>
       <MisRegionSummaryTabs view={summaryView} onChange={changeView} />
       <MisRegionTypeTabs bySalesRegion={bySalesRegion} onChange={setBySalesRegion} />
+      {summaryView === MIS_REGION_SUMMARY_VIEWS.ALL_ARR_METRICS && (
+        <MisMetricsUnitPills
+          fields={view.filters}
+          businessUnitOptions={configs.options.businessUnits}
+          productUnitOptions={configs.options.productUnits}
+          onChange={(fields) => view.setView({ filters: { ...view.filters, ...fields } })}
+        />
+      )}
       {summaryView === MIS_REGION_SUMMARY_VIEWS.ALL_ARR_METRICS ? (
         <RegionMetricsGrid view={view} scaleState={scaleState} bySalesRegion={bySalesRegion} />
       ) : (
@@ -788,7 +855,7 @@ function RegionExitGrid({
 }) {
   const scale = scaleState.scale;
   const ranges = useMemo(
-    () => buildColumnRanges(view.period, view.viewWindow, view.filters),
+    () => summaryColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
   );
   const summary = useExitArrByRegion(ranges, view.filters, bySalesRegion);
@@ -797,7 +864,7 @@ function RegionExitGrid({
   // `summary.columns` is rebuilt every render, so a useMemo over it never hits.
   const { rows, figures } = regionExitTable(summary.columns);
 
-  const columnGroups = summary.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = summary.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   const subColumns = totalsOnly
     ? REGION_EXIT_SUB_COLUMNS.filter((column) => column.key === "total")
     : REGION_EXIT_SUB_COLUMNS;
@@ -817,6 +884,20 @@ function RegionExitGrid({
       muted: raw === undefined,
     };
   };
+  const { sort: chosenSort, toggle } = useBuildSort(view.filters);
+  const sort = sortOnShownColumn(chosenSort, {
+    leadKeys: ["__label"],
+    groupKeys: columnGroups.map(({ key }) => key),
+    subKeys: subColumns.map(({ key }) => key),
+  });
+  const shownRows = sortRows(
+    rows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey, subKey) => rawFigure(row, { key: groupKey, label: groupKey }, subKey),
+      lead: (row) => row.label,
+    }),
+  );
 
   return (
     <SummaryBody
@@ -838,7 +919,7 @@ function RegionExitGrid({
               rowLabelWidth: REGION_LABEL_WIDTH,
               columnGroups,
               subColumns,
-              rows,
+              rows: shownRows,
               value: rawFigure,
               valueType: ALL_CURRENCY,
             })
@@ -855,8 +936,11 @@ function RegionExitGrid({
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
+        onRetryFailed={summary.retry}
         subColumns={subColumns}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </SummaryBody>
@@ -873,15 +957,14 @@ function RegionExitGrid({
  * through `util/misRegions.ts`, so the two views spell a region the same way.
  * Everything else differs, because a movement is not a balance — the columns
  * span a period instead of closing one, the seven sub-columns are movements
- * instead of business units, and the unit selection narrows the question here
+ * instead of business units, and its own Unit narrows the question here
  * where it is ignored there.
  *
- * ---- the unit selection binds to the tabs already on screen ---------------
+ * ---- its Unit is its own -----------------------------------------------------
  *
- * A second unit control beside the tabs could disagree with them, and only one
- * of the two would be in the link a reader shares. Here it binds to the tabs
- * above, so there is one unit selection, it is in the address, and the tabs
- * stop being enabled-but-ignored on this Table.
+ * The pills above the grid choose `metricsUnit`, which is in the address and is
+ * not the Build tab's Unit: picking a Cloud unit on a Build must not silently
+ * re-cut the region metrics, and the reverse.
  */
 function RegionMetricsGrid({
   view,
@@ -894,7 +977,7 @@ function RegionMetricsGrid({
 }) {
   const scale = scaleState.scale;
   const ranges = useMemo(
-    () => buildColumnRanges(view.period, view.viewWindow, view.filters),
+    () => summaryColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
   );
   const metrics = useRegionMetrics(ranges, view.filters, bySalesRegion);
@@ -903,7 +986,7 @@ function RegionMetricsGrid({
   // `metrics.columns` is rebuilt every render, so a useMemo over it never hits.
   const { rows, figures } = regionMetricsTable(metrics.columns);
 
-  const columnGroups = metrics.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = metrics.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   /** The figure itself, shared by the cell below and by the export. */
   const rawFigure = (row: BuildRow, group: BuildColumnGroup, subColumnKey: string) => {
     const definition = REGION_METRICS_SUB_COLUMN_BY_KEY.get(subColumnKey)!;
@@ -918,6 +1001,15 @@ function RegionMetricsGrid({
       muted: raw === undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    rows,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey, subKey) => rawFigure(row, { key: groupKey, label: groupKey }, subKey),
+      lead: (row) => row.label,
+    }),
+  );
 
   return (
     <SummaryBody
@@ -940,12 +1032,16 @@ function RegionMetricsGrid({
               rowLabelWidth: REGION_LABEL_WIDTH,
               columnGroups,
               subColumns: REGION_METRICS_SUB_COLUMNS,
-              rows,
+              rows: shownRows,
               value: rawFigure,
               valueType: ALL_CURRENCY,
             })
           }
-          filename={() => misExportFilename(["arr_dashboard", misFilenameWord(ALL_ARR_METRICS_LABEL)])}
+          filename={() => misExportFilename([
+            "arr_dashboard",
+            misFilenameWord(ALL_ARR_METRICS_LABEL),
+            misFilenameWord(metricsUnitLabel(view.filters.metricsUnit)),
+          ])}
         />
       }
     >
@@ -957,8 +1053,11 @@ function RegionMetricsGrid({
         rowLabelHeader="Region"
         rowLabelWidth={REGION_LABEL_WIDTH}
         columnGroups={columnGroups}
+        onRetryFailed={metrics.retry}
         subColumns={REGION_METRICS_SUB_COLUMNS}
-        rows={rows}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </SummaryBody>
@@ -976,13 +1075,13 @@ function RegionMetricsGrid({
 function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: MisScaleState }) {
   const scale = scaleState.scale;
   const ranges = useMemo(
-    () => buildColumnRanges(view.period, view.viewWindow, view.filters),
+    () => summaryColumnRanges(view.period, view.viewWindow, view.filters),
     [view.period, view.viewWindow, view.filters],
   );
   const summary = useExitArrByBU(ranges, view.filters);
   const byColumn = new Map(summary.columns.map((column) => [column.label, column.response]));
 
-  const columnGroups = summary.columns.map(({ label }) => ({ key: label, label }));
+  const columnGroups = summary.columns.map(({ label, isError }) => ({ key: label, label, failed: isError }));
   /** The figure itself, shared by the cell below and by the export. */
   const rawFigure = (row: BuildRow, group: BuildColumnGroup) =>
     buExitFigure(byColumn.get(group.key), row.id);
@@ -994,6 +1093,15 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
       muted: raw === undefined,
     };
   };
+  const { sort, toggle } = useBuildSort(view.filters);
+  const shownRows = sortRows(
+    BU_EXIT_ROWS,
+    sort,
+    sortValueReader({
+      figure: (row, groupKey) => rawFigure(row, { key: groupKey, label: groupKey }),
+      lead: (row) => row.label,
+    }),
+  );
 
   return (
     <SummaryBody
@@ -1014,7 +1122,7 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
               rowLabelWidth: BU_LABEL_WIDTH,
               columnGroups,
               subColumns: EXIT_ARR_SUB_COLUMNS,
-              rows: BU_EXIT_ROWS,
+              rows: shownRows,
               value: rawFigure,
               valueType: ALL_CURRENCY,
             })
@@ -1029,8 +1137,11 @@ function BuSummaryGrid({ view, scaleState }: { view: MisViewState; scaleState: M
         rowLabelHeader="Business Unit"
         rowLabelWidth={BU_LABEL_WIDTH}
         columnGroups={columnGroups}
+        onRetryFailed={summary.retry}
         subColumns={EXIT_ARR_SUB_COLUMNS}
-        rows={BU_EXIT_ROWS}
+        rows={shownRows}
+        sort={sort}
+        onSort={toggle}
         cell={cell}
       />
     </SummaryBody>
@@ -1142,6 +1253,9 @@ const EXIT_ARR_SUB_COLUMNS = [{ key: "amount", label: "Exit ARR", width: 200 }] 
  */
 const exportFilenameFor = (table: MisTable): string =>
   misExportFilename(["arr_dashboard", misFilenameWord(MIS_TABLE_LABELS[table])]);
+
+const metricsUnitLabel = (code: string): string =>
+  MIS_METRICS_UNITS.find((unit) => unit.code === code)?.label ?? "";
 
 /**
  * The Region Summary's second view has no `MisTable` of its own — it is a view

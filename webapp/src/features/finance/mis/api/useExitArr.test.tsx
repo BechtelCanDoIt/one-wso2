@@ -256,7 +256,7 @@ describe("All ARR Metrics", () => {
   it("narrows by the unit the reader selected", async () => {
     const { result } = renderMetrics([YEAR_2026], {
       ...REGION_FILTERS,
-      buProductSelection: "BU_APIM",
+      metricsUnit: "BU_APIM",
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(authedPost.mock.calls[0][2]).toMatchObject({ businessUnits: ["APIM_BU"] });
@@ -265,7 +265,7 @@ describe("All ARR Metrics", () => {
   it("asks nothing at all while a custom selection names no units", async () => {
     const { result } = renderMetrics([YEAR_2026], {
       ...REGION_FILTERS,
-      buProductSelection: "CUSTOM",
+      metricsUnit: "CUSTOM",
     });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(authedPost).not.toHaveBeenCalled();

@@ -18,6 +18,7 @@ import { useEffect, useState } from "react";
 import { Divider, Stack } from "@wso2/oxygen-ui";
 import type { UmtUpdateSummary } from "../../../api/umtUpdates";
 import { useUmtIsAdvancingToPrAnalyzed } from "../../../api/useUmtPrAnalysis";
+import { isFilesAnalysisPrAnalyzed } from "../../../lib/umtEditSteps";
 import UmtPrAnalysisStep from "../pr-analysis/UmtPrAnalysisStep";
 import UmtProductAnalysisStep from "../product-analysis/UmtProductAnalysisStep";
 
@@ -45,7 +46,7 @@ export default function UmtFilesAnalysisStep({
   return (
     <Stack spacing={3}>
       <UmtPrAnalysisStep id={id} update={update} onDirtyChange={setIsPrAnalysisDirty} />
-      {update.lifecycleState === "PRAnalyzed" && !isAdvancing && (
+      {isFilesAnalysisPrAnalyzed(update.lifecycleState) && !isAdvancing && (
         <>
           <Divider />
           <UmtProductAnalysisStep id={id} update={update} onDirtyChange={setIsProductAnalysisDirty} />

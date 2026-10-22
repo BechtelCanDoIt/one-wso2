@@ -29,7 +29,23 @@ import { XIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import BuildTable from "./BuildTable";
 import MisAppliedFilterChips from "./MisAppliedFilterChips";
-import { drillDownColumns, drillDownRows, type DrillDownColumn } from "./drillDownColumns";
+import type { BuildRow } from "./buildTableModel";
+import { filterRows, type BuildFilters, useBuildFilters } from "./buildTableFilter";
+import {
+  figureSortValue,
+  sortRows,
+  sortValueReader,
+  useBuildSort,
+  type BuildSort,
+  type BuildSortColumn,
+  type BuildSortValue,
+} from "./buildTableSort";
+import {
+  DRILL_DOWN_NOT_AVAILABLE,
+  drillDownColumns,
+  drillDownRows,
+  type DrillDownColumn,
+} from "./drillDownColumns";
 import type { MisFilterChip } from "../util/misAppliedFilterChips";
 import type { DrillDownState } from "../api/useDrillDownCustomers";
 import MisExportMenu from "./MisExportMenu";
@@ -69,6 +85,11 @@ export interface MisCustomerDrillDownProps {
   periodColumn: string;
   /** The Build's Applied filters, shown but not editable. */
   chips: readonly MisFilterChip[];
+  /**
+   * The request this list was asked for. A refetch replaces `state.customers`
+   * and must not clear a filter or a sort; a different request does.
+   */
+  requestKey: string;
   state: DrillDownState;
 }
 
@@ -79,6 +100,7 @@ export default function MisCustomerDrillDown({
   rowLabel,
   periodColumn,
   chips,
+  requestKey,
   state,
 }: MisCustomerDrillDownProps) {
   const columns = useMemo(() => drillDownColumns(rowId), [rowId]);
@@ -95,6 +117,32 @@ export default function MisCustomerDrillDown({
   // The title is the row, a middle dot, the column. It is the
   // only thing tying the list back to the cell the reader clicked.
   const title = `${rowLabel} · ${periodColumn}`;
+
+  const { sort, toggle } = useBuildSort(requestKey);
+  const { filters, setFilter } = useBuildFilters(requestKey);
+  const textOf = (row: BuildRow, key: string): string => {
+    const customer = byRowId.get(row.id);
+    const column = columns.find((one) => one.key === key);
+    return customer && column ? column.value(customer) : "";
+  };
+  // What a sort reads is the figure where there is one, and nothing where the
+  // dialog says N/A, so a missing fact goes last either way.
+  const sortValueOf = (row: BuildRow, key: string): BuildSortValue => {
+    const customer = byRowId.get(row.id);
+    const column = columns.find((one) => one.key === key);
+    if (!customer || !column) return undefined;
+    const figure = column.rawValue?.(customer);
+    if (figure !== undefined) return figure;
+    const text = column.value(customer);
+    return text === DRILL_DOWN_NOT_AVAILABLE ? undefined : figureSortValue(text);
+  };
+  const shownRows = sortRows(
+    filterRows(rows, filters, textOf),
+    sort,
+    sortValueReader({ figure: () => undefined, lead: sortValueOf }),
+  );
+  // The file carries the customers as the list shows them.
+  const shownCustomers = shownRows.flatMap((row) => byRowId.get(row.id) ?? []);
 
   // The filename, rule for rule: a fixed prefix, the row with its
   // punctuation stripped, the Period column with its hyphen KEPT so a range
@@ -146,7 +194,7 @@ export default function MisCustomerDrillDown({
                 sheets: [
                   misDrillDownSheet({
                     rowId,
-                    customers: state.customers,
+                    customers: shownCustomers,
                     filterLabels: chips.map((chip) => chip.label),
                   }),
                 ],
@@ -155,7 +203,17 @@ export default function MisCustomerDrillDown({
             />
           </Stack>
         )}
-        <DrillDownBody state={state} rows={rows} columns={columns} byRowId={byRowId} />
+        <DrillDownBody
+          state={state}
+          rows={shownRows}
+          hasNoCustomers={rows.length === 0}
+          columns={columns}
+          byRowId={byRowId}
+          sort={sort}
+          onSort={toggle}
+          filters={filters}
+          onFilter={setFilter}
+        />
       </DialogContent>
     </Dialog>
   );
@@ -166,9 +224,20 @@ function DrillDownBody({
   rows,
   columns,
   byRowId,
+  hasNoCustomers,
+  sort,
+  onSort,
+  filters,
+  onFilter,
 }: {
   state: DrillDownState;
-  rows: ReturnType<typeof drillDownRows>;
+  rows: readonly BuildRow[];
+  /** Nothing behind the figure at all, as against nothing left by a filter. */
+  hasNoCustomers: boolean;
+  sort: BuildSort | null;
+  onSort: (column: BuildSortColumn) => void;
+  filters: BuildFilters;
+  onFilter: (key: string, text: string) => void;
   columns: readonly DrillDownColumn[];
   byRowId: ReadonlyMap<string, Parameters<DrillDownColumn["value"]>[0] | undefined>;
 }) {
@@ -193,7 +262,7 @@ function DrillDownBody({
     );
   }
 
-  if (!rows.length) {
+  if (hasNoCustomers) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: "center" }}>
         No customers behind this figure.
@@ -213,6 +282,10 @@ function DrillDownBody({
       columnGroups={[]}
       subColumns={[]}
       rows={rows}
+      sort={sort}
+      onSort={onSort}
+      filters={filters}
+      onFilter={onFilter}
       // No figures: every column of this table is identity. Required by the
       // component and never called.
       cell={() => ({ text: "" })}

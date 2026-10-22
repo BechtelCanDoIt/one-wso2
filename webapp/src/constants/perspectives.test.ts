@@ -40,7 +40,7 @@ afterEach(() => {
 
 const keys = (perspectives: readonly { key: string }[]) => perspectives.map((p) => p.key);
 
-// Finance MIS shipped out of preview. The ARR Dashboard and ARR Analysis are
+// Finance MIS shipped out of preview. The ARR Dashboard and Portfolio are
 // part of Finance with no preview config, which is what production looks like.
 // Quarterly and Monthly stay routes of the dashboard, not rows of their own.
 describe("Finance MIS's rail entries", () => {
@@ -196,10 +196,10 @@ describe("UMT inside Engineering", () => {
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
       ["Overview", "/engineering/umt"],
       ["Updates", "/engineering/umt/updates"],
-      ["Product Management", "/engineering/umt/products"],
-      ["Release Chunks", "/engineering/umt/release-chunks"],
+      ["Products", "/engineering/umt/products"],
+      ["Releases", "/engineering/umt/release-chunks"],
       ["Statistics", "/engineering/umt/statistics"],
-      ["Documentation", undefined],
+      ["Docs", undefined],
     ]);
     expect(perspectives.findPerspectiveByPath("/engineering/umt/updates/42")?.key).toBe("engineering");
   });

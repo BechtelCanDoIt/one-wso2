@@ -18,7 +18,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet, humanizeHttpError } from "@api/http";
-import { httpRetry } from "@api/errors";
+import { misReadRetry, misReadRetryDelay } from "./misReadRetry";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { isMisArrConfigured, misArrServiceUrls } from "@config/apiConfig";
@@ -53,7 +53,7 @@ export interface MisAppConfigsState {
   /** Always a complete set of menus; empty ones before the call has answered. */
   options: MisFilterOptions;
   /**
-   * Whether ARR Analysis exists — `productsUsageEnabled`, the one field on this
+   * Whether Portfolio exists — `productsUsageEnabled`, the one field on this
    * response that is not a menu.
    *
    * False until the backend has actually said `true`, so it is false while the
@@ -89,7 +89,8 @@ export function useMisAppConfigs(enabled = true): MisAppConfigsState {
       return (await authedGet<MisAppConfigs>(misArrServiceUrls.appConfigs, accessToken)) ?? {};
     },
     staleTime: ONE_HOUR,
-    retry: httpRetry,
+    retry: misReadRetry,
+    retryDelay: misReadRetryDelay,
   });
 
   // The same fold the other MIS queries perform, for the same reason: an
@@ -118,7 +119,7 @@ export function useMisAppConfigs(enabled = true): MisAppConfigsState {
     // ask, which is `useMisGate`'s rule for `isResolving`. Not `fetchStatus`:
     // useAsgardeoSub starts at "loading" on every mount, and until it resolves
     // the query is switched off, pending AND idle. Read as settled, that was the
-    // backend saying ARR Analysis is off, and the route redirected on every
+    // backend saying Portfolio is off, and the route redirected on every
     // visit. Switched off for any other reason, it stays not loading, so a
     // perspective without MIS never waits on it.
     isLoading: folded.isPending && enabled && isSignedIn && isMisArrConfigured(),

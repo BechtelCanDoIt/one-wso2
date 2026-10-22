@@ -22,6 +22,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
+import type { UmtLifecycleState } from "../api/umtTypes";
 
 vi.mock("@asgardeo/react", () => ({ useAsgardeo: () => ({ isSignedIn: true }) }));
 vi.mock("@hooks/useAsgardeoSub", () => ({
@@ -69,7 +70,7 @@ describe("staging test results", () => {
     const { wrapper } = makeWrapper();
     const { rerender } = renderHook(({ state }) => useUmtStagingTestResults("42", state), {
       wrapper,
-      initialProps: { state: "StagingRequested" },
+      initialProps: { state: "StagingRequested" as UmtLifecycleState },
     });
     await waitFor(() => expect(authedGet).toHaveBeenCalledTimes(1));
 

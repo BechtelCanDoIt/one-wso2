@@ -37,7 +37,7 @@ export default function ParShell({
   const configured = isParBackendConfigured();
   return (
     <Box>
-      <Typography component="h1" variant="h5" sx={{ mb: 0.5 }}>
+      <Typography component="h1" variant="h5" sx={{ mb: 0.5, fontWeight: 600 }}>
         {title}
       </Typography>
       {subtitle && (

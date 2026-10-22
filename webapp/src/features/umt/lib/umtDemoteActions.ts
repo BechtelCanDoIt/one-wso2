@@ -14,11 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { UmtEditStepId } from "./umtEditSteps";
+import type { UmtLifecycleState } from "../api/umtTypes";
+import { isFilesAnalysisPrAnalyzed, type UmtEditStepId } from "./umtEditSteps";
 
 export interface UmtDemoteAction {
   label: string;
-  targetLifecycleState: string;
+  targetLifecycleState: UmtLifecycleState;
   color?: "error";
 }
 
@@ -28,13 +29,13 @@ export interface UmtDemoteAction {
 // separate branching for them.
 export function computeUmtDemoteActions(
   stepId: UmtEditStepId,
-  lifecycleState: string | null | undefined,
+  lifecycleState: UmtLifecycleState | null | undefined,
   isHotfix: boolean,
   isAdmin: boolean,
 ): UmtDemoteAction[] {
   switch (stepId) {
     case "files-analysis":
-      return lifecycleState === "PRAnalyzed"
+      return isFilesAnalysisPrAnalyzed(lifecycleState)
         ? [{ label: "Demote to Development", targetLifecycleState: "Development" }]
         : [];
     case "description-instruction":

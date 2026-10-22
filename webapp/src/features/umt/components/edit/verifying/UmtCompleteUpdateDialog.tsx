@@ -40,8 +40,8 @@ import { isCompleteUpdateValid, umtPublicPrError } from "../../../lib/umtVerifyi
 
 // Existing public PRs are shown disabled, new ones can be appended, and the
 // update completes with either at least one non-blank PR or a reason to
-// skip one — never both. This is the only way an update ever reaches
-// Completed.
+// skip one — never both, so typing into one side disables the other. This
+// is the only way an update ever reaches Completed.
 export default function UmtCompleteUpdateDialog({
   id,
   update,
@@ -81,6 +81,15 @@ export default function UmtCompleteUpdateDialog({
     publicPullRequests: newPullRequests.map((row) => row.value),
     reason,
   });
+  const hasPullRequestText = trimmedPullRequests.length > 0;
+  const hasReasonText = reason.trim() !== "";
+  // A disabled field is skipped by keyboard focus and reads as dead, so it
+  // says why. The update's own public PRs can't be removed here, so with any
+  // of them the reason stays closed for good.
+  const hasExistingPullRequests = existingPullRequests.some((pr) => pr.trim() !== "");
+  const reasonDisabledText = hasExistingPullRequests
+    ? "This update already has public pull requests."
+    : "Clear the pull requests to enter a reason.";
 
   async function handleSubmit() {
     try {
@@ -115,7 +124,9 @@ export default function UmtCompleteUpdateDialog({
                 label="Public Pull Request"
                 value={row.value}
                 error={Boolean(umtPublicPrError(row.value))}
-                helperText={umtPublicPrError(row.value)}
+                helperText={
+                  umtPublicPrError(row.value) ?? (hasReasonText ? "Clear the reason to add pull requests." : undefined)
+                }
                 onChange={(event) =>
                   setNewPullRequests((prev) =>
                     prev.map((current) =>
@@ -123,12 +134,14 @@ export default function UmtCompleteUpdateDialog({
                     ),
                   )
                 }
+                disabled={hasReasonText}
                 fullWidth
               />
               {newPullRequests.length > 1 && (
                 <IconButton
                   aria-label="Remove pull request"
                   size="small"
+                  disabled={hasReasonText}
                   onClick={() =>
                     setNewPullRequests((prev) => prev.filter((current) => current.id !== row.id))
                   }
@@ -144,6 +157,7 @@ export default function UmtCompleteUpdateDialog({
             size="small"
             startIcon={<PlusIcon size={16} />}
             sx={{ alignSelf: "flex-start" }}
+            disabled={hasReasonText}
             onClick={() =>
               setNewPullRequests((prev) => [
                 ...prev,
@@ -158,6 +172,8 @@ export default function UmtCompleteUpdateDialog({
             label="Reason to Skip"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
+            disabled={hasPullRequestText}
+            helperText={hasPullRequestText ? reasonDisabledText : undefined}
             fullWidth
             multiline
             rows={3}

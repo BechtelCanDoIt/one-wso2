@@ -379,9 +379,10 @@ function SectionNode({
   resolveVisible: (section: PerspectiveSection) => boolean;
   /**
    * True while this group holds the current route, which tints its icon so an
-   * expanded group signals that you are inside it. Oxygen computes an equivalent
-   * internally but only spends it when the rail is collapsed, and the child row
-   * carrying the highlight has no icon.
+   * expanded group signals that you are inside it, and outlines it while open
+   * (see GroupFrame). Oxygen computes an equivalent internally but only spends
+   * it when the rail is collapsed, and the child row carrying the highlight has
+   * no icon.
    *
    * It no longer makes the header non-interactive: the group opens itself on
    * navigation, and closing it again is the user's business.
@@ -430,7 +431,7 @@ function SectionNode({
 
 
     return (
-      <GroupFrame id={section.id}>
+      <GroupFrame id={section.id} current={containsActiveRoute}>
         <Sidebar.Item id={section.id}>
           <Sidebar.ItemIcon
             sx={containsActiveRoute ? { color: "primary.main" } : undefined}
@@ -482,28 +483,56 @@ function SectionNode({
 }
 
 /**
- * A faint outline and tint around an open group, so its header and its screens read as one
- * unit. Nothing while the group is closed or the rail is collapsed.
+ * A faint outline and tint around the open group you are in, so its header and its screens read
+ * as one unit. Nothing while the group is closed or the rail is collapsed.
+ *
+ * Only that one group, not every open one: a group stays open once clicked, so outlining each
+ * open group soon outlines all of them, and the outline stops saying where you are.
  *
  * The frame is always rendered and only its look changes: dropping it on close would give the
  * group a different parent, remount it, and cut Collapse's closing animation short. It is an
  * <li> holding its own <ul>, because Sidebar.Category lays its rows out in a list.
+ *
+ * The outline is drawn by a pseudo-element, never by a margin or border on the <li>: those take
+ * room even while transparent, and pushed every row in the group 9px right of the icon and label
+ * columns the rest of the rail uses — open, closed and collapsed. Oxygen insets each row by
+ * spacing(1), so an outline at spacing(0.5) sits in that gutter, clear of a row's hover and
+ * selected fill, without moving the row.
  */
-function GroupFrame({ id, children }: { id: string; children: ReactNode }): JSX.Element {
+function GroupFrame({
+  id,
+  current,
+  children,
+}: {
+  id: string;
+  /** True while this group holds the current route. */
+  current: boolean;
+  children: ReactNode;
+}): JSX.Element {
   const { collapsed, expandedMenus } = useSidebar();
-  const framed = !collapsed && Boolean(expandedMenus?.[id]);
+  const framed = current && !collapsed && Boolean(expandedMenus?.[id]);
   return (
     <Box
       component="li"
       sx={(theme) => ({
         listStyle: "none",
-        mx: 1,
-        border: "1px solid",
-        borderRadius: 1.5,
-        borderColor: framed ? alpha(theme.palette.primary.main, 0.24) : "transparent",
-        bgcolor: framed ? alpha(theme.palette.primary.main, 0.04) : "transparent",
+        position: "relative",
+        // Its own stacking context, so the outline can sit behind the rows without also sinking
+        // behind the rail's background.
+        isolation: "isolate",
         py: framed ? 0.5 : 0,
         my: framed ? 0.5 : 0,
+        "&::before": {
+          content: '""',
+          position: "absolute",
+          inset: theme.spacing(0, 0.5),
+          zIndex: -1,
+          pointerEvents: "none",
+          border: "1px solid",
+          borderRadius: 1.5,
+          borderColor: framed ? alpha(theme.palette.primary.main, 0.24) : "transparent",
+          bgcolor: framed ? alpha(theme.palette.primary.main, 0.04) : "transparent",
+        },
       })}
     >
       <List disablePadding>{children}</List>

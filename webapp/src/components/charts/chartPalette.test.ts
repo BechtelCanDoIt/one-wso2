@@ -16,10 +16,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  CHART_ENTITY_SERIES,
   CHART_FILL_GAP,
+  CHART_OTHER,
   CHART_SERIES_1,
   CHART_SERIES_2,
   chartChrome,
+  entitySeriesColor,
   seriesColor,
 } from "./chartPalette";
 
@@ -60,5 +63,33 @@ describe("chartChrome", () => {
 describe("CHART_FILL_GAP", () => {
   it("separates touching fills by two pixels", () => {
     expect(CHART_FILL_GAP).toBe(2);
+  });
+});
+
+describe("the entity slots", () => {
+  it("has five named hues, each different from the others and from Channel and Direct in both modes", () => {
+    expect(CHART_ENTITY_SERIES).toHaveLength(5);
+    for (const mode of ["light", "dark"] as const) {
+      const hues = [
+        ...CHART_ENTITY_SERIES.map((slot) => seriesColor(slot, mode)),
+        seriesColor(CHART_SERIES_1, mode),
+        seriesColor(CHART_SERIES_2, mode),
+        seriesColor(CHART_OTHER, mode),
+      ];
+      expect(new Set(hues).size).toBe(hues.length);
+    }
+  });
+
+  it("re-steps every hue for the dark surface", () => {
+    for (const slot of CHART_ENTITY_SERIES) expect(slot.dark).not.toBe(slot.light);
+  });
+});
+
+describe("entitySeriesColor", () => {
+  it("gives a ranked entity its hue and an unranked one, or one past the hues, grey", () => {
+    expect(entitySeriesColor(0, "light")).toBe(CHART_ENTITY_SERIES[0]!.light);
+    expect(entitySeriesColor(1, "dark")).toBe(CHART_ENTITY_SERIES[1]!.dark);
+    expect(entitySeriesColor(null, "light")).toBe(CHART_OTHER.light);
+    expect(entitySeriesColor(CHART_ENTITY_SERIES.length, "light")).toBe(CHART_OTHER.light);
   });
 });

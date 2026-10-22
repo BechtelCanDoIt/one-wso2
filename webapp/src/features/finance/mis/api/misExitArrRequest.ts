@@ -38,8 +38,9 @@
 //
 // All ARR Metrics is the exception, and it is the exception for exactly that
 // reason: its columns are the seven MOVEMENTS rather than the seven units, so
-// nothing is spent on the unit split and the reader's selection is free to
-// narrow the question. It is the one summary whose body carries it.
+// nothing is spent on the unit split and the reader's All ARR Metrics Unit is
+// free to narrow the question. It is the one summary whose body carries a unit,
+// and it is not the Build's: the two are picked on different screens.
 //
 // ---- a summary is a BALANCE, and a Build is a MOVEMENT ----------------------
 //
@@ -49,7 +50,7 @@
 // a summary to compare against — and `isFirstColumn`, which only a forecast
 // roll-forward needs.
 
-import { businessUnitsFor, openingDateFor, toWireDate } from "./misRequestParts";
+import { businessUnitsFor, metricsUnitSelection, openingDateFor, toWireDate } from "./misRequestParts";
 import {
   carriesConfidence,
   isOnePartnerBook,
@@ -140,7 +141,7 @@ export function regionMetricsRequests(
   filters: MisAppliedFilters,
   isSalesRegionSummary: boolean,
 ): RegionMetricsRequest[] {
-  const businessUnits = businessUnitsFor(filters);
+  const businessUnits = businessUnitsFor(metricsUnitSelection(filters));
   if (!businessUnits) return [];
   return ranges.map((range) => ({
     ...exitArrBody(range, filters),
