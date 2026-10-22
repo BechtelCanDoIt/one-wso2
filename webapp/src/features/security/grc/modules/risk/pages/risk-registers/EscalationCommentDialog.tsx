@@ -40,10 +40,9 @@ interface EscalationCommentDialogProps {
 // action plan: a comment alone is enough to send the risk back to its assigner,
 // who then decides whether further action plans are needed.
 //
-// Who may submit one is decided server-side by risk level — the risk's
-// Management Approver for HIGH, the assigner's or action owner's line manager
-// for MEDIUM and LOW — so this dialog deliberately doesn't try to explain the
-// rule; it just surfaces the server's error if the caller isn't entitled.
+// Only a compliance admin may submit one. The drawer only offers the action to
+// them, and the server enforces it, so this dialog just surfaces the server's
+// error if the caller isn't entitled.
 export default function EscalationCommentDialog({
   open,
   riskCode,
