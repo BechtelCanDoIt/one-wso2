@@ -190,19 +190,16 @@ export function defaultYearsBack(period: MisPeriod, table: MisTable): number {
  *
  * A TTM window has a list of its own — Total, Closed Won, Delayed — which is
  * neither of the two above: it ADDS Delayed to the Build and REMOVES Forecasted
- * and Renewal from everything. The source keeps that rule in the filter bar
- * alone (`FilterBar.js:493`, `arrTypeOptionsUI`) and its own URL contract never
- * learned it, so the two disagree in both directions: picking Delayed on a TTM
- * Build moved the grid and was then dropped from the address, and a link
- * carrying `window=ttm&type=Forecasted ARR` hydrated a forecast the bar has no
- * option for. Ported here instead, once, so the control and the contract cannot
- * drift — spec §7. It is the one place a Window has ever had to be known.
+ * and Renewal from everything. The filter bar and the address share that list,
+ * so picking Delayed on a TTM Build moves the grid and stays in the address,
+ * and a link carrying `window=ttm&type=Forecasted ARR` cannot hydrate a
+ * forecast the bar has no option for. It is the one place a Window has to be
+ * known.
  *
  * The summaries are deliberately NOT widened. A summary reports a balance at a
  * date and does not cut a trailing window, so it takes no Delayed type on a TTM
- * Window, and the source's blanket TTM branch reaching them too looks like the
- * accident rather than the intent. Off TTM the source offers them every type but
- * Delayed and Renewal (`FilterBar.js`, `arrTypeOptionsUI`).
+ * Window. A blanket TTM list that added Delayed to them would be the accident
+ * rather than the intent. Off TTM they offer every type but Delayed and Renewal.
  */
 export function allowedTypeValues(
   period: MisPeriod,

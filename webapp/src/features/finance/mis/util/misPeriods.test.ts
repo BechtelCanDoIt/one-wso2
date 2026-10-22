@@ -640,11 +640,9 @@ describe("the Cumulative flag, which only Quarterly and Monthly have", () => {
   });
 });
 
-// Under a Forecasted or Renewal type the standalone swaps the Subscription
-// Build's calendar columns for `generateTwoForecastRanges` (`tableUtils.js`,
-// `case 'subscription'`). Despite its name and the "two" in the spec it returns
-// THREE ranges, each opening on the 31 December before its year and closing at
-// the Ending Month of that year, so the port draws three.
+// Under a Forecasted or Renewal type the Subscription Build draws the current
+// year and the two years after it. Each range opens on the previous 31 December
+// and closes at the Ending Month.
 describe("the Subscription Build's columns under a forecast type", () => {
   const forecasting = (extra: Record<string, unknown> = {}) =>
     ({
@@ -702,11 +700,9 @@ describe("the Subscription Build's columns under a forecast type", () => {
   });
 });
 
-// Region Summary, BU Summary and Customers take the same forecast columns: the
-// current year and the two after it as full-year ranges, `generateFullYearRanges(0, 2)`
-// in the standalone. Customers' own column builder (`tableUtils.js`,
-// `case 'software-cloud-customers'`, `startOffset = forecastEnabled ? 0 : -(yearsBack - 1)`)
-// uses it exactly as the summaries do, so one rule serves all three.
+// Region Summary, BU Summary and Customers share the forecast columns. They
+// show the current year and the next two years as full-year ranges, so one
+// rule serves all three.
 describe("the summaries' and Customers' columns under a forecast type", () => {
   const forecasting = (extra: Record<string, unknown> = {}) =>
     ({

@@ -483,28 +483,20 @@ export const pacificColumnRanges: ColumnRangesFor = (period, viewWindow, filters
  * The ranges the SUBSCRIPTION Build's columns cover — which is not the same
  * list as the Applied set's `columnDateRanges`, on a Calendar Window.
  *
- * The source computes Annually bounds with two generators that disagree by one,
- * and the tables on the ARR Build screen read the SHORTER of the two:
- *
- *   columnDateRanges   getAnnualPeriods({yearsBack})              6 at Years Back 5
- *                        (viewState.js:267) — and nine other Annually
- *                        tables take their columns straight from it
- *   Subscription         generateFullYearRanges(-(yearsBack - 1), 0)  5 at Years Back 5
- *                        (tableUtils.js, `case 'subscription'`)
+ * Two annual calculations disagree by one year, and the tables on the ARR
+ * Build screen read the shorter of the two. At Years Back 5 the applied set
+ * carries six ranges and the Subscription columns draw five.
  *
  * So on a Calendar Window these tables draw the LAST `yearsBack` of the ranges
  * and the oldest is never shown. Kept as a slice of the Applied
  * set rather than a second computation, so the columns are literally drawn from
  * the ranges the filters carry and the two cannot drift.
  *
- * **Software/Cloud Customers reads the same slice off a forecast type, which
- * is not obvious from the source.** That table FETCHES `generateFullYearRanges(-yearsBack, 0)` — one
- * year more than Subscription — while its column definition
- * (`tableUtils.js:1091`) is `-(yearsBack - 1)`, identical to Subscription's. So
- * the source asks the backend for a year it then never renders. This port
- * renders what the source renders and does not make the wasted call.
- * Ticket 10 shipped the fetch list by mistake
- * and showed six Periods where the source shows five.
+ * Software/Cloud Customers reads the same shorter slice, including off a
+ * forecast type. Its fetch used to ask for one year more than the columns
+ * draw. Shipping that longer list showed six periods where the table shows
+ * five, and asked for a year the screen never renders. The columns and the
+ * fetch now share the shorter list.
  *
  * A TTM Window has no such split: there the columns ARE `columnDateRanges`.
  *
@@ -552,10 +544,10 @@ function calendarColumnRanges(
 ): readonly MisDateRange[] {
   const ranges = filters.columnDateRanges ?? [];
   // The slice below is an ANNUALLY rule and only an annual one: it exists
-  // because the source computes annual bounds with two generators that
-  // disagree by one. `generateQuarters` and `generateMonths` have no such
-  // twin — one generator feeds both the columns and the fetch — so slicing a
-  // Quarterly Build would cut seven quarters to one at the default Years Back.
+  // because the two annual calculations disagree by one year. Quarterly and
+  // Monthly each have one calculation, feeding both the columns and the
+  // fetch, so slicing a Quarterly Build would cut seven quarters to one at
+  // the default Years Back.
   if (period !== MIS_PERIODS.ANNUALLY) return ranges;
   if (viewWindow === MIS_WINDOWS.TTM) return ranges;
   return ranges.slice(-Math.max(1, filters.yearsBack));
@@ -570,7 +562,7 @@ type ForecastRangeFilters = Partial<Pick<MisAppliedFilters, "forecast" | "isYtd"
  * Whether an Annually Calendar table lays its columns out as forecast ranges.
  *
  * Only that one: Quarterly and Monthly keep their own generators, and a TTM
- * Window keeps its trailing ranges — the source's `ttm || forecast` order.
+ * Window keeps its trailing ranges before any forecast layout applies.
  */
 const drawsForecastColumns = (
   period: MisPeriod,
@@ -586,9 +578,8 @@ const drawsForecastColumns = (
  * current year and the two after it, each opening on the 31 December before it
  * and closing at the Ending Month of its year.
  *
- * Ported from `generateTwoForecastRanges` (`tableUtils.js`), which is named for
- * two and returns three. YTD does not apply: every column closes at the Ending
- * Month, or at today's month and day when it is Today.
+ * YTD does not apply: every column closes at the Ending Month, or at today's
+ * month and day when it is Today.
  */
 function forecastBuildRanges(
   { endingMonth }: ForecastRangeFilters,

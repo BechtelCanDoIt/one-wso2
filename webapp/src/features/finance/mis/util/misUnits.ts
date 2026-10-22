@@ -91,8 +91,9 @@ export const MIS_UNITS_BY_CATEGORY: Readonly<
 };
 
 /**
- * The pills under Region Summary › All ARR Metrics, in the source's order
- * (`RegionSummaryTabs.js`, `buTabs`). Selection codes, like the Build's, so
+ * The pills under Region Summary › All ARR Metrics, in the order the reader
+ * meets them: the business units, then Moesif, then All BU and Custom.
+ * Selection codes, like the Build's, so
  * `businessUnitsFor` translates them the same way; Moesif is the cloud code
  * because it has no BU of its own, and it appears here only.
  */
