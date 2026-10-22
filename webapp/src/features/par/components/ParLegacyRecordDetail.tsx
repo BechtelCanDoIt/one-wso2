@@ -305,7 +305,7 @@ export default function ParLegacyRecordDetail({
           <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
             <Stack direction="row" alignItems="center" spacing={1.5}>
               <Avatar variant="rounded" src={thumbnail} alt="Employee Thumbnail" />
-              <Typography sx={{ fontWeight: 600 }}>Employee PAR</Typography>
+              <Typography sx={{ fontWeight: 600 }}>Employee's Feedback</Typography>
             </Stack>
             <Button
               variant="contained"
