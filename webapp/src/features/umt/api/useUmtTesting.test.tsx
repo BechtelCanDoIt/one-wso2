@@ -84,7 +84,7 @@ describe("useUmtStagingTestResults", () => {
     renderHook(() => useUmtStagingTestResults("42", "TestingEnvironmentRequested"), { wrapper: wrapper(client) });
     const query = client.getQueryCache().find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42"] });
     const options = query!.options as unknown as { refetchInterval: (q: unknown) => number | false };
-    expect(options.refetchInterval({})).toBe(3000);
+    expect(options.refetchInterval({ state: {} })).toBe(3000);
 
     const stoppedClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     renderHook(() => useUmtStagingTestResults("42", "Staging"), { wrapper: wrapper(stoppedClient) });
@@ -92,7 +92,7 @@ describe("useUmtStagingTestResults", () => {
       .getQueryCache()
       .find({ queryKey: ["umt-update-staging-test-results", "user-under-test", "42"] });
     const stoppedOptions = stoppedQuery!.options as unknown as { refetchInterval: (q: unknown) => number | false };
-    expect(stoppedOptions.refetchInterval({})).toBe(false);
+    expect(stoppedOptions.refetchInterval({ state: {} })).toBe(false);
   });
 
   it("fetches from the correct endpoint", async () => {

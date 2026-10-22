@@ -17,7 +17,7 @@
 import { useAsgardeo } from "@asgardeo/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { httpRetry } from "@api/errors";
-import { authedGet, authedPut } from "@api/http";
+import { authedGet, authedPost, authedPut } from "@api/http";
 import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
@@ -47,11 +47,37 @@ export function useUmtStagingTestResults(id: string, lifecycleState: string | nu
         umtServiceUrls.updateIntegrationTestStaging(id),
         await getAccessToken(),
       ),
-    refetchInterval: () => (umtShouldPollStagingTestResults(lifecycleState) ? 3000 : false),
+    refetchInterval: (query) => (umtShouldPollStagingTestResults(lifecycleState, query.state.data) ? 3000 : false),
     retry: httpRetry,
   });
 
   return foldIdentityError(query, subState, retryIdentity);
+}
+
+export interface UmtRetriggerStagingTestRequest {
+  productName: string;
+  baseVersion: string;
+}
+
+// Starts one product's automated staging test run again. The refetch that
+// follows picks up the run as building, which keeps the results polling until
+// it ends.
+export function useUmtRetriggerStagingTest(id: string) {
+  const getAccessToken = useAccessToken();
+  const queryClient = useQueryClient();
+
+  return useMutation<void, Error, UmtRetriggerStagingTestRequest>({
+    mutationFn: async ({ productName, baseVersion }) => {
+      await authedPost(
+        umtServiceUrls.updateIntegrationTestStagingRetrigger(id, productName, baseVersion),
+        await getAccessToken(),
+        null,
+      );
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["umt-update-staging-test-results"] });
+    },
+  });
 }
 
 export class UmtPartialTestingSaveError extends Error {

@@ -33,11 +33,17 @@ import {
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtStagingTestResultRecord, UmtStagingTestResultRequest, UmtUpdateSummary } from "../../../api/umtUpdates";
-import { UmtPartialTestingSaveError, useUmtSaveTestingResults, useUmtStagingTestResults } from "../../../api/useUmtTesting";
+import {
+  UmtPartialTestingSaveError,
+  useUmtRetriggerStagingTest,
+  useUmtSaveTestingResults,
+  useUmtStagingTestResults,
+} from "../../../api/useUmtTesting";
 import {
   UMT_TESTING_RESULT_OPTIONS,
   umtAutomatedTestResultColor,
   umtAutomatedTestResultLabel,
+  umtCanRetriggerAutomatedTest,
   umtTestingResultRequiresComment,
 } from "../../../lib/umtTesting";
 
@@ -65,6 +71,7 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
   const { showSuccess, showError } = useNotifications();
   const stagingTestResults = useUmtStagingTestResults(id, update.lifecycleState);
   const saveMutation = useUmtSaveTestingResults(id);
+  const retriggerMutation = useUmtRetriggerStagingTest(id);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
 
   if (stagingTestResults.isPending) {
@@ -123,6 +130,15 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
       const draft = drafts[productId];
       return !draft.result || (umtTestingResultRequiresComment(draft.result) && !draft.comment.trim());
     });
+
+  async function handleRetrigger(row: UmtStagingTestResultRecord) {
+    try {
+      await retriggerMutation.mutateAsync({ productName: row.productName ?? "", baseVersion: row.baseVersion ?? "" });
+      showSuccess("Retrigger request submitted.");
+    } catch (error) {
+      showError(`Failed to retrigger the automated tests. ${describeError(error)}`);
+    }
+  }
 
   async function handleSave() {
     // A background refetch can drop a row (e.g. the staging results poll)
@@ -193,6 +209,22 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
                     }}
                   />
                   <Typography variant="body2">{umtAutomatedTestResultLabel(row.automatedTestResult)}</Typography>
+                  {update.lifecycleState === "Staging" && umtCanRetriggerAutomatedTest(row.automatedTestResult) && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      aria-label={`Retrigger automated tests for ${row.productName ?? "this product"} ${row.baseVersion ?? ""}`.trim()}
+                      loading={
+                        retriggerMutation.isPending &&
+                        retriggerMutation.variables?.productName === row.productName &&
+                        retriggerMutation.variables?.baseVersion === row.baseVersion
+                      }
+                      disabled={retriggerMutation.isPending}
+                      onClick={() => void handleRetrigger(row)}
+                    >
+                      Retrigger
+                    </Button>
+                  )}
                 </Stack>
                 <FormControl>
                   <FormLabel id={groupLabelId}>Manual Test Result</FormLabel>

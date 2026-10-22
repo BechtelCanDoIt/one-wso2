@@ -88,12 +88,29 @@ export function umtAutomatedTestResultLabel(value: string | null | undefined): s
     .join(" ");
 }
 
+function isAutomatedTestResult(value: string | null | undefined, expected: string): boolean {
+  return (value ?? "").trim().toLowerCase() === expected;
+}
+
+// An automated run can be started again unless it succeeded or is already
+// running; a failed, unstable, pending or unreadable result can.
+export function umtCanRetriggerAutomatedTest(value: string | null | undefined): boolean {
+  return !isAutomatedTestResult(value, "success") && !isAutomatedTestResult(value, "building");
+}
+
 // Whether polling for staging test results should keep running: true while
 // lifecycleState is one of the transient in-between states, false once it's
 // reached a terminal state (Staging or Failed) — stops polling on failure
 // too, not just success, so a permanently-failed environment isn't polled
-// forever.
-export function umtShouldPollStagingTestResults(lifecycleState: string | null | undefined): boolean {
+// forever. At Staging it also continues while an automated run is building,
+// so a retriggered run's outcome shows up without a reload.
+export function umtShouldPollStagingTestResults(
+  lifecycleState: string | null | undefined,
+  records?: UmtStagingTestResultRecord[] | null,
+): boolean {
+  if (lifecycleState === "Staging") {
+    return (records ?? []).some((record) => isAutomatedTestResult(record.automatedTestResult, "building"));
+  }
   return (
     lifecycleState === "TestingEnvironmentRequested" ||
     lifecycleState === "TestingEnvironmentCreated" ||
