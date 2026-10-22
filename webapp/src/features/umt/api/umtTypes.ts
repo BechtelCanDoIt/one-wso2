@@ -109,6 +109,12 @@ export type UmtLifecycleState = (typeof UMT_LIFECYCLE_STATES)[number];
 // files, Instructions Only skips both, Containerized ports PRs only.
 export type UmtUpdateType = "generalUpdate" | "instructionsOnlyUpdate" | "containerizedProductUpdate";
 
+// How a product relates to the update's own product (`UmtUpdateProduct.type`).
+export const UMT_PRODUCT_TYPE = {
+  compatibleInitial: "CompatibleInitial",
+  compatible: "Compatible",
+} as const;
+
 export const UMT_PR_ANALYSIS_STATUS = {
   QUEUED: "QUEUED",
   PROCESSING: "PROCESSING",
