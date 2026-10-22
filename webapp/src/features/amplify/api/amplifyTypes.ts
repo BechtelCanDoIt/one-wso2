@@ -236,7 +236,7 @@ export interface DashboardCampaigns {
   peopleConnected?: number;
   campaigns: DashboardCampaignRow[];
   selected?: DashboardCampaignDetail | null;
-  byCategory: { code: string; label: string; reposts: number }[];
+  byCategory: { code: string; label: string; reposts: number; repostsWithCommentary?: number }[];
 }
 
 export interface DashboardParticipation {

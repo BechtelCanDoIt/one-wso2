@@ -133,10 +133,12 @@ export function nextSort(current: { sort: GroupSort; dir: SortDir }, col: GroupS
 
 /** How a scorecard measure draws as a bar. Positions are fractions of the bar's width, 0 to 1. */
 export interface ScoreBar {
-  /** How much of the bar is filled. */
+  /** How much of the bar is filled: the current value on the bar's scale. */
   fill: number;
-  /** Where the target (or the ceiling) is marked. */
+  /** Where the target (or the ceiling) is marked on the same scale. */
   tick: number;
+  /** The words under the mark, "Target 25%", "Ceiling 5%" or "Target 100". */
+  tickLabel: string;
   /** For `role="progressbar"`: the scale's top and the value on it, in the measure's own unit. */
   max: number;
   now: number;
@@ -151,31 +153,24 @@ function inUnit(m: Pick<ScorecardMeasure, "unit">, v: number): string {
 }
 
 /**
- * The fill maths for a scorecard bar.
- *  - AT_LEAST (and COUNT): the bar's full width is the target, filled to min(value / target, 1), tick at the end.
- *    A zero target reads as met when there is any value, otherwise empty.
- *  - AT_MOST (a ceiling): the scale runs to twice the ceiling, or to the value if that is larger, so the ceiling
- *    tick sits inside the bar and a breach fills past it.
+ * The fill maths for a scorecard bar, on one scale for the value and the mark.
+ *  - PERCENT: the bar is 0 to 100%. The fill is the value, the mark sits at the target (AT_LEAST) or the ceiling
+ *    (AT_MOST), so a 25% target is a quarter of the way along.
+ *  - COUNT: the bar runs to max(value, target) * 1.25, so a value over target still shows the mark inside the bar.
+ * Out-of-range and non-finite numbers are clamped.
  */
 export function scoreBar(m: Pick<ScorecardMeasure, "unit" | "value" | "target" | "comparison">): ScoreBar {
   const value = Math.max(0, Number.isFinite(m.value) ? m.value : 0);
   const target = Math.max(0, Number.isFinite(m.target) ? m.target : 0);
-  if (m.comparison === "AT_MOST") {
-    const max = target > 0 ? Math.max(target * 2, value) : Math.max(value, 1);
-    return {
-      fill: value / max,
-      tick: target / max,
-      max,
-      now: value,
-      text: `${inUnit(m, value)} against a ${inUnit(m, target)} ceiling`,
-    };
-  }
-  const fill = target > 0 ? Math.min(value / target, 1) : value > 0 ? 1 : 0;
+  const max = m.unit === "PERCENT" ? 100 : Math.max(value, target, 0) * 1.25 || 1;
+  const ceiling = m.comparison === "AT_MOST";
+  const clamp = (x: number) => Math.min(1, Math.max(0, x));
   return {
-    fill,
-    tick: 1,
-    max: target > 0 ? target : 1,
-    now: target > 0 ? Math.min(value, target) : fill,
-    text: `${inUnit(m, value)} of ${inUnit(m, target)} target`,
+    fill: clamp(value / max),
+    tick: clamp(target / max),
+    tickLabel: `${ceiling ? "Ceiling" : "Target"} ${inUnit(m, target)}`,
+    max,
+    now: Math.min(value, max),
+    text: ceiling ? `${inUnit(m, value)} against a ${inUnit(m, target)} ceiling` : `${inUnit(m, value)} of ${inUnit(m, target)} target`,
   };
 }

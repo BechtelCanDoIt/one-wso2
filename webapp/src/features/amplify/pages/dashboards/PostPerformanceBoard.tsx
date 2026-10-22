@@ -40,9 +40,12 @@ function DayChart({ byDay }: { byDay: { day: number; reposts: number }[] }) {
 export function PostPerformanceBoard({
   data,
   onSelect,
+  picked = false,
 }: {
   data: DashboardCampaigns;
   onSelect: (campaignId: string) => void;
+  /** True once the reader chose a campaign; until then the API shows the one with the most reposts. */
+  picked?: boolean;
 }) {
   const topReposts = Math.max(1, ...data.campaigns.map((p) => p.reposts));
   const topCategory = Math.max(1, ...data.byCategory.map((c) => c.reposts));
@@ -84,11 +87,16 @@ export function PostPerformanceBoard({
         </Box>
 
         <Box sx={{ flex: "1 1 420px", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-          <Block title="Selected post">
+          <Block title="Campaign detail">
             {!sel ? (
-              <Empty>Pick a post to see its first seven days.</Empty>
+              <Empty>Pick a campaign on the left to see its first seven days.</Empty>
             ) : (
               <>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: -1, mb: 1.5 }}>
+                  {picked
+                    ? "Showing the campaign you picked."
+                    : "Showing the campaign with the most reposts. Click any campaign on the left to change it."}
+                </Typography>
                 <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
                   <Box sx={{ flexGrow: 1 }}>
                     <Typography sx={{ fontSize: 18 }}>{sel.title}</Typography>
@@ -140,9 +148,14 @@ export function PostPerformanceBoard({
                   <Box key={c.code} sx={{ display: "flex", alignItems: "center", gap: 1.25 }}>
                     <Box sx={{ flex: "0 0 90px" }}>{c.label}</Box>
                     <Bar fraction={c.reposts / topCategory} label={`${c.reposts} reposts`} />
-                    <Box sx={{ flex: "0 0 40px", textAlign: "right" }}>{num(c.reposts)}</Box>
+                    <Box sx={{ flex: "0 0 160px", textAlign: "right", whiteSpace: "nowrap" }}>
+                      {num(c.reposts)} ({num(commentedReposts(c))} with comments)
+                    </Box>
                   </Box>
                 ))}
+                <Typography variant="caption" color="text.secondary">
+                  Reposts include reposts with comments.
+                </Typography>
               </Box>
             )}
           </Block>
@@ -159,7 +172,7 @@ export default function PostPerformancePage() {
   return (
     <AmplifyShell title="Post Performance" subtitle="Which posts people are reposting, and how fast.">
       <BoardState queries={[q]}>
-        {q.data && <PostPerformanceBoard data={q.data} onSelect={(id) => setParams({ campaignId: id }, { replace: true })} />}
+        {q.data && <PostPerformanceBoard data={q.data} onSelect={(id) => setParams({ campaignId: id }, { replace: true })} picked={campaignId !== undefined} />}
       </BoardState>
     </AmplifyShell>
   );

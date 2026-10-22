@@ -24,34 +24,54 @@ import { updatedStamp, fraction, measureValue, scoreBar, targetText } from "../.
 
 /**
  * A measure's value against its target: blue when on track, orange on watch (the status chip says it in
- * words too, so colour is never the only signal). A tick marks the target, or the ceiling for AT_MOST.
+ * words too, so colour is never the only signal). The line marks the target, or the ceiling for AT_MOST,
+ * on the same scale as the fill, with its value written under it.
  */
 export function MeasureBar({ measure }: { measure: ScorecardMeasure }) {
   const bar = scoreBar(measure);
   const color = measure.status === "ON_TRACK" ? "#60A5FA" : "#FF7300";
+  // Keep the label inside the card when the mark is near an end.
+  const align = bar.tick < 0.12 ? "left" : bar.tick > 0.88 ? "right" : "center";
+  const shift = align === "left" ? "0" : align === "right" ? "-100%" : "-50%";
   return (
-    <Box
-      role="progressbar"
-      aria-label={measure.label}
-      aria-valuemin={0}
-      aria-valuemax={bar.max}
-      aria-valuenow={bar.now}
-      aria-valuetext={bar.text}
-      sx={{ position: "relative", height: 12, borderRadius: 6, bgcolor: "action.hover", overflow: "visible", minWidth: 0 }}
-    >
-      <Box sx={{ width: `${bar.fill * 100}%`, height: "100%", borderRadius: 6, bgcolor: color }} />
+    <Box sx={{ minWidth: 0, pb: 2.5 }}>
       <Box
-        aria-hidden="true"
-        sx={{
-          position: "absolute",
-          top: -4,
-          bottom: -4,
-          left: `calc(${Math.min(bar.tick, 1) * 100}% - 1px)`,
-          width: 2,
-          bgcolor: "text.primary",
-          borderRadius: 1,
-        }}
-      />
+        role="progressbar"
+        aria-label={measure.label}
+        aria-valuemin={0}
+        aria-valuemax={bar.max}
+        aria-valuenow={bar.now}
+        aria-valuetext={bar.text}
+        sx={{ position: "relative", height: 12, borderRadius: 6, bgcolor: "action.hover" }}
+      >
+        <Box sx={{ width: `${bar.fill * 100}%`, height: "100%", borderRadius: 6, bgcolor: color }} />
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: "absolute",
+            top: -4,
+            bottom: -4,
+            left: `calc(${bar.tick * 100}% - 1px)`,
+            width: 2,
+            bgcolor: "text.primary",
+            borderRadius: 1,
+          }}
+        />
+        <Box
+          aria-hidden="true"
+          sx={{
+            position: "absolute",
+            top: 18,
+            left: `${bar.tick * 100}%`,
+            transform: `translateX(${shift})`,
+            fontSize: 11,
+            whiteSpace: "nowrap",
+            color: "text.secondary",
+          }}
+        >
+          {bar.tickLabel}
+        </Box>
+      </Box>
     </Box>
   );
 }
@@ -121,6 +141,11 @@ export function ScorecardBoard({ data }: { data: DashboardScorecard }) {
               );
             })}
           </Box>
+        )}
+        {data.measures.length > 0 && (
+          <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1.5 }}>
+            Bar = current value. Line = target (or ceiling for expired).
+          </Typography>
         )}
       </Block>
     </Box>

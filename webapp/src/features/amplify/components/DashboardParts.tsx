@@ -183,6 +183,10 @@ export function Empty({ children }: { children: ReactNode }) {
   );
 }
 
+/** One exact size for every rank (the crown sits inside it), so the pills line up in a column. */
+const MEDAL_W = 36;
+const MEDAL_H = 24;
+
 const MEDALS: Record<number, { bg: string; fg: string; name: string }> = {
   1: { bg: "#F5C542", fg: "#2B1D00", name: "1st place" },
   2: { bg: "#CBD5E1", fg: "#111827", name: "2nd place" },
@@ -197,7 +201,7 @@ export function MedalRank({ rank }: { rank: number }) {
   const medal = MEDALS[rank];
   if (!medal) {
     return (
-      <Box component="span" sx={{ display: "inline-block", minWidth: 28, textAlign: "center", color: "text.secondary", fontWeight: 600 }}>
+      <Box component="span" sx={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: MEDAL_W, height: MEDAL_H, color: "text.secondary", fontWeight: 600, fontSize: 13 }}>
         {rank}
       </Box>
     );
@@ -211,10 +215,10 @@ export function MedalRank({ rank }: { rank: number }) {
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        gap: 0.5,
-        minWidth: 28,
-        height: 24,
-        px: 1,
+        gap: "3px",
+        width: MEDAL_W,
+        height: MEDAL_H,
+        boxSizing: "border-box",
         borderRadius: 999,
         bgcolor: medal.bg,
         color: medal.fg,

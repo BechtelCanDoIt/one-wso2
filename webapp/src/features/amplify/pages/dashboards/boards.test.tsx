@@ -135,13 +135,29 @@ describe("PostPerformanceBoard", () => {
     render(<PostPerformanceBoard data={campaigns} onSelect={onSelect} />);
     expect(screen.getByText("75%")).toBeTruthy();
     expect(screen.getByText("Novera: Sent")).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Campaign detail" })).toBeTruthy();
+    expect(screen.getByText("Showing the campaign with the most reposts. Click any campaign on the left to change it.")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Hiring/ }));
     expect(onSelect).toHaveBeenCalledWith("c2");
   });
 
+  it("says when the campaign was picked, and splits each category into plain and commented reposts", () => {
+    render(
+      <PostPerformanceBoard
+        data={{ ...campaigns, byCategory: [{ code: "PRODUCT", label: "Product", reposts: 45, repostsWithCommentary: 12 }, { code: "EVENT", label: "Event", reposts: 10 }] }}
+        onSelect={() => undefined}
+        picked
+      />,
+    );
+    expect(screen.getByText("Showing the campaign you picked.")).toBeTruthy();
+    expect(screen.getByText("45 (12 with comments)")).toBeTruthy();
+    expect(screen.getByText("10 (0 with comments)")).toBeTruthy();
+    expect(screen.getByText("Reposts include reposts with comments.")).toBeTruthy();
+  });
+
   it("asks for a pick when no post is selected", () => {
     render(<PostPerformanceBoard data={{ ...campaigns, selected: null }} onSelect={() => undefined} />);
-    expect(screen.getByText(/Pick a post/)).toBeTruthy();
+    expect(screen.getByText(/Pick a campaign on the left/)).toBeTruthy();
   });
 });
 
@@ -236,6 +252,9 @@ describe("GlanceBoard", () => {
     expect(screen.getByRole("img", { name: "2nd place" }).textContent).toBe("2");
     expect(screen.getByRole("img", { name: "3rd place" }).textContent).toBe("3");
     expect(screen.getByRole("img", { name: "1st place" }).querySelector("svg")).not.toBeNull();
+    const widths = ["1st place", "2nd place", "3rd place"].map((n) => getComputedStyle(screen.getByRole("img", { name: n })).width);
+    expect(new Set(widths).size).toBe(1);
+    expect(widths[0]).toBe("36px");
     expect(screen.getByRole("img", { name: "2nd place" }).querySelector("svg")).toBeNull();
     expect(screen.getByText("4")).toBeTruthy();
   });
@@ -300,10 +319,13 @@ describe("ScorecardBoard", () => {
     expect(bars).toHaveLength(2);
     expect(bars[0].getAttribute("aria-valuetext")).toBe("18% of 25% target");
     expect(bars[0].getAttribute("aria-valuemin")).toBe("0");
-    expect(bars[0].getAttribute("aria-valuemax")).toBe("25");
+    expect(bars[0].getAttribute("aria-valuemax")).toBe("100");
     expect(bars[0].getAttribute("aria-valuenow")).toBe("18");
     expect(bars[1].getAttribute("aria-valuetext")).toBe("2.7% against a 5% ceiling");
     expect(screen.getByText("Watch", { selector: "span" })).toBeTruthy();
+    expect(screen.getByText("Target 25%")).toBeTruthy();
+    expect(screen.getByText("Ceiling 5%")).toBeTruthy();
+    expect(screen.getByText("Bar = current value. Line = target (or ceiling for expired).")).toBeTruthy();
   });
 
   it("says so with no measures", () => {

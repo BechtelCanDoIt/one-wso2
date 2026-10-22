@@ -109,45 +109,54 @@ describe("reposts split", () => {
 describe("scoreBar", () => {
   const m = (over: Partial<ScorecardMeasure>) => measure(over);
 
-  it("fills value / target for an at-least measure, with the tick at the target", () => {
+  it("scales percent measures 0 to 100 and puts the target mark where the target is", () => {
     const b = scoreBar(m({ value: 18, target: 25, comparison: "AT_LEAST" }));
-    expect(b.fill).toBeCloseTo(0.72);
-    expect(b.tick).toBe(1);
-    expect(b.text).toBe("18% of 25% target");
-    expect(b.max).toBe(25);
+    expect(b.fill).toBeCloseTo(0.18);
+    expect(b.tick).toBeCloseTo(0.25);
+    expect(b.tickLabel).toBe("Target 25%");
+    expect(b.max).toBe(100);
     expect(b.now).toBe(18);
+    expect(b.text).toBe("18% of 25% target");
   });
 
-  it("stops at full when the value is over the target", () => {
-    const b = scoreBar(m({ value: 187, target: 150, unit: "COUNT", comparison: "AT_LEAST" }));
-    expect(b.fill).toBe(1);
-    expect(b.now).toBe(150);
-    expect(b.text).toBe("187 of 150 target");
-  });
-
-  it("fills COUNT measures value / target", () => {
-    expect(scoreBar(m({ value: 25, target: 100, unit: "COUNT", comparison: "AT_LEAST" })).fill).toBe(0.25);
-  });
-
-  it("does not divide by a zero target: met with any value, empty with none", () => {
-    expect(scoreBar(m({ value: 4, target: 0, comparison: "AT_LEAST" })).fill).toBe(1);
-    expect(scoreBar(m({ value: 0, target: 0, comparison: "AT_LEAST" })).fill).toBe(0);
-  });
-
-  it("marks the ceiling inside the bar for an at-most measure and fills past it on a breach", () => {
+  it("marks the ceiling for an at-most percent measure, filling past it on a breach", () => {
     const ok = scoreBar(m({ value: 2.7, target: 5, comparison: "AT_MOST" }));
-    expect(ok.tick).toBeCloseTo(0.5);
-    expect(ok.fill).toBeCloseTo(0.27);
+    expect(ok.fill).toBeCloseTo(0.027);
+    expect(ok.tick).toBeCloseTo(0.05);
+    expect(ok.tickLabel).toBe("Ceiling 5%");
     expect(ok.text).toBe("2.7% against a 5% ceiling");
     const breach = scoreBar(m({ value: 20, target: 5, comparison: "AT_MOST" }));
-    expect(breach.fill).toBe(1);
-    expect(breach.tick).toBeCloseTo(0.25);
-    const none = scoreBar(m({ value: 0, target: 0, comparison: "AT_MOST" }));
-    expect(none.fill).toBe(0);
-    expect(none.tick).toBe(0);
+    expect(breach.fill).toBeCloseTo(0.2);
+    expect(breach.fill).toBeGreaterThan(breach.tick);
   });
 
-  it("treats a bad number as zero", () => {
+  it("scales count measures to max(value, target) * 1.25, so the mark stays inside the bar", () => {
+    const under = scoreBar(m({ value: 25, target: 100, unit: "COUNT", comparison: "AT_LEAST" }));
+    expect(under.max).toBe(125);
+    expect(under.fill).toBeCloseTo(0.2);
+    expect(under.tick).toBeCloseTo(0.8);
+    expect(under.tickLabel).toBe("Target 100");
+    const over = scoreBar(m({ value: 187, target: 150, unit: "COUNT", comparison: "AT_LEAST" }));
+    expect(over.max).toBeCloseTo(233.75);
+    expect(over.fill).toBeCloseTo(0.8);
+    expect(over.tick).toBeCloseTo(150 / 233.75);
+    expect(over.now).toBe(187);
+    expect(over.text).toBe("187 of 150 target");
+  });
+
+  it("does not divide by zero: a zero target and zero value is an empty bar with the mark at the start", () => {
+    const none = scoreBar(m({ value: 0, target: 0, unit: "COUNT", comparison: "AT_LEAST" }));
+    expect(none.fill).toBe(0);
+    expect(none.tick).toBe(0);
+    expect(none.max).toBe(1);
+    const zeroTarget = scoreBar(m({ value: 4, target: 0, unit: "COUNT", comparison: "AT_LEAST" }));
+    expect(zeroTarget.fill).toBeCloseTo(0.8);
+    expect(zeroTarget.tick).toBe(0);
+  });
+
+  it("clamps a percent over 100 and treats a bad number as zero", () => {
+    expect(scoreBar(m({ value: 250, target: 25 })).fill).toBe(1);
     expect(scoreBar(m({ value: Number.NaN, target: 25 })).fill).toBe(0);
+    expect(scoreBar(m({ value: 10, target: -5 })).tick).toBe(0);
   });
 });
