@@ -266,7 +266,7 @@ function UmtCreateReleaseChunkForm() {
         </Box>
       </Paper>
 
-      <Box>
+      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
         <Button
           variant="contained"
           disabled={!canCreate}

@@ -104,6 +104,14 @@ describe("UmtCreateReleaseChunkPage", () => {
     await userEvent.click(rowCheckbox);
   }
 
+  it("puts Create Release Chunk at the bottom right, below the grid", () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    renderPage();
+
+    expect(createButton().parentElement).toHaveStyle({ display: "flex", justifyContent: "flex-end" });
+    expect(screen.getByRole("grid").compareDocumentPosition(createButton())).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("refuses to create while the UAT list it validates against is missing", async () => {
     state.uat = undefined;
     renderPage();
