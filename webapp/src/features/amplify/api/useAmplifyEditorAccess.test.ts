@@ -17,7 +17,13 @@
 import { describe, expect, it } from "vitest";
 import { hasAnyGroup } from "@hooks/useAsgardeoGroups";
 import { AMPLIFY_CURRENT_POSTS_ITEM_ID, AMPLIFY_NEW_POST_ITEM_ID } from "@constants/perspectives";
-import { AMPLIFY_EDITOR_GROUPS, amplifyEditorVisibility } from "./useAmplifyEditorAccess";
+import { AMPLIFY_DASHBOARD_ITEM_IDS } from "@constants/perspectives";
+import {
+  AMPLIFY_DASHBOARD_GROUPS,
+  AMPLIFY_EDITOR_GROUPS,
+  amplifyEditorVisibility,
+  amplifyVisibility,
+} from "./useAmplifyEditorAccess";
 
 const retry = () => undefined;
 
@@ -52,5 +58,44 @@ describe("AMPLIFY_EDITOR_GROUPS", () => {
     expect(hasAnyGroup(["amplify_marketing"], AMPLIFY_EDITOR_GROUPS)).toBe(true);
     expect(hasAnyGroup(["amplify_admin", "amplify_slt"], AMPLIFY_EDITOR_GROUPS)).toBe(false);
     expect(hasAnyGroup(["amplify_po_typo"], AMPLIFY_EDITOR_GROUPS)).toBe(false);
+  });
+});
+
+describe("AMPLIFY_DASHBOARD_GROUPS", () => {
+  it("is every known amplify_* role, and nothing an employee holds", () => {
+    for (const role of ["amplify_po", "amplify_marketing", "amplify_slt", "amplify_admin"]) {
+      expect(hasAnyGroup([role], AMPLIFY_DASHBOARD_GROUPS)).toBe(true);
+    }
+    expect(hasAnyGroup([], AMPLIFY_DASHBOARD_GROUPS)).toBe(false);
+    expect(hasAnyGroup(["employee", "amplify_po_typo", "amplify_"], AMPLIFY_DASHBOARD_GROUPS)).toBe(false);
+  });
+});
+
+describe("amplifyVisibility", () => {
+  const yes = { hasAccess: true, isResolving: false, retry };
+  const no = { hasAccess: false, isResolving: false, retry };
+  const resolving = { hasAccess: true, isResolving: true, retry };
+
+  it("shows the Dashboarding boards to a dashboard role and not New Post to an SLT", () => {
+    const v = amplifyVisibility(no, yes);
+    for (const id of AMPLIFY_DASHBOARD_ITEM_IDS) expect(v.canSee(id)).toBe(true);
+    expect(v.canSee(AMPLIFY_NEW_POST_ITEM_ID)).toBe(false);
+  });
+
+  it("hides every board from a plain employee", () => {
+    const v = amplifyVisibility(no, no);
+    for (const id of AMPLIFY_DASHBOARD_ITEM_IDS) expect(v.canSee(id)).toBe(false);
+  });
+
+  it("keeps the editor rows on their own gate", () => {
+    const v = amplifyVisibility(yes, no);
+    expect(v.canSee(AMPLIFY_NEW_POST_ITEM_ID)).toBe(true);
+    for (const id of AMPLIFY_DASHBOARD_ITEM_IDS) expect(v.canSee(id)).toBe(false);
+  });
+
+  it("fails closed while the token is still being decoded", () => {
+    const v = amplifyVisibility(resolving, resolving);
+    for (const id of AMPLIFY_DASHBOARD_ITEM_IDS) expect(v.canSee(id)).toBe(false);
+    expect(v.resolving).toBe(true);
   });
 });

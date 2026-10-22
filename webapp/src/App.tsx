@@ -121,10 +121,16 @@ import TeamMemberPage from "@features/my/my-team/pages/TeamMemberPage";
 import PerspectiveLanding from "@components/perspective-landing/PerspectiveLanding";
 import SriLankaRoute from "@components/route-guards/SriLankaRoute";
 import AmplifyEditorRoute from "@components/route-guards/AmplifyEditorRoute";
+import AmplifyDashboardRoute from "@components/route-guards/AmplifyDashboardRoute";
 import CelebratePage from "@features/amplify/pages/CelebratePage";
 import NewPostPage from "@features/amplify/pages/NewPostPage";
 import CurrentPostsPage from "@features/amplify/pages/CurrentPostsPage";
 import LinkedInCallbackPage from "@features/amplify/pages/LinkedInCallbackPage";
+import GlancePage from "@features/amplify/pages/dashboards/GlanceBoard";
+import OperationsPage from "@features/amplify/pages/dashboards/OperationsBoard";
+import PostPerformancePage from "@features/amplify/pages/dashboards/PostPerformanceBoard";
+import ParticipationPage from "@features/amplify/pages/dashboards/ParticipationBoard";
+import ScorecardPage from "@features/amplify/pages/dashboards/ScorecardBoard";
 import MasterDataRoute from "@components/route-guards/MasterDataRoute";
 import AdCampaignsAnalyticsPage from "@features/marketing-ops/ad-campaigns/pages/AdCampaignsAnalyticsPage";
 import CampaignTrackerPage from "@features/marketing-ops/ad-campaigns/pages/CampaignTrackerPage";
@@ -1031,6 +1037,28 @@ export default function App() {
                   </AmplifyEditorRoute>
                 }
               />
+              {/* Dashboarding: any amplify_* role (PO, Marketing, SLT, Admin).
+                  AmplifyDashboardRoute sends everyone else to Celebrate. */}
+              <Route path="amplify/dashboards" element={<Navigate to="/amplify/dashboards/glance" replace />} />
+              {(
+                [
+                  ["glance", GlancePage],
+                  ["operations", OperationsPage],
+                  ["posts", PostPerformancePage],
+                  ["participation", ParticipationPage],
+                  ["scorecard", ScorecardPage],
+                ] as const
+              ).map(([slug, Page]) => (
+                <Route
+                  key={slug}
+                  path={`amplify/dashboards/${slug}`}
+                  element={
+                    <AmplifyDashboardRoute>
+                      <Page />
+                    </AmplifyDashboardRoute>
+                  }
+                />
+              ))}
               <Route path="amplify/connect/callback" element={<LinkedInCallbackPage />} />
             </>
           )}

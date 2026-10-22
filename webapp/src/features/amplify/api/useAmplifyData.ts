@@ -37,7 +37,7 @@ export function amplifyKey(name: string, sub: string | undefined, ...rest: unkno
   return ["amplify", name, sub, ...rest];
 }
 
-function useAmplifyQueryBasis() {
+export function useAmplifyQueryBasis() {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();

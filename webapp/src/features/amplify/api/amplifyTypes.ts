@@ -152,3 +152,151 @@ export interface AmplifyProblem {
   status: number;
   detail?: string | null;
 }
+
+// ---- Dashboarding (amplify-api GET /dashboards/*, GET /leaderboard/groups) -------------------------------
+
+export interface DashboardAnnouncement {
+  /** NONE = no announcement row yet. */
+  status: "NONE" | "QUEUED" | "SENT" | "FAILED";
+  /** Outbox attempts so far while QUEUED. */
+  attempts?: number | null;
+  sentAt?: string | null;
+}
+
+export interface DashboardCampaignRow {
+  campaignId: string;
+  title: string;
+  categoryCode: string;
+  categoryLabel: string;
+  isPriority: boolean;
+  status?: "SCHEDULED" | "OPEN" | "CLOSED" | "ARCHIVED";
+  opensAt: string;
+  closesAt: string;
+  reposts: number;
+  announcement?: DashboardAnnouncement;
+}
+
+export interface DashboardOperations {
+  asOf: string;
+  headcount?: number | null;
+  kpis: {
+    campaignsLive: number;
+    campaignsLivePriority: number;
+    campaignsClosingWithin7Days: number;
+    reposts7d: number;
+    repostsPrev7d: number;
+    peopleConnected: number;
+    connectionsExpired: number;
+    pointsThisMonth: number;
+    peopleWithPoints: number;
+  };
+  campaigns: DashboardCampaignRow[];
+  shareHealth: {
+    windowDays: number;
+    published: number;
+    queued: number;
+    failed: number;
+    failedByReason: Record<string, number>;
+  };
+  connections: {
+    active: number;
+    expiring: number;
+    expired: number;
+    revoked: number;
+    neverConnected?: number | null;
+  };
+}
+
+export interface DashboardCampaignDetail {
+  campaignId: string;
+  title: string;
+  categoryCode: string;
+  categoryLabel: string;
+  isPriority: boolean;
+  opensAt: string;
+  closesAt: string;
+  reposts: number;
+  shareOfConnected?: number | null;
+  first24Hours: number;
+  announcement: DashboardAnnouncement;
+  byDay: { day: number; reposts: number }[];
+}
+
+export interface DashboardCampaigns {
+  asOf: string;
+  windowDays: number;
+  peopleConnected?: number;
+  campaigns: DashboardCampaignRow[];
+  selected?: DashboardCampaignDetail | null;
+  byCategory: { code: string; label: string; reposts: number }[];
+}
+
+export interface DashboardParticipation {
+  asOf: string;
+  funnel: {
+    employees?: number | null;
+    connected: number;
+    reposted: number;
+    active30Days: number;
+    expired: number;
+  };
+}
+
+export interface DashboardGlance {
+  asOf: string;
+  month: string;
+  reposts: { thisMonth: number; previousMonth: number };
+  weekly: { weekStart: string; reposts: number }[];
+  participants: number;
+  headcount?: number | null;
+  campaignsLive: number;
+  campaignsReachingTarget: { reached: number; live: number; thresholdPercent: number };
+  shareSuccess: { published: number; attempts: number };
+  bestCampaign?: {
+    campaignId: string;
+    title: string;
+    categoryLabel: string;
+    isPriority: boolean;
+    reposts: number;
+  } | null;
+}
+
+export interface ScorecardMeasure {
+  key: "connected" | "expired" | "shareSuccess" | "chatCards" | "priorityReach" | "active30Days" | "repostsPerWeek";
+  label: string;
+  unit: "PERCENT" | "COUNT";
+  value: number;
+  numerator?: number | null;
+  denominator?: number | null;
+  target: number;
+  comparison: "AT_LEAST" | "AT_MOST";
+  status: "ON_TRACK" | "WATCH";
+  note?: string | null;
+}
+
+export interface DashboardScorecard {
+  asOf: string;
+  measures: ScorecardMeasure[];
+}
+
+export interface GroupBoardEntry {
+  rank: number;
+  /** Opaque team key, or the BU name. */
+  key: string;
+  name: string;
+  businessUnit?: string | null;
+  points: number;
+  participants: number;
+  headcount: number;
+  participationRate: number;
+}
+
+export interface GroupBoard {
+  period: string;
+  by: "TEAM" | "BU";
+  businessUnit?: string | null;
+  asOf: string;
+  totals: { headcount: number; participants: number; points: number };
+  entries: GroupBoardEntry[];
+  unassigned: { participants: number; points: number };
+}
