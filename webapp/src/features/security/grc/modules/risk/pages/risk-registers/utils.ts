@@ -84,6 +84,8 @@ export const STATUS_CONFIG: Record<string, StatusCfg> = {
   PENDING_MANAGEMENT_APPROVAL:    { label: "Pending Management Approval",  color: "warning" },
   PENDING_COMPLIANCE_REVIEW:      { label: "Pending Compliance Approval",  color: "default" },
   APPROVED:                       { label: "Approved",                     color: "info" },
+  // Legacy value still present in risk_change_log rows written before the rename.
+  IN_REMEDIATION:                 { label: "Approved",                     color: "info" },
   PENDING_OWNER_COMPLETION_APPROVAL: { label: "Awaiting Owner Sign-off",   color: "warning" },
   PENDING_MANAGEMENT_CLOSURE_APPROVAL: { label: "Awaiting Management Sign-off", color: "warning" },
   PENDING_COMPLIANCE_CLOSURE:     { label: "Awaiting Closure",             color: "default", sx: { bgcolor: "#c8e6c9", color: "#1b5e20" } },
