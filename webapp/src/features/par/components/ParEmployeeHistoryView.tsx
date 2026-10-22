@@ -213,7 +213,7 @@ export default function ParEmployeeHistoryView({
             disabled={!rating.data.parEmployeeComment?.trim()}
             defaultExpanded={Boolean(rating.data.parEmployeeComment?.trim())}
           >
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee PAR</AccordionSummary>
+            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee's Feedback</AccordionSummary>
             <AccordionDetails>
               <Divider sx={{ my: 1 }} />
               <ParCommentView html={decodeParComment(rating.data.parEmployeeComment)} />

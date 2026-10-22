@@ -98,11 +98,11 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
   return Array.from(groups.entries())
     .map(([groupKey, members]) => {
       const first = members[0];
-      // ParLegacyRecordDetail renders migrated Employee PAR content from
+      // ParLegacyRecordDetail renders migrated Employee's Feedback content from
       // questionAnswers[].employeeAnswer, with overallCommentEmployee only
       // as its own fallback for older records that never got question-level
       // data — this count must recognize the same content or a record can
-      // show real Employee PAR content once opened while counting here as
+      // show real Employee's Feedback content once opened while counting here as
       // not done. employeeHasQuestionAnswer is the server-computed version
       // of that same per-question check (not a client-side
       // parseLegacyQuestionAnswers(m.questionAnswers) parse) -- this list is

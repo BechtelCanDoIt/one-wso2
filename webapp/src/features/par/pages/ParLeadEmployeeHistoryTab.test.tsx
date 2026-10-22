@@ -175,10 +175,10 @@ describe("ParLeadEmployeeHistoryTab", () => {
     const listbox = await screen.findByRole("listbox");
     fireEvent.click(within(listbox).getByText("Jane Doe"));
 
-    // "Employee PAR" only appears once the detail view actually renders —
+    // "Employee's Feedback" only appears once the detail view actually renders —
     // unlike the employee's own name/email, which the closed Select also
     // echoes as its selected-value display, so those would match twice.
-    expect(await screen.findByText("Employee PAR")).toBeInTheDocument();
+    expect(await screen.findByText("Employee's Feedback")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "All employees" })).not.toBeInTheDocument();
   });
 });

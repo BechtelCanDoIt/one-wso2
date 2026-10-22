@@ -29,7 +29,7 @@ export type LegacyCatalogAnswerType = "rating" | "text";
 export interface LegacyCatalogQuestion {
   label: string;
   subtext: string;
-  // Shown only on the Employee PAR panel -- the question's real content is
+  // Shown only on the Employee's Feedback panel -- the question's real content is
   // exclusively the employee's own answer (2018 Q3/Q4 and 2019's single
   // "feedback on the quarter" prompt).
   employeeOnly?: boolean;
@@ -96,7 +96,7 @@ const OVERALL_WORK_EXPERIENCE_2015: LegacyCatalogCategory = {
     // ("comment as N/A if not a team lead"), not useful context above the
     // answer the way every other question's subtext is. leadOnly: these
     // are genuinely answered by the lead about the employee, never shown
-    // on the Employee PAR panel.
+    // on the Employee's Feedback panel.
     leadOnly("Recommended for promotion?", ""),
     leadOnly("Proposed Designation", ""),
   ],
@@ -495,7 +495,7 @@ export interface LegacyGroup {
 }
 
 // One dispatcher covering every catalogued era -- returns grouped sections
-// for the Employee PAR / Lead's Feedback panels, or null when this cycle
+// for the Employee's Feedback / Lead's Feedback panels, or null when this cycle
 // name has no catalog at all; callers fall back to the flat
 // questionAnswers list in that case.
 export function getLegacyQuestionGroups(

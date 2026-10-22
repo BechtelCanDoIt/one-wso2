@@ -553,7 +553,7 @@ export default function ParLeadEmployeeHistoryTab() {
           </Card>
 
           <Accordion variant="outlined" disabled={!legacyEmployeeContent}>
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee PAR</AccordionSummary>
+            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee's Feedback</AccordionSummary>
             <AccordionDetails>
               <Divider sx={{ my: 1 }} />
               <ParCommentView html={legacyEmployeeContent} />
@@ -612,7 +612,7 @@ export default function ParLeadEmployeeHistoryTab() {
           </Card>
 
           <Accordion variant="outlined" disabled={!rating.data.parEmployeeComment?.trim()}>
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee PAR</AccordionSummary>
+            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee's Feedback</AccordionSummary>
             <AccordionDetails>
               <Divider sx={{ my: 1 }} />
               <ParCommentView html={decodeParComment(rating.data.parEmployeeComment)} />
