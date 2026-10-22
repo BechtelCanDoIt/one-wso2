@@ -375,6 +375,53 @@ describe("UmtPrAnalysisStep", () => {
     await vi.waitFor(() => expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled());
   });
 
+  describe("Analyze on an Instructions Only update", () => {
+    const analyzeButton = () => screen.queryByRole("button", { name: "Analyze" });
+
+    it("is gone once the analysis is completed, since there is nothing left to analyze", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED", isInstructionsOnly: true }));
+
+      expect(screen.getByRole("radio", { name: "Instructions Only Update" })).toBeChecked();
+      expect(analyzeButton()).not.toBeInTheDocument();
+    });
+
+    it("is not shown while the completed analysis is still loading", () => {
+      state.analysisLoaded = false;
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED", isInstructionsOnly: true }));
+
+      expect(analyzeButton()).not.toBeInTheDocument();
+    });
+
+    it("is there before the analysis has run", () => {
+      state.status = "NONE";
+      renderStep(summary("Development", { praStatus: "NONE", isInstructionsOnly: true }));
+
+      expect(analyzeButton()).toBeEnabled();
+    });
+
+    it("comes back when the update type is changed, so the update can be analyzed as the other type", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED", isInstructionsOnly: true }));
+
+      fireEvent.click(screen.getByRole("radio", { name: "General Update" }));
+
+      expect(analyzeButton()).toBeInTheDocument();
+    });
+
+    it("is offered when a completed update of another type is switched to Instructions Only", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+      fireEvent.click(screen.getByRole("radio", { name: "Instructions Only Update" }));
+
+      expect(analyzeButton()).toBeEnabled();
+    });
+
+    it("stays for a completed update of another type", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+      expect(analyzeButton()).toBeInTheDocument();
+    });
+  });
+
   it("follows the recorded update type when it changes while the step stays mounted", () => {
     const { rerender } = renderStep(summary("Development"));
     expect(screen.getByRole("radio", { name: "General Update" })).toBeChecked();

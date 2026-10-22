@@ -410,6 +410,12 @@ export default function UmtPrAnalysisStep({
     manualFileCount: updateType === "generalUpdate" ? manualFiles.length : 0,
   });
 
+  // An Instructions Only update has no inputs, so once its analysis has
+  // completed there is nothing left to analyze: no Analyze button, until the
+  // update type is changed or the update goes back to Development.
+  const isInstructionsOnlyAnalyzed =
+    isPrAnalyzed && updateType === "instructionsOnlyUpdate" && (awaitingAnalysis || !hasNewInputs) && !isBusy;
+
   return (
     <Stack spacing={3}>
       <Box>
@@ -531,33 +537,37 @@ export default function UmtPrAnalysisStep({
           </>
         )}
 
-        <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "flex-end", mt: 3 }}>
-          {isBusy && <CircularProgress size={22} />}
-          {(isBusy || updateType !== "instructionsOnlyUpdate") && (
-            <Stack sx={{ flex: 1, minWidth: 0 }}>
-              {runningMessage ? (
-                <Typography variant="body2" color="text.primary">
-                  {runningMessage}
-                </Typography>
-              ) : (
-                statusMessage.lines.map((line, index) => (
-                  <Typography key={index} variant="body2" color={statusColor} sx={{ wordBreak: "break-word" }}>
-                    {line}
-                  </Typography>
-                ))
+        {!isInstructionsOnlyAnalyzed && (
+          <>
+            <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "flex-end", mt: 3 }}>
+              {isBusy && <CircularProgress size={22} />}
+              {(isBusy || updateType !== "instructionsOnlyUpdate") && (
+                <Stack sx={{ flex: 1, minWidth: 0 }}>
+                  {runningMessage ? (
+                    <Typography variant="body2" color="text.primary">
+                      {runningMessage}
+                    </Typography>
+                  ) : (
+                    statusMessage.lines.map((line, index) => (
+                      <Typography key={index} variant="body2" color={statusColor} sx={{ wordBreak: "break-word" }}>
+                        {line}
+                      </Typography>
+                    ))
+                  )}
+                </Stack>
               )}
+              <Button
+                variant="contained"
+                disabled={analyzeDisabled || isBusy || awaitingAnalysis}
+                loading={isAnalyzing}
+                onClick={handleAnalyzeClick}
+              >
+                Analyze
+              </Button>
             </Stack>
-          )}
-          <Button
-            variant="contained"
-            disabled={analyzeDisabled || isBusy || awaitingAnalysis}
-            loading={isAnalyzing}
-            onClick={handleAnalyzeClick}
-          >
-            Analyze
-          </Button>
-        </Stack>
-        <Divider sx={{ mt: 3 }} />
+            <Divider sx={{ mt: 3 }} />
+          </>
+        )}
       </Box>
 
       {/* Only once the product analysis has finished too, i.e. in PRAnalyzed. */}
