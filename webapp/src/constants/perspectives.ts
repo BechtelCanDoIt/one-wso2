@@ -516,7 +516,7 @@ const UMT_SECTION: PerspectiveSection = {
     // Opens the documentation site in a new tab. The address is UMT backend
     // configuration (/update/documentation), not a build-time value, so the
     // row runs an action that reads it at click time.
-    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Documentation", icon: Book, onSelect: openUmtDocumentation },
+    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Docs", icon: Book, onSelect: openUmtDocumentation },
   ],
 };
 
