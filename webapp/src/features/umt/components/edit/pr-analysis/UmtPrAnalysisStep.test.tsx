@@ -33,6 +33,8 @@ const state = vi.hoisted(() => ({
   advance: vi.fn(),
   advancePending: false,
   advanceFailed: false,
+  // The operation of the one file a previous analysis left on the update.
+  analyzedFileOperation: "Added",
   analysisFetching: false,
   analysisLoaded: true,
   analysisFailed: false,
@@ -52,7 +54,7 @@ vi.mock("../../../api/useUmtUpdateViewData", () => ({
       additionalFileOperations: [
         {
           file: "repository/components/dropins/a.jar",
-          operation: "Added",
+          operation: state.analyzedFileOperation,
           downloadURL: "https://blob.example.com/a.jar?sig=secret",
         },
       ],
@@ -130,6 +132,14 @@ vi.mock("./UmtAddManualFilesSection", () => ({
       >
         Add stub uploaded file
       </button>
+      <button
+        onClick={() => {
+          onFilesChange([...files, { file: `repository/conf/changed-${files.length}.xml`, operation: "Modified" }]);
+          onDirty();
+        }}
+      >
+        Add stub modified file
+      </button>
     </div>
   ),
 }));
@@ -161,6 +171,7 @@ describe("UmtPrAnalysisStep", () => {
     state.advance.mockReset().mockResolvedValue(undefined);
     state.advancePending = false;
     state.advanceFailed = false;
+    state.analyzedFileOperation = "Added";
     state.analysisFetching = false;
     state.analysisLoaded = true;
     state.analysisFailed = false;
@@ -384,10 +395,11 @@ describe("UmtPrAnalysisStep", () => {
     expect(screen.getByRole("radio", { name: "Instructions Only Update" })).toBeChecked();
   });
 
-  it("warns about added files, then demotes, uploads and submits, in that order", async () => {
+  it("warns when the update has both added and modified files, then demotes, uploads and submits, in that order", async () => {
     renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add stub modified file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
     expect(screen.getByText("Added and Modified Files")).toBeInTheDocument();
     expect(state.calls).toEqual([]);
@@ -397,13 +409,44 @@ describe("UmtPrAnalysisStep", () => {
     await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "upload", "start"]));
   });
 
+  it("analyzes without the warning when the update has only added files", async () => {
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    expect(screen.queryByText("Added and Modified Files")).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "upload", "start"]));
+  });
+
+  it("analyzes without the warning when the update has only modified files", async () => {
+    state.analyzedFileOperation = "Modified";
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub modified file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    expect(screen.queryByText("Added and Modified Files")).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "start"]));
+  });
+
+  it("analyzes without the warning when no file was added or modified", async () => {
+    state.analyzedFileOperation = "Removed";
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    expect(screen.queryByText("Added and Modified Files")).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "upload", "start"]));
+  });
+
   it("uploads a picked file under the path it is analyzed with, and a placeholder under none", async () => {
     renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Add stub uploaded file" }));
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
 
     await vi.waitFor(() => expect(state.upload).toHaveBeenCalledTimes(2));
     expect(state.upload.mock.calls[0][0]).toEqual(
@@ -423,7 +466,6 @@ describe("UmtPrAnalysisStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
 
     await vi.waitFor(() =>
       expect(state.showError).toHaveBeenCalledWith(
@@ -434,7 +476,6 @@ describe("UmtPrAnalysisStep", () => {
 
     await vi.waitFor(() => expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
 
     await vi.waitFor(() => expect(state.start).toHaveBeenCalledTimes(1));
     expect(state.upload).toHaveBeenCalledTimes(3);
@@ -446,7 +487,6 @@ describe("UmtPrAnalysisStep", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
     await vi.waitFor(() => expect(state.transition).toHaveBeenCalledWith("Development"));
 
     rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { praStatus: "COMPLETED" })} />);
