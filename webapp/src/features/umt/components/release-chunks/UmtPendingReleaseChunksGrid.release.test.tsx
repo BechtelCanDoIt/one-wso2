@@ -26,6 +26,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const state = vi.hoisted(() => ({
+  chunkStatus: "created",
   buildStatus: undefined as unknown,
   freshBuildStatus: undefined as unknown,
   fetchFresh: undefined as undefined | (() => Promise<unknown>),
@@ -67,7 +68,7 @@ vi.mock("../../api/useUmtReleaseChunks", () => ({
     42: {
       buildStatusLoading: false,
       buildStatus: state.buildStatus,
-      chunkStatus: { id: 42, updateIds: [101], status: "created" },
+      chunkStatus: { id: 42, updateIds: [101], status: state.chunkStatus },
     },
   }),
   useUmtReleaseChunkDockerBuildStatus: () => ({
@@ -112,6 +113,23 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
     state.showWarning.mockClear();
     state.releaseMutate.mockClear();
     state.fetchFresh = undefined;
+    state.chunkStatus = "created";
+  });
+
+  it("shows progress, and no Release, for a chunk whose release was requested", () => {
+    state.chunkStatus = "requestedToRelease";
+    render(<UmtPendingReleaseChunksGrid />);
+
+    expect(screen.getByText("Releasing chunks…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Release" })).toBeNull();
+  });
+
+  it("shows progress, and no Release, for a chunk whose creation was requested", () => {
+    state.chunkStatus = "requestedToCreate";
+    render(<UmtPendingReleaseChunksGrid />);
+
+    expect(screen.getByText("Creating chunk…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Release" })).toBeNull();
   });
 
   it("refuses to release a chunk whose build status could not be fetched", async () => {

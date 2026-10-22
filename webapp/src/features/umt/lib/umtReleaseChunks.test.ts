@@ -19,7 +19,9 @@ import {
   umtBuildStatusChip,
   umtCanRetriggerBuild,
   umtCanRetriggerCstBuild,
+  umtReleaseChunkCanRelease,
   umtReleaseChunkCollisionProducts,
+  umtReleaseChunkInProgress,
   umtReleaseChunkRowAction,
   umtReleaseReadiness,
 } from "./umtReleaseChunks";
@@ -80,6 +82,14 @@ describe("umtReleaseChunkRowAction", () => {
     expect(umtReleaseChunkRowAction("retriggering")).toEqual({ kind: "in-progress" });
   });
 
+  it("maps a chunk whose release was requested to in-progress, so Release is not offered again", () => {
+    expect(umtReleaseChunkRowAction("requestedToRelease")).toEqual({ kind: "in-progress" });
+  });
+
+  it("maps a chunk whose creation was requested to in-progress, marked as creating", () => {
+    expect(umtReleaseChunkRowAction("requestedToCreate")).toEqual({ kind: "in-progress", activity: "creating" });
+  });
+
   it("maps created to the created action set", () => {
     expect(umtReleaseChunkRowAction("created")).toEqual({ kind: "created" });
   });
@@ -88,6 +98,42 @@ describe("umtReleaseChunkRowAction", () => {
     expect(umtReleaseChunkRowAction("Released")).toEqual({ kind: "none" });
     expect(umtReleaseChunkRowAction(null)).toEqual({ kind: "none" });
     expect(umtReleaseChunkRowAction(undefined)).toEqual({ kind: "none" });
+  });
+});
+
+describe("umtReleaseChunkInProgress", () => {
+  it("is true for a chunk being created, released or retriggered, which settles on its own", () => {
+    for (const status of ["requestedToCreate", "requestedToRelease", "releasing", "retriggering"]) {
+      expect(umtReleaseChunkInProgress(status)).toBe(true);
+    }
+  });
+
+  it("is false for a chunk that is waiting for someone, finished, or has no status", () => {
+    for (const status of ["created", "releasingFailed", "releasingDockerFailed", "Released", null, undefined]) {
+      expect(umtReleaseChunkInProgress(status)).toBe(false);
+    }
+  });
+});
+
+describe("umtReleaseChunkCanRelease", () => {
+  it("is true for a created chunk, and one whose release failed", () => {
+    expect(umtReleaseChunkCanRelease("created")).toBe(true);
+    expect(umtReleaseChunkCanRelease("releasingFailed")).toBe(true);
+  });
+
+  it("is false for a chunk that is being created or released, has been released, or has no status", () => {
+    for (const status of [
+      "requestedToCreate",
+      "requestedToRelease",
+      "releasing",
+      "retriggering",
+      "releasingDockerFailed",
+      "Released",
+      null,
+      undefined,
+    ]) {
+      expect(umtReleaseChunkCanRelease(status)).toBe(false);
+    }
   });
 });
 

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { keepPreviousData, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet } from "@api/http";
@@ -22,6 +22,7 @@ import { httpRetry } from "@api/errors";
 import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
+import { umtReleaseChunkInProgress } from "../lib/umtReleaseChunks";
 import {
   mapUmtReleaseChunk,
   mapUmtReleaseChunkBuildStatus,
@@ -144,9 +145,17 @@ export function useFetchFreshUmtReleaseChunkBuildStatus() {
 // reporting the failure itself: a grid of per-row error banners would drown
 // out the list, and every action that depends on a status checks for one
 // before it runs.
+//
+// A chunk being created, released or retriggered has its status read again
+// every few seconds until it settles, and when it does the lists and its
+// build statuses are refreshed, so a released chunk leaves the pending list
+// and a created one shows its builds.
+const CHUNK_STATUS_POLL_MS = 5000;
+
 export function useUmtReleaseChunkRowStatuses(ids: number[]): Record<number, UmtReleaseChunkRowStatus> {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
+  const queryClient = useQueryClient();
   const { state: subState } = useAsgardeoSub();
   const userSub = subState.status === "ready" ? subState.sub : undefined;
   const ready = isSignedIn && isUmtBackendConfigured() && Boolean(userSub);
@@ -166,9 +175,12 @@ export function useUmtReleaseChunkRowStatuses(ids: number[]): Record<number, Umt
       enabled: ready,
       queryFn: async () =>
         authedGet<UmtReleaseChunkStatus>(umtServiceUrls.releaseChunk(id), await getAccessToken()),
+      refetchInterval: (query: { state: { data?: UmtReleaseChunkStatus } }) =>
+        umtReleaseChunkInProgress(query.state.data?.status) ? CHUNK_STATUS_POLL_MS : false,
       retry: httpRetry,
     })),
   });
+
 
   // A signature of what the queries have produced. `dataUpdatedAt` changes
   // exactly when a query's data changes, so this string stays equal across
@@ -181,6 +193,28 @@ export function useUmtReleaseChunkRowStatuses(ids: number[]): Record<number, Umt
     buildStatusResults.map((result) => `${result.dataUpdatedAt}:${result.isPending}`).join(","),
     chunkStatusResults.map((result) => `${result.dataUpdatedAt}:${result.isPending}`).join(","),
   ].join("|");
+
+  // The chunks last seen in progress, so a status that moves on from it can be
+  // told from one that was never in progress.
+  const inProgressIds = useRef(new Set<number>());
+  useEffect(() => {
+    const settledIds = new Set<number>();
+    ids.forEach((id, index) => {
+      const status = chunkStatusResults[index]?.data?.status;
+      if (typeof status !== "string") return;
+      if (umtReleaseChunkInProgress(status)) inProgressIds.current.add(id);
+      else if (inProgressIds.current.delete(id)) settledIds.add(id);
+    });
+    if (settledIds.size === 0) return;
+    void queryClient.invalidateQueries({ queryKey: ["umt-release-chunks"] });
+    void queryClient.invalidateQueries({ queryKey: ["umt-released-chunks"] });
+    void queryClient.invalidateQueries({
+      predicate: (query) =>
+        query.queryKey[0] === "umt-release-chunk-build-status" && settledIds.has(query.queryKey[2] as number),
+    });
+    // The signature stands for the results read here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signature]);
 
   return useMemo(() => {
     const statuses: Record<number, UmtReleaseChunkRowStatus> = {};
