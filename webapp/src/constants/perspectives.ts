@@ -23,6 +23,7 @@ import { CADO2_APPS } from "@constants/cado2Apps";
 import {
   AwardIcon,
   BarChart3,
+  Book,
   BookOpenIcon,
   CheckCheckIcon,
   ClipboardCheckIcon,
@@ -53,6 +54,8 @@ import {
   ServerIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
+import type { ComponentType } from "react";
+import type { QueryClient } from "@tanstack/react-query";
 import type { Capability, MenuApp } from "@constants/appMenu";
 import {
   FINANCE_OVERVIEW_APPS,
@@ -71,7 +74,14 @@ import { ME_PAR_APPS } from "@constants/parApps";
 import { ME_PROMOTION_APPS } from "@constants/promotionApps";
 import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
+import { UMT_DOCUMENTATION_ITEM_ID, openUmtDocumentation } from "@features/umt/lib/umtDocumentation";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
+import {
+  Cado2LogoIcon,
+  EchoLogoIcon,
+  SalesPitstopLogoIcon,
+  type RailIconProps,
+} from "@features/sales/components/SalesBrandIcons";
 
 export interface PerspectiveSection {
   id: string; // anchor id on the perspective's page (leaf sections)
@@ -79,7 +89,8 @@ export interface PerspectiveSection {
   // App groups (Leave, Menu, Finance) carry an icon + nested children.
   // A section with `children` renders as a collapsible group in the rail; a
   // leaf section scrolls to its `id`.
-  icon?: LucideIcon;
+  // A line icon, or a product's own logo (see SalesBrandIcons) -- the rail only renders it.
+  icon?: LucideIcon | ComponentType<RailIconProps>;
   // Visible when the caller has ANY of these capabilities (OR semantics).
   // Omitted = visible to everyone. Only app-menu registries (Leave, Finance,
   // Finance) use this.
@@ -99,6 +110,11 @@ export interface PerspectiveSection {
   // of ours is active while the user is over there. Mutually exclusive with
   // `path` — a section is either somewhere we host or somewhere we don't.
   externalUrl?: string;
+  // When set, choosing the row runs this instead of navigating — for a row
+  // whose destination is only known at runtime. It is handed the app's
+  // QueryClient, so it can read what a hook has already fetched. Mutually
+  // exclusive with `path`.
+  onSelect?: (context: { queryClient: QueryClient }) => void;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group
@@ -521,6 +537,10 @@ const UMT_SECTION: PerspectiveSection = {
     { id: "umt-products", label: "Product Management", path: umtPaths.products },
     { id: "umt-release-chunks", label: "Release Chunks", path: umtPaths.releaseChunks },
     { id: "umt-statistics", label: "Statistics", path: umtPaths.statistics },
+    // Opens the documentation site in a new tab. The address is UMT backend
+    // configuration (/update/documentation), not a build-time value, so the
+    // row runs an action that reads it at click time.
+    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Documentation", icon: Book, onSelect: openUmtDocumentation },
   ],
 };
 
@@ -545,54 +565,43 @@ export const UMT_ITEM_IDS: ReadonlySet<string> = new Set([
   UMT_SECTION.id,
   ...(UMT_SECTION.children ?? []).map((child) => child.id),
 ]);
-// Sales's rail: Echo, the meeting-intelligence product, as a group of its screens (Meetings so
-// far); Deals; and CadO2 while its preview flag is on.
+// Sales's rail: Echo, the call-intelligence product, as a group of its screens (Calls and
+// Deals); Sales Pitstop's Library while its preview flag is on; and CadO2 while its flag is on.
 const SALES_ECHO_SECTION: PerspectiveSection = {
   id: "sales-echo",
   label: "Echo",
-  // NOT RadioIcon, which belongs to the perspective itself. SideRail renders
-  // the Overview row with `active.icon`, so a section reusing the perspective
-  // icon puts the same glyph on two adjacent rows and the rail stops being
-  // scannable. Video reads as "recorded call" and its solid rectangle is the
-  // strongest silhouette contrast against Radio's arcs at 20px.
-  icon: VideoIcon,
-  // A group even while Meetings is its only screen, the way CadO2 is: collapsed
-  // to a leaf the row would read "Echo" and the word Meetings would vanish from
-  // the rail until a second screen arrives -- see MenuApp.alwaysGroup.
+  icon: EchoLogoIcon,
   alwaysGroup: true,
   children: [
     // The recordings Echo captured, with their transcripts and MEDDPICC evidence.
     // The id is an internal key and does not need to match the label.
-    { id: "sales-meetings", label: "Meetings", path: "/sales/meetings" },
+    { id: "sales-meetings", label: "Calls", icon: VideoIcon, path: "/sales/meetings" },
+    // One row per Opportunity with its MEDDPICC state, beside the calls it came from.
+    // Served by the MEDDPICC backend rather than meet-app, but gated like Calls: it is
+    // the same sales team, and meet-app's answer is the one the rail already has.
+    { id: "sales-deals", label: "Opportunities", icon: HandshakeIcon, path: "/sales/deals" },
   ],
 };
 
-// Sales Pitstop, a group like Echo, holding the Library (Smart Search over Pitstop's content). Plain rows with no
-// `requires`, and not in SALES_ITEM_IDS: they are not gated by the meet-app backend (ONE_WSO2_REVOPS_BACKEND_URL)
-// that owns Echo and Deals. Pitstop's own backend decides what each caller may see. Held back by the `smartSearch` flag.
+// Sales Pitstop's Library: Smart Search over Pitstop's content. No `requires`, and not in
+// SALES_ITEM_IDS: it is not gated by the ONE_WSO2_REVOPS_BACKEND_URL backend that gates Calls and
+// Deals. The ONE_WSO2_SMART_SEARCH_BACKEND_URL backend decides what each caller may see. A group even
+// with one screen, so the rail names both the product and the screen. Held back by the `smartSearch` flag.
 const SALES_PITSTOP_SECTION: PerspectiveSection = {
   id: "sales-pitstop",
   label: "Sales Pitstop",
-  icon: BookOpenIcon,
+  icon: SalesPitstopLogoIcon,
   alwaysGroup: true,
-  children: [{ id: "sales-library", label: "Library", path: SMART_SEARCH_LIBRARY_PATH }],
+  children: [{ id: "sales-library", label: "Ask Sales", icon: BookOpenIcon, path: SMART_SEARCH_LIBRARY_PATH }],
 };
 
 const SALES_SECTIONS: PerspectiveSection[] = [
   SALES_ECHO_SECTION,
-  {
-    // One row per Opportunity with its MEDDPICC state, beside the calls it came from.
-    // Served by the MEDDPICC backend rather than meet-app, but gated like Echo: it is
-    // the same sales team, and meet-app's answer is the one the rail already has.
-    id: "sales-deals",
-    label: "Deals",
-    icon: HandshakeIcon,
-    path: "/sales/deals",
-  },
   ...(isPreviewEnabled("smartSearch") ? [SALES_PITSTOP_SECTION] : []),
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
-  ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS) : []),
+  // Its group shows CADO2's own logo, as Echo's does (D101).
+  ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS).map((s) => ({ ...s, icon: Cado2LogoIcon })) : []),
 ];
 
 /**
@@ -605,13 +614,12 @@ const SALES_SECTIONS: PerspectiveSection[] = [
  * id no adapter claims falls through to the capability check, and a group with no `requires`
  * would pass it for everyone.
  *
- * Echo and Deals: CadO2's rows sit in the same perspective but belong to its own adapter, and
+ * Echo's rows only: CadO2's rows sit in the same perspective but belong to its own adapter, and
  * two adapters claiming one id is a test failure (claimConflicts).
  */
 export const SALES_ITEM_IDS: ReadonlySet<string> = new Set([
   SALES_ECHO_SECTION.id,
   ...(SALES_ECHO_SECTION.children ?? []).map((child) => child.id),
-  "sales-deals",
 ]);
 
 export interface PerspectiveDef {

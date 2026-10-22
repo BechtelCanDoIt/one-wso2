@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { UmtSecurityAdvisory } from "../api/umtUpdates";
+
 export const SECURITY_ADVISORY_REGEX = /^WSO2-\d{4}-\d{4}$/;
 
 // Client-side format check, run before ever hitting the backend existence
@@ -21,4 +23,11 @@ export const SECURITY_ADVISORY_REGEX = /^WSO2-\d{4}-\d{4}$/;
 // passes.
 export function umtSecurityAdvisoryFormatValid(advisoryId: string): boolean {
   return SECURITY_ADVISORY_REGEX.test(advisoryId.trim());
+}
+
+// A security update must carry at least one saved advisory before it leaves
+// ProductAnalyzed for StagingRequested: once it is in Staging, no Edit-tab
+// step can add one.
+export function umtHasSecurityAdvisory(advisories: UmtSecurityAdvisory[] | null | undefined): boolean {
+  return (advisories ?? []).some((advisory) => Boolean(advisory.securityAdvisoryName?.trim()));
 }

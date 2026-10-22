@@ -50,7 +50,7 @@ describe("CadO2 Admin's section list", () => {
   it("lists every section under its group, and marks the open one", () => {
     wide.value = true;
     open("/sales/cado2/admin/currencies");
-    const nav = screen.getByRole("navigation", { name: "CadO2 Admin sections" });
+    const nav = screen.getByRole("navigation", { name: "CADO2 Admin sections" });
     for (const group of ADMIN_SECTION_GROUPS) expect(within(nav).getByText(group.label)).toBeInTheDocument();
     expect(within(nav).getAllByRole("link")).toHaveLength(ADMIN_SECTIONS.length);
     expect(within(nav).getByRole("link", { name: "Currencies" })).toHaveAttribute("aria-current", "page");
@@ -69,7 +69,7 @@ describe("CadO2 Admin's section list", () => {
   it("becomes a select above the content on a narrow screen", async () => {
     wide.value = false;
     open("/sales/cado2/admin/approval-matrix");
-    expect(screen.queryByRole("navigation", { name: "CadO2 Admin sections" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "CADO2 Admin sections" })).toBeNull();
     const user = userEvent.setup();
     await user.click(screen.getByRole("combobox", { name: "Admin section" }));
     await user.click(screen.getByRole("option", { name: "Product Categories" }));

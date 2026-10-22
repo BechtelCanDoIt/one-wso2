@@ -49,6 +49,8 @@ export interface SmartSearchContent {
   tags?: string[];
   /** When it was added to Pitstop, as "YYYY-MM-DD HH:MM:SS.ffffff" in UTC. */
   createdOn: string;
+  /** When an admin last verified it, in the same format. Missing on older backends, and null when never set. */
+  lastVerifiedOn?: string | null;
   contentType: string;
   contentSubtype: string | null;
   thumbnail?: string;
@@ -59,4 +61,17 @@ export interface SmartSearchResponse {
   answer: string | null;
   sources: SmartSearchSource[];
   contents: SmartSearchContent[];
+}
+
+/** What a written message is for: an email or chat message to a customer, a plain summary, an explanation, or what the seller types themselves. */
+export type ComposeIntent = "email" | "chat" | "plain" | "explain" | "custom";
+
+/** What the backend returns for POST /smart-search/compose. */
+export interface ComposeResponse {
+  /** The message, as plain text. */
+  text: string;
+  /** The Pitstop content ids of the results it was written from, best match first. */
+  documentIds: string[];
+  /** An email's subject line, when one was written; the text then does not repeat it. */
+  subject?: string | null;
 }

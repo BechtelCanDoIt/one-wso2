@@ -136,7 +136,7 @@ export function useUpdatePromotionRequestJobBand() {
   const getAccessToken = useAccessToken();
   const invalidate = useInvalidatePromotionRequests();
   return useMutation({
-    mutationFn: async (payload: { id: number; promotingJobBand: number }) => {
+    mutationFn: async (payload: { id: number; promotingJobBand: number; promotedJobRole?: string }) => {
       const accessToken = await getAccessToken();
       return authedPatch(promotionServiceUrls.promotionRequestUpdate(), accessToken, payload, digiopsHeaders());
     },

@@ -29,6 +29,12 @@ vi.mock("./useMasterDataMutations", () => ({
   describeDeleteError: () => "",
 }));
 
+// The country list is served by the backend; the form is what is under test.
+vi.mock("./useMasterData", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./useMasterData")>()),
+  useCountries: () => ({ data: { "Sri Lanka": "LKR", Germany: "EUR" } }),
+}));
+
 const card: CreditCard = {
   id: 1,
   ccNumber: "1234-1234",
@@ -116,5 +122,52 @@ describe("the credit-card form's status toggle", () => {
 
     expect(screen.getByRole("switch")).not.toBeChecked();
     expect(screen.getByText("Inactive")).toBeInTheDocument();
+  });
+});
+
+function showSubsidiaries() {
+  return render(
+    <QueryClientProvider client={new QueryClient()}>
+      <NotificationsProvider>
+        <MasterDataFormDialog tab="subsidiaries" open onClose={vi.fn()} />
+      </NotificationsProvider>
+    </QueryClientProvider>,
+  );
+}
+
+describe("the subsidiary form's country", () => {
+  it("offers the countries a subsidiary may be registered in", async () => {
+    const user = userEvent.setup();
+    showSubsidiaries();
+
+    await user.click(screen.getByRole("combobox", { name: /Country/ }));
+
+    expect(await screen.findByRole("option", { name: "Sri Lanka" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Germany" })).toBeInTheDocument();
+  });
+
+  it("keeps the chosen country", async () => {
+    const user = userEvent.setup();
+    showSubsidiaries();
+
+    await user.click(screen.getByRole("combobox", { name: /Country/ }));
+    await user.click(await screen.findByRole("option", { name: "Sri Lanka" }));
+
+    expect(screen.getByRole("combobox", { name: /Country/ })).toHaveValue("Sri Lanka");
+  });
+
+  it("shows the currency the chosen country will be saved with", async () => {
+    const user = userEvent.setup();
+    showSubsidiaries();
+
+    await user.click(screen.getByRole("combobox", { name: /Country/ }));
+    await user.click(await screen.findByRole("option", { name: "Sri Lanka" }));
+
+    expect(screen.getByLabelText(/Currency Code/)).toHaveValue("LKR");
+  });
+
+  it("does not let that currency be typed over", () => {
+    showSubsidiaries();
+    expect(screen.getByLabelText(/Currency Code/)).toBeDisabled();
   });
 });

@@ -24,13 +24,13 @@ import { KIND_ICON } from "./kindIcon";
 
 interface ResultCardProps {
   readonly group: ResultGroup;
-  /** Its place in the list, 1-based; the answer's source chips use the same numbers. */
+  /** Its place in the list, 1-based. */
   readonly number: number;
   readonly selected: boolean;
   /** Which of its passages the preview is showing, when it is the selected card. */
   readonly selectedPassage: number;
   readonly query: string;
-  /** The moment "added" is measured from, fixed for the page's life so a render is repeatable. */
+  /** The moment the item's age is measured from, fixed for the page's life so a render is repeatable. */
   readonly now: Date;
   /** Set on the best match when there are several, to say so. */
   readonly top?: boolean;
@@ -55,7 +55,7 @@ function StrengthDots({ level }: { readonly level: 1 | 2 | 3 }): JSX.Element {
   );
 }
 
-/** One document that matched: what it is, how well, how old, and the passages that answered. */
+/** One document that matched: what it is, how well, when it was last verified, and the passages that answered. */
 export default function ResultCard({
   group,
   number,
@@ -68,7 +68,7 @@ export default function ResultCard({
 }: ResultCardProps): JSX.Element {
   const Icon = KIND_ICON[group.kind];
   const strength = strengthOf(group.score);
-  const freshness = freshnessOf(group.content?.createdOn, now);
+  const freshness = freshnessOf(group.content?.createdOn, now, group.content?.lastVerifiedOn);
   const tags = (group.content?.tags ?? []).filter((tag) => tag.trim() !== "");
 
   return (
@@ -117,7 +117,7 @@ export default function ResultCard({
               {group.title}
             </Typography>
           </Stack>
-          <Stack direction="row" spacing={0.75} sx={{ mt: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
+          <Stack direction="row" sx={{ mt: 0.75, columnGap: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
             <Chip size="small" variant="outlined" label={KIND_NAME[group.kind]} />
             {tags.map((tag) => (
               <Chip key={tag} size="small" variant="outlined" label={tag} />
@@ -126,7 +126,7 @@ export default function ResultCard({
         </Box>
       </ButtonBase>
 
-      <Stack direction="row" spacing={2} sx={{ mt: 1.5, alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
+      <Stack direction="row" sx={{ mt: 1.5, alignItems: "center", columnGap: 2, flexWrap: "wrap", rowGap: 0.5 }}>
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
           <StrengthDots level={strength.level} />
           <Typography variant="caption" color="text.secondary">

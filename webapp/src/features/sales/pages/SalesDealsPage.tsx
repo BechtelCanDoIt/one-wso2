@@ -82,8 +82,8 @@ export default function SalesDealsPage() {
 
   return (
     <SalesShell
-      title="Deals"
-      subtitle="MEDDPICC for every deal with a recorded call."
+      title="Opportunities"
+      subtitle="MEDDPICC for every opportunity with a recorded call."
       configured={meetAppConfigured && echoConfigured}
       configKey={meetAppConfigured ? "ONE_WSO2_ECHO_BACKEND_URL" : "ONE_WSO2_REVOPS_BACKEND_URL"}
       configLabel={meetAppConfigured ? "the MEDDPICC backend URL" : undefined}

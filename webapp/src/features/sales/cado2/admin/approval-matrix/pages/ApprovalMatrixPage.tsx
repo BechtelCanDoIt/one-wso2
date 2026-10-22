@@ -53,7 +53,7 @@ import type {
   MatchField,
 } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import { BILLING_LABEL, BILLING_OPTIONS, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 
 const TABS = ["Discount groups", "Product mapping", "Commercial rules", "Change log"] as const;
 
@@ -496,7 +496,7 @@ function SettingsEditor({ settings, onChange }: { settings: ApprovalSettings; on
       </Typography>
       {rule("Special or changed governing terms", "Legal", <Typography variant="body2">Always</Typography>)}
       {rule(
-        "Short term — First Sale or Renewal (Expansions are exempt)",
+        "Short-term deals",
         "Area GM → CRO → CFO",
         num("Under this many months", settings.shortTermMonths, (v) => set({ shortTermMonths: v })),
       )}
@@ -523,10 +523,35 @@ function SettingsEditor({ settings, onChange }: { settings: ApprovalSettings; on
         />,
       )}
       {rule(
+        "Billing frequency",
+        "CFO",
+        <Stack>
+          {BILLING_OPTIONS.map((bf) => (
+            <FormControlLabel
+              key={bf}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={settings.billingApproval.includes(bf)}
+                  onChange={(_, on) =>
+                    set({
+                      billingApproval: on
+                        ? BILLING_OPTIONS.filter((x) => x === bf || settings.billingApproval.includes(x))
+                        : settings.billingApproval.filter((x) => x !== bf),
+                    })
+                  }
+                />
+              }
+              label={<Typography variant="body2">{BILLING_LABEL[bf]}</Typography>}
+            />
+          ))}
+        </Stack>,
+        settings.billingApproval.length === 0 ? "No billing frequency needs the CFO." : undefined,
+      )}
+      {rule(
         "Renewal downsell",
         "RD → Area GM → CRO → Chief of Staff → CFO, then the CEO above the percentage",
         num("CEO above (% of previous ARR)", settings.downsellCeoPercent, (v) => set({ downsellCeoPercent: v })),
-        "5% replaces the sheet's $50K, pending Sales' approval.",
       )}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "text.secondary", pt: 1 }}>
         <ArrowDownIcon size={14} />

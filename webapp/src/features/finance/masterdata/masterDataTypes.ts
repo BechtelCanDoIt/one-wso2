@@ -50,6 +50,10 @@ export interface Subsidiary {
   taxCode: string;
   legalName: string;
   code: string;
+  /** Country the subsidiary is registered in. */
+  country: string;
+  /** ISO 4217 code the subsidiary reimburses in, derived from `country`. */
+  currencyCode: string;
 }
 
 export interface SubsidiaryPayload {
@@ -57,6 +61,8 @@ export interface SubsidiaryPayload {
   taxCode: string;
   legalName: string;
   code: string;
+  /** Country the subsidiary is registered in. */
+  country: string;
 }
 
 // ---- Departments ----------------------------------------------------------

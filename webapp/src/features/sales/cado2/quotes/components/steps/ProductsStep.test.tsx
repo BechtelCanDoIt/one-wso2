@@ -66,7 +66,10 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   discount: "",
 });
 
-function Harness({ startDate = "2027-01-01" }: { startDate?: string } = {}): JSX.Element {
+function Harness({
+  startDate = "2027-01-01",
+  values = {},
+}: { startDate?: string; values?: Partial<DraftFormValues> } = {}): JSX.Element {
   const form = useForm<DraftFormValues>({
     defaultValues: {
       ...emptyDraftForm(),
@@ -86,6 +89,7 @@ function Harness({ startDate = "2027-01-01" }: { startDate?: string } = {}): JSX
           reason: "not active in USD Price Book in USD",
         },
       ],
+      ...values,
     },
   });
   return (
@@ -97,58 +101,68 @@ function Harness({ startDate = "2027-01-01" }: { startDate?: string } = {}): JSX
   );
 }
 
-describe("ProductsStep (Term & Products)", () => {
+describe("ProductsStep (Products & Pricing)", () => {
   // D78: products can be added and kept before the start date; they are
   // priced once it is chosen.
   it("lets the AM add products before the start date is chosen", () => {
     render(<Harness startDate="" />);
-    expect(screen.getByRole("button", { name: "Add line" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
     expect(screen.getByText("Amounts appear once the start date is chosen.")).toBeInTheDocument();
   });
 
+  // D90: the term first, then currency and price book, then the products;
+  // billing and payment terms are on Commercials (D86).
   it("puts the term first, and says what wasn't brought in", () => {
     render(<Harness />);
-    const regions = screen
-      .getAllByRole("region")
-      .map((r) => r.getAttribute("aria-label"));
-    expect(regions.indexOf("Term")).toBeLessThan(regions.indexOf("Products"));
+    const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    expect(regions[0]).toBe("Subscription Term");
+    expect(regions.indexOf("Currency & Price Book")).toBeGreaterThan(0);
+    expect(regions.indexOf("Products")).toBeGreaterThan(regions.indexOf("Currency & Price Book"));
+    expect(regions).not.toContain("Billing Frequency");
+    expect(regions).not.toContain("Payment Terms");
     expect(
       screen.getByText("WSO2 Legacy: not active in USD Price Book in USD"),
     ).toBeInTheDocument();
   });
 
-  it("puts a line whose product isn't mapped under Not categorised; its category is chosen in the line's dialog", async () => {
+  // D93: a plain "Uncategorised" heading, no amber and no chip; the line's edit button opens the dialog.
+  it("puts a line whose product isn't mapped under Uncategorised; its category is chosen in the line's dialog", async () => {
     const user = userEvent.setup();
     render(<Harness />);
     const table = screen.getByRole("table", { name: "Products" });
     expect(within(table).queryByRole("combobox")).toBeNull(); // no dropdown on the line
-    expect(within(table).getByText("Not Categorised")).toBeInTheDocument(); // its own section, first
-    expect(within(table).getByText("· Choose a category for 1 product")).toBeInTheDocument();
+    expect(within(table).getByText("Uncategorised")).toBeInTheDocument(); // its own section, first
+    // Framed by a thin red line.
+    const group = within(table).getByRole("rowgroup", { name: "Uncategorised" });
+    expect(within(group).getByText("WSO2 Integrator")).toBeInTheDocument();
+    expect(within(group).queryByText("WSO2 Gateway")).toBeNull();
+    // Says what to do (D95).
+    expect(within(table).getByText(/to choose a category/)).toBeInTheDocument();
+    expect(within(table).queryByRole("button", { name: /Category not set/ })).toBeNull();
 
-    const integrator = within(table)
-      .getByText("WSO2 Integrator")
-      .closest("tr") as HTMLElement;
-    await user.click(
-      within(integrator).getByRole("button", {
-        name: "Category not set · Choose",
-      }),
-    );
+    // Line 2 is WSO2 Integrator, the one without a category.
+    await user.click(within(table).getByRole("button", { name: "Edit line 2" }));
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("No category is set up for this product");
-    await user.click(
-      within(dialog).getByRole("combobox", { name: "Category" }),
-    );
+    await user.click(within(dialog).getByRole("combobox", { name: "Category" }));
     await user.click(screen.getByRole("option", { name: "Support" }));
-    await user.click(
-      within(dialog).getByRole("button", { name: "Save line" }),
-    );
+    await user.click(within(dialog).getByRole("button", { name: "Save line" }));
 
-    expect(
-      within(table).queryByRole("button", {
-        name: "Category not set · Choose",
-      }),
-    ).toBeNull();
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
-    expect(within(table).queryByText("Not Categorised")).toBeNull(); // gone once empty
+    expect(within(table).queryByText("Uncategorised")).toBeNull(); // gone once empty
+    expect(within(table).queryByRole("rowgroup", { name: "Uncategorised" })).toBeNull();
+  });
+
+  // D91: a partner-led quote's commission card sits right above the products, before any product too.
+  it("puts the partner commission card right above the products", () => {
+    render(<Harness values={{ dealType: "PARTNER", lines: [] }} />);
+    const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    expect(regions.indexOf("Partner Commission")).toBe(regions.indexOf("Products") - 1);
+    expect(regions.indexOf("Partner Commission")).toBeGreaterThan(regions.indexOf("Currency & Price Book"));
+  });
+
+  it("has no commission card on a direct deal (D91)", () => {
+    render(<Harness values={{ dealType: "DIRECT" }} />);
+    expect(screen.queryByRole("region", { name: "Partner Commission" })).toBeNull();
   });
 });

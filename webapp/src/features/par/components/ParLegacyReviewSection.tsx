@@ -17,24 +17,36 @@
 import { Accordion, AccordionDetails, AccordionSummary, Chip, IconButton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ChevronDownIcon, CopyIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { parseLegacyFeedback360 } from "../util/parLegacyHistory";
+import { parseLegacyFeedback360, stripRedundantRatingPrefix } from "../util/parLegacyHistory";
 import { ParCommentView } from "./ParContent";
-import ParEmptyState from "./ParEmptyState";
 import type { ParLegacyThreeSixtyReview } from "../api/types";
 
 // Read-only legacy counterpart of ParHistoryReviewSection, ported from
 // LegacyThreeSixtyFeedbackSection.tsx — sourced from the migrated
 // `par_360_feedback` JSON column instead of a fetched review list. Legacy
 // data has no reviewer email, only a name, and no rejected/pending state to
-// filter on — every parsed entry is shown.
+// filter on — every parsed entry is shown. The question caption (the
+// actual reviewer prompt, e.g. "What is the overall rating you would give
+// based on your interactions?") is always shown, for every era -- an
+// earlier version of this component hid it for 2021 H2 onward, which
+// turned out to not match the real legacy data's intent.
+
 export default function ParLegacyReviewSection({ feedback360 }: { feedback360: string | null }) {
   const { showSuccess, showError } = useNotifications();
   const reviews = parseLegacyFeedback360(feedback360);
 
+  // Cycles with no 360 feedback at all shouldn't show a disabled "360°
+  // Feedback" placeholder -- just show nothing, same as the on-screen
+  // Employee/Lead Comment boxes above, which are likewise omitted entirely
+  // when there's no real content rather than shown empty/disabled.
+  if (reviews.length === 0) {
+    return null;
+  }
+
   const copyReview = (review: ParLegacyThreeSixtyReview) => {
-    const text = `${review.reviewerName}:\nRating: ${review.reviewRating}\nFeedback: ${
-      review.reviewComment ?? "No comment provided"
-    }`;
+    const rating = review.reviewRating ? stripRedundantRatingPrefix(review.reviewRating) : "";
+    const ratingLine = rating ? `\nRating: ${rating}` : "";
+    const text = `${review.reviewerName}:${ratingLine}\nFeedback: ${review.reviewComment ?? "No comment provided"}`;
     navigator.clipboard.writeText(text).then(
       () => showSuccess("Review copied to clipboard"),
       () => showError("Unable to copy review to clipboard"),
@@ -42,21 +54,23 @@ export default function ParLegacyReviewSection({ feedback360 }: { feedback360: s
   };
 
   return (
-    <Accordion variant="outlined" disabled={reviews.length === 0}>
+    <Accordion variant="outlined">
       <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>
         <Typography variant="h6">360° Feedback</Typography>
       </AccordionSummary>
       <AccordionDetails>
-        {reviews.length === 0 ? (
-          <ParEmptyState text="No 360° feedback available for this cycle" />
-        ) : (
-          <Stack spacing={1.5}>
-            {reviews.map((review) => (
-              <Accordion key={review.reviewerName} variant="outlined">
-                <AccordionSummary expandIcon={<ChevronDownIcon size={16} />}>
-                  <Stack direction="row" alignItems="center" spacing={1} sx={{ width: "100%" }}>
+        <Stack spacing={1.5}>
+          {reviews.map((review, index) => {
+            const rating = review.reviewRating ? stripRedundantRatingPrefix(review.reviewRating) : "";
+            // Real org-wide data can plausibly have two 360 reviewers share a
+            // name -- reviewerName alone isn't a safe React key there
+            // (silent mis-render, not a crash), so the index disambiguates.
+            return (
+            <Accordion key={`${review.reviewerName}-${index}`} variant="outlined">
+              <AccordionSummary expandIcon={<ChevronDownIcon size={16} />}>
+                <Stack sx={{ width: "100%" }}>
+                  <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography sx={{ mr: "auto", fontWeight: 500 }}>{review.reviewerName}</Typography>
-                    <Chip size="small" label={`Rating: ${review.reviewRating}`} />
                     <Tooltip title="Copy review">
                       <IconButton
                         size="small"
@@ -69,14 +83,26 @@ export default function ParLegacyReviewSection({ feedback360 }: { feedback360: s
                       </IconButton>
                     </Tooltip>
                   </Stack>
-                </AccordionSummary>
-                <AccordionDetails>
-                  <ParCommentView html={review.reviewComment ?? ""} />
-                </AccordionDetails>
-              </Accordion>
-            ))}
-          </Stack>
-        )}
+                  <Stack direction="row" alignItems="center" spacing={1}>
+                    <Typography variant="caption" color="text.secondary">
+                      {review.ratingQuestion}
+                    </Typography>
+                    {/* Always show the rating chip, with "N/A" when the
+                    rating is blank. */}
+                    <Chip size="small" label={`Rating: ${rating || "N/A"}`} />
+                  </Stack>
+                </Stack>
+              </AccordionSummary>
+              <AccordionDetails>
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>
+                  {review.commentQuestion}
+                </Typography>
+                <ParCommentView html={review.reviewComment ?? ""} />
+              </AccordionDetails>
+            </Accordion>
+            );
+          })}
+        </Stack>
       </AccordionDetails>
     </Accordion>
   );

@@ -18,7 +18,11 @@
 // are decimal strings ("41000.00") and dates are "YYYY-MM-DD" strings.
 
 export type DealType = "DIRECT" | "PARTNER";
-export type BillingFrequency = "ANNUAL" | "UPFRONT";
+/**
+ * How the customer is invoiced (D85); UPFRONT = upon the execution of the
+ * order form; SPECIAL_TERMS = see special terms, which must then be on (D86).
+ */
+export type BillingFrequency = "MONTHLY" | "QUARTERLY" | "ANNUAL" | "UPFRONT" | "SPECIAL_TERMS";
 export type LineCategory = "SUBSCRIPTION" | "SUPPORT" | "PROFESSIONAL_SERVICE";
 
 /**
@@ -28,11 +32,10 @@ export type LineCategory = "SUBSCRIPTION" | "SUPPORT" | "PROFESSIONAL_SERVICE";
  */
 export type CategorySource = "MAPPED" | "REP";
 /**
- * How the subscription term is set: 1 year, a whole number of years
- * (2–10), or an end date the AM types that falls within a year — aligned to
- * a running contract (co-termed) or stand-alone (shorter term).
+ * How the subscription term is set (D85): a number of years (1–10), or an
+ * end date of any length up to 10 years.
  */
-export type TermMode = "ONE_YEAR" | "MULTI_YEAR" | "CO_TERMED" | "SHORTER";
+export type TermMode = "YEARS" | "END_DATE";
 
 /** A problem with one field, e.g. { field: "lines[2].quantity", message: "…" }. */
 export interface Issue {
@@ -182,8 +185,6 @@ export interface Totals {
   readonly arr: string | null;
   readonly acv: string | null;
   readonly tcv: string;
-  /** The first invoice: net of any partner commission (A6). */
-  readonly payableNow: string;
   /** Partner-led quotes with a commission % only; null otherwise. */
   readonly partnerCommission?: string | null;
   /** TCV less the partner commission: what WSO2 invoices in all. */
@@ -344,13 +345,11 @@ export interface DraftInput {
   readonly defaultPricebookId?: string;
   readonly subscriptionStartDate?: string;
   readonly termMode?: TermMode;
-  /** Multi-year only (2–10). */
+  /** YEARS only (1–10). */
   readonly termYears?: number;
-  /** Typed in for Co-termed and Shorter term only; other modes derive it. */
+  /** END_DATE only; YEARS derives it. */
   readonly subscriptionEndDate?: string;
-  /** A co-termed expansion: the opportunity it ends with (D73). */
-  readonly coTermOpportunityId?: string;
-  /** Multi-year only; every other term is billed annually. */
+  /** With a recurring line only (D85). */
   readonly billingFrequency?: BillingFrequency;
   /** Partner-led quotes only: one % for every line. */
   readonly partnerCommissionPercent?: string;
@@ -490,8 +489,6 @@ export interface VersionView {
   /** Null for a services-only quote, or a version submitted before term modes. */
   readonly termMode: TermMode | null;
   readonly termYears: number | null;
-  /** A co-termed expansion: the opportunity it ends with (D73). */
-  readonly coTermOpportunity: { readonly id: string; readonly name: string | null } | null;
   /** "15.00" on a partner-led quote with a commission; null otherwise. */
   readonly partnerCommissionPercent?: string | null;
   readonly billingFrequency: BillingFrequency | null;

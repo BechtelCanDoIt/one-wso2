@@ -95,6 +95,18 @@ export function findUnsafeZipEntry(
   return undefined;
 }
 
+/**
+ * A manual file the user has added but that isn't in the update's container
+ * yet. Uploads wait for Analyze, since the backend only accepts them while the
+ * update is in Development.
+ */
+export interface UmtPendingManualUpload {
+  row: UmtFileOperation;
+  relativePath: string;
+  sourceFilePath: string;
+  file: File | Blob;
+}
+
 const MAX_ZIP_ENTRIES = 100;
 const MAX_ZIP_ENTRY_BYTES = 2 * 1024 * 1024;
 const MAX_ZIP_EXPANDED_BYTES = 70 * 1024 * 1024;
@@ -342,6 +354,12 @@ export function jarNameError(jarName: string, jarVersion: string): string | unde
     return "The JAR name should not contain the JAR version and should not end with '.jar'.";
   }
   return undefined;
+}
+
+// A bundle-info entry needs a JAR version, so it's required here rather than
+// left to fail at Analyze.
+export function jarVersionError(value: string): string | undefined {
+  return value.trim() ? undefined : "The JAR version is required.";
 }
 
 export function relativeJarPathError(value: string): string | undefined {

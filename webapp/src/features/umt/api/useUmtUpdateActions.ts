@@ -15,7 +15,7 @@
 // under the License.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authedGet, authedPost, authedPut } from "@api/http";
+import { authedGet, authedPost, HttpError } from "@api/http";
 import { umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import type { UmtUpdateSummary } from "./umtUpdates";
@@ -26,7 +26,7 @@ import type { UmtUpdateSummary } from "./umtUpdates";
 
 // Moves an update to OnHold with a reason. Submits only when the reason is
 // non-blank; the caller is expected to enforce that before calling
-// mutateAsync.
+// mutateAsync. Sent as a POST.
 export function useUmtOnHoldUpdate(id: string) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
@@ -34,7 +34,7 @@ export function useUmtOnHoldUpdate(id: string) {
   return useMutation<void, Error, string>({
     mutationFn: async (reason) => {
       const accessToken = await getAccessToken();
-      await authedPut(umtServiceUrls.updateOnHold(id), accessToken, { reason });
+      await authedPost(umtServiceUrls.updateOnHold(id), accessToken, { reason });
     },
     onSuccess: async () => {
       await Promise.all([
@@ -47,8 +47,8 @@ export function useUmtOnHoldUpdate(id: string) {
 }
 
 // Records a Duplicate dependency from this update to another. Fetches the
-// target update first (surfacing an error if it doesn't exist) before
-// posting the dependency.
+// target update first and refuses with a plain message when it doesn't exist
+// (404), so no dependency is ever recorded against a missing update.
 export function useUmtMarkAsDuplicate(id: string) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
@@ -56,7 +56,14 @@ export function useUmtMarkAsDuplicate(id: string) {
   return useMutation<void, Error, string>({
     mutationFn: async (duplicateOfId) => {
       const accessToken = await getAccessToken();
-      await authedGet<UmtUpdateSummary>(umtServiceUrls.update(duplicateOfId), accessToken);
+      try {
+        await authedGet<UmtUpdateSummary>(umtServiceUrls.update(duplicateOfId), accessToken);
+      } catch (error) {
+        if (error instanceof HttpError && error.status === 404) {
+          throw new Error(`Update ${duplicateOfId} does not exist.`);
+        }
+        throw error;
+      }
       await authedPost(umtServiceUrls.updateDependency, accessToken, {
         from: { id },
         to: { id: duplicateOfId },

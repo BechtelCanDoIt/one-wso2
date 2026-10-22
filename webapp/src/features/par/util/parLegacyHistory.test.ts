@@ -18,9 +18,48 @@ import { describe, expect, it } from "vitest";
 import {
   deriveLegacyCycleDates,
   deriveLegacyRatingFromScore,
+  formatLegacyCycleName,
   parseLegacyFeedback360,
   parseLegacyQuestionAnswers,
 } from "./parLegacyHistory";
+
+describe("formatLegacyCycleName", () => {
+  it("normalizes every known raw 2015 variant to its canonical display name", () => {
+    expect(formatLegacyCycleName("ANNUAL PERFORMANCE REVIEW -2015")).toBe("2015 ANNUAL PERFORMANCE REVIEW");
+    expect(formatLegacyCycleName("ANNUAL PERFORMANCE REVIEW for Team Leads -2015")).toBe(
+      "2015 ANNUAL PERFORMANCE REVIEW for Team Leads",
+    );
+    expect(formatLegacyCycleName("ANNUAL PERFORMANCE REVIEW for Engineering Team Leads - 2015")).toBe(
+      "2015 ANNUAL PERFORMANCE REVIEW for Engineering Team Leads",
+    );
+    expect(formatLegacyCycleName("ANNUAL PERFORMANCE REVIEW for Engineering Employees - 2015")).toBe(
+      "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees",
+    );
+  });
+
+  // Hand-confirmed from a real migration sample -- these raw forms were
+  // previously unrecognized, falling through to the uncatalogued/"Not
+  // Assigned" path for real employee data.
+  it("normalizes the numbered no-year 2015 Engineering Employees variant", () => {
+    expect(formatLegacyCycleName("(3) ANNUAL PERFORMANCE REVIEW - Engineering Employees")).toBe(
+      "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees",
+    );
+  });
+
+  it("normalizes 2016 cycle names exported without the year prefix", () => {
+    expect(formatLegacyCycleName("Quarterly Review - Q2")).toBe("2016 Quarterly Review - Q2");
+    expect(formatLegacyCycleName("Quarterly Review - Q3/Q4")).toBe("2016 Quarterly Review - Q3/Q4");
+  });
+
+  it("collapses internal whitespace drift (e.g. a double space) without otherwise changing an uncatalogued name", () => {
+    expect(formatLegacyCycleName("2019  Performance Evaluation - Q2")).toBe("2019 Performance Evaluation - Q2");
+  });
+
+  it("passes through an already-canonical or genuinely-uncatalogued name unchanged", () => {
+    expect(formatLegacyCycleName("2022 Performance Evaluation - H1")).toBe("2022 Performance Evaluation - H1");
+    expect(formatLegacyCycleName("2099 Some Future Cycle")).toBe("2099 Some Future Cycle");
+  });
+});
 
 describe("parseLegacyQuestionAnswers", () => {
   it("parses a valid JSON array", () => {

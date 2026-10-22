@@ -49,11 +49,13 @@ const RULE: Record<string, { kind: ReasonKind; title: string }> = {
   GOVERNING_TERMS: { kind: "terms", title: "Governing terms" },
   SHORT_TERM_NEW_CUSTOMER: { kind: "term", title: "Subscription term" },
   SHORT_TERM_RENEWAL: { kind: "term", title: "Subscription term" },
+  SHORT_TERM_EXPANSION: { kind: "term", title: "Subscription term" },
   EXTENDED_TERM: { kind: "term", title: "Subscription term" },
   EXTENDED_SAAS_TERM: { kind: "term", title: "Subscription term" },
   RENEWAL_DOWNSELL: { kind: "downsell", title: "Renewal downsell" },
   RENEWAL_DOWNSELL_CEO: { kind: "downsell", title: "Renewal downsell" },
   PAYMENT_TERMS: { kind: "payment", title: "Payment terms" },
+  BILLING_FREQUENCY: { kind: "payment", title: "Billing frequency" },
 };
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

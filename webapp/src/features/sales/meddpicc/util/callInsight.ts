@@ -48,6 +48,8 @@ export interface CallEvidence {
     value: FieldValue | RoleProposalValue;
     confidence: number;
     pending: boolean;
+    /** The field is not in Salesforce yet: an approved value is kept in Echo, matching nothing there. */
+    notInSalesforce: boolean;
   };
 }
 
@@ -149,6 +151,7 @@ export function callInsight(
             value: proposal.value,
             confidence: proposal.confidence,
             pending: proposal.pending,
+            notInSalesforce: field.notInSalesforce,
           },
         });
       }
@@ -237,4 +240,40 @@ function firstAnswered(
 /** "Metrics, Economic Buyer" — Letters as words, for a sentence. */
 export function lettersInWords(letters: readonly LetterKey[]): string {
   return letters.map(letterLabel).join(", ");
+}
+
+export type CallProposal = NonNullable<CallEvidence["proposal"]>;
+
+/** The Letters whose evidence is the same, shown once: their proposals and quotes. */
+export interface EvidenceGroup {
+  letters: LetterKey[];
+  proposals: CallProposal[];
+  quotes: CallEvidence[];
+}
+
+/**
+ * The call's evidence for display: each Letter's proposals once (a quote backs at most one,
+ * and several quotes back the same one) and its quotes once, then Letters with exactly the
+ * same of both merged into one card. A field that feeds two Letters (success criteria and
+ * pain feeds Metrics and Identify Pain) otherwise shows the same card twice.
+ */
+export function groupEvidence(evidence: { letter: LetterKey; items: CallEvidence[] }[]): EvidenceGroup[] {
+  const groups: (EvidenceGroup & { key: string })[] = [];
+  for (const { letter, items } of evidence) {
+    const proposals = new Map<string, CallProposal>();
+    const quotes = new Map<string, CallEvidence>();
+    for (const item of items) {
+      if (item.proposal && !proposals.has(item.proposal.fieldKey)) proposals.set(item.proposal.fieldKey, item.proposal);
+      const key = `${item.offsetSeconds}|${item.quote}`;
+      if (!quotes.has(key)) quotes.set(key, item);
+    }
+    const key = [...proposals.keys()].sort().join(",") + "#" + [...quotes.keys()].join("~");
+    const same = groups.find((g) => g.key === key);
+    if (same) {
+      same.letters.push(letter);
+      continue;
+    }
+    groups.push({ key, letters: [letter], proposals: [...proposals.values()], quotes: [...quotes.values()] });
+  }
+  return groups.map(({ letters, proposals, quotes }) => ({ letters, proposals, quotes }));
 }

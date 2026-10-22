@@ -38,6 +38,17 @@ export function isIntegrationTestsComplete(
   return products.every(umtProductHasIntegrationTestInfo);
 }
 
+// Test PRs — the ones a product needs before StagingRequested — live in the
+// wso2-support organisation. A format check only: it doesn't check that the PR
+// belongs to the product's own repo, or that it is merged.
+const TEST_PR_REGEX = /^https:\/\/github\.com\/wso2-support\/[A-Za-z0-9._-]+\/pull\/[0-9]+$/;
+
+export function umtTestPrError(value: string): string | undefined {
+  const trimmed = value.trim();
+  if (!trimmed || TEST_PR_REGEX.test(trimmed)) return undefined;
+  return "The Test PR must be a pull request under https://github.com/wso2-support/.";
+}
+
 export interface UmtIntegrationTestDraftRow {
   testPr: string;
   isIgnored: boolean;
@@ -46,7 +57,7 @@ export interface UmtIntegrationTestDraftRow {
 
 // Submit is blocked while there are no unsaved edits, or (containerized) the
 // Helm Chart Tag draft is blank, or (non-containerized) any row is neither a
-// non-blank Test PR nor an ignored row with a non-blank reason.
+// valid Test PR nor an ignored row with a non-blank reason.
 export function isIntegrationTestsSaveDisabled(params: {
   isDirty: boolean;
   isContainerizedUpdate: boolean;
@@ -56,5 +67,7 @@ export function isIntegrationTestsSaveDisabled(params: {
   const { isDirty, isContainerizedUpdate, helmChartTag, rows } = params;
   if (!isDirty) return true;
   if (isContainerizedUpdate) return !helmChartTag.trim();
-  return rows.some((row) => (row.isIgnored ? !row.ignoreReason.trim() : !row.testPr.trim()));
+  return rows.some((row) =>
+    row.isIgnored ? !row.ignoreReason.trim() : !row.testPr.trim() || Boolean(umtTestPrError(row.testPr)),
+  );
 }

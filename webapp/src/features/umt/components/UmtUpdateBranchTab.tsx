@@ -83,10 +83,14 @@ export default function UmtUpdateBranchTab({
   id,
   update,
   products,
+  readOnly = false,
 }: {
   id: string;
   update: UmtUpdateSummary;
   products: UmtMeta["products"];
+  // No branch can be created, e.g. while the update is mid-demotion. Finding
+  // an update level is only a lookup, so it stays available.
+  readOnly?: boolean;
 }) {
   const branches = useUmtBranches(id);
   const createBranch = useUmtCreateBranch(id, Boolean(update.isHotfix));
@@ -189,6 +193,7 @@ export default function UmtUpdateBranchTab({
   );
 
   const handleCreateComponentBranch = async () => {
+    if (readOnly) return;
     setBranchFormSubmitted(true);
     if (branchFormError(branchForm)) return;
 
@@ -210,6 +215,7 @@ export default function UmtUpdateBranchTab({
 
   const handleCreateProductBranch = useCallback(
     async (row: ProductBranchRow) => {
+      if (readOnly) return;
       await submitBranch(
         {
           publicRepoUrl: displayValue(row.publicRepoUrl),
@@ -222,7 +228,7 @@ export default function UmtUpdateBranchTab({
         `Product branch requested for ${displayValue(row.productName)}`,
       );
     },
-    [submitBranch],
+    [readOnly, submitBranch],
   );
 
   const handleFindUpdateLevel = async () => {
@@ -241,17 +247,17 @@ export default function UmtUpdateBranchTab({
 
   const componentColumns = useMemo(
     () =>
-      branchColumns(false, createBranch.isPending, handleCreateProductBranch).filter(
+      branchColumns(false, createBranch.isPending || readOnly, handleCreateProductBranch).filter(
         (column) => column.field !== "productName" && column.field !== "action",
       ),
-    [createBranch.isPending, handleCreateProductBranch],
+    [createBranch.isPending, readOnly, handleCreateProductBranch],
   );
   // Unconditionally include the Action column: the cell renderer already emits
   // "N/A" for a created row and the Create button otherwise, so the column set
   // no longer appears and disappears as branches are created.
   const productColumns = useMemo(
-    () => branchColumns(true, createBranch.isPending, handleCreateProductBranch),
-    [createBranch.isPending, handleCreateProductBranch],
+    () => branchColumns(true, createBranch.isPending || readOnly, handleCreateProductBranch),
+    [createBranch.isPending, readOnly, handleCreateProductBranch],
   );
 
   return (
@@ -284,6 +290,7 @@ export default function UmtUpdateBranchTab({
         <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
           <Button variant="outlined" onClick={() => setUpdateLevelOpen(true)}>Find Update Level</Button>
           <Button
+            disabled={readOnly}
             loading={createBranch.isPending}
             variant="contained"
             onClick={() => void handleCreateComponentBranch()}

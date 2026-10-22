@@ -122,24 +122,26 @@ function HistoryRow({ entry }: { entry: PromotionHistoryEntry }) {
       </Stack>
       {/* currentJobRole is deliberately not shown: the stored values are
           unreliable, and the field is the role held before the promotion
-          rather than the one it led to — the promotion backend records no
-          target role at all. That leaves the band jump as the only
-          description of what the promotion was, so it carries the row
-          rather than sitting in metadata type beneath it. */}
+          rather than the one it led to. promotedJobRole is the role it led
+          to, but older records don't have it, so the band jump still carries
+          the row. */}
       <BandJump from={entry.currentJobBand} to={entry.nextJobBand} />
+      {entry.promotedJobRole && (
+        <Typography sx={{ fontSize: 12.5, fontWeight: 500, mb: 0.5 }}>{entry.promotedJobRole}</Typography>
+      )}
       {orgLine && (
         <Typography sx={{ fontSize: 11.5, color: "text.disabled", mb: 0.5 }} noWrap>
           {orgLine}
         </Typography>
       )}
       <Typography sx={{ fontSize: 11.5, color: "text.secondary", fontVariantNumeric: "tabular-nums" }}>
-        {/* Backend surfaces createdOn (application creation) and
-            updatedOn (last mutation of the row). updatedOn can shift
-            when an admin edits the request post-approval, so we label
-            it "Last updated" — an honest match for what the field
-            actually is. A dedicated effective-date field would be
-            better once the backend exposes one. */}
-        Last updated {formatDate(entry.updatedOn)}
+        {/* promotedDate is set only when a request is approved, so older
+            records don't have it. Those fall back to updatedOn, which can
+            shift when an admin edits the request post-approval, hence
+            "Last updated" rather than a promotion date. */}
+        {entry.promotedDate
+          ? `Promoted on ${formatDate(entry.promotedDate)}`
+          : `Last updated ${formatDate(entry.updatedOn)}`}
       </Typography>
     </Box>
   );

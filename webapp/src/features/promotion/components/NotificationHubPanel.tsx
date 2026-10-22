@@ -24,7 +24,7 @@ import { useState } from "react";
 import { Box, Button, Card, DataGrid, IconButton, Skeleton, Tab, Tabs, Tooltip } from "@wso2/oxygen-ui";
 import { CheckIcon, MailCheckIcon, SendIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNotifyPromotionRequest } from "../api/usePromotionRequests";
-import { basePromotionRequestColumns } from "../components/promotionRequestColumns";
+import { basePromotionRequestColumns, promotedDateColumn } from "../components/promotionRequestColumns";
 import PromotionEmptyState from "./PromotionEmptyState";
 import PromotionFeedbackSnackbar from "./PromotionFeedbackSnackbar";
 import { usePromotionFeedback } from "../util/usePromotionFeedback";
@@ -100,6 +100,7 @@ function NotifyGrid({
 
   const columns: DataGrid.GridColDef<PromotionRequestFull>[] = [
     ...basePromotionRequestColumns(),
+    ...(requiresEffectiveDate ? [promotedDateColumn()] : []),
     {
       display: "flex",
       field: "action",
@@ -196,6 +197,7 @@ function NotifyGrid({
 function SentGrid({ rows }: { rows: PromotionRequestFull[] }) {
   const columns: DataGrid.GridColDef<PromotionRequestFull>[] = [
     ...basePromotionRequestColumns(),
+    promotedDateColumn(),
     {
       field: "updatedOn",
       headerName: "Notified Timestamp",

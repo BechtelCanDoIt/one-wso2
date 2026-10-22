@@ -14,21 +14,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// A rejected zip must not upload anything, including entries that were already
-// unpacked before a later entry failed a check.
+// Adding a file never uploads it: the rows come back with their files for the
+// step to upload on Analyze. A rejected zip must add nothing, including entries
+// that were already unpacked before a later entry failed a check.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JSZip from "jszip";
+import type { UmtFileOperation } from "../../../api/umtUpdates";
 
 const state = vi.hoisted(() => ({
-  uploadMutate: vi.fn(async () => undefined),
   showError: vi.fn(),
-}));
-
-vi.mock("../../../api/useUmtPrAnalysis", () => ({
-  useUmtUploadPullRequestAnalysisFile: () => ({ isPending: false, mutateAsync: state.uploadMutate }),
 }));
 
 vi.mock("@context/notifications/NotificationsContext", () => ({
@@ -61,13 +58,13 @@ function zipFile(bytes: Uint8Array): File {
 }
 
 /** Opens the Add Manual File dialog, fills it in for `file` and clicks Add. */
-async function addZip(file: File) {
+async function addZip(file: File, files: UmtFileOperation[] = []) {
   const onFilesChange = vi.fn();
   render(
     <UmtAddManualFilesSection
       updateId="1"
       disabled={false}
-      files={[]}
+      files={files}
       onFilesChange={onFilesChange}
       bundlesInfoChanges={[]}
       onBundlesInfoChanged={vi.fn()}
@@ -85,28 +82,58 @@ async function addZip(file: File) {
   return { onFilesChange };
 }
 
-describe("UmtAddManualFilesSection zip uploads", () => {
+describe("UmtAddManualFilesSection zip entries", () => {
   beforeEach(() => {
-    state.uploadMutate.mockClear();
     state.showError.mockClear();
   });
 
-  it("uploads every entry of a valid zip", async () => {
+  it("tells the user files are uploaded on Analyze", async () => {
+    render(
+      <UmtAddManualFilesSection
+        updateId="1"
+        disabled={false}
+        files={[]}
+        onFilesChange={vi.fn()}
+        bundlesInfoChanges={[]}
+        onBundlesInfoChanged={vi.fn()}
+        onDirty={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Add manual file" }));
+
+    expect(screen.getByText("Files are uploaded when you click Analyze.")).toBeInTheDocument();
+  });
+
+  it("adds every entry of a valid zip as a pending upload", async () => {
     const { onFilesChange } = await addZip(zipFile(await zipBytes({ "a.jar": "alpha", "lib/b.jar": "beta" })));
 
     await waitFor(() => expect(onFilesChange).toHaveBeenCalled());
-    expect(state.uploadMutate).toHaveBeenCalledTimes(2);
+    const [rows, uploads] = onFilesChange.mock.calls[0];
+    expect(rows.map((row: UmtFileOperation) => row.file)).toEqual([
+      "repository/components/dropins/a.jar",
+      "repository/components/dropins/lib/b.jar",
+    ]);
+    expect(uploads).toHaveLength(2);
+    expect(uploads[0]).toMatchObject({ row: rows[0], relativePath: "repository/components/dropins" });
   });
 
-  it("uploads nothing when a zip contains an unsafe entry path", async () => {
-    const { onFilesChange } = await addZip(zipFile(await zipBytes({ "a.jar": "alpha", "lib/../../evil.jar": "bad" })));
+  it("refuses a zip entry whose path is already listed", async () => {
+    const { onFilesChange } = await addZip(zipFile(await zipBytes({ "a.jar": "alpha" })), [
+      { file: "repository/components/dropins/a.jar", operation: "Added" },
+    ]);
 
-    expect(await screen.findByText(/"lib\/\.\.\/\.\.\/evil\.jar" is not a safe path/)).toBeInTheDocument();
-    expect(state.uploadMutate).not.toHaveBeenCalled();
+    expect(await screen.findByText(/"repository\/components\/dropins\/a\.jar" has already been added\./)).toBeInTheDocument();
     expect(onFilesChange).not.toHaveBeenCalled();
   });
 
-  it("uploads nothing when a later entry fails a limit after earlier entries were unpacked", async () => {
+  it("adds nothing when a zip contains an unsafe entry path", async () => {
+    const { onFilesChange } = await addZip(zipFile(await zipBytes({ "a.jar": "alpha", "lib/../../evil.jar": "bad" })));
+
+    expect(await screen.findByText(/"lib\/\.\.\/\.\.\/evil\.jar" is not a safe path/)).toBeInTheDocument();
+    expect(onFilesChange).not.toHaveBeenCalled();
+  });
+
+  it("adds nothing when a later entry fails a limit after earlier entries were unpacked", async () => {
     // Every entry declares 10 bytes: the first really is 10 bytes and unpacks
     // fine, the second is 3 MB and is stopped by the running byte count.
     const forged = forgeDeclaredSizes(
@@ -116,7 +143,6 @@ describe("UmtAddManualFilesSection zip uploads", () => {
     const { onFilesChange } = await addZip(zipFile(forged));
 
     expect(await screen.findByText(/"bomb\.jar" is larger than 2 MB when unzipped/)).toBeInTheDocument();
-    expect(state.uploadMutate).not.toHaveBeenCalled();
     expect(onFilesChange).not.toHaveBeenCalled();
   });
 });
