@@ -29,7 +29,6 @@ import {
   Paper,
   Stack,
   TextField,
-  Typography,
 } from "@wso2/oxygen-ui";
 import { AlertTriangle, CheckCircle, PlusIcon, TrashIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
@@ -179,8 +178,6 @@ export default function UmtSecurityAdvisoryStep({
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5">Security Advisory</Typography>
-
       <Paper variant="outlined" sx={{ minWidth: 0, overflow: "hidden" }}>
         <DataGridComponent
           autoHeight

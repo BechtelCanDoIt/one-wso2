@@ -124,8 +124,6 @@ export default function UmtIntegrationTestsStep({ id, update }: { id: string; up
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5">Integration Tests</Typography>
-
       {isContainerizedUpdate ? (
         <TextField
           label="Helm Chart Tag"
