@@ -111,7 +111,7 @@ export default function ParHistoryTab() {
           History
         </Button>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
             {opened.cycleName}
           </Typography>
           {opened.kind === "legacy" && (
