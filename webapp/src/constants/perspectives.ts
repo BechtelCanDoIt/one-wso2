@@ -39,6 +39,10 @@ import {
   TrophyIcon,
   Volume2Icon,
   LayoutDashboardIcon,
+  ChartColumnIcon,
+  ActivityIcon,
+  GaugeIcon,
+  EyeIcon,
   NetworkIcon,
   RadioIcon,
   SatelliteDishIcon,
@@ -515,11 +519,11 @@ export const AMPLIFY_DASHBOARD_SCORECARD_PATH = `${AMPLIFY_DASHBOARDS_PATH}/scor
 export const AMPLIFY_DASHBOARDING_GROUP_ID = "amplify-dashboarding";
 
 const AMPLIFY_DASHBOARD_SECTIONS: PerspectiveSection[] = [
-  { id: "amplify-dashboard-glance", label: "At A Glance", path: AMPLIFY_DASHBOARD_GLANCE_PATH },
-  { id: "amplify-dashboard-operations", label: "Operations", path: AMPLIFY_DASHBOARD_OPERATIONS_PATH },
-  { id: "amplify-dashboard-posts", label: "Post Performance", path: AMPLIFY_DASHBOARD_POSTS_PATH },
-  { id: "amplify-dashboard-participation", label: "Participation", path: AMPLIFY_DASHBOARD_PARTICIPATION_PATH },
-  { id: "amplify-dashboard-scorecard", label: "Scorecard", path: AMPLIFY_DASHBOARD_SCORECARD_PATH },
+  { id: "amplify-dashboard-glance", label: "At A Glance", icon: EyeIcon, path: AMPLIFY_DASHBOARD_GLANCE_PATH },
+  { id: "amplify-dashboard-operations", label: "Operations", icon: ActivityIcon, path: AMPLIFY_DASHBOARD_OPERATIONS_PATH },
+  { id: "amplify-dashboard-posts", label: "Post Performance", icon: ChartColumnIcon, path: AMPLIFY_DASHBOARD_POSTS_PATH },
+  { id: "amplify-dashboard-participation", label: "Participation", icon: UsersIcon, path: AMPLIFY_DASHBOARD_PARTICIPATION_PATH },
+  { id: "amplify-dashboard-scorecard", label: "Scorecard", icon: GaugeIcon, path: AMPLIFY_DASHBOARD_SCORECARD_PATH },
 ];
 export const AMPLIFY_DASHBOARD_ITEM_IDS: ReadonlySet<string> = new Set(AMPLIFY_DASHBOARD_SECTIONS.map((s) => s.id));
 
