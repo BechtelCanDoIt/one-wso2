@@ -15,10 +15,10 @@
 // under the License.
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { AwardIcon, NetworkIcon, UsersIcon } from "@wso2/oxygen-ui-icons-react";
+import { AwardIcon, NetworkIcon, TrendingUpIcon, UsersIcon } from "@wso2/oxygen-ui-icons-react";
 
 // Same seams as SideRail.userGuide.test.tsx: the GRC fetch shim, the active
 // perspective, and the visibility gates.
@@ -41,6 +41,15 @@ vi.mock("@context/perspective/PerspectiveContext", () => ({
         children: [
           { id: "promotion-lead", label: "Lead", path: "/people-ops/promotion/lead" },
           { id: "promotion-board", label: "Board", path: "/people-ops/promotion/board" },
+        ],
+      },
+      {
+        id: "performance",
+        label: "Performance",
+        icon: TrendingUpIcon,
+        children: [
+          { id: "performance-lead", label: "Reviews", path: "/people-ops/performance/lead" },
+          { id: "performance-admin", label: "Cycles", path: "/people-ops/performance/admin" },
         ],
       },
     ],
@@ -133,5 +142,49 @@ describe("SideRail group rows", () => {
 
     const across = wrappersAround("Promotion", horizontalSpace);
     expect(across).toEqual(takingNoSpace(across));
+  });
+});
+
+/**
+ * Whether a group wears its outline. GroupFrame draws it on its <li>'s ::before, and jsdom
+ * ignores getComputedStyle's pseudo-element argument — it answers with the <li>'s own style —
+ * so this reads the ::before rule Emotion wrote for the frame instead.
+ */
+function isOutlined(groupName: string): boolean {
+  const frame = screen.getByRole("button", { name: groupName }).closest("li")?.parentElement?.closest("li");
+  if (!frame) throw new Error(`no frame around ${groupName}`);
+  const rule = [...document.styleSheets]
+    .flatMap((sheet) => [...sheet.cssRules])
+    .filter((r): r is CSSStyleRule => "selectorText" in r && (r as CSSStyleRule).selectorText.endsWith("::before"))
+    .filter((r) => frame.matches(r.selectorText.slice(0, -"::before".length)))
+    .at(-1);
+  if (!rule) throw new Error(`no outline rule on the frame around ${groupName}`);
+  const colour = rule.style.getPropertyValue("border-top-color");
+  return colour !== "" && colour !== "transparent";
+}
+
+describe("SideRail group outline", () => {
+  it("marks the open group you are in", () => {
+    renderSideRail({ collapsed: false, at: "/people-ops/promotion/lead" });
+
+    expect(isOutlined("Promotion")).toBe(true);
+  });
+
+  it("stays on the group you are in when you open another", () => {
+    renderSideRail({ collapsed: false, at: "/people-ops/promotion/lead" });
+    fireEvent.click(screen.getByRole("button", { name: "Performance" }));
+
+    expect(screen.getByRole("button", { name: "Performance" })).toHaveAttribute("aria-expanded", "true");
+    expect(isOutlined("Promotion")).toBe(true);
+    expect(isOutlined("Performance")).toBe(false);
+  });
+
+  it("marks no group while you are on a plain row, however many are open", () => {
+    renderSideRail({ collapsed: false, at: "/people-ops/org-chart" });
+    fireEvent.click(screen.getByRole("button", { name: "Promotion" }));
+    fireEvent.click(screen.getByRole("button", { name: "Performance" }));
+
+    expect(isOutlined("Promotion")).toBe(false);
+    expect(isOutlined("Performance")).toBe(false);
   });
 });
