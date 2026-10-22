@@ -18,8 +18,8 @@ import { useSearchParams } from "react-router";
 import type { DashboardCampaigns } from "../../api/amplifyTypes";
 import { useDashboardCampaigns } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
-import { Bar, Block, BoardState, Empty, SectionLabel, StateChip } from "../../components/DashboardParts";
-import { announcementLabel, asOfText, num, rate, shortDate } from "../../util/dashboardFormat";
+import { Bar, Block, BoardState, Empty, PriorityPill, SectionLabel } from "../../components/DashboardParts";
+import { announcementLabel, commentedReposts, plainReposts, updatedStamp, num, rate, shortDate } from "../../util/dashboardFormat";
 
 function DayChart({ byDay }: { byDay: { day: number; reposts: number }[] }) {
   const max = Math.max(1, ...byDay.map((d) => d.reposts));
@@ -50,7 +50,7 @@ export function PostPerformanceBoard({
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Typography variant="caption" color="text.secondary">
-        {asOfText(data.asOf)} · last {data.windowDays} days
+        {updatedStamp(data.asOf)} · last {data.windowDays} days
       </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "flex-start" }}>
         <Box sx={{ flex: "1 1 520px", minWidth: 0 }}>
@@ -96,12 +96,16 @@ export function PostPerformanceBoard({
                       {sel.categoryLabel} · opened {shortDate(sel.opensAt)} · closes {shortDate(sel.closesAt)}
                     </Typography>
                   </Box>
-                  {sel.isPriority && <StateChip label="Priority" tone="primary" />}
+                  {sel.isPriority && <PriorityPill />}
                 </Box>
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 1.5, mt: 2 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 1.5, mt: 2 }}>
                   <Box>
                     <SectionLabel>Reposts</SectionLabel>
-                    <Typography sx={{ fontSize: 26, fontWeight: 600 }}>{num(sel.reposts)}</Typography>
+                    <Typography sx={{ fontSize: 26, fontWeight: 600 }}>{num(plainReposts(sel))}</Typography>
+                  </Box>
+                  <Box>
+                    <SectionLabel>Reposts/Comments</SectionLabel>
+                    <Typography sx={{ fontSize: 26, fontWeight: 600 }}>{num(commentedReposts(sel))}</Typography>
                   </Box>
                   <Box>
                     <SectionLabel>Share of connected</SectionLabel>
@@ -122,7 +126,7 @@ export function PostPerformanceBoard({
                   </Box>
                 </Box>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
-                  Chat card: {announcementLabel(sel.announcement)}
+                  Novera: {announcementLabel(sel.announcement)}
                 </Typography>
               </>
             )}

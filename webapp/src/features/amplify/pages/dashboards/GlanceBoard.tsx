@@ -17,10 +17,11 @@
 import { Box, Typography } from "@wso2/oxygen-ui";
 import type { DashboardGlance, GroupBoardEntry, LeaderboardEntry } from "../../api/amplifyTypes";
 import { useAmplifyLeaderboard } from "../../api/useAmplifyData";
+import { useAmplifyPeople, type PeopleByEmail } from "../../api/useAmplifyPeople";
 import { useDashboardGlance, useGroupBoard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
 import { Block, BoardState, Empty, StatCard } from "../../components/DashboardParts";
-import { asOfText, changePercent, num, percentOf, shortDate } from "../../util/dashboardFormat";
+import { updatedStamp, changePercent, num, percentOf, shortDate } from "../../util/dashboardFormat";
 
 function WeeklyLine({ weekly }: { weekly: DashboardGlance["weekly"] }) {
   if (weekly.length === 0) return <Empty>No reposts recorded yet.</Empty>;
@@ -72,22 +73,27 @@ function RankedList({ rows }: { rows: { id: string; rank: number; name: string; 
   );
 }
 
+const NO_DIRECTORY: PeopleByEmail = new Map();
+
 /** At a glance: the one screen for a leadership check-in. */
 export function GlanceBoard({
   data,
   people,
   teams,
+  directory = NO_DIRECTORY,
 }: {
   data: DashboardGlance;
   people: LeaderboardEntry[];
   teams: GroupBoardEntry[];
+  /** Names from the employee directory, keyed by work email (the leaderboard rows carry an id and a fallback name). */
+  directory?: PeopleByEmail;
 }) {
   const t = data.campaignsReachingTarget;
   const success = data.shareSuccess;
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Typography variant="caption" color="text.secondary">
-        {asOfText(data.asOf)} · {data.month}
+        {updatedStamp(data.asOf)} · {data.month}
       </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "stretch" }}>
         <Box sx={{ flex: "2 1 520px", minWidth: 0 }}>
@@ -134,7 +140,7 @@ export function GlanceBoard({
               <Empty>No points yet.</Empty>
             ) : (
               <RankedList
-                rows={people.slice(0, 3).map((p) => ({ id: p.employeeId, rank: p.rank, name: p.displayName, points: p.points }))}
+                rows={people.slice(0, 3).map((p) => ({ id: p.employeeId, rank: p.rank, name: directory.get(p.email.toLowerCase())?.name || p.displayName, points: p.points }))}
               />
             )}
           </Block>
@@ -178,11 +184,12 @@ export default function GlancePage() {
   const glance = useDashboardGlance();
   const board = useAmplifyLeaderboard();
   const teams = useGroupBoard("TEAM");
+  const directory = useAmplifyPeople();
   return (
     <AmplifyShell title="At A Glance" subtitle="One screen for the leadership check-in.">
       <BoardState queries={[glance]}>
         {glance.data && (
-          <GlanceBoard data={glance.data} people={board.data?.company ?? []} teams={teams.data?.entries ?? []} />
+          <GlanceBoard data={glance.data} people={board.data?.company ?? []} teams={teams.data?.entries ?? []} directory={directory} />
         )}
       </BoardState>
     </AmplifyShell>

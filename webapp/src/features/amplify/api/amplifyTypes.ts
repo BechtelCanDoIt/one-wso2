@@ -173,6 +173,8 @@ export interface DashboardCampaignRow {
   opensAt: string;
   closesAt: string;
   reposts: number;
+  /** Of `reposts`, the ones posted with the employee's own comment. Absent until the API sends it. */
+  repostsWithCommentary?: number;
   announcement?: DashboardAnnouncement;
 }
 

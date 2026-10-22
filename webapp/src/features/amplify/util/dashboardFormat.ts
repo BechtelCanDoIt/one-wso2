@@ -57,7 +57,7 @@ export function windowText(opensAt: string, closesAt: string): string {
   return `${shortDate(opensAt)} – ${shortDate(closesAt)}`;
 }
 
-/** The Chat card's state in words. Queued means the outbox is still retrying it. */
+/** The Novera announcement's state in words. Queued means the outbox is still retrying it. */
 export function announcementLabel(a: DashboardAnnouncement | undefined): string {
   if (!a || a.status === "NONE") return "Not announced";
   if (a.status === "SENT") return "Sent";
@@ -84,9 +84,39 @@ export function fraction(m: ScorecardMeasure): string | null {
   return `${num(m.numerator)} / ${num(m.denominator)}`;
 }
 
-/** The "as of" line under a board's title. */
-export function asOfText(iso: string): string {
+/** One zone's clock as "3:05 PM" plus its short zone name. */
+function clockIn(d: Date, timeZone: string): { time: string; zone: string } {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZoneName: "short",
+  }).formatToParts(d);
+  const get = (type: Intl.DateTimeFormatPartTypes) => parts.find((p) => p.type === type)?.value ?? "";
+  return { time: `${get("hour")}:${get("minute")} ${get("dayPeriod").toUpperCase()}`, zone: get("timeZoneName") };
+}
+
+/**
+ * The data's age on every board, in three zones on one line:
+ * "Updated 3:05 PM LK | Updated 5:35 AM EDT | Updated 9:35 AM UTC".
+ * LK is Sri Lanka (Asia/Colombo, UTC+5:30); the US Eastern label follows the date (EST or EDT).
+ */
+export function updatedStamp(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return `Updated ${d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "UTC" })} UTC`;
+  const lk = clockIn(d, "Asia/Colombo");
+  const east = clockIn(d, "America/New_York");
+  const utc = clockIn(d, "UTC");
+  return `Updated ${lk.time} LK | Updated ${east.time} ${east.zone} | Updated ${utc.time} UTC`;
+}
+
+/** Plain reposts: the total less those with the employee's own comment. */
+export function plainReposts(c: { reposts: number; repostsWithCommentary?: number }): number {
+  return Math.max(0, c.reposts - (c.repostsWithCommentary ?? 0));
+}
+
+/** Reposts that carry the employee's own comment. */
+export function commentedReposts(c: { reposts: number; repostsWithCommentary?: number }): number {
+  return Math.min(c.reposts, c.repostsWithCommentary ?? 0);
 }

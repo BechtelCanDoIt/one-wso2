@@ -20,7 +20,7 @@ import type { DashboardParticipation, GroupBoard } from "../../api/amplifyTypes"
 import { useDashboardParticipation, useGroupBoard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
 import { Bar, Block, BoardState, Empty } from "../../components/DashboardParts";
-import { asOfText, num, percentOf, rate } from "../../util/dashboardFormat";
+import { updatedStamp, num, percentOf, rate } from "../../util/dashboardFormat";
 
 /** Employees → connected → reposted → active: where people drop out. */
 export function Funnel({ data }: { data: DashboardParticipation }) {
@@ -171,7 +171,7 @@ export default function ParticipationPage() {
         {funnel.data && (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Typography variant="caption" color="text.secondary">
-              {asOfText(funnel.data.asOf)}
+              {updatedStamp(funnel.data.asOf)}
             </Typography>
             <Funnel data={funnel.data} />
             <BoardState queries={[teams]}>

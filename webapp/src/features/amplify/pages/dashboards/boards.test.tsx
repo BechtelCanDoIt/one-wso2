@@ -66,6 +66,10 @@ describe("OperationsBoard", () => {
     expect(screen.getByText("187")).toBeTruthy();
     expect(screen.getByText("+23 vs previous 7 days")).toBeTruthy();
     expect(screen.getByText("Retrying · attempt 3")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Novera" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Reposts" })).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: "Reposts/Comments" })).toBeTruthy();
+    expect(screen.getByText("Updated 2:45 PM LK | Updated 5:15 AM EDT | Updated 9:15 AM UTC")).toBeTruthy();
     expect(screen.getByText(/680 employees have never connected/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /remind|retry/i })).toBeNull();
   });
@@ -105,7 +109,7 @@ describe("PostPerformanceBoard", () => {
     const onSelect = vi.fn();
     render(<PostPerformanceBoard data={campaigns} onSelect={onSelect} />);
     expect(screen.getByText("75%")).toBeTruthy();
-    expect(screen.getByText("Chat card: Sent")).toBeTruthy();
+    expect(screen.getByText("Novera: Sent")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Hiring/ }));
     expect(onSelect).toHaveBeenCalledWith("c2");
   });
@@ -166,6 +170,19 @@ describe("GlanceBoard", () => {
     shareSuccess: { published: 187, attempts: 192 },
     bestCampaign: { campaignId: "c1", title: "Launch", categoryLabel: "Product", isPriority: true, reposts: 112 },
   };
+
+  it("shows the directory name for a person, never the id or the API's fallback", () => {
+    render(
+      <GlanceBoard
+        data={glance}
+        people={[{ employeeId: "emp-7f3a", displayName: "Person emp-7f3a", email: "J@WSO2.com", points: 120, rank: 1 }]}
+        teams={[]}
+        directory={new Map([["j@wso2.com", { name: "Jane Doe", photoUrl: null }]])}
+      />,
+    );
+    expect(screen.getByText("Jane Doe")).toBeTruthy();
+    expect(screen.queryByText(/emp-7f3a/)).toBeNull();
+  });
 
   it("shows the month, top people and top teams from the API data", () => {
     render(

@@ -147,6 +147,15 @@ export function StateChip({ label, tone = "default" }: { label: string; tone?: "
   return <Chip size="small" variant="outlined" color={tone} label={label} />;
 }
 
+/** The Priority pill after a campaign title, with twice the old single-space gap. */
+export function PriorityPill() {
+  return (
+    <Box component="span" sx={{ ml: 1, display: "inline-block" }}>
+      <StateChip label="Priority" tone="primary" />
+    </Box>
+  );
+}
+
 /** A line of text for a block with nothing in it. */
 export function Empty({ children }: { children: ReactNode }) {
   return (

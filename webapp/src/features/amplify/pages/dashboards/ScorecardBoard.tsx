@@ -19,7 +19,7 @@ import type { DashboardScorecard } from "../../api/amplifyTypes";
 import { useDashboardScorecard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
 import { Block, BoardState, Empty, StateChip } from "../../components/DashboardParts";
-import { asOfText, fraction, measureValue, targetText } from "../../util/dashboardFormat";
+import { updatedStamp, fraction, measureValue, targetText } from "../../util/dashboardFormat";
 
 /** Each measure against its target. Status comes from the API; nothing is recomputed here. */
 export function ScorecardBoard({ data }: { data: DashboardScorecard }) {
@@ -28,7 +28,7 @@ export function ScorecardBoard({ data }: { data: DashboardScorecard }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Typography variant="caption" color="text.secondary">
-        {asOfText(data.asOf)}
+        {updatedStamp(data.asOf)}
       </Typography>
       <Block
         title="Participation measures"

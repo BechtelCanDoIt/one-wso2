@@ -17,8 +17,8 @@ import { Box, Table, TableBody, TableCell, TableHead, TableRow, Typography } fro
 import type { DashboardOperations } from "../../api/amplifyTypes";
 import { useDashboardOperations } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
-import { Block, BoardState, Empty, StackedBar, StatCard, StateChip } from "../../components/DashboardParts";
-import { announcementLabel, asOfText, deltaText, num, percentOf, windowText } from "../../util/dashboardFormat";
+import { Block, BoardState, Empty, PriorityPill, StackedBar, StatCard, StateChip } from "../../components/DashboardParts";
+import { announcementLabel, commentedReposts, plainReposts, updatedStamp, deltaText, num, percentOf, windowText } from "../../util/dashboardFormat";
 
 const ANNOUNCEMENT_TONE = { SENT: "info", QUEUED: "warning", FAILED: "error", NONE: "default" } as const;
 
@@ -30,7 +30,7 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Typography variant="caption" color="text.secondary">
-        {asOfText(data.asOf)}
+        {updatedStamp(data.asOf)}
       </Typography>
       <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))", md: "repeat(4, minmax(0, 1fr))" } }}>
         <StatCard
@@ -61,18 +61,21 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
                       <TableCell>Category</TableCell>
                       <TableCell>Window</TableCell>
                       <TableCell align="right">Reposts</TableCell>
-                      <TableCell>Chat card</TableCell>
+                      <TableCell align="right">Reposts/Comments</TableCell>
+                      <TableCell>Novera</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {data.campaigns.map((p) => (
                       <TableRow key={p.campaignId}>
                         <TableCell>
-                          {p.title} {p.isPriority && <StateChip label="Priority" tone="primary" />}
+                          {p.title}
+                          {p.isPriority && <PriorityPill />}
                         </TableCell>
                         <TableCell>{p.categoryLabel}</TableCell>
                         <TableCell>{windowText(p.opensAt, p.closesAt)}</TableCell>
-                        <TableCell align="right">{num(p.reposts)}</TableCell>
+                        <TableCell align="right">{num(plainReposts(p))}</TableCell>
+                        <TableCell align="right">{num(commentedReposts(p))}</TableCell>
                         <TableCell>
                           <StateChip label={announcementLabel(p.announcement)} tone={ANNOUNCEMENT_TONE[p.announcement?.status ?? "NONE"]} />
                         </TableCell>

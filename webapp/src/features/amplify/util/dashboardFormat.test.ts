@@ -17,6 +17,9 @@ import { describe, expect, it } from "vitest";
 import type { ScorecardMeasure } from "../api/amplifyTypes";
 import {
   announcementLabel,
+  commentedReposts,
+  plainReposts,
+  updatedStamp,
   changePercent,
   deltaText,
   fraction,
@@ -72,5 +75,32 @@ describe("dashboardFormat", () => {
     expect(targetText(measure({ comparison: "AT_MOST", target: 5 }))).toBe("At most 5%");
     expect(fraction(measure({ numerator: 150, denominator: 830 }))).toBe("150 / 830");
     expect(fraction(measure({}))).toBeNull();
+  });
+});
+
+describe("updatedStamp", () => {
+  it("shows Sri Lanka, US Eastern and UTC on one line (EDT in summer, with the +5:30 offset)", () => {
+    expect(updatedStamp("2026-07-15T09:35:00Z")).toBe(
+      "Updated 3:05 PM LK | Updated 5:35 AM EDT | Updated 9:35 AM UTC",
+    );
+  });
+
+  it("uses EST in winter and rolls the clock past midnight per zone", () => {
+    expect(updatedStamp("2026-01-15T20:10:00Z")).toBe(
+      "Updated 1:40 AM LK | Updated 3:10 PM EST | Updated 8:10 PM UTC",
+    );
+  });
+
+  it("is empty for a bad timestamp", () => {
+    expect(updatedStamp("nope")).toBe("");
+  });
+});
+
+describe("reposts split", () => {
+  it("adds up to the total, and treats a missing split as no comments", () => {
+    expect(plainReposts({ reposts: 48, repostsWithCommentary: 18 })).toBe(30);
+    expect(commentedReposts({ reposts: 48, repostsWithCommentary: 18 })).toBe(18);
+    expect(plainReposts({ reposts: 48 })).toBe(48);
+    expect(commentedReposts({ reposts: 48 })).toBe(0);
   });
 });
