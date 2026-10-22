@@ -79,7 +79,7 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
           value={`${num(plainReposts({ reposts: kpis.reposts7d, repostsWithCommentary: kpis.reposts7dWithCommentary }))} / ${num(
             commentedReposts({ reposts: kpis.reposts7d, repostsWithCommentary: kpis.reposts7dWithCommentary }),
           )}`}
-          detail={`${deltaText(kpis.reposts7d, kpis.repostsPrev7d, "previous 7 days")} (all reposts, last 7 days)`}
+          detail={deltaText(kpis.reposts7d, kpis.repostsPrev7d, "previous 7 days")}
         />
         <StatCard
           label="Employees connected"
