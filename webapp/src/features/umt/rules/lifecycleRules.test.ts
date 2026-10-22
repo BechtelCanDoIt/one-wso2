@@ -56,12 +56,9 @@ describe("lifecycle state → step mapping", () => {
 });
 
 describe("demote actions", () => {
-  it("offers Development from Files Analysis at PRAnalyzed, and PRAnalyzed/Development from Description", () => {
+  it("offers Development from Files Analysis at PRAnalyzed, and only PRAnalyzed from Description", () => {
     expect(demoteTargets("files-analysis", "PRAnalyzed", false, false)).toEqual(["Development"]);
-    expect(demoteTargets("description-instruction", "ProductAnalyzed", false, false)).toEqual([
-      "PRAnalyzed",
-      "Development",
-    ]);
+    expect(demoteTargets("description-instruction", "ProductAnalyzed", false, false)).toEqual(["PRAnalyzed"]);
   });
 
   it("lets an admin send a UATStaging update back to Staging, and offers Reopen on OnHold", () => {
