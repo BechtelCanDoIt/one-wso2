@@ -18,8 +18,11 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import AnalysisIndustryChart from "./AnalysisIndustryChart";
 import { ANALYSIS_INDUSTRIES } from "./analysisBreakdowns";
+import type { AnalysisAccountRow } from "./analysisAccountRows";
+import { CHART_ENTITY_SERIES, CHART_OTHER } from "@components/charts/chartPalette";
 import { MIS_SCALES, type MisScale } from "../util/misViewVocabulary";
 import type { IndustryBreakdown } from "../api/useAnalysisBreakdowns";
 
@@ -70,6 +73,19 @@ const breakdown = (over: Partial<IndustryBreakdown> = {}): IndustryBreakdown => 
   ...over,
 });
 
+const inIndustry = (
+  industry: string,
+  salesRegion: string,
+  subRegion: string,
+  totalArr: number,
+): AnalysisAccountRow => ({ industry, salesRegion, subRegion, totalArr }) as AnalysisAccountRow;
+
+/** Every named industry holds ARR in AMER (three parts) and EMEA (one part). */
+const book = ANALYSIS_INDUSTRIES.flatMap((industry) => [
+  inIndustry(industry, "AMER", "US East", 300),
+  inIndustry(industry, "EMEA", "UK", 100),
+]);
+
 /**
  * `totalArr` has a real `undefined` case — the summary read having failed — so
  * it cannot carry a DEFAULT of any kind. `undefined` is exactly what triggers
@@ -87,12 +103,37 @@ function showChart(
     breakdown?: Partial<IndustryBreakdown>;
     totalArr?: number;
     scale?: MisScale;
+    accounts?: AnalysisAccountRow[];
+    bySubRegion?: boolean;
+    accountsLoading?: boolean;
+    accountsFailed?: boolean;
+    accountsErrorMessage?: string;
+    onRetryAccounts?: () => void;
   } = {},
 ) {
-  const { breakdown: over = {}, scale = MIS_SCALES.UNITS } = options;
+  const {
+    breakdown: over = {},
+    scale = MIS_SCALES.UNITS,
+    accounts = book,
+    bySubRegion = false,
+    accountsLoading = false,
+    accountsFailed = false,
+    accountsErrorMessage = "",
+    onRetryAccounts = () => {},
+  } = options;
   const totalArr = "totalArr" in options ? options.totalArr : 10_000;
   return render(
-    <AnalysisIndustryChart breakdown={breakdown(over)} totalArr={totalArr} scale={scale} />,
+    <AnalysisIndustryChart
+      breakdown={breakdown(over)}
+      accounts={accounts}
+      accountsLoading={accountsLoading}
+      accountsFailed={accountsFailed}
+      accountsErrorMessage={accountsErrorMessage}
+      onRetryAccounts={onRetryAccounts}
+      bySubRegion={bySubRegion}
+      totalArr={totalArr}
+      scale={scale}
+    />,
   );
 }
 
@@ -112,20 +153,56 @@ const tableRows = () =>
         .map((cell) => cell.textContent),
     );
 
+/** The industries that have a bar, read off the axis a reader reads them from. */
+const axisLabels = (container: HTMLElement) =>
+  [...container.querySelectorAll(".recharts-xAxis-tick-labels text")].map((label) =>
+    [...label.querySelectorAll("tspan")].map((line) => line.textContent).join(" "),
+  );
+
+const segmentFills = (container: HTMLElement) =>
+  [...container.querySelectorAll(".recharts-bar-rectangle path")].map((path) =>
+    path.getAttribute("fill"),
+  );
+
+const legendItems = () =>
+  within(screen.getByRole("list", { name: "Region legend" }))
+    .getAllByRole("listitem")
+    .map((item) => item.textContent);
+
 describe("the bars", () => {
-  it("draws one per industry that has a figure, plus Other", () => {
+  it("draws one bar per industry that has a figure, plus Other", () => {
     const { container } = showChart();
-    // Seven: the six named industries and Other.
-    expect(container.querySelectorAll(".recharts-bar-rectangle")).toHaveLength(7);
+    expect(axisLabels(container)).toHaveLength(7);
   });
 
-  it("names every industry on the category axis", () => {
+  it("puts each industry's share on its axis label", () => {
+    const { container } = showChart();
+    const labels = axisLabels(container);
+    // Six industries at 1,000 and Other at the 4,000 left of 10,000.
+    expect(labels[0]).toBe("Finance and Insurance 10.00%");
+    expect(labels.at(-1)).toBe("Other 40.00%");
+  });
+
+  it("stacks every bar by region, in the hue each region ranks", () => {
+    const { container } = showChart();
+    const [amer, emea] = CHART_ENTITY_SERIES.map((slot) => slot.light);
+    const fills = new Set(segmentFills(container));
+    expect(fills).toEqual(new Set([amer, emea, CHART_OTHER.light]));
+  });
+
+  it("names the regions drawn, and Other for what no account explains", () => {
     showChart();
-    for (const industry of ANALYSIS_INDUSTRIES) {
-      // Long names read left to right on a horizontal chart — which is the
-      // reason for turning it.
-      expect(screen.getAllByText(industry).length).toBeGreaterThan(0);
-    }
+    expect(legendItems()).toEqual(["AMER", "EMEA", "Other"]);
+  });
+
+  it("stacks by sub-region when told the cut is by sub-region", () => {
+    showChart({ bySubRegion: true });
+    expect(legendItems()).toEqual(["US East", "UK", "Other"]);
+  });
+
+  it("leaves a region that contributes nothing out of the legend", () => {
+    showChart({ accounts: book.filter((account) => account.salesRegion === "AMER") });
+    expect(legendItems()).toEqual(["AMER", "Other"]);
   });
 
   // THE assertion this chart exists for. An industry the backend never offered
@@ -135,7 +212,7 @@ describe("the bars", () => {
     const { container } = showChart({
       breakdown: { asked: new Set(["Information"]), byIndustry: { Information: 400 } },
     });
-    expect(container.querySelectorAll(".recharts-bar-rectangle")).toHaveLength(1);
+    expect(axisLabels(container)).toEqual(["Information"]);
   });
 
   it("says which industries were left out, rather than leaving a silent gap", () => {
@@ -162,7 +239,7 @@ describe("the bars", () => {
         byIndustry: { ...allAnswering, Utilities: undefined },
       },
     });
-    expect(container.querySelectorAll(".recharts-bar-rectangle")).toHaveLength(5);
+    expect(axisLabels(container)).toHaveLength(5);
     expect(screen.getByText(/Didn't load/)).toHaveTextContent("Utilities");
     expect(screen.queryByText(/Not reported by this tenant/)).not.toBeInTheDocument();
   });
@@ -238,8 +315,31 @@ describe("the states that are not a chart", () => {
 
   it("holds its height while loading, rather than collapsing and jumping", () => {
     const { container } = showChart({ breakdown: { isLoading: true } });
-    expect(container.querySelectorAll(".recharts-bar-rectangle")).toHaveLength(0);
+    expect(axisLabels(container)).toHaveLength(0);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("withholds the stacks while the accounts are loading, and keeps the industry figures", () => {
+    const { container } = showChart({ accounts: [], accountsLoading: true });
+    expect(axisLabels(container)).toHaveLength(0);
+    expect(screen.queryByRole("list", { name: "Region legend" })).not.toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/Loading the regions/);
+    expect(tableRows().map(([industry]) => industry)).toContain("Utilities");
+  });
+
+  it("says the regions failed rather than stacking every bar as Other", async () => {
+    const retry = vi.fn();
+    const { container } = showChart({
+      accounts: [],
+      accountsFailed: true,
+      accountsErrorMessage: "Gateway timed out.",
+      onRetryAccounts: retry,
+    });
+    expect(axisLabels(container)).toHaveLength(0);
+    expect(screen.queryByRole("list", { name: "Region legend" })).not.toBeInTheDocument();
+    expect(screen.getByText(/Couldn't load the regions/)).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: /retry/i }));
+    expect(retry).toHaveBeenCalled();
   });
 
   // No ARR in this view is an ANSWER. An empty plot area would read as a chart
@@ -259,7 +359,7 @@ describe("the states that are not a chart", () => {
       breakdown: { byIndustry: Object.fromEntries(ANALYSIS_INDUSTRIES.map((i) => [i, 0])) },
       totalArr: 0,
     });
-    expect(container.querySelectorAll(".recharts-bar-rectangle")).toHaveLength(0);
+    expect(axisLabels(container)).toHaveLength(0);
     expect(screen.getByRole("status")).toHaveTextContent(/No industry figures/);
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
   });

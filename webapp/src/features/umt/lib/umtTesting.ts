@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { UmtLifecycleState } from "../api/umtTypes";
 import type { UmtStagingTestResultRecord } from "../api/umtUpdates";
 
 export const UMT_TESTING_LIFECYCLE_STATES = [
@@ -22,7 +23,7 @@ export const UMT_TESTING_LIFECYCLE_STATES = [
   "TestingEnvironmentFailed",
   "StagingRequested",
   "Staging",
-] as const;
+] as const satisfies readonly UmtLifecycleState[];
 
 export type UmtTestingResultValue = "success" | "failure" | "not_built";
 
@@ -52,7 +53,7 @@ export function umtStagingRowIsComplete(record: UmtStagingTestResultRecord): boo
 // record list once Staging is reached (nothing to review); false for every
 // other state.
 export function isTestingComplete(
-  lifecycleState: string | null | undefined,
+  lifecycleState: UmtLifecycleState | null | undefined,
   records: UmtStagingTestResultRecord[] | null | undefined,
 ): boolean {
   if (lifecycleState !== "Staging") return false;
@@ -122,7 +123,7 @@ export const UMT_RETRIGGER_POLL_WINDOW_MS = 60_000;
 // and for UMT_RETRIGGER_POLL_WINDOW_MS after a retrigger (`retriggeredAt`, an
 // epoch time in ms), so a retriggered run's outcome shows up without a reload.
 export function umtShouldPollStagingTestResults(
-  lifecycleState: string | null | undefined,
+  lifecycleState: UmtLifecycleState | null | undefined,
   records?: UmtStagingTestResultRecord[] | null,
   retriggeredAt?: number | null,
   now: number = Date.now(),

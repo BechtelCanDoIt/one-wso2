@@ -22,6 +22,7 @@ import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { UMT_TESTING_LIFECYCLE_STATES, umtShouldPollStagingTestResults } from "../lib/umtTesting";
+import type { UmtLifecycleState } from "./umtTypes";
 import type { UmtStagingTestResultRecord, UmtStagingTestResultRequest } from "./umtUpdates";
 
 // When a retrigger was last accepted for an update, as epoch ms. It lives in
@@ -35,7 +36,7 @@ const retriggeredAtKey = (id: string) => ["umt-staging-test-retriggered-at", id]
 // umtShouldPollStagingTestResults is true (mirrors useUmtPrAnalysisStatus's
 // existing polling precedent). That ends at Failed, and at Staging once no run
 // is building and the post-retrigger window has passed.
-export function useUmtStagingTestResults(id: string, lifecycleState: string | null | undefined) {
+export function useUmtStagingTestResults(id: string, lifecycleState: UmtLifecycleState | null | undefined) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
@@ -44,7 +45,7 @@ export function useUmtStagingTestResults(id: string, lifecycleState: string | nu
   const baseEnabled =
     /^\d+$/.test(id) && isSignedIn && isUmtBackendConfigured() && Boolean(userSub);
   const enabled =
-    baseEnabled && (UMT_TESTING_LIFECYCLE_STATES as readonly (string | null | undefined)[]).includes(lifecycleState);
+    baseEnabled && (UMT_TESTING_LIFECYCLE_STATES as readonly (UmtLifecycleState | null | undefined)[]).includes(lifecycleState);
 
   const query = useQuery<UmtStagingTestResultRecord[]>({
     queryKey: ["umt-update-staging-test-results", userSub, id],

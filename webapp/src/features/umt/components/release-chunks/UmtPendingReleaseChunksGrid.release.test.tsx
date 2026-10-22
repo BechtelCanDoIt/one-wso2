@@ -22,11 +22,13 @@
 // statuses, and the grid reads those through a module-level vi.mock.
 
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 const state = vi.hoisted(() => ({
   buildStatus: undefined as unknown,
+  freshBuildStatus: undefined as unknown,
+  fetchFresh: undefined as undefined | (() => Promise<unknown>),
   showWarning: vi.fn(),
   releaseMutate: vi.fn(async () => undefined),
 }));
@@ -59,6 +61,8 @@ vi.mock("../../api/useUmtReleaseChunks", () => ({
     error: null,
     refetch: () => {},
   }),
+  useFetchFreshUmtReleaseChunkBuildStatus: () => async () =>
+    state.fetchFresh ? state.fetchFresh() : state.freshBuildStatus,
   useUmtReleaseChunkRowStatuses: () => ({
     42: {
       buildStatusLoading: false,
@@ -82,7 +86,7 @@ vi.mock("../../api/useUmtReleaseChunkActions", () => ({
   useUmtTriggerProductBuild: idleMutation,
   useUmtTriggerTgBuild: idleMutation,
   useUmtTriggerReleaseChunkBuilds: idleMutation,
-  useUmtTriggerCstBuild: idleMutation,
+  useUmtRetriggerCstBuild: idleMutation,
   useUmtRetriggerDockerBuild: idleMutation,
   useUmtReleaseChunk: () => ({ isPending: false, mutateAsync: state.releaseMutate }),
   useUmtSendReleaseChunkEmail: idleMutation,
@@ -107,23 +111,26 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
   beforeEach(() => {
     state.showWarning.mockClear();
     state.releaseMutate.mockClear();
+    state.fetchFresh = undefined;
   });
 
   it("refuses to release a chunk whose build status could not be fetched", async () => {
     // The trap: the levels list read off a missing status is empty, and
     // `[].every(...)` is true — so without its own case an unfetched status
     // reads as "every level succeeded" and opens the release dialog.
-    state.buildStatus = undefined;
+    state.buildStatus = state.freshBuildStatus = undefined;
     render(<UmtPendingReleaseChunksGrid />);
 
     await clickRelease();
 
-    expect(state.showWarning).toHaveBeenCalledWith(expect.stringContaining("unavailable"));
+    await waitFor(() =>
+      expect(state.showWarning).toHaveBeenCalledWith(expect.stringContaining("unavailable")),
+    );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("warns about integration test failures when a level has not succeeded", async () => {
-    state.buildStatus = {
+    state.buildStatus = state.freshBuildStatus = {
       id: 42,
       updateIds: [101],
       updateLevels: [{ buildStatus: "SUCCESS" }, { buildStatus: "UNSTABLE" }],
@@ -132,14 +139,16 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
 
     await clickRelease();
 
-    expect(state.showWarning).toHaveBeenCalledWith(
-      expect.stringContaining("integration test failures"),
+    await waitFor(() =>
+      expect(state.showWarning).toHaveBeenCalledWith(
+        expect.stringContaining("integration test failures"),
+      ),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("opens the release dialog when every level succeeded", async () => {
-    state.buildStatus = {
+    state.buildStatus = state.freshBuildStatus = {
       id: 42,
       updateIds: [101],
       updateLevels: [{ buildStatus: "SUCCESS" }, { buildStatus: "SUCCESS" }],
@@ -150,5 +159,72 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
 
     expect(state.showWarning).not.toHaveBeenCalled();
     expect(await screen.findByRole("dialog")).toHaveTextContent("Proceed and Release");
+  });
+
+  it("decides on the build status fetched at click time, not the one the row loaded", async () => {
+    // The row loaded while every level had succeeded; a level has since been
+    // rebuilt and failed.
+    state.buildStatus = {
+      id: 42,
+      updateIds: [101],
+      updateLevels: [{ buildStatus: "SUCCESS" }],
+    };
+    state.freshBuildStatus = {
+      id: 42,
+      updateIds: [101],
+      updateLevels: [{ buildStatus: "FAILURE" }],
+    };
+    render(<UmtPendingReleaseChunksGrid />);
+
+    await clickRelease();
+
+    await waitFor(() =>
+      expect(state.showWarning).toHaveBeenCalledWith(
+        expect.stringContaining("integration test failures"),
+      ),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("shows a spinner on Release, and holds it, until the check answers", async () => {
+    let resolveCheck: (status: unknown) => void = () => {};
+    state.fetchFresh = () =>
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      });
+    render(<UmtPendingReleaseChunksGrid />);
+
+    await clickRelease();
+
+    expect(screen.getByRole("button", { name: "Release" })).toBeDisabled();
+    expect(screen.getByRole("progressbar")).toBeInTheDocument();
+
+    resolveCheck({ id: 42, updateIds: [101], updateLevels: [{ buildStatus: "SUCCESS" }] });
+
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Proceed and Release");
+    // The open dialog hides the grid behind it from the accessibility tree.
+    expect(screen.getByRole("button", { name: "Release", hidden: true })).toBeEnabled();
+  });
+
+  it("ignores a Release check that finishes after another action was asked for", async () => {
+    // The check is slow; meanwhile the status email is asked for. The check
+    // then answers with every level succeeded, which must not open the
+    // release dialog over the email one.
+    let resolveCheck: (status: unknown) => void = () => {};
+    state.fetchFresh = () =>
+      new Promise((resolve) => {
+        resolveCheck = resolve;
+      });
+    render(<UmtPendingReleaseChunksGrid />);
+
+    await clickRelease();
+    await userEvent.click(screen.getByRole("button", { name: "Send status email" }));
+    const dialog = await screen.findByRole("dialog");
+
+    resolveCheck({ id: 42, updateIds: [101], updateLevels: [{ buildStatus: "SUCCESS" }] });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Release", hidden: true })).toBeEnabled());
+
+    expect(dialog).not.toHaveTextContent("Proceed and Release");
+    expect(state.showWarning).not.toHaveBeenCalled();
   });
 });

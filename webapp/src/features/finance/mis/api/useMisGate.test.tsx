@@ -38,7 +38,7 @@ const state = {
   configured: true,
   // `productsUsageEnabled` from GET /app-configs. True here by default because
   // every test but the flag's own is about privileges, and a flag left off
-  // would make ARR Analysis fail those for the wrong reason.
+  // would make Portfolio fail those for the wrong reason.
   analysisEnabled: true,
 };
 
@@ -239,7 +239,7 @@ describe("while the check is in flight", () => {
   });
 });
 
-// ---- ARR Analysis: a privilege AND a flag ---------------------------------
+// ---- Portfolio: a privilege AND a flag ---------------------------------
 //
 // The one MIS screen whose existence is a server-side decision as well as an
 // authorization one. `productsUsageEnabled` says whether the screen is part of
@@ -253,7 +253,7 @@ describe("while the check is in flight", () => {
 // turned off. The route reads the flag directly as well, but only to tell a
 // confirmed `false` (redirect) from an unresolved one (hold, or say so); see
 // MisArrAnalysisPage.
-describe("ARR Analysis", () => {
+describe("Portfolio", () => {
   it("opens for the ARR privilege while the flag is on", () => {
     state.privileges = [ARR];
     expect(gate().canSee("mis-analysis")).toBe(true);
@@ -278,7 +278,7 @@ describe("ARR Analysis", () => {
     state.privileges = [ARR];
     state.analysisEnabled = false;
     for (const id of ["mis-arr-build", "mis-qrr-build", "mis-mrr-build"]) {
-      expect(gate().canSee(id), `${id} was closed by the ARR Analysis flag`).toBe(true);
+      expect(gate().canSee(id), `${id} was closed by the Portfolio flag`).toBe(true);
     }
   });
 });

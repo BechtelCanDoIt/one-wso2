@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// What each of ARR Analysis's four list controls offers.
+// What each of Portfolio's four list controls offers.
 //
 // ---- one rule, where the source has four ------------------------------------
 //

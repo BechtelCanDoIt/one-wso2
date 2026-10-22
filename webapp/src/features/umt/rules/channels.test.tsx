@@ -42,21 +42,25 @@ vi.mock("../api/useUmtGate", () => ({
 
 vi.mock("../api/useUmtReleaseChunks", () => ({
   useUmtReleaseChunks: () => ({
-    data: [
-      {
-        id: 42,
-        updateIds: [101],
-        updateLevels: [
-          { productName: "wso2am", productVersion: "4.2.0", channel: "security", buildStatus: "UNSTABLE" },
-        ],
-      },
-    ],
+    data: {
+      chunks: [
+        {
+          id: 42,
+          updateIds: [101],
+          updateLevels: [
+            { productName: "wso2am", productVersion: "4.2.0", channel: "security", buildStatus: "UNSTABLE" },
+          ],
+        },
+      ],
+      totalCount: 1,
+    },
     isError: false,
     isFetching: false,
     isPending: false,
     error: null,
     refetch: () => {},
   }),
+  useFetchFreshUmtReleaseChunkBuildStatus: () => async () => undefined,
   useUmtReleaseChunkRowStatuses: () => ({
     42: { buildStatusLoading: false, buildStatus: undefined, chunkStatus: { id: 42, updateIds: [101], status: "created" } },
   }),
@@ -76,7 +80,7 @@ vi.mock("../api/useUmtReleaseChunkActions", () => ({
   useUmtTriggerProductBuild: () => ({ isPending: false, mutateAsync: state.productBuild }),
   useUmtTriggerTgBuild: () => ({ isPending: false, mutateAsync: state.tgBuild }),
   useUmtTriggerReleaseChunkBuilds: idleMutation,
-  useUmtTriggerCstBuild: idleMutation,
+  useUmtRetriggerCstBuild: idleMutation,
   useUmtRetriggerDockerBuild: idleMutation,
   useUmtReleaseChunk: idleMutation,
   useUmtSendReleaseChunkEmail: idleMutation,
@@ -115,6 +119,7 @@ describe("channel on retriggers and staging test saves", () => {
     render(<UmtPendingReleaseChunksGrid />);
 
     await userEvent.click(screen.getByRole("button", { name: "Retrigger Job" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     expect(state.productBuild).toHaveBeenCalledWith(
       expect.objectContaining({ productName: "wso2am", productVersion: "4.2.0", channel: "security" }),
@@ -125,6 +130,7 @@ describe("channel on retriggers and staging test saves", () => {
     render(<UmtPendingReleaseChunksGrid />);
 
     await userEvent.click(screen.getByRole("button", { name: "Retrigger TG Job" }));
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
 
     expect(state.tgBuild).toHaveBeenCalledWith(expect.objectContaining({ channel: "security" }));
   });

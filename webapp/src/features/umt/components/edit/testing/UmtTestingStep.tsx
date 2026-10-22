@@ -33,12 +33,14 @@ import {
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtStagingTestResultRecord, UmtStagingTestResultRequest, UmtUpdateSummary } from "../../../api/umtUpdates";
+import type { UmtLifecycleState } from "../../../api/umtTypes";
 import {
   UmtPartialTestingSaveError,
   useUmtRetriggerStagingTest,
   useUmtSaveTestingResults,
   useUmtStagingTestResults,
 } from "../../../api/useUmtTesting";
+import { umtLifecycleState } from "../../../lib/umtLifecycleState";
 import {
   UMT_TESTING_RESULT_OPTIONS,
   umtAutomatedTestResultColor,
@@ -52,7 +54,7 @@ interface Draft {
   comment: string;
 }
 
-function emptyStateMessage(lifecycleState: string | null | undefined): { severity: "info" | "error"; text: string } {
+function emptyStateMessage(lifecycleState: UmtLifecycleState | undefined): { severity: "info" | "error"; text: string } {
   switch (lifecycleState) {
     case "TestingEnvironmentRequested":
       return { severity: "info", text: "Provisioning the testing environment…" };
@@ -69,7 +71,8 @@ function emptyStateMessage(lifecycleState: string | null | undefined): { severit
 
 export default function UmtTestingStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
   const { showSuccess, showError } = useNotifications();
-  const stagingTestResults = useUmtStagingTestResults(id, update.lifecycleState);
+  const lifecycleState = umtLifecycleState(update.lifecycleState);
+  const stagingTestResults = useUmtStagingTestResults(id, lifecycleState);
   const saveMutation = useUmtSaveTestingResults(id);
   const retriggerMutation = useUmtRetriggerStagingTest(id);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
@@ -100,7 +103,7 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
   const rows = stagingTestResults.data ?? [];
 
   if (rows.length === 0) {
-    const { severity, text } = emptyStateMessage(update.lifecycleState);
+    const { severity, text } = emptyStateMessage(lifecycleState);
     return <Alert severity={severity}>{text}</Alert>;
   }
 
@@ -211,7 +214,7 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
                     }}
                   />
                   <Typography variant="body2">{umtAutomatedTestResultLabel(row.automatedTestResult)}</Typography>
-                  {update.lifecycleState === "Staging" && umtCanRetriggerStagingRow(row) && (
+                  {lifecycleState === "Staging" && umtCanRetriggerStagingRow(row) && (
                     <Button
                       size="small"
                       variant="outlined"

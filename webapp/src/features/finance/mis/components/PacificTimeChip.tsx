@@ -19,7 +19,7 @@ import { ClockIcon } from "@wso2/oxygen-ui-icons-react";
 import { pacificTimeLabel } from "../util/misPacificTime";
 
 // `Pacific Time (PST|PDT)`. It sits on the Period row of a Build, and with
-// the filters on ARR Analysis — the controls whose dates that clock cuts —
+// the filters on Portfolio — the controls whose dates that clock cuts —
 // rather than above the page title.
 //
 // It is on screen always, not only when something looks odd, because the whole

@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import { useDebouncedValue } from "./useDebouncedValue";
 
-// What the ARR Analysis reads are keyed on, as against what its controls show.
+// What the Portfolio reads are keyed on, as against what its controls show.
 //
 // Ticket 13 dropped the source's 250ms debounce deliberately: the table was two
 // requests, and delaying every deliberate click to smooth over two number

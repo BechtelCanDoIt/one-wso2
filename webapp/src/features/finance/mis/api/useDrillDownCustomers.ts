@@ -27,7 +27,7 @@ import { useColumnQueries } from "./useColumnQueries";
 // neighbours: `useColumnQueries` takes a LIST of bodies and this passes a list
 // of one. That is the right trade rather than a fresh hook — everything the
 // drill-down needs from it is the part that has nothing to do with columns: the
-// body as the cache key, the sub-scoping, `httpRetry`, `humanizeHttpError`, the
+// body as the cache key, the sub-scoping, `misReadRetry`, `humanizeHttpError`, the
 // identity-error fold, and the clean idle state when there is nothing to ask.
 //
 // `null` request means the dialog is shut: no body, no query, no fetch. That

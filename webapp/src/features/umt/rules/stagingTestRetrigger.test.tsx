@@ -225,7 +225,7 @@ describe("polling the staging results at Staging", () => {
     expect(umtShouldPollStagingTestResults("Staging", [FAILED], retriggeredAt, after)).toBe(false);
     expect(umtShouldPollStagingTestResults("Staging", [BUILDING], retriggeredAt, after)).toBe(true);
     expect(umtShouldPollStagingTestResults("Staging", [FAILED], null, within)).toBe(false);
-    expect(umtShouldPollStagingTestResults("Failed", [FAILED], retriggeredAt, within)).toBe(false);
+    expect(umtShouldPollStagingTestResults("TestingEnvironmentFailed", [FAILED], retriggeredAt, within)).toBe(false);
   });
 
   it("is what the results query follows", async () => {

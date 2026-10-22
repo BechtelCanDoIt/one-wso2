@@ -167,6 +167,24 @@ describe("a column the backend refuses", () => {
   });
 });
 
+describe("retrying a Build with a failed column", () => {
+  it("asks again only for the column that failed", async () => {
+    answers.set("2025-12-31", new HttpError("https://mis.example", 400, ""));
+    answers.set("2026-09-12", { openingArr: 12 });
+    const { result } = renderSummary([YEAR_2025, YEAR_2026]);
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    authedPost.mockClear();
+    answers.set("2025-12-31", { openingArr: 7 });
+
+    result.current.retry();
+
+    await waitFor(() => expect(result.current.columns[0].response).toEqual({ openingArr: 7 }));
+    expect(authedPost).toHaveBeenCalledTimes(1);
+    expect((authedPost.mock.calls[0][2] as { endDate: string }).endDate).toBe("2025-12-31");
+    expect(result.current.columns[0].isError).toBe(false);
+  });
+});
+
 describe("a Build with no columns to ask for", () => {
   it("asks for nothing and reports nothing loading", async () => {
     const { result } = renderSummary([]);

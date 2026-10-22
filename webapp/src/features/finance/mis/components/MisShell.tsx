@@ -39,7 +39,7 @@ import { ScalePreferenceProvider } from "../util/ScalePreferenceContext";
 //      early return --------------------------------------------------------
 //
 // One screen needs something answered BEFORE the gate's answer means anything:
-// ARR Analysis exists only while `productsUsageEnabled` is true, and that
+// Portfolio exists only while `productsUsageEnabled` is true, and that
 // arrives from GET /app-configs rather than from /user-info. Until it does,
 // `canSee("mis-analysis")` is false for a reason that is not a refusal — so
 // without this rung every cold load of that screen flashes a locked panel at
@@ -54,7 +54,7 @@ import { ScalePreferenceProvider } from "../util/ScalePreferenceContext";
 //
 // That shell asks one question — are you authorized for this perspective — and
 // every screen behind it follows. This one takes a `gateId` and asks per screen,
-// because one screen has a condition of its own: ARR Analysis exists only while
+// because one screen has a condition of its own: Portfolio exists only while
 // its `productsUsageEnabled` flag is on. The Builds share the ARR privilege;
 // Analysis is the screen with a condition of its own.
 //
@@ -71,7 +71,7 @@ export interface MisPrerequisite {
   isError: boolean;
   errorMessage: string;
   retry: () => void;
-  /** What could not be established, for the error: "whether ARR Analysis…". */
+  /** What could not be established, for the error: "whether Portfolio…". */
   describe: string;
 }
 
@@ -216,7 +216,7 @@ function MisBody({
   }
 
   if (!gate.canSee(gateId)) {
-    // ARR Analysis can be closed by the backend while the reader still holds
+    // Portfolio can be closed by the backend while the reader still holds
     // the ARR privilege. That is not "you have no Finance MIS access".
     const unavailable = gateId === "mis-analysis" && gate.canSee("mis-arr-build");
     return <MisLocked unavailable={unavailable} />;

@@ -18,10 +18,10 @@ import { useEffect, useState } from "react";
 
 // A value as the READS should see it, held back until it settles.
 //
-// ---- why ARR Analysis has one and the Build does not -----------------------
+// ---- why Portfolio has one and the Build does not -----------------------
 //
 // The Build's filter bar stages changes behind Apply, so its reads fire once
-// per deliberate press and there is nothing to debounce. ARR Analysis applies at
+// per deliberate press and there is nothing to debounce. Portfolio applies at
 // once — its filters reach no address, so there is no history to fill and
 // nothing to stage (see `misAnalysisFilters.ts`).
 //

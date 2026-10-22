@@ -44,10 +44,13 @@ export function useUmtUpdateFieldMutation(id: string) {
       }
       await authedPut(umtServiceUrls.update(id), accessToken, { [change.field]: change.value });
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, { field }) => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["umt-update"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-updates"] }),
+        // Every ETA change adds an entry to the update's ETA log.
+        field === "worstCaseEstimate" &&
+          queryClient.invalidateQueries({ queryKey: ["umt-update-worst-case-estimate-log"] }),
       ]);
     },
   });

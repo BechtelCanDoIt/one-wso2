@@ -26,7 +26,7 @@ import { Link as RouterLink } from "react-router";
 // ---- why there is one message ----------------------------------------------
 //
 // The Builds all open on the ARR privilege, so someone locked out of one
-// Build is locked out of all of them. ARR Analysis is the exception: the
+// Build is locked out of all of them. Portfolio is the exception: the
 // backend can turn that one screen off while the reader still holds ARR
 // access, and that is not a missing permission.
 //
@@ -73,7 +73,7 @@ export default function MisLocked({ unavailable = false }: { unavailable?: boole
             component="h2"
             sx={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.02em", mb: 0.6 }}
           >
-            {unavailable ? "ARR Analysis isn't available" : "You don't have access to Finance MIS"}
+            {unavailable ? "Portfolio isn't available" : "You don't have access to Finance MIS"}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2, maxWidth: "60ch" }}>
             {unavailable

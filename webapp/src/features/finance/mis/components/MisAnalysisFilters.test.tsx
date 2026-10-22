@@ -37,7 +37,7 @@ import { EMPTY_ANALYSIS_MENUS } from "../util/misAnalysisMenus";
 // the same place and fail intermittently; this one says so instead.
 vi.setConfig({ testTimeout: 20_000 });
 
-// ARR Analysis's ten controls.
+// Portfolio's ten controls.
 //
 // Applied at once, with no Apply button, because these filters reach no
 // address. The Build's bar

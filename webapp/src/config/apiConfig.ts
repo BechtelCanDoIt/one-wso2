@@ -801,9 +801,10 @@ export const umtServiceUrls = {
   // builds").
   releaseChunkTriggerBuilds: (id: string | number) =>
     `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/triggerBuilds`,
-  // POST (null body) — (re)triggers the chunk's CST build.
-  releaseChunkTriggerCstBuild: (id: string | number) =>
-    `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/triggerCSTBuild`,
+  // POST (null body) — retriggers the chunk's CST build. The backend refuses
+  // it while the previous CST build is still pending or in progress.
+  releaseChunkRetriggerCstBuild: (id: string | number) =>
+    `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/retriggerCSTBuild`,
   // POST (null body) — retriggers failed docker builds for the chunk.
   releaseChunkRetriggerDockerBuild: (id: string | number) =>
     `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/retriggerDockerBuild`,
@@ -2152,7 +2153,7 @@ export const misArrServiceUrls = {
   // Drives useMisGate.
   userInfo: `${misArrBackendUrl}/user-info`,
   // Every option list the filter bar's menus are made of, in one response —
-  // and the ARR Analysis feature flag. A plain GET, so the URL is the key.
+  // and the Portfolio feature flag. A plain GET, so the URL is the key.
   appConfigs: `${misArrBackendUrl}/app-configs`,
   // A read that takes a filter body, so it is a POST — which makes the React
   // Query key the body rather than the URL. See §6 of the port spec.

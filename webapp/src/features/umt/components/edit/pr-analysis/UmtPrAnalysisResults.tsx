@@ -122,7 +122,7 @@ export default function UmtPrAnalysisResults({ result }: { result: UmtPullReques
                 label: "Relative JAR Path",
                 render: (row) => displayValue(row.relativeJarPath),
               },
-              { key: "entryType", label: "Change Type", render: (row) => displayValue(row.entryType) },
+              { key: "changeType", label: "Change Type", render: (row) => displayValue(row.changeType) },
             ]}
           />
         </ResultSection>

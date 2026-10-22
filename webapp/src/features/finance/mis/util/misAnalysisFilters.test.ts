@@ -27,7 +27,7 @@ import {
   type MisAnalysisFilters,
 } from "./misAnalysisFilters";
 
-// The rules ARR Analysis's ten controls obey, away from any component.
+// The rules Portfolio's ten controls obey, away from any component.
 
 const ON = { year: 2026, month: 9, day: 21 };
 const narrowed = (over: Partial<MisAnalysisFilters> = {}): MisAnalysisFilters => ({

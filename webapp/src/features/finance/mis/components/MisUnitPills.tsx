@@ -45,38 +45,14 @@ export default function MisUnitPills({
   const chooseUnit = (code: string) =>
     onChange({ buProductSelection: code, customBusinessUnits: [], customProductUnits: [] });
 
-  const toggleCustom = (which: "customBusinessUnits" | "customProductUnits", code: string) => {
-    const current = selection[which];
-    const next = current.includes(code) ? current.filter((item) => item !== code) : [...current, code];
-    onChange({
-      buProductSelection: CUSTOM_UNIT,
-      customBusinessUnits: which === "customBusinessUnits" ? next : [],
-      customProductUnits: which === "customProductUnits" ? next : [],
-    });
-  };
-
   if (category === "Custom") {
-    const reset = () =>
-      onChange({ buProductSelection: CUSTOM_UNIT, customBusinessUnits: [], customProductUnits: [] });
     return (
-      <Box sx={[{ mb: 1.5 }, gradientCardSx]}>
-        <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
-            Select a combination of either a set of Business Units or Product Units.
-          </Typography>
-          <Button
-            size="small"
-            variant="outlined"
-            startIcon={<RotateCcwIcon size={14} />}
-            onClick={reset}
-            sx={outlinedSx}
-          >
-            Reset
-          </Button>
-        </Stack>
-        <CustomGroup label="Business Units" options={businessUnitOptions} selected={selection.customBusinessUnits} onToggle={(code) => toggleCustom("customBusinessUnits", code)} />
-        <CustomGroup label="Product Units" options={productUnitOptions} selected={selection.customProductUnits} onToggle={(code) => toggleCustom("customProductUnits", code)} />
-      </Box>
+      <CustomUnitCard
+        businessUnitOptions={businessUnitOptions}
+        productUnitOptions={productUnitOptions}
+        selection={selection}
+        onChange={onChange}
+      />
     );
   }
 
@@ -97,6 +73,52 @@ export default function MisUnitPills({
           </ButtonBase>
         );
       })}
+    </Box>
+  );
+}
+
+/** The Business Units / Product Units chip lists and Reset, on the filters' gradient card. */
+export function CustomUnitCard({
+  selection,
+  businessUnitOptions,
+  productUnitOptions,
+  onChange,
+}: {
+  selection: MisUnitSelection;
+  businessUnitOptions: readonly string[];
+  productUnitOptions: readonly string[];
+  onChange: (next: MisUnitSelection) => void;
+}) {
+  const toggleCustom = (which: "customBusinessUnits" | "customProductUnits", code: string) => {
+    const current = selection[which];
+    const next = current.includes(code) ? current.filter((item) => item !== code) : [...current, code];
+    onChange({
+      buProductSelection: CUSTOM_UNIT,
+      customBusinessUnits: which === "customBusinessUnits" ? next : [],
+      customProductUnits: which === "customProductUnits" ? next : [],
+    });
+  };
+  const reset = () =>
+    onChange({ buProductSelection: CUSTOM_UNIT, customBusinessUnits: [], customProductUnits: [] });
+
+  return (
+    <Box sx={[{ mb: 1.5 }, gradientCardSx]}>
+      <Stack direction="row" sx={{ alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          Select a combination of either a set of Business Units or Product Units.
+        </Typography>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<RotateCcwIcon size={14} />}
+          onClick={reset}
+          sx={outlinedSx}
+        >
+          Reset
+        </Button>
+      </Stack>
+      <CustomGroup label="Business Units" options={businessUnitOptions} selected={selection.customBusinessUnits} onToggle={(code) => toggleCustom("customBusinessUnits", code)} />
+      <CustomGroup label="Product Units" options={productUnitOptions} selected={selection.customProductUnits} onToggle={(code) => toggleCustom("customProductUnits", code)} />
     </Box>
   );
 }
