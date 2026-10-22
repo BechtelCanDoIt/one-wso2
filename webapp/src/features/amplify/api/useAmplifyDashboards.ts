@@ -23,6 +23,8 @@ import { foldIdentityError } from "@hooks/useAsgardeoSub";
 import { amplifyRetry } from "../util/amplifyError";
 import { amplifyKey, useAmplifyQueryBasis } from "./useAmplifyData";
 import type {
+  GroupSort,
+  SortDir,
   DashboardGlance,
   DashboardOperations,
   DashboardParticipation,
@@ -74,15 +76,31 @@ export function useDashboardScorecard() {
   return useBoard<DashboardScorecard>("dashboard-scorecard", amplifyServiceUrls.dashboardScorecard, true);
 }
 
-/** Teams or BUs ranked against each other; `bu` narrows `TEAM` to one business unit. */
-export function useGroupBoard(by: "TEAM" | "BU", bu?: string) {
+/**
+ * Teams or BUs ranked against each other. `bu` narrows `TEAM` to one business unit; `sort` and `dir`
+ * reorder the rows on the server (the rank stays the points-based dense rank). `enabled` holds the
+ * call back until the BU is known.
+ */
+export function useGroupBoard(
+  by: "TEAM" | "BU",
+  bu?: string,
+  sort: GroupSort = "rank",
+  dir: SortDir = "asc",
+  enabled = true,
+) {
   const params = new URLSearchParams({ by });
-  if (by === "TEAM" && bu) params.set("bu", bu);
+  if (by === "TEAM") {
+    if (bu) params.set("bu", bu);
+    params.set("sort", sort);
+    params.set("dir", dir);
+  }
   return useBoard<GroupBoard>(
     "leaderboard-groups",
     `${amplifyServiceUrls.leaderboardGroups}?${params}`,
-    true,
+    enabled,
     by,
     bu ?? "",
+    by === "TEAM" ? sort : "",
+    by === "TEAM" ? dir : "",
   );
 }

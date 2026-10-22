@@ -13,7 +13,8 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 
-import { Box, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { useState } from "react";
+import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import type { DashboardOperations } from "../../api/amplifyTypes";
 import { useDashboardOperations } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
@@ -21,6 +22,41 @@ import { Block, BoardState, Empty, PriorityPill, StackedBar, StatCard, StateChip
 import { announcementLabel, commentedReposts, plainReposts, updatedStamp, deltaText, num, percentOf, windowText } from "../../util/dashboardFormat";
 
 const ANNOUNCEMENT_TONE = { SENT: "info", QUEUED: "warning", FAILED: "error", NONE: "default" } as const;
+
+type PointsPeriod = "week" | "month" | "year";
+const POINTS_PERIODS: { key: PointsPeriod; label: string }[] = [
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "year", label: "Year" },
+];
+
+/** Points awarded, switchable between this week (Monday UTC), this month and this year. */
+function PointsTile({ kpis }: { kpis: DashboardOperations["kpis"] }) {
+  const [period, setPeriod] = useState<PointsPeriod>("week");
+  const value = { week: kpis.pointsThisWeek, month: kpis.pointsThisMonth, year: kpis.pointsThisYear }[period];
+  return (
+    <StatCard
+      label="Points awarded"
+      value={num(value)}
+      detail={`${num(kpis.peopleWithPoints)} people have points`}
+      action={
+        <Box role="group" aria-label="Points period" sx={{ display: "flex", gap: 0.5 }}>
+          {POINTS_PERIODS.map((p) => (
+            <Chip
+              key={p.key}
+              size="small"
+              label={p.label}
+              color={period === p.key ? "primary" : "default"}
+              variant={period === p.key ? "filled" : "outlined"}
+              onClick={() => setPeriod(p.key)}
+              aria-pressed={period === p.key}
+            />
+          ))}
+        </Box>
+      }
+    />
+  );
+}
 
 /** The operations board: what's live, who's sharing, whether anything is stuck. */
 export function OperationsBoard({ data }: { data: DashboardOperations }) {
@@ -38,13 +74,19 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
           value={num(kpis.campaignsLive)}
           detail={`${num(kpis.campaignsLivePriority)} priority · ${num(kpis.campaignsClosingWithin7Days)} closing within 7 days`}
         />
-        <StatCard label="Reposts, 7 days" value={num(kpis.reposts7d)} detail={deltaText(kpis.reposts7d, kpis.repostsPrev7d, "previous 7 days")} />
+        <StatCard
+          label="Reposts / Reposts with Comments"
+          value={`${num(plainReposts({ reposts: kpis.reposts7d, repostsWithCommentary: kpis.reposts7dWithCommentary }))} / ${num(
+            commentedReposts({ reposts: kpis.reposts7d, repostsWithCommentary: kpis.reposts7dWithCommentary }),
+          )}`}
+          detail={`${deltaText(kpis.reposts7d, kpis.repostsPrev7d, "previous 7 days")} (all reposts, last 7 days)`}
+        />
         <StatCard
           label="Employees connected"
           value={num(kpis.peopleConnected)}
           detail={[connectedOf, `${num(kpis.connectionsExpired)} expired`].filter(Boolean).join(" · ")}
         />
-        <StatCard label="Points awarded, this month" value={num(kpis.pointsThisMonth)} detail={`${num(kpis.peopleWithPoints)} people have points`} />
+        <PointsTile kpis={kpis} />
       </Box>
 
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "flex-start" }}>

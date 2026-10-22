@@ -76,14 +76,32 @@ export function SectionLabel({ children }: { children: ReactNode }) {
 }
 
 /** One number with its label and a line of context. */
-export function StatCard({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {
+export function StatCard({
+  label,
+  value,
+  detail,
+  action,
+}: {
+  label: string;
+  value: ReactNode;
+  detail?: ReactNode;
+  /** Controls for the tile, e.g. a Week / Month / Year switch, beside the heading. */
+  action?: ReactNode;
+}) {
   return (
     <Box
       component="section"
       aria-label={label}
       sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2, minWidth: 0 }}
     >
-      <SectionLabel>{label}</SectionLabel>
+      {action ? (
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1, flexWrap: "wrap" }}>
+          <SectionLabel>{label}</SectionLabel>
+          {action}
+        </Box>
+      ) : (
+        <SectionLabel>{label}</SectionLabel>
+      )}
       <Typography sx={{ fontSize: 32, fontWeight: 600, lineHeight: 1.15, mt: 1 }}>{value}</Typography>
       {detail && (
         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75 }}>
@@ -162,5 +180,55 @@ export function Empty({ children }: { children: ReactNode }) {
     <Typography variant="body2" color="text.secondary">
       {children}
     </Typography>
+  );
+}
+
+const MEDALS: Record<number, { bg: string; fg: string; name: string }> = {
+  1: { bg: "#F5C542", fg: "#2B1D00", name: "1st place" },
+  2: { bg: "#CBD5E1", fg: "#111827", name: "2nd place" },
+  3: { bg: "#CD7F32", fg: "#140B00", name: "3rd place" },
+};
+
+/**
+ * A rank as a medal: gold with a crown, silver, bronze, the number inside. Text colours are picked for
+ * contrast on each metal (all above 7:1). Any other rank is the plain number.
+ */
+export function MedalRank({ rank }: { rank: number }) {
+  const medal = MEDALS[rank];
+  if (!medal) {
+    return (
+      <Box component="span" sx={{ display: "inline-block", minWidth: 28, textAlign: "center", color: "text.secondary", fontWeight: 600 }}>
+        {rank}
+      </Box>
+    );
+  }
+  return (
+    <Box
+      component="span"
+      role="img"
+      aria-label={medal.name}
+      sx={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 0.5,
+        minWidth: 28,
+        height: 24,
+        px: 1,
+        borderRadius: 999,
+        bgcolor: medal.bg,
+        color: medal.fg,
+        fontSize: 13,
+        fontWeight: 700,
+        lineHeight: 1,
+      }}
+    >
+      {rank === 1 && (
+        <svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true" focusable="false">
+          <path d="M1 10.5 L0.5 3 L4 6 L7 1 L10 6 L13.5 3 L13 10.5 Z" fill="currentColor" />
+        </svg>
+      )}
+      <span aria-hidden="true">{rank}</span>
+    </Box>
   );
 }

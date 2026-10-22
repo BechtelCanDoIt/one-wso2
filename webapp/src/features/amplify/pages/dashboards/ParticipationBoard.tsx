@@ -15,12 +15,12 @@
 // under the License.
 
 import { useState } from "react";
-import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
-import type { DashboardParticipation, GroupBoard } from "../../api/amplifyTypes";
+import { Box, ButtonBase, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import type { DashboardParticipation, GroupBoard, GroupSort, SortDir } from "../../api/amplifyTypes";
 import { useDashboardParticipation, useGroupBoard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
 import { Bar, Block, BoardState, Empty } from "../../components/DashboardParts";
-import { updatedStamp, num, percentOf, rate } from "../../util/dashboardFormat";
+import { nextSort, updatedStamp, num, percentOf, rate } from "../../util/dashboardFormat";
 
 /** Employees → connected → reposted → active: where people drop out. */
 export function Funnel({ data }: { data: DashboardParticipation }) {
@@ -67,30 +67,49 @@ export function Funnel({ data }: { data: DashboardParticipation }) {
   );
 }
 
-/** All teams ranked, optionally one BU's. */
+interface Column {
+  key: GroupSort | "bu";
+  label: string;
+  numeric: boolean;
+  align?: "right";
+  sortable: boolean;
+}
+
+const COLUMNS: Column[] = [
+  { key: "rank", label: "#", numeric: true, sortable: true },
+  { key: "name", label: "Team", numeric: false, sortable: true },
+  { key: "bu", label: "BU", numeric: false, sortable: false },
+  { key: "points", label: "Points", numeric: true, align: "right", sortable: true },
+  { key: "participants", label: "Participants", numeric: true, align: "right", sortable: true },
+  { key: "headcount", label: "Headcount", numeric: true, align: "right", sortable: true },
+  { key: "participation", label: "Participation", numeric: true, sortable: true },
+];
+
+/** The teams of one business unit, ranked; every sortable header is a button that sorts on the server. */
 export function TeamTable({
   board,
   bus,
   bu,
   onBu,
+  sort,
+  dir,
+  onSort,
 }: {
   board: GroupBoard | undefined;
+  /** Business units in rank order (best first). */
   bus: string[];
+  /** The one selected BU. */
   bu: string | undefined;
-  onBu: (bu: string | undefined) => void;
+  onBu: (bu: string) => void;
+  sort: GroupSort;
+  dir: SortDir;
+  onSort: (col: GroupSort) => void;
 }) {
   return (
     <Block
-      title="Team leaderboard · all teams"
+      title="Team leaderboard"
       action={
         <Box role="group" aria-label="Business unit" sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
-          <Chip
-            size="small"
-            label="All BUs"
-            color={bu ? "default" : "primary"}
-            variant={bu ? "outlined" : "filled"}
-            onClick={() => onBu(undefined)}
-          />
           {bus.map((b) => (
             <Chip
               key={b}
@@ -99,6 +118,7 @@ export function TeamTable({
               color={bu === b ? "primary" : "default"}
               variant={bu === b ? "filled" : "outlined"}
               onClick={() => onBu(b)}
+              aria-pressed={bu === b}
             />
           ))}
         </Box>
@@ -111,12 +131,30 @@ export function TeamTable({
           <Table size="small" sx={{ minWidth: 640 }}>
             <TableHead>
               <TableRow>
-                <TableCell>#</TableCell>
-                <TableCell>Team</TableCell>
-                <TableCell>BU</TableCell>
-                <TableCell align="right">Points</TableCell>
-                <TableCell align="right">Participants</TableCell>
-                <TableCell>Participation</TableCell>
+                {COLUMNS.map((c) => {
+                  const active = c.sortable && sort === c.key;
+                  return (
+                    <TableCell
+                      key={c.key}
+                      align={c.align}
+                      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : c.sortable ? "none" : undefined}
+                    >
+                      {c.sortable ? (
+                        <ButtonBase
+                          onClick={() => onSort(c.key as GroupSort)}
+                          sx={{ font: "inherit", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 0.5 }}
+                        >
+                          {c.label}
+                          <span aria-hidden="true" style={{ width: 12, display: "inline-block" }}>
+                            {active ? (dir === "asc" ? "↑" : "↓") : ""}
+                          </span>
+                        </ButtonBase>
+                      ) : (
+                        c.label
+                      )}
+                    </TableCell>
+                  );
+                })}
               </TableRow>
             </TableHead>
             <TableBody>
@@ -126,9 +164,8 @@ export function TeamTable({
                   <TableCell>{e.name}</TableCell>
                   <TableCell>{e.businessUnit ?? "-"}</TableCell>
                   <TableCell align="right">{num(e.points)}</TableCell>
-                  <TableCell align="right">
-                    {num(e.participants)} of {num(e.headcount)}
-                  </TableCell>
+                  <TableCell align="right">{num(e.participants)}</TableCell>
+                  <TableCell align="right">{num(e.headcount)}</TableCell>
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <Box sx={{ flex: "0 0 90px", display: "flex" }}>
@@ -158,10 +195,13 @@ export function TeamTable({
 
 export default function ParticipationPage() {
   const funnel = useDashboardParticipation();
-  const [bu, setBu] = useState<string | undefined>(undefined);
-  const teams = useGroupBoard("TEAM", bu);
+  const [picked, setPicked] = useState<string | undefined>(undefined);
+  const [order, setOrder] = useState<{ sort: GroupSort; dir: SortDir }>({ sort: "rank", dir: "asc" });
   const bus = useGroupBoard("BU");
-  const buNames = (bus.data?.entries ?? []).map((e) => e.name).sort((a, b) => a.localeCompare(b));
+  // Best-ranked BU first; the first one is selected until the reader picks another.
+  const buNames = (bus.data?.entries ?? []).map((e) => e.name);
+  const bu = picked && buNames.includes(picked) ? picked : buNames[0];
+  const teams = useGroupBoard("TEAM", bu, order.sort, order.dir, bu !== undefined);
   return (
     <AmplifyShell
       title="Participation"
@@ -174,8 +214,16 @@ export default function ParticipationPage() {
               {updatedStamp(funnel.data.asOf)}
             </Typography>
             <Funnel data={funnel.data} />
-            <BoardState queries={[teams]}>
-              <TeamTable board={teams.data} bus={buNames} bu={bu} onBu={setBu} />
+            <BoardState queries={bus.data && buNames.length === 0 ? [bus] : [bus, teams]}>
+              <TeamTable
+                board={teams.data}
+                bus={buNames}
+                bu={bu}
+                onBu={setPicked}
+                sort={order.sort}
+                dir={order.dir}
+                onSort={(col) => setOrder((cur) => nextSort(cur, col))}
+              />
             </BoardState>
           </Box>
         )}

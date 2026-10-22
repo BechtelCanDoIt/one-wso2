@@ -189,8 +189,14 @@ export interface DashboardOperations {
     repostsPrev7d: number;
     peopleConnected: number;
     connectionsExpired: number;
+    /** Calendar week from Monday UTC; absent until the API sends it. */
+    pointsThisWeek?: number;
     pointsThisMonth: number;
+    /** Calendar year; absent until the API sends it. */
+    pointsThisYear?: number;
     peopleWithPoints: number;
+    /** Of `reposts7d`, the ones with the employee's own comment. */
+    reposts7dWithCommentary?: number;
   };
   campaigns: DashboardCampaignRow[];
   shareHealth: {
@@ -280,6 +286,10 @@ export interface DashboardScorecard {
   asOf: string;
   measures: ScorecardMeasure[];
 }
+
+/** Server-side sort columns of /leaderboard/groups. `rank` is the points-based dense rank. */
+export type GroupSort = "rank" | "name" | "points" | "participants" | "headcount" | "participation";
+export type SortDir = "asc" | "desc";
 
 export interface GroupBoardEntry {
   rank: number;

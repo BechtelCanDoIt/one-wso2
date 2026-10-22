@@ -13,7 +13,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 
-import type { DashboardAnnouncement, ScorecardMeasure } from "../api/amplifyTypes";
+import type { DashboardAnnouncement, GroupSort, ScorecardMeasure, SortDir } from "../api/amplifyTypes";
 
 /** A whole number with thousands separators. */
 export function num(n: number | null | undefined): string {
@@ -119,4 +119,14 @@ export function plainReposts(c: { reposts: number; repostsWithCommentary?: numbe
 /** Reposts that carry the employee's own comment. */
 export function commentedReposts(c: { reposts: number; repostsWithCommentary?: number }): number {
   return Math.min(c.reposts, c.repostsWithCommentary ?? 0);
+}
+
+/**
+ * The next sort for a click on a column header. A new numeric column starts largest-on-top (desc); a new
+ * Team column starts A to Z (asc); `#` starts at rank 1 on top (asc), since rank 1 is the largest score;
+ * clicking the active column toggles.
+ */
+export function nextSort(current: { sort: GroupSort; dir: SortDir }, col: GroupSort): { sort: GroupSort; dir: SortDir } {
+  if (current.sort === col) return { sort: col, dir: current.dir === "asc" ? "desc" : "asc" };
+  return { sort: col, dir: col === "name" || col === "rank" ? "asc" : "desc" };
 }

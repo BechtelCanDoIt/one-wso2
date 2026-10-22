@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type {
   DashboardGlance,
   DashboardOperations,
@@ -23,6 +23,7 @@ import type {
   DashboardScorecard,
   GroupBoard,
 } from "../../api/amplifyTypes";
+import { nextSort } from "../../util/dashboardFormat";
 import { GlanceBoard } from "./GlanceBoard";
 import { OperationsBoard } from "./OperationsBoard";
 import { Funnel, TeamTable } from "./ParticipationBoard";
@@ -63,7 +64,7 @@ const operations: DashboardOperations = {
 describe("OperationsBoard", () => {
   it("shows the API's numbers and the retry the worker is on, with no reminder or retry buttons", () => {
     render(<OperationsBoard data={operations} />);
-    expect(screen.getByText("187")).toBeTruthy();
+    expect(screen.getByText("187 / 0")).toBeTruthy();
     expect(screen.getByText("+23 vs previous 7 days")).toBeTruthy();
     expect(screen.getByText("Retrying · attempt 3")).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "Novera" })).toBeTruthy();
@@ -72,6 +73,30 @@ describe("OperationsBoard", () => {
     expect(screen.getByText("Updated 2:45 PM LK | Updated 5:15 AM EDT | Updated 9:15 AM UTC")).toBeTruthy();
     expect(screen.getByText(/680 employees have never connected/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /remind|retry/i })).toBeNull();
+  });
+
+  it("switches the points tile between week, month and year, and splits last week's reposts", () => {
+    const withPeriods: DashboardOperations = {
+      ...operations,
+      kpis: { ...operations.kpis, reposts7d: 8, repostsPrev7d: 5, reposts7dWithCommentary: 2, pointsThisWeek: 40, pointsThisMonth: 1840, pointsThisYear: 9000 },
+    };
+    render(<OperationsBoard data={withPeriods} />);
+    const tile = screen.getByRole("region", { name: "Points awarded" });
+    expect(within(tile).getByText("40")).toBeTruthy();
+    expect(within(tile).getByRole("button", { name: "Week" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(within(tile).getByRole("button", { name: "Month" }));
+    expect(within(tile).getByText("1,840")).toBeTruthy();
+    fireEvent.click(within(tile).getByRole("button", { name: "Year" }));
+    expect(within(tile).getByText("9,000")).toBeTruthy();
+    const reposts = screen.getByRole("region", { name: "Reposts / Reposts with Comments" });
+    expect(within(reposts).getByText("6 / 2")).toBeTruthy();
+    expect(within(reposts).getByText(/\+3 vs previous 7 days/)).toBeTruthy();
+  });
+
+  it("treats a missing split or period as 0", () => {
+    render(<OperationsBoard data={operations} />);
+    const tile = screen.getByRole("region", { name: "Points awarded" });
+    expect(within(tile).getByText("0")).toBeTruthy();
   });
 
   it("says so when there are no posts", () => {
@@ -143,14 +168,38 @@ describe("Participation", () => {
     expect(screen.getByText(/680 employees have never connected/)).toBeTruthy();
   });
 
-  it("lists every team and filters by BU", () => {
+  it("shows one pill per BU with exactly one selected, and no All BUs pill", () => {
     const onBu = vi.fn();
-    render(<TeamTable board={board} bus={["Engineering", "Sales"]} bu={undefined} onBu={onBu} />);
+    render(<TeamTable board={board} bus={["Engineering", "Sales"]} bu="Engineering" onBu={onBu} sort="rank" dir="asc" onSort={vi.fn()} />);
+    expect(screen.queryByText("All BUs")).toBeNull();
+    expect(screen.getByRole("button", { name: "Engineering" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Sales" }).getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByText("Digital Engineering")).toBeTruthy();
-    expect(screen.getByText("30 of 95")).toBeTruthy();
     expect(screen.getByText(/2 people with 20 points aren't placed/)).toBeTruthy();
-    fireEvent.click(screen.getByText("Sales"));
+    fireEvent.click(screen.getByRole("button", { name: "Sales" }));
     expect(onBu).toHaveBeenCalledWith("Sales");
+  });
+
+  it("makes every sortable header a button with aria-sort and an arrow on the active one", () => {
+    const onSort = vi.fn();
+    render(<TeamTable board={board} bus={["Engineering"]} bu="Engineering" onBu={vi.fn()} sort="points" dir="desc" onSort={onSort} />);
+    const points = screen.getByRole("columnheader", { name: /Points/ });
+    expect(points.getAttribute("aria-sort")).toBe("descending");
+    expect(points.textContent).toContain("↓");
+    expect(screen.getByRole("columnheader", { name: /Team/ }).getAttribute("aria-sort")).toBe("none");
+    for (const name of ["#", "Team", "Points", "Participants", "Headcount", "Participation"]) {
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(`^${name}`) }));
+    }
+    expect(onSort.mock.calls.map((c) => c[0])).toEqual(["rank", "name", "points", "participants", "headcount", "participation"]);
+  });
+
+  it("starts numeric columns largest-first, names A to Z, and toggles the active one", () => {
+    expect(nextSort({ sort: "rank", dir: "asc" }, "points")).toEqual({ sort: "points", dir: "desc" });
+    expect(nextSort({ sort: "rank", dir: "asc" }, "participation")).toEqual({ sort: "participation", dir: "desc" });
+    expect(nextSort({ sort: "points", dir: "desc" }, "name")).toEqual({ sort: "name", dir: "asc" });
+    expect(nextSort({ sort: "name", dir: "asc" }, "name")).toEqual({ sort: "name", dir: "desc" });
+    expect(nextSort({ sort: "points", dir: "desc" }, "points")).toEqual({ sort: "points", dir: "asc" });
+    expect(nextSort({ sort: "points", dir: "desc" }, "rank")).toEqual({ sort: "rank", dir: "asc" });
   });
 });
 
@@ -170,6 +219,26 @@ describe("GlanceBoard", () => {
     shareSuccess: { published: 187, attempts: 192 },
     bestCampaign: { campaignId: "c1", title: "Launch", categoryLabel: "Product", isPriority: true, reposts: 112 },
   };
+
+  it("shows medal pills for 1st, 2nd and 3rd, and plain numbers after", () => {
+    render(
+      <GlanceBoard
+        data={glance}
+        people={[
+          { employeeId: "a", displayName: "A", email: "a@wso2.com", points: 30, rank: 1 },
+          { employeeId: "b", displayName: "B", email: "b@wso2.com", points: 20, rank: 2 },
+          { employeeId: "c", displayName: "C", email: "c@wso2.com", points: 10, rank: 3 },
+        ]}
+        teams={[{ rank: 4, key: "k", name: "Fourth", points: 1, participants: 1, headcount: 2, participationRate: 0.5 }]}
+      />,
+    );
+    expect(screen.getByRole("img", { name: "1st place" }).textContent).toBe("1");
+    expect(screen.getByRole("img", { name: "2nd place" }).textContent).toBe("2");
+    expect(screen.getByRole("img", { name: "3rd place" }).textContent).toBe("3");
+    expect(screen.getByRole("img", { name: "1st place" }).querySelector("svg")).not.toBeNull();
+    expect(screen.getByRole("img", { name: "2nd place" }).querySelector("svg")).toBeNull();
+    expect(screen.getByText("4")).toBeTruthy();
+  });
 
   it("shows the directory name for a person, never the id or the API's fallback", () => {
     render(

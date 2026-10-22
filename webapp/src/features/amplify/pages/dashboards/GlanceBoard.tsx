@@ -20,7 +20,7 @@ import { useAmplifyLeaderboard } from "../../api/useAmplifyData";
 import { useAmplifyPeople, type PeopleByEmail } from "../../api/useAmplifyPeople";
 import { useDashboardGlance, useGroupBoard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
-import { Block, BoardState, Empty, StatCard } from "../../components/DashboardParts";
+import { Block, BoardState, Empty, MedalRank, StatCard } from "../../components/DashboardParts";
 import { updatedStamp, changePercent, num, percentOf, shortDate } from "../../util/dashboardFormat";
 
 function WeeklyLine({ weekly }: { weekly: DashboardGlance["weekly"] }) {
@@ -62,8 +62,8 @@ function RankedList({ rows }: { rows: { id: string; rank: number; name: string; 
     <Box component="ol" sx={{ listStyle: "none", m: 0, p: 0, display: "flex", flexDirection: "column", gap: 1.5 }}>
       {rows.map((r) => (
         <Box component="li" key={r.id} sx={{ display: "flex", gap: 1.5 }}>
-          <Box sx={{ flex: "0 0 20px", fontWeight: 600, color: r.rank === 1 ? "primary.main" : "text.secondary" }}>
-            {r.rank}
+          <Box sx={{ flex: "0 0 40px" }}>
+            <MedalRank rank={r.rank} />
           </Box>
           <Box sx={{ flexGrow: 1, minWidth: 0 }}>{r.name}</Box>
           <Box sx={{ fontWeight: 600 }}>{num(r.points)}</Box>
