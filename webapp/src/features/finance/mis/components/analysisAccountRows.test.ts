@@ -23,9 +23,7 @@ import {
   type AnalysisAccountsResponse,
 } from "./analysisAccountRows";
 
-// `POST /accounts` as ARR Analysis reads it. Ported from
-// digiops-finance `arrAnalysis/ArrAnalysisDashboard.js:345-368`
-// (`toDashboardRows`) and `:283-300` (`parseProductsInUse`).
+// `POST /accounts` as Portfolio reads it: one row per account.
 
 const account = (over: Partial<AnalysisAccountsResponse> = {}): AnalysisAccountsResponse => ({
   id: "001",
@@ -90,6 +88,12 @@ describe("analysisAccountRows", () => {
     expect(row.agentPlatformBu).toBe(50);
     expect(row.moesifBu).toBe(60);
     expect(row.totalArr).toBe(210);
+  });
+
+  it("carries the account's industry, which the industry chart stacks by", () => {
+    const [row] = analysisAccountRows([account({ naicsIndustry: "Utilities" })]);
+    expect(row.industry).toBe("Utilities");
+    expect(analysisAccountRows([account()])[0].industry).toBe("");
   });
 
   it("carries both readings of the products field", () => {

@@ -39,6 +39,7 @@ import {
   customerColumnRanges,
   pacificColumnRanges,
 } from "@features/finance/mis/util/misPeriods";
+import { pacificCivilDate } from "@features/finance/mis/util/misPacificTime";
 import type { ArrSummaryState } from "@features/finance/mis/api/useArrSummary";
 import type { CustomerAccountsState } from "@features/finance/mis/api/useCustomerAccounts";
 import type { SummaryColumnsState } from "@features/finance/mis/api/useExitArr";
@@ -147,8 +148,12 @@ vi.mock("@features/finance/mis/api/useCustomerAccounts", () => ({
 const regionExit = {
   value: {} as SummaryColumnsState<RegionExitResponse>,
   askedBySalesRegion: [] as boolean[],
+  lastRanges: [] as readonly MisDateRange[],
 };
-const buExit = { value: {} as SummaryColumnsState<BuFigures> };
+const buExit = {
+  value: {} as SummaryColumnsState<BuFigures>,
+  lastRanges: [] as readonly MisDateRange[],
+};
 const regionMetrics = {
   value: {} as SummaryColumnsState<RegionMetricsResponse>,
   askedBySalesRegion: [] as boolean[],
@@ -156,14 +161,18 @@ const regionMetrics = {
 };
 vi.mock("@features/finance/mis/api/useExitArr", () => ({
   useExitArrByRegion: (
-    _ranges: unknown,
+    ranges: readonly MisDateRange[],
     _filters: unknown,
     isSalesRegionSummary: boolean,
   ) => {
     regionExit.askedBySalesRegion.push(isSalesRegionSummary);
+    regionExit.lastRanges = ranges;
     return regionExit.value;
   },
-  useExitArrByBU: () => buExit.value,
+  useExitArrByBU: (ranges: readonly MisDateRange[]) => {
+    buExit.lastRanges = ranges;
+    return buExit.value;
+  },
   useRegionMetrics: (
     _ranges: unknown,
     filters: MisAppliedFilters,
@@ -451,6 +460,28 @@ beforeEach(() => {
   };
 });
 
+describe("a Custom Build with nothing chosen", () => {
+  // With Custom on and no business or product unit picked, there is nothing to
+  // build, so the reader is asked to choose units rather than shown an empty grid.
+  it("asks the reader to choose units instead of showing the generic empty sentence", () => {
+    renderPage("?unit=custom");
+    expect(screen.getByText("Choose units to generate a build")).toBeInTheDocument();
+    expect(screen.queryByText(/no periods to show/i)).not.toBeInTheDocument();
+  });
+
+  it("gives way to the Build once a unit is chosen", () => {
+    renderPage("?unit=custom&customBu=APIM_BU");
+    expect(screen.queryByText("Choose units to generate a build")).not.toBeInTheDocument();
+  });
+
+  it("keeps the generic empty sentence for an ordinary unit with no periods", () => {
+    summary.value = { ...loaded({}), columns: [] };
+    renderPage();
+    expect(screen.getByText(/no periods to show/i)).toBeInTheDocument();
+    expect(screen.queryByText("Choose units to generate a build")).not.toBeInTheDocument();
+  });
+});
+
 describe("opening the customers behind a figure", () => {
   // Only fourteen rows of the Build have a customer
   // list behind them; the rest are arithmetic over other rows.
@@ -550,9 +581,9 @@ describe("the Software/Cloud Customers table", () => {
 
   it("heads the figure columns so the three Totals can be told apart", async () => {
     // Two header rows, so the labels have to carry which Total is which.
-    // Reached through the breakdown control, because BU only is the default.
+    // Reached by unchecking BU only, because BU only is the default.
     renderPage("?table=customers");
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(screen.getAllByText("Software Total").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Cloud Total").length).toBeGreaterThan(0);
   });
@@ -593,9 +624,15 @@ describe("how the customer table breaks a customer's revenue down", () => {
     ).toBeGreaterThan(0);
   });
 
-  it("swaps to the Software/Cloud breakdown when the reader asks for it", async () => {
+  it("offers BU only as a checkbox in the grid head, checked by default", () => {
     renderPage("?table=customers");
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    expect(screen.getByRole("checkbox", { name: "BU only" })).toBeChecked();
+  });
+
+  it("shows the Software/Cloud breakdown when BU only is unchecked", async () => {
+    // Unchecked, the grid shows Software and Cloud sub-columns instead of the per-BU ones.
+    renderPage("?table=customers");
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(screen.getAllByText("Software Total").length).toBeGreaterThan(0);
     expect(screen.queryByText("API Platform BU")).not.toBeInTheDocument();
   });
@@ -608,9 +645,8 @@ describe("how the customer table breaks a customer's revenue down", () => {
     expect(within(row).getByText("400,000.00")).toBeInTheDocument();
   });
 
-  it("keeps the control on screen when the whole book failed", () => {
-    // The control is gated on `!loading` alone, so an error keeps it — and an
-    // error is where a reader most wants the switch still there.
+  it("keeps the checkbox on screen when the whole book failed", () => {
+    // An error is where a reader most wants the switch still there.
     customers.value = {
       columns: [],
       isLoading: false,
@@ -619,20 +655,20 @@ describe("how the customer table breaks a customer's revenue down", () => {
       retry: () => {},
     };
     renderPage("?table=customers");
-    expect(screen.getByRole("group", { name: "Breakdown" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "BU only" })).toBeInTheDocument();
   });
 
-  it("keeps the control on screen when the book came back empty", () => {
+  it("keeps the checkbox on screen when the book came back empty", () => {
     customers.value = customerBook([]);
     renderPage("?table=customers");
     expect(screen.getByText(/no customers to show/i)).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Breakdown" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "BU only" })).toBeInTheDocument();
   });
 
-  it("holds the control back while the book is still loading", () => {
+  it("holds the checkbox back while the book is still loading", () => {
     customers.value = { ...customerBook([]), isLoading: true, columns: [] };
     renderPage("?table=customers");
-    expect(screen.queryByRole("group", { name: "Breakdown" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "BU only" })).not.toBeInTheDocument();
   });
 
   it("asks the backend for nothing more when the breakdown changes", async () => {
@@ -641,7 +677,7 @@ describe("how the customer table breaks a customer's revenue down", () => {
     // is pinned is that the columns handed in are the same object.
     renderPage("?table=customers");
     const before = customers.value;
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     expect(customers.value).toBe(before);
   });
 });
@@ -696,7 +732,7 @@ describe("the customer table's Total row", () => {
 
   it("totals the Software/Cloud breakdown too, not only the units", async () => {
     renderPage("?table=customers");
-    await userEvent.click(screen.getByRole("button", { name: "Software / Cloud" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
     const total = within(screen.getByRole("table", { name: /Customers/ })).getAllByRole("row")[2];
     expect(within(total).getByText("600,000.00")).toBeInTheDocument();
   });
@@ -723,6 +759,98 @@ describe("when every column fails", () => {
     expect(screen.getByText(/couldn't load the build/i)).toBeInTheDocument();
     // "Retry" is ErrorNotice's own word, shared by every screen in this app.
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+});
+
+const FAILED_YEAR = "2024/12/31 - 2025/12/31";
+
+/** Two columns: the current year answered, an earlier one did not. */
+const oneColumnFailed = (retry: () => void): ArrSummaryState => ({
+  columns: [
+    { label: THIS_YEAR, response: { openingArr: 1_234_567.5 }, isError: false },
+    { label: FAILED_YEAR, response: undefined, isError: true },
+  ],
+  isLoading: false,
+  isError: false,
+  errorMessage: "",
+  retry,
+});
+
+describe("when one column of several fails", () => {
+  it("says on that column's header that it did not load, and leaves the others alone", () => {
+    summary.value = oneColumnFailed(() => {});
+    renderPage();
+    const table = screen.getByRole("table");
+    const failedHeader = within(table).getByRole("columnheader", { name: new RegExp(FAILED_YEAR) });
+    expect(within(failedHeader).getByText("Couldn't load")).toBeInTheDocument();
+    expect(within(table).getAllByText("Couldn't load")).toHaveLength(1);
+    expect(within(table).getByText("1,234,567.50")).toBeInTheDocument();
+  });
+
+  it("reads the failed column's cells as unavailable rather than as blank figures", () => {
+    summary.value = oneColumnFailed(() => {});
+    renderPage();
+    const table = screen.getByRole("table");
+    const unavailable = within(table).getAllByLabelText("Not loaded");
+    expect(unavailable.length).toBeGreaterThan(0);
+    for (const cell of unavailable) expect(cell).toHaveTextContent("\u2014");
+  });
+
+  it("offers a Retry on that column, named for it, that asks again", async () => {
+    const retry = vi.fn();
+    summary.value = oneColumnFailed(retry);
+    renderPage();
+    await userEvent.click(
+      screen.getByRole("button", { name: `Retry loading ${FAILED_YEAR}` }),
+    );
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers no Retry when every column answered", () => {
+    renderPage();
+    expect(screen.queryByRole("button", { name: /^retry loading/i })).not.toBeInTheDocument();
+  });
+
+  it("exports the failed column empty, never as zeros", async () => {
+    summary.value = oneColumnFailed(() => {});
+    renderPage();
+    const sheet = await exportedSheet("Subscription");
+    const openingArr = sheet.getRow(6);
+    expect(openingArr.getCell(2).value).toBe(1_234_567.5);
+    expect(openingArr.getCell(3).value).toBeNull();
+    sheet.eachRow((row) => expect(row.getCell(3).value).not.toBe(0));
+  });
+});
+
+describe("when one column of the other tables fails", () => {
+  const failedColumn = { label: FAILED_YEAR, response: undefined, isError: true };
+
+  const cases: [string, string, () => () => void][] = [
+    ["Customers", "?table=customers", () => {
+      const retry = vi.fn();
+      customers.value = { ...customerBook([NORTHWIND]), retry, columns: [...customerBook([NORTHWIND]).columns, { label: FAILED_YEAR, accounts: undefined, isError: true }] };
+      return retry;
+    }],
+    ["Region Summary", "?table=region-summary", () => {
+      const retry = vi.fn();
+      regionExit.value = { ...regionExit.value, retry, columns: [...regionExit.value.columns, failedColumn] };
+      return retry;
+    }],
+    ["BU Summary", "?table=bu-summary", () => {
+      const retry = vi.fn();
+      buExit.value = { ...buExit.value, retry, columns: [...buExit.value.columns, failedColumn] };
+      return retry;
+    }],
+  ];
+
+  it.each(cases)("marks the failed column on the %s and offers its Retry", async (_name, search, arrange) => {
+    const retry = arrange();
+    renderPage(search);
+    const table = screen.getByRole("table");
+    expect(within(table).getAllByText("Couldn't load")).toHaveLength(1);
+    expect(within(table).getAllByLabelText("Not loaded").length).toBeGreaterThan(0);
+    await userEvent.click(within(table).getByRole("button", { name: /^retry loading/i }));
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -780,7 +908,7 @@ describe("the filter bar above the Build", () => {
     // reader needs the units control still on screen to get out of it.
     summary.value = { ...loaded({}), columns: [] };
     renderPage("?unit=custom");
-    expect(screen.getByText(/no periods to show/i)).toBeInTheDocument();
+    expect(screen.getByText("Choose units to generate a build")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Business Units" })).toBeInTheDocument();
   });
 });
@@ -1095,6 +1223,32 @@ describe("taking the Build out of the browser", () => {
     expect(sheet.getRow(1).getCell(1).value).toBe("All amounts in USD");
   });
 
+  it("exports only the filtered customers, in the sorted order, with the Total re-added", async () => {
+    customers.value = customerBook([
+      { ...NORTHWIND, id: "a1", name: "Acme", arrGrandTotal: 10 },
+      { ...NORTHWIND, id: "a2", name: "Acme West", arrGrandTotal: 30 },
+      { ...NORTHWIND, id: "a3", name: "Contoso", arrGrandTotal: 500 },
+    ]);
+    renderPage("?table=customers");
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Account Name/ }));
+    await userEvent.type(await screen.findByLabelText("Filter Account Name"), "acme");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument());
+    await userEvent.click(
+      within(screen.getByRole("columnheader", { name: /^Total/ })).getByRole("button", { name: "Total" }),
+    );
+    await userEvent.click(
+      within(screen.getByRole("columnheader", { name: /^Total/ })).getByRole("button", { name: "Total" }),
+    );
+
+    const sheet = await exportedSheet("Customers");
+    const labels: string[] = [];
+    sheet.eachRow((row) => labels.push(String(row.getCell(1).value ?? "").trim()));
+    expect(labels).not.toContain("Contoso");
+    expect(labels.indexOf("Acme West")).toBeLessThan(labels.indexOf("Acme"));
+    expect(figureAt(sheet, "Total", "Total")).toBe(40);
+  });
+
   it("exports the Region Summary at units while the screen shows thousands", async () => {
     renderPage("?table=region-summary&scale=k");
     const sheet = await exportedSheet("Region Summary");
@@ -1119,7 +1273,16 @@ describe("taking the Build out of the browser", () => {
     await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
     await chooseExcel();
     await waitFor(() => expect(blobs).toHaveLength(1));
-    expect(filenames[0]).toMatch(/^arr_dashboard_all_arr_metrics_\d{4}-\d{2}-\d{2}\.xlsx$/);
+    expect(filenames[0]).toMatch(/^arr_dashboard_all_arr_metrics_all_bu_\d{4}-\d{2}-\d{2}\.xlsx$/);
+  });
+
+  it("names the Unit the All ARR Metrics export was cut by", async () => {
+    const { blobs, filenames } = captureDownloads();
+    renderPage("?table=region-summary&metrics=cl-moesif");
+    await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
+    await chooseExcel();
+    await waitFor(() => expect(blobs).toHaveLength(1));
+    expect(filenames[0]).toMatch(/^arr_dashboard_all_arr_metrics_moesif_\d{4}-\d{2}-\d{2}\.xlsx$/);
   });
 
   it("exports the BU Summary at units while the screen shows thousands", async () => {
@@ -1220,6 +1383,337 @@ describe("a session Years Back that happens to equal the Table's own default", (
     // is gone, so Region Summary answers with its own two.
     await switchTable("Region Summary");
     expect(address()).toBe("?table=region-summary");
+  });
+});
+
+describe("the Annually columns under a forecast type", () => {
+  const thisYear = pacificCivilDate().year;
+  const yearsRequested = (ranges: readonly MisDateRange[]) =>
+    ranges.map((range) => Number(range.end.slice(0, 4)));
+
+  it.each(["Forecasted+ARR", "Renewal+ARR"])(
+    "asks the Build for the current year and the next two under %s",
+    (type) => {
+      renderPage(`?type=${type}`);
+      expect(yearsRequested(summary.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
+      expect(summary.lastRanges.map(buildColumnLabel)[1]).toMatch(
+        new RegExp(`^${thisYear}/12/31 - ${thisYear + 1}/`),
+      );
+    },
+  );
+
+  it("asks Customers for the current year and the next two under Forecasted", () => {
+    renderPage("?table=customers&type=Forecasted+ARR");
+    expect(yearsRequested(customers.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
+  });
+
+  it("keeps the calendar columns under a type that is not a forecast", () => {
+    renderPage("?type=Closed+Won+ARR&years=3");
+    expect(yearsRequested(summary.lastRanges)).toEqual([thisYear - 2, thisYear - 1, thisYear]);
+  });
+});
+
+describe("Forecasted on Region Summary and BU Summary", () => {
+  const typeOptions = async (label: string) => {
+    await userEvent.click(screen.getByLabelText(label));
+    return (await screen.findAllByRole("option")).map((option) => option.textContent);
+  };
+
+  it.each([
+    [MIS_PERIODS.ANNUALLY, "ARR Type", ["ARR", "Only Closed Won ARR", "Forecasted ARR"]],
+    [MIS_PERIODS.QUARTERLY, "QRR Type", ["QRR", "Only Closed Won QRR", "Forecasted QRR"]],
+    [MIS_PERIODS.MONTHLY, "MRR Type", ["MRR", "Only Closed Won MRR", "Forecasted MRR"]],
+  ] as const)("offers Total, Closed Won and Forecasted on %s", async (period, label, expected) => {
+    for (const table of ["region-summary", "bu-summary"]) {
+      cleanup();
+      renderPage(`?table=${table}`, period);
+      expect(await typeOptions(label), `${table} on ${period}`).toEqual(expected);
+    }
+  });
+
+  it("offers Forecast Type under Forecasted only", async () => {
+    renderPage("?table=region-summary");
+    expect(screen.queryByLabelText("Forecast Type")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText("ARR Type"));
+    await userEvent.click(await screen.findByRole("option", { name: "Forecasted ARR" }));
+    expect(screen.getByLabelText("Forecast Type")).toBeInTheDocument();
+  });
+
+  it("opens a link carrying Forecasted on it, and asks for the forecast ranges", () => {
+    const thisYear = pacificCivilDate().year;
+    const years = (ranges: readonly MisDateRange[]) =>
+      ranges.map((range) => Number(range.end.slice(0, 4)));
+
+    renderPage("?table=region-summary&type=Forecasted+ARR");
+    expect(screen.getByLabelText("ARR Type")).toHaveValue("Forecasted ARR");
+    expect(years(regionExit.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
+    cleanup();
+    renderPage("?table=bu-summary&type=Forecasted+ARR");
+    expect(years(buExit.lastRanges)).toEqual([thisYear, thisYear + 1, thisYear + 2]);
+  });
+});
+
+describe("sorting a table from its header", () => {
+  /** The first cell of every row, top to bottom. */
+  const firstCells = (name?: RegExp) =>
+    within(screen.getByRole("table", name ? { name } : undefined))
+      .getAllByRole("row")
+      .map((row) => row.children[0]?.textContent ?? "");
+
+  const BUILD = {
+    openingArr: 100,
+    newArr: 5,
+    expansions: 9,
+    reductions: 1,
+    lost: 3,
+    endingArr: 120,
+  };
+  const sortHeader = () => screen.getByRole("columnheader", { name: THIS_YEAR });
+  const sortButton = () => within(sortHeader()).getByRole("button");
+
+  beforeEach(() => {
+    summary.value = loaded(BUILD);
+  });
+
+  it("cycles ascending, descending, then off, marking the sorted header", async () => {
+    renderPage();
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+    await userEvent.click(sortButton());
+    expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.click(sortButton());
+    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
+    await userEvent.click(sortButton());
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+  });
+
+  it("is reachable and operable from the keyboard", async () => {
+    renderPage();
+    sortButton().focus();
+    await userEvent.keyboard("{Enter}");
+    expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.keyboard(" ");
+    expect(sortHeader()).toHaveAttribute("aria-sort", "descending");
+  });
+
+  it("reorders the movement rows between Opening and Ending, and nothing else", async () => {
+    renderPage();
+    const before = firstCells();
+    await userEvent.click(sortButton());
+    const asc = firstCells();
+    const movement = ["Expansions", "New", "Lost", "Reductions"];
+    const start = asc.indexOf("Opening ARR") + 1;
+    expect(asc.slice(start, start + 4)).toEqual([...movement].reverse());
+    await userEvent.click(sortButton());
+    const desc = firstCells();
+    expect(desc.slice(start, start + 4)).toEqual(movement);
+    // Everything else is where it was: the bands, the bold rows, the lot.
+    for (const label of ["ARR movement", "Dollar retention", "Customers", "Opening ARR", "Ending ARR"]) {
+      expect(desc.indexOf(label), `${label} moved under descending`).toBe(before.indexOf(label));
+      expect(asc.indexOf(label), `${label} moved under ascending`).toBe(before.indexOf(label));
+    }
+  });
+
+  it("puts the rows back when the sort is turned off", async () => {
+    renderPage();
+    const before = firstCells();
+    await userEvent.click(sortButton());
+    await userEvent.click(sortButton());
+    await userEvent.click(sortButton());
+    expect(firstCells()).toEqual(before);
+  });
+
+  it("sorts the identity column of a table with several", async () => {
+    customers.value = customerBook([
+      NORTHWIND,
+      { ...NORTHWIND, id: "a2", name: "Contoso" },
+      { ...NORTHWIND, id: "a3", name: "Zeta Corp" },
+    ]);
+    renderPage("?table=customers");
+    const nameHeader = screen.getByRole("columnheader", { name: /^Account Name/ });
+    await userEvent.click(within(nameHeader).getByRole("button", { name: "Account Name" }));
+    expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Contoso", "Northwind Bank", "Zeta Corp"]);
+    await userEvent.click(within(nameHeader).getByRole("button", { name: "Account Name" }));
+    expect(firstCells(/Customers/).slice(2)).toEqual(["Total", "Zeta Corp", "Northwind Bank", "Contoso"]);
+  });
+
+  it("keeps the Customers Total above the book under every sort", async () => {
+    customers.value = customerBook([NORTHWIND, { ...NORTHWIND, id: "a2", name: "Contoso", arrGrandTotal: 1 }]);
+    renderPage("?table=customers");
+    const total = screen.getByRole("columnheader", { name: "Total" });
+    for (let step = 0; step < 3; step++) {
+      await userEvent.click(within(total).getByRole("button"));
+      expect(firstCells(/Customers/)[2], `after click ${step + 1}`).toBe("Total");
+    }
+  });
+
+  it("sorts the two summaries by their figures as well", async () => {
+    buExit.value = unitsLoaded(SPLIT);
+    renderPage("?table=bu-summary");
+    const header = screen.getByRole("columnheader", { name: "Exit ARR" });
+    await userEvent.click(within(header).getByRole("button"));
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    expect(firstCells().slice(-3, -1)).toEqual(["IAM", "API Platform"]);
+    await userEvent.click(within(header).getByRole("button"));
+    // The Total holds its place at the foot while the units reverse above it.
+    expect(firstCells().slice(2, 4)).toEqual(["API Platform", "IAM"]);
+    expect(firstCells().at(-1)).toBe("Total");
+  });
+
+  it("lets go of a sort whose column unchecking BU only has taken away", async () => {
+    renderPage("?table=customers");
+    const total = screen.getByRole("columnheader", { name: /^Total/ });
+    await userEvent.click(within(total).getByRole("button", { name: "Total" }));
+    expect(total).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.click(screen.getByRole("checkbox", { name: "BU only" }));
+    expect(screen.getAllByRole("columnheader").some((header) => header.hasAttribute("aria-sort"))).toBe(false);
+    expect(screen.getByRole("table", { name: /Customers/ })).toBeInTheDocument();
+  });
+
+  it("lets go of a sort whose column Totals only has hidden, and the order with it", async () => {
+    customers.value = customerBook([
+      { ...NORTHWIND, id: "a1", name: "Small", apimBuTotal: 100 },
+      { ...NORTHWIND, id: "a2", name: "Large", apimBuTotal: 900_000 },
+    ]);
+    renderPage("?table=customers");
+    const names = () =>
+      within(screen.getByRole("table", { name: /Customers/ }))
+        .getAllByRole("row")
+        .slice(3)
+        .map((row) => row.children[0]?.textContent ?? "");
+    expect(names()).toEqual(["Small", "Large"]);
+    const apim = screen.getByRole("columnheader", { name: /^API Platform BU/ });
+    await userEvent.click(within(apim).getByRole("button", { name: "API Platform BU" }));
+    await userEvent.click(within(apim).getByRole("button", { name: "API Platform BU" }));
+    expect(names()).toEqual(["Large", "Small"]);
+    await userEvent.click(screen.getByLabelText("Totals only"));
+    expect(names()).toEqual(["Small", "Large"]);
+  });
+
+  it("starts again when the applied filters change", async () => {
+    renderPage();
+    await userEvent.click(sortButton());
+    expect(sortHeader()).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.click(screen.getByLabelText("Channel/Direct"));
+    await userEvent.click(await screen.findByRole("option", { name: "Channel" }));
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+  });
+
+  it("starts again on another Table and on another Period", async () => {
+    renderRouted(misPathFor(MIS_PERIODS.ANNUALLY));
+    await userEvent.click(sortButton());
+    await switchTable("Customers");
+    await switchTable("BU Build");
+    expect(sortHeader()).not.toHaveAttribute("aria-sort");
+    await userEvent.click(sortButton());
+    await userEvent.click(
+      within(screen.getByRole("group", { name: "Period" })).getByRole("button", { name: "Quarterly" }),
+    );
+    expect(
+      screen.getAllByRole("columnheader").some((header) => header.hasAttribute("aria-sort")),
+    ).toBe(false);
+  });
+});
+
+describe("filtering the Customers table by an identity column", () => {
+  const BOOK = [
+    NORTHWIND,
+    { ...NORTHWIND, id: "a2", name: "Contoso", accountOwnerName: "Jane Roe", apimBuTotal: 100_000 },
+    { ...NORTHWIND, id: "a3", name: "North Star Ltd", accountOwnerName: "Jim Poe", apimBuTotal: 7_000 },
+  ];
+  const names = () =>
+    within(screen.getByRole("table", { name: /Customers/, hidden: true }))
+      .getAllByRole("row", { hidden: true })
+      .slice(2)
+      .map((row) => row.children[0]?.textContent ?? "");
+  const filterButton = (column: string) => screen.getByRole("button", { name: new RegExp(`^Filter by ${column}`), hidden: true });
+  const filterBy = async (column: string, text: string) => {
+    await userEvent.click(filterButton(column));
+    await userEvent.type(await screen.findByLabelText(`Filter ${column}`), text);
+  };
+
+  beforeEach(() => {
+    customers.value = customerBook(BOOK);
+  });
+
+  it("narrows the rows to those containing what was typed, in any case", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "NORTH");
+    expect(names()).toEqual(["Total", "Northwind Bank", "North Star Ltd"]);
+  });
+
+  it("filters any identity column, and all the filtered ones together", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Owner", "jane");
+    expect(names()).toEqual(["Total", "Contoso"]);
+    await userEvent.keyboard("{Escape}");
+    await filterBy("Account Name", "north");
+    expect(names()).toEqual(["Total"]);
+  });
+
+  it("makes the Total equal the sum of the customers left", async () => {
+    renderPage("?table=customers");
+    const total = () =>
+      within(screen.getByRole("table", { name: /Customers/, hidden: true })).getAllByRole("row", { hidden: true })[2];
+    expect(within(total()).getByText("507,000.00")).toBeInTheDocument();
+    await filterBy("Account Name", "north");
+    expect(within(total()).getByText("407,000.00")).toBeInTheDocument();
+    expect(within(total()).queryByText("507,000.00")).not.toBeInTheDocument();
+  });
+
+  it("shows which column is filtered, and clears it", async () => {
+    renderPage("?table=customers");
+    expect(filterButton("Account Name")).not.toHaveAccessibleName(/filtered/);
+    await filterBy("Account Name", "contoso");
+    expect(filterButton("Account Name")).toHaveAccessibleName(/filtered by "contoso"/);
+    expect(filterButton("Account Owner")).not.toHaveAccessibleName(/filtered/);
+    await userEvent.click(screen.getByRole("button", { name: "Clear filter" }));
+    expect(names()).toEqual(["Total", "Northwind Bank", "Contoso", "North Star Ltd"]);
+    expect(filterButton("Account Name")).not.toHaveAccessibleName(/filtered/);
+  });
+
+  it("is operable from the keyboard, and labelled", async () => {
+    renderPage("?table=customers");
+    filterButton("Account Name").focus();
+    await userEvent.keyboard("{Enter}");
+    const field = await screen.findByLabelText("Filter Account Name");
+    expect(field).toHaveFocus();
+    await userEvent.keyboard("star");
+    expect(names()).toEqual(["Total", "North Star Ltd"]);
+    await userEvent.keyboard("{Escape}");
+    expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument();
+    expect(names()).toEqual(["Total", "North Star Ltd"]);
+  });
+
+  it("sorts what is left", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "north");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(
+      within(screen.getByRole("columnheader", { name: /Account Name/ })).getByRole("button", { name: "Account Name" }),
+    );
+    expect(names()).toEqual(["Total", "North Star Ltd", "Northwind Bank"]);
+  });
+
+  it("starts again when the applied filters change", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "contoso");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByLabelText("Filter Account Name")).not.toBeInTheDocument());
+    await userEvent.click(screen.getByLabelText("ARR Type"));
+    await userEvent.click(await screen.findByRole("option", { name: "Only Closed Won ARR" }));
+    await userEvent.click(screen.getByRole("button", { name: "Apply" }));
+    expect(names()).toEqual(["Total", "Northwind Bank", "Contoso", "North Star Ltd"]);
+    expect(filterButton("Account Name")).not.toHaveAccessibleName(/filtered/);
+  });
+
+  it("starts again on another Table", async () => {
+    renderPage("?table=customers");
+    await filterBy("Account Name", "contoso");
+    await userEvent.keyboard("{Escape}");
+    await switchTable("BU Build");
+    await switchTable("Customers");
+    expect(names()).toHaveLength(4);
   });
 });
 
@@ -1464,8 +1958,10 @@ describe("the Region Summary's two views", () => {
     expect(screen.getByText("Opening ARR")).toBeInTheDocument();
     expect(screen.getByText("First Sale")).toBeInTheDocument();
     expect(screen.getByText("Closing ARR")).toBeInTheDocument();
-    // The business-unit split belongs to the other view.
-    expect(screen.queryByText("API Platform BU")).not.toBeInTheDocument();
+    // The business-unit split belongs to the other view; the Unit pill of the
+    // same name is not a column.
+    const table = screen.getByRole("table", { name: /All ARR Metrics/ });
+    expect(within(table).queryByText("API Platform BU")).not.toBeInTheDocument();
   });
 
   it("heads each column with the span it covers, not the date it closes on", async () => {
@@ -1490,12 +1986,85 @@ describe("the Region Summary's two views", () => {
     expect(within(total).getByText("1,500,000.00")).toBeInTheDocument();
   });
 
-  it("narrows the metrics by the unit the reader selected, which Exit ARR ignores", async () => {
-    // This view binds to the unit tabs the screen already carries, rather than
-    // keeping a second unit control of its own.
-    renderPage("?table=region-summary&unit=BU_APIM");
+  const METRICS_PILLS = [
+    "API Platform BU",
+    "IAM BU",
+    "Integration BU",
+    "Choreo BU",
+    "Agent Platform BU",
+    "Moesif",
+    "All BU",
+    "Custom Product Selection",
+  ];
+  const metricsUnit = () => within(screen.getByRole("group", { name: "Unit" }));
+
+  it("offers its own eight Unit pills, business units first, opening on All BU", async () => {
+    await openMetrics();
+    const pills = metricsUnit().getAllByRole("button");
+    expect(pills.map((pill) => pill.textContent)).toEqual(METRICS_PILLS);
+    expect(metricsUnit().getByRole("button", { name: "All BU" })).toHaveAttribute("aria-pressed", "true");
+    expect(metricsUnit().getByRole("button", { name: "Moesif" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps its Unit pills off the Exit ARR view", () => {
+    renderPage("?table=region-summary");
+    expect(screen.queryByRole("group", { name: "Unit" })).not.toBeInTheDocument();
+  });
+
+  it("asks for the unit the reader picked, Moesif included", async () => {
+    await openMetrics();
+    await userEvent.click(metricsUnit().getByRole("button", { name: "Moesif" }));
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({ metricsUnit: "CL_MOESIF" });
+    expect(metricsUnit().getByRole("button", { name: "Moesif" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("carries the Unit in the address", async () => {
+    await openMetrics();
+    await userEvent.click(metricsUnit().getByRole("button", { name: "IAM BU" }));
+    expect(address()).toContain("metrics=bu-iam");
+  });
+
+  it("opens on the Unit a link carried", async () => {
+    renderPage("?table=region-summary&metrics=bu-choreo");
     await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
-    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({ buProductSelection: "BU_APIM" });
+    expect(metricsUnit().getByRole("button", { name: "Choreo BU" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("is not moved by the Build's Unit", async () => {
+    renderPage("?table=region-summary&unit=cl-choreo&metrics=bu-apim");
+    await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
+    expect(metricsUnit().getByRole("button", { name: "API Platform BU" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({
+      metricsUnit: "BU_APIM",
+      buProductSelection: "CL_CHOREO",
+    });
+  });
+
+  it("does not move the Build's Unit", async () => {
+    renderPage("?unit=cl-choreo");
+    await userEvent.click(screen.getByRole("button", { name: "Region Summary" }));
+    await userEvent.click(screen.getByRole("button", { name: "All ARR Metrics" }));
+    await userEvent.click(metricsUnit().getByRole("button", { name: "IAM BU" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cloud Build" }));
+    expect(screen.getByRole("button", { name: "Choreo" })).toBeInTheDocument();
+    expect(address()).not.toContain("metrics=");
+  });
+
+  it("opens the product multi-select, with chips and Reset, under Custom Product Selection", async () => {
+    await openMetrics();
+    await userEvent.click(metricsUnit().getByRole("button", { name: "Custom Product Selection" }));
+    const businessUnits = screen.getByRole("group", { name: "Business Units" });
+    await userEvent.click(within(businessUnits).getByRole("button", { name: "API Platform BU" }));
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({
+      metricsUnit: "CUSTOM",
+      metricsCustomBusinessUnits: ["APIM_BU"],
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(regionMetrics.askedFilters.at(-1)).toMatchObject({ metricsCustomBusinessUnits: [] });
+    expect(screen.getByRole("group", { name: "Product Units" })).toBeInTheDocument();
   });
 
   it("cuts by Sub Region when the reader switches, on the metrics too", async () => {

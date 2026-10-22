@@ -31,6 +31,8 @@
 export interface BuildColumnGroup {
   key: string;
   label: string;
+  /** Its figures could not be fetched: the header says so and its cells read as unavailable. */
+  failed?: boolean;
 }
 
 /** A sub-column repeated under every Period — Amount, % of Opening. */
@@ -256,6 +258,8 @@ export interface BuildLeadColumn {
    * the left — see `leadColumnOffsets`.
    */
   pinned?: boolean;
+  /** Whether the header offers a text filter. A column of figures says false. */
+  filterable?: boolean;
 }
 
 /**

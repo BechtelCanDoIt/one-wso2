@@ -117,7 +117,14 @@ const amount = (customer: DrillDownCustomer) => {
 const BASE: readonly DrillDownColumn[] = [
   { key: "accountId", label: "Account ID", width: 188, pinned: true, value: blank((c) => c.accountId) },
   { key: "name", label: "Account Name", width: 220, value: blank((c) => c.name) },
-  { key: "amount", label: "Amount (USD)", width: 140, value: amount, rawValue: (c) => c.amount },
+  {
+    key: "amount",
+    label: "Amount (USD)",
+    width: 140,
+    filterable: false,
+    value: amount,
+    rawValue: (c) => c.amount,
+  },
 ];
 
 /** Shown only on a Lost row, between the amount and ARR Churn Date. */
@@ -194,9 +201,6 @@ export const drillDownColumns = (rowId: string): readonly DrillDownColumn[] =>
 
 /**
  * One row per customer, in the order the backend listed them.
- *
- * Deliberately NOT sorted. The order is the order the figure was summed in, and
- * re-sorting would quietly assert an order the backend did not send.
  *
  * The id is the account id, SUFFIXED on a repeat. The backend aggregates per
  * account, so a repeat should not happen — but `BuildRow.id` is not merely a

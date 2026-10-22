@@ -193,8 +193,10 @@ import CreditCardsPage from "@features/finance/masterdata/pages/CreditCardsPage"
 import ExpenseNewClaimPage from "@features/finance/expense/pages/ExpenseNewClaimPage";
 import MisArrBuildPage from "@features/finance/mis/pages/MisArrBuildPage";
 import MisSession from "@features/finance/mis/components/MisSession";
+import { misPaths } from "@constants/misApps";
 import { MIS_PERIODS } from "@features/finance/mis/util/misViewVocabulary";
 import MisArrAnalysisPage from "@features/finance/mis/pages/MisArrAnalysisPage";
+import MisAnalysisRedirect from "@features/finance/mis/pages/MisAnalysisRedirect";
 import ExpenseClaimsTab from "@features/finance/expense/pages/ExpenseHistoryPage";
 import ClaimApprovalPage, {
   ClaimApprovalIndex,
@@ -467,7 +469,7 @@ export default function App() {
               URL you may not use gives a legible locked state rather than a
               redirect that leaves the reader guessing.
 
-              ARR Analysis is the one exception, and it is a different question.
+              Portfolio is the one exception, and it is a different question.
               `productsUsageEnabled` decides whether that screen EXISTS rather
               than who may read it, so with the flag off its route redirects to
               ARR Build — see MisArrAnalysisPage, which holds the redirect
@@ -498,7 +500,8 @@ export default function App() {
               path="finance/mis/mrr-build"
               element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
             />
-            <Route path="finance/mis/analysis" element={<MisArrAnalysisPage />} />
+            <Route path="finance/mis/portfolio" element={<MisArrAnalysisPage />} />
+            <Route path={misPaths.legacyAnalysis} element={<MisAnalysisRedirect />} />
           </Route>
           <Route path="people-ops" element={<PerspectiveLanding />} />
           {/* People Ops → Org Chart: the company's reporting hierarchy, ported

@@ -18,7 +18,7 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet, humanizeHttpError } from "@api/http";
-import { httpRetry } from "@api/errors";
+import { misReadRetry, misReadRetryDelay } from "./misReadRetry";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { isMisArrConfigured, misArrServiceUrls } from "@config/apiConfig";
@@ -128,7 +128,8 @@ export function useOpportunities(request: OpportunitiesRequest | null): Opportun
     queryFn: async () =>
       arrayIn<OpportunityResponse>(await authedGet<unknown>(url, await getAccessToken())),
     staleTime: FIVE_MINUTES,
-    retry: httpRetry,
+    retry: misReadRetry,
+    retryDelay: misReadRetryDelay,
   });
 
   const folded = foldIdentityError(query, subState, retryIdentity);

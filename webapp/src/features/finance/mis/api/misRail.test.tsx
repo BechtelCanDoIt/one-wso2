@@ -35,7 +35,7 @@ import { PERSPECTIVES } from "@constants/perspectives";
 // underneath.
 
 const privileges = { value: [] as number[] };
-// `productsUsageEnabled` from GET /app-configs — whether ARR Analysis exists.
+// `productsUsageEnabled` from GET /app-configs — whether Portfolio exists.
 // On by default, so the cases below are about privileges; its own case turns
 // it off.
 const analysisEnabled = { value: true };
@@ -217,7 +217,7 @@ describe("the Finance rail", () => {
     // nothing left to hold back — what it asserts instead is that all four
     // rows are live. A screen added to the registry without a route would show
     // up here as a fifth row that navigates nowhere.
-    for (const live of ["ARR Dashboard", "ARR Analysis"]) {
+    for (const live of ["ARR Dashboard", "Portfolio"]) {
       expect(screen.getByText(live), `${live} is routed but not in the rail`).toBeInTheDocument();
     }
   });
@@ -226,21 +226,21 @@ describe("the Finance rail", () => {
   // This is the assertion that would catch the flag being dropped from the
   // gate — the routing suite's redirect could pass while the rail still
   // advertised a screen that bounces on click.
-  it("drops the ARR Analysis row when the backend flag is off, and keeps the rest", () => {
+  it("drops the Portfolio row when the backend flag is off, and keeps the rest", () => {
     privileges.value = [987];
     analysisEnabled.value = false;
     showRail();
-    expect(screen.queryByText("ARR Analysis")).not.toBeInTheDocument();
+    expect(screen.queryByText("Portfolio")).not.toBeInTheDocument();
     for (const live of ["ARR Dashboard"]) {
-      expect(screen.getByText(live), `${live} was dropped by the ARR Analysis flag`).toBeInTheDocument();
+      expect(screen.getByText(live), `${live} was dropped by the Portfolio flag`).toBeInTheDocument();
     }
   });
 
   // The flag is not a second way in. It says the screen exists; the privilege
   // says who may read it.
-  it("does not let the flag alone put ARR Analysis in front of a reader without ARR", () => {
+  it("does not let the flag alone put Portfolio in front of a reader without ARR", () => {
     privileges.value = [789];
     showRail();
-    expect(screen.queryByText("ARR Analysis")).not.toBeInTheDocument();
+    expect(screen.queryByText("Portfolio")).not.toBeInTheDocument();
   });
 });

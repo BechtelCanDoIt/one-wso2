@@ -40,7 +40,7 @@ afterEach(() => {
 
 const keys = (perspectives: readonly { key: string }[]) => perspectives.map((p) => p.key);
 
-// Finance MIS shipped out of preview. The ARR Dashboard and ARR Analysis are
+// Finance MIS shipped out of preview. The ARR Dashboard and Portfolio are
 // part of Finance with no preview config, which is what production looks like.
 // Quarterly and Monthly stay routes of the dashboard, not rows of their own.
 describe("Finance MIS's rail entries", () => {

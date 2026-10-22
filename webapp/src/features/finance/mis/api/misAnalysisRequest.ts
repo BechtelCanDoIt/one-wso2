@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// The bodies ARR Analysis sends — `POST /accounts` for the table, and
+// The bodies Portfolio sends — `POST /accounts` for the table, and
 // `POST /exit-arr/search` for the figure above it.
 //
 // Ported from digiops-finance `arrAnalysis/api/arrAnalysisApi.js`:
@@ -58,7 +58,7 @@ import { ANALYSIS_INDUSTRIES } from "../components/analysisBreakdowns";
 /**
  * Every MIS figure is `Total ARR` on this screen.
  *
- * ARR Analysis offers no Type control — there is no Forecasted or Renewal
+ * Portfolio offers no Type control — there is no Forecasted or Renewal
  * reading of "what is the book worth today" — so the field is a constant here
  * where on the Build it is the reader's.
  */

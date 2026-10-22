@@ -198,18 +198,36 @@ describe("All ARR Metrics, which is the one summary a unit selection reaches", (
     });
   });
 
-  it("sends the unit the reader picked, translated to the backend's code", () => {
-    const apim: MisAppliedFilters = { ...REGION, buProductSelection: "BU_APIM" };
+  it("sends the All ARR Metrics unit, translated to the backend's code", () => {
+    const apim: MisAppliedFilters = { ...REGION, metricsUnit: "BU_APIM" };
     expect(regionMetricsRequests(RANGES, apim, true)[0]).toMatchObject({
       businessUnits: ["APIM_BU"],
+    });
+  });
+
+  it("sends Moesif, which only this view offers as a business unit", () => {
+    const moesif: MisAppliedFilters = { ...REGION, metricsUnit: "CL_MOESIF" };
+    expect(regionMetricsRequests(RANGES, moesif, true)[0]).toMatchObject({
+      businessUnits: ["MOESIF_CLOUD"],
+    });
+  });
+
+  it("does not read the Build tab's Unit", () => {
+    const cloud: MisAppliedFilters = {
+      ...REGION,
+      buProductSelection: "CL_CHOREO",
+      customBusinessUnits: ["IAM_BU"],
+    };
+    expect(regionMetricsRequests(RANGES, cloud, true)[0]).toMatchObject({
+      businessUnits: ["ALL_BU"],
     });
   });
 
   it("sends a custom selection as the list itself", () => {
     const custom: MisAppliedFilters = {
       ...REGION,
-      buProductSelection: CUSTOM_UNIT,
-      customBusinessUnits: ["APIM_BU", "IAM_BU"],
+      metricsUnit: CUSTOM_UNIT,
+      metricsCustomBusinessUnits: ["APIM_BU", "IAM_BU"],
     };
     expect(regionMetricsRequests(RANGES, custom, true)[0]).toMatchObject({
       businessUnits: ["APIM_BU", "IAM_BU"],
@@ -220,7 +238,7 @@ describe("All ARR Metrics, which is the one summary a unit selection reaches", (
     // The source guards on `hasBusinessUnitSelection` and shows "Choose units
     // to generate region metrics". Falling back to every unit would put the
     // whole company's movement on screen under a chip saying otherwise.
-    const empty: MisAppliedFilters = { ...REGION, buProductSelection: CUSTOM_UNIT };
+    const empty: MisAppliedFilters = { ...REGION, metricsUnit: CUSTOM_UNIT };
     expect(regionMetricsRequests(RANGES, empty, true)).toEqual([]);
   });
 

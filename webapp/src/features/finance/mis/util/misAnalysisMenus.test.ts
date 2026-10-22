@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
 import { analysisMenus, EMPTY_ANALYSIS_MENUS } from "./misAnalysisMenus";
 import { EMPTY_SCRAPED_OPTIONS } from "../components/analysisAccountRows";
 
-// What each of ARR Analysis's four list controls actually offers.
+// What each of Portfolio's four list controls actually offers.
 //
 // ONE rule for all four — the backend's list, else what the loaded accounts
 // show — where the source has four. That is the deviation this module exists
@@ -64,7 +64,7 @@ describe("each list menu", () => {
   });
 
   // `billingCountries`, not `countries`. The Build's `countries` is the
-  // SHIPPING list under the substitution reproduced for parity, and ARR Analysis's
+  // SHIPPING list under the substitution reproduced for parity, and Portfolio's
   // Country control filters on `billingCountries` — so feeding it the Build's
   // list would make the menu and the request disagree about which country a
   // country is.

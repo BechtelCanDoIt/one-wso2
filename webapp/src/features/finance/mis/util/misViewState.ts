@@ -46,6 +46,7 @@ import {
   type QueryParamCodec,
   type QueryParamReader,
 } from "@utils/queryState";
+import { MIS_METRICS_UNITS } from "./misUnits";
 import {
   CUMULATIVE_KEY_BY_PERIOD,
   CUSTOM_UNIT,
@@ -111,6 +112,19 @@ const unitParam: QueryParamCodec<string> = {
   format: (code) => code.toLowerCase().replace(/_/g, "-"),
 };
 
+/**
+ * One of the eight All ARR Metrics pills. Anything else is unrecognised, so a
+ * link carrying a Build-only unit such as `sw-apim` opens on All BU.
+ */
+const METRICS_UNIT_CODES: ReadonlySet<string> = new Set(MIS_METRICS_UNITS.map((unit) => unit.code));
+const metricsUnitParam: QueryParamCodec<string> = {
+  parse: (raw) => {
+    const code = unitParam.parse(raw);
+    return code !== undefined && METRICS_UNIT_CODES.has(code) ? code : undefined;
+  },
+  format: unitParam.format,
+};
+
 /** The only Scale that reaches a URL; units is the default and is never written. */
 const SCALE_THOUSANDS = "k";
 
@@ -141,6 +155,7 @@ const windowParam: QueryParamReader<MisWindow> = {
 function codecsFor(period: MisPeriod, table: MisTable, viewWindow: MisWindow) {
   return {
     unit: unitParam,
+    metricsUnit: metricsUnitParam,
     years: integerParam(YEARS_BACK_RANGE),
     ytd: booleanParam,
     endingMonth: oneOfParam(ENDING_MONTH_VALUES),
@@ -164,8 +179,8 @@ export function defaultYearsBack(period: MisPeriod, table: MisTable): number {
 
 /**
  * The type values a Table offers, mirroring the filter bar's option lists:
- * the summaries take Total and Closed Won only, Customers has no Renewal, and
- * the Build has no Delayed.
+ * the summaries take Total, Closed Won and Forecasted, Customers has no
+ * Renewal, and the Build has no Delayed.
  *
  * Validating a link against a single global list instead would restore views
  * the filter bar cannot show — a Renewal column on a summary that has no
@@ -175,18 +190,16 @@ export function defaultYearsBack(period: MisPeriod, table: MisTable): number {
  *
  * A TTM window has a list of its own — Total, Closed Won, Delayed — which is
  * neither of the two above: it ADDS Delayed to the Build and REMOVES Forecasted
- * and Renewal from everything. The source keeps that rule in the filter bar
- * alone (`FilterBar.js:493`, `arrTypeOptionsUI`) and its own URL contract never
- * learned it, so the two disagree in both directions: picking Delayed on a TTM
- * Build moved the grid and was then dropped from the address, and a link
- * carrying `window=ttm&type=Forecasted ARR` hydrated a forecast the bar has no
- * option for. Ported here instead, once, so the control and the contract cannot
- * drift — spec §7. It is the one place a Window has ever had to be known.
+ * and Renewal from everything. The filter bar and the address share that list,
+ * so picking Delayed on a TTM Build moves the grid and stays in the address,
+ * and a link carrying `window=ttm&type=Forecasted ARR` cannot hydrate a
+ * forecast the bar has no option for. It is the one place a Window has to be
+ * known.
  *
- * The summaries are deliberately NOT widened. Spec §3 states their list as a
- * business rule — a summary reports a balance, it does not cut a trailing
- * window — and the source's blanket TTM branch reaching them too looks like the
- * accident rather than the intent.
+ * The summaries are deliberately NOT widened. A summary reports a balance at a
+ * date and does not cut a trailing window, so it takes no Delayed type on a TTM
+ * Window. A blanket TTM list that added Delayed to them would be the accident
+ * rather than the intent. Off TTM they offer every type but Delayed and Renewal.
  */
 export function allowedTypeValues(
   period: MisPeriod,
@@ -197,7 +210,13 @@ export function allowedTypeValues(
   // Membership, not a prefix. A renamed type that no longer starts with
   // "Delayed" would otherwise sail through and become a view the bar cannot show.
   if (isSummaryTable(table)) {
-    return all.filter((value) => !DELAYED_TYPE_VALUES.has(value) && !FORECAST_TYPE_VALUES.has(value));
+    const onTtm = period === MIS_PERIODS.ANNUALLY && viewWindow === MIS_WINDOWS.TTM;
+    return all.filter(
+      (value) =>
+        !DELAYED_TYPE_VALUES.has(value) &&
+        !RENEWAL_TYPE_VALUES.has(value) &&
+        !(onTtm && FORECAST_TYPE_VALUES.has(value)),
+    );
   }
   // Annually is the only Period with a Window, so one named on either of the
   // others is not a narrowing — it is a parameter that was already ignored.
@@ -295,6 +314,9 @@ export function defaultAppliedFilters(period: MisPeriod, table: MisTable): MisAp
     buProductSelection: "BU_ALL",
     customBusinessUnits: [],
     customProductUnits: [],
+    metricsUnit: "BU_ALL",
+    metricsCustomBusinessUnits: [],
+    metricsCustomProductUnits: [],
     forecast: FORECAST_STATES.DISABLE,
     salesRegion: [],
     subRegion: [],
@@ -353,6 +375,13 @@ export function serializeViewState({
   if (filters.buProductSelection === CUSTOM_UNIT) {
     query.setIfChanged("customBu", filters.customBusinessUnits, defaults.customBusinessUnits, codecs.list);
     query.setIfChanged("customProduct", filters.customProductUnits, defaults.customProductUnits, codecs.list);
+  }
+  if (table === MIS_TABLES.EXIT_ARR_BY_REGION) {
+    query.setIfChanged("metrics", filters.metricsUnit, defaults.metricsUnit, codecs.metricsUnit);
+    if (filters.metricsUnit === CUSTOM_UNIT) {
+      query.setIfChanged("metricsBu", filters.metricsCustomBusinessUnits, defaults.metricsCustomBusinessUnits, codecs.list);
+      query.setIfChanged("metricsProduct", filters.metricsCustomProductUnits, defaults.metricsCustomProductUnits, codecs.list);
+    }
   }
   query.setIfChanged("years", filters.yearsBack, defaults.yearsBack, codecs.years);
   // A TTM window runs twelve months back from its end date, so year-to-date has
@@ -434,6 +463,13 @@ export function parseViewState(search: string, { period }: { period: MisPeriod }
   if (filters.buProductSelection === CUSTOM_UNIT) {
     read("customBu", "customBusinessUnits", codecs.list);
     read("customProduct", "customProductUnits", codecs.list);
+  }
+  if (effectiveTable === MIS_TABLES.EXIT_ARR_BY_REGION) {
+    read("metrics", "metricsUnit", codecs.metricsUnit);
+    if (filters.metricsUnit === CUSTOM_UNIT) {
+      read("metricsBu", "metricsCustomBusinessUnits", codecs.list);
+      read("metricsProduct", "metricsCustomProductUnits", codecs.list);
+    }
   }
   read("years", "yearsBack", codecs.years);
   if (!isTtm) read("ytd", "isYtd", codecs.ytd);

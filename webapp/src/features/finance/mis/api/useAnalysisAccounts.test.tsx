@@ -20,10 +20,10 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HttpError } from "@api/http";
 
-// The two reads behind ARR Analysis: the account table, and the one figure
+// The two reads behind Portfolio: the account table, and the one figure
 // above it.
 //
-// Both go through `useColumnQueries`, which ARR Analysis has no columns for —
+// Both go through `useColumnQueries`, which Portfolio has no columns for —
 // the same trade `useDrillDownCustomers` makes. What it wants from that engine
 // is everything that has nothing to do with columns: the body as the cache key
 // (a POST that is a read has no URL to key on), sub-scoping, `httpRetry`, the
