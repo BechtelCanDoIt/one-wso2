@@ -14,13 +14,15 @@
 // specific language governing permissions and limitations
 
 
-import { useState, type ReactNode } from "react";
-import { Box, Button, Chip, Dialog, DialogContent, IconButton, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, Chip, Dialog, DialogContent, Divider, IconButton, Typography } from "@wso2/oxygen-ui";
 import { ChevronLeftIcon, ChevronRightIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
-import type { DashboardCampaignDetail, DashboardPerson } from "../../api/amplifyTypes";
-import { PriorityPill, SectionLabel } from "../../components/DashboardParts";
-import { announcementLabel, commentedReposts, num, plainReposts, rate, shortDate } from "../../util/dashboardFormat";
+import type { DashboardCampaignDetail, DashboardCampaignRow, DashboardPerson } from "../../api/amplifyTypes";
+import { usePersonLookup, type PersonRef } from "../../api/usePersonLookup";
+import { SectionLabel } from "../../components/DashboardParts";
+import PersonLink from "../../components/PersonLink";
+import PostCard, { CategoryChip, PriorityChip } from "../../components/PostCard";
+import { announcementLabel, commentedReposts, num, plainReposts, rate } from "../../util/dashboardFormat";
 
 function DayChart({ byDay }: { byDay: { day: number; reposts: number }[] }) {
   const max = Math.max(1, ...byDay.map((d) => d.reposts));
@@ -57,46 +59,9 @@ function Numbers({ sel }: { sel: DashboardCampaignDetail }) {
   );
 }
 
-/** Slide one: the post as people saw it, with its picture. */
-function CardSlide({ sel }: { sel: DashboardCampaignDetail }) {
-  const [imageFailed, setImageFailed] = useState(false);
-  return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-      {sel.imageUrl && !imageFailed && (
-        <Box
-          component="img"
-          src={sel.imageUrl}
-          alt={`Picture for ${sel.title}`}
-          onError={() => setImageFailed(true)}
-          referrerPolicy="no-referrer"
-          sx={{ width: "100%", maxHeight: 260, objectFit: "cover", borderRadius: 2, bgcolor: "action.hover" }}
-        />
-      )}
-      <Box sx={{ display: "flex", gap: 1, alignItems: "flex-start" }}>
-        <Box sx={{ flexGrow: 1, minWidth: 0 }}>
-          <Typography component="h3" sx={{ fontSize: 20, fontWeight: 600, overflowWrap: "anywhere" }}>
-            {sel.title}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {sel.categoryLabel} · opened {shortDate(sel.opensAt)} · closes {shortDate(sel.closesAt)}
-          </Typography>
-        </Box>
-        {sel.isPriority && <PriorityPill />}
-      </Box>
-      {sel.summary && <Typography sx={{ overflowWrap: "anywhere" }}>{sel.summary}</Typography>}
-      {sel.resourceUrl && (
-        <Box>
-          <Button component="a" href={sel.resourceUrl} target="_blank" rel="noopener noreferrer" size="small" variant="outlined">
-            Open the post on LinkedIn
-          </Button>
-        </Box>
-      )}
-    </Box>
-  );
-}
-
-/** One column of the people list: a header with the count, then a pill per name. */
-function PeopleColumn({ title, people }: { title: string; people: DashboardPerson[] }) {
+/** One column of the people list: a header with the count, then a pill per name. A name opens that person's popup. */
+function PeopleColumn({ title, people, onPerson }: { title: string; people: DashboardPerson[]; onPerson: (p: PersonRef) => void }) {
+  const lookup = usePersonLookup();
   return (
     <Box component="section" aria-label={title} sx={{ minWidth: 0 }}>
       <SectionLabel>
@@ -108,11 +73,22 @@ function PeopleColumn({ title, people }: { title: string; people: DashboardPerso
         </Typography>
       ) : (
         <Box component="ul" sx={{ listStyle: "none", m: 0, mt: 1, p: 0, display: "flex", flexWrap: "wrap", gap: 0.75 }}>
-          {people.map((p) => (
-            <li key={p.employeeId}>
-              <Chip size="small" label={p.displayName} variant="outlined" />
-            </li>
-          ))}
+          {people.map((p) => {
+            const name = lookup(p).name;
+            return (
+              <li key={p.employeeId}>
+                <Chip
+                  size="small"
+                  variant="outlined"
+                  label={
+                    <PersonLink person={p} onSelect={onPerson}>
+                      {name}
+                    </PersonLink>
+                  }
+                />
+              </li>
+            );
+          })}
         </Box>
       )}
     </Box>
@@ -120,41 +96,32 @@ function PeopleColumn({ title, people }: { title: string; people: DashboardPerso
 }
 
 /**
- * The popup behind a post name on Post Performance: a carousel (the post's card, its numbers, reposts per
- * day), then who reposted it in two columns, Reposts and With comments.
+ * The popup behind a post name on Post Performance: the post's normal card in a carousel (arrows step through the
+ * listed posts), a box with the numbers and the per-day graph, then who reposted it in two columns, Reposts and
+ * With comments. Clicking a name hands off to the person popup.
  */
-export default function CampaignDetailDialog({ sel, onClose }: { sel: DashboardCampaignDetail; onClose: () => void }) {
-  const [slide, setSlide] = useState(0);
-  const slides: { name: string; body: ReactNode }[] = [
-    { name: "Post", body: <CardSlide sel={sel} /> },
-    {
-      name: "Numbers",
-      body: (
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <Numbers sel={sel} />
-          <Typography variant="body2" color="text.secondary">
-            Novera: {announcementLabel(sel.announcement)}
-          </Typography>
-        </Box>
-      ),
-    },
-    {
-      name: "Per day",
-      body: (
-        <Box>
-          <SectionLabel>Reposts per day</SectionLabel>
-          <DayChart byDay={sel.byDay} />
-          <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "text.secondary" }}>
-            {sel.byDay.map((d) => (
-              <span key={d.day}>Day {d.day}</span>
-            ))}
-          </Box>
-        </Box>
-      ),
-    },
-  ];
-  const last = slides.length - 1;
-  const go = (to: number) => setSlide(Math.max(0, Math.min(last, to)));
+export default function CampaignDetailDialog({
+  sel,
+  campaigns,
+  loading = false,
+  onNavigate,
+  onPerson,
+  onClose,
+}: {
+  sel: DashboardCampaignDetail;
+  /** The posts in the list behind the popup, in order; the carousel steps through them. */
+  campaigns: DashboardCampaignRow[];
+  /** Another post is loading; the current one stays up, dimmed. */
+  loading?: boolean;
+  onNavigate: (campaignId: string) => void;
+  onPerson: (p: PersonRef) => void;
+  onClose: () => void;
+}) {
+  const at = campaigns.findIndex((c) => c.campaignId === sel.campaignId);
+  const step = (by: number) => {
+    const next = campaigns[at + by];
+    if (next) onNavigate(next.campaignId);
+  };
   return (
     <Dialog
       open
@@ -166,48 +133,79 @@ export default function CampaignDetailDialog({ sel, onClose }: { sel: DashboardC
       slotProps={{ paper: { sx: dialogPaperSx } }}
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, px: 2.5, pt: 2 }}>
-        <Typography sx={{ flexGrow: 1, fontSize: 17, fontWeight: 700 }}>Post detail</Typography>
+        <Typography component="h2" sx={{ flexGrow: 1, fontSize: 17, fontWeight: 700 }}>
+          Post detail
+        </Typography>
         <IconButton aria-label="Close" onClick={onClose} size="small">
           <XIcon size={18} />
         </IconButton>
       </Box>
-      <DialogContent>
+      <DialogContent sx={{ opacity: loading ? 0.6 : 1, transition: "opacity 120ms" }} aria-busy={loading}>
         <Box
           role="group"
           aria-roledescription="carousel"
-          aria-label="Campaign detail"
+          aria-label="Campaign card"
           onKeyDown={(e) => {
-            if (e.key === "ArrowLeft") go(slide - 1);
-            if (e.key === "ArrowRight") go(slide + 1);
+            if (e.key === "ArrowLeft") step(-1);
+            if (e.key === "ArrowRight") step(1);
           }}
-          sx={{ border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}
+          sx={{ display: "flex", alignItems: "center", gap: 1 }}
         >
-          <Box role="group" aria-roledescription="slide" aria-label={`${slides[slide].name}, ${slide + 1} of ${slides.length}`} sx={{ minHeight: 160 }}>
-            {slides[slide].body}
+          <IconButton size="small" aria-label="Previous post" disabled={loading || at <= 0} onClick={() => step(-1)} sx={{ border: "1px solid", borderColor: "primary.main" }}>
+            <ChevronLeftIcon size={16} />
+          </IconButton>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <PostCard
+              campaign={{
+                resourceUrn: sel.resourceUrn ?? "",
+                resourceUrl: sel.resourceUrl,
+                title: sel.title,
+                opensAt: sel.opensAt,
+                imageUrl: sel.imageUrl,
+                summary: sel.summary,
+              }}
+              chips={
+                <>
+                  {sel.isPriority && <PriorityChip />}
+                  <CategoryChip label={sel.categoryLabel} />
+                </>
+              }
+            />
           </Box>
-          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1, mt: 2 }}>
-            <IconButton size="small" aria-label="Previous" disabled={slide === 0} onClick={() => go(slide - 1)} sx={{ border: "1px solid", borderColor: "primary.main" }}>
-              <ChevronLeftIcon size={16} />
-            </IconButton>
-            {slides.map((s, i) => (
-              <Chip
-                key={s.name}
-                size="small"
-                label={s.name}
-                color={i === slide ? "primary" : "default"}
-                variant={i === slide ? "filled" : "outlined"}
-                onClick={() => go(i)}
-                aria-current={i === slide ? "true" : undefined}
-              />
+          <IconButton
+            size="small"
+            aria-label="Next post"
+            disabled={loading || at < 0 || at >= campaigns.length - 1}
+            onClick={() => step(1)}
+            sx={{ border: "1px solid", borderColor: "primary.main" }}
+          >
+            <ChevronRightIcon size={16} />
+          </IconButton>
+        </Box>
+        {at >= 0 && (
+          <Typography variant="caption" color="text.secondary" component="div" aria-live="polite" sx={{ textAlign: "center", mt: 0.5 }}>
+            {at + 1} of {campaigns.length}
+          </Typography>
+        )}
+
+        <Box sx={{ mt: 2, border: "1px solid", borderColor: "divider", borderRadius: 2, p: 2 }}>
+          <Numbers sel={sel} />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Novera: {announcementLabel(sel.announcement)}
+          </Typography>
+          <Divider sx={{ my: 2 }} />
+          <SectionLabel>Reposts per day</SectionLabel>
+          <DayChart byDay={sel.byDay} />
+          <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "text.secondary" }}>
+            {sel.byDay.map((d) => (
+              <span key={d.day}>Day {d.day}</span>
             ))}
-            <IconButton size="small" aria-label="Next" disabled={slide === last} onClick={() => go(slide + 1)} sx={{ border: "1px solid", borderColor: "primary.main" }}>
-              <ChevronRightIcon size={16} />
-            </IconButton>
           </Box>
         </Box>
+
         <Box sx={{ mt: 2.5, display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, minmax(0, 1fr))" }, gap: 2.5 }}>
-          <PeopleColumn title="Reposts" people={sel.people?.reposts ?? []} />
-          <PeopleColumn title="With comments" people={sel.people?.withComments ?? []} />
+          <PeopleColumn title="Reposts" people={sel.people?.reposts ?? []} onPerson={onPerson} />
+          <PeopleColumn title="With comments" people={sel.people?.withComments ?? []} onPerson={onPerson} />
         </Box>
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 2.5 }}>
           <Button onClick={onClose} variant="outlined">

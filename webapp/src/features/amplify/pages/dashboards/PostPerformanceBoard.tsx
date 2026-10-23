@@ -14,31 +14,41 @@
 // specific language governing permissions and limitations
 
 import { useState } from "react";
-import { Box, ButtonBase, Typography } from "@wso2/oxygen-ui";
+import { Box, Typography } from "@wso2/oxygen-ui";
 import { useSearchParams } from "react-router";
 import type { DashboardCampaigns } from "../../api/amplifyTypes";
 import { useDashboardCampaigns } from "../../api/useAmplifyDashboards";
+import type { PersonRef } from "../../api/usePersonLookup";
 import AmplifyShell from "../../components/AmplifyShell";
-import { Bar, Block, BoardState, Empty, SectionLabel } from "../../components/DashboardParts";
-import { commentedReposts, num, plainReposts, updatedStamp } from "../../util/dashboardFormat";
+import { Block, BoardState, Empty } from "../../components/DashboardParts";
+import RepostGrid from "../../components/RepostGrid";
+import { commentedReposts, plainReposts, updatedStamp } from "../../util/dashboardFormat";
 import CampaignDetailDialog from "./CampaignDetailDialog";
+import PersonDetailDialog from "./PersonDetailDialog";
 
 /** Post performance: reposts per post (a click opens the post's popup) and reposts by category. */
 export function PostPerformanceBoard({
   data,
   onSelect,
   detailOpen = false,
-  onCloseDetail = () => undefined,
+  loading = false,
+  person = null,
+  onPerson = () => undefined,
+  onClose = () => undefined,
 }: {
   data: DashboardCampaigns;
-  /** A post name was clicked: select it (and open its popup). */
+  /** A post name was clicked, or the popup's arrows moved to another post. */
   onSelect: (campaignId: string) => void;
-  /** Show the popup for `data.selected`. */
+  /** Show the post popup for `data.selected`. */
   detailOpen?: boolean;
-  onCloseDetail?: () => void;
+  /** Another post is loading behind the popup. */
+  loading?: boolean;
+  /** Show the person popup for this person (the post popup closes first). */
+  person?: PersonRef | null;
+  onPerson?: (p: PersonRef) => void;
+  /** Closes whichever popup is up. */
+  onClose?: () => void;
 }) {
-  const topReposts = Math.max(1, ...data.campaigns.map((p) => p.reposts));
-  const topCategory = Math.max(1, ...data.byCategory.map((c) => c.reposts));
   const sel = data.selected;
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -48,78 +58,52 @@ export function PostPerformanceBoard({
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "flex-start" }}>
         <Box sx={{ flex: "1 1 520px", minWidth: 0 }}>
           <Block title="Reposts per post">
-            {data.campaigns.length === 0 ? (
-              <Empty>No posts in this window.</Empty>
-            ) : (
-              <Box component="ul" sx={{ listStyle: "none", m: 0, p: 0 }}>
-                {data.campaigns.map((p) => (
-                  <Box component="li" key={p.campaignId} sx={{ borderTop: "1px solid", borderColor: "divider" }}>
-                    <ButtonBase
-                      onClick={() => onSelect(p.campaignId)}
-                      aria-haspopup="dialog"
-                      sx={{ width: "100%", display: "flex", alignItems: "center", gap: 1.5, py: 1.25, textAlign: "left", flexWrap: "wrap" }}
-                    >
-                      <Box sx={{ flex: "0 0 230px", minWidth: 150 }}>
-                        {p.title}
-                        <Typography variant="body2" color="text.secondary" component="div">
-                          {p.categoryLabel}
-                          {p.isPriority ? " · Priority" : ""}
-                        </Typography>
-                      </Box>
-                      <Bar fraction={p.reposts / topReposts} label={`${p.reposts} reposts`} />
-                      <Box sx={{ flex: "0 0 40px", textAlign: "right" }}>{num(p.reposts)}</Box>
-                    </ButtonBase>
-                  </Box>
-                ))}
-              </Box>
-            )}
+            <RepostGrid
+              label="Reposts per post"
+              empty={<Empty>No posts in this window.</Empty>}
+              onPick={onSelect}
+              rows={data.campaigns.map((p) => ({
+                key: p.campaignId,
+                title: p.title,
+                subtitle: `${p.categoryLabel}${p.isPriority ? " · Priority" : ""}`,
+                total: p.reposts,
+                plain: plainReposts(p),
+                commented: commentedReposts(p),
+              }))}
+            />
           </Block>
         </Box>
 
         <Box sx={{ flex: "1 1 360px", minWidth: 0 }}>
           <Block title={`Reposts by category, ${data.windowDays} days`}>
-            {data.byCategory.length === 0 ? (
-              <Empty>No reposts in this window.</Empty>
-            ) : (
-              <Box
-                role="table"
-                aria-label="Reposts by category"
-                sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", columnGap: 2, rowGap: 0.5, fontSize: 13, alignItems: "center" }}
-              >
-                <Box role="row" sx={{ display: "contents" }}>
-                  <Box role="columnheader" />
-                  <Box role="columnheader" sx={{ textAlign: "right" }}>
-                    <SectionLabel>Reposts</SectionLabel>
-                  </Box>
-                  <Box role="columnheader" sx={{ textAlign: "right" }}>
-                    <SectionLabel>With comments</SectionLabel>
-                  </Box>
-                </Box>
-                {data.byCategory.map((c) => (
-                  <Box role="row" key={c.code} sx={{ display: "contents" }}>
-                    <Box role="cell" sx={{ gridColumn: "1 / -1", mt: 1, display: "flex", alignItems: "center", gap: 1.25 }}>
-                      <Bar fraction={c.reposts / topCategory} label={`${c.label}: ${c.reposts} reposts in all`} />
-                    </Box>
-                    <Box role="rowheader" sx={{ overflowWrap: "anywhere" }}>
-                      {c.label}
-                    </Box>
-                    <Box role="cell" sx={{ textAlign: "right" }}>
-                      {num(plainReposts(c))}
-                    </Box>
-                    <Box role="cell" sx={{ textAlign: "right" }}>
-                      {num(commentedReposts(c))}
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-            )}
+            <RepostGrid
+              label="Reposts by category"
+              empty={<Empty>No reposts in this window.</Empty>}
+              rows={data.byCategory.map((c) => ({
+                key: c.code,
+                title: c.label,
+                total: c.reposts,
+                plain: plainReposts(c),
+                commented: commentedReposts(c),
+              }))}
+            />
             <Typography variant="caption" color="text.secondary" component="div" sx={{ mt: 1.5 }}>
               The bar is every repost, with or without a comment.
             </Typography>
           </Block>
         </Box>
       </Box>
-      {detailOpen && sel && <CampaignDetailDialog sel={sel} onClose={onCloseDetail} />}
+      {detailOpen && sel && !person && (
+        <CampaignDetailDialog
+          sel={sel}
+          campaigns={data.campaigns}
+          loading={loading}
+          onNavigate={onSelect}
+          onPerson={onPerson}
+          onClose={onClose}
+        />
+      )}
+      {person && <PersonDetailDialog person={person} onClose={onClose} />}
     </Box>
   );
 }
@@ -127,8 +111,9 @@ export function PostPerformanceBoard({
 export default function PostPerformancePage() {
   const [params, setParams] = useSearchParams();
   const campaignId = params.get("campaignId") ?? undefined;
-  // Open state lives here, not in the board: picking another post swaps the data and the board remounts.
+  // Popup state lives here, not in the board: picking another post swaps the data under the board.
   const [detailOpen, setDetailOpen] = useState(false);
+  const [person, setPerson] = useState<PersonRef | null>(null);
   const q = useDashboardCampaigns(campaignId);
   return (
     <AmplifyShell title="Post Performance" subtitle="Which posts people are reposting, and how fast.">
@@ -141,7 +126,16 @@ export default function PostPerformancePage() {
               setDetailOpen(true);
             }}
             detailOpen={detailOpen}
-            onCloseDetail={() => setDetailOpen(false)}
+            loading={q.isPlaceholderData}
+            person={person}
+            onPerson={(p) => {
+              setDetailOpen(false);
+              setPerson(p);
+            }}
+            onClose={() => {
+              setDetailOpen(false);
+              setPerson(null);
+            }}
           />
         )}
       </BoardState>

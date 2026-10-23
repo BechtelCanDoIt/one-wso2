@@ -18,6 +18,8 @@ import { Avatar, Box, Chip, Divider, Table, TableBody, TableCell, TableHead, Tab
 import type { Leaderboard, TopBoard } from "../api/amplifyTypes";
 import type { PeopleByEmail } from "../api/useAmplifyPeople";
 import { AmplifyPanel } from "./AmplifyShell";
+import { nameOrUnknown } from "../api/usePersonLookup";
+import PersonLink from "./PersonLink";
 import TopAmplifiersPodium from "./TopAmplifiersPodium";
 
 function initials(name: string): string {
@@ -38,7 +40,7 @@ function PersonAvatar({
   size: number;
 }) {
   const person = people.get(email.toLowerCase());
-  const name = person?.name || fallbackName;
+  const name = nameOrUnknown(person?.name, fallbackName);
   return (
     <Avatar src={person?.photoUrl ?? undefined} alt="" sx={{ width: size, height: size, fontSize: size * 0.36 }}>
       {initials(name)}
@@ -47,7 +49,7 @@ function PersonAvatar({
 }
 
 function nameOf(email: string, fallbackName: string, people: PeopleByEmail): string {
-  return people.get(email.toLowerCase())?.name || fallbackName;
+  return nameOrUnknown(people.get(email.toLowerCase())?.name, fallbackName);
 }
 
 function pts(n: number | null | undefined): string {
@@ -69,10 +71,16 @@ function TopThree({ board, people }: { board: TopBoard; people: PeopleByEmail })
         <TopAmplifiersPodium
           amplifiers={leaders.map((leader) => {
             const person = people.get(leader.email.toLowerCase());
+            const name = nameOrUnknown(person?.name, leader.displayName);
             return {
-              name: person?.name || leader.displayName,
+              name,
               points: leader.points ?? 0,
               avatarUrl: person?.photoUrl ?? undefined,
+              nameNode: (
+                <PersonLink person={{ employeeId: leader.employeeId, displayName: leader.displayName, email: leader.email }}>
+                  {name}
+                </PersonLink>
+              ),
             };
           })}
         />
@@ -174,7 +182,9 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <PersonAvatar email={entry.email} fallbackName={entry.displayName} people={people} size={24} />
-                      {nameOf(entry.email, entry.displayName, people)}
+                      <PersonLink person={{ employeeId: entry.employeeId, displayName: entry.displayName, email: entry.email }}>
+                        {nameOf(entry.email, entry.displayName, people)}
+                      </PersonLink>
                       {entry.isMe && <Chip size="small" color="primary" label="You" />}
                     </Box>
                   </TableCell>
