@@ -103,7 +103,7 @@ describe("Create Update", () => {
     ).toBe(false);
   });
 
-  // The Proactive tab disables the hotfix switch without clearing it, and a
+  // The request follows the update's source, not the raw hotfix flag: a
   // proactive update has no case id to go with a hotfix.
   it("never sends hotfixRequired for a proactive update", () => {
     const request = buildUmtCreateUpdateRequest({ ...REGULAR, caseId: "", isProactive: true, isHotfix: true });
@@ -187,7 +187,17 @@ describe("Add Product", () => {
   });
 
   it("rejects a lead or ED email that is not a well-formed address", () => {
-    for (const bad of ["not-an-email", "ed@", "@wso2.com", "lead @wso2.com", "lead@wso2", "a@b@wso2.com"]) {
+    for (const bad of [
+      "not-an-email",
+      "ed@",
+      "@wso2.com",
+      "lead @wso2.com",
+      "lead@wso2",
+      "a@b@wso2.com",
+      "lead@wso2..com",
+      "lead@wso2.com.",
+      "lead@.wso2.com",
+    ]) {
       expect(isCreateProductFormValid({ ...PRODUCT, leadMail: bad })).toBe(false);
       expect(isCreateProductFormValid({ ...PRODUCT, edMail: bad })).toBe(false);
     }

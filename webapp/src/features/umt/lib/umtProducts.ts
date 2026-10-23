@@ -41,10 +41,14 @@ export const EMPTY_CREATE_PRODUCT_FORM: UmtCreateProductFormValues = {
   ftpAbsolutePath: "",
 };
 
-// A well-formed address: text, one @, and a dotted domain, with no spaces.
-// A format check only, which is all a form can know about an address.
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+// A well-formed address: text, one @, and a domain of at least two labels
+// split by single dots, so no empty label and no leading or trailing dot, with
+// no spaces anywhere.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
 
+// Whether the value, ignoring surrounding whitespace, is a well-formed email
+// address. A format check only, which is all a form can know about an address:
+// it says nothing about whether the address is deliverable.
 export function isValidEmail(value: string): boolean {
   return EMAIL_REGEX.test(value.trim());
 }

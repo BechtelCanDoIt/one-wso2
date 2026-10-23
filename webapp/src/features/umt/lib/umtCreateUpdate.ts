@@ -42,11 +42,13 @@ export function laterDate(date: Date, days: number): Date {
   return result;
 }
 
-// An internal issue lives in a `wso2-` organisation, such as wso2-enterprise.
-// A format check like the one below, so no trailing slash is accepted either.
 const INTERNAL_GITHUB_ISSUE_URL_REGEX =
   /^https:\/\/github\.com\/wso2-[A-Za-z0-9-]+\/[A-Za-z0-9-]+\/issues\/[0-9]+$/;
 
+// Whether the value, ignoring surrounding whitespace, is a GitHub issue URL in
+// a `wso2-` organisation, such as wso2-enterprise. The `wso2` organisation
+// itself does not qualify, and no trailing slash is accepted. A format check
+// like the one below.
 export function isValidInternalGithubIssueUrl(value: string): boolean {
   return INTERNAL_GITHUB_ISSUE_URL_REGEX.test(value.trim());
 }
@@ -141,9 +143,9 @@ export function isAfterDay(before: Date, after: Date): boolean {
   return startOfDay(after) > startOfDay(before);
 }
 
-// The Proactive tab disables the hotfix switch without clearing it, and a
-// proactive update has no case id to go with a hotfix, so a hotfix is only
-// what a customer-reported update asks for.
+// Whether the update is a hotfix. Only a customer-reported update can be: a
+// proactive update has no case id to go with one, whatever `isHotfix` holds.
+// Both the dates the form accepts and the request sent follow this.
 function isHotfixRequired(values: UmtCreateUpdateFormValues): boolean {
   return !values.isProactive && values.isHotfix;
 }
