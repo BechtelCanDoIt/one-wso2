@@ -197,9 +197,9 @@ describe("UMT inside Engineering", () => {
       ["Overview", "/engineering/umt"],
       ["Updates", "/engineering/umt/updates"],
       ["Products", "/engineering/umt/products"],
-      ["Releases", "/engineering/umt/release-chunks"],
+      ["Release Chunks", "/engineering/umt/release-chunks"],
       ["Statistics", "/engineering/umt/statistics"],
-      ["Docs", undefined],
+      ["Documentation", undefined],
     ]);
     expect(perspectives.findPerspectiveByPath("/engineering/umt/updates/42")?.key).toBe("engineering");
   });
