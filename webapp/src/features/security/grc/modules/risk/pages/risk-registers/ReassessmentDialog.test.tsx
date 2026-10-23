@@ -17,7 +17,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { CreateAssessmentPayload, UserOption } from "../../api/riskApi";
+import type { CreateAssessmentPayload, RiskDetail, RiskScore, UserOption } from "../../api/riskApi";
 import ReassessmentDialog from "./ReassessmentDialog";
 import { riskDetail } from "./riskDetailFixture";
 
@@ -77,15 +77,19 @@ beforeEach(() => {
   candidateFetchers.approvers.mockReset().mockResolvedValue([user(12, "Approver"), user(22, "New Approver")]);
 });
 
-function renderDialog(canEditRiskDetails: boolean) {
+function renderDialog(
+  canEditRiskDetails: boolean,
+  detail: Partial<RiskDetail> = {},
+  riskScores: RiskScore[] = [],
+) {
   const onSubmit = vi.fn<(p: CreateAssessmentPayload) => Promise<void>>().mockResolvedValue();
   render(
     <ReassessmentDialog
       open
       riskCode="R-1"
-      detail={riskDetail({ implementation_date: "2030-01-01" })}
+      detail={riskDetail({ implementation_date: "2030-01-01", ...detail })}
       canEditRiskDetails={canEditRiskDetails}
-      riskScores={[]}
+      riskScores={riskScores}
       previousScore={null}
       previousIsInitial
       onClose={vi.fn()}
@@ -165,5 +169,56 @@ describe("ReassessmentDialog risk details", () => {
 
     expect(await screen.findByText("Implementation date cannot be in the past.")).toBeInTheDocument();
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+// The grid stand-in always picks likelihood 2 / impact 2.
+const scoreAt22 = (risk_level: string): RiskScore[] => [
+  { id: 5, likelihood: 2, impact: 2, risk_rating: 4, risk_level, color_code: "#f00" } as RiskScore,
+];
+
+describe("ReassessmentDialog Management Approver for a HIGH result", () => {
+  it("makes the assigner pick an approver when a risk with none becomes HIGH", async () => {
+    const u = userEvent.setup();
+    const onSubmit = renderDialog(true, { management_approver_id: 0, management_approver_name: "" }, scoreAt22("HIGH"));
+    await fillAssessment(u);
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+
+    expect(await screen.findAllByText("A Management Approver is required for a HIGH risk.")).not.toHaveLength(0);
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await u.click(screen.getByRole("combobox", { name: "Management Approver" }));
+    await u.click(within(await screen.findByRole("listbox")).getByText("New Approver"));
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].management_approver_id).toBe(22);
+  });
+
+  it("tells the Risk Owner to ask the Risk Assigner, and does not save", async () => {
+    const u = userEvent.setup();
+    const onSubmit = renderDialog(false, { management_approver_id: 0, management_approver_name: "" }, scoreAt22("HIGH"));
+    await fillAssessment(u);
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+
+    expect(
+      await screen.findAllByText("A Management Approver is required for a HIGH risk. Ask the Risk Assigner to set it."),
+    ).not.toHaveLength(0);
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it("saves when the HIGH risk already has an approver", async () => {
+    const u = userEvent.setup();
+    const onSubmit = renderDialog(false, {}, scoreAt22("HIGH"));
+    await fillAssessment(u);
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+  });
+
+  it("does not ask for an approver when the result is not HIGH", async () => {
+    const u = userEvent.setup();
+    const onSubmit = renderDialog(false, { management_approver_id: 0, management_approver_name: "" }, scoreAt22("MEDIUM"));
+    await fillAssessment(u);
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
   });
 });

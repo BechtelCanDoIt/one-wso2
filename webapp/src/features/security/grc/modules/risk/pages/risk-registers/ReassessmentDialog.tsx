@@ -29,6 +29,7 @@ import {
   DialogTitle,
   Divider,
   FormControl,
+  FormHelperText,
   InputLabel,
   MenuItem,
   Select,
@@ -136,6 +137,15 @@ export default function ReassessmentDialog({
   const approverOptions = withCurrent(approverCandidates, detail.management_approver_id, detail.management_approver_name);
   const currentImplementationDate = toDateOnlyString(parseDateOnly(detail.implementation_date));
 
+  // A reassessment that makes the risk HIGH needs a Management Approver — the
+  // one it already has or one picked here. 0 means none. The backend enforces
+  // the same rule.
+  const becomesHigh =
+    likelihood > 0 &&
+    impact > 0 &&
+    riskScores.find((sc) => sc.likelihood === likelihood && sc.impact === impact)?.risk_level === "HIGH";
+  const approverMissing = becomesHigh && !managementApproverId;
+
   const handleClose = () => {
     if (submitting) return;
     setLikelihood(0);
@@ -160,6 +170,11 @@ export default function ReassessmentDialog({
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (reassessmentDate < today) e.reassessmentDate = "Reassessment date cannot be in the past.";
+    }
+    if (approverMissing) {
+      e.approver = canEditRiskDetails
+        ? "A Management Approver is required for a HIGH risk."
+        : "A Management Approver is required for a HIGH risk. Ask the Risk Assigner to set it.";
     }
     // Only a date the assigner actually changed is checked: an untouched,
     // already-past implementation date (an overdue risk) must not block saving.
@@ -317,16 +332,29 @@ export default function ReassessmentDialog({
                   {ownerOptions.map((u) => <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>)}
                 </Select>
               </FormControl>
-              <FormControl fullWidth disabled={submitting || !canEditRiskDetails}>
+              <FormControl fullWidth disabled={submitting || !canEditRiskDetails} error={!!errors.approver || approverMissing}>
                 <InputLabel id="assess-management-approver-label">Management Approver</InputLabel>
                 <Select
                   labelId="assess-management-approver-label"
                   label="Management Approver"
                   value={managementApproverId}
-                  onChange={(e) => setManagementApproverId(Number(e.target.value))}
+                  onChange={(e) => {
+                    setManagementApproverId(Number(e.target.value));
+                    if (errors.approver) setErrors((prev) => ({ ...prev, approver: "" }));
+                  }}
                 >
+                  {/* A LOW/MEDIUM risk may have none; it cannot be re-picked once chosen. */}
+                  {!detail.management_approver_id && <MenuItem value={0}>None</MenuItem>}
                   {approverOptions.map((u) => <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>)}
                 </Select>
+                {(errors.approver || approverMissing) && (
+                  <FormHelperText>
+                    {errors.approver ||
+                      (canEditRiskDetails
+                        ? "A Management Approver is required for a HIGH risk."
+                        : "A Management Approver is required for a HIGH risk. Ask the Risk Assigner to set it.")}
+                  </FormHelperText>
+                )}
               </FormControl>
               <LocalizationProvider dateAdapter={AdapterDateFns}>
                 <DatePicker
