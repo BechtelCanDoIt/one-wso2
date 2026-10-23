@@ -54,6 +54,7 @@ import {
   isValidCaseId,
   isValidEstimateDate,
   isValidGithubIssueUrl,
+  isValidPublicOrSecurityIssueUrl,
   laterDate,
   nextThursday,
   resolveCreateUpdateProductId,
@@ -369,10 +370,16 @@ export default function UmtCreateUpdateDialog({
               size="small"
               value={publicOrSecurityGitIssue}
               onChange={(event) => setPublicOrSecurityGitIssue(event.target.value)}
-              error={publicOrSecurityGitIssue.length > 0 && !isValidGithubIssueUrl(publicOrSecurityGitIssue)}
+              error={
+                publicOrSecurityGitIssue.length > 0 &&
+                !isValidPublicOrSecurityIssueUrl(updateType, publicOrSecurityGitIssue)
+              }
               helperText={
-                publicOrSecurityGitIssue.length > 0 && !isValidGithubIssueUrl(publicOrSecurityGitIssue)
-                  ? "Must be a WSO2 GitHub issue URL."
+                publicOrSecurityGitIssue.length > 0 &&
+                !isValidPublicOrSecurityIssueUrl(updateType, publicOrSecurityGitIssue)
+                  ? isSecurityUpdate
+                    ? "Must be a wso2-enterprise/security-internals issue URL."
+                    : "Must be a WSO2 GitHub issue URL."
                   : undefined
               }
             />

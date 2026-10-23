@@ -51,6 +51,17 @@ export function isValidGithubIssueUrl(value: string): boolean {
   return GITHUB_ISSUE_URL_REGEX.test(value.trim());
 }
 
+// A security update's issue is tracked in the security-internals repository,
+// not in just any WSO2 repository.
+const SECURITY_ISSUE_URL_REGEX =
+  /^https:\/\/github\.com\/wso2-enterprise\/security-internals\/issues\/[0-9]+\/?$/;
+
+// Checks the form's public-or-security issue field against the rule for the
+// update type it belongs to.
+export function isValidPublicOrSecurityIssueUrl(updateType: UmtCreateUpdateType, value: string): boolean {
+  return updateType === "security" ? SECURITY_ISSUE_URL_REGEX.test(value.trim()) : isValidGithubIssueUrl(value);
+}
+
 // A case id must match this format whenever one is present (required
 // unless the update is proactive).
 //
@@ -151,7 +162,7 @@ export function isCreateUpdateFormValid(values: UmtCreateUpdateFormValues): bool
     hasOrderedDates &&
     hasThursdayDates &&
     isValidGithubIssueUrl(values.internalGitIssue) &&
-    isValidGithubIssueUrl(values.publicOrSecurityGitIssue)
+    isValidPublicOrSecurityIssueUrl(values.updateType, values.publicOrSecurityGitIssue)
   );
 }
 
