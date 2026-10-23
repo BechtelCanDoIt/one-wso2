@@ -42,6 +42,7 @@ host injects a fresh `config.js` per environment.
 | `npm run dev` | dev server at http://localhost:3000 |
 | `npm run build` | `tsc -b && vite build` → `dist/` |
 | `npm run preview` | serve the production build |
+| `npm run check:prod-pdf` | check that the NDA PDF downloads under the production CSP (`vite build` + `vite preview` + Chrome) |
 | `npm test` | run the test suite once (`vitest run`) |
 | `npm run test:watch` | tests in watch mode |
 | `npm run lint` | ESLint |

@@ -1,0 +1,17 @@
+<!doctype html>
+<!--
+  Test page for `npm run check:prod-pdf` (scripts/check-prod-pdf.mjs).
+  Built with the app's own Vite config, so it gets the production CSP <meta>,
+  and generates the NDA PDF the way Legal → NDA does, without needing sign-in.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>NDA PDF production check</title>
+  </head>
+  <body>
+    <button id="generate" type="button">Generate NDA PDF</button>
+    <p id="status" data-state="idle"></p>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>
