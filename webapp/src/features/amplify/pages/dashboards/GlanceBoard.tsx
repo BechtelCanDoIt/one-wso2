@@ -19,7 +19,9 @@ import type { DashboardGlance, GroupBoardEntry, LeaderboardEntry } from "../../a
 import { useAmplifyLeaderboard } from "../../api/useAmplifyData";
 import { useAmplifyPeople, type PeopleByEmail } from "../../api/useAmplifyPeople";
 import { useDashboardGlance, useGroupBoard } from "../../api/useAmplifyDashboards";
+import { nameOrUnknown, type PersonRef } from "../../api/usePersonLookup";
 import AmplifyShell from "../../components/AmplifyShell";
+import PersonLink from "../../components/PersonLink";
 import { Block, BoardState, Empty, MedalRank, StatCard } from "../../components/DashboardParts";
 import { updatedStamp, changePercent, num, percentOf, shortDate } from "../../util/dashboardFormat";
 
@@ -57,7 +59,7 @@ function WeeklyLine({ weekly }: { weekly: DashboardGlance["weekly"] }) {
   );
 }
 
-function RankedList({ rows }: { rows: { id: string; rank: number; name: string; points: number }[] }) {
+function RankedList({ rows }: { rows: { id: string; rank: number; name: string; points: number; person?: PersonRef }[] }) {
   return (
     <Box component="ol" sx={{ listStyle: "none", m: 0, p: 0, display: "flex", flexDirection: "column", gap: 1.5 }}>
       {rows.map((r) => (
@@ -65,7 +67,7 @@ function RankedList({ rows }: { rows: { id: string; rank: number; name: string; 
           <Box sx={{ flex: "0 0 40px" }}>
             <MedalRank rank={r.rank} />
           </Box>
-          <Box sx={{ flexGrow: 1, minWidth: 0 }}>{r.name}</Box>
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>{r.person ? <PersonLink person={r.person}>{r.name}</PersonLink> : r.name}</Box>
           <Box sx={{ fontWeight: 600 }}>{num(r.points)}</Box>
         </Box>
       ))}
@@ -140,7 +142,13 @@ export function GlanceBoard({
               <Empty>No points yet.</Empty>
             ) : (
               <RankedList
-                rows={people.slice(0, 3).map((p) => ({ id: p.employeeId, rank: p.rank, name: directory.get(p.email.toLowerCase())?.name || p.displayName, points: p.points }))}
+                rows={people.slice(0, 3).map((p) => ({
+                  id: p.employeeId,
+                  rank: p.rank,
+                  name: nameOrUnknown(directory.get(p.email.toLowerCase())?.name, p.displayName),
+                  points: p.points,
+                  person: { employeeId: p.employeeId, displayName: p.displayName, email: p.email },
+                }))}
               />
             )}
           </Block>

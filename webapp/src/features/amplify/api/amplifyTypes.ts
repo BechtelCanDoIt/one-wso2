@@ -228,6 +228,35 @@ export interface DashboardOperations {
   };
 }
 
+export interface DashboardPerson {
+  employeeId: string;
+  /** The id itself when Amplify never recorded a name; look the person up in the directory. */
+  displayName: string;
+  /** Work email, the key to the people directory. */
+  email?: string | null;
+}
+
+/** GET /dashboards/people/{employeeId}: one person's Post Performance. */
+export interface DashboardPersonBoard {
+  employeeId: string;
+  displayName: string;
+  email?: string | null;
+  /** Plain reposts. */
+  reposts: number;
+  repostsWithCommentary: number;
+  posts: {
+    campaignId: string;
+    title: string;
+    categoryCode: string;
+    categoryLabel: string;
+    isPriority: boolean;
+    opensAt: string;
+    reposts: number;
+    repostsWithCommentary: number;
+  }[];
+  byCategory: { code: string; label: string; reposts: number; repostsWithCommentary: number }[];
+}
+
 export interface DashboardCampaignDetail {
   campaignId: string;
   title: string;
@@ -241,6 +270,14 @@ export interface DashboardCampaignDetail {
   first24Hours: number;
   announcement: DashboardAnnouncement;
   byDay: { day: number; reposts: number }[];
+  /** The post's card: text, picture and the LinkedIn link. Absent until the API sends them. */
+  summary?: string | null;
+  imageUrl?: string | null;
+  resourceUrl?: string | null;
+  resourceUrn?: string;
+  /** Who reposted it, by name: plain reposts and reposts with the person's own comment. */
+  people?: { reposts: DashboardPerson[]; withComments: DashboardPerson[] };
+  repostsWithCommentary?: number;
 }
 
 export interface DashboardCampaigns {

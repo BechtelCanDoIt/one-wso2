@@ -497,7 +497,9 @@ function GroupFrame({ id, children }: { id: string; children: ReactNode }): JSX.
       component="li"
       sx={(theme) => ({
         listStyle: "none",
-        mx: 1,
+        // The 1px border sits outside the rows' column, so the header icon lines up with the flat rows above
+        // it (a side margin here pushed the icon to the right of Celebrate's).
+        mx: "-1px",
         border: "1px solid",
         borderRadius: 1.5,
         borderColor: framed ? alpha(theme.palette.primary.main, 0.24) : "transparent",

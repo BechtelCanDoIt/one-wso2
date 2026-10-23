@@ -55,7 +55,7 @@ export default function PostCard({
   chips,
   action,
 }: {
-  campaign: Campaign;
+  campaign: Pick<Campaign, "resourceUrn" | "resourceUrl" | "title" | "opensAt" | "imageUrl" | "summary">;
   chips?: ReactNode;
   action?: ReactNode;
 }) {

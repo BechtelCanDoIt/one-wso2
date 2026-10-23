@@ -16,8 +16,8 @@
 // Reads for the Dashboarding boards. Same scoping as useAmplifyData: every key carries the signed-in
 // subject. The API caches each board for 60 s, so the UI holds it for the same time.
 
-import { useQuery } from "@tanstack/react-query";
-import { authedGet } from "@api/http";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { authedGet, fetchWithReauth, HttpError } from "@api/http";
 import { amplifyServiceUrls } from "@config/apiConfig";
 import { foldIdentityError } from "@hooks/useAsgardeoSub";
 import { amplifyRetry } from "../util/amplifyError";
@@ -29,13 +29,15 @@ import type {
   DashboardOperations,
   DashboardParticipation,
   DashboardCampaigns,
+  DashboardPersonBoard,
   DashboardScorecard,
   GroupBoard,
 } from "./amplifyTypes";
 
 const BOARD_STALE_MS = 60 * 1000;
 
-function useBoard<T>(name: string, url: string, enabled: boolean, ...keyRest: unknown[]) {
+/** `keepPrevious` holds the last answer on screen while the next key loads (a popup that pages through posts). */
+function useBoardQuery<T>(name: string, url: string, enabled: boolean, keyRest: unknown[], keepPrevious: boolean) {
   const { getAccessToken, subState, retryIdentity, userSub, ready } = useAmplifyQueryBasis();
   const query = useQuery<T>({
     queryKey: amplifyKey(name, userSub, ...keyRest),
@@ -43,8 +45,13 @@ function useBoard<T>(name: string, url: string, enabled: boolean, ...keyRest: un
     queryFn: async () => authedGet<T>(url, await getAccessToken()),
     staleTime: BOARD_STALE_MS,
     retry: amplifyRetry,
+    placeholderData: keepPrevious ? keepPreviousData : undefined,
   });
   return foldIdentityError(query, subState, retryIdentity);
+}
+
+function useBoard<T>(name: string, url: string, enabled: boolean, ...keyRest: unknown[]) {
+  return useBoardQuery<T>(name, url, enabled, keyRest, false);
 }
 
 export function useDashboardOperations() {
@@ -56,11 +63,22 @@ export function useDashboardCampaigns(campaignId?: string) {
   const params = new URLSearchParams();
   if (campaignId) params.set("campaignId", campaignId);
   const qs = params.toString();
-  return useBoard<DashboardCampaigns>(
+  return useBoardQuery<DashboardCampaigns>(
     "dashboard-campaigns",
     qs ? `${amplifyServiceUrls.dashboardCampaigns}?${qs}` : amplifyServiceUrls.dashboardCampaigns,
     true,
-    campaignId ?? "",
+    [campaignId ?? ""],
+    true,
+  );
+}
+
+/** One person's Post Performance (the person popup). Waits for an id. */
+export function useDashboardPerson(employeeId: string | undefined) {
+  return useBoard<DashboardPersonBoard>(
+    "dashboard-person",
+    `${amplifyServiceUrls.dashboardPeople}/${encodeURIComponent(employeeId ?? "")}`,
+    employeeId !== undefined,
+    employeeId ?? "",
   );
 }
 
@@ -103,4 +121,15 @@ export function useGroupBoard(
     by === "TEAM" ? sort : "",
     by === "TEAM" ? dir : "",
   );
+}
+
+/** The raw rows behind the boards for a UTC date range (`YYYY-MM-DD`, both ends included), as CSV text. */
+export function useDashboardExport() {
+  const { getAccessToken } = useAmplifyQueryBasis();
+  return async (from: string, to: string): Promise<Blob> => {
+    const url = `${amplifyServiceUrls.dashboardExport}?${new URLSearchParams({ from, to })}`;
+    const res = await fetchWithReauth(url, { headers: { Accept: "text/csv" } }, await getAccessToken());
+    if (!res.ok) throw new HttpError(url, res.status, await res.text().catch(() => ""));
+    return new Blob([await res.text()], { type: "text/csv;charset=utf-8" });
+  };
 }

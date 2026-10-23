@@ -14,12 +14,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { ReactNode } from "react";
 import { Avatar, Box, Typography } from "@wso2/oxygen-ui";
 
 export interface Amplifier {
   name: string;
   points: number;
   avatarUrl?: string;
+  /** Shown in place of the plain name, e.g. a link that opens the person's popup. */
+  nameNode?: ReactNode;
 }
 
 interface TopAmplifiersPodiumProps {
@@ -162,7 +165,7 @@ function PodiumSlot({ rank, person }: { rank: Rank; person: Amplifier }) {
           color: "text.primary",
         }}
       >
-        {person.name}
+        {person.nameNode ?? person.name}
       </Typography>
 
       {/* Points: the hero number */}

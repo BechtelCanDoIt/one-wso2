@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type {
   DashboardGlance,
   DashboardOperations,
@@ -23,12 +23,44 @@ import type {
   DashboardScorecard,
   GroupBoard,
 } from "../../api/amplifyTypes";
-import { nextSort } from "../../util/dashboardFormat";
+import { exportRange, exportRangeProblem, nextSort } from "../../util/dashboardFormat";
 import { GlanceBoard } from "./GlanceBoard";
 import { OperationsBoard } from "./OperationsBoard";
-import { Funnel, TeamTable } from "./ParticipationBoard";
+import { ExportPanel, Funnel, TeamTable } from "./ParticipationBoard";
 import { PostPerformanceBoard } from "./PostPerformanceBoard";
 import { ScorecardBoard } from "./ScorecardBoard";
+
+const showError = vi.fn();
+vi.mock("@context/notifications/NotificationsContext", () => ({
+  useNotifications: () => ({ showError, showSuccess: vi.fn() }),
+}));
+
+vi.mock("../../api/useAmplifyEditorAccess", () => ({
+  useAmplifyDashboardAccess: () => ({ hasAccess: true, isResolving: false, retry: vi.fn() }),
+}));
+vi.mock("../../api/useAmplifyDashboards", () => ({
+  useDashboardPerson: () => ({
+    isPending: false,
+    isError: false,
+    data: {
+      employeeId: "e1",
+      displayName: "Ada Lovelace",
+      email: "ada@example.com",
+      reposts: 1,
+      repostsWithCommentary: 1,
+      posts: [{ campaignId: "c1", title: "Launch", categoryCode: "PRODUCT", categoryLabel: "Product", isPriority: true, opensAt: "2026-10-19T00:00:00Z", reposts: 1, repostsWithCommentary: 1 }],
+      byCategory: [{ code: "PRODUCT", label: "Product", reposts: 1, repostsWithCommentary: 1 }],
+    },
+  }),
+  useDashboardExport: () => vi.fn(),
+  useDashboardParticipation: vi.fn(),
+  useGroupBoard: vi.fn(),
+}));
+vi.mock("@features/org-chart/api/useOrgChart", () => ({
+  useEmployeeDirectory: () => ({
+    data: [{ employeeId: "E1", firstName: "Ada", lastName: "Lovelace", workEmail: "ada@example.com", employeeThumbnail: null, team: "Digital Engineering", businessUnit: "Engineering" }],
+  }),
+}));
 
 const operations: DashboardOperations = {
   asOf: "2026-10-22T09:15:00Z",
@@ -130,34 +162,96 @@ const campaigns: DashboardCampaigns = {
 };
 
 describe("PostPerformanceBoard", () => {
-  it("shows the selected post and reloads when another post is clicked", () => {
+  const withPeople: DashboardCampaigns = {
+    ...campaigns,
+    selected: {
+      ...campaigns.selected!,
+      repostsWithCommentary: 2,
+      summary: "AI-native integration.",
+      imageUrl: null,
+      resourceUrl: "https://www.linkedin.com/feed/update/urn:li:share:1/",
+      resourceUrn: "urn:li:share:1",
+      people: {
+        reposts: [{ employeeId: "e1", displayName: "Ada Lovelace", email: "ada@example.com" }, { employeeId: "e3", displayName: "01900000-0000-7000-8000-000000000030" }],
+        withComments: [{ employeeId: "e2", displayName: "Grace Hopper" }],
+      },
+    },
+  };
+
+  it("lists every post with Reposts and With comments columns and selects a post on click", () => {
     const onSelect = vi.fn();
-    render(<PostPerformanceBoard data={campaigns} onSelect={onSelect} />);
-    expect(screen.getByText("75%")).toBeTruthy();
-    expect(screen.getByText("Novera: Sent")).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Campaign detail" })).toBeTruthy();
-    expect(screen.getByText("Showing the campaign with the most reposts. Click any campaign on the left to change it.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /Hiring/ }));
+    render(<PostPerformanceBoard data={{ ...campaigns, campaigns: [{ ...campaigns.campaigns[0], repostsWithCommentary: 12 }, campaigns.campaigns[1]] }} onSelect={onSelect} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const table = screen.getByRole("table", { name: "Reposts per post" });
+    expect(within(table).getByRole("columnheader", { name: "Reposts" })).toBeTruthy();
+    expect(within(table).getByRole("columnheader", { name: "With comments" })).toBeTruthy();
+    const launch = within(table).getByRole("button", { name: /Launch/ }).closest("[role=row]")!;
+    expect(within(launch as HTMLElement).getByText("100")).toBeTruthy();
+    expect(within(launch as HTMLElement).getByText("12")).toBeTruthy();
+    fireEvent.click(within(table).getByRole("button", { name: /Hiring/ }));
     expect(onSelect).toHaveBeenCalledWith("c2");
   });
 
-  it("says when the campaign was picked, and splits each category into plain and commented reposts", () => {
+  it("shows the normal post card with the default image, the numbers box and who reposted, never a bare id", () => {
+    const onClose = vi.fn();
+    render(<PostPerformanceBoard data={withPeople} onSelect={() => undefined} detailOpen onClose={onClose} />);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Post detail")).toBeTruthy();
+    expect(within(dialog).getByText("AI-native integration.")).toBeTruthy();
+    expect(dialog.querySelector("img")?.getAttribute("src")).toBe("/amplify/default-post-image.svg");
+    expect(within(dialog).getByText("75%")).toBeTruthy();
+    expect(within(dialog).getByText("Novera: Sent")).toBeTruthy();
+    expect(within(dialog).getByRole("img", { name: /Reposts per day/ })).toBeTruthy();
+    const reposts = within(dialog).getByRole("region", { name: "Reposts" });
+    expect(within(reposts).getByText("Ada Lovelace")).toBeTruthy();
+    expect(within(reposts).getByText("Unknown employee")).toBeTruthy();
+    expect(within(reposts).queryByText("Grace Hopper")).toBeNull();
+    expect(within(within(dialog).getByRole("region", { name: "With comments" })).getByText("Grace Hopper")).toBeTruthy();
+    for (const c of within(dialog).getAllByRole("button", { name: "Close" })) fireEvent.click(c);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("steps through the listed posts with the arrows", () => {
+    const onSelect = vi.fn();
+    render(<PostPerformanceBoard data={withPeople} onSelect={onSelect} detailOpen />);
+    expect(screen.getByText("1 of 2")).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Previous post" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Next post" }));
+    expect(onSelect).toHaveBeenCalledWith("c2");
+  });
+
+  it("hands a clicked name to the person popup and closes the post popup", () => {
+    const onPerson = vi.fn();
+    const { rerender } = render(<PostPerformanceBoard data={withPeople} onSelect={() => undefined} detailOpen onPerson={onPerson} />);
+    fireEvent.click(screen.getByRole("button", { name: "Ada Lovelace" }));
+    expect(onPerson).toHaveBeenCalledWith(expect.objectContaining({ employeeId: "e1" }));
+    rerender(<PostPerformanceBoard data={withPeople} onSelect={() => undefined} detailOpen person={{ employeeId: "e1", displayName: "Ada Lovelace", email: "ada@example.com" }} />);
+    expect(screen.queryByText("Post detail")).toBeNull();
+    expect(screen.getByText("Ada Lovelace Amplify Details")).toBeTruthy();
+    expect(screen.getByText(/Team: Digital Engineering/)).toBeTruthy();
+    expect(screen.getByText(/BU: Engineering/)).toBeTruthy();
+    expect(within(screen.getByRole("table", { name: "Reposts per post by this person" })).getByText("Launch")).toBeTruthy();
+  });
+
+  it("says nobody yet when no one reposted", () => {
+    render(<PostPerformanceBoard data={{ ...campaigns, selected: { ...campaigns.selected!, people: { reposts: [], withComments: [] } } }} onSelect={() => undefined} detailOpen />);
+    expect(screen.getAllByText("Nobody yet.")).toHaveLength(2);
+  });
+
+  it("gives each category a Reposts and a With comments column", () => {
     render(
       <PostPerformanceBoard
         data={{ ...campaigns, byCategory: [{ code: "PRODUCT", label: "Product", reposts: 45, repostsWithCommentary: 12 }, { code: "EVENT", label: "Event", reposts: 10 }] }}
         onSelect={() => undefined}
-        picked
       />,
     );
-    expect(screen.getByText("Showing the campaign you picked.")).toBeTruthy();
-    expect(screen.getByText("45 (12 with comments)")).toBeTruthy();
-    expect(screen.getByText("10 (0 with comments)")).toBeTruthy();
-    expect(screen.getByText("Reposts include reposts with comments.")).toBeTruthy();
-  });
-
-  it("asks for a pick when no post is selected", () => {
-    render(<PostPerformanceBoard data={{ ...campaigns, selected: null }} onSelect={() => undefined} />);
-    expect(screen.getByText(/Pick a campaign on the left/)).toBeTruthy();
+    const table = screen.getByRole("table", { name: "Reposts by category" });
+    const product = within(table).getByRole("rowheader", { name: "Product" }).parentElement!;
+    expect(within(product).getByText("33")).toBeTruthy();
+    expect(within(product).getByText("12")).toBeTruthy();
+    const event = within(table).getByRole("rowheader", { name: "Event" }).parentElement!;
+    expect(within(event).getByText("10")).toBeTruthy();
+    expect(within(event).getByText("0")).toBeTruthy();
   });
 });
 
@@ -331,5 +425,50 @@ describe("ScorecardBoard", () => {
   it("says so with no measures", () => {
     render(<ScorecardBoard data={{ ...card, measures: [] }} />);
     expect(screen.getByText(/No measures yet/)).toBeTruthy();
+  });
+});
+
+describe("Export", () => {
+  const thursday = new Date("2026-10-22T20:00:00Z");
+
+  it("turns each pill into a UTC date range ending today", () => {
+    expect(exportRange("day", thursday)).toEqual({ from: "2026-10-22", to: "2026-10-22" });
+    expect(exportRange("week", thursday)).toEqual({ from: "2026-10-19", to: "2026-10-22" });
+    expect(exportRange("month", thursday)).toEqual({ from: "2026-10-01", to: "2026-10-22" });
+    expect(exportRange("year", thursday)).toEqual({ from: "2026-01-01", to: "2026-10-22" });
+    expect(exportRange("week", new Date("2026-10-18T10:00:00Z")).from).toBe("2026-10-12");
+  });
+
+  it("refuses ranges the API would", () => {
+    expect(exportRangeProblem("2026-10-01", "2026-10-22")).toBeNull();
+    expect(exportRangeProblem("", "2026-10-22")).toBe("Pick both dates.");
+    expect(exportRangeProblem("2026-10-22", "2026-10-01")).toMatch(/before/);
+    expect(exportRangeProblem("2025-01-01", "2026-10-22")).toMatch(/at most 366/);
+  });
+
+  it("downloads the chosen range as a CSV and follows the pill", async () => {
+    const created = vi.fn(() => "blob:csv");
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() });
+    const onExport = vi.fn().mockResolvedValue(new Blob(["a,b"], { type: "text/csv" }));
+    render(<ExportPanel onExport={onExport} now={thursday} />);
+    expect((screen.getByLabelText("From") as HTMLInputElement).value).toBe("2026-10-01");
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    expect((screen.getByLabelText("From") as HTMLInputElement).value).toBe("2026-10-19");
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-20" } });
+    expect(screen.getByRole("button", { name: "Week" }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+    await waitFor(() => expect(onExport).toHaveBeenCalledWith("2026-10-19", "2026-10-20"));
+    await waitFor(() => expect(created).toHaveBeenCalled());
+  });
+
+  it("blocks the download for a bad range and reports a failed one", async () => {
+    const onExport = vi.fn().mockRejectedValue(new Error("boom"));
+    render(<ExportPanel onExport={onExport} now={thursday} />);
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-09-01" } });
+    expect((screen.getByRole("button", { name: "Download CSV" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toMatch(/before/);
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-22" } });
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+    await waitFor(() => expect(showError).toHaveBeenCalledWith("boom"));
   });
 });
