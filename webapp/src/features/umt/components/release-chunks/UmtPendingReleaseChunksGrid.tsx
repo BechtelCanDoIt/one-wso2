@@ -291,7 +291,7 @@ export default function UmtPendingReleaseChunksGrid() {
           // runs afterwards and can still fail, which the chunk's row shows.
           await releaseMutation.mutateAsync();
           showSuccess(
-            `Release of release chunk ${actionTarget.chunkId} has started. Refresh the table later to see whether it completed.`,
+            `Release of release chunk ${actionTarget.chunkId} has started. Its row shows the progress and whether it completed.`,
           );
           break;
       }
@@ -686,7 +686,9 @@ function RowActionsCell({
         <ChunkCell>
           <ChunkLine gap={1}>
             <CircularProgress size={16} />
-            <Typography variant="body2">Releasing chunks…</Typography>
+            <Typography variant="body2">
+              {action.activity === "creating" ? "Creating chunk…" : "Releasing chunks…"}
+            </Typography>
           </ChunkLine>
         </ChunkCell>
       );

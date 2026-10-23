@@ -93,14 +93,30 @@ export function umtCanRetriggerCstBuild(status: string | null | undefined): bool
 
 // What a pending chunk offers its administrator, decided entirely by the
 // chunk's own lifecycle status. A chunk in a status not listed here — one
-// already released, or still being created — offers nothing, because every
-// action below either acts on a finished chunk or retries a failed step.
+// already released — offers nothing, because every action below either acts
+// on a finished chunk or retries a failed step.
 export type UmtReleaseChunkRowAction =
   | { kind: "release"; failedReason?: string | null }
   | { kind: "docker-retrigger"; failedReason?: string | null }
-  | { kind: "in-progress" }
+  | { kind: "in-progress"; activity?: "creating" }
   | { kind: "created" }
   | { kind: "none" };
+
+// A chunk's own status while it is being created, released or retriggered. It
+// settles without anyone acting, so its row shows progress and its status is
+// read again until it does.
+const IN_PROGRESS_CHUNK_STATUSES = new Set(["requestedToCreate", "requestedToRelease", "releasing", "retriggering"]);
+
+export function umtReleaseChunkInProgress(status: string | null | undefined): boolean {
+  return Boolean(status) && IN_PROGRESS_CHUNK_STATUSES.has(status as string);
+}
+
+// A chunk can be released from the status that offers Release and from one
+// whose earlier release failed; in any other status a release is already
+// under way or done, and another would run it again.
+export function umtReleaseChunkCanRelease(status: string | null | undefined): boolean {
+  return status === "created" || status === "releasingFailed";
+}
 
 export function umtReleaseChunkRowAction(
   status: string | null | undefined,
@@ -111,6 +127,9 @@ export function umtReleaseChunkRowAction(
       return { kind: "release", failedReason };
     case "releasingDockerFailed":
       return { kind: "docker-retrigger", failedReason };
+    case "requestedToCreate":
+      return { kind: "in-progress", activity: "creating" };
+    case "requestedToRelease":
     case "releasing":
     case "retriggering":
       return { kind: "in-progress" };

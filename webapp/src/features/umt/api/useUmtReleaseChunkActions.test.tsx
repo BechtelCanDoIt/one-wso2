@@ -12,12 +12,14 @@ import type { ReactNode } from "react";
 
 vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "token" }));
 
+const authedGet = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 const authedPost = vi.fn(() => Promise.resolve(null));
 const authedDelete = vi.fn(() => Promise.resolve());
 vi.mock("@api/http", async () => {
   const actual = await vi.importActual<typeof import("@api/http")>("@api/http");
   return {
     ...actual,
+    authedGet: (...args: unknown[]) => authedGet(...args),
     authedPost: (...args: unknown[]) => authedPost(...(args as [])),
     authedDelete: (...args: unknown[]) => authedDelete(...(args as [])),
   };
@@ -53,6 +55,7 @@ function invalidatedKeys(invalidateQueries: ReturnType<typeof vi.spyOn>) {
 }
 
 beforeEach(() => {
+  authedGet.mockReset().mockResolvedValue({ id: 7, updateIds: [1], status: "created" });
   authedPost.mockClear();
   authedDelete.mockClear();
 });
@@ -265,6 +268,46 @@ describe("useUmtReleaseChunk", () => {
         "umt-update",
       ]),
     );
+  });
+
+  // A release started from another tab, or twice from this one, would run
+  // again: the status read here is what stops it.
+  it("reads the chunk's own status first, and releases a chunk whose earlier release failed", async () => {
+    authedGet.mockResolvedValue({ id: 7, updateIds: [1], status: "releasingFailed" });
+    const { result } = renderMutation(() => useUmtReleaseChunk(7));
+
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+
+    expect(authedGet).toHaveBeenCalledWith(umtServiceUrls.releaseChunk(7), "token");
+    expect(authedPost).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["requestedToRelease", "releasing", "retriggering", "Released"])(
+    "sends nothing for a chunk that is already %s, says so, and refreshes its status",
+    async (status) => {
+      authedGet.mockResolvedValue({ id: 7, updateIds: [1], status });
+      const { result, invalidateQueries } = renderMutation(() => useUmtReleaseChunk(7));
+
+      await act(async () => {
+        await expect(result.current.mutateAsync()).rejects.toThrow(/already being released or has been released/);
+      });
+
+      expect(authedPost).not.toHaveBeenCalled();
+      expect(invalidatedKeys(invalidateQueries)).toContain("umt-release-chunk-status");
+    },
+  );
+
+  it("sends nothing when the chunk's status cannot be read", async () => {
+    authedGet.mockRejectedValue(new Error("The request failed"));
+    const { result } = renderMutation(() => useUmtReleaseChunk(7));
+
+    await act(async () => {
+      await expect(result.current.mutateAsync()).rejects.toThrow("The request failed");
+    });
+
+    expect(authedPost).not.toHaveBeenCalled();
   });
 });
 
