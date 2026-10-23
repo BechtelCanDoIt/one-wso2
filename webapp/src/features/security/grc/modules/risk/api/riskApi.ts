@@ -379,6 +379,12 @@ export interface CreateAssessmentPayload {
   impact: number;
   progress: string;
   reassessment_date: string;
+  // Optional corrections to the risk, Risk Assigner only (the backend answers
+  // 403 otherwise). Saved with the assessment and never sent for re-approval.
+  // Send only what changed.
+  owner_id?: number;
+  management_approver_id?: number;
+  implementation_date?: string;
 }
 
 // ── Dashboard types (mirror model/dashboard.go) ────────────────────────────────
