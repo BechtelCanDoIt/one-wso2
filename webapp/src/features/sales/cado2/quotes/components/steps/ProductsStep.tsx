@@ -49,6 +49,7 @@ import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cad
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   addYear,
+  childrenOf,
   cloneYear,
   contractYears,
   deleteYear,
@@ -155,10 +156,33 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
   const sheet = useMemo(() => sheetFromForm(values, preview, null), [values, preview]);
   const total = orderForm(sheet.lines, sheet.partnerCommissionPercent);
 
-  const onSave = (line: LineValue) => {
-    if (editing.index === null) insert(insertIndex(getValues("lines"), line.yearNumber), line);
-    else update(editing.index, line);
+  const onSave = (line: LineValue, children: LineValue[]) => {
+    const lines = getValues("lines");
+    if (editing.index === null) {
+      // After its year's lines, its bundle right below it (POC Stage C).
+      const at = insertIndex(lines, line.yearNumber);
+      if (children.length === 0) insert(at, line);
+      else replace([...lines.slice(0, at), line, ...children, ...lines.slice(at)]);
+    } else if (childrenOf(lines, line.key).length > 0) {
+      // A parent's children keep its year and dates.
+      replace(
+        lines.map((l, i) =>
+          i === editing.index
+            ? line
+            : l.parentKey === line.key
+              ? { ...l, yearNumber: line.yearNumber, startDate: line.startDate, endDate: l.recurring ? line.endDate : "" }
+              : l,
+        ),
+      );
+    } else update(editing.index, line);
     setEditing({ open: false, index: null, year: 1 });
+  };
+  // Removing a bundle parent removes its children; a child leaves only with it.
+  const removeLine = (i: number) => {
+    const lines = getValues("lines");
+    const key = lines[i].key;
+    if (childrenOf(lines, key).length === 0) remove(i);
+    else replace(lines.filter((l, k) => k !== i && l.parentKey !== key));
   };
   // Year changes rewrite the count, the last year's end and, for clone and
   // delete, the lines together.
@@ -362,10 +386,25 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
                       <PencilIcon size={16} />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Remove">
-                    <IconButton size="small" aria-label={`Remove line ${i + 1}`} onClick={() => remove(i)}>
-                      <Trash2Icon size={16} />
-                    </IconButton>
+                  <Tooltip
+                    title={
+                      values.lines[i].parentKey
+                        ? `Comes with ${sheet.lines[i]?.parentName ?? "its bundle's product"}: remove that to remove it`
+                        : childrenOf(values.lines, values.lines[i].key).length
+                          ? "Remove, with the products that come with it"
+                          : "Remove"
+                    }
+                  >
+                    <span>
+                      <IconButton
+                        size="small"
+                        aria-label={`Remove line ${i + 1}`}
+                        disabled={Boolean(values.lines[i].parentKey)}
+                        onClick={() => removeLine(i)}
+                      >
+                        <Trash2Icon size={16} />
+                      </IconButton>
+                    </span>
                   </Tooltip>
                 </>
               )}
@@ -414,6 +453,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           currency={currency}
           pricebook={{ id: values.defaultPricebookId, name: values.defaultPricebookName }}
           year={editingYear && editingYear.start ? (editingYear as ContractYear) : null}
+          parentName={editing.index === null ? null : sheet.lines[editing.index]?.parentName}
           onSave={onSave}
           onClose={() => setEditing({ open: false, index: null, year: 1 })}
         />

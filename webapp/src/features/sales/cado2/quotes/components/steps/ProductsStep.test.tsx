@@ -39,6 +39,7 @@ const empty = {
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useAccountOpportunities: () => empty,
   usePricingFormulas: () => empty,
+  useBundleChildren: () => ({ data: { children: [], missing: [] }, isFetching: false }),
   useCurrencies: () => ({ ...empty, data: ["USD"] }),
   usePricebooks: () => empty,
   useProducts: () => ({
@@ -68,6 +69,8 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   startDate: "",
   endDate: "",
   salesPrice: "",
+  key: `k-${Math.random()}`,
+  parentKey: "",
 });
 
 function Harness({

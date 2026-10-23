@@ -99,6 +99,8 @@ export interface SheetLine {
   readonly endDate: string | null;
   /** The AM narrowed its dates within the year, so they are worth showing. */
   readonly ownDates: boolean;
+  /** A bundle child: its parent's product name (POC Stage C); null otherwise. */
+  readonly parentName: string | null;
   /** From the pricing, when the quote can be priced. */
   readonly annualList: string | null;
   readonly annualNet: string | null;
@@ -272,6 +274,7 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
       startDate: l.startDate,
       endDate: l.endDate,
       ownDates: ownDates(l, v.years ?? []),
+      parentName: l.parentLineNumber ? (v.lines.find((p) => p.lineNumber === l.parentLineNumber)?.productName ?? null) : null,
       annualList: pricing ? l.annualList : null,
       annualNet: pricing ? l.annualNet : null,
       arr: pricing ? l.arr : null,
@@ -366,7 +369,9 @@ export function sheetFromForm(
         yearNumber: l.yearNumber,
         startDate: dates?.start ?? null,
         endDate: dates?.end ?? null,
-        ownDates: Boolean(l.startDate || (l.recurring && l.endDate)),
+        // A child's dates are its parent's: shown on the parent only.
+        ownDates: !l.parentKey && Boolean(l.startDate || (l.recurring && l.endDate)),
+        parentName: l.parentKey ? (v.lines.find((p) => p.key === l.parentKey)?.productName ?? null) : null,
         annualList: p?.annualList ?? null,
         annualNet: p?.annualNet ?? null,
         arr: p?.arr ?? null,

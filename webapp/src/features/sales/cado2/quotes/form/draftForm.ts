@@ -114,7 +114,18 @@ export interface LineValue {
    * The AM may raise it, never lower it; a formula-priced line has none.
    */
   salesPrice: string;
+  /** The line's own key in the form, stable as lines move (POC Stage C). */
+  key: string;
+  /** A bundle child: its parent line's key; "" otherwise. It follows the parent's year and dates and leaves with it. */
+  parentKey: string;
 }
+
+let lineKeys = 0;
+/** A new line's key, unique in the page. */
+export const newLineKey = () => `line-${Date.now().toString(36)}-${++lineKeys}`;
+
+/** A bundle parent's children, in order (POC Stage C). */
+export const childrenOf = (lines: readonly LineValue[], key: string) => lines.filter((l) => l.parentKey !== "" && l.parentKey === key);
 
 /** The most contract years a quote can have (D85). */
 export const MAX_YEARS = 10;
@@ -432,10 +443,17 @@ export function cloneYear(v: Pick<DraftFormValues, "startDate" | "yearCount" | "
   const to = years[yearCount - 1];
   const gap = yearCount - from;
   const within = (d: string, fallback: string) => (d ? (d < to.start ? to.start : d > to.end ? to.end : d) : fallback);
-  const copies = v.lines
-    .filter((l) => l.yearNumber === from && l.recurring)
+  // Recurring products, with their bundle children (whatever they are);
+  // a child whose parent stays behind stays too (POC Stage C).
+  const ofYear = v.lines.filter((l) => l.yearNumber === from);
+  const parents = new Set(ofYear.filter((l) => !l.parentKey && l.recurring).map((l) => l.key));
+  const keys = new Map(ofYear.map((l) => [l.key, newLineKey()]));
+  const copies = ofYear
+    .filter((l) => (l.parentKey ? parents.has(l.parentKey) : l.recurring))
     .map((l) => ({
       ...l,
+      key: keys.get(l.key)!,
+      parentKey: l.parentKey ? keys.get(l.parentKey)! : "",
       // A new line: priced as today, not kept to the copied line's pricing (D82).
       keepPricing: undefined,
       useLatestPricing: undefined,
@@ -618,6 +636,8 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
       startDate: l.startDate && l.startDate !== yearOf(l.yearNumber)?.startDate ? l.startDate : "",
       endDate: l.recurring && l.endDate && l.endDate !== yearOf(l.yearNumber)?.endDate ? l.endDate : "",
       salesPrice: l.salesPrice && Number(l.salesPrice) !== Number(l.unitPrice) ? String(Number(l.salesPrice)) : "",
+      key: `saved-${l.id}`,
+      parentKey: l.parentLineNumber ? `saved-${v.lines.find((p) => p.lineNumber === l.parentLineNumber)?.id ?? ""}` : "",
     })),
     netTermsDays: (["30", "45", "60"] as const).find((n) => String(v.netTermsDays) === n) ?? "",
     poNumber: v.poNumber ?? "",
@@ -756,6 +776,8 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
       // A saved line the AM moved to the pricing in force (D82).
       useLatestFormula: l.lineId !== null && l.useLatestPricing ? true : undefined,
       ...linePlace(l),
+      // A bundle child names its parent by position (POC Stage C).
+      parentIndex: l.parentKey ? v.lines.findIndex((p) => p.key === l.parentKey) : undefined,
     })),
   };
 }
@@ -977,6 +999,8 @@ export function pulledLines(products: readonly Product[]): LineValue[] {
         startDate: "",
         endDate: "",
         salesPrice: "",
+        key: newLineKey(),
+        parentKey: "",
       } satisfies LineValue,
     ];
   });

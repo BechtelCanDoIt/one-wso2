@@ -30,6 +30,7 @@ import { cado2ServiceUrls } from "@config/apiConfig";
 import { useCado2Basis } from "@features/sales/cado2/api/cado2Basis";
 import type {
   Account,
+  BundleChildren,
   ActiveLegalEntity,
   Contact,
   DeleteDraftResult,
@@ -110,6 +111,22 @@ export function useAccountContacts(accountId: string | null) {
 
 /** How many products one page of the Add-line list loads. */
 export const PRODUCT_PAGE = 50;
+
+/**
+ * The children a bundle parent brings (POC Stage C), priced from the quote's
+ * book; none for a product without a bundle. Idle until a product is chosen.
+ */
+export function useBundleChildren(productId: string | null, currency: string, pricebookId: string) {
+  const { getToken, ready, key } = useCado2Basis();
+  return useQuery<BundleChildren, Error>({
+    queryKey: key("bundle-children", productId, currency, pricebookId),
+    queryFn: async () =>
+      authedGet<BundleChildren>(cado2ServiceUrls.bundleChildren(productId!, currency, pricebookId), await getToken()),
+    enabled: ready && Boolean(productId && currency && pricebookId),
+    staleTime: LOOKUP_STALE_MS,
+    retry: httpRetry,
+  });
+}
 
 /**
  * The products of the quote's price book (the opportunity's), by name,

@@ -50,6 +50,7 @@ const support = {
 const productPages = { more: false, fetchNextPage: vi.fn(), book: "" };
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   usePricingFormulas: () => ({ data: formulas.list }),
+  useBundleChildren: (id: string | null) => ({ data: id ? bundle.of(id) : undefined, isFetching: false }),
   useProducts: (_currency: string, _term: string, book: string) => {
     productPages.book = book;
     return {
@@ -85,6 +86,12 @@ const supportFormula = {
 };
 const formulas: { list: (typeof supportFormula)[] } = { list: [] };
 
+// Bundles (POC Stage C), when a test sets them: parent id → what comes with it.
+const bundle: { parents: Record<string, { children: unknown[]; missing: string[] }>; of: (id: string) => unknown } = {
+  parents: {},
+  of: (id) => bundle.parents[id] ?? { children: [], missing: [] },
+};
+
 // A saved Support line priced with formula v3 (quote 57's case).
 function savedSupportLine(): LineValue {
   return {
@@ -107,6 +114,8 @@ function savedSupportLine(): LineValue {
     startDate: "",
     endDate: "",
     salesPrice: "",
+    key: `k-${Math.random()}`,
+    parentKey: "",
     keepPricing: {
       method: "FORMULA",
       formulaVersionId: 6,
@@ -179,8 +188,7 @@ describe("AddLineDialog", () => {
         category: "SUBSCRIPTION",
         categorySource: "REP",
         recurring: true,
-      }),
-    );
+      }), []);
   });
 
   // POC Stage B: the sales price is the list price unless the AM raises it; never lower.
@@ -199,7 +207,43 @@ describe("AddLineDialog", () => {
     await user.clear(field);
     await user.type(field, "27500.50");
     await user.click(screen.getByRole("button", { name: "Add line" }));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: "25000", salesPrice: "27500.5" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: "25000", salesPrice: "27500.5" }), []);
+  });
+
+  // POC Stage C: a bundle parent brings its children, same year and dates, its quantity to start with.
+  it("adds a bundle parent with the products that come with it", async () => {
+    bundle.parents = { [gateway.id]: { children: [support], missing: ["Onboarding"] } };
+    try {
+      const onSave = vi.fn();
+      render(
+        <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
+          <AddLineDialog
+            open
+            line={null}
+            currency="USD"
+            pricebook={quoteBook}
+            year={{ number: 2, start: "2028-01-01", end: "2028-12-31" }}
+            onSave={onSave}
+            onClose={vi.fn()}
+          />
+        </DatePickers.LocalizationProvider>,
+      );
+      const user = await pick(/WSO2 API Manager/);
+      expect(screen.getByLabelText("Bundle")).toHaveTextContent("Comes with WSO2 Enterprise Support Plan - APIM");
+      expect(screen.getByLabelText("Not in the price book")).toHaveTextContent("Not in FY26 USD, so not added: Onboarding");
+      await user.click(screen.getByRole("combobox", { name: /Category/ }));
+      await user.click(screen.getByRole("option", { name: "Subscription" }));
+      const qty = screen.getByRole("textbox", { name: "Quantity" });
+      await user.clear(qty);
+      await user.type(qty, "4");
+
+      await user.click(screen.getByRole("button", { name: "Add 2 lines" }));
+      const [parent, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
+      expect(children).toHaveLength(1);
+      expect(children[0]).toMatchObject({ productId: support.id, quantity: "4", yearNumber: 2, category: "SUPPORT", parentKey: parent.key });
+    } finally {
+      bundle.parents = {};
+    }
   });
 
   it("takes a mapped product's category, with no choice to make", async () => {
@@ -212,7 +256,7 @@ describe("AddLineDialog", () => {
     expect(screen.queryByText(/No category is set up/)).toBeNull();
 
     await user.click(screen.getByRole("button", { name: "Add line" }));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ category: "SUPPORT", categorySource: "MAPPED" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ category: "SUPPORT", categorySource: "MAPPED" }), []);
   });
 
   it("keeps a saved line's category locked when it came from a mapping", async () => {
@@ -235,6 +279,8 @@ describe("AddLineDialog", () => {
       startDate: "",
       endDate: "",
       salesPrice: "",
+      key: `k-${Math.random()}`,
+      parentKey: "",
     };
     const onSave = renderDialog(vi.fn(), line);
 
@@ -243,7 +289,7 @@ describe("AddLineDialog", () => {
     expect(screen.queryByRole("combobox", { name: /Product/ })).toBeNull();
     expect(screen.getByText(/remove this line and add it/)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "Save line" }));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }), []);
   });
 
   it("lists the quote's price book only, with its prices, and no choice of book", async () => {
@@ -264,7 +310,7 @@ describe("AddLineDialog", () => {
     expect(within(screen.getByLabelText("Chosen product")).getByText("FY26 USD")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: /Price book/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Add line" }));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pricebookId: "01s1", pricebookName: "FY26 USD", unitPrice: "25000" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pricebookId: "01s1", pricebookName: "FY26 USD", unitPrice: "25000" }), []);
   });
 
   it("says more are coming and loads the next page on scrolling to the end", async () => {
@@ -300,8 +346,7 @@ describe("AddLineDialog", () => {
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         productDescription: "WSO2 Enterprise Support Plan - APIM. Based on the number of production gateways.",
-      }),
-    );
+      }), []);
   });
 
   // Locked until it comes from Salesforce (2026-10-14).
@@ -341,7 +386,7 @@ describe("AddLineDialog — closing", () => {
       expect(screen.getByText("Priced by formula: the price can't be changed")).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Add line" }));
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ productId: support.id, discount: "0", salesPrice: "" }));
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ productId: support.id, discount: "0", salesPrice: "" }), []);
     } finally {
       formulas.list = [];
     }
@@ -372,8 +417,7 @@ describe("AddLineDialog — closing", () => {
       expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("");
       await user.click(screen.getByRole("button", { name: "Save line" }));
       expect(onSave).toHaveBeenCalledWith(
-        expect.objectContaining({ lineId: 228, useLatestPricing: true, unitPrice: "53000", unitOfMeasure: "" }),
-      );
+        expect.objectContaining({ lineId: 228, useLatestPricing: true, unitPrice: "53000", unitOfMeasure: "" }), []);
     } finally {
       formulas.list = [];
     }
@@ -386,7 +430,7 @@ describe("AddLineDialog — closing", () => {
       expect(screen.getByText(/A newer version of this formula is in force: v4 · 20 Oct 2026/)).toBeInTheDocument();
       const user = userEvent.setup();
       await user.click(screen.getByRole("button", { name: "Save line" }));
-      expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ useLatestPricing: undefined }));
+      expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ useLatestPricing: undefined }), []);
       expect(onSave.mock.lastCall?.[0].keepPricing.formulaVersionId).toBe(6);
     } finally {
       formulas.list = [];

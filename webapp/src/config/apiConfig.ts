@@ -1977,6 +1977,12 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
+  // Product bundles (POC years-bundles Stage C): Admins keep them; an AM's
+  // quote reads a parent's children from its price book.
+  adminBundles: `${cado2BackendUrl}/admin/bundles`,
+  adminBundle: (productId: string): string => `${cado2BackendUrl}/admin/bundles/${encodeSegment(productId)}`,
+  bundleChildren: (productId: string, currency: string, pricebookId: string): string =>
+    `${cado2BackendUrl}/bundles/${encodeSegment(productId)}?currency=${encodeSegment(currency)}&pricebookId=${encodeSegment(pricebookId)}`,
   // Pricing formulas (D81): read by AMs and Admins; changed by Admins.
   pricingFormulas: `${cado2BackendUrl}/pricing-formulas`,
   adminPricingFormula: (productId: string): string =>

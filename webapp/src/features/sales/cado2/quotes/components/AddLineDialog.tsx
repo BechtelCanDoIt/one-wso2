@@ -38,7 +38,7 @@ import { formatMoney } from "@features/sales/cado2/utils/money";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { descriptionAfterName } from "@features/sales/cado2/utils/productDescription";
 import { lineProblems } from "@features/sales/cado2/quotes/components/lineProblems";
-import { usePricingFormulas, useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { useBundleChildren, usePricingFormulas, useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type {
   CategorySource,
   LineCategory,
@@ -58,6 +58,7 @@ import {
   formatDate,
   LINE_CATEGORIES,
   lineDatesProblem,
+  newLineKey,
   parseDateString,
   salesPriceProblem,
   toDateString,
@@ -204,7 +205,10 @@ interface AddLineDialogProps {
   readonly pricebook: PricebookRef;
   /** The contract year the line is in (POC years-bundles); its dates stay within it. Null before the start date. */
   readonly year: ContractYear | null;
-  readonly onSave: (line: LineValue) => void;
+  /** Editing a bundle child: its parent's name; it keeps the parent's dates (POC Stage C). */
+  readonly parentName?: string | null;
+  /** The line, and for a new bundle parent the children that come with it (POC Stage C). */
+  readonly onSave: (line: LineValue, children: LineValue[]) => void;
   readonly onClose: () => void;
 }
 
@@ -226,6 +230,7 @@ export default function AddLineDialog({
   currency,
   pricebook,
   year,
+  parentName = null,
   onSave,
   onClose,
 }: AddLineDialogProps): JSX.Element {
@@ -252,6 +257,10 @@ export default function AddLineDialog({
   const [startDate, setStartDate] = useState(line?.startDate || year?.start || "");
   const [endDate, setEndDate] = useState(line?.endDate || year?.end || "");
   const formulas = usePricingFormulas();
+  // A new product's bundle (POC Stage C): what comes with it from this price book.
+  const bundle = useBundleChildren(!line && product ? product.id : null, currency, pricebook.id);
+  const bundled = bundle.data?.children ?? [];
+  const isChild = Boolean(line?.parentKey);
 
   // A product carries one price: the quote's book's.
   const entry = product?.pricebookEntries[0];
@@ -345,7 +354,7 @@ export default function AddLineDialog({
 
   const save = () => {
     setTried(true);
-    if (Object.keys(problems).length > 0 || datesProblem || salesProblem) return;
+    if (Object.keys(problems).length > 0 || (!isChild && datesProblem) || salesProblem) return;
     const base: LineValue = keepsExisting
       ? { ...line }
       : {
@@ -368,8 +377,10 @@ export default function AddLineDialog({
           startDate: "",
           endDate: "",
           salesPrice: "",
+          key: newLineKey(),
+          parentKey: "",
         };
-    onSave({
+    const saved: LineValue = {
       ...base,
       category: mapped ?? (category as LineCategory),
       categorySource: source,
@@ -381,7 +392,41 @@ export default function AddLineDialog({
       salesPrice: formula || !salesPrice.trim() || Number(salesPrice) === Number(listPrice) ? "" : String(Number(salesPrice)),
       startDate: year && startDate !== year.start ? startDate : "",
       endDate: year && recurring && endDate !== year.end ? endDate : "",
-    });
+    };
+    // Its bundle comes with it: same year and dates, its quantity to start
+    // with, no discount, priced from the same book (POC Stage C).
+    const children: LineValue[] = line
+      ? []
+      : bundled.flatMap((p) => {
+          const e = p.pricebookEntries[0];
+          if (!e) return [];
+          return [
+            {
+              lineId: null,
+              pricebookEntryId: e.id,
+              productId: p.id,
+              productName: p.name ?? p.id,
+              productCode: p.productCode ?? "",
+              productDescription: p.description ?? "",
+              pricebookId: e.pricebook?.id ?? "",
+              pricebookName: e.pricebook?.name ?? "",
+              unitPrice: e.unitPrice ?? "",
+              category: p.category ?? "",
+              categorySource: p.category ? "MAPPED" : "REP",
+              recurring: p.recurring,
+              unitOfMeasure: "",
+              quantity: saved.quantity,
+              discount: "0",
+              yearNumber: saved.yearNumber,
+              startDate: saved.startDate,
+              endDate: p.recurring ? saved.endDate : "",
+              salesPrice: "",
+              key: newLineKey(),
+              parentKey: saved.key,
+            } satisfies LineValue,
+          ];
+        });
+    onSave(saved, children);
   };
 
   return (
@@ -485,7 +530,18 @@ export default function AddLineDialog({
                 />
               </ProductListContext.Provider>
             )}
-            {chosen && mapped ? (
+            {bundled.length ? (
+            <Alert severity="info" variant="outlined" aria-label="Bundle">
+              Comes with {bundled.map((p) => p.name ?? p.id).join(", ")}. {bundled.length === 1 ? "It is" : "They are"} added with it, in
+              the same year and dates, and can only be removed with it.
+            </Alert>
+          ) : null}
+          {bundle.data?.missing.length ? (
+            <Alert severity="warning" aria-label="Not in the price book">
+              Not in {pricebook.name}, so not added: {bundle.data.missing.join(", ")}.
+            </Alert>
+          ) : null}
+          {chosen && mapped ? (
               <Stack
                 direction="row"
                 spacing={1}
@@ -583,8 +639,13 @@ export default function AddLineDialog({
             />
           </Group>
           {/* Its dates within its year (POC years-bundles): the whole year
-              unless narrowed; a one-off is charged on its start. */}
-          {year ? (
+              unless narrowed; a one-off is charged on its start. A bundle
+              child keeps its parent's (POC Stage C). */}
+          {isChild ? (
+            <Typography variant="body2" color="text.secondary">
+              Comes with {parentName ?? "its bundle's product"}: same year and dates, and removed only with it.
+            </Typography>
+          ) : year ? (
             <Group icon={<CalendarDaysIcon size={14} />} title={`Dates in Year ${year.number}`}>
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 {[
@@ -611,8 +672,8 @@ export default function AddLineDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={save}>
-          {line ? "Save line" : "Add line"}
+        <Button variant="contained" onClick={save} disabled={!line && Boolean(product) && bundle.isFetching}>
+          {line ? "Save line" : bundled.length ? `Add ${bundled.length + 1} lines` : "Add line"}
         </Button>
       </DialogActions>
     </Dialog>

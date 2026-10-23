@@ -204,6 +204,12 @@ export interface ScheduleRow {
   readonly netBilling?: string;
 }
 
+/** GET /bundles/{productId}: the children a parent brings, priced from the quote's book; Missing names those not in it (POC Stage C). */
+export interface BundleChildren {
+  readonly children: readonly Product[];
+  readonly missing: readonly string[];
+}
+
 export interface PricingYear {
   readonly yearNumber: number;
   readonly periodStart: string;
@@ -350,6 +356,8 @@ export interface DraftLineInput {
   readonly endDate?: string;
   /** The unit price charged (POC Stage B); omitted = the list price. Never below it; none on a formula line. */
   readonly salesPrice?: string;
+  /** A bundle child: the position in lines of its parent (POC Stage C). */
+  readonly parentIndex?: number;
 }
 
 /** POST /quotes and PUT /quotes/{id}/versions/{n} body. */
@@ -421,6 +429,8 @@ export interface LineView {
   readonly discretionaryDiscountPercent: string;
   /** The contract year it belongs to (POC years-bundles). */
   readonly yearNumber: number | null;
+  /** A bundle child's parent line number (POC Stage C); null otherwise. */
+  readonly parentLineNumber?: number | null;
   /** Null until the quote has a start date and a year (D78). */
   readonly startDate: string | null;
   readonly endDate: string | null;
