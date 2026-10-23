@@ -104,6 +104,7 @@ vi.mock("../api/useUmtTesting", () => ({
     ],
   }),
   useUmtSaveTestingResults: () => ({ isPending: false, mutateAsync: state.saveTesting }),
+  useUmtRetriggerStagingTest: idleMutation,
 }));
 
 vi.mock("@context/notifications/NotificationsContext", () => ({

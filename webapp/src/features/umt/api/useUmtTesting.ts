@@ -17,7 +17,7 @@
 import { useAsgardeo } from "@asgardeo/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { httpRetry } from "@api/errors";
-import { authedGet, authedPut } from "@api/http";
+import { authedGet, authedPost, authedPut } from "@api/http";
 import { isUmtBackendConfigured, umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
@@ -25,16 +25,23 @@ import { UMT_TESTING_LIFECYCLE_STATES, umtShouldPollStagingTestResults } from ".
 import type { UmtLifecycleState } from "./umtTypes";
 import type { UmtStagingTestResultRecord, UmtStagingTestResultRequest } from "./umtUpdates";
 
+// When a retrigger was last accepted for an update, as epoch ms. It lives in
+// the query cache so the results query, shared by the shell and the Testing
+// step, can read what the retrigger mutation wrote.
+const retriggeredAtKey = (id: string) => ["umt-staging-test-retriggered-at", id] as const;
+
 // Shared by the shell (Proceed-gating) and UmtTestingStep (its own render) —
 // same query key, so TanStack dedupes the fetch. Enabled only while
 // lifecycleState is in the testing-state family; polls every 3s while
 // umtShouldPollStagingTestResults is true (mirrors useUmtPrAnalysisStatus's
-// existing polling precedent), stopping once Staging or Failed is reached.
+// existing polling precedent). That ends at Failed, and at Staging once no run
+// is building and the post-retrigger window has passed.
 // The key carries lifecycleState because the list fetched before Staging is
 // empty: reaching Staging has to fetch it again.
 export function useUmtStagingTestResults(id: string, lifecycleState: UmtLifecycleState | null | undefined) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
+  const queryClient = useQueryClient();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
   const userSub = subState.status === "ready" ? subState.sub : undefined;
   const baseEnabled =
@@ -50,11 +57,47 @@ export function useUmtStagingTestResults(id: string, lifecycleState: UmtLifecycl
         umtServiceUrls.updateIntegrationTestStaging(id),
         await getAccessToken(),
       ),
-    refetchInterval: () => (umtShouldPollStagingTestResults(lifecycleState) ? 3000 : false),
+    refetchInterval: (query) =>
+      umtShouldPollStagingTestResults(
+        lifecycleState,
+        query.state.data,
+        queryClient.getQueryData<number>(retriggeredAtKey(id)),
+      )
+        ? 3000
+        : false,
     retry: httpRetry,
   });
 
   return foldIdentityError(query, subState, retryIdentity);
+}
+
+export interface UmtRetriggerStagingTestRequest {
+  productName: string;
+  baseVersion: string;
+}
+
+// Starts one product's automated staging test run again and resolves to the
+// time (epoch ms) the request was accepted. Success keeps the results polling
+// for a bounded window from that time and refetches them; once a run reads as
+// building, the polling follows it to its end.
+export function useUmtRetriggerStagingTest(id: string) {
+  const getAccessToken = useAccessToken();
+  const queryClient = useQueryClient();
+
+  return useMutation<number, Error, UmtRetriggerStagingTestRequest>({
+    mutationFn: async ({ productName, baseVersion }) => {
+      await authedPost(
+        umtServiceUrls.updateIntegrationTestStagingRetrigger(id, productName, baseVersion),
+        await getAccessToken(),
+        null,
+      );
+      return Date.now();
+    },
+    onSuccess: async (acceptedAt) => {
+      queryClient.setQueryData(retriggeredAtKey(id), acceptedAt);
+      await queryClient.invalidateQueries({ queryKey: ["umt-update-staging-test-results"] });
+    },
+  });
 }
 
 export class UmtPartialTestingSaveError extends Error {
