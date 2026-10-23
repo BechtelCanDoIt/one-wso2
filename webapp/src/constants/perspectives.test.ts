@@ -201,6 +201,8 @@ describe("UMT inside Engineering", () => {
       ["Statistics", "/engineering/umt/statistics"],
       ["Documentation", undefined],
     ]);
+    // Documentation leaves the app, so the rail marks it as opening a new tab.
+    expect(group?.children?.find((c) => c.id === "umt-documentation")?.opensInNewTab).toBe(true);
     expect(perspectives.findPerspectiveByPath("/engineering/umt/updates/42")?.key).toBe("engineering");
   });
 

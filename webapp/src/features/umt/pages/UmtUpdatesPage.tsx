@@ -190,6 +190,19 @@ function UmtUpdatesBody() {
   const [pageSize, setPageSize] = useState(restored?.pageSize ?? PAGE_SIZE_OPTIONS[0]);
   const [filters, setFilters] = useState<UmtUpdateFilters>(restored?.filters ?? EMPTY_UMT_UPDATE_FILTERS);
 
+  // Choosing Updates in the rail while already here is a new visit to the same
+  // route, so this stays mounted and the initial values above don't apply
+  // again. A new history entry without the return marker resets them instead.
+  const [seenLocationKey, setSeenLocationKey] = useState(location.key);
+  if (location.key !== seenLocationKey) {
+    setSeenLocationKey(location.key);
+    if (!isUmtUpdatesReturn(location.state)) {
+      setFilters(EMPTY_UMT_UPDATE_FILTERS);
+      setPage(0);
+      setPageSize(PAGE_SIZE_OPTIONS[0]);
+    }
+  }
+
   // Always what's on screen, so a fresh visit's clean view also replaces an
   // earlier visit's, and a later return can't bring that one back.
   useEffect(() => {
