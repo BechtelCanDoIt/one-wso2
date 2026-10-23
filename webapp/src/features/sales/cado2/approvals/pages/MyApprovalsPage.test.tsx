@@ -23,7 +23,7 @@ import MyApprovalsPage from "./MyApprovalsPage";
 const inbox = { data: [] as ApprovalInboxItem[], isPending: false, error: null, isFetching: false, refetch: vi.fn() };
 vi.mock("@features/sales/cado2/approvals/api/useApprovalApi", () => ({ useApprovalInbox: () => inbox }));
 vi.mock("@features/sales/cado2/api/useCado2Me", () => ({
-  useCado2Me: () => ({ data: { sub: "s", email: "dd@wso2.com", roles: [], approverRoles: ["DEAL_DESK"] } }),
+  useCado2Me: () => ({ data: { sub: "s", email: "dd@wso2.com", roles: [], approverRoles: ["DEAL_DESK"], regions: ["NA", "EU"] } }),
 }));
 
 function renderPage() {
@@ -40,6 +40,7 @@ describe("MyApprovalsPage", () => {
     renderPage();
     expect(screen.getByText("Nothing is waiting for you")).toBeInTheDocument();
     expect(screen.getByText("Deal Desk")).toBeInTheDocument(); // the roles held, beside the title
+    expect(screen.getByText("Regions: NA, EU")).toBeInTheDocument(); // and the regions (D13)
   });
 
   it("lists each step waiting for the caller, linking to its quote", () => {

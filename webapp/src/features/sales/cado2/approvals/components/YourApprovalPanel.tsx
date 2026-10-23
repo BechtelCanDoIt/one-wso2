@@ -162,7 +162,7 @@ function DeskReview({
     ) : (
       <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "success.main" }}>
         <CircleCheckIcon size={16} />
-        <Typography variant="body2">Nothing non-standard: no further approvals are needed.</Typography>
+        <Typography variant="body2">Standard quote: your approval is the only one needed.</Typography>
       </Stack>
     );
   }

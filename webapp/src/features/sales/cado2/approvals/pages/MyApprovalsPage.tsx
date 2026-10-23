@@ -44,14 +44,19 @@ export default function MyApprovalsPage(): JSX.Element {
   useDocumentTitle("My Approvals");
   const now = new Date();
   const roles = (user?.approverRoles ?? []).map(roleLabel);
+  // Regional roles' quotes come only from these regions (D13).
+  const regions = user?.regions ?? [];
 
   return (
     <Stack spacing={3} sx={{ maxWidth: 1400 }}>
       <PageHeader
         title="My Approvals"
-        chips={roles.map((r) => (
-          <Chip key={r} size="small" variant="outlined" label={r} />
-        ))}
+        chips={[
+          ...roles.map((r) => <Chip key={r} size="small" variant="outlined" label={r} />),
+          ...(regions.length
+            ? [<Chip key="regions" size="small" variant="outlined" label={`Regions: ${regions.join(", ")}`} />]
+            : []),
+        ]}
       />
       {inbox.isPending ? (
         // A list loads as skeleton rows, like the Quotes list (2026-10-13).
