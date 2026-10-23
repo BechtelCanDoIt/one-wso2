@@ -103,6 +103,9 @@ function savedSupportLine(): LineValue {
     unitOfMeasure: "",
     quantity: "1",
     discount: "0",
+    yearNumber: 1,
+    startDate: "",
+    endDate: "",
     keepPricing: {
       method: "FORMULA",
       formulaVersionId: 6,
@@ -123,7 +126,7 @@ function savedSupportLine(): LineValue {
 function renderDialog(onSave = vi.fn(), line: LineValue | null = null) {
   render(
     <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
-      <AddLineDialog open line={line} currency="USD" pricebook={quoteBook} onSave={onSave} onClose={vi.fn()} />
+      <AddLineDialog open line={line} currency="USD" pricebook={quoteBook} year={null} onSave={onSave} onClose={vi.fn()} />
     </DatePickers.LocalizationProvider>,
   );
   return onSave;
@@ -208,6 +211,9 @@ describe("AddLineDialog", () => {
       unitOfMeasure: "",
       quantity: "1",
       discount: "0",
+      yearNumber: 1,
+      startDate: "",
+      endDate: "",
     };
     const onSave = renderDialog(vi.fn(), line);
 
@@ -383,7 +389,7 @@ describe("AddLineDialog — closing", () => {
     const onClose = vi.fn();
     render(
       <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
-        <AddLineDialog open line={null} currency="USD" pricebook={quoteBook} onSave={vi.fn()} onClose={onClose} />
+        <AddLineDialog open line={null} currency="USD" pricebook={quoteBook} year={null} onSave={vi.fn()} onClose={onClose} />
       </DatePickers.LocalizationProvider>,
     );
     const user = userEvent.setup();

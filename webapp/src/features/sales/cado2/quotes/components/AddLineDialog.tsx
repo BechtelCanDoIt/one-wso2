@@ -21,6 +21,7 @@ import {
   Box,
   Button,
   Chip,
+  DatePickers,
   Dialog,
   DialogActions,
   DialogContent,
@@ -32,7 +33,7 @@ import {
   TextField,
   Typography,
 } from "@wso2/oxygen-ui";
-import { PackageIcon, PercentIcon } from "@wso2/oxygen-ui-icons-react";
+import { CalendarDaysIcon, PackageIcon, PercentIcon } from "@wso2/oxygen-ui-icons-react";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { descriptionAfterName } from "@features/sales/cado2/utils/productDescription";
@@ -53,7 +54,17 @@ import {
   useProductList,
 } from "@features/sales/cado2/components/product-list/productList";
 import { ProductListPaper, ProductOption } from "@features/sales/cado2/components/product-list/ProductListParts";
-import { formatDate, LINE_CATEGORIES, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
+import {
+  formatDate,
+  LINE_CATEGORIES,
+  lineDatesProblem,
+  parseDateString,
+  toDateString,
+  type ContractYear,
+  type LineValue,
+} from "@features/sales/cado2/quotes/form/draftForm";
+
+const { DatePicker } = DatePickers;
 
 /** A small heading for a group of fields in the dialog. */
 function Group({ icon, title, children }: { icon: ReactNode; title: string; children: ReactNode }): JSX.Element {
@@ -190,6 +201,8 @@ interface AddLineDialogProps {
   readonly currency: string;
   /** The quote's price book, which is the opportunity's: every product and price comes from it. */
   readonly pricebook: PricebookRef;
+  /** The contract year the line is in (POC years-bundles); its dates stay within it. Null before the start date. */
+  readonly year: ContractYear | null;
   readonly onSave: (line: LineValue) => void;
   readonly onClose: () => void;
 }
@@ -211,6 +224,7 @@ export default function AddLineDialog({
   line,
   currency,
   pricebook,
+  year,
   onSave,
   onClose,
 }: AddLineDialogProps): JSX.Element {
@@ -231,6 +245,9 @@ export default function AddLineDialog({
   const [quantity, setQuantity] = useState(line?.quantity ?? "1");
   const [discount, setDiscount] = useState(line?.discount ?? "0");
   const [tried, setTried] = useState(false);
+  // Its dates within the year, shown filled in; saved as "" when they are the year's own.
+  const [startDate, setStartDate] = useState(line?.startDate || year?.start || "");
+  const [endDate, setEndDate] = useState(line?.endDate || year?.end || "");
   const formulas = usePricingFormulas();
 
   // A product carries one price: the quote's book's.
@@ -302,6 +319,15 @@ export default function AddLineDialog({
     quantity,
     discount: formula ? "0" : discount,
   });
+  const recurring = keepsExisting ? line.recurring : (product?.recurring ?? true);
+  const datesProblem = !year
+    ? ""
+    : !startDate || (recurring && !endDate)
+      ? "Choose the dates"
+      : lineDatesProblem(
+          { yearNumber: year.number, startDate, endDate: recurring ? endDate : "", recurring },
+          Array.from({ length: year.number }, () => year),
+        );
   const show = (k: string) => (tried ? problems[k] : undefined);
 
   const chooseProduct = (p: Product | null) => {
@@ -312,7 +338,7 @@ export default function AddLineDialog({
 
   const save = () => {
     setTried(true);
-    if (Object.keys(problems).length > 0) return;
+    if (Object.keys(problems).length > 0 || datesProblem) return;
     const base: LineValue = keepsExisting
       ? { ...line }
       : {
@@ -331,6 +357,9 @@ export default function AddLineDialog({
           unitOfMeasure: "",
           quantity: "",
           discount: "",
+          yearNumber: year?.number ?? 1,
+          startDate: "",
+          endDate: "",
         };
     onSave({
       ...base,
@@ -341,6 +370,8 @@ export default function AddLineDialog({
       discount: formula ? "0" : discount.trim() || "0",
       unitPrice: keepsExisting ? keptUnitPrice : base.unitPrice,
       useLatestPricing: keepsExisting && moved ? true : undefined,
+      startDate: year && startDate !== year.start ? startDate : "",
+      endDate: year && recurring && endDate !== year.end ? endDate : "",
     });
   };
 
@@ -523,6 +554,31 @@ export default function AddLineDialog({
               helperText={uomSource}
             />
           </Group>
+          {/* Its dates within its year (POC years-bundles): the whole year
+              unless narrowed; a one-off is charged on its start. */}
+          {year ? (
+            <Group icon={<CalendarDaysIcon size={14} />} title={`Dates in Year ${year.number}`}>
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                {[
+                  { label: recurring ? "Start" : "Charged on", value: startDate, set: setStartDate },
+                  ...(recurring ? [{ label: "End", value: endDate, set: setEndDate }] : []),
+                ].map((f) => (
+                  <DatePicker
+                    key={f.label}
+                    label={f.label}
+                    value={parseDateString(f.value)}
+                    minDate={parseDateString(year.start) ?? undefined}
+                    maxDate={parseDateString(year.end) ?? undefined}
+                    onChange={(d: Date | null) => f.set(d && !Number.isNaN(d.getTime()) ? toDateString(d) : "")}
+                    slotProps={{ textField: { size: "small", required: true, fullWidth: true } }}
+                  />
+                ))}
+              </Stack>
+              <Typography variant="caption" color={tried && datesProblem ? "error" : "text.secondary"}>
+                {(tried && datesProblem) || `Year ${year.number} runs ${formatDate(year.start)} – ${formatDate(year.end)}`}
+              </Typography>
+            </Group>
+          ) : null}
         </Stack>
       </DialogContent>
       <DialogActions>

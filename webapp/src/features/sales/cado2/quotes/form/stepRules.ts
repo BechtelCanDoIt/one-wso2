@@ -24,7 +24,7 @@
 // get stuck on bad Salesforce data; revisit if it is reported.
 
 import type { AddressValue, ContactValue, DraftFormValues } from "./draftForm";
-import { commissionProblem, endDateProblem, hasRecurring, isPartnerLed } from "./draftForm";
+import { commissionProblem, formYears, isPartnerLed, lastYearEndProblem, lineDatesProblem } from "./draftForm";
 
 /** The to-do when the billing says "See Special Terms" and they are off (D86), as the backend words it. */
 export const SPECIAL_TERMS_BILLING = "Billing says See Special Terms: switch on special terms and describe the billing";
@@ -71,15 +71,16 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
     "lines",
     uncategorised === 1 ? "Choose the category of 1 product" : `Choose the category of ${uncategorised} products`,
   );
-  // The Subscription Term card's duration, only when a line recurs.
-  const recurring = hasRecurring(v.lines);
-  if (recurring) {
-    need(products, Boolean(v.termMode), "termMode", "Choose the subscription term");
-    if (v.termMode === "END_DATE") {
-      const problem = v.termEndDate ? endDateProblem(v.startDate, v.termEndDate) : "Choose the end date";
-      need(products, !problem, "subscriptionEndDate", problem);
-    }
-  }
+  // The contract years (POC years-bundles): at least Year 1, the last
+  // year's end within it, and every product's dates within its own year.
+  need(products, v.yearCount > 0, "years", "Add Year 1");
+  const lastProblem = lastYearEndProblem(v.startDate, v.yearCount, v.lastYearEndDate);
+  need(products, !lastProblem, "lastYearEndDate", lastProblem);
+  const years = formYears(v);
+  v.lines.forEach((l, i) => {
+    const problem = lineDatesProblem(l, years);
+    need(products, !problem, `lines[${i}].startDate`, problem);
+  });
 
   // Partner-led: the partner's commission, 0 allowed.
   if (isPartnerLed(v) && v.lines.length > 0) {

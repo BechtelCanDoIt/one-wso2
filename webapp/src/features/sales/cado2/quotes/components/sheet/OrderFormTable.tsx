@@ -18,6 +18,7 @@ import { Fragment, type JSX, type ReactNode } from "react";
 import { alpha, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import { CircleAlertIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import { durationShort, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 
 const num = { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } as const;
@@ -31,11 +32,12 @@ interface OrderFormTableProps {
   readonly below?: (index: number) => ReactNode;
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
-  /**
-   * The term, short, e.g. "1Y 1D" (D85, D94), shown on every recurring line;
-   * a one-off line says "One-time". "" while there is no term yet.
-   */
-  readonly duration: string;
+  /** The totals box's label. */
+  readonly totalLabel?: string;
+  /** False inside a year: the Products card closes with the totals over every year. */
+  readonly showTotals?: boolean;
+  /** A last row inside the table with the lines' total, e.g. "Year 1 total": quieter than the order totals. */
+  readonly closingTotalLabel?: string;
   /**
    * The wizard: frame the "Uncategorised" group in red and say how to fix it
    * (D93, D95). Elsewhere (Review, the quote page) the group still shows,
@@ -63,7 +65,9 @@ export default function OrderFormTable({
   below,
   commissionPercent = null,
   flagUncategorised = false,
-  duration,
+  totalLabel = "Total order value",
+  showTotals = true,
+  closingTotalLabel,
 }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
   // Product, unit of measure, unit list, qty, discount, duration, amount (+ actions).
@@ -155,7 +159,16 @@ export default function OrderFormTable({
           <TableCell align="right" sx={num}>
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
           </TableCell>
-          <TableCell sx={{ whiteSpace: "nowrap" }}>{l.recurring ? duration || "–" : "One-time"}</TableCell>
+          {/* Each line's own term within its year, e.g. "1Y" or "6M" (POC
+              years-bundles); its dates when the AM narrowed them. */}
+          <TableCell sx={{ whiteSpace: "nowrap" }}>
+            {l.recurring ? (l.startDate && l.endDate ? durationShort(l.startDate, l.endDate) : "–") : "One-time"}
+            {l.ownDates && l.startDate ? (
+              <Typography variant="caption" color="text.secondary" display="block">
+                {l.recurring && l.endDate ? `${formatDate(l.startDate)} – ${formatDate(l.endDate)}` : formatDate(l.startDate)}
+              </Typography>
+            ) : null}
+          </TableCell>
           <TableCell align="right" sx={num}>
             {money(l.tcv)}
           </TableCell>
@@ -267,27 +280,41 @@ export default function OrderFormTable({
                 {subtotalRow(`${g.title} subtotal`, g.subtotal)}
               </Fragment>
             ))}
+            {closingTotalLabel ? (
+              <TableRow sx={{ bgcolor: "action.hover", "& td": { borderTop: 2, borderTopColor: "divider", borderBottom: 0, fontWeight: 700 } }}>
+                <TableCell colSpan={dataCols - 1} align="right">
+                  {closingTotalLabel}
+                  {cur}
+                </TableCell>
+                <TableCell align="right" sx={num}>
+                  {money(form.total)}
+                </TableCell>
+                {actions ? <TableCell /> : null}
+              </TableRow>
+            ) : null}
           </TableBody>
         </Table>
       </TableContainer>
-      <Paper
-        variant="outlined"
-        aria-label="Order totals"
-        role="region"
-        sx={{ mt: 1.5, ml: "auto", width: { xs: "100%", sm: 380 }, borderRadius: 1.5, overflow: "hidden" }}
-      >
-        {form.commission !== null ? (
-          <>
-            <Box sx={{ pt: 0.75 }}>
-              {summaryRow("Total order value", form.total)}
-              {summaryRow(`Partner commission (${commissionPercent}%)`, form.commission, false, "− ")}
-            </Box>
-            {summaryRow("Net order value", form.netOrderValue, true)}
-          </>
-        ) : (
-          summaryRow("Total order value", form.total, true)
-        )}
-      </Paper>
+      {showTotals ? (
+        <Paper
+          variant="outlined"
+          aria-label="Order totals"
+          role="region"
+          sx={{ mt: 1.5, ml: "auto", width: { xs: "100%", sm: 380 }, borderRadius: 1.5, overflow: "hidden" }}
+        >
+          {form.commission !== null ? (
+            <>
+              <Box sx={{ pt: 0.75 }}>
+                {summaryRow(totalLabel, form.total)}
+                {summaryRow(`Partner commission (${commissionPercent}%)`, form.commission, false, "− ")}
+              </Box>
+              {summaryRow("Net order value", form.netOrderValue, true)}
+            </>
+          ) : (
+            summaryRow(totalLabel, form.total, true)
+          )}
+        </Paper>
+      ) : null}
     </Box>
   );
 }

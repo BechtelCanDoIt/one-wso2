@@ -64,16 +64,18 @@ describe("stepChecks", () => {
     expect(stepChecks(v)[2].map((c) => c.field)).toEqual(["governingTerms.text"]);
   });
 
-  it("checks the subscription term on Products & Pricing", () => {
+  // POC years-bundles: Year 1 at least, the last year within 12 months,
+  // and each product's dates within its own year (from 1 Oct 2026).
+  it("checks the contract years on Products & Pricing", () => {
     const products = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[1];
-    expect(products({ termMode: "" }).map((c) => c.field)).toEqual(["termMode"]);
+    expect(products({ yearCount: 0 }).map((c) => c.field)).toContain("years");
     // Billing is chosen on Commercials (D86).
-    expect(products({ termMode: "YEARS", billingFrequency: "" })).toEqual([]);
-    expect(products({ termMode: "YEARS", termYears: "3" })).toEqual([]);
-    expect(products({ termMode: "END_DATE", termEndDate: "" })[0].message).toBe("Choose the end date");
-    // Any length up to 10 years, a year and a day included (from 1 Oct 2026).
-    expect(products({ termMode: "END_DATE", termEndDate: "2027-10-01" })).toEqual([]);
-    expect(products({ termMode: "END_DATE", termEndDate: "2036-10-01" })[0].message).toMatch(/at most 10 years/);
+    expect(products({ yearCount: 1, billingFrequency: "" })).toEqual([]);
+    expect(products({ yearCount: 3 })).toEqual([]);
+    expect(products({ yearCount: 2, lastYearEndDate: "2028-03-31" })).toEqual([]);
+    expect(products({ yearCount: 2, lastYearEndDate: "2028-10-01" })[0].message).toMatch(/at most 12 months/);
+    const late = { ...complete().lines[0], startDate: "2027-10-01" }; // after Year 1 ends
+    expect(products({ lines: [late] }).map((c) => c.field)).toEqual(["lines[0].startDate"]);
   });
 
   // D85, D86, D88: every quote chooses its billing on Commercials, services-only included.

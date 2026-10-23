@@ -279,7 +279,7 @@ describe("QuoteWizardPage — review and submit", () => {
     expect(field).toHaveAttribute("readonly");
     expect(screen.queryByRole("listbox", { name: "Price books" })).toBeNull(); // nothing to choose
     expect(screen.queryByText("Different price book")).toBeNull();
-    expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: "Add product to Year 1" })[0]).toBeEnabled();
   });
 
   // 2026-10-09: one price book (the opportunity's), named; not "the USD price books".
@@ -289,7 +289,7 @@ describe("QuoteWizardPage — review and submit", () => {
     renderWizard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
     expect(
-      screen.getByText("Add products from the USD Price Book (Current) price book. Prices come from this price book."),
+      screen.getByText(/Add products from the USD Price Book \(Current\) price book, or clone an earlier year/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/price books/)).toBeNull();
   });
@@ -299,7 +299,7 @@ describe("QuoteWizardPage — review and submit", () => {
     renderWizard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
     expect(screen.getByRole("textbox", { name: "Price book" })).toHaveValue("—");
-    expect(screen.getByRole("button", { name: "Add product" })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Add product to Year 1" })[0]).toBeDisabled();
   });
 
   it("reviews the stored numbers in one view, as an order form with the deal figures", async () => {
@@ -320,8 +320,8 @@ describe("QuoteWizardPage — review and submit", () => {
 
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
-    // The line and the subscription subtotal; the total order value is in the box under the table (D97).
-    expect(within(products).getAllByText("6,480.00")).toHaveLength(2);
+    // The line, the subscription subtotal and the Year 1 total; the total order value closes the card (D97).
+    expect(within(products).getAllByText("6,480.00")).toHaveLength(3);
     expect(screen.getByRole("region", { name: "Order totals" })).toHaveTextContent("6,480.00");
     expect(within(products).getByText("10%")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Deal Figures" })).toBeInTheDocument();

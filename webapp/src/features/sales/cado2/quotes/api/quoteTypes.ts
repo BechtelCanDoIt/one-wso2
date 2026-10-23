@@ -35,7 +35,6 @@ export type CategorySource = "MAPPED" | "REP";
  * How the subscription term is set (D85): a number of years (1–10), or an
  * end date of any length up to 10 years.
  */
-export type TermMode = "YEARS" | "END_DATE";
 
 /** A problem with one field, e.g. { field: "lines[2].quantity", message: "…" }. */
 export interface Issue {
@@ -210,9 +209,20 @@ export interface PricingYear {
   readonly periodStart: string;
   readonly periodEnd: string;
   readonly net: string;
+  /** The year's recurring lines at their full yearly rate (POC years-bundles). */
+  readonly arr?: string;
   readonly billing: string;
   readonly commission?: string;
   readonly netBilling?: string;
+}
+
+/** One contract year of a saved version (POC years-bundles); net and ARR are null while unpriced. */
+export interface ContractYearView {
+  readonly yearNumber: number;
+  readonly startDate: string;
+  readonly endDate: string;
+  readonly net: string | null;
+  readonly arr: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -278,6 +288,9 @@ export interface PricingPreview {
   readonly years: readonly PricingYear[];
   readonly lines: readonly {
     readonly pricebookEntryId: string;
+    readonly yearNumber?: number;
+    readonly startDate?: string;
+    readonly endDate?: string;
     /** The category priced: a mapped product's comes from its mapping. */
     readonly category?: LineCategory;
     readonly categorySource?: CategorySource;
@@ -328,6 +341,11 @@ export interface DraftLineInput {
   readonly unitOfMeasure?: string;
   /** A kept line moved to its product's pricing in force: the latest formula version, or the price book (D82). */
   readonly useLatestFormula?: boolean;
+  /** The contract year the line belongs to (POC years-bundles). */
+  readonly yearNumber: number;
+  /** Within its year; omitted = the whole year. A one-off is charged on its start. */
+  readonly startDate?: string;
+  readonly endDate?: string;
 }
 
 /** POST /quotes and PUT /quotes/{id}/versions/{n} body. */
@@ -344,11 +362,10 @@ export interface DraftInput {
   /** The quote's price book; omitted = none chosen. */
   readonly defaultPricebookId?: string;
   readonly subscriptionStartDate?: string;
-  readonly termMode?: TermMode;
-  /** YEARS only (1–10). */
-  readonly termYears?: number;
-  /** END_DATE only; YEARS derives it. */
-  readonly subscriptionEndDate?: string;
+  /** How many contract years the AM added, 1–10 (POC years-bundles); omitted = none yet. */
+  readonly yearCount?: number;
+  /** The last year's end when it is shorter than 12 months; omitted = a full year. */
+  readonly lastYearEndDate?: string;
   /** With a recurring line only (D85). */
   readonly billingFrequency?: BillingFrequency;
   /** Partner-led quotes only: one % for every line. */
@@ -395,7 +412,9 @@ export interface LineView {
   readonly category: LineCategory;
   readonly categorySource?: CategorySource;
   readonly discretionaryDiscountPercent: string;
-  /** Null until the quote has a start date (D78). */
+  /** The contract year it belongs to (POC years-bundles). */
+  readonly yearNumber: number | null;
+  /** Null until the quote has a start date and a year (D78). */
   readonly startDate: string | null;
   readonly endDate: string | null;
   readonly annualList: string;
@@ -485,10 +504,11 @@ export interface VersionView {
   /** The quote's price book; null until the rep chooses. */
   readonly defaultPricebook?: PricebookRef | null;
   readonly subscriptionStartDate: string | null;
+  /** The contract's end: the last year's end. */
   readonly subscriptionEndDate: string | null;
-  /** Null for a services-only quote, or a version submitted before term modes. */
-  readonly termMode: TermMode | null;
-  readonly termYears: number | null;
+  /** The contract years (POC years-bundles); null/empty before Year 1 is added. */
+  readonly yearCount: number | null;
+  readonly years: readonly ContractYearView[];
   /** "15.00" on a partner-led quote with a commission; null otherwise. */
   readonly partnerCommissionPercent?: string | null;
   readonly billingFrequency: BillingFrequency | null;

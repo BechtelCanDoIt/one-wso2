@@ -48,6 +48,9 @@ const line = (discount: string): LineValue => ({
   unitOfMeasure: "Gateways",
   quantity: "1",
   discount,
+  yearNumber: 1,
+  startDate: "",
+  endDate: "",
 });
 
 function Harness({ lines, values = {} }: { lines: LineValue[]; values?: Partial<DraftFormValues> }) {

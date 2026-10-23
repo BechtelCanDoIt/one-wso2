@@ -36,7 +36,6 @@ import type {
   PricingMethod,
   PricingPreview,
   Product,
-  TermMode,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
 
@@ -105,10 +104,15 @@ export interface LineValue {
   unitOfMeasure: string;
   quantity: string;
   discount: string;
+  /** The contract year the line belongs to, 1-based (POC years-bundles). */
+  yearNumber: number;
+  /** Within its year; "" = the year's own start / end. A one-off is charged on its start. */
+  startDate: string;
+  endDate: string;
 }
 
-/** Term lengths the AM can choose by number of years (D85). */
-export const YEAR_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+/** The most contract years a quote can have (D85). */
+export const MAX_YEARS = 10;
 
 /** The billing choices, in the order shown (D85, D86). */
 export const BILLING_OPTIONS: readonly BillingFrequency[] = ["MONTHLY", "QUARTERLY", "ANNUAL", "UPFRONT", "SPECIAL_TERMS"];
@@ -143,13 +147,13 @@ export interface DraftFormValues {
   defaultPricebookName: string;
   /** Every quote has a start date. */
   startDate: string;
-  // Step 2 — the Subscription term card; only used when a line recurs.
-  // "" = a saved draft with no mode yet.
-  termMode: TermMode | "";
-  /** Number of years: 1–10. */
-  termYears: string;
-  /** End date: the term's end, pre-filled from Salesforce or set by the AM. */
-  termEndDate: string;
+  // Step 2 — the contract years (POC years-bundles): 12 months each from the
+  // start; only the last may be shorter. The AM adds them; nothing is split
+  // automatically.
+  /** 0 = no year yet. */
+  yearCount: number;
+  /** The last year's end when the AM shortened it; "" = a full 12 months. */
+  lastYearEndDate: string;
   /** The opportunity's products that couldn't be brought in, and why (D72). Shown once; never saved. */
   notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
   /** With a recurring line (D85); annually in advance unless changed. */
@@ -213,9 +217,8 @@ export function emptyDraftForm(): DraftFormValues {
     defaultPricebookId: "",
     defaultPricebookName: "",
     startDate: "",
-    termMode: "YEARS", // 1 year until Salesforce or the AM says otherwise (D85)
-    termYears: "1",
-    termEndDate: "",
+    yearCount: 1, // Year 1, for the opportunity's products; the AM adds more
+    lastYearEndDate: "",
     notBroughtIn: [],
     billingFrequency: "ANNUAL",
     partnerCommissionPercent: "",
@@ -291,17 +294,6 @@ export const LINE_CATEGORIES: readonly { value: LineCategory; label: string }[] 
 /** Whether any line is charged every year, so a subscription term is needed (D37, D76). */
 export const hasRecurring = (lines: readonly { readonly recurring: boolean }[]) => lines.some((l) => l.recurring);
 
-/** The longest term: the latest end date a start allows (10 years, D85). */
-export const latestEndDate = (start: string) => endDateFor(start, YEAR_OPTIONS[YEAR_OPTIONS.length - 1]);
-
-/** Why an End date term is not allowed, or "" when it is (D85): not before the start, at most 10 years. */
-export function endDateProblem(start: string, end: string): string {
-  if (!start || !end) return "";
-  if (end < start) return "The end date must not be before the start date";
-  if (end > latestEndDate(start)) return `The term can be at most 10 years: end by ${formatDate(latestEndDate(start))}`;
-  return "";
-}
-
 /** `start` moved by whole months, the day clamped to the month's last (as the backend counts). */
 function addMonths(start: Date, months: number): Date {
   const first = new Date(start.getFullYear(), start.getMonth() + months, 1);
@@ -347,20 +339,150 @@ function durationParts(start: string, end: string): { years: number; months: num
   return { years, months, days };
 }
 
+// ---------------------------------------------------------------------------
+// Contract years (POC years-bundles)
+// ---------------------------------------------------------------------------
+
+/** One contract year. */
+export interface ContractYear {
+  readonly number: number;
+  readonly start: string;
+  readonly end: string;
+}
+
 /**
- * The term Salesforce's dates describe (D85): a whole number of years (1–10)
- * when they make one, else the end date as it is; 1 year when there is no end.
+ * The contract years, as the backend lays them out: Year n starts 12 × (n−1)
+ * months after the start and runs 12 months; the last ends on `lastEnd` when
+ * it is set and within that year. Empty without a start or a year.
  */
-export function termFromDates(
-  start: string,
-  end: string | null | undefined,
-): Pick<DraftFormValues, "termMode" | "termYears" | "termEndDate"> {
-  if (start && end && parseDateString(end)) {
-    const years = YEAR_OPTIONS.find((n) => endDateFor(start, n) === end);
-    if (years) return { termMode: "YEARS", termYears: String(years), termEndDate: "" };
-    return { termMode: "END_DATE", termYears: "1", termEndDate: end };
+export function contractYears(start: string, count: number, lastEnd = ""): ContractYear[] {
+  const s = parseDateString(start);
+  if (!s || count < 1) return [];
+  const years: ContractYear[] = [];
+  for (let n = 1; n <= count; n++) {
+    years.push({ number: n, start: toDateString(addMonths(s, 12 * (n - 1))), end: endDateFor(start, n) });
   }
-  return { termMode: "YEARS", termYears: "1", termEndDate: "" };
+  const last = years[count - 1];
+  if (lastEnd && lastEnd >= last.start && lastEnd <= last.end) years[count - 1] = { ...last, end: lastEnd };
+  return years;
+}
+
+/** The form's contract years. */
+export const formYears = (v: Pick<DraftFormValues, "startDate" | "yearCount" | "lastYearEndDate">) =>
+  contractYears(v.startDate, v.yearCount, v.lastYearEndDate);
+
+/** The contract's end: the last year's end; "" without a year. */
+export const contractEnd = (v: Pick<DraftFormValues, "startDate" | "yearCount" | "lastYearEndDate">) =>
+  formYears(v).at(-1)?.end ?? "";
+
+/** Why the last year's end is not allowed, or "" (within its year, at most 12 months). */
+export function lastYearEndProblem(start: string, count: number, lastEnd: string): string {
+  if (!lastEnd || count < 1) return "";
+  const last = contractYears(start, count).at(-1);
+  if (!last) return "";
+  if (lastEnd < last.start) return `Year ${count} must end on or after it starts (${formatDate(last.start)})`;
+  if (lastEnd > last.end) return `Year ${count} can be at most 12 months: end by ${formatDate(last.end)}`;
+  return "";
+}
+
+/** A line's dates: its own, else its year's; a one-off ends on its start. Null without its year. */
+export function lineDates(
+  l: Pick<LineValue, "yearNumber" | "startDate" | "endDate" | "recurring">,
+  years: readonly ContractYear[],
+): { start: string; end: string } | null {
+  const y = years[l.yearNumber - 1];
+  if (!y) return null;
+  const start = l.startDate || y.start;
+  return { start, end: l.recurring ? l.endDate || y.end : start };
+}
+
+/** Why a line's dates are not allowed in its year, or "". */
+export function lineDatesProblem(
+  l: Pick<LineValue, "yearNumber" | "startDate" | "endDate" | "recurring">,
+  years: readonly ContractYear[],
+): string {
+  const y = years[l.yearNumber - 1];
+  const d = lineDates(l, years);
+  if (!y || !d) return "";
+  if (d.start < y.start || d.start > y.end || d.end > y.end)
+    return `Dates must fall within Year ${y.number}: ${formatDate(y.start)} – ${formatDate(y.end)}`;
+  if (d.end < d.start) return "The end date must not be before the start date";
+  return "";
+}
+
+/** A date moved by whole years, the day clamped to the month's end. */
+function shiftYears(date: string, years: number): string {
+  const d = parseDateString(date);
+  return d ? toDateString(addMonths(d, 12 * years)) : "";
+}
+
+/**
+ * Clone year `from` into a new year at the end: only its recurring lines,
+ * as new lines (priced as today), dates moved into the new year and kept
+ * within it. A line covering its whole year covers the whole new one.
+ */
+export function cloneYear(v: Pick<DraftFormValues, "startDate" | "yearCount" | "lastYearEndDate" | "lines">, from: number) {
+  const yearCount = v.yearCount + 1;
+  const years = contractYears(v.startDate, yearCount);
+  const to = years[yearCount - 1];
+  const gap = yearCount - from;
+  const within = (d: string, fallback: string) => (d ? (d < to.start ? to.start : d > to.end ? to.end : d) : fallback);
+  const copies = v.lines
+    .filter((l) => l.yearNumber === from && l.recurring)
+    .map((l) => ({
+      ...l,
+      // A new line: priced as today, not kept to the copied line's pricing (D82).
+      keepPricing: undefined,
+      useLatestPricing: undefined,
+      lineId: null,
+      yearNumber: yearCount,
+      startDate: within(l.startDate && shiftYears(l.startDate, gap), ""),
+      endDate: within(l.endDate && shiftYears(l.endDate, gap), ""),
+    }));
+  return { yearCount, lastYearEndDate: "", lines: [...v.lines, ...copies] };
+}
+
+/** Adds an empty year at the end; the year before it becomes a full 12 months. */
+export const addYear = (v: Pick<DraftFormValues, "yearCount">) => ({ yearCount: v.yearCount + 1, lastYearEndDate: "" });
+
+/**
+ * Deletes year `n` and its products, from anywhere in the list. Later years
+ * move up: renumbered and 12 months earlier, their products' own dates too.
+ * A shortened last year keeps its length when it moves up; deleting the last
+ * year leaves the new last one a full 12 months.
+ */
+export function deleteYear(v: Pick<DraftFormValues, "yearCount" | "lastYearEndDate" | "lines">, n: number) {
+  const back = (d: string) => (d ? shiftYears(d, -1) : d);
+  return {
+    yearCount: v.yearCount - 1,
+    lastYearEndDate: n < v.yearCount && v.lastYearEndDate ? back(v.lastYearEndDate) : "",
+    lines: v.lines
+      .filter((l) => l.yearNumber !== n)
+      .map((l) => (l.yearNumber > n ? { ...l, yearNumber: l.yearNumber - 1, startDate: back(l.startDate), endDate: back(l.endDate) } : l)),
+  };
+}
+
+/**
+ * Where a new line for year `n` goes: after the last line of that year (or
+ * of an earlier one), so line numbers run year by year wherever they show.
+ */
+export const insertIndex = (lines: readonly Pick<LineValue, "yearNumber">[], n: number) =>
+  lines.reduce((at, l, i) => (l.yearNumber <= n ? i + 1 : at), 0);
+
+/**
+ * Shortens (or restores) the last year: its products' dates that would fall
+ * after the new end are pulled back within it.
+ */
+export function setLastYearEnd(v: Pick<DraftFormValues, "startDate" | "yearCount" | "lines">, end: string) {
+  const last = contractYears(v.startDate, v.yearCount, end).at(-1);
+  if (!last) return { lastYearEndDate: end, lines: v.lines };
+  const lines = v.lines.map((l) => {
+    if (l.yearNumber !== v.yearCount) return l;
+    const startDate = l.startDate && l.startDate > last.end ? "" : l.startDate;
+    const endDate = l.endDate && l.endDate > last.end ? "" : l.endDate;
+    return startDate === l.startDate && endDate === l.endDate ? l : { ...l, startDate, endDate };
+  });
+  return { lastYearEndDate: end === contractYears(v.startDate, v.yearCount).at(-1)?.end ? "" : end, lines };
 }
 
 // ---------------------------------------------------------------------------
@@ -428,7 +550,12 @@ function addressFromView(res: DraftResponse, type: "BILL_TO" | "SHIP_TO"): Addre
 export function fromVersion(res: DraftResponse): DraftFormValues {
   const v = res.version;
   const start = v.subscriptionStartDate ?? "";
-  const end = v.subscriptionEndDate ?? "";
+  const yearCount = v.yearCount ?? 0;
+  // The last year's end only when shortened: a full year is the default.
+  const lastEnd = v.years?.at(-1)?.endDate ?? "";
+  const fullEnd = contractYears(start, yearCount).at(-1)?.end ?? "";
+  // Each line keeps its year; its dates only when narrowed within it.
+  const yearOf = (n: number | null) => (v.years ?? []).find((y) => y.yearNumber === n);
   const shipTo = res.version.addresses.find((a) => a.type === "SHIP_TO");
   return {
     ...emptyDraftForm(),
@@ -457,11 +584,8 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
     defaultPricebookId: v.defaultPricebook?.id ?? "",
     defaultPricebookName: v.defaultPricebook?.name ?? "",
     startDate: start,
-    // A draft with no recurring line has no mode; it gets 1 year if a
-    // recurring product is added (D85).
-    termMode: v.termMode ?? (hasRecurring(v.lines) ? "" : "YEARS"),
-    termYears: String(v.termYears ?? 1),
-    termEndDate: v.termMode === "END_DATE" ? end : "",
+    yearCount,
+    lastYearEndDate: lastEnd && lastEnd !== fullEnd ? lastEnd : "",
     billingFrequency: v.billingFrequency ?? "ANNUAL",
     partnerCommissionPercent: v.partnerCommissionPercent ? String(Number(v.partnerCommissionPercent)) : "",
     lines: v.lines.map((l) => ({
@@ -485,6 +609,9 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
       unitOfMeasure: l.unitOfMeasure ?? "",
       quantity: String(l.quantity),
       discount: String(Number(l.discretionaryDiscountPercent)),
+      yearNumber: l.yearNumber ?? 0,
+      startDate: l.startDate && l.startDate !== yearOf(l.yearNumber)?.startDate ? l.startDate : "",
+      endDate: l.recurring && l.endDate && l.endDate !== yearOf(l.yearNumber)?.endDate ? l.endDate : "",
     })),
     netTermsDays: (["30", "45", "60"] as const).find((n) => String(v.netTermsDays) === n) ?? "",
     poNumber: v.poNumber ?? "",
@@ -530,22 +657,6 @@ function addressInput(a: AddressValue): AddressInput | undefined {
   return Object.values(out).some((v) => v !== undefined && v !== out.sfAccountId) ? out : undefined;
 }
 
-/**
- * The term's end date: worked out for a number of years, as set for an end
- * date. "" when there is no term yet, or none is needed.
- */
-export function termEnd(v: Pick<DraftFormValues, "startDate" | "termMode" | "termYears" | "termEndDate">): string {
-  if (!v.startDate) return "";
-  switch (v.termMode) {
-    case "YEARS":
-      return endDateFor(v.startDate, Number(v.termYears));
-    case "END_DATE":
-      return v.termEndDate;
-    default:
-      return "";
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Partner commission
 // ---------------------------------------------------------------------------
@@ -566,16 +677,18 @@ function commissionInput(v: DraftFormValues): string | undefined {
   return isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? v.partnerCommissionPercent.trim() : undefined;
 }
 
-/** The term fields of a request, for the mode in use (none without a recurring line), and the billing (every quote, D88). */
+/** The years of a request (POC years-bundles), and the billing (every quote, D88). */
 function termInput(v: DraftFormValues) {
-  const billingFrequency = v.billingFrequency || undefined;
-  if (!hasRecurring(v.lines)) return { billingFrequency };
   return {
-    termMode: v.termMode || undefined,
-    termYears: v.termMode === "YEARS" ? Number(v.termYears) : undefined,
-    subscriptionEndDate: v.termMode === "END_DATE" ? opt(v.termEndDate) : undefined,
-    billingFrequency,
+    yearCount: v.yearCount > 0 ? v.yearCount : undefined,
+    lastYearEndDate: v.yearCount > 0 ? opt(v.lastYearEndDate) : undefined,
+    billingFrequency: v.billingFrequency || undefined,
   };
+}
+
+/** A line's year and dates in a request: dates only when narrowed (the backend defaults to the year). */
+function linePlace(l: LineValue) {
+  return { yearNumber: l.yearNumber, startDate: opt(l.startDate), endDate: l.recurring ? opt(l.endDate) : undefined };
 }
 
 /** The save request body. */
@@ -619,34 +732,35 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
       unitOfMeasure: opt(l.unitOfMeasure),
       // A saved line the AM moved to the pricing in force (D82).
       useLatestFormula: l.lineId !== null && l.useLatestPricing ? true : undefined,
+      ...linePlace(l),
     })),
   };
 }
 
 /**
  * The live-pricing request, or null until there is enough to price: a start
- * date, a currency and at least one line — plus, when a line recurs, a valid
- * term and a billing frequency.
+ * date, a currency, at least one line, a year, a billing frequency, and every
+ * line's dates within its year.
  */
 export function toPreviewBody(v: DraftFormValues): object | null {
-  // Every line, a line waiting for its category included: it is priced once, like a service (D75, WIP for multi-year).
   const lines = v.lines;
-  if (!v.startDate || !v.currencyIsoCode || lines.length === 0) return null;
-  const recurring = hasRecurring(v.lines);
-  const end = termEnd(v);
-  const billing = v.billingFrequency;
-  if (!billing || (recurring && (!end || endDateProblem(v.startDate, end)))) return null;
+  if (!v.startDate || !v.currencyIsoCode || lines.length === 0 || v.yearCount < 1 || !v.billingFrequency) return null;
+  const years = formYears(v);
+  if (lastYearEndProblem(v.startDate, v.yearCount, v.lastYearEndDate)) return null;
+  if (lines.some((l) => !years[l.yearNumber - 1] || lineDatesProblem(l, years))) return null;
   return {
     currencyIsoCode: v.currencyIsoCode,
     subscriptionStartDate: v.startDate,
-    subscriptionEndDate: recurring ? end : undefined,
-    billingFrequency: billing,
+    yearCount: v.yearCount,
+    lastYearEndDate: opt(v.lastYearEndDate),
+    billingFrequency: v.billingFrequency,
     partnerCommissionPercent: commissionInput(v),
     lines: lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,
       quantity: Number(l.quantity),
       category: l.category,
       discretionaryDiscountPercent: l.discount.trim() || "0",
+      ...linePlace(l),
       keepPricing:
         l.keepPricing && !l.useLatestPricing
           ? { method: l.keepPricing.method, formulaVersionId: l.keepPricing.formulaVersionId }
@@ -667,28 +781,25 @@ export function toPreviewBody(v: DraftFormValues): object | null {
  */
 export function storedPricing(res: DraftResponse): PricingPreview | null {
   const v = res.version;
-  const start = v.subscriptionStartDate;
-  // A services-only quote has no end date: its one "year" is the start day.
-  const end = v.subscriptionEndDate ?? (hasRecurring(v.lines) ? null : start);
   // Every line is priced, a line waiting for its category included (D75); one
-  // unpriced (e.g. saved before D75) means the quote isn't priced.
+  // unpriced means the quote isn't priced.
   const pricedLines = v.lines;
-  if (!start || !end || pricedLines.length === 0 || pricedLines.some((l) => l.schedule.length === 0)) return null;
-  const yearCount = Math.max(...pricedLines.flatMap((l) => l.schedule.map((r) => r.yearNumber)));
-  const years = [];
-  for (let n = 1; n <= yearCount; n++) {
-    const rows = v.lines.flatMap((l) => l.schedule.filter((r) => r.yearNumber === n));
-    const yearEnd = endDateFor(start, n);
-    years.push({
-      yearNumber: n,
-      periodStart: n === 1 ? start : dayAfter(endDateFor(start, n - 1)),
-      periodEnd: yearEnd < end ? yearEnd : end,
+  if (!v.subscriptionStartDate || pricedLines.length === 0 || pricedLines.some((l) => l.schedule.length === 0)) return null;
+  // The contract years as stored (POC years-bundles); each year's amounts
+  // are the exact sums of its rows (a year without products is 0).
+  const years = (v.years ?? []).map((y) => {
+    const rows = v.lines.flatMap((l) => l.schedule.filter((r) => r.yearNumber === y.yearNumber));
+    return {
+      yearNumber: y.yearNumber,
+      periodStart: y.startDate,
+      periodEnd: y.endDate,
       net: sumMoney(rows.map((r) => r.net)),
+      arr: y.arr ?? "0.00",
       billing: sumMoney(rows.map((r) => r.billing)),
       commission: sumMoney(rows.map((r) => r.commission ?? "0.00")),
       netBilling: sumMoney(rows.map((r) => r.netBilling ?? r.billing)),
-    });
-  }
+    };
+  });
   return {
     rulesVersion: v.pricingRulesVersion,
     termMonths: "",
@@ -697,6 +808,7 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
     // Aligned with the version's lines, one for one (a line waiting for its category is priced too, D75).
     lines: v.lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,
+      yearNumber: l.yearNumber ?? undefined,
       annualList: l.annualList,
       annualNet: l.annualNet,
       arr: l.arr,
@@ -725,13 +837,6 @@ export function alignPreview(
     return next;
   });
   return { ...p, lines: aligned as unknown as PricingPreview["lines"] };
-}
-
-function dayAfter(date: string): string {
-  const d = parseDateString(date);
-  if (!d) return "";
-  d.setDate(d.getDate() + 1);
-  return toDateString(d);
 }
 
 /**
@@ -791,9 +896,9 @@ const STEP_2_FIELDS = [
   "subscriptionStartDate",
   "currencyIsoCode",
   "defaultPricebookId",
-  "termMode",
-  "termYears",
-  "subscriptionEndDate",
+  "years",
+  "yearCount",
+  "lastYearEndDate",
   "partnerCommissionPercent",
 ];
 
@@ -845,6 +950,9 @@ export function pulledLines(products: readonly Product[]): LineValue[] {
         unitOfMeasure: "",
         quantity: "1",
         discount: "",
+        yearNumber: 1, // Year 1: the AM moves or clones them into later years
+        startDate: "",
+        endDate: "",
       } satisfies LineValue,
     ];
   });
