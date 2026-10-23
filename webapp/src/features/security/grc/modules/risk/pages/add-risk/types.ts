@@ -83,8 +83,9 @@ export interface AddRiskFormValues {
   // User ID of the risk owner. Fetched from GET /api/v1/risks/users, filtered to
   // team membership AND GET /api/v1/risks/owner-candidates.
   riskOwner: number | "";
-  // User ID of the management approver. Required on every risk regardless of
-  // level/treatment. Fetched from GET /api/v1/risks/management-approvers.
+  // User ID of the management approver. Required when the risk is HIGH
+  // (whatever the treatment), optional otherwise. Fetched from
+  // GET /api/v1/risks/management-approvers.
   managementApprover: number | "";
   // User ID of the action owner. Fetched from GET /api/v1/risks/users.
   actionOwner: number | "";

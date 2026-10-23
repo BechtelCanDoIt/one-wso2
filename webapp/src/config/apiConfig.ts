@@ -1968,6 +1968,12 @@ export const cado2ServiceUrls = {
   // What AMs may do with quotes they don't own (D69; Admin).
   adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
   adminSalesforceSync: `${cado2BackendUrl}/admin/salesforce-sync`,
+  // Whether approval emails go out (D103; Admin).
+  adminEmailNotifications: `${cado2BackendUrl}/admin/email-notifications`,
+  // Insights (D106): Deal Desk and above, Admins.
+  insightsApprovalOperations: `${cado2BackendUrl}/insights/approval-operations`,
+  insightsQuotes: `${cado2BackendUrl}/insights/quotes`,
+  insightsQuote: (quoteId: number): string => `${cado2BackendUrl}/insights/quotes/${encodeSegment(quoteId)}`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>

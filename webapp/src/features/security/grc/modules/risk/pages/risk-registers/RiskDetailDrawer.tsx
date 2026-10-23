@@ -73,6 +73,7 @@ import {
   downloadBlob,
   fieldLabel,
   formatDate,
+  riskRoles,
   viewBlob,
 } from "./utils";
 import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
@@ -894,10 +895,11 @@ export function ActionFooter({
 
     case "APPROVED": {
       const showEdit = can(RiskPrivilege.UpdateRisk) && isRiskAssigner;
-      // Reassessment is deliberately NOT identity-gated — the backend applies
-      // no assigner check to it either, and keeping the two in step matters
-      // more than tightening one side unilaterally.
-      const showAssess = can(RiskPrivilege.AssessRisk);
+      // Only this risk's Risk Owner and Risk Assigner see Assess Risk, in step
+      // with the backend's identity gate on POST /risks/{id}/assess. The
+      // assigner alone may change owner, approver and implementation date in
+      // it; the dialog shows those read-only to the owner.
+      const showAssess = can(RiskPrivilege.AssessRisk) && (isRiskOwner || isRiskAssigner);
       // At least one action plan must be COMPLETED first — not necessarily
       // all of them, since an abandoned STANDARD plan from a prior
       // escalation cycle shouldn't permanently block resubmission.
@@ -1002,12 +1004,9 @@ export function ActionFooter({
 
     case "ESCALATED": {
       // An escalation is answered with a comment, which returns the risk to its
-      // assigner. Who may do that is decided server-side from the risk's level
-      // (Management Approver for HIGH, a line manager for MEDIUM/LOW) — and a
-      // lead holds no risk privilege by virtue of managing someone, so there is
-      // nothing meaningful to gate on here. The button is offered to anyone who
-      // can see the risk, and the server refuses if they aren't entitled.
-      if (!hasOpenEscalation) return null;
+      // assigner. Only a compliance admin may do that (the server enforces it
+      // too), so nobody else is offered the button.
+      if (!hasOpenEscalation || !can(RiskPrivilege.ComplianceApproveRisk)) return null;
       return (
         <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
           <Button variant="contained" fullWidth disabled={disabled} onClick={actions.onCommentEscalation}>
@@ -1084,8 +1083,7 @@ export default function RiskDetailDrawer({
   const openEscalation = escalations.find((e) => e.status === "OPEN") ?? null;
 
   const canOverrideAssignee = can(RiskPrivilege.ComplianceApproveRisk);
-  const isRiskOwner = canOverrideAssignee || (!!detail && detail.owner_id === currentUserId);
-  const isRiskAssigner = canOverrideAssignee || (!!detail && detail.assigner_id === currentUserId);
+  const { isRiskOwner, isRiskAssigner } = riskRoles(detail, currentUserId, canOverrideAssignee);
   const isManagementApprover =
     canOverrideAssignee || (!!detail && detail.management_approver_id === currentUserId);
 

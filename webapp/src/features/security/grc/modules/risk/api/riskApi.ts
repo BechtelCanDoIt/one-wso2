@@ -379,6 +379,12 @@ export interface CreateAssessmentPayload {
   impact: number;
   progress: string;
   reassessment_date: string;
+  // Optional corrections to the risk, Risk Assigner only (the backend answers
+  // 403 otherwise). Saved with the assessment and never sent for re-approval.
+  // Send only what changed.
+  owner_id?: number;
+  management_approver_id?: number;
+  implementation_date?: string;
 }
 
 // ── Dashboard types (mirror model/dashboard.go) ────────────────────────────────
@@ -1079,9 +1085,7 @@ export async function fetchRiskHistory(authFetch: AuthFetch, riskId: number): Pr
 // the risk remains in the Overdue tab until the assigner submits it for
 // completion approval.
 //
-// Who may call this is decided server-side by risk level: the risk's Management
-// Approver for a HIGH risk, or the assigner's/action owner's line manager for
-// MEDIUM and LOW. A compliance admin may always do it.
+// Only a compliance admin may call this; the server returns 403 otherwise.
 export async function commentOnEscalation(
   authFetch: AuthFetch,
   riskId: number,

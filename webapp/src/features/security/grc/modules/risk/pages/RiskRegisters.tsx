@@ -121,7 +121,9 @@ import {
   STATUS_CONFIG,
   calcDue,
   formatDate,
+  riskRoles,
 } from "./risk-registers/utils";
+import { RiskPrivilege } from "../privileges";
 import { LEVEL_LABELS, LEVEL_ORDER, TREATMENT_LABELS, TREATMENT_ORDER } from "./dashboard/constants";
 
 // ── Tab definitions ────────────────────────────────────────────────────────────
@@ -1366,6 +1368,14 @@ export default function RiskRegisters(): JSX.Element {
         <ReassessmentDialog
           open={assessOpen}
           riskCode={drawerDetail.risk_code}
+          detail={drawerDetail}
+          canEditRiskDetails={
+            riskRoles(
+              drawerDetail,
+              currentUserId,
+              drawerDetail.effective_privileges.includes(RiskPrivilege.ComplianceApproveRisk),
+            ).isRiskAssigner
+          }
           riskScores={riskScores}
           previousScore={drawerDetail.effective_score ?? drawerDetail.gross_score}
           previousIsInitial={!drawerDetail.assessments.some((a) => !a.is_initial)}

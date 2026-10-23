@@ -39,10 +39,12 @@ export function cado2CanSee(itemId: string, access: Cado2Access): boolean {
       return access.canQuote;
     case CADO2_ITEM.approvals:
       return access.canApprove;
+    case CADO2_ITEM.insights:
+      return access.canViewInsights;
     case CADO2_ITEM.admin:
       return access.isAdmin;
     case CADO2_GROUP_ID:
-      return access.canQuote || access.canApprove || access.isAdmin;
+      return access.canQuote || access.canApprove || access.isAdmin || access.canViewInsights;
     default:
       // Fail closed: a CadO2 id with no case here is hidden from everyone.
       return false;

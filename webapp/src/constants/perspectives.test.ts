@@ -123,6 +123,7 @@ describe("CadO2's rail entries", () => {
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
       ["Quotes", "/sales/cado2/quotes"],
       ["My Approvals", "/sales/cado2/approvals"],
+      ["Insights", "/sales/cado2/insights/operations"],
       ["Admin", "/sales/cado2/admin"],
     ]);
   });

@@ -35,7 +35,7 @@ import EvidenceAttachments from "@features/security/grc/components/evidence-atta
 import type { AddRiskFormValues } from "./types";
 import { TREATMENT_STRATEGIES } from "./constants";
 import { fetchManagementApprovers, fetchRiskOwnerCandidates, resolveUserByEmail, searchEmployees } from "../../api/riskApi";
-import type { EmployeeOption, RiskTeam, UserOption } from "../../api/riskApi";
+import type { EmployeeOption, RiskScore, RiskTeam, UserOption } from "../../api/riskApi";
 import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
 
 // Minimum characters before searching — matches the backend's own floor.
@@ -80,10 +80,12 @@ function SectionHeader({ title }: { title: string }): JSX.Element {
 
 interface ActionPlanStepProps {
   assignmentTeams: RiskTeam[];
+  riskScores: RiskScore[];
 }
 
 export default function ActionPlanStep({
   assignmentTeams,
+  riskScores,
 }: ActionPlanStepProps): JSX.Element {
   const { control, setValue, clearErrors } = useFormContext<AddRiskFormValues>();
   const authFetch = useAuthApiClient();
@@ -130,6 +132,19 @@ export default function ActionPlanStep({
   }, [riskOwnerCandidates]);
 
   const managementApprover = useWatch({ control, name: "managementApprover" });
+  // The Management Approver is required only for a HIGH risk. The level is
+  // the one picked in the assessment step.
+  const likelihood = useWatch({ control, name: "likelihood" });
+  const impact = useWatch({ control, name: "impact" });
+  const isHighRisk =
+    likelihood != null &&
+    impact != null &&
+    riskScores.find((sc) => sc.likelihood === likelihood && sc.impact === impact)?.risk_level === "HIGH";
+  // A required-field error left over from a HIGH selection must not outlive a
+  // change to a lower level.
+  useEffect(() => {
+    if (!isHighRisk) clearErrors("managementApprover");
+  }, [isHighRisk, clearErrors]);
   useEffect(() => {
     if (managementApprover !== "" && !managementApprovers.some((u) => u.id === managementApprover)) {
       setValue("managementApprover", "", { shouldDirty: false });
@@ -265,7 +280,7 @@ export default function ActionPlanStep({
             control={control}
             render={({ field, fieldState }) => (
               <Box>
-                <FieldLabel required>Management Approver</FieldLabel>
+                <FieldLabel required={isHighRisk}>Management Approver</FieldLabel>
                 <ComplexSelect
                   {...field}
                   fullWidth
@@ -276,8 +291,9 @@ export default function ActionPlanStep({
                     if (e.target.value) clearErrors("managementApprover");
                   }}
                 >
-                  <ComplexSelect.MenuItem value="" disabled sx={{ display: "none" }}>
-                    Select a management approver
+                  {/* Hidden while required; selectable (to clear a choice) once optional. */}
+                  <ComplexSelect.MenuItem value="" disabled={isHighRisk} sx={isHighRisk ? { display: "none" } : undefined}>
+                    {isHighRisk ? "Select a management approver" : "None"}
                   </ComplexSelect.MenuItem>
                   {managementApprovers.map((u) => (
                     <ComplexSelect.MenuItem key={u.id} value={u.id}>
@@ -287,13 +303,13 @@ export default function ActionPlanStep({
                 </ComplexSelect>
                 {fieldState.error ? (
                   <FormHelperText error>{fieldState.error.message}</FormHelperText>
-                ) : eligibleTeamIds.length > 0 && managementApprovers.length === 0 ? (
+                ) : isHighRisk && eligibleTeamIds.length > 0 && managementApprovers.length === 0 ? (
                   <FormHelperText error>
                     No one holds the Management role for the selected team(s) yet. Contact an admin to grant it.
                   </FormHelperText>
                 ) : (
                   <FormHelperText>
-                    Approves this risk if it's High level with Accept treatment, and is who an overdue risk escalates to.
+                    Required for a High risk, which they approve before Compliance. Optional for Low and Medium risks.
                   </FormHelperText>
                 )}
               </Box>

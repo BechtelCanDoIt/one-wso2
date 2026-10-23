@@ -272,3 +272,18 @@ export const ALL_OPEN_STATUSES = [
   ...APPROVED_OPEN_STATUSES,
   "ESCALATED",
 ];
+
+// riskRoles is who the caller is ON THIS RISK. canOverride is the
+// compliance-admin override (RISK_COMPLIANCE_APPROVE in the risk's source
+// register, read from its effective_privileges): it stands in for both roles,
+// exactly as the backend's canOverrideAssignee does, so the two stay in step.
+export function riskRoles(
+  detail: { owner_id: number; assigner_id: number } | null,
+  currentUserId: number | null,
+  canOverride: boolean,
+): { isRiskOwner: boolean; isRiskAssigner: boolean } {
+  return {
+    isRiskOwner: canOverride || (!!detail && detail.owner_id === currentUserId),
+    isRiskAssigner: canOverride || (!!detail && detail.assigner_id === currentUserId),
+  };
+}

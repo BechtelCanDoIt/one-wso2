@@ -339,6 +339,8 @@ export default function UpdateAssigneesDialog({
               value={managementApproverId}
               onChange={(e) => setManagementApproverId(Number(e.target.value))}
             >
+              {/* A LOW/MEDIUM risk may have no approver yet. */}
+              {!detail.management_approver_id && <MenuItem value={0}>None</MenuItem>}
               {managementApproverOptions.map((u) => <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>)}
             </Select>
           </FormControl>

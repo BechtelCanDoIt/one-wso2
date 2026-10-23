@@ -44,6 +44,7 @@ const matrix: ApprovalMatrix = {
     downsellCeoPercent: "10",
     saasClassification: "CL",
     billingApproval: ["MONTHLY", "QUARTERLY", "SPECIAL_TERMS"],
+    regionalRoles: ["REGIONAL_DIRECTOR", "AREA_GM"],
   },
   roles: [
     { code: "ACCOUNT_MANAGER", label: "Account Manager", ladder: true, reviewer: false },
@@ -132,6 +133,33 @@ describe("ApprovalMatrixPage", () => {
       expect.objectContaining({
         matrix: expect.objectContaining({
           settings: expect.objectContaining({ billingApproval: ["MONTHLY", "UPFRONT", "SPECIAL_TERMS"] }),
+        }),
+      }),
+      expect.anything(),
+    );
+  });
+
+  // D13: the regional roles; the Account Manager has no steps, so isn't listed.
+  it("chooses which approvers are regional", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ApprovalMatrixPage />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByRole("tab", { name: "Commercial rules" }));
+    const regional = within(screen.getByText("Regional approvers").closest("div.MuiPaper-root") as HTMLElement);
+    expect(regional.getByRole("checkbox", { name: "Regional Director" })).toBeChecked();
+    expect(regional.getByRole("checkbox", { name: "CRO" })).not.toBeChecked();
+    expect(regional.queryByRole("checkbox", { name: "Account Manager" })).toBeNull();
+
+    await user.click(regional.getByRole("checkbox", { name: "Area GM" }));
+    await user.click(regional.getByRole("checkbox", { name: "Legal" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        matrix: expect.objectContaining({
+          settings: expect.objectContaining({ regionalRoles: ["REGIONAL_DIRECTOR", "LEGAL"] }),
         }),
       }),
       expect.anything(),

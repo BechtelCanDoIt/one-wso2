@@ -146,6 +146,9 @@ export default function UmtAddManualFilesSection({
   // Spans the whole Add operation, including unpacking a zip.
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Removing a file takes no file: the path says which one goes, so no source
+  // is asked for and nothing is uploaded.
+  const isRemoved = operation === "Removed";
   const needsBundleInfo = bundleInfoApplies(relativePath, operation);
   const relativePathError = relativePath ? manualFilePathError(relativePath) : undefined;
 
@@ -206,11 +209,11 @@ export default function UmtAddManualFilesSection({
 
     const svnTrimmed = svnLocation.trim();
     const githubTrimmed = githubRawUrl.trim();
-    if (source === "upload" && !selectedFile) {
+    if (!isRemoved && source === "upload" && !selectedFile) {
       setFormError("Choose a file to upload.");
       return;
     }
-    if (source === "svn") {
+    if (!isRemoved && source === "svn") {
       if (!svnTrimmed || !umtSvnLocationRegex(updateId).test(svnTrimmed)) {
         setFormError(
           "SVN location should start with http/https, contain '/svn/largefileSVN/', and contain the update ID.",
@@ -218,7 +221,7 @@ export default function UmtAddManualFilesSection({
         return;
       }
     }
-    if (source === "github") {
+    if (!isRemoved && source === "github") {
       const githubError = githubRawUrlError(githubTrimmed);
       if (githubError) {
         setFormError(githubError);
@@ -253,15 +256,16 @@ export default function UmtAddManualFilesSection({
     // backend's `sourceFilePath` field carries when there is no local file —
     // routed through the same field GitHub-raw URLs already use, so validated
     // user input is never silently dropped.
-    const sourceFilePath = source === "svn" ? svnTrimmed : source === "github" ? githubTrimmed : "";
+    const sourceFilePath = isRemoved ? "" : source === "svn" ? svnTrimmed : source === "github" ? githubTrimmed : "";
     // Only ever carry the locally-picked file when "Upload File" is the
     // chosen source — otherwise a file picked earlier under "Upload File"
     // and left selected while the user switches to SVN/GitHub would get
-    // uploaded instead of the URL-only placeholder those sources expect.
-    const fileForUpload = source === "upload" ? selectedFile : null;
+    // uploaded instead of the URL-only placeholder those sources expect. A
+    // removal carries none, whatever was picked before the operation changed.
+    const fileForUpload = source === "upload" && !isRemoved ? selectedFile : null;
 
     const isZip = Boolean(fileForUpload?.name.toLowerCase().endsWith(".zip"));
-    if (!isZip && !fileForUpload) {
+    if (!isRemoved && !isZip && !fileForUpload) {
       const fileNameError = sourceUrlFileNameError(lastPathSegment(sourceFilePath));
       if (fileNameError) {
         setFormError(fileNameError);
@@ -271,20 +275,25 @@ export default function UmtAddManualFilesSection({
 
     setIsSubmitting(true);
     try {
-      const uploads = isZip
-        ? await zipEntryUploads(fileForUpload as File, relativePath, operation, sourceFilePath)
-        : [singleEntryUpload(fileForUpload, relativePath, operation, sourceFilePath)];
+      const uploads = isRemoved
+        ? []
+        : isZip
+          ? await zipEntryUploads(fileForUpload as File, relativePath, operation, sourceFilePath)
+          : [singleEntryUpload(fileForUpload, relativePath, operation, sourceFilePath)];
+      const rows: UmtFileOperation[] = isRemoved
+        ? [{ file: relativePath, operation, sourceFilePath }]
+        : uploads.map((upload) => upload.row);
 
       // Like the Java tool ("<path> file is already added to the uploading file
       // list"), refuse a path that is already listed, before anything is added.
       const existingPaths = new Set(files.map((row) => row.file));
-      const duplicate = uploads.find((upload) => existingPaths.has(upload.row.file));
+      const duplicate = rows.find((row) => existingPaths.has(row.file));
       if (duplicate) {
-        setFormError(`"${duplicate.row.file}" has already been added.`);
+        setFormError(`"${duplicate.file}" has already been added.`);
         return;
       }
 
-      onFilesChange([...files, ...uploads.map((upload) => upload.row)], uploads);
+      onFilesChange([...files, ...rows], uploads);
       if (needsBundleInfo) {
         onBundlesInfoChanged([
           ...bundlesInfoChanges,
@@ -548,51 +557,55 @@ export default function UmtAddManualFilesSection({
               </Select>
             </FormControl>
 
-            <RadioGroup
-              row
-              value={source}
-              onChange={(e) => {
-                const nextSource = e.target.value as UmtManualFileSource;
-                setSource(nextSource);
-                if (nextSource !== "upload") {
-                  setSelectedFile(null);
-                  if (fileInputRef.current) fileInputRef.current.value = "";
-                }
-              }}
-            >
-              <FormControlLabel value="upload" control={<Radio />} label="Upload File" />
-              <FormControlLabel value="svn" control={<Radio />} label="SVN Location" />
-              <FormControlLabel value="github" control={<Radio />} label="GitHub Raw URL" />
-            </RadioGroup>
-
-            {source === "upload" && (
-              <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-                <Button
-                  component="label"
-                  variant="outlined"
-                  startIcon={<UploadIcon size={16} />}
+            {!isRemoved && (
+              <>
+                <RadioGroup
+                  row
+                  value={source}
+                  onChange={(e) => {
+                    const nextSource = e.target.value as UmtManualFileSource;
+                    setSource(nextSource);
+                    if (nextSource !== "upload") {
+                      setSelectedFile(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }
+                  }}
                 >
-                  Choose File
-                  <input ref={fileInputRef} hidden type="file" onChange={handleFileChange} />
-                </Button>
-                {selectedFile && <Typography variant="body2">{selectedFile.name}</Typography>}
-              </Stack>
-            )}
-            {source === "svn" && (
-              <TextField
-                fullWidth
-                label="SVN Location"
-                value={svnLocation}
-                onChange={(e) => setSvnLocation(e.target.value)}
-              />
-            )}
-            {source === "github" && (
-              <TextField
-                fullWidth
-                label="GitHub Raw Source URL"
-                value={githubRawUrl}
-                onChange={(e) => setGithubRawUrl(e.target.value)}
-              />
+                  <FormControlLabel value="upload" control={<Radio />} label="Upload File" />
+                  <FormControlLabel value="svn" control={<Radio />} label="SVN Location" />
+                  <FormControlLabel value="github" control={<Radio />} label="GitHub Raw URL" />
+                </RadioGroup>
+
+                {source === "upload" && (
+                  <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<UploadIcon size={16} />}
+                    >
+                      Choose File
+                      <input ref={fileInputRef} hidden type="file" onChange={handleFileChange} />
+                    </Button>
+                    {selectedFile && <Typography variant="body2">{selectedFile.name}</Typography>}
+                  </Stack>
+                )}
+                {source === "svn" && (
+                  <TextField
+                    fullWidth
+                    label="SVN Location"
+                    value={svnLocation}
+                    onChange={(e) => setSvnLocation(e.target.value)}
+                  />
+                )}
+                {source === "github" && (
+                  <TextField
+                    fullWidth
+                    label="GitHub Raw Source URL"
+                    value={githubRawUrl}
+                    onChange={(e) => setGithubRawUrl(e.target.value)}
+                  />
+                )}
+              </>
             )}
 
             {needsBundleInfo && (
