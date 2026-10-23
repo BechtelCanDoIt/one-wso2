@@ -182,6 +182,16 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
   });
 
+  it("goes back to the Quote Report, with its filters, when opened from there", () => {
+    const back = "/sales/cado2/insights/report?q=north&status=SUBMITTED";
+    showAt(`/sales/cado2/quotes/5/quote?${new URLSearchParams({ from: "insights", back })}`, submitted.quote, submitted);
+    expect(screen.getByRole("link", { name: /Quote Report/ })).toHaveAttribute("href", back);
+    cleanup();
+    // Only an Insights address is accepted as the way back.
+    showAt(`/sales/cado2/quotes/5/quote?${new URLSearchParams({ from: "insights", back: "https://evil.example" })}`, submitted.quote, submitted);
+    expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
+  });
+
   it("offers Recall in the menu on a submitted quote, with no main button", async () => {
     show(submitted.quote, submitted);
     const user = userEvent.setup();

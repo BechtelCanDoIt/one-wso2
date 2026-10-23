@@ -41,6 +41,7 @@ import PricingFormulaHistoryPage from "./admin/pricing-formulas/pages/PricingFor
 // The heavy screens load on first use.
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
 const QuoteDetailPage = lazy(() => import("./quotes/pages/QuoteDetailPage"));
+const InsightsPage = lazy(() => import("./insights/pages/InsightsPage"));
 
 const loading = <Skeleton variant="rounded" height={240} />;
 const deferred = (page: ReactNode) => <Suspense fallback={loading}>{page}</Suspense>;
@@ -76,6 +77,11 @@ export const cado2Routes = (
           <MyApprovalsPage />
         </Cado2Requires>
       }
+    />
+    <Route path="insights" element={<Navigate to={cado2Paths.insights()} replace />} />
+    <Route
+      path="insights/:tab"
+      element={<Cado2Requires need="insights">{deferred(<InsightsPage />)}</Cado2Requires>}
     />
     <Route
       path="admin"

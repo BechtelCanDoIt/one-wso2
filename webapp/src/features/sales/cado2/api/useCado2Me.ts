@@ -36,6 +36,8 @@ export interface Cado2Me {
   readonly approverRoles: readonly string[];
   /** Sales regions the caller approves in, e.g. "NA" (D13). */
   readonly regions?: readonly string[];
+  /** Admin, Deal Desk and the roles above it see Insights (D105). */
+  readonly canViewInsights?: boolean;
 }
 
 /**
@@ -59,6 +61,7 @@ export interface Cado2Access {
   canQuote: boolean;
   canApprove: boolean;
   isAdmin: boolean;
+  canViewInsights: boolean;
 }
 
 export function cado2Access(me: Cado2Me | undefined): Cado2Access {
@@ -69,5 +72,6 @@ export function cado2Access(me: Cado2Me | undefined): Cado2Access {
     canQuote: roles.includes("SALES"),
     canApprove: (me?.approverRoles.length ?? 0) > 0,
     isAdmin,
+    canViewInsights: me?.canViewInsights === true,
   };
 }

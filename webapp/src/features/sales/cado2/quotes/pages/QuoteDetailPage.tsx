@@ -80,6 +80,12 @@ export default function QuoteDetailPage(): JSX.Element {
   // Opened from My Approvals (?from=approvals): the back link returns there.
   const [search] = useSearchParams();
   const fromApprovals = search.get("from") === "approvals";
+  // Opened from the Quote Report (?from=insights&back=…): the back link returns
+  // to the report with its filters. Only an Insights address is accepted.
+  const insightsBack = search.get("from") === "insights" ? search.get("back") : null;
+  const backToReport = insightsBack?.startsWith(cado2Paths.insights("report").split("?")[0]) ? insightsBack : null;
+  const keepFrom = (path: string) =>
+    backToReport ? `${path}${path.includes("?") ? "&" : "?"}${new URLSearchParams({ from: "insights", back: backToReport })}` : path;
   const quoteId = Number(params.quoteId);
   const tab = TAB_SEGMENTS.indexOf(params.tab as Cado2QuoteTab);
   const quote = useQuote(quoteId);
@@ -90,7 +96,7 @@ export default function QuoteDetailPage(): JSX.Element {
   const shownNumber = quote.data?.versions.some((x) => x.versionNumber === asked) ? asked : latestNumber;
   const viewingOlder = shownNumber !== null && latestNumber !== null && shownNumber !== latestNumber;
   const shownParam = viewingOlder ? (shownNumber ?? undefined) : undefined;
-  const openTab = (i: number) => navigate(cado2Paths.quote(quoteId, TAB_SEGMENTS[i], fromApprovals, shownParam));
+  const openTab = (i: number) => navigate(keepFrom(cado2Paths.quote(quoteId, TAB_SEGMENTS[i], fromApprovals, shownParam)));
   const shown = useQuoteVersion(quoteId, shownNumber);
   const recall = useRecallVersion();
   const revise = useReviseQuote();
@@ -203,11 +209,11 @@ export default function QuoteDetailPage(): JSX.Element {
       <Stack spacing={1.5}>
         <Link
           component={RouterLink}
-          to={fromApprovals ? cado2Paths.approvals : cado2Paths.quotes}
+          to={backToReport ?? (fromApprovals ? cado2Paths.approvals : cado2Paths.quotes)}
           variant="body2"
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, alignSelf: "flex-start" }}
         >
-          <ArrowLeftIcon size={14} /> {fromApprovals ? "My Approvals" : "Quotes"}
+          <ArrowLeftIcon size={14} /> {backToReport ? "Quote Report" : fromApprovals ? "My Approvals" : "Quotes"}
         </Link>
         {/* The record header (frontend.md, "Page titles"): the account is the
             page's title on every tab, with everything about who and what the
