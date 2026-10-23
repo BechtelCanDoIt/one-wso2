@@ -183,3 +183,39 @@ describe("riskRoles", () => {
     expect(riskRoles(null, 11, false)).toEqual({ isRiskOwner: false, isRiskAssigner: false });
   });
 });
+
+describe("ActionFooter in ESCALATED", () => {
+  const actions = { onCommentEscalation: vi.fn() } as unknown as Parameters<typeof ActionFooter>[0]["actions"];
+
+  const footer = (props: { privileges: string[]; hasOpenEscalation?: boolean }) =>
+    render(
+      <ActionFooter
+        status="ESCALATED"
+        ownerFirstApprovedAt={null}
+        actions={actions}
+        disabled={false}
+        can={(p) => props.privileges.includes(p)}
+        actionPlans={[]}
+        isOverdue
+        isRiskOwner
+        isRiskAssigner
+        isManagementApprover
+        hasOpenEscalation={props.hasOpenEscalation ?? true}
+      />,
+    );
+
+  it("offers Review Escalation to a compliance admin", () => {
+    footer({ privileges: [RiskPrivilege.ComplianceApproveRisk] });
+    expect(screen.getByRole("button", { name: "Review Escalation" })).toBeInTheDocument();
+  });
+
+  it("hides it from everyone else, even the risk's own management approver", () => {
+    footer({ privileges: [RiskPrivilege.ManagementApproveRisk, RiskPrivilege.ViewRisks] });
+    expect(screen.queryByRole("button", { name: "Review Escalation" })).not.toBeInTheDocument();
+  });
+
+  it("hides it when no escalation is open", () => {
+    footer({ privileges: [RiskPrivilege.ComplianceApproveRisk], hasOpenEscalation: false });
+    expect(screen.queryByRole("button", { name: "Review Escalation" })).not.toBeInTheDocument();
+  });
+});

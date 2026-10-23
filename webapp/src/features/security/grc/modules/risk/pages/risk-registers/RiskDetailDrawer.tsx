@@ -1004,12 +1004,9 @@ export function ActionFooter({
 
     case "ESCALATED": {
       // An escalation is answered with a comment, which returns the risk to its
-      // assigner. Who may do that is decided server-side from the risk's level
-      // (Management Approver for HIGH, a line manager for MEDIUM/LOW) — and a
-      // lead holds no risk privilege by virtue of managing someone, so there is
-      // nothing meaningful to gate on here. The button is offered to anyone who
-      // can see the risk, and the server refuses if they aren't entitled.
-      if (!hasOpenEscalation) return null;
+      // assigner. Only a compliance admin may do that (the server enforces it
+      // too), so nobody else is offered the button.
+      if (!hasOpenEscalation || !can(RiskPrivilege.ComplianceApproveRisk)) return null;
       return (
         <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
           <Button variant="contained" fullWidth disabled={disabled} onClick={actions.onCommentEscalation}>
