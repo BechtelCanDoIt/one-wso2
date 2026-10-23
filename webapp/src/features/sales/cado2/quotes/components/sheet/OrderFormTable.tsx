@@ -20,6 +20,7 @@ import { CircleAlertIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { durationShort, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
+import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
 
 const num = { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } as const;
 
@@ -243,7 +244,7 @@ export default function OrderFormTable({
               <TableCell align="right">Amount{cur}</TableCell>
               {actions ? (
                 <TableCell align="right">
-                  <Box component="span" sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
+                  <Box component="span" sx={visuallyHidden}>
                     Actions
                   </Box>
                 </TableCell>

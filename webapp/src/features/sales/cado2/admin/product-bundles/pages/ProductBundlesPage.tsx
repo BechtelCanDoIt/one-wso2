@@ -50,6 +50,7 @@ import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import type { FormulaProduct } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { useBundles, useSetBundle } from "@features/sales/cado2/admin/product-bundles/api/useBundles";
 import type { Bundle } from "@features/sales/cado2/admin/product-bundles/api/bundleTypes";
+import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
 
 /** The most products a bundle brings besides its parent (as the backend). */
 const MAX_CHILDREN = 10;
@@ -182,7 +183,7 @@ export default function ProductBundlesPage(): JSX.Element {
                   <TableCell>Comes with</TableCell>
                   <TableCell>Last changed</TableCell>
                   <TableCell align="right">
-                    <Box component="span" sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden" }}>
+                    <Box component="span" sx={visuallyHidden}>
                       Actions
                     </Box>
                   </TableCell>
