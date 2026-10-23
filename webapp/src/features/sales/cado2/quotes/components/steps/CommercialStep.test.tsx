@@ -51,6 +51,7 @@ const line = (discount: string): LineValue => ({
   yearNumber: 1,
   startDate: "",
   endDate: "",
+  salesPrice: "",
 });
 
 function Harness({ lines, values = {} }: { lines: LineValue[]; values?: Partial<DraftFormValues> }) {

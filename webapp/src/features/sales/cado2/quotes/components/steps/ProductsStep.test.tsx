@@ -67,6 +67,7 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   yearNumber: 1,
   startDate: "",
   endDate: "",
+  salesPrice: "",
 });
 
 function Harness({

@@ -106,6 +106,7 @@ function savedSupportLine(): LineValue {
     yearNumber: 1,
     startDate: "",
     endDate: "",
+    salesPrice: "",
     keepPricing: {
       method: "FORMULA",
       formulaVersionId: 6,
@@ -143,7 +144,7 @@ describe("AddLineDialog", () => {
   it("groups the fields and shows the chosen product and its price-book price", async () => {
     const onSave = renderDialog();
     const user = userEvent.setup();
-    for (const group of ["Product", "Quantity & Discount"]) {
+    for (const group of ["Product", "Price, Quantity & Discount"]) {
       expect(screen.getByRole("region", { name: group })).toBeInTheDocument();
     }
     // Lines have no dates of their own: they cover the quote's term.
@@ -182,6 +183,25 @@ describe("AddLineDialog", () => {
     );
   });
 
+  // POC Stage B: the sales price is the list price unless the AM raises it; never lower.
+  it("lets the AM raise the sales price, not lower it", async () => {
+    const onSave = renderDialog();
+    const user = await pick(/Enterprise Support Plan/); // list 25,000, mapped to Support
+    const field = screen.getByRole("textbox", { name: "Sales price" });
+    expect(field).toHaveAttribute("placeholder", "25000.00");
+    expect(screen.getByText("List price USD 25,000. You can raise it, not lower it.")).toBeInTheDocument();
+
+    await user.type(field, "24000");
+    await user.click(screen.getByRole("button", { name: "Add line" }));
+    expect(onSave).not.toHaveBeenCalled();
+    expect(screen.getByText("The sales price can't be below the list price (25000.00)")).toBeInTheDocument();
+
+    await user.clear(field);
+    await user.type(field, "27500.50");
+    await user.click(screen.getByRole("button", { name: "Add line" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: "25000", salesPrice: "27500.5" }));
+  });
+
   it("takes a mapped product's category, with no choice to make", async () => {
     const onSave = renderDialog();
     const user = await pick(/Enterprise Support Plan/);
@@ -214,6 +234,7 @@ describe("AddLineDialog", () => {
       yearNumber: 1,
       startDate: "",
       endDate: "",
+      salesPrice: "",
     };
     const onSave = renderDialog(vi.fn(), line);
 
@@ -315,9 +336,12 @@ describe("AddLineDialog — closing", () => {
       // D83: the unit of measure comes from the formula version.
       expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, higher of 25,000 or 10% of subscription");
       expect(screen.getByText("From the pricing formula v3")).toBeInTheDocument();
+      // POC Stage B: a formula's price can't be overridden.
+      expect(screen.getByRole("textbox", { name: "Sales price" })).toBeDisabled();
+      expect(screen.getByText("Priced by formula: the price can't be changed")).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Add line" }));
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ productId: support.id, discount: "0" }));
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ productId: support.id, discount: "0", salesPrice: "" }));
     } finally {
       formulas.list = [];
     }

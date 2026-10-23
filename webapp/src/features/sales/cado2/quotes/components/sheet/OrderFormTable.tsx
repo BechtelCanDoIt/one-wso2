@@ -230,7 +230,7 @@ export default function OrderFormTable({
             <TableRow>
               <TableCell>Product or service</TableCell>
               <TableCell>Unit of measure</TableCell>
-              <TableCell align="right">Unit list</TableCell>
+              <TableCell align="right">Unit price</TableCell>
               <TableCell align="right">Qty</TableCell>
               <TableCell align="right">Discount</TableCell>
               <TableCell>Term</TableCell>

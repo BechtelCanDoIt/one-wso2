@@ -109,6 +109,11 @@ export interface LineValue {
   /** Within its year; "" = the year's own start / end. A one-off is charged on its start. */
   startDate: string;
   endDate: string;
+  /**
+   * The unit price charged (POC Stage B): "" = the list price (unitPrice).
+   * The AM may raise it, never lower it; a formula-priced line has none.
+   */
+  salesPrice: string;
 }
 
 /** The most contract years a quote can have (D85). */
@@ -612,6 +617,7 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
       yearNumber: l.yearNumber ?? 0,
       startDate: l.startDate && l.startDate !== yearOf(l.yearNumber)?.startDate ? l.startDate : "",
       endDate: l.recurring && l.endDate && l.endDate !== yearOf(l.yearNumber)?.endDate ? l.endDate : "",
+      salesPrice: l.salesPrice && Number(l.salesPrice) !== Number(l.unitPrice) ? String(Number(l.salesPrice)) : "",
     })),
     netTermsDays: (["30", "45", "60"] as const).find((n) => String(v.netTermsDays) === n) ?? "",
     poNumber: v.poNumber ?? "",
@@ -686,9 +692,26 @@ function termInput(v: DraftFormValues) {
   };
 }
 
-/** A line's year and dates in a request: dates only when narrowed (the backend defaults to the year). */
+/** A line's year, dates and sales price in a request: each only when set (the backend defaults them). */
 function linePlace(l: LineValue) {
-  return { yearNumber: l.yearNumber, startDate: opt(l.startDate), endDate: l.recurring ? opt(l.endDate) : undefined };
+  return {
+    yearNumber: l.yearNumber,
+    startDate: opt(l.startDate),
+    endDate: l.recurring ? opt(l.endDate) : undefined,
+    salesPrice: opt(l.salesPrice),
+  };
+}
+
+/**
+ * Why a sales price is not allowed, or "" (POC Stage B): an amount with at
+ * most 2 decimals, not below the list price. "" = the list price.
+ */
+export function salesPriceProblem(salesPrice: string, listPrice: string): string {
+  const s = salesPrice.trim();
+  if (!s) return "";
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) return "Use an amount with at most 2 decimals";
+  if (Number(s) < Number(listPrice)) return `The sales price can't be below the list price (${Number(listPrice).toFixed(2)})`;
+  return "";
 }
 
 /** The save request body. */
@@ -953,6 +976,7 @@ export function pulledLines(products: readonly Product[]): LineValue[] {
         yearNumber: 1, // Year 1: the AM moves or clones them into later years
         startDate: "",
         endDate: "",
+        salesPrice: "",
       } satisfies LineValue,
     ];
   });

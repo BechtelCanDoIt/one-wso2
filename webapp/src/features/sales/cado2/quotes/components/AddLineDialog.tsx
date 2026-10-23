@@ -59,6 +59,7 @@ import {
   LINE_CATEGORIES,
   lineDatesProblem,
   parseDateString,
+  salesPriceProblem,
   toDateString,
   type ContractYear,
   type LineValue,
@@ -244,6 +245,8 @@ export default function AddLineDialog({
   // Locked for now (2026-10-14): a saved line keeps its value; a new one has none.
   const [quantity, setQuantity] = useState(line?.quantity ?? "1");
   const [discount, setDiscount] = useState(line?.discount ?? "0");
+  // The unit price charged (POC Stage B): "" = the list price.
+  const [salesPrice, setSalesPrice] = useState(line?.salesPrice ?? "");
   const [tried, setTried] = useState(false);
   // Its dates within the year, shown filled in; saved as "" when they are the year's own.
   const [startDate, setStartDate] = useState(line?.startDate || year?.start || "");
@@ -328,6 +331,10 @@ export default function AddLineDialog({
           { yearNumber: year.number, startDate, endDate: recurring ? endDate : "", recurring },
           Array.from({ length: year.number }, () => year),
         );
+  // The list price the sales price can't go below: the price book's (a kept
+  // line's stored one); a formula line has no sales price.
+  const listPrice = keepsExisting ? keptUnitPrice : (entry?.unitPrice ?? "");
+  const salesProblem = formula ? "" : salesPriceProblem(salesPrice, listPrice);
   const show = (k: string) => (tried ? problems[k] : undefined);
 
   const chooseProduct = (p: Product | null) => {
@@ -338,7 +345,7 @@ export default function AddLineDialog({
 
   const save = () => {
     setTried(true);
-    if (Object.keys(problems).length > 0 || datesProblem) return;
+    if (Object.keys(problems).length > 0 || datesProblem || salesProblem) return;
     const base: LineValue = keepsExisting
       ? { ...line }
       : {
@@ -360,6 +367,7 @@ export default function AddLineDialog({
           yearNumber: year?.number ?? 1,
           startDate: "",
           endDate: "",
+          salesPrice: "",
         };
     onSave({
       ...base,
@@ -370,6 +378,7 @@ export default function AddLineDialog({
       discount: formula ? "0" : discount.trim() || "0",
       unitPrice: keepsExisting ? keptUnitPrice : base.unitPrice,
       useLatestPricing: keepsExisting && moved ? true : undefined,
+      salesPrice: formula || !salesPrice.trim() || Number(salesPrice) === Number(listPrice) ? "" : String(Number(salesPrice)),
       startDate: year && startDate !== year.start ? startDate : "",
       endDate: year && recurring && endDate !== year.end ? endDate : "",
     });
@@ -516,7 +525,26 @@ export default function AddLineDialog({
               </>
             ) : null}
           </Group>
-          <Group icon={<PercentIcon size={14} />} title="Quantity & Discount">
+          <Group icon={<PercentIcon size={14} />} title="Price, Quantity & Discount">
+            {/* The sales price (POC Stage B): the list price unless raised; never
+                lower. A formula sets its own price, which can't be changed. */}
+            <TextField
+              label="Sales price"
+              value={formula ? "" : salesPrice}
+              placeholder={formula ? "Set by the formula" : listPrice ? Number(listPrice).toFixed(2) : ""}
+              onChange={(e) => setSalesPrice(e.target.value)}
+              size="small"
+              inputMode="decimal"
+              disabled={Boolean(formula) || !chosen}
+              error={Boolean(tried && salesProblem)}
+              helperText={
+                formula
+                  ? "Priced by formula: the price can't be changed"
+                  : (tried && salesProblem) ||
+                    (listPrice ? `List price ${currency} ${formatMoney(listPrice)}. You can raise it, not lower it.` : undefined)
+              }
+              slotProps={{ input: { startAdornment: <InputAdornment position="start">{currency}</InputAdornment> } }}
+            />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
               <TextField
                 label="Quantity"

@@ -39,6 +39,7 @@ import {
   lineDatesProblem,
   deleteYear,
   insertIndex,
+  salesPriceProblem,
   setLastYearEnd,
   toDateString,
   toDraftInput,
@@ -148,6 +149,7 @@ function filled(): DraftFormValues {
         yearNumber: 1,
         startDate: "",
         endDate: "",
+        salesPrice: "",
       },
       {
         lineId: null,
@@ -167,6 +169,7 @@ function filled(): DraftFormValues {
         yearNumber: 1,
         startDate: "",
         endDate: "",
+        salesPrice: "",
       },
     ],
   };
@@ -380,6 +383,24 @@ describe("contract years (POC years-bundles)", () => {
     expect(durationText("2027-03-05", "2027-03-04")).toBe("");
   });
 
+});
+
+describe("sales price (POC Stage B)", () => {
+  it("sends a raised sales price, and none when it is the list price", () => {
+    const v = filled();
+    const input = toDraftInput({ ...v, lines: [{ ...v.lines[0], salesPrice: "400" }, v.lines[1]] });
+    expect(input.lines[0].salesPrice).toBe("400");
+    expect(input.lines[1].salesPrice).toBeUndefined();
+    expect((toPreviewBody({ ...v, lines: [{ ...v.lines[0], salesPrice: "400" }] }) as { lines: { salesPrice?: string }[] }).lines[0].salesPrice).toBe("400");
+  });
+
+  it("allows the list price or more, with at most 2 decimals", () => {
+    expect(salesPriceProblem("", "360")).toBe("");
+    expect(salesPriceProblem("360", "360")).toBe("");
+    expect(salesPriceProblem("400.50", "360")).toBe("");
+    expect(salesPriceProblem("359.99", "360")).toMatch(/below the list price \(360.00\)/);
+    expect(salesPriceProblem("400.123", "360")).toMatch(/2 decimals/);
+  });
 });
 
 describe("fromVersion", () => {

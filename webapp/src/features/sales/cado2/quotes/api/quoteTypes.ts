@@ -294,8 +294,10 @@ export interface PricingPreview {
     /** The category priced: a mapped product's comes from its mapping. */
     readonly category?: LineCategory;
     readonly categorySource?: CategorySource;
-    /** The unit price priced: a formula line's is worked out (D81). */
+    /** The list price priced: a formula line's is worked out (D81). */
     readonly unitPrice?: string;
+    /** The unit price charged (POC Stage B). */
+    readonly salesPrice?: string;
     readonly pricingMethod?: PricingMethod;
     readonly formula?: LineFormula | null;
     readonly discretionaryDiscountPercent?: string;
@@ -346,6 +348,8 @@ export interface DraftLineInput {
   /** Within its year; omitted = the whole year. A one-off is charged on its start. */
   readonly startDate?: string;
   readonly endDate?: string;
+  /** The unit price charged (POC Stage B); omitted = the list price. Never below it; none on a formula line. */
+  readonly salesPrice?: string;
 }
 
 /** POST /quotes and PUT /quotes/{id}/versions/{n} body. */
@@ -399,7 +403,10 @@ export interface LineView {
   readonly pricebookEntryId: string;
   readonly pricebookId?: string;
   readonly pricebookName: string;
+  /** The list price: the price book's, or the formula's. */
   readonly unitPrice: string;
+  /** What the customer is charged per unit: the list price unless the AM raised it (POC Stage B). */
+  readonly salesPrice?: string;
   /** PRICE_BOOK, or FORMULA: worked out by an Admin's formula, with no discount (D81). */
   readonly pricingMethod?: PricingMethod;
   readonly formula?: LineFormula | null;

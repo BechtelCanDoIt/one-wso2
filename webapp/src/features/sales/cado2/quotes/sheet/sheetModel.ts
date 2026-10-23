@@ -83,6 +83,7 @@ export interface SheetLine {
   readonly recurring: boolean;
   readonly quantity: string;
   readonly unitOfMeasure: string | null;
+  /** The unit price charged: the sales price, which is the list price unless raised (POC Stage B). */
   readonly unitPrice: string;
   /** e.g. "10" for 10%; "0" when none, and always on a formula line. */
   readonly discountPercent: string;
@@ -264,7 +265,7 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
       recurring: l.recurring,
       quantity: String(l.quantity),
       unitOfMeasure: blank(l.unitOfMeasure),
-      unitPrice: l.unitPrice,
+      unitPrice: l.salesPrice ?? l.unitPrice,
       discountPercent: String(Number(l.discretionaryDiscountPercent)),
       formula: l.pricingMethod === "FORMULA" ? formulaOf(l.formula) : null,
       yearNumber: l.yearNumber ?? 0,
@@ -359,7 +360,7 @@ export function sheetFromForm(
         recurring: l.recurring,
         quantity: l.quantity,
         unitOfMeasure: blank(l.unitOfMeasure),
-        unitPrice: byFormula ? (p.unitPrice ?? l.unitPrice) : l.unitPrice,
+        unitPrice: byFormula ? (p.unitPrice ?? l.unitPrice) : l.salesPrice || l.unitPrice,
         discountPercent: byFormula ? "0" : String(Number(l.discount || "0")),
         formula: byFormula ? formulaOf(p.formula) : null,
         yearNumber: l.yearNumber,
