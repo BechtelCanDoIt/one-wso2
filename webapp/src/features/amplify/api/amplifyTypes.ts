@@ -228,6 +228,11 @@ export interface DashboardOperations {
   };
 }
 
+export interface DashboardPerson {
+  employeeId: string;
+  displayName: string;
+}
+
 export interface DashboardCampaignDetail {
   campaignId: string;
   title: string;
@@ -241,6 +246,13 @@ export interface DashboardCampaignDetail {
   first24Hours: number;
   announcement: DashboardAnnouncement;
   byDay: { day: number; reposts: number }[];
+  /** The post's card: text, picture and the LinkedIn link. Absent until the API sends them. */
+  summary?: string | null;
+  imageUrl?: string | null;
+  resourceUrl?: string | null;
+  /** Who reposted it, by name: plain reposts and reposts with the person's own comment. */
+  people?: { reposts: DashboardPerson[]; withComments: DashboardPerson[] };
+  repostsWithCommentary?: number;
 }
 
 export interface DashboardCampaigns {

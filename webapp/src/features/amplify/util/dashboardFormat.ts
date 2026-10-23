@@ -174,3 +174,36 @@ export function scoreBar(m: Pick<ScorecardMeasure, "unit" | "value" | "target" |
     text: ceiling ? `${inUnit(m, value)} against a ${inUnit(m, target)} ceiling` : `${inUnit(m, value)} of ${inUnit(m, target)} target`,
   };
 }
+
+export type ExportPeriod = "day" | "week" | "month" | "year";
+
+/** The longest export the API takes, in days. */
+export const EXPORT_MAX_DAYS = 366;
+
+function isoDay(d: Date): string {
+  return d.toISOString().slice(0, 10);
+}
+
+/**
+ * The UTC date range a Day / Week / Month / Year pill stands for, ending today: today; Monday to today;
+ * the 1st to today; 1 January to today. Same calendar the Operations points tiles use.
+ */
+export function exportRange(period: ExportPeriod, now: Date = new Date()): { from: string; to: string } {
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const start = new Date(today);
+  if (period === "week") start.setUTCDate(today.getUTCDate() - ((today.getUTCDay() + 6) % 7));
+  if (period === "month") start.setUTCDate(1);
+  if (period === "year") start.setUTCMonth(0, 1);
+  return { from: isoDay(start), to: isoDay(today) };
+}
+
+/** Why a from/to pair can't be exported, or null when it can. */
+export function exportRangeProblem(from: string, to: string): string | null {
+  if (!from || !to) return "Pick both dates.";
+  const a = Date.parse(`${from}T00:00:00Z`);
+  const b = Date.parse(`${to}T00:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b)) return "Pick both dates.";
+  if (b < a) return "The end date is before the start date.";
+  if ((b - a) / 86_400_000 + 1 > EXPORT_MAX_DAYS) return `Pick at most ${EXPORT_MAX_DAYS} days.`;
+  return null;
+}

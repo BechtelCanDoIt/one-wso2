@@ -1763,6 +1763,7 @@ export const amplifyServiceUrls = {
   dashboardOperations: `${amplifyBackendUrl}/dashboards/operations`,
   dashboardCampaigns: `${amplifyBackendUrl}/dashboards/campaigns`,
   dashboardParticipation: `${amplifyBackendUrl}/dashboards/participation`,
+  dashboardExport: `${amplifyBackendUrl}/dashboards/export`,
   dashboardGlance: `${amplifyBackendUrl}/dashboards/glance`,
   dashboardScorecard: `${amplifyBackendUrl}/dashboards/scorecard`,
   connectStart: `${amplifyBackendUrl}/connections/linkedin/start`,

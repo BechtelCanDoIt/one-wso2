@@ -15,12 +15,23 @@
 // under the License.
 
 import { useState } from "react";
-import { Box, ButtonBase, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, ButtonBase, Chip, Table, TableBody, TableCell, TableHead, TableRow, TextField, Typography } from "@wso2/oxygen-ui";
+import { humanizeHttpError } from "@api/http";
+import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { DashboardParticipation, GroupBoard, GroupSort, SortDir } from "../../api/amplifyTypes";
-import { useDashboardParticipation, useGroupBoard } from "../../api/useAmplifyDashboards";
+import { useDashboardExport, useDashboardParticipation, useGroupBoard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
 import { Bar, Block, BoardState, Empty } from "../../components/DashboardParts";
-import { nextSort, updatedStamp, num, percentOf, rate } from "../../util/dashboardFormat";
+import {
+  exportRange,
+  exportRangeProblem,
+  nextSort,
+  updatedStamp,
+  num,
+  percentOf,
+  rate,
+  type ExportPeriod,
+} from "../../util/dashboardFormat";
 
 /** Employees → connected → reposted → active: where people drop out. */
 export function Funnel({ data }: { data: DashboardParticipation }) {
@@ -193,7 +204,107 @@ export function TeamTable({
   );
 }
 
+const EXPORT_PERIODS: { key: ExportPeriod; label: string }[] = [
+  { key: "day", label: "Day" },
+  { key: "week", label: "Week" },
+  { key: "month", label: "Month" },
+  { key: "year", label: "Year" },
+];
+
+/** Saves a CSV blob under `name` through a temporary link. */
+function saveFile(blob: Blob, name: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Export: Day / Week / Month / Year pills (to today, UTC) or a from/to calendar, then a CSV of the raw rows
+ * every board is counted from. A pill fills the dates in; typing a date unselects the pill.
+ */
+export function ExportPanel({ onExport, now }: { onExport: (from: string, to: string) => Promise<Blob>; now?: Date }) {
+  const [period, setPeriod] = useState<ExportPeriod | null>("month");
+  const [range, setRange] = useState(() => exportRange("month", now));
+  const [busy, setBusy] = useState(false);
+  const { showError } = useNotifications();
+  const problem = exportRangeProblem(range.from, range.to);
+  const pick = (p: ExportPeriod) => {
+    setPeriod(p);
+    setRange(exportRange(p, now));
+  };
+  const download = async () => {
+    setBusy(true);
+    try {
+      saveFile(await onExport(range.from, range.to), `amplify-${range.from}-to-${range.to}.csv`);
+    } catch (err) {
+      showError(humanizeHttpError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <Block title="Export">
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
+        <Box role="group" aria-label="Period" sx={{ display: "flex", gap: 0.75, flexWrap: "wrap" }}>
+          {EXPORT_PERIODS.map((p) => (
+            <Chip
+              key={p.key}
+              label={p.label}
+              color={period === p.key ? "primary" : "default"}
+              variant={period === p.key ? "filled" : "outlined"}
+              onClick={() => pick(p.key)}
+              aria-pressed={period === p.key}
+            />
+          ))}
+        </Box>
+        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", alignItems: "center" }}>
+          <TextField
+            type="date"
+            size="small"
+            label="From"
+            value={range.from}
+            onChange={(e) => {
+              setPeriod(null);
+              setRange({ ...range, from: e.target.value });
+            }}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: range.to || undefined } }}
+          />
+          <TextField
+            type="date"
+            size="small"
+            label="To"
+            value={range.to}
+            onChange={(e) => {
+              setPeriod(null);
+              setRange({ ...range, to: e.target.value });
+            }}
+            slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: range.from || undefined } }}
+          />
+          <Button variant="contained" onClick={() => void download()} disabled={problem !== null || busy}>
+            {busy ? "Preparing…" : "Download CSV"}
+          </Button>
+        </Box>
+        {problem && (
+          <Typography variant="body2" color="error" role="alert">
+            {problem}
+          </Typography>
+        )}
+        <Typography variant="body2" color="text.secondary">
+          One row for every repost, share attempt, points entry, post opened and LinkedIn connection in the range (UTC days, both
+          ends included). The record_type column tells them apart.
+        </Typography>
+      </Box>
+    </Block>
+  );
+}
+
 export default function ParticipationPage() {
+  const exportRows = useDashboardExport();
   const funnel = useDashboardParticipation();
   const [picked, setPicked] = useState<string | undefined>(undefined);
   const [order, setOrder] = useState<{ sort: GroupSort; dir: SortDir }>({ sort: "rank", dir: "asc" });
@@ -225,6 +336,7 @@ export default function ParticipationPage() {
                 onSort={(col) => setOrder((cur) => nextSort(cur, col))}
               />
             </BoardState>
+            <ExportPanel onExport={exportRows} />
           </Box>
         )}
       </BoardState>

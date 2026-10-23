@@ -17,7 +17,7 @@
 // subject. The API caches each board for 60 s, so the UI holds it for the same time.
 
 import { useQuery } from "@tanstack/react-query";
-import { authedGet } from "@api/http";
+import { authedGet, fetchWithReauth, HttpError } from "@api/http";
 import { amplifyServiceUrls } from "@config/apiConfig";
 import { foldIdentityError } from "@hooks/useAsgardeoSub";
 import { amplifyRetry } from "../util/amplifyError";
@@ -103,4 +103,15 @@ export function useGroupBoard(
     by === "TEAM" ? sort : "",
     by === "TEAM" ? dir : "",
   );
+}
+
+/** The raw rows behind the boards for a UTC date range (`YYYY-MM-DD`, both ends included), as CSV text. */
+export function useDashboardExport() {
+  const { getAccessToken } = useAmplifyQueryBasis();
+  return async (from: string, to: string): Promise<Blob> => {
+    const url = `${amplifyServiceUrls.dashboardExport}?${new URLSearchParams({ from, to })}`;
+    const res = await fetchWithReauth(url, { headers: { Accept: "text/csv" } }, await getAccessToken());
+    if (!res.ok) throw new HttpError(url, res.status, await res.text().catch(() => ""));
+    return new Blob([await res.text()], { type: "text/csv;charset=utf-8" });
+  };
 }

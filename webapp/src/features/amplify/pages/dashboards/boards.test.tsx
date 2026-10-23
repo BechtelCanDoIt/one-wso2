@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type {
   DashboardGlance,
   DashboardOperations,
@@ -23,12 +23,17 @@ import type {
   DashboardScorecard,
   GroupBoard,
 } from "../../api/amplifyTypes";
-import { nextSort } from "../../util/dashboardFormat";
+import { exportRange, exportRangeProblem, nextSort } from "../../util/dashboardFormat";
 import { GlanceBoard } from "./GlanceBoard";
 import { OperationsBoard } from "./OperationsBoard";
-import { Funnel, TeamTable } from "./ParticipationBoard";
+import { ExportPanel, Funnel, TeamTable } from "./ParticipationBoard";
 import { PostPerformanceBoard } from "./PostPerformanceBoard";
 import { ScorecardBoard } from "./ScorecardBoard";
+
+const showError = vi.fn();
+vi.mock("@context/notifications/NotificationsContext", () => ({
+  useNotifications: () => ({ showError, showSuccess: vi.fn() }),
+}));
 
 const operations: DashboardOperations = {
   asOf: "2026-10-22T09:15:00Z",
@@ -130,34 +135,79 @@ const campaigns: DashboardCampaigns = {
 };
 
 describe("PostPerformanceBoard", () => {
-  it("shows the selected post and reloads when another post is clicked", () => {
+  const withPeople: DashboardCampaigns = {
+    ...campaigns,
+    selected: {
+      ...campaigns.selected!,
+      repostsWithCommentary: 2,
+      summary: "AI-native integration.",
+      imageUrl: "https://example.com/launch.png",
+      resourceUrl: "https://www.linkedin.com/feed/update/urn:li:share:1/",
+      people: {
+        reposts: [{ employeeId: "e1", displayName: "Ada Lovelace" }, { employeeId: "e3", displayName: "Alan Turing" }],
+        withComments: [{ employeeId: "e2", displayName: "Grace Hopper" }],
+      },
+    },
+  };
+
+  it("selects a post on click and keeps the popup closed until asked", () => {
     const onSelect = vi.fn();
-    render(<PostPerformanceBoard data={campaigns} onSelect={onSelect} />);
-    expect(screen.getByText("75%")).toBeTruthy();
-    expect(screen.getByText("Novera: Sent")).toBeTruthy();
-    expect(screen.getByRole("region", { name: "Campaign detail" })).toBeTruthy();
-    expect(screen.getByText("Showing the campaign with the most reposts. Click any campaign on the left to change it.")).toBeTruthy();
+    render(<PostPerformanceBoard data={withPeople} onSelect={onSelect} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Hiring/ }));
     expect(onSelect).toHaveBeenCalledWith("c2");
   });
 
-  it("says when the campaign was picked, and splits each category into plain and commented reposts", () => {
+  it("shows the post card with its picture, then Reposts and With comments by name, and closes", () => {
+    const onClose = vi.fn();
+    render(<PostPerformanceBoard data={withPeople} onSelect={() => undefined} detailOpen onCloseDetail={onClose} />);
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("img", { name: "Picture for Launch" }).getAttribute("src")).toBe("https://example.com/launch.png");
+    expect(within(dialog).getByText("AI-native integration.")).toBeTruthy();
+    const reposts = within(dialog).getByRole("region", { name: "Reposts" });
+    expect(within(reposts).getByText("Ada Lovelace")).toBeTruthy();
+    expect(within(reposts).getByText("Alan Turing")).toBeTruthy();
+    expect(within(reposts).queryByText("Grace Hopper")).toBeNull();
+    expect(within(within(dialog).getByRole("region", { name: "With comments" })).getByText("Grace Hopper")).toBeTruthy();
+    const closers = within(dialog).getAllByRole("button", { name: "Close" });
+    expect(closers).toHaveLength(2);
+    for (const c of closers) fireEvent.click(c);
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("scrolls the detail carousel through the numbers and the per-day chart", () => {
+    render(<PostPerformanceBoard data={withPeople} onSelect={() => undefined} detailOpen />);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("75%")).toBeTruthy();
+    expect(screen.getByText("Novera: Sent")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByRole("img", { name: /Reposts per day/ })).toBeTruthy();
+    expect((screen.getByRole("button", { name: "Next" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Previous" }));
+    expect(screen.getByText("Novera: Sent")).toBeTruthy();
+  });
+
+  it("says nobody yet when no one reposted", () => {
+    render(<PostPerformanceBoard data={{ ...campaigns, selected: { ...campaigns.selected!, people: { reposts: [], withComments: [] } } }} onSelect={() => undefined} detailOpen />);
+    expect(screen.getAllByText("Nobody yet.")).toHaveLength(2);
+  });
+
+  it("gives each category a Reposts and a With comments column", () => {
     render(
       <PostPerformanceBoard
         data={{ ...campaigns, byCategory: [{ code: "PRODUCT", label: "Product", reposts: 45, repostsWithCommentary: 12 }, { code: "EVENT", label: "Event", reposts: 10 }] }}
         onSelect={() => undefined}
-        picked
       />,
     );
-    expect(screen.getByText("Showing the campaign you picked.")).toBeTruthy();
-    expect(screen.getByText("45 (12 with comments)")).toBeTruthy();
-    expect(screen.getByText("10 (0 with comments)")).toBeTruthy();
-    expect(screen.getByText("Reposts include reposts with comments.")).toBeTruthy();
-  });
-
-  it("asks for a pick when no post is selected", () => {
-    render(<PostPerformanceBoard data={{ ...campaigns, selected: null }} onSelect={() => undefined} />);
-    expect(screen.getByText(/Pick a campaign on the left/)).toBeTruthy();
+    const table = screen.getByRole("table", { name: "Reposts by category" });
+    expect(within(table).getByRole("columnheader", { name: "Reposts" })).toBeTruthy();
+    expect(within(table).getByRole("columnheader", { name: "With comments" })).toBeTruthy();
+    const product = within(table).getByRole("rowheader", { name: "Product" }).parentElement!;
+    expect(within(product).getByText("33")).toBeTruthy();
+    expect(within(product).getByText("12")).toBeTruthy();
+    const event = within(table).getByRole("rowheader", { name: "Event" }).parentElement!;
+    expect(within(event).getByText("10")).toBeTruthy();
+    expect(within(event).getByText("0")).toBeTruthy();
   });
 });
 
@@ -331,5 +381,50 @@ describe("ScorecardBoard", () => {
   it("says so with no measures", () => {
     render(<ScorecardBoard data={{ ...card, measures: [] }} />);
     expect(screen.getByText(/No measures yet/)).toBeTruthy();
+  });
+});
+
+describe("Export", () => {
+  const thursday = new Date("2026-10-22T20:00:00Z");
+
+  it("turns each pill into a UTC date range ending today", () => {
+    expect(exportRange("day", thursday)).toEqual({ from: "2026-10-22", to: "2026-10-22" });
+    expect(exportRange("week", thursday)).toEqual({ from: "2026-10-19", to: "2026-10-22" });
+    expect(exportRange("month", thursday)).toEqual({ from: "2026-10-01", to: "2026-10-22" });
+    expect(exportRange("year", thursday)).toEqual({ from: "2026-01-01", to: "2026-10-22" });
+    expect(exportRange("week", new Date("2026-10-18T10:00:00Z")).from).toBe("2026-10-12");
+  });
+
+  it("refuses ranges the API would", () => {
+    expect(exportRangeProblem("2026-10-01", "2026-10-22")).toBeNull();
+    expect(exportRangeProblem("", "2026-10-22")).toBe("Pick both dates.");
+    expect(exportRangeProblem("2026-10-22", "2026-10-01")).toMatch(/before/);
+    expect(exportRangeProblem("2025-01-01", "2026-10-22")).toMatch(/at most 366/);
+  });
+
+  it("downloads the chosen range as a CSV and follows the pill", async () => {
+    const created = vi.fn(() => "blob:csv");
+    Object.assign(URL, { createObjectURL: created, revokeObjectURL: vi.fn() });
+    const onExport = vi.fn().mockResolvedValue(new Blob(["a,b"], { type: "text/csv" }));
+    render(<ExportPanel onExport={onExport} now={thursday} />);
+    expect((screen.getByLabelText("From") as HTMLInputElement).value).toBe("2026-10-01");
+    fireEvent.click(screen.getByRole("button", { name: "Week" }));
+    expect((screen.getByLabelText("From") as HTMLInputElement).value).toBe("2026-10-19");
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-20" } });
+    expect(screen.getByRole("button", { name: "Week" }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+    await waitFor(() => expect(onExport).toHaveBeenCalledWith("2026-10-19", "2026-10-20"));
+    await waitFor(() => expect(created).toHaveBeenCalled());
+  });
+
+  it("blocks the download for a bad range and reports a failed one", async () => {
+    const onExport = vi.fn().mockRejectedValue(new Error("boom"));
+    render(<ExportPanel onExport={onExport} now={thursday} />);
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-09-01" } });
+    expect((screen.getByRole("button", { name: "Download CSV" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toMatch(/before/);
+    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-22" } });
+    fireEvent.click(screen.getByRole("button", { name: "Download CSV" }));
+    await waitFor(() => expect(showError).toHaveBeenCalledWith("boom"));
   });
 });
