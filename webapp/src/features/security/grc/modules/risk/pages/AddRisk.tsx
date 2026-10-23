@@ -349,8 +349,13 @@ export default function AddRisk(): JSX.Element {
       setError("riskOwner", { type: "required", message: "Risk owner is required" });
       hasStep3Error = true;
     }
-    if (!data.managementApprover) {
-      setError("managementApprover", { type: "required", message: "Management approver is required" });
+    // Only a HIGH risk needs a Management Approver; the backend enforces the same rule.
+    const selectedScore =
+      data.likelihood != null && data.impact != null
+        ? riskScores.find((sc) => sc.likelihood === data.likelihood && sc.impact === data.impact)
+        : undefined;
+    if (selectedScore?.risk_level === "HIGH" && !data.managementApprover) {
+      setError("managementApprover", { type: "required", message: "Management approver is required for a HIGH risk" });
       hasStep3Error = true;
     }
     if (!data.actionOwner) {
@@ -442,6 +447,7 @@ export default function AddRisk(): JSX.Element {
     <RiskAssessmentStep riskScores={riskScores} />,
     <ActionPlanStep
       assignmentTeams={assignmentTeams}
+      riskScores={riskScores}
     />,
   ];
 
