@@ -18,10 +18,12 @@ import { useMemo, useState } from "react";
 import { Button, Checkbox, Chip, Divider, FormControlLabel, Paper, Stack, TextField, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
+import { UMT_PRODUCT_TYPE } from "../../../api/umtTypes";
 import type { UmtProductIntegrationTestRequest, UmtUpdateProduct, UmtUpdateSummary } from "../../../api/umtUpdates";
 import { useUmtSaveIntegrationTests } from "../../../api/useUmtIntegrationTests";
 import {
   isIntegrationTestsSaveDisabled,
+  umtCompatibleInitialFirst,
   umtTestPrError,
   type UmtIntegrationTestDraftRow,
 } from "../../../lib/umtIntegrationTests";
@@ -123,8 +125,6 @@ export default function UmtIntegrationTestsStep({ id, update }: { id: string; up
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5">Integration Tests</Typography>
-
       {isContainerizedUpdate ? (
         <TextField
           label="Helm Chart Tag"
@@ -137,7 +137,7 @@ export default function UmtIntegrationTestsStep({ id, update }: { id: string; up
         />
       ) : (
         <Stack spacing={2}>
-          {products.map((product) => {
+          {umtCompatibleInitialFirst(products).map((product) => {
             const key = String(product.productId);
             const isIgnored = ignoreDrafts[key] ?? false;
             const testPrError = isIgnored ? undefined : umtTestPrError(testPrDrafts[key] ?? "");
@@ -148,8 +148,11 @@ export default function UmtIntegrationTestsStep({ id, update }: { id: string; up
                     <Typography variant="h6">
                       {product.product?.name ?? "N/A"} - {product.product?.version ?? "N/A"}
                     </Typography>
-                    {(product.type === "CompatibleInitial" || product.type === "Compatible") && (
-                      <Chip label={product.type === "CompatibleInitial" ? "Compatible Initial" : "Compatible"} size="small" />
+                    {(product.type === UMT_PRODUCT_TYPE.compatibleInitial || product.type === UMT_PRODUCT_TYPE.compatible) && (
+                      <Chip
+                        label={product.type === UMT_PRODUCT_TYPE.compatibleInitial ? "Compatible Initial" : "Compatible"}
+                        size="small"
+                      />
                     )}
                   </Stack>
                   <TextField

@@ -36,6 +36,8 @@ const retriggeredAtKey = (id: string) => ["umt-staging-test-retriggered-at", id]
 // umtShouldPollStagingTestResults is true (mirrors useUmtPrAnalysisStatus's
 // existing polling precedent). That ends at Failed, and at Staging once no run
 // is building and the post-retrigger window has passed.
+// The key carries lifecycleState because the list fetched before Staging is
+// empty: reaching Staging has to fetch it again.
 export function useUmtStagingTestResults(id: string, lifecycleState: UmtLifecycleState | null | undefined) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
@@ -48,7 +50,7 @@ export function useUmtStagingTestResults(id: string, lifecycleState: UmtLifecycl
     baseEnabled && (UMT_TESTING_LIFECYCLE_STATES as readonly (UmtLifecycleState | null | undefined)[]).includes(lifecycleState);
 
   const query = useQuery<UmtStagingTestResultRecord[]>({
-    queryKey: ["umt-update-staging-test-results", userSub, id],
+    queryKey: ["umt-update-staging-test-results", userSub, id, lifecycleState],
     enabled,
     queryFn: async () =>
       authedGet<UmtStagingTestResultRecord[]>(

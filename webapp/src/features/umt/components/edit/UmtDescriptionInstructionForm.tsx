@@ -84,15 +84,7 @@ function toRow(product: ProductWithId): DescriptionInstructionRow {
 // behavior-change data and the exact same two backend calls
 // (PUT /products/details, PUT /update/{id}), so both step wrappers mount
 // this one component instead of duplicating it.
-export default function UmtDescriptionInstructionForm({
-  id,
-  update,
-  heading = "Description and Instruction",
-}: {
-  id: string;
-  update: UmtUpdateSummary;
-  heading?: string;
-}) {
+export default function UmtDescriptionInstructionForm({ id, update }: { id: string; update: UmtUpdateSummary }) {
   const { showSuccess, showError } = useNotifications();
   const saveMutation = useUmtSaveDescriptionInstruction(id);
   const products = useMemo(
@@ -225,8 +217,11 @@ export default function UmtDescriptionInstructionForm({
     setIsBehaviorChangeApproved(backendBehaviorChangeApproved);
   }
 
+  // Every product has to be covered by a row: a save carries exactly the rows
+  // shown, so a product left out would have nothing saved for it.
   const isSaveDisabled =
     rows.length === 0 ||
+    missingProducts.length > 0 ||
     !isGeneralDescriptionChecked ||
     !isImplementationDetailsChecked ||
     !isImpactChecked ||
@@ -277,7 +272,6 @@ export default function UmtDescriptionInstructionForm({
   if (update.isHotfix) {
     return (
       <Stack spacing={3}>
-        <Typography variant="h5">{heading}</Typography>
         <TextField
           label="Hotfix Description"
           value={hotfixDescription}
@@ -365,8 +359,6 @@ export default function UmtDescriptionInstructionForm({
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5">{heading}</Typography>
-
       <Box>
         <DataGridComponent
           autoHeight
@@ -403,6 +395,11 @@ export default function UmtDescriptionInstructionForm({
         {missingProducts.length === 0 && products.length > 0 && (
           <Typography variant="body2" color="text.secondary">
             All products already have a description and instruction.
+          </Typography>
+        )}
+        {missingProducts.length > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            Every product needs a description and instruction before saving.
           </Typography>
         )}
       </Stack>

@@ -29,10 +29,9 @@ describe("computeUmtDemoteActions", () => {
     expect(computeUmtDemoteActions("files-analysis", "Development", false, false)).toEqual([]);
   });
 
-  it("returns both demote buttons for description-instruction when not a hotfix", () => {
+  it("returns only Demote to PRAnalyzed for description-instruction when not a hotfix", () => {
     expect(computeUmtDemoteActions("description-instruction", "ProductAnalyzed", false, false)).toEqual([
       { label: "Demote to PRAnalyzed", targetLifecycleState: "PRAnalyzed" },
-      { label: "Demote to Development", targetLifecycleState: "Development" },
     ]);
   });
 

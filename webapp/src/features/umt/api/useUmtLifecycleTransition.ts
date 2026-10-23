@@ -40,6 +40,7 @@ export function useUmtLifecycleTransition(id: string) {
         queryClient.invalidateQueries({ queryKey: ["umt-updates"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-update-lifecycle-history"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-update-pull-request-analysis"] }),
+        queryClient.invalidateQueries({ queryKey: ["umt-update-staging-test-results"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-update-product-analysis"] }),
       ]);
     },

@@ -37,7 +37,7 @@ import { Info } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import type { UmtMeta } from "../api/umtTypes";
+import { UMT_PRODUCT_TYPE, type UmtMeta } from "../api/umtTypes";
 import type {
   UmtBranchCreationRequest,
   UmtUpdateBranch,
@@ -176,7 +176,7 @@ export default function UmtUpdateBranchTab({
       ),
     ];
   }, [createdProductRows, initialProductRows]);
-  const compatibleInitialProduct = update.products?.find((product) => product.type === "CompatibleInitial");
+  const compatibleInitialProduct = update.products?.find((product) => product.type === UMT_PRODUCT_TYPE.compatibleInitial);
 
   const submitBranch = useCallback(
     async (request: UmtBranchCreationRequest, successMessage: string) => {

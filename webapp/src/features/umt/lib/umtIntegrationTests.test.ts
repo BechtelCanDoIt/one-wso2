@@ -10,12 +10,37 @@ import type { UmtUpdateProduct } from "../api/umtUpdates";
 import {
   isIntegrationTestsComplete,
   isIntegrationTestsSaveDisabled,
+  umtCompatibleInitialFirst,
   umtProductHasIntegrationTestInfo,
 } from "./umtIntegrationTests";
 
 function product(testPr: string | null | undefined, ignoreTestReason: string | null | undefined): UmtUpdateProduct {
   return { productId: 1, testPr, ignoreTestReason };
 }
+
+describe("umtCompatibleInitialFirst", () => {
+  const typed = (productId: number, type: string | null | undefined): UmtUpdateProduct => ({ productId, type });
+
+  it("moves the Compatible Initial product to the front and keeps the others in order", () => {
+    const ordered = umtCompatibleInitialFirst([typed(1, "Primary"), typed(2, "Compatible"), typed(3, "CompatibleInitial")]);
+
+    expect(ordered.map((p) => p.productId)).toEqual([3, 1, 2]);
+  });
+
+  it("leaves the order alone when there is none, or it is already first", () => {
+    expect(umtCompatibleInitialFirst([typed(1, "Primary"), typed(2, null)]).map((p) => p.productId)).toEqual([1, 2]);
+    expect(umtCompatibleInitialFirst([typed(3, "CompatibleInitial"), typed(1, "Primary")]).map((p) => p.productId)).toEqual([3, 1]);
+    expect(umtCompatibleInitialFirst([])).toEqual([]);
+  });
+
+  it("does not change the list it is given", () => {
+    const products = [typed(1, "Primary"), typed(3, "CompatibleInitial")];
+
+    umtCompatibleInitialFirst(products);
+
+    expect(products.map((p) => p.productId)).toEqual([1, 3]);
+  });
+});
 
 describe("umtProductHasIntegrationTestInfo", () => {
   it("is true with a non-blank Test PR", () => {

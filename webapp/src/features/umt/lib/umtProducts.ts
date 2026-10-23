@@ -41,10 +41,15 @@ export const EMPTY_CREATE_PRODUCT_FORM: UmtCreateProductFormValues = {
   ftpAbsolutePath: "",
 };
 
-// Mirrors legacy's `validateFields`: every field is required, blank after
-// trimming is not accepted.
+// A product version is three dot-separated numbers, such as 4.0.0.
+export function isValidProductVersion(value: string): boolean {
+  return /^\d+\.\d+\.\d+$/.test(value.trim());
+}
+
+// Every field is required, blank after trimming is not accepted, and the
+// version must be X.Y.Z.
 export function isCreateProductFormValid(values: UmtCreateProductFormValues): boolean {
-  return Object.values(values).every((value) => value.trim().length > 0);
+  return Object.values(values).every((value) => value.trim().length > 0) && isValidProductVersion(values.version);
 }
 
 // Legacy suffixes the typed version with `.0.full` before submitting (e.g.

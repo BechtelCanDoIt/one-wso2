@@ -75,6 +75,41 @@ describe("Create Update", () => {
     expect(request.securityInternalGitIssue).toBe(SECURITY.publicOrSecurityGitIssue);
     expect(request.publicGitIssue).toBe("N/A");
   });
+
+  it("only accepts a wso2-enterprise/security-internals issue for a security update", () => {
+    const withIssue = (publicOrSecurityGitIssue: string) => ({ ...SECURITY, publicOrSecurityGitIssue });
+
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2-enterprise/product-apim-internal/issues/5"))).toBe(
+      false,
+    );
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2/security-internals/issues/5"))).toBe(false);
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2-enterprise/security-internals/pull/5"))).toBe(
+      false,
+    );
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2-enterprise/security-internals/issues/5"))).toBe(
+      true,
+    );
+  });
+
+  it("accepts a trailing slash on a security issue URL, as it does on a public one", () => {
+    const withIssue = (publicOrSecurityGitIssue: string) => ({ ...SECURITY, publicOrSecurityGitIssue });
+
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2-enterprise/security-internals/issues/5/"))).toBe(
+      true,
+    );
+    expect(isCreateUpdateFormValid(withIssue("https://github.com/wso2-enterprise/security-internals/issues/5//"))).toBe(
+      false,
+    );
+  });
+
+  it("keeps accepting any WSO2 issue as the public issue of a non-security update", () => {
+    expect(
+      isCreateUpdateFormValid({
+        ...REGULAR,
+        publicOrSecurityGitIssue: "https://github.com/wso2-enterprise/product-apim-internal/issues/5",
+      }),
+    ).toBe(true);
+  });
 });
 
 const PRODUCT: UmtCreateProductFormValues = {
@@ -98,5 +133,20 @@ describe("Add Product", () => {
 
   it("suffixes the base version with .0.full", () => {
     expect(buildUmtCreateProductRequest(PRODUCT).version).toBe("4.2.0.0.full");
+  });
+
+  it("accepts only an X.Y.Z product version", () => {
+    for (const version of ["4.0.0.1", "v4.0.0", "4.0", "4", "4.0.x", "4.0.0-beta", "4..0"]) {
+      expect(isCreateProductFormValid({ ...PRODUCT, version })).toBe(false);
+    }
+    expect(isCreateProductFormValid({ ...PRODUCT, version: "4.0.0" })).toBe(true);
+    expect(isCreateProductFormValid({ ...PRODUCT, version: "10.12.345" })).toBe(true);
+  });
+
+  it("ignores the whitespace around a product version, as the request does", () => {
+    const padded = { ...PRODUCT, version: " 4.2.0 " };
+
+    expect(isCreateProductFormValid(padded)).toBe(true);
+    expect(buildUmtCreateProductRequest(padded).version).toBe("4.2.0.0.full");
   });
 });

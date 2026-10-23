@@ -22,5 +22,5 @@ import UmtDescriptionInstructionForm from "../UmtDescriptionInstructionForm";
 // backend calls); the dedicated Security Advisory step already covers
 // advisories, so none is rendered here.
 export default function UmtValidateStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
-  return <UmtDescriptionInstructionForm id={id} update={update} heading="Validate" />;
+  return <UmtDescriptionInstructionForm id={id} update={update} />;
 }

@@ -204,7 +204,6 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5">Testing</Typography>
       <Stack spacing={2}>
         {rows.map((row) => {
           const key = String(row.productId);

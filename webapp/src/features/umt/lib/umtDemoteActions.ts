@@ -39,14 +39,9 @@ export function computeUmtDemoteActions(
         ? [{ label: "Demote to Development", targetLifecycleState: "Development" }]
         : [];
     case "description-instruction":
-      // Both of this step's demote buttons are gated on !isHotfix; there is
-      // no separate rule for the hotfix branch.
-      return isHotfix
-        ? []
-        : [
-            { label: "Demote to PRAnalyzed", targetLifecycleState: "PRAnalyzed" },
-            { label: "Demote to Development", targetLifecycleState: "Development" },
-          ];
+      // This step's demote button is gated on !isHotfix; there is no separate
+      // rule for the hotfix branch.
+      return isHotfix ? [] : [{ label: "Demote to PRAnalyzed", targetLifecycleState: "PRAnalyzed" }];
     case "file-approval":
       // Gated on isAdmin specifically (UMT_ADMIN role), narrower than the
       // Admin-or-Product-Lead gate on this step's own Proceed/approve action.
