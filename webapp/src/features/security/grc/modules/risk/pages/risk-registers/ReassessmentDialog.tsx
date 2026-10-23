@@ -178,11 +178,18 @@ export default function ReassessmentDialog({
     }
     // Only a date the assigner actually changed is checked: an untouched,
     // already-past implementation date (an overdue risk) must not block saving.
-    if (canEditRiskDetails && implementationDate) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (toDateOnlyString(implementationDate) !== currentImplementationDate && implementationDate < today) {
-        e.implementationDate = "Implementation date cannot be in the past.";
+    if (canEditRiskDetails) {
+      if (!implementationDate) {
+        // Clearing is not supported: the payload would omit it and the old date would silently stay.
+        if (currentImplementationDate) e.implementationDate = "Implementation date is required.";
+      } else if (Number.isNaN(implementationDate.getTime())) {
+        e.implementationDate = "Enter a valid implementation date.";
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (toDateOnlyString(implementationDate) !== currentImplementationDate && implementationDate < today) {
+          e.implementationDate = "Implementation date cannot be in the past.";
+        }
       }
     }
     setErrors(e);
