@@ -28,6 +28,7 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 }));
 vi.mock("../api/useUmtTesting", () => ({
   UmtPartialTestingSaveError: class extends Error {},
+  useUmtRetriggerStagingTest: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useUmtSaveTestingResults: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useUmtStagingTestResults: () => ({
     isPending: false,

@@ -49,11 +49,17 @@ export function isValidEmail(value: string): boolean {
   return EMAIL_REGEX.test(value.trim());
 }
 
-// Mirrors legacy's `validateFields`: every field is required, blank after
-// trimming is not accepted, and the lead and ED emails must be well formed.
+// A product version is three dot-separated numbers, such as 4.0.0.
+export function isValidProductVersion(value: string): boolean {
+  return /^\d+\.\d+\.\d+$/.test(value.trim());
+}
+
+// Every field is required, blank after trimming is not accepted, the version
+// must be X.Y.Z, and the lead and ED emails must be well formed.
 export function isCreateProductFormValid(values: UmtCreateProductFormValues): boolean {
   return (
     Object.values(values).every((value) => value.trim().length > 0) &&
+    isValidProductVersion(values.version) &&
     isValidEmail(values.leadMail) &&
     isValidEmail(values.edMail)
   );

@@ -102,6 +102,43 @@ describe("Testing step gate at Staging", () => {
       isTestingComplete("Staging", [{ productId: 1, manualTestResult: "success", automatedTestResult: "success" }]),
     ).toBe(true);
   });
+
+  it("stays closed when there are no test records, since nothing has been reviewed", () => {
+    expect(isTestingComplete("Staging", [])).toBe(false);
+    expect(isTestingComplete("Staging", null)).toBe(false);
+    expect(isTestingComplete("Staging", undefined)).toBe(false);
+  });
+
+  it("stays closed until every automated run has succeeded", () => {
+    for (const automatedTestResult of ["failure", "building", "pending", undefined]) {
+      expect(isTestingComplete("Staging", [{ productId: 1, manualTestResult: "success", automatedTestResult }])).toBe(
+        false,
+      );
+    }
+    expect(
+      isTestingComplete("Staging", [
+        { productId: 1, manualTestResult: "success", automatedTestResult: "success" },
+        { productId: 2, manualTestResult: "success", automatedTestResult: "failure" },
+      ]),
+    ).toBe(false);
+  });
+
+  it("lets an admin proceed past an automated run that has not succeeded", () => {
+    expect(
+      isTestingComplete("Staging", [{ productId: 1, manualTestResult: "success", automatedTestResult: "failure" }], {
+        isAdmin: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("still needs every manual result and at least one record for an admin", () => {
+    expect(isTestingComplete("Staging", [], { isAdmin: true })).toBe(false);
+    expect(
+      isTestingComplete("Staging", [{ productId: 1, manualTestResult: "failure", manualTestComment: "" }], {
+        isAdmin: true,
+      }),
+    ).toBe(false);
+  });
 });
 
 describe("Integration Tests gate", () => {

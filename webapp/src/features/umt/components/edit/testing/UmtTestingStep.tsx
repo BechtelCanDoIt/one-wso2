@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -34,12 +34,19 @@ import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtStagingTestResultRecord, UmtStagingTestResultRequest, UmtUpdateSummary } from "../../../api/umtUpdates";
 import type { UmtLifecycleState } from "../../../api/umtTypes";
-import { UmtPartialTestingSaveError, useUmtSaveTestingResults, useUmtStagingTestResults } from "../../../api/useUmtTesting";
+import {
+  UmtPartialTestingSaveError,
+  useUmtRetriggerStagingTest,
+  useUmtSaveTestingResults,
+  useUmtStagingTestResults,
+} from "../../../api/useUmtTesting";
 import { umtLifecycleState } from "../../../lib/umtLifecycleState";
 import {
+  UMT_RETRIGGER_POLL_WINDOW_MS,
   UMT_TESTING_RESULT_OPTIONS,
   umtAutomatedTestResultColor,
   umtAutomatedTestResultLabel,
+  umtCanRetriggerStagingRow,
   umtTestingResultRequiresComment,
 } from "../../../lib/umtTesting";
 
@@ -68,7 +75,22 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
   const lifecycleState = umtLifecycleState(update.lifecycleState);
   const stagingTestResults = useUmtStagingTestResults(id, lifecycleState);
   const saveMutation = useUmtSaveTestingResults(id);
+  const retriggerMutation = useUmtRetriggerStagingTest(id);
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  // When each row's retrigger was accepted, so the row withholds Retrigger
+  // until its window ends; `now` moves on at the earliest end so the button
+  // comes back without any other update.
+  const [retriggeredAt, setRetriggeredAt] = useState<Record<string, number>>({});
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const ends = Object.values(retriggeredAt)
+      .map((acceptedAt) => acceptedAt + UMT_RETRIGGER_POLL_WINDOW_MS)
+      .filter((end) => end > Date.now());
+    if (ends.length === 0) return;
+    const timer = setTimeout(() => setNow(Date.now()), Math.min(...ends) - Date.now());
+    return () => clearTimeout(timer);
+  }, [retriggeredAt, now]);
 
   if (stagingTestResults.isPending) {
     return (
@@ -126,6 +148,19 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
       const draft = drafts[productId];
       return !draft.result || (umtTestingResultRequiresComment(draft.result) && !draft.comment.trim());
     });
+
+  async function handleRetrigger(row: UmtStagingTestResultRecord) {
+    const { productName, baseVersion } = row;
+    if (!productName || !baseVersion) return;
+    try {
+      const acceptedAt = await retriggerMutation.mutateAsync({ productName, baseVersion });
+      setNow(acceptedAt);
+      setRetriggeredAt((prev) => ({ ...prev, [String(row.productId)]: acceptedAt }));
+      showSuccess("Retrigger request submitted.");
+    } catch (error) {
+      showError(`Failed to retrigger the automated tests. ${describeError(error)}`);
+    }
+  }
 
   async function handleSave() {
     // A background refetch can drop a row (e.g. the staging results poll)
@@ -195,6 +230,22 @@ export default function UmtTestingStep({ id, update }: { id: string; update: Umt
                     }}
                   />
                   <Typography variant="body2">{umtAutomatedTestResultLabel(row.automatedTestResult)}</Typography>
+                  {lifecycleState === "Staging" && umtCanRetriggerStagingRow(row, retriggeredAt[key], now) && (
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      aria-label={`Retrigger automated tests for ${row.productName ?? "this product"} ${row.baseVersion ?? ""}`.trim()}
+                      loading={
+                        retriggerMutation.isPending &&
+                        retriggerMutation.variables?.productName === row.productName &&
+                        retriggerMutation.variables?.baseVersion === row.baseVersion
+                      }
+                      disabled={retriggerMutation.isPending}
+                      onClick={() => void handleRetrigger(row)}
+                    >
+                      Retrigger
+                    </Button>
+                  )}
                 </Stack>
                 <FormControl>
                   <FormLabel id={groupLabelId}>Manual Test Result</FormLabel>

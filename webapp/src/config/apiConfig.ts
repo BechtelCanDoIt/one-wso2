@@ -722,6 +722,9 @@ export const umtServiceUrls = {
   // PUT accepts exactly one product per call.
   updateIntegrationTestStaging: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/integrationTest/staging`,
+  // POST (null body) — starts one product's automated staging test run again.
+  updateIntegrationTestStagingRetrigger: (id: string | number, productName: string, baseVersion: string) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/integrationTest/staging/${encodeURIComponent(productName)}/${encodeURIComponent(baseVersion)}/retrigger`,
   updateHotfixInfo: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixInfo`,
   // GET — the hotfix's Jenkins integration-test status ({ buildStatus });

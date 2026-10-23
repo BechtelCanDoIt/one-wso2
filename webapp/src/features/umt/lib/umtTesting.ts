@@ -47,17 +47,34 @@ export function umtStagingRowIsComplete(record: UmtStagingTestResultRecord): boo
   return true;
 }
 
-// True when lifecycleState has reached Staging AND every persisted row is
-// complete: an environment-ready signal from the backend, plus a
-// human-reviewed-every-row check. Vacuously true for an empty/null/undefined
-// record list once Staging is reached (nothing to review); false for every
-// other state.
+// What keeps the Testing step's Proceed closed once the update is in Staging,
+// or null when nothing does. An unsuccessful automated run is reported ahead
+// of an incomplete manual row, since the user can fix the latter but not the
+// former. An admin may proceed past an automated run that has not succeeded.
+export type UmtTestingBlocker = "no-results" | "automated-run" | "manual-result";
+
+export function umtTestingBlocker(
+  records: UmtStagingTestResultRecord[] | null | undefined,
+  isAdmin = false,
+): UmtTestingBlocker | null {
+  const rows = records ?? [];
+  if (rows.length === 0) return "no-results";
+  if (!isAdmin && rows.some((row) => row.automatedTestResult !== "success")) return "automated-run";
+  if (!rows.every(umtStagingRowIsComplete)) return "manual-result";
+  return null;
+}
+
+// True when lifecycleState has reached Staging AND umtTestingBlocker finds
+// nothing in the way: at least one record to review, every automated run
+// successful (unless the caller is an admin), and every manual row complete.
+// False for every other state.
 export function isTestingComplete(
   lifecycleState: UmtLifecycleState | null | undefined,
   records: UmtStagingTestResultRecord[] | null | undefined,
+  { isAdmin = false }: { isAdmin?: boolean } = {},
 ): boolean {
   if (lifecycleState !== "Staging") return false;
-  return (records ?? []).every(umtStagingRowIsComplete);
+  return umtTestingBlocker(records, isAdmin) === null;
 }
 
 // Color for the Automated Test Result indicator: green while success, red
@@ -89,12 +106,63 @@ export function umtAutomatedTestResultLabel(value: string | null | undefined): s
     .join(" ");
 }
 
+function isAutomatedTestResult(value: string | null | undefined, expected: string): boolean {
+  return (value ?? "").trim().toLowerCase() === expected;
+}
+
+// An automated run can be started again unless it succeeded or is already
+// running; a failed, unstable, pending or unreadable result can.
+export function umtCanRetriggerAutomatedTest(value: string | null | undefined): boolean {
+  return !isAutomatedTestResult(value, "success") && !isAutomatedTestResult(value, "building");
+}
+
+// How long a retrigger counts as pending after it was accepted: the results
+// keep polling and the row withholds Retrigger, so the new run's state shows up
+// without a second request even when the first refetch still has the previous
+// result.
+export const UMT_RETRIGGER_POLL_WINDOW_MS = 60_000;
+
+// Whether a retrigger accepted at `retriggeredAt` (epoch ms) is still pending.
+export function umtRetriggerIsPending(retriggeredAt: number | null | undefined, now: number): boolean {
+  return retriggeredAt != null && now - retriggeredAt < UMT_RETRIGGER_POLL_WINDOW_MS;
+}
+
+// Whether a staging row offers Retrigger: the request names a product and its
+// base version but no channel, so only a full-channel row with both can use
+// it, and only while its automated result allows another run and no retrigger
+// accepted at `retriggeredAt` is still pending.
+export function umtCanRetriggerStagingRow(
+  row: UmtStagingTestResultRecord,
+  retriggeredAt?: number | null,
+  now: number = Date.now(),
+): boolean {
+  return (
+    (row.channel ?? "full") === "full" &&
+    Boolean(row.productName && row.baseVersion) &&
+    !umtRetriggerIsPending(retriggeredAt, now) &&
+    umtCanRetriggerAutomatedTest(row.automatedTestResult)
+  );
+}
+
 // Whether polling for staging test results should keep running: true while
 // lifecycleState is one of the transient in-between states, false once it's
 // reached a terminal state (Staging or Failed) — stops polling on failure
 // too, not just success, so a permanently-failed environment isn't polled
-// forever.
-export function umtShouldPollStagingTestResults(lifecycleState: UmtLifecycleState | null | undefined): boolean {
+// forever. At Staging it also continues while an automated run is building
+// and for UMT_RETRIGGER_POLL_WINDOW_MS after a retrigger (`retriggeredAt`, an
+// epoch time in ms), so a retriggered run's outcome shows up without a reload.
+export function umtShouldPollStagingTestResults(
+  lifecycleState: UmtLifecycleState | null | undefined,
+  records?: UmtStagingTestResultRecord[] | null,
+  retriggeredAt?: number | null,
+  now: number = Date.now(),
+): boolean {
+  if (lifecycleState === "Staging") {
+    return (
+      umtRetriggerIsPending(retriggeredAt, now) ||
+      (records ?? []).some((record) => isAutomatedTestResult(record.automatedTestResult, "building"))
+    );
+  }
   return (
     lifecycleState === "TestingEnvironmentRequested" ||
     lifecycleState === "TestingEnvironmentCreated" ||
