@@ -44,11 +44,12 @@ import path from "path";
 // through its Choreo default URL, not only through a *.wso2.com gateway URL.
 const CSP = [
   "default-src 'self'",
-  // 'wasm-unsafe-eval': Legal → NDA builds its PDF with @react-pdf/renderer,
-  // whose layout engine (yoga-layout) is WebAssembly; without it every NDA
-  // download fails. It allows WebAssembly compilation only. Do NOT add
-  // 'unsafe-eval' to fix a future CSP error: it re-enables JavaScript eval()
-  // and new Function() on every page.
+  // 'wasm-unsafe-eval': @react-pdf/renderer lays out PDFs with yoga-layout,
+  // which is WebAssembly, so every PDF built in the browser needs it (today
+  // Legal → NDA and the Partner dashboard report); without it they fail.
+  // It allows WebAssembly compilation only. Do NOT add 'unsafe-eval' to fix a
+  // future CSP error: it re-enables JavaScript eval() and new Function() on
+  // every page.
   "script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net",
