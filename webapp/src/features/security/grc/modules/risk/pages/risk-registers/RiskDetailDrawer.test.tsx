@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 import { RiskPrivilege } from "../../privileges";
 import { ActionFooter, RegisterDetails } from "./RiskDetailDrawer";
 import { aggregatedRisk, riskDetail, standardRisk } from "./riskDetailFixture";
-import { canCancelRisk } from "./utils";
+import { canCancelRisk, riskRoles } from "./utils";
 
 // Heavy children of the drawer reach for the network; these tests only render
 // the pieces below, which do not.
@@ -124,5 +124,62 @@ describe("ActionFooter in PENDING_REVISION", () => {
     unmount();
     footer({ ownerFirstApprovedAt: null, isAssigner: false });
     expect(screen.queryByRole("button", { name: "Cancel Risk" })).not.toBeInTheDocument();
+  });
+});
+
+describe("ActionFooter in APPROVED: Assess Risk", () => {
+  const actions = { onEdit: vi.fn(), onAssess: vi.fn() } as unknown as Parameters<typeof ActionFooter>[0]["actions"];
+
+  const footer = (props: { isOwner: boolean; isAssigner: boolean; privileges?: string[] }) =>
+    render(
+      <ActionFooter
+        status="APPROVED"
+        ownerFirstApprovedAt="2026-09-01T10:00:00Z"
+        actions={actions}
+        disabled={false}
+        can={(p) => (props.privileges ?? [RiskPrivilege.AssessRisk]).includes(p)}
+        actionPlans={[]}
+        isOverdue={false}
+        isRiskOwner={props.isOwner}
+        isRiskAssigner={props.isAssigner}
+        isManagementApprover={false}
+        hasOpenEscalation={false}
+      />,
+    );
+
+  it("is offered to the risk's owner and to its assigner", () => {
+    const { unmount } = footer({ isOwner: true, isAssigner: false });
+    expect(screen.getByRole("button", { name: "Assess Risk" })).toBeInTheDocument();
+    unmount();
+    footer({ isOwner: false, isAssigner: true });
+    expect(screen.getByRole("button", { name: "Assess Risk" })).toBeInTheDocument();
+  });
+
+  it("is hidden from someone who holds RISK_ASSESS but is neither", () => {
+    footer({ isOwner: false, isAssigner: false });
+    expect(screen.queryByRole("button", { name: "Assess Risk" })).not.toBeInTheDocument();
+  });
+
+  it("is hidden without the privilege, even for the owner", () => {
+    footer({ isOwner: true, isAssigner: true, privileges: [] });
+    expect(screen.queryByRole("button", { name: "Assess Risk" })).not.toBeInTheDocument();
+  });
+});
+
+describe("riskRoles", () => {
+  const risk = { owner_id: 11, assigner_id: 10 };
+
+  it("matches the caller against the risk's owner and assigner", () => {
+    expect(riskRoles(risk, 11, false)).toEqual({ isRiskOwner: true, isRiskAssigner: false });
+    expect(riskRoles(risk, 10, false)).toEqual({ isRiskOwner: false, isRiskAssigner: true });
+    expect(riskRoles(risk, 99, false)).toEqual({ isRiskOwner: false, isRiskAssigner: false });
+  });
+
+  it("lets the compliance-admin override stand in for both", () => {
+    expect(riskRoles(risk, 99, true)).toEqual({ isRiskOwner: true, isRiskAssigner: true });
+  });
+
+  it("is neither with no risk loaded", () => {
+    expect(riskRoles(null, 11, false)).toEqual({ isRiskOwner: false, isRiskAssigner: false });
   });
 });
