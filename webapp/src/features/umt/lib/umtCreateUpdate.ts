@@ -42,10 +42,19 @@ export function laterDate(date: Date, days: number): Date {
   return result;
 }
 
+// An internal issue lives in a `wso2-` organisation, such as wso2-enterprise.
+// A format check like the one below, so no trailing slash is accepted either.
+const INTERNAL_GITHUB_ISSUE_URL_REGEX =
+  /^https:\/\/github\.com\/wso2-[A-Za-z0-9-]+\/[A-Za-z0-9-]+\/issues\/[0-9]+$/;
+
+export function isValidInternalGithubIssueUrl(value: string): boolean {
+  return INTERNAL_GITHUB_ISSUE_URL_REGEX.test(value.trim());
+}
+
 // A format check only — the backend does the authoritative existence check
-// via a real GitHub API call.
+// via a real GitHub API call. No trailing slash is accepted.
 const GITHUB_ISSUE_URL_REGEX =
-  /^https:\/\/github\.com\/[^/]*wso2[^/]*\/[A-Za-z0-9-]+\/issues\/[0-9]+\/?$/;
+  /^https:\/\/github\.com\/[^/]*wso2[^/]*\/[A-Za-z0-9-]+\/issues\/[0-9]+$/;
 
 export function isValidGithubIssueUrl(value: string): boolean {
   return GITHUB_ISSUE_URL_REGEX.test(value.trim());
@@ -121,6 +130,13 @@ export function isAfterDay(before: Date, after: Date): boolean {
   return startOfDay(after) > startOfDay(before);
 }
 
+// The Proactive tab disables the hotfix switch without clearing it, and a
+// proactive update has no case id to go with a hotfix, so a hotfix is only
+// what a customer-reported update asks for.
+function isHotfixRequired(values: UmtCreateUpdateFormValues): boolean {
+  return !values.isProactive && values.isHotfix;
+}
+
 export function isCreateUpdateFormValid(values: UmtCreateUpdateFormValues): boolean {
   const hasCaseId = values.isProactive || isValidCaseId(values.caseId);
   // DatePicker reports a truthy but Invalid Date while the user is mid-typing
@@ -138,19 +154,20 @@ export function isCreateUpdateFormValid(values: UmtCreateUpdateFormValues): bool
     isAfterDay(values.bestCaseEstimate!, values.mostLikelyEstimate!) &&
     isAfterDay(values.mostLikelyEstimate!, values.worstCaseEstimate!);
 
+  const isHotfix = isHotfixRequired(values);
   const hasThursdayDates =
     hasValidDates &&
-    isValidEstimateDate(values.bestCaseEstimate!, values.isHotfix) &&
-    isValidEstimateDate(values.mostLikelyEstimate!, values.isHotfix) &&
-    isValidEstimateDate(values.worstCaseEstimate!, values.isHotfix);
+    isValidEstimateDate(values.bestCaseEstimate!, isHotfix) &&
+    isValidEstimateDate(values.mostLikelyEstimate!, isHotfix) &&
+    isValidEstimateDate(values.worstCaseEstimate!, isHotfix);
 
   return (
     hasCaseId &&
     values.productId !== null &&
+    isValidInternalGithubIssueUrl(values.internalGitIssue) &&
     hasValidDates &&
     hasOrderedDates &&
     hasThursdayDates &&
-    isValidGithubIssueUrl(values.internalGitIssue) &&
     isValidGithubIssueUrl(values.publicOrSecurityGitIssue)
   );
 }
@@ -169,6 +186,6 @@ export function buildUmtCreateUpdateRequest(values: UmtCreateUpdateFormValues): 
     issueType: ISSUE_TYPE_LABEL[values.issueType],
     lifecycle: LIFECYCLE_BY_UPDATE_TYPE[values.updateType],
     productId: values.productId!,
-    hotfixRequired: values.isHotfix,
+    hotfixRequired: isHotfixRequired(values),
   };
 }

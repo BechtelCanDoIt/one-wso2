@@ -41,10 +41,22 @@ export const EMPTY_CREATE_PRODUCT_FORM: UmtCreateProductFormValues = {
   ftpAbsolutePath: "",
 };
 
+// A well-formed address: text, one @, and a dotted domain, with no spaces.
+// A format check only, which is all a form can know about an address.
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function isValidEmail(value: string): boolean {
+  return EMAIL_REGEX.test(value.trim());
+}
+
 // Mirrors legacy's `validateFields`: every field is required, blank after
-// trimming is not accepted.
+// trimming is not accepted, and the lead and ED emails must be well formed.
 export function isCreateProductFormValid(values: UmtCreateProductFormValues): boolean {
-  return Object.values(values).every((value) => value.trim().length > 0);
+  return (
+    Object.values(values).every((value) => value.trim().length > 0) &&
+    isValidEmail(values.leadMail) &&
+    isValidEmail(values.edMail)
+  );
 }
 
 // Legacy suffixes the typed version with `.0.full` before submitting (e.g.
