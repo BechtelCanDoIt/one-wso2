@@ -47,17 +47,34 @@ export function umtStagingRowIsComplete(record: UmtStagingTestResultRecord): boo
   return true;
 }
 
-// True when lifecycleState has reached Staging AND every persisted row is
-// complete: an environment-ready signal from the backend, plus a
-// human-reviewed-every-row check. Vacuously true for an empty/null/undefined
-// record list once Staging is reached (nothing to review); false for every
-// other state.
+// What keeps the Testing step's Proceed closed once the update is in Staging,
+// or null when nothing does. An unsuccessful automated run is reported ahead
+// of an incomplete manual row, since the user can fix the latter but not the
+// former. An admin may proceed past an automated run that has not succeeded.
+export type UmtTestingBlocker = "no-results" | "automated-run" | "manual-result";
+
+export function umtTestingBlocker(
+  records: UmtStagingTestResultRecord[] | null | undefined,
+  isAdmin = false,
+): UmtTestingBlocker | null {
+  const rows = records ?? [];
+  if (rows.length === 0) return "no-results";
+  if (!isAdmin && rows.some((row) => row.automatedTestResult !== "success")) return "automated-run";
+  if (!rows.every(umtStagingRowIsComplete)) return "manual-result";
+  return null;
+}
+
+// True when lifecycleState has reached Staging AND umtTestingBlocker finds
+// nothing in the way: at least one record to review, every automated run
+// successful (unless the caller is an admin), and every manual row complete.
+// False for every other state.
 export function isTestingComplete(
   lifecycleState: UmtLifecycleState | null | undefined,
   records: UmtStagingTestResultRecord[] | null | undefined,
+  { isAdmin = false }: { isAdmin?: boolean } = {},
 ): boolean {
   if (lifecycleState !== "Staging") return false;
-  return (records ?? []).every(umtStagingRowIsComplete);
+  return umtTestingBlocker(records, isAdmin) === null;
 }
 
 // Color for the Automated Test Result indicator: green while success, red
