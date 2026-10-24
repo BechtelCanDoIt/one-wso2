@@ -139,6 +139,11 @@ const ACCORDION_SUMMARY_SX = {
   },
 };
 
+/**
+ * One side's per-question answers: flat boxes, per-question accordions, or
+ * 2015's category accordions depending on the group layout. Null groups
+ * (no answers on this side) render the side's heading with "N/A".
+ */
 function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[] | null; side: "employee" | "lead" }) {
   // Each side's per-question answers are headed for that side -- "Employee
   // Feedback" under Employee's Feedback, "Lead Feedback" under Lead's
