@@ -31,10 +31,10 @@ vi.mock("@features/sales/cado2/components/legal-rich-text/LegalRichTextField", (
 
 const legal: LegalView = {
   onPrem: true, saas: true, onPremNonStandard: false, saasNonStandard: true,
-  contractName: "Value Added Reseller Agreement", contractNameFromRole: true, partnerName: "Acme Reseller", contractDate: "2024-03-12",
+  contractName: "Value Added Reseller", partnerName: "Acme Reseller", contractDate: "2024-03-12",
   sections: {
     blocks: [{ kind: "ONPREM", nonStandard: false, text: "Standard." }, { kind: "SAAS", nonStandard: true, text: "" }],
-    notices: [], contractName: "Value Added Reseller Agreement", contractNameFromRole: true,
+    notices: [], contractName: "Value Added Reseller",
   },
   specialTerms: "AM's wording", specialTermsByLegal: false, amSpecialTerms: "AM's wording", frozen: true,
 };
@@ -44,7 +44,7 @@ describe("LegalTermsEditor", () => {
   it("lets Legal write the non-standard terms and reword the special terms, then saves them", async () => {
     render(<LegalTermsEditor quoteId={7} versionNumber={1} legal={legal} />);
     const user = userEvent.setup();
-    expect(screen.getByText(/Value Added Reseller Agreement · Acme Reseller · 2024-03-12/)).toBeInTheDocument();
+    expect(screen.getByText(/Value Added Reseller · Acme Reseller · 2024-03-12/)).toBeInTheDocument();
     expect(screen.queryByRole("textbox", { name: /On-premises products/ })).toBeNull(); // standard: nothing to write
     const saveButton = screen.getByRole("button", { name: "Save terms" });
     expect(saveButton).toBeDisabled();

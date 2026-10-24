@@ -244,7 +244,6 @@ export interface LegalConfig {
   readonly texts: Readonly<Record<string, string>>;
   readonly notices: readonly LegalNoticeConfig[];
   /** Salesforce partner role → the agreement named on the order form. */
-  readonly contractNames: Readonly<Record<string, string>>;
 }
 
 export type LegalBlockKind = "ONPREM" | "SAAS";
@@ -270,7 +269,6 @@ export interface LegalSections {
   readonly blocks: readonly LegalBlock[];
   readonly notices: readonly LegalNoticeOut[];
   readonly contractName: string;
-  readonly contractNameFromRole: boolean;
 }
 
 /** A version's legal sections, frozen at submission; Legal's texts laid over. */
@@ -280,7 +278,6 @@ export interface LegalView {
   readonly onPremNonStandard: boolean;
   readonly saasNonStandard: boolean;
   readonly contractName: string;
-  readonly contractNameFromRole: boolean;
   readonly partnerName: string;
   readonly contractDate: string | null;
   readonly sections: LegalSections;

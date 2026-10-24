@@ -40,7 +40,8 @@ export const CLASS_SAAS = "CL";
 export const CLASS_ONPREM = "PS";
 
 /** The partner agreements Legal named; Admins can map more roles. */
-export const CONTRACT_NAMES = ["Value Added Reseller Agreement", "Global System Integrator Agreement", "Onetime Reseller Agreement"] as const;
+/** The partner agreements the AM chooses from; the name prints as chosen (2026-10-24). */
+export const CONTRACT_NAMES = ["Value Added Reseller", "Global System Integrator", "One Time Reseller"] as const;
 
 /** The blocks the products call for: SaaS for CL, on-prem for PS; neither uses the on-prem terms. */
 export function legalMix(classifications: readonly (string | null | undefined)[]): { onPrem: boolean; saas: boolean } {
@@ -61,9 +62,8 @@ export interface LegalDeal {
   readonly region: string;
   /** FIRST_SALE, RENEWAL, EXPANSION. */
   readonly dealKind: string;
-  readonly partnerRole: string;
   readonly partnerName: string;
-  /** The AM's choice when the role names no agreement. */
+  /** The partner agreement the AM chose. */
   readonly contractName: string;
   /** YYYY-MM-DD, or "". */
   readonly contractDate: string;
@@ -72,12 +72,6 @@ export interface LegalDeal {
 export interface LegalChoice {
   readonly onPremNonStandard: boolean;
   readonly saasNonStandard: boolean;
-}
-
-/** The partner agreement: the Admin's mapping for the role, else the AM's choice. */
-export function contractNameFor(cfg: LegalConfig, role: string, chosen: string): { name: string; fromRole: boolean } {
-  const mapped = cfg.contractNames[role.trim()];
-  return mapped ? { name: mapped, fromRole: true } : { name: chosen.trim(), fromRole: false };
 }
 
 const PLACEHOLDERS = ["CONTRACT_NAME", "PARTNER_NAME", "CONTRACT_DATE"];
@@ -119,13 +113,13 @@ export function resolveLegal(
   c: LegalChoice,
   { markFilled = false }: { markFilled?: boolean } = {},
 ): LegalSections {
-  const contract = contractNameFor(cfg, d.partnerRole, d.contractName);
+  const contractName = d.contractName.trim();
   // The texts are rich text (HTML), so the values going in are escaped. On
   // the Legal step the deal's values are marked, so the AM can check them;
   // the mark is the screen's only, never printed.
   const deal = (v: string) => (v && markFilled ? `<mark>${v}</mark>` : v);
   const values: Record<string, string> = {
-    CONTRACT_NAME: deal(escapeHtml(contract.name)),
+    CONTRACT_NAME: deal(escapeHtml(contractName)),
     PARTNER_NAME: deal(escapeHtml(d.partnerName)),
     CONTRACT_DATE: deal(longDate(d.contractDate)),
   };
@@ -141,7 +135,7 @@ export function resolveLegal(
   const notices: LegalNoticeOut[] = cfg.notices
     .filter((n) => matches(n.channels, channel) && matches(n.regions, d.region) && matches(n.dealKinds, d.dealKind))
     .map((n) => ({ title: n.title, body: toLegalHtml(n.body), showTitle: n.showTitle, finePrint: n.finePrint, reason: reason(n, d) }));
-  return { blocks, notices, contractName: contract.name, contractNameFromRole: contract.fromRole };
+  return { blocks, notices, contractName };
 }
 
 /** Whether a block on the quote is non-standard, so Legal must approve. */

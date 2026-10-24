@@ -41,12 +41,11 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { FileTextIcon, PencilIcon, PlusIcon, ScaleIcon, Trash2Icon, UsersIcon } from "@wso2/oxygen-ui-icons-react";
+import { FileTextIcon, PencilIcon, PlusIcon, ScaleIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
-import { CONTRACT_NAMES } from "@features/sales/cado2/quotes/form/legalModel";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
 import { textHint } from "./textHint";
@@ -71,20 +70,6 @@ const KINDS = [
   { value: "RENEWAL", label: "Renewal" },
   { value: "EXPANSION", label: "Expansion" },
 ];
-/** Partner roles seen on Salesforce opportunities (production, 2026-10-24). */
-const KNOWN_ROLES = [
-  "Value Added Reseller",
-  "GSI",
-  "Reseller",
-  "One Time Reseller",
-  "Distributor",
-  "Cloud Marketplace",
-  "Professional Services Partner (PSP)",
-  "Managed Services Paerner (MSP)",
-  "OEM",
-  "Technology Partner",
-];
-
 /** One standard text, edited in place. */
 function TextEditor({ textKey, body, hint }: { textKey: string; body: string; hint: string }): JSX.Element {
   const change = useLegalAdminChange();
@@ -198,9 +183,6 @@ export default function LegalTextsPage(): JSX.Element {
   const change = useLegalAdminChange();
   const notify = useCado2Toast();
   const [editing, setEditing] = useState<{ notice: LegalNoticeRow | null } | null>(null);
-  const [newRole, setNewRole] = useState("");
-  // Roles typed in here, shown until mapped (then they come back from the server).
-  const [extraRoles, setExtraRoles] = useState<string[]>([]);
 
   if (admin.error) {
     return (
@@ -221,8 +203,6 @@ export default function LegalTextsPage(): JSX.Element {
     );
   }
   const a = admin.data;
-  const mapped = new Map(a.contractNames.map((c) => [c.partnerRole, c]));
-  const roles = [...new Set([...KNOWN_ROLES, ...a.contractNames.map((c) => c.partnerRole), ...extraRoles])];
 
   return (
     <Stack spacing={2.5}>
@@ -306,57 +286,6 @@ export default function LegalTextsPage(): JSX.Element {
         <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
           A new regional clause is one more notice: its text and when it applies.
         </Typography>
-      </SectionCard>
-
-      <SectionCard title="Partner Agreements" icon={<UsersIcon size={16} />} aside={<Typography variant="body2" color="text.secondary">By the partner&apos;s role in Salesforce</Typography>}>
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
-          <Table size="small" aria-label="Partner agreements">
-            <TableHead>
-              <TableRow>
-                <TableCell>Partner role</TableCell>
-                <TableCell>Agreement named in the governing terms</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {roles.map((role) => (
-                <TableRow key={role}>
-                  <TableCell>{role}</TableCell>
-                  <TableCell>
-                    <TextField
-                      select
-                      size="small"
-                      value={mapped.get(role)?.contractName ?? ""}
-                      onChange={(e) => change.mutate({ kind: "contractName", partnerRole: role, contractName: e.target.value }, { onSuccess: () => notify("Agreement saved") })}
-                      SelectProps={{ displayEmpty: true }}
-                      sx={{ minWidth: 280 }}
-                      inputProps={{ "aria-label": `Agreement for ${role}` }}
-                    >
-                      <MenuItem value="">— The AM chooses —</MenuItem>
-                      {[...new Set([...CONTRACT_NAMES, ...(mapped.get(role) ? [mapped.get(role)!.contractName] : [])])].map((c) => (
-                        <MenuItem key={c} value={c}>
-                          {c}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Stack direction="row" spacing={1.5} sx={{ mt: 2 }}>
-          <TextField size="small" label="Another partner role" value={newRole} onChange={(e) => setNewRole(e.target.value)} />
-          <Button
-            variant="outlined"
-            disabled={!newRole.trim() || roles.includes(newRole.trim())}
-            onClick={() => {
-              setExtraRoles((r) => [...r, newRole.trim()]);
-              setNewRole("");
-            }}
-          >
-            Add role
-          </Button>
-        </Stack>
       </SectionCard>
 
       {editing ? <NoticeDialog notice={editing.notice} onClose={() => setEditing(null)} /> : null}

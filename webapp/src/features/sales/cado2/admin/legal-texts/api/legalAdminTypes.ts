@@ -18,7 +18,6 @@
 export interface LegalAdmin {
   readonly texts: readonly { key: string; body: string; updatedByEmail: string; updatedAt: string }[];
   readonly notices: readonly LegalNoticeRow[];
-  readonly contractNames: readonly { partnerRole: string; contractName: string; updatedByEmail: string; updatedAt: string }[];
   /** e.g. "{PARTNER_NAME}". */
   readonly placeholders: readonly string[];
 }

@@ -45,8 +45,6 @@ const addressComplete = (a: AddressValue) =>
 /** Missing items per step: [Overview, Products & Pricing, Commercials, Legal]. Review has none of its own. */
 export function stepChecks(
   v: DraftFormValues,
-  /** The partner's role names an agreement (Admin › Legal Texts), so the AM needn't choose one. */
-  contractNameMapped = false,
 ): [StepCheck[], StepCheck[], StepCheck[], StepCheck[]] {
   const overview: StepCheck[] = [];
   const need = (list: StepCheck[], ok: boolean, field: string, message: string) => {
@@ -113,7 +111,7 @@ export function stepChecks(
   );
   need(legalStep, !v.specialTermsEnabled || !isEmptyLegalText(v.specialTerms), "specialTerms.text", "Write the special terms, or switch them off");
   if (v.dealType === "PARTNER") {
-    if (!contractNameMapped) need(legalStep, v.partnerContractName.trim() !== "", "partnerContractName", "Choose the partner agreement");
+    need(legalStep, v.partnerContractName.trim() !== "", "partnerContractName", "Choose the partner agreement");
     need(legalStep, v.partnerContractDate !== "", "partnerContractDate", "Enter the date of the partner agreement");
   }
 

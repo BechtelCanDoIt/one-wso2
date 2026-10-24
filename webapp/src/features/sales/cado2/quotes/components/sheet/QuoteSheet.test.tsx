@@ -325,10 +325,10 @@ describe("LegalSection", () => {
           { kind: "SAAS", nonStandard: true, text: "" },
         ],
         notices: [{ title: "Auto Renewal", body: "Renews for 12 months.", showTitle: true, finePrint: false, reason: "partner deal" }],
-        contractName: "Value Added Reseller Agreement",
-        contractNameFromRole: true,
+        contractName: "Value Added Reseller",
+       
       },
-      contractName: "Value Added Reseller Agreement",
+      contractName: "Value Added Reseller",
       contractDate: "2024-03-12",
       partnerName: "Acme Reseller",
       specialTerms: "Legal's wording",
@@ -341,7 +341,7 @@ describe("LegalSection", () => {
     render(<QuoteSheet sheet={withLegal} />);
     const legal = within(screen.getByRole("region", { name: "Legal" }));
     expect(legal.getByText("As submitted")).toBeInTheDocument();
-    expect(legal.getByText(/Value Added Reseller Agreement · Acme Reseller · 12 Mar 2024/)).toBeInTheDocument();
+    expect(legal.getByText(/Value Added Reseller · Acme Reseller · 12 Mar 2024/)).toBeInTheDocument();
     expect(legal.getByText("Governed by the Value Added Reseller Agreement.")).toBeInTheDocument();
     expect(legal.getByText("SaaS products")).toBeInTheDocument();
     expect(legal.getByText("Legal writes these terms during their approval.")).toBeInTheDocument();

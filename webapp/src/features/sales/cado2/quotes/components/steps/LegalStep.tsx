@@ -41,7 +41,6 @@ import { parseDateString, toDateString, type DraftFormValues } from "@features/s
 import {
   BLOCK_TITLE,
   CONTRACT_NAMES,
-  contractNameFor,
   legalMix,
   needsLegal,
   resolveLegal,
@@ -102,7 +101,6 @@ export default function LegalStep(): JSX.Element {
           partner,
           region: v.accountSalesRegion,
           dealKind: v.dealKind,
-          partnerRole: v.partner?.role ?? "",
           partnerName: v.partner?.name ?? "",
           contractName: v.partnerContractName,
           contractDate: v.partnerContractDate,
@@ -111,7 +109,7 @@ export default function LegalStep(): JSX.Element {
         { markFilled: true },
       )
     : null;
-  const contract = config.data ? contractNameFor(config.data, v.partner?.role ?? "", v.partnerContractName) : null;
+  const role = v.partner?.role?.trim() ?? "";
   const legal = needsLegal(mix, { onPremNonStandard: v.termsOnPremNonStandard, saasNonStandard: v.termsSaasNonStandard });
   const nameIssue = useFieldIssue("partnerContractName");
   const dateIssue = useFieldIssue("partnerContractDate");
@@ -138,31 +136,28 @@ export default function LegalStep(): JSX.Element {
         <Stack spacing={2}>
           {partner ? (
             <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0, 1fr))" }, gap: 2 }}>
-              {contract?.fromRole ? (
-                <FromSalesforce label="Partner agreement" value={contract.name} source={`From the partner role "${v.partner?.role ?? ""}"`} />
-              ) : (
-                <Controller
-                  name="partnerContractName"
-                  control={control}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      select
-                      size="small"
-                      label="Partner agreement"
-                      required
-                      error={Boolean(nameIssue)}
-                      helperText={nameIssue ?? `The partner role "${v.partner?.role ?? "none"}" names no agreement`}
-                    >
-                      {CONTRACT_NAMES.map((n) => (
-                        <MenuItem key={n} value={n}>
-                          {n}
-                        </MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                />
-              )}
+              {/* The AM chooses; the Salesforce partner role is only a hint (2026-10-24). */}
+              <Controller
+                name="partnerContractName"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    select
+                    size="small"
+                    label="Partner agreement"
+                    required
+                    error={Boolean(nameIssue)}
+                    helperText={nameIssue ?? (role ? `Salesforce partner role: ${role}` : "No partner role in Salesforce")}
+                  >
+                    {CONTRACT_NAMES.map((n) => (
+                      <MenuItem key={n} value={n}>
+                        {n}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                )}
+              />
               <FromSalesforce label="Partner" value={v.partner?.name ?? ""} source="From Salesforce" />
               <Controller
                 name="partnerContractDate"

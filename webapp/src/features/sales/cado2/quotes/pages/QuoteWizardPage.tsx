@@ -40,7 +40,6 @@ import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { useLeaveGuard } from "@features/sales/cado2/quotes/form/useLeaveGuard";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import {
-  useLegalConfig,
   usePricingPreview,
   useActiveLegalEntities,
   useQuoteSettings,
@@ -229,10 +228,7 @@ export default function QuoteWizardPage(): JSX.Element {
   // Filled in order (F5 feedback): Next unlocks when the current step is
   // complete; steps beyond the first incomplete one are locked. A frozen
   // version can be browsed freely.
-  // The partner's role names an agreement (Admin › Legal Texts), so the AM needn't choose one.
-  const legalConfig = useLegalConfig();
-  const contractNameMapped = Boolean(values.partner?.role && legalConfig.data?.contractNames[values.partner.role]);
-  const checks = useMemo(() => stepChecks(values, contractNameMapped), [values, contractNameMapped]);
+  const checks = useMemo(() => stepChecks(values), [values]);
   const pricingProblems = [0, 1, 2, 3].map((i) => previewProblems.filter((p) => stepOfField(p.field) === i));
   const reachable = editable
     ? reachableStep(

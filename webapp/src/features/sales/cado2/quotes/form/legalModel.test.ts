@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { LegalConfig } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { contractNameFor, fillLegal, legalApproveBlock, legalMix, needsLegal, resolveLegal, type LegalDeal } from "./legalModel";
+import { fillLegal, legalApproveBlock, legalMix, needsLegal, resolveLegal, type LegalDeal } from "./legalModel";
 
 const cfg: LegalConfig = {
   texts: {
@@ -31,12 +31,11 @@ const cfg: LegalConfig = {
     { id: 3, title: "MEA new", body: "mea", showTitle: true, finePrint: false, channels: ["PARTNER"], regions: ["ME", "AFRICA"], dealKinds: ["FIRST_SALE"] },
     { id: 4, title: "Middle East", body: "me", showTitle: true, finePrint: false, channels: ["PARTNER"], regions: ["ME"], dealKinds: null },
   ],
-  contractNames: { "Value Added Reseller": "Value Added Reseller Agreement" },
 };
 
 const direct: LegalDeal = {
   onPrem: true, saas: false, partner: false, region: "NA", dealKind: "FIRST_SALE",
-  partnerRole: "", partnerName: "", contractName: "", contractDate: "",
+  partnerName: "", contractName: "", contractDate: "",
 };
 const std = { onPremNonStandard: false, saasNonStandard: false };
 
@@ -58,32 +57,32 @@ describe("legalModel", () => {
   it("fills the partner agreement and adds the partner and regional notices, each saying why", () => {
     const s = resolveLegal(
       cfg,
-      { ...direct, saas: true, partner: true, region: "ME", partnerRole: "Value Added Reseller", partnerName: "Acme Reseller", contractDate: "2024-03-12" },
+      { ...direct, saas: true, partner: true, region: "ME", contractName: "Value Added Reseller", partnerName: "Acme Reseller", contractDate: "2024-03-12" },
       std,
     );
-    expect(s.blocks[0].text).toBe("<p>Governed by the Value Added Reseller Agreement between WSO2, LLC and Acme Reseller dated 12 March 2024.</p>");
-    expect(s.blocks[1].text).toBe("<p>SaaS terms under the Value Added Reseller Agreement.</p>");
+    expect(s.blocks[0].text).toBe("<p>Governed by the Value Added Reseller between WSO2, LLC and Acme Reseller dated 12 March 2024.</p>");
+    expect(s.blocks[1].text).toBe("<p>SaaS terms under the Value Added Reseller.</p>");
     expect(s.notices).toHaveLength(4);
     expect(s.notices[2].reason).toBe("partner deal · region ME · first sale");
-    expect(s.contractNameFromRole).toBe(true);
+    expect(s.contractName).toBe("Value Added Reseller"); // printed as chosen
   });
 
   it("marks the deal's values only when asked (the Legal step's preview)", () => {
-    const deal = { ...direct, partner: true, partnerRole: "Value Added Reseller", partnerName: "Acme Reseller", contractDate: "2024-03-12" };
+    const deal = { ...direct, partner: true, contractName: "Value Added Reseller", partnerName: "Acme Reseller", contractDate: "2024-03-12" };
     expect(resolveLegal(cfg, deal, std, { markFilled: true }).blocks[0].text).toContain("<mark>Acme Reseller</mark> dated <mark>12 March 2024</mark>");
     expect(resolveLegal(cfg, deal, std).blocks[0].text).not.toContain("<mark>");
   });
 
   it("escapes a value going into a rich text", () => {
-    const s = resolveLegal(cfg, { ...direct, partner: true, partnerRole: "Value Added Reseller", partnerName: "Acme <b>& Co</b>" }, std);
+    const s = resolveLegal(cfg, { ...direct, partner: true, contractName: "Value Added Reseller", partnerName: "Acme <b>& Co</b>" }, std);
     expect(s.blocks[0].text).toContain("Acme &lt;b&gt;&amp; Co&lt;/b&gt;");
   });
 
-  it("never leaves a gap silent, and takes the AM's agreement when the role names none", () => {
-    const deal = { ...direct, partner: true, region: "AFRICA", dealKind: "RENEWAL", partnerRole: "Distributor", partnerName: "Acme" };
+  it("never leaves a gap silent until the AM chooses the agreement", () => {
+    const deal = { ...direct, partner: true, region: "AFRICA", dealKind: "RENEWAL", partnerName: "Acme" };
     expect(resolveLegal(cfg, deal, std).blocks[0].text).toContain("the [contract name] between");
     expect(resolveLegal(cfg, deal, std).notices.map((n) => n.title)).toEqual(["Additional capacity", "Auto Renewal"]);
-    expect(contractNameFor(cfg, "Distributor", "Onetime Reseller Agreement")).toEqual({ name: "Onetime Reseller Agreement", fromRole: false });
+    expect(resolveLegal(cfg, { ...deal, contractName: "One Time Reseller" }, std).blocks[0].text).toContain("the One Time Reseller between");
     expect(fillLegal("a {not one} b", {})).toBe("a {not one} b");
   });
 

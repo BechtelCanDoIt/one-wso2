@@ -31,7 +31,6 @@ const admin = {
       { id: 4, title: "Middle East and Africa – for new Subscribers", body: "Report usage quarterly.", showTitle: true, finePrint: false,
         channels: ["PARTNER"], regions: ["ME", "AFRICA"], dealKinds: ["FIRST_SALE"], updatedByEmail: "seed", updatedAt: "2026-10-24T10:00:00Z" },
     ],
-    contractNames: [{ partnerRole: "GSI", contractName: "Global System Integrator Agreement", updatedByEmail: "seed", updatedAt: "2026-10-24T10:00:00Z" }],
     placeholders: ["{CONTRACT_NAME}", "{PARTNER_NAME}", "{CONTRACT_DATE}"],
   },
 };
@@ -42,7 +41,7 @@ vi.mock("@features/sales/cado2/admin/legal-texts/api/useLegalAdmin", () => ({
 
 // POC legal terms (2026-10-24).
 describe("LegalTextsPage", () => {
-  it("lists the standard texts, the notices with when they apply, and the partner agreements", () => {
+  it("lists the standard texts and the notices with when they apply", () => {
     render(<LegalTextsPage />);
     // No EULA setting: the link is part of the texts (2026-10-24).
     expect(screen.queryByRole("table", { name: "EULA versions" })).toBeNull();
@@ -55,8 +54,8 @@ describe("LegalTextsPage", () => {
     expect(notices.getByText("Partner")).toBeInTheDocument();
     expect(notices.getByText("ME, AFRICA")).toBeInTheDocument();
     expect(notices.getByText("First sale")).toBeInTheDocument();
-    const agreements = within(screen.getByRole("table", { name: "Partner agreements" }));
-    expect(agreements.getByText("Distributor")).toBeInTheDocument(); // a role seen in Salesforce, not mapped yet
+    // No partner agreements section: the AM chooses on the quote (2026-10-24).
+    expect(screen.queryByRole("table", { name: "Partner agreements" })).toBeNull();
   });
 
   it("says which placeholders a partner text may use, and who changed a text", () => {

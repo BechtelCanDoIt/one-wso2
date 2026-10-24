@@ -63,7 +63,6 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
       data: {
         texts: { TERMS_ONPREM_DIRECT: "Direct terms.", TERMS_ONPREM_PARTNER: "Partner terms.", TERMS_SAAS_DIRECT: "SaaS.", TERMS_SAAS_PARTNER: "SaaS (partner)." },
         notices: [],
-        contractNames: { "Value Added Reseller": "Value Added Reseller Agreement", Reseller: "Value Added Reseller Agreement" },
       },
     }),
     useQuoteSettings: () => ({ ...idle(), data: { validityDays: 30 } }),

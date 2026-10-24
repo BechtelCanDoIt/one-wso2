@@ -348,7 +348,6 @@ function formLegal(v: DraftFormValues, cfg: LegalConfig): SheetLegal {
       partner: v.dealType === "PARTNER",
       region: v.accountSalesRegion,
       dealKind: v.dealKind,
-      partnerRole: v.partner?.role ?? "",
       partnerName: v.partner?.name ?? "",
       contractName: v.partnerContractName,
       contractDate: v.partnerContractDate,

@@ -39,8 +39,7 @@ export function useLegalAdmin(): UseQueryResult<LegalAdmin, Error> {
 type Change =
   | { kind: "text"; key: string; body: string }
   | { kind: "notice"; id: number | null; notice: LegalNoticeInput }
-  | { kind: "deleteNotice"; id: number }
-  | { kind: "contractName"; partnerRole: string; contractName: string };
+  | { kind: "deleteNotice"; id: number };
 
 export function useLegalAdminChange() {
   const { getToken, key } = useCado2Basis();
@@ -58,8 +57,6 @@ export function useLegalAdminChange() {
             : cado2Send<LegalAdmin>("PUT", u.adminLegalNotice(c.id), token, c.notice);
         case "deleteNotice":
           return cado2Send<LegalAdmin>("DELETE", u.adminLegalNotice(c.id), token, undefined);
-        case "contractName":
-          return cado2Send<LegalAdmin>("PUT", u.adminLegalContractNames, token, { partnerRole: c.partnerRole, contractName: c.contractName });
       }
     },
     onSuccess: (data) => {
