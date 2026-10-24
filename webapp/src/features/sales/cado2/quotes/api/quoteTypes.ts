@@ -222,6 +222,16 @@ export interface PricingYear {
   readonly netBilling?: string;
 }
 
+/**
+ * A deal whose TCV is under the small-deal amount in USD, at Salesforce's
+ * current rate (POC, 2026-10-24): the AM is asked to contact their Sales
+ * Manager and the BU GM. A warning only.
+ */
+export interface SmallDeal {
+  readonly thresholdUsd: string;
+  readonly tcvUsd: string;
+}
+
 /** One contract year of a saved version (POC years-bundles); net and ARR are null while unpriced. */
 export interface ContractYearView {
   readonly yearNumber: number;
@@ -292,6 +302,8 @@ export interface PricingPreview {
   readonly termMonths: string;
   readonly totals: Totals;
   readonly years: readonly PricingYear[];
+  /** TCV under USD 30,000 (a warning); null otherwise (POC). */
+  readonly smallDeal?: SmallDeal | null;
   readonly lines: readonly {
     readonly pricebookEntryId: string;
     readonly yearNumber?: number;
@@ -526,6 +538,8 @@ export interface VersionView {
   /** The contract years (POC years-bundles); null/empty before Year 1 is added. */
   readonly yearCount: number | null;
   readonly years: readonly ContractYearView[];
+  /** A priced quote under USD 30,000 (a warning); null otherwise (POC). */
+  readonly smallDeal?: SmallDeal | null;
   /** "15.00" on a partner-led quote with a commission; null otherwise. */
   readonly partnerCommissionPercent?: string | null;
   readonly billingFrequency: BillingFrequency | null;

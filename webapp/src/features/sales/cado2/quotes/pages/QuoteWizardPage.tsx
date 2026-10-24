@@ -72,6 +72,7 @@ import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/Quo
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import CommercialStep from "@features/sales/cado2/quotes/components/steps/CommercialStep";
 import ReviewStep from "@features/sales/cado2/quotes/components/steps/ReviewStep";
+import SmallDealBanner from "@features/sales/cado2/quotes/components/SmallDealBanner";
 import ApprovalPreviewPanel from "@features/sales/cado2/approvals/components/ApprovalPreviewPanel";
 import ApprovalPreviewDialog from "@features/sales/cado2/approvals/components/ApprovalPreviewDialog";
 import { useApprovalPreview } from "@features/sales/cado2/approvals/api/useApprovalApi";
@@ -563,6 +564,14 @@ export default function QuoteWizardPage(): JSX.Element {
                       }
                     />
                   </>
+                ) : null}
+                {/* Under USD 30,000 (POC, 2026-10-24): right above Next and
+                    Submit, where the AM's eye is when moving on, not at the
+                    top of a long step. */}
+                {step === 1 || step === REVIEW_STEP ? (
+                  <Box sx={{ mt: 3 }}>
+                    <SmallDealBanner smallDeal={shown?.smallDeal} currency={values.currencyIsoCode} tcv={shown?.totals.tcv} />
+                  </Box>
                 ) : null}
                 <Paper
                   variant="outlined"

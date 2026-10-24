@@ -850,6 +850,7 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
     termMonths: "",
     totals: v.totals,
     years,
+    smallDeal: v.smallDeal ?? null,
     // Aligned with the version's lines, one for one (a line waiting for its category is priced too, D75).
     lines: v.lines.map((l) => ({
       pricebookEntryId: l.pricebookEntryId,
