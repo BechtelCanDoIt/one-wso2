@@ -222,6 +222,83 @@ export interface PricingYear {
   readonly netBilling?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Legal terms (POC, 2026-10-24): Admin › Legal Texts and a quote's sections
+// ---------------------------------------------------------------------------
+
+/** A WSO2 Software License version. */
+export interface LegalEula {
+  readonly version: string;
+  readonly url: string;
+}
+
+/** A section 05 notice and when it applies; an empty list matches any. */
+export interface LegalNoticeConfig {
+  readonly id: number;
+  readonly title: string;
+  readonly body: string;
+  readonly showTitle: boolean;
+  readonly finePrint: boolean;
+  readonly channels: readonly string[] | null;
+  readonly regions: readonly string[] | null;
+  readonly dealKinds: readonly string[] | null;
+}
+
+/** GET /legal: the texts as quotes use them (the latest EULA). */
+export interface LegalConfig {
+  readonly eula: LegalEula | null;
+  /** TERMS_ONPREM_DIRECT, TERMS_ONPREM_PARTNER, TERMS_SAAS_DIRECT, TERMS_SAAS_PARTNER. */
+  readonly texts: Readonly<Record<string, string>>;
+  readonly notices: readonly LegalNoticeConfig[];
+  /** Salesforce partner role → the agreement named on the order form. */
+  readonly contractNames: Readonly<Record<string, string>>;
+}
+
+export type LegalBlockKind = "ONPREM" | "SAAS";
+
+/** A section 04 block: the standard text filled in, or Legal's terms; "" while Legal hasn't written it. */
+export interface LegalBlock {
+  readonly kind: LegalBlockKind;
+  readonly nonStandard: boolean;
+  readonly text: string;
+}
+
+/** A notice that applies, with what added it ("" for every deal). */
+export interface LegalNoticeOut {
+  readonly title: string;
+  readonly body: string;
+  readonly showTitle: boolean;
+  readonly finePrint: boolean;
+  readonly reason: string;
+}
+
+/** Sections 04 and 05, resolved. */
+export interface LegalSections {
+  readonly eula: LegalEula | null;
+  readonly blocks: readonly LegalBlock[];
+  readonly notices: readonly LegalNoticeOut[];
+  readonly contractName: string;
+  readonly contractNameFromRole: boolean;
+}
+
+/** A version's legal sections, frozen at submission; Legal's texts laid over. */
+export interface LegalView {
+  readonly onPrem: boolean;
+  readonly saas: boolean;
+  readonly onPremNonStandard: boolean;
+  readonly saasNonStandard: boolean;
+  readonly contractName: string;
+  readonly contractNameFromRole: boolean;
+  readonly partnerName: string;
+  readonly contractDate: string | null;
+  readonly sections: LegalSections;
+  /** What section 06 says: Legal's wording when they changed it, else the AM's; null when off. */
+  readonly specialTerms: string | null;
+  readonly specialTermsByLegal: boolean;
+  readonly amSpecialTerms: string | null;
+  readonly frozen: boolean;
+}
+
 /**
  * A deal whose TCV is under the small-deal amount in USD, at Salesforce's
  * current rate (POC, 2026-10-24): the AM is asked to contact their Sales
@@ -392,6 +469,12 @@ export interface DraftInput {
   readonly lastYearEndDate?: string;
   /** With a recurring line only (D85). */
   readonly billingFrequency?: BillingFrequency;
+  /** Section 04 (POC legal terms): blocks the AM marks non-standard (Legal writes them). */
+  readonly termsOnPremNonStandard?: boolean;
+  readonly termsSaasNonStandard?: boolean;
+  /** The partner agreement: its name when the partner role has none, and its date (YYYY-MM-DD). */
+  readonly partnerContractName?: string;
+  readonly partnerContractDate?: string;
   /** Partner-led quotes only: one % for every line. */
   readonly partnerCommissionPercent?: string;
   readonly netTermsDays?: number;
@@ -540,6 +623,13 @@ export interface VersionView {
   readonly years: readonly ContractYearView[];
   /** A priced quote under USD 30,000 (a warning); null otherwise (POC). */
   readonly smallDeal?: SmallDeal | null;
+  /** The legal sections (POC legal terms); null when not configured. */
+  readonly legal?: LegalView | null;
+  /** Section 04 choices and the partner agreement (POC legal terms). */
+  readonly termsOnPremNonStandard?: boolean;
+  readonly termsSaasNonStandard?: boolean;
+  readonly partnerContractName?: string | null;
+  readonly partnerContractDate?: string | null;
   /** "15.00" on a partner-led quote with a commission; null otherwise. */
   readonly partnerCommissionPercent?: string | null;
   readonly billingFrequency: BillingFrequency | null;

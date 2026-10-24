@@ -143,6 +143,7 @@ function filled(): DraftFormValues {
         category: "SUBSCRIPTION",
         categorySource: "REP",
         recurring: true,
+        classification: "PS",
         unitOfMeasure: "",
         quantity: "20",
         discount: "10",
@@ -165,6 +166,7 @@ function filled(): DraftFormValues {
         category: "SUBSCRIPTION",
         categorySource: "REP",
         recurring: true,
+        classification: "PS",
         unitOfMeasure: "Portals",
         quantity: "1",
         discount: "",
@@ -508,6 +510,7 @@ describe("fromVersion", () => {
             category: "SUBSCRIPTION",
             discretionaryDiscountPercent: "10.00",
             recurring: true,
+            classification: "PS",
             yearNumber: 1,
             startDate: "2027-01-01",
             endDate: "2027-04-30",
@@ -555,7 +558,9 @@ describe("stepOfField", () => {
     expect(stepOfField("contacts.billing")).toBe(2);
     expect(stepOfField("netTermsDays")).toBe(2); // the Payment Terms card on Commercials (D86)
     expect(stepOfField("poNumber")).toBe(2);
-    expect(stepOfField("specialTerms.billing")).toBe(2);
+    expect(stepOfField("specialTerms.billing")).toBe(3); // the Legal step (POC legal terms)
+    expect(stepOfField("partnerContractDate")).toBe(3);
+    expect(stepOfField("legalTerms")).toBe(3);
   });
 });
 

@@ -57,6 +57,16 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     }),
     useCurrencies: () => ({ ...idle(), data: ["USD", "GBP"] }),
     useActiveLegalEntities: () => ({ ...idle(), data: [{ id: 1, code: "WSO2_LLC", name: "WSO2, LLC.", country: "USA" }] }),
+    // The legal texts (POC legal terms): the partner role names its agreement.
+    useLegalConfig: () => ({
+      ...idle(),
+      data: {
+        eula: { version: "3.6", url: "https://wso2.com/licenses/eula/3.6" },
+        texts: { TERMS_ONPREM_DIRECT: "Direct terms.", TERMS_ONPREM_PARTNER: "Partner terms.", TERMS_SAAS_DIRECT: "SaaS.", TERMS_SAAS_PARTNER: "SaaS (partner)." },
+        notices: [],
+        contractNames: { "Value Added Reseller": "Value Added Reseller Agreement", Reseller: "Value Added Reseller Agreement" },
+      },
+    }),
     useQuoteSettings: () => ({ ...idle(), data: { validityDays: 30 } }),
     usePricingPreview: () => pricing,
     useQuoteVersion: () => version,
@@ -138,7 +148,7 @@ describe("QuoteWizardPage — drafts", () => {
     expect(steps.getByRole("button", { name: "Products & Pricing" })).toBeDisabled();
     expect(steps.getByRole("button", { name: "Review" })).toBeDisabled();
     expect(screen.getByRole("heading", { level: 2, name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 5")).toBeInTheDocument();
     expect(screen.queryByText(/to fix/)).toBeNull(); // the steps enforce what is required; no issue list
   });
 

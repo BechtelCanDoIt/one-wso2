@@ -29,6 +29,7 @@ export type Cado2AdminSection =
   | "currencies"
   | "product-categories"
   | "product-bundles"
+  | "legal-texts"
   | "quote-access"
   | "salesforce-sync"
   | "pricing-formulas";

@@ -28,6 +28,7 @@ const gateway = {
   family: null,
   unitOfMeasure: "Gateways",
   recurring: true, // from its Salesforce classification (D76)
+  classification: "PS", // on-prem (POC legal terms)
   pricebookEntries: [
     { id: "01u000000000001", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01s1", name: "FY26 USD" } },
   ],
@@ -107,6 +108,7 @@ function savedSupportLine(): LineValue {
     category: "SUPPORT",
     categorySource: "MAPPED",
     recurring: true,
+    classification: "PS",
     unitOfMeasure: "",
     quantity: "1",
     discount: "0",
@@ -188,6 +190,7 @@ describe("AddLineDialog", () => {
         category: "SUBSCRIPTION",
         categorySource: "REP",
         recurring: true,
+        classification: "PS",
       }), []);
   });
 
@@ -272,6 +275,7 @@ describe("AddLineDialog", () => {
       category: "SUPPORT",
       categorySource: "MAPPED",
       recurring: true,
+      classification: "PS",
       unitOfMeasure: "",
       quantity: "1",
       discount: "0",

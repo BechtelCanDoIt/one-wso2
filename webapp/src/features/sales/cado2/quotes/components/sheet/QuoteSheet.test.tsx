@@ -64,7 +64,6 @@ describe("QuoteSheet", () => {
       "Net 45",
       "PO-4471",
       "Custom SLA credits",
-      "WSO2 standard terms",
       "Acme Reseller Ltd",
       "Tax ID GB123",
       "Suite 400",
@@ -311,5 +310,49 @@ describe("DealFiguresSection", () => {
     render(<DealFiguresSection sheet={services} />);
     expect(within(screen.getByLabelText("ARR · annual recurring revenue")).getByText("Not applicable")).toBeInTheDocument();
     expect(within(screen.getByLabelText("ACV · average per contract year")).getByText("Not applicable")).toBeInTheDocument();
+  });
+});
+
+// POC legal terms: the quote page shows sections 04–06 as they print.
+describe("LegalSection", () => {
+  const withLegal: Sheet = {
+    ...sheet,
+    dealType: "PARTNER",
+    legal: {
+      sections: {
+        eula: { version: "3.6", url: "https://wso2.com/licenses/eula/3.6" },
+        blocks: [
+          { kind: "ONPREM", nonStandard: false, text: "Governed by the Value Added Reseller Agreement." },
+          { kind: "SAAS", nonStandard: true, text: "" },
+        ],
+        notices: [{ title: "Auto Renewal", body: "Renews for 12 months.", showTitle: true, finePrint: false, reason: "partner deal" }],
+        contractName: "Value Added Reseller Agreement",
+        contractNameFromRole: true,
+      },
+      contractName: "Value Added Reseller Agreement",
+      contractDate: "2024-03-12",
+      partnerName: "Acme Reseller",
+      specialTerms: "Legal's wording",
+      specialTermsByLegal: true,
+      frozen: true,
+    },
+  };
+
+  it("shows the terms per product type, the notices and the special terms", () => {
+    render(<QuoteSheet sheet={withLegal} />);
+    const legal = within(screen.getByRole("region", { name: "Legal" }));
+    expect(legal.getByText("As submitted")).toBeInTheDocument();
+    expect(legal.getByText(/Value Added Reseller Agreement · Acme Reseller · 12 Mar 2024/)).toBeInTheDocument();
+    expect(legal.getByText("Governed by the Value Added Reseller Agreement.")).toBeInTheDocument();
+    expect(legal.getByText("SaaS products")).toBeInTheDocument();
+    expect(legal.getByText("Legal writes these terms during their approval.")).toBeInTheDocument();
+    expect(legal.getByText("Auto Renewal")).toBeInTheDocument();
+    expect(legal.getByText("Legal's wording")).toBeInTheDocument();
+    expect(legal.getByText("Reworded by Legal during their approval")).toBeInTheDocument();
+  });
+
+  it("isn't shown without the legal texts", () => {
+    render(<QuoteSheet sheet={{ ...sheet, legal: null }} />);
+    expect(screen.queryByRole("region", { name: "Legal" })).toBeNull();
   });
 });

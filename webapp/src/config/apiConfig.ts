@@ -1979,6 +1979,16 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
   // Product bundles (POC years-bundles Stage C): Admins keep them; an AM's
   // quote reads a parent's children from its price book.
+  // Legal terms (POC): the texts quotes use; Admin › Legal Texts; Legal's terms on a version.
+  legalConfig: `${cado2BackendUrl}/legal`,
+  adminLegal: `${cado2BackendUrl}/admin/legal`,
+  adminLegalText: (key: string): string => `${cado2BackendUrl}/admin/legal/texts/${encodeSegment(key)}`,
+  adminLegalEulas: `${cado2BackendUrl}/admin/legal/eulas`,
+  adminLegalNotices: `${cado2BackendUrl}/admin/legal/notices`,
+  adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
+  adminLegalContractNames: `${cado2BackendUrl}/admin/legal/contract-names`,
+  legalTerms: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/legal-terms`,
   adminBundles: `${cado2BackendUrl}/admin/bundles`,
   adminBundle: (productId: string): string => `${cado2BackendUrl}/admin/bundles/${encodeSegment(productId)}`,
   bundleChildren: (productId: string, currency: string, pricebookId: string): string =>

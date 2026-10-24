@@ -40,6 +40,7 @@ import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { useLeaveGuard } from "@features/sales/cado2/quotes/form/useLeaveGuard";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import {
+  useLegalConfig,
   usePricingPreview,
   useActiveLegalEntities,
   useQuoteSettings,
@@ -72,6 +73,7 @@ import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/Quo
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import CommercialStep from "@features/sales/cado2/quotes/components/steps/CommercialStep";
 import ReviewStep from "@features/sales/cado2/quotes/components/steps/ReviewStep";
+import LegalStep from "@features/sales/cado2/quotes/components/steps/LegalStep";
 import SmallDealBanner from "@features/sales/cado2/quotes/components/SmallDealBanner";
 import ApprovalPreviewPanel from "@features/sales/cado2/approvals/components/ApprovalPreviewPanel";
 import ApprovalPreviewDialog from "@features/sales/cado2/approvals/components/ApprovalPreviewDialog";
@@ -89,7 +91,7 @@ const { LocalizationProvider } = DatePickers;
 /** Live totals refresh this long after the rep stops typing. */
 const PREVIEW_DEBOUNCE_MS = 500;
 
-const REVIEW_STEP = 3;
+const REVIEW_STEP = 4;
 
 /** "Last synced 13 Oct 2026, 10:42 (v1)", or "Not synced yet" (D77). */
 function lastSynced(q: QuoteView): string {
@@ -227,8 +229,11 @@ export default function QuoteWizardPage(): JSX.Element {
   // Filled in order (F5 feedback): Next unlocks when the current step is
   // complete; steps beyond the first incomplete one are locked. A frozen
   // version can be browsed freely.
-  const checks = useMemo(() => stepChecks(values), [values]);
-  const pricingProblems = [0, 1, 2].map((i) => previewProblems.filter((p) => stepOfField(p.field) === i));
+  // The partner's role names an agreement (Admin › Legal Texts), so the AM needn't choose one.
+  const legalConfig = useLegalConfig();
+  const contractNameMapped = Boolean(values.partner?.role && legalConfig.data?.contractNames[values.partner.role]);
+  const checks = useMemo(() => stepChecks(values, contractNameMapped), [values, contractNameMapped]);
+  const pricingProblems = [0, 1, 2, 3].map((i) => previewProblems.filter((p) => stepOfField(p.field) === i));
   const reachable = editable
     ? reachableStep(
         checks,
@@ -538,6 +543,7 @@ export default function QuoteWizardPage(): JSX.Element {
                   {step === 0 ? <OverviewStep locked={saved !== null} quoteId={saved?.quote.id ?? null} /> : null}
                   {step === 1 ? <ProductsStep preview={shown} /> : null}
                   {step === 2 ? <CommercialStep /> : null}
+                  {step === 3 ? <LegalStep /> : null}
                 </Box>
                 {step === REVIEW_STEP ? (
                   <>

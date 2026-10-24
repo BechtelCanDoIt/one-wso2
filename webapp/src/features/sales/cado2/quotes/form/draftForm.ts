@@ -38,6 +38,7 @@ import type {
   Product,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
+import { cleanLegalText } from "@features/sales/cado2/utils/legalRichText";
 
 /** Contact: none yet, a Salesforce contact of the account, or typed in. */
 export interface ContactValue {
@@ -101,6 +102,8 @@ export interface LineValue {
    * line in an order-form section.
    */
   recurring: boolean;
+  /** The product's Salesforce classification (e.g. PS, CL); "" when unknown. CL is SaaS, PS on-prem (POC legal terms). */
+  classification: string;
   unitOfMeasure: string;
   quantity: string;
   discount: string;
@@ -182,8 +185,14 @@ export interface DraftFormValues {
   poNumber: string;
   specialTermsEnabled: boolean;
   specialTerms: string;
-  governingTermsEnabled: boolean;
-  governingTerms: string;
+  // Step 4 — Legal (POC legal terms): section 04 blocks the AM marks
+  // non-standard (Legal writes them), and the partner agreement.
+  termsOnPremNonStandard: boolean;
+  termsSaasNonStandard: boolean;
+  /** The agreement's name when the partner role names none; "" otherwise. */
+  partnerContractName: string;
+  /** YYYY-MM-DD; "" until entered. */
+  partnerContractDate: string;
   billTo: AddressValue;
   shipTo: AddressValue;
   shipToSameAsBillTo: boolean;
@@ -243,8 +252,10 @@ export function emptyDraftForm(): DraftFormValues {
     poNumber: "",
     specialTermsEnabled: false,
     specialTerms: "",
-    governingTermsEnabled: false,
-    governingTerms: "",
+    termsOnPremNonStandard: false,
+    termsSaasNonStandard: false,
+    partnerContractName: "",
+    partnerContractDate: "",
     billTo: { ...emptyAddress },
     shipTo: { ...emptyAddress },
     shipToSameAsBillTo: false,
@@ -629,6 +640,7 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
       category: l.category,
       categorySource: l.categorySource ?? "REP",
       recurring: l.recurring,
+      classification: l.classification ?? "",
       unitOfMeasure: l.unitOfMeasure ?? "",
       quantity: String(l.quantity),
       discount: String(Number(l.discretionaryDiscountPercent)),
@@ -643,8 +655,10 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
     poNumber: v.poNumber ?? "",
     specialTermsEnabled: v.specialTerms.enabled,
     specialTerms: v.specialTerms.text ?? "",
-    governingTermsEnabled: v.governingTerms.enabled,
-    governingTerms: v.governingTerms.text ?? "",
+    termsOnPremNonStandard: v.termsOnPremNonStandard ?? false,
+    termsSaasNonStandard: v.termsSaasNonStandard ?? false,
+    partnerContractName: v.partnerContractName ?? "",
+    partnerContractDate: v.partnerContractDate ?? "",
     billTo: addressFromView(res, "BILL_TO"),
     shipTo: addressFromView(res, "SHIP_TO"),
     shipToSameAsBillTo: shipTo?.source === "SAME_AS_BILL_TO",
@@ -751,12 +765,15 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
     netTermsDays: v.netTermsDays ? Number(v.netTermsDays) : undefined,
     specialTerms: {
       enabled: v.specialTermsEnabled,
-      text: v.specialTermsEnabled ? opt(v.specialTerms) : undefined,
+      // Rich text (2026-10-24), cleaned; the editor's empty value is none.
+      text: v.specialTermsEnabled ? opt(cleanLegalText(v.specialTerms)) : undefined,
     },
-    governingTerms: {
-      enabled: v.governingTermsEnabled,
-      text: v.governingTermsEnabled ? opt(v.governingTerms) : undefined,
-    },
+    // No longer used (POC legal terms): section 04 is per product type.
+    governingTerms: { enabled: false },
+    termsOnPremNonStandard: v.termsOnPremNonStandard,
+    termsSaasNonStandard: v.termsSaasNonStandard,
+    partnerContractName: opt(v.partnerContractName),
+    partnerContractDate: opt(v.partnerContractDate),
     poNumber: opt(v.poNumber),
     justification: opt(v.justification),
     contacts: {
@@ -934,7 +951,7 @@ export const BILLING_LABEL: Record<BillingFrequency, string> = {
 // ---------------------------------------------------------------------------
 
 /** Wizard steps, in order. */
-export const STEPS = ["Overview", "Products & Pricing", "Commercials", "Review"] as const;
+export const STEPS = ["Overview", "Products & Pricing", "Commercials", "Legal", "Review"] as const;
 
 /** Fields on Products & Pricing besides the lines: currency and price book, the start date and term, commission. */
 const STEP_2_FIELDS = [
@@ -953,8 +970,6 @@ const STEP_3_FIELDS = [
   "billingFrequency",
   "netTermsDays",
   "poNumber",
-  "specialTerms",
-  "governingTerms",
   "billTo",
   "shipTo",
   "contacts.billing",
@@ -962,11 +977,15 @@ const STEP_3_FIELDS = [
   "justification",
 ];
 
+/** Legal (POC legal terms): section 04, the partner agreement and the special terms. */
+const STEP_4_FIELDS = ["specialTerms", "governingTerms", "partnerContractName", "partnerContractDate", "legalTerms"];
+
 /** The step (0-based) where an issue's field lives, so the summary panel can jump there. */
 export function stepOfField(field: string): number {
   // "salesforce": a refused sync (D77), done from Products & Pricing.
   if (field === "lines" || field.startsWith("lines[") || field === "salesforce" || STEP_2_FIELDS.includes(field)) return 1;
   if (STEP_3_FIELDS.some((f) => field === f || field.startsWith(f + ".") || field.startsWith(f + "["))) return 2;
+  if (STEP_4_FIELDS.some((f) => field === f || field.startsWith(f + "."))) return 3;
   return 0;
 }
 
@@ -993,6 +1012,7 @@ export function pulledLines(products: readonly Product[]): LineValue[] {
         category: p.category ?? "",
         categorySource: p.category ? "MAPPED" : "REP",
         recurring: p.recurring,
+        classification: p.classification ?? "",
         unitOfMeasure: "",
         quantity: "1",
         discount: "",

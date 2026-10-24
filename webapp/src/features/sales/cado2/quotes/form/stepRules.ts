@@ -24,6 +24,7 @@
 // get stuck on bad Salesforce data; revisit if it is reported.
 
 import type { AddressValue, ContactValue, DraftFormValues } from "./draftForm";
+import { isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
 import { commissionProblem, formYears, isPartnerLed, lastYearEndProblem, lineDatesProblem } from "./draftForm";
 
 /** The to-do when the billing says "See Special Terms" and they are off (D86), as the backend words it. */
@@ -41,8 +42,12 @@ const hasContact = (c: ContactValue) =>
 const addressComplete = (a: AddressValue) =>
   Boolean(a.companyName.trim() && a.addressLine1.trim() && a.city.trim() && a.country.trim());
 
-/** Missing items per step: [Overview, Products & Pricing, Commercials]. Review has none of its own. */
-export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepCheck[]] {
+/** Missing items per step: [Overview, Products & Pricing, Commercials, Legal]. Review has none of its own. */
+export function stepChecks(
+  v: DraftFormValues,
+  /** The partner's role names an agreement (Admin › Legal Texts), so the AM needn't choose one. */
+  contractNameMapped = false,
+): [StepCheck[], StepCheck[], StepCheck[], StepCheck[]] {
   const overview: StepCheck[] = [];
   const need = (list: StepCheck[], ok: boolean, field: string, message: string) => {
     if (!ok) list.push({ field, message });
@@ -91,31 +96,38 @@ export function stepChecks(v: DraftFormValues): [StepCheck[], StepCheck[], StepC
   // Commercials opens with billing and payment terms (D86), on every quote (D88).
   need(commercial, Boolean(v.billingFrequency), "billingFrequency", "Choose the billing frequency");
   need(commercial, Boolean(v.netTermsDays), "netTermsDays", "Choose the payment terms");
-  // D86: "See Special Terms" billing points at the special terms.
-  need(
-    commercial,
-    v.billingFrequency !== "SPECIAL_TERMS" || v.specialTermsEnabled,
-    "specialTerms.billing",
-    SPECIAL_TERMS_BILLING,
-  );
-  need(commercial, !v.specialTermsEnabled || v.specialTerms.trim() !== "", "specialTerms.text", "Write the special terms, or switch them off");
-  need(commercial, !v.governingTermsEnabled || v.governingTerms.trim() !== "", "governingTerms.text", "Write the governing terms, or switch them off");
   need(commercial, addressComplete(v.billTo), "billTo", "Complete the bill-to address (company, street, city, country)");
   const shipNeeded = v.dealType === "PARTNER" || !v.shipToSameAsBillTo;
   need(commercial, !shipNeeded || addressComplete(v.shipTo), "shipTo", "Complete the ship-to address (company, street, city, country)");
   need(commercial, hasContact(v.billingContact), "contacts.billing", "Choose the billing contact");
 
-  return [overview, products, commercial];
+  // Legal (POC legal terms): the special terms (D86's "See Special Terms"
+  // billing points at them) and, on a partner deal, its agreement. The
+  // non-standard switches need nothing: Legal writes those terms.
+  const legalStep: StepCheck[] = [];
+  need(
+    legalStep,
+    v.billingFrequency !== "SPECIAL_TERMS" || v.specialTermsEnabled,
+    "specialTerms.billing",
+    SPECIAL_TERMS_BILLING,
+  );
+  need(legalStep, !v.specialTermsEnabled || !isEmptyLegalText(v.specialTerms), "specialTerms.text", "Write the special terms, or switch them off");
+  if (v.dealType === "PARTNER") {
+    if (!contractNameMapped) need(legalStep, v.partnerContractName.trim() !== "", "partnerContractName", "Choose the partner agreement");
+    need(legalStep, v.partnerContractDate !== "", "partnerContractDate", "Enter the date of the partner agreement");
+  }
+
+  return [overview, products, commercial, legalStep];
 }
 
 /**
  * The furthest step the AM may open: the first incomplete step (they are
- * filled in order), or Review when steps 1–3 are all complete. `extra` adds
+ * filled in order), or Review when steps 1–4 are all complete. `extra` adds
  * problems found elsewhere, e.g. lines the live pricing refused.
  */
 export function reachableStep(checks: readonly (readonly StepCheck[])[], extra: readonly number[] = []): number {
-  for (let i = 0; i < 3; i++) if ((checks[i]?.length ?? 0) + (extra[i] ?? 0) > 0) return i;
-  return 3;
+  for (let i = 0; i < 4; i++) if ((checks[i]?.length ?? 0) + (extra[i] ?? 0) > 0) return i;
+  return 4;
 }
 
 /** "Choose the billing frequency" or "Choose the currency (+2 more)". */

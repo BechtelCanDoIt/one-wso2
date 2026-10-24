@@ -26,6 +26,8 @@
 import { descriptionAfterName } from "@features/sales/cado2/utils/productDescription";
 import type {
   BillingFrequency,
+  LegalConfig,
+  LegalSections,
   DealType,
   DraftResponse,
   LineCategory,
@@ -36,6 +38,7 @@ import type {
   Totals,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
+import { legalMix, resolveLegal } from "@features/sales/cado2/quotes/form/legalModel";
 import { versionLabel } from "@features/sales/cado2/utils/pricingFormula";
 import {
   commissionProblem,
@@ -159,13 +162,27 @@ export interface QuoteSheet {
   readonly poNumber: string | null;
   /** The text when switched on; null when off. */
   readonly specialTerms: string | null;
-  readonly governingTerms: string | null;
+  /** The legal sections 04–06 (POC legal terms); null when the texts aren't known. */
+  readonly legal: SheetLegal | null;
   readonly billTo: SheetAddress | null;
   /** null with shipToSameAsBillTo = the bill-to address. */
   readonly shipTo: SheetAddress | null;
   readonly shipToSameAsBillTo: boolean;
   readonly justification: string | null;
   readonly pricingRulesVersion: string | null;
+}
+
+/** The order form's legal sections on the sheet (POC legal terms). */
+export interface SheetLegal {
+  readonly sections: LegalSections;
+  /** Partner deals: the agreement and its date (YYYY-MM-DD, or ""). */
+  readonly contractName: string;
+  readonly contractDate: string;
+  readonly partnerName: string;
+  /** Section 06 as it prints: Legal's wording when they changed it. */
+  readonly specialTerms: string | null;
+  readonly specialTermsByLegal: boolean;
+  readonly frozen: boolean;
 }
 
 /** One contract year on the sheet. */
@@ -288,7 +305,17 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
     netTermsDays: v.netTermsDays,
     poNumber: blank(v.poNumber),
     specialTerms: v.specialTerms.enabled ? blank(v.specialTerms.text) : null,
-    governingTerms: v.governingTerms.enabled ? blank(v.governingTerms.text) : null,
+    legal: v.legal
+      ? {
+          sections: v.legal.sections,
+          contractName: v.legal.contractName,
+          contractDate: v.legal.contractDate ?? "",
+          partnerName: v.legal.partnerName,
+          specialTerms: v.legal.specialTerms,
+          specialTermsByLegal: v.legal.specialTermsByLegal,
+          frozen: v.legal.frozen,
+        }
+      : null,
     billTo: address("BILL_TO"),
     shipTo: address("SHIP_TO"),
     shipToSameAsBillTo: v.addresses.some((a) => a.type === "SHIP_TO" && a.source === "SAME_AS_BILL_TO"),
@@ -312,10 +339,39 @@ function formAddress(a: AddressValue): SheetAddress | null {
   return { companyName: a.companyName.trim(), lines, taxId: blank(a.taxId) };
 }
 
+/** The form's legal sections, worked out as the backend will (POC legal terms). */
+function formLegal(v: DraftFormValues, cfg: LegalConfig): SheetLegal {
+  const sections = resolveLegal(
+    cfg,
+    {
+      ...legalMix(v.lines.map((l) => l.classification)),
+      partner: v.dealType === "PARTNER",
+      region: v.accountSalesRegion,
+      dealKind: v.dealKind,
+      partnerRole: v.partner?.role ?? "",
+      partnerName: v.partner?.name ?? "",
+      contractName: v.partnerContractName,
+      contractDate: v.partnerContractDate,
+    },
+    { onPremNonStandard: v.termsOnPremNonStandard, saasNonStandard: v.termsSaasNonStandard },
+  );
+  return {
+    sections,
+    contractName: sections.contractName,
+    contractDate: v.partnerContractDate,
+    partnerName: v.partner?.name ?? "",
+    specialTerms: v.specialTermsEnabled ? blank(v.specialTerms) : null,
+    specialTermsByLegal: false,
+    frozen: false,
+  };
+}
+
 export function sheetFromForm(
   v: DraftFormValues,
   preview: PricingPreview | null,
   legalEntity: { name: string; country?: string } | null,
+  /** The legal texts (POC legal terms); without them the sheet has no legal sections. */
+  legalConfig: LegalConfig | null = null,
 ): QuoteSheet {
   const recurring = hasRecurring(v.lines);
   const years = formYears(v);
@@ -386,7 +442,7 @@ export function sheetFromForm(
     netTermsDays: v.netTermsDays ? Number(v.netTermsDays) : null,
     poNumber: blank(v.poNumber),
     specialTerms: v.specialTermsEnabled ? blank(v.specialTerms) : null,
-    governingTerms: v.governingTermsEnabled ? blank(v.governingTerms) : null,
+    legal: legalConfig ? formLegal(v, legalConfig) : null,
     billTo: formAddress(v.billTo),
     shipTo: v.shipToSameAsBillTo ? null : formAddress(v.shipTo),
     shipToSameAsBillTo: v.shipToSameAsBillTo,

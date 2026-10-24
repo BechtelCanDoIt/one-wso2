@@ -41,7 +41,7 @@ describe("sheetFromVersion", () => {
       netTermsDays: 45,
       poNumber: "PO-4471",
       specialTerms: "Custom SLA credits",
-      governingTerms: null,
+      legal: null, // the fixture has no legal sections
       justification: "Strategic logo in the region",
       pricingRulesVersion: "2026-09-M9",
     });
