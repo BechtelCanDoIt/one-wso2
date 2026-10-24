@@ -348,6 +348,12 @@ export default function ParLeadEmployeeHistoryTab() {
   const legacyEmployeeContent = formatLegacyQuestionAnswers(
     parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null),
   );
+  // Same "Manager Answer By over Reports To" rule as
+  // ParLegacyRecordDetail.tsx's own sharedByName -- reviewerName/reviewerEmail
+  // is the employee's CURRENT lead, not necessarily who reviewed this cycle.
+  const legacySharedByName =
+    parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null).find((qa) => qa.managerAnsweredBy)
+      ?.managerAnsweredBy ?? null;
   const legacyLeadContent = hasLegacyContent(selectedLegacyRecord?.overallCommentManager)
     ? selectedLegacyRecord!.overallCommentManager!
     : "";
@@ -523,12 +529,12 @@ export default function ParLeadEmployeeHistoryTab() {
                       {special && special !== "NOT_ASSIGNED" && <ParStatusChip content={special} />}
                       {rating2 && rating2 !== "NOT_ASSIGNED" && <ParStatusChip content={rating2} />}
                     </Stack>
-                    {(selectedLegacyRecord.reviewerEmail || selectedLegacyRecord.reviewerName) && (
+                    {legacySharedByName && (
                       <Chip
                         size="small"
                         variant="outlined"
                         sx={{ mt: 1 }}
-                        label={`PAR shared by: ${selectedLegacyRecord.reviewerEmail ?? selectedLegacyRecord.reviewerName}`}
+                        label={`PAR shared by: ${legacySharedByName}`}
                       />
                     )}
                   </Grid>
