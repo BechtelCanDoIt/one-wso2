@@ -266,7 +266,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     }
   });
 
-  // POC years-bundles: the start comes from the opportunity; its end doesn't
+  // The start comes from the opportunity; its end doesn't
   // split anything: the quote keeps Year 1 and the AM adds the rest.
   it.each([
     ["3 years in Salesforce", { subsStartDate: "2027-02-01", subsEndDate: "2030-01-31" }, "start: 2027-02-01", "years: 1 full"],

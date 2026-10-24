@@ -233,7 +233,7 @@ export default function SummaryPanel({ values: v, legalEntityName, totals, prici
         <Group title="Deal Terms" icon={<LandmarkIcon size={14} />}>
           <Field label="WSO2 legal entity">{v.legalEntityId ? legalEntityName : null}</Field>
           <Field label="Currency">{v.currencyIsoCode}</Field>
-          {/* The term (POC years-bundles): its dates, length and years. */}
+          {/* The term: its dates, length and years. */}
           {v.startDate && end ? (
             <Field
               label="Term"

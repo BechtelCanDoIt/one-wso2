@@ -100,7 +100,7 @@ function LineIssue({ index }: { index: number }) {
 }
 
 /**
- * Step ② Products & Pricing, laid out by year (POC years-bundles):
+ * Step ② Products & Pricing, laid out by year:
  *
  *   Price book → partner commission → Term (start date; where the years take it)
  *   Products                                          [Collapse all]
@@ -159,7 +159,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
   const onSave = (line: LineValue, children: LineValue[]) => {
     const lines = getValues("lines");
     if (editing.index === null) {
-      // After its year's lines, its bundle right below it (POC Stage C).
+      // After its year's lines, its bundle right below it.
       const at = insertIndex(lines, line.yearNumber);
       if (children.length === 0) insert(at, line);
       else replace([...lines.slice(0, at), line, ...children, ...lines.slice(at)]);

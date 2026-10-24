@@ -567,7 +567,7 @@ export default function QuoteWizardPage(): JSX.Element {
                     />
                   </>
                 ) : null}
-                {/* Under USD 30,000 (POC, 2026-10-24): right above Next and
+                {/* Under USD 30,000 (2026-10-24): right above Next and
                     Submit, where the AM's eye is when moving on, not at the
                     top of a long step. */}
                 {step === 1 || step === REVIEW_STEP ? (

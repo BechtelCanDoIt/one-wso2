@@ -57,7 +57,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     }),
     useCurrencies: () => ({ ...idle(), data: ["USD", "GBP"] }),
     useActiveLegalEntities: () => ({ ...idle(), data: [{ id: 1, code: "WSO2_LLC", name: "WSO2, LLC.", country: "USA" }] }),
-    // The legal texts (POC legal terms): the partner role names its agreement.
+    // The legal texts: the partner role names its agreement.
     useLegalConfig: () => ({
       ...idle(),
       data: {

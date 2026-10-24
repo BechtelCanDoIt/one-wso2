@@ -244,7 +244,7 @@ describe("toDraftInput", () => {
     expect(input.specialTerms).toEqual({ enabled: false, text: undefined });
   });
 
-  it("sends the years, a shortened last year, and each line's own dates (POC years-bundles)", () => {
+  it("sends the years, a shortened last year, and each line's own dates", () => {
     const v = filled();
     const input = toDraftInput({
       ...v,
@@ -313,7 +313,7 @@ describe("toPreviewBody", () => {
   });
 });
 
-describe("contract years (POC years-bundles)", () => {
+describe("contract years", () => {
   const line = (yearNumber: number, recurring = true, startDate = "", endDate = "") =>
     ({ ...filled().lines[0], lineId: 9, yearNumber, recurring, startDate, endDate });
 
@@ -391,7 +391,7 @@ describe("contract years (POC years-bundles)", () => {
 
 });
 
-describe("bundles (POC Stage C)", () => {
+describe("bundles", () => {
   const base = () => filled().lines[0];
   const parent = { ...base(), key: "p", parentKey: "", yearNumber: 1 };
   const child = { ...base(), pricebookEntryId: "01uC", key: "c", parentKey: "p", yearNumber: 1, recurring: false };
@@ -417,7 +417,7 @@ describe("bundles (POC Stage C)", () => {
   });
 });
 
-describe("sales price (POC Stage B)", () => {
+describe("sales price", () => {
   it("sends a raised sales price, and none when it is the list price", () => {
     const v = filled();
     const input = toDraftInput({ ...v, lines: [{ ...v.lines[0], salesPrice: "400" }, v.lines[1]] });
@@ -558,7 +558,7 @@ describe("stepOfField", () => {
     expect(stepOfField("contacts.billing")).toBe(2);
     expect(stepOfField("netTermsDays")).toBe(2); // the Payment Terms card on Commercials (D86)
     expect(stepOfField("poNumber")).toBe(2);
-    expect(stepOfField("specialTerms.billing")).toBe(3); // the Legal step (POC legal terms)
+    expect(stepOfField("specialTerms.billing")).toBe(3); // the Legal step
     expect(stepOfField("partnerContractDate")).toBe(3);
     expect(stepOfField("legalTerms")).toBe(3);
   });

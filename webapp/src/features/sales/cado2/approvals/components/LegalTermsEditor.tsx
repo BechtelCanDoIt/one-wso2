@@ -25,7 +25,7 @@ import LegalRichTextField from "@features/sales/cado2/components/legal-rich-text
 import { cleanLegalText, legalPlainText, sameLegalText } from "@features/sales/cado2/utils/legalRichText";
 
 /**
- * Legal's part of their approval (POC legal terms): the non-standard
+ * Legal's part of their approval: the non-standard
  * governing terms, which only Legal writes, and the special terms, which
  * they may reword. Saved on the version (and in its history); Approve
  * waits until every non-standard block is written.

@@ -75,7 +75,7 @@ const VISIBLE_SWITCH = {
 };
 
 /**
- * Step ④ Legal (POC legal terms, 2026-10-24): the order form's legal
+ * Step ④ Legal (2026-10-24): the order form's legal
  * sections as they will print.
  *
  *   Governing Terms  a block per product type on the quote, on-prem (PS) and SaaS

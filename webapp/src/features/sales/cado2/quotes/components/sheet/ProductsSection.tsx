@@ -24,8 +24,8 @@ import YearSections, { OrderTotalsFooter } from "./YearSections";
 import { useCollapsedYears } from "./useCollapsedYears";
 
 /**
- * Every line, as on the order form, year by year in one card (POC
- * years-bundles), closed by the order total over every year.
+ * Every line, as on the order form, year by year in one card,
+ * closed by the order total over every year.
  */
 export default function ProductsSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
   const fold = useCollapsedYears();

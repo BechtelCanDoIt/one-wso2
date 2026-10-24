@@ -46,7 +46,7 @@ function Section({ title, icon, hint, children }: { title: string; icon: ReactNo
  * Step ③ Commercials (D86): how often it is invoiced (every quote, D88)
  * and when each invoice is due, who is billed and who receives it (each
  * with its contact; the PO number in Bill To), and the justification. The
- * terms moved to the Legal step (POC legal terms).
+ * terms moved to the Legal step.
  */
 export default function CommercialStep(): JSX.Element {
   const { control } = useFormContext<DraftFormValues>();

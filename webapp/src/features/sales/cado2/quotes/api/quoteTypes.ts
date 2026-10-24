@@ -204,7 +204,7 @@ export interface ScheduleRow {
   readonly netBilling?: string;
 }
 
-/** GET /bundles/{productId}: the children a parent brings, priced from the quote's book; Missing names those not in it (POC Stage C). */
+/** GET /bundles/{productId}: the children a parent brings, priced from the quote's book; Missing names those not in it. */
 export interface BundleChildren {
   readonly children: readonly Product[];
   readonly missing: readonly string[];
@@ -215,7 +215,7 @@ export interface PricingYear {
   readonly periodStart: string;
   readonly periodEnd: string;
   readonly net: string;
-  /** The year's recurring lines at their full yearly rate (POC years-bundles). */
+  /** The year's recurring lines at their full yearly rate. */
   readonly arr?: string;
   readonly billing: string;
   readonly commission?: string;
@@ -223,7 +223,7 @@ export interface PricingYear {
 }
 
 // ---------------------------------------------------------------------------
-// Legal terms (POC, 2026-10-24): Admin › Legal Texts and a quote's sections
+// Legal terms (2026-10-24): Admin › Legal Texts and a quote's sections
 // ---------------------------------------------------------------------------
 
 /** A section 05 notice and when it applies; an empty list matches any. */
@@ -290,7 +290,7 @@ export interface LegalView {
 
 /**
  * A deal whose TCV is under the small-deal amount in USD, at Salesforce's
- * current rate (POC, 2026-10-24): the AM is asked to contact their Sales
+ * current rate (2026-10-24): the AM is asked to contact their Sales
  * Manager and the BU GM. A warning only.
  */
 export interface SmallDeal {
@@ -298,7 +298,7 @@ export interface SmallDeal {
   readonly tcvUsd: string;
 }
 
-/** One contract year of a saved version (POC years-bundles); net and ARR are null while unpriced. */
+/** One contract year of a saved version; net and ARR are null while unpriced. */
 export interface ContractYearView {
   readonly yearNumber: number;
   readonly startDate: string;
@@ -368,7 +368,7 @@ export interface PricingPreview {
   readonly termMonths: string;
   readonly totals: Totals;
   readonly years: readonly PricingYear[];
-  /** TCV under USD 30,000 (a warning); null otherwise (POC). */
+  /** TCV under USD 30,000 (a warning); null otherwise. */
   readonly smallDeal?: SmallDeal | null;
   readonly lines: readonly {
     readonly pricebookEntryId: string;
@@ -380,7 +380,7 @@ export interface PricingPreview {
     readonly categorySource?: CategorySource;
     /** The list price priced: a formula line's is worked out (D81). */
     readonly unitPrice?: string;
-    /** The unit price charged (POC Stage B). */
+    /** The unit price charged. */
     readonly salesPrice?: string;
     readonly pricingMethod?: PricingMethod;
     readonly formula?: LineFormula | null;
@@ -427,14 +427,14 @@ export interface DraftLineInput {
   readonly unitOfMeasure?: string;
   /** A kept line moved to its product's pricing in force: the latest formula version, or the price book (D82). */
   readonly useLatestFormula?: boolean;
-  /** The contract year the line belongs to (POC years-bundles). */
+  /** The contract year the line belongs to. */
   readonly yearNumber: number;
   /** Within its year; omitted = the whole year. A one-off is charged on its start. */
   readonly startDate?: string;
   readonly endDate?: string;
-  /** The unit price charged (POC Stage B); omitted = the list price. Never below it; none on a formula line. */
+  /** The unit price charged; omitted = the list price. Never below it; none on a formula line. */
   readonly salesPrice?: string;
-  /** A bundle child: the position in lines of its parent (POC Stage C). */
+  /** A bundle child: the position in lines of its parent. */
   readonly parentIndex?: number;
 }
 
@@ -452,13 +452,13 @@ export interface DraftInput {
   /** The quote's price book; omitted = none chosen. */
   readonly defaultPricebookId?: string;
   readonly subscriptionStartDate?: string;
-  /** How many contract years the AM added, 1–10 (POC years-bundles); omitted = none yet. */
+  /** How many contract years the AM added, 1–10; omitted = none yet. */
   readonly yearCount?: number;
   /** The last year's end when it is shorter than 12 months; omitted = a full year. */
   readonly lastYearEndDate?: string;
   /** With a recurring line only (D85). */
   readonly billingFrequency?: BillingFrequency;
-  /** Section 04 (POC legal terms): blocks the AM marks non-standard (Legal writes them). */
+  /** Section 04: blocks the AM marks non-standard (Legal writes them). */
   readonly termsOnPremNonStandard?: boolean;
   readonly termsSaasNonStandard?: boolean;
   /** The partner agreement: its name when the partner role has none, and its date (YYYY-MM-DD). */
@@ -497,7 +497,7 @@ export interface LineView {
   readonly pricebookName: string;
   /** The list price: the price book's, or the formula's. */
   readonly unitPrice: string;
-  /** What the customer is charged per unit: the list price unless the AM raised it (POC Stage B). */
+  /** What the customer is charged per unit: the list price unless the AM raised it. */
   readonly salesPrice?: string;
   /** PRICE_BOOK, or FORMULA: worked out by an Admin's formula, with no discount (D81). */
   readonly pricingMethod?: PricingMethod;
@@ -511,9 +511,9 @@ export interface LineView {
   readonly category: LineCategory;
   readonly categorySource?: CategorySource;
   readonly discretionaryDiscountPercent: string;
-  /** The contract year it belongs to (POC years-bundles). */
+  /** The contract year it belongs to. */
   readonly yearNumber: number | null;
-  /** A bundle child's parent line number (POC Stage C); null otherwise. */
+  /** A bundle child's parent line number; null otherwise. */
   readonly parentLineNumber?: number | null;
   /** Null until the quote has a start date and a year (D78). */
   readonly startDate: string | null;
@@ -607,14 +607,14 @@ export interface VersionView {
   readonly subscriptionStartDate: string | null;
   /** The contract's end: the last year's end. */
   readonly subscriptionEndDate: string | null;
-  /** The contract years (POC years-bundles); null/empty before Year 1 is added. */
+  /** The contract years; null/empty before Year 1 is added. */
   readonly yearCount: number | null;
   readonly years: readonly ContractYearView[];
-  /** A priced quote under USD 30,000 (a warning); null otherwise (POC). */
+  /** A priced quote under USD 30,000 (a warning); null otherwise. */
   readonly smallDeal?: SmallDeal | null;
-  /** The legal sections (POC legal terms); null when not configured. */
+  /** The legal sections; null when not configured. */
   readonly legal?: LegalView | null;
-  /** Section 04 choices and the partner agreement (POC legal terms). */
+  /** Section 04 choices and the partner agreement. */
   readonly termsOnPremNonStandard?: boolean;
   readonly termsSaasNonStandard?: boolean;
   readonly partnerContractName?: string | null;

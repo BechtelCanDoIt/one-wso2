@@ -173,7 +173,7 @@ const conditionChips = (n: LegalNoticeRow) => [
 ];
 
 /**
- * Admin › Legal Texts (POC legal terms, 2026-10-24): what the order form's
+ * Admin › Legal Texts (2026-10-24): what the order form's
  * legal sections say, kept here so a change needs no release. Draft quotes
  * use the texts as they are now; a submitted quote keeps the ones it was
  * submitted with.

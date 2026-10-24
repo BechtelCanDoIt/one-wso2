@@ -48,7 +48,7 @@ beforeEach(() => {
   set.mutate.mockReset();
 });
 
-describe("ProductBundlesPage (POC Stage C)", () => {
+describe("ProductBundlesPage", () => {
   it("explains bundles when there are none", () => {
     Object.assign(bundles, { isPending: false, data: [] });
     render(<ProductBundlesPage />);

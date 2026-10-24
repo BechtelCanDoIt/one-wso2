@@ -46,7 +46,7 @@ interface YourApprovalPanelProps {
   readonly repCategories?: readonly ReasonRow[];
   /** Opens the confirmation for a decision on one of the viewer's steps. */
   readonly onDecide: (outcome: ApprovalOutcome, step: ApprovalStep) => void;
-  /** Legal's editor for the terms they write (POC legal terms), under their reasons. */
+  /** Legal's editor for the terms they write, under their reasons. */
   readonly legalEditor?: ReactNode;
   /** Why Legal can't approve yet (terms to write); "" when they can. */
   readonly legalApproveBlock?: string;

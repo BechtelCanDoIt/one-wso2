@@ -39,7 +39,7 @@ const direct: LegalDeal = {
 };
 const std = { onPremNonStandard: false, saasNonStandard: false };
 
-// POC legal terms (2026-10-24), as the backend's legal package.
+// Legal terms (2026-10-24), as the backend's legal package.
 describe("legalModel", () => {
   it("tells the blocks from the classifications: CL is SaaS, PS on-prem, neither is on-prem", () => {
     expect(legalMix(["PS", "CO"])).toEqual({ onPrem: true, saas: false });

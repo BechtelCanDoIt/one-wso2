@@ -256,7 +256,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
     setValue("recordTypeName", o.recordTypeName ?? "", { shouldDirty: true });
     setValue("isRenewal", o.dealKind === "RENEWAL", { shouldDirty: true });
     if (o.dealKind !== "RENEWAL") setValue("previousOpportunityIds", [], { shouldDirty: true });
-    // The contract start from the opportunity (POC years-bundles); without
+    // The contract start from the opportunity; without
     // one the AM enters it. Its end is not read: the AM adds the years.
     const start = o.subsStartDate && parseDateString(o.subsStartDate) ? o.subsStartDate : "";
     setValue("startDate", start, { shouldDirty: true });

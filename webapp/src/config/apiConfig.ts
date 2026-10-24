@@ -1977,9 +1977,9 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
-  // Product bundles (POC years-bundles Stage C): Admins keep them; an AM's
+  // Product bundles: Admins keep them; an AM's
   // quote reads a parent's children from its price book.
-  // Legal terms (POC): the texts quotes use; Admin › Legal Texts; Legal's terms on a version.
+  // Legal terms: the texts quotes use; Admin › Legal Texts; Legal's terms on a version.
   legalConfig: `${cado2BackendUrl}/legal`,
   adminLegal: `${cado2BackendUrl}/admin/legal`,
   adminLegalText: (key: string): string => `${cado2BackendUrl}/admin/legal/texts/${encodeSegment(key)}`,

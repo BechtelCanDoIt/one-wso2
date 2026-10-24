@@ -102,22 +102,22 @@ export interface LineValue {
    * line in an order-form section.
    */
   recurring: boolean;
-  /** The product's Salesforce classification (e.g. PS, CL); "" when unknown. CL is SaaS, PS on-prem (POC legal terms). */
+  /** The product's Salesforce classification (e.g. PS, CL); "" when unknown. CL is SaaS, PS on-prem. */
   classification: string;
   unitOfMeasure: string;
   quantity: string;
   discount: string;
-  /** The contract year the line belongs to, 1-based (POC years-bundles). */
+  /** The contract year the line belongs to, 1-based. */
   yearNumber: number;
   /** Within its year; "" = the year's own start / end. A one-off is charged on its start. */
   startDate: string;
   endDate: string;
   /**
-   * The unit price charged (POC Stage B): "" = the list price (unitPrice).
+   * The unit price charged: "" = the list price (unitPrice).
    * The AM may raise it, never lower it; a formula-priced line has none.
    */
   salesPrice: string;
-  /** The line's own key in the form, stable as lines move (POC Stage C). */
+  /** The line's own key in the form, stable as lines move. */
   key: string;
   /** A bundle child: its parent line's key; "" otherwise. It follows the parent's year and dates and leaves with it. */
   parentKey: string;
@@ -127,7 +127,7 @@ let lineKeys = 0;
 /** A new line's key, unique in the page. */
 export const newLineKey = () => `line-${Date.now().toString(36)}-${++lineKeys}`;
 
-/** A bundle parent's children, in order (POC Stage C). */
+/** A bundle parent's children, in order. */
 export const childrenOf = (lines: readonly LineValue[], key: string) => lines.filter((l) => l.parentKey !== "" && l.parentKey === key);
 
 /** The most contract years a quote can have (D85). */
@@ -166,7 +166,7 @@ export interface DraftFormValues {
   defaultPricebookName: string;
   /** Every quote has a start date. */
   startDate: string;
-  // Step 2 — the contract years (POC years-bundles): 12 months each from the
+  // Step 2 — the contract years: 12 months each from the
   // start; only the last may be shorter. The AM adds them; nothing is split
   // automatically.
   /** 0 = no year yet. */
@@ -185,7 +185,7 @@ export interface DraftFormValues {
   poNumber: string;
   specialTermsEnabled: boolean;
   specialTerms: string;
-  // Step 4 — Legal (POC legal terms): section 04 blocks the AM marks
+  // Step 4 — Legal: section 04 blocks the AM marks
   // non-standard (Legal writes them), and the partner agreement.
   termsOnPremNonStandard: boolean;
   termsSaasNonStandard: boolean;
@@ -367,7 +367,7 @@ function durationParts(start: string, end: string): { years: number; months: num
 }
 
 // ---------------------------------------------------------------------------
-// Contract years (POC years-bundles)
+// Contract years
 // ---------------------------------------------------------------------------
 
 /** One contract year. */
@@ -455,7 +455,7 @@ export function cloneYear(v: Pick<DraftFormValues, "startDate" | "yearCount" | "
   const gap = yearCount - from;
   const within = (d: string, fallback: string) => (d ? (d < to.start ? to.start : d > to.end ? to.end : d) : fallback);
   // Recurring products, with their bundle children (whatever they are);
-  // a child whose parent stays behind stays too (POC Stage C).
+  // a child whose parent stays behind stays too.
   const ofYear = v.lines.filter((l) => l.yearNumber === from);
   const parents = new Set(ofYear.filter((l) => !l.parentKey && l.recurring).map((l) => l.key));
   const keys = new Map(ofYear.map((l) => [l.key, newLineKey()]));
@@ -717,7 +717,7 @@ function commissionInput(v: DraftFormValues): string | undefined {
   return isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? v.partnerCommissionPercent.trim() : undefined;
 }
 
-/** The years of a request (POC years-bundles), and the billing (every quote, D88). */
+/** The years of a request, and the billing (every quote, D88). */
 function termInput(v: DraftFormValues) {
   return {
     yearCount: v.yearCount > 0 ? v.yearCount : undefined,
@@ -737,7 +737,7 @@ function linePlace(l: LineValue) {
 }
 
 /**
- * Why a sales price is not allowed, or "" (POC Stage B): an amount with at
+ * Why a sales price is not allowed, or "": an amount with at
  * most 2 decimals, not below the list price. "" = the list price.
  */
 export function salesPriceProblem(salesPrice: string, listPrice: string): string {
@@ -768,7 +768,7 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
       // Rich text (2026-10-24), cleaned; the editor's empty value is none.
       text: v.specialTermsEnabled ? opt(cleanLegalText(v.specialTerms)) : undefined,
     },
-    // No longer used (POC legal terms): section 04 is per product type.
+    // No longer used: section 04 is per product type.
     governingTerms: { enabled: false },
     termsOnPremNonStandard: v.termsOnPremNonStandard,
     termsSaasNonStandard: v.termsSaasNonStandard,
@@ -793,7 +793,7 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
       // A saved line the AM moved to the pricing in force (D82).
       useLatestFormula: l.lineId !== null && l.useLatestPricing ? true : undefined,
       ...linePlace(l),
-      // A bundle child names its parent by position (POC Stage C).
+      // A bundle child names its parent by position.
       parentIndex: l.parentKey ? v.lines.findIndex((p) => p.key === l.parentKey) : undefined,
     })),
   };
@@ -847,7 +847,7 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
   // unpriced means the quote isn't priced.
   const pricedLines = v.lines;
   if (!v.subscriptionStartDate || pricedLines.length === 0 || pricedLines.some((l) => l.schedule.length === 0)) return null;
-  // The contract years as stored (POC years-bundles); each year's amounts
+  // The contract years as stored; each year's amounts
   // are the exact sums of its rows (a year without products is 0).
   const years = (v.years ?? []).map((y) => {
     const rows = v.lines.flatMap((l) => l.schedule.filter((r) => r.yearNumber === y.yearNumber));
@@ -977,7 +977,7 @@ const STEP_3_FIELDS = [
   "justification",
 ];
 
-/** Legal (POC legal terms): section 04, the partner agreement and the special terms. */
+/** Legal: section 04, the partner agreement and the special terms. */
 const STEP_4_FIELDS = ["specialTerms", "governingTerms", "partnerContractName", "partnerContractDate", "legalTerms"];
 
 /** The step (0-based) where an issue's field lives, so the summary panel can jump there. */

@@ -39,7 +39,7 @@ vi.mock("@features/sales/cado2/admin/legal-texts/api/useLegalAdmin", () => ({
   useLegalAdminChange: () => change,
 }));
 
-// POC legal terms (2026-10-24).
+// Legal terms (2026-10-24).
 describe("LegalTextsPage", () => {
   it("lists the standard texts and the notices with when they apply", () => {
     render(<LegalTextsPage />);

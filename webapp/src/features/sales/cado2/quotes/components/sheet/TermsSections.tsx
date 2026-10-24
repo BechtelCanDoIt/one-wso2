@@ -31,7 +31,7 @@ function TextBlock({ children }: { children: ReactNode }): JSX.Element {
 
 /**
  * Billing (every quote, D88), payment terms and PO: as on the Commercials
- * step (D86). The terms are in the Legal section (POC legal terms).
+ * step (D86). The terms are in the Legal section.
  */
 export function TermsSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
   return (

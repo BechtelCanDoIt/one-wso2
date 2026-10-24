@@ -21,7 +21,7 @@ export interface BundleProduct {
   readonly code: string | null;
 }
 
-/** An Admin's bundle (POC Stage C): a parent and the products that always come with it, in order. */
+/** An Admin's bundle: a parent and the products that always come with it, in order. */
 export interface Bundle {
   readonly parentProductId: string;
   readonly parentName: string | null;

@@ -203,11 +203,11 @@ interface AddLineDialogProps {
   readonly currency: string;
   /** The quote's price book, which is the opportunity's: every product and price comes from it. */
   readonly pricebook: PricebookRef;
-  /** The contract year the line is in (POC years-bundles); its dates stay within it. Null before the start date. */
+  /** The contract year the line is in; its dates stay within it. Null before the start date. */
   readonly year: ContractYear | null;
-  /** Editing a bundle child: its parent's name; it keeps the parent's dates (POC Stage C). */
+  /** Editing a bundle child: its parent's name; it keeps the parent's dates. */
   readonly parentName?: string | null;
-  /** The line, and for a new bundle parent the children that come with it (POC Stage C). */
+  /** The line, and for a new bundle parent the children that come with it. */
   readonly onSave: (line: LineValue, children: LineValue[]) => void;
   readonly onClose: () => void;
 }
@@ -250,14 +250,14 @@ export default function AddLineDialog({
   // Locked for now (2026-10-14): a saved line keeps its value; a new one has none.
   const [quantity, setQuantity] = useState(line?.quantity ?? "1");
   const [discount, setDiscount] = useState(line?.discount ?? "0");
-  // The unit price charged (POC Stage B): "" = the list price.
+  // The unit price charged: "" = the list price.
   const [salesPrice, setSalesPrice] = useState(line?.salesPrice ?? "");
   const [tried, setTried] = useState(false);
   // Its dates within the year, shown filled in; saved as "" when they are the year's own.
   const [startDate, setStartDate] = useState(line?.startDate || year?.start || "");
   const [endDate, setEndDate] = useState(line?.endDate || year?.end || "");
   const formulas = usePricingFormulas();
-  // A new product's bundle (POC Stage C): what comes with it from this price book.
+  // A new product's bundle: what comes with it from this price book.
   const bundle = useBundleChildren(!line && product ? product.id : null, currency, pricebook.id);
   const bundled = bundle.data?.children ?? [];
   const isChild = Boolean(line?.parentKey);
@@ -395,7 +395,7 @@ export default function AddLineDialog({
       endDate: year && recurring && endDate !== year.end ? endDate : "",
     };
     // Its bundle comes with it: same year and dates, its quantity to start
-    // with, no discount, priced from the same book (POC Stage C).
+    // with, no discount, priced from the same book.
     const children: LineValue[] = line
       ? []
       : bundled.flatMap((p) => {
@@ -584,7 +584,7 @@ export default function AddLineDialog({
             ) : null}
           </Group>
           <Group icon={<PercentIcon size={14} />} title="Price, Quantity & Discount">
-            {/* The sales price (POC Stage B): the list price unless raised; never
+            {/* The sales price: the list price unless raised; never
                 lower. A formula sets its own price, which can't be changed. */}
             <TextField
               label="Sales price"
@@ -640,9 +640,9 @@ export default function AddLineDialog({
               helperText={uomSource}
             />
           </Group>
-          {/* Its dates within its year (POC years-bundles): the whole year
+          {/* Its dates within its year: the whole year
               unless narrowed; a one-off is charged on its start. A bundle
-              child keeps its parent's (POC Stage C). */}
+              child keeps its parent's. */}
           {isChild ? (
             <Typography variant="body2" color="text.secondary">
               Comes with {parentName ?? "its bundle's product"}: same year and dates, and removed only with it.

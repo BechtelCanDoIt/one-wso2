@@ -50,7 +50,7 @@ interface YearSectionsProps {
 }
 
 /**
- * The products year by year inside one card (POC years-bundles): each year
+ * The products year by year inside one card: each year
  * a foldable section whose header row says its dates, how many products it
  * has and its value, quietly; its products grouped as on the order form.
  *

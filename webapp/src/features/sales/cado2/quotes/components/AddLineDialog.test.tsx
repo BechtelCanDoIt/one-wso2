@@ -28,7 +28,7 @@ const gateway = {
   family: null,
   unitOfMeasure: "Gateways",
   recurring: true, // from its Salesforce classification (D76)
-  classification: "PS", // on-prem (POC legal terms)
+  classification: "PS", // on-prem
   pricebookEntries: [
     { id: "01u000000000001", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01s1", name: "FY26 USD" } },
   ],
@@ -87,7 +87,7 @@ const supportFormula = {
 };
 const formulas: { list: (typeof supportFormula)[] } = { list: [] };
 
-// Bundles (POC Stage C), when a test sets them: parent id → what comes with it.
+// Bundles, when a test sets them: parent id → what comes with it.
 const bundle: { parents: Record<string, { children: unknown[]; missing: string[] }>; of: (id: string) => unknown } = {
   parents: {},
   of: (id) => bundle.parents[id] ?? { children: [], missing: [] },
@@ -194,7 +194,7 @@ describe("AddLineDialog", () => {
       }), []);
   });
 
-  // POC Stage B: the sales price is the list price unless the AM raises it; never lower.
+  // The sales price is the list price unless the AM raises it; never lower.
   it("lets the AM raise the sales price, not lower it", async () => {
     const onSave = renderDialog();
     const user = await pick(/Enterprise Support Plan/); // list 25,000, mapped to Support
@@ -213,7 +213,7 @@ describe("AddLineDialog", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: "25000", salesPrice: "27500.5" }), []);
   });
 
-  // POC Stage C: a bundle parent brings its children, same year and dates, its quantity to start with.
+  // A bundle parent brings its children, same year and dates, its quantity to start with.
   it("adds a bundle parent with the products that come with it", async () => {
     bundle.parents = { [gateway.id]: { children: [support], missing: ["Onboarding"] } };
     try {
@@ -385,7 +385,7 @@ describe("AddLineDialog — closing", () => {
       // D83: the unit of measure comes from the formula version.
       expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, higher of 25,000 or 10% of subscription");
       expect(screen.getByText("From the pricing formula v3")).toBeInTheDocument();
-      // POC Stage B: a formula's price can't be overridden.
+      // A formula's price can't be overridden.
       expect(screen.getByRole("textbox", { name: "Sales price" })).toBeDisabled();
       expect(screen.getByText("Priced by formula: the price can't be changed")).toBeInTheDocument();
 

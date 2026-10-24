@@ -86,8 +86,8 @@ export default function DealFiguresSection({
       ) : (
         <Stack spacing={2}>
           <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "repeat(3, minmax(0,1fr))" }, gap: 1.5 }}>
-            {/* ARR per year, every year alike, as a mini table (POC years-bundles,
-                2026-10-23). One year: the figure itself. */}
+            {/* ARR per year, every year alike, as a mini table
+                (2026-10-23). One year: the figure itself. */}
             <Figure
               icon={<RepeatIcon size={20} />}
               tone="secondary"

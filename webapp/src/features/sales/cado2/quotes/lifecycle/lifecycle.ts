@@ -160,7 +160,7 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
   add("Commercials", "Billing", text(va.billingFrequency && BILLING_LABEL[va.billingFrequency]), text(vb.billingFrequency && BILLING_LABEL[vb.billingFrequency]));
   add("Commercials", "Payment terms", va.netTermsDays ? `Net ${va.netTermsDays}` : DASH, vb.netTermsDays ? `Net ${vb.netTermsDays}` : DASH);
   add("Commercials", "PO number", text(va.poNumber), text(vb.poNumber));
-  // Section 04 (POC legal terms): standard, or non-standard written by Legal.
+  // Section 04: standard, or non-standard written by Legal.
   const blocks = (x: typeof va) =>
     [x.termsOnPremNonStandard ? "On-prem: non-standard" : "", x.termsSaasNonStandard ? "SaaS: non-standard" : ""].filter(Boolean).join(" · ") ||
     "Standard";

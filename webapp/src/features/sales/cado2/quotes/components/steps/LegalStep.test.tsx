@@ -67,7 +67,7 @@ function Harness({ values = {} }: { values?: Partial<DraftFormValues> }) {
   );
 }
 
-// POC legal terms (2026-10-24).
+// Legal terms (2026-10-24).
 describe("LegalStep", () => {
   it("shows a direct deal's standard on-prem terms with their EULA link, and the notices for every deal", () => {
     render(<Harness values={{ dealType: "DIRECT", accountSalesRegion: "NA" }} />);

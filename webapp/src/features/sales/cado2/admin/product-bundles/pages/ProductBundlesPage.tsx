@@ -140,7 +140,7 @@ function BundleDialog({ bundle, onClose }: { bundle: Bundle | null; onClose: () 
 }
 
 /**
- * Admin › Product Bundles (POC years-bundles Stage C): products that always
+ * Admin › Product Bundles: products that always
  * come with another. When an AM adds the parent to a quote, its products are
  * added with it, in the same year and dates, and leave only with it.
  */

@@ -140,7 +140,7 @@ export default function OrderFormTable({
                 {l.productCode}
               </Typography>
             ) : null}
-            {/* A bundle child (POC Stage C): it comes with, and leaves with, its parent. */}
+            {/* A bundle child: it comes with, and leaves with, its parent. */}
             {l.parentName ? (
               <Typography variant="caption" color="text.secondary" display="block" aria-label="Bundled">
                 Comes with {l.parentName}
@@ -166,8 +166,8 @@ export default function OrderFormTable({
           <TableCell align="right" sx={num}>
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
           </TableCell>
-          {/* Each line's own term within its year, e.g. "1Y" or "6M" (POC
-              years-bundles); its dates when the AM narrowed them. */}
+          {/* Each line's own term within its year, e.g. "1Y" or "6M";
+              its dates when the AM narrowed them. */}
           <TableCell sx={{ whiteSpace: "nowrap" }}>
             {l.recurring ? (l.startDate && l.endDate ? durationShort(l.startDate, l.endDate) : "–") : "One-time"}
             {l.ownDates && l.startDate ? (

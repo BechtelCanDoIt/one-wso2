@@ -92,7 +92,7 @@ describe("CommercialStep — justification", () => {
 
 // D86: Commercials opens with billing and payment terms, billing right above Terms.
 describe("CommercialStep — Commercials", () => {
-  // The terms moved to the Legal step (POC legal terms).
+  // The terms moved to the Legal step.
   it("orders billing, payment terms, then bill to with the PO number", () => {
     render(<Harness lines={[line("0")]} />);
     const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
@@ -104,7 +104,7 @@ describe("CommercialStep — Commercials", () => {
   });
 
   // D88: services-only quotes choose their billing too. The special-terms
-  // to-do now sits on the Legal step, with the switch (POC legal terms).
+  // to-do now sits on the Legal step, with the switch.
   it("asks for the billing frequency when no product recurs", () => {
     render(<Harness lines={[{ ...line("0"), recurring: false }]} values={{ billingFrequency: "SPECIAL_TERMS" }} />);
     expect(screen.getByRole("region", { name: "Billing Frequency" })).toBeInTheDocument();

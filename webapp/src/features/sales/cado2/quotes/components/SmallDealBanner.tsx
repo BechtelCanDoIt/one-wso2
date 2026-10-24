@@ -20,7 +20,7 @@ import type { SmallDeal } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 
 /**
- * The small-deal warning (POC, 2026-10-24): a deal whose total contract
+ * The small-deal warning (2026-10-24): a deal whose total contract
  * value is under USD 30,000, at Salesforce's current rate, asks the AM to
  * contact their Sales Manager and the BU GM. It doesn't block anything.
  */

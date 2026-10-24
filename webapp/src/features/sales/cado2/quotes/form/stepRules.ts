@@ -74,7 +74,7 @@ export function stepChecks(
     "lines",
     uncategorised === 1 ? "Choose the category of 1 product" : `Choose the category of ${uncategorised} products`,
   );
-  // The contract years (POC years-bundles): at least Year 1, the last
+  // The contract years: at least Year 1, the last
   // year's end within it, and every product's dates within its own year.
   need(products, v.yearCount > 0, "years", "Add Year 1");
   const lastProblem = lastYearEndProblem(v.startDate, v.yearCount, v.lastYearEndDate);
@@ -99,7 +99,7 @@ export function stepChecks(
   need(commercial, !shipNeeded || addressComplete(v.shipTo), "shipTo", "Complete the ship-to address (company, street, city, country)");
   need(commercial, hasContact(v.billingContact), "contacts.billing", "Choose the billing contact");
 
-  // Legal (POC legal terms): the special terms (D86's "See Special Terms"
+  // Legal: the special terms (D86's "See Special Terms"
   // billing points at them) and, on a partner deal, its agreement. The
   // non-standard switches need nothing: Legal writes those terms.
   const legalStep: StepCheck[] = [];

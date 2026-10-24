@@ -46,7 +46,7 @@ function approvalHint(start: string, end: string): string {
 }
 
 /**
- * Step 2's Term card (POC years-bundles), first on the step: the start date,
+ * Step 2's Term card, first on the step: the start date,
  * and where the years the AM added take the term, in one line:
  *
  *   1 Jan 2027 → 30 Jun 2029 · 2 years + 6 months, 3 years

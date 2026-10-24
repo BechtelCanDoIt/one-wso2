@@ -35,7 +35,7 @@ function Heading({ title }: { title: string }): JSX.Element {
 }
 
 /**
- * The order form's legal sections, read-only (POC legal terms): Governing
+ * The order form's legal sections, read-only: Governing
  * Terms (a block per product type; Legal's own terms where non-standard),
  * notices, special terms (Legal's wording when they changed it). As
  * submitted on a frozen version.

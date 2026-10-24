@@ -113,7 +113,7 @@ export function useAccountContacts(accountId: string | null) {
 /** How many products one page of the Add-line list loads. */
 export const PRODUCT_PAGE = 50;
 
-/** The legal texts quotes use (POC legal terms): standard terms and notices. */
+/** The legal texts quotes use: standard terms and notices. */
 export function useLegalConfig() {
   const { getToken, ready, key } = useCado2Basis();
   return useQuery<LegalConfig, Error>({
@@ -137,7 +137,7 @@ export function useWriteLegalTerms(quoteId: number, versionNumber: number) {
 }
 
 /**
- * The children a bundle parent brings (POC Stage C), priced from the quote's
+ * The children a bundle parent brings, priced from the quote's
  * book; none for a product without a bundle. Idle until a product is chosen.
  */
 export function useBundleChildren(productId: string | null, currency: string, pricebookId: string) {

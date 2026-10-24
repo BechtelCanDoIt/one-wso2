@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// The order form's legal sections for the wizard (POC legal terms,
-// 2026-10-24), worked out exactly as the backend's legal package does, so
+// The order form's legal sections for the wizard
+// (2026-10-24), worked out exactly as the backend's legal package does, so
 // the Legal step shows what will print:
 //
 //   Governing Terms  a block per product type: on-prem (PS) and SaaS (CL); the

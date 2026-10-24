@@ -19,7 +19,7 @@ import { emptyDraftForm, fromVersion, type DraftFormValues } from "./draftForm";
 import { nextHint, reachableStep, stepChecks } from "./stepRules";
 import { fullPartnerQuote } from "@features/sales/cado2/quotes/testing/fixtures";
 
-// A complete partner quote; its agreement is dated (POC legal terms) and its role names the agreement.
+// A complete partner quote; its agreement is dated and its role names the agreement.
 const complete = (): DraftFormValues => ({
   ...fromVersion({ ...fullPartnerQuote, version: { ...fullPartnerQuote.version, status: "DRAFT" } }),
   partnerContractName: "Value Added Reseller",
@@ -64,7 +64,7 @@ describe("stepChecks", () => {
     expect(stepChecks({ ...complete(), shipTo: emptyDraftForm().shipTo })[2].map((c) => c.field)).toEqual(["shipTo"]);
   });
 
-  // POC legal terms: the Legal step wants the special terms' text when on,
+  // The Legal step wants the special terms' text when on,
   // and a partner deal's agreement, always the AM's choice, and its date.
   it("checks the special terms and the partner agreement on the Legal step", () => {
     const legal = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[3].map((c) => c.field);
@@ -76,7 +76,7 @@ describe("stepChecks", () => {
     expect(legal({ termsOnPremNonStandard: true })).toEqual([]);
   });
 
-  // POC years-bundles: Year 1 at least, the last year within 12 months,
+  // Year 1 at least, the last year within 12 months,
   // and each product's dates within its own year (from 1 Oct 2026).
   it("checks the contract years on Products & Pricing", () => {
     const products = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[1];
@@ -100,7 +100,7 @@ describe("stepChecks", () => {
 
   // D86: "See Special Terms" billing points at the special terms.
   it("needs the special terms on when the billing says See Special Terms", () => {
-    // On the Legal step, with the switch (POC legal terms).
+    // On the Legal step, with the switch.
     const step3 = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), billingFrequency: "SPECIAL_TERMS", ...v })[3];
     expect(step3({ specialTermsEnabled: false })).toEqual([
       { field: "specialTerms.billing", message: "Billing says See Special Terms: switch on special terms and describe the billing" },

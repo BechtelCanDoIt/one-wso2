@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** Admin › Legal Texts (POC legal terms, 2026-10-24). */
+/** Admin › Legal Texts (2026-10-24). */
 export interface LegalAdmin {
   readonly texts: readonly { key: string; body: string; updatedByEmail: string; updatedAt: string }[];
   readonly notices: readonly LegalNoticeRow[];

@@ -143,7 +143,7 @@ describe("Order form", () => {
     expect(rows[at("Support subtotal")]).toContain("75,000.00");
     expect(rows[at("Professional Services subtotal")]).toContain("10,700.00");
     expect(rows.some((r) => r?.includes("Support and services"))).toBe(false);
-    // One card, a section per year (POC years-bundles; here every line is in
+    // One card, a section per year (here every line is in
     // Year 1); the card closes with the total over every year.
     expect(at("Total order value")).toBe(-1);
     expect(screen.getByRole("region", { name: "Order totals" })).toHaveTextContent("Total order value · all 3 years (USD)119,540.00");
@@ -313,7 +313,7 @@ describe("DealFiguresSection", () => {
   });
 });
 
-// POC legal terms: the quote page shows sections 04–06 as they print.
+// The quote page shows sections 04–06 as they print.
 describe("LegalSection", () => {
   const withLegal: Sheet = {
     ...sheet,

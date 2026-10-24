@@ -86,7 +86,7 @@ export interface SheetLine {
   readonly recurring: boolean;
   readonly quantity: string;
   readonly unitOfMeasure: string | null;
-  /** The unit price charged: the sales price, which is the list price unless raised (POC Stage B). */
+  /** The unit price charged: the sales price, which is the list price unless raised. */
   readonly unitPrice: string;
   /** e.g. "10" for 10%; "0" when none, and always on a formula line. */
   readonly discountPercent: string;
@@ -95,14 +95,14 @@ export interface SheetLine {
    * "v3 · 15 Oct 2026" and "max(25,000, 10% × 320,000)"; null on a price-book line.
    */
   readonly formula: { readonly version: string; readonly explanation: string } | null;
-  /** The contract year it belongs to (POC years-bundles); 0 when none yet. */
+  /** The contract year it belongs to; 0 when none yet. */
   readonly yearNumber: number;
   /** Its dates within its year; a one-off is dated on its start. Null until it has a year and a start. */
   readonly startDate: string | null;
   readonly endDate: string | null;
   /** The AM narrowed its dates within the year, so they are worth showing. */
   readonly ownDates: boolean;
-  /** A bundle child: its parent's product name (POC Stage C); null otherwise. */
+  /** A bundle child: its parent's product name; null otherwise. */
   readonly parentName: string | null;
   /** From the pricing, when the quote can be priced. */
   readonly annualList: string | null;
@@ -146,7 +146,7 @@ export interface QuoteSheet {
   readonly startDate: string;
   /** The contract's end, the last year's; "" before Year 1. */
   readonly endDate: string;
-  /** The contract years (POC years-bundles), with each one's value and ARR once priced. */
+  /** The contract years, with each one's value and ARR once priced. */
   readonly contractYears: readonly SheetYear[];
   /** Whether any line recurs, i.e. the quote has a subscription term. */
   readonly recurring: boolean;
@@ -162,7 +162,7 @@ export interface QuoteSheet {
   readonly poNumber: string | null;
   /** The text when switched on; null when off. */
   readonly specialTerms: string | null;
-  /** The legal sections 04–06 (POC legal terms); null when the texts aren't known. */
+  /** The legal sections 04–06; null when the texts aren't known. */
   readonly legal: SheetLegal | null;
   readonly billTo: SheetAddress | null;
   /** null with shipToSameAsBillTo = the bill-to address. */
@@ -172,7 +172,7 @@ export interface QuoteSheet {
   readonly pricingRulesVersion: string | null;
 }
 
-/** The order form's legal sections on the sheet (POC legal terms). */
+/** The order form's legal sections on the sheet. */
 export interface SheetLegal {
   readonly sections: LegalSections;
   /** Partner deals: the agreement and its date (YYYY-MM-DD, or ""). */
@@ -339,7 +339,7 @@ function formAddress(a: AddressValue): SheetAddress | null {
   return { companyName: a.companyName.trim(), lines, taxId: blank(a.taxId) };
 }
 
-/** The form's legal sections, worked out as the backend will (POC legal terms). */
+/** The form's legal sections, worked out as the backend will. */
 function formLegal(v: DraftFormValues, cfg: LegalConfig): SheetLegal {
   const sections = resolveLegal(
     cfg,
@@ -369,7 +369,7 @@ export function sheetFromForm(
   v: DraftFormValues,
   preview: PricingPreview | null,
   legalEntity: { name: string; country?: string } | null,
-  /** The legal texts (POC legal terms); without them the sheet has no legal sections. */
+  /** The legal texts; without them the sheet has no legal sections. */
   legalConfig: LegalConfig | null = null,
 ): QuoteSheet {
   const recurring = hasRecurring(v.lines);
@@ -467,7 +467,7 @@ export const hasYearlySchedule = (s: Pick<QuoteSheet, "years">) => s.years.lengt
 export const yearOpportunity = (yearNumber: number) => (yearNumber === 1 ? "This quote's opportunity" : "Own opportunity, created later");
 
 /**
- * The lines year by year (POC years-bundles), each with its position in
+ * The lines year by year, each with its position in
  * `lines`, so a per-year table can still address the form's line. Lines
  * without a year yet come first under year 0.
  */
@@ -560,7 +560,7 @@ export interface DealFigures {
   readonly arr: string | null;
   readonly tcv: string;
   readonly acv: string | null;
-  /** Each contract year's ARR (POC years-bundles); ARR itself is Year 1's. */
+  /** Each contract year's ARR; ARR itself is Year 1's. */
   readonly arrByYear: readonly { readonly yearNumber: number; readonly amount: string }[];
   /** The lines that make up ARR: one year of each of Year 1's recurring lines. */
   readonly arrParts: readonly { readonly productName: string; readonly amount: string }[];
@@ -594,7 +594,7 @@ export function dealFigures(
   const t = s.totals;
   if (!t || s.lines.some((l) => l.tcv === null)) return null;
   // What recurs comes from the product's Salesforce classification, not its category (D76).
-  // ARR is Year 1's recurring lines (POC years-bundles); lines without a year count as Year 1.
+  // ARR is Year 1's recurring lines; lines without a year count as Year 1.
   const recurring = s.lines.filter((l) => l.recurring && l.yearNumber <= 1);
   const years = t.acv && Number(t.acv) > 0 ? Number(t.tcv) / Number(t.acv) : null;
   return {

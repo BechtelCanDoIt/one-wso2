@@ -39,7 +39,7 @@ const legal: LegalView = {
   specialTerms: "AM's wording", specialTermsByLegal: false, amSpecialTerms: "AM's wording", frozen: true,
 };
 
-// POC legal terms: Legal writes the non-standard terms and may reword the special terms.
+// Legal writes the non-standard terms and may reword the special terms.
 describe("LegalTermsEditor", () => {
   it("lets Legal write the non-standard terms and reword the special terms, then saves them", async () => {
     render(<LegalTermsEditor quoteId={7} versionNumber={1} legal={legal} />);

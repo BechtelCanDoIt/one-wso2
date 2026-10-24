@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import SmallDealBanner from "./SmallDealBanner";
 
-// POC, 2026-10-24: under USD 30,000 of TCV, the AM is asked to talk to their managers.
+// 2026-10-24: under USD 30,000 of TCV, the AM is asked to talk to their managers.
 describe("SmallDealBanner", () => {
   it("asks the AM to contact the Sales Manager and the BU GM", () => {
     render(<SmallDealBanner smallDeal={{ thresholdUsd: "30000.00", tcvUsd: "6480.00" }} currency="USD" tcv="6480.00" />);
