@@ -32,7 +32,9 @@ import {
 import { ChevronDownIcon, FileDownIcon } from "@wso2/oxygen-ui-icons-react";
 import {
   formatLegacyCycleName,
+  getLegacySharedByName,
   hasLegacyContent,
+  isThreeSixtyConfirmation,
   parseLegacyQuestionAnswers,
 } from "../util/parLegacyHistory";
 import { getLegacyQuestionGroups } from "../util/legacyParCatalogs";
@@ -260,7 +262,7 @@ export default function ParLegacyRecordDetail({
   // the real answerer for that cycle; null (rendered as hidden/"Not
   // Provided") when no per-question answerer was recorded, rather than
   // guessing from the org chart.
-  const sharedByName = questionAnswers.find((qa) => qa.managerAnsweredBy)?.managerAnsweredBy ?? null;
+  const sharedByName = getLegacySharedByName(questionAnswers);
   // Real migrated data can carry either the raw or canonical 2015 cycle
   // name (see formatLegacyCycleName's own comment) -- normalize before any
   // catalog/rating lookup.
@@ -274,9 +276,9 @@ export default function ParLegacyRecordDetail({
 
   // Real migrated data puts a side's feedback in EITHER the overall
   // comment OR the per-question answers, varying record to record -- so
-  // both are always shown as two separate sections per side (overall
-  // comment first, then the per-question answers), each as "N/A" when
-  // blank, instead of one silently standing in for the other.
+  // both are always shown as two separate sections per side (per-question
+  // answers first, then the overall comment), each as "N/A" when blank,
+  // instead of one silently standing in for the other.
   const employeeComment = hasLegacyContent(record.overallCommentEmployee) ? record.overallCommentEmployee! : "N/A";
   const leadComment = hasLegacyContent(record.overallCommentManager) ? record.overallCommentManager! : "N/A";
 
@@ -310,7 +312,7 @@ export default function ParLegacyRecordDetail({
   // its own section -- explicit local request: shown to the employee too,
   // on their own Lead's Feedback panel, not admin-only.
   const threeSixtyConfirmationAnswer = questionAnswers.find(
-    (qa) => qa.title?.trim().replace(/\.$/, "") === "360 Confirmation" && hasLegacyContent(qa.managerFeedback),
+    (qa) => isThreeSixtyConfirmation(qa) && hasLegacyContent(qa.managerFeedback),
   )?.managerFeedback;
 
   return (

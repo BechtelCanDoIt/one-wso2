@@ -56,6 +56,7 @@ import {
   deriveLegacyRatingFromScore,
   formatLegacyCycleName,
   formatLegacyQuestionAnswers,
+  getLegacySharedByName,
   hasLegacyContent,
   parseLegacyQuestionAnswers,
 } from "../util/parLegacyHistory";
@@ -345,15 +346,9 @@ export default function ParLeadEmployeeHistoryTab() {
   // the employee's own answers get concatenated. The lead's side stays a
   // single overall comment — per-question managerFeedback entries aren't
   // the lead's actual feedback.
-  const legacyEmployeeContent = formatLegacyQuestionAnswers(
-    parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null),
-  );
-  // Same "Manager Answer By over Reports To" rule as
-  // ParLegacyRecordDetail.tsx's own sharedByName -- reviewerName/reviewerEmail
-  // is the employee's CURRENT lead, not necessarily who reviewed this cycle.
-  const legacySharedByName =
-    parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null).find((qa) => qa.managerAnsweredBy)
-      ?.managerAnsweredBy ?? null;
+  const legacyQuestionAnswers = parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null);
+  const legacyEmployeeContent = formatLegacyQuestionAnswers(legacyQuestionAnswers);
+  const legacySharedByName = getLegacySharedByName(legacyQuestionAnswers);
   const legacyLeadContent = hasLegacyContent(selectedLegacyRecord?.overallCommentManager)
     ? selectedLegacyRecord!.overallCommentManager!
     : "";

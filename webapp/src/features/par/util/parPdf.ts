@@ -21,7 +21,9 @@ import { decodeParComment, sanitizeParHtml } from "./parComment";
 import { pdfRatingText } from "./parLabels";
 import {
   formatLegacyCycleName,
+  getLegacySharedByName,
   hasLegacyContent,
+  isThreeSixtyConfirmation,
   parseLegacyFeedback360,
   stripRedundantRatingPrefix,
 } from "./parLegacyHistory";
@@ -138,13 +140,10 @@ export function downloadLegacyParPdf(
   // ParLegacyRecordDetail.tsx's own threeSixtyConfirmationAnswer -- shown
   // here too (not gated to admin), per explicit local request.
   const threeSixtyConfirmationAnswer = questionAnswers.find(
-    (qa) => qa.title?.trim().replace(/\.$/, "") === "360 Confirmation" && hasLegacyContent(qa.managerFeedback),
+    (qa) => isThreeSixtyConfirmation(qa) && hasLegacyContent(qa.managerFeedback),
   )?.managerFeedback;
 
-  // Same "Manager Answer By over Reports To" rule as ParLegacyRecordDetail.tsx's
-  // own sharedByName -- record.reviewerName/reviewerEmail is the employee's
-  // CURRENT lead, not necessarily who reviewed this specific cycle.
-  const sharedByName = questionAnswers.find((qa) => qa.managerAnsweredBy)?.managerAnsweredBy ?? null;
+  const sharedByName = getLegacySharedByName(questionAnswers);
 
   const contentStyles = { textColor: [50, 50, 50] as [number, number, number], cellPadding: 6 };
   const baseTableStyles = { fontSize: 9, cellPadding: 4, overflow: "linebreak" as const, valign: "top" as const };
@@ -158,13 +157,9 @@ export function downloadLegacyParPdf(
   // can't, and autoTable reprints the same head again at the top of the
   // next page right above itself.
   const MIN_BLOCK_HEIGHT = 90;
-  // alwaysShow lets a "section" title print even with zero rows -- needed
-  // for Employee's/Lead's Feedback, whose title bar is unconditional
-  // on-screen (ParLegacyRecordDetail.tsx's own Card header), but would
-  // otherwise silently vanish here whenever that side has neither a real
-  // overall comment nor an N/A placeholder (flat-layout cycles -- see
-  // employeeTopRows/leadTopRows below), leaving the two sides looking
-  // inconsistent even though the per-question group(s) beneath still print.
+  // alwaysShow keeps a section title when it has no rows -- on 2015
+  // category cycles, a side's top rows can be empty while its category
+  // groups still print below it.
   // blockColumnStyles: a block whose only rows span both columns (the
   // overall-comment blocks) must pass {} -- with the shared fixed/"auto"
   // widths, the empty "auto" column gets an invalid width and jsPDF throws
@@ -210,19 +205,13 @@ export function downloadLegacyParPdf(
     cursorY = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 14;
   };
 
-  // A side's per-question answers -- always printed as their own block(s),
-  // with a single "N/A" row when that side has no recorded answers.
-  // Headed per side ("Employee Feedback" / "Lead Feedback"), same as the
-  // on-screen view; 2015's named categories keep their own titles.
+  // Prints 2015's named category groups as their own titled blocks; every
+  // other layout's rows go straight into the side's top rows below. `side`
+  // selects the answer field.
   const addAnswerGroups = (groups: typeof employeeGroups, side: "employee" | "lead") => {
-    const heading = side === "employee" ? "Employee Feedback" : "Lead Feedback";
-    if (groups.length === 0) {
-      addBlock(heading, [["Answers", { content: "N/A", styles: contentStyles }]], "group");
-      return;
-    }
     for (const group of groups) {
       addBlock(
-        group.layout === "category" ? group.title : heading,
+        group.title,
         group.rows.map((row) => [
           row.label,
           { content: (side === "employee" ? row.employeeAnswer : row.managerFeedback) || "-", styles: contentStyles },

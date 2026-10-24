@@ -23,6 +23,7 @@
 // "manager score as comment" special case -- neither is needed for parity
 // on this main view.
 import type { ParLegacyQuestionAnswer } from "../api/types";
+import { isThreeSixtyConfirmation } from "./parLegacyHistory";
 
 export type LegacyCatalogAnswerType = "rating" | "text";
 
@@ -495,9 +496,9 @@ export interface LegacyGroup {
 }
 
 // One dispatcher covering every catalogued era -- returns grouped sections
-// for the Employee's Feedback / Lead's Feedback panels, or null when this cycle
-// name has no catalog at all; callers fall back to the flat
-// questionAnswers list in that case.
+// for the Employee's Feedback / Lead's Feedback panels. A cycle with no
+// catalog lists its recorded questions as-is (getUncataloguedQuestionGroups).
+// Null when the side has no answers to show; callers render "N/A" then.
 export function getLegacyQuestionGroups(
   cycleName: string,
   questionAnswers: ParLegacyQuestionAnswer[],
@@ -584,7 +585,7 @@ function getUncataloguedQuestionGroups(
   side: "employee" | "lead",
 ): LegacyGroup[] | null {
   const rows = questionAnswers
-    .filter((qa) => qa.title?.trim().replace(/\.$/, "") !== "360 Confirmation")
+    .filter((qa) => !isThreeSixtyConfirmation(qa))
     .filter((qa) => hasData(side === "employee" ? qa.employeeAnswer : qa.managerFeedback, true))
     .map((qa) => ({
       label: qa.title?.trim() || "Answer",
