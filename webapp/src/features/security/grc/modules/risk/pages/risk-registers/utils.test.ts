@@ -18,9 +18,16 @@ import { describe, expect, it } from "vitest";
 import { changedValue, fieldLabel, riskAcceptorLabel } from "./utils";
 
 describe("changedValue", () => {
-  it("hides the id values of the five assignee fields", () => {
+  it("shows an assignee value as recorded — a name, or the id when it could not be named", () => {
     for (const field of ["assigner_id", "owner_id", "management_approver_id", "assignment_team_id", "action_owner_id"]) {
-      expect(changedValue(field, '"42"')).toBe("");
+      expect(changedValue(field, '"Olivia Owner"')).toBe("Olivia Owner");
+      expect(changedValue(field, '"42"')).toBe("42");
+    }
+  });
+
+  it("hides the id values of fields the backend never names", () => {
+    for (const field of ["gross_score_id", "compliance_reference_ids", "risk_category_ids", "platform_ids", "product_ids", "deployment_type_id"]) {
+      expect(changedValue(field, '"3, 5"')).toBe("");
     }
   });
 

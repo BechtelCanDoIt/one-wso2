@@ -46,16 +46,33 @@ export const FIELD_LABELS: Record<string, string> = {
   assignment_team_id: "assignment team",
   action_owner_id: "action owner",
   risk_acceptor: "accepted by",
+  risk_identified_date: "date identified",
+  identified_by_type: "identified by (type)",
+  identified_by_name: "identified by",
+  gross_score_id: "gross risk score",
+  compliance_reference_ids: "compliance references",
+  risk_category_ids: "risk categories",
+  platform_ids: "platforms",
+  product_ids: "products",
+  deployment_type_id: "deployment type",
+  environments: "environments",
+  evidence: "evidence",
 };
 
-// Fields whose history values are internal user/team ids. An id means nothing
-// to a reader, so these changes render by name only ("Changed risk owner").
+// Fields whose history values are internal ids that the backend never turns
+// into a name. An id means nothing to a reader, so these changes render by
+// label only ("Changed gross risk score").
+//
+// Assignee fields (owner, assigner, approver, action owner, team) are not here:
+// the backend swaps their ids for names, and when it cannot, the id is shown
+// as recorded rather than hidden.
 const ID_VALUED_FIELDS = new Set([
-  "assigner_id",
-  "owner_id",
-  "management_approver_id",
-  "assignment_team_id",
-  "action_owner_id",
+  "gross_score_id",
+  "compliance_reference_ids",
+  "risk_category_ids",
+  "platform_ids",
+  "product_ids",
+  "deployment_type_id",
 ]);
 
 const RISK_ACCEPTOR_LABELS: Record<string, string> = { CUSTOMER: "Customer", WSO2: "WSO2" };
@@ -83,7 +100,8 @@ export function readValue(raw: string | null): string {
 }
 
 // changedValue is readValue for one side of a field diff, blank for the fields
-// whose values are ids (see ID_VALUED_FIELDS) so the diff renders by name only.
+// whose values are ids that are never named (see ID_VALUED_FIELDS), so the diff
+// renders by label only.
 export function changedValue(field: string, raw: string | null): string {
   return ID_VALUED_FIELDS.has(field) ? "" : readValue(raw);
 }
