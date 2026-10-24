@@ -325,8 +325,11 @@ export function downloadLegacyParPdf(
       "section",
     );
   }
-  if (isLegacy2017ScoreCycle && hasLegacyContent(record.overallCommentManager)) {
-    addBlock("Score", [["Score", { content: htmlToPdfText(record.overallCommentManager!), styles: contentStyles }]], "section");
+  // Takes the overall comment's place on score cycles -- always printed,
+  // "N/A" when blank, same as the on-screen view.
+  if (isLegacy2017ScoreCycle) {
+    const score = hasLegacyContent(record.overallCommentManager) ? htmlToPdfText(record.overallCommentManager!) : "N/A";
+    addBlock("Score", [["Score", { content: score, styles: contentStyles }]], "section");
   }
 
   // ---- 360° Feedback ----

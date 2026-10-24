@@ -409,7 +409,8 @@ export default function ParLegacyRecordDetail({
                 </Box>
               </Box>
             )}
-            {hasLegacyContent(record.overallCommentManager) && isLegacy2017ScoreCycle && (
+            {/* Takes the overall comment's place on score cycles, so it is always shown, "N/A" when blank. */}
+            {isLegacy2017ScoreCycle && (
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                   Score
