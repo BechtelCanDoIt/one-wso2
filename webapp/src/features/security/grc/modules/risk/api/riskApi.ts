@@ -193,6 +193,8 @@ export interface HistoryEntry {
   created_by: string;
   /** created_by resolved to an email by the backend; falls back to created_by when unresolved. */
   created_by_email?: string;
+  /** created_by resolved to a display name; used when there is no email. */
+  created_by_name?: string;
   created_at: string;
 }
 
@@ -207,6 +209,31 @@ export interface HistoryDetails {
   previousLevel?: string;
   overdueDays?: number;
   plan?: string;
+}
+
+// AuditTrailEntry is a history entry plus the risk it belongs to, as listed on
+// Analytics > Audit Trail.
+export interface AuditTrailEntry extends HistoryEntry {
+  risk_code: string;
+  risk_title: string;
+}
+
+export interface AuditTrailPage {
+  items: AuditTrailEntry[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface AuditTrailParams {
+  from?: string;
+  to?: string;
+  /** Actions to include (UPDATE, APPROVE, ...); empty means any. */
+  actions?: string[];
+  /** Substring of the risk code or title. */
+  search?: string;
+  limit: number;
+  offset: number;
 }
 
 export interface RiskAssessmentRecord {
@@ -1083,6 +1110,18 @@ export async function createActionPlan(
 export async function fetchRiskHistory(authFetch: AuthFetch, riskId: number): Promise<HistoryEntry[]> {
   const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks/${riskId}/history`);
   return handleResponse<HistoryEntry[]>(res);
+}
+
+// fetchAuditTrail pages through history across every risk the caller can see,
+// newest first. The backend applies the same visibility as the register list.
+export async function fetchAuditTrail(authFetch: AuthFetch, params: AuditTrailParams): Promise<AuditTrailPage> {
+  const qs = new URLSearchParams({ limit: String(params.limit), offset: String(params.offset) });
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  if (params.actions?.length) qs.set("action", params.actions.join(","));
+  if (params.search?.trim()) qs.set("search", params.search.trim());
+  const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks/audit-trail?${qs.toString()}`);
+  return handleResponse<AuditTrailPage>(res);
 }
 
 // commentOnEscalation answers an escalation. The comment alone returns the risk
