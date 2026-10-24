@@ -113,7 +113,7 @@ export function useAccountContacts(accountId: string | null) {
 /** How many products one page of the Add-line list loads. */
 export const PRODUCT_PAGE = 50;
 
-/** The legal texts quotes use (POC legal terms): standard terms, notices, the latest EULA. */
+/** The legal texts quotes use (POC legal terms): standard terms and notices. */
 export function useLegalConfig() {
   const { getToken, ready, key } = useCado2Basis();
   return useQuery<LegalConfig, Error>({

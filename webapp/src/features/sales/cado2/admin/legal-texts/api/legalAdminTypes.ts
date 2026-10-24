@@ -16,11 +16,10 @@
 
 /** Admin › Legal Texts (POC legal terms, 2026-10-24). */
 export interface LegalAdmin {
-  readonly eulas: readonly { version: string; url: string; effectiveFrom: string; latest: boolean; createdByEmail: string; createdAt: string }[];
   readonly texts: readonly { key: string; body: string; updatedByEmail: string; updatedAt: string }[];
   readonly notices: readonly LegalNoticeRow[];
   readonly contractNames: readonly { partnerRole: string; contractName: string; updatedByEmail: string; updatedAt: string }[];
-  /** e.g. "{EULA_LINK}". */
+  /** e.g. "{PARTNER_NAME}". */
   readonly placeholders: readonly string[];
 }
 

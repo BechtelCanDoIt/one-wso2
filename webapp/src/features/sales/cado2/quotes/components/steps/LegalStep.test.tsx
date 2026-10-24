@@ -25,9 +25,8 @@ import LegalStep from "./LegalStep";
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useLegalConfig: () => ({
     data: {
-      eula: { version: "3.6", url: "https://wso2.com/licenses/eula/3.6" },
       texts: {
-        TERMS_ONPREM_DIRECT: "Governed by this Order Form and the {EULA_LINK}.",
+        TERMS_ONPREM_DIRECT: '<p>Governed by this Order Form and <a href="https://wso2.com/licenses/eula/3.6">WSO2 Software License</a>.</p>',
         TERMS_ONPREM_PARTNER: "Governed by the {CONTRACT_NAME} with {PARTNER_NAME} dated {CONTRACT_DATE}.",
         TERMS_SAAS_DIRECT: "SaaS terms.",
         TERMS_SAAS_PARTNER: "SaaS terms (partner).",
@@ -71,12 +70,12 @@ function Harness({ values = {} }: { values?: Partial<DraftFormValues> }) {
 
 // POC legal terms (2026-10-24).
 describe("LegalStep", () => {
-  it("shows a direct deal's standard on-prem terms with the latest EULA, and the notices for every deal", () => {
+  it("shows a direct deal's standard on-prem terms with their EULA link, and the notices for every deal", () => {
     render(<Harness values={{ dealType: "DIRECT", accountSalesRegion: "NA" }} />);
     const terms = within(screen.getByRole("region", { name: "Governing Terms" }));
     // The EULA prints as the words, linked; not the bare address.
-    expect(terms.getByText(/Governed by this Order Form and the/)).toBeInTheDocument();
-    expect(terms.getByRole("link", { name: "WSO2 Software License Agreement" })).toHaveAttribute("href", "https://wso2.com/licenses/eula/3.6");
+    expect(terms.getByText(/Governed by this Order Form and/)).toBeInTheDocument();
+    expect(terms.getByRole("link", { name: "WSO2 Software License" })).toHaveAttribute("href", "https://wso2.com/licenses/eula/3.6");
     expect(terms.getByText("Standard")).toBeInTheDocument(); // one tag, on the card
     const notices = within(screen.getByRole("region", { name: "Legal Terms and Notices" }));
     expect(notices.getByText("Capacity text.")).toBeInTheDocument();

@@ -38,7 +38,6 @@ export function useLegalAdmin(): UseQueryResult<LegalAdmin, Error> {
 /** One change on the page; every answer is the whole page again. */
 type Change =
   | { kind: "text"; key: string; body: string }
-  | { kind: "eula"; version: string; url: string; effectiveFrom: string }
   | { kind: "notice"; id: number | null; notice: LegalNoticeInput }
   | { kind: "deleteNotice"; id: number }
   | { kind: "contractName"; partnerRole: string; contractName: string };
@@ -53,8 +52,6 @@ export function useLegalAdminChange() {
       switch (c.kind) {
         case "text":
           return cado2Send<LegalAdmin>("PUT", u.adminLegalText(c.key), token, { body: c.body });
-        case "eula":
-          return cado2Send<LegalAdmin>("POST", u.adminLegalEulas, token, { version: c.version, url: c.url, effectiveFrom: c.effectiveFrom });
         case "notice":
           return c.id === null
             ? cado2Send<LegalAdmin>("POST", u.adminLegalNotices, token, c.notice)

@@ -1983,7 +1983,6 @@ export const cado2ServiceUrls = {
   legalConfig: `${cado2BackendUrl}/legal`,
   adminLegal: `${cado2BackendUrl}/admin/legal`,
   adminLegalText: (key: string): string => `${cado2BackendUrl}/admin/legal/texts/${encodeSegment(key)}`,
-  adminLegalEulas: `${cado2BackendUrl}/admin/legal/eulas`,
   adminLegalNotices: `${cado2BackendUrl}/admin/legal/notices`,
   adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
   adminLegalContractNames: `${cado2BackendUrl}/admin/legal/contract-names`,

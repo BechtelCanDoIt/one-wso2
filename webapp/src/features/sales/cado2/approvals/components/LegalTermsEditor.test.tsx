@@ -33,7 +33,6 @@ const legal: LegalView = {
   onPrem: true, saas: true, onPremNonStandard: false, saasNonStandard: true,
   contractName: "Value Added Reseller Agreement", contractNameFromRole: true, partnerName: "Acme Reseller", contractDate: "2024-03-12",
   sections: {
-    eula: null,
     blocks: [{ kind: "ONPREM", nonStandard: false, text: "Standard." }, { kind: "SAAS", nonStandard: true, text: "" }],
     notices: [], contractName: "Value Added Reseller Agreement", contractNameFromRole: true,
   },

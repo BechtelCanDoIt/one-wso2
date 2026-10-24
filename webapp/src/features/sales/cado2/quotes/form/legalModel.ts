@@ -80,13 +80,9 @@ export function contractNameFor(cfg: LegalConfig, role: string, chosen: string):
   return mapped ? { name: mapped, fromRole: true } : { name: chosen.trim(), fromRole: false };
 }
 
-const PLACEHOLDERS = ["EULA_LINK", "CONTRACT_NAME", "PARTNER_NAME", "CONTRACT_DATE"];
+const PLACEHOLDERS = ["CONTRACT_NAME", "PARTNER_NAME", "CONTRACT_DATE"];
 
 const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-/** What {EULA_LINK} prints: the words, linked to the latest EULA (2026-10-24), as the backend does. */
-export const EULA_LINK_TEXT = "WSO2 Software License Agreement";
-const eulaLink = (url: string) => (url ? `<a href="${escapeHtml(url)}">${EULA_LINK_TEXT}</a>` : "");
 
 /** Fills a text's {PLACEHOLDER}s; an empty one shows as "[contract date]" so a gap is never silent. */
 export function fillLegal(text: string, values: Readonly<Record<string, string>>): string {
@@ -129,7 +125,6 @@ export function resolveLegal(
   // the mark is the screen's only, never printed.
   const deal = (v: string) => (v && markFilled ? `<mark>${v}</mark>` : v);
   const values: Record<string, string> = {
-    EULA_LINK: eulaLink(cfg.eula?.url ?? ""),
     CONTRACT_NAME: deal(escapeHtml(contract.name)),
     PARTNER_NAME: deal(escapeHtml(d.partnerName)),
     CONTRACT_DATE: deal(longDate(d.contractDate)),
@@ -146,7 +141,7 @@ export function resolveLegal(
   const notices: LegalNoticeOut[] = cfg.notices
     .filter((n) => matches(n.channels, channel) && matches(n.regions, d.region) && matches(n.dealKinds, d.dealKind))
     .map((n) => ({ title: n.title, body: toLegalHtml(n.body), showTitle: n.showTitle, finePrint: n.finePrint, reason: reason(n, d) }));
-  return { eula: cfg.eula, blocks, notices, contractName: contract.name, contractNameFromRole: contract.fromRole };
+  return { blocks, notices, contractName: contract.name, contractNameFromRole: contract.fromRole };
 }
 
 /** Whether a block on the quote is non-standard, so Legal must approve. */

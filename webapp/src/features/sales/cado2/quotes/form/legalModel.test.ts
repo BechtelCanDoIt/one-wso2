@@ -19,9 +19,8 @@ import type { LegalConfig } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { contractNameFor, fillLegal, legalApproveBlock, legalMix, needsLegal, resolveLegal, type LegalDeal } from "./legalModel";
 
 const cfg: LegalConfig = {
-  eula: { version: "3.6", url: "https://wso2.com/licenses/eula/3.6" },
   texts: {
-    TERMS_ONPREM_DIRECT: "Governed by this Order Form and the {EULA_LINK}.",
+    TERMS_ONPREM_DIRECT: '<p>Governed by this Order Form and <a href="https://wso2.com/licenses/eula/3.6">WSO2 Software License</a>.</p>',
     TERMS_ONPREM_PARTNER: "Governed by the {CONTRACT_NAME} between WSO2, LLC and {PARTNER_NAME} dated {CONTRACT_DATE}.",
     TERMS_SAAS_DIRECT: "SaaS terms.",
     TERMS_SAAS_PARTNER: "SaaS terms under the {CONTRACT_NAME}.",
@@ -50,9 +49,9 @@ describe("legalModel", () => {
     expect(legalMix(["CO", ""])).toEqual({ onPrem: true, saas: false });
   });
 
-  it("fills a direct deal's on-prem terms with the latest EULA", () => {
+  it("gives a direct deal's on-prem terms with their EULA link", () => {
     const s = resolveLegal(cfg, direct, std);
-    expect(s.blocks).toEqual([{ kind: "ONPREM", nonStandard: false, text: '<p>Governed by this Order Form and the <a href="https://wso2.com/licenses/eula/3.6">WSO2 Software License Agreement</a>.</p>' }]);
+    expect(s.blocks).toEqual([{ kind: "ONPREM", nonStandard: false, text: '<p>Governed by this Order Form and <a href="https://wso2.com/licenses/eula/3.6" target="_blank" rel="noopener">WSO2 Software License</a>.</p>' }]);
     expect(s.notices.map((n) => n.title)).toEqual(["Additional capacity"]);
   });
 

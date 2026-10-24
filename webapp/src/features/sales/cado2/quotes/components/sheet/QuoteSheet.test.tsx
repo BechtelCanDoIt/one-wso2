@@ -320,7 +320,6 @@ describe("LegalSection", () => {
     dealType: "PARTNER",
     legal: {
       sections: {
-        eula: { version: "3.6", url: "https://wso2.com/licenses/eula/3.6" },
         blocks: [
           { kind: "ONPREM", nonStandard: false, text: "Governed by the Value Added Reseller Agreement." },
           { kind: "SAAS", nonStandard: true, text: "" },

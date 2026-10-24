@@ -16,8 +16,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import LegalTextsPage from "./LegalTextsPage";
+import { textHint } from "./textHint";
 
 const change = { mutate: vi.fn(), isPending: false, error: null as unknown };
 const admin = {
@@ -26,16 +26,13 @@ const admin = {
   isFetching: false,
   refetch: vi.fn(),
   data: {
-    eulas: [
-      { version: "3.6", url: "https://wso2.com/licenses/eula/3.6", effectiveFrom: "2026-01-01", latest: true, createdByEmail: "seed", createdAt: "2026-10-24T10:00:00Z" },
-    ],
-    texts: [{ key: "TERMS_ONPREM_DIRECT", body: "Governed by {EULA_LINK}.", updatedByEmail: "seed", updatedAt: "2026-10-24T10:00:00Z" }],
+    texts: [{ key: "TERMS_ONPREM_DIRECT", body: '<p>Governed by <a href="https://wso2.com/licenses/eula/3.6">WSO2 Software License</a>.</p>', updatedByEmail: "seed", updatedAt: "2026-10-24T10:00:00Z" }],
     notices: [
       { id: 4, title: "Middle East and Africa – for new Subscribers", body: "Report usage quarterly.", showTitle: true, finePrint: false,
         channels: ["PARTNER"], regions: ["ME", "AFRICA"], dealKinds: ["FIRST_SALE"], updatedByEmail: "seed", updatedAt: "2026-10-24T10:00:00Z" },
     ],
     contractNames: [{ partnerRole: "GSI", contractName: "Global System Integrator Agreement", updatedByEmail: "seed", updatedAt: "2026-10-24T10:00:00Z" }],
-    placeholders: ["{EULA_LINK}", "{CONTRACT_NAME}", "{PARTNER_NAME}", "{CONTRACT_DATE}"],
+    placeholders: ["{CONTRACT_NAME}", "{PARTNER_NAME}", "{CONTRACT_DATE}"],
   },
 };
 vi.mock("@features/sales/cado2/admin/legal-texts/api/useLegalAdmin", () => ({
@@ -45,12 +42,15 @@ vi.mock("@features/sales/cado2/admin/legal-texts/api/useLegalAdmin", () => ({
 
 // POC legal terms (2026-10-24).
 describe("LegalTextsPage", () => {
-  it("lists the EULA versions, the standard texts, the notices with when they apply, and the partner agreements", () => {
+  it("lists the standard texts, the notices with when they apply, and the partner agreements", () => {
     render(<LegalTextsPage />);
-    const eulas = within(screen.getByRole("table", { name: "EULA versions" }));
-    expect(eulas.getByText("Latest")).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "On-premises products · direct deals" })).toHaveTextContent("Governed by {EULA_LINK}.");
-    expect(screen.getByText(/Placeholders: \{EULA_LINK\}/)).toBeInTheDocument();
+    // No EULA setting: the link is part of the texts (2026-10-24).
+    expect(screen.queryByRole("table", { name: "EULA versions" })).toBeNull();
+    const direct = within(screen.getByRole("group", { name: "On-premises products · direct deals" }));
+    expect(direct.getByRole("link", { name: "WSO2 Software License" })).toHaveAttribute("href", "https://wso2.com/licenses/eula/3.6");
+    // No placeholder hint on a direct text, and no "seed" as a person.
+    expect(screen.queryByText(/filled in from the deal/)).toBeNull();
+    expect(screen.queryByText(/seed/)).toBeNull();
     const notices = within(screen.getByRole("table", { name: "Notices" }));
     expect(notices.getByText("Partner")).toBeInTheDocument();
     expect(notices.getByText("ME, AFRICA")).toBeInTheDocument();
@@ -59,17 +59,12 @@ describe("LegalTextsPage", () => {
     expect(agreements.getByText("Distributor")).toBeInTheDocument(); // a role seen in Salesforce, not mapped yet
   });
 
-  it("adds an EULA version", async () => {
-    render(<LegalTextsPage />);
-    const user = userEvent.setup();
-    await user.type(screen.getByRole("textbox", { name: "Version" }), "3.7");
-    await user.type(screen.getByRole("textbox", { name: "Link" }), "https://wso2.com/licenses/eula/3.7");
-    const from = screen.getByLabelText("Applies from");
-    await user.type(from, "2026-11-01");
-    await user.click(screen.getByRole("button", { name: "Add version" }));
-    expect(change.mutate).toHaveBeenCalledWith(
-      { kind: "eula", version: "3.7", url: "https://wso2.com/licenses/eula/3.7", effectiveFrom: "2026-11-01" },
-      expect.anything(),
+  it("says which placeholders a partner text may use, and who changed a text", () => {
+    const ph = ["{CONTRACT_NAME}", "{PARTNER_NAME}", "{CONTRACT_DATE}"];
+    expect(textHint("TERMS_ONPREM_PARTNER", "2026-10-24T10:00:00Z", "seed", ph)).toBe(
+      "{CONTRACT_NAME}, {PARTNER_NAME} and {CONTRACT_DATE} are filled in from the deal.",
     );
+    expect(textHint("TERMS_ONPREM_DIRECT", "2026-10-24T10:00:00Z", "seed", ph)).toBe("");
+    expect(textHint("TERMS_SAAS_DIRECT", "2026-10-24T10:00:00Z", "priya@wso2.com", ph)).toBe("Changed 24 Oct 2026 by priya@wso2.com");
   });
 });

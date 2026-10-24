@@ -226,12 +226,6 @@ export interface PricingYear {
 // Legal terms (POC, 2026-10-24): Admin › Legal Texts and a quote's sections
 // ---------------------------------------------------------------------------
 
-/** A WSO2 Software License version. */
-export interface LegalEula {
-  readonly version: string;
-  readonly url: string;
-}
-
 /** A section 05 notice and when it applies; an empty list matches any. */
 export interface LegalNoticeConfig {
   readonly id: number;
@@ -244,9 +238,8 @@ export interface LegalNoticeConfig {
   readonly dealKinds: readonly string[] | null;
 }
 
-/** GET /legal: the texts as quotes use them (the latest EULA). */
+/** GET /legal: the texts as quotes use them; the EULA link is in the texts. */
 export interface LegalConfig {
-  readonly eula: LegalEula | null;
   /** TERMS_ONPREM_DIRECT, TERMS_ONPREM_PARTNER, TERMS_SAAS_DIRECT, TERMS_SAAS_PARTNER. */
   readonly texts: Readonly<Record<string, string>>;
   readonly notices: readonly LegalNoticeConfig[];
@@ -274,7 +267,6 @@ export interface LegalNoticeOut {
 
 /** Sections 04 and 05, resolved. */
 export interface LegalSections {
-  readonly eula: LegalEula | null;
   readonly blocks: readonly LegalBlock[];
   readonly notices: readonly LegalNoticeOut[];
   readonly contractName: string;

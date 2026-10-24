@@ -61,7 +61,6 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     useLegalConfig: () => ({
       ...idle(),
       data: {
-        eula: { version: "3.6", url: "https://wso2.com/licenses/eula/3.6" },
         texts: { TERMS_ONPREM_DIRECT: "Direct terms.", TERMS_ONPREM_PARTNER: "Partner terms.", TERMS_SAAS_DIRECT: "SaaS.", TERMS_SAAS_PARTNER: "SaaS (partner)." },
         notices: [],
         contractNames: { "Value Added Reseller": "Value Added Reseller Agreement", Reseller: "Value Added Reseller Agreement" },

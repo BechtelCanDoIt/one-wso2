@@ -41,15 +41,15 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { FileTextIcon, LinkIcon, PencilIcon, PlusIcon, ScaleIcon, Trash2Icon, UsersIcon } from "@wso2/oxygen-ui-icons-react";
+import { FileTextIcon, PencilIcon, PlusIcon, ScaleIcon, Trash2Icon, UsersIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
-import { changedText, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
-import { CONTRACT_NAMES, EULA_LINK_TEXT } from "@features/sales/cado2/quotes/form/legalModel";
+import { CONTRACT_NAMES } from "@features/sales/cado2/quotes/form/legalModel";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
+import { textHint } from "./textHint";
 import LegalRichTextField from "@features/sales/cado2/components/legal-rich-text/LegalRichTextField";
 import { cleanLegalText, isEmptyLegalText, legalPlainText, sameLegalText } from "@features/sales/cado2/utils/legalRichText";
 import { useLegalAdmin, useLegalAdminChange } from "@features/sales/cado2/admin/legal-texts/api/useLegalAdmin";
@@ -86,7 +86,7 @@ const KNOWN_ROLES = [
 ];
 
 /** One standard text, edited in place. */
-function TextEditor({ textKey, body, changed, placeholders }: { textKey: string; body: string; changed: string; placeholders: readonly string[] }): JSX.Element {
+function TextEditor({ textKey, body, hint }: { textKey: string; body: string; hint: string }): JSX.Element {
   const change = useLegalAdminChange();
   const notify = useCado2Toast();
   const [draft, setDraft] = useState(body);
@@ -97,7 +97,7 @@ function TextEditor({ textKey, body, changed, placeholders }: { textKey: string;
         value={draft}
         onChange={setDraft}
         minHeight={140}
-        helperText={`${changed} · Placeholders: ${placeholders.join(" ")} · {EULA_LINK} prints "${EULA_LINK_TEXT}", linked to the latest version`}
+        helperText={hint || undefined}
       />
       {change.error ? <Alert severity="error">{messageOf(change.error) ?? "Couldn't save the text."}</Alert> : null}
       <Box>
@@ -197,7 +197,6 @@ export default function LegalTextsPage(): JSX.Element {
   const admin = useLegalAdmin();
   const change = useLegalAdminChange();
   const notify = useCado2Toast();
-  const [eula, setEula] = useState({ version: "", url: "", effectiveFrom: "" });
   const [editing, setEditing] = useState<{ notice: LegalNoticeRow | null } | null>(null);
   const [newRole, setNewRole] = useState("");
   // Roles typed in here, shown until mapped (then they come back from the server).
@@ -230,57 +229,15 @@ export default function LegalTextsPage(): JSX.Element {
       <PageHeader title="Legal Texts" />
       {change.error && !editing ? <Alert severity="error">{messageOf(change.error) ?? "Couldn't save the change."}</Alert> : null}
 
-      <SectionCard title="WSO2 Software License (EULA)" icon={<LinkIcon size={16} />} aside={<Typography variant="body2" color="text.secondary">Quotes use the latest</Typography>}>
-        <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1.5 }}>
-          <Table size="small" aria-label="EULA versions">
-            <TableHead>
-              <TableRow>
-                <TableCell>Version</TableCell>
-                <TableCell>Link</TableCell>
-                <TableCell>Applies from</TableCell>
-                <TableCell>Added</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {a.eulas.map((e) => (
-                <TableRow key={e.version}>
-                  <TableCell>
-                    <b>{e.version}</b> {e.latest ? <Chip size="small" color="success" variant="outlined" label="Latest" sx={{ ml: 1 }} /> : null}
-                  </TableCell>
-                  <TableCell sx={{ overflowWrap: "anywhere" }}>{e.url}</TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{formatDate(e.effectiveFrom)}</TableCell>
-                  <TableCell sx={{ whiteSpace: "nowrap" }}>{changedText(e.createdAt, e.createdByEmail)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
-        <Stack direction={{ xs: "column", md: "row" }} spacing={1.5} sx={{ mt: 2 }} alignItems={{ md: "flex-start" }}>
-          <TextField size="small" label="Version" placeholder="3.7" value={eula.version} onChange={(e) => setEula({ ...eula, version: e.target.value })} sx={{ width: { md: 120 } }} />
-          <TextField size="small" label="Link" placeholder="https://wso2.com/licenses/eula/3.7" value={eula.url} onChange={(e) => setEula({ ...eula, url: e.target.value })} sx={{ flexGrow: 1 }} />
-          <TextField size="small" type="date" label="Applies from" InputLabelProps={{ shrink: true }} value={eula.effectiveFrom} onChange={(e) => setEula({ ...eula, effectiveFrom: e.target.value })} />
-          <Button
-            variant="outlined"
-            startIcon={<PlusIcon size={14} />}
-            disabled={!eula.version.trim() || !eula.url.trim() || !eula.effectiveFrom || change.isPending}
-            onClick={() =>
-              change.mutate({ kind: "eula", ...eula }, {
-                onSuccess: () => {
-                  notify("EULA version added");
-                  setEula({ version: "", url: "", effectiveFrom: "" });
-                },
-              })
-            }
-          >
-            Add version
-          </Button>
-        </Stack>
-      </SectionCard>
-
       <SectionCard title="Standard Governing Terms" icon={<ScaleIcon size={16} />}>
         <Stack spacing={3}>
           {a.texts.map((t) => (
-            <TextEditor key={`${t.key}|${t.updatedAt}`} textKey={t.key} body={t.body} changed={changedText(t.updatedAt, t.updatedByEmail)} placeholders={a.placeholders} />
+            <TextEditor
+              key={`${t.key}|${t.updatedAt}`}
+              textKey={t.key}
+              body={t.body}
+              hint={textHint(t.key, t.updatedAt, t.updatedByEmail, a.placeholders)}
+            />
           ))}
         </Stack>
       </SectionCard>
