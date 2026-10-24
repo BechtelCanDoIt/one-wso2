@@ -29,12 +29,18 @@ import { RiskPrivilege } from "../privileges";
 // `names === null` is backend allow-all (local dev, no privilege store): pass
 // it straight through — `can()` already returns true for everything there, and
 // the involvement answer is irrelevant.
+//
+// `canViewAuditTrail` is the second synthetic: the Audit Trail page is limited to
+// two named roles rather than to a privilege, so the backend answers it
+// directly and it becomes RISK_VIEW_AUDIT_TRAIL here.
 export function mergeRiskPrivileges(
   names: string[] | null,
   namedOnRisk: boolean,
+  canViewAuditTrail = false,
 ): Set<string> | null {
   if (names === null) return null;
   const set = new Set(names);
   if (namedOnRisk) set.add(RiskPrivilege.ViewRisks);
+  if (canViewAuditTrail) set.add(RiskPrivilege.ViewAuditTrail);
   return set;
 }
