@@ -25,6 +25,11 @@ describe("how a GitHub issue field links", () => {
     expect(umtIssueLink("https://github.com/wso2/api-manager/issues/34/")?.label).toBe("api-manager#34");
   });
 
+  it("labels a GitHub issue whatever the case of its address", () => {
+    expect(umtIssueLink("https://GitHub.com/wso2/api-manager/issues/34")?.label).toBe("api-manager#34");
+    expect(umtIssueLink("HTTPS://github.com/wso2/api-manager/issues/34")?.label).toBe("api-manager#34");
+  });
+
   it("labels any other web address by the address itself", () => {
     expect(umtIssueLink("https://example.com/tracker/7")).toEqual({
       href: "https://example.com/tracker/7",

@@ -18,12 +18,13 @@ export interface UmtIssueLink {
   label: string;
 }
 
-const GITHUB_ISSUE_PATH = /^https:\/\/github\.com\/[^/]+\/([^/]+)\/issues\/(\d+)\/?$/;
+const GITHUB_ISSUE_PATH = /^https:\/\/github\.com\/[^/]+\/([^/]+)\/issues\/(\d+)\/?$/i;
 
 // How an update's GitHub issue field shows: a link to the issue, labelled
 // "repository#number" when it is a GitHub issue address. Null when the field
-// holds no web address (empty, or the "N/A" kept for an issue that does not
-// apply), so the caller shows N/A instead.
+// holds no web address (empty, the "N/A" kept for an issue that does not
+// apply, or any other text), so the caller shows the value as plain text
+// instead of a link.
 export function umtIssueLink(value: string | null | undefined): UmtIssueLink | null {
   const href = (value ?? "").trim();
   if (!/^https:\/\//i.test(href)) return null;

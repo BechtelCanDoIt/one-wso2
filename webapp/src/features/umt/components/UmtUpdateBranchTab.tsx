@@ -517,7 +517,7 @@ function ExternalValue({ value }: { value: string | null | undefined }) {
 
 function InternalIssueLink({ value }: { value: string | null | undefined }) {
   const issue = umtIssueLink(value);
-  if (!issue) return "N/A";
+  if (!issue) return displayValue(value);
   return (
     <Link href={issue.href} target="_blank" rel="noopener noreferrer" underline="hover">
       {issue.label}

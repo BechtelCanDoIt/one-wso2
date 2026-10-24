@@ -75,9 +75,11 @@ describe("GitHub issue fields on the update's details", () => {
     expect(valueOf("Security Internal GitHub Issue")).toHaveTextContent("N/A");
   });
 
-  it("does not link a value that is not a web address", () => {
+  it("shows a value that is not a web address as text, without a link", () => {
     renderGrid({ securityInternalGitIssue: "javascript:alert(1)" });
 
-    expect(valueOf("Security Internal GitHub Issue").querySelector("a")).toBeNull();
+    const field = valueOf("Security Internal GitHub Issue");
+    expect(field).toHaveTextContent("javascript:alert(1)");
+    expect(field.querySelector("a")).toBeNull();
   });
 });

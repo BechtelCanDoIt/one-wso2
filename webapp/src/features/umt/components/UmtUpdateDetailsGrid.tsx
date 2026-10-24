@@ -594,7 +594,7 @@ function GitHubIssueLink({ value }: { value: string | null | undefined }) {
   if (!issue) {
     return (
       <Typography variant="body1" sx={{ fontWeight: 600 }}>
-        {displayValue(undefined)}
+        {displayValue(value)}
       </Typography>
     );
   }
