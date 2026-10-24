@@ -131,7 +131,7 @@ export function isThreeSixtyConfirmation(qa: ParLegacyQuestionAnswer): boolean {
 // actually reviewed that cycle -- not the record's reviewerName/reviewerEmail
 // (the employee's CURRENT lead). Null when no answerer was recorded.
 export function getLegacySharedByName(questionAnswers: ParLegacyQuestionAnswer[]): string | null {
-  return questionAnswers.find((qa) => qa.managerAnsweredBy)?.managerAnsweredBy ?? null;
+  return questionAnswers.map((qa) => qa.managerAnsweredBy?.trim()).find((name) => name) ?? null;
 }
 
 export function parseLegacyFeedback360(json: string | null): ParLegacyThreeSixtyReview[] {

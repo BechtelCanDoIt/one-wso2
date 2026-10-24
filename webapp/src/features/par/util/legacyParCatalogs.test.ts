@@ -35,6 +35,8 @@ describe("getLegacyQuestionGroups", () => {
 
       expect(employeeGroups?.[0].rows.map((row) => row.label)).toEqual(["Employee question", "Shared question"]);
       expect(leadGroups?.[0].rows.map((row) => row.label)).toEqual(["Lead question", "Shared question"]);
+      expect(employeeGroups?.[0].title).toBe("Employee Feedback");
+      expect(leadGroups?.[0].title).toBe("Lead Feedback");
     });
 
     it("returns null when a side has no answers", () => {

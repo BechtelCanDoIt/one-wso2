@@ -149,8 +149,13 @@ describe("getLegacySharedByName", () => {
     expect(getLegacySharedByName([qa(null), qa("Lead One"), qa("Lead Two")])).toBe("Lead One");
   });
 
+  it("skips blank names and trims the one it returns", () => {
+    expect(getLegacySharedByName([qa("   "), qa("  Lead One ")])).toBe("Lead One");
+  });
+
   it("returns null when no answerer was recorded", () => {
     expect(getLegacySharedByName([qa()])).toBeNull();
+    expect(getLegacySharedByName([qa("  ")])).toBeNull();
     expect(getLegacySharedByName([])).toBeNull();
   });
 });

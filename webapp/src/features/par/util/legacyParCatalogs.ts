@@ -466,6 +466,10 @@ function hasData(text: string | null | undefined, treatNAAsAbsent: boolean): boo
   return !(treatNAAsAbsent && text.trim().toUpperCase() === "N/A");
 }
 
+// Title of a side's non-category (flat/perQuestion) group -- 2015's
+// category groups keep their own catalog titles instead.
+const sideFeedbackTitle = (side: "employee" | "lead") => (side === "employee" ? "Employee Feedback" : "Lead Feedback");
+
 export interface LegacyGroupRow {
   label: string;
   subtext: string;
@@ -570,7 +574,7 @@ export function getLegacyQuestionGroups(
     })
     .filter((row) => hasData(side === "employee" ? row.employeeAnswer : row.managerFeedback, treatNAAsAbsent));
   return rows.length > 0
-    ? [{ title: "Employee Feedback", type: "text", layout: isFlatDisplay ? "flat" : "perQuestion", rows }]
+    ? [{ title: sideFeedbackTitle(side), type: "text", layout: isFlatDisplay ? "flat" : "perQuestion", rows }]
     : null;
 }
 
@@ -593,5 +597,5 @@ function getUncataloguedQuestionGroups(
       employeeAnswer: qa.employeeAnswer ?? null,
       managerFeedback: qa.managerFeedback ?? null,
     }));
-  return rows.length > 0 ? [{ title: "Employee Feedback", type: "text", layout: "flat", rows }] : null;
+  return rows.length > 0 ? [{ title: sideFeedbackTitle(side), type: "text", layout: "flat", rows }] : null;
 }

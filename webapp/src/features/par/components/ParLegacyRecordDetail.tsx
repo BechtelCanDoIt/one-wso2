@@ -74,10 +74,8 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-// Renders either the category-grouped (2015) or flat (2016/2017/2018 Q1-Q2)
-// "Employee Feedback" accordions for one side. Null groups
-// means this cycle has no catalog at all (2020+ or an unrecognized cycle
-// name) -- the caller falls back to the plain flat comment box instead.
+// One per-question answer box for one side -- used directly by the flat
+// layout and (label omitted) inside each perQuestion/category accordion.
 function QuestionRow({ row, type, side }: { row: LegacyGroup["rows"][number]; type: "rating" | "text"; side: "employee" | "lead" }) {
   const answer = (side === "employee" ? row.employeeAnswer : row.managerFeedback) || "—";
   return (
@@ -168,8 +166,8 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[] | nul
       <Box>
         <Typography sx={{ fontWeight: 600, mb: 1.5 }}>{heading}</Typography>
         <Stack spacing={2}>
-          {groups[0].rows.map((row) => (
-            <QuestionRow key={row.label} row={row} type={groups[0].type} side={side} />
+          {groups[0].rows.map((row, index) => (
+            <QuestionRow key={`${index}-${row.label}`} row={row} type={groups[0].type} side={side} />
           ))}
         </Stack>
       </Box>
@@ -184,8 +182,8 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[] | nul
     return (
       <Box>
         <Typography sx={{ fontWeight: 600, mb: 1.5 }}>{heading}</Typography>
-        {groups[0].rows.map((row) => (
-          <Accordion key={row.label} variant="outlined" disableGutters sx={{ mb: 1.5, "&:last-of-type": { mb: 0 } }}>
+        {groups[0].rows.map((row, index) => (
+          <Accordion key={`${index}-${row.label}`} variant="outlined" disableGutters sx={{ mb: 1.5, "&:last-of-type": { mb: 0 } }}>
             <AccordionSummary expandIcon={<ChevronDownIcon size={16} />} sx={ACCORDION_SUMMARY_SX}>
               <Typography variant="body2" sx={{ fontWeight: 600 }}>
                 {row.label}
@@ -406,7 +404,7 @@ export default function ParLegacyRecordDetail({
                 </Box>
               </Box>
             )}
-            {leadComment !== "N/A" && isLegacy2017ScoreCycle && (
+            {hasLegacyContent(record.overallCommentManager) && isLegacy2017ScoreCycle && (
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
                   Score

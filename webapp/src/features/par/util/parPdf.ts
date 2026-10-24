@@ -271,29 +271,42 @@ export function downloadLegacyParPdf(
     );
   };
 
+  // Explicit local request: each side's answers sit directly under its
+  // "Employee's Feedback" / "Lead's Feedback" bar -- no separate "Employee
+  // Feedback" / "Lead Feedback" sub-heading echoing it. 2015's named
+  // categories still print as their own titled blocks below the bar.
+  const addSideAnswers = (
+    sectionTitle: string,
+    emptyLabel: string,
+    topRows: PdfRow[],
+    groups: typeof employeeGroups,
+    side: "employee" | "lead",
+  ) => {
+    const hasCategories = groups.some((group) => group.layout === "category");
+    if (groups.length === 0) {
+      topRows.push([emptyLabel, { content: "N/A", styles: contentStyles }]);
+    } else if (!hasCategories) {
+      for (const group of groups) {
+        for (const row of group.rows) {
+          topRows.push([
+            row.label,
+            { content: (side === "employee" ? row.employeeAnswer : row.managerFeedback) || "-", styles: contentStyles },
+          ]);
+        }
+      }
+    }
+    addBlock(sectionTitle, topRows, "section", true);
+    if (hasCategories) {
+      addAnswerGroups(groups, side);
+    }
+  };
+
   // ---- Employee's Feedback ----
   const employeeTopRows: PdfRow[] = [];
   if (legacy2015EmployeeRating) {
     employeeTopRows.push(["PAR Rating", { content: legacy2015EmployeeRating, styles: contentStyles }]);
   }
-  // Explicit local request: each side's answers sit directly under its
-  // "Employee's Feedback" / "Lead's Feedback" bar -- no separate "Employee
-  // Feedback" / "Lead Feedback" sub-heading echoing it. 2015's named
-  // categories still print as their own titled blocks.
-  const employeeHasCategories = employeeGroups.some((group) => group.layout === "category");
-  if (employeeGroups.length === 0) {
-    employeeTopRows.push(["Employee Feedback", { content: "N/A", styles: contentStyles }]);
-  } else if (!employeeHasCategories) {
-    for (const group of employeeGroups) {
-      for (const row of group.rows) {
-        employeeTopRows.push([row.label, { content: row.employeeAnswer || "-", styles: contentStyles }]);
-      }
-    }
-  }
-  addBlock("Employee's Feedback", employeeTopRows, "section", true);
-  if (employeeHasCategories) {
-    addAnswerGroups(employeeGroups, "employee");
-  }
+  addSideAnswers("Employee's Feedback", "Employee Feedback", employeeTopRows, employeeGroups, "employee");
   addOverallComment("Overall Comment Given by the Employee", record.overallCommentEmployee);
 
   // ---- Lead's Feedback ----
@@ -301,20 +314,7 @@ export function downloadLegacyParPdf(
   if (isLegacy2015Cycle) {
     leadTopRows.push(["PAR Rating", { content: pdfRatingText(rating ?? undefined), styles: contentStyles }]);
   }
-  const leadHasCategories = leadGroups.some((group) => group.layout === "category");
-  if (leadGroups.length === 0) {
-    leadTopRows.push(["Lead Feedback", { content: "N/A", styles: contentStyles }]);
-  } else if (!leadHasCategories) {
-    for (const group of leadGroups) {
-      for (const row of group.rows) {
-        leadTopRows.push([row.label, { content: row.managerFeedback || "-", styles: contentStyles }]);
-      }
-    }
-  }
-  addBlock("Lead's Feedback", leadTopRows, "section", true);
-  if (leadHasCategories) {
-    addAnswerGroups(leadGroups, "lead");
-  }
+  addSideAnswers("Lead's Feedback", "Lead Feedback", leadTopRows, leadGroups, "lead");
   if (!isLegacy2017ScoreCycle) {
     addOverallComment("Overall Comment Given by the Lead", record.overallCommentManager);
   }
