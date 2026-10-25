@@ -26,7 +26,7 @@ import type {
 import { exportRange, exportRangeProblem, nextSort } from "../../util/dashboardFormat";
 import { GlanceBoard } from "./GlanceBoard";
 import { OperationsBoard } from "./OperationsBoard";
-import { ExportPanel, Funnel, TeamTable } from "./ParticipationBoard";
+import { ExportPanel, Funnel, HouseTable, TeamTable } from "./ParticipationBoard";
 import { PostPerformanceBoard } from "./PostPerformanceBoard";
 import { ScorecardBoard } from "./ScorecardBoard";
 
@@ -48,7 +48,7 @@ vi.mock("../../api/useAmplifyDashboards", () => ({
       email: "ada@example.com",
       reposts: 1,
       repostsWithCommentary: 1,
-      posts: [{ campaignId: "c1", title: "Launch", categoryCode: "PRODUCT", categoryLabel: "Product", isPriority: true, opensAt: "2026-10-19T00:00:00Z", reposts: 1, repostsWithCommentary: 1 }],
+      posts: [{ campaignId: "c1", title: "Launch", categoryCode: "PRODUCT", categoryLabel: "Product", isPriority: true, opensAt: "2026-10-19T00:00:00Z", closesAt: "2026-11-18T00:00:00Z", reposts: 1, repostsWithCommentary: 1 }],
       byCategory: [{ code: "PRODUCT", label: "Product", reposts: 1, repostsWithCommentary: 1 }],
     },
   }),
@@ -230,7 +230,7 @@ describe("PostPerformanceBoard", () => {
     expect(screen.getByText("Ada Lovelace Amplify Details")).toBeTruthy();
     expect(screen.getByText(/Team: Digital Engineering/)).toBeTruthy();
     expect(screen.getByText(/BU: Engineering/)).toBeTruthy();
-    expect(within(screen.getByRole("table", { name: "Reposts per post by this person" })).getByText("Launch")).toBeTruthy();
+    expect(within(screen.getByRole("table", { name: "Posts reposted by this person" })).getByText("Launch")).toBeTruthy();
   });
 
   it("says nobody yet when no one reposted", () => {
@@ -288,6 +288,16 @@ describe("Participation", () => {
     expect(screen.getByText(/2 people with 20 points aren't placed/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Sales" }));
     expect(onBu).toHaveBeenCalledWith("Sales");
+  });
+
+  it("shows a house leaderboard like the team one, without a BU column", () => {
+    const onSort = vi.fn();
+    render(<HouseTable board={{ ...board, by: "HOUSE" }} sort="rank" dir="asc" onSort={onSort} />);
+    expect(screen.getByText("House leaderboard")).toBeTruthy();
+    expect(screen.getByRole("columnheader", { name: /House/ })).toBeTruthy();
+    expect(screen.queryByRole("columnheader", { name: "BU" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /Points/ }));
+    expect(onSort).toHaveBeenCalledWith("points");
   });
 
   it("makes every sortable header a button with aria-sort and an arrow on the active one", () => {

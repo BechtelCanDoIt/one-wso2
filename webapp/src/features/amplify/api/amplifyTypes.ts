@@ -251,6 +251,7 @@ export interface DashboardPersonBoard {
     categoryLabel: string;
     isPriority: boolean;
     opensAt: string;
+    closesAt: string;
     reposts: number;
     repostsWithCommentary: number;
   }[];
@@ -355,7 +356,7 @@ export interface GroupBoardEntry {
 
 export interface GroupBoard {
   period: string;
-  by: "TEAM" | "BU";
+  by: "TEAM" | "BU" | "HOUSE";
   businessUnit?: string | null;
   asOf: string;
   totals: { headcount: number; participants: number; points: number };

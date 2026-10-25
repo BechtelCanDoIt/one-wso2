@@ -95,20 +95,20 @@ export function useDashboardScorecard() {
 }
 
 /**
- * Teams or BUs ranked against each other. `bu` narrows `TEAM` to one business unit; `sort` and `dir`
+ * Teams, BUs or houses ranked against each other. `bu` narrows `TEAM` to one business unit; `sort` and `dir`
  * reorder the rows on the server (the rank stays the points-based dense rank). `enabled` holds the
  * call back until the BU is known.
  */
 export function useGroupBoard(
-  by: "TEAM" | "BU",
+  by: "TEAM" | "BU" | "HOUSE",
   bu?: string,
   sort: GroupSort = "rank",
   dir: SortDir = "asc",
   enabled = true,
 ) {
   const params = new URLSearchParams({ by });
-  if (by === "TEAM") {
-    if (bu) params.set("bu", bu);
+  if (by !== "BU") {
+    if (by === "TEAM" && bu) params.set("bu", bu);
     params.set("sort", sort);
     params.set("dir", dir);
   }
@@ -118,8 +118,8 @@ export function useGroupBoard(
     enabled,
     by,
     bu ?? "",
-    by === "TEAM" ? sort : "",
-    by === "TEAM" ? dir : "",
+    by !== "BU" ? sort : "",
+    by !== "BU" ? dir : "",
   );
 }
 

@@ -14,16 +14,16 @@
 // specific language governing permissions and limitations
 
 
-import { Avatar, Box, Button, Dialog, DialogContent, Divider, IconButton, Skeleton, Typography } from "@wso2/oxygen-ui";
+import { Avatar, Box, Button, Dialog, DialogContent, Divider, IconButton, Skeleton, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import { XIcon } from "@wso2/oxygen-ui-icons-react";
 import { HttpError } from "@api/http";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDashboardPerson } from "../../api/useAmplifyDashboards";
 import { usePersonLookup, type PersonRef } from "../../api/usePersonLookup";
-import { Empty, SectionLabel } from "../../components/DashboardParts";
+import { Empty, PriorityPill, SectionLabel } from "../../components/DashboardParts";
 import RepostGrid from "../../components/RepostGrid";
-import { num, shortDate } from "../../util/dashboardFormat";
+import { num, windowText } from "../../util/dashboardFormat";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -89,20 +89,39 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
                 </Box>
               </Box>
               <Box>
-                <SectionLabel>Reposts per post</SectionLabel>
+                <SectionLabel>Posts</SectionLabel>
                 <Divider sx={{ my: 1 }} />
-                <RepostGrid
-                  label="Reposts per post by this person"
-                  empty={<Empty>No reposts yet.</Empty>}
-                  rows={posts.map((p) => ({
-                    key: p.campaignId,
-                    title: p.title,
-                    subtitle: `${p.categoryLabel}${p.isPriority ? " · Priority" : ""} · opened ${shortDate(p.opensAt)}`,
-                    total: p.reposts + p.repostsWithCommentary,
-                    plain: p.reposts,
-                    commented: p.repostsWithCommentary,
-                  }))}
-                />
+                {posts.length === 0 ? (
+                  <Empty>No reposts yet.</Empty>
+                ) : (
+                  <Box sx={{ overflowX: "auto" }}>
+                    <Table size="small" aria-label="Posts reposted by this person" sx={{ minWidth: 520 }}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Post</TableCell>
+                          <TableCell>Category</TableCell>
+                          <TableCell>Window</TableCell>
+                          <TableCell align="right">Reposts</TableCell>
+                          <TableCell align="right">Reposts/Comments</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {posts.map((p) => (
+                          <TableRow key={p.campaignId}>
+                            <TableCell>
+                              {p.title}
+                              {p.isPriority && <PriorityPill />}
+                            </TableCell>
+                            <TableCell>{p.categoryLabel}</TableCell>
+                            <TableCell>{windowText(p.opensAt, p.closesAt)}</TableCell>
+                            <TableCell align="right">{num(p.reposts)}</TableCell>
+                            <TableCell align="right">{num(p.repostsWithCommentary)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </Box>
+                )}
               </Box>
               <Box>
                 <SectionLabel>Reposts by category</SectionLabel>
