@@ -57,6 +57,16 @@ describe("stepChecks", () => {
     expect(stepChecks({ ...complete(), accountSubRegion: "" })[0]).toEqual([]);
   });
 
+  // 2026-10-25: a renewal names what it renews before leaving Overview (the
+  // downsell check needs it), services-only renewals too.
+  it("stops a renewal at Overview until its previous opportunities are chosen", () => {
+    const renewal = { ...complete(), isRenewal: true, previousOpportunityIds: [] };
+    expect(stepChecks(renewal)[0].map((c) => c.field)).toEqual(["previousOpportunityIds"]);
+    expect(reachableStep(stepChecks(renewal))).toBe(0);
+    expect(stepChecks({ ...renewal, previousOpportunityIds: ["006PREV"] })[0]).toEqual([]);
+    expect(stepChecks({ ...complete(), isRenewal: false, previousOpportunityIds: [] })[0]).toEqual([]);
+  });
+
   it("needs the ship-to address on partner deals, or when it differs from bill-to", () => {
     const direct = { ...complete(), dealType: "DIRECT" as const, shipToSameAsBillTo: true, shipTo: emptyDraftForm().shipTo };
     expect(stepChecks(direct)[2]).toEqual([]);

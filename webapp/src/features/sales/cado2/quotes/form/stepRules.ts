@@ -57,6 +57,11 @@ export function stepChecks(
   if (v.opportunityId) {
     need(overview, v.dealType !== null, "dealType", "The opportunity has no Direct / Partner value in Salesforce");
     if (v.dealType === "PARTNER") need(overview, Boolean(v.partner?.id), "partner", "The partner deal has no primary partner in Salesforce");
+    // A renewal names what it renews before going on (2026-10-25): the
+    // downsell check needs it, and finding out at Review was too late.
+    if (v.isRenewal) {
+      need(overview, v.previousOpportunityIds.length > 0, "previousOpportunityIds", "Choose the previous opportunities this renewal replaces");
+    }
   }
   need(overview, Boolean(v.legalEntityId), "legalEntityId", "Choose the WSO2 legal entity");
 

@@ -218,6 +218,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
   const currencies = useCurrencies();
 
   const oppIssue = useFieldIssue("sfOpportunityId");
+  const previousIssue = useFieldIssue("previousOpportunityIds");
 
   const accountAddress = useWatch({ control, name: "accountAddress" });
   const accountSalesRegion = useWatch({ control, name: "accountSalesRegion" });
@@ -420,7 +421,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                 render={({ field }) => (
                   <Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Choose the closed-won opportunities this renews; several when co-terminated deals are consolidated. Their
+                      Required. Choose the closed-won opportunities this renews; several when co-terminated deals are consolidated. Their
                       ARR is compared with this quote&apos;s to check for a downsell, and the quote starts the day after they end.
                     </Typography>
                     {wonOpportunities.error ? (
@@ -440,6 +441,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                       loading={wonOpportunities.isPending}
                       selected={field.value}
                       onChange={chooseRenewed}
+                      error={previousIssue}
                       emptyText="This account has no closed-won opportunities in Salesforce."
                       instruction="Tick the opportunities this quote renews"
                     />
