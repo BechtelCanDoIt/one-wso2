@@ -44,7 +44,7 @@ describe("SalesforceSyncPage (D84)", () => {
     const user = userEvent.setup();
     const toggle = screen.getByRole("switch", { name: "Sync quotes to Salesforce" });
     expect(toggle).not.toBeChecked();
-    expect(screen.getByText(/CADO2 still reads accounts, opportunities and products/)).toBeInTheDocument();
+    expect(screen.getByText(/QuickQuote still reads accounts, opportunities and products/)).toBeInTheDocument();
 
     await user.click(toggle);
     expect(save.mutate).not.toHaveBeenCalled();

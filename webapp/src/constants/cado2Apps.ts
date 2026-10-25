@@ -48,7 +48,7 @@ export const CADO2_ITEM = {
 export const CADO2_APPS: readonly MenuApp[] = [
   {
     key: "cado2",
-    name: "CADO2",
+    name: "QuickQuote",
     // A line icon, as MenuApp needs; the Sales rail shows CADO2's own logo
     // instead (Cado2LogoIcon, set in perspectives.ts like Echo's).
     icon: ReceiptTextIcon,
@@ -84,7 +84,7 @@ export const CADO2_APPS: readonly MenuApp[] = [
         id: CADO2_ITEM.admin,
         label: "Admin",
         icon: SettingsIcon,
-        desc: "The approval matrix, approval SLAs and CADO2's reference data.",
+        desc: "The approval matrix, approval SLAs and QuickQuote's reference data.",
         requires: ["admin"],
         path: cado2Paths.admin,
       },

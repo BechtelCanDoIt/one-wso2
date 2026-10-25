@@ -87,7 +87,7 @@ describe("PricingSetupCard", () => {
       () => (opportunity.pricebook = { id: "01sOLD00000000001A", name: "EUR Price Book 2021" }),
       "The opportunity's price book, EUR Price Book 2021, is inactive in Salesforce or has no active products in EUR",
     ],
-    ["a currency CadO2 doesn't offer", () => (opportunity.currencyIsoCode = "AUD"), "The opportunity is in AUD, which CADO2 doesn't offer. Ask an Admin to add AUD"],
+    ["a currency CadO2 doesn't offer", () => (opportunity.currencyIsoCode = "AUD"), "The opportunity is in AUD, which QuickQuote doesn't offer. Ask an Admin to add AUD"],
     ["no currency", () => (opportunity.currencyIsoCode = null), "The opportunity has no currency in Salesforce"],
   ])("says what to fix in Salesforce, and leaves no book to add products from: %s", async (_name, setUp, says) => {
     setUp();
@@ -101,7 +101,7 @@ describe("PricingSetupCard", () => {
     opportunity.currencyIsoCode = "GBP";
     opportunity.pricebook = null;
     render(<Harness values={{ currencyIsoCode: "GBP" }} />);
-    expect(screen.queryByText(/which CADO2 doesn't offer/)).toBeNull();
+    expect(screen.queryByText(/which QuickQuote doesn't offer/)).toBeNull();
     expect(screen.getByText(/has no price book in Salesforce/)).toBeInTheDocument();
   });
 });
