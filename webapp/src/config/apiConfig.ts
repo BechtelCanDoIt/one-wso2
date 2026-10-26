@@ -1980,8 +1980,6 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
-  // Product bundles: Admins keep them; an AM's
-  // quote reads a parent's children from its price book.
   // Legal terms: the texts quotes use; Admin › Legal Texts; Legal's terms on a version.
   legalConfig: `${cado2BackendUrl}/legal`,
   adminLegal: `${cado2BackendUrl}/admin/legal`,
@@ -1990,6 +1988,8 @@ export const cado2ServiceUrls = {
   adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
   legalTerms: (quoteId: number, versionNumber: number): string =>
     `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/legal-terms`,
+  // Product bundles: Admins keep them; an AM's
+  // quote reads a parent's children from its price book.
   adminBundles: `${cado2BackendUrl}/admin/bundles`,
   adminBundle: (productId: string): string => `${cado2BackendUrl}/admin/bundles/${encodeSegment(productId)}`,
   bundleChildren: (productId: string, currency: string, pricebookId: string): string =>

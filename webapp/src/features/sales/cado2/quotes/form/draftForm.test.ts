@@ -623,6 +623,25 @@ describe("storedPricing", () => {
     expect(p?.lines[1].annualNet).toBe("0.20");
   });
 
+  // Review of PR 1745: billed upfront, a saved quote invoices everything in
+  // Year 1, as the backend says, not each year's own rows.
+  it("takes each year's billing from the backend: upfront in Year 1", () => {
+    const upfront = {
+      version: {
+        ...res.version,
+        years: [
+          { ...res.version.years[0], billing: "1500.45", netBilling: "1500.45" },
+          { ...res.version.years[1], billing: "0.00", netBilling: "0.00" },
+        ],
+      },
+    } as unknown as DraftResponse;
+    const p = storedPricing(upfront);
+    expect(p?.years.map((y) => [y.net, y.billing, y.netBilling])).toEqual([
+      ["1000.30", "1500.45", "1500.45"],
+      ["500.15", "0.00", "0.00"],
+    ]);
+  });
+
   it("shows a stored line waiting for its category with its amount (D75)", () => {
     const waiting = {
       version: { ...res.version, lines: [res.version.lines[0], { ...res.version.lines[1], category: "" }] },

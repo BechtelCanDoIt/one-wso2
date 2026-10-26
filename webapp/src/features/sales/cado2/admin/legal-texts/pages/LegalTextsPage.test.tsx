@@ -16,10 +16,11 @@
 
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import LegalTextsPage from "./LegalTextsPage";
 import { textHint } from "./textHint";
 
-const change = { mutate: vi.fn(), isPending: false, error: null as unknown };
+const change = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null as unknown };
 const admin = {
   error: null,
   isPending: false,
@@ -56,6 +57,20 @@ describe("LegalTextsPage", () => {
     expect(notices.getByText("First sale")).toBeInTheDocument();
     // No partner agreements section: the AM chooses on the quote (2026-10-24).
     expect(screen.queryByRole("table", { name: "Partner agreements" })).toBeNull();
+  });
+
+  // Review of PR 341: a notice is removed only after a confirmation.
+  it("asks before removing a notice", async () => {
+    change.mutate.mockClear();
+    render(<LegalTextsPage />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Remove Middle East and Africa – for new Subscribers" }));
+    const dialog = within(screen.getByRole("dialog", { name: /Remove the notice/ }));
+    expect(change.mutate).not.toHaveBeenCalled();
+    await user.click(dialog.getByRole("button", { name: "Remove notice" }));
+
+    expect(change.mutate).toHaveBeenCalledWith({ kind: "deleteNotice", id: 4 }, expect.anything());
   });
 
   it("says which placeholders a partner text may use, and who changed a text", () => {

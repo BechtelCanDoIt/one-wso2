@@ -243,7 +243,6 @@ export interface LegalConfig {
   /** TERMS_ONPREM_DIRECT, TERMS_ONPREM_PARTNER, TERMS_SAAS_DIRECT, TERMS_SAAS_PARTNER. */
   readonly texts: Readonly<Record<string, string>>;
   readonly notices: readonly LegalNoticeConfig[];
-  /** Salesforce partner role → the agreement named on the order form. */
 }
 
 export type LegalBlockKind = "ONPREM" | "SAAS";
@@ -305,6 +304,13 @@ export interface ContractYearView {
   readonly endDate: string;
   readonly net: string | null;
   readonly arr: string | null;
+  /**
+   * What is invoiced in the year, and that after the partner commission: the
+   * year's own amounts, or, billed upfront, everything in Year 1 and 0 after.
+   * Null while unpriced.
+   */
+  readonly billing?: string | null;
+  readonly netBilling?: string | null;
 }
 
 // ---------------------------------------------------------------------------

@@ -114,6 +114,15 @@ describe("ProductsStep (Products & Pricing)", () => {
 
   // Currency and price book first, then the term right above the products it
   // lays out (2026-10-23); billing and payment terms are on Commercials (D86).
+  // Review of PR 341: the year's actions sit beside its toggle, not inside
+  // a button, so screen readers announce them.
+  it("keeps a year's actions outside its fold toggle", () => {
+    render(<Harness />);
+    const toggle = screen.getByRole("button", { name: /^Year 1, (fold|unfold)$/ });
+    const remove = screen.getByRole("button", { name: "Delete Year 1" });
+    expect(toggle.contains(remove)).toBe(false);
+  });
+
   it("puts the term right above the products", () => {
     render(<Harness />);
     const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));

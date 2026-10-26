@@ -33,7 +33,6 @@ import LegalEntitiesPage from "./admin/legal-entities/pages/LegalEntitiesPage";
 import CurrenciesPage from "./admin/currencies/pages/CurrenciesPage";
 import ProductCategoriesPage from "./admin/product-categories/pages/ProductCategoriesPage";
 import ProductBundlesPage from "./admin/product-bundles/pages/ProductBundlesPage";
-import LegalTextsPage from "./admin/legal-texts/pages/LegalTextsPage";
 import QuoteAccessPage from "./admin/quote-access/pages/QuoteAccessPage";
 import SalesforceSyncPage from "./admin/salesforce-sync/pages/SalesforceSyncPage";
 import EmailNotificationsPage from "./admin/email-notifications/pages/EmailNotificationsPage";
@@ -44,6 +43,8 @@ import PricingFormulaHistoryPage from "./admin/pricing-formulas/pages/PricingFor
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
 const QuoteDetailPage = lazy(() => import("./quotes/pages/QuoteDetailPage"));
 const InsightsPage = lazy(() => import("./insights/pages/InsightsPage"));
+// Its rich-text editor is heavy too.
+const LegalTextsPage = lazy(() => import("./admin/legal-texts/pages/LegalTextsPage"));
 
 const loading = <Skeleton variant="rounded" height={240} />;
 const deferred = (page: ReactNode) => <Suspense fallback={loading}>{page}</Suspense>;
@@ -100,7 +101,7 @@ export const cado2Routes = (
       <Route path="currencies" element={<CurrenciesPage />} />
       <Route path="product-categories" element={<ProductCategoriesPage />} />
       <Route path="product-bundles" element={<ProductBundlesPage />} />
-      <Route path="legal-texts" element={<LegalTextsPage />} />
+      <Route path="legal-texts" element={deferred(<LegalTextsPage />)} />
       <Route path="quote-access" element={<QuoteAccessPage />} />
       <Route path="salesforce-sync" element={<SalesforceSyncPage />} />
       <Route path="email-notifications" element={<EmailNotificationsPage />} />

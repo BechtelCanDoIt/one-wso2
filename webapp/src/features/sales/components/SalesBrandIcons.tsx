@@ -34,7 +34,7 @@ function logoIcon(src: string, displayName: string) {
 /** Echo, the call-intelligence product (public/echo-logo.png). */
 export const EchoLogoIcon = logoIcon("/echo-logo.png", "EchoLogoIcon");
 
-/** QuickQuote (renamed from CADO2, 2026-10-25), the quote tool: two interlocking Qs (public/quickquote-logo.svg). */
+/** QuickQuote, the quote tool: two interlocking Qs (public/quickquote-logo.svg). */
 export const Cado2LogoIcon = logoIcon("/quickquote-logo.svg", "Cado2LogoIcon");
 
 /** Sales Pitstop, the sales content hub the Library searches (public/sales-pitstop-logo.png). */

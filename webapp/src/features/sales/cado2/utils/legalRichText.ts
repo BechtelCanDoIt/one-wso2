@@ -60,7 +60,8 @@ export function sanitizeLegalHtml(html: string, marks = false): string {
   return purify ? String(purify.sanitize(html, marks ? PREVIEW_CONFIG : CONFIG)) : "";
 }
 
-const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** Plain text made safe inside HTML. */
+export const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Any legal text as clean rich text: rich text is cleaned; a plain text becomes paragraphs. */
 export function toLegalHtml(text: string, marks = false): string {

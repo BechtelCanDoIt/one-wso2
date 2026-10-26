@@ -860,8 +860,9 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
   // unpriced means the quote isn't priced.
   const pricedLines = v.lines;
   if (!v.subscriptionStartDate || pricedLines.length === 0 || pricedLines.some((l) => l.schedule.length === 0)) return null;
-  // The contract years as stored; each year's amounts
-  // are the exact sums of its rows (a year without products is 0).
+  // The contract years as stored; each year's amounts are the exact sums of
+  // its rows (a year without products is 0). When it is invoiced is the
+  // backend's: billed upfront, everything falls in Year 1.
   const years = (v.years ?? []).map((y) => {
     const rows = v.lines.flatMap((l) => l.schedule.filter((r) => r.yearNumber === y.yearNumber));
     return {
@@ -870,9 +871,9 @@ export function storedPricing(res: DraftResponse): PricingPreview | null {
       periodEnd: y.endDate,
       net: sumMoney(rows.map((r) => r.net)),
       arr: y.arr ?? "0.00",
-      billing: sumMoney(rows.map((r) => r.billing)),
+      billing: y.billing ?? sumMoney(rows.map((r) => r.billing)),
       commission: sumMoney(rows.map((r) => r.commission ?? "0.00")),
-      netBilling: sumMoney(rows.map((r) => r.netBilling ?? r.billing)),
+      netBilling: y.netBilling ?? sumMoney(rows.map((r) => r.netBilling ?? r.billing)),
     };
   });
   return {

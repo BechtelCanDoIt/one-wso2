@@ -35,6 +35,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { CalendarDaysIcon, PackageIcon, PercentIcon } from "@wso2/oxygen-ui-icons-react";
 import { formatMoney } from "@features/sales/cado2/utils/money";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { descriptionAfterName } from "@features/sales/cado2/utils/productDescription";
 import { lineProblems } from "@features/sales/cado2/quotes/components/lineProblems";
@@ -260,6 +261,9 @@ export default function AddLineDialog({
   // A new product's bundle: what comes with it from this price book.
   const bundle = useBundleChildren(!line && product ? product.id : null, currency, pricebook.id);
   const bundled = bundle.data?.children ?? [];
+  // A product whose bundle couldn't be read isn't added alone: its children
+  // must come with it, and can't be added as children later.
+  const bundleFailed = !line && Boolean(product) && Boolean(bundle.error);
   const isChild = Boolean(line?.parentKey);
 
   // A product carries one price: the quote's book's.
@@ -538,6 +542,11 @@ export default function AddLineDialog({
               the same year and dates, and can only be removed with it.
             </Alert>
           ) : null}
+          {bundleFailed ? (
+            <ErrorNotice error={bundle.error} onRetry={() => void bundle.refetch()} retrying={bundle.isFetching}>
+              Couldn&apos;t check what comes with this product, so it can&apos;t be added yet.
+            </ErrorNotice>
+          ) : null}
           {bundle.data?.missing.length ? (
             <Alert severity="warning" aria-label="Not in the price book">
               Not in {pricebook.name}, so not added: {bundle.data.missing.join(", ")}.
@@ -674,7 +683,7 @@ export default function AddLineDialog({
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={save} disabled={!line && Boolean(product) && bundle.isFetching}>
+        <Button variant="contained" onClick={save} disabled={(!line && Boolean(product) && bundle.isFetching) || bundleFailed}>
           {line ? "Save line" : bundled.length ? `Add ${bundled.length + 1} lines` : "Add line"}
         </Button>
       </DialogActions>

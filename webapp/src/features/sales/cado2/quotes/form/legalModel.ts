@@ -33,13 +33,12 @@ import type {
   LegalNoticeOut,
   LegalSections,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { isEmptyLegalText, toLegalHtml } from "@features/sales/cado2/utils/legalRichText";
+import { escapeHtml, isEmptyLegalText, toLegalHtml } from "@features/sales/cado2/utils/legalRichText";
 
 /** Salesforce classifications that decide the blocks (decided 2026-10-24). */
 export const CLASS_SAAS = "CL";
 export const CLASS_ONPREM = "PS";
 
-/** The partner agreements Legal named; Admins can map more roles. */
 /** The partner agreements the AM chooses from; the name prints as chosen (2026-10-24). */
 export const CONTRACT_NAMES = ["Value Added Reseller", "Global System Integrator", "One Time Reseller"] as const;
 
@@ -75,8 +74,6 @@ export interface LegalChoice {
 }
 
 const PLACEHOLDERS = ["CONTRACT_NAME", "PARTNER_NAME", "CONTRACT_DATE"];
-
-const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 /** Fills a text's {PLACEHOLDER}s; an empty one shows as "[contract date]" so a gap is never silent. */
 export function fillLegal(text: string, values: Readonly<Record<string, string>>): string {

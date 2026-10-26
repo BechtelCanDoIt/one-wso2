@@ -52,6 +52,18 @@ describe("compareVersions", () => {
     expect(back.find((r) => r.label === "WSO2 Support")).toMatchObject({ change: "removed" });
   });
 
+  // Review of PR 341: the partner agreement is compared, special terms as
+  // their words, and the Legal rows come after the Commercials ones.
+  it("compares the legal sections as they read", () => {
+    const a = { ...ready, version: { ...ready.version, partnerContractName: "Value Added Reseller", specialTerms: { enabled: true, text: "<p>Net <strong>45</strong></p>" } } };
+    const b = { ...ready, version: { ...ready.version, partnerContractName: "One Time Reseller", specialTerms: { enabled: true, text: "<p>Net 60</p>" } } };
+    const legal = compareVersions(a as DraftResponse, b as DraftResponse);
+    expect(legal.find((r) => r.label === "Partner agreement")).toMatchObject({ from: "Value Added Reseller", to: "One Time Reseller", change: "changed" });
+    expect(legal.find((r) => r.label === "Special terms")).toMatchObject({ from: "Net 45", to: "Net 60" });
+    const sections = legal.map((r) => r.section).filter((s, i, all) => all.indexOf(s) === i);
+    expect(sections.indexOf("Legal")).toBe(sections.indexOf("Commercials") + 1);
+  });
+
   it("finds nothing to report between identical versions", () => {
     expect(compareVersions(ready, ready).every((r) => r.change === "same")).toBe(true);
   });

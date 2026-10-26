@@ -243,7 +243,11 @@ export default function ProductBundlesPage(): JSX.Element {
           danger
           pending={remove.isPending}
           error={remove.error}
-          onClose={() => setRemoving(null)}
+          onClose={() => {
+            // So another bundle's dialog doesn't show this one's error.
+            remove.reset();
+            setRemoving(null);
+          }}
           onConfirm={() =>
             remove.mutate(
               { parentProductId: removing.parentProductId, childProductIds: null },

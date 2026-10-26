@@ -31,7 +31,8 @@ export default function LegalNotices({ notices, reasons = false }: { notices: re
   return (
     <LegalQuote>
       {notices.map((n, i) => (
-        <Box key={n.title} sx={{ mt: i === 0 ? 0 : n.showTitle ? 1.75 : 1 }}>
+        // Two notices can share a title (e.g. regional variants).
+        <Box key={`${i}-${n.title}`} sx={{ mt: i === 0 ? 0 : n.showTitle ? 1.75 : 1 }}>
           {reasons && n.reason ? (
             <Chip size="small" color="info" variant="outlined" label={sentence(n.reason)} sx={{ mb: 0.5, height: 20, fontSize: 11 }} />
           ) : null}

@@ -46,6 +46,7 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
 import { textHint } from "./textHint";
@@ -183,6 +184,8 @@ export default function LegalTextsPage(): JSX.Element {
   const change = useLegalAdminChange();
   const notify = useCado2Toast();
   const [editing, setEditing] = useState<{ notice: LegalNoticeRow | null } | null>(null);
+  // A notice is removed only after a confirmation: draft quotes use it.
+  const [removing, setRemoving] = useState<LegalNoticeRow | null>(null);
 
   if (admin.error) {
     return (
@@ -207,7 +210,7 @@ export default function LegalTextsPage(): JSX.Element {
   return (
     <Stack spacing={2.5}>
       <PageHeader title="Legal Texts" />
-      {change.error && !editing ? <Alert severity="error">{messageOf(change.error) ?? "Couldn't save the change."}</Alert> : null}
+      {change.error && !editing && !removing ? <Alert severity="error">{messageOf(change.error) ?? "Couldn't save the change."}</Alert> : null}
 
       <SectionCard title="Standard Governing Terms" icon={<ScaleIcon size={16} />}>
         <Stack spacing={3}>
@@ -272,7 +275,10 @@ export default function LegalTextsPage(): JSX.Element {
                       <IconButton
                         size="small"
                         aria-label={`Remove ${n.title}`}
-                        onClick={() => change.mutate({ kind: "deleteNotice", id: n.id }, { onSuccess: () => notify("Notice removed") })}
+                        onClick={() => {
+                          change.reset();
+                          setRemoving(n);
+                        }}
                       >
                         <Trash2Icon size={16} />
                       </IconButton>
@@ -289,6 +295,32 @@ export default function LegalTextsPage(): JSX.Element {
       </SectionCard>
 
       {editing ? <NoticeDialog notice={editing.notice} onClose={() => setEditing(null)} /> : null}
+      {removing ? (
+        <LifecycleDialog
+          title={`Remove the notice "${removing.title}"?`}
+          confirmLabel="Remove notice"
+          danger
+          pending={change.isPending}
+          error={change.error}
+          onClose={() => {
+            change.reset();
+            setRemoving(null);
+          }}
+          onConfirm={() =>
+            change.mutate(
+              { kind: "deleteNotice", id: removing.id },
+              {
+                onSuccess: () => {
+                  notify("Notice removed");
+                  setRemoving(null);
+                },
+              },
+            )
+          }
+        >
+          Quotes submitted from now on won&apos;t include it. Submitted quotes keep the notices they were submitted with.
+        </LifecycleDialog>
+      ) : null}
     </Stack>
   );
 }

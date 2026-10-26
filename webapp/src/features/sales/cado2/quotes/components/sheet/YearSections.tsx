@@ -83,49 +83,48 @@ export default function YearSections({
         const short = y.start && y.end && durationShort(y.start, y.end) !== "1Y" ? durationText(y.start, y.end) : "";
         return (
           <Box key={y.number} component="section" aria-label={`Year ${y.number}`} sx={{ borderBottom: 1, borderColor: "divider" }}>
-            <Stack
-              direction="row"
-              alignItems="center"
-              spacing={1.25}
-              role="button"
-              tabIndex={0}
-              aria-expanded={open}
-              aria-label={`Year ${y.number}, ${open ? "fold" : "unfold"}`}
-              onClick={() => onToggle(y.number)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onToggle(y.number);
-                }
-              }}
-              sx={{ py: 1.25, cursor: "pointer", flexWrap: "wrap", rowGap: 0.5, "&:hover": { bgcolor: "action.hover" } }}
-            >
-              <Box
-                aria-hidden
-                sx={{ display: "grid", color: "text.secondary", transition: "transform .15s", transform: open ? "rotate(90deg)" : "none" }}
+            {/* The toggle holds only the year's own details; its actions sit beside
+                it, not inside a button (nested controls aren't announced). */}
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ "&:hover": { bgcolor: "action.hover" } }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                spacing={1.25}
+                role="button"
+                tabIndex={0}
+                aria-expanded={open}
+                aria-label={`Year ${y.number}, ${open ? "fold" : "unfold"}`}
+                onClick={() => onToggle(y.number)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onToggle(y.number);
+                  }
+                }}
+                sx={{ flex: 1, minWidth: 0, py: 1.25, cursor: "pointer", flexWrap: "wrap", rowGap: 0.5 }}
               >
-                <ChevronRightIcon size={16} />
-              </Box>
-              <Typography variant="subtitle2" component="h4" sx={{ fontWeight: 700 }}>
-                {y.number ? `Year ${y.number}` : "Without a year"}
-              </Typography>
-              {y.start ? (
-                <Typography variant="body2" color="text.secondary">
-                  {formatDate(y.start)} – {formatDate(y.end)}
-                </Typography>
-              ) : null}
-              {short ? <Chip size="small" color="warning" variant="outlined" label={short} /> : null}
-              <Typography variant="body2" color="text.secondary" sx={{ ml: "auto !important", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                {ofYear.length} product{ofYear.length === 1 ? "" : "s"}
-                {/* Folded, the header carries the year's total; open, the table's last row does. */}
-                {!open && total ? ` · ${currency} ${formatMoney(total)}` : ""}
-              </Typography>
-              {yearActions ? (
-                // Its buttons don't fold the year.
-                <Box onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} sx={{ display: "flex", gap: 0.5 }}>
-                  {yearActions(y.number)}
+                <Box
+                  aria-hidden
+                  sx={{ display: "grid", color: "text.secondary", transition: "transform .15s", transform: open ? "rotate(90deg)" : "none" }}
+                >
+                  <ChevronRightIcon size={16} />
                 </Box>
-              ) : null}
+                <Typography variant="subtitle2" component="h4" sx={{ fontWeight: 700 }}>
+                  {y.number ? `Year ${y.number}` : "Without a year"}
+                </Typography>
+                {y.start ? (
+                  <Typography variant="body2" color="text.secondary">
+                    {formatDate(y.start)} – {formatDate(y.end)}
+                  </Typography>
+                ) : null}
+                {short ? <Chip size="small" color="warning" variant="outlined" label={short} /> : null}
+                <Typography variant="body2" color="text.secondary" sx={{ ml: "auto !important", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                  {ofYear.length} product{ofYear.length === 1 ? "" : "s"}
+                  {/* Folded, the header carries the year's total; open, the table's last row does. */}
+                  {!open && total ? ` · ${currency} ${formatMoney(total)}` : ""}
+                </Typography>
+              </Stack>
+              {yearActions ? <Box sx={{ display: "flex", gap: 0.5 }}>{yearActions(y.number)}</Box> : null}
             </Stack>
             {open ? (
               <Stack spacing={1.5} sx={{ pb: 2, pl: { sm: 3.5 } }}>

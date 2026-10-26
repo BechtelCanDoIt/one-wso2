@@ -51,7 +51,8 @@ const support = {
 const productPages = { more: false, fetchNextPage: vi.fn(), book: "" };
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   usePricingFormulas: () => ({ data: formulas.list }),
-  useBundleChildren: (id: string | null) => ({ data: id ? bundle.of(id) : undefined, isFetching: false }),
+  useBundleChildren: (id: string | null) =>
+    bundle.error && id ? { data: undefined, isFetching: false, error: bundle.error, refetch: vi.fn() } : { data: id ? bundle.of(id) : undefined, isFetching: false, error: null },
   useProducts: (_currency: string, _term: string, book: string) => {
     productPages.book = book;
     return {
@@ -88,7 +89,7 @@ const supportFormula = {
 const formulas: { list: (typeof supportFormula)[] } = { list: [] };
 
 // Bundles, when a test sets them: parent id → what comes with it.
-const bundle: { parents: Record<string, { children: unknown[]; missing: string[] }>; of: (id: string) => unknown } = {
+const bundle: { parents: Record<string, { children: unknown[]; missing: string[] }>; of: (id: string) => unknown; error?: Error } = {
   parents: {},
   of: (id) => bundle.parents[id] ?? { children: [], missing: [] },
 };
@@ -246,6 +247,19 @@ describe("AddLineDialog", () => {
       expect(children[0]).toMatchObject({ productId: support.id, quantity: "4", yearNumber: 2, category: "SUPPORT", parentKey: parent.key });
     } finally {
       bundle.parents = {};
+    }
+  });
+
+  // Review of PR 341: a product whose bundle can't be read isn't added alone.
+  it("won't add a product when what comes with it couldn't be checked", async () => {
+    bundle.error = new Error("down");
+    try {
+      renderDialog();
+      await pick(/WSO2 API Manager/);
+      expect(screen.getByText(/Couldn't check what comes with this product/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add line" })).toBeDisabled();
+    } finally {
+      bundle.error = undefined;
     }
   });
 
