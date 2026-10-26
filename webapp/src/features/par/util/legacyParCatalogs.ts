@@ -513,9 +513,9 @@ export function getLegacyQuestionGroups(
   side: "employee" | "lead",
 ): LegacyGroup[] | null {
   // employeeOnly/leadOnly hide a question's other side only when that side
-  // is genuinely empty -- real migrated data does carry a lead's own answer
-  // on some "employee-only" prompts (e.g. 2020+'s SHARE FEEDBACK question),
-  // and that real answer must not be silently dropped.
+  // is genuinely empty -- the stored data can carry a lead's own answer on
+  // some "employee-only" prompts (e.g. 2020+'s SHARE FEEDBACK question), and
+  // that answer must not be silently dropped.
   const showOnSide = (question: LegacyCatalogQuestion, answer: ParLegacyQuestionAnswer | undefined) =>
     side === "employee"
       ? !question.leadOnly || hasData(answer?.employeeAnswer, true)

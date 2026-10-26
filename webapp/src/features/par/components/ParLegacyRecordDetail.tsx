@@ -277,11 +277,11 @@ export default function ParLegacyRecordDetail({
   const employeeGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "employee");
   const leadGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "lead");
 
-  // Real migrated data puts a side's feedback in EITHER the overall
-  // comment OR the per-question answers, varying record to record -- so
-  // both are always shown as two separate sections per side (per-question
-  // answers first, then the overall comment), each as "N/A" when blank,
-  // instead of one silently standing in for the other.
+  // The stored data puts a side's feedback in either the overall comment or
+  // the per-question answers, varying record to record -- so both are always
+  // shown as two separate sections per side (per-question answers first,
+  // then the overall comment), each as "N/A" when blank, instead of one
+  // silently standing in for the other.
   const employeeComment = hasLegacyContent(record.overallCommentEmployee) ? record.overallCommentEmployee! : "N/A";
   const leadComment = hasLegacyContent(record.overallCommentManager) ? record.overallCommentManager! : "N/A";
 

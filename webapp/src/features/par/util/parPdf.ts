@@ -226,10 +226,10 @@ export function downloadLegacyParPdf(
   // (even as "Not Assigned"), matching ParLegacyRecordDetail.tsx's own
   // hideSpecialRating / dedicated Top 5%/20% Rating row.
   const hideSpecialRating = (Number(cycleName.match(/^(\d{4})/)?.[1]) || 0) < 2021;
-  // Explicit local request, 2015 cycles only: those have both an employee
-  // and a lead rating, so neither goes in the header -- each side's rating
-  // sits in its own section instead (Employee's Feedback already carries
-  // the employee's; Lead's Feedback gets the lead's below).
+  // 2015 cycles only: those have both an employee and a lead rating, so
+  // neither goes in the header -- each side's rating sits in its own section
+  // instead (Employee's Feedback already carries the employee's; Lead's
+  // Feedback gets the lead's below).
   const isLegacy2015Cycle = cycleName.startsWith("2015 ");
   const headerLines = [
     ` - Employee: ${record.employeeEmail}`,
@@ -270,10 +270,10 @@ export function downloadLegacyParPdf(
     );
   };
 
-  // Explicit local request: each side's answers sit directly under its
-  // "Employee's Feedback" / "Lead's Feedback" bar -- no separate "Employee
-  // Feedback" / "Lead Feedback" sub-heading echoing it. 2015's named
-  // categories still print as their own titled blocks below the bar.
+  // Each side's answers sit directly under its "Employee's Feedback" /
+  // "Lead's Feedback" bar -- no separate "Employee Feedback" / "Lead
+  // Feedback" sub-heading echoing it. 2015's named categories still print
+  // as their own titled blocks below the bar.
   const addSideAnswers = (
     sectionTitle: string,
     emptyLabel: string,
