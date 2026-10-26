@@ -14,42 +14,91 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { ServerIcon } from "@wso2/oxygen-ui-icons-react";
+import { GitHub, SettingsIcon, ShieldIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
 
 export const INFRA_APPS: readonly MenuApp[] = [
   {
     key: "github",
-    name: "Repository Management",
-    icon: ServerIcon,
+    name: "Infra Portal",
+    icon: GitHub,
     alwaysGroup: true,
-    purpose: "Connect GitHub and request repositories.",
+    purpose: "Connect GitHub, request repositories, and review those requests.",
     items: [
-      {
-        id: "infra-github-connection",
-        label: "GitHub Connection",
-        desc: "Connect your GitHub account.",
-        path: "/infra/github/connection",
-        requires: ["admin"],
-      },
-      {
-        id: "infra-github-new-repository",
-        label: "New Repository",
-        desc: "Request a new GitHub repository.",
-        path: "/infra/github/repository-requests",
-        requires: ["admin"],
-      },
-      {
-        id: "infra-github-repository-access",
-        label: "Repository Access",
-        desc: "Default org/team access and extra repos from approved requests.",
-        path: "/infra/github/repository-access-requests",
-        requires: ["admin"],
-      },
+        {
+            id: "infra-github-new-repository",
+            label: "New Repository",
+            desc: "Request a new GitHub repository.",
+            path: "/infra/github/repository-requests",
+            requires: ["admin"],
+        },
+        {
+            id: "infra-github-repository-access",
+            label: "Repository Access",
+            desc: "Default org/team access and extra repos from approved requests.",
+            path: "/infra/github/repository-access-requests",
+            requires: ["admin"],
+        },
+        {
+            id: "infra-github-request-access",
+            label: "Request Access",
+            desc: "Request access to an existing repository.",
+            requires: ["admin"],
+        },
+        {
+            id: "infra-github-my-requests",
+            label: "My Requests",
+            desc: "Your creation and access requests.",
+            requires: ["admin"],
+        },
+        {
+            id: "infra-github-review-requests",
+            label: "Review Requests",
+            desc: "Approve or reject repository requests.",
+            requires: ["admin"],
+        },
+    ],
+  },
+  {
+    key: "security-dashboard",
+    name: "Security Dashboard",
+    icon: ShieldIcon,
+    purpose: "Open the configured Looker Studio reports.",
+    items: [
+        {
+            id: "infra-security-dashboard",
+            label: "Security Dashboard",
+            desc: "Device compliance, software compliancy, and security score.",
+            requires: ["admin"],
+        },
+    ],
+  },
+  {
+    key: "github-settings",
+    name: "GitHub Settings",
+    icon: SettingsIcon,
+    purpose: "Admin tables the GitHub forms read.",
+    items: [
+        {
+            id: "infra-github-settings",
+            label: "GitHub Settings",
+            desc: "Organizations, topics, leads, default teams, repo-team leads.",
+            requires: ["admin"],
+        },
     ],
   },
 ];
 
 export const INFRA_ITEM_IDS: ReadonlySet<string> = new Set(
-  INFRA_APPS.flatMap((app) => app.items.map((it) => it.id)),
+    INFRA_APPS.flatMap((app) => app.items.map((it) => it.id)),
 );
+
+function eyebrowFor(key: string): { icon: (typeof INFRA_APPS)[number]["icon"]; label: string } {
+    const app = INFRA_APPS.find((a) => a.key === key)!;
+    return { icon: app.icon, label: app.name };
+  }
+  export const INFRA_EYEBROW = {
+    github: eyebrowFor("github"),
+    securityDashboard: eyebrowFor("security-dashboard"),
+    githubSettings: eyebrowFor("github-settings"),
+  } as const;

@@ -62,6 +62,10 @@ export type PreviewFeature =
    * keeps working the same regardless of this flag.
    */
   | "umt"
+  /* The whole Infra Portal perspective. Still being ported, so the waffle
+   * tile, landing option, and `/infra` route stay hidden until this is on.
+   */
+  | "infra"
   /**
    * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
    * Approvals, Admin), every route under `/sales/cado2`, and its backend
