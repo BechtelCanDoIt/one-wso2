@@ -132,6 +132,10 @@ export default function RiskAuditTrail(): JSX.Element {
       })
       .catch((e) => {
         if (seq !== loadSeqRef.current) return;
+        // Drop the previous result so its rows and page count do not sit under
+        // the new filter and the error.
+        setEntries([]);
+        setTotal(0);
         setError(e instanceof Error && e.message ? e.message : "Failed to load the audit trail.");
       })
       .finally(() => {

@@ -126,6 +126,19 @@ describe("RiskAuditTrail", () => {
     expect(await screen.findByText("Approved by Compliance")).toBeInTheDocument();
   });
 
+  it("drops the previous rows and pagination when a filtered request fails", async () => {
+    respond({ total: 60, items: [entry({})] });
+    renderTab();
+    await screen.findByText("Approved by Compliance");
+
+    authFetch.mockResolvedValueOnce(new Response("boom", { status: 500 }));
+    await userEvent.type(screen.getByLabelText("From"), "2026-10-01");
+
+    expect(await screen.findByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.queryByText("Approved by Compliance")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /next page/i })).not.toBeInTheDocument();
+  });
+
   it("sends the date filter and returns to the first page", async () => {
     respond({ total: 60, items: [entry({})] });
     renderTab();
