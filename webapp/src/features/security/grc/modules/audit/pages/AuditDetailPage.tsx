@@ -57,7 +57,7 @@ import { exportControls } from "@features/security/grc/modules/audit/api/exportC
 import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
 import { downloadBlob } from "@features/security/grc/modules/audit/utils/fileView";
 import { buildControlExportQuery } from "@features/security/grc/modules/audit/utils/controlExportQuery";
-import { daysLeft, formatDateRange } from "@features/security/grc/modules/audit/utils/format";
+import { auditDisplayName, daysLeft, formatDateRange } from "@features/security/grc/modules/audit/utils/format";
 import {
   EMPTY_CONTROL_FILTERS,
   applyControlFilters,
@@ -328,7 +328,7 @@ export default function AuditDetailPage(): JSX.Element {
               <Box sx={{ minWidth: 260 }}>
                 <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" mb={0.75}>
                   <Typography variant="h5" fontWeight={700}>
-                    {audit.name}
+                    {auditDisplayName(audit)}
                   </Typography>
                   <AuditStatusChip status={audit.status} />
                 </Stack>
