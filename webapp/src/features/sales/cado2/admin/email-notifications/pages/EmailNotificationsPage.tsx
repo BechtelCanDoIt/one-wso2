@@ -80,7 +80,7 @@ export default function EmailNotificationsPage(): JSX.Element {
               }
             />
             <Typography variant="body2" color="text.secondary">
-              When on, CADO2 sends an email when a quote is submitted, when an approver&apos;s turn comes, and when
+              When on, QuickQuote sends an email when a quote is submitted, when an approver&apos;s turn comes, and when
               an approver approves or returns a quote. When off, no email is sent; approvers still see their quotes
               in My Approvals.
             </Typography>

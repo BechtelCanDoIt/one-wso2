@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { Navigate, useNavigate, useParams } from "react-router";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import {
   AdapterDateFns,
   Alert,
@@ -72,6 +72,8 @@ import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/Quo
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import CommercialStep from "@features/sales/cado2/quotes/components/steps/CommercialStep";
 import ReviewStep from "@features/sales/cado2/quotes/components/steps/ReviewStep";
+import LegalStep from "@features/sales/cado2/quotes/components/steps/LegalStep";
+import SmallDealBanner from "@features/sales/cado2/quotes/components/SmallDealBanner";
 import ApprovalPreviewPanel from "@features/sales/cado2/approvals/components/ApprovalPreviewPanel";
 import ApprovalPreviewDialog from "@features/sales/cado2/approvals/components/ApprovalPreviewDialog";
 import { useApprovalPreview } from "@features/sales/cado2/approvals/api/useApprovalApi";
@@ -88,7 +90,7 @@ const { LocalizationProvider } = DatePickers;
 /** Live totals refresh this long after the rep stops typing. */
 const PREVIEW_DEBOUNCE_MS = 500;
 
-const REVIEW_STEP = 3;
+const REVIEW_STEP = 4;
 
 /** "Last synced 13 Oct 2026, 10:42 (v1)", or "Not synced yet" (D77). */
 function lastSynced(q: QuoteView): string {
@@ -113,6 +115,8 @@ interface Refusal {
 export default function QuoteWizardPage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
+  // Just cloned (D108): "Q-26-00123 v2", set by the quote page.
+  const clonedFrom = (useLocation().state as { clonedFrom?: string } | null)?.clonedFrom ?? null;
   const quoteId = params.quoteId ? Number(params.quoteId) : null;
   const versionNumber = params.version ? Number(params.version) : null;
   const isNew = quoteId === null;
@@ -145,7 +149,7 @@ export default function QuoteWizardPage(): JSX.Element {
   if (!opened && (isNew || loaded.data)) {
     setOpened(true);
     setStepChoice(
-      !loaded.data
+      !loaded.data || clonedFrom
         ? 0
         : loaded.data.version.status !== "DRAFT"
           ? REVIEW_STEP
@@ -227,7 +231,7 @@ export default function QuoteWizardPage(): JSX.Element {
   // complete; steps beyond the first incomplete one are locked. A frozen
   // version can be browsed freely.
   const checks = useMemo(() => stepChecks(values), [values]);
-  const pricingProblems = [0, 1, 2].map((i) => previewProblems.filter((p) => stepOfField(p.field) === i));
+  const pricingProblems = [0, 1, 2, 3].map((i) => previewProblems.filter((p) => stepOfField(p.field) === i));
   const reachable = editable
     ? reachableStep(
         checks,
@@ -489,6 +493,11 @@ export default function QuoteWizardPage(): JSX.Element {
               }
             />
 
+            {version?.status === "DRAFT" && clonedFrom ? (
+              <Alert severity="info" variant="outlined">
+                Cloned from {clonedFrom}, with its prices. Choose whether this quote is the primary one, then check the rest.
+              </Alert>
+            ) : null}
             {version?.status === "DRAFT" && version.copiedFromVersion ? (
               <Alert severity="info" variant="outlined">
                 Copied from version {version.copiedFromVersion}. Prices stay as they were in v
@@ -537,6 +546,7 @@ export default function QuoteWizardPage(): JSX.Element {
                   {step === 0 ? <OverviewStep locked={saved !== null} quoteId={saved?.quote.id ?? null} /> : null}
                   {step === 1 ? <ProductsStep preview={shown} /> : null}
                   {step === 2 ? <CommercialStep /> : null}
+                  {step === 3 ? <LegalStep /> : null}
                 </Box>
                 {step === REVIEW_STEP ? (
                   <>
@@ -563,6 +573,14 @@ export default function QuoteWizardPage(): JSX.Element {
                       }
                     />
                   </>
+                ) : null}
+                {/* Under USD 30,000 (2026-10-24): right above Next and
+                    Submit, where the AM's eye is when moving on, not at the
+                    top of a long step. */}
+                {step === 1 || step === REVIEW_STEP ? (
+                  <Box sx={{ mt: 3 }}>
+                    <SmallDealBanner smallDeal={shown?.smallDeal} currency={values.currencyIsoCode} tcv={shown?.totals.tcv} />
+                  </Box>
                 ) : null}
                 <Paper
                   variant="outlined"
