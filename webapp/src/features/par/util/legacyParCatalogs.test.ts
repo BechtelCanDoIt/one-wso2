@@ -45,4 +45,42 @@ describe("getLegacyQuestionGroups", () => {
       expect(getLegacyQuestionGroups(cycleName, employeeOnly, "lead")).toBeNull();
     });
   });
+
+  describe("employeeOnly / leadOnly questions", () => {
+    const labels = (groups: ReturnType<typeof getLegacyQuestionGroups>) => groups?.[0].rows.map((row) => row.label) ?? [];
+
+    it("shows a leadOnly question on the lead side and hides it on the employee side when the employee has no answer", () => {
+      const answers: ParLegacyQuestionAnswer[] = [
+        { title: "Promotion confirmed?", employeeAnswer: null, managerFeedback: "No" },
+      ];
+      expect(labels(getLegacyQuestionGroups("2017 Quarterly Review - Q1", answers, "lead"))).toContain("Promotion confirmed?");
+      expect(getLegacyQuestionGroups("2017 Quarterly Review - Q1", answers, "employee")).toBeNull();
+    });
+
+    it("treats an employee's \"N/A\" on a leadOnly question as no answer", () => {
+      const answers: ParLegacyQuestionAnswer[] = [
+        { title: "Promotion confirmed?", employeeAnswer: "N/A", managerFeedback: "No" },
+      ];
+      expect(getLegacyQuestionGroups("2017 Quarterly Review - Q1", answers, "employee")).toBeNull();
+    });
+
+    it("shows a leadOnly question on the employee side when the employee gave a real answer", () => {
+      const answers: ParLegacyQuestionAnswer[] = [
+        { title: "Promotion confirmed?", employeeAnswer: "Yes, discussed", managerFeedback: "No" },
+      ];
+      const employeeGroups = getLegacyQuestionGroups("2017 Quarterly Review - Q1", answers, "employee");
+      expect(labels(employeeGroups)).toEqual(["Promotion confirmed?"]);
+      expect(employeeGroups?.[0].rows[0].employeeAnswer).toBe("Yes, discussed");
+    });
+
+    it("hides an employeeOnly question on the lead side unless the lead gave a real answer", () => {
+      const question = "Your Commitments & Your Feedback On The Quarter.";
+      const withoutLead: ParLegacyQuestionAnswer[] = [{ title: question, employeeAnswer: "My commitments", managerFeedback: " " }];
+      const withLead: ParLegacyQuestionAnswer[] = [{ title: question, employeeAnswer: "My commitments", managerFeedback: "Agreed" }];
+
+      expect(labels(getLegacyQuestionGroups("2019 Performance Evaluation - Q1", withoutLead, "employee"))).toEqual([question]);
+      expect(getLegacyQuestionGroups("2019 Performance Evaluation - Q1", withoutLead, "lead")).toBeNull();
+      expect(labels(getLegacyQuestionGroups("2019 Performance Evaluation - Q1", withLead, "lead"))).toEqual([question]);
+    });
+  });
 });
