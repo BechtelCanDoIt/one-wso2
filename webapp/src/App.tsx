@@ -265,8 +265,6 @@ export default function App() {
             </>
           )}
     
-          {isPreviewEnabled("infra") && (
-            <>
               <Route path="infra" element={<PerspectiveLanding />} />
               <Route path="infra/github/connection" element={<InfraHomePage />} />
               <Route
@@ -278,8 +276,6 @@ export default function App() {
                 path="infra/github/repository-access-requests"
                 element={<InfraRepositoryAccessPage />}
               />
-            </>
-          )}
 
           {/* My Team — placeholder for now; the real subordinates view is on
               hold this iteration (mirrors people-app's lead-only nav item). */}
