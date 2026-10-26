@@ -176,8 +176,8 @@ function metricsOf(movement: RegionMetrics | undefined): Required<RegionMetrics>
  *
  * Every one of the eight, including Closing — unlike the Exit ARR summary,
  * whose Total row leaves Moesif out of its own Total and therefore does not
- * foot. There is no such carve-out here: the source sums all eight the same
- * way, so this column adds up to exactly what its rows say. Acquired ARR is
+ * foot. There is no such carve-out here: the Total row sums all eight figures
+ * the same way, so this column adds up to exactly what its rows say. Acquired ARR is
  * one of those figures: the total includes it, the same as First Sale.
  */
 function totalOf(regions: Iterable<Required<RegionMetrics>>): Required<RegionMetrics> {
@@ -221,7 +221,7 @@ export interface RegionMetricsSubColumn extends BuildSubColumn {
 }
 
 /**
- * The eight metrics, in the source's reading order.
+ * The eight metrics, in display order.
  *
  * ---- five of these headers disagree with the Build's ----------------------
  *

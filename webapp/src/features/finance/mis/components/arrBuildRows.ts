@@ -54,6 +54,7 @@ import type { BuildRow } from "./buildTableModel";
 export interface ArrSummaryResponse {
   openingArr?: number | string | null;
   newArr?: number | string | null;
+  /** Acquired ARR for the column, in USD. Absent when the response omits it. */
   acquiredArr?: number | string | null;
   transferredIn?: number | string | null;
   expansions?: number | string | null;
@@ -80,6 +81,7 @@ export interface ArrSummaryResponse {
   percentLostTotal?: number | string | null;
   openingSubscriptionCustomers?: number | string | null;
   newCustomers?: number | string | null;
+  /** Logos counted as acquired in the column. Absent when the response omits it. */
   acquiredCustomers?: number | string | null;
   transferredInCount?: number | string | null;
   lostCustomers?: number | string | null;

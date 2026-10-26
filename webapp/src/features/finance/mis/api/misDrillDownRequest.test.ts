@@ -44,13 +44,11 @@ const ask = (rowId: string, over: Partial<MisAppliedFilters> = {}, isFirstColumn
   drillDownRequest(rowId, YEAR_2025, { ...DEFAULTS, ...over }, { isFirstColumn });
 
 describe("which figures can be drilled into", () => {
-  // Sixteen rows of the Build open the dialog and every other row is inert —
-  // the source keeps a Set of row-header literals (DataGrid.js).
-  // The port keys off row IDS instead, deliberately: the Build has FOUR rows
-  // labelled "y/y growth", so a label is not an identity, and keying on one
-  // would re-import an ambiguity the port already fixed.
+  // Sixteen rows of the Build open the dialog and every other row is inert.
+  // The Build has FOUR rows labelled "y/y growth", so a label is not an
+  // identity, and the drill-down keys off row ids.
 
-  it("knows the sixteen rows the source lets a reader open", () => {
+  it("knows the sixteen Build rows a reader can open", () => {
     expect([...DRILLABLE_ROW_IDS].sort()).toEqual(
       [
         "acquired-arr",

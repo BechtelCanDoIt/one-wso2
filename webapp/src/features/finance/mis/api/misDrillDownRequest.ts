@@ -37,7 +37,7 @@
 // ---- it keys on row IDS, where the source keys on row LABELS -----------------
 //
 // The source tests `params.data.rowHeader` — the literal header text — against
-// a Set of row-header literals (`DataGrid.js`). That works there only by
+// a Set of row-header strings. That works there only by
 // luck: the Build has FOUR rows labelled "y/y growth", so a label is not an
 // identity. The port gives every row a stable id (`arrBuildRows`), so this keys
 // on those and the ambiguity cannot come back.
