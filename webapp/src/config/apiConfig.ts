@@ -529,9 +529,15 @@ export const ccServiceUrls = {
   // Admin view's "Group by: Reporting Manager" — the same backlog rolled up
   // under each report's manager. Finance only, enforced server-side.
   managerCompliance: `${ccBackendUrl}/transactions/manager-compliance-summary`,
+  // POST — emails one reporting manager their team's unsubmitted backlog, copying
+  // the caller. Takes only the manager and the date range: the backend reads the
+  // figures itself at send time, so a reminder never carries what this page last
+  // fetched. Finance only, enforced server-side.
+  managerReminder: `${ccBackendUrl}/transactions/manager-reminder`,
   // Lead view: every lead's approval backlog, and one lead's team within it.
   leadApprovalSummary: `${ccBackendUrl}/transactions/lead-approval-summary`,
   leadTeamCardHolders: `${ccBackendUrl}/transactions/lead-team-card-holder-summary`,
+  leadTeamUnsubmittedSummary: `${ccBackendUrl}/transactions/lead-team-unsubmitted-summary`,
   expenseTypes: `${ccBackendUrl}/configurations/expense-types`,
   subRegions: `${ccBackendUrl}/configurations/sub-regions`,
   productAndBusinessUnits: `${ccBackendUrl}/configurations/product-and-business-units`,
@@ -637,7 +643,7 @@ export function isUmtBackendConfigured(): boolean {
 }
 
 export const umtServiceUrls = {
-  // GET — caller identity and UMT-local roles; this is the UMT access gate.
+  // GET — caller identity and UMT-local roles; this is the perspective gate.
   userInfo: `${umtBackendUrl}/update/user-info`,
   // GET — products, versions, issue types, lifecycles and user emails shared
   // by the update workflows. This endpoint deliberately sits outside /update.
@@ -1919,16 +1925,15 @@ export const cado2ServiceUrls = {
   // Salesforce lookups, read live through the backend.
   accounts: (nameContains: string): string =>
     `${cado2BackendUrl}/accounts?nameContains=${encodeSegment(nameContains)}&limit=20`,
-  // Open opportunities to quote; closed-won ones for a renewal to renew.
   accountOpportunities: (accountId: string, status: "open" | "won" = "open"): string =>
-    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${status}`,
+    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${encodeSegment(status)}`,
   accountContacts: (accountId: string): string =>
     `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/contacts`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (
     currency: string,
-    search: string,
+    nameContains: string,
     page: { pricebookId: string; limit: number; offset: number },
   ): string => {
     const q = new URLSearchParams({
@@ -1937,8 +1942,7 @@ export const cado2ServiceUrls = {
       limit: String(page.limit),
       offset: String(page.offset),
     });
-    // The product name or its product code.
-    if (search) q.set("search", search);
+    if (nameContains) q.set("search", nameContains);
     return `${cado2BackendUrl}/products?${q.toString()}`;
   },
   pricebooks: (currency: string): string => `${cado2BackendUrl}/pricebooks?currency=${encodeSegment(currency)}`,
@@ -1956,12 +1960,12 @@ export const cado2ServiceUrls = {
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
   quoteRevise: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/revise`,
+  // A new quote on the same opportunity, a copy of this version (D108).
+  quoteClone: (quoteId: number, version: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/clone`,
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
   // Makes the quote its opportunity's primary quote, or releases it (D68).
   quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,
-  // The products on an opportunity, priced from its price book: a new quote starts from them (D72).
-  opportunityProducts: (accountId: string, opportunityId: string): string =>
-    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/products?accountId=${encodeURIComponent(accountId)}`,
   // The quotes on an opportunity, with which is primary (D68).
   opportunityQuotes: (opportunityId: string): string =>
     `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
@@ -1992,6 +1996,9 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/documents/preview`,
   quoteDocumentFile: (quoteId: number, documentId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/documents/${encodeSegment(documentId)}/file`,
+  // Retries attaching the primary quote's order form to its opportunity (D111).
+  quoteDocumentAttach: (quoteId: number, documentId: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/documents/${encodeSegment(documentId)}/attach`,
   approvalPreview: `${cado2BackendUrl}/approvals/preview`,
   storedApprovalPreview: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/approval-preview`,
@@ -2016,6 +2023,20 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
+  // Legal terms: the texts quotes use; Admin › Legal Texts; Legal's terms on a version.
+  legalConfig: `${cado2BackendUrl}/legal`,
+  adminLegal: `${cado2BackendUrl}/admin/legal`,
+  adminLegalText: (key: string): string => `${cado2BackendUrl}/admin/legal/texts/${encodeSegment(key)}`,
+  adminLegalNotices: `${cado2BackendUrl}/admin/legal/notices`,
+  adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
+  legalTerms: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/legal-terms`,
+  // Product bundles: Admins keep them; an AM's
+  // quote reads a parent's children from its price book.
+  adminBundles: `${cado2BackendUrl}/admin/bundles`,
+  adminBundle: (productId: string): string => `${cado2BackendUrl}/admin/bundles/${encodeSegment(productId)}`,
+  bundleChildren: (productId: string, currency: string, pricebookId: string): string =>
+    `${cado2BackendUrl}/bundles/${encodeSegment(productId)}?currency=${encodeSegment(currency)}&pricebookId=${encodeSegment(pricebookId)}`,
   // Pricing formulas (D81): read by AMs and Admins; changed by Admins.
   pricingFormulas: `${cado2BackendUrl}/pricing-formulas`,
   adminPricingFormula: (productId: string): string =>

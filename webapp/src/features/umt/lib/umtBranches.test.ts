@@ -8,7 +8,13 @@
 import { describe, expect, it } from "vitest";
 import type { UmtMeta } from "../api/umtTypes";
 import type { UmtUpdateSummary } from "../api/umtUpdates";
-import { isUmtBranchInProgress, umtBranchCreationPayload, umtHotfixProductBranchRequest } from "./umtBranches";
+import {
+  isUmtBranchInProgress,
+  umtBranchCreationPayload,
+  umtComponentDirPathError,
+  umtHotfixProductBranchRequest,
+  umtMonoRepoFields,
+} from "./umtBranches";
 
 describe("isUmtBranchInProgress", () => {
   it("treats Completed, Failed and Not created as settled", () => {
@@ -71,6 +77,32 @@ describe("umtBranchCreationPayload", () => {
     });
   });
 
+  it("sends the directory of a mono repo's component branch, trimmed, with an update branch request", () => {
+    expect(
+      umtBranchCreationPayload(
+        { ...request, branchType: "ComponentBranch", isMonoRepo: true, componentDirPath: " components/identity " },
+        { id: 1, isHotfix: false },
+      ),
+    ).toEqual({
+      publicRepoUrl: request.publicRepoUrl,
+      releaseTag: "4.2.0.0",
+      channel: "full",
+      productName: "wso2am",
+      branchType: "ComponentBranch",
+      isMonoRepo: true,
+      componentDirPath: "components/identity",
+    });
+  });
+
+  it("sends the directory of a mono repo's component branch with a hotfix branch request", () => {
+    expect(
+      umtBranchCreationPayload(
+        { ...request, branchType: "ComponentBranch", isMonoRepo: true, componentDirPath: "components/identity" },
+        { id: 1, isHotfix: true, jiraId: "SUPPORT-1", wso2CaseId: "CS1" },
+      ),
+    ).toMatchObject({ isMonoRepo: true, componentDirPath: "components/identity", jiraId: "SUPPORT-1" });
+  });
+
   it("adds the hotfix's Jira id, case id and product version to a hotfix branch request", () => {
     expect(umtBranchCreationPayload(request, { id: 1, isHotfix: true, jiraId: "SUPPORT-1", wso2CaseId: "CS1" })).toEqual({
       ...request,
@@ -118,5 +150,33 @@ describe("umtHotfixProductBranchRequest", () => {
     expect(
       umtHotfixProductBranchRequest(hotfix(), { wso2am: [{ ...PRODUCTS.wso2am[0], publicRepoUrl: "" }] }),
     ).toBeNull();
+  });
+});
+
+describe("umtComponentDirPathError", () => {
+  it("asks for a directory when the repository is a mono repo", () => {
+    expect(umtComponentDirPathError(true, "")).toBe("Component Directory Path is required");
+    expect(umtComponentDirPathError(true, "   ")).toBe("Component Directory Path is required");
+  });
+
+  it("accepts a named directory", () => {
+    expect(umtComponentDirPathError(true, "components/identity")).toBeUndefined();
+  });
+
+  it("needs no directory when the repository holds one component", () => {
+    expect(umtComponentDirPathError(false, "")).toBeUndefined();
+  });
+});
+
+describe("umtMonoRepoFields", () => {
+  it("names the mono repo and its trimmed directory", () => {
+    expect(umtMonoRepoFields(true, "  components/identity ")).toEqual({
+      isMonoRepo: true,
+      componentDirPath: "components/identity",
+    });
+  });
+
+  it("adds nothing for a repository that holds one component, whatever directory was typed", () => {
+    expect(umtMonoRepoFields(false, "components/identity")).toEqual({});
   });
 });

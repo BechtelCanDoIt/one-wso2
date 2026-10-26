@@ -18,6 +18,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   DataGrid,
   Dialog,
@@ -25,6 +26,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   Grid,
   Link,
   Paper,
@@ -49,7 +51,12 @@ import {
   useUmtComponentMaxUpdateLevel,
   useUmtCreateBranch,
 } from "../api/useUmtBranches";
-import { umtBranchCreationPayload, umtReleaseTag } from "../lib/umtBranches";
+import {
+  umtBranchCreationPayload,
+  umtComponentDirPathError,
+  umtMonoRepoFields,
+  umtReleaseTag,
+} from "../lib/umtBranches";
 import { umtIssueLink } from "../lib/umtIssueLink";
 
 const { DataGrid: DataGridComponent } = DataGrid;
@@ -63,17 +70,27 @@ interface ProductBranchRow extends BranchGridRow {
   sourceProduct?: UmtUpdateProduct;
 }
 
-interface BranchFormValues {
+interface RepoFormValues {
   publicRepoUrl: string;
   releaseTag: string;
 }
 
-interface UpdateLevelFormValues extends BranchFormValues {
+interface BranchFormValues extends RepoFormValues {
+  isMonoRepo: boolean;
+  componentDirPath: string;
+}
+
+interface UpdateLevelFormValues extends RepoFormValues {
   productName: string;
   productVersion: string;
 }
 
-const EMPTY_BRANCH_FORM: BranchFormValues = { publicRepoUrl: "", releaseTag: "" };
+const EMPTY_BRANCH_FORM: BranchFormValues = {
+  publicRepoUrl: "",
+  releaseTag: "",
+  isMonoRepo: false,
+  componentDirPath: "",
+};
 const EMPTY_UPDATE_LEVEL_FORM: UpdateLevelFormValues = {
   publicRepoUrl: "",
   releaseTag: "",
@@ -194,18 +211,22 @@ export default function UmtUpdateBranchTab({
     [createBranch, update, showSuccess, showError],
   );
 
+  const componentDirPathError = umtComponentDirPathError(branchForm.isMonoRepo, branchForm.componentDirPath);
+
   const handleCreateComponentBranch = async () => {
     if (readOnly) return;
     setBranchFormSubmitted(true);
-    if (branchFormError(branchForm)) return;
+    if (repoFormError(branchForm) || componentDirPathError) return;
 
     const created = await submitBranch(
       {
-        ...branchForm,
+        publicRepoUrl: branchForm.publicRepoUrl,
+        releaseTag: branchForm.releaseTag,
         branchType: "ComponentBranch",
         channel: "full",
         productName: compatibleInitialProduct?.product?.name ?? "",
         productVersion: compatibleInitialProduct?.product?.version ?? "",
+        ...umtMonoRepoFields(branchForm.isMonoRepo, branchForm.componentDirPath),
       },
       `${update.isHotfix ? "Hotfix" : "Update"} branch requested successfully`,
     );
@@ -276,6 +297,7 @@ export default function UmtUpdateBranchTab({
           label="Public Repository URL"
           onChange={(event) => setBranchForm((current) => ({ ...current, publicRepoUrl: event.target.value }))}
           placeholder="Enter Public Repository URL"
+          required
           size="small"
           value={branchForm.publicRepoUrl}
         />
@@ -286,9 +308,36 @@ export default function UmtUpdateBranchTab({
           label="Release Version"
           onChange={(event) => setBranchForm((current) => ({ ...current, releaseTag: event.target.value }))}
           placeholder="Enter Release Version"
+          required
           size="small"
           value={branchForm.releaseTag}
         />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={branchForm.isMonoRepo}
+              onChange={(event) => setBranchForm((current) => ({ ...current, isMonoRepo: event.target.checked }))}
+            />
+          }
+          label="Mono repo"
+        />
+        {branchForm.isMonoRepo && (
+          <TextField
+            error={branchFormSubmitted && Boolean(componentDirPathError)}
+            fullWidth
+            helperText={
+              branchFormSubmitted && componentDirPathError
+                ? componentDirPathError
+                : "Directory of the component in the repository, e.g. components/identity"
+            }
+            label="Component Directory Path"
+            onChange={(event) => setBranchForm((current) => ({ ...current, componentDirPath: event.target.value }))}
+            placeholder="Enter Component Directory Path"
+            required
+            size="small"
+            value={branchForm.componentDirPath}
+          />
+        )}
         <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
           <Button variant="outlined" onClick={() => setUpdateLevelOpen(true)}>Find Update Level</Button>
           <Button
@@ -598,13 +647,13 @@ function branchRowId(branch: UmtUpdateBranch, index: number): string {
   return `${branch.branchType ?? "branch"}-${branch.productName ?? "product"}-${branch.branchUrl ?? index}-${index}`;
 }
 
-function branchFormError(values: BranchFormValues): boolean {
+function repoFormError(values: RepoFormValues): boolean {
   return Boolean(publicRepoError(values.publicRepoUrl) || !values.releaseTag.trim());
 }
 
 // Finding an update level needs the product as well as the repository.
 function updateLevelFormError(values: UpdateLevelFormValues): boolean {
-  return branchFormError(values) || !values.productName.trim() || !values.productVersion.trim();
+  return repoFormError(values) || !values.productName.trim() || !values.productVersion.trim();
 }
 
 function publicRepoError(value: string): string | undefined {

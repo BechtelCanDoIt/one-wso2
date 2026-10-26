@@ -28,6 +28,7 @@ import type {
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { BILLING_LABEL, durationText, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
+import { legalPlainText } from "@features/sales/cado2/utils/legalRichText";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
 
 // ---------------------------------------------------------------------------
@@ -65,7 +66,7 @@ export function quoteStatusLabel(status: VersionStatus, latestVersion: number): 
 export type Change = "same" | "changed" | "added" | "removed";
 
 export interface CompareRow {
-  readonly section: "Overview" | "Products" | "Commercials" | "Totals";
+  readonly section: "Overview" | "Products" | "Commercials" | "Legal" | "Totals";
   readonly label: string;
   readonly from: string;
   readonly to: string;
@@ -89,7 +90,8 @@ function address(res: DraftResponse, type: AddressView["type"]): string {
     .join(", ");
 }
 
-const terms = (t: { enabled: boolean; text: string | null }, off: string) => (t.enabled ? text(t.text) : off);
+// Terms are rich text: compared as the words, not the markup.
+const terms = (t: { enabled: boolean; text: string | null }, off: string) => (t.enabled ? text(t.text && legalPlainText(t.text)) : off);
 
 type Line = DraftResponse["version"]["lines"][number];
 
@@ -160,13 +162,20 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
   add("Commercials", "Billing", text(va.billingFrequency && BILLING_LABEL[va.billingFrequency]), text(vb.billingFrequency && BILLING_LABEL[vb.billingFrequency]));
   add("Commercials", "Payment terms", va.netTermsDays ? `Net ${va.netTermsDays}` : DASH, vb.netTermsDays ? `Net ${vb.netTermsDays}` : DASH);
   add("Commercials", "PO number", text(va.poNumber), text(vb.poNumber));
-  add("Commercials", "Special terms", terms(va.specialTerms, "None"), terms(vb.specialTerms, "None"));
-  add("Commercials", "Governing terms", terms(va.governingTerms, "Standard"), terms(vb.governingTerms, "Standard"));
   add("Commercials", "Bill to", address(a, "BILL_TO"), address(b, "BILL_TO"));
   add("Commercials", "Ship to", address(a, "SHIP_TO"), address(b, "SHIP_TO"));
   add("Commercials", "Billing contact", contact(a, "BILLING"), contact(b, "BILLING"));
   add("Commercials", "Security contact", contact(a, "SECURITY"), contact(b, "SECURITY"));
   add("Commercials", "Justification", text(va.justification), text(vb.justification));
+  // Section 04: standard, or non-standard written by Legal; then the partner
+  // agreement the AM chose, and the special terms.
+  const blocks = (x: typeof va) =>
+    [x.termsOnPremNonStandard ? "On-prem: non-standard" : "", x.termsSaasNonStandard ? "SaaS: non-standard" : ""].filter(Boolean).join(" · ") ||
+    "Standard";
+  add("Legal", "Governing terms", blocks(va), blocks(vb));
+  add("Legal", "Partner agreement", text(va.partnerContractName), text(vb.partnerContractName));
+  add("Legal", "Partner agreement date", formatDate(va.partnerContractDate ?? null), formatDate(vb.partnerContractDate ?? null));
+  add("Legal", "Special terms", terms(va.specialTerms, "None"), terms(vb.specialTerms, "None"));
 
   // ARR and ACV are null on a services-only quote.
   const na = (x: string | null) => (x === null ? "Not applicable" : formatMoney(x));
@@ -230,8 +239,11 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
   const v = e.versionNumber ? `Version ${e.versionNumber}` : "Quote";
   const meta = e.metadata ?? {};
   switch (e.eventType) {
-    case "QUOTE_CREATED":
-      return "Quote created";
+    case "QUOTE_CREATED": {
+      // Cloned from another quote's version (D108).
+      const from = meta.clonedFrom as { quoteNumber?: string | null; versionNumber?: number } | undefined;
+      return from ? `Quote created (cloned from ${from.quoteNumber ?? "a quote"} v${from.versionNumber ?? "?"})` : "Quote created";
+    }
     case "VERSION_DELETED":
       // Logged on the quote: the version itself no longer exists.
       return `Version ${typeof meta.versionNumber === "number" ? meta.versionNumber : "?"} draft deleted`;
@@ -287,6 +299,13 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `Order form downloaded${count > 1 ? ` ×${count}` : ""}`;
     case "DOCUMENT_GENERATION_FAILED":
       return `The order form couldn't be produced`;
+    // D111: the primary quote's order form on the Salesforce opportunity.
+    case "ORDER_FORM_ATTACHED":
+      return "Order form attached to Salesforce";
+    case "ORDER_FORM_DETACHED":
+      return `Order form removed from Salesforce${typeof meta.replacedBy === "string" ? `, replaced by ${meta.replacedBy}` : ""}`;
+    case "ORDER_FORM_ATTACH_FAILED":
+      return meta.action === "remove" ? "Couldn't remove the order form from Salesforce" : "Couldn't attach the order form to Salesforce";
     default:
       return e.eventType;
   }

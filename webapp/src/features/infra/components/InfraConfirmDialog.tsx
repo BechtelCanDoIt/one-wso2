@@ -15,6 +15,7 @@
 // under the License.
 
 import type { ReactNode } from "react";
+import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import {
   Button,
   CircularProgress,
@@ -46,7 +47,13 @@ export default function InfraConfirmDialog({
   onCancel: () => void;
 }) {
   return (
-    <Dialog open={open} onClose={() => !busy && onCancel()} maxWidth="xs" fullWidth>
+    <Dialog
+      open={open}
+      onClose={() => !busy && onCancel()}
+      maxWidth="xs"
+      fullWidth
+      slotProps={{ paper: { sx: dialogPaperSx } }}
+    >
       <DialogTitle sx={{ fontSize: 16, fontWeight: 800 }}>{title}</DialogTitle>
       <DialogContent>
         <Typography component="div" sx={{ fontSize: 13, color: "text.secondary", lineHeight: 1.55 }}>

@@ -83,7 +83,7 @@ export default function SalesforceSyncPage(): JSX.Element {
               When on, a primary quote is written to its Salesforce opportunity: when its AM chooses &ldquo;Sync to
               Salesforce&rdquo;, and before every submit (a refusal from Salesforce stops the submit). The opportunity&apos;s
               products, quantities, prices, discounts, dates and partner commission then match the quote. When off,
-              nothing is written to Salesforce; CADO2 still reads accounts, opportunities and products from it.
+              nothing is written to Salesforce; QuickQuote still reads accounts, opportunities and products from it.
             </Typography>
             {save.error && !confirming ? (
               <ErrorNotice error={save.error}>Couldn&apos;t change the Salesforce sync.</ErrorNotice>

@@ -52,6 +52,18 @@ describe("compareVersions", () => {
     expect(back.find((r) => r.label === "WSO2 Support")).toMatchObject({ change: "removed" });
   });
 
+  // The partner agreement is compared, special terms as
+  // their words, and the Legal rows come after the Commercials ones.
+  it("compares the legal sections as they read", () => {
+    const a = { ...ready, version: { ...ready.version, partnerContractName: "Value Added Reseller", specialTerms: { enabled: true, text: "<p>Net <strong>45</strong></p>" } } };
+    const b = { ...ready, version: { ...ready.version, partnerContractName: "One Time Reseller", specialTerms: { enabled: true, text: "<p>Net 60</p>" } } };
+    const legal = compareVersions(a as DraftResponse, b as DraftResponse);
+    expect(legal.find((r) => r.label === "Partner agreement")).toMatchObject({ from: "Value Added Reseller", to: "One Time Reseller", change: "changed" });
+    expect(legal.find((r) => r.label === "Special terms")).toMatchObject({ from: "Net 45", to: "Net 60" });
+    const sections = legal.map((r) => r.section).filter((s, i, all) => all.indexOf(s) === i);
+    expect(sections.indexOf("Legal")).toBe(sections.indexOf("Commercials") + 1);
+  });
+
   it("finds nothing to report between identical versions", () => {
     expect(compareVersions(ready, ready).every((r) => r.change === "same")).toBe(true);
   });
@@ -88,6 +100,25 @@ describe("history", () => {
   it("says which draft was deleted", () => {
     const e = event({ eventType: "VERSION_DELETED", versionNumber: null, metadata: { versionNumber: 2 } });
     expect(describeEvent({ event: e, count: 1 })).toBe("Version 2 draft deleted");
+  });
+
+  // D111: the order form on the Salesforce opportunity.
+  it("says what happened to the order form in Salesforce", () => {
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_ATTACHED" }), count: 1 })).toBe("Order form attached to Salesforce");
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_DETACHED", metadata: { replacedBy: "Q-26-00007-v1-d1.pdf" } }), count: 1 })).toBe(
+      "Order form removed from Salesforce, replaced by Q-26-00007-v1-d1.pdf",
+    );
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_ATTACH_FAILED", metadata: { action: "attach" } }), count: 1 })).toBe(
+      "Couldn't attach the order form to Salesforce",
+    );
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_ATTACH_FAILED", metadata: { action: "remove" } }), count: 1 })).toBe(
+      "Couldn't remove the order form from Salesforce",
+    );
+  });
+
+  it("says which quote a clone came from", () => {
+    const e = event({ eventType: "QUOTE_CREATED", metadata: { clonedFrom: { quoteId: 3, quoteNumber: "Q-26-00003", versionNumber: 2 } } });
+    expect(describeEvent({ event: e, count: 1 })).toBe("Quote created (cloned from Q-26-00003 v2)");
   });
 
   it("says where a revision came from", () => {

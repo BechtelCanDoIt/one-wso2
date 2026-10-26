@@ -39,6 +39,7 @@ const empty = {
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useAccountOpportunities: () => empty,
   usePricingFormulas: () => empty,
+  useBundleChildren: () => ({ data: { children: [], missing: [] }, isFetching: false }),
   useCurrencies: () => ({ ...empty, data: ["USD"] }),
   usePricebooks: () => empty,
   useProducts: () => ({
@@ -61,9 +62,16 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   category,
   categorySource: category ? "MAPPED" : "REP",
   recurring: category !== "PROFESSIONAL_SERVICE",
+  classification: "PS",
   unitOfMeasure: "",
   quantity: "1",
   discount: "",
+  yearNumber: 1,
+  startDate: "",
+  endDate: "",
+  salesPrice: "",
+  key: `k-${Math.random()}`,
+  parentKey: "",
 });
 
 function Harness({
@@ -83,12 +91,6 @@ function Harness({
         line("WSO2 Gateway", "SUBSCRIPTION"),
         line("WSO2 Integrator", ""),
       ],
-      notBroughtIn: [
-        {
-          productName: "WSO2 Legacy",
-          reason: "not active in USD Price Book in USD",
-        },
-      ],
       ...values,
     },
   });
@@ -106,23 +108,29 @@ describe("ProductsStep (Products & Pricing)", () => {
   // priced once it is chosen.
   it("lets the AM add products before the start date is chosen", () => {
     render(<Harness startDate="" />);
-    expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add product to Year 1" })).toBeEnabled();
     expect(screen.getByText("Amounts appear once the start date is chosen.")).toBeInTheDocument();
   });
 
-  // D90: the term first, then currency and price book, then the products;
-  // billing and payment terms are on Commercials (D86).
-  it("puts the term first, and says what wasn't brought in", () => {
+  // Currency and price book first, then the term right above the products it
+  // lays out (2026-10-23); billing and payment terms are on Commercials (D86).
+  // The year's actions sit beside its toggle, not inside
+  // a button, so screen readers announce them.
+  it("keeps a year's actions outside its fold toggle", () => {
+    render(<Harness />);
+    const toggle = screen.getByRole("button", { name: /^Year 1, (fold|unfold)$/ });
+    const remove = screen.getByRole("button", { name: "Delete Year 1" });
+    expect(toggle.contains(remove)).toBe(false);
+  });
+
+  it("puts the term right above the products", () => {
     render(<Harness />);
     const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
-    expect(regions[0]).toBe("Subscription Term");
-    expect(regions.indexOf("Currency & Price Book")).toBeGreaterThan(0);
-    expect(regions.indexOf("Products")).toBeGreaterThan(regions.indexOf("Currency & Price Book"));
+    expect(regions[0]).toBe("Currency & Price Book");
+    expect(regions.indexOf("Term")).toBe(regions.indexOf("Products") - 1);
+    expect(regions.indexOf("Year 1")).toBeGreaterThan(regions.indexOf("Products")); // a section inside the Products card
     expect(regions).not.toContain("Billing Frequency");
     expect(regions).not.toContain("Payment Terms");
-    expect(
-      screen.getByText("WSO2 Legacy: not active in USD Price Book in USD"),
-    ).toBeInTheDocument();
   });
 
   // D93: a plain "Uncategorised" heading, no amber and no chip; the line's edit button opens the dialog.
@@ -153,11 +161,11 @@ describe("ProductsStep (Products & Pricing)", () => {
     expect(within(table).queryByRole("rowgroup", { name: "Uncategorised" })).toBeNull();
   });
 
-  // D91: a partner-led quote's commission card sits right above the products, before any product too.
-  it("puts the partner commission card right above the products", () => {
+  // D91, amended 2026-10-23: the commission card sits above the term and the products, before any product too.
+  it("puts the partner commission card above the term and the products", () => {
     render(<Harness values={{ dealType: "PARTNER", lines: [] }} />);
     const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
-    expect(regions.indexOf("Partner Commission")).toBe(regions.indexOf("Products") - 1);
+    expect(regions.indexOf("Partner Commission")).toBe(regions.indexOf("Term") - 1);
     expect(regions.indexOf("Partner Commission")).toBeGreaterThan(regions.indexOf("Currency & Price Book"));
   });
 

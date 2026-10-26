@@ -24,8 +24,9 @@ export function isUmtBranchInProgress(branch: UmtUpdateBranch): boolean {
 }
 
 // The request a branch is asked for with. An update's branch request is these
-// five fields; a hotfix's adds its Jira id, its case id and the product
-// version, so the product version is sent only for a hotfix.
+// five fields and, for a mono repo, its directory; a hotfix's adds its Jira id,
+// its case id and the product version, so the product version is sent only for
+// a hotfix.
 export function umtBranchCreationPayload(
   request: UmtBranchCreationRequest,
   update: UmtUpdateSummary,
@@ -37,6 +38,7 @@ export function umtBranchCreationPayload(
       productName: request.productName,
       publicRepoUrl: request.publicRepoUrl,
       releaseTag: request.releaseTag,
+      ...umtMonoRepoFields(request.isMonoRepo === true, request.componentDirPath ?? ""),
     };
   }
   return {
@@ -72,4 +74,20 @@ export function umtHotfixProductBranchRequest(
     { publicRepoUrl, releaseTag, channel: "full", productName, branchType: "ProductBranch", productVersion: releaseTag },
     update,
   );
+}
+
+// A component branch of a mono repo is cut from one directory of it, so the
+// directory has to be named.
+export function umtComponentDirPathError(isMonoRepo: boolean, componentDirPath: string): string | undefined {
+  if (isMonoRepo && !componentDirPath.trim()) return "Component Directory Path is required";
+  return undefined;
+}
+
+// The mono repo part of a branch request: nothing for a repository that holds
+// one component.
+export function umtMonoRepoFields(
+  isMonoRepo: boolean,
+  componentDirPath: string,
+): Pick<UmtBranchCreationRequest, "isMonoRepo" | "componentDirPath"> {
+  return isMonoRepo ? { isMonoRepo: true, componentDirPath: componentDirPath.trim() } : {};
 }
