@@ -42,7 +42,6 @@ function gateFor(data: unknown) {
 const P = INFRA_PRIVILEGE;
 
 const EMPLOYEE_ITEMS = [
-  "infra-github-connection",
   "infra-github-new-repository",
   "infra-github-repository-access",
   "infra-github-request-access",

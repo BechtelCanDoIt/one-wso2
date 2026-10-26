@@ -327,7 +327,7 @@ describe("claimsForPerspective", () => {
     vi.resetModules();
     window.config = {
       ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { umt: true },
+      ONE_WSO2_PREVIEW_FEATURES: { infra: true, umt: true },
     } as Window["config"];
     const { PERSPECTIVES: flagged } = await import("@constants/perspectives");
     const fold = await import("./visibilityFold");

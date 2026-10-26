@@ -15,7 +15,6 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
@@ -23,9 +22,6 @@ import type { InfraGate } from "@features/infra/api/useInfraGate";
 
 vi.mock("@config/apiConfig", () => ({
   isInfraBackendConfigured: () => true,
-  isGitHubOAuthConfigured: () => false,
-  infraServiceUrls: {},
-  infraBackendUrl: "",
 }));
 
 const gate = vi.hoisted(() => ({ value: {} as InfraGate }));
@@ -45,15 +41,22 @@ const AUTHORIZED: InfraGate = {
   retry: () => {},
 };
 
+const ITEM_LABELS: Record<string, string> = {
+  "infra-github-new-repository": "New Repository",
+  "infra-github-repository-access": "Repository Access",
+  "infra-github-request-access": "Request Access",
+  "infra-github-my-requests": "My Requests",
+  "infra-github-review-requests": "Review Requests",
+  "infra-security-dashboard": "Security Dashboard",
+  "infra-github-settings": "GitHub Settings",
+};
+
 function renderHome(g: Partial<InfraGate> = {}) {
   gate.value = { ...AUTHORIZED, ...g };
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <InfraHomePage />
-      </MemoryRouter>
-    </QueryClientProvider>,
+    <MemoryRouter>
+    <InfraHomePage />
+    </MemoryRouter>,
   );
 }
 
@@ -62,18 +65,34 @@ beforeEach(() => {
 });
 
 describe("InfraHomePage", () => {
-  it("offers GitHub connect and does not repeat the menu", () => {
+  it("lists every registry item as not here yet, with scroll ids for the rail", () => {
     renderHome();
 
-    expect(screen.getByText("Not Connected")).toBeInTheDocument();
-    expect(screen.getByText("GitHub OAuth is not configured.")).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Connect your GitHub account" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Adding an email address to your GitHub account" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Open new repository" })).toHaveAttribute(
       "href",
-      "https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-email-preferences/adding-an-email-address-to-your-github-account",
+      "/infra/github/repository-requests",
     );
-    expect(screen.queryByRole("link", { name: "Open new repository" })).not.toBeInTheDocument();
-    expect(screen.queryByText("New Repository")).not.toBeInTheDocument();
-    expect(screen.queryByText("Not here yet")).not.toBeInTheDocument();
+    expect(screen.getAllByText("Not here yet")).toHaveLength(6);
+
+    for (const [id, label] of Object.entries(ITEM_LABELS)) {
+      const el = document.getElementById(id);
+      expect(el, id).not.toBeNull();
+      expect(el).toHaveTextContent(label);
+    }
+  });
+
+  it("hides items the gate refuses, including their scroll ids", () => {
+    renderHome({
+    canSee: (id) => id === "infra-github-review-requests",
+  });
+
+  expect(document.getElementById("infra-github-review-requests")).not.toBeNull();
+  expect(screen.getByText("Review Requests")).toBeInTheDocument();
+  expect(screen.getByText("Not here yet")).toBeInTheDocument();
+
+  expect(screen.queryByText("New Repository")).not.toBeInTheDocument();
+  expect(screen.queryByText("GitHub Settings")).not.toBeInTheDocument();
+  expect(document.getElementById("infra-github-new-repository")).toBeNull();
+  expect(document.getElementById("infra-github-settings")).toBeNull();
   });
 });
