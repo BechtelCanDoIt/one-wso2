@@ -147,7 +147,7 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("warns about integration test failures when a level has not succeeded", async () => {
+  it("warns that a level has not built successfully when it has not succeeded", async () => {
     state.buildStatus = state.freshBuildStatus = {
       id: 42,
       updateIds: [101],
@@ -159,9 +159,27 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
 
     await waitFor(() =>
       expect(state.showWarning).toHaveBeenCalledWith(
-        expect.stringContaining("integration test failures"),
+        expect.stringContaining("have not built successfully"),
       ),
     );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not call a level that is still building a failure, nor ask to escalate", async () => {
+    state.buildStatus = state.freshBuildStatus = {
+      id: 42,
+      updateIds: [101],
+      updateLevels: [{ buildStatus: "SUCCESS" }, { buildStatus: "IN_PROGRESS" }],
+    };
+    render(<UmtPendingReleaseChunksGrid />);
+
+    await clickRelease();
+
+    await waitFor(() => expect(state.showWarning).toHaveBeenCalledTimes(1));
+    const [message] = state.showWarning.mock.calls[0] as [string];
+    expect(message).toContain("have not built successfully");
+    expect(message).toContain("Check their build status");
+    expect(message).not.toMatch(/failure|escalate/i);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -198,7 +216,7 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
 
     await waitFor(() =>
       expect(state.showWarning).toHaveBeenCalledWith(
-        expect.stringContaining("integration test failures"),
+        expect.stringContaining("have not built successfully"),
       ),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -281,7 +299,7 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
       await confirm();
 
       await waitFor(() =>
-        expect(state.showWarning).toHaveBeenCalledWith(expect.stringContaining("integration test failures")),
+        expect(state.showWarning).toHaveBeenCalledWith(expect.stringContaining("have not built successfully")),
       );
       expect(state.releaseMutate).not.toHaveBeenCalled();
       await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());

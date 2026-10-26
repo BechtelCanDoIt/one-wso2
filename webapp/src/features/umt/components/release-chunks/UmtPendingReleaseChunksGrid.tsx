@@ -136,7 +136,7 @@ function releaseReadinessAnswered(readiness: UmtReleaseReadiness, showWarning: (
   if (readiness === "ready") return true;
   showWarning(
     readiness === "blocked"
-      ? "Cannot release the release chunk with integration test failures, please escalate to the relevant product teams to get them successful."
+      ? "One or more update levels have not built successfully. Check their build status before releasing."
       : "Build status for this release chunk is unavailable, so it cannot be released yet. Refresh the table and try again.",
   );
   return false;
