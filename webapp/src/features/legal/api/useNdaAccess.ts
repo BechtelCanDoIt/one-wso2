@@ -15,6 +15,7 @@
 // under the License.
 
 import { useQuery } from "@tanstack/react-query";
+import { httpRetry } from "@api/errors";
 import { authedGet } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { isLegalBackendConfigured, legalServiceUrls } from "@config/apiConfig";
@@ -41,5 +42,9 @@ export function useNdaAccess() {
     },
     // Group membership is fixed for the life of the token.
     staleTime: 5 * 60 * 1000,
+    // The page shows only a spinner until this answers, and a failure falls
+    // back to manual entry, so retry once (never on 4xx) rather than the
+    // app-wide default of twice.
+    retry: httpRetry,
   });
 }
