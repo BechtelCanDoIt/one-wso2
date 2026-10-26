@@ -369,6 +369,57 @@ export function getQuarterlyPeriods({
 }
 
 /**
+ * How many quarters a forecast lays out, counting the one still open.
+ *
+ * `generateQuarters` walks eight steps from the current quarter when the
+ * forecast flag is on (`tableUtils.js:263-274`).
+ */
+const FORECAST_QUARTER_COUNT = 8;
+
+/**
+ * The Quarterly columns under a Forecasted or Renewal type.
+ *
+ * Eight quarters from the one still open, and every one of them closes on its
+ * last day — including the open one. The historical generator closes that
+ * quarter on today, which asks for the partial figure, so the quarter-end
+ * forecast never loads and the header reads today's date. A forecast is the
+ * figure for the quarter that has not finished, so the column is named for
+ * the quarter and closed on its end. Same end dates as
+ * `useCustomerAccounts.js:171-184`.
+ */
+function forecastQuarterRanges(today: MisCivilDate, cumulative: boolean): MisDateRange[] {
+  const columns: MisDateRange[] = [];
+  let year = today.year;
+  let quarter = quarterOf(today);
+  for (let step = 0; step < FORECAST_QUARTER_COUNT; step++) {
+    columns.push(
+      periodColumn(
+        quarterOpening(year, quarter, cumulative),
+        endOfMonth(year, quarter * 3),
+        `${year} Q${quarter}`,
+        today,
+        false,
+      ),
+    );
+    quarter += 1;
+    if (quarter > 4) {
+      quarter = 1;
+      year += 1;
+    }
+  }
+  return columns;
+}
+
+function forecastQuartersWhenEnabled(
+  period: MisPeriod,
+  filters: ForecastRangeFilters & { cumulativeQuarterly?: boolean },
+  today: MisCivilDate,
+): MisDateRange[] | undefined {
+  if (period !== MIS_PERIODS.QUARTERLY || filters.forecast !== FORECAST_STATES.ENABLE) return undefined;
+  return forecastQuarterRanges(today, filters.cumulativeQuarterly === true);
+}
+
+/**
  * The Monthly Build's columns: `yearsBack * 12` months back, ending at the
  * current month.
  *
@@ -506,11 +557,15 @@ export const pacificColumnRanges: ColumnRangesFor = (period, viewWindow, filters
 export function buildColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
-  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack"> & ForecastRangeFilters,
+  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "cumulativeQuarterly"> &
+    ForecastRangeFilters,
   asOf?: MisCivilDate,
 ): readonly MisDateRange[] {
+  const today = asOf ?? pacificCivilDate();
+  const forecastQuarters = forecastQuartersWhenEnabled(period, filters, today);
+  if (forecastQuarters) return forecastQuarters;
   if (drawsForecastColumns(period, viewWindow, filters)) {
-    return forecastBuildRanges(filters, asOf ?? pacificCivilDate());
+    return forecastBuildRanges(filters, today);
   }
   return calendarColumnRanges(period, viewWindow, filters);
 }
@@ -522,9 +577,12 @@ export function buildColumnRanges(
 export function summaryColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
-  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack"> & ForecastRangeFilters,
+  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "cumulativeQuarterly"> &
+    ForecastRangeFilters,
   asOf?: MisCivilDate,
 ): readonly MisDateRange[] {
+  const forecastQuarters = forecastQuartersWhenEnabled(period, filters, asOf ?? pacificCivilDate());
+  if (forecastQuarters) return forecastQuarters;
   if (drawsForecastColumns(period, viewWindow, filters)) {
     return getAnnualPeriods({
       isYtd: filters.isYtd ?? false,
@@ -561,8 +619,9 @@ type ForecastRangeFilters = Partial<Pick<MisAppliedFilters, "forecast" | "isYtd"
 /**
  * Whether an Annually Calendar table lays its columns out as forecast ranges.
  *
- * Only that one: Quarterly and Monthly keep their own generators, and a TTM
- * Window keeps its trailing ranges before any forecast layout applies.
+ * Quarterly has its own forecast layout, `forecastQuarterRanges`. Monthly keeps
+ * its historical generator. A TTM Window keeps its trailing ranges before any
+ * annual forecast layout applies.
  */
 const drawsForecastColumns = (
   period: MisPeriod,

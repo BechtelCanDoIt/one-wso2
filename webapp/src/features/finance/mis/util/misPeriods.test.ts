@@ -693,10 +693,72 @@ describe("the Subscription Build's columns under a forecast type", () => {
     expect(buildRanges(ttm, MIS_WINDOWS.TTM)).toEqual(ttm.columnDateRanges);
   });
 
-  it("leaves Quarterly and Monthly as they are", () => {
-    const quarters = getQuarterlyPeriods({ yearsBack: 1, asOf: ASOF });
-    const filters = forecasting({ columnDateRanges: quarters });
-    expect(buildColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toEqual(quarters);
+  it("leaves Monthly on its calendar columns", () => {
+    const months = getMonthlyPeriods({ yearsBack: 1, asOf: ASOF });
+    const filters = forecasting({ columnDateRanges: months });
+    expect(buildColumnRanges(MIS_PERIODS.MONTHLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toEqual(months);
+  });
+});
+
+// A Forecasted or Renewal QRR does not keep the historical quarters. The
+// standalone Build asks for eight quarters from the one still open, and every
+// one of them — including the open one — closes on the quarter's last day
+// (`generateQuarters` with the forecast flag, `useCustomerAccounts.js:171`).
+// Closing the open quarter on today asks for the partial figure, so the
+// quarter-end forecast never loads and the header reads today's date.
+describe("quarterly columns under a forecast type", () => {
+  const forecasting = (extra: Record<string, unknown> = {}) =>
+    ({
+      yearsBack: 1,
+      forecast: FORECAST_STATES.ENABLE,
+      columnDateRanges: getQuarterlyPeriods({ yearsBack: 1, asOf: ASOF }),
+      ...extra,
+    }) as unknown as MisAppliedFilters;
+
+  // 12 September 2026 is inside Q3, so the open quarter closes 30 September
+  // and the seven after it run out to Q2 2028.
+  const forecastQuarters = [
+    { opening: "2026/06/30", start: "2026/07/01", end: "2026/09/30", periodKey: "2026 Q3" },
+    { opening: "2026/09/30", start: "2026/10/01", end: "2026/12/31", periodKey: "2026 Q4" },
+    { opening: "2026/12/31", start: "2027/01/01", end: "2027/03/31", periodKey: "2027 Q1" },
+    { opening: "2027/03/31", start: "2027/04/01", end: "2027/06/30", periodKey: "2027 Q2" },
+    { opening: "2027/06/30", start: "2027/07/01", end: "2027/09/30", periodKey: "2027 Q3" },
+    { opening: "2027/09/30", start: "2027/10/01", end: "2027/12/31", periodKey: "2027 Q4" },
+    { opening: "2027/12/31", start: "2028/01/01", end: "2028/03/31", periodKey: "2028 Q1" },
+    { opening: "2028/03/31", start: "2028/04/01", end: "2028/06/30", periodKey: "2028 Q2" },
+  ];
+
+  it("closes the open quarter on its last day and runs seven quarters past it", () => {
+    expect(
+      buildColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, forecasting(), ASOF),
+    ).toEqual(forecastQuarters);
+  });
+
+  it("names that quarter, so the header is not today's date", () => {
+    const [open] = buildColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, forecasting(), ASOF);
+    expect(buildColumnLabel(open)).toBe("2026 Q3");
+    expect(asOfColumnLabel(open)).toBe("As of 2026 Q3");
+  });
+
+  it("gives the summaries and Customers the same quarter-end columns", () => {
+    const filters = forecasting();
+    expect(summaryColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toEqual(
+      forecastQuarters,
+    );
+    expect(customerColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toEqual(
+      forecastQuarters,
+    );
+  });
+
+  it("still accumulates from 1 January when Cumulative is on", () => {
+    const columns = buildColumnRanges(
+      MIS_PERIODS.QUARTERLY,
+      MIS_WINDOWS.CALENDAR,
+      forecasting({ cumulativeQuarterly: true }),
+      ASOF,
+    );
+    expect(columns[0]).toMatchObject({ opening: "2025/12/31", end: "2026/09/30" });
+    expect(columns[2]).toMatchObject({ opening: "2026/12/31", end: "2027/03/31" });
   });
 });
 
