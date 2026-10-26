@@ -608,7 +608,7 @@ describe("QuoteDetailPage — versions and history", () => {
 
     expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
     expect(screen.getByText("Recalled")).toBeInTheDocument();
-    expect(screen.getByText(/You're viewing version 1\. The latest is version 2; actions apply to the latest\./)).toBeInTheDocument();
+    expect(screen.getByText(/You're viewing version 1\. The latest is version 2\. Clone copies this version; other actions apply to the latest\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View latest version" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Edit draft" })).toBeNull();

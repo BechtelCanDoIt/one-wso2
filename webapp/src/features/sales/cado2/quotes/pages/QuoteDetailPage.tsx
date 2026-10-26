@@ -290,7 +290,8 @@ export default function QuoteDetailPage(): JSX.Element {
         ) : null}
         {viewingOlder ? (
           <Alert severity="info">
-            You&apos;re viewing version {v.versionNumber}. The latest is version {latestNumber}; actions apply to the latest.
+            You&apos;re viewing version {v.versionNumber}. The latest is version {latestNumber}. Clone copies this version; other
+            actions apply to the latest.
           </Alert>
         ) : null}
       </Stack>

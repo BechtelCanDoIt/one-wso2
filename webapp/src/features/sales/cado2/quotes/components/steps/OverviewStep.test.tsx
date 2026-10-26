@@ -93,6 +93,11 @@ function Lines() {
   return <p>lines: {lines.map((l) => `${l.productName} ×${l.quantity}`).join(", ") || "none"}</p>;
 }
 
+function Previous() {
+  const ids = useWatch<DraftFormValues, "previousOpportunityIds">({ name: "previousOpportunityIds" });
+  return <p>previous: {ids.join(", ") || "none"}</p>;
+}
+
 function Harness({ values, locked = false }: { values: Partial<DraftFormValues>; locked?: boolean }) {
   const form = useForm<DraftFormValues>({ defaultValues: { ...emptyDraftForm(), ...values } });
   return (
@@ -103,6 +108,7 @@ function Harness({ values, locked = false }: { values: Partial<DraftFormValues>;
         <Start />
         <Term />
         <Lines />
+        <Previous />
       </FormProvider>
     </DatePickers.LocalizationProvider>
   );
@@ -243,6 +249,17 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     await user.click(await screen.findByRole("button", { name: "Change opportunity" }, { timeout: 3000 }));
     await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
     expect(screen.getByText("lines: none")).toBeInTheDocument();
+  });
+
+  // What one renewal renews isn't what another does: changing the
+  // opportunity clears the previous opportunities, for the AM to choose again.
+  it("clears the previous opportunities when another opportunity is chosen", async () => {
+    render(<Harness values={{ ...account, opportunityId: "006OLD", isRenewal: true, previousOpportunityIds: ["006W"] }} />);
+    expect(screen.getByText("previous: 006W")).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Change opportunity" }, { timeout: 3000 }));
+    await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
+    expect(screen.getByText("previous: none")).toBeInTheDocument();
   });
 
   it("keeps a saved draft's lines: its opportunity is fixed", () => {

@@ -59,7 +59,7 @@ describe("LegalTextsPage", () => {
     expect(screen.queryByRole("table", { name: "Partner agreements" })).toBeNull();
   });
 
-  // Review of PR 341: a notice is removed only after a confirmation.
+  // A notice is removed only after a confirmation.
   it("asks before removing a notice", async () => {
     change.mutate.mockClear();
     render(<LegalTextsPage />);

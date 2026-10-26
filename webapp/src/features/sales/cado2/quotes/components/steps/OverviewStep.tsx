@@ -245,6 +245,9 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
 
   const chooseOpportunity = (o: Opportunity | undefined) => {
     if (!o) return;
+    // What another opportunity renews isn't what this one renews: the AM
+    // chooses again.
+    if (o.id !== getValues("opportunityId")) setValue("previousOpportunityIds", [], { shouldDirty: true });
     setValue("opportunityId", o.id, { shouldDirty: true });
     setValue("opportunityName", o.name ?? "", { shouldDirty: true });
     setValue("dealType", o.dealType, { shouldDirty: true });
@@ -253,7 +256,6 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
     setValue("dealKind", o.dealKind, { shouldDirty: true });
     setValue("recordTypeName", o.recordTypeName ?? "", { shouldDirty: true });
     setValue("isRenewal", o.dealKind === "RENEWAL", { shouldDirty: true });
-    if (o.dealKind !== "RENEWAL") setValue("previousOpportunityIds", [], { shouldDirty: true });
     // The contract start from the opportunity; without
     // one the AM enters it. Its end is not read: the AM adds the years.
     const start = o.subsStartDate && parseDateString(o.subsStartDate) ? o.subsStartDate : "";

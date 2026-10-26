@@ -250,7 +250,7 @@ describe("AddLineDialog", () => {
     }
   });
 
-  // Review of PR 341: a product whose bundle can't be read isn't added alone.
+  // A product whose bundle can't be read isn't added alone.
   it("won't add a product when what comes with it couldn't be checked", async () => {
     bundle.error = new Error("down");
     try {

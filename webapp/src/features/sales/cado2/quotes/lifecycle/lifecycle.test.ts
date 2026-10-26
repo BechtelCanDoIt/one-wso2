@@ -52,7 +52,7 @@ describe("compareVersions", () => {
     expect(back.find((r) => r.label === "WSO2 Support")).toMatchObject({ change: "removed" });
   });
 
-  // Review of PR 341: the partner agreement is compared, special terms as
+  // The partner agreement is compared, special terms as
   // their words, and the Legal rows come after the Commercials ones.
   it("compares the legal sections as they read", () => {
     const a = { ...ready, version: { ...ready.version, partnerContractName: "Value Added Reseller", specialTerms: { enabled: true, text: "<p>Net <strong>45</strong></p>" } } };

@@ -623,8 +623,8 @@ describe("storedPricing", () => {
     expect(p?.lines[1].annualNet).toBe("0.20");
   });
 
-  // Review of PR 1745: billed upfront, a saved quote invoices everything in
-  // Year 1, as the backend says, not each year's own rows.
+  // Billed upfront, a saved quote invoices everything in Year 1, as the
+  // backend says, not each year's own rows.
   it("takes each year's billing from the backend: upfront in Year 1", () => {
     const upfront = {
       version: {
