@@ -54,6 +54,16 @@ describe("computeUmtDemoteActions", () => {
     ]);
   });
 
+  // Both states are waits: the update is on its way to Staging or to a test
+  // environment, and there is nothing to demote yet.
+  it("returns no demote for testing or validate while staging or a test environment is being requested", () => {
+    for (const stepId of ["testing", "validate"] as const) {
+      expect(computeUmtDemoteActions(stepId, "StagingRequested", false)).toEqual([]);
+      expect(computeUmtDemoteActions(stepId, "TestingEnvironmentRequested", true)).toEqual([]);
+      expect(computeUmtDemoteActions(stepId, "TestingEnvironmentRequested", false)).toEqual([]);
+    }
+  });
+
   it("returns Demote to Testing for verifying at UATStaging only when isAdmin", () => {
     expect(computeUmtDemoteActions("verifying", "UATStaging", true)).toEqual([
       { label: "Demote to Testing", targetLifecycleState: "Staging" },
