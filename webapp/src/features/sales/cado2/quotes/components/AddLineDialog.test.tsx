@@ -161,7 +161,9 @@ describe("AddLineDialog", () => {
     }
     // Lines have no dates of their own: they cover the quote's term.
     expect(screen.queryByRole("region", { name: "Period" })).toBeNull();
-    expect(screen.getByText("Priced from FY26 USD in USD")).toBeInTheDocument();
+    // D114: a plain title, no price-book line under it.
+    expect(screen.getByRole("heading", { name: "Add Product" })).toBeInTheDocument();
+    expect(screen.queryByText(/Priced from/)).toBeNull();
     expect(screen.queryByLabelText("Chosen product")).toBeNull();
 
     await user.click(screen.getByRole("combobox", { name: /Product/ }));
@@ -370,13 +372,11 @@ describe("AddLineDialog", () => {
       }), []);
   });
 
-  // Locked until it comes from Salesforce (2026-10-14).
-  it("locks the unit of measure, saying it will come from Salesforce", async () => {
+  // D114: shown in the table, not asked for here.
+  it("has no unit of measure field", async () => {
     renderDialog();
     await pick(/WSO2 API Manager/);
-    const uom = screen.getByRole("textbox", { name: "Unit of measure" });
-    expect(uom).toBeDisabled();
-    expect(uom).toHaveAccessibleDescription("Will come from Salesforce");
+    expect(screen.queryByRole("textbox", { name: "Unit of measure" })).toBeNull();
   });
 });
 
@@ -399,15 +399,21 @@ describe("AddLineDialog — closing", () => {
       expect(discount).toBeDisabled();
       expect(discount).toHaveValue("0");
       expect(screen.getByText("No discount on formula-priced products")).toBeInTheDocument();
-      // D83: the unit of measure comes from the formula version.
-      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, higher of 25,000 or 10% of subscription");
-      expect(screen.getByText("From the pricing formula v3")).toBeInTheDocument();
       // A formula's price can't be overridden.
       expect(screen.getByRole("textbox", { name: "Sales price" })).toBeDisabled();
       expect(screen.getByText("Priced by formula: the price can't be changed")).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "Add line" }));
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ productId: support.id, discount: "0", salesPrice: "" }), []);
+      // D83: the unit of measure comes from the formula version, saved with the line.
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productId: support.id,
+          discount: "0",
+          salesPrice: "",
+          unitOfMeasure: "Annual, higher of 25,000 or 10% of subscription",
+        }),
+        [],
+      );
     } finally {
       formulas.list = [];
     }
@@ -426,7 +432,6 @@ describe("AddLineDialog — closing", () => {
       expect(card.getByText("Formula v3 · 15 Oct 2026")).toBeInTheDocument();
       expect(card.getByText("= max(25,000, 4,140,000 × 10%)")).toBeInTheDocument();
       expect(screen.getByRole("textbox", { name: "Discount" })).toBeDisabled();
-      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, per v3");
 
       expect(screen.getByText(/This formula was removed on 16 Oct 2026/)).toBeInTheDocument();
       const user = userEvent.setup();
@@ -435,7 +440,6 @@ describe("AddLineDialog — closing", () => {
       expect(moved.getByText("USD 53,000")).toBeInTheDocument();
       expect(moved.getByText("per unit, from the price book")).toBeInTheDocument();
       expect(screen.getByRole("textbox", { name: "Discount" })).toBeEnabled();
-      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("");
       await user.click(screen.getByRole("button", { name: "Save line" }));
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({ lineId: 228, useLatestPricing: true, unitPrice: "53000", unitOfMeasure: "" }), []);
