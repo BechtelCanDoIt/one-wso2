@@ -20,19 +20,37 @@ import {
   Autocomplete,
   Box,
   Button,
+  Card,
   CircularProgress,
-  IconButton,
+  Divider,
   MenuItem,
   Snackbar,
+  Stack,
   TextField,
-  Tooltip,
+  ToggleButton,
+  ToggleButtonGroup,
   Typography,
 } from "@wso2/oxygen-ui";
-import { DownloadIcon, InfoIcon } from "@wso2/oxygen-ui-icons-react";
+import { DownloadIcon } from "@wso2/oxygen-ui-icons-react";
 import { pdf } from "@react-pdf/renderer";
 import PerspectiveHeader from "@components/perspective-header/PerspectiveHeader";
+import { isLegalBackendConfigured } from "@config/apiConfig";
 import { useCustomerSearch, formatCustomerAddress, type CustomerResult } from "@features/legal/api/useCustomerSearch";
+import { useNdaAccess } from "@features/legal/api/useNdaAccess";
+import ManualCounterpartyFields from "@features/legal/components/ManualCounterpartyFields";
+import { countryName } from "@features/legal/countries";
+import { ndaFileNamePart } from "@features/legal/fileName";
+import {
+  EMPTY_MANUAL_COUNTERPARTY,
+  isManualCounterpartyComplete,
+  manualCounterpartyAddress,
+  type ManualCounterparty,
+} from "@features/legal/manualCounterparty";
 import NdaPdfDocument, { NDA_ENTITY_CONFIGS, entityForCountry } from "./NdaPdfDocument";
+
+// How the other party is given: picked from Salesforce, or typed in for
+// anyone who isn't a Salesforce customer (vendors, contractors, prospects).
+type PartyMode = "salesforce" | "manual";
 
 // ── Static option lists ─────────────────────────────────────────────────────
 
@@ -49,14 +67,14 @@ const WSO2_COMPANIES: { value: string; label: string }[] = Object.keys(NDA_ENTIT
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-function CustomerDetailRow({ label, value }: { label: string; value: string | null | undefined }): JSX.Element | null {
+function DetailRow({ label, value }: { label: string; value: string | null | undefined }): JSX.Element | null {
   if (!value) return null;
   return (
-    <Box sx={{ display: "flex", gap: 1 }}>
-      <Typography variant="caption" sx={{ color: "text.secondary", minWidth: 64 }}>
+    <Box sx={{ display: "flex", gap: 2 }}>
+      <Typography variant="body2" sx={{ color: "text.secondary", minWidth: 120, flexShrink: 0 }}>
         {label}
       </Typography>
-      <Typography variant="caption">{value}</Typography>
+      <Typography variant="body2">{value}</Typography>
     </Box>
   );
 }
@@ -75,15 +93,56 @@ export default function NdaPage(): JSX.Element {
     message: string;
   }>({ open: false, severity: "success", message: "" });
 
+  const [partyMode, setPartyMode] = useState<PartyMode>("salesforce");
+  const [manualParty, setManualParty] = useState<ManualCounterparty>(EMPTY_MANUAL_COUNTERPARTY);
+
   const { data: customerOptions = [], isFetching: searchingCustomers } = useCustomerSearch(customerInput);
 
-  const allFilled = Boolean(template && wso2Company && selectedCustomer);
+  // Only the groups the legal backend allows (Sales and Legal) may pick the
+  // other party from Salesforce; everyone else enters it by hand. Until the
+  // answer arrives nothing is shown, so a Sales user isn't flashed the
+  // manual form first.
+  const access = useNdaAccess();
+  const checkingAccess = isLegalBackendConfigured() && access.isPending;
+  const canSearchSalesforce = access.data?.canSearchSalesforce === true;
+
+  // The other party as the NDA will show it, from whichever mode is active.
+  const isManual = !canSearchSalesforce || partyMode === "manual";
+  const partyName = isManual ? manualParty.name.trim() : (selectedCustomer?.name ?? "");
+  const partyAddress = formatCustomerAddress(
+    isManual ? manualCounterpartyAddress(manualParty) : (selectedCustomer?.address ?? null),
+  );
+  const partyCountry = isManual
+    ? (manualParty.countryCode ? countryName(manualParty.countryCode) : "")
+    : (selectedCustomer?.address?.billingCountry ?? "");
+  const partyReady = isManual ? isManualCounterpartyComplete(manualParty) : selectedCustomer !== null;
+
+  const allFilled = Boolean(template && wso2Company && partyReady);
+
+  // Switching mode re-derives the entity from that mode's party, so the
+  // governing law never stays behind from the other mode's country.
+  const handlePartyModeChange = (next: PartyMode) => {
+    setPartyMode(next);
+    if (next === "manual") {
+      setWso2Company(manualParty.countryCode ? entityForCountry(manualParty.countryCode) : "");
+    } else {
+      setWso2Company(selectedCustomer ? entityForCountry(selectedCustomer.address?.billingCountry) : "");
+    }
+  };
+
+  const handleManualPartyChange = (next: ManualCounterparty) => {
+    // The entity follows the country, and stays editable, as for a Salesforce customer.
+    if (next.countryCode !== manualParty.countryCode) {
+      setWso2Company(next.countryCode ? entityForCountry(next.countryCode) : "");
+    }
+    setManualParty(next);
+  };
 
   const handleDownload = async () => {
     setGenerating(true);
     try {
-      const customerName = selectedCustomer?.name ?? "";
-      const customerAddress = formatCustomerAddress(selectedCustomer?.address ?? null);
+      const customerName = partyName;
+      const customerAddress = partyAddress;
       const now = new Date();
       const effectiveDate = now.toLocaleDateString("en-US", {
         year: "numeric",
@@ -106,13 +165,13 @@ export default function NdaPage(): JSX.Element {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `NDA-${customerName.replace(/\s+/g, "-")}-${Date.now()}.pdf`;
+      link.download = `NDA-${ndaFileNamePart(customerName)}-${Date.now()}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(url), 100);
 
-      setSnack({ open: true, severity: "success", message: "NDA downloaded successfully." });
+setSnack({ open: true, severity: "success", message: "NDA downloaded successfully." });
     } catch {
       setSnack({ open: true, severity: "error", message: "Failed to generate PDF. Please try again." });
     } finally {
@@ -127,152 +186,159 @@ export default function NdaPage(): JSX.Element {
         subtitle="Non-disclosure agreement management and tracking."
       />
 
-      <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5, maxWidth: 480 }}>
+      <Stack spacing={3} sx={{ maxWidth: 480 }}>
         {/* NDA Template — locked to Mutual NDA Standard for now */}
-        <TextField
-          fullWidth
-          label="NDA Template"
-          value={template}
-          disabled
-        />
+        <TextField fullWidth label="NDA Template" value={template} disabled />
 
-        {/* WSO2 Company — one option per official NDA template docx */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <TextField
-            select
-            fullWidth
-            label="WSO2 Company"
-            value={wso2Company}
-            onChange={(e) => setWso2Company(e.target.value)}
-            helperText={
-              selectedCustomer && !wso2Company
-                ? `No WSO2 entity matches the billing country${
-                    selectedCustomer.address?.billingCountry ? ` "${selectedCustomer.address.billingCountry}"` : ""
-                  }. Choose one.`
-                : undefined
-            }
-          >
-            {WSO2_COMPANIES.map((c) => (
-              <MenuItem key={c.value} value={c.value}>
-                {c.label}
-              </MenuItem>
-            ))}
-          </TextField>
-          <Tooltip
-            title="Filled in from the customer's billing country when you select a customer. Check it, and change it if needed: the entity sets the governing law."
-            placement="right"
-          >
-            <IconButton size="small" sx={{ color: "text.secondary", flexShrink: 0 }}>
-              <InfoIcon size={18} />
-            </IconButton>
-          </Tooltip>
-        </Box>
-
-        {/* Customer Name — server-side search via customer-search API */}
-        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-          <Autocomplete
-          fullWidth
-          options={customerOptions}
-          value={selectedCustomer}
-          inputValue={customerInput}
-          getOptionLabel={(option) => option.name}
-          isOptionEqualToValue={(option, value) => option.id === value.id}
-          onChange={(_e, newValue) => {
-            setSelectedCustomer(newValue);
-            // The entity follows the customer's billing country, and stays editable.
-            if (newValue) setWso2Company(entityForCountry(newValue.address?.billingCountry));
-          }}
-          onInputChange={(_e, newInput) => setCustomerInput(newInput)}
-          filterOptions={(x) => x}
-          loading={searchingCustomers}
-          loadingText="Searching…"
-          noOptionsText={
-            customerInput.length < 2
-              ? "Type to search customers"
-              : "No customers found"
-          }
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Customer Name"
-              slotProps={{
-                input: {
-                  ...params.InputProps,
-                  endAdornment: (
-                    <>
-                      {searchingCustomers && <CircularProgress size={16} />}
-                      {params.InputProps.endAdornment}
-                    </>
-                  ),
-                },
+        {/* Counterparty — a Salesforce customer, or details typed in by hand.
+            One group with its own heading, so the WSO2 Company below reads as
+            a separate field. */}
+        <Stack spacing={2}>
+          <Typography variant="subtitle2" component="h2" sx={{ fontWeight: 600 }}>
+            Counterparty
+          </Typography>
+          {checkingAccess && <CircularProgress size={18} aria-label="Checking your access" />}
+          {canSearchSalesforce && (
+            <ToggleButtonGroup
+              exclusive
+              fullWidth
+              size="small"
+              value={partyMode}
+              onChange={(_e, next: PartyMode | null) => {
+                if (next) handlePartyModeChange(next);
               }}
+              aria-label="How to enter the counterparty"
+            >
+              <ToggleButton value="salesforce" sx={{ textTransform: "none" }}>
+                Salesforce customer
+              </ToggleButton>
+              <ToggleButton value="manual" sx={{ textTransform: "none" }}>
+                Enter details manually
+              </ToggleButton>
+            </ToggleButtonGroup>
+          )}
+
+          {access.isError && (
+            <Alert severity="info">
+              Couldn&apos;t check whether you can search Salesforce customers, so enter the counterparty&apos;s details below.
+            </Alert>
+          )}
+
+          {isManual && !checkingAccess && (
+            <>
+              <ManualCounterpartyFields value={manualParty} onChange={handleManualPartyChange} />
+              <Alert severity="warning">
+                Please check the legal name and address carefully: they go into the NDA exactly as entered.
+              </Alert>
+            </>
+          )}
+
+          {/* Customer Name — server-side search via customer-search API */}
+          {!isManual && (
+            <Autocomplete
+              fullWidth
+              options={customerOptions}
+              value={selectedCustomer}
+              inputValue={customerInput}
+              getOptionLabel={(option) => option.name}
+              isOptionEqualToValue={(option, value) => option.id === value.id}
+              onChange={(_e, newValue) => {
+                setSelectedCustomer(newValue);
+                // The entity follows the customer's billing country, and stays editable.
+                if (newValue) setWso2Company(entityForCountry(newValue.address?.billingCountry));
+              }}
+              onInputChange={(_e, newInput) => setCustomerInput(newInput)}
+              filterOptions={(x) => x}
+              loading={searchingCustomers}
+              loadingText="Searching…"
+              noOptionsText={
+                customerInput.length < 2
+                  ? "Type to search customers"
+                  : "No customers found"
+              }
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Customer Name"
+                  helperText="Search by the Salesforce account name. The name and address come from Salesforce."
+                  slotProps={{
+                    input: {
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {searchingCustomers && <CircularProgress size={16} />}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    },
+                  }}
+                />
+              )}
             />
           )}
-        />
-          <Tooltip
-            title="Customer name and address are retrieved from Salesforce. Select the appropriate customer name from the dropdown, based on the Salesforce Account Name."
-            placement="right"
-          >
-            <IconButton size="small" sx={{ color: "text.secondary", flexShrink: 0 }}>
-              <InfoIcon size={18} />
-            </IconButton>
-          </Tooltip>
-        </Box>
 
-        {/* Customer verification card — shown once a customer is selected */}
-        {selectedCustomer && (
-          <Box
-            sx={{
-              border: "1px solid",
-              borderColor: "divider",
-              borderRadius: 1,
-              px: 2,
-              py: 1.5,
-              display: "flex",
-              flexDirection: "column",
-              gap: 0.5,
-              backgroundColor: "action.hover",
-            }}
-          >
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-              <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
-                Customer Details
-              </Typography>
-              <Tooltip title="Customer details are retrieved from Salesforce." placement="right">
-                <IconButton size="small" sx={{ p: 0, color: "text.secondary" }}>
-                  <InfoIcon size={14} />
-                </IconButton>
-              </Tooltip>
-            </Box>
-            <CustomerDetailRow label="Country" value={selectedCustomer.address?.billingCountry} />
-            <CustomerDetailRow label="Address" value={formatCustomerAddress(selectedCustomer.address ?? null)} />
-            <CustomerDetailRow label="Region" value={selectedCustomer.subRegion} />
-            <CustomerDetailRow label="Industry" value={selectedCustomer.subIndustry} />
-            <Alert severity="warning" sx={{ mt: 1, py: 0.5, fontSize: "0.75rem" }}>
-              Please verify the customer name and address, as they will be sent to NDA exactly as shown here.
-            </Alert>
-          </Box>
-        )}
+          {/* Customer verification card — shown once a customer is selected */}
+          {!isManual && selectedCustomer && (
+            <Card variant="outlined" sx={{ p: 2 }}>
+              <Stack spacing={1}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Customer details from Salesforce
+                </Typography>
+                <DetailRow label="Country" value={selectedCustomer.address?.billingCountry} />
+                <DetailRow label="Address" value={formatCustomerAddress(selectedCustomer.address ?? null)} />
+                <DetailRow label="Region" value={selectedCustomer.subRegion} />
+                <DetailRow label="Industry" value={selectedCustomer.subIndustry} />
+                <Alert severity="warning">
+                  Please verify the customer name and address, as they will be sent to NDA exactly as shown here.
+                </Alert>
+              </Stack>
+            </Card>
+          )}
+        </Stack>
 
-        {/* Download button — only shown when all three dropdowns are filled */}
-        {allFilled && (
-          <Button
-            variant="contained"
-            startIcon={
-              generating ? (
-                <CircularProgress size={16} sx={{ color: "inherit" }} />
-              ) : (
-                <DownloadIcon size={16} />
-              )
-            }
-            disabled={generating}
-            onClick={() => void handleDownload()}
-            sx={{ alignSelf: "flex-start", textTransform: "none" }}
-          >
-            {generating ? "Generating PDF\u2026" : "Download NDA PDF"}
-          </Button>
-        )}
-      </Box>
+        <Divider />
+
+        {/* WSO2 Company — one option per official NDA template docx. Below the
+            counterparty because it is filled in from the counterparty's country;
+            users choose it here when it isn't. */}
+        <TextField
+          select
+          fullWidth
+          label="WSO2 Company"
+          value={wso2Company}
+          onChange={(e) => setWso2Company(e.target.value)}
+          error={Boolean(partyCountry && !wso2Company)}
+          helperText={
+            partyCountry && !wso2Company
+              ? `No WSO2 entity matches the counterparty's country "${partyCountry}". Choose one.`
+              : "Filled in from the counterparty's country, or choose it here. Check it: it sets the governing law."
+          }
+        >
+          {WSO2_COMPANIES.map((c) => (
+            <MenuItem key={c.value} value={c.value}>
+              {c.label}
+            </MenuItem>
+          ))}
+        </TextField>
+
+        {/* Always shown, so users know where the form ends; enabled once the
+            entity and the counterparty are complete. */}
+        <Button
+          variant="contained"
+          startIcon={
+            generating ? (
+              <CircularProgress size={16} sx={{ color: "inherit" }} />
+            ) : (
+              <DownloadIcon size={16} />
+            )
+          }
+          disabled={!allFilled || generating}
+          onClick={() => void handleDownload()}
+          sx={{ alignSelf: "flex-start", textTransform: "none" }}
+        >
+          {generating ? "Generating PDF\u2026" : "Download NDA PDF"}
+        </Button>
+      </Stack>
 
       <Snackbar
         open={snack.open}

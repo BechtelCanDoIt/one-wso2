@@ -16,7 +16,77 @@
 
 import { describe, expect, it } from "vitest";
 import { formatCustomerAddress } from "./api/useCustomerSearch";
+import { COUNTRY_OPTIONS, countryName } from "./countries";
+import { ndaFileNamePart } from "./fileName";
+import {
+  EMPTY_MANUAL_COUNTERPARTY,
+  isManualCounterpartyComplete,
+  manualCounterpartyAddress,
+  missingManualFields,
+} from "./manualCounterparty";
 import { NDA_ENTITY_CONFIGS, entityForCountry } from "./pages/NdaPdfDocument";
+
+describe("COUNTRY_OPTIONS", () => {
+  it("lists every ISO 3166-1 country once, by English name", () => {
+    const codes = COUNTRY_OPTIONS.map((c) => c.code);
+    expect(codes).toHaveLength(249);
+    expect(new Set(codes).size).toBe(codes.length);
+    const names = COUNTRY_OPTIONS.map((c) => c.name);
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b, "en")));
+  });
+
+  it("names countries in English", () => {
+    expect(countryName("LK")).toBe("Sri Lanka");
+    expect(countryName("GB")).toBe("United Kingdom");
+  });
+
+  it("offers a country for every WSO2 entity, so each entity can be reached by hand", () => {
+    for (const [key, cfg] of Object.entries(NDA_ENTITY_CONFIGS)) {
+      const reachable = COUNTRY_OPTIONS.some((c) => entityForCountry(c.code) === key);
+      expect(reachable, `${key} (${cfg.countries.join(", ")})`).toBe(true);
+    }
+  });
+});
+
+describe("manual counterparty", () => {
+  const complete = {
+    ...EMPTY_MANUAL_COUNTERPARTY,
+    name: "Acme Supplies (Pvt) Ltd",
+    street: "12 Main Street",
+    city: "Colombo",
+    countryCode: "LK",
+  };
+
+  it("needs a name, street, city and country; state and postal code are optional", () => {
+    expect(missingManualFields(EMPTY_MANUAL_COUNTERPARTY)).toEqual(["name", "street", "city", "countryCode"]);
+    expect(isManualCounterpartyComplete(complete)).toBe(true);
+    expect(isManualCounterpartyComplete({ ...complete, name: "   " })).toBe(false);
+  });
+
+  it("formats its address like a Salesforce billing address, with the country's English name", () => {
+    expect(formatCustomerAddress(manualCounterpartyAddress(complete))).toBe("12 Main Street, Colombo, Sri Lanka");
+    expect(
+      formatCustomerAddress(manualCounterpartyAddress({ ...complete, state: " WP ", postalCode: "00400" })),
+    ).toBe("12 Main Street, Colombo, WP 00400, Sri Lanka");
+  });
+
+  it("maps its country code to the right WSO2 entity", () => {
+    expect(entityForCountry(complete.countryCode)).toBe("WSO2 Lanka (Pvt) Ltd — LK");
+    expect(entityForCountry("FR")).toBe("");
+  });
+});
+
+describe("ndaFileNamePart", () => {
+  it("keeps a plain name readable", () => {
+    expect(ndaFileNamePart("Acme Supplies Ltd")).toBe("Acme-Supplies-Ltd");
+  });
+
+  it("drops characters file systems refuse and falls back when nothing is left", () => {
+    expect(ndaFileNamePart('A/B: "Corp" <Ltd>?')).toBe("AB-Corp-Ltd");
+    expect(ndaFileNamePart("///")).toBe("party");
+    expect(ndaFileNamePart("x".repeat(200))).toHaveLength(80);
+  });
+});
 
 describe("entityForCountry", () => {
   it("maps a billing country to its WSO2 entity, by name or ISO code, ignoring case", () => {
