@@ -87,12 +87,16 @@ async function enter(user: User, field: HTMLElement, text: string) {
   await user.paste(text);
 }
 
+// A required field's label ends in an asterisk, so match on how it begins.
+const repoField = () => screen.getByLabelText(/^Public Repository URL/);
+const releaseField = () => screen.getByLabelText(/^Release Version/);
+
 async function fillRepoAndTag(user: User) {
-  await enter(user, screen.getByLabelText("Public Repository URL"), PUBLIC_REPO);
-  await enter(user, screen.getByLabelText("Release Version"), "5.25.100");
+  await enter(user, repoField(), PUBLIC_REPO);
+  await enter(user, releaseField(), "5.25.100");
 }
 
-const directoryField = () => screen.queryByLabelText("Component Directory Path");
+const directoryField = () => screen.queryByLabelText(/^Component Directory Path/);
 const createButton = () => screen.getByRole("button", { name: "Create Branch" });
 
 beforeEach(() => {
@@ -114,6 +118,17 @@ describe("Creating a component branch of a mono repo", () => {
 
     await user.click(screen.getByLabelText("Mono repo"));
     expect(directoryField()).not.toBeInTheDocument();
+  });
+
+  it("marks the repository, release version and directory fields as required", async () => {
+    const user = userEvent.setup();
+    renderTab();
+
+    expect(repoField()).toBeRequired();
+    expect(releaseField()).toBeRequired();
+
+    await user.click(screen.getByLabelText("Mono repo"));
+    expect(directoryField()).toBeRequired();
   });
 
   it("sends the mono repo and its trimmed directory with an update's branch request", async () => {

@@ -291,6 +291,7 @@ export default function UmtUpdateBranchTab({
           label="Public Repository URL"
           onChange={(event) => setBranchForm((current) => ({ ...current, publicRepoUrl: event.target.value }))}
           placeholder="Enter Public Repository URL"
+          required
           size="small"
           value={branchForm.publicRepoUrl}
         />
@@ -301,6 +302,7 @@ export default function UmtUpdateBranchTab({
           label="Release Version"
           onChange={(event) => setBranchForm((current) => ({ ...current, releaseTag: event.target.value }))}
           placeholder="Enter Release Version"
+          required
           size="small"
           value={branchForm.releaseTag}
         />
@@ -325,6 +327,7 @@ export default function UmtUpdateBranchTab({
             label="Component Directory Path"
             onChange={(event) => setBranchForm((current) => ({ ...current, componentDirPath: event.target.value }))}
             placeholder="Enter Component Directory Path"
+            required
             size="small"
             value={branchForm.componentDirPath}
           />

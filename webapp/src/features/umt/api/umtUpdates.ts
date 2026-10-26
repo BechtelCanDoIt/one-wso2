@@ -327,9 +327,11 @@ export interface UmtBranchCreationRequest {
   productVersion?: string;
   jiraId?: string;
   wso2CaseId?: string;
-  // A component branch of a repository that holds many components is cut
-  // from the directory of one of them.
+  // Set to true when the component branch is cut from a mono repository.
+  // Omit for a repository that holds one component.
   isMonoRepo?: boolean;
+  // Directory from which the component branch is cut. Required when
+  // isMonoRepo is true and omitted for a repository that holds one component.
   componentDirPath?: string;
 }
 
