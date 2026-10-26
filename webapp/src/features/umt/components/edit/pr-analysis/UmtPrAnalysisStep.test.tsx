@@ -408,10 +408,18 @@ describe("UmtPrAnalysisStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
     await vi.waitFor(() => expect(state.start).toHaveBeenCalledTimes(1));
 
-    state.status = "PROCESSING";
-    rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { praStatus: "PROCESSING" })} />);
+    // A completed analysis in Development counts as still running, so the
+    // button is off for that reason alone. Check it once the update has moved
+    // on to PRAnalyzed and the analysis is loaded.
+    state.status = "COMPLETED";
+    rerender(<UmtPrAnalysisStep id="42" update={summary("PRAnalyzed", { praStatus: "COMPLETED" })} />);
+    await screen.findByText("repository/components/dropins/a.jar");
 
     expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled();
   });
 
   describe("Analyze on an Instructions Only update", () => {
