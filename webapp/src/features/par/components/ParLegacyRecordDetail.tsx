@@ -37,7 +37,7 @@ import {
   isThreeSixtyConfirmation,
   parseLegacyQuestionAnswers,
 } from "../util/parLegacyHistory";
-import { getLegacyQuestionGroups } from "../util/legacyParCatalogs";
+import { getLegacyQuestionGroups, LEGACY_2015_CATALOG, legacyRowAnswer, sideFeedbackTitle } from "../util/legacyParCatalogs";
 import type { LegacyGroup } from "../util/legacyParCatalogs";
 import { resolveLegacy2015EmployeeRatingLabel, resolveLegacyRating } from "../util/legacyParRatingResolvers";
 import { downloadLegacyParPdf } from "../util/parPdf";
@@ -77,7 +77,7 @@ function InfoRow({ label, children }: { label: string; children: ReactNode }) {
 // One per-question answer box for one side -- used directly by the flat
 // layout and (label omitted) inside each perQuestion/category accordion.
 function QuestionRow({ row, type, side }: { row: LegacyGroup["rows"][number]; type: "rating" | "text"; side: "employee" | "lead" }) {
-  const answer = (side === "employee" ? row.employeeAnswer : row.managerFeedback) || "—";
+  const answer = legacyRowAnswer(row, side) || "—";
   return (
     <Box sx={{ bgcolor: "action.hover", borderRadius: 1.5, p: 2 }}>
       <Typography variant="body2" sx={{ fontWeight: 600, fontStyle: row.italicLabel ? "italic" : undefined, mb: 0.5 }}>
@@ -106,7 +106,7 @@ function QuestionRow({ row, type, side }: { row: LegacyGroup["rows"][number]; ty
 // Same content as QuestionRow but without its own label -- used inside an
 // accordion whose summary already shows the question's label.
 function QuestionRowBody({ row, type, side }: { row: LegacyGroup["rows"][number]; type: "rating" | "text"; side: "employee" | "lead" }) {
-  const answer = (side === "employee" ? row.employeeAnswer : row.managerFeedback) || "—";
+  const answer = legacyRowAnswer(row, side) || "—";
   return (
     <>
       {row.subtext && (
@@ -148,7 +148,7 @@ function QuestionGroupAccordions({ groups, side }: { groups: LegacyGroup[] | nul
   // Each side's per-question answers are headed for that side -- "Employee
   // Feedback" under Employee's Feedback, "Lead Feedback" under Lead's
   // Feedback -- not the catalog's own shared group title.
-  const heading = side === "employee" ? "Employee Feedback" : "Lead Feedback";
+  const heading = sideFeedbackTitle(side);
   // The per-question answers are always their own clearly headed section,
   // separate from the overall comment above -- shown as "N/A" when this
   // side has no recorded answers, rather than disappearing.
@@ -285,14 +285,13 @@ export default function ParLegacyRecordDetail({
   const employeeComment = hasLegacyContent(record.overallCommentEmployee) ? record.overallCommentEmployee! : "N/A";
   const leadComment = hasLegacyContent(record.overallCommentManager) ? record.overallCommentManager! : "N/A";
 
-  // "category" layout is exclusive to the 2015 catalog (see
-  // getLegacyQuestionGroups) -- gating on employeeGroups alone showed this
-  // for every catalogued era (2016-2019 too), using the 2015 label table on
-  // scores that table was never meant for. Only 2015 cycles have a real
-  // employee-side rating at all; every other era's employeeScoreCode isn't
-  // a meaningful rating (only the lead/manager side is).
+  // Only 2015 cycles have a real employee-side rating at all; every other
+  // era's employeeScoreCode isn't a meaningful rating (only the
+  // lead/manager side is). Keyed on the 2015 catalog itself, not on
+  // employeeGroups -- a 2015 record with no per-question employee answers
+  // (null groups) still has its employeeScoreCode.
   const legacy2015EmployeeRating = resolveLegacy2015EmployeeRatingLabel(
-    employeeGroups && employeeGroups[0]?.layout === "category" ? record.employeeScoreCode : null,
+    LEGACY_2015_CATALOG[cycleName] ? record.employeeScoreCode : null,
   );
   const resolved = resolveLegacyRating(cycleName, record.managerScoreCode, questionAnswers);
   const rating = resolved.rating ?? record.overallRating;

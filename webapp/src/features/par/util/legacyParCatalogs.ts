@@ -468,7 +468,7 @@ function hasData(text: string | null | undefined, treatNAAsAbsent: boolean): boo
 
 // Title of a side's non-category (flat/perQuestion) group -- 2015's
 // category groups keep their own catalog titles instead.
-const sideFeedbackTitle = (side: "employee" | "lead") => (side === "employee" ? "Employee Feedback" : "Lead Feedback");
+export const sideFeedbackTitle = (side: "employee" | "lead") => (side === "employee" ? "Employee Feedback" : "Lead Feedback");
 
 export interface LegacyGroupRow {
   label: string;
@@ -477,6 +477,10 @@ export interface LegacyGroupRow {
   managerFeedback: string | null;
   italicLabel?: boolean;
 }
+
+/** The answer a row carries for the given side. */
+export const legacyRowAnswer = (row: LegacyGroupRow, side: "employee" | "lead") =>
+  side === "employee" ? row.employeeAnswer : row.managerFeedback;
 // How a group's rows render:
 //  - "category": 2015 only -- the GROUP itself is an accordion (its own
 //    title, "(Rating scale from 1 to 5)" caption for rating categories),
@@ -538,7 +542,7 @@ export function getLegacyQuestionGroups(
           // N/A shows as a real answer for 2015 too (not hidden) -- explicit
           // request: whatever the lead/employee actually wrote, including a
           // literal "N/A", should display rather than being silently hidden.
-          .filter((row) => hasData(side === "employee" ? row.employeeAnswer : row.managerFeedback, false)),
+          .filter((row) => hasData(legacyRowAnswer(row, side), false)),
       }))
       .filter((group) => group.rows.length > 0);
     return groups.length > 0 ? groups : null;
@@ -572,7 +576,7 @@ export function getLegacyQuestionGroups(
         italicLabel: question.italicLabel,
       };
     })
-    .filter((row) => hasData(side === "employee" ? row.employeeAnswer : row.managerFeedback, treatNAAsAbsent));
+    .filter((row) => hasData(legacyRowAnswer(row, side), treatNAAsAbsent));
   return rows.length > 0
     ? [{ title: sideFeedbackTitle(side), type: "text", layout: isFlatDisplay ? "flat" : "perQuestion", rows }]
     : null;

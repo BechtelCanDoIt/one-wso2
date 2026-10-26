@@ -27,7 +27,7 @@ import {
   parseLegacyFeedback360,
   stripRedundantRatingPrefix,
 } from "./parLegacyHistory";
-import { getLegacyQuestionGroups } from "./legacyParCatalogs";
+import { getLegacyQuestionGroups, LEGACY_2015_CATALOG, legacyRowAnswer } from "./legacyParCatalogs";
 import { resolveLegacy2015EmployeeRatingLabel, resolveLegacyRating } from "./legacyParRatingResolvers";
 
 type PdfRow = (string | { content: string; colSpan?: number; styles: Record<string, unknown> })[];
@@ -117,13 +117,12 @@ export function downloadLegacyParPdf(
   const cycleName = formatLegacyCycleName(record.cycleName);
   const employeeGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "employee") ?? [];
   const leadGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "lead") ?? [];
-  // "category" layout is exclusive to the 2015 catalog -- same fix as
-  // ParLegacyRecordDetail.tsx's own legacy2015EmployeeRating: gating on
-  // employeeGroups alone showed this PAR Rating row for every catalogued
-  // era (2016-2019 too), using the 2015 label table on scores it was never
-  // meant for. Only 2015 cycles have a real employee-side rating.
+  // Same gate as ParLegacyRecordDetail.tsx's own legacy2015EmployeeRating:
+  // only 2015 (catalogued) cycles have a real employee-side rating. Keyed
+  // on the catalog itself, not on employeeGroups -- a 2015 record with no
+  // per-question employee answers still has its employeeScoreCode.
   const legacy2015EmployeeRating =
-    employeeGroups[0]?.layout === "category" ? resolveLegacy2015EmployeeRatingLabel(record.employeeScoreCode) : null;
+    LEGACY_2015_CATALOG[cycleName] ? resolveLegacy2015EmployeeRatingLabel(record.employeeScoreCode) : null;
   const resolved = resolveLegacyRating(cycleName, record.managerScoreCode, questionAnswers);
   const rating = resolved.rating ?? record.overallRating;
   const special = resolved.special ?? record.overallSpecialRating;
@@ -214,7 +213,7 @@ export function downloadLegacyParPdf(
         group.title,
         group.rows.map((row) => [
           row.label,
-          { content: (side === "employee" ? row.employeeAnswer : row.managerFeedback) || "-", styles: contentStyles },
+          { content: legacyRowAnswer(row, side) || "-", styles: contentStyles },
         ]),
         "group",
       );
@@ -290,7 +289,7 @@ export function downloadLegacyParPdf(
         for (const row of group.rows) {
           topRows.push([
             row.label,
-            { content: (side === "employee" ? row.employeeAnswer : row.managerFeedback) || "-", styles: contentStyles },
+            { content: legacyRowAnswer(row, side) || "-", styles: contentStyles },
           ]);
         }
       }
