@@ -16,6 +16,7 @@ import {
   isValidGithubIssueUrl,
   isValidInternalGithubIssueUrl,
   resolveCreateUpdateProductId,
+  umtIsBaseLevelVersion,
   type UmtCreateUpdateFormValues,
 } from "./umtCreateUpdate";
 
@@ -66,6 +67,22 @@ describe("isValidInternalGithubIssueUrl", () => {
   it("rejects a non-GitHub or malformed URL", () => {
     expect(isValidInternalGithubIssueUrl("https://gitlab.com/wso2-enterprise/repo/issues/1")).toBe(false);
     expect(isValidInternalGithubIssueUrl("")).toBe(false);
+  });
+});
+
+describe("umtIsBaseLevelVersion", () => {
+  it("is true for a version at the product's base level", () => {
+    expect(umtIsBaseLevelVersion("4.2.0.0.full")).toBe(true);
+    expect(umtIsBaseLevelVersion(" 7.0.0.0.full ")).toBe(true);
+  });
+
+  it("is false for a later level, another channel, or no version", () => {
+    expect(umtIsBaseLevelVersion("4.2.0.15.full")).toBe(false);
+    expect(umtIsBaseLevelVersion("4.2.0.10.full")).toBe(false);
+    expect(umtIsBaseLevelVersion("4.2.0.0.security")).toBe(false);
+    expect(umtIsBaseLevelVersion("")).toBe(false);
+    expect(umtIsBaseLevelVersion(null)).toBe(false);
+    expect(umtIsBaseLevelVersion(undefined)).toBe(false);
   });
 });
 

@@ -32,6 +32,9 @@ vi.mock("../api/useUmtCreateUpdate", () => ({
   useUmtCheckDuplicateUpdatesByCaseId: () => ({ isPending: false, mutateAsync: vi.fn() }),
   useUmtCreateUpdate: () => ({ isPending: false, mutateAsync: vi.fn() }),
 }));
+vi.mock("../api/useUmtBranches", () => ({
+  useUmtRequestBranch: () => ({ mutateAsync: vi.fn() }),
+}));
 
 const { default: UmtCreateUpdateDialog } = await import("../components/UmtCreateUpdateDialog");
 
