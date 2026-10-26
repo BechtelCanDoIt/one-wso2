@@ -41,10 +41,14 @@ export const EMPTY_CREATE_PRODUCT_FORM: UmtCreateProductFormValues = {
   ftpAbsolutePath: "",
 };
 
-// A well-formed address: text, one @, and a domain of at least two labels
-// split by single dots, so no empty label and no leading or trailing dot, with
-// no spaces anywhere.
-const EMAIL_REGEX = /^[^\s@]+@[^\s@.]+(?:\.[^\s@.]+)+$/;
+// A well-formed address: a local part of the characters an address may carry
+// unquoted, one @, and a domain of at least two labels split by single dots.
+// A label is letters, digits and hyphens, up to 63 characters, and starts and
+// ends with a letter or digit, so there is no empty label and no leading or
+// trailing dot. Spaces, commas and brackets are not accepted anywhere.
+const EMAIL_LOCAL = "[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+";
+const EMAIL_LABEL = "[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?";
+const EMAIL_REGEX = new RegExp(`^${EMAIL_LOCAL}@${EMAIL_LABEL}(?:\\.${EMAIL_LABEL})+$`);
 
 // Whether the value, ignoring surrounding whitespace, is a well-formed email
 // address. A format check only, which is all a form can know about an address:

@@ -197,6 +197,16 @@ describe("Add Product", () => {
       "lead@wso2..com",
       "lead@wso2.com.",
       "lead@.wso2.com",
+      "lead,other@wso2.com",
+      "lead@-wso2.com",
+      "lead@wso2-.com",
+      "lead@wso2.-com",
+      "lead@wso2.com-",
+      "lead;other@wso2.com",
+      "lead(x)@wso2.com",
+      "<lead>@wso2.com",
+      'lead"x"@wso2.com',
+      `lead@${"a".repeat(64)}.com`,
     ]) {
       expect(isCreateProductFormValid({ ...PRODUCT, leadMail: bad })).toBe(false);
       expect(isCreateProductFormValid({ ...PRODUCT, edMail: bad })).toBe(false);
@@ -207,6 +217,17 @@ describe("Add Product", () => {
     expect(isCreateProductFormValid({ ...PRODUCT, leadMail: " lead.name+tag@wso2.com ", edMail: "ed@mail.wso2.com" })).toBe(
       true,
     );
+  });
+
+  it("accepts an address with the other characters an address may carry unquoted", () => {
+    for (const good of [
+      "o'brien@mail.wso2-test.com",
+      "first_last-2@wso2.com",
+      "lead!#$%&*+/=?^`{|}~@wso2.com",
+      `lead@${"a".repeat(63)}.com`,
+    ]) {
+      expect(isCreateProductFormValid({ ...PRODUCT, leadMail: good, edMail: good })).toBe(true);
+    }
   });
 
   it("accepts only an X.Y.Z product version", () => {
