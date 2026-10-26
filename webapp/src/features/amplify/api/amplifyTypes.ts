@@ -244,6 +244,8 @@ export interface DashboardPersonBoard {
   /** Plain reposts. */
   reposts: number;
   repostsWithCommentary: number;
+  /** Points earned since the 1st (UTC), adjustments and reversals included. */
+  pointsThisMonth: number;
   posts: {
     campaignId: string;
     title: string;
@@ -254,8 +256,10 @@ export interface DashboardPersonBoard {
     closesAt: string;
     reposts: number;
     repostsWithCommentary: number;
+    /** Points the person earned on this post. */
+    points: number;
   }[];
-  byCategory: { code: string; label: string; reposts: number; repostsWithCommentary: number }[];
+  byCategory: { code: string; label: string; reposts: number; repostsWithCommentary: number; points: number }[];
 }
 
 export interface DashboardCampaignDetail {

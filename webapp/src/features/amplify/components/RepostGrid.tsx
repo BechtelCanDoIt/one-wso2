@@ -29,6 +29,8 @@ export interface RepostRow {
   plain: number;
   /** Reposts with the person's own comment: the WITH COMMENTS column. */
   commented: number;
+  /** Points earned; the POINTS column shows when any row has it. */
+  points?: number;
 }
 
 /**
@@ -49,11 +51,12 @@ export default function RepostGrid({
 }) {
   if (rows.length === 0) return <>{empty}</>;
   const top = Math.max(1, ...rows.map((r) => r.total));
+  const showPoints = rows.some((r) => r.points !== undefined);
   return (
     <Box
       role="table"
       aria-label={label}
-      sx={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto auto", columnGap: 2, alignItems: "center", fontSize: 13 }}
+      sx={{ display: "grid", gridTemplateColumns: showPoints ? "minmax(0, 1fr) auto auto auto" : "minmax(0, 1fr) auto auto", columnGap: 2, alignItems: "center", fontSize: 13 }}
     >
       <Box role="row" sx={{ display: "contents" }}>
         <Box role="columnheader" />
@@ -63,6 +66,11 @@ export default function RepostGrid({
         <Box role="columnheader" sx={{ textAlign: "right" }}>
           <SectionLabel>With comments</SectionLabel>
         </Box>
+        {showPoints && (
+          <Box role="columnheader" sx={{ textAlign: "right" }}>
+            <SectionLabel>Points</SectionLabel>
+          </Box>
+        )}
       </Box>
       {rows.map((r) => (
         <Box role="row" key={r.key} sx={{ display: "contents" }}>
@@ -93,6 +101,11 @@ export default function RepostGrid({
           <Box role="cell" sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1, textAlign: "right", alignSelf: "stretch" }}>
             {num(r.commented)}
           </Box>
+          {showPoints && (
+            <Box role="cell" sx={{ borderTop: "1px solid", borderColor: "divider", pt: 1, textAlign: "right", alignSelf: "stretch" }}>
+              {num(r.points ?? 0)}
+            </Box>
+          )}
           <Box role="cell" sx={{ gridColumn: "1 / -1", display: "flex", pb: 1.25, pt: 0.5 }}>
             <Bar fraction={r.total / top} label={`${r.title}: ${r.total} reposts in all`} />
           </Box>
