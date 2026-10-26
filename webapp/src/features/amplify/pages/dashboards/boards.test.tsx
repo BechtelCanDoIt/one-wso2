@@ -49,7 +49,7 @@ vi.mock("../../api/useAmplifyDashboards", () => ({
       reposts: 1,
       repostsWithCommentary: 1,
       pointsThisMonth: 40,
-      posts: [{ campaignId: "c1", title: "Launch", categoryCode: "PRODUCT", categoryLabel: "Product", isPriority: true, opensAt: "2026-10-19T00:00:00Z", closesAt: "2026-11-18T00:00:00Z", reposts: 1, repostsWithCommentary: 1, points: 25 }],
+      campaigns: [{ campaignId: "c1", title: "Launch", categoryCode: "PRODUCT", categoryLabel: "Product", isPriority: true, opensAt: "2026-10-19T00:00:00Z", closesAt: "2026-11-18T00:00:00Z", reposts: 1, repostsWithCommentary: 1, points: 25 }],
       byCategory: [{ code: "PRODUCT", label: "Product", reposts: 1, repostsWithCommentary: 1, points: 25 }],
     },
   }),

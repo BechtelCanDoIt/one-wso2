@@ -246,7 +246,7 @@ export interface DashboardPersonBoard {
   repostsWithCommentary: number;
   /** Points earned since the 1st (UTC), adjustments and reversals included. */
   pointsThisMonth: number;
-  posts: {
+  campaigns: {
     campaignId: string;
     title: string;
     categoryCode: string;

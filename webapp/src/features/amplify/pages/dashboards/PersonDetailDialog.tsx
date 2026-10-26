@@ -39,7 +39,7 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
   const lookup = usePersonLookup();
   // The popup can open before the board answers; the name Amplify holds for the person fills in then.
   const who = lookup({ ...person, displayName: q.data?.displayName ?? person.displayName, email: q.data?.email ?? person.email });
-  const posts = q.data?.posts ?? [];
+  const posts = q.data?.campaigns ?? [];
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth scroll="paper" aria-label={`${who.name} Amplify Details`} slotProps={{ paper: { sx: dialogPaperSx } }}>
       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, px: 2.5, pt: 2.5 }}>
