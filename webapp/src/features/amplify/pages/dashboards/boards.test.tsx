@@ -48,8 +48,9 @@ vi.mock("../../api/useAmplifyDashboards", () => ({
       email: "ada@example.com",
       reposts: 1,
       repostsWithCommentary: 1,
-      posts: [{ campaignId: "c1", title: "Launch", categoryCode: "PRODUCT", categoryLabel: "Product", isPriority: true, opensAt: "2026-10-19T00:00:00Z", closesAt: "2026-11-18T00:00:00Z", reposts: 1, repostsWithCommentary: 1 }],
-      byCategory: [{ code: "PRODUCT", label: "Product", reposts: 1, repostsWithCommentary: 1 }],
+      pointsThisMonth: 40,
+      posts: [{ campaignId: "c1", title: "Launch", categoryCode: "PRODUCT", categoryLabel: "Product", isPriority: true, opensAt: "2026-10-19T00:00:00Z", closesAt: "2026-11-18T00:00:00Z", reposts: 1, repostsWithCommentary: 1, points: 25 }],
+      byCategory: [{ code: "PRODUCT", label: "Product", reposts: 1, repostsWithCommentary: 1, points: 25 }],
     },
   }),
   useDashboardExport: () => vi.fn(),
@@ -231,6 +232,13 @@ describe("PostPerformanceBoard", () => {
     expect(screen.getByText(/Team: Digital Engineering/)).toBeTruthy();
     expect(screen.getByText(/BU: Engineering/)).toBeTruthy();
     expect(within(screen.getByRole("table", { name: "Posts reposted by this person" })).getByText("Launch")).toBeTruthy();
+    // Points: this month in the top box, on the post row, and on the category row.
+    expect(screen.getByText("Points this month")).toBeTruthy();
+    expect(screen.getByText("40")).toBeTruthy();
+    const postRow = within(screen.getByRole("table", { name: "Posts reposted by this person" })).getByText("Launch").closest("tr") as HTMLElement;
+    expect(within(postRow).getByText("25")).toBeTruthy();
+    const categoryRow = within(screen.getByRole("table", { name: "Reposts by category by this person" })).getByText("Product").closest('[role="row"]') as HTMLElement;
+    expect(within(categoryRow).getByText("25")).toBeTruthy();
   });
 
   it("says nobody yet when no one reposted", () => {

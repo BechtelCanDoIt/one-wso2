@@ -76,6 +76,7 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
                 <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 2 }}>
                   {(
                     [
+                      ["Points this month", q.data.pointsThisMonth],
                       ["Reposts", q.data.reposts],
                       ["With comments", q.data.repostsWithCommentary],
                       ["Posts reposted", posts.length],
@@ -95,7 +96,7 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
                   <Empty>No reposts yet.</Empty>
                 ) : (
                   <Box sx={{ overflowX: "auto" }}>
-                    <Table size="small" aria-label="Posts reposted by this person" sx={{ minWidth: 520 }}>
+                    <Table size="small" aria-label="Posts reposted by this person" sx={{ minWidth: 580 }}>
                       <TableHead>
                         <TableRow>
                           <TableCell>Post</TableCell>
@@ -103,6 +104,7 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
                           <TableCell>Window</TableCell>
                           <TableCell align="right">Reposts</TableCell>
                           <TableCell align="right">Reposts/Comments</TableCell>
+                          <TableCell align="right">Points</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -116,6 +118,7 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
                             <TableCell>{windowText(p.opensAt, p.closesAt)}</TableCell>
                             <TableCell align="right">{num(p.reposts)}</TableCell>
                             <TableCell align="right">{num(p.repostsWithCommentary)}</TableCell>
+                            <TableCell align="right">{num(p.points)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -135,6 +138,7 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
                     total: c.reposts + c.repostsWithCommentary,
                     plain: c.reposts,
                     commented: c.repostsWithCommentary,
+                    points: c.points,
                   }))}
                 />
               </Box>

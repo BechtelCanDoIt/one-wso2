@@ -83,9 +83,15 @@ export default function LinkLinkedInDialog({
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           {reconnect ? "Your LinkedIn link has expired. " : ""}
-          Link once and Amplify can share WSO2 posts on your LinkedIn when you ask it to. Those shares count toward
-          your points. We keep a secure link to your LinkedIn account, and you can remove it at any time.
+          I consent to allow WSO2 to link to my LinkedIn profile account so that we can repost on my behalf. We only
+          keep:
         </Typography>
+        <Box component="ul" sx={{ m: 0, mb: 2, pl: 2.5, typography: "body2", color: "text.secondary" }}>
+          <li>LinkedIn id (urn)</li>
+          <li>Token to post on your behalf, securely stored encrypted</li>
+          <li>Scopes</li>
+          <li>And supporting data such as time captured, as required by LinkedIn rules and functionality</li>
+        </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
           <Button variant="contained" startIcon={<LinkIcon size={16} />} onClick={linkMe} disabled={start.isPending}>
             {start.isPending ? "Opening LinkedIn…" : "Link me"}
