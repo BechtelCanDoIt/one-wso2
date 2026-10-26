@@ -483,7 +483,7 @@ describe("a Custom Build with nothing chosen", () => {
 });
 
 describe("opening the customers behind a figure", () => {
-  // Only fourteen rows of the Build have a customer
+  // Only sixteen rows of the Build have a customer
   // list behind them; the rest are arithmetic over other rows.
   //
   // The Period label is read off the rendered header rather than hard-coded.
@@ -859,6 +859,8 @@ describe("the Build itself", () => {
     renderPage();
     const table = screen.getByRole("table");
     expect(within(table).getByText("Opening ARR")).toBeInTheDocument();
+    expect(within(table).getByText("Acquired ARR")).toBeInTheDocument();
+    expect(within(table).getByText("Acquired Customers")).toBeInTheDocument();
     expect(within(table).getByText("Ending ARR")).toBeInTheDocument();
   });
 
@@ -1957,6 +1959,7 @@ describe("the Region Summary's two views", () => {
     await openMetrics();
     expect(screen.getByText("Opening ARR")).toBeInTheDocument();
     expect(screen.getByText("First Sale")).toBeInTheDocument();
+    expect(screen.getByText("Acquired ARR")).toBeInTheDocument();
     expect(screen.getByText("Closing ARR")).toBeInTheDocument();
     // The business-unit split belongs to the other view; the Unit pill of the
     // same name is not a column.

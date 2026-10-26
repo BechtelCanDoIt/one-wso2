@@ -44,15 +44,17 @@ const ask = (rowId: string, over: Partial<MisAppliedFilters> = {}, isFirstColumn
   drillDownRequest(rowId, YEAR_2025, { ...DEFAULTS, ...over }, { isFirstColumn });
 
 describe("which figures can be drilled into", () => {
-  // Fourteen rows of the Build open the dialog and every other row is inert —
-  // the source keeps a Set of fourteen row-header LITERALS (DataGrid.js:630-645).
+  // Sixteen rows of the Build open the dialog and every other row is inert —
+  // the source keeps a Set of row-header literals (DataGrid.js).
   // The port keys off row IDS instead, deliberately: the Build has FOUR rows
   // labelled "y/y growth", so a label is not an identity, and keying on one
   // would re-import an ambiguity the port already fixed.
 
-  it("knows the fourteen rows the source lets a reader open", () => {
+  it("knows the sixteen rows the source lets a reader open", () => {
     expect([...DRILLABLE_ROW_IDS].sort()).toEqual(
       [
+        "acquired-arr",
+        "acquired-customers",
         "closing-customers",
         "ending-arr",
         "expansions",
@@ -83,13 +85,19 @@ describe("which figures can be drilled into", () => {
 });
 
 describe("which customers the backend is asked for", () => {
-  // `customerArrType` is the whole question. Eight distinct row ids collapse
-  // onto five answers, because a Build states most movements twice — once in
-  // money and once in logos — and both mean the same set of customers.
+  // `customerArrType` is the whole question. Lost and the transfers state the
+  // movement twice — once in money and once in logos — and both mean the same
+  // customers. New and Acquired do not: the logo row is a different question
+  // from the dollar row.
+
+  it("asks a different question for the dollar row and the logo row of New and Acquired", () => {
+    expect(customerArrTypeFor("new-arr")).toBe("New");
+    expect(customerArrTypeFor("new-customers")).toBe("New Customers");
+    expect(customerArrTypeFor("acquired-arr")).toBe("Acquired");
+    expect(customerArrTypeFor("acquired-customers")).toBe("Acquired Customers");
+  });
 
   it("reads both the money row and the customer-count row as the same movement", () => {
-    expect(customerArrTypeFor("new-arr")).toBe("New");
-    expect(customerArrTypeFor("new-customers")).toBe("New");
     expect(customerArrTypeFor("lost")).toBe("Lost");
     expect(customerArrTypeFor("lost-customers")).toBe("Lost");
     expect(customerArrTypeFor("transferred-in")).toBe("Transferred In");

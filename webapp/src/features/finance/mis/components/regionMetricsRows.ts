@@ -24,8 +24,8 @@
 // ---- it is the Exit ARR summary's opposite, and that explains the rest ------
 //
 // Exit ARR by Region is a BALANCE: one figure per region, split seven ways by
-// business unit. This is the MOVEMENT of that balance: seven figures per
-// region — Opening, First Sale, Expansion, Reduction, Loss, Net New, Closing —
+// business unit. This is the MOVEMENT of that balance: eight figures per
+// region — Opening, First Sale, Acquired ARR, Expansion, Reduction, Loss, Net New, Closing —
 // cut by ONE business unit at a time. So:
 //
 //   * the columns are the Build's `{opening} - {end}` spans and not
@@ -33,7 +33,7 @@
 //   * the business unit NARROWS the question rather than breaking it out, which
 //     is why this is the one summary whose body carries the reader's unit
 //     selection instead of hard-coding `ALL_BU`;
-//   * and the seven columns are the same under every Period, exactly as the
+//   * and the eight columns are the same under every Period, exactly as the
 //     Exit ARR summary's seven units are.
 //
 // The rows are the two tables' one shared problem, and they are solved in one
@@ -48,6 +48,8 @@ export interface RegionMetrics {
   opening?: number;
   /** New business — the source's own word for it on this table. */
   firstSale?: number;
+  /** The acquired book recognised in this column. */
+  acquired?: number;
   expansions?: number;
   reductions?: number;
   lost?: number;
@@ -85,7 +87,7 @@ export interface RegionMetricsTable {
   /** One per region in first-appearance order, then the total. */
   rows: BuildRow[];
   /**
-   * Column label → row id → that region's seven figures.
+   * Column label → row id → that region's eight figures.
    *
    * Two levels rather than one flat key, for the reason `regionExitTable` gives:
    * an absent column map is "we could not ask", and an absent row inside a
@@ -150,7 +152,7 @@ export function regionMetricsTable(
 }
 
 /**
- * One region's seven figures, with the missing ones read as zero.
+ * One region's eight figures, with the missing ones read as zero.
  *
  * Zero rather than blank because every cell here is a figure the backend
  * computed — `safeNum` in `mapResponseToRows` does the same. The blank is
@@ -160,6 +162,7 @@ function metricsOf(movement: RegionMetrics | undefined): Required<RegionMetrics>
   return {
     opening: numberOf(movement?.opening),
     firstSale: numberOf(movement?.firstSale),
+    acquired: numberOf(movement?.acquired),
     expansions: numberOf(movement?.expansions),
     reductions: numberOf(movement?.reductions),
     lost: numberOf(movement?.lost),
@@ -171,16 +174,18 @@ function metricsOf(movement: RegionMetrics | undefined): Required<RegionMetrics>
 /**
  * The Total row for one column: each metric added down the regions.
  *
- * Every one of the seven, including Closing — unlike the Exit ARR summary,
+ * Every one of the eight, including Closing — unlike the Exit ARR summary,
  * whose Total row leaves Moesif out of its own Total and therefore does not
- * foot. There is no such carve-out here: the source sums all seven the same
- * way, so this column adds up to exactly what its rows say.
+ * foot. There is no such carve-out here: the source sums all eight the same
+ * way, so this column adds up to exactly what its rows say. Acquired ARR is
+ * one of those figures: the total includes it, the same as First Sale.
  */
 function totalOf(regions: Iterable<Required<RegionMetrics>>): Required<RegionMetrics> {
   const total = metricsOf(undefined);
   for (const region of regions) {
     total.opening += region.opening;
     total.firstSale += region.firstSale;
+    total.acquired += region.acquired;
     total.expansions += region.expansions;
     total.reductions += region.reductions;
     total.lost += region.lost;
@@ -216,9 +221,9 @@ export interface RegionMetricsSubColumn extends BuildSubColumn {
 }
 
 /**
- * The seven metrics, in the source's reading order.
+ * The eight metrics, in the source's reading order.
  *
- * ---- five of the seven headers disagree with the Build's ------------------
+ * ---- five of these headers disagree with the Build's ----------------------
  *
  * The Subscription Build writes these movements "Expansions", "Reductions",
  * "Lost", "New" and "Ending ARR"; this table writes them "Expansion",
@@ -240,6 +245,7 @@ export interface RegionMetricsSubColumn extends BuildSubColumn {
 export const REGION_METRICS_SUB_COLUMNS: readonly RegionMetricsSubColumn[] = [
   { key: "opening", label: "Opening ARR", field: "opening", width: 140 },
   { key: "first-sale", label: "First Sale", field: "firstSale", width: 140 },
+  { key: "acquired", label: "Acquired ARR", field: "acquired", width: 140 },
   { key: "expansion", label: "Expansion", field: "expansions", width: 140 },
   { key: "reduction", label: "Reduction", field: "reductions", width: 140 },
   { key: "loss", label: "Loss", field: "lost", width: 140 },
@@ -247,6 +253,6 @@ export const REGION_METRICS_SUB_COLUMNS: readonly RegionMetricsSubColumn[] = [
   { key: "closing", label: "Closing ARR", field: "ending", width: 140 },
 ];
 
-/** By key, so a cell looks its column up once rather than scanning seven. */
+/** By key, so a cell looks its column up once rather than scanning the row. */
 export const REGION_METRICS_SUB_COLUMN_BY_KEY: ReadonlyMap<string, RegionMetricsSubColumn> =
   new Map(REGION_METRICS_SUB_COLUMNS.map((column) => [column.key, column]));

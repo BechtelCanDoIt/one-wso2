@@ -37,7 +37,7 @@
 // ---- it keys on row IDS, where the source keys on row LABELS -----------------
 //
 // The source tests `params.data.rowHeader` — the literal header text — against
-// a Set of fourteen strings (`DataGrid.js:630-645`). That works there only by
+// a Set of row-header literals (`DataGrid.js`). That works there only by
 // luck: the Build has FOUR rows labelled "y/y growth", so a label is not an
 // identity. The port gives every row a stable id (`arrBuildRows`), so this keys
 // on those and the ambiguity cannot come back.
@@ -83,12 +83,14 @@ export interface DrillDownRequest {
 /**
  * Which movement each drillable row asks the backend for.
  *
- * Fourteen rows collapse onto seven answers, for two reasons. A Build states
- * most movements TWICE — once in money and once in logos — and both mean the
- * same set of customers. And both BALANCES ask for `Closing`: an opening
+ * Sixteen rows. Most movements are stated twice — once in money and once in
+ * logos — and both ask for the same customers. New and Acquired do not: the
+ * dollar row and the logo row are different questions, because a logo that
+ * brought the acquired book is counted once as an Acquired Customer while its
+ * other dollars stay on New. Both BALANCES ask for `Closing`: an opening
  * balance and a closing balance are the same question, who was in the book,
  * asked at two different dates, so the difference lives in the date rather than
- * in the type. Verbatim from `DataGrid.js:719-735`.
+ * in the type.
  */
 const CUSTOMER_ARR_TYPE_BY_ROW: Readonly<Record<string, string>> = {
   "opening-arr": "Closing",
@@ -96,7 +98,9 @@ const CUSTOMER_ARR_TYPE_BY_ROW: Readonly<Record<string, string>> = {
   "ending-arr": "Closing",
   "closing-customers": "Closing",
   "new-arr": "New",
-  "new-customers": "New",
+  "new-customers": "New Customers",
+  "acquired-arr": "Acquired",
+  "acquired-customers": "Acquired Customers",
   "lost": "Lost",
   "lost-customers": "Lost",
   "transferred-in": "Transferred In",
@@ -110,7 +114,7 @@ const CUSTOMER_ARR_TYPE_BY_ROW: Readonly<Record<string, string>> = {
 /**
  * The rows a reader can open, by id.
  *
- * Fourteen of them; every other row in the Build is inert. That is about two
+ * Sixteen of them; every other row in the Build is inert. That is about two
  * thirds of it — the four y/y growth rows, Net New, the totals, the six
  * retention ratios, the six percentages and every section heading — because
  * none of those IS a set of customers. A ratio has no customer list behind it.
@@ -136,7 +140,7 @@ const CLOSING_ROWS: ReadonlySet<string> = new Set(["ending-arr", "closing-custom
  * message, no cursor change — in two cases, and both reach a reader as a click
  * that does nothing:
  *
- *   - the row is not one of the fourteen. Two thirds of the Build.
+ *   - the row is not one of the sixteen. Two thirds of the Build.
  *   - the reader has chosen a Custom unit selection and ticked nothing. That
  *     one is a dead click driven by FILTER state rather than by the cell, so
  *     every figure in the Build stops responding at once. Reproduced rather
