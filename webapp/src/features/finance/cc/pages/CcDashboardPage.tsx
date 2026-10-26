@@ -371,7 +371,7 @@ function DashboardBody() {
         </>
       )}
 
-      {showTeam && (
+      {showTeam && !teamCardHolders.isError && (
         teamUnsubmitted.isError ? (
           <Alert severity="error">{describeError(teamUnsubmitted.error)}</Alert>
         ) : (
