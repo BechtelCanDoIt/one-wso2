@@ -18,7 +18,6 @@ import { useMemo, useState, type JSX } from "react";
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form";
 import {
   Alert,
-  AlertTitle,
   Box,
   Button,
   DatePickers,
@@ -291,13 +290,6 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
 
       {/* The opportunity's currency and price book, locked. */}
       <PricingSetupCard />
-
-      {values.notBroughtIn?.length ? (
-        <Alert severity="info" variant="outlined">
-          <AlertTitle>Not brought in from Salesforce ({values.notBroughtIn.length})</AlertTitle>
-          {values.notBroughtIn.map((n) => `${n.productName}: ${n.reason}`).join(" · ")}
-        </Alert>
-      ) : null}
 
       {/* Partner-led: the commission, right above the products whose totals it
           changes (D91); shown before any product too. */}

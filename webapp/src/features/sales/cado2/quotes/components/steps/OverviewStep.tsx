@@ -23,7 +23,6 @@ import {
   useAccountOpportunities,
   useActiveLegalEntities,
   useCurrencies,
-  useOpportunityProducts,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { Account, Opportunity } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
@@ -38,7 +37,6 @@ import {
   emptyAddress,
   emptyContact,
   parseDateString,
-  pulledLines,
   type DraftFormValues,
 } from "@features/sales/cado2/quotes/form/draftForm";
 import SalesforceFindings, { type Finding } from "@features/sales/cado2/quotes/components/SalesforceFindings";
@@ -193,17 +191,16 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
   const markRevealed = useCallback(() => setRevealedFor(opportunityId), [opportunityId]);
   const showRest = Boolean(opportunityId) && (locked || revealedFor === opportunityId);
 
-  // A new quote starts from its opportunity's products (D72): only the
-  // products, 1 unit each, priced from its price book; once per opportunity
-  // chosen, before the first save fixes it.
-  const pulled = useOpportunityProducts(!locked && accountId ? accountId : null, !locked && opportunityId ? opportunityId : null);
-  const pulledFor = useRef<string | null>(null);
+  // A new quote starts with no products: the AM adds them in the tool, the
+  // source of truth for the opportunity's products (D110; was D72). Choosing
+  // another opportunity before the first save drops lines priced for the
+  // previous one's price book.
+  const opportunityShown = useRef(opportunityId);
   useEffect(() => {
-    if (locked || !pulled.data || !opportunityId || pulledFor.current === opportunityId) return;
-    pulledFor.current = opportunityId;
-    setValue("lines", pulledLines(pulled.data.products), { shouldDirty: true });
-    setValue("notBroughtIn", pulled.data.notBroughtIn, { shouldDirty: true });
-  }, [locked, pulled.data, opportunityId, setValue]);
+    if (locked || opportunityShown.current === opportunityId) return;
+    if (opportunityShown.current) setValue("lines", [], { shouldDirty: true });
+    opportunityShown.current = opportunityId;
+  }, [locked, opportunityId, setValue]);
   // Likewise, the opportunity list waits until the account's findings have
   // all ticked in (2026-10-09), so the page doesn't change under them.
   const [accountRevealedFor, setAccountRevealedFor] = useState<string | null>(null);

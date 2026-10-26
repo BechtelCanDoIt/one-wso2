@@ -43,7 +43,6 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     MIN_ACCOUNT_SEARCH: 3,
     useAccountSearch: () => idle(),
     useOpportunityQuotes: () => idle(),
-    useOpportunityProducts: () => ({ ...idle(), data: undefined }),
     useAccountOpportunities: () => idle(),
     useAccountContacts: () => idle(),
     useProducts: () => idle(),

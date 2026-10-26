@@ -832,12 +832,3 @@ export type QuoteAccess = "VIEW" | "VIEW_EDIT";
 /** Whose quotes the Quotes page lists (D70): the caller's own, or everyone's. */
 export type QuoteScope = "mine" | "all";
 
-/** GET /opportunities/{id}/products: what a new quote starts from (D72). */
-export interface OpportunityProducts {
-  readonly currencyIsoCode: string | null;
-  readonly pricebook: { readonly id: string | null; readonly name: string | null } | null;
-  /** One per Salesforce line, priced from the opportunity's price book. */
-  readonly products: readonly Product[];
-  /** Products the price book doesn't price, e.g. "not active in USD Price Book in USD". */
-  readonly notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
-}

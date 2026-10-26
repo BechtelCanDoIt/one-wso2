@@ -91,12 +91,6 @@ function Harness({
         line("WSO2 Gateway", "SUBSCRIPTION"),
         line("WSO2 Integrator", ""),
       ],
-      notBroughtIn: [
-        {
-          productName: "WSO2 Legacy",
-          reason: "not active in USD Price Book in USD",
-        },
-      ],
       ...values,
     },
   });
@@ -120,7 +114,7 @@ describe("ProductsStep (Products & Pricing)", () => {
 
   // Currency and price book first, then the term right above the products it
   // lays out (2026-10-23); billing and payment terms are on Commercials (D86).
-  it("puts the term right above the products, and says what wasn't brought in", () => {
+  it("puts the term right above the products", () => {
     render(<Harness />);
     const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
     expect(regions[0]).toBe("Currency & Price Book");
@@ -128,9 +122,6 @@ describe("ProductsStep (Products & Pricing)", () => {
     expect(regions.indexOf("Year 1")).toBeGreaterThan(regions.indexOf("Products")); // a section inside the Products card
     expect(regions).not.toContain("Billing Frequency");
     expect(regions).not.toContain("Payment Terms");
-    expect(
-      screen.getByText("WSO2 Legacy: not active in USD Price Book in USD"),
-    ).toBeInTheDocument();
   });
 
   // D93: a plain "Uncategorised" heading, no amber and no chip; the line's edit button opens the dialog.

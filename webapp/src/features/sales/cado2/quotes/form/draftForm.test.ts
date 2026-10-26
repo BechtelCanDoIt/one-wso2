@@ -28,7 +28,6 @@ import {
   expiryFor,
   formatDate,
   fromVersion,
-  pulledLines,
   alignPreview,
   isExpired,
   parseDateString,
@@ -691,25 +690,6 @@ describe("partner commission", () => {
     expect(toPreviewBody(partner())).toMatchObject({ partnerCommissionPercent: "15" });
     expect(toPreviewBody({ ...partner(), partnerCommissionPercent: "abc" })).toMatchObject({ partnerCommissionPercent: undefined });
     expect(toPreviewBody({ ...partner(), dealType: "DIRECT" })).toMatchObject({ partnerCommissionPercent: undefined });
-  });
-});
-
-// D72: a new quote starts from its opportunity's products.
-describe("pulledLines", () => {
-  const entry = (id: string, isActive: boolean) => ({
-    id, unitPrice: "360", currencyIsoCode: "USD", isActive, pricebook: { id: "01sUSD", name: "USD Price Book" },
-  });
-  it("brings in each product at 1 unit, priced from the book, with its mapped category or none yet", () => {
-    const lines = pulledLines([
-      { id: "01tGW", name: "WSO2 Gateway", productCode: "GW", category: "SUBSCRIPTION", recurring: true, pricebookEntries: [entry("01uGW", true)] },
-      { id: "01tIS", name: "WSO2 Integrator", recurring: false, pricebookEntries: [entry("01uIS", true)] },
-      { id: "01tOLD", name: "Old", pricebookEntries: [entry("01uOLD", false)] },
-    ] as never);
-    expect(lines.map((l) => [l.pricebookEntryId, l.quantity, l.discount, l.unitPrice, l.category, l.categorySource, l.recurring])).toEqual([
-      ["01uGW", "1", "", "360", "SUBSCRIPTION", "MAPPED", true],
-      ["01uIS", "1", "", "360", "", "REP", false], // recurring from Salesforce, not the category (D76)
-    ]);
-    expect(lines[0].pricebookName).toBe("USD Price Book");
   });
 });
 

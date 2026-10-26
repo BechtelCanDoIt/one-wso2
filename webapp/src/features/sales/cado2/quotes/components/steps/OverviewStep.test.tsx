@@ -55,21 +55,6 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   MIN_ACCOUNT_SEARCH: 3,
   useAccountSearch: () => lookup(searchResults),
   useOpportunityQuotes: () => lookup([]),
-  // D72: the chosen opportunity's products, priced from its book.
-  useOpportunityProducts: (_account: string | null, opportunity: string | null) =>
-    lookup(
-      opportunity
-        ? {
-            currencyIsoCode: "USD",
-            pricebook: { id: "01sUSD", name: "USD Price Book (Current)" },
-            products: [
-              { id: "01tGW", name: "WSO2 Gateway", category: "SUBSCRIPTION", recurring: true,
-                pricebookEntries: [{ id: "01uGW", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01sUSD", name: "USD Price Book (Current)" } }] },
-            ],
-            notBroughtIn: [{ productName: "WSO2 Legacy", reason: "not active in USD Price Book (Current) in USD" }],
-          }
-        : undefined,
-    ),
   useAccountOpportunities: (id: string | null, status = "open") => {
     if (id) asked.push(status);
     if (salesforceDown.on) return { ...lookup(undefined), error: new Error("down"), refetch: () => undefined };
@@ -241,17 +226,29 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     expect(screen.getByText("pricing: USD · USD Price Book (Current)")).toBeInTheDocument();
   });
 
-  // D72: only the products, 1 unit each; what the book doesn't price is kept to say so.
-  it("brings in the chosen opportunity's products on a new quote", async () => {
+  // D110: the tool is the source of truth for the opportunity's products, so
+  // a new quote starts with none from Salesforce.
+  it("brings in no products from the chosen opportunity", async () => {
     render(<Harness values={account} />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
-    expect(screen.getByText("lines: WSO2 Gateway ×1")).toBeInTheDocument();
+    expect(screen.getByText("lines: none")).toBeInTheDocument();
   });
 
-  it("brings in nothing on a saved draft: its opportunity is fixed", () => {
-    render(<Harness values={deal} locked />);
+  it("drops the lines when another opportunity is chosen before the first save", async () => {
+    const gateway = { productName: "WSO2 Gateway", quantity: "2" } as DraftFormValues["lines"][number];
+    render(<Harness values={{ ...account, opportunityId: "006OLD", lines: [gateway] }} />);
+    expect(screen.getByText("lines: WSO2 Gateway ×2")).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Change opportunity" }, { timeout: 3000 }));
+    await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
     expect(screen.getByText("lines: none")).toBeInTheDocument();
+  });
+
+  it("keeps a saved draft's lines: its opportunity is fixed", () => {
+    const gateway = { productName: "WSO2 Gateway", quantity: "2" } as DraftFormValues["lines"][number];
+    render(<Harness values={{ ...deal, lines: [gateway] }} locked />);
+    expect(screen.getByText("lines: WSO2 Gateway ×2")).toBeInTheDocument();
   });
 
   it("leaves the currency empty when the opportunity's isn't offered in CadO2", async () => {

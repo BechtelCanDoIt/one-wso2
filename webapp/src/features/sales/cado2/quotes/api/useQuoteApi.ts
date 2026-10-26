@@ -41,7 +41,6 @@ import type {
   DraftResponse,
   Issue,
   Opportunity,
-  OpportunityProducts,
   OpportunityQuote,
   PricebookOption,
   PricingFormula,
@@ -213,15 +212,6 @@ export function useQuoteList(status = "", scope: QuoteScope = "mine") {
 /** A quote with its version list and the caller's actions. */
 export function useQuote(quoteId: number | null) {
   return useAuthedQuery<QuoteView>(["quotes", "one", quoteId], quoteId ? cado2ServiceUrls.quote(quoteId) : null, "live");
-}
-
-/** The products on an opportunity, priced from its price book: what a new quote starts from (D72). */
-export function useOpportunityProducts(accountId: string | null, opportunityId: string | null) {
-  return useAuthedQuery<OpportunityProducts>(
-    ["opportunity-products", accountId, opportunityId],
-    accountId && opportunityId ? cado2ServiceUrls.opportunityProducts(accountId, opportunityId) : null,
-    "live",
-  );
 }
 
 /**

@@ -35,7 +35,6 @@ import type {
   Partner,
   PricingMethod,
   PricingPreview,
-  Product,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
 import { cleanLegalText, isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
@@ -173,8 +172,6 @@ export interface DraftFormValues {
   yearCount: number;
   /** The last year's end when the AM shortened it; "" = a full 12 months. */
   lastYearEndDate: string;
-  /** The opportunity's products that couldn't be brought in, and why (D72). Shown once; never saved. */
-  notBroughtIn: readonly { readonly productName: string; readonly reason: string }[];
   /** With a recurring line (D85); annually in advance unless changed. */
   billingFrequency: BillingFrequency | "";
   /** Partner-led quotes only: the partner's commission %, "" until entered. */
@@ -250,7 +247,6 @@ export function emptyDraftForm(): DraftFormValues {
     startDate: "",
     yearCount: 1, // Year 1, for the opportunity's products; the AM adds more
     lastYearEndDate: "",
-    notBroughtIn: [],
     billingFrequency: "ANNUAL",
     partnerCommissionPercent: "",
     lines: [],
@@ -1004,42 +1000,4 @@ export function stepOfField(field: string): number {
   if (STEP_3_FIELDS.some((f) => field === f || field.startsWith(f + ".") || field.startsWith(f + "["))) return 2;
   if (STEP_4_FIELDS.some((f) => field === f || field.startsWith(f + "."))) return 3;
   return 0;
-}
-
-/**
- * The lines a new quote starts with (D72): one per product on the Salesforce
- * opportunity, priced from the price book, 1 unit each (the AM changes it), no
- * discount, the Admin's category if mapped, else "" for the AM to choose.
- */
-export function pulledLines(products: readonly Product[]): LineValue[] {
-  return products.flatMap((p) => {
-    const entry = p.pricebookEntries.find((e) => e.isActive);
-    if (!entry) return [];
-    return [
-      {
-        lineId: null,
-        pricebookEntryId: entry.id,
-        productId: p.id,
-        productName: p.name ?? p.id,
-        productCode: p.productCode ?? "",
-        productDescription: p.description ?? "",
-        pricebookId: entry.pricebook?.id ?? "",
-        pricebookName: entry.pricebook?.name ?? "",
-        unitPrice: entry.unitPrice ?? "",
-        category: p.category ?? "",
-        categorySource: p.category ? "MAPPED" : "REP",
-        recurring: p.recurring,
-        classification: p.classification ?? "",
-        unitOfMeasure: "",
-        quantity: "1",
-        discount: "",
-        yearNumber: 1, // Year 1: the AM moves or clones them into later years
-        startDate: "",
-        endDate: "",
-        salesPrice: "",
-        key: newLineKey(),
-        parentKey: "",
-      } satisfies LineValue,
-    ];
-  });
 }
