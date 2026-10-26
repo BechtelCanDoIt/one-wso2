@@ -1953,6 +1953,9 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/documents/preview`,
   quoteDocumentFile: (quoteId: number, documentId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/documents/${encodeSegment(documentId)}/file`,
+  // Retries attaching the primary quote's order form to its opportunity (D111).
+  quoteDocumentAttach: (quoteId: number, documentId: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/documents/${encodeSegment(documentId)}/attach`,
   approvalPreview: `${cado2BackendUrl}/approvals/preview`,
   storedApprovalPreview: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/approval-preview`,

@@ -752,7 +752,11 @@ export interface AuditEvent {
     | "ORDER_FORM_PREVIEWED"
     | "ORDER_FORM_ISSUED"
     | "DOCUMENT_DOWNLOADED"
-    | "DOCUMENT_GENERATION_FAILED";
+    | "DOCUMENT_GENERATION_FAILED"
+    // The primary quote's order form in Salesforce (D111).
+    | "ORDER_FORM_ATTACHED"
+    | "ORDER_FORM_DETACHED"
+    | "ORDER_FORM_ATTACH_FAILED";
   readonly versionNumber: number | null;
   readonly actorEmail: string;
   readonly occurredAt: string;
@@ -791,6 +795,15 @@ export interface DocumentView {
   readonly expiryDate: string;
   readonly generatedAt: string;
   readonly generatedByEmail: string;
+  /**
+   * The order form on its Salesforce opportunity (D111): attached (since
+   * salesforceAt), removed (replaced by another quote's, at salesforceAt),
+   * not attached (attaching failed; canAttach: the caller may retry), or ""
+   * (not for Salesforce: the quote isn't primary, or the sync is off).
+   */
+  readonly salesforceStatus: "ATTACHED" | "REMOVED" | "NOT_ATTACHED" | "";
+  readonly salesforceAt: string | null;
+  readonly canAttach: boolean;
 }
 
 /** A version's documents and what the caller may do now. */

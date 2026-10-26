@@ -90,6 +90,20 @@ describe("history", () => {
     expect(describeEvent({ event: e, count: 1 })).toBe("Version 2 draft deleted");
   });
 
+  // D111: the order form on the Salesforce opportunity.
+  it("says what happened to the order form in Salesforce", () => {
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_ATTACHED" }), count: 1 })).toBe("Order form attached to Salesforce");
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_DETACHED", metadata: { replacedBy: "Q-26-00007-v1-d1.pdf" } }), count: 1 })).toBe(
+      "Order form removed from Salesforce, replaced by Q-26-00007-v1-d1.pdf",
+    );
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_ATTACH_FAILED", metadata: { action: "attach" } }), count: 1 })).toBe(
+      "Couldn't attach the order form to Salesforce",
+    );
+    expect(describeEvent({ event: event({ eventType: "ORDER_FORM_ATTACH_FAILED", metadata: { action: "remove" } }), count: 1 })).toBe(
+      "Couldn't remove the order form from Salesforce",
+    );
+  });
+
   it("says which quote a clone came from", () => {
     const e = event({ eventType: "QUOTE_CREATED", metadata: { clonedFrom: { quoteId: 3, quoteNumber: "Q-26-00003", versionNumber: 2 } } });
     expect(describeEvent({ event: e, count: 1 })).toBe("Quote created (cloned from Q-26-00003 v2)");

@@ -295,6 +295,13 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `Order form downloaded${count > 1 ? ` ×${count}` : ""}`;
     case "DOCUMENT_GENERATION_FAILED":
       return `The order form couldn't be produced`;
+    // D111: the primary quote's order form on the Salesforce opportunity.
+    case "ORDER_FORM_ATTACHED":
+      return "Order form attached to Salesforce";
+    case "ORDER_FORM_DETACHED":
+      return `Order form removed from Salesforce${typeof meta.replacedBy === "string" ? `, replaced by ${meta.replacedBy}` : ""}`;
+    case "ORDER_FORM_ATTACH_FAILED":
+      return meta.action === "remove" ? "Couldn't remove the order form from Salesforce" : "Couldn't attach the order form to Salesforce";
     default:
       return e.eventType;
   }

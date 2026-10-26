@@ -63,6 +63,7 @@ vi.mock("@features/sales/cado2/api/useCado2Me", async (actual) => ({
 
 const documents = query(undefined as unknown);
 const issue = { ...mutation(), mutateAsync: vi.fn() };
+const attach = { ...mutation(), mutateAsync: vi.fn() };
 const files = { preview: vi.fn(), download: vi.fn() };
 const setPrimary = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
 const opportunityQuotes = { data: [] as unknown[], error: null, isPending: false, isFetching: false, refetch: vi.fn() };
@@ -80,6 +81,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useDeleteDraft: () => del,
   useDocuments: (_q: number, _v: number, enabled: boolean) => (enabled ? documents : query(undefined)),
   useIssueOrderForm: () => issue,
+  useAttachOrderForm: () => attach,
   useDocumentFiles: () => files,
 }));
 
@@ -137,6 +139,7 @@ beforeEach(() => {
   failingVersions.clear();
   Object.assign(opportunityQuotes, { error: null });
   Object.assign(documents, { error: null });
+  Object.assign(attach, { ...mutation(), mutateAsync: vi.fn() });
 });
 
 // D68: primary is a setting of the quote, changed in any status.
@@ -682,6 +685,45 @@ describe("QuoteDetailPage — order form", () => {
     expect(panel().getByText("Issued 12 Oct 2026")).toBeInTheDocument();
     expect(panel().getByRole("button", { name: "Download PDF" })).toBeInTheDocument();
     expect(panel().queryByRole("button", { name: "Issue order form" })).toBeNull();
+  });
+
+  // D111: the primary quote's order form on its Salesforce opportunity.
+  const issued = (extra: object) => ({
+    data: {
+      canPreview: false, canIssue: false, issueDate: "2026-10-13", expiryDate: "2026-11-12",
+      documents: [{ id: 9, documentNumber: 1, documentType: "ORDER_FORM", layout: "DIRECT", status: "ACTIVE", fileName: "Q-26-00005-v1-d1.pdf",
+        sizeBytes: 70000, sha256: "a".repeat(64), issueDate: "2026-10-12", expiryDate: "2026-11-11", generatedAt: "2026-10-12T09:00:00Z",
+        generatedByEmail: "rep@wso2.com", salesforceStatus: "", salesforceAt: null, canAttach: false, ...extra }],
+    },
+  });
+
+  it("says the order form is attached to Salesforce, or was replaced there", () => {
+    Object.assign(documents, issued({ salesforceStatus: "ATTACHED", salesforceAt: "2026-10-12T09:01:00Z" }));
+    show(quoteOf(approved), approved);
+    expect(panel().getByText(/^Attached to Salesforce · /)).toBeInTheDocument();
+  });
+
+  it("says when another quote's order form replaced it in Salesforce", () => {
+    Object.assign(documents, issued({ salesforceStatus: "REMOVED", salesforceAt: "2026-10-14T09:01:00Z" }));
+    show(quoteOf(approved), approved);
+    expect(panel().getByText(/another quote's order form replaced it/)).toBeInTheDocument();
+  });
+
+  it("retries a failed attach", async () => {
+    Object.assign(documents, issued({ salesforceStatus: "NOT_ATTACHED", canAttach: true }));
+    attach.mutateAsync.mockResolvedValue({});
+    show(quoteOf(approved), approved);
+
+    expect(panel().getByText("Not attached to Salesforce")).toBeInTheDocument();
+    await userEvent.setup().click(panel().getByRole("button", { name: "Retry" }));
+    expect(attach.mutateAsync).toHaveBeenCalledWith({ quoteId: approved.quote.id, documentId: 9 });
+    expect(await screen.findByRole("status")).toHaveTextContent("Order form attached to Salesforce");
+  });
+
+  it("says nothing about Salesforce for a secondary quote", () => {
+    Object.assign(documents, issued({}));
+    show(quoteOf(approved), approved);
+    expect(panel().queryByText(/Salesforce/)).toBeNull();
   });
 
   it("says a failed issue in the shared error notice, with what failed", async () => {

@@ -421,6 +421,20 @@ export function useIssueOrderForm() {
   });
 }
 
+/** Retries attaching the primary quote's order form to its Salesforce opportunity (D111). */
+export function useAttachOrderForm() {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<DocumentView, Error, { quoteId: number; documentId: number }>({
+    mutationFn: async ({ quoteId, documentId }) =>
+      cado2Send<DocumentView>("POST", cado2ServiceUrls.quoteDocumentAttach(quoteId, documentId), await getToken(), {}),
+    onSuccess: (_, { quoteId }) => {
+      void queryClient.invalidateQueries({ queryKey: key("quotes", "documents", quoteId) });
+      void queryClient.invalidateQueries({ queryKey: key("quotes", "history", quoteId) });
+    },
+  });
+}
+
 /** Fetches the preview PDF (never stored) and issued PDFs, as Blobs. */
 export function useDocumentFiles() {
   const { getToken } = useCado2Basis();
