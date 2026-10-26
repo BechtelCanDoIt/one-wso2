@@ -348,7 +348,7 @@ export default function ParLegacyRecordDetail({
             <QuestionGroupAccordions groups={employeeGroups} side="employee" />
             <Box>
               <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                Overall Comment Given by the Employee
+                Employee Additional Comments
               </Typography>
               <Box sx={{ bgcolor: "action.hover", borderRadius: 1.5, p: 2 }}>
                 <ParCommentView html={employeeComment} />
@@ -392,7 +392,7 @@ export default function ParLegacyRecordDetail({
             {!isLegacy2017ScoreCycle && (
               <Box>
                 <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }}>
-                  Overall Comment Given by the Lead
+                  Lead Additional Comments
                 </Typography>
                 <Box sx={{ bgcolor: "action.hover", borderRadius: 1.5, p: 2 }}>
                   <ParCommentView html={leadComment} />

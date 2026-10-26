@@ -307,7 +307,7 @@ export function downloadLegacyParPdf(
     employeeTopRows.push(["PAR Rating", { content: legacy2015EmployeeRating, styles: contentStyles }]);
   }
   addSideAnswers("Employee's Feedback", "Employee Feedback", employeeTopRows, employeeGroups, "employee");
-  addOverallComment("Overall Comment Given by the Employee", record.overallCommentEmployee);
+  addOverallComment("Employee Additional Comments", record.overallCommentEmployee);
 
   // ---- Lead's Feedback ----
   const leadTopRows: PdfRow[] = [];
@@ -316,7 +316,7 @@ export function downloadLegacyParPdf(
   }
   addSideAnswers("Lead's Feedback", "Lead Feedback", leadTopRows, leadGroups, "lead");
   if (!isLegacy2017ScoreCycle) {
-    addOverallComment("Overall Comment Given by the Lead", record.overallCommentManager);
+    addOverallComment("Lead Additional Comments", record.overallCommentManager);
   }
   if (threeSixtyConfirmationAnswer) {
     addBlock(
