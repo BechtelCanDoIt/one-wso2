@@ -90,6 +90,11 @@ describe("history", () => {
     expect(describeEvent({ event: e, count: 1 })).toBe("Version 2 draft deleted");
   });
 
+  it("says which quote a clone came from", () => {
+    const e = event({ eventType: "QUOTE_CREATED", metadata: { clonedFrom: { quoteId: 3, quoteNumber: "Q-26-00003", versionNumber: 2 } } });
+    expect(describeEvent({ event: e, count: 1 })).toBe("Quote created (cloned from Q-26-00003 v2)");
+  });
+
   it("says where a revision came from", () => {
     const e = event({ eventType: "VERSION_CREATED", versionNumber: 2, metadata: { copiedFromVersion: 1 } });
     expect(describeEvent({ event: e, count: 1 })).toBe("Version 2 created (revised from v1)");

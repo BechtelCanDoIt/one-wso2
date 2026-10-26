@@ -235,8 +235,11 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
   const v = e.versionNumber ? `Version ${e.versionNumber}` : "Quote";
   const meta = e.metadata ?? {};
   switch (e.eventType) {
-    case "QUOTE_CREATED":
-      return "Quote created";
+    case "QUOTE_CREATED": {
+      // Cloned from another quote's version (D108).
+      const from = meta.clonedFrom as { quoteNumber?: string | null; versionNumber?: number } | undefined;
+      return from ? `Quote created (cloned from ${from.quoteNumber ?? "a quote"} v${from.versionNumber ?? "?"})` : "Quote created";
+    }
     case "VERSION_DELETED":
       // Logged on the quote: the version itself no longer exists.
       return `Version ${typeof meta.versionNumber === "number" ? meta.versionNumber : "?"} draft deleted`;

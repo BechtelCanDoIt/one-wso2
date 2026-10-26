@@ -1917,6 +1917,9 @@ export const cado2ServiceUrls = {
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
   quoteRevise: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/revise`,
+  // A new quote on the same opportunity, a copy of this version (D108).
+  quoteClone: (quoteId: number, version: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/clone`,
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
   // Makes the quote its opportunity's primary quote, or releases it (D68).
   quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,

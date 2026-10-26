@@ -523,6 +523,23 @@ describe("QuoteWizardPage — lifecycle", () => {
     expect(screen.getByText(/Copied from version 1/)).toBeInTheDocument();
   });
 
+  // D108: a fresh clone opens at Overview, saying where it came from.
+  it("opens a clone at Overview, saying where it came from", () => {
+    Object.assign(version, { data: ready });
+    render(
+      <Cado2ToastProvider>
+        <MemoryRouter initialEntries={[{ pathname: "/sales/cado2/quotes/5/versions/1/edit", state: { clonedFrom: "Q-26-00003 v2" } }]}>
+          <Routes>
+            <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
+          </Routes>
+        </MemoryRouter>
+      </Cado2ToastProvider>,
+    );
+
+    expect(screen.getByText(/Cloned from Q-26-00003 v2, with its prices/)).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 5")).toBeInTheDocument();
+  });
+
   it("returns to the quote page from Back to quote", async () => {
     renderAt();
     await userEvent.setup().click(screen.getByRole("link", { name: /Back to quote/ }));

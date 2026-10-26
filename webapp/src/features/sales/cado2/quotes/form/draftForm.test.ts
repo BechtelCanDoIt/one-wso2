@@ -436,6 +436,33 @@ describe("sales price", () => {
 });
 
 describe("fromVersion", () => {
+  // D109: governing terms Legal wrote for a non-standard block, kept to show read-only.
+  it("keeps the governing terms Legal already wrote", () => {
+    const res = {
+      quote: { id: 1, sfAccountId: "001A", sfOpportunityId: "006A" },
+      version: {
+        specialTerms: { enabled: false, text: null },
+        contacts: [],
+        addresses: [],
+        previousOpportunities: [],
+        lines: [],
+        legal: {
+          sections: {
+            blocks: [
+              { kind: "ONPREM", nonStandard: true, text: "<p>Bespoke terms.</p>" },
+              { kind: "SAAS", nonStandard: false, text: "<p>Standard SaaS.</p>" },
+            ],
+            notices: [],
+            contractName: "",
+          },
+        },
+      },
+      issues: [],
+    } as unknown as DraftResponse;
+    expect(fromVersion(res).legalTexts).toEqual({ ONPREM: "<p>Bespoke terms.</p>", SAAS: "" });
+    expect(toDraftInput(fromVersion(res))).not.toHaveProperty("legalTexts");
+  });
+
   it("rebuilds the form from a saved draft", () => {
     const res = {
       quote: { id: 1, sfAccountId: "001A", sfOpportunityId: "006A" },

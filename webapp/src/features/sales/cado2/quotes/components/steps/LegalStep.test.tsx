@@ -91,6 +91,23 @@ describe("LegalStep", () => {
     expect(screen.getByText("Goes to Legal")).toBeInTheDocument();
   });
 
+  // D109: governing terms Legal wrote on an earlier version, read-only, reviewed again.
+  it("shows the terms Legal already wrote, read-only", async () => {
+    render(
+      <Harness
+        values={{ dealType: "DIRECT", termsOnPremNonStandard: true, legalTexts: { ONPREM: "<p>Bespoke terms.</p>", SAAS: "" } }}
+      />,
+    );
+    const terms = within(screen.getByRole("region", { name: "Governing Terms" }));
+    expect(terms.getByText("Bespoke terms.")).toBeInTheDocument();
+    expect(terms.getByText(/Legal will review them again during approval/)).toBeInTheDocument();
+    expect(terms.queryByRole("textbox")).toBeNull();
+    // Back to standard: the standard text again.
+    await userEvent.setup().click(terms.getByRole("switch"));
+    expect(terms.queryByText("Bespoke terms.")).toBeNull();
+    expect(terms.getByText(/Governed by this Order Form and/)).toBeInTheDocument();
+  });
+
   it("fills a partner deal's agreement and adds its regional notice, saying why", () => {
     render(
       <Harness

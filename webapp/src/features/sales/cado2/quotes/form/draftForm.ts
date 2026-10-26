@@ -38,7 +38,7 @@ import type {
   Product,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
-import { cleanLegalText } from "@features/sales/cado2/utils/legalRichText";
+import { cleanLegalText, isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
 
 /** Contact: none yet, a Salesforce contact of the account, or typed in. */
 export interface ContactValue {
@@ -193,6 +193,12 @@ export interface DraftFormValues {
   partnerContractName: string;
   /** YYYY-MM-DD; "" until entered. */
   partnerContractDate: string;
+  /**
+   * Governing terms Legal already wrote for a non-standard block, on an
+   * earlier version or the quote this one was cloned from (D109). Shown
+   * read-only; never sent: Legal reviews them again.
+   */
+  legalTexts: { readonly ONPREM: string; readonly SAAS: string };
   billTo: AddressValue;
   shipTo: AddressValue;
   shipToSameAsBillTo: boolean;
@@ -256,6 +262,7 @@ export function emptyDraftForm(): DraftFormValues {
     termsSaasNonStandard: false,
     partnerContractName: "",
     partnerContractDate: "",
+    legalTexts: { ONPREM: "", SAAS: "" },
     billTo: { ...emptyAddress },
     shipTo: { ...emptyAddress },
     shipToSameAsBillTo: false,
@@ -581,6 +588,12 @@ function addressFromView(res: DraftResponse, type: "BILL_TO" | "SHIP_TO"): Addre
 }
 
 /** Form values for a saved draft. */
+/** The text Legal wrote for a non-standard block; "" when none. */
+function legalTextOf(legal: DraftResponse["version"]["legal"], kind: "ONPREM" | "SAAS"): string {
+  const b = legal?.sections.blocks.find((x) => x.kind === kind);
+  return b?.nonStandard && !isEmptyLegalText(b.text) ? b.text : "";
+}
+
 export function fromVersion(res: DraftResponse): DraftFormValues {
   const v = res.version;
   const start = v.subscriptionStartDate ?? "";
@@ -659,6 +672,10 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
     termsSaasNonStandard: v.termsSaasNonStandard ?? false,
     partnerContractName: v.partnerContractName ?? "",
     partnerContractDate: v.partnerContractDate ?? "",
+    legalTexts: {
+      ONPREM: legalTextOf(v.legal, "ONPREM"),
+      SAAS: legalTextOf(v.legal, "SAAS"),
+    },
     billTo: addressFromView(res, "BILL_TO"),
     shipTo: addressFromView(res, "SHIP_TO"),
     shipToSameAsBillTo: shipTo?.source === "SAME_AS_BILL_TO",

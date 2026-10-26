@@ -182,6 +182,8 @@ export interface SheetLegal {
   /** Section 06 as it prints: Legal's wording when they changed it. */
   readonly specialTerms: string | null;
   readonly specialTermsByLegal: boolean;
+  /** What the AM wrote, when Legal reworded it. */
+  readonly amSpecialTerms: string | null;
   readonly frozen: boolean;
 }
 
@@ -313,6 +315,7 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
           partnerName: v.legal.partnerName,
           specialTerms: v.legal.specialTerms,
           specialTermsByLegal: v.legal.specialTermsByLegal,
+          amSpecialTerms: v.legal.amSpecialTerms,
           frozen: v.legal.frozen,
         }
       : null,
@@ -354,13 +357,16 @@ function formLegal(v: DraftFormValues, cfg: LegalConfig): SheetLegal {
     },
     { onPremNonStandard: v.termsOnPremNonStandard, saasNonStandard: v.termsSaasNonStandard },
   );
+  // Governing terms Legal wrote on an earlier version, as the backend keeps them (D109).
+  const blocks = sections.blocks.map((b) => (b.nonStandard && v.legalTexts?.[b.kind] ? { ...b, text: v.legalTexts[b.kind] } : b));
   return {
-    sections,
+    sections: { ...sections, blocks },
     contractName: sections.contractName,
     contractDate: v.partnerContractDate,
     partnerName: v.partner?.name ?? "",
     specialTerms: v.specialTermsEnabled ? blank(v.specialTerms) : null,
     specialTermsByLegal: false,
+    amSpecialTerms: null,
     frozen: false,
   };
 }

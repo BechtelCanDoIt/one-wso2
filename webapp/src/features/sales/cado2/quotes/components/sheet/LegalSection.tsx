@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { JSX } from "react";
-import { Box, Chip, Stack, Typography } from "@wso2/oxygen-ui";
+import { useState, type JSX } from "react";
+import { Box, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
 import { ScaleIcon } from "@wso2/oxygen-ui-icons-react";
 import SheetCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
@@ -42,6 +42,7 @@ function Heading({ title }: { title: string }): JSX.Element {
  */
 export default function LegalSection({ sheet }: { sheet: QuoteSheet }): JSX.Element | null {
   const legal = sheet.legal;
+  const [showAm, setShowAm] = useState(false);
   if (!legal) return null;
   const { sections } = legal;
   return (
@@ -103,9 +104,27 @@ export default function LegalSection({ sheet }: { sheet: QuoteSheet }): JSX.Elem
                 <LegalHtml html={legal.specialTerms} />
               </LegalQuote>
               {legal.specialTermsByLegal ? (
-                <Typography variant="caption" color="text.secondary">
-                  Reworded by Legal during their approval
-                </Typography>
+                // Both texts on the version Legal reworded (D109): the AM's behind a toggle.
+                <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Reworded by Legal during their approval
+                    {legal.amSpecialTerms ? (
+                      <>
+                        {" · "}
+                        <Link component="button" type="button" variant="caption" onClick={() => setShowAm((s) => !s)} aria-expanded={showAm}>
+                          {showAm ? "Hide what the AM wrote" : "Show what the AM wrote"}
+                        </Link>
+                      </>
+                    ) : null}
+                  </Typography>
+                  {showAm && legal.amSpecialTerms ? (
+                    <Box aria-label="What the AM wrote" sx={{ color: "text.secondary" }}>
+                      <LegalQuote>
+                        <LegalHtml html={legal.amSpecialTerms} />
+                      </LegalQuote>
+                    </Box>
+                  ) : null}
+                </Stack>
               ) : null}
             </>
           ) : (

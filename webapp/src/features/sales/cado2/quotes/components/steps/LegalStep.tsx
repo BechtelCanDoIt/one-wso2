@@ -194,7 +194,17 @@ export default function LegalStep(): JSX.Element {
                       {BLOCK_TITLE[b.kind]}
                     </Typography>
                   ) : null}
-                  {b.nonStandard ? (
+                  {b.nonStandard && v.legalTexts?.[b.kind] ? (
+                    // Legal wrote them on an earlier version (D109): read-only, reviewed again.
+                    <Stack spacing={0.75}>
+                      <LegalQuote>
+                        <LegalHtml html={v.legalTexts[b.kind]} />
+                      </LegalQuote>
+                      <Typography variant="caption" color="text.secondary">
+                        Legal wrote these terms on an earlier version. Legal will review them again during approval.
+                      </Typography>
+                    </Stack>
+                  ) : b.nonStandard ? (
                     <Typography variant="body2" color="text.secondary">
                       Legal will write these terms during their approval.
                     </Typography>

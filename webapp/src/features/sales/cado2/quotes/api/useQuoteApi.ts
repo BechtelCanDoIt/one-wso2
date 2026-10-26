@@ -340,6 +340,13 @@ export function useReviseQuote() {
   );
 }
 
+/** Clones a version into a new quote on the same opportunity (D108). */
+export function useCloneQuote() {
+  return useLifecycleAction<{ quoteId: number; version: number }>(({ quoteId, version }, token) =>
+    cado2Send<DraftResponse>("POST", cado2ServiceUrls.quoteClone(quoteId, version), token, {}),
+  );
+}
+
 /**
  * Deletes the latest version while it is a draft. With no other
  * version the quote goes too; otherwise the previous version is cached as the latest.

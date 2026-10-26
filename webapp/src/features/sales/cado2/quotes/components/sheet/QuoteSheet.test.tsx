@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { draft, fullPartnerQuote } from "@features/sales/cado2/quotes/testing/fixtures";
 import { dealFigures, sheetFromVersion } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import CustomerBand from "./CustomerBand";
@@ -333,6 +333,7 @@ describe("LegalSection", () => {
       partnerName: "Acme Reseller",
       specialTerms: "Legal's wording",
       specialTermsByLegal: true,
+      amSpecialTerms: "AM's wording",
       frozen: true,
     },
   };
@@ -347,7 +348,18 @@ describe("LegalSection", () => {
     expect(legal.getByText("Legal writes these terms during their approval.")).toBeInTheDocument();
     expect(legal.getByText("Auto Renewal")).toBeInTheDocument();
     expect(legal.getByText("Legal's wording")).toBeInTheDocument();
-    expect(legal.getByText("Reworded by Legal during their approval")).toBeInTheDocument();
+    expect(legal.getByText(/Reworded by Legal during their approval/)).toBeInTheDocument();
+  });
+
+  // D109: both texts on the version Legal reworded; the AM's behind a toggle.
+  it("shows what the AM wrote on request", () => {
+    render(<QuoteSheet sheet={withLegal} />);
+    const legal = within(screen.getByRole("region", { name: "Legal" }));
+    expect(legal.queryByText("AM's wording")).toBeNull();
+    fireEvent.click(legal.getByRole("button", { name: "Show what the AM wrote" }));
+    expect(legal.getByText("AM's wording")).toBeInTheDocument();
+    fireEvent.click(legal.getByRole("button", { name: "Hide what the AM wrote" }));
+    expect(legal.queryByText("AM's wording")).toBeNull();
   });
 
   it("isn't shown without the legal texts", () => {

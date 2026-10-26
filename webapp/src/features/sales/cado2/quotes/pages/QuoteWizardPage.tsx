@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type JSX } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
-import { Navigate, useNavigate, useParams } from "react-router";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router";
 import {
   AdapterDateFns,
   Alert,
@@ -115,6 +115,8 @@ interface Refusal {
 export default function QuoteWizardPage(): JSX.Element {
   const params = useParams();
   const navigate = useNavigate();
+  // Just cloned (D108): "Q-26-00123 v2", set by the quote page.
+  const clonedFrom = (useLocation().state as { clonedFrom?: string } | null)?.clonedFrom ?? null;
   const quoteId = params.quoteId ? Number(params.quoteId) : null;
   const versionNumber = params.version ? Number(params.version) : null;
   const isNew = quoteId === null;
@@ -147,7 +149,7 @@ export default function QuoteWizardPage(): JSX.Element {
   if (!opened && (isNew || loaded.data)) {
     setOpened(true);
     setStepChoice(
-      !loaded.data
+      !loaded.data || clonedFrom
         ? 0
         : loaded.data.version.status !== "DRAFT"
           ? REVIEW_STEP
@@ -491,6 +493,11 @@ export default function QuoteWizardPage(): JSX.Element {
               }
             />
 
+            {version?.status === "DRAFT" && clonedFrom ? (
+              <Alert severity="info" variant="outlined">
+                Cloned from {clonedFrom}, with its prices. Choose whether this quote is the primary one, then check the rest.
+              </Alert>
+            ) : null}
             {version?.status === "DRAFT" && version.copiedFromVersion ? (
               <Alert severity="info" variant="outlined">
                 Copied from version {version.copiedFromVersion}. Prices stay as they were in v

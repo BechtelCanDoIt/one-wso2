@@ -39,6 +39,7 @@ const failingVersions = new Set<number>();
 const mutation = () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null as Error | null });
 const recall = mutation();
 const revise = mutation();
+const clone = mutation();
 const close = mutation();
 const del = mutation();
 
@@ -54,8 +55,11 @@ vi.mock("@features/sales/cado2/approvals/api/useApprovalApi", () => ({
   useDecideStep: () => decide,
 }));
 
-const me = { data: { sub: "s", email: "approver@wso2.com", roles: [], approverRoles: ["DEAL_DESK"] as string[] } };
-vi.mock("@features/sales/cado2/api/useCado2Me", () => ({ useCado2Me: () => me }));
+const me = { data: { sub: "s", email: "approver@wso2.com", roles: [] as string[], approverRoles: ["DEAL_DESK"] as string[] } };
+vi.mock("@features/sales/cado2/api/useCado2Me", async (actual) => ({
+  ...(await actual<typeof import("@features/sales/cado2/api/useCado2Me")>()),
+  useCado2Me: () => me,
+}));
 
 const documents = query(undefined as unknown);
 const issue = { ...mutation(), mutateAsync: vi.fn() };
@@ -69,6 +73,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useAuditEvents: () => history,
   useRecallVersion: () => recall,
   useReviseQuote: () => revise,
+  useCloneQuote: () => clone,
   useCloseQuote: () => close,
   useSetPrimary: () => setPrimary,
   useOpportunityQuotes: () => opportunityQuotes,
@@ -122,6 +127,8 @@ beforeEach(() => {
   Object.assign(decide, mutation());
   workflow.data = null;
   me.data.approverRoles = ["DEAL_DESK"];
+  me.data.roles = [];
+  Object.assign(clone, mutation());
   Object.assign(recall, mutation());
   Object.assign(revise, mutation());
   Object.assign(close, mutation());
@@ -228,6 +235,30 @@ describe("QuoteDetailPage — lifecycle", () => {
 
     expect(revise.mutate).toHaveBeenCalledWith({ quoteId: 5 }, expect.anything());
     expect(await screen.findByText("wizard")).toBeInTheDocument();
+  });
+
+  // D108: any AM clones the version shown into a new quote on the same opportunity.
+  it("clones the version into a new draft quote", async () => {
+    me.data.roles = ["SALES"];
+    clone.mutate.mockImplementation((_vars, opts) => opts.onSuccess({ ...ready, quote: { ...ready.quote, id: 9 } }));
+    show(submitted.quote, submitted);
+    const user = userEvent.setup();
+
+    await openMenu(user);
+    expect(menuItems()).toEqual(["Recall", "Make primary", "Clone quote"]);
+    await user.click(screen.getByRole("menuitem", { name: "Clone quote" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Clone Q-26-00005 v1?" }));
+    expect(dialog.getByText(/same account and opportunity/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Clone" }));
+
+    expect(clone.mutate).toHaveBeenCalledWith({ quoteId: 5, version: 1 }, expect.anything());
+    expect(await screen.findByText("wizard")).toBeInTheDocument();
+  });
+
+  it("offers no Clone without the AM role", async () => {
+    show(submitted.quote, submitted);
+    await openMenu(userEvent.setup());
+    expect(menuItems()).not.toContain("Clone quote");
   });
 
   it("needs a reason to close, and warns that it is permanent", async () => {
