@@ -27,8 +27,13 @@ import {
 } from "@wso2/oxygen-ui";
 import { DownloadIcon, EyeIcon, FileTextIcon, SendIcon } from "@wso2/oxygen-ui-icons-react";
 import type { DocumentView } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { useDocumentFiles, useDocuments, useIssueOrderForm } from "@features/sales/cado2/quotes/api/useQuoteApi";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import {
+  useAttachOrderForm,
+  useDocumentFiles,
+  useDocuments,
+  useIssueOrderForm,
+} from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { formatDate, formatDateTime } from "@features/sales/cado2/quotes/form/draftForm";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
@@ -49,6 +54,9 @@ function saveBlob(blob: Blob, name: string): void {
  *   approved ──[Preview PDF]── watermarked, never stored (DGD-3)
  *            └─[Issue order form]── stored; issue date today, expiry +30
  *   issued   ──[Download]── the same file every time
+ *
+ * The primary quote's order form also goes to its Salesforce opportunity
+ * (D111); the panel says whether it's there, with a retry when it failed.
  */
 export default function DocumentsPanel({
   quoteId,
@@ -62,6 +70,7 @@ export default function DocumentsPanel({
 }): JSX.Element | null {
   const docs = useDocuments(quoteId, version, approved);
   const issue = useIssueOrderForm();
+  const attach = useAttachOrderForm();
   const notify = useCado2Toast();
   const files = useDocumentFiles();
   const [confirming, setConfirming] = useState(false);
@@ -112,6 +121,16 @@ export default function DocumentsPanel({
     }
   };
 
+  const retryAttach = async (doc: DocumentView) => {
+    setError(null);
+    try {
+      await attach.mutateAsync({ quoteId, documentId: doc.id });
+      notify("Order form attached to Salesforce");
+    } catch (e) {
+      setError({ what: "Couldn't attach the order form to Salesforce.", cause: e });
+    }
+  };
+
   const confirmIssue = async () => {
     setError(null);
     try {
@@ -141,6 +160,11 @@ export default function DocumentsPanel({
             <Typography variant="caption" color="text.secondary" component="div">
               {active.fileName}
             </Typography>
+            <SalesforceLine
+              doc={active}
+              retrying={attach.isPending}
+              onRetry={() => void retryAttach(active)}
+            />
           </Box>
           <Button
             variant="contained"
@@ -195,4 +219,38 @@ export default function DocumentsPanel({
       </Dialog>
     </SectionCard>
   );
+}
+
+/** Where the order form stands in Salesforce (D111); nothing when it isn't for Salesforce. */
+function SalesforceLine({ doc, retrying, onRetry }: { doc: DocumentView; retrying: boolean; onRetry: () => void }): JSX.Element | null {
+  const at = doc.salesforceAt ? formatDateTime(doc.salesforceAt) : "";
+  switch (doc.salesforceStatus) {
+    case "ATTACHED":
+      return (
+        <Typography variant="caption" color="text.secondary" component="div">
+          Attached to Salesforce · {at}
+        </Typography>
+      );
+    case "REMOVED":
+      return (
+        <Typography variant="caption" color="text.secondary" component="div">
+          Removed from Salesforce · {at}: another quote&apos;s order form replaced it
+        </Typography>
+      );
+    case "NOT_ATTACHED":
+      return (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <Typography variant="caption" color="warning.main">
+            Not attached to Salesforce
+          </Typography>
+          {doc.canAttach ? (
+            <Button size="small" onClick={onRetry} disabled={retrying}>
+              {retrying ? "Attaching…" : "Retry"}
+            </Button>
+          ) : null}
+        </Stack>
+      );
+    default:
+      return null;
+  }
 }
