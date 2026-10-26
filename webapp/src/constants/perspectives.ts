@@ -808,6 +808,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       ...(isPreviewEnabled("umt") ? [UMT_SECTION] : []),
     ],
   },
+
   // Held behind a preview flag, whole perspective and all, until it's ready
   // for production. With the flag off the entry does not exist, so the waffle,
   // landing options, and favourites stay clean.
@@ -820,10 +821,12 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
         access: true,
         path: "/infra",
         externallyGated: true,
+        forwardsToFirstItem: true,
         sections: appsToSections(INFRA_APPS),
       },
     ]
   : []),
+
   // Marketing Ops — UNLOCKED. Ported so far: Utilities (UTM + Asset Name
   // generators and their Marketing Admin panels) and Ad Campaigns → Analytics.
   // Still in Marketing Ops itself: Email Workbench, Events, CRM Upload — those
