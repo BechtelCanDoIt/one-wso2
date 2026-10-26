@@ -731,3 +731,18 @@ describe("alignPreview", () => {
     expect(q?.lines.map((l) => l?.tcv)).toEqual(["tcv-A", undefined]);
   });
 });
+
+// A quote always has Year 1 (2026-10-26).
+describe("Year 1 always there", () => {
+  it("opens a draft saved without years with Year 1", () => {
+    const res = { quote: { id: 1, sfAccountId: "001A", sfOpportunityId: "006A" },
+      version: { yearCount: null, specialTerms: { enabled: false, text: null }, contacts: [], addresses: [], previousOpportunities: [], lines: [] },
+      issues: [] } as unknown as DraftResponse;
+    expect(fromVersion(res).yearCount).toBe(1);
+  });
+
+  it("won't delete the only year", () => {
+    const v = { yearCount: 1, lastYearEndDate: "2027-06-30", lines: [] };
+    expect(deleteYear(v, 1)).toEqual({ yearCount: 1, lastYearEndDate: "2027-06-30", lines: [] });
+  });
+});

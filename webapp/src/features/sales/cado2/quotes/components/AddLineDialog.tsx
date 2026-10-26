@@ -570,9 +570,12 @@ export default function AddLineDialog({
               </Stack>
             ) : chosen ? (
               <>
-                <Alert severity="warning">
-                  No category is set up for this product. Choose one; Deal Desk will check it.
-                </Alert>
+                {/* Until the AM chooses; then only a quiet note under the field. */}
+                {category ? null : (
+                  <Alert severity="warning">
+                    No category is set up for this product. Choose one; Deal Desk will check it.
+                  </Alert>
+                )}
                 <TextField
                   select
                   label="Category"
@@ -581,7 +584,7 @@ export default function AddLineDialog({
                   size="small"
                   required
                   error={Boolean(show("category"))}
-                  helperText={show("category")}
+                  helperText={show("category") ?? (category ? "Deal Desk will check it" : undefined)}
                 >
                   {CATEGORIES.map((c) => (
                     <MenuItem key={c.value} value={c.value}>

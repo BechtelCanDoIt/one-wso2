@@ -180,6 +180,9 @@ describe("AddLineDialog", () => {
     expect(screen.getByText("Choose the category")).toBeInTheDocument();
     await user.click(screen.getByRole("combobox", { name: /Category/ }));
     await user.click(screen.getByRole("option", { name: "Subscription" }));
+    // Chosen: the warning goes; a quiet note stays under the field.
+    expect(screen.queryByText(/No category is set up for this product/)).toBeNull();
+    expect(screen.getByText("Deal Desk will check it")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Add line" }));
     // Product_Unit__c is the product family, so it no longer pre-fills the unit (2026-09-26).

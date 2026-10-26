@@ -296,7 +296,7 @@ describe("QuoteWizardPage — review and submit", () => {
     renderWizard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
     expect(
-      screen.getByText(/Add products from the USD Price Book \(Current\) price book, or clone an earlier year/),
+      screen.getByText("No products yet. Add them from USD Price Book (Current)."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/price books/)).toBeNull();
   });

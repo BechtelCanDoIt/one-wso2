@@ -114,13 +114,69 @@ describe("ProductsStep (Products & Pricing)", () => {
 
   // Currency and price book first, then the term right above the products it
   // lays out (2026-10-23); billing and payment terms are on Commercials (D86).
+  // An empty quote (2026-10-26): one way to add a product, no year to add,
+  // no clone or delete, and no totals of nothing.
+  it("starts an empty quote with one Add product and nothing else", () => {
+    render(<Harness values={{ lines: [] }} />);
+    expect(screen.getByText(/^No products yet/)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add product to Year 1" })).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: /^Clone/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete Year 1" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add Year 2/ })).toBeNull();
+    expect(screen.queryByText(/Total order value/)).toBeNull();
+  });
+
+  // A new year (added or cloned) only once every year has products, so empty
+  // years don't pile up; an empty year can still be deleted.
+  it("adds or clones a year only once every year has products, and deletes an empty one", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={{ lines: [{ ...line("WSO2 Gateway", "SUBSCRIPTION"), recurring: true }] }} />);
+    await user.click(screen.getByRole("button", { name: "Add Year 2" }));
+    expect(screen.getByRole("button", { name: "Add Year 3" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Clone/ })).toBeDisabled();
+    const year2 = within(screen.getByRole("region", { name: "Year 2" }));
+    expect(year2.getByText(/^No products yet/)).toBeInTheDocument();
+    expect(year2.queryByRole("button", { name: /^Clone/ })).toBeNull();
+
+    await user.click(year2.getByRole("button", { name: "Delete Year 2" }));
+    expect(screen.queryByRole("region", { name: "Year 2" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Add Year 2" })).toBeEnabled();
+  });
+
+  // A quote always has Year 1: the only year can't be deleted, empty or not.
+  it("never deletes the only year", () => {
+    const { unmount } = render(<Harness values={{ lines: [] }} />);
+    expect(screen.queryByRole("button", { name: "Delete Year 1" })).toBeNull();
+    unmount();
+    render(<Harness />);
+    expect(screen.getByRole("region", { name: "Year 1" })).toHaveTextContent("2 products");
+    expect(screen.queryByRole("button", { name: "Delete Year 1" })).toBeNull();
+  });
+
+  // The last year's end date is clickable: a calendar brings it forward, and
+  // "Full year" puts it back. Earlier years' dates are plain text.
+  it("shortens the last year from its end date in the header", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={{ yearCount: 1 }} />);
+    await user.click(screen.getByRole("button", { name: /^Year 1 ends 31 Dec 2027\. Shorten Year 1/ }));
+    const calendar = within(screen.getByLabelText("When Year 1 ends"));
+    expect(calendar.queryByRole("button", { name: "Full year" })).toBeNull();
+    await user.click(calendar.getByRole("gridcell", { name: "15" }));
+    expect(screen.getByRole("button", { name: /^Year 1 ends 15 Dec 2027\. Change when Year 1 ends/ })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Year 1" })).toHaveTextContent("11 months");
+
+    await user.click(screen.getByRole("button", { name: /^Year 1 ends 15 Dec 2027\. Change when Year 1 ends/ }));
+    await user.click(within(screen.getByLabelText("When Year 1 ends")).getByRole("button", { name: "Full year" }));
+    expect(screen.getByRole("button", { name: /^Year 1 ends 31 Dec 2027\. Shorten Year 1/ })).toBeInTheDocument();
+  });
+
   // The year's actions sit beside its toggle, not inside
   // a button, so screen readers announce them.
   it("keeps a year's actions outside its fold toggle", () => {
     render(<Harness />);
     const toggle = screen.getByRole("button", { name: /^Year 1, (fold|unfold)$/ });
-    const remove = screen.getByRole("button", { name: "Delete Year 1" });
-    expect(toggle.contains(remove)).toBe(false);
+    const clone = screen.getByRole("button", { name: /^Clone/ });
+    expect(toggle.contains(clone)).toBe(false);
   });
 
   it("puts the term right above the products", () => {
