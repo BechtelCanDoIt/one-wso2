@@ -410,13 +410,57 @@ function forecastQuarterRanges(today: MisCivilDate, cumulative: boolean): MisDat
   return columns;
 }
 
-function forecastQuartersWhenEnabled(
+/**
+ * How many months a forecast lays out, counting the one still open.
+ *
+ * `generateMonths` walks twenty-four steps from the current month when the
+ * forecast flag is on (`tableUtils.js:204-210`).
+ */
+const FORECAST_MONTH_COUNT = 24;
+
+/**
+ * The Monthly columns under a Forecasted or Renewal type.
+ *
+ * The same rule as `forecastQuarterRanges`, one period down: twenty-four
+ * months from the one still open, each closing on its last day. Closing the
+ * open month on today asks for the partial figure.
+ */
+function forecastMonthRanges(today: MisCivilDate, cumulative: boolean): MisDateRange[] {
+  const columns: MisDateRange[] = [];
+  let year = today.year;
+  let month = today.month;
+  for (let step = 0; step < FORECAST_MONTH_COUNT; step++) {
+    columns.push(
+      periodColumn(
+        monthOpening(year, month, cumulative),
+        endOfMonth(year, month),
+        `${year} ${MONTH_FULL_NAMES[month - 1]}`,
+        today,
+        false,
+      ),
+    );
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return columns;
+}
+
+function forecastPeriodsWhenEnabled(
   period: MisPeriod,
-  filters: ForecastRangeFilters & { cumulativeQuarterly?: boolean },
+  filters: ForecastRangeFilters & { cumulativeQuarterly?: boolean; cumulativeMonthly?: boolean },
   today: MisCivilDate,
 ): MisDateRange[] | undefined {
-  if (period !== MIS_PERIODS.QUARTERLY || filters.forecast !== FORECAST_STATES.ENABLE) return undefined;
-  return forecastQuarterRanges(today, filters.cumulativeQuarterly === true);
+  if (filters.forecast !== FORECAST_STATES.ENABLE) return undefined;
+  if (period === MIS_PERIODS.QUARTERLY) {
+    return forecastQuarterRanges(today, filters.cumulativeQuarterly === true);
+  }
+  if (period === MIS_PERIODS.MONTHLY) {
+    return forecastMonthRanges(today, filters.cumulativeMonthly === true);
+  }
+  return undefined;
 }
 
 /**
@@ -557,13 +601,16 @@ export const pacificColumnRanges: ColumnRangesFor = (period, viewWindow, filters
 export function buildColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
-  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "cumulativeQuarterly"> &
+  filters: Pick<
+    MisAppliedFilters,
+    "columnDateRanges" | "yearsBack" | "cumulativeQuarterly" | "cumulativeMonthly"
+  > &
     ForecastRangeFilters,
   asOf?: MisCivilDate,
 ): readonly MisDateRange[] {
   const today = asOf ?? pacificCivilDate();
-  const forecastQuarters = forecastQuartersWhenEnabled(period, filters, today);
-  if (forecastQuarters) return forecastQuarters;
+  const forecastPeriods = forecastPeriodsWhenEnabled(period, filters, today);
+  if (forecastPeriods) return forecastPeriods;
   if (drawsForecastColumns(period, viewWindow, filters)) {
     return forecastBuildRanges(filters, today);
   }
@@ -577,12 +624,15 @@ export function buildColumnRanges(
 export function summaryColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
-  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "cumulativeQuarterly"> &
+  filters: Pick<
+    MisAppliedFilters,
+    "columnDateRanges" | "yearsBack" | "cumulativeQuarterly" | "cumulativeMonthly"
+  > &
     ForecastRangeFilters,
   asOf?: MisCivilDate,
 ): readonly MisDateRange[] {
-  const forecastQuarters = forecastQuartersWhenEnabled(period, filters, asOf ?? pacificCivilDate());
-  if (forecastQuarters) return forecastQuarters;
+  const forecastPeriods = forecastPeriodsWhenEnabled(period, filters, asOf ?? pacificCivilDate());
+  if (forecastPeriods) return forecastPeriods;
   if (drawsForecastColumns(period, viewWindow, filters)) {
     return getAnnualPeriods({
       isYtd: filters.isYtd ?? false,
@@ -619,9 +669,8 @@ type ForecastRangeFilters = Partial<Pick<MisAppliedFilters, "forecast" | "isYtd"
 /**
  * Whether an Annually Calendar table lays its columns out as forecast ranges.
  *
- * Quarterly has its own forecast layout, `forecastQuarterRanges`. Monthly keeps
- * its historical generator. A TTM Window keeps its trailing ranges before any
- * annual forecast layout applies.
+ * Quarterly and Monthly have their own forecast layouts. A TTM Window keeps
+ * its trailing ranges before any annual forecast layout applies.
  */
 const drawsForecastColumns = (
   period: MisPeriod,
