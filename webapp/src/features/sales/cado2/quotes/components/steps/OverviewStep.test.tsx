@@ -55,21 +55,6 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   MIN_ACCOUNT_SEARCH: 3,
   useAccountSearch: () => lookup(searchResults),
   useOpportunityQuotes: () => lookup([]),
-  // D72: the chosen opportunity's products, priced from its book.
-  useOpportunityProducts: (_account: string | null, opportunity: string | null) =>
-    lookup(
-      opportunity
-        ? {
-            currencyIsoCode: "USD",
-            pricebook: { id: "01sUSD", name: "USD Price Book (Current)" },
-            products: [
-              { id: "01tGW", name: "WSO2 Gateway", category: "SUBSCRIPTION", recurring: true,
-                pricebookEntries: [{ id: "01uGW", unitPrice: "360", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01sUSD", name: "USD Price Book (Current)" } }] },
-            ],
-            notBroughtIn: [{ productName: "WSO2 Legacy", reason: "not active in USD Price Book (Current) in USD" }],
-          }
-        : undefined,
-    ),
   useAccountOpportunities: (id: string | null, status = "open") => {
     if (id) asked.push(status);
     if (salesforceDown.on) return { ...lookup(undefined), error: new Error("down"), refetch: () => undefined };
@@ -94,18 +79,23 @@ function Start() {
   return <p>start: {start || "none"}</p>;
 }
 
-/** The term the form holds. */
+/** The contract years the form holds. */
 function Term() {
-  const [mode, years, end] = useWatch<DraftFormValues, ["termMode", "termYears", "termEndDate"]>({
-    name: ["termMode", "termYears", "termEndDate"],
+  const [count, lastEnd] = useWatch<DraftFormValues, ["yearCount", "lastYearEndDate"]>({
+    name: ["yearCount", "lastYearEndDate"],
   });
-  return <p>term: {`${mode} ${years} ${end || "no end"}`}</p>;
+  return <p>years: {`${count} ${lastEnd || "full"}`}</p>;
 }
 
 /** The lines the form holds. */
 function Lines() {
   const lines = useWatch<DraftFormValues, "lines">({ name: "lines" });
   return <p>lines: {lines.map((l) => `${l.productName} ×${l.quantity}`).join(", ") || "none"}</p>;
+}
+
+function Previous() {
+  const ids = useWatch<DraftFormValues, "previousOpportunityIds">({ name: "previousOpportunityIds" });
+  return <p>previous: {ids.join(", ") || "none"}</p>;
 }
 
 function Harness({ values, locked = false }: { values: Partial<DraftFormValues>; locked?: boolean }) {
@@ -118,6 +108,7 @@ function Harness({ values, locked = false }: { values: Partial<DraftFormValues>;
         <Start />
         <Term />
         <Lines />
+        <Previous />
       </FormProvider>
     </DatePickers.LocalizationProvider>
   );
@@ -241,17 +232,40 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     expect(screen.getByText("pricing: USD · USD Price Book (Current)")).toBeInTheDocument();
   });
 
-  // D72: only the products, 1 unit each; what the book doesn't price is kept to say so.
-  it("brings in the chosen opportunity's products on a new quote", async () => {
+  // D110: the tool is the source of truth for the opportunity's products, so
+  // a new quote starts with none from Salesforce.
+  it("brings in no products from the chosen opportunity", async () => {
     render(<Harness values={account} />);
     const user = userEvent.setup();
     await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
-    expect(screen.getByText("lines: WSO2 Gateway ×1")).toBeInTheDocument();
+    expect(screen.getByText("lines: none")).toBeInTheDocument();
   });
 
-  it("brings in nothing on a saved draft: its opportunity is fixed", () => {
-    render(<Harness values={deal} locked />);
+  it("drops the lines when another opportunity is chosen before the first save", async () => {
+    const gateway = { productName: "WSO2 Gateway", quantity: "2" } as DraftFormValues["lines"][number];
+    render(<Harness values={{ ...account, opportunityId: "006OLD", lines: [gateway] }} />);
+    expect(screen.getByText("lines: WSO2 Gateway ×2")).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Change opportunity" }, { timeout: 3000 }));
+    await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
     expect(screen.getByText("lines: none")).toBeInTheDocument();
+  });
+
+  // What one renewal renews isn't what another does: changing the
+  // opportunity clears the previous opportunities, for the AM to choose again.
+  it("clears the previous opportunities when another opportunity is chosen", async () => {
+    render(<Harness values={{ ...account, opportunityId: "006OLD", isRenewal: true, previousOpportunityIds: ["006W"] }} />);
+    expect(screen.getByText("previous: 006W")).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Change opportunity" }, { timeout: 3000 }));
+    await user.click(await screen.findByRole("option", { name: "API Platform 2027" }, { timeout: 3000 }));
+    expect(screen.getByText("previous: none")).toBeInTheDocument();
+  });
+
+  it("keeps a saved draft's lines: its opportunity is fixed", () => {
+    const gateway = { productName: "WSO2 Gateway", quantity: "2" } as DraftFormValues["lines"][number];
+    render(<Harness values={{ ...deal, lines: [gateway] }} locked />);
+    expect(screen.getByText("lines: WSO2 Gateway ×2")).toBeInTheDocument();
   });
 
   it("leaves the currency empty when the opportunity's isn't offered in CadO2", async () => {
@@ -266,12 +280,13 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     }
   });
 
-  // D85: the term starts from the opportunity's own subscription dates.
+  // The start comes from the opportunity; its end doesn't
+  // split anything: the quote keeps Year 1 and the AM adds the rest.
   it.each([
-    ["whole years", { subsStartDate: "2027-02-01", subsEndDate: "2030-01-31" }, "start: 2027-02-01", "term: YEARS 3 no end"],
-    ["a year and a day", { subsStartDate: "2027-02-01", subsEndDate: "2028-02-01" }, "start: 2027-02-01", "term: END_DATE 1 2028-02-01"],
-    ["no dates", {}, "start: none", "term: YEARS 1 no end"],
-  ])("pre-fills the term from the chosen opportunity: %s", async (_, dates, start, term) => {
+    ["3 years in Salesforce", { subsStartDate: "2027-02-01", subsEndDate: "2030-01-31" }, "start: 2027-02-01", "years: 1 full"],
+    ["a year and a day", { subsStartDate: "2027-02-01", subsEndDate: "2028-02-01" }, "start: 2027-02-01", "years: 1 full"],
+    ["no dates", {}, "start: none", "years: 1 full"],
+  ])("takes the contract start from the chosen opportunity: %s", async (_, dates, start, term) => {
     oppDates = dates;
     try {
       render(<Harness values={account} />);
@@ -295,13 +310,13 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     }
   });
 
-  it("reads the opportunity's end against a start from the renewed one (D85)", async () => {
+  it("starts a renewal the day after the renewed one ends, without splitting years (D85)", async () => {
     oppDates = { subsEndDate: "2028-02-01" };
     try {
       render(<Harness values={deal} locked />);
       await userEvent.click(await screen.findByRole("option", { name: "APIM Subs 2026" }));
       expect(screen.getByText("start: 2027-02-01")).toBeInTheDocument();
-      expect(screen.getByText("term: END_DATE 1 2028-02-01")).toBeInTheDocument(); // 1 Feb 2027 → 1 Feb 2028: a year and a day
+      expect(screen.getByText("years: 1 full")).toBeInTheDocument();
     } finally {
       oppDates = {};
     }
