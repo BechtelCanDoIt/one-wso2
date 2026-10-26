@@ -16,16 +16,17 @@
 
 import type { UmtUpdateFilters } from "../api/umtUpdates";
 
-// The Updates list keeps its filters and its page across a trip to an update
-// and back, whether by the browser's Back or the update page's back arrow, and
-// nowhere else. Two halves make that up:
+// The Updates list keeps its filters and its page whenever the browser goes
+// Back to it, from any page, and when the update page's back arrow returns to
+// it. Any other arrival (the rail, a link, a page refresh) starts clean. Two
+// halves make that up:
 //
 // - The view itself lives here, in memory, so a page refresh drops it. History
 //   state would survive the refresh, which is the one case that must start
 //   clean.
-// - The way back carries a marker in its location state: the list's own
-//   history entry is stamped with it, and links to an update hand it to the
-//   back arrow. A visit without it (the rail, another page) starts clean.
+// - The way back carries a marker in its location state: the list stamps its
+//   own history entry with it on arrival, so any Back to that entry counts as
+//   a return, and links to an update hand it to the back arrow.
 export interface UmtUpdatesView {
   filters: UmtUpdateFilters;
   page: number;

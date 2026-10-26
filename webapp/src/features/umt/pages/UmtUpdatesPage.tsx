@@ -9,13 +9,12 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
   useState,
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import {
   Badge,
   Box,
@@ -62,12 +61,8 @@ import { umtLifecycleState } from "../lib/umtLifecycleState";
 import { writePersistedSelectedTab } from "../lib/umtLocalState";
 import { umtPaths } from "../lib/umtPaths";
 import type { UmtBackLinkState } from "../lib/umtBackLink";
-import {
-  UMT_UPDATES_RETURN_STATE,
-  isUmtUpdatesReturn,
-  readRememberedUmtUpdatesView,
-  rememberUmtUpdatesView,
-} from "../lib/umtUpdatesFilterMemory";
+import { UMT_UPDATES_RETURN_STATE } from "../lib/umtUpdatesFilterMemory";
+import { useUmtUpdatesView } from "../lib/useUmtUpdatesView";
 import UmtCreateUpdateDialog from "../components/UmtCreateUpdateDialog";
 import UmtShell from "../components/UmtShell";
 import UmtUpdateFiltersDrawer from "../components/UmtUpdateFiltersDrawer";
@@ -180,40 +175,7 @@ export default function UmtUpdatesPage() {
 
 function UmtUpdatesBody() {
   const navigate = useNavigate();
-  const location = useLocation();
-  // Filters and page come back only on a return from an update (see
-  // umtUpdatesFilterMemory); any other visit starts clean.
-  const [restored] = useState(() =>
-    isUmtUpdatesReturn(location.state) ? readRememberedUmtUpdatesView() : null,
-  );
-  const [page, setPage] = useState(restored?.page ?? 0);
-  const [pageSize, setPageSize] = useState(restored?.pageSize ?? PAGE_SIZE_OPTIONS[0]);
-  const [filters, setFilters] = useState<UmtUpdateFilters>(restored?.filters ?? EMPTY_UMT_UPDATE_FILTERS);
-
-  // Choosing Updates in the rail while already here is a new visit to the same
-  // route, so this stays mounted and the initial values above don't apply
-  // again. A new history entry without the return marker resets them instead.
-  const [seenLocationKey, setSeenLocationKey] = useState(location.key);
-  if (location.key !== seenLocationKey) {
-    setSeenLocationKey(location.key);
-    if (!isUmtUpdatesReturn(location.state)) {
-      setFilters(EMPTY_UMT_UPDATE_FILTERS);
-      setPage(0);
-      setPageSize(PAGE_SIZE_OPTIONS[0]);
-    }
-  }
-
-  // Always what's on screen, so a fresh visit's clean view also replaces an
-  // earlier visit's, and a later return can't bring that one back.
-  useEffect(() => {
-    rememberUmtUpdatesView({ filters, page, pageSize });
-  }, [filters, page, pageSize]);
-
-  useEffect(() => {
-    if (isUmtUpdatesReturn(location.state)) return;
-    // Stamped so the browser's Back to this entry counts as a return.
-    void navigate(location, { replace: true, state: UMT_UPDATES_RETURN_STATE });
-  }, [location, navigate]);
+  const { filters, setFilters, page, setPage, pageSize, setPageSize } = useUmtUpdatesView(PAGE_SIZE_OPTIONS[0]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
@@ -228,6 +190,9 @@ function UmtUpdatesBody() {
   const search = useUmtUpdates(request);
   const rows = search.data?.updates ?? [];
   const totalPages = search.data?.totalPages ?? 0;
+  // A restored page can be past the end if the list shrank while the user was
+  // away, which would show an empty grid; move it to the last page instead.
+  if (totalPages > 0 && page >= totalPages) setPage(totalPages - 1);
   const activeFilters = activeUmtFilterCount(filters);
   const displayedColumns = useMemo(
     () => COLUMNS.filter((column) => visibleColumns.includes(column.key)),

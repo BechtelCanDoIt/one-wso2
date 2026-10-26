@@ -116,8 +116,9 @@ export interface PerspectiveSection {
   // QueryClient, so it can read what a hook has already fetched. Mutually
   // exclusive with `path`.
   onSelect?: (context: { queryClient: QueryClient }) => void;
-  // Marks an `onSelect` row whose action opens another site, so the rail can
-  // say so the way it does for an `externalUrl` row.
+  // Marks an `onSelect` row whose action opens another site. The rail shows it
+  // with the arrow the launcher puts on tiles that leave One WSO2. Only read on
+  // a group's children: a top-level row, or a `path` row, ignores it.
   opensInNewTab?: boolean;
 }
 
