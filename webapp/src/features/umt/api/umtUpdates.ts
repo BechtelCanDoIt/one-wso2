@@ -327,6 +327,10 @@ export interface UmtBranchCreationRequest {
   productVersion?: string;
   jiraId?: string;
   wso2CaseId?: string;
+  // A component branch of a repository that holds many components is cut
+  // from the directory of one of them.
+  isMonoRepo?: boolean;
+  componentDirPath?: string;
 }
 
 export interface UmtComponentMaxVersionRequest {
