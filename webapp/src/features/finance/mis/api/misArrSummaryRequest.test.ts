@@ -95,10 +95,8 @@ describe("the column a request is compared against", () => {
   });
 
   it("asks a forecast for the quarter's last day, not for today", () => {
-    // The standalone Build parses a forecast header `2026 Q3` back to 30
-    // September (`parseAsOfLabelToEndDate`) and opens that column on 30 June
-    // (`computePrevDateFor`). Closing it on the as-of date asks for the partial
-    // figure, so the quarter-end forecast never loads.
+    // A forecast for `2026 Q3` ends on 30 September and opens on 30 June.
+    // Ending on the as-of date would request the partial figure instead.
     const asOf = { year: 2026, month: 9, day: 12 };
     const ranges = buildColumnRanges(
       MIS_PERIODS.QUARTERLY,

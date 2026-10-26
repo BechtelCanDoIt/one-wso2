@@ -368,24 +368,16 @@ export function getQuarterlyPeriods({
   return columns;
 }
 
-/**
- * How many quarters a forecast lays out, counting the one still open.
- *
- * `generateQuarters` walks eight steps from the current quarter when the
- * forecast flag is on (`tableUtils.js:263-274`).
- */
+/** How many quarters a forecast lays out, counting the one still open. */
 const FORECAST_QUARTER_COUNT = 8;
 
 /**
  * The Quarterly columns under a Forecasted or Renewal type.
  *
- * Eight quarters from the one still open, and every one of them closes on its
- * last day — including the open one. The historical generator closes that
- * quarter on today, which asks for the partial figure, so the quarter-end
- * forecast never loads and the header reads today's date. A forecast is the
- * figure for the quarter that has not finished, so the column is named for
- * the quarter and closed on its end. Same end dates as
- * `useCustomerAccounts.js:171-184`.
+ * Eight quarters from the one still open. Every column, including the open
+ * one, is named for its quarter and closes on the quarter's last day.
+ * Closing the open quarter on today asks for the partial figure, so the
+ * quarter-end forecast never loads.
  */
 function forecastQuarterRanges(today: MisCivilDate, cumulative: boolean): MisDateRange[] {
   const columns: MisDateRange[] = [];
@@ -410,12 +402,7 @@ function forecastQuarterRanges(today: MisCivilDate, cumulative: boolean): MisDat
   return columns;
 }
 
-/**
- * How many months a forecast lays out, counting the one still open.
- *
- * `generateMonths` walks twenty-four steps from the current month when the
- * forecast flag is on (`tableUtils.js:204-210`).
- */
+/** How many months a forecast lays out, counting the one still open. */
 const FORECAST_MONTH_COUNT = 24;
 
 /**

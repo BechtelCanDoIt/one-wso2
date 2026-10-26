@@ -695,12 +695,9 @@ describe("the Subscription Build's columns under a forecast type", () => {
 
 });
 
-// A Forecasted or Renewal QRR does not keep the historical quarters. The
-// standalone Build asks for eight quarters from the one still open, and every
-// one of them — including the open one — closes on the quarter's last day
-// (`generateQuarters` with the forecast flag, `useCustomerAccounts.js:171`).
-// Closing the open quarter on today asks for the partial figure, so the
-// quarter-end forecast never loads and the header reads today's date.
+// A Forecasted or Renewal QRR lays out eight quarters from the one still open.
+// Every column, including the open one, closes on the quarter's last day, so
+// the quarter-end forecast loads and the header names the quarter.
 describe("quarterly columns under a forecast type", () => {
   const forecasting = (extra: Record<string, unknown> = {}) =>
     ({
@@ -757,10 +754,8 @@ describe("quarterly columns under a forecast type", () => {
   });
 });
 
-// A Forecasted or Renewal MRR is the same layout one period down. The
-// standalone Build asks for twenty-four months from the one still open, and
-// every one of them closes on the month's last day (`generateMonths` with the
-// forecast flag, `useCustomerAccounts.js:223`).
+// A Forecasted or Renewal MRR uses the same layout one period down: 24 months
+// from the one still open, each closing on the month's last day.
 describe("monthly columns under a forecast type", () => {
   const forecasting = (extra: Record<string, unknown> = {}) =>
     ({
