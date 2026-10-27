@@ -672,7 +672,7 @@ export default function AddLineDialog({
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={save} disabled={(!line && Boolean(product) && bundle.isFetching) || bundleFailed}>
-          {line ? "Save line" : bundled.length ? `Add ${bundled.length + 1} lines` : "Add line"}
+          {line ? "Save product" : bundled.length ? `Add ${bundled.length + 1} products` : "Add product"}
         </Button>
       </DialogActions>
     </Dialog>

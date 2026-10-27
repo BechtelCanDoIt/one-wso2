@@ -210,7 +210,7 @@ describe("ProductsStep (Products & Pricing)", () => {
     expect(dialog).toHaveTextContent("No category is set up for this product");
     await user.click(within(dialog).getByRole("combobox", { name: "Category" }));
     await user.click(screen.getByRole("option", { name: "Support" }));
-    await user.click(within(dialog).getByRole("button", { name: "Save line" }));
+    await user.click(within(dialog).getByRole("button", { name: "Save product" }));
 
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
     expect(within(table).queryByText("Uncategorised")).toBeNull(); // gone once empty
