@@ -14,12 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import {
   Box,
   Card,
   Chip,
   InputAdornment,
+  Link,
   Skeleton,
   Table,
   TableBody,
@@ -52,11 +53,12 @@ export default function ParAdminHistoryTab() {
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
   const [searchText, setSearchText] = useState("");
   // The row last opened, so coming back from a cycle scrolls the list back
-  // to it instead of leaving the admin at the top of a long list.
+  // to it instead of leaving the admin at the top of a long list. A layout
+  // effect, so the scroll lands before paint rather than visibly jumping.
   const [lastOpenedKey, setLastOpenedKey] = useState<string | undefined>(undefined);
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (selection.kind === "none" && lastOpenedKey) {
       rowRefs.current.get(lastOpenedKey)?.scrollIntoView({ block: "center" });
     }
@@ -154,20 +156,26 @@ export default function ParAdminHistoryTab() {
                   }}
                   hover
                   selected={row.key === lastOpenedKey}
-                  tabIndex={0}
-                  role="button"
-                  aria-label={`Open ${row.cycleName}`}
                   sx={{ cursor: "pointer" }}
                   onClick={() => handleOpen(row)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      handleOpen(row);
-                    }
-                  }}
                 >
+                  {/* The row keeps its native <tr> semantics; the cycle name
+                      is the keyboard-reachable control. stopPropagation so a
+                      click on it doesn't also fire the row's handler. */}
                   <TableCell>
-                    {row.cycleName}
+                    <Link
+                      component="button"
+                      underline="hover"
+                      color="inherit"
+                      aria-label={`Open ${row.cycleName}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpen(row);
+                      }}
+                      sx={{ textAlign: "left", font: "inherit" }}
+                    >
+                      {row.cycleName}
+                    </Link>
                     {row.isLegacy && <Chip label="Legacy" size="small" color="warning" variant="outlined" sx={{ ml: 1 }} />}
                   </TableCell>
                   <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{row.startDate ? formatShortDate(row.startDate) : "-"}</TableCell>
