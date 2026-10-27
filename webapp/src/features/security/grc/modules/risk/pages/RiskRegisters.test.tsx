@@ -18,6 +18,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { bytesOf, captureDownloads } from "@/test/downloads";
 import type { RiskListItem } from "../api/riskApi";
 import RiskRegisters from "./RiskRegisters";
 
@@ -242,5 +243,66 @@ describe("Risk Registers — dashboard deep links", () => {
 
     await waitFor(() => expect(lastList().get("category_id")).toBeNull());
     expect(screen.queryByText("Risk Category:")).not.toBeInTheDocument();
+  });
+});
+
+describe("Risk Registers — Report Download", () => {
+  const exportRequests = (): URLSearchParams[] =>
+    authFetch.mock.calls
+      .map(([u]) => String(u))
+      .filter((u) => u.includes("/api/v1/risks/export?"))
+      .map((u) => new URL(u).searchParams);
+
+  // Answers the export endpoint with a CSV, and everything else as the page's
+  // default fake does.
+  const answerExport = (response: () => Response) => {
+    const base = authFetch.getMockImplementation()!;
+    authFetch.mockImplementation(async (input: string) =>
+      String(input).includes("/api/v1/risks/export") ? response() : base(input),
+    );
+  };
+
+  it("downloads the CSV for the filters in force, with no paging", async () => {
+    const csv = "\uFEFFRisk Code\n2026-MS-BANKONESUB-Q2-0001\n";
+    answerExport(
+      () =>
+        new Response(csv, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv",
+            "Content-Disposition": 'attachment; filename="risk-report-2026-10-27.csv"',
+          },
+        }),
+    );
+    const downloads = captureDownloads();
+    const user = userEvent.setup();
+    renderAt("?team=2");
+    await screen.findByText("2026-MS-BANKONESUB-Q2-0001");
+
+    await user.click(screen.getByRole("button", { name: "Report Download" }));
+
+    await waitFor(() => expect(downloads.filenames).toEqual(["risk-report-2026-10-27.csv"]));
+    expect(Array.from(new Uint8Array(await bytesOf(downloads.blobs[0])))).toEqual(
+      Array.from(new TextEncoder().encode(csv)),
+    );
+    const sent = exportRequests();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].get("team_id")).toBe("2");
+    expect(sent[0].get("statuses")).not.toBeNull(); // the tab's scope travels too
+    expect(sent[0].get("limit")).toBeNull();
+    expect(sent[0].get("offset")).toBeNull();
+  });
+
+  it("shows the server's message when the export fails", async () => {
+    answerExport(() => new Response(JSON.stringify({ message: "too many risks" }), { status: 422 }));
+    const downloads = captureDownloads();
+    const user = userEvent.setup();
+    renderAt("");
+    await screen.findByText("2026-ASG-Q2-0001");
+
+    await user.click(screen.getByRole("button", { name: "Report Download" }));
+
+    expect(await screen.findByText("too many risks")).toBeInTheDocument();
+    expect(downloads.blobs).toHaveLength(0);
   });
 });
