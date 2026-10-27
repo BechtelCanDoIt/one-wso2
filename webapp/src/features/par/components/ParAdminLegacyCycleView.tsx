@@ -147,9 +147,11 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
       ? openedRecordHistory.data?.find((r) => r.legacyHeaderId === selection.record.legacyHeaderId)
       : undefined;
   const [searchText, setSearchText] = useState("");
-  // Lives here, not in the tab body, so coming back from a roster or a
-  // record lands on the tab it was opened from.
+  // The tab and both tabs' searches live here, not in the tab bodies, so
+  // coming back from a roster or a record lands on the same tab with the
+  // same search.
   const [tab, setTab] = useState(0);
+  const [employeeSearchText, setEmployeeSearchText] = useState("");
   const thumbnailFor = useCallback((email: string) => employeeByEmail.get(email)?.employeeThumbnail, [employeeByEmail]);
   const openRecord = useCallback((record: ParLegacyHistory) => setSelection({ level: "record", record }), []);
 
@@ -383,7 +385,14 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
           </Stack>
         )}
         {tab === 1 && (
-          <ParAdminLegacyEmployeeViewTab records={records} nameFor={nameFor} thumbnailFor={thumbnailFor} onOpenRecord={openRecord} />
+          <ParAdminLegacyEmployeeViewTab
+            records={records}
+            searchText={employeeSearchText}
+            onSearchTextChange={setEmployeeSearchText}
+            nameFor={nameFor}
+            thumbnailFor={thumbnailFor}
+            onOpenRecord={openRecord}
+          />
         )}
       </Card>
     </Stack>

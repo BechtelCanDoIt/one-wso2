@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Avatar, Box, Chip, DataGrid, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import { formatLegacyCycleName } from "../util/parLegacyHistory";
@@ -33,17 +33,21 @@ function DoneChip({ done }: { done: boolean }) {
 // eye action opens the full record through the parent's drill-down.
 export default function ParAdminLegacyEmployeeViewTab({
   records,
+  searchText,
+  onSearchTextChange,
   nameFor,
   thumbnailFor,
   onOpenRecord,
 }: {
   records: ParLegacyHistory[];
+  // Owned by ParAdminLegacyCycleView: this tab unmounts while a record is
+  // open, so local state would lose the search on the way back.
+  searchText: string;
+  onSearchTextChange: (value: string) => void;
   nameFor: (email: string) => string;
   thumbnailFor: (email: string) => string | undefined;
   onOpenRecord: (record: ParLegacyHistory) => void;
 }) {
-  const [searchText, setSearchText] = useState("");
-
   const filteredRows = useMemo(() => {
     const term = searchText.toLowerCase();
     return term
@@ -144,7 +148,7 @@ export default function ParAdminLegacyEmployeeViewTab({
           size="small"
           placeholder="Search Employee"
           value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
+          onChange={(e) => onSearchTextChange(e.target.value)}
           slotProps={{
             input: {
               startAdornment: (
