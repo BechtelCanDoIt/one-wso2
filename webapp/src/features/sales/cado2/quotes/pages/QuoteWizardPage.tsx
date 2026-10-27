@@ -546,7 +546,7 @@ export default function QuoteWizardPage(): JSX.Element {
                   {step === 0 ? <OverviewStep locked={saved !== null} quoteId={saved?.quote.id ?? null} /> : null}
                   {step === 1 ? <ProductsStep preview={shown} /> : null}
                   {step === 2 ? <CommercialStep /> : null}
-                  {step === 3 ? <LegalStep /> : null}
+                  {step === 3 ? <LegalStep quoteId={saved?.quote.id ?? null} /> : null}
                 </Box>
                 {step === REVIEW_STEP ? (
                   <>
@@ -564,6 +564,7 @@ export default function QuoteWizardPage(): JSX.Element {
                       </Alert>
                     ) : null}
                     <ReviewStep
+                      quoteId={saved?.quote.id ?? null}
                       preview={shown}
                       savedLegalEntityName={legalEntityName(saved)}
                       approvals={

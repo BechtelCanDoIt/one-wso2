@@ -762,7 +762,9 @@ export interface AuditEvent {
     // The primary quote's order form in Salesforce (D111).
     | "ORDER_FORM_ATTACHED"
     | "ORDER_FORM_DETACHED"
-    | "ORDER_FORM_ATTACH_FAILED";
+    | "ORDER_FORM_ATTACH_FAILED"
+    // The AM changed the supporting documents (DGD-10); metadata: before, after.
+    | "SUPPORTING_DOCUMENTS_CHANGED";
   readonly versionNumber: number | null;
   readonly actorEmail: string;
   readonly occurredAt: string;

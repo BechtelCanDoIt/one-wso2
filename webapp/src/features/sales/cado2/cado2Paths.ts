@@ -30,6 +30,7 @@ export type Cado2AdminSection =
   | "product-categories"
   | "product-bundles"
   | "legal-texts"
+  | "supporting-documents"
   | "quote-access"
   | "salesforce-sync"
   | "pricing-formulas";

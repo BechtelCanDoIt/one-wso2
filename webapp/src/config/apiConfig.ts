@@ -1988,6 +1988,15 @@ export const cado2ServiceUrls = {
   adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
   legalTerms: (quoteId: number, versionNumber: number): string =>
     `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/legal-terms`,
+  // Supporting documents (DGD-10): the Admin's library of PDFs, and what a
+  // quote adds after its order form.
+  supportingDocuments: `${cado2BackendUrl}/supporting-documents`,
+  quoteSupportingDocuments: (quoteId: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/supporting-documents`,
+  adminSupportingDocuments: `${cado2BackendUrl}/admin/supporting-documents`,
+  adminSupportingDocumentsOrder: `${cado2BackendUrl}/admin/supporting-documents/order`,
+  adminSupportingDocument: (id: number, action?: "versions" | "retire" | "restore" | "file"): string =>
+    `${cado2BackendUrl}/admin/supporting-documents/${encodeSegment(id)}${action ? `/${action}` : ""}`,
   // Product bundles: Admins keep them; an AM's
   // quote reads a parent's children from its price book.
   adminBundles: `${cado2BackendUrl}/admin/bundles`,

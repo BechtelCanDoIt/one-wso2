@@ -22,6 +22,14 @@ import { AdapterDateFns, DatePickers } from "@wso2/oxygen-ui";
 import { emptyDraftForm, type DraftFormValues, type LineValue } from "@features/sales/cado2/quotes/form/draftForm";
 import LegalStep from "./LegalStep";
 
+// No supporting documents in the library (DGD-10); tested on their own.
+vi.mock("@features/sales/cado2/quotes/api/useSupportingDocuments", async (actual) => ({
+  ...(await actual<typeof import("@features/sales/cado2/quotes/api/useSupportingDocuments")>()),
+  useSupportingDocumentLibrary: () => ({ data: [], isPending: false, error: null }),
+  useQuoteSupportingDocuments: () => ({ data: undefined, isPending: false, error: null }),
+  useSetQuoteSupportingDocuments: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null }),
+  useHasSupportingDocuments: () => false,
+}));
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useLegalConfig: () => ({
     data: {

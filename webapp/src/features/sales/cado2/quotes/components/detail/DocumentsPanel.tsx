@@ -22,6 +22,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Stack,
   Typography,
 } from "@wso2/oxygen-ui";
@@ -37,6 +38,8 @@ import { formatDate, formatDateTime } from "@features/sales/cado2/quotes/form/dr
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import SupportingDocumentsSection from "./SupportingDocumentsSection";
+import { useHasSupportingDocuments } from "@features/sales/cado2/quotes/api/useSupportingDocuments";
 
 /** Saves a Blob under a file name (a click on a temporary link). */
 function saveBlob(blob: Blob, name: string): void {
@@ -57,6 +60,10 @@ function saveBlob(blob: Blob, name: string): void {
  *
  * The primary quote's order form also goes to its Salesforce opportunity
  * (D111); the panel says whether it's there, with a retry when it failed.
+ *
+ * The supporting documents that follow the order form (DGD-10) are listed
+ * here too, and can change until Issue; before approval the panel shows
+ * only them, when there are any.
  */
 export default function DocumentsPanel({
   quoteId,
@@ -65,10 +72,31 @@ export default function DocumentsPanel({
 }: {
   quoteId: number;
   version: number;
-  /** The version is approved; nothing to show before that. */
+  /** The version is approved; before that, only the supporting documents show. */
   approved: boolean;
 }): JSX.Element | null {
-  const docs = useDocuments(quoteId, version, approved);
+  if (!approved) return <BeforeApproval quoteId={quoteId} />;
+  return <ApprovedOrderForm quoteId={quoteId} version={version} />;
+}
+
+/** Before approval: the supporting documents, if the quote has anything to say about them. */
+function BeforeApproval({ quoteId }: { quoteId: number }): JSX.Element | null {
+  const visible = useHasSupportingDocuments(quoteId);
+  if (!visible) return null;
+  return (
+    <SectionCard title="Order Form" icon={<FileTextIcon size={18} />}>
+      <Typography variant="body2" color="text.secondary">
+        The order form can be previewed and issued once the quote is approved.
+      </Typography>
+      <Divider sx={{ my: 1.5 }} />
+      <SupportingDocumentsSection quoteId={quoteId} />
+    </SectionCard>
+  );
+}
+
+function ApprovedOrderForm({ quoteId, version }: { quoteId: number; version: number }): JSX.Element | null {
+  const hasSupporting = useHasSupportingDocuments(quoteId);
+  const docs = useDocuments(quoteId, version, true);
   const issue = useIssueOrderForm();
   const attach = useAttachOrderForm();
   const notify = useCado2Toast();
@@ -78,7 +106,6 @@ export default function DocumentsPanel({
   // What failed and why, shown as the shared ErrorNotice (2026-10-13).
   const [error, setError] = useState<{ what: string; cause: unknown } | null>(null);
 
-  if (!approved) return null;
   // A failed load says so, rather than the card vanishing (2026-10-13).
   if (docs.error) {
     return (
@@ -192,6 +219,13 @@ export default function DocumentsPanel({
           Approved. The quote&apos;s owner issues the order form.
         </Typography>
       )}
+
+      {hasSupporting ? (
+        <>
+          <Divider sx={{ my: 1.5 }} />
+          <SupportingDocumentsSection quoteId={quoteId} />
+        </>
+      ) : null}
 
       <Dialog open={confirming} onClose={() => !issue.isPending && setConfirming(false)} aria-labelledby="issue-title">
         <DialogTitle id="issue-title">Issue the order form?</DialogTitle>

@@ -38,6 +38,7 @@ import SalesforceSyncPage from "./admin/salesforce-sync/pages/SalesforceSyncPage
 import EmailNotificationsPage from "./admin/email-notifications/pages/EmailNotificationsPage";
 import PricingFormulasPage from "./admin/pricing-formulas/pages/PricingFormulasPage";
 import PricingFormulaHistoryPage from "./admin/pricing-formulas/pages/PricingFormulaHistoryPage";
+import SupportingDocumentsPage from "./admin/supporting-documents/pages/SupportingDocumentsPage";
 
 // The heavy screens load on first use.
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
@@ -102,6 +103,7 @@ export const cado2Routes = (
       <Route path="product-categories" element={<ProductCategoriesPage />} />
       <Route path="product-bundles" element={<ProductBundlesPage />} />
       <Route path="legal-texts" element={deferred(<LegalTextsPage />)} />
+      <Route path="supporting-documents" element={<SupportingDocumentsPage />} />
       <Route path="quote-access" element={<QuoteAccessPage />} />
       <Route path="salesforce-sync" element={<SalesforceSyncPage />} />
       <Route path="email-notifications" element={<EmailNotificationsPage />} />

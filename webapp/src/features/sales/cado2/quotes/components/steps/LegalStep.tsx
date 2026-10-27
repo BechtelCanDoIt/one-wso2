@@ -47,6 +47,7 @@ import {
 } from "@features/sales/cado2/quotes/form/legalModel";
 import { SPECIAL_TERMS_BILLING } from "@features/sales/cado2/quotes/form/stepRules";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
+import SupportingDocumentsCard from "@features/sales/cado2/quotes/components/SupportingDocumentsCard";
 
 const { DatePicker } = DatePickers;
 
@@ -86,7 +87,7 @@ const VISIBLE_SWITCH = {
  *                themselves, each saying why
  *   Special      the special terms, which Legal reviews and may reword
  */
-export default function LegalStep(): JSX.Element {
+export default function LegalStep({ quoteId = null }: { quoteId?: number | null }): JSX.Element {
   const { control } = useFormContext<DraftFormValues>();
   const v = useWatch({ control }) as DraftFormValues;
   const config = useLegalConfig();
@@ -279,6 +280,8 @@ export default function LegalStep(): JSX.Element {
           )}
         </Stack>
       </SectionCard>
+
+      <SupportingDocumentsCard quoteId={quoteId} />
     </Stack>
   );
 }
