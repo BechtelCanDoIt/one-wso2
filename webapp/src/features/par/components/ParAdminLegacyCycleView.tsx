@@ -22,9 +22,8 @@ import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useLegacyParHistoryByCycle } from "../api/useParAdmin";
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { formatShortDate } from "../util/parDate";
-import { deriveLegacyCycleDates, formatLegacyCycleName } from "../util/parLegacyHistory";
-import { resolveLegacyRating } from "../util/legacyParRatingResolvers";
-import { groupLegacyParticipantsByTeam, type LegacyTeamGroup } from "../util/parAdminHistory";
+import { deriveLegacyCycleDates } from "../util/parLegacyHistory";
+import { groupLegacyParticipantsByTeam, legacyOverallRating, type LegacyTeamGroup } from "../util/parAdminHistory";
 import ParAdminLegacyEmployeeViewTab from "./ParAdminLegacyEmployeeViewTab";
 import ParEmptyState from "./ParEmptyState";
 import ParLegacyRecordDetail from "./ParLegacyRecordDetail";
@@ -38,9 +37,11 @@ type Selection =
   | { level: "roster"; group: LegacyTeamGroup }
   | { level: "record"; group?: LegacyTeamGroup; record: ParLegacyHistory };
 
-function LegacyChip() {
-  return <Chip label="Legacy" size="small" color="warning" variant="outlined" sx={{ ml: 1.5 }} />;
+function LegacyChip({ ml = 0 }: { ml?: number }) {
+  return <Chip label="Legacy" size="small" color="warning" variant="outlined" sx={{ ml }} />;
 }
+
+const DEFAULT_PAGINATION: DataGrid.GridPaginationModel = { page: 0, pageSize: 10 };
 
 // Admin's breadcrumb trail is click-to-navigate text, but nothing here ever
 // behaved like a dedicated "go back" affordance the way the employee
@@ -68,7 +69,7 @@ function Breadcrumb({ items, current }: { items: { label: string; onClick: () =>
         <Typography component="span" variant="h5">
           {current}
         </Typography>
-        <LegacyChip />
+        <LegacyChip ml={1.5} />
       </Box>
     </Stack>
   );
@@ -96,7 +97,7 @@ function CycleHeader({ cycleName, onBack }: { cycleName: string; onBack: () => v
             ({formatShortDate(startDate)} - {formatShortDate(endDate)})
           </Typography>
         )}
-        <Chip label="Legacy" size="small" color="warning" variant="outlined" />
+        <LegacyChip />
       </Box>
     </Stack>
   );
@@ -152,6 +153,31 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
   // same search.
   const [tab, setTab] = useState(0);
   const [employeeSearchText, setEmployeeSearchText] = useState("");
+  // Page and sort too: each grid unmounts while a roster or record is open,
+  // so state kept inside it would land the admin back on page 1, unsorted.
+  // A new search goes back to page 1 (keeping page size), since the old
+  // page may no longer exist.
+  const [teamPagination, setTeamPagination] = useState(DEFAULT_PAGINATION);
+  const [teamSort, setTeamSort] = useState<DataGrid.GridSortModel>([]);
+  const [employeePagination, setEmployeePagination] = useState(DEFAULT_PAGINATION);
+  const [employeeSort, setEmployeeSort] = useState<DataGrid.GridSortModel>([]);
+  const [rosterPagination, setRosterPagination] = useState(DEFAULT_PAGINATION);
+  const [rosterSort, setRosterSort] = useState<DataGrid.GridSortModel>([]);
+  const handleTeamSearch = useCallback((value: string) => {
+    setSearchText(value);
+    setTeamPagination((m) => ({ ...m, page: 0 }));
+  }, []);
+  const handleEmployeeSearch = useCallback((value: string) => {
+    setEmployeeSearchText(value);
+    setEmployeePagination((m) => ({ ...m, page: 0 }));
+  }, []);
+  // Opening a different group starts its roster fresh; going back to the
+  // same roster from a record keeps where it was.
+  const openRoster = useCallback((group: LegacyTeamGroup) => {
+    setRosterPagination(DEFAULT_PAGINATION);
+    setRosterSort([]);
+    setSelection({ level: "roster", group });
+  }, []);
   const thumbnailFor = useCallback((email: string) => employeeByEmail.get(email)?.employeeThumbnail, [employeeByEmail]);
   const openRecord = useCallback((record: ParLegacyHistory) => setSelection({ level: "record", record }), []);
 
@@ -181,13 +207,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         field: "overallRating",
         headerName: "Overall Rating",
         flex: 1,
-        // Same resolver ParLegacyRecordDetail uses, so a record can't show
-        // a different rating here than once opened. Each cycle has its own
-        // rating scale, so this can't be derived generically.
-        valueGetter: (_v, row) =>
-          resolveLegacyRating(formatLegacyCycleName(row.cycleName), row.managerScoreCode, []).rating ??
-          row.overallRating ??
-          "Not Assigned",
+        valueGetter: (_v, row) => legacyOverallRating(row),
       },
       {
         field: "reviewCompletedDate",
@@ -205,7 +225,11 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         renderCell: (params) => (
           <Tooltip title="Open Record" arrow>
             <IconButton
-              onClick={() => rosterGroup && setSelection({ level: "record", group: rosterGroup, record: params.row })}
+              onClick={(e) => {
+                // The row's own onRowClick would open it a second time.
+                e.stopPropagation();
+                if (rosterGroup) setSelection({ level: "record", group: rosterGroup, record: params.row });
+              }}
             >
               <ArrowRightIcon size={18} />
             </IconButton>
@@ -244,14 +268,19 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         flex: 0.4,
         renderCell: (params) => (
           <Tooltip title="Open Group" arrow>
-            <IconButton onClick={() => setSelection({ level: "roster", group: params.row })}>
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                openRoster(params.row);
+              }}
+            >
               <ArrowRightIcon size={18} />
             </IconButton>
           </Tooltip>
         ),
       },
     ],
-    [],
+    [openRoster],
   );
 
   if (history.isLoading) {
@@ -322,7 +351,10 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
             showToolbar
             slots={{ toolbar: ParGridToolbar }}
             sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
-            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            paginationModel={rosterPagination}
+            onPaginationModelChange={setRosterPagination}
+            sortModel={rosterSort}
+            onSortModelChange={setRosterSort}
             pageSizeOptions={[10, 20, 25]}
           />
         </Card>
@@ -358,7 +390,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
                 size="small"
                 placeholder="Search Team"
                 value={searchText}
-                onChange={(e) => setSearchText(e.target.value)}
+                onChange={(e) => handleTeamSearch(e.target.value)}
                 slotProps={{
                   input: {
                     startAdornment: (
@@ -375,11 +407,14 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
               columns={teamColumns}
               rowHeight={56}
               disableRowSelectionOnClick
-              onRowClick={(params) => setSelection({ level: "roster", group: params.row })}
+              onRowClick={(params) => openRoster(params.row)}
               showToolbar
               slots={{ toolbar: ParGridToolbar }}
               sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
-              initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+              paginationModel={teamPagination}
+              onPaginationModelChange={setTeamPagination}
+              sortModel={teamSort}
+              onSortModelChange={setTeamSort}
               pageSizeOptions={[10, 20, 25]}
             />
           </Stack>
@@ -388,7 +423,11 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
           <ParAdminLegacyEmployeeViewTab
             records={records}
             searchText={employeeSearchText}
-            onSearchTextChange={setEmployeeSearchText}
+            onSearchTextChange={handleEmployeeSearch}
+            paginationModel={employeePagination}
+            onPaginationModelChange={setEmployeePagination}
+            sortModel={employeeSort}
+            onSortModelChange={setEmployeeSort}
             nameFor={nameFor}
             thumbnailFor={thumbnailFor}
             onOpenRecord={openRecord}

@@ -17,11 +17,8 @@
 import { useMemo } from "react";
 import { Avatar, Box, Chip, DataGrid, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
-import { formatLegacyCycleName } from "../util/parLegacyHistory";
-import { resolveLegacyRating } from "../util/legacyParRatingResolvers";
-import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone } from "../util/parAdminHistory";
+import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyOverallRating } from "../util/parAdminHistory";
 import { ParGridToolbar } from "./parGridToolbar";
-import ParEmptyState from "./ParEmptyState";
 import type { ParLegacyHistory } from "../api/types";
 
 function DoneChip({ done }: { done: boolean }) {
@@ -35,15 +32,23 @@ export default function ParAdminLegacyEmployeeViewTab({
   records,
   searchText,
   onSearchTextChange,
+  paginationModel,
+  onPaginationModelChange,
+  sortModel,
+  onSortModelChange,
   nameFor,
   thumbnailFor,
   onOpenRecord,
 }: {
   records: ParLegacyHistory[];
   // Owned by ParAdminLegacyCycleView: this tab unmounts while a record is
-  // open, so local state would lose the search on the way back.
+  // open, so local state would lose the search, page and sort on the way back.
   searchText: string;
   onSearchTextChange: (value: string) => void;
+  paginationModel: DataGrid.GridPaginationModel;
+  onPaginationModelChange: (model: DataGrid.GridPaginationModel) => void;
+  sortModel: DataGrid.GridSortModel;
+  onSortModelChange: (model: DataGrid.GridSortModel) => void;
   nameFor: (email: string) => string;
   thumbnailFor: (email: string) => string | undefined;
   onOpenRecord: (record: ParLegacyHistory) => void;
@@ -113,12 +118,7 @@ export default function ParAdminLegacyEmployeeViewTab({
         field: "overallRating",
         headerName: "Overall Rating",
         flex: 1,
-        // Same resolver ParLegacyRecordDetail uses, so a record can't show a
-        // different rating here than once opened.
-        valueGetter: (_v, row) =>
-          resolveLegacyRating(formatLegacyCycleName(row.cycleName), row.managerScoreCode, []).rating ??
-          row.overallRating ??
-          "Not Assigned",
+        valueGetter: (_v, row) => legacyOverallRating(row),
       },
       {
         field: "actions",
@@ -127,7 +127,13 @@ export default function ParAdminLegacyEmployeeViewTab({
         flex: 0.4,
         renderCell: (params) => (
           <Tooltip title="View" arrow>
-            <IconButton onClick={() => onOpenRecord(params.row)}>
+            <IconButton
+              onClick={(e) => {
+                // The row's own onRowClick would open it a second time.
+                e.stopPropagation();
+                onOpenRecord(params.row);
+              }}
+            >
               <EyeIcon size={18} />
             </IconButton>
           </Tooltip>
@@ -136,10 +142,6 @@ export default function ParAdminLegacyEmployeeViewTab({
     ],
     [nameFor, thumbnailFor, onOpenRecord],
   );
-
-  if (records.length === 0) {
-    return <ParEmptyState text="No employees found" />;
-  }
 
   return (
     <Stack spacing={1.5}>
@@ -170,7 +172,13 @@ export default function ParAdminLegacyEmployeeViewTab({
         showToolbar
         slots={{ toolbar: ParGridToolbar }}
         sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
-        initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+        // The parent never mounts this tab for an empty cycle, so the only
+        // empty grid here is a search that matched nobody.
+        localeText={{ noRowsLabel: "No employees match your search." }}
+        paginationModel={paginationModel}
+        onPaginationModelChange={onPaginationModelChange}
+        sortModel={sortModel}
+        onSortModelChange={onSortModelChange}
         pageSizeOptions={[10, 20, 25]}
       />
     </Stack>
