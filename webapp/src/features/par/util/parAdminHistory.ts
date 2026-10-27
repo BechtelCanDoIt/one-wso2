@@ -83,6 +83,15 @@ export const isLegacyLeadFeedbackDone = (record: ParLegacyHistory): boolean =>
 export const legacySpecialRating = (record: ParLegacyHistory) =>
   resolveLegacyRating(formatLegacyCycleName(record.cycleName), record.managerScoreCode, []).special;
 
+// The overall rating every admin legacy grid shows. Same resolver
+// ParLegacyRecordDetail uses, so a record can't show a different rating in a
+// list than once opened; each cycle has its own rating scale, so this can't
+// be derived generically.
+export const legacyOverallRating = (record: ParLegacyHistory): string =>
+  resolveLegacyRating(formatLegacyCycleName(record.cycleName), record.managerScoreCode, []).rating ??
+  record.overallRating ??
+  "Not Assigned";
+
 export interface LegacyTeamGroup {
   id: string;
   parBusinessUnit: string;
@@ -121,6 +130,8 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
   return Array.from(groups.entries())
     .map(([groupKey, members]) => {
       const first = members[0];
+      // Resolved once per member, then counted for both slot columns.
+      const specials = members.map(legacySpecialRating);
       return {
         id: groupKey,
         parBusinessUnit: first.businessUnit ?? "-",
@@ -130,8 +141,8 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
         parLeadEmail: first.reviewerName ?? "-",
         employeeParCompletion: `${members.filter(isLegacyEmployeeParDone).length}/${members.length}`,
         leadFeedbackCompletion: `${members.filter(isLegacyLeadFeedbackDone).length}/${members.length}`,
-        numberOf5pSlots: members.filter((m) => legacySpecialRating(m) === "TOP5P").length,
-        numberOf20pSlots: members.filter((m) => legacySpecialRating(m) === "TOP20P").length,
+        numberOf5pSlots: specials.filter((s) => s === "TOP5P").length,
+        numberOf20pSlots: specials.filter((s) => s === "TOP20P").length,
         participants: members,
       };
     })
