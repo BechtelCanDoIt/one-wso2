@@ -103,7 +103,6 @@ describe("the column a request is compared against", () => {
       MIS_WINDOWS.CALENDAR,
       {
         ...defaultAppliedFilters(MIS_PERIODS.QUARTERLY, MIS_TABLES.SUBSCRIPTION),
-        qrrType: "Forecasted QRR",
         forecast: FORECAST_STATES.ENABLE,
       },
       asOf,
