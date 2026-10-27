@@ -166,13 +166,17 @@ export default function OrderFormTable({
           <TableCell align="right" sx={num}>
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
           </TableCell>
-          {/* Each line's own term within its year, e.g. "1Y" or "6M";
-              its dates when the AM narrowed them. */}
+          {/* Each line's term (D113): its dates, its length below like the
+              SKU under the name; a one-off line shows its date and "One-time". */}
           <TableCell sx={{ whiteSpace: "nowrap" }}>
-            {l.recurring ? (l.startDate && l.endDate ? durationShort(l.startDate, l.endDate) : "–") : "One-time"}
-            {l.ownDates && l.startDate ? (
+            {!l.startDate
+              ? "–"
+              : l.recurring && l.endDate
+                ? `${formatDate(l.startDate)} – ${formatDate(l.endDate)}`
+                : formatDate(l.startDate)}
+            {l.startDate && (!l.recurring || l.endDate) ? (
               <Typography variant="caption" color="text.secondary" display="block">
-                {l.recurring && l.endDate ? `${formatDate(l.startDate)} – ${formatDate(l.endDate)}` : formatDate(l.startDate)}
+                {l.recurring && l.endDate ? durationShort(l.startDate, l.endDate) : "One-time"}
               </Typography>
             ) : null}
           </TableCell>

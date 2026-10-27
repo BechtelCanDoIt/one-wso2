@@ -245,7 +245,7 @@ export function emptyDraftForm(): DraftFormValues {
     defaultPricebookId: "",
     defaultPricebookName: "",
     startDate: "",
-    yearCount: 1, // Year 1, for the opportunity's products; the AM adds more
+    yearCount: 1, // Year 1, always there: a full year from the start; the AM adds more
     lastYearEndDate: "",
     billingFrequency: "ANNUAL",
     partnerCommissionPercent: "",
@@ -489,6 +489,8 @@ export const addYear = (v: Pick<DraftFormValues, "yearCount">) => ({ yearCount: 
  * year leaves the new last one a full 12 months.
  */
 export function deleteYear(v: Pick<DraftFormValues, "yearCount" | "lastYearEndDate" | "lines">, n: number) {
+  // The only year stays: a quote always has Year 1.
+  if (v.yearCount <= 1) return { yearCount: v.yearCount, lastYearEndDate: v.lastYearEndDate, lines: v.lines };
   const back = (d: string) => (d ? shiftYears(d, -1) : d);
   return {
     yearCount: v.yearCount - 1,
@@ -593,7 +595,8 @@ function legalTextOf(legal: DraftResponse["version"]["legal"], kind: "ONPREM" | 
 export function fromVersion(res: DraftResponse): DraftFormValues {
   const v = res.version;
   const start = v.subscriptionStartDate ?? "";
-  const yearCount = v.yearCount ?? 0;
+  // A quote always has Year 1 (2026-10-26); a draft saved without years gets it.
+  const yearCount = Math.max(1, v.yearCount ?? 0);
   // The last year's end only when shortened: a full year is the default.
   const lastEnd = v.years?.at(-1)?.endDate ?? "";
   const fullEnd = contractYears(start, yearCount).at(-1)?.end ?? "";

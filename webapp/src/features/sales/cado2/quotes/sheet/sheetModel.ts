@@ -100,8 +100,6 @@ export interface SheetLine {
   /** Its dates within its year; a one-off is dated on its start. Null until it has a year and a start. */
   readonly startDate: string | null;
   readonly endDate: string | null;
-  /** The AM narrowed its dates within the year, so they are worth showing. */
-  readonly ownDates: boolean;
   /** A bundle child: its parent's product name; null otherwise. */
   readonly parentName: string | null;
   /** From the pricing, when the quote can be priced. */
@@ -221,16 +219,6 @@ function addressLines(a: {
 // From a saved version
 // ---------------------------------------------------------------------------
 
-/** Whether a saved line's dates differ from its year's. */
-function ownDates(
-  l: { yearNumber: number | null; startDate: string | null; endDate: string | null; recurring: boolean },
-  years: readonly { yearNumber: number; startDate: string; endDate: string }[],
-): boolean {
-  const y = years.find((x) => x.yearNumber === l.yearNumber);
-  if (!y || !l.startDate) return false;
-  return l.startDate !== y.startDate || (l.recurring && l.endDate !== y.endDate);
-}
-
 export function sheetFromVersion(res: DraftResponse): QuoteSheet {
   const v = res.version;
   const pricing = storedPricing(res);
@@ -292,7 +280,6 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
       yearNumber: l.yearNumber ?? 0,
       startDate: l.startDate,
       endDate: l.endDate,
-      ownDates: ownDates(l, v.years ?? []),
       parentName: l.parentLineNumber ? (v.lines.find((p) => p.lineNumber === l.parentLineNumber)?.productName ?? null) : null,
       annualList: pricing ? l.annualList : null,
       annualNet: pricing ? l.annualNet : null,
@@ -430,8 +417,6 @@ export function sheetFromForm(
         yearNumber: l.yearNumber,
         startDate: dates?.start ?? null,
         endDate: dates?.end ?? null,
-        // A child's dates are its parent's: shown on the parent only.
-        ownDates: !l.parentKey && Boolean(l.startDate || (l.recurring && l.endDate)),
         parentName: l.parentKey ? (v.lines.find((p) => p.key === l.parentKey)?.productName ?? null) : null,
         annualList: p?.annualList ?? null,
         annualNet: p?.annualNet ?? null,

@@ -104,7 +104,7 @@ describe("QuoteSheet", () => {
 // A 3-year quote: two subscriptions, support and a one-time service.
 const line = (number: number, productName: string, category: SheetLine["category"], tcv: string, arr: string): SheetLine => ({
   number, productName, productCode: null, productDescription: null, pricebookName: "FY26 USD", category, categoryByRep: false, recurring: category !== "PROFESSIONAL_SERVICE", quantity: "1", unitOfMeasure: null, unitPrice: "1",
-  discountPercent: "0", formula: null, yearNumber: 1, startDate: "2027-01-01", endDate: "2027-12-31", ownDates: false, parentName: null, annualList: null, annualNet: null, arr, acv: null, tcv, commission: "0.00",
+  discountPercent: "0", formula: null, yearNumber: 1, startDate: "2027-01-01", endDate: "2027-12-31", parentName: null, annualList: null, annualNet: null, arr, acv: null, tcv, commission: "0.00",
   schedule: [1, 2, 3].map((y) => ({ yearNumber: y, periodStart: "", periodEnd: "", yearFraction: "1.0000", gross: "1.00", discount: "0.00", net: "1.00", billing: "1.00" })),
 });
 const threeYears: Sheet = {
@@ -149,7 +149,7 @@ describe("Order form", () => {
     expect(screen.getByRole("region", { name: "Order totals" })).toHaveTextContent("Total order value · all 3 years (USD)119,540.00");
     // Each year closes with its own total, inside its table.
     expect(rows.at(-1)).toContain("Year 1 total (USD)119,540.00");
-    expect(screen.getByRole("button", { name: /^Year 1/ })).toHaveTextContent("4 products");
+    expect(screen.getByRole("region", { name: "Year 1" })).toHaveTextContent("4 products");
     expect(screen.getAllByText("No products in this year.")).toHaveLength(2);
   });
 
@@ -225,6 +225,12 @@ describe("Partner commission", () => {
     const products = within(screen.getByRole("table", { name: "Products" }));
     expect(products.getAllByText("1Y")).toHaveLength(3); // two subscriptions and support, each for its year
     expect(products.getByText("One-time")).toBeInTheDocument(); // the onboarding service
+  });
+
+  it("shows each line's dates in the Term column, its length below (D113)", () => {
+    render(<QuoteSheet sheet={{ ...threeYears, startDate: "2027-01-01" }} />);
+    const products = within(screen.getByRole("table", { name: "Products" }));
+    expect(products.getAllByText("1 Jan 2027 – 31 Dec 2027").length).toBeGreaterThan(0);
   });
 
   // D94: a subtotal's value sits in the Amount column, under the line amounts.

@@ -39,8 +39,10 @@ interface YearSectionsProps {
   readonly onToggle: (yearNumber: number) => void;
   /** Buttons on a year's header row (the wizard's add, clone and delete). */
   readonly yearActions?: (yearNumber: number) => ReactNode;
-  /** Shown above a year's products, e.g. the last year's end date. */
+  /** Shown above a year's products, e.g. a problem with its dates. */
   readonly yearTop?: (yearNumber: number) => ReactNode;
+  /** In place of a year's end date in its header, e.g. the last year's, clickable. */
+  readonly yearEnd?: (yearNumber: number) => ReactNode;
   /** What an empty year says. */
   readonly empty?: (yearNumber: number) => ReactNode;
   /** A line's buttons and problems, by its position in `lines`. */
@@ -67,6 +69,7 @@ export default function YearSections({
   onToggle,
   yearActions,
   yearTop,
+  yearEnd,
   empty,
   lineActions,
   below,
@@ -83,9 +86,17 @@ export default function YearSections({
         const short = y.start && y.end && durationShort(y.start, y.end) !== "1Y" ? durationText(y.start, y.end) : "";
         return (
           <Box key={y.number} component="section" aria-label={`Year ${y.number}`} sx={{ borderBottom: 1, borderColor: "divider" }}>
-            {/* The toggle holds only the year's own details; its actions sit beside
-                it, not inside a button (nested controls aren't announced). */}
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ "&:hover": { bgcolor: "action.hover" } }}>
+            {/* The row folds the year on a click; the toggle itself (keyboard,
+                screen readers) holds only its name, and the controls in the row
+                (a clickable end date, the actions) sit beside it, not inside a
+                button (nested controls aren't announced). */}
+            <Stack
+              direction="row"
+              alignItems="center"
+              spacing={1.25}
+              onClick={() => onToggle(y.number)}
+              sx={{ py: 1.25, cursor: "pointer", flexWrap: "wrap", rowGap: 0.5, "&:hover": { bgcolor: "action.hover" } }}
+            >
               <Stack
                 direction="row"
                 alignItems="center"
@@ -94,14 +105,12 @@ export default function YearSections({
                 tabIndex={0}
                 aria-expanded={open}
                 aria-label={`Year ${y.number}, ${open ? "fold" : "unfold"}`}
-                onClick={() => onToggle(y.number)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") {
                     e.preventDefault();
                     onToggle(y.number);
                   }
                 }}
-                sx={{ flex: 1, minWidth: 0, py: 1.25, cursor: "pointer", flexWrap: "wrap", rowGap: 0.5 }}
               >
                 <Box
                   aria-hidden
@@ -112,19 +121,24 @@ export default function YearSections({
                 <Typography variant="subtitle2" component="h4" sx={{ fontWeight: 700 }}>
                   {y.number ? `Year ${y.number}` : "Without a year"}
                 </Typography>
-                {y.start ? (
-                  <Typography variant="body2" color="text.secondary">
-                    {formatDate(y.start)} – {formatDate(y.end)}
-                  </Typography>
-                ) : null}
-                {short ? <Chip size="small" color="warning" variant="outlined" label={short} /> : null}
-                <Typography variant="body2" color="text.secondary" sx={{ ml: "auto !important", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
-                  {ofYear.length} product{ofYear.length === 1 ? "" : "s"}
-                  {/* Folded, the header carries the year's total; open, the table's last row does. */}
-                  {!open && total ? ` · ${currency} ${formatMoney(total)}` : ""}
-                </Typography>
               </Stack>
-              {yearActions ? <Box sx={{ display: "flex", gap: 0.5 }}>{yearActions(y.number)}</Box> : null}
+              {y.start ? (
+                <Typography variant="body2" color="text.secondary" component="div" sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                  {formatDate(y.start)} – {yearEnd?.(y.number) ?? formatDate(y.end)}
+                </Typography>
+              ) : null}
+              {short ? <Chip size="small" color="warning" variant="outlined" label={short} /> : null}
+              <Typography variant="body2" color="text.secondary" sx={{ ml: "auto !important", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                {ofYear.length} product{ofYear.length === 1 ? "" : "s"}
+                {/* Folded, the header carries the year's total; open, the table's last row does. */}
+                {!open && total ? ` · ${currency} ${formatMoney(total)}` : ""}
+              </Typography>
+              {yearActions ? (
+                // Its buttons don't fold the year.
+                <Box onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()} sx={{ display: "flex", gap: 0.5 }}>
+                  {yearActions(y.number)}
+                </Box>
+              ) : null}
             </Stack>
             {open ? (
               <Stack spacing={1.5} sx={{ pb: 2, pl: { sm: 3.5 } }}>

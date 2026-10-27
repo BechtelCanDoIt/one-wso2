@@ -161,7 +161,9 @@ describe("AddLineDialog", () => {
     }
     // Lines have no dates of their own: they cover the quote's term.
     expect(screen.queryByRole("region", { name: "Period" })).toBeNull();
-    expect(screen.getByText("Priced from FY26 USD in USD")).toBeInTheDocument();
+    // D114: a plain title, no price-book line under it.
+    expect(screen.getByRole("heading", { name: "Add Product" })).toBeInTheDocument();
+    expect(screen.queryByText(/Priced from/)).toBeNull();
     expect(screen.queryByLabelText("Chosen product")).toBeNull();
 
     await user.click(screen.getByRole("combobox", { name: /Product/ }));
@@ -175,13 +177,16 @@ describe("AddLineDialog", () => {
 
     // Not mapped: the rep must choose the category.
     expect(screen.getByText(/No category is set up for this product/)).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add product" }));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText("Choose the category")).toBeInTheDocument();
     await user.click(screen.getByRole("combobox", { name: /Category/ }));
     await user.click(screen.getByRole("option", { name: "Subscription" }));
+    // Chosen: the warning goes; a quiet note stays under the field.
+    expect(screen.queryByText(/No category is set up for this product/)).toBeNull();
+    expect(screen.getByText("Deal Desk will check it")).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add product" }));
     // Product_Unit__c is the product family, so it no longer pre-fills the unit (2026-09-26).
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -204,13 +209,13 @@ describe("AddLineDialog", () => {
     expect(screen.getByText("List price USD 25,000. You can raise it, not lower it.")).toBeInTheDocument();
 
     await user.type(field, "24000");
-    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add product" }));
     expect(onSave).not.toHaveBeenCalled();
     expect(screen.getByText("The sales price can't be below the list price (25000.00)")).toBeInTheDocument();
 
     await user.clear(field);
     await user.type(field, "27500.50");
-    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add product" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: "25000", salesPrice: "27500.5" }), []);
   });
 
@@ -241,7 +246,7 @@ describe("AddLineDialog", () => {
       await user.clear(qty);
       await user.type(qty, "4");
 
-      await user.click(screen.getByRole("button", { name: "Add 2 lines" }));
+      await user.click(screen.getByRole("button", { name: "Add 2 products" }));
       const [parent, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
       expect(children).toHaveLength(1);
       expect(children[0]).toMatchObject({ productId: support.id, quantity: "4", yearNumber: 2, category: "SUPPORT", parentKey: parent.key });
@@ -257,7 +262,7 @@ describe("AddLineDialog", () => {
       renderDialog();
       await pick(/WSO2 API Manager/);
       expect(screen.getByText(/Couldn't check what comes with this product/)).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Add line" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Add product" })).toBeDisabled();
     } finally {
       bundle.error = undefined;
     }
@@ -272,7 +277,7 @@ describe("AddLineDialog", () => {
     expect(screen.queryByRole("combobox", { name: /Category/ })).toBeNull();
     expect(screen.queryByText(/No category is set up/)).toBeNull();
 
-    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add product" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ category: "SUPPORT", categorySource: "MAPPED" }), []);
   });
 
@@ -306,7 +311,7 @@ describe("AddLineDialog", () => {
     // The product can't be changed on a line: remove it and add another (2026-10-12).
     expect(screen.queryByRole("combobox", { name: /Product/ })).toBeNull();
     expect(screen.getByText(/remove this line and add it/)).toBeInTheDocument();
-    await userEvent.setup().click(screen.getByRole("button", { name: "Save line" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Save product" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }), []);
   });
 
@@ -327,7 +332,7 @@ describe("AddLineDialog", () => {
     await user.click(screen.getByRole("option", { name: /Enterprise Support Plan/ }));
     expect(within(screen.getByLabelText("Chosen product")).getByText("FY26 USD")).toBeInTheDocument();
     expect(screen.queryByRole("combobox", { name: /Price book/ })).toBeNull();
-    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add product" }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ pricebookId: "01s1", pricebookName: "FY26 USD", unitPrice: "25000" }), []);
   });
 
@@ -360,20 +365,18 @@ describe("AddLineDialog", () => {
 
     await user.click(option);
     expect(within(screen.getByLabelText("Chosen product")).getByText("Based on the number of production gateways.")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Add line" }));
+    await user.click(screen.getByRole("button", { name: "Add product" }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
         productDescription: "WSO2 Enterprise Support Plan - APIM. Based on the number of production gateways.",
       }), []);
   });
 
-  // Locked until it comes from Salesforce (2026-10-14).
-  it("locks the unit of measure, saying it will come from Salesforce", async () => {
+  // D114: shown in the table, not asked for here.
+  it("has no unit of measure field", async () => {
     renderDialog();
     await pick(/WSO2 API Manager/);
-    const uom = screen.getByRole("textbox", { name: "Unit of measure" });
-    expect(uom).toBeDisabled();
-    expect(uom).toHaveAccessibleDescription("Will come from Salesforce");
+    expect(screen.queryByRole("textbox", { name: "Unit of measure" })).toBeNull();
   });
 });
 
@@ -396,15 +399,21 @@ describe("AddLineDialog — closing", () => {
       expect(discount).toBeDisabled();
       expect(discount).toHaveValue("0");
       expect(screen.getByText("No discount on formula-priced products")).toBeInTheDocument();
-      // D83: the unit of measure comes from the formula version.
-      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, higher of 25,000 or 10% of subscription");
-      expect(screen.getByText("From the pricing formula v3")).toBeInTheDocument();
       // A formula's price can't be overridden.
       expect(screen.getByRole("textbox", { name: "Sales price" })).toBeDisabled();
       expect(screen.getByText("Priced by formula: the price can't be changed")).toBeInTheDocument();
 
-      await user.click(screen.getByRole("button", { name: "Add line" }));
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ productId: support.id, discount: "0", salesPrice: "" }), []);
+      await user.click(screen.getByRole("button", { name: "Add product" }));
+      // D83: the unit of measure comes from the formula version, saved with the line.
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({
+          productId: support.id,
+          discount: "0",
+          salesPrice: "",
+          unitOfMeasure: "Annual, higher of 25,000 or 10% of subscription",
+        }),
+        [],
+      );
     } finally {
       formulas.list = [];
     }
@@ -423,7 +432,6 @@ describe("AddLineDialog — closing", () => {
       expect(card.getByText("Formula v3 · 15 Oct 2026")).toBeInTheDocument();
       expect(card.getByText("= max(25,000, 4,140,000 × 10%)")).toBeInTheDocument();
       expect(screen.getByRole("textbox", { name: "Discount" })).toBeDisabled();
-      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("Annual, per v3");
 
       expect(screen.getByText(/This formula was removed on 16 Oct 2026/)).toBeInTheDocument();
       const user = userEvent.setup();
@@ -432,8 +440,7 @@ describe("AddLineDialog — closing", () => {
       expect(moved.getByText("USD 53,000")).toBeInTheDocument();
       expect(moved.getByText("per unit, from the price book")).toBeInTheDocument();
       expect(screen.getByRole("textbox", { name: "Discount" })).toBeEnabled();
-      expect(screen.getByRole("textbox", { name: "Unit of measure" })).toHaveValue("");
-      await user.click(screen.getByRole("button", { name: "Save line" }));
+      await user.click(screen.getByRole("button", { name: "Save product" }));
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({ lineId: 228, useLatestPricing: true, unitPrice: "53000", unitOfMeasure: "" }), []);
     } finally {
@@ -447,7 +454,7 @@ describe("AddLineDialog — closing", () => {
       const onSave = renderDialog(vi.fn(), savedSupportLine());
       expect(screen.getByText(/A newer version of this formula is in force: v4 · 20 Oct 2026/)).toBeInTheDocument();
       const user = userEvent.setup();
-      await user.click(screen.getByRole("button", { name: "Save line" }));
+      await user.click(screen.getByRole("button", { name: "Save product" }));
       expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ useLatestPricing: undefined }), []);
       expect(onSave.mock.lastCall?.[0].keepPricing.formulaVersionId).toBe(6);
     } finally {

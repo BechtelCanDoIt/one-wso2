@@ -312,9 +312,10 @@ export default function AddLineDialog({
       : inForce
         ? { text: `This product now has a pricing formula: ${versionLabel(inForce.version, inForce.updatedAt)}.`, action: "Use the formula" }
         : null;
-  // The unit of measure: a formula line's comes from its version (D83);
-  // otherwise it is locked until it comes from Salesforce (D79), and a line
-  // moved off a formula has none.
+  // The unit of measure, saved with the line and shown in the table, not in
+  // this dialog (D114): a formula line's comes from its version (D83);
+  // otherwise it will come from Salesforce (D79), and a line moved off a
+  // formula has none.
   const uom =
     pricing.kind === "FORMULA"
       ? pricing.formula.unitOfMeasure
@@ -323,8 +324,6 @@ export default function AddLineDialog({
         : keepsExisting && moved && line.keepPricing?.method === "FORMULA"
           ? ""
           : (line?.unitOfMeasure ?? "");
-  const uomSource =
-    pricing.kind === "PRICE_BOOK" ? "Will come from Salesforce" : `From the pricing formula v${pricing.formula.version}`;
   // A line moved off a formula goes back to the price-book price it was worked out from.
   const keptUnitPrice =
     keepsExisting && moved && line.keepPricing?.method === "FORMULA" ? (line.keepPricing.formula?.listPrice ?? line.unitPrice) : line?.unitPrice ?? "";
@@ -454,19 +453,15 @@ export default function AddLineDialog({
           >
             <PackageIcon size={20} />
           </Box>
-          <Box>
-            <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
-              {line ? "Edit line" : "Add line"}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              Priced from {pricebook.name} in {currency}
-            </Typography>
-          </Box>
+          {/* Just the title (D114): the product picker below says the rest. */}
+          <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
+            {line ? "Edit Product" : "Add Product"}
+          </Typography>
         </Stack>
       </DialogTitle>
       <DialogContent>
         <Stack spacing={3} sx={{ pt: 1 }}>
-          <Group icon={<PackageIcon size={14} />} title="Product">
+          <Stack component="section" aria-label="Product" spacing={2}>
             {line && keepsExisting ? (
               <ProductCard
                 name={line.productName}
@@ -570,9 +565,12 @@ export default function AddLineDialog({
               </Stack>
             ) : chosen ? (
               <>
-                <Alert severity="warning">
-                  No category is set up for this product. Choose one; Deal Desk will check it.
-                </Alert>
+                {/* Until the AM chooses; then only a quiet note under the field. */}
+                {category ? null : (
+                  <Alert severity="warning">
+                    No category is set up for this product. Choose one; Deal Desk will check it.
+                  </Alert>
+                )}
                 <TextField
                   select
                   label="Category"
@@ -581,7 +579,7 @@ export default function AddLineDialog({
                   size="small"
                   required
                   error={Boolean(show("category"))}
-                  helperText={show("category")}
+                  helperText={show("category") ?? (category ? "Deal Desk will check it" : undefined)}
                 >
                   {CATEGORIES.map((c) => (
                     <MenuItem key={c.value} value={c.value}>
@@ -591,7 +589,7 @@ export default function AddLineDialog({
                 </TextField>
               </>
             ) : null}
-          </Group>
+          </Stack>
           <Group icon={<PercentIcon size={14} />} title="Price, Quantity & Discount">
             {/* The sales price: the list price unless raised; never
                 lower. A formula sets its own price, which can't be changed. */}
@@ -638,16 +636,6 @@ export default function AddLineDialog({
                 }}
               />
             </Stack>
-            {/* Its own row: the description under it can be up to ~140 characters. */}
-            {/* Locked (2026-10-14): from the pricing formula (D83), else it will come from Salesforce. */}
-            <TextField
-              label="Unit of measure"
-              value={uom}
-              size="small"
-              fullWidth
-              disabled
-              helperText={uomSource}
-            />
           </Group>
           {/* Its dates within its year: the whole year
               unless narrowed; a one-off is charged on its start. A bundle
@@ -684,7 +672,7 @@ export default function AddLineDialog({
       <DialogActions>
         <Button onClick={onClose}>Cancel</Button>
         <Button variant="contained" onClick={save} disabled={(!line && Boolean(product) && bundle.isFetching) || bundleFailed}>
-          {line ? "Save line" : bundled.length ? `Add ${bundled.length + 1} lines` : "Add line"}
+          {line ? "Save product" : bundled.length ? `Add ${bundled.length + 1} products` : "Add product"}
         </Button>
       </DialogActions>
     </Dialog>

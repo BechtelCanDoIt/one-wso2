@@ -20,7 +20,6 @@ import {
   Alert,
   Box,
   Button,
-  DatePickers,
   Stack,
   TableCell,
   TableRow,
@@ -39,7 +38,6 @@ import {
   Trash2Icon,
 } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
 import DealFiguresSection from "@features/sales/cado2/quotes/components/sheet/DealFiguresSection";
 import ScheduleTable from "@features/sales/cado2/quotes/components/sheet/ScheduleTable";
 import YearSections, { OrderTotalsFooter, type SectionYear } from "@features/sales/cado2/quotes/components/sheet/YearSections";
@@ -56,20 +54,18 @@ import {
   isPartnerLed,
   lastYearEndProblem,
   MAX_YEARS,
-  parseDateString,
   setLastYearEnd,
-  toDateString,
   type ContractYear,
   type DraftFormValues,
   type LineValue,
 } from "@features/sales/cado2/quotes/form/draftForm";
 import AddLineDialog from "@features/sales/cado2/quotes/components/AddLineDialog";
 import TermCard from "@features/sales/cado2/quotes/components/TermCard";
+import LastYearEnd from "@features/sales/cado2/quotes/components/LastYearEnd";
 import PartnerCommissionCard from "@features/sales/cado2/quotes/components/PartnerCommissionCard";
 import PricingSetupCard from "@features/sales/cado2/quotes/components/PricingSetupCard";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
 
-const { DatePicker } = DatePickers;
 
 interface ProductsStepProps {
   /** The latest live preview, if the quote could be priced. */
@@ -148,9 +144,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
       ? null
       : !values.startDate
         ? "Amounts appear once the start date is chosen."
-        : values.yearCount < 1
-          ? "Amounts appear once Year 1 is added."
-          : null;
+        : null;
   // The same lines, amounts and figures as the Review step's sheet.
   const sheet = useMemo(() => sheetFromForm(values, preview, null), [values, preview]);
   const total = orderForm(sheet.lines, sheet.partnerCommissionPercent);
@@ -210,74 +204,69 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
 
   const yearActions = (n: number) => {
     const ofYear = values.lines.filter((l) => l.yearNumber === n);
+    // An empty year has nothing to clone, and its add is in the empty state.
+    // Any year can be deleted but the only one: a quote always has Year 1.
+    const empty = ofYear.length === 0;
+    const deletable = values.yearCount > 1;
+    if (empty && !deletable) return null;
     const recurring = ofYear.filter((l) => l.recurring).length;
     return (
       <>
-        {addButton(n)}
-        <Tooltip
-          title={
-            recurring === 0
-              ? "No recurring products to copy"
-              : values.yearCount >= MAX_YEARS
-                ? `A quote has at most ${MAX_YEARS} years`
-                : `Copy Year ${n}'s ${recurring} recurring product${recurring === 1 ? "" : "s"} into a new Year ${values.yearCount + 1}`
-          }
-        >
-          <span>
-            <Button
-              size="small"
-              startIcon={<CopyIcon size={14} />}
-              disabled={recurring === 0 || values.yearCount >= MAX_YEARS || !values.startDate}
-              onClick={() => setYears(cloneYear(getValues(), n))}
-            >
-              Clone
-            </Button>
-          </span>
-        </Tooltip>
-        <Tooltip
-          title={`Delete Year ${n}${ofYear.length ? ` and its ${ofYear.length} product${ofYear.length === 1 ? "" : "s"}` : ""}${n < values.yearCount ? "; later years move up" : ""}`}
-        >
-          <IconButton
-            size="small"
-            aria-label={`Delete Year ${n}`}
-            onClick={() => {
-              setYears(deleteYear(getValues(), n));
-              fold.reset();
-            }}
+        {empty ? null : addButton(n)}
+        {empty ? null : (
+          <Tooltip
+            title={
+              recurring === 0
+                ? "No recurring products to copy"
+                : emptyYear !== null
+                  ? `Add a product to Year ${emptyYear} first`
+                  : values.yearCount >= MAX_YEARS
+                    ? `A quote has at most ${MAX_YEARS} years`
+                    : `Copy Year ${n}'s ${recurring} recurring product${recurring === 1 ? "" : "s"} into a new Year ${values.yearCount + 1}`
+            }
           >
-            <Trash2Icon size={16} />
-          </IconButton>
-        </Tooltip>
+            <span>
+              <Button
+                size="small"
+                startIcon={<CopyIcon size={14} />}
+                disabled={recurring === 0 || emptyYear !== null || values.yearCount >= MAX_YEARS || !values.startDate}
+                onClick={() => setYears(cloneYear(getValues(), n))}
+              >
+                Clone
+              </Button>
+            </span>
+          </Tooltip>
+        )}
+        {deletable ? (
+          <Tooltip
+            title={`Delete Year ${n}${ofYear.length ? ` and its ${ofYear.length} product${ofYear.length === 1 ? "" : "s"}` : ""}${n < values.yearCount ? "; later years move up" : ""}`}
+          >
+            <IconButton
+              size="small"
+              aria-label={`Delete Year ${n}`}
+              onClick={() => {
+                setYears(deleteYear(getValues(), n));
+                fold.reset();
+              }}
+            >
+              <Trash2Icon size={16} />
+            </IconButton>
+          </Tooltip>
+        ) : null}
       </>
     );
   };
 
-  // Only the last year may be shorter than 12 months.
-  const yearTop = (n: number) =>
-    n === values.yearCount && values.startDate ? (
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2} alignItems={{ sm: "center" }}>
-        <DatePicker
-          label={`Year ${n} ends`}
-          value={parseDateString(years[n - 1]?.end ?? "")}
-          minDate={parseDateString(years[n - 1]?.start ?? "") ?? undefined}
-          maxDate={parseDateString(fullLastEnd) ?? undefined}
-          onChange={(d: Date | null) => d && !Number.isNaN(d.getTime()) && changeLastEnd(toDateString(d))}
-          slotProps={{
-            textField: {
-              size: "small",
-              error: Boolean(lastProblem || lastEndIssue),
-              helperText: lastProblem || lastEndIssue || "The last year can be shorter than 12 months",
-              sx: { width: 220 },
-            },
-          }}
-        />
-        {values.lastYearEndDate ? (
-          <Button size="small" onClick={() => changeLastEnd(fullLastEnd)}>
-            Make it a full year
-          </Button>
-        ) : null}
-      </Stack>
+  // Only the last year may be shorter than 12 months: its end date in the
+  // header is clickable (2026-10-26); a problem with it shows above its products.
+  const yearEnd = (n: number) =>
+    n === values.yearCount && values.startDate && years[n - 1]?.end ? (
+      <LastYearEnd yearNumber={n} start={years[n - 1].start} end={years[n - 1].end} fullEnd={fullLastEnd} onChange={changeLastEnd} />
     ) : null;
+  const yearTop = (n: number) =>
+    n === values.yearCount && (lastProblem || lastEndIssue) ? <Alert severity="error">{lastProblem || lastEndIssue}</Alert> : null;
+  // The first year without products, if any: it's filled before another is added.
+  const emptyYear = years.find((y) => !values.lines.some((l) => l.yearNumber === y.number))?.number ?? null;
 
   // Lines whose year was removed or never set (none normally): listed so they can be fixed.
   const orphans = values.lines.flatMap((l, i) => (l.yearNumber >= 1 && l.yearNumber <= values.yearCount ? [] : [i]));
@@ -336,20 +325,8 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           </Alert>
         ) : null}
 
-        {values.yearCount === 0 ? (
-          <EmptyState
-            compact
-            icon={<PackageIcon size={20} />}
-            title="No years yet"
-            body="Add Year 1 to start adding products. Every year is 12 months; the last can be shorter."
-            action={
-              <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => setYears(addYear(getValues()))}>
-                Add Year 1
-              </Button>
-            }
-          />
-        ) : (
-          <>
+        {/* Year 1 is always there (2026-10-26). */}
+        <>
             <YearSections
               years={years}
               lines={sheet.lines}
@@ -359,12 +336,28 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               onToggle={fold.toggle}
               yearActions={yearActions}
               yearTop={yearTop}
+              yearEnd={yearEnd}
               empty={(n) => (
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ flexWrap: "wrap" }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {`No products in Year ${n}. Add products from ${values.defaultPricebookName ? `the ${values.defaultPricebookName} price book` : "the quote's price book"}, or clone an earlier year.`}
+                // A slim panel, the size of a couple of product rows: an empty
+                // year doesn't outweigh a filled one (2026-10-26).
+                <Stack
+                  spacing={1}
+                  alignItems="center"
+                  sx={{ py: 1.75, px: 2, border: 1, borderStyle: "dashed", borderColor: "divider", borderRadius: 2 }}
+                >
+                  <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+                    No products yet. Add them from {values.defaultPricebookName || "the quote's price book"}.
                   </Typography>
-                  {addButton(n, "Add product")}
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<PlusIcon size={14} />}
+                    disabled={!ready}
+                    aria-label={`Add product to Year ${n}`}
+                    onClick={() => setEditing({ open: true, index: null, year: n })}
+                  >
+                    Add product
+                  </Button>
                 </Stack>
               )}
               lineActions={(i) => (
@@ -403,30 +396,38 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
               below={(i) => <LineIssue key={fields[i]?.id} index={i} />}
               flagUncategorised
             />
-            {values.yearCount < MAX_YEARS ? (
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<PlusIcon size={14} />}
-                onClick={() => setYears(addYear(getValues()))}
-                sx={{ my: 2 }}
-              >
-                Add Year {values.yearCount + 1}
-              </Button>
+            {/* The next year once every year has products, so empty years
+                don't pile up. */}
+            {values.lines.length > 0 && values.yearCount < MAX_YEARS ? (
+              <Tooltip title={emptyYear === null ? "" : `Add a product to Year ${emptyYear} first`}>
+                <Box component="span" sx={{ display: "inline-block", my: 2 }}>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<PlusIcon size={14} />}
+                    disabled={emptyYear !== null}
+                    onClick={() => setYears(addYear(getValues()))}
+                  >
+                    Add Year {values.yearCount + 1}
+                  </Button>
+                </Box>
+              </Tooltip>
             ) : null}
             {amountsHint ? (
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                 {amountsHint}
               </Typography>
             ) : null}
-            <OrderTotalsFooter
-              lines={sheet.lines}
-              currency={currency}
-              commissionPercent={sheet.partnerCommissionPercent}
-              yearCount={values.yearCount}
-            />
-          </>
-        )}
+            {/* Totals with the first product. */}
+            {values.lines.length > 0 ? (
+              <OrderTotalsFooter
+                lines={sheet.lines}
+                currency={currency}
+                commissionPercent={sheet.partnerCommissionPercent}
+                yearCount={values.yearCount}
+              />
+            ) : null}
+        </>
       </SectionCard>
 
       {fields.length > 0 ? <DealFiguresSection sheet={sheet} /> : null}
