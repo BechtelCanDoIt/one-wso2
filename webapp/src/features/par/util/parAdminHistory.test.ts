@@ -149,3 +149,21 @@ describe("groupLegacyParticipantsByTeam", () => {
     expect(groupLegacyParticipantsByTeam([])).toEqual([]);
   });
 });
+
+describe("groupLegacyParticipantsByTeam special-rating slots for 2021", () => {
+  it("counts no slot for 2021 H1, whose special rating needs question answers the summary list doesn't carry", () => {
+    const [group] = groupLegacyParticipantsByTeam([
+      legacyRecord({ cycleName: "2021 Performance Evaluation - H1", managerScoreCode: 1, questionAnswers: null }),
+    ]);
+    expect(group.numberOf5pSlots).toBe(0);
+    expect(group.numberOf20pSlots).toBe(0);
+  });
+
+  it("counts a 5% slot for 2021 H2 managerScoreCode 1 (Successful - Top 5%)", () => {
+    const [group] = groupLegacyParticipantsByTeam([
+      legacyRecord({ cycleName: "2021 Performance Evaluation - H2", managerScoreCode: 1 }),
+    ]);
+    expect(group.numberOf5pSlots).toBe(1);
+    expect(group.numberOf20pSlots).toBe(0);
+  });
+});
