@@ -47,7 +47,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { Eye, RefreshCw, Search, X } from "@wso2/oxygen-ui-icons-react";
+import { Download, Eye, RefreshCw, Search, X } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
 import type * as React from "react";
 import { useSearchParams } from "react-router";
@@ -71,6 +71,7 @@ import {
   fetchLookupOptions,
   fetchRiskCategories,
   fetchRiskDetail,
+  exportRisks,
   fetchRisks,
   fetchRiskScores,
   fetchSourceRegisterTeams,
@@ -86,6 +87,7 @@ import type {
   ComplianceReference,
   Escalation,
   HistoryEntry,
+  ListRisksParams,
   LookupOption,
   RiskCategory,
   RiskEnvironment,
@@ -122,6 +124,7 @@ import {
   PENDING_REVISION_STATUSES,
   STATUS_CONFIG,
   calcDue,
+  downloadBlob,
   formatDate,
   riskRoles,
 } from "./risk-registers/utils";
@@ -597,17 +600,44 @@ export default function RiskRegisters(): JSX.Element {
     setPage(0);
   }, [activeTab, filters, allStagesView]);
 
+  // The filter half of the list request — everything the table is narrowed by,
+  // but no paging. loadRisks adds offset/limit; the CSV export sends it as-is,
+  // so what is downloaded is exactly the set the filters select.
+  const buildFilterParams = useCallback(
+    (): ListRisksParams => ({
+      statuses: getStatuses(),
+      team_id: filters.teamId.length ? filters.teamId : undefined,
+      level: filters.level.length ? filters.level : undefined,
+      search: filters.search || undefined,
+      risk_type: filters.riskType.length ? filters.riskType : undefined,
+      treatment_strategy: filters.treatmentStrategy.length ? filters.treatmentStrategy : undefined,
+      owner_id: filters.ownerId.length ? filters.ownerId : undefined,
+      category_id: filters.categoryId.length ? filters.categoryId : undefined,
+      customer_id: filters.customerId.length ? filters.customerId : undefined,
+      environment: filters.environment.length ? filters.environment : undefined,
+      platform_id: filters.platformId.length ? filters.platformId : undefined,
+      submitted_from: filters.submittedFrom || undefined,
+      submitted_to: filters.submittedTo || undefined,
+      due_from: filters.dueFrom || undefined,
+      due_to: filters.dueTo || undefined,
+      due_overdue: filters.dueOverdueOnly || undefined,
+      open_escalation: activeTabDef.openEscalationOnly || undefined,
+    }),
+    [filters, getStatuses, activeTabDef.openEscalationOnly],
+  );
+
+  // getStatuses() returns [] both when no Status filter is selected (no
+  // restriction) and when the selected Status values are disjoint from the
+  // current tab/approvedFilter scope (genuinely zero matches). The list and
+  // export treat an empty array as "no filter" and omit the statuses param
+  // entirely, which the backend then reads as "no restriction" — silently
+  // returning risks from every workflow status instead of none. So the
+  // disjoint case is short-circuited rather than sent to the server.
+  const matchesNothing = buildFilterParams().statuses?.length === 0 && filters.status.length > 0;
+
   const loadRisks = useCallback(async () => {
     const seq = ++loadSeqRef.current;
-    const statuses = getStatuses();
-    // getStatuses() returns [] both when no Status filter is selected (no
-    // restriction) and when the selected Status values are disjoint from the
-    // current tab/approvedFilter scope (genuinely zero matches). fetchRisks
-    // treats an empty array as "no filter" and omits the statuses param
-    // entirely, which the backend then reads as "no restriction" — silently
-    // returning risks from every workflow status instead of none. Short-
-    // circuit the disjoint case here rather than hitting the server.
-    if (statuses.length === 0 && filters.status.length > 0) {
+    if (matchesNothing) {
       setRisks([]);
       setTotal(0);
       setListError("");
@@ -618,23 +648,7 @@ export default function RiskRegisters(): JSX.Element {
     setListError("");
     try {
       const result = await fetchRisks(authFetch, {
-        statuses,
-        team_id: filters.teamId.length ? filters.teamId : undefined,
-        level: filters.level.length ? filters.level : undefined,
-        search: filters.search || undefined,
-        risk_type: filters.riskType.length ? filters.riskType : undefined,
-        treatment_strategy: filters.treatmentStrategy.length ? filters.treatmentStrategy : undefined,
-        owner_id: filters.ownerId.length ? filters.ownerId : undefined,
-        category_id: filters.categoryId.length ? filters.categoryId : undefined,
-        customer_id: filters.customerId.length ? filters.customerId : undefined,
-        environment: filters.environment.length ? filters.environment : undefined,
-        platform_id: filters.platformId.length ? filters.platformId : undefined,
-        submitted_from: filters.submittedFrom || undefined,
-        submitted_to: filters.submittedTo || undefined,
-        due_from: filters.dueFrom || undefined,
-        due_to: filters.dueTo || undefined,
-        due_overdue: filters.dueOverdueOnly || undefined,
-        open_escalation: activeTabDef.openEscalationOnly || undefined,
+        ...buildFilterParams(),
         offset: page * rowsPerPage,
         limit: rowsPerPage,
       });
@@ -647,7 +661,25 @@ export default function RiskRegisters(): JSX.Element {
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [activeTab, filters, getStatuses, page, rowsPerPage]);
+  }, [activeTab, buildFilterParams, matchesNothing, page, rowsPerPage]);
+
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+
+  // Report Download: every risk the current tab and filters select, as CSV —
+  // all pages, not just the one on screen.
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError("");
+    try {
+      const { blob, fileName } = await exportRisks(authFetch, buildFilterParams());
+      downloadBlob(blob, fileName);
+    } catch (e: unknown) {
+      setExportError(e instanceof Error ? e.message : "Failed to download the report.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     loadRisks();
@@ -1025,9 +1057,32 @@ export default function RiskRegisters(): JSX.Element {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 3 }}>
-        Risk Registers
-      </Typography>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        flexWrap="wrap"
+        gap={2}
+        sx={{ mb: 3 }}
+      >
+        <Typography variant="h4" fontWeight={700}>
+          Risk Registers
+        </Typography>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
+          disabled={exporting || matchesNothing}
+          onClick={() => void handleExport()}
+        >
+          Report Download
+        </Button>
+      </Stack>
+      {exportError && (
+        <Alert severity="error" onClose={() => setExportError("")} sx={{ mb: 2 }}>
+          {exportError}
+        </Alert>
+      )}
 
       {allStagesView ? (
         <Paper
