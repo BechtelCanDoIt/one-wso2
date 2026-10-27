@@ -248,11 +248,11 @@ export default function SideRail({ collapsed }: SideRailProps): JSX.Element {
       // Carry the perspective along, same as the Settings navigation above.
       // Harmless for a path that lives under this perspective's own prefix
       // (findPerspectiveByPath resolves it directly and never reads this
-      // state) — load-bearing for one that doesn't, like Due Diligence's
-      // /due-diligence/* routes, which are reachable from both Finance and
-      // Legal and can't live under either one's own path prefix. Without
-      // this, landing there would fall back to the Me rail instead of
-      // keeping whichever of the two the caller actually came from.
+      // state) — load-bearing for one that doesn't, like Banking admin's
+      // /banking/admin, which is reachable from both Finance and People Ops
+      // and can't live under either one's own path prefix. Without this,
+      // landing there would fall back to the Me rail instead of keeping
+      // whichever of the two the caller actually came from.
       navigate(path, { state: { fromPerspective: active.key } });
       return;
     }

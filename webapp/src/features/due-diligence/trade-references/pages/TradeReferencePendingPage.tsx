@@ -30,6 +30,7 @@ import { TRADE_REFERENCE_STATUS } from "@features/due-diligence/constants";
 import type { TradeReferenceRow } from "../api/tradeReferenceTypes";
 import { useUpdateTradeReferenceFormStatus } from "../api/useTradeReferences";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // Ported from the source app's TradeReferences/TradeReferenceDashboard/PendingPage2.js.
 export default function TradeReferencePendingPage() {
@@ -60,7 +61,7 @@ export default function TradeReferencePendingPage() {
           {
             onSuccess: () => {
               setSnack({ open: true, severity: "success", message: "Updated successfully" });
-              navigate(`/due-diligence/trade-references/deactivated/${linkId}`, { state: { row } });
+              navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references/deactivated/${linkId}`, { state: { row } });
             },
             onError: (err) =>
               setSnack({ open: true, severity: "error", message: `Couldn't update. ${humanizeHttpError(err)}` }),
@@ -73,7 +74,7 @@ export default function TradeReferencePendingPage() {
 
   return (
     <DueDiligenceShell
-      back={{ label: "Return to Trade References", onClick: () => navigate("/due-diligence/trade-references") }}
+      back={{ label: "Return to Trade References", onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references`) }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Trade reference — pending"
       headerActions={

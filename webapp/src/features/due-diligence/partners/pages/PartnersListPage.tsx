@@ -74,6 +74,7 @@ import {
   type StatusChipColor,
 } from "@features/due-diligence/constants";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 type SortColumn = (typeof COLUMN_NAMES)[keyof typeof COLUMN_NAMES];
 type SortDirection = "asc" | "desc";
@@ -253,11 +254,11 @@ export default function PartnersListPage() {
       FORM_STATUS.FULL_EDIT_REQUESTED,
     ];
     if (openableStatuses.includes(row.reseller.formStatus)) {
-      navigate(`/due-diligence/partners/${row.reseller.companyId}/profile`, {
+      navigate(`${DUE_DILIGENCE_BASE_PATH}/partners/${row.reseller.companyId}/profile`, {
         state: { encodeString: row.encodeString, isTradeReferenceEnabled: row.isTradeReferenceEnabled },
       });
     } else {
-      navigate(`/due-diligence/partners/pending/${row.reseller.linkId}`, { state: { row } });
+      navigate(`${DUE_DILIGENCE_BASE_PATH}/partners/pending/${row.reseller.linkId}`, { state: { row } });
     }
   };
 

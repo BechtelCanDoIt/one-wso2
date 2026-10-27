@@ -88,7 +88,7 @@ function writeLastPerspective(key: string): void {
 //
 // sessionStorage is the last fallback before Me, for the one case NEITHER
 // state NOR a query param survives: a plain browser refresh on a page that
-// owns no perspective (e.g. /due-diligence/partners, reached earlier via a
+// owns no perspective (e.g. /banking/admin, reached earlier via a
 // rail click) carries no history state and no query param — the URL is just
 // its own path. Whenever `active` resolves to something other than Me by any
 // other means, that key is remembered for the rest of the tab, so a refresh

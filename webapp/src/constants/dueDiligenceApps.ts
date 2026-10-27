@@ -21,10 +21,10 @@
 // between the two entry points. Same model as FINANCE_APPS/MARKETING_OPS_APPS
 // — one MenuApp per app, its sub-screens as items.
 //
-// Its routes live OUTSIDE both perspectives, at a top-level /due-diligence/*
-// prefix (see App.tsx) — the same reason /settings does: a feature reachable
-// from two different rails can't itself live under either rail's own path
-// prefix, or landing on it directly would only ever resolve one of the two.
+// Its routes live under the Legal prefix, /legal/due-diligence/* (see App.tsx
+// and DUE_DILIGENCE_BASE_PATH), like Legal → NDA. The URL decides the rail, so
+// opening these items from Finance's rail switches to the Legal rail; that is
+// the agreed trade-off for keeping each app under one perspective's prefix.
 //
 // ---- on `requires` --------------------------------------------------------
 //
@@ -37,6 +37,7 @@
 
 import { ClipboardCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 export const DUE_DILIGENCE_APPS: readonly MenuApp[] = [
   {
@@ -54,14 +55,14 @@ export const DUE_DILIGENCE_APPS: readonly MenuApp[] = [
         label: "Partners",
         desc: "Reseller partner applications — review, approve, and track finance/legal sign-off.",
         requires: ["admin"],
-        path: "/due-diligence/partners",
+        path: `${DUE_DILIGENCE_BASE_PATH}/partners`,
       },
       {
         id: "dd-trade-references",
         label: "Trade References",
         desc: "Trade reference requests and their review status.",
         requires: ["admin"],
-        path: "/due-diligence/trade-references",
+        path: `${DUE_DILIGENCE_BASE_PATH}/trade-references`,
       },
       // Gate: due-diligence role "adminRole" only, not the broader
       // "any role" bar the other two items use — see useDueDiligenceGate.canSee.
@@ -70,7 +71,7 @@ export const DUE_DILIGENCE_APPS: readonly MenuApp[] = [
         label: "Preferences",
         desc: "Ratio scoring scales and notification email recipients.",
         requires: ["admin"],
-        path: "/due-diligence/preferences",
+        path: `${DUE_DILIGENCE_BASE_PATH}/preferences`,
       },
     ],
   },

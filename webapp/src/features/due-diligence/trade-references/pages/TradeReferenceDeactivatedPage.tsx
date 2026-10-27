@@ -28,6 +28,7 @@ import { humanizeHttpError } from "@api/http";
 import type { TradeReferenceRow } from "../api/tradeReferenceTypes";
 import { useUpdateTradeReferenceFormStatus } from "../api/useTradeReferences";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // Ported from the source app's TradeReferences/TradeReferenceDashboard/DeactivatedPage.js.
 export default function TradeReferenceDeactivatedPage() {
@@ -58,7 +59,7 @@ export default function TradeReferenceDeactivatedPage() {
           {
             onSuccess: () => {
               setSnack({ open: true, severity: "success", message: "Updated successfully" });
-              navigate(`/due-diligence/trade-references/pending/${linkId}`, { state: { row } });
+              navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references/pending/${linkId}`, { state: { row } });
             },
             onError: (err) =>
               setSnack({ open: true, severity: "error", message: `Couldn't update. ${humanizeHttpError(err)}` }),
@@ -71,7 +72,7 @@ export default function TradeReferenceDeactivatedPage() {
 
   return (
     <DueDiligenceShell
-      back={{ onClick: () => navigate("/due-diligence/trade-references") }}
+      back={{ onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references`) }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Trade reference — deactivated"
       headerActions={

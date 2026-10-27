@@ -21,6 +21,7 @@ import { humanizeHttpError } from "@api/http";
 import { FILE_UPLOAD_LIMIT, FINANCE_CHOOSE_FILE_SUBQUESTION_ID } from "@features/due-diligence/constants";
 import { useDeletePartnerFile, useSavePartnerFilesMetadata, useUploadPartnerFile } from "../api/useFinance";
 import type { FileSubmission, FinanceComment, PartnerAnswer, QuestionInfo, SubQuestionInfo } from "../api/financeTypes";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 /**
  * Ported from the source app's Resellers/ResellerDashboard/Finance/SubQuestionDetails.js
@@ -165,7 +166,7 @@ export default function FinanceSubQuestionDetails({
 
   const openFile = (fileName: string) => {
     const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-    const path = extension === "pdf" ? "/due-diligence/view-pdf" : ["jpg", "jpeg", "png"].includes(extension) ? "/due-diligence/view-image" : null;
+    const path = extension === "pdf" ? `${DUE_DILIGENCE_BASE_PATH}/view-pdf` : ["jpg", "jpeg", "png"].includes(extension) ? `${DUE_DILIGENCE_BASE_PATH}/view-image` : null;
     // `from=finance` opens the viewer as its own tab (window.open, not a
     // client-side navigation) — there is no history entry to attach the
     // usual `state: { fromPerspective }` to, so PerspectiveContext falls

@@ -48,6 +48,7 @@ import {
   useUpdatePartner,
 } from "../api/usePartners";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // Ported from the source app's Resellers/ResellerDashboard/PendingPage.js —
 // what's shown for a partner link whose form hasn't been submitted yet.
@@ -155,7 +156,7 @@ export default function PartnerPendingPage() {
           {
             onSuccess: () => {
               notify("success", "Updated successfully");
-              navigate("/due-diligence/partners");
+              navigate(`${DUE_DILIGENCE_BASE_PATH}/partners`);
             },
             onError: (err) =>
               notify("error", `Couldn't update. ${humanizeHttpError(err)}`),
@@ -191,7 +192,7 @@ export default function PartnerPendingPage() {
     <DueDiligenceShell
       back={{
         label: "Return to Partners",
-        onClick: () => navigate("/due-diligence/partners"),
+        onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/partners`),
       }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Partner — pending signature"

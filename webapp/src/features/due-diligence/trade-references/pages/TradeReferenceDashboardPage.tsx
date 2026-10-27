@@ -36,6 +36,7 @@ import { useTradeReferenceDetail, useTradeReferenceQuestions } from "../api/useT
 import TradeReferenceQuestionDetails from "../components/TradeReferenceQuestionDetails";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
 import { tradeReferenceStatusChipColor } from "@features/due-diligence/constants";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // The reject-reason question — shown only on TradeReferenceRejectedPage, not here.
 const REJECT_REASON_QUESTION_ID = 74;
@@ -56,7 +57,7 @@ export default function TradeReferenceDashboardPage() {
 
   return (
     <DueDiligenceShell
-      back={{ onClick: () => navigate("/due-diligence/trade-references") }}
+      back={{ onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references`) }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Trade reference"
     >

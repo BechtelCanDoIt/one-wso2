@@ -18,23 +18,17 @@ import { useCallback } from "react";
 import { useLocation, useNavigate, type NavigateOptions, type To } from "react-router";
 
 /**
- * A drop-in replacement for react-router's `useNavigate()` for any page under
- * `/due-diligence/*`.
+ * A drop-in replacement for react-router's `useNavigate()` for any Due
+ * Diligence page.
  *
- * That whole route tree sits OUTSIDE every perspective's own path prefix (see
- * PerspectiveContext.tsx) — the entry points into it (the rail's own link,
- * and the Finance/Legal overview cards) already pass `state: { fromPerspective }`
- * so the rail stays on Finance or Legal instead of falling back to the
- * default. But PerspectiveContext resolves that purely from the CURRENT
- * navigation's own state — it doesn't chain automatically — so the moment a
- * due-diligence page navigates onward (a table row, a tab, a back button)
- * without re-attaching that same state, the very next hop loses it and the
- * rail snaps back to the default perspective.
- *
- * This hook reads whatever `fromPerspective` the CURRENT page already has and
- * re-attaches it to every navigation this page makes, so it survives however
- * many hops deep into due-diligence's own pages the user goes — not just the
- * first one.
+ * It re-attaches the current page's `state: { fromPerspective }` to every
+ * navigation the page makes, so it survives however many hops deep the user
+ * goes. That mattered while Due Diligence lived at a neutral /due-diligence/*
+ * prefix, where the state was the only thing keeping the rail on Finance or
+ * Legal. The pages now live under /legal/due-diligence (DUE_DILIGENCE_BASE_PATH),
+ * where the URL itself selects the Legal rail (PerspectiveContext checks the
+ * path first), so the state no longer changes anything here. It is kept so the
+ * move stays a route-only change; plain useNavigate() can replace it later.
  */
 export function useDueDiligenceNavigate() {
   const navigate = useNavigate();

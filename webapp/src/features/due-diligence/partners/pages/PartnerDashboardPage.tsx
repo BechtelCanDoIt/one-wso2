@@ -58,6 +58,7 @@ import ConfirmationDialog, {
   type ConfirmationContent,
 } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 const TAB_NAMES = ["profile", "finance", "legal", "approvalsummary"] as const;
 type TabName = (typeof TAB_NAMES)[number];
@@ -184,10 +185,10 @@ export default function PartnerDashboardPage() {
   // loaded a moment later the URL had already changed to .../profile.
   useEffect(() => {
     if (gate.isResolving) return;
-    if (tabName === "finance" && !canSeeFinance) navigate(`/due-diligence/partners/${id}/profile`, { replace: true });
-    if (tabName === "legal" && !canSeeLegal) navigate(`/due-diligence/partners/${id}/profile`, { replace: true });
+    if (tabName === "finance" && !canSeeFinance) navigate(`${DUE_DILIGENCE_BASE_PATH}/partners/${id}/profile`, { replace: true });
+    if (tabName === "legal" && !canSeeLegal) navigate(`${DUE_DILIGENCE_BASE_PATH}/partners/${id}/profile`, { replace: true });
     if (tabName && !TAB_NAMES.includes(tabName as TabName)) {
-      navigate(`/due-diligence/partners/${id}/profile`, { replace: true });
+      navigate(`${DUE_DILIGENCE_BASE_PATH}/partners/${id}/profile`, { replace: true });
     }
   }, [tabName, canSeeFinance, canSeeLegal, id, navigate, gate.isResolving]);
 
@@ -287,7 +288,7 @@ export default function PartnerDashboardPage() {
 
   return (
     <DueDiligenceShell
-      back={{ label: "Return to Partners", onClick: () => navigate("/due-diligence/partners") }}
+      back={{ label: "Return to Partners", onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/partners`) }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Partner dashboard"
       headerActions={headerActions}
@@ -328,7 +329,7 @@ export default function PartnerDashboardPage() {
 
           <Tabs
             value={activeTab}
-            onChange={(_, value: TabName) => navigate(`/due-diligence/partners/${id}/${value}`)}
+            onChange={(_, value: TabName) => navigate(`${DUE_DILIGENCE_BASE_PATH}/partners/${id}/${value}`)}
           >
             <Tab value="profile" label="Profile" />
             <Tab value="finance" label="Finance" disabled={!canSeeFinance} />

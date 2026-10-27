@@ -35,6 +35,7 @@ import { usePartnerInfo } from "@features/due-diligence/partners/api/usePartners
 import { useTradeReferenceDetail, useTradeReferenceQuestions } from "../api/useTradeReferences";
 import TradeReferenceQuestionDetails from "../components/TradeReferenceQuestionDetails";
 import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // The reject page shows only the reject-reason question and its neighbors
 // (37 "reason for rejection", 38 "additional comments"), plus 39 — a direct
@@ -56,7 +57,7 @@ export default function TradeReferenceRejectedPage() {
 
   return (
     <DueDiligenceShell
-      back={{ onClick: () => navigate("/due-diligence/trade-references") }}
+      back={{ onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references`) }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Trade reference — rejected"
     >
