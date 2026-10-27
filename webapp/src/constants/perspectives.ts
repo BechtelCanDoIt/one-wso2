@@ -116,6 +116,10 @@ export interface PerspectiveSection {
   // QueryClient, so it can read what a hook has already fetched. Mutually
   // exclusive with `path`.
   onSelect?: (context: { queryClient: QueryClient }) => void;
+  // Marks an `onSelect` row whose action opens another site. The rail shows it
+  // with the arrow the launcher puts on tiles that leave One WSO2. Only read on
+  // a group's children: a top-level row, or a `path` row, ignores it.
+  opensInNewTab?: boolean;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group
@@ -511,12 +515,12 @@ const UMT_SECTION: PerspectiveSection = {
     // same way Finance/Leave/Subscriptions items are (see the comment above
     // SUBSCRIPTION_ITEM_IDS).
     { id: "umt-products", label: "Products", icon: BoxIcon, path: umtPaths.products },
-    { id: "umt-release-chunks", label: "Releases", icon: LucideLayoutGrid, path: umtPaths.releaseChunks },
+    { id: "umt-release-chunks", label: "Release Chunks", icon: LucideLayoutGrid, path: umtPaths.releaseChunks },
     { id: "umt-statistics", label: "Statistics", icon: BarChart3, path: umtPaths.statistics },
     // Opens the documentation site in a new tab. The address is UMT backend
     // configuration (/update/documentation), not a build-time value, so the
     // row runs an action that reads it at click time.
-    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Docs", icon: Book, onSelect: openUmtDocumentation },
+    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Documentation", icon: Book, onSelect: openUmtDocumentation, opensInNewTab: true },
   ],
 };
 

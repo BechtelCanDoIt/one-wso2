@@ -60,6 +60,9 @@ import { gridCellContentSx } from "../lib/umtGrid";
 import { umtLifecycleState } from "../lib/umtLifecycleState";
 import { writePersistedSelectedTab } from "../lib/umtLocalState";
 import { umtPaths } from "../lib/umtPaths";
+import type { UmtBackLinkState } from "../lib/umtBackLink";
+import { UMT_UPDATES_RETURN_STATE } from "../lib/umtUpdatesFilterMemory";
+import { useUmtUpdatesView } from "../lib/useUmtUpdatesView";
 import UmtCreateUpdateDialog from "../components/UmtCreateUpdateDialog";
 import UmtShell from "../components/UmtShell";
 import UmtUpdateFiltersDrawer from "../components/UmtUpdateFiltersDrawer";
@@ -172,9 +175,7 @@ export default function UmtUpdatesPage() {
 
 function UmtUpdatesBody() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
-  const [filters, setFilters] = useState<UmtUpdateFilters>(EMPTY_UMT_UPDATE_FILTERS);
+  const { filters, setFilters, page, setPage, pageSize, setPageSize } = useUmtUpdatesView(PAGE_SIZE_OPTIONS[0]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
@@ -189,6 +190,9 @@ function UmtUpdatesBody() {
   const search = useUmtUpdates(request);
   const rows = search.data?.updates ?? [];
   const totalPages = search.data?.totalPages ?? 0;
+  // A restored page can be past the end if the list shrank while the user was
+  // away, which would show an empty grid; move it to the last page instead.
+  if (totalPages > 0 && page >= totalPages) setPage(totalPages - 1);
   const activeFilters = activeUmtFilterCount(filters);
   const displayedColumns = useMemo(
     () => COLUMNS.filter((column) => visibleColumns.includes(column.key)),
@@ -212,9 +216,18 @@ function UmtUpdatesBody() {
     setActionRow(null);
   };
 
+  // The update page's back arrow returns here as a return, filters and all.
+  const goToUpdate = useCallback(
+    (id: number) =>
+      navigate(umtPaths.update(id), {
+        state: { backTo: umtPaths.updates, backState: UMT_UPDATES_RETURN_STATE } satisfies UmtBackLinkState,
+      }),
+    [navigate],
+  );
+
   const viewUpdate = (id: number) => {
     closeActions();
-    navigate(umtPaths.update(id));
+    goToUpdate(id);
   };
 
   // "View"/"Edit"/"Branch" are one detail page with three tabs, not three
@@ -224,7 +237,7 @@ function UmtUpdatesBody() {
   const openUpdateOnTab = (id: number, tab: string) => {
     closeActions();
     writePersistedSelectedTab(String(id), tab);
-    navigate(umtPaths.update(id));
+    goToUpdate(id);
   };
 
   const gridColumns = useMemo<DataGrid.GridColDef<UmtUpdateSummary>[]>(
@@ -317,7 +330,7 @@ function UmtUpdatesBody() {
               getRowHeight={() => "auto"}
               hideFooter
               loading={search.isPending}
-              onRowClick={(params) => navigate(umtPaths.update(params.row.id))}
+              onRowClick={(params) => goToUpdate(params.row.id)}
               rows={rows}
               slots={{ noRowsOverlay: UpdatesEmptyState }}
               sx={updatesGridSx}
