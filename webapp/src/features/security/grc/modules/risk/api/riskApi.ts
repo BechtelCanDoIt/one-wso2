@@ -932,10 +932,10 @@ export async function deleteRiskEvidence(authFetch: AuthFetch, riskId: number, f
   return handleResponse<void>(res);
 }
 
-export async function fetchRisks(
-  authFetch: AuthFetch,
-  params: ListRisksParams = {},
-): Promise<RiskListPage> {
+// The filter half of ListRisksParams as a query string — everything but paging.
+// Shared by the list and the CSV export so the export can never drift from
+// what the table is showing.
+function riskFilterQuery(params: ListRisksParams): URLSearchParams {
   const q = new URLSearchParams();
   if (params.statuses?.length) q.set("statuses", params.statuses.join(","));
   if (params.team_id?.length) q.set("team_id", params.team_id.join(","));
@@ -954,10 +954,37 @@ export async function fetchRisks(
   if (params.due_to) q.set("due_to", params.due_to);
   if (params.due_overdue) q.set("due_overdue", "true");
   if (params.open_escalation) q.set("open_escalation", "true");
+  return q;
+}
+
+export async function fetchRisks(
+  authFetch: AuthFetch,
+  params: ListRisksParams = {},
+): Promise<RiskListPage> {
+  const q = riskFilterQuery(params);
   if (params.offset !== undefined) q.set("offset", String(params.offset));
   if (params.limit !== undefined) q.set("limit", String(params.limit));
   const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks?${q}`);
   return handleResponse<RiskListPage>(res);
+}
+
+// Downloads every risk matching the filters as CSV — all pages, not just the
+// one on screen. offset/limit are deliberately not sent: the server walks the
+// whole result itself.
+export async function exportRisks(
+  authFetch: AuthFetch,
+  params: ListRisksParams = {},
+): Promise<{ blob: Blob; fileName: string }> {
+  const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks/export?${riskFilterQuery(params)}`);
+  if (!res.ok) {
+    // Errors come back as JSON, same as every other endpoint.
+    return handleResponse<never>(res);
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const fileName =
+    /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition)?.[1] ??
+    `risk-report-${new Date().toISOString().slice(0, 10)}.csv`;
+  return { blob: await res.blob(), fileName };
 }
 
 export async function fetchRiskDetail(
