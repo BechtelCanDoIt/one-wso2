@@ -14,9 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { beforeAll, describe, expect, it, vi } from "vitest";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
+import type { CustomerResult } from "@features/legal/api/useCustomerSearch";
+import type { NdaPdfProps } from "@features/legal/pages/NdaPdfDocument";
 import NdaPage from "@features/legal/pages/NdaPage";
 
 vi.mock("@config/apiConfig", () => ({
@@ -24,10 +27,40 @@ vi.mock("@config/apiConfig", () => ({
   legalServiceUrls: { customerSearch: "/customer-search", me: "/me" },
 }));
 
+const ACME_LANKA: CustomerResult = {
+  id: "001",
+  name: "Acme Lanka",
+  subRegion: null,
+  subIndustry: null,
+  salesRegion: null,
+  address: {
+    billingStreet: "1 Main Street",
+    billingCity: "Colombo",
+    billingState: null,
+    billingPostalCode: null,
+    billingCountry: "Sri Lanka",
+  },
+};
+
 vi.mock("@features/legal/api/useCustomerSearch", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@features/legal/api/useCustomerSearch")>()),
-  useCustomerSearch: () => ({ data: [], isFetching: false }),
+  useCustomerSearch: () => ({ data: [ACME_LANKA], isFetching: false }),
 }));
+
+// Capture what the page asks the PDF renderer to draw, instead of drawing it.
+const rendered = vi.hoisted(() => ({ props: null as NdaPdfProps | null }));
+vi.mock("@react-pdf/renderer", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@react-pdf/renderer")>()),
+  pdf: (element: { props: NdaPdfProps }) => {
+    rendered.props = element.props;
+    return { toBlob: async () => new Blob(["%PDF-"]) };
+  },
+}));
+
+beforeAll(() => {
+  URL.createObjectURL = vi.fn(() => "blob:nda");
+  URL.revokeObjectURL = vi.fn();
+});
 
 type Access = { isPending: boolean; isError: boolean; data?: { canSearchSalesforce: boolean } };
 const access = vi.hoisted(() => ({ value: {} as Access }));
@@ -76,5 +109,61 @@ describe("NdaPage counterparty", () => {
     expect(screen.getByText(/Couldn't check whether you can search Salesforce customers/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Salesforce customer" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /Legal name/ })).toBeInTheDocument();
+  });
+});
+
+describe("NdaPage counterparty and WSO2 company", () => {
+  const allowed: Access = { isPending: false, isError: false, data: { canSearchSalesforce: true } };
+  const wso2Company = () => screen.getByRole("combobox", { name: /WSO2 Company/ });
+
+  async function pickSalesforceCustomer(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByRole("combobox", { name: "Customer Name" }), "Acme");
+    await user.click(await screen.findByRole("option", { name: "Acme Lanka" }));
+  }
+
+  async function enterManualParty(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getByRole("button", { name: "Enter details manually" }));
+    await user.type(screen.getByRole("textbox", { name: /Legal name/ }), "Example Vendor Ltd");
+    await user.type(screen.getByRole("textbox", { name: /Street address/ }), "1 Example Road");
+    await user.type(screen.getByRole("textbox", { name: /City/ }), "London");
+    await user.type(screen.getByRole("combobox", { name: /Country/ }), "United Kingdom");
+    await user.click(await screen.findByRole("option", { name: "United Kingdom" }));
+  }
+
+  it("follows the active counterparty's country when switching between Salesforce and manual entry", async () => {
+    const user = userEvent.setup();
+    renderPage(allowed);
+
+    await pickSalesforceCustomer(user);
+    expect(wso2Company()).toHaveTextContent("WSO2 Lanka (Pvt) Ltd (LK)");
+
+    // Manual entry has no country yet, so the Sri Lanka entity must not stay behind.
+    await user.click(screen.getByRole("button", { name: "Enter details manually" }));
+    expect(within(wso2Company()).queryByText(/WSO2/)).not.toBeInTheDocument();
+
+    await user.type(screen.getByRole("combobox", { name: /Country/ }), "United Kingdom");
+    await user.click(await screen.findByRole("option", { name: "United Kingdom" }));
+    expect(wso2Company()).toHaveTextContent("WSO2 (UK) Ltd (UK)");
+
+    // Back to the Salesforce customer, back to its entity.
+    await user.click(screen.getByRole("button", { name: "Salesforce customer" }));
+    expect(wso2Company()).toHaveTextContent("WSO2 Lanka (Pvt) Ltd (LK)");
+  });
+
+  it("puts the active counterparty and its entity into the NDA", async () => {
+    const user = userEvent.setup();
+    renderPage(allowed);
+
+    // A Salesforce customer chosen first must not leak into a manual NDA.
+    await pickSalesforceCustomer(user);
+    await enterManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    await waitFor(() => expect(rendered.props).not.toBeNull());
+    expect(rendered.props).toMatchObject({
+      customerName: "Example Vendor Ltd",
+      customerAddress: "1 Example Road, London, United Kingdom",
+      wso2Company: "WSO2 (UK) Ltd \u2014 UK",
+    });
   });
 });
