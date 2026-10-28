@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -85,6 +85,9 @@ const lookups: Record<string, unknown> = {
   "/risks/platforms": [{ id: 1, name: "Choreo", status: "ACTIVE" }],
 };
 
+// What /me/privileges answers; a test narrows it to act as another role.
+let privileges: string[] = ["RISK_VIEW_RISKS", "RISK_VIEW_ALL_RISKS"];
+
 const listRequests = (): URLSearchParams[] =>
   authFetch.mock.calls
     .map(([u]) => String(u))
@@ -95,11 +98,14 @@ const requested = (): string[] =>
   authFetch.mock.calls.map(([u]) => String(u).replace("http://backend.test/api/v1", ""));
 
 beforeEach(() => {
+  privileges = ["RISK_VIEW_RISKS", "RISK_VIEW_ALL_RISKS"]; // Compliance
   authFetch.mockReset();
   authFetch.mockImplementation(async (input: string) => {
     const url = new URL(String(input));
     const path = url.pathname.replace("/api/v1", "");
     const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+    if (path === "/me/privileges") return json({ privileges });
+    if (path === "/risks/me/involvement") return json({ namedOnRisk: false });
     if (path === "/risks/teams") return json(registers);
     if (path === "/risks") {
       const teams = url.searchParams.get("team_id") ?? "";
@@ -304,5 +310,31 @@ describe("Risk Registers — Report Download", () => {
 
     expect(await screen.findByText("too many risks")).toBeInTheDocument();
     expect(downloads.blobs).toHaveLength(0);
+  });
+  // Report Download is for Compliance Admin and Compliance Team only; they hold
+  // RISK_VIEW_ALL_RISKS and nobody else does.
+  it.each([
+    ["a risk owner", ["RISK_VIEW_RISKS", "RISK_OWNER_APPROVE"]],
+    ["a risk assigner", ["RISK_VIEW_RISKS", "RISK_CREATE", "RISK_UPDATE"]],
+    ["someone with no risk role", []],
+  ])("hides Report Download from %s", async (_who, granted) => {
+    privileges = granted;
+    renderAt("");
+    await screen.findByText("2026-ASG-Q2-0001");
+    await waitFor(() => expect(requested()).toContain("/risks/me/involvement"));
+    // The button is hidden until the privileges arrive anyway, so let them land
+    // before asserting it is still hidden.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(screen.queryByRole("button", { name: "Report Download" })).not.toBeInTheDocument();
+  });
+
+  it("shows Report Download to Compliance", async () => {
+    renderAt("");
+    await screen.findByText("2026-ASG-Q2-0001");
+
+    expect(await screen.findByRole("button", { name: "Report Download" })).toBeEnabled();
   });
 });
