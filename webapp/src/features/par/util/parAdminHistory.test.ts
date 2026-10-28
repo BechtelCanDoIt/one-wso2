@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { buildAdminHistoryRows, groupLegacyParticipantsByTeam, legacyOverallRating } from "./parAdminHistory";
+import { buildAdminHistoryRows, groupLegacyParticipantsByTeam, legacyEmployeeName, legacyOverallRating } from "./parAdminHistory";
 import type { ParCycle, ParLegacyCycleSummary, ParLegacyHistory } from "../api/types";
 
 function cycle(overrides: Partial<ParCycle> = {}): ParCycle {
@@ -176,5 +176,23 @@ describe("legacyOverallRating", () => {
   it("falls back to overallRating, then Not Assigned, when no label resolves", () => {
     expect(legacyOverallRating(legacyRecord({ managerScoreCode: null, overallRating: "Exceeds" }))).toBe("Exceeds");
     expect(legacyOverallRating(legacyRecord({ managerScoreCode: null }))).toBe("Not Assigned");
+  });
+});
+
+describe("legacyEmployeeName", () => {
+  it("uses the record's own migrated name", () => {
+    expect(legacyEmployeeName(legacyRecord({ employeeName: "Jane Doe" }))).toBe("Jane Doe");
+  });
+
+  it("falls back to the email when the record has no name, even if another row for the same email does", () => {
+    const named = legacyRecord({ legacyHeaderId: 1, employeeName: "Jane Doe" });
+    const unnamed = legacyRecord({ legacyHeaderId: 2, employeeName: null });
+    expect(legacyEmployeeName(named)).toBe("Jane Doe");
+    expect(legacyEmployeeName(unnamed)).toBe("employee@wso2.com");
+  });
+
+  it("treats a blank name, or a backend that omits the field, as no name", () => {
+    expect(legacyEmployeeName(legacyRecord({ employeeName: "  " }))).toBe("employee@wso2.com");
+    expect(legacyEmployeeName(legacyRecord())).toBe("employee@wso2.com");
   });
 });

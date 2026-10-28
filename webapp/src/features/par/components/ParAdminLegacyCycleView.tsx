@@ -27,6 +27,7 @@ import {
   groupLegacyParticipantsByTeam,
   isLegacyEmployeeParDone,
   isLegacyLeadFeedbackDone,
+  legacyEmployeeName,
   legacyOverallRating,
   legacySpecialRating,
   type LegacyTeamGroup,
@@ -128,14 +129,6 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
     () => new Map(employees.data?.map((e) => [e.workEmail, e]) ?? []),
     [employees.data],
   );
-  // Names come only from the legacy table itself (the migrated first/last
-  // name), never the live directory, so a legacy cycle shows who the record
-  // was migrated for. Falls back to the email when the sheet had no name.
-  const legacyNameByEmail = useMemo(
-    () => new Map((history.data ?? []).flatMap((r) => (r.employeeName ? [[r.employeeEmail, r.employeeName] as const] : []))),
-    [history.data],
-  );
-  const nameFor = useCallback((email: string) => legacyNameByEmail.get(email) ?? email, [legacyNameByEmail]);
 
   const [selection, setSelection] = useState<Selection>({ level: "groups" });
   // The roster/grouping fetch above is summary-only (see
@@ -218,10 +211,10 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
     const term = rosterSearchText.toLowerCase();
     return term
       ? participants.filter(
-          (row) => nameFor(row.employeeEmail).toLowerCase().includes(term) || row.employeeEmail.toLowerCase().includes(term),
+          (row) => legacyEmployeeName(row).toLowerCase().includes(term) || row.employeeEmail.toLowerCase().includes(term),
         )
       : participants;
-  }, [rosterGroup, rosterSearchText, nameFor]);
+  }, [rosterGroup, rosterSearchText]);
   // Same layout as the new-cycle roster (ParOrgTeamRoster). No 360° Feedback
   // or F2F columns: the summary-mode list carries no 360 data, and the old
   // system never tracked F2F. Reviewer is the group's own lead (already in
@@ -232,7 +225,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         field: "employeeName",
         headerName: "Team Member",
         flex: 1.5,
-        valueGetter: (_v, row) => nameFor(row.employeeEmail),
+        valueGetter: (_v, row) => legacyEmployeeName(row),
         renderCell: (params) => (
           <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
             <Avatar
@@ -244,7 +237,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
               <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 600 }}>
                 {params.value}
               </Typography>
-              {/* nameFor falls back to the email, so don't show it twice. */}
+              {/* The name falls back to the email, so don't show it twice. */}
               {params.value !== params.row.employeeEmail && (
                 <Typography variant="caption" sx={{ fontSize: 11.5 }} color="text.secondary">
                   {params.row.employeeEmail}
@@ -306,7 +299,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         ),
       },
     ],
-    [nameFor, thumbnailFor, rosterGroup, hasSpecialRatings],
+    [thumbnailFor, rosterGroup, hasSpecialRatings],
   );
 
   const teamColumns = useMemo<DataGrid.GridColDef<LegacyTeamGroup>[]>(
@@ -377,7 +370,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
             { label: cycleName, onClick: () => setSelection({ level: "groups" }) },
             ...(group ? [{ label: group.parLeadEmail, onClick: () => setSelection({ level: "roster", group }) }] : []),
           ]}
-          current={nameFor(record.employeeEmail)}
+          current={legacyEmployeeName(record)}
         />
         {openedRecordHistory.isLoading ? (
           <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 1.5 }} />
@@ -520,7 +513,6 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
             onPaginationModelChange={setEmployeePagination}
             sortModel={employeeSort}
             onSortModelChange={setEmployeeSort}
-            nameFor={nameFor}
             thumbnailFor={thumbnailFor}
             onOpenRecord={openRecord}
           />

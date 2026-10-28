@@ -17,7 +17,7 @@
 import { useMemo } from "react";
 import { Avatar, Box, Chip, DataGrid, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
-import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyOverallRating } from "../util/parAdminHistory";
+import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyEmployeeName, legacyOverallRating } from "../util/parAdminHistory";
 import { ParGridToolbar } from "./parGridToolbar";
 import type { ParLegacyHistory } from "../api/types";
 
@@ -36,7 +36,6 @@ export default function ParAdminLegacyEmployeeViewTab({
   onPaginationModelChange,
   sortModel,
   onSortModelChange,
-  nameFor,
   thumbnailFor,
   onOpenRecord,
 }: {
@@ -49,7 +48,6 @@ export default function ParAdminLegacyEmployeeViewTab({
   onPaginationModelChange: (model: DataGrid.GridPaginationModel) => void;
   sortModel: DataGrid.GridSortModel;
   onSortModelChange: (model: DataGrid.GridSortModel) => void;
-  nameFor: (email: string) => string;
   thumbnailFor: (email: string) => string | undefined;
   onOpenRecord: (record: ParLegacyHistory) => void;
 }) {
@@ -58,13 +56,13 @@ export default function ParAdminLegacyEmployeeViewTab({
     return term
       ? records.filter(
           (row) =>
-            nameFor(row.employeeEmail).toLowerCase().includes(term) ||
+            legacyEmployeeName(row).toLowerCase().includes(term) ||
             row.employeeEmail.toLowerCase().includes(term) ||
             (row.reviewerName ?? "").toLowerCase().includes(term) ||
             (row.department ?? "").toLowerCase().includes(term),
         )
       : records;
-  }, [records, nameFor, searchText]);
+  }, [records, searchText]);
 
   const columns = useMemo<DataGrid.GridColDef<ParLegacyHistory>[]>(
     () => [
@@ -72,7 +70,7 @@ export default function ParAdminLegacyEmployeeViewTab({
         field: "employeeName",
         headerName: "Employee Name",
         flex: 1.8,
-        valueGetter: (_v, row) => nameFor(row.employeeEmail),
+        valueGetter: (_v, row) => legacyEmployeeName(row),
         renderCell: (params) => (
           <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
             <Avatar
@@ -140,7 +138,7 @@ export default function ParAdminLegacyEmployeeViewTab({
         ),
       },
     ],
-    [nameFor, thumbnailFor, onOpenRecord],
+    [thumbnailFor, onOpenRecord],
   );
 
   return (

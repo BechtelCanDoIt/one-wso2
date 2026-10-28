@@ -83,6 +83,11 @@ export const isLegacyLeadFeedbackDone = (record: ParLegacyHistory): boolean =>
 export const legacySpecialRating = (record: ParLegacyHistory) =>
   resolveLegacyRating(formatLegacyCycleName(record.cycleName), record.managerScoreCode, []).special;
 
+// The name every admin legacy screen shows: the record's own migrated
+// first + last name, else its email. Read per record, not looked up by email,
+// so a row without a name never borrows another row's.
+export const legacyEmployeeName = (record: ParLegacyHistory): string => record.employeeName?.trim() || record.employeeEmail;
+
 // The overall rating every admin legacy grid shows. Same resolver
 // ParLegacyRecordDetail uses, so a record can't show a different rating in a
 // list than once opened; each cycle has its own rating scale, so this can't
