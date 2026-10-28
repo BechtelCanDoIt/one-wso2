@@ -172,6 +172,7 @@ function Workspace({
       {
         name: submission.event_name,
         date: submission.event_date ?? "",
+        campaignUrl: submission.sf_campaign_url,
       },
       ref,
       config,
@@ -182,7 +183,7 @@ function Workspace({
   const [active, setActive] = useState<Tab>(() => {
     const built = fromPayload(
       submission.payload,
-      { name: submission.event_name, date: submission.event_date ?? "" },
+      { name: submission.event_name, date: submission.event_date ?? "", campaignUrl: submission.sf_campaign_url },
       ref,
       config,
     );
@@ -501,7 +502,7 @@ function Workspace({
 
       const built = fromPayload(
         { tabs: rowsByTab },
-        { name: submission.event_name, date: submission.event_date ?? "" },
+        { name: submission.event_name, date: submission.event_date ?? "", campaignUrl: submission.sf_campaign_url },
         ref,
         config,
       );

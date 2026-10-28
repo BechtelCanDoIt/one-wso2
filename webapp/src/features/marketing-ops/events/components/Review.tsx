@@ -372,6 +372,16 @@ export function ReviewDetail({ id, onBack }: { id: string; onBack: () => void })
         >
           Salesforce campaign
         </Typography>
+        {sub.campaign_id && (
+          <Typography sx={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace" }}>
+            {sub.campaign_id}
+          </Typography>
+        )}
+        {sub.sf_campaign_url && !sub.campaign_id && (
+          <Typography sx={{ fontSize: 13, color: "warning.main", fontWeight: 600 }}>
+            No campaign ID in this link —
+          </Typography>
+        )}
         {sub.sf_campaign_url ? (
           <Link
             href={sub.sf_campaign_url}

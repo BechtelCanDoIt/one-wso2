@@ -49,7 +49,8 @@ const dedupe = (keys: Field[]): Field[] => [...new Set(keys)]
 /** The columns of a tab, from the configuration alone.
  *
  *  Order: what an admin configured — computed columns included, where they mapped a
- *  heading — then any computed field no heading mapped to.
+ *  heading — then any computed field no heading mapped to. `campaign_id` is always in the
+ *  second group: it comes from the submission's campaign URL, so there is no heading for it.
  */
 export function baseColumns(config: EventsConfig, tab: Tab): Field[] {
   const configured = dedupe(defsOf(config, tab).map(keyOf))

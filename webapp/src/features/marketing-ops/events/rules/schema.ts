@@ -155,14 +155,16 @@ export const DROPPED_HEADERS = [
 // appended, so the grid is complete either way.
 
 export const COMPUTED_FIELDS: Field[] = [
-  'opt_in_method', 'opt_in_timestamp', 'score',
+  'campaign_id', 'opt_in_method', 'opt_in_timestamp', 'score',
 ]
 
-/** The computed fields a sheet heading may map to. Mirrors MAPPABLE_COMPUTED in the
- *  backend's field_defs.py. */
+/** The computed fields a sheet heading may map to. `campaign_id` comes from the
+ *  submission's campaign URL rather than from any row, so it has no heading. Mirrors
+ *  MAPPABLE_COMPUTED in the backend's field_defs.py. */
 export const MAPPABLE_COMPUTED: Field[] = ['opt_in_method', 'opt_in_timestamp', 'score']
 
 export const COMPUTED_LABEL: Record<Field, string> = {
+  campaign_id: 'Campaign ID',
   opt_in_method: 'Opt-in method',
   opt_in_timestamp: 'Opt-in Timestamp1',
   score: 'Add to Score',

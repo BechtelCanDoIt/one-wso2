@@ -44,6 +44,7 @@ import {
   useSubmissions,
 } from "../../api/useEvents";
 import type { SubmissionSummary } from "../eventsTypes";
+import { campaignIdFrom } from "../rules/validate";
 import {
   Empty,
   EventsLoading,
@@ -291,8 +292,14 @@ export default function MySubmissions({ onOpen }: { onOpen: (id: string) => void
                 value={campaignUrl}
                 onChange={(e) => setCampaignUrl(e.target.value)}
               />
+              {/* Echo what was read out of the URL, so a wrong link (an Account, a report)
+                  is caught here rather than on 300 rows of the export. */}
               <Typography sx={fieldHint}>
-                Optional now — the marketing team needs it before import.
+                {!campaignUrl.trim()
+                  ? "Optional now — the marketing team needs it before import."
+                  : campaignIdFrom(campaignUrl)
+                    ? `Campaign ID ${campaignIdFrom(campaignUrl)} — added to every row.`
+                    : "No campaign ID found in that link. Copy it from the campaign’s own page."}
               </Typography>
             </Box>
           </Box>

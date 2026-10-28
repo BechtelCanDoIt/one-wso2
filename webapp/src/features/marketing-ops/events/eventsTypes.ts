@@ -82,6 +82,8 @@ export interface SubmissionSummary {
   event_name: string;
   event_date?: string | null;
   sf_campaign_url?: string | null;
+  /** Read out of sf_campaign_url by the server; null when the URL holds none. */
+  campaign_id?: string | null;
   owner_email?: string | null;
   status: Status;
   row_count: number;
