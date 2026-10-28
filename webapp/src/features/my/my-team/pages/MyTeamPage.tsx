@@ -44,9 +44,10 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 //
 // Two things worth knowing at this level:
 //
-//  - The page is never told who the user is. `leadOnly: true` in the payload
+//  - The search is never told who the user is. `leadOnly: true` in the payload
 //    makes the server resolve the caller from the token and restrict to their
-//    subtree, so the scope cannot be widened from the client.
+//    subtree, so the scope cannot be widened from the client. The user's email
+//    reaches the table only to mark people they are an additional manager of.
 //  - The current page is DERIVED from a key over everything else. When filters,
 //    search, sort or page size change, the key changes and the page falls back
 //    to 1 on its own — no reset effects, and no way to forget one.
@@ -72,11 +73,11 @@ export default function MyTeamPage() {
     return <Alert severity="info">My Team is available to leads.</Alert>;
   }
 
-  return <TeamRoster />;
+  return <TeamRoster viewerEmail={data?.workEmail} />;
 }
 
 /** The screen itself, once we know the caller is a lead. */
-function TeamRoster() {
+function TeamRoster({ viewerEmail }: { viewerEmail: string | undefined }) {
   const [applied, setApplied] = useState<AppliedFilters>(DEFAULT_FILTERS);
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
@@ -194,6 +195,7 @@ function TeamRoster() {
       ) : (
         <MyTeamTable
           employees={list.data?.employees ?? []}
+          viewerEmail={viewerEmail}
           total={list.data?.totalCount ?? 0}
           page={page}
           pageSize={PAGE_SIZE}

@@ -159,6 +159,44 @@ describe("MyTeamTable rows", () => {
   });
 });
 
+// The list mixes people who report to the viewer, people the viewer is an
+// additional manager of, and everyone below them. Only the second kind is
+// marked: without it, someone there through an additional-manager link reads
+// as a mistake.
+describe("MyTeamTable additional reports", () => {
+  const VIEWER = "lead@wso2.com";
+
+  it("marks someone the viewer is an additional manager of", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "other@wso2.com", additionalManagerEmails: "lead@wso2.com" })],
+    });
+    expect(screen.getByText("Additional")).toBeInTheDocument();
+    // The chip sits beside the name, not inside the row's keyboard target.
+    expect(screen.getByRole("button", { name: "Jane Perera" })).toBeInTheDocument();
+  });
+
+  it("does not mark a direct report, or anyone further down", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [
+        employee({ employeeId: "E001", managerEmail: "lead@wso2.com", additionalManagerEmails: "" }),
+        employee({ employeeId: "E002", managerEmail: "other@wso2.com", additionalManagerEmails: "" }),
+        employee({ employeeId: "E003", managerEmail: "other@wso2.com", additionalManagerEmails: "x@wso2.com" }),
+      ],
+    });
+    expect(screen.queryByText("Additional")).toBeNull();
+  });
+
+  it("does not mark someone who also reports to the viewer directly", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "lead@wso2.com", additionalManagerEmails: "lead@wso2.com" })],
+    });
+    expect(screen.queryByText("Additional")).toBeNull();
+  });
+});
+
 describe("MyTeamTable empty states", () => {
   it("says the team is empty when nothing is filtering", () => {
     renderTable({ employees: [], total: 0, hasFilters: false });
