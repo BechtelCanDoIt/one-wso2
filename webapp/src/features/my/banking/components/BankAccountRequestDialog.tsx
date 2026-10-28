@@ -261,6 +261,11 @@ export default function BankAccountRequestDialog({
                 error={Boolean(errors.beneficiaryCity)}
                 helperText={errors.beneficiaryCity}
                 fullWidth
+                // aria-required rather than `required`: the field is required
+                // for Consultancy, but `required` makes MUI append an asterisk
+                // to the label, which this app's other required fields don't
+                // carry either.
+                slotProps={{ htmlInput: { "aria-required": true } }}
               />
             )}
             <Autocomplete

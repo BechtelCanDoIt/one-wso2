@@ -268,7 +268,6 @@ function AccountDetailsDialog({ request, onClose }: { request: BankAccount; onCl
     ["Account Name", request.accountName],
     ["Account Number", request.accountNumber],
     ["Account Holder's Address", request.beneficiaryAddress ?? "N/A"],
-    ["Account Holder's City", request.beneficiaryCity ?? "N/A"],
     ["Account Status", request.accountStatus],
     ["Account Type", request.accountType],
     ["Bank Code", request.bankCode ?? "N/A"],

@@ -783,6 +783,74 @@ describe("Edit/Add popup", () => {
     );
   });
 
+  // The util tests cover the city rule itself; these cover the UI wiring —
+  // that the field is only built for Consultancy, blocks the step when
+  // blank, and reaches the payload trimmed.
+  it("blocks the Account Holder step when a Consultancy city is blank", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await openDialogFor(user, "Consultancy");
+    await user.type(screen.getByLabelText("Account Holder's Name"), "P Person");
+    await user.type(screen.getByLabelText("Account Holder's Address"), "No 23, Galle Road, Colombo");
+    await user.click(screen.getByRole("combobox", { name: "Account Holder's Country" }));
+    await user.click(await screen.findByRole("option", { name: "Sri Lanka" }));
+    await user.type(screen.getByLabelText("Account No"), "1234567890");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(await screen.findByText("Account Holder's City is required")).toBeInTheDocument();
+    // Still on step 1 — the Bank Info fields never appear.
+    expect(screen.queryByRole("combobox", { name: "Bank Location" })).not.toBeInTheDocument();
+  });
+
+  it("shows the trimmed city on the Consultancy review step and sends it trimmed", async () => {
+    renderPage();
+    const user = userEvent.setup();
+    await openDialogFor(user, "Consultancy");
+    await user.type(screen.getByLabelText("Account Holder's Name"), "P Person");
+    await user.type(screen.getByLabelText("Account Holder's Address"), "No 23, Galle Road, Colombo");
+    await user.type(screen.getByLabelText("Account Holder's City"), "  Colombo  ");
+    await user.click(screen.getByRole("combobox", { name: "Account Holder's Country" }));
+    await user.click(await screen.findByRole("option", { name: "Sri Lanka" }));
+    await user.type(screen.getByLabelText("Account No"), "1234567890");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("combobox", { name: "Bank Location" }));
+    await user.click(await screen.findByRole("option", { name: "Colombo" }));
+    await user.click(screen.getByRole("combobox", { name: "Bank Name and Swift Code" }));
+    await user.click(await screen.findByRole("option", { name: "BOC (BOCCLKLX)" }));
+    await user.type(screen.getByLabelText("Bank Address"), "1 Bank Street, Colombo, Sri Lanka");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+
+    expect(screen.getByText("Account Holder City")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await user.click(await screen.findByRole("button", { name: "Yes" }));
+
+    await waitFor(() =>
+      expect(mutateAsyncMock).toHaveBeenCalledWith(
+        expect.objectContaining({ accountType: "CONSULTANCY", beneficiaryCity: "Colombo" }),
+      ),
+    );
+  });
+
+  it("never offers the city field or sends it for Salary and Reimbursement", async () => {
+    for (const label of ["Salary", "Reimbursement"] as const) {
+      mutateAsyncMock.mockClear();
+      const { unmount } = renderPage();
+      const user = userEvent.setup();
+      await openDialogFor(user, label);
+
+      expect(screen.queryByLabelText("Account Holder's City")).not.toBeInTheDocument();
+
+      await completeUpToReview(user);
+      expect(screen.queryByText("Account Holder City")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Save" }));
+      await user.click(await screen.findByRole("button", { name: "Yes" }));
+
+      await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+      expect(mutateAsyncMock.mock.calls[0][0]).not.toHaveProperty("beneficiaryCity");
+      unmount();
+    }
+  });
+
   it("sends the request only once when Yes is pressed twice in quick succession", async () => {
     // A request that is still in flight when the second press arrives.
     let finish: (value: { applicationID: number }) => void = () => {};
