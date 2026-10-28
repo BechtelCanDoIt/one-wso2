@@ -1369,6 +1369,7 @@ export default function RiskRegisters(): JSX.Element {
           open={assessOpen}
           riskCode={drawerDetail.risk_code}
           detail={drawerDetail}
+          users={users}
           canEditRiskDetails={
             riskRoles(
               drawerDetail,

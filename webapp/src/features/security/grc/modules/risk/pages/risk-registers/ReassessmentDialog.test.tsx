@@ -25,11 +25,12 @@ vi.mock("@features/security/grc/shim/useAuthApiClient", () => ({ useAuthApiClien
 vi.mock("@features/security/grc/shim/apiConfig", () => ({ BACKEND_BASE_URL: "http://backend.test" }));
 
 const user = (id: number, name: string): UserOption => ({ id, display_name: name, email: "", risk_team_ids: [] });
-const candidateFetchers = vi.hoisted(() => ({ owners: vi.fn(), approvers: vi.fn() }));
+const candidateFetchers = vi.hoisted(() => ({ owners: vi.fn(), approvers: vi.fn(), assigners: vi.fn() }));
 vi.mock("../../api/riskApi", async (importActual) => ({
   ...(await importActual<typeof import("../../api/riskApi")>()),
   fetchRiskOwnerCandidates: candidateFetchers.owners,
   fetchManagementApprovers: candidateFetchers.approvers,
+  fetchRiskAssignerCandidates: candidateFetchers.assigners,
 }));
 
 // The score grid and the date pickers are not under test: stand-ins that call
@@ -75,6 +76,7 @@ vi.mock("@wso2/oxygen-ui", async (importActual) => {
 beforeEach(() => {
   candidateFetchers.owners.mockReset().mockResolvedValue([user(11, "Owner"), user(21, "New Owner")]);
   candidateFetchers.approvers.mockReset().mockResolvedValue([user(12, "Approver"), user(22, "New Approver")]);
+  candidateFetchers.assigners.mockReset().mockResolvedValue([user(7, "Assigner"), user(31, "New Assigner")]);
 });
 
 function renderDialog(
@@ -88,6 +90,7 @@ function renderDialog(
       open
       riskCode="R-1"
       detail={riskDetail({ implementation_date: "2030-01-01", ...detail })}
+      users={[]}
       canEditRiskDetails={canEditRiskDetails}
       riskScores={riskScores}
       previousScore={null}
@@ -128,6 +131,27 @@ describe("ReassessmentDialog risk details", () => {
       management_approver_id: 22,
       implementation_date: "2032-02-02",
     });
+  });
+
+  it("lets the assigner hand the risk to another Risk Assigner, warning them first", async () => {
+    const u = userEvent.setup();
+    const onSubmit = renderDialog(true);
+    await fillAssessment(u);
+
+    await u.click(screen.getByRole("combobox", { name: "Risk Assigner" }));
+    await u.click(within(await screen.findByRole("listbox")).getByText("New Assigner"));
+    expect(screen.getByText(/no longer be able to change this risk's details/)).toBeInTheDocument();
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].assigner_id).toBe(31);
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("action_owner_id");
+  });
+
+  it("disables the Action Owner when the risk has no action plan", async () => {
+    renderDialog(true, { action_plan: null });
+    expect(await screen.findByRole("combobox", { name: "Action Owner" })).toBeDisabled();
+    expect(screen.getByText(/no action plan/)).toBeInTheDocument();
   });
 
   it("sends none of the three when the assigner leaves them alone", async () => {
