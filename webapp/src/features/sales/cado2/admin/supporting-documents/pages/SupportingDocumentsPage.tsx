@@ -253,7 +253,16 @@ export default function SupportingDocumentsPage(): JSX.Element {
     setOpenError(false);
     try {
       const blob = await openFile(doc.id);
-      if (tab) tab.location.href = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
+      if (tab) tab.location.href = url;
+      else {
+        // The pop-up was blocked: save the file instead, as the order form preview does.
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = doc.fileName;
+        a.click();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
       tab?.close();
       setOpenError(true);

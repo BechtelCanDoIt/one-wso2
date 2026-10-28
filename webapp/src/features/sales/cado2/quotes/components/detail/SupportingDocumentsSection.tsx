@@ -17,6 +17,7 @@
 import { useState, type JSX } from "react";
 import { Alert, Box, Button, Checkbox, FormControlLabel, Stack, Typography } from "@wso2/oxygen-ui";
 import { FileTextIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import {
   toggled,
@@ -32,8 +33,18 @@ import { useCado2Toast } from "@features/sales/cado2/components/toast/toastConte
  *
  *   until Issue ──[Change]── ticks saved on the quote, no new approval
  *   issued      ── what the issued PDF contains, fixed
+ *
+ * Read-only on an older version: the ticks belong to the quote, so changing
+ * them there would change the latest version's order form.
  */
-export default function SupportingDocumentsSection({ quoteId }: { quoteId: number }): JSX.Element | null {
+export default function SupportingDocumentsSection({
+  quoteId,
+  readOnly = false,
+}: {
+  quoteId: number;
+  /** An older version in view mode: list only, no Change. */
+  readOnly?: boolean;
+}): JSX.Element | null {
   const quote = useQuoteSupportingDocuments(quoteId);
   const library = useSupportingDocumentLibrary();
   const set = useSetQuoteSupportingDocuments(quoteId);
@@ -41,9 +52,16 @@ export default function SupportingDocumentsSection({ quoteId }: { quoteId: numbe
   const [editing, setEditing] = useState<number[] | null>(null);
   const visible = useHasSupportingDocuments(quoteId);
 
+  if (quote.error) {
+    return (
+      <ErrorNotice error={quote.error} onRetry={() => void quote.refetch()} retrying={quote.isFetching}>
+        Couldn&apos;t load the supporting documents.
+      </ErrorNotice>
+    );
+  }
   if (!quote.data || !visible) return null;
   const q = quote.data;
-  const canChange = q.canChange && (library.data?.length ?? 0) > 0;
+  const canChange = !readOnly && q.canChange && (library.data?.length ?? 0) > 0;
 
   const save = () => {
     if (!editing) return;

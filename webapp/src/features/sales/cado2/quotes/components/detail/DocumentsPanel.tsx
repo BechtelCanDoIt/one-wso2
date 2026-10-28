@@ -63,24 +63,27 @@ function saveBlob(blob: Blob, name: string): void {
  *
  * The supporting documents that follow the order form (DGD-10) are listed
  * here too, and can change until Issue; before approval the panel shows
- * only them, when there are any.
+ * only them, when there are any. On an older version they are read-only.
  */
 export default function DocumentsPanel({
   quoteId,
   version,
   approved,
+  olderVersion = false,
 }: {
   quoteId: number;
   version: number;
   /** The version is approved; before that, only the supporting documents show. */
   approved: boolean;
+  /** An older version in view mode: the supporting documents can't be changed from it. */
+  olderVersion?: boolean;
 }): JSX.Element | null {
-  if (!approved) return <BeforeApproval quoteId={quoteId} />;
-  return <ApprovedOrderForm quoteId={quoteId} version={version} />;
+  if (!approved) return <BeforeApproval quoteId={quoteId} olderVersion={olderVersion} />;
+  return <ApprovedOrderForm quoteId={quoteId} version={version} olderVersion={olderVersion} />;
 }
 
 /** Before approval: the supporting documents, if the quote has anything to say about them. */
-function BeforeApproval({ quoteId }: { quoteId: number }): JSX.Element | null {
+function BeforeApproval({ quoteId, olderVersion }: { quoteId: number; olderVersion: boolean }): JSX.Element | null {
   const visible = useHasSupportingDocuments(quoteId);
   if (!visible) return null;
   return (
@@ -89,12 +92,20 @@ function BeforeApproval({ quoteId }: { quoteId: number }): JSX.Element | null {
         The order form can be previewed and issued once the quote is approved.
       </Typography>
       <Divider sx={{ my: 1.5 }} />
-      <SupportingDocumentsSection quoteId={quoteId} />
+      <SupportingDocumentsSection quoteId={quoteId} readOnly={olderVersion} />
     </SectionCard>
   );
 }
 
-function ApprovedOrderForm({ quoteId, version }: { quoteId: number; version: number }): JSX.Element | null {
+function ApprovedOrderForm({
+  quoteId,
+  version,
+  olderVersion,
+}: {
+  quoteId: number;
+  version: number;
+  olderVersion: boolean;
+}): JSX.Element | null {
   const hasSupporting = useHasSupportingDocuments(quoteId);
   const docs = useDocuments(quoteId, version, true);
   const issue = useIssueOrderForm();
@@ -125,9 +136,11 @@ function ApprovedOrderForm({ quoteId, version }: { quoteId: number; version: num
     setError(null);
     try {
       const blob = await files.preview(quoteId, version);
-      const url = URL.createObjectURL(blob);
-      if (tab) tab.location.href = url;
-      else saveBlob(blob, `PREVIEW-v${version}.pdf`);
+      if (tab) {
+        const url = URL.createObjectURL(blob);
+        tab.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else saveBlob(blob, `PREVIEW-v${version}.pdf`);
     } catch (e) {
       tab?.close();
       setError({ what: "Couldn't open the preview.", cause: e });
@@ -223,7 +236,7 @@ function ApprovedOrderForm({ quoteId, version }: { quoteId: number; version: num
       {hasSupporting ? (
         <>
           <Divider sx={{ my: 1.5 }} />
-          <SupportingDocumentsSection quoteId={quoteId} />
+          <SupportingDocumentsSection quoteId={quoteId} readOnly={olderVersion} />
         </>
       ) : null}
 

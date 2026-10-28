@@ -43,6 +43,11 @@ export type SupportingDocumentChange =
   | { kind: "retire" | "restore"; id: number }
   | { kind: "order"; ids: readonly number[] };
 
+/**
+ * Applies one SupportingDocumentChange (add, replace, rename, retire,
+ * restore or order). The answer is the whole library, which replaces the
+ * cached one; the AMs' library and quotes' selections are refetched.
+ */
 export function useSupportingDocumentsChange() {
   const { getToken, key } = useCado2Basis();
   const queryClient = useQueryClient();

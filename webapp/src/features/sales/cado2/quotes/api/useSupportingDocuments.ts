@@ -29,12 +29,19 @@ import { cado2Send } from "@features/sales/cado2/api/cado2Http";
 /** A library document. */
 export interface SupportingDocument {
   readonly id: number;
+  /** The title the order form's bookmarks and the AM's list show. */
   readonly title: string;
+  /** Pages in the newest file. */
   readonly pageCount: number;
+  /** Size of the newest file, in bytes. */
   readonly sizeBytes: number;
+  /** The newest file's name as uploaded. */
   readonly fileName: string;
+  /** 1 for the first upload, +1 for each Replace. */
   readonly versionNumber: number;
+  /** Retired by an Admin: no longer offered or added. */
   readonly retired: boolean;
+  /** When the document last changed (ISO 8601). */
   readonly updatedAt: string;
 }
 
@@ -44,6 +51,7 @@ export interface QuoteSupportingDocuments {
   readonly documents: readonly { id: number; title: string; pageCount: number }[];
   /** Titles of ticked documents an Admin retired since: no longer added. */
   readonly retired: readonly string[];
+  /** The latest version's order form is issued: the list is fixed. */
   readonly issued: boolean;
   /** Someone who may change the quote, until it is issued or closed. */
   readonly canChange: boolean;
@@ -110,11 +118,13 @@ export function toggled(ids: readonly number[], id: number, on: boolean): number
 /**
  * Whether the quote page has anything to say about supporting documents:
  * some are ticked (or were, before an Admin retired them), or the caller may
- * tick some from a library that isn't empty.
+ * tick some from a library that isn't empty. A failed load counts, so the
+ * section can show the error and a retry rather than vanish.
  */
 export function useHasSupportingDocuments(quoteId: number): boolean {
   const quote = useQuoteSupportingDocuments(quoteId);
   const library = useSupportingDocumentLibrary();
+  if (quote.error) return true;
   const q = quote.data;
   if (!q) return false;
   return q.documents.length > 0 || q.retired.length > 0 || (q.canChange && (library.data?.length ?? 0) > 0);

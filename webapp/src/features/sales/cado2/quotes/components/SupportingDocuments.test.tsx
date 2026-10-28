@@ -33,16 +33,33 @@ const doc = (id: number, title: string, pageCount: number): SupportingDocument =
 });
 let library: SupportingDocument[] = [];
 let quote: QuoteSupportingDocuments = { documents: [], retired: [], issued: false, canChange: true };
+let libraryError: Error | null = null;
+let quoteError: Error | null = null;
 const set = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
 vi.mock("@features/sales/cado2/quotes/api/useSupportingDocuments", async (actual) => {
   const real = await actual<typeof import("@features/sales/cado2/quotes/api/useSupportingDocuments")>();
   return {
     ...real,
-    useSupportingDocumentLibrary: () => ({ data: library, isPending: false, error: null }),
-    useQuoteSupportingDocuments: () => ({ data: quote, isPending: false, error: null }),
+    useSupportingDocumentLibrary: () => ({
+      data: libraryError ? undefined : library,
+      isPending: false,
+      isFetching: false,
+      error: libraryError,
+      refetch: vi.fn(),
+    }),
+    useQuoteSupportingDocuments: () => ({
+      data: quoteError ? undefined : quote,
+      isPending: false,
+      isFetching: false,
+      error: quoteError,
+      refetch: vi.fn(),
+    }),
     useSetQuoteSupportingDocuments: () => set,
     useHasSupportingDocuments: () =>
-      quote.documents.length > 0 || quote.retired.length > 0 || (quote.canChange && library.length > 0),
+      quoteError !== null ||
+      quote.documents.length > 0 ||
+      quote.retired.length > 0 ||
+      (quote.canChange && library.length > 0),
   };
 });
 
@@ -56,6 +73,8 @@ describe("Supporting documents", () => {
     set.mutate.mockClear();
     library = [policy, security, partner];
     quote = { documents: [], retired: [], issued: false, canChange: true };
+    libraryError = null;
+    quoteError = null;
   });
 
   it("isn't shown on the Legal step while the library is empty", () => {
@@ -75,6 +94,21 @@ describe("Supporting documents", () => {
 
     await userEvent.setup().click(card.getByRole("checkbox", { name: /Partner Programme Terms/ }));
     expect(set.mutate).toHaveBeenCalledWith([1, 3]);
+  });
+
+  it("says the library failed to load rather than hiding the card", () => {
+    libraryError = new Error("boom");
+    render(<SupportingDocumentsCard quoteId={7} />);
+    expect(screen.getByText(/Couldn't load the supporting documents/)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+  });
+
+  // Each tick replaces the whole selection, so an unknown selection must not be overwritten.
+  it("offers no ticks while the quote's selection failed to load", () => {
+    quoteError = new Error("boom");
+    render(<SupportingDocumentsCard quoteId={7} />);
+    expect(screen.getByText(/Couldn't load the supporting documents/)).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
   it("says when a ticked document was retired", () => {
@@ -102,6 +136,19 @@ describe("Supporting documents", () => {
     await user.click(section.getByRole("checkbox", { name: "Support Policy" }));
     await user.click(section.getByRole("button", { name: "Save" }));
     expect(set.mutate).toHaveBeenCalledWith([2], expect.anything());
+  });
+
+  it("can't be changed from an older version", () => {
+    quote = { ...quote, documents: [{ id: 1, title: "Support Policy", pageCount: 12 }] };
+    render(<SupportingDocumentsSection quoteId={7} readOnly />);
+    expect(screen.getByText("Support Policy")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change" })).toBeNull();
+  });
+
+  it("shows a failed load on the quote page with a retry", () => {
+    quoteError = new Error("boom");
+    render(<SupportingDocumentsSection quoteId={7} />);
+    expect(screen.getByText(/Couldn't load the supporting documents/)).toBeInTheDocument();
   });
 
   it("is fixed once the order form is issued", () => {

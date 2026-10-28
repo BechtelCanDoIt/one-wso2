@@ -17,6 +17,7 @@
 import type { JSX } from "react";
 import { Alert, Box, Checkbox, FormControlLabel, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { FileStackIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import {
@@ -32,7 +33,7 @@ import {
  * of which the AM adds after the order form. Nothing is ticked on a new
  * quote. A tick is saved at once: it belongs to the quote, not the draft, and
  * can still change on the quote page until the order form is issued.
- * Hidden while the library is empty.
+ * Hidden while the library is empty; a failed load shows an error with a retry.
  */
 export default function SupportingDocumentsCard({ quoteId }: { quoteId: number | null }): JSX.Element | null {
   const library = useSupportingDocumentLibrary();
@@ -41,14 +42,24 @@ export default function SupportingDocumentsCard({ quoteId }: { quoteId: number |
 
   const docs = library.data ?? [];
   const ticked = quote.data?.documents.map((d) => d.id) ?? [];
-  if (library.isPending || library.error || (docs.length === 0 && ticked.length === 0)) return null;
+  // A failed load says so; only a library that loaded empty hides the card.
+  const failed = library.error ?? (quoteId !== null ? quote.error : null);
+  if (!failed && (library.isPending || (docs.length === 0 && ticked.length === 0))) return null;
 
   return (
     <SectionCard title="Supporting Documents" icon={<FileStackIcon size={18} />}>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
         Added at the end of the order form PDF.
       </Typography>
-      {quoteId !== null && quote.isPending ? (
+      {failed ? (
+        <ErrorNotice
+          error={failed}
+          onRetry={() => void (library.error ? library.refetch() : quote.refetch())}
+          retrying={library.isFetching || quote.isFetching}
+        >
+          Couldn&apos;t load the supporting documents.
+        </ErrorNotice>
+      ) : quoteId !== null && quote.isPending ? (
         <Skeleton variant="rounded" height={96} />
       ) : (
         <Stack divider={<Box sx={{ borderTop: 1, borderColor: "divider" }} />}>
@@ -61,7 +72,8 @@ export default function SupportingDocumentsCard({ quoteId }: { quoteId: number |
                   size="small"
                   sx={{ pt: 0.25 }}
                   checked={ticked.includes(d.id)}
-                  disabled={quoteId === null || set.isPending || quote.data?.canChange === false}
+                  // Each tick replaces the whole selection, so only once it has loaded.
+                  disabled={set.isPending || quote.data?.canChange !== true}
                   onChange={(_, on) => set.mutate(toggled(ticked, d.id, on))}
                 />
               }
