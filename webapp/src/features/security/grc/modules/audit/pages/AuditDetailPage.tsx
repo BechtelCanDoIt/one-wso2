@@ -137,6 +137,10 @@ export default function AuditDetailPage(): JSX.Element {
   const canManageControls = can(AuditPrivilege.ManageControls);
   // Same internal-audience gate as the control History tab — see ControlDrawer.
   const canViewHistory = can(AuditPrivilege.ViewInternalComments);
+  // Export is for Compliance Admin and Compliance Team only. Among the seeded
+  // roles only they hold ReviewEvidence — the same privilege the server checks
+  // on the export endpoint, so the button never shows for a caller it would 403.
+  const canExport = can(AuditPrivilege.ReviewEvidence);
 
   const controls = useMemo(() => controlsData?.items ?? [], [controlsData]);
 
@@ -302,15 +306,17 @@ export default function AuditDetailPage(): JSX.Element {
         >
           Audits
         </Button>
-        <Button
-          variant="outlined"
-          startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
-          disabled={exporting || controlsLoading || filteredControls.length === 0}
-          onClick={() => void handleExport()}
-          sx={{ textTransform: "none" }}
-        >
-          Export
-        </Button>
+        {canExport && (
+          <Button
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
+            disabled={exporting || controlsLoading || filteredControls.length === 0}
+            onClick={() => void handleExport()}
+            sx={{ textTransform: "none" }}
+          >
+            Export
+          </Button>
+        )}
       </Stack>
       {exportError && (
         <Alert severity="error" onClose={() => setExportError("")} sx={{ mb: 2 }}>
