@@ -77,14 +77,11 @@ export const STATUS_LABEL: Record<Status, string> = {
   Imported: "Imported",
 };
 
-export type LeadState = "New" | "MQL";
-
 export interface SubmissionSummary {
   id: string;
   event_name: string;
   event_date?: string | null;
   sf_campaign_url?: string | null;
-  lead_state: LeadState;
   owner_email?: string | null;
   status: Status;
   row_count: number;

@@ -97,8 +97,6 @@ function regexFor(pattern: string): RegExp | null {
 export interface EventContext {
   name: string
   date: string          // ISO yyyy-mm-dd
-  /** 'New' or 'MQL', chosen once for the whole submission. */
-  leadState?: string
 }
 
 /** `<campaign name>, <year>` — e.g. "Exito BFSI Summit Philippines, 2026".
@@ -120,9 +118,6 @@ export function derive(row: Row, tab: Tab, event: EventContext, config: EventsCo
   const method = optInMethod(event)
   if (method) next.opt_in_method = method
   if (event.date) next.opt_in_timestamp = event.date
-  // One answer for the whole submission, stamped on every row because the Pardot import
-  // is a flat file with nowhere else to carry it.
-  if (event.leadState) next.lead_state = event.leadState
   return next
 }
 

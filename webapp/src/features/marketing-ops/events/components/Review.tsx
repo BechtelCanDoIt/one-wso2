@@ -308,7 +308,7 @@ export function ReviewDetail({ id, onBack }: { id: string; onBack: () => void })
     <Box>
       <WorkspaceHead
         title={sub.event_name}
-        caption={[sub.owner_email ?? "unknown submitter", `${sub.lead_state} leads`, sub.source_filename]
+        caption={[sub.owner_email ?? "unknown submitter", sub.source_filename]
           .filter(Boolean)
           .join(" · ")}
         onBack={onBack}

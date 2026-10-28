@@ -172,7 +172,6 @@ function Workspace({
       {
         name: submission.event_name,
         date: submission.event_date ?? "",
-        leadState: submission.lead_state,
       },
       ref,
       config,
@@ -183,7 +182,7 @@ function Workspace({
   const [active, setActive] = useState<Tab>(() => {
     const built = fromPayload(
       submission.payload,
-      { name: submission.event_name, date: submission.event_date ?? "", leadState: submission.lead_state },
+      { name: submission.event_name, date: submission.event_date ?? "" },
       ref,
       config,
     );
@@ -502,7 +501,7 @@ function Workspace({
 
       const built = fromPayload(
         { tabs: rowsByTab },
-        { name: submission.event_name, date: submission.event_date ?? "", leadState: submission.lead_state },
+        { name: submission.event_name, date: submission.event_date ?? "" },
         ref,
         config,
       );

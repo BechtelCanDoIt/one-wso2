@@ -131,10 +131,6 @@ export const IDENTITY_FIELDS: Field[] = [SPECIAL.firstName, SPECIAL.lastName, SP
 export const OPT_IN_STATUS_VALUES = ['Confirmed', 'Pending']
 export const OPT_IN_IMPORTABLE = 'Confirmed'
 
-/** How the whole list should land in Salesforce. Chosen once when the submission is
- *  started, then stamped on every row, because Pardot imports a flat file. */
-export const LEAD_STATE_VALUES = ['New', 'MQL']
-
 /** Headings the template carries that are not columns in any sense.
  *
  *  An unrecognised heading is otherwise kept as free text, which is right for a column
@@ -159,16 +155,14 @@ export const DROPPED_HEADERS = [
 // appended, so the grid is complete either way.
 
 export const COMPUTED_FIELDS: Field[] = [
-  'lead_state', 'opt_in_method', 'opt_in_timestamp', 'score',
+  'opt_in_method', 'opt_in_timestamp', 'score',
 ]
 
-/** The computed fields a sheet heading may map to. `lead_state` is chosen once for the
- *  whole submission rather than read per row, so it has no heading. Mirrors
- *  MAPPABLE_COMPUTED in the backend's field_defs.py. */
+/** The computed fields a sheet heading may map to. Mirrors MAPPABLE_COMPUTED in the
+ *  backend's field_defs.py. */
 export const MAPPABLE_COMPUTED: Field[] = ['opt_in_method', 'opt_in_timestamp', 'score']
 
 export const COMPUTED_LABEL: Record<Field, string> = {
-  lead_state: 'Lead state',
   opt_in_method: 'Opt-in method',
   opt_in_timestamp: 'Opt-in Timestamp1',
   score: 'Add to Score',

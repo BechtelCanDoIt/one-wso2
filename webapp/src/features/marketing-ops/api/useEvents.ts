@@ -42,7 +42,6 @@ import type {
   Comment,
   FieldDef,
   FieldDefs,
-  LeadState,
   MemberStatus,
   MemberStatusInput,
   Payload,
@@ -176,7 +175,6 @@ export interface EventMeta {
   event_name: string;
   event_date: string | null;
   sf_campaign_url: string | null;
-  lead_state: LeadState;
 }
 
 export function useCreateSubmission() {
@@ -199,9 +197,8 @@ export function useUpdateSubmissionMeta() {
     // Both the list AND the open submission. Unlike useSaveSubmission below — which
     // deliberately leaves the open payload alone so a refetch can't stomp in-flight
     // grid edits — this changes the submission's METADATA (event name, date, campaign
-    // URL, lead state), none of which the grid is editing. Leaving it stale meant the
-    // workspace header kept showing the old event name until a reload, and lead_state
-    // is written onto every exported row.
+    // URL), none of which the grid is editing. Leaving it stale meant the workspace
+    // header kept showing the old event name until a reload.
     onSuccess: (_res, { id }) =>
       Promise.all([
         qc.invalidateQueries({ queryKey: ["marketing-ops", "events", "submissions"] }),

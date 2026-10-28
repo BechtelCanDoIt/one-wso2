@@ -26,7 +26,6 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  MenuItem,
   Table,
   TableBody,
   TableCell,
@@ -44,8 +43,7 @@ import {
   useEventNames,
   useSubmissions,
 } from "../../api/useEvents";
-import type { LeadState, SubmissionSummary } from "../eventsTypes";
-import { LEAD_STATE_VALUES } from "../rules/schema";
+import type { SubmissionSummary } from "../eventsTypes";
 import {
   Empty,
   EventsLoading,
@@ -71,7 +69,6 @@ export default function MySubmissions({ onOpen }: { onOpen: (id: string) => void
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
   const [campaignUrl, setCampaignUrl] = useState("");
-  const [leadState, setLeadState] = useState<LeadState>("New");
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<SubmissionSummary | null>(null);
 
@@ -89,13 +86,11 @@ export default function MySubmissions({ onOpen }: { onOpen: (id: string) => void
         event_name: eventName.trim(),
         event_date: eventDate || null,
         sf_campaign_url: campaignUrl.trim() || null,
-        lead_state: leadState,
       });
       setCreating(false);
       setEventName("");
       setEventDate("");
       setCampaignUrl("");
-      setLeadState("New");
       if (res?.id) onOpen(res.id);
     } catch (e) {
       setError(describeError(e));
@@ -284,27 +279,6 @@ export default function MySubmissions({ onOpen }: { onOpen: (id: string) => void
                 value={eventDate}
                 onChange={(e) => setEventDate(e.target.value)}
               />
-            </Box>
-
-            {/* Lead state is chosen once and written onto every exported row, so it's a
-                closed list rather than something anyone types. */}
-            <Box>
-              <Typography sx={fieldLabel}>Lead state</Typography>
-              <TextField
-                select
-                size="small"
-                fullWidth
-                sx={fieldInput}
-                value={leadState}
-                onChange={(e) => setLeadState(e.target.value as LeadState)}
-              >
-                {LEAD_STATE_VALUES.map((v) => (
-                  <MenuItem key={v} value={v} sx={{ fontSize: 14 }}>
-                    {v}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <Typography sx={fieldHint}>How every lead lands in Salesforce.</Typography>
             </Box>
 
             <Box sx={{ gridColumn: { sm: "1 / -1" } }}>
