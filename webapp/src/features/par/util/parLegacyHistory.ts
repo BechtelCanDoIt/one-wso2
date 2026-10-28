@@ -77,6 +77,13 @@ export const formatLegacyCycleName = (cycleName: string): string => {
   return LEGACY_CYCLE_DISPLAY_NAMES[normalized] ?? normalized;
 };
 
+// Top 5%/20% was only introduced starting 2021 -- every earlier era
+// (2015-2020) never captured it, so anything showing it there (a "Not
+// Assigned" row, a 0 slot count) would just be clutter. Takes a name that has
+// already been through formatLegacyCycleName.
+export const legacyCycleHasSpecialRatings = (formattedCycleName: string): boolean =>
+  (Number(formattedCycleName.match(/^(\d{4})/)?.[1]) || 0) >= 2021;
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")

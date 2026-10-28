@@ -22,12 +22,11 @@ import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useLegacyParHistoryByCycle } from "../api/useParAdmin";
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { formatShortDate } from "../util/parDate";
-import { deriveLegacyCycleDates } from "../util/parLegacyHistory";
+import { deriveLegacyCycleDates, formatLegacyCycleName, legacyCycleHasSpecialRatings } from "../util/parLegacyHistory";
 import {
   groupLegacyParticipantsByTeam,
   isLegacyEmployeeParDone,
   isLegacyLeadFeedbackDone,
-  legacyCycleHasSpecialRatings,
   legacyOverallRating,
   legacySpecialRating,
   type LegacyTeamGroup,
@@ -121,7 +120,7 @@ function CycleHeader({ cycleName, onBack }: { cycleName: string; onBack: () => v
 // already upgraded from source's plain tables.
 export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleName: string; onBack: () => void }) {
   const history = useLegacyParHistoryByCycle(cycleName);
-  const hasSpecialRatings = legacyCycleHasSpecialRatings(cycleName);
+  const hasSpecialRatings = legacyCycleHasSpecialRatings(formatLegacyCycleName(cycleName));
   // Leave's employee directory is used for avatars only (the legacy table has
   // no photos), same deviation ParOrgTeamRoster.tsx/ParLeadTeamRoster.tsx make.
   const employees = useLeaveEmployees();
@@ -441,6 +440,9 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
             disableRowSelectionOnClick
             onRowClick={(params) => setSelection({ level: "record", group, record: params.row })}
             sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
+            // A group always has members, so an empty roster is a search that
+            // matched nobody.
+            localeText={{ noRowsLabel: "No members match your search." }}
             paginationModel={rosterPagination}
             onPaginationModelChange={setRosterPagination}
             sortModel={rosterSort}

@@ -35,6 +35,7 @@ import {
   getLegacySharedByName,
   hasLegacyContent,
   isThreeSixtyConfirmation,
+  legacyCycleHasSpecialRatings,
   parseLegacyQuestionAnswers,
 } from "../util/parLegacyHistory";
 import { getLegacyQuestionGroups, LEGACY_2015_CATALOG, legacyRowAnswer, sideFeedbackTitle } from "../util/legacyParCatalogs";
@@ -270,10 +271,7 @@ export default function ParLegacyRecordDetail({
   // name (see formatLegacyCycleName's own comment) -- normalize before any
   // catalog/rating lookup.
   const cycleName = formatLegacyCycleName(record.cycleName);
-  // Top 5%/20% was only introduced starting 2021 -- every earlier era
-  // (2015-2020) never captured it, so a dedicated "Not Assigned" row there
-  // would just be clutter.
-  const hideSpecialRating = (Number(cycleName.match(/^(\d{4})/)?.[1]) || 0) < 2021;
+  const hideSpecialRating = !legacyCycleHasSpecialRatings(cycleName);
   const employeeGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "employee");
   const leadGroups = getLegacyQuestionGroups(cycleName, questionAnswers, "lead");
 
