@@ -389,6 +389,8 @@ export interface CreateAssessmentPayload {
   owner_id?: number;
   management_approver_id?: number;
   implementation_date?: string;
+  assigner_id?: number;
+  action_owner_id?: number;
 }
 
 // ── Dashboard types (mirror model/dashboard.go) ────────────────────────────────
