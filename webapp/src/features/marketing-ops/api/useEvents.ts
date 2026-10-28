@@ -237,8 +237,18 @@ export function useSaveSubmission() {
         source_filename: sourceFilename,
         template_version: templateVersion,
       }),
-    onSuccess: () =>
-      qc.invalidateQueries({ queryKey: ["marketing-ops", "events", "submissions"] }),
+    onSuccess: (saved, { id, payload }) => {
+      // The open submission is cached with staleTime Infinity (see useSubmission), so
+      // nothing refreshes it on its own. Before this, the cache kept the EMPTY payload it
+      // was first loaded with: upload, go back, reopen — and the screen asked for the file
+      // again, though the server had every row. Written in from what was just saved rather
+      // than refetched, so a refetch can never land on top of edits made since.
+      qc.setQueriesData<SubmissionFull>(
+        { queryKey: ["marketing-ops", "events", "submission", id] },
+        (old) => (old ? { ...old, ...saved, payload } : old),
+      );
+      return qc.invalidateQueries({ queryKey: ["marketing-ops", "events", "submissions"] });
+    },
   });
 }
 
