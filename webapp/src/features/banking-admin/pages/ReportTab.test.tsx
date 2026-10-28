@@ -46,6 +46,7 @@ function bankAccount(overrides: Partial<BankAccount> = {}): BankAccount {
     branchCode: "001",
     branchName: "Colombo",
     beneficiaryAddress: "123 Main St",
+    beneficiaryCity: null,
     bankAddress: "456 Bank Rd",
     paymentMethod: null,
     effectiveFrom: "2026-10-01",

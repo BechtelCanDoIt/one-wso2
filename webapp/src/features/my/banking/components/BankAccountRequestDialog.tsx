@@ -53,6 +53,7 @@ import {
 const BLANK_VALUES: BankAccountFormValues = {
   accountName: "",
   beneficiaryAddress: "",
+  beneficiaryCity: "",
   accountHolderCountry: "",
   accountNumber: "",
   bankLocation: "",
@@ -187,7 +188,7 @@ export default function BankAccountRequestDialog({
   }
 
   function goToBankInfo() {
-    const found = validateAccountHolder(values);
+    const found = validateAccountHolder(values, accountType);
     setErrors(found);
     if (Object.keys(found).length === 0) setStep("bank");
   }
@@ -252,6 +253,16 @@ export default function BankAccountRequestDialog({
               helperText={errors.beneficiaryAddress}
               fullWidth
             />
+            {isConsultancy && (
+              <TextField
+                label="Account Holder's City"
+                value={values.beneficiaryCity}
+                onChange={(e) => set("beneficiaryCity", e.target.value)}
+                error={Boolean(errors.beneficiaryCity)}
+                helperText={errors.beneficiaryCity}
+                fullWidth
+              />
+            )}
             <Autocomplete
               options={allCountries}
               value={values.accountHolderCountry || null}
@@ -369,6 +380,9 @@ export default function BankAccountRequestDialog({
                 Beneficiary Information
               </Typography>
               <ReviewRow label="Account Holder Address" value={values.beneficiaryAddress} />
+              {isConsultancy && (
+                <ReviewRow label="Account Holder City" value={values.beneficiaryCity.trim()} />
+              )}
             </Box>
             <Box>
               <Typography sx={{ fontWeight: 600, fontSize: 13, mb: 1 }}>
