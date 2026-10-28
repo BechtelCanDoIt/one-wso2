@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { CustomerResult } from "@features/legal/api/useCustomerSearch";
@@ -135,19 +135,19 @@ describe("NdaPage counterparty and WSO2 company", () => {
     renderPage(allowed);
 
     await pickSalesforceCustomer(user);
-    expect(wso2Company()).toHaveTextContent("WSO2 Lanka (Pvt) Ltd (LK)");
+    expect(wso2Company()).toHaveValue("WSO2 Lanka (Pvt) Ltd (LK)");
 
     // Manual entry has no country yet, so the Sri Lanka entity must not stay behind.
     await user.click(screen.getByRole("button", { name: "Enter details manually" }));
-    expect(within(wso2Company()).queryByText(/WSO2/)).not.toBeInTheDocument();
+    expect(wso2Company()).toHaveValue("");
 
     await user.type(screen.getByRole("combobox", { name: /Country/ }), "United Kingdom");
     await user.click(await screen.findByRole("option", { name: "United Kingdom" }));
-    expect(wso2Company()).toHaveTextContent("WSO2 (UK) Ltd (UK)");
+    expect(wso2Company()).toHaveValue("WSO2 (UK) Ltd (UK)");
 
     // Back to the Salesforce customer, back to its entity.
     await user.click(screen.getByRole("button", { name: "Salesforce customer" }));
-    expect(wso2Company()).toHaveTextContent("WSO2 Lanka (Pvt) Ltd (LK)");
+    expect(wso2Company()).toHaveValue("WSO2 Lanka (Pvt) Ltd (LK)");
   });
 
   it("puts the active counterparty and its entity into the NDA", async () => {

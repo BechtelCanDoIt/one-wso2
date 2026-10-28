@@ -23,7 +23,6 @@ import {
   Card,
   CircularProgress,
   Divider,
-  MenuItem,
   Snackbar,
   Stack,
   TextField,
@@ -183,7 +182,7 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <PerspectiveHeader
         title="NDA"
-        subtitle="Non-disclosure agreement management and tracking."
+        subtitle="Create WSO2's standard Mutual NDA for a customer, vendor or partner, and download it as a PDF."
       />
 
       <Stack spacing={3} sx={{ maxWidth: 480 }}>
@@ -218,6 +217,16 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
             </ToggleButtonGroup>
           )}
 
+          {/* Guidance before the user starts typing or searching, not after:
+              the NDA uses these details exactly as given. */}
+          {!checkingAccess && (
+            <Alert severity="info">
+              {isManual
+                ? "Enter the counterparty's registered legal name and address. They go into the NDA exactly as you type them, so check them first."
+                : "Search by the customer's Salesforce account name. The NDA uses the name and billing address from Salesforce, so check them in the details shown."}
+            </Alert>
+          )}
+
           {access.isError && (
             <Alert severity="info">
               Couldn&apos;t check whether you can search Salesforce customers, so enter the counterparty&apos;s details below.
@@ -227,9 +236,6 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
           {isManual && !checkingAccess && (
             <>
               <ManualCounterpartyFields value={manualParty} onChange={handleManualPartyChange} />
-              <Alert severity="warning">
-                Please check the legal name and address carefully: they go into the NDA exactly as entered.
-              </Alert>
             </>
           )}
 
@@ -260,7 +266,6 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
                 <TextField
                   {...params}
                   label="Customer Name"
-                  helperText="Search by the Salesforce account name. The name and address come from Salesforce."
                   slotProps={{
                     input: {
                       ...params.InputProps,
@@ -288,9 +293,6 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
                 <DetailRow label="Address" value={formatCustomerAddress(selectedCustomer.address ?? null)} />
                 <DetailRow label="Region" value={selectedCustomer.subRegion} />
                 <DetailRow label="Industry" value={selectedCustomer.subIndustry} />
-                <Alert severity="warning">
-                  Please verify the customer name and address, as they will be sent to NDA exactly as shown here.
-                </Alert>
               </Stack>
             </Card>
           )}
@@ -300,26 +302,28 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
 
         {/* WSO2 Company — one option per official NDA template docx. Below the
             counterparty because it is filled in from the counterparty's country;
-            users choose it here when it isn't. */}
-        <TextField
-          select
+            users choose it here when it isn't. A searchable dropdown, like
+            Country and Customer Name, so the three look and behave the same. */}
+        <Autocomplete
           fullWidth
-          label="WSO2 Company"
-          value={wso2Company}
-          onChange={(e) => setWso2Company(e.target.value)}
-          error={Boolean(partyCountry && !wso2Company)}
-          helperText={
-            partyCountry && !wso2Company
-              ? `No WSO2 entity matches the counterparty's country "${partyCountry}". Choose one.`
-              : "Filled in from the counterparty's country, or choose it here. Check it: it sets the governing law."
-          }
-        >
-          {WSO2_COMPANIES.map((c) => (
-            <MenuItem key={c.value} value={c.value}>
-              {c.label}
-            </MenuItem>
-          ))}
-        </TextField>
+          options={WSO2_COMPANIES}
+          value={WSO2_COMPANIES.find((c) => c.value === wso2Company) ?? null}
+          getOptionLabel={(option) => option.label}
+          isOptionEqualToValue={(option, value) => option.value === value.value}
+          onChange={(_e, next) => setWso2Company(next?.value ?? "")}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="WSO2 Company"
+              error={Boolean(partyCountry && !wso2Company)}
+              helperText={
+                partyCountry && !wso2Company
+                  ? `No WSO2 entity matches the counterparty's country "${partyCountry}". Choose one.`
+                  : "Filled in from the counterparty's country, or choose it here. Check it: it sets the governing law."
+              }
+            />
+          )}
+        />
 
         {/* Always shown, so users know where the form ends; enabled once the
             entity and the counterparty are complete. */}
