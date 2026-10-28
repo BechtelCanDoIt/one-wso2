@@ -81,8 +81,8 @@ function writeLastPerspective(key: string): void {
 // UNLESS sessionStorage remembers a better answer, see below.
 //
 // A `?from=` query param is the same idea, for the one case navigation state
-// can't reach: a file viewer opened with `window.open` (e.g. a Due Diligence
-// attachment) is a brand-new tab, not a client-side navigation — there is no
+// can't reach: a file viewer opened with `window.open` is a brand-new tab,
+// not a client-side navigation — there is no
 // history entry to attach state to, but the URL that opens it is built by
 // the caller, so it can carry the origin perspective itself.
 //

@@ -43,7 +43,7 @@ import { useRenewTradeReferenceLink, useTradeReferences } from "../api/useTradeR
 import { useCopyClientLink } from "@features/due-diligence/shared/api/useCopyClientLink";
 import { joinTradeReferenceLinks, type TradeReferenceRow } from "../api/tradeReferenceTypes";
 import { TRADE_REFERENCE_STATUS, tradeReferenceStatusChipColor } from "@features/due-diligence/constants";
-import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { useNavigate } from "react-router";
 import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 type SortColumn = "Partner Company" | "Reference Company" | "Contact Email" | "Form Status";
@@ -65,7 +65,7 @@ export default function TradeReferencesListPage() {
   const tradeReferences = useTradeReferences();
   const renewLink = useRenewTradeReferenceLink();
   const copyClientLink = useCopyClientLink();
-  const navigate = useDueDiligenceNavigate();
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
   // Defaults ALL checked, unlike Partners' filters — matches the source's own

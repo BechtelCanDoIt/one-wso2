@@ -17,7 +17,7 @@
 import { useState } from "react";
 import { Alert, Box, Button, Chip, CircularProgress, Snackbar, Typography } from "@wso2/oxygen-ui";
 import { FileTextIcon } from "@wso2/oxygen-ui-icons-react";
-import { useLocation, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import DueDiligenceShell from "@features/due-diligence/components/DueDiligenceShell";
 import { DUE_DILIGENCE_EYEBROW } from "@constants/dueDiligenceApps";
 import { useDueDiligenceGate } from "@features/due-diligence/api/useDueDiligenceGate";
@@ -29,14 +29,13 @@ import { humanizeHttpError } from "@api/http";
 import { TRADE_REFERENCE_STATUS } from "@features/due-diligence/constants";
 import type { TradeReferenceRow } from "../api/tradeReferenceTypes";
 import { useUpdateTradeReferenceFormStatus } from "../api/useTradeReferences";
-import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
 import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // Ported from the source app's TradeReferences/TradeReferenceDashboard/PendingPage2.js.
 export default function TradeReferencePendingPage() {
   const { linkId: linkIdParam } = useParams<{ linkId: string }>();
   const location = useLocation();
-  const navigate = useDueDiligenceNavigate();
+  const navigate = useNavigate();
   const gate = useDueDiligenceGate();
   const appConfig = useDueDiligenceAppConfig();
   const updateStatus = useUpdateTradeReferenceFormStatus();

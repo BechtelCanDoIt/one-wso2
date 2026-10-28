@@ -16,17 +16,22 @@
 
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import { MemoryRouter, parsePath, Route, Routes, useLocation } from "react-router";
 import LegacyDueDiligenceRedirect from "./LegacyDueDiligenceRedirect";
 
 function Where() {
-  const { pathname, search } = useLocation();
-  return <div data-testid="url">{pathname + search}</div>;
+  const { pathname, search, hash, state } = useLocation();
+  return (
+    <>
+      <div data-testid="url">{pathname + search + hash}</div>
+      <div data-testid="state">{JSON.stringify(state)}</div>
+    </>
+  );
 }
 
-function renderAt(url: string) {
+function renderAt(url: string, state?: unknown) {
   render(
-    <MemoryRouter initialEntries={[url]}>
+    <MemoryRouter initialEntries={[{ ...parsePath(url), state }]}>
       <Routes>
         <Route path="due-diligence/*" element={<LegacyDueDiligenceRedirect />} />
         <Route path="*" element={<Where />} />
@@ -49,5 +54,16 @@ describe("LegacyDueDiligenceRedirect", () => {
 
   it("sends the bare old entry point to the new one", () => {
     expect(renderAt("/due-diligence")).toBe("/legal/due-diligence");
+  });
+
+  it("keeps the hash", () => {
+    expect(renderAt("/due-diligence/partners/12/profile#signatory")).toBe(
+      "/legal/due-diligence/partners/12/profile#signatory",
+    );
+  });
+
+  it("keeps the navigation state, so a page opened with a row still gets it", () => {
+    renderAt("/due-diligence/partners/12/pending", { row: { id: 12 } });
+    expect(screen.getByTestId("state").textContent).toBe(JSON.stringify({ row: { id: 12 } }));
   });
 });

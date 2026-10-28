@@ -167,14 +167,9 @@ export default function FinanceSubQuestionDetails({
   const openFile = (fileName: string) => {
     const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
     const path = extension === "pdf" ? `${DUE_DILIGENCE_BASE_PATH}/view-pdf` : ["jpg", "jpeg", "png"].includes(extension) ? `${DUE_DILIGENCE_BASE_PATH}/view-image` : null;
-    // `from=finance` opens the viewer as its own tab (window.open, not a
-    // client-side navigation) — there is no history entry to attach the
-    // usual `state: { fromPerspective }` to, so PerspectiveContext falls
-    // back to reading it off the URL instead. Without it the rail in that
-    // new tab shows Me, not Finance.
     if (path)
       window.open(
-        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}&from=finance`,
+        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}`,
         "_blank",
         "noopener,noreferrer",
       );

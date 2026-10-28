@@ -29,7 +29,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { CheckIcon, EditIcon, FileTextIcon } from "@wso2/oxygen-ui-icons-react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import { pdf } from "@react-pdf/renderer";
 import DueDiligenceShell from "@features/due-diligence/components/DueDiligenceShell";
 import { DUE_DILIGENCE_EYEBROW } from "@constants/dueDiligenceApps";
@@ -57,7 +57,6 @@ import AdminPdfReport from "../components/AdminPdfReport";
 import ConfirmationDialog, {
   type ConfirmationContent,
 } from "@components/confirmation-dialog/ConfirmationDialog";
-import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
 import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 const TAB_NAMES = ["profile", "finance", "legal", "approvalsummary"] as const;
@@ -68,7 +67,7 @@ type TabName = (typeof TAB_NAMES)[number];
 // @react-pdf/renderer PDF export, ported as AdminPdfReport.tsx).
 export default function PartnerDashboardPage() {
   const { id, tabName } = useParams<{ id: string; tabName: string }>();
-  const navigate = useDueDiligenceNavigate();
+  const navigate = useNavigate();
   const gate = useDueDiligenceGate();
   const appConfig = useDueDiligenceAppConfig();
   const partnerInfo = usePartnerInfo(id ?? "");

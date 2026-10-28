@@ -76,12 +76,9 @@ export default function LegalCommentInputs({
   const openFile = (fileName: string) => {
     const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
     const path = extension === "pdf" ? `${DUE_DILIGENCE_BASE_PATH}/view-pdf` : ["jpg", "jpeg", "png"].includes(extension) ? `${DUE_DILIGENCE_BASE_PATH}/view-image` : null;
-    // `from=legal` — see the identical note in FinanceSubQuestionDetails.tsx;
-    // a new tab has no history entry to carry `fromPerspective` on, so the
-    // URL itself has to say which perspective opened it.
     if (path)
       window.open(
-        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}&from=legal`,
+        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}`,
         "_blank",
         "noopener,noreferrer",
       );

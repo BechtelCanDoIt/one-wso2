@@ -73,7 +73,7 @@ import {
   getFormStatusLabel,
   type StatusChipColor,
 } from "@features/due-diligence/constants";
-import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { useNavigate } from "react-router";
 import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 type SortColumn = (typeof COLUMN_NAMES)[keyof typeof COLUMN_NAMES];
@@ -90,7 +90,7 @@ export default function PartnersListPage() {
   const partners = usePartners();
   const renewLink = useRenewPartnerLink();
   const copyClientLink = useCopyClientLink();
-  const navigate = useDueDiligenceNavigate();
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
   const [showInactive, setShowInactive] = useState(false);
