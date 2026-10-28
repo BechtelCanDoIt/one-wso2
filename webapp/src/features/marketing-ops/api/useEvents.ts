@@ -44,6 +44,8 @@ import type {
   FieldDefs,
   MemberStatus,
   MemberStatusInput,
+  NotificationSettings,
+  NotificationSettingsOut,
   Payload,
   ReferenceResponse,
   SubmissionFull,
@@ -66,6 +68,7 @@ const KEY = {
   queue: ["marketing-ops", "events", "review", "queue"] as const,
   reviewSubmission: (id: string) => ["marketing-ops", "events", "review", id] as const,
   reviewComments: (id: string) => ["marketing-ops", "events", "review", "comments", id] as const,
+  notifications: ["marketing-ops", "events", "notifications"] as const,
 };
 
 function useBase() {
@@ -370,6 +373,43 @@ export function useSaveFields() {
     mutationFn: async ({ tab, fields }: { tab: string; fields: FieldDef[] }) =>
       authedPut<FieldDef[]>(urls.eventsFieldsForTab(tab), await getAccessToken(), { fields }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY.fields }),
+  });
+}
+
+// ---- submission emails (admin) ---------------------------------------------
+
+export function useNotificationSettings() {
+  const { getAccessToken, ready } = useBase();
+  return useQuery<NotificationSettingsOut>({
+    queryKey: KEY.notifications,
+    enabled: ready,
+    queryFn: async () =>
+      authedGet<NotificationSettingsOut>(urls.eventsNotifications, await getAccessToken()),
+    staleTime: 60 * 1000,
+    retry: httpRetry,
+  });
+}
+
+export function useSaveNotificationSettings() {
+  const { getAccessToken } = useBase();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: NotificationSettings) =>
+      authedPut<NotificationSettingsOut>(urls.eventsNotifications, await getAccessToken(), body),
+    onSuccess: (saved) => qc.setQueryData(KEY.notifications, saved),
+  });
+}
+
+/** Send a sample of the real email to the SAVED recipients. */
+export function useSendTestNotification() {
+  const { getAccessToken } = useBase();
+  return useMutation({
+    mutationFn: async () =>
+      authedPost<{ sent: boolean; recipients: number }>(
+        urls.eventsNotificationsTest,
+        await getAccessToken(),
+        {},
+      ),
   });
 }
 

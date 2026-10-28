@@ -130,6 +130,7 @@ import AssetNameSettingsPage from "@features/marketing-ops/admin/pages/AssetName
 import EmailWorkbenchSettingsPage from "@features/marketing-ops/admin/pages/EmailWorkbenchSettingsPage";
 import BlockCatalogPage from "@features/marketing-ops/email-workbench/pages/BlockCatalogPage";
 import EventsSettingsPage from "@features/marketing-ops/admin/pages/EventsSettingsPage";
+import EventsNotificationsPage from "@features/marketing-ops/admin/pages/EventsNotificationsPage";
 import PostBuilderPage from "@features/marketing-ops/design-studio/pages/PostBuilderPage";
 import {
   EventsMinePage,
@@ -922,6 +923,10 @@ export default function App() {
           />
           <Route path="marketing-ops/admin/pardot" element={<EmailWorkbenchSettingsPage />} />
           <Route path="marketing-ops/admin/events" element={<EventsSettingsPage />} />
+          <Route
+            path="marketing-ops/admin/events-notifications"
+            element={<EventsNotificationsPage />}
+          />
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
           {/* Event Platform — event agendas, speakers and swag shops, a different
