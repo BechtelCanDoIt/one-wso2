@@ -212,7 +212,7 @@ export interface HistoryDetails {
 }
 
 // AuditTrailEntry is a history entry plus the risk it belongs to, as listed on
-// Analytics > Audit Trail.
+// Risk Hub > Audit Trail.
 export interface AuditTrailEntry extends HistoryEntry {
   risk_code: string;
   risk_title: string;

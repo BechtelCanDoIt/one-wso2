@@ -17,7 +17,7 @@
 import type { HistoryEntry } from "../../api/riskApi";
 import { STATUS_CONFIG, changedValue, fieldLabel } from "./utils";
 
-// Shared by the risk drawer's History tab and Analytics > Audit Trail, so one
+// Shared by the risk drawer's History tab and Risk Hub > Audit Trail, so one
 // event reads the same wherever it is shown.
 
 // Tone drives the dot colour only — the sentence carries the meaning, so a
