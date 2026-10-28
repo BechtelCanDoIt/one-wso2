@@ -67,6 +67,14 @@ const attach = { ...mutation(), mutateAsync: vi.fn() };
 const files = { preview: vi.fn(), download: vi.fn() };
 const setPrimary = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
 const opportunityQuotes = { data: [] as unknown[], error: null, isPending: false, isFetching: false, refetch: vi.fn() };
+// No supporting documents in the library (DGD-10); tested on their own.
+vi.mock("@features/sales/cado2/quotes/api/useSupportingDocuments", async (actual) => ({
+  ...(await actual<typeof import("@features/sales/cado2/quotes/api/useSupportingDocuments")>()),
+  useSupportingDocumentLibrary: () => ({ data: [], isPending: false, error: null }),
+  useQuoteSupportingDocuments: () => ({ data: undefined, isPending: false, error: null }),
+  useSetQuoteSupportingDocuments: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null }),
+  useHasSupportingDocuments: () => false,
+}));
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useQuote: () => quote,
   useQuoteVersion: (_id: number, n: number) =>

@@ -102,6 +102,16 @@ describe("history", () => {
     expect(describeEvent({ event: e, count: 1 })).toBe("Version 2 draft deleted");
   });
 
+  // DGD-10: the documents added after the order form.
+  it("names the supporting documents after a change", () => {
+    expect(
+      describeEvent({ event: event({ eventType: "SUPPORTING_DOCUMENTS_CHANGED", metadata: { before: [], after: ["Support Policy", "Security Overview"] } }), count: 1 }),
+    ).toBe("Supporting documents changed: Support Policy, Security Overview");
+    expect(describeEvent({ event: event({ eventType: "SUPPORTING_DOCUMENTS_CHANGED", metadata: { before: ["Support Policy"], after: [] } }), count: 1 })).toBe(
+      "Supporting documents removed",
+    );
+  });
+
   // D111: the order form on the Salesforce opportunity.
   it("says what happened to the order form in Salesforce", () => {
     expect(describeEvent({ event: event({ eventType: "ORDER_FORM_ATTACHED" }), count: 1 })).toBe("Order form attached to Salesforce");

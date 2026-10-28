@@ -306,6 +306,11 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       return `Order form removed from Salesforce${typeof meta.replacedBy === "string" ? `, replaced by ${meta.replacedBy}` : ""}`;
     case "ORDER_FORM_ATTACH_FAILED":
       return meta.action === "remove" ? "Couldn't remove the order form from Salesforce" : "Couldn't attach the order form to Salesforce";
+    // DGD-10: the documents added after the order form.
+    case "SUPPORTING_DOCUMENTS_CHANGED": {
+      const after = Array.isArray(meta.after) ? (meta.after as unknown[]).filter((t) => typeof t === "string") : [];
+      return after.length ? `Supporting documents changed: ${after.join(", ")}` : "Supporting documents removed";
+    }
     default:
       return e.eventType;
   }
