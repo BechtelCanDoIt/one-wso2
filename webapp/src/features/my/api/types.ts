@@ -65,6 +65,13 @@ export interface Employee {
   managerEmail: string;
   managerName: string | null;
   additionalManagerEmails: string | null;
+  /**
+   * In a lead's whole-chain list, the lead's additional report every route to
+   * this member starts from. Null elsewhere; absent from an older backend.
+   */
+  throughEmployeeId?: string | null;
+  throughFirstName?: string | null;
+  throughLastName?: string | null;
   gender: string | null;
   continuousServiceDate: string | null;
   jobBand: number | null;
@@ -390,4 +397,17 @@ export interface EmployeeSearchPayload {
 export interface FilteredEmployeesResponse {
   employees: Employee[];
   totalCount: number;
+}
+
+/** How a team member relates to the lead viewing them. */
+export type ReportingRelation = "DIRECT" | "ADDITIONAL" | "INDIRECT";
+
+/** GET /employees/{id}/reporting-line — only for someone in the caller's chain. */
+export interface ReportingLine {
+  relation: ReportingRelation;
+  /**
+   * For an indirect report, the viewer's additional report that every route to
+   * them starts from. Null when any route starts from a direct report.
+   */
+  through: { employeeId: string; firstName: string; lastName: string } | null;
 }

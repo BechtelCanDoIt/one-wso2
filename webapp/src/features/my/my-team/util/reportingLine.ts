@@ -38,3 +38,45 @@ export function isAdditionalReport(
   if (viewer === "" || normalise(employee.managerEmail ?? "") === viewer) return false;
   return (employee.additionalManagerEmails ?? "").split(",").some((email) => normalise(email) === viewer);
 }
+
+/** One of the viewer's additional reports. */
+export interface AdditionalReport {
+  employeeId: string;
+  firstName: string;
+  lastName: string;
+}
+
+/**
+ * The viewer's additional report this member is in the team through, or null.
+ *
+ * The server names one only when every route to the member starts from it. The
+ * viewer's own additional report is null here: that is the closer link, and it
+ * has its own chip.
+ */
+export function cameThrough(
+  employee: Pick<
+    Employee,
+    | "managerEmail"
+    | "additionalManagerEmails"
+    | "throughEmployeeId"
+    | "throughFirstName"
+    | "throughLastName"
+  >,
+  viewerEmail: string | null | undefined,
+): AdditionalReport | null {
+  if (!employee.throughEmployeeId || isAdditionalReport(employee, viewerEmail)) return null;
+  return {
+    employeeId: employee.throughEmployeeId,
+    firstName: employee.throughFirstName ?? "",
+    lastName: employee.throughLastName ?? "",
+  };
+}
+
+/**
+ * The chip's text: the first word of their first name, which keeps it short,
+ * falling back to the last name. The full name is in the hover text.
+ */
+export function viaLabel(person: Pick<AdditionalReport, "firstName" | "lastName">): string {
+  const first = person.firstName.trim().split(/\s+/)[0];
+  return `Via ${first || person.lastName.trim()}`;
+}

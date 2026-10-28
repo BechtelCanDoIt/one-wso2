@@ -195,6 +195,42 @@ describe("MyTeamTable additional reports", () => {
     });
     expect(screen.queryByText("Additional")).toBeNull();
   });
+
+  // Their reports are in the team too, and need the same explanation one step
+  // removed: which additional report they came through.
+  const through = {
+    throughEmployeeId: "LK100002",
+    throughFirstName: "Test",
+    throughLastName: "Person",
+  };
+
+  it("marks someone the viewer reaches only through an additional report", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "test.person@wso2.com", additionalManagerEmails: "", ...through })],
+    });
+    expect(screen.getByText("Via Test")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("In your team through Test Person, whom you're an additional manager of"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows only Additional for the viewer's own additional report", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "other@wso2.com", additionalManagerEmails: VIEWER, ...through })],
+    });
+    expect(screen.getByText("Additional")).toBeInTheDocument();
+    expect(screen.queryByText(/^Via /)).toBeNull();
+  });
+
+  it("does not mark a row the server names no one for", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "other@wso2.com", additionalManagerEmails: "" })],
+    });
+    expect(screen.queryByText(/^Via /)).toBeNull();
+  });
 });
 
 describe("MyTeamTable empty states", () => {

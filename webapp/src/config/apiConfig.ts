@@ -40,6 +40,10 @@ export const peopleServiceUrls = {
     `${peopleBackendUrl}/employees/${encodeURIComponent(employeeId)}`,
   employeePersonalInfo: (employeeId: string) =>
     `${peopleBackendUrl}/employees/${encodeURIComponent(employeeId)}/personal-info`,
+  // How a team member is linked to the caller. Lead-only: 403 for anyone not
+  // in the caller's chain.
+  employeeReportingLine: (employeeId: string) =>
+    `${peopleBackendUrl}/employees/${encodeURIComponent(employeeId)}/reporting-line`,
   // Vehicles endpoints — keyed on the caller's email (backend enforces
   // employeeEmail === userInfo.email in the JWT). encodeURIComponent so
   // the `@` in the email survives the URL.
