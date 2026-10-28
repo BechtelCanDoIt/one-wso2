@@ -204,10 +204,13 @@ export function useDistinctLegacyParCycles(enabled = true) {
 // fetchLegacyParHistoryByCycle, for the History tab's legacy drill-down.
 // Always summary-mode (names/scores only, no full submitted answers) --
 // hundreds to low thousands of participants org-wide is the confirmed real
-// scale, and fetching every one of those rows' full AES-decrypted comments
-// plus two JSON-aggregated fields just to render a roster/grouping list is
-// real per-row backend work (and payload size) spent on data this view never
-// displays. ParAdminLegacyCycleView.tsx fetches one record's full detail
+// scale, and computing every one of those rows' two JSON-aggregated fields
+// (questionAnswers, feedback360) just to render a roster/grouping list
+// is real per-row backend work (and payload size) spent on data this view
+// never displays. Summary mode still returns overallCommentEmployee/
+// overallCommentManager and employeeHasQuestionAnswer, which the
+// Employee PAR / Lead's Feedback completion checks rely on.
+// ParAdminLegacyCycleView.tsx fetches one record's full detail
 // separately, via useParLegacyHistory below, only once it's actually opened.
 export function useLegacyParHistoryByCycle(cycleName: string | undefined, enabled = true) {
   const { isSignedIn, getAccessToken, backendConfigured } = useParBaseline();

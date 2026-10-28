@@ -60,6 +60,38 @@ export function buildAdminHistoryRows(closedCycles: ParCycle[], legacyCycles: Pa
   });
 }
 
+// ParLegacyRecordDetail renders migrated Employee's Feedback content from
+// questionAnswers[].employeeAnswer, with overallCommentEmployee only as its
+// own fallback for older records that never got question-level data — this
+// check must recognize the same content or a record can show real
+// Employee's Feedback content once opened while counting here as not done.
+// employeeHasQuestionAnswer is the server-computed version of that same
+// per-question check -- the admin cycle list is fetched in summary mode,
+// where the full questionAnswers JSON is deliberately null.
+export const isLegacyEmployeeParDone = (record: ParLegacyHistory): boolean =>
+  record.employeeHasQuestionAnswer || hasLegacyContent(record.overallCommentEmployee);
+
+export const isLegacyLeadFeedbackDone = (record: ParLegacyHistory): boolean =>
+  hasLegacyContent(record.overallCommentManager);
+
+// overallSpecialRating is always null on migrated rows (the old system never
+// populated it) -- the real signal is derived from managerScoreCode via
+// resolveLegacyRating, same resolver the detail view uses. 2021 H1 is the
+// one cycle whose special rating depends on questionAnswers, which the
+// summary-mode list doesn't carry -- passing [] here means that cycle's
+// special ratings read as none rather than silently miscounting them.
+export const legacySpecialRating = (record: ParLegacyHistory) =>
+  resolveLegacyRating(formatLegacyCycleName(record.cycleName), record.managerScoreCode, []).special;
+
+// The overall rating every admin legacy grid shows. Same resolver
+// ParLegacyRecordDetail uses, so a record can't show a different rating in a
+// list than once opened; each cycle has its own rating scale, so this can't
+// be derived generically.
+export const legacyOverallRating = (record: ParLegacyHistory): string =>
+  resolveLegacyRating(formatLegacyCycleName(record.cycleName), record.managerScoreCode, []).rating ??
+  record.overallRating ??
+  "Not Assigned";
+
 export interface LegacyTeamGroup {
   id: string;
   parBusinessUnit: string;
@@ -98,21 +130,8 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
   return Array.from(groups.entries())
     .map(([groupKey, members]) => {
       const first = members[0];
-      // ParLegacyRecordDetail renders migrated Employee's Feedback content from
-      // questionAnswers[].employeeAnswer, with overallCommentEmployee only
-      // as its own fallback for older records that never got question-level
-      // data — this count must recognize the same content or a record can
-      // show real Employee's Feedback content once opened while counting here as
-      // not done. employeeHasQuestionAnswer is the server-computed version
-      // of that same per-question check (not a client-side
-      // parseLegacyQuestionAnswers(m.questionAnswers) parse) -- this list is
-      // fetched in summary mode, where the full questionAnswers JSON is
-      // deliberately null, so the per-question half of this check has to
-      // come from the server instead.
-      const employeeParDone = members.filter(
-        (m) => m.employeeHasQuestionAnswer || hasLegacyContent(m.overallCommentEmployee),
-      ).length;
-      const leadFeedbackDone = members.filter((m) => hasLegacyContent(m.overallCommentManager)).length;
+      // Resolved once per member, then counted for both slot columns.
+      const specials = members.map(legacySpecialRating);
       return {
         id: groupKey,
         parBusinessUnit: first.businessUnit ?? "-",
@@ -120,21 +139,10 @@ export function groupLegacyParticipantsByTeam(participants: ParLegacyHistory[]):
         parTeam: first.team ?? "Unassigned",
         parSubTeam: first.subTeam ?? "-",
         parLeadEmail: first.reviewerName ?? "-",
-        employeeParCompletion: `${employeeParDone}/${members.length}`,
-        leadFeedbackCompletion: `${leadFeedbackDone}/${members.length}`,
-        // overallSpecialRating is always null on migrated rows (the old
-        // system never populated it) -- the real signal is derived from
-        // managerScoreCode via resolveLegacyRating, same resolver the
-        // detail view uses. 2021 H1 is the one cycle whose special rating
-        // depends on questionAnswers, which this summary-mode list doesn't
-        // carry -- passing [] here means that cycle's slots correctly read
-        // as 0 rather than silently miscounting them.
-        numberOf5pSlots: members.filter(
-          (m) => resolveLegacyRating(formatLegacyCycleName(m.cycleName), m.managerScoreCode, []).special === "TOP5P",
-        ).length,
-        numberOf20pSlots: members.filter(
-          (m) => resolveLegacyRating(formatLegacyCycleName(m.cycleName), m.managerScoreCode, []).special === "TOP20P",
-        ).length,
+        employeeParCompletion: `${members.filter(isLegacyEmployeeParDone).length}/${members.length}`,
+        leadFeedbackCompletion: `${members.filter(isLegacyLeadFeedbackDone).length}/${members.length}`,
+        numberOf5pSlots: specials.filter((s) => s === "TOP5P").length,
+        numberOf20pSlots: specials.filter((s) => s === "TOP20P").length,
         participants: members,
       };
     })

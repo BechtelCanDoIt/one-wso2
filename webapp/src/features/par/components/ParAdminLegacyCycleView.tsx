@@ -15,26 +15,33 @@
 // under the License.
 
 import { useCallback, useMemo, useState } from "react";
-import { Box, Button, Card, Chip, DataGrid, IconButton, InputAdornment, Link, Skeleton, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { ArrowLeftIcon, ArrowRightIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { Box, Button, Card, Chip, DataGrid, IconButton, InputAdornment, Link, Skeleton, Stack, Tab, Tabs, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { ArrowLeftIcon, ArrowRightIcon, SearchIcon, UserIcon, UsersIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useLegacyParHistoryByCycle } from "../api/useParAdmin";
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { formatShortDate } from "../util/parDate";
-import { formatLegacyCycleName } from "../util/parLegacyHistory";
-import { resolveLegacyRating } from "../util/legacyParRatingResolvers";
-import { groupLegacyParticipantsByTeam, type LegacyTeamGroup } from "../util/parAdminHistory";
+import { deriveLegacyCycleDates } from "../util/parLegacyHistory";
+import { groupLegacyParticipantsByTeam, legacyOverallRating, type LegacyTeamGroup } from "../util/parAdminHistory";
+import ParAdminLegacyEmployeeViewTab from "./ParAdminLegacyEmployeeViewTab";
 import ParEmptyState from "./ParEmptyState";
 import ParLegacyRecordDetail from "./ParLegacyRecordDetail";
 import { ParGridToolbar } from "./parGridToolbar";
 import type { ParLegacyHistory } from "../api/types";
 
-type Selection = { level: "groups" } | { level: "roster"; group: LegacyTeamGroup } | { level: "record"; group: LegacyTeamGroup; record: ParLegacyHistory };
+// A record opened from Employee View has no group -- going back from it
+// returns straight to the cycle dashboard rather than to a team roster.
+type Selection =
+  | { level: "groups" }
+  | { level: "roster"; group: LegacyTeamGroup }
+  | { level: "record"; group?: LegacyTeamGroup; record: ParLegacyHistory };
 
-function LegacyChip() {
-  return <Chip label="Legacy" size="small" color="warning" variant="outlined" sx={{ ml: 1.5 }} />;
+function LegacyChip({ ml = 0 }: { ml?: number }) {
+  return <Chip label="Legacy" size="small" color="warning" variant="outlined" sx={{ ml }} />;
 }
+
+const DEFAULT_PAGINATION: DataGrid.GridPaginationModel = { page: 0, pageSize: 10 };
 
 // Admin's breadcrumb trail is click-to-navigate text, but nothing here ever
 // behaved like a dedicated "go back" affordance the way the employee
@@ -62,6 +69,34 @@ function Breadcrumb({ items, current }: { items: { label: string; onClick: () =>
         <Typography component="span" variant="h5">
           {current}
         </Typography>
+        <LegacyChip ml={1.5} />
+      </Box>
+    </Stack>
+  );
+}
+
+// Same header as ParOrgSummary's historyMode: a Back button, then the
+// History link, the cycle as a chip, its date range, plus the Legacy marker.
+function CycleHeader({ cycleName, onBack }: { cycleName: string; onBack: () => void }) {
+  const { startDate, endDate } = deriveLegacyCycleDates(cycleName);
+  return (
+    <Stack spacing={1}>
+      <Button size="small" startIcon={<ArrowLeftIcon size={14} />} onClick={onBack} sx={{ alignSelf: "flex-start" }}>
+        Back
+      </Button>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+        <Link component="button" underline="hover" onClick={onBack} sx={{ mr: 0.5 }}>
+          History
+        </Link>
+        <Typography component="span" sx={{ mx: 0.5 }}>
+          /
+        </Typography>
+        <Chip label={cycleName} size="small" color="primary" variant="outlined" />
+        {startDate && endDate && (
+          <Typography component="span" variant="caption" color="text.secondary">
+            ({formatShortDate(startDate)} - {formatShortDate(endDate)})
+          </Typography>
+        )}
         <LegacyChip />
       </Box>
     </Stack>
@@ -113,6 +148,38 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
       ? openedRecordHistory.data?.find((r) => r.legacyHeaderId === selection.record.legacyHeaderId)
       : undefined;
   const [searchText, setSearchText] = useState("");
+  // The tab and both tabs' searches live here, not in the tab bodies, so
+  // coming back from a roster or a record lands on the same tab with the
+  // same search.
+  const [tab, setTab] = useState(0);
+  const [employeeSearchText, setEmployeeSearchText] = useState("");
+  // Page and sort too: each grid unmounts while a roster or record is open,
+  // so state kept inside it would land the admin back on page 1, unsorted.
+  // A new search goes back to page 1 (keeping page size), since the old
+  // page may no longer exist.
+  const [teamPagination, setTeamPagination] = useState(DEFAULT_PAGINATION);
+  const [teamSort, setTeamSort] = useState<DataGrid.GridSortModel>([]);
+  const [employeePagination, setEmployeePagination] = useState(DEFAULT_PAGINATION);
+  const [employeeSort, setEmployeeSort] = useState<DataGrid.GridSortModel>([]);
+  const [rosterPagination, setRosterPagination] = useState(DEFAULT_PAGINATION);
+  const [rosterSort, setRosterSort] = useState<DataGrid.GridSortModel>([]);
+  const handleTeamSearch = useCallback((value: string) => {
+    setSearchText(value);
+    setTeamPagination((m) => ({ ...m, page: 0 }));
+  }, []);
+  const handleEmployeeSearch = useCallback((value: string) => {
+    setEmployeeSearchText(value);
+    setEmployeePagination((m) => ({ ...m, page: 0 }));
+  }, []);
+  // Opening a different group starts its roster fresh; going back to the
+  // same roster from a record keeps where it was.
+  const openRoster = useCallback((group: LegacyTeamGroup) => {
+    setRosterPagination(DEFAULT_PAGINATION);
+    setRosterSort([]);
+    setSelection({ level: "roster", group });
+  }, []);
+  const thumbnailFor = useCallback((email: string) => employeeByEmail.get(email)?.employeeThumbnail, [employeeByEmail]);
+  const openRecord = useCallback((record: ParLegacyHistory) => setSelection({ level: "record", record }), []);
 
   // Every grid below must get a referentially-stable rows/columns array, or
   // DataGrid treats each render as "the data changed" and rebuilds its
@@ -121,7 +188,8 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
   // Previous page feel unresponsive. Recreating groups/columns inline on
   // every render (as this used to) is exactly that trap, so every one of
   // them is memoized here, unconditionally, before any early return.
-  const groups = useMemo(() => groupLegacyParticipantsByTeam(history.data ?? []), [history.data]);
+  const records = useMemo(() => history.data ?? [], [history.data]);
+  const groups = useMemo(() => groupLegacyParticipantsByTeam(records), [records]);
   const filteredGroups = useMemo(
     () =>
       searchText
@@ -139,13 +207,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         field: "overallRating",
         headerName: "Overall Rating",
         flex: 1,
-        // Same resolver ParLegacyRecordDetail uses, so a record can't show
-        // a different rating here than once opened. Each cycle has its own
-        // rating scale, so this can't be derived generically.
-        valueGetter: (_v, row) =>
-          resolveLegacyRating(formatLegacyCycleName(row.cycleName), row.managerScoreCode, []).rating ??
-          row.overallRating ??
-          "Not Assigned",
+        valueGetter: (_v, row) => legacyOverallRating(row),
       },
       {
         field: "reviewCompletedDate",
@@ -163,7 +225,11 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         renderCell: (params) => (
           <Tooltip title="Open Record" arrow>
             <IconButton
-              onClick={() => rosterGroup && setSelection({ level: "record", group: rosterGroup, record: params.row })}
+              onClick={(e) => {
+                // The row's own onRowClick would open it a second time.
+                e.stopPropagation();
+                if (rosterGroup) setSelection({ level: "record", group: rosterGroup, record: params.row });
+              }}
             >
               <ArrowRightIcon size={18} />
             </IconButton>
@@ -185,13 +251,13 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         field: "employeeParCompletion",
         headerName: "Employee PAR",
         flex: 0.7,
-        renderCell: (params) => <Chip size="small" variant="outlined" label={params.row.employeeParCompletion} />,
+        renderCell: (params) => <Chip size="small" label={params.row.employeeParCompletion} />,
       },
       {
         field: "leadFeedbackCompletion",
         headerName: "Lead's Feedback",
         flex: 0.7,
-        renderCell: (params) => <Chip size="small" variant="outlined" label={params.row.leadFeedbackCompletion} />,
+        renderCell: (params) => <Chip size="small" label={params.row.leadFeedbackCompletion} />,
       },
       { field: "numberOf5pSlots", headerName: "5% Slots", flex: 0.5 },
       { field: "numberOf20pSlots", headerName: "20% Slots", flex: 0.5 },
@@ -202,14 +268,19 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         flex: 0.4,
         renderCell: (params) => (
           <Tooltip title="Open Group" arrow>
-            <IconButton onClick={() => setSelection({ level: "roster", group: params.row })}>
+            <IconButton
+              onClick={(e) => {
+                e.stopPropagation();
+                openRoster(params.row);
+              }}
+            >
               <ArrowRightIcon size={18} />
             </IconButton>
           </Tooltip>
         ),
       },
     ],
-    [],
+    [openRoster],
   );
 
   if (history.isLoading) {
@@ -231,7 +302,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
           items={[
             { label: "History", onClick: onBack },
             { label: cycleName, onClick: () => setSelection({ level: "groups" }) },
-            { label: group.parLeadEmail, onClick: () => setSelection({ level: "roster", group }) },
+            ...(group ? [{ label: group.parLeadEmail, onClick: () => setSelection({ level: "roster", group }) }] : []),
           ]}
           current={nameFor(record.employeeEmail)}
         />
@@ -280,7 +351,10 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
             showToolbar
             slots={{ toolbar: ParGridToolbar }}
             sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
-            initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
+            paginationModel={rosterPagination}
+            onPaginationModelChange={setRosterPagination}
+            sortModel={rosterSort}
+            onSortModelChange={setRosterSort}
             pageSizeOptions={[10, 20, 25]}
           />
         </Card>
@@ -288,10 +362,10 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
     );
   }
 
-  if (groups.length === 0) {
+  if (records.length === 0) {
     return (
       <Stack spacing={2}>
-        <Breadcrumb items={[{ label: "History", onClick: onBack }]} current={cycleName} />
+        <CycleHeader cycleName={cycleName} onBack={onBack} />
         <ParEmptyState text="No records found for this legacy cycle." />
       </Stack>
     );
@@ -299,39 +373,66 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
 
   return (
     <Stack spacing={2}>
-      <Breadcrumb items={[{ label: "History", onClick: onBack }]} current={cycleName} />
+      <CycleHeader cycleName={cycleName} onBack={onBack} />
 
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <TextField
-          size="small"
-          placeholder="Search Team"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Box>
+      <Card variant="outlined" sx={{ borderRadius: 2, p: 2.5 }}>
+        {/* Only Team View and Employee View: the old system never had 360
+            request rejections or quota allocations to show. */}
+        <Tabs value={tab} onChange={(_e, value) => setTab(value)} aria-label="legacy cycle tabs" sx={{ mb: 2 }}>
+          <Tab icon={<UsersIcon size={16} />} iconPosition="start" label="Team View" />
+          <Tab icon={<UserIcon size={16} />} iconPosition="start" label="Employee View" />
+        </Tabs>
 
-      <Card variant="outlined" sx={{ p: 2 }}>
-        <DataGrid.DataGrid
-          rows={filteredGroups}
-          columns={teamColumns}
-          rowHeight={56}
-          disableRowSelectionOnClick
-          onRowClick={(params) => setSelection({ level: "roster", group: params.row })}
-          showToolbar
-          slots={{ toolbar: ParGridToolbar }}
-          sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
-          initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-          pageSizeOptions={[10, 20, 25]}
-        />
+        {tab === 0 && (
+          <Stack spacing={1.5}>
+            <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
+              <TextField
+                size="small"
+                placeholder="Search Team"
+                value={searchText}
+                onChange={(e) => handleTeamSearch(e.target.value)}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon size={16} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+            </Box>
+            <DataGrid.DataGrid
+              rows={filteredGroups}
+              columns={teamColumns}
+              rowHeight={56}
+              disableRowSelectionOnClick
+              onRowClick={(params) => openRoster(params.row)}
+              showToolbar
+              slots={{ toolbar: ParGridToolbar }}
+              sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
+              paginationModel={teamPagination}
+              onPaginationModelChange={setTeamPagination}
+              sortModel={teamSort}
+              onSortModelChange={setTeamSort}
+              pageSizeOptions={[10, 20, 25]}
+            />
+          </Stack>
+        )}
+        {tab === 1 && (
+          <ParAdminLegacyEmployeeViewTab
+            records={records}
+            searchText={employeeSearchText}
+            onSearchTextChange={handleEmployeeSearch}
+            paginationModel={employeePagination}
+            onPaginationModelChange={setEmployeePagination}
+            sortModel={employeeSort}
+            onSortModelChange={setEmployeeSort}
+            nameFor={nameFor}
+            thumbnailFor={thumbnailFor}
+            onOpenRecord={openRecord}
+          />
+        )}
       </Card>
     </Stack>
   );

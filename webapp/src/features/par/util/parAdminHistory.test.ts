@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { buildAdminHistoryRows, groupLegacyParticipantsByTeam } from "./parAdminHistory";
+import { buildAdminHistoryRows, groupLegacyParticipantsByTeam, legacyOverallRating } from "./parAdminHistory";
 import type { ParCycle, ParLegacyCycleSummary, ParLegacyHistory } from "../api/types";
 
 function cycle(overrides: Partial<ParCycle> = {}): ParCycle {
@@ -147,5 +147,34 @@ describe("groupLegacyParticipantsByTeam", () => {
 
   it("is empty for no participants", () => {
     expect(groupLegacyParticipantsByTeam([])).toEqual([]);
+  });
+});
+
+describe("groupLegacyParticipantsByTeam special-rating slots for 2021", () => {
+  it("counts no slot for 2021 H1, whose special rating needs question answers the summary list doesn't carry", () => {
+    const [group] = groupLegacyParticipantsByTeam([
+      legacyRecord({ cycleName: "2021 Performance Evaluation - H1", managerScoreCode: 1, questionAnswers: null }),
+    ]);
+    expect(group.numberOf5pSlots).toBe(0);
+    expect(group.numberOf20pSlots).toBe(0);
+  });
+
+  it("counts a 5% slot for 2021 H2 managerScoreCode 1 (Successful - Top 5%)", () => {
+    const [group] = groupLegacyParticipantsByTeam([
+      legacyRecord({ cycleName: "2021 Performance Evaluation - H2", managerScoreCode: 1 }),
+    ]);
+    expect(group.numberOf5pSlots).toBe(1);
+    expect(group.numberOf20pSlots).toBe(0);
+  });
+});
+
+describe("legacyOverallRating", () => {
+  it("resolves the cycle's own rating label from managerScoreCode", () => {
+    expect(legacyOverallRating(legacyRecord({ managerScoreCode: 3 }))).toBe("Successful");
+  });
+
+  it("falls back to overallRating, then Not Assigned, when no label resolves", () => {
+    expect(legacyOverallRating(legacyRecord({ managerScoreCode: null, overallRating: "Exceeds" }))).toBe("Exceeds");
+    expect(legacyOverallRating(legacyRecord({ managerScoreCode: null }))).toBe("Not Assigned");
   });
 });
