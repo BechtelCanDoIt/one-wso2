@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Chip, Stack, TableCell, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Box, Chip, Link, Stack, TableCell, Tooltip, Typography } from "@wso2/oxygen-ui";
 import type { JSX, ReactNode } from "react";
 import type { CategoryCounts } from "../../api/riskApi";
 import type { ScopeRegister } from "./categoryViews";
@@ -41,8 +41,7 @@ const COUNT_FILTERS: Record<keyof CategoryCounts, DrillDownFilter> = {
   closed: { closed: true },
 };
 
-// A table cell's text styled as a link; the cell stays text when onClick is
-// absent.
+// A table cell's text styled as a link.
 export function DrillLink({
   children,
   label,
@@ -50,25 +49,20 @@ export function DrillLink({
 }: {
   children: ReactNode;
   label: string;
-  onClick?: () => void;
+  onClick: () => void;
 }): JSX.Element {
-  if (!onClick) return <>{children}</>;
   return (
-    <Box
+    <Link
       component="button"
       type="button"
+      underline="hover"
+      color="inherit"
       aria-label={label}
       onClick={onClick}
-      sx={{
-        all: "unset",
-        cursor: "pointer",
-        fontWeight: "inherit",
-        "&:hover": { textDecoration: "underline" },
-        "&:focus-visible": { outline: "2px solid currentColor", outlineOffset: 2, borderRadius: 0.5 },
-      }}
+      sx={{ fontWeight: "inherit", textAlign: "inherit" }}
     >
       {children}
-    </Box>
+    </Link>
   );
 }
 
