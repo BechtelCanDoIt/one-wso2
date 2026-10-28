@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 import { describe, expect, it } from "vitest";
-import { isAdditionalReport } from "./reportingLine";
+import { cameThrough, isAdditionalReport, viaLabel } from "./reportingLine";
 
 const VIEWER = "lead@wso2.com";
 
@@ -63,5 +63,45 @@ describe("isAdditionalReport", () => {
     for (const unknown of [undefined, null, "", "  "]) {
       expect(isAdditionalReport(member("other@wso2.com", "a@wso2.com,,"), unknown)).toBe(false);
     }
+  });
+});
+
+const row = (over: Partial<Parameters<typeof cameThrough>[0]> = {}) => ({
+  managerEmail: "other@wso2.com",
+  additionalManagerEmails: "",
+  throughEmployeeId: "LK100002",
+  throughFirstName: "Chamara Thilina",
+  throughLastName: "Samarakoon",
+  ...over,
+});
+
+describe("cameThrough", () => {
+  it("names the viewer's additional report the member came through", () => {
+    expect(cameThrough(row(), VIEWER)).toEqual({
+      employeeId: "LK100002",
+      firstName: "Chamara Thilina",
+      lastName: "Samarakoon",
+    });
+  });
+
+  // An older backend sends no such fields; Direct Reports Only sends nulls.
+  it("is null when the server names no one", () => {
+    expect(cameThrough(row({ throughEmployeeId: null }), VIEWER)).toBeNull();
+    expect(cameThrough(row({ throughEmployeeId: undefined }), VIEWER)).toBeNull();
+  });
+
+  // Being their additional manager is the closer link, and has its own chip.
+  it("is null when the viewer is their additional manager", () => {
+    expect(cameThrough(row({ additionalManagerEmails: VIEWER }), VIEWER)).toBeNull();
+  });
+});
+
+describe("viaLabel", () => {
+  it("uses the first word of the first name", () => {
+    expect(viaLabel({ firstName: "Chamara Thilina", lastName: "Samarakoon" })).toBe("Via Chamara");
+  });
+
+  it("falls back to the last name", () => {
+    expect(viaLabel({ firstName: " ", lastName: "Samarakoon" })).toBe("Via Samarakoon");
   });
 });

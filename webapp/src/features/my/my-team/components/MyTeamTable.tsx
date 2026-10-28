@@ -35,7 +35,7 @@ import { Empty, Panel, PagingFooter } from "@features/marketing-ops/crm-upload/c
 import { NUMERIC, TH } from "@features/marketing-ops/crm-upload/components/crmStyles";
 import type { Employee, EmployeeSort } from "../../api/types";
 import { employeeStatusMeta } from "../util/employeeStatus";
-import { isAdditionalReport } from "../util/reportingLine";
+import { cameThrough, isAdditionalReport, viaLabel } from "../util/reportingLine";
 import { formatStartDate, type SortableField } from "../util/teamSearch";
 import EmployeeAvatar from "./EmployeeAvatar";
 
@@ -120,6 +120,7 @@ const COLUMNS: readonly Column[] = [
             />
           </Tooltip>
         )}
+        <ViaChip employee={e} viewerEmail={viewerEmail} />
       </Box>
     ),
   },
@@ -179,6 +180,38 @@ const COLUMNS: readonly Column[] = [
     },
   },
 ];
+
+/**
+ * For someone in the team only through one of the viewer's additional reports:
+ * which one. Dashed, one step removed from the Additional chip, because the
+ * viewer is not their additional manager, only the additional manager of
+ * someone above them.
+ */
+function ViaChip({ employee, viewerEmail }: { employee: Employee; viewerEmail: string | undefined }) {
+  const via = cameThrough(employee, viewerEmail);
+  if (!via) return null;
+  return (
+    <Tooltip
+      title={`In your team through ${`${via.firstName} ${via.lastName}`.trim()}, whom you're an additional manager of`}
+      enterDelay={600}
+    >
+      <Chip
+        label={viaLabel(via)}
+        size="small"
+        variant="outlined"
+        sx={{
+          height: 20,
+          fontSize: 10.5,
+          fontWeight: 600,
+          borderWidth: 1.5,
+          borderStyle: "dashed",
+          color: "text.secondary",
+          flexShrink: 0,
+        }}
+      />
+    </Tooltip>
+  );
+}
 
 /** Truncating text with the full value available on hover. */
 function Ellipsis({ text }: { text: string }) {
