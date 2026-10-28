@@ -167,6 +167,7 @@ export default function AttendeeGrid({
   focusField,
   optionsFor,
   height,
+  fill,
   toolbar,
   attached,
   selected,
@@ -197,6 +198,9 @@ export default function AttendeeGrid({
    *  state's options follow that row's country. */
   optionsFor?: (field: string, row: GridRow) => string[] | undefined;
   height?: number;
+  /** Take all the height the parent gives it (a flex column) instead of measuring the
+   *  window. Used by the expanded view, where the parent IS the window. */
+  fill?: boolean;
   /** Chrome rendered inside the frame, above the scroll area. */
   toolbar?: ReactNode;
   /** Square off the top so the frame reads as the body of the tab rail above it. */
@@ -251,7 +255,7 @@ export default function AttendeeGrid({
   // sent-back banner, the upload summary, the issue bar growing to two lines.
   const [available, setAvailable] = useState<number | null>(null);
   useEffect(() => {
-    if (height) return; // an explicit height wins
+    if (height || fill) return; // an explicit height, or the parent's, wins
     const measure = () => {
       const el = scrollRef.current;
       if (!el) return;
@@ -270,7 +274,7 @@ export default function AttendeeGrid({
       window.removeEventListener("resize", measure);
       observer.disconnect();
     };
-  }, [height]);
+  }, [height, fill]);
 
   /** What each column needs to show its widest cell in full — including, for a cell with a
    *  suggestion, BOTH values, the arrow and the two buttons. Recomputed when the data
@@ -421,6 +425,8 @@ export default function AttendeeGrid({
         // Fused to the tab rail above: its bottom border IS this frame's top edge, so the
         // grid reads as the contents of the selected tab rather than a separate object.
         ...(attached ? { borderTop: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 } : {}),
+        // minHeight 0 is what lets a flex child shrink below its content and scroll.
+        ...(fill ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : {}),
       }}
     >
       {/* Chrome for the surface — undo/redo, what needs attention. Inside the frame so it
@@ -448,7 +454,7 @@ export default function AttendeeGrid({
           // The scrollbar lives below the last row instead of on top of it, which is what
           // made the final row impossible to click before.
           overflow: "auto",
-          maxHeight: height ?? available ?? 520,
+          ...(fill ? { flex: 1, minHeight: 0 } : { maxHeight: height ?? available ?? 520 }),
           position: "relative",
         }}
       >

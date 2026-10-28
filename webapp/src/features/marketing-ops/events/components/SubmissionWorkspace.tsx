@@ -23,20 +23,25 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Drawer,
   IconButton,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
 import {
   FilterX,
+  Maximize2,
+  Minimize2,
   PaintBucket,
   Redo2,
   Send,
   Sparkles,
   Columns3,
   Table2,
+  TriangleAlert,
   Undo2,
   Upload,
+  X,
 } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import {
@@ -218,6 +223,9 @@ function Workspace({
   // LIVE, not a snapshot: a row leaves the moment it becomes valid. The count ticking
   // 4 → 3 → 2 → 1 teaches the rule while it still costs nothing to learn.
   const [pinned, setPinned] = useState<{ field: string | null } | null>(null);
+  // The grid over the whole window, for working through a long list. Not a route: like an
+  // open dialog, it's a way of looking at this screen, and a reload returns to the page.
+  const [expanded, setExpanded] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -422,6 +430,30 @@ function Workspace({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [jumpTo]);
+
+  // Escape also leaves the expanded view — but one thing at a time. While a column is
+  // highlighted the first Escape clears that (the effect above), and only the next one
+  // exits. Never while editing a cell or inside a dialog, where Escape already means
+  // "cancel this".
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || jumpTo) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if (el?.closest('[role="dialog"], [role="presentation"]')) return;
+      setExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    // The page underneath must not scroll: the overlay is the window now, and a wheel that
+    // reaches past the grid would otherwise move the page behind it.
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [expanded, jumpTo]);
 
   // The highlight exists for one reason: to point at the cells in a column that need
   // attention. Once the last is resolved the column is just a column, and leaving it tinted
@@ -770,184 +802,218 @@ function Workspace({
         <>
           {uploadNote && <UploadSummary note={uploadNote} onDismiss={() => setUploadNote(null)} />}
 
-          {/* Which list you're looking at. The badge is only ever what needs attention — a
-              row count next to a tab name is a number nobody acts on — and it says so on
-              hover, because a bare number beside a tab name could mean anything. */}
-          <TabRail
-            tabs={Object.keys(model!.tabs)
-              .filter((t) => model!.tabs[t]?.length)
-              .map((t) => {
-                const c = countsFor(model!.tabs[t]);
-                // A DOT, not a count. Which cells and why is on the issue bar directly
-                // below, field by field; all the rail needs to say is whether a tab still
-                // has something on it. Red when only a person can answer, quiet when
-                // everything left has a suggestion waiting.
-                return {
-                  key: t,
-                  label: t,
-                  dot: c.total ? (c.needsYou ? tones.blocking : tones.suggested) : undefined,
-                  title: !c.total
-                    ? "Nothing left to fix"
-                    : [
-                        c.fixable && `${c.fixable} suggested ${c.fixable === 1 ? "fix" : "fixes"} waiting`,
-                        c.needsYou && `${c.needsYou} only you can answer`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · "),
-                };
-              })}
-            value={active}
-            onChange={setActive}
-          />
+          {/* Expanded, everything from the tab rail down becomes the window: the same rail,
+              strip and grid, with the page header and summaries out of the way. The grid
+              fills what's left rather than measuring for it. */}
+          <Box sx={expanded ? EXPANDED : undefined}>
+            {expanded && (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1.5 }}>
+                <Typography sx={{ fontSize: 16, fontWeight: 700, flex: 1, minWidth: 0 }} noWrap>
+                  {submission.event_name}
+                </Typography>
+                {ready && editable && <SaveHint state={saveState} thinking={thinking} />}
+                <Button sx={quietBtn} startIcon={<Minimize2 size={16} />} onClick={() => setExpanded(false)}>
+                  Exit full screen
+                </Button>
+              </Box>
+            )}
 
-          <AttendeeGrid
-            rows={visibleRows}
-            measureRows={rows}
-            rowNumber={(r) => positions.get(r.id) ?? 0}
-            tab={active}
-            editable={editable}
-            busy={false}
-            onEdit={onEdit}
-            onAccept={onAccept}
-            onReject={onReject}
-            onDeleteRow={onDeleteRow}
-            jumpTo={jumpTo ?? undefined}
-            jumpToRow={jumpToRow ?? undefined}
-            focusField={jumpTo?.field}
-            optionsFor={optionsFor}
-            attached
-            leavingRows={leaving}
-            config={config}
-            selected={editable ? selected : undefined}
-            onToggleRow={editable ? toggleRow : undefined}
-            onToggleAll={editable ? toggleAll : undefined}
-            toolbar={
-              editable ? (
+            {/* Which list you're looking at. The badge is only ever what needs attention — a
+                row count next to a tab name is a number nobody acts on — and it says so on
+                hover, because a bare number beside a tab name could mean anything. */}
+            <TabRail
+              tabs={Object.keys(model!.tabs)
+                .filter((t) => model!.tabs[t]?.length)
+                .map((t) => {
+                  const c = countsFor(model!.tabs[t]);
+                  // A DOT, not a count. Which cells and why is on the issue bar directly
+                  // below, field by field; all the rail needs to say is whether a tab still
+                  // has something on it. Red when only a person can answer, quiet when
+                  // everything left has a suggestion waiting.
+                  return {
+                    key: t,
+                    label: t,
+                    dot: c.total ? (c.needsYou ? tones.blocking : tones.suggested) : undefined,
+                    title: !c.total
+                      ? "Nothing left to fix"
+                      : [
+                          c.fixable && `${c.fixable} suggested ${c.fixable === 1 ? "fix" : "fixes"} waiting`,
+                          c.needsYou && `${c.needsYou} only you can answer`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · "),
+                  };
+                })}
+              value={active}
+              onChange={setActive}
+            />
+
+            <AttendeeGrid
+              rows={visibleRows}
+              measureRows={rows}
+              rowNumber={(r) => positions.get(r.id) ?? 0}
+              tab={active}
+              editable={editable}
+              busy={false}
+              onEdit={onEdit}
+              onAccept={onAccept}
+              onReject={onReject}
+              onDeleteRow={onDeleteRow}
+              jumpTo={jumpTo ?? undefined}
+              jumpToRow={jumpToRow ?? undefined}
+              focusField={jumpTo?.field}
+              optionsFor={optionsFor}
+              attached
+              leavingRows={leaving}
+              config={config}
+              selected={editable ? selected : undefined}
+              onToggleRow={editable ? toggleRow : undefined}
+              onToggleAll={editable ? toggleAll : undefined}
+              fill={expanded}
+              toolbar={
                 <>
-                  <Tooltip title="Undo (⌘Z)" arrow>
-                    <span>
-                      <IconButton
-                        size="small"
-                        disabled={!past.length}
-                        onClick={undo}
-                        aria-label="Undo"
-                        sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
-                      >
-                        <Undo2 size={16} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Tooltip title="Redo (⇧⌘Z)" arrow>
-                    <span>
-                      <IconButton
-                        size="small"
-                        disabled={!future.length}
-                        onClick={redo}
-                        aria-label="Redo"
-                        sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
-                      >
-                        <Redo2 size={16} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                  <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "divider", my: 0.5, mx: 0.5 }} />
-                  {/* One value down a whole column is the commonest real correction — one
-                      AM for the event, one blank opt-in column. */}
-                  <Tooltip title="Set a column to one value on many rows" arrow>
-                    <Button
-                      sx={{ ...quietBtn, fontSize: 11.5, minWidth: 0, px: 1 }}
-                      startIcon={<PaintBucket size={14} />}
-                      onClick={() =>
-                        setFilling({
-                          // The column you're looking at, then the first that needs
-                          // attention, then simply the first — always something sensible
-                          // already chosen rather than an empty picker.
-                          field: (jumpTo?.field ??
-                            issueGroups[0]?.field ??
-                            columnsFor(rows, active, config)[0]) as Field,
-                          scope: selected.size ? "selected" : issueGroups.length ? "flagged" : "all",
-                        })
-                      }
-                    >
-                      Fill{selected.size ? ` ${selected.size}` : ""}
-                    </Button>
-                  </Tooltip>
-                  {/* One job: get back OUT of a column. Picking a field in the bar below
-                      highlights AND filters in one click, so there's nothing left for this
-                      button to toggle on. */}
-                  {pinned && (
-                    <Tooltip arrow title="Show every row again and clear the highlight">
-                      <Button
-                        sx={{ ...quietBtn, fontSize: 11.5, minWidth: 0, px: 1, color: "primary.main" }}
-                        startIcon={<FilterX size={15} />}
-                        onClick={() => {
+                  {editable ? (
+                    <>
+                      <Tooltip title="Undo (⌘Z)" arrow>
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={!past.length}
+                            onClick={undo}
+                            aria-label="Undo"
+                            sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
+                          >
+                            <Undo2 size={16} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Tooltip title="Redo (⇧⌘Z)" arrow>
+                        <span>
+                          <IconButton
+                            size="small"
+                            disabled={!future.length}
+                            onClick={redo}
+                            aria-label="Redo"
+                            sx={{ color: "text.secondary", "&:hover": { color: "primary.main" } }}
+                          >
+                            <Redo2 size={16} />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                      <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "divider", my: 0.5, mx: 0.5 }} />
+                      {/* One value down a whole column is the commonest real correction — one
+                          AM for the event, one blank opt-in column. */}
+                      <Tooltip title="Set a column to one value on many rows" arrow>
+                        <Button
+                          sx={{ ...quietBtn, fontSize: 11.5, minWidth: 0, px: 1 }}
+                          startIcon={<PaintBucket size={14} />}
+                          onClick={() =>
+                            setFilling({
+                              // The column you're looking at, then the first that needs
+                              // attention, then simply the first — always something sensible
+                              // already chosen rather than an empty picker.
+                              field: (jumpTo?.field ??
+                                issueGroups[0]?.field ??
+                                columnsFor(rows, active, config)[0]) as Field,
+                              scope: selected.size ? "selected" : issueGroups.length ? "flagged" : "all",
+                            })
+                          }
+                        >
+                          Fill{selected.size ? ` ${selected.size}` : ""}
+                        </Button>
+                      </Tooltip>
+                      {/* One job: get back OUT of a column. Picking a field in the bar below
+                          highlights AND filters in one click, so there's nothing left for this
+                          button to toggle on. */}
+                      {pinned && (
+                        <Tooltip arrow title="Show every row again and clear the highlight">
+                          <Button
+                            sx={{ ...quietBtn, fontSize: 11.5, minWidth: 0, px: 1, color: "primary.main" }}
+                            startIcon={<FilterX size={15} />}
+                            onClick={() => {
+                              setPinned(null);
+                              setJumpTo(null);
+                            }}
+                          >
+                            Show all
+                          </Button>
+                        </Tooltip>
+                      )}
+                      <ChangeListButton
+                        changes={changes}
+                        config={config}
+                        onJump={(tab, rowId, field) => {
+                          if (tab !== active) setActive(tab);
+                          // Clear the filter first: the row being looked for is SETTLED, so a
+                          // problems-only view is exactly the view it isn't in.
                           setPinned(null);
-                          setJumpTo(null);
+                          setJumpTo({ field, nonce: (jumpTo?.nonce ?? 0) + 1 });
+                          setJumpToRow({ rowId, nonce: (jumpToRow?.nonce ?? 0) + 1 });
                         }}
-                      >
-                        Show all
-                      </Button>
-                    </Tooltip>
-                  )}
-                  <ChangeListButton
-                    changes={changes}
-                    config={config}
-                    onJump={(tab, rowId, field) => {
-                      if (tab !== active) setActive(tab);
-                      // Clear the filter first: the row being looked for is SETTLED, so a
-                      // problems-only view is exactly the view it isn't in.
-                      setPinned(null);
-                      setJumpTo({ field, nonce: (jumpTo?.nonce ?? 0) + 1 });
-                      setJumpToRow({ rowId, nonce: (jumpToRow?.nonce ?? 0) + 1 });
-                    }}
-                  />
-                  <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "divider", my: 0.5, mx: 0.5 }} />
-                  <IssueBar
-                    groups={issueGroups}
-                    editable={editable}
-                    activeField={jumpTo?.field}
-                    onAccept={onAccept}
-                    onReject={onReject}
-                    onJump={(field) => {
-                      const off = jumpTo?.field === field;
-                      setJumpTo(off ? null : { field, nonce: (jumpTo?.nonce ?? 0) + 1 });
-                      // Picking a field means "show me these", in ONE click — it both
-                      // highlights the column and filters to the rows wrong in it. It used
-                      // to only highlight, leaving the filter as a second click most people
-                      // never made; they scrolled a thousand rows hunting for five red cells
-                      // instead.
-                      //
-                      // Nothing to hide is the one exception: if every row is wrong here the
-                      // filter would show the same grid, so it stays off rather than
-                      // pretending to act.
-                      const wouldHide = rows.some((r) => !broken(r, field));
-                      setPinned(off || !wouldHide ? null : { field });
-                    }}
-                  />
+                      />
+                      <Box sx={{ width: "1px", alignSelf: "stretch", bgcolor: "divider", my: 0.5, mx: 0.5 }} />
+                      <IssueBar
+                        groups={issueGroups}
+                        editable={editable}
+                        activeField={jumpTo?.field}
+                        onAccept={onAccept}
+                        onReject={onReject}
+                        onJump={(field) => {
+                          const off = jumpTo?.field === field;
+                          setJumpTo(off ? null : { field, nonce: (jumpTo?.nonce ?? 0) + 1 });
+                          // Picking a field means "show me these", in ONE click — it both
+                          // highlights the column and filters to the rows wrong in it. It used
+                          // to only highlight, leaving the filter as a second click most people
+                          // never made; they scrolled a thousand rows hunting for five red cells
+                          // instead.
+                          //
+                          // Nothing to hide is the one exception: if every row is wrong here the
+                          // filter would show the same grid, so it stays off rather than
+                          // pretending to act.
+                          const wouldHide = rows.some((r) => !broken(r, field));
+                          setPinned(off || !wouldHide ? null : { field });
+                        }}
+                      />
+                    </>
+                  ) : null}
+                  {/* Always there, read-only included: a long list is as hard to READ in a
+                      short frame as it is to fix. */}
+                  <Tooltip title={expanded ? "Exit full screen (Esc)" : "Full screen"} arrow>
+                    <IconButton
+                      size="small"
+                      onClick={() => setExpanded((v) => !v)}
+                      aria-label={expanded ? "Exit full screen" : "Full screen"}
+                      sx={{ ml: "auto", color: "text.secondary", "&:hover": { color: "primary.main" } }}
+                    >
+                      {expanded ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                    </IconButton>
+                  </Tooltip>
                 </>
-              ) : undefined
-            }
-          />
+              }
+            />
 
-          {pinned && (
-            <Typography sx={{ fontSize: 11.5, color: "primary.main", fontWeight: 600, mt: 1 }}>
-              Showing the {visibleRows.length} of {rows.length} rows that still need
-              {pinned.field ? (
-                <>
-                  {" "}
-                  a <b>{labelOf(config, active, pinned.field)}</b> fix
-                </>
-              ) : (
-                <> attention</>
-              )}
-              . Each one leaves as you fix it, and the full list returns when they're gone.
-            </Typography>
-          )}
-          <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 1.25 }}>
-            Click a cell to edit · ↑ ↓ and Tab to move · drag a column edge to widen · hover a row
-            number to remove it. Green is a suggested value — accept it on the cell, or a whole column
-            from the strip above. To add someone, update the Google Sheet and re-upload.
-          </Typography>
+            {pinned && (
+              <Typography sx={{ fontSize: 11.5, color: "primary.main", fontWeight: 600, mt: 1 }}>
+                Showing the {visibleRows.length} of {rows.length} rows that still need
+                {pinned.field ? (
+                  <>
+                    {" "}
+                    a <b>{labelOf(config, active, pinned.field)}</b> fix
+                  </>
+                ) : (
+                  <> attention</>
+                )}
+                . Each one leaves as you fix it, and the full list returns when they're gone.
+              </Typography>
+            )}
+            {!expanded && (
+              <Typography sx={{ fontSize: 11, color: "text.secondary", mt: 1.25 }}>
+                Click a cell to edit · ↑ ↓ and Tab to move · drag a column edge to widen · hover a row
+                number to remove it. Green is a suggested value — accept it on the cell, or a whole column
+                from the strip above. To add someone, update the Google Sheet and re-upload.
+              </Typography>
+            )}
+          </Box>
         </>
       )}
 
@@ -1215,7 +1281,14 @@ function Dropzone({
 //
 // So this is a list of OMISSIONS and nothing else, and when there are none it doesn't render
 // at all. A clean import should be silent.
+//
+// And it is ONE LINE, however many omissions there are. It used to list each one in place,
+// which on a messy workbook was a dozen lines pushing the grid off the bottom of the screen
+// — the thing you came to work in, made smaller by a note about what you didn't. The line
+// says how much was left behind; the list itself opens in a side panel, beside the grid
+// rather than above it.
 function UploadSummary({ note, onDismiss }: { note: ParsedWorkbook; onDismiss: () => void }) {
+  const [open, setOpen] = useState(false);
   const lostTabs = note.skipped.filter((x) => x.rowCount > 0);
   const lostCols = note.tabs.flatMap((t) =>
     t.undefinedHeaders.filter((h) => h.filled > 0).map((h) => ({ tab: t.tab, ...h })),
@@ -1223,60 +1296,142 @@ function UploadSummary({ note, onDismiss }: { note: ParsedWorkbook; onDismiss: (
 
   if (!lostTabs.length && !lostCols.length) return null;
 
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  const what = [
+    lostTabs.length && plural(lostTabs.length, "tab", "tabs"),
+    lostCols.length && plural(lostCols.length, "column", "columns"),
+  ]
+    .filter(Boolean)
+    .join(" and ");
+  const lostRows = lostTabs.reduce((n, x) => n + x.rowCount, 0);
+  // Columns grouped under their tab: the same heading left behind on four tabs is one
+  // decision, and reading it as four unrelated lines hides that.
+  const colsByTab = lostCols.reduce<Record<string, typeof lostCols>>((acc, h) => {
+    (acc[h.tab] ??= []).push(h);
+    return acc;
+  }, {});
+
   return (
-    <Panel sx={{ px: 2, py: 1.25, mb: 2, borderLeft: 3, borderLeftColor: "warning.main" }}>
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1 }}>
-        <Box sx={{ flex: 1, minWidth: 0 }}>
-          <Typography
-            sx={{
-              fontSize: 12,
-              fontWeight: 700,
-              color: "text.secondary",
-              letterSpacing: "0.04em",
-              mb: 0.75,
-            }}
-          >
-            NOT IMPORTED
-          </Typography>
-
-          {lostTabs.map((x) => (
-            <Box key={x.name} sx={LINE}>
-              <Box sx={{ color: "error.main", display: "inline-flex", flexShrink: 0 }}>
-                <Table2 size={13} />
-              </Box>
-              <Typography sx={{ fontSize: 13 }}>
-                <b>{x.name}</b>
-                <Box component="span" sx={{ color: "text.secondary" }}>
-                  {" "}
-                  — {x.rowCount} rows. Not a member status.
-                </Box>
-              </Typography>
-            </Box>
-          ))}
-
-          {lostCols.map((h) => (
-            <Box key={`${h.tab}-${h.header}`} sx={LINE}>
-              <Box sx={{ color: "warning.main", display: "inline-flex", flexShrink: 0 }}>
-                <Columns3 size={13} />
-              </Box>
-              <Typography sx={{ fontSize: 13 }}>
-                <b>{h.header}</b>
-                <Box component="span" sx={{ color: "text.secondary" }}>
-                  {" "}
-                  — {h.filled} values on {h.tab}. Not a column in Settings.
-                </Box>
-              </Typography>
-            </Box>
-          ))}
+    <>
+      <Panel
+        sx={{
+          px: 1.5,
+          py: 0.75,
+          mb: 2,
+          borderLeft: 3,
+          borderLeftColor: "warning.main",
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+        }}
+      >
+        <Box sx={{ color: "warning.main", display: "inline-flex", flexShrink: 0 }}>
+          <TriangleAlert size={15} />
         </Box>
-
-        <Button onClick={onDismiss} sx={{ ...quietBtn, fontSize: 11.5, minWidth: 0 }}>
+        <Typography sx={{ fontSize: 13, flex: 1, minWidth: 0 }} noWrap>
+          <b>{what}</b> {lostTabs.length + lostCols.length === 1 ? "wasn't" : "weren't"} imported
+          {lostRows > 0 && (
+            <Box component="span" sx={{ color: "text.secondary" }}>
+              {" "}
+              — including {plural(lostRows, "row", "rows")} on tabs that aren't member statuses
+            </Box>
+          )}
+        </Typography>
+        <Button onClick={() => setOpen(true)} sx={{ ...quietBtn, fontSize: 12, minWidth: 0 }}>
+          Show details
+        </Button>
+        <Button onClick={onDismiss} sx={{ ...quietBtn, fontSize: 12, minWidth: 0 }}>
           Dismiss
         </Button>
-      </Box>
-    </Panel>
+      </Panel>
+
+      <Drawer anchor="right" open={open} onClose={() => setOpen(false)}>
+        <Box sx={{ width: { xs: "100vw", sm: 420 }, p: 2.5 }}>
+          <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+            <Typography sx={{ fontSize: 16, fontWeight: 700, flex: 1 }}>Not imported</Typography>
+            <IconButton size="small" onClick={() => setOpen(false)} aria-label="Close">
+              <X size={16} />
+            </IconButton>
+          </Box>
+
+          {lostTabs.length > 0 && (
+            <Box sx={{ mb: 3 }}>
+              <Typography sx={SECTION}>Tabs</Typography>
+              <Typography sx={{ fontSize: 12, color: "text.secondary", mb: 1 }}>
+                A tab is imported only when its name is a member status under Settings → Events.
+              </Typography>
+              {lostTabs.map((x) => (
+                <Box key={x.name} sx={LINE}>
+                  <Box sx={{ color: "error.main", display: "inline-flex", flexShrink: 0 }}>
+                    <Table2 size={13} />
+                  </Box>
+                  <Typography sx={{ fontSize: 13 }}>
+                    <b>{x.name}</b>
+                    <Box component="span" sx={{ color: "text.secondary" }}>
+                      {" "}
+                      — {plural(x.rowCount, "row", "rows")}
+                    </Box>
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+
+          {lostCols.length > 0 && (
+            <Box>
+              <Typography sx={SECTION}>Columns</Typography>
+              <Typography sx={{ fontSize: 12, color: "text.secondary", mb: 1 }}>
+                A heading is imported only when it is one of that status' columns under Settings →
+                Events.
+              </Typography>
+              {Object.entries(colsByTab).map(([tab, cols]) => (
+                <Box key={tab} sx={{ mb: 1.5 }}>
+                  <Typography sx={{ fontSize: 12, fontWeight: 700, mb: 0.25 }}>{tab}</Typography>
+                  {cols.map((h) => (
+                    <Box key={h.header} sx={LINE}>
+                      <Box sx={{ color: "warning.main", display: "inline-flex", flexShrink: 0 }}>
+                        <Columns3 size={13} />
+                      </Box>
+                      <Typography sx={{ fontSize: 13 }}>
+                        <b>{h.header}</b>
+                        <Box component="span" sx={{ color: "text.secondary" }}>
+                          {" "}
+                          — {plural(h.filled, "value", "values")}
+                        </Box>
+                      </Typography>
+                    </Box>
+                  ))}
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+      </Drawer>
+    </>
   );
 }
+
+const SECTION = {
+  fontSize: 11,
+  fontWeight: 700,
+  color: "text.secondary",
+  letterSpacing: "0.06em",
+  textTransform: "uppercase",
+  mb: 0.5,
+} as const;
+
+/** The expanded view: rail, strip and grid over the whole window. Above the page and its
+ *  side panels (drawers are 1200), below dialogs and popovers (1300+), which open from
+ *  inside it — Fill, the pick-list editor, the submit report. */
+const EXPANDED = {
+  position: "fixed",
+  inset: 0,
+  zIndex: 1250,
+  bgcolor: "background.default",
+  p: 2,
+  display: "flex",
+  flexDirection: "column",
+} as const;
 
 const LINE = { display: "flex", alignItems: "center", gap: 0.75, mt: 0.4 };
 
