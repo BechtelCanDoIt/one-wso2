@@ -28,7 +28,10 @@ vi.mock("../api/useParAdmin", () => ({ useLegacyParHistoryByCycle: () => history
 vi.mock("../api/useLeadHistory", () => ({
   useParLegacyHistory: () => ({ data: undefined, isLoading: false, isError: false }),
 }));
-vi.mock("@features/leave/api/useLeaveData", () => ({ useLeaveEmployees: () => ({ data: [] }) }));
+// Module-level, like `history`: a fresh array per render would rebuild the
+// memoized columns every time, which React Query never does in production.
+const leaveEmployees = { data: [] };
+vi.mock("@features/leave/api/useLeaveData", () => ({ useLeaveEmployees: () => leaveEmployees }));
 
 const { default: ParAdminLegacyCycleView } = await import("./ParAdminLegacyCycleView");
 
@@ -120,6 +123,10 @@ describe("ParAdminLegacyCycleView", () => {
     expect(screen.getByText("Jane Doe")).toBeInTheDocument();
     expect(screen.queryByText("noname@wso2.com")).not.toBeInTheDocument();
 
+    // A pasted email with a trailing space still matches.
+    fireEvent.change(search, { target: { value: "noname@wso2.com " } });
+    expect(screen.getByText("noname@wso2.com")).toBeInTheDocument();
+
     fireEvent.change(search, { target: { value: "nobody" } });
     expect(screen.getByText("No members match your search.")).toBeInTheDocument();
   });
@@ -135,6 +142,45 @@ describe("ParAdminLegacyCycleView", () => {
 
     expect(screen.getByPlaceholderText("Search Members")).toHaveValue("");
     expect(screen.getByText("Sam Lee")).toBeInTheDocument();
+  });
+
+  it("keeps the roster search when coming back from a record", () => {
+    seed("2024 Performance Evaluation - H1");
+    show("2024 Performance Evaluation - H1");
+    openTeam(0);
+    fireEvent.change(screen.getByPlaceholderText("Search Members"), { target: { value: "jane" } });
+
+    fireEvent.click(screen.getByText("Jane Doe"));
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(screen.getByPlaceholderText("Search Members")).toHaveValue("jane");
+    expect(screen.queryByText("noname@wso2.com")).not.toBeInTheDocument();
+  });
+
+  it("sorts the roster by name when a team is opened", () => {
+    history.data = [
+      legacyRecord({ legacyHeaderId: 1, employeeEmail: "zoe@wso2.com", employeeName: "Zoe Young" }),
+      legacyRecord({ legacyHeaderId: 2, employeeEmail: "adam@wso2.com", employeeName: "Adam Smith" }),
+    ];
+    show("2024 Performance Evaluation - H1");
+    openTeam(0);
+    const names = screen.getAllByText(/^(Adam Smith|Zoe Young)$/).map((el) => el.textContent);
+    expect(names).toEqual(["Adam Smith", "Zoe Young"]);
+  });
+
+  it("hides the special-rating columns for 2021 H1, which the summary list can't resolve", () => {
+    seed("2021 Performance Evaluation - H1");
+    show("2021 Performance Evaluation - H1");
+    expect(screen.queryByText("5% Slots")).not.toBeInTheDocument();
+    openTeam(0);
+    expect(screen.queryByText("Top 5%/20% Rating")).not.toBeInTheDocument();
+  });
+
+  it("team search ignores the hidden slot counts", () => {
+    seed("2018 Performance Evaluation - Q1");
+    show("2018 Performance Evaluation - Q1");
+    fireEvent.change(screen.getByPlaceholderText("Search Team"), { target: { value: "0" } });
+    expect(screen.queryAllByRole("button", { name: "Open Group" })).toHaveLength(0);
   });
 
   it("roster shows the Top 5%/20% Rating column from 2021 on and hides it before", () => {

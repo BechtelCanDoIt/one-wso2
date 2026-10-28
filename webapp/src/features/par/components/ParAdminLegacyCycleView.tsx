@@ -22,11 +22,12 @@ import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useLegacyParHistoryByCycle } from "../api/useParAdmin";
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { formatShortDate } from "../util/parDate";
-import { deriveLegacyCycleDates, formatLegacyCycleName, legacyCycleHasSpecialRatings } from "../util/parLegacyHistory";
+import { deriveLegacyCycleDates } from "../util/parLegacyHistory";
 import {
   groupLegacyParticipantsByTeam,
   isLegacyEmployeeParDone,
   isLegacyLeadFeedbackDone,
+  legacyCycleListHasSpecialRatings,
   legacyEmployeeName,
   legacyOverallRating,
   legacySpecialRating,
@@ -51,6 +52,8 @@ function LegacyChip({ ml = 0 }: { ml?: number }) {
 }
 
 const DEFAULT_PAGINATION: DataGrid.GridPaginationModel = { page: 0, pageSize: 10 };
+// Members sorted by name, like ParOrgTeamRoster.
+const DEFAULT_ROSTER_SORT: DataGrid.GridSortModel = [{ field: "employeeName", sort: "asc" }];
 
 // Admin's breadcrumb trail is click-to-navigate text, but nothing here ever
 // behaved like a dedicated "go back" affordance the way the employee
@@ -121,7 +124,7 @@ function CycleHeader({ cycleName, onBack }: { cycleName: string; onBack: () => v
 // already upgraded from source's plain tables.
 export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleName: string; onBack: () => void }) {
   const history = useLegacyParHistoryByCycle(cycleName);
-  const hasSpecialRatings = legacyCycleHasSpecialRatings(formatLegacyCycleName(cycleName));
+  const hasSpecialRatings = legacyCycleListHasSpecialRatings(cycleName);
   // Leave's employee directory is used for avatars only (the legacy table has
   // no photos), same deviation ParOrgTeamRoster.tsx/ParLeadTeamRoster.tsx make.
   const employees = useLeaveEmployees();
@@ -163,7 +166,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
   const [employeePagination, setEmployeePagination] = useState(DEFAULT_PAGINATION);
   const [employeeSort, setEmployeeSort] = useState<DataGrid.GridSortModel>([]);
   const [rosterPagination, setRosterPagination] = useState(DEFAULT_PAGINATION);
-  const [rosterSort, setRosterSort] = useState<DataGrid.GridSortModel>([]);
+  const [rosterSort, setRosterSort] = useState<DataGrid.GridSortModel>(DEFAULT_ROSTER_SORT);
   const [rosterSearchText, setRosterSearchText] = useState("");
   const handleTeamSearch = useCallback((value: string) => {
     setSearchText(value);
@@ -181,7 +184,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
   // same roster from a record keeps where it was.
   const openRoster = useCallback((group: LegacyTeamGroup) => {
     setRosterPagination(DEFAULT_PAGINATION);
-    setRosterSort([]);
+    setRosterSort(DEFAULT_ROSTER_SORT);
     setRosterSearchText("");
     setSelection({ level: "roster", group });
   }, []);
@@ -197,18 +200,36 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
   // them is memoized here, unconditionally, before any early return.
   const records = useMemo(() => history.data ?? [], [history.data]);
   const groups = useMemo(() => groupLegacyParticipantsByTeam(records), [records]);
-  const filteredGroups = useMemo(
+  // Searches only the columns on screen: the internal id and, when hidden,
+  // the slot counts would otherwise match with no visible reason.
+  const filteredGroups = useMemo(() => {
+    const term = searchText.trim().toLowerCase();
+    if (!term) return groups;
+    return groups.filter((g) =>
+      [
+        g.parBusinessUnit,
+        g.parDepartment,
+        g.parTeam,
+        g.parSubTeam,
+        g.parLeadEmail,
+        g.employeeParCompletion,
+        g.leadFeedbackCompletion,
+        ...(hasSpecialRatings ? [g.numberOf5pSlots, g.numberOf20pSlots] : []),
+      ].some((value) => String(value).toLowerCase().includes(term)),
+    );
+  }, [groups, searchText, hasSpecialRatings]);
+  // Each record's rating and special rating, resolved once rather than in
+  // every valueGetter call DataGrid makes while sorting and filtering.
+  const ratingsById = useMemo(
     () =>
-      searchText
-        ? groups.filter((g) => Object.values(g).some((value) => typeof value !== "object" && String(value).toLowerCase().includes(searchText.toLowerCase())))
-        : groups,
-    [groups, searchText],
+      new Map(records.map((r) => [r.legacyHeaderId, { rating: legacyOverallRating(r), special: legacySpecialRating(r) }])),
+    [records],
   );
 
   const rosterGroup = selection.level === "roster" ? selection.group : undefined;
   const filteredRosterRows = useMemo(() => {
     const participants = rosterGroup?.participants ?? [];
-    const term = rosterSearchText.toLowerCase();
+    const term = rosterSearchText.trim().toLowerCase();
     return term
       ? participants.filter(
           (row) => legacyEmployeeName(row).toLowerCase().includes(term) || row.employeeEmail.toLowerCase().includes(term),
@@ -256,7 +277,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
       },
       {
         field: "leadFeedback",
-        headerName: "Lead's PAR",
+        headerName: "Lead's Feedback",
         flex: 0.8,
         valueGetter: (_v, row) => isLegacyLeadFeedbackDone(row),
         renderCell: (params) => <ParStatusChip content={params.value ? "COMPLETED" : "Not Done"} />,
@@ -265,7 +286,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         field: "overallRating",
         headerName: "Rating",
         flex: 0.8,
-        valueGetter: (_v, row) => legacyOverallRating(row),
+        valueGetter: (_v, row) => ratingsById.get(row.legacyHeaderId)?.rating ?? legacyOverallRating(row),
         renderCell: (params) => <ParStatusChip content={params.value} />,
       },
       ...(hasSpecialRatings
@@ -274,7 +295,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
               field: "specialRating",
               headerName: "Top 5%/20% Rating",
               flex: 0.9,
-              valueGetter: (_v, row) => legacySpecialRating(row) ?? "",
+              valueGetter: (_v, row) => ratingsById.get(row.legacyHeaderId)?.special ?? "",
               renderCell: (params) => <ParStatusChip content={params.value} />,
             } satisfies DataGrid.GridColDef<ParLegacyHistory>,
           ]
@@ -299,7 +320,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         ),
       },
     ],
-    [thumbnailFor, rosterGroup, hasSpecialRatings],
+    [thumbnailFor, rosterGroup, hasSpecialRatings, ratingsById],
   );
 
   const teamColumns = useMemo<DataGrid.GridColDef<LegacyTeamGroup>[]>(

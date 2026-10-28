@@ -163,14 +163,19 @@ describe("getLegacySharedByName", () => {
 
 describe("legacyCycleHasSpecialRatings", () => {
   it("is false for cycles before 2021, which never had Top 5%/20% ratings", () => {
-    expect(legacyCycleHasSpecialRatings(formatLegacyCycleName("2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees"))).toBe(false);
-    expect(legacyCycleHasSpecialRatings(formatLegacyCycleName("2019  Performance Evaluation - Q2"))).toBe(false);
+    expect(legacyCycleHasSpecialRatings("2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees")).toBe(false);
+    expect(legacyCycleHasSpecialRatings("2019  Performance Evaluation - Q2")).toBe(false);
     expect(legacyCycleHasSpecialRatings("2020 Performance Evaluation - H2")).toBe(false);
   });
 
   it("is true from 2021 H1 onwards", () => {
     expect(legacyCycleHasSpecialRatings("2021 Performance Evaluation - H1")).toBe(true);
     expect(legacyCycleHasSpecialRatings("2024 Performance Evaluation - H1")).toBe(true);
+  });
+
+  it("normalizes a raw name itself", () => {
+    expect(legacyCycleHasSpecialRatings(" 2021  Performance Evaluation - H2 ")).toBe(true);
+    expect(legacyCycleHasSpecialRatings("ANNUAL PERFORMANCE REVIEW -2015")).toBe(false);
   });
 
   it("is false for a name that doesn't start with a year", () => {
