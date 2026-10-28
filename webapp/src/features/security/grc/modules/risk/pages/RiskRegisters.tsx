@@ -129,6 +129,7 @@ import {
   riskRoles,
 } from "./risk-registers/utils";
 import { RiskPrivilege } from "../privileges";
+import { useRiskPrivileges } from "../hooks/useRiskPrivileges";
 import { LEVEL_LABELS, LEVEL_ORDER, TREATMENT_LABELS, TREATMENT_ORDER } from "./dashboard/constants";
 
 // ── Tab definitions ────────────────────────────────────────────────────────────
@@ -415,10 +416,15 @@ function FilterBar({
 
 export default function RiskRegisters(): JSX.Element {
   const authFetch = useAuthApiClient();
-  // No privilege hook here any more: the only consumer was the detail drawer,
-  // which now gates on the risk's own effective_privileges. The Registers list
-  // itself needs none — the server returns exactly the rows this caller may
-  // see, so there is nothing left to hide client-side.
+  // The Registers list needs no privilege: the server returns exactly the rows
+  // this caller may see, so there is nothing to hide client-side (the detail
+  // drawer gates on the risk's own effective_privileges). The one exception is
+  // Report Download, which is for Compliance Admin and Compliance Team only —
+  // RISK_VIEW_ALL_RISKS, held only by those two among the seeded roles, and the
+  // privilege the export endpoint itself checks, so the button never shows for
+  // a caller it would refuse.
+  const { can } = useRiskPrivileges();
+  const canExport = can(RiskPrivilege.ViewAllRisks);
 
   const [activeTab, setActiveTab] = useState<TabKey>("approved");
   const [approvedFilter, setApprovedFilter] = useState<"" | "open" | "closed">("");
@@ -1068,15 +1074,17 @@ export default function RiskRegisters(): JSX.Element {
         <Typography variant="h4" fontWeight={700}>
           Risk Registers
         </Typography>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
-          disabled={exporting || matchesNothing}
-          onClick={() => void handleExport()}
-        >
-          Report Download
-        </Button>
+        {canExport && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
+            disabled={exporting || matchesNothing}
+            onClick={() => void handleExport()}
+          >
+            Report Download
+          </Button>
+        )}
       </Stack>
       {exportError && (
         <Alert severity="error" onClose={() => setExportError("")} sx={{ mb: 2 }}>
