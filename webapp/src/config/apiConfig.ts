@@ -419,6 +419,10 @@ export const parServiceUrls = {
   // with a 307 redirect instead of passing on.
   legacyParHistoryCyclesParticipants: (cycleName: string, summary = false) =>
     `${parBackendUrl}/legacy-par-history-cycles/participants?cycleName=${encodeURIComponent(cycleName)}${summary ? "&summary=true" : ""}`,
+  // The older path form of the same request, for a backend that doesn't
+  // have the query-parameter route yet (see useLegacyParHistoryByCycle).
+  legacyParHistoryCyclesParticipantsByPath: (cycleName: string, summary = false) =>
+    `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants${summary ? "?summary=true" : ""}`,
 };
 
 // Leave app backend (people-ops-suite/apps/leave-app). Its own service

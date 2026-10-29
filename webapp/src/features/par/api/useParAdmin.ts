@@ -219,11 +219,25 @@ export function useLegacyParHistoryByCycle(cycleName: string | undefined, enable
     enabled: enabled && isSignedIn && backendConfigured && Boolean(cycleName),
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      return authedGet<ParLegacyHistory[]>(
-        parServiceUrls.legacyParHistoryCyclesParticipants(cycleName!, true),
-        accessToken,
-        digiopsHeaders(),
-      );
+      try {
+        return await authedGet<ParLegacyHistory[]>(
+          parServiceUrls.legacyParHistoryCyclesParticipants(cycleName!, true),
+          accessToken,
+          digiopsHeaders(),
+        );
+      } catch (e) {
+        // A backend without the query-parameter route yet answers 404
+        // (through the gateway) or 405 (directly). Fall back to the path
+        // form so this works whichever of the two is deployed first.
+        if (e instanceof HttpError && (e.status === 404 || e.status === 405)) {
+          return authedGet<ParLegacyHistory[]>(
+            parServiceUrls.legacyParHistoryCyclesParticipantsByPath(cycleName!, true),
+            accessToken,
+            digiopsHeaders(),
+          );
+        }
+        throw e;
+      }
     },
     staleTime: 60 * 1000,
     retry: defaultQueryRetry,

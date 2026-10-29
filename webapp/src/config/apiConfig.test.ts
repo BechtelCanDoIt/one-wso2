@@ -56,6 +56,12 @@ describe("parServiceUrls.legacyParHistoryCyclesParticipants", () => {
     expect(new URL(url, "http://x").searchParams.get("summary")).toBe("true");
   });
 
+  it("keeps the older path form available for the fallback", () => {
+    const url = new URL(parServiceUrls.legacyParHistoryCyclesParticipantsByPath("2016 Quarterly Review - Q2", true), "http://x");
+    expect(url.pathname).toMatch(/\/legacy-par-history-cycles\/2016%20Quarterly%20Review%20-%20Q2\/participants$/);
+    expect(url.searchParams.get("summary")).toBe("true");
+  });
+
   it("round-trips names with spaces, double spaces and symbols, and omits summary when false", () => {
     for (const name of ["2019  Performance Evaluation - Q2", "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees", "A&B=C #1?"]) {
       const url = new URL(parServiceUrls.legacyParHistoryCyclesParticipants(name), "http://x");
