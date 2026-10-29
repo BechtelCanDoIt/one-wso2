@@ -21,7 +21,7 @@
 // React Query `retry`: a 4xx here is a final answer.
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
-import { authedPatch, authedPost } from "@api/http";
+import { authedDelete, authedPatch, authedPost } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { amplifyServiceUrls } from "@config/apiConfig";
 import { useAsgardeoSub } from "@hooks/useAsgardeoSub";
@@ -117,6 +117,33 @@ export function useStartLinkedInConnect() {
         body,
         idempotencyHeaders(),
       ),
+  });
+}
+
+/** POST /connections/linkedin/decline with the LinkedIn profile URL of an employee who doesn't consent to link. */
+export function useDeclineLinkedInConsent() {
+  const getAccessToken = useAccessToken();
+  return useMutation<null, Error, { profileUrl?: string }>({
+    mutationFn: async (body) => {
+      await authedPost<unknown>(amplifyServiceUrls.connectDecline, await getAccessToken(), body, idempotencyHeaders());
+      return null;
+    },
+  });
+}
+
+/** DELETE /connections/linkedin: Amplify revokes the caller's token at LinkedIn, then drops its saved link. */
+export function useRemoveLinkedInConnection() {
+  const getAccessToken = useAccessToken();
+  const qc = useQueryClient();
+  const sub = useAmplifySub();
+  return useMutation<null, Error, void>({
+    mutationFn: async () => {
+      await authedDelete(amplifyServiceUrls.connectRemove, await getAccessToken());
+      return null;
+    },
+    onSuccess: async () => {
+      await refreshNow(qc, amplifyKey("me", sub));
+    },
   });
 }
 
