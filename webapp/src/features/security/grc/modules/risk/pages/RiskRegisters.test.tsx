@@ -299,6 +299,19 @@ describe("Risk Registers — Report Download", () => {
     expect(sent[0].get("offset")).toBeNull();
   });
 
+  it("disables Report Download when the filters return no risks", async () => {
+    const base = authFetch.getMockImplementation()!;
+    authFetch.mockImplementation(async (input: string) =>
+      new URL(String(input)).pathname === "/api/v1/risks"
+        ? new Response(JSON.stringify({ items: [], total: 0, offset: 0, limit: 50 }), { status: 200 })
+        : base(input),
+    );
+    renderAt("");
+
+    expect(await screen.findByText("No risks found.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Report Download" })).toBeDisabled();
+  });
+
   it("shows the server's message when the export fails", async () => {
     answerExport(() => new Response(JSON.stringify({ message: "too many risks" }), { status: 422 }));
     const downloads = captureDownloads();

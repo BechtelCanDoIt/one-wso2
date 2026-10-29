@@ -1079,7 +1079,7 @@ export default function RiskRegisters(): JSX.Element {
             variant="outlined"
             size="small"
             startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
-            disabled={exporting || loading || matchesNothing}
+            disabled={exporting || loading || matchesNothing || total === 0}
             onClick={() => void handleExport()}
           >
             Report Download
