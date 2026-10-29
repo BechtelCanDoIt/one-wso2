@@ -567,7 +567,7 @@ const SALES_ECHO_SECTION: PerspectiveSection = {
 // Sales Pitstop's Library: Smart Search over Pitstop's content. No `requires`, and not in
 // SALES_ITEM_IDS: it is not gated by the ONE_WSO2_REVOPS_BACKEND_URL backend that gates Calls and
 // Deals. The ONE_WSO2_SMART_SEARCH_BACKEND_URL backend decides what each caller may see. A group even
-// with one screen, so the rail names both the product and the screen. Held back by the `smartSearch` flag.
+// with one screen, so the rail names both the product and the screen.
 const SALES_PITSTOP_SECTION: PerspectiveSection = {
   id: "sales-pitstop",
   label: "Sales Pitstop",
@@ -578,7 +578,7 @@ const SALES_PITSTOP_SECTION: PerspectiveSection = {
 
 const SALES_SECTIONS: PerspectiveSection[] = [
   SALES_ECHO_SECTION,
-  ...(isPreviewEnabled("smartSearch") ? [SALES_PITSTOP_SECTION] : []),
+  SALES_PITSTOP_SECTION,
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
   // Its group shows CADO2's own logo, as Echo's does (D101).

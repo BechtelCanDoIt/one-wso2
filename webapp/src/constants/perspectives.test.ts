@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { umt?: boolean; infra?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
+  preview: { umt?: boolean; infra?: boolean; cado2?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -130,7 +130,13 @@ describe("CadO2's rail entries", () => {
 
   it("are gone when the flag is off, or never mentioned", async () => {
     for (const preview of [{ cado2: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
+      expect(salesIdsIn(await load(preview))).toEqual([
+        "sales-echo",
+        "sales-meetings",
+        "sales-deals",
+        "sales-pitstop",
+        "sales-library",
+      ]);
     }
   });
 
@@ -142,13 +148,13 @@ describe("CadO2's rail entries", () => {
   });
 });
 
-// The Library lands behind its own flag, inside a Sales Pitstop group in the Sales perspective.
+// The Library shipped out of preview: its Sales Pitstop group is part of the Sales perspective with no preview flags set.
 describe("the Ask Sales rail entry", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
 
-  it("is an Ask Sales row in a Sales Pitstop group, after Echo, once the flag is on", async () => {
-    const perspectives = await load({ smartSearch: true });
+  it("is an Ask Sales row in a Sales Pitstop group, after Echo, with no preview flags set", async () => {
+    const perspectives = await load({});
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-pitstop");
     expect(group?.label).toBe("Sales Pitstop");
     expect(group?.alwaysGroup).toBe(true);
@@ -158,22 +164,20 @@ describe("the Ask Sales rail entry", () => {
     expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-pitstop"]);
   });
 
-  it("sits before CadO2 when both flags are on", async () => {
-    expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
+  it("sits before CadO2 when its flag is on", async () => {
+    expect(salesIdsIn(await load({ cado2: true }))).toEqual([
       "sales-echo",
       "sales-pitstop",
       "sec-app-cado2",
     ]);
   });
 
-  it("is gone when the flag is off, or never mentioned", async () => {
-    for (const preview of [{ smartSearch: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo"]);
-    }
+  it("is not affected by the other preview flags being off", async () => {
+    expect(salesIdsIn(await load({ cado2: false }))).toEqual(["sales-echo", "sales-pitstop"]);
   });
 
   it("never joins the Echo gate's ids", async () => {
-    const { SALES_ITEM_IDS } = await load({ smartSearch: true });
+    const { SALES_ITEM_IDS } = await load({});
     // Echo and Deals are gated through ONE_WSO2_REVOPS_BACKEND_URL; the Library is decided by its own backend.
     expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
   });
@@ -324,7 +328,7 @@ describe("a rail row does one thing", () => {
     window.config = {
       ...(window.config ?? {}),
       ONE_WSO2_PREVIEW_FEATURES: previewOn
-        ? { umt: true, infra: true, cado2: true, nda: true, smartSearch: true }
+        ? { umt: true, infra: true, cado2: true, nda: true }
         : {},
       // ISAC and CSM are only in the registry once their addresses are set.
       ONE_WSO2_MARKETINGOPS_ISAC_URL: "https://isac.example",

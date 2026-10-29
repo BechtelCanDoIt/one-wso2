@@ -53,37 +53,3 @@ describe("the Smart Search backend", () => {
     expect(c.smartSearchServiceUrls.search("wso2con", true)).toMatch(/&includeAnswer=true$/);
   });
 });
-
-// One WSO2 goes to production every week, and the Library is not finished. It must stay hidden in
-// every environment, staging included, until an environment's config.js turns it on by name.
-describe("the smartSearch preview flag", () => {
-  const enabled = async (config: Record<string, unknown> | undefined): Promise<boolean> => {
-    vi.resetModules();
-    (window as unknown as { config?: Record<string, unknown> }).config = config;
-    return (await import("@config/previewFeatures")).isPreviewEnabled("smartSearch");
-  };
-
-  it("is off when nothing is configured at all", async () => {
-    expect(await enabled(undefined)).toBe(false);
-    expect(await enabled({})).toBe(false);
-    expect(await enabled({ ONE_WSO2_PREVIEW_FEATURES: {} })).toBe(false);
-  });
-
-  it("is off when it is set to false, or to anything that is not exactly true", async () => {
-    for (const value of [false, "true", 1, "yes", null]) {
-      expect(await enabled({ ONE_WSO2_PREVIEW_FEATURES: { smartSearch: value } })).toBe(false);
-    }
-  });
-
-  it("is off when only the backend URL is set: the address alone never shows the Library", async () => {
-    expect(await enabled({ ONE_WSO2_SMART_SEARCH_BACKEND_URL: "https://api.example.com/pitstop/v1.0" })).toBe(false);
-  });
-
-  it("is off when other features are on", async () => {
-    expect(await enabled({ ONE_WSO2_PREVIEW_FEATURES: { cado2: true, nda: true } })).toBe(false);
-  });
-
-  it("is on only when this environment says so by name", async () => {
-    expect(await enabled({ ONE_WSO2_PREVIEW_FEATURES: { smartSearch: true } })).toBe(true);
-  });
-});
