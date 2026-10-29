@@ -42,8 +42,8 @@ const COLUMNS: BankAccountsTableColumn[] = [
   EMPLOYEE_EMAIL_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
-  // Consultancy-only, so "-" for every other Account Type — the source
-  // app's reportings.tsx carries it in this same default-visible set.
+  // Only consultancy accounts carry a beneficiary city, so every other
+  // Account Type renders "-".
   { label: "Account Holder City", render: (a) => a.beneficiaryCity ?? "-" },
   BANK_CODE_COLUMN,
   { label: "Branch Name", render: (a) => a.branchName ?? "-" },

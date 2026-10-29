@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BankAccount } from "@features/my/api/types";
 
@@ -73,6 +73,30 @@ describe("ReportTab", () => {
     expect(screen.getByText("Effective Month")).toBeInTheDocument();
     expect(screen.getByText("jane@wso2.com")).toBeInTheDocument();
     expect(screen.getByText("Colombo")).toBeInTheDocument();
+  });
+
+  it("renders the beneficiary city for a consultancy account and a dash when it is unset", () => {
+    accounts.data = [
+      bankAccount({ accountId: 1, accountType: "SALARY", beneficiaryCity: null }),
+      bankAccount({
+        accountId: 2,
+        accountType: "CONSULTANCY",
+        employeeEmail: "raj@wso2.com",
+        beneficiaryCity: "Kandy",
+      }),
+    ];
+    render(<ReportTab />);
+
+    // Located by header rather than a fixed offset, so reordering the columns
+    // can't quietly point these assertions at a different cell.
+    const [headerRow, salaryRow, consultancyRow] = screen.getAllByRole("row");
+    const cityIndex = within(headerRow)
+      .getAllByRole("columnheader")
+      .findIndex((header) => header.textContent === "Account Holder City");
+    expect(cityIndex).toBeGreaterThan(-1);
+
+    expect(within(salaryRow).getAllByRole("cell")[cityIndex]).toHaveTextContent(/^-$/);
+    expect(within(consultancyRow).getAllByRole("cell")[cityIndex]).toHaveTextContent(/^Kandy$/);
   });
 
   it("shows a clear empty state when a filter combination matches nothing", () => {
