@@ -1054,6 +1054,9 @@ export const marketingOpsServiceUrls = {
     `${marketingOpsBackendUrl}/api/events/statuses/${encodeURIComponent(name)}`,
   eventsStatusDuplicate: (source: string) =>
     `${marketingOpsBackendUrl}/api/events/statuses/${encodeURIComponent(source)}/duplicate`,
+  // Submission emails — admin only, reading included.
+  eventsNotifications: `${marketingOpsBackendUrl}/api/events/notifications`,
+  eventsNotificationsTest: `${marketingOpsBackendUrl}/api/events/notifications/test`,
   // ---- events: review (gated by the separate `events-review` capability) ----
   eventsReviewQueue: `${marketingOpsBackendUrl}/api/events/review/queue`,
   eventsReviewSubmission: (id: string) =>

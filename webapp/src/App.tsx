@@ -130,6 +130,8 @@ import AssetNameSettingsPage from "@features/marketing-ops/admin/pages/AssetName
 import EmailWorkbenchSettingsPage from "@features/marketing-ops/admin/pages/EmailWorkbenchSettingsPage";
 import BlockCatalogPage from "@features/marketing-ops/email-workbench/pages/BlockCatalogPage";
 import EventsSettingsPage from "@features/marketing-ops/admin/pages/EventsSettingsPage";
+import EventsNotificationsPage from "@features/marketing-ops/admin/pages/EventsNotificationsPage";
+import MarketingAdminRoute from "@features/marketing-ops/components/MarketingAdminRoute";
 import PostBuilderPage from "@features/marketing-ops/design-studio/pages/PostBuilderPage";
 import {
   EventsMinePage,
@@ -922,14 +924,15 @@ export default function App() {
           />
           {/* Marketing Admin — each operation's configuration lands with the
               operation, so this grows one panel per phase. Admin-gated by the
-              rail and by MarketingOpsShell; the backend enforces it too. */}
-          <Route path="marketing-ops/admin/utm" element={<UtmSettingsPage />} />
-          <Route
-            path="marketing-ops/admin/asset-name"
-            element={<AssetNameSettingsPage />}
-          />
-          <Route path="marketing-ops/admin/pardot" element={<EmailWorkbenchSettingsPage />} />
-          <Route path="marketing-ops/admin/events" element={<EventsSettingsPage />} />
+              rail and by MarketingAdminRoute, which decides before a page
+              mounts and fetches; the backend enforces it too. */}
+          <Route path="marketing-ops/admin" element={<MarketingAdminRoute />}>
+            <Route path="utm" element={<UtmSettingsPage />} />
+            <Route path="asset-name" element={<AssetNameSettingsPage />} />
+            <Route path="pardot" element={<EmailWorkbenchSettingsPage />} />
+            <Route path="events" element={<EventsSettingsPage />} />
+            <Route path="events-notifications" element={<EventsNotificationsPage />} />
+          </Route>
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
           {/* Event Platform — event agendas, speakers and swag shops, a different
