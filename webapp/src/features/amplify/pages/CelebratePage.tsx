@@ -17,7 +17,7 @@
 import { useMemo, useState } from "react";
 import { Button, Skeleton } from "@wso2/oxygen-ui";
 import { Volume2Icon } from "@wso2/oxygen-ui-icons-react";
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { AMPLIFY_CELEBRATE_PATH } from "@constants/perspectives";
 import type { Campaign } from "../api/amplifyTypes";
@@ -53,6 +53,7 @@ export default function CelebratePage() {
   const categories = useAmplifyCategories();
   const people = useAmplifyPeople();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
 
   const [linking, setLinking] = useState<Campaign | null>(null);
   const [sharing, setSharing] = useState<Campaign | null>(null);
@@ -89,6 +90,13 @@ export default function CelebratePage() {
   const closeShare = () => {
     setSharing(null);
     if (pendingShareId) setSearchParams({}, { replace: true });
+  };
+
+  // "I don't consent": close every popup and land on a plain Celebrate page (no ?share=).
+  const backToCelebrate = () => {
+    setLinking(null);
+    setSharing(null);
+    navigate(AMPLIFY_CELEBRATE_PATH, { replace: true });
   };
 
   const postsLoading = campaigns.isPending || shares.isPending || me.isPending;
@@ -163,6 +171,7 @@ export default function CelebratePage() {
       <LinkLinkedInDialog
         open={linking !== null}
         onClose={() => setLinking(null)}
+        onDeclined={backToCelebrate}
         returnTo={linking ? `${AMPLIFY_CELEBRATE_PATH}?share=${encodeURIComponent(linking.id)}` : AMPLIFY_CELEBRATE_PATH}
         pendingCampaignId={linking?.id}
         reconnect={linkStatus === "NEEDS_RECONNECT"}

@@ -120,6 +120,17 @@ export function useStartLinkedInConnect() {
   });
 }
 
+/** POST /connections/linkedin/decline with the LinkedIn profile URL of an employee who doesn't consent to link. */
+export function useDeclineLinkedInConsent() {
+  const getAccessToken = useAccessToken();
+  return useMutation<null, Error, { profileUrl?: string }>({
+    mutationFn: async (body) => {
+      await authedPost<unknown>(amplifyServiceUrls.connectDecline, await getAccessToken(), body, idempotencyHeaders());
+      return null;
+    },
+  });
+}
+
 /** POST /connections/linkedin/complete with the code and state LinkedIn sent back. */
 export function useCompleteLinkedInConnect() {
   const getAccessToken = useAccessToken();
