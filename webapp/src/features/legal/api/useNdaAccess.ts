@@ -23,6 +23,10 @@ import { isLegalBackendConfigured, legalServiceUrls } from "@config/apiConfig";
 export interface NdaAccess {
   /** True when the caller may pick the other party from Salesforce. */
   canSearchSalesforce: boolean;
+  /** True when each NDA must be recorded (POST /ndas) before it is downloaded. */
+  ndaRecordsEnabled: boolean;
+  /** True when the caller may see every generated NDA (the Legal team). */
+  canViewNdaRecords: boolean;
 }
 
 // What the signed-in user may do on the NDA page, asked of the legal backend
@@ -37,8 +41,19 @@ export function useNdaAccess() {
     enabled: isLegalBackendConfigured(),
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      const data = await authedGet<{ canSearchSalesforce?: unknown } | null>(legalServiceUrls.me, accessToken);
-      return { canSearchSalesforce: data?.canSearchSalesforce === true };
+      const data = await authedGet<{
+        canSearchSalesforce?: unknown;
+        ndaRecordsEnabled?: unknown;
+        canViewNdaRecords?: unknown;
+      } | null>(
+        legalServiceUrls.me,
+        accessToken,
+      );
+      return {
+        canSearchSalesforce: data?.canSearchSalesforce === true,
+        ndaRecordsEnabled: data?.ndaRecordsEnabled === true,
+        canViewNdaRecords: data?.canViewNdaRecords === true,
+      };
     },
     // Group membership is fixed for the life of the token.
     staleTime: 5 * 60 * 1000,

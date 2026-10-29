@@ -15,6 +15,7 @@
 // under the License.
 
 import { useId, useState, type JSX } from "react";
+import { useSearchParams } from "react-router";
 import {
   Alert,
   Autocomplete,
@@ -25,6 +26,8 @@ import {
   Divider,
   Snackbar,
   Stack,
+  Tab,
+  Tabs,
   TextField,
   ToggleButton,
   ToggleButtonGroup,
@@ -36,7 +39,9 @@ import PerspectiveHeader from "@components/perspective-header/PerspectiveHeader"
 import { isLegalBackendConfigured } from "@config/apiConfig";
 import { useCustomerSearch, formatCustomerAddress, type CustomerResult } from "@features/legal/api/useCustomerSearch";
 import { useNdaAccess } from "@features/legal/api/useNdaAccess";
+import { useRecordNda } from "@features/legal/api/useNdaRecords";
 import ManualCounterpartyFields from "@features/legal/components/ManualCounterpartyFields";
+import NdaRecordsTable from "@features/legal/components/NdaRecordsTable";
 import { countryName } from "@features/legal/countries";
 import { downloadHint } from "@features/legal/downloadHint";
 import { ndaFileNamePart } from "@features/legal/fileName";
@@ -111,6 +116,14 @@ export default function NdaPage(): JSX.Element {
   const checkingAccess = isLegalBackendConfigured() && access.isPending;
   const canSearchSalesforce = access.data?.canSearchSalesforce === true;
 
+  // The Legal team also gets an "NDA Records" tab (?tab=records): every NDA
+  // generated, by whom, for which counterparty and when. The backend refuses
+  // the list to anyone else; this only decides whether to offer the tab.
+  const canViewRecords = access.data?.canViewNdaRecords === true;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showRecords = canViewRecords && searchParams.get("tab") === "records";
+  const recordNda = useRecordNda();
+
   // The other party as the NDA will show it, from whichever mode is active.
   const isManual = !canSearchSalesforce || partyMode === "manual";
   const partyName = isManual ? manualParty.name.trim() : (selectedCustomer?.name ?? "");
@@ -155,6 +168,29 @@ export default function NdaPage(): JSX.Element {
   const handleDownload = async () => {
     setGenerating(true);
     try {
+      // When NDA records are on, record first and download nothing if that
+      // fails, so every downloaded NDA is in the Legal team's records.
+      if (access.data?.ndaRecordsEnabled) {
+        try {
+          await recordNda.mutateAsync({
+            template,
+            wso2Entity: wso2Company,
+            counterpartyName: partyName,
+            counterpartyAddress: partyAddress,
+            counterpartyCountry: partyCountry,
+            source: isManual ? "manual" : "salesforce",
+            salesforceAccountId: isManual ? null : (selectedCustomer?.id ?? null),
+          });
+        } catch {
+          setSnack({
+            open: true,
+            severity: "error",
+            message: "Couldn't record the NDA, so it wasn't downloaded. Please try again.",
+          });
+          return;
+        }
+      }
+
       const customerName = partyName;
       const customerAddress = partyAddress;
       const now = new Date();
@@ -193,12 +229,45 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
     }
   };
 
+  const tabs = canViewRecords && (
+    <Tabs
+      value={showRecords ? "records" : "generate"}
+      onChange={(_e, next: string) => setSearchParams(next === "records" ? { tab: "records" } : {}, { replace: true })}
+      aria-label="NDA views"
+      sx={{ borderBottom: 1, borderColor: "divider" }}
+    >
+      <Tab value="generate" label="Generate NDA" sx={{ textTransform: "none" }} />
+      <Tab value="records" label="NDA Records" sx={{ textTransform: "none" }} />
+    </Tabs>
+  );
+
+  // Each tab has its own subtitle, so people without the records tab never
+  // read about it.
+  const header = (
+    <PerspectiveHeader
+      title="NDA"
+      subtitle={
+        showRecords
+          ? "View all generated NDAs."
+          : "Generate WSO2's standard Mutual NDA as a PDF."
+      }
+    />
+  );
+
+  if (showRecords) {
+    return (
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        {header}
+        {tabs}
+        <NdaRecordsTable />
+      </Box>
+    );
+  }
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <PerspectiveHeader
-        title="NDA"
-        subtitle="Generate WSO2's standard Mutual NDA as a PDF."
-      />
+      {header}
+      {tabs}
 
       <Stack spacing={3} sx={{ maxWidth: 480 }}>
         {/* NDA Template — locked to Mutual NDA Standard for now */}
