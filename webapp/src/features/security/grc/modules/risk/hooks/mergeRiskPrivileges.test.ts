@@ -45,4 +45,11 @@ describe("mergeRiskPrivileges", () => {
     const out = mergeRiskPrivileges([RiskPrivilege.ViewRisks], true);
     expect([...out!]).toEqual([RiskPrivilege.ViewRisks]);
   });
+
+  it("adds the synthetic RISK_VIEW_AUDIT_TRAIL only when the backend says so", () => {
+    expect(mergeRiskPrivileges([RiskPrivilege.ViewRisks], false, true)!.has(RiskPrivilege.ViewAuditTrail)).toBe(true);
+    expect(mergeRiskPrivileges([RiskPrivilege.ViewRisks], false, false)!.has(RiskPrivilege.ViewAuditTrail)).toBe(false);
+    // Omitted means false, so an older backend that never sends it hides the page.
+    expect(mergeRiskPrivileges([RiskPrivilege.ViewRisks], false)!.has(RiskPrivilege.ViewAuditTrail)).toBe(false);
+  });
 });
