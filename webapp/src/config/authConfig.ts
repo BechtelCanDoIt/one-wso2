@@ -53,6 +53,7 @@ declare global {
       // WSO2's LinkedIn organization URN (urn:li:organization:{id}). New Post
       // sends it as the post's owner; amplify-api refuses any other owner.
       ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN?: string;
+      ONE_WSO2_AMPLIFY_PRIVACY_NOTICE_URL?: string;
       // Origins (`scheme://host[:port]`) a post link or the LinkedIn sign-in may use. Default: LinkedIn only.
       // Dev and demos add the mock LinkedIn's origin, e.g. "http://localhost:19091".
       ONE_WSO2_AMPLIFY_POST_LINK_ORIGINS?: string[];
