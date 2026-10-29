@@ -25,12 +25,20 @@ vi.mock("@features/security/grc/shim/useAuthApiClient", () => ({ useAuthApiClien
 vi.mock("@features/security/grc/shim/apiConfig", () => ({ BACKEND_BASE_URL: "http://backend.test" }));
 
 const user = (id: number, name: string): UserOption => ({ id, display_name: name, email: "", risk_team_ids: [] });
-const candidateFetchers = vi.hoisted(() => ({ owners: vi.fn(), approvers: vi.fn(), assigners: vi.fn() }));
+const candidateFetchers = vi.hoisted(() => ({
+  owners: vi.fn(),
+  approvers: vi.fn(),
+  assigners: vi.fn(),
+  searchEmployees: vi.fn(),
+  resolveUserByEmail: vi.fn(),
+}));
 vi.mock("../../api/riskApi", async (importActual) => ({
   ...(await importActual<typeof import("../../api/riskApi")>()),
   fetchRiskOwnerCandidates: candidateFetchers.owners,
   fetchManagementApprovers: candidateFetchers.approvers,
   fetchRiskAssignerCandidates: candidateFetchers.assigners,
+  searchEmployees: candidateFetchers.searchEmployees,
+  resolveUserByEmail: candidateFetchers.resolveUserByEmail,
 }));
 
 // The score grid and the date pickers are not under test: stand-ins that call
@@ -77,6 +85,8 @@ beforeEach(() => {
   candidateFetchers.owners.mockReset().mockResolvedValue([user(11, "Owner"), user(21, "New Owner")]);
   candidateFetchers.approvers.mockReset().mockResolvedValue([user(12, "Approver"), user(22, "New Approver")]);
   candidateFetchers.assigners.mockReset().mockResolvedValue([user(7, "Assigner"), user(31, "New Assigner")]);
+  candidateFetchers.searchEmployees.mockReset().mockResolvedValue([{ name: "New Action Owner", email: "new.owner@wso2.com" }]);
+  candidateFetchers.resolveUserByEmail.mockReset().mockResolvedValue(user(41, "New Action Owner"));
 });
 
 function renderDialog(
@@ -152,6 +162,56 @@ describe("ReassessmentDialog risk details", () => {
     renderDialog(true, { action_plan: null });
     expect(await screen.findByRole("combobox", { name: "Action Owner" })).toBeDisabled();
     expect(screen.getByText(/no action plan/)).toBeInTheDocument();
+  });
+
+  it("sends the resolved id when the assigner replaces the Action Owner", async () => {
+    const u = userEvent.setup();
+    const onSubmit = renderDialog(true);
+    await fillAssessment(u);
+
+    await u.type(await screen.findByRole("combobox", { name: "Action Owner" }), "new.owner");
+    await u.click(await screen.findByText("New Action Owner"));
+    await waitFor(() =>
+      expect(candidateFetchers.resolveUserByEmail).toHaveBeenCalledWith(
+        expect.anything(),
+        { name: "New Action Owner", email: "new.owner@wso2.com" },
+      ),
+    );
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0].action_owner_id).toBe(41);
+  });
+
+  it("does not apply an Action Owner lookup that finishes after the dialog was cancelled and reopened", async () => {
+    const u = userEvent.setup();
+    let finish: (v: UserOption) => void = () => {};
+    candidateFetchers.resolveUserByEmail.mockReturnValue(new Promise<UserOption>((r) => (finish = r)));
+    const onSubmit = vi.fn<(p: CreateAssessmentPayload) => Promise<void>>().mockResolvedValue();
+    const props = {
+      riskCode: "R-1",
+      detail: riskDetail({ implementation_date: "2030-01-01" }),
+      users: [],
+      canEditRiskDetails: true,
+      riskScores: [],
+      previousScore: null,
+      previousIsInitial: true,
+      onClose: vi.fn(),
+      onSubmit,
+    };
+    const { rerender } = render(<ReassessmentDialog open {...props} />);
+
+    await u.type(await screen.findByRole("combobox", { name: "Action Owner" }), "new.owner");
+    await u.click(await screen.findByText("New Action Owner"));
+    await u.click(screen.getByRole("button", { name: "Cancel" }));
+    rerender(<ReassessmentDialog open={false} {...props} />);
+    rerender(<ReassessmentDialog open {...props} />);
+    finish(user(41, "New Action Owner"));
+    await fillAssessment(u);
+    await u.click(screen.getByRole("button", { name: "Save Assessment" }));
+
+    await waitFor(() => expect(onSubmit).toHaveBeenCalled());
+    expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("action_owner_id");
   });
 
   it("sends none of the three when the assigner leaves them alone", async () => {

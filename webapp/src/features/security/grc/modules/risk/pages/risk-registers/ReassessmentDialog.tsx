@@ -177,6 +177,9 @@ export default function ReassessmentDialog({
     setActionOwnerId(detail.action_plan?.action_owner_id ?? null);
     setActionOwnerSelected(currentActionOwnerOption);
     setActionOwnerError(null);
+    // A lookup still pending from a previous opening must not land on this one.
+    actionOwnerRequest.current++;
+    setActionOwnerResolving(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the dialog opens on a risk; re-running when the users list arrives would wipe the user's unsaved picks
   }, [open, detail]);
 
@@ -239,6 +242,9 @@ export default function ReassessmentDialog({
     setActionOwnerId(currentActionOwnerId);
     setActionOwnerSelected(currentActionOwnerOption);
     setActionOwnerError(null);
+    // Drop a lookup still in flight, so it can't overwrite the reset owner.
+    actionOwnerRequest.current++;
+    setActionOwnerResolving(false);
     setErrors({});
     setApiError("");
     onClose();
