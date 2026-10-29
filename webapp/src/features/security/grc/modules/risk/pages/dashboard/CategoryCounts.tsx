@@ -14,11 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Chip, Stack, TableCell, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Box, Chip, Link, Stack, TableCell, Tooltip, Typography } from "@wso2/oxygen-ui";
 import type { JSX, ReactNode } from "react";
 import type { CategoryCounts } from "../../api/riskApi";
 import type { ScopeRegister } from "./categoryViews";
-import { CLOSED_COLOR, OPEN_COLOR, TREATMENT_COLORS } from "./constants";
+import { CLOSED_COLOR, OPEN_COLOR, TREATMENT_COLORS, type DrillDownFilter } from "./constants";
 
 // Open / Acc / Rem / Closed column definitions shared by the two category
 // tables. Open, Closed and Accept reuse the page's shared colours. Remediate is
@@ -30,6 +30,41 @@ const COUNT_COLUMNS: { key: keyof CategoryCounts; header: string; legend: string
   { key: "remediate", header: "Rem", legend: "Remediate", color: "#b87700" },
   { key: "closed", header: "Closed", legend: "Closed", color: CLOSED_COLOR },
 ];
+
+// What a count badge narrows the Risk Register to, on top of the row's own
+// scope. Open spans every approval stage (the all-stages view); Accept and
+// Remediate are the treatment strategy within Open.
+const COUNT_FILTERS: Record<keyof CategoryCounts, DrillDownFilter> = {
+  open: {},
+  accept: { treatment: "ACCEPT" },
+  remediate: { treatment: "REMEDIATE" },
+  closed: { closed: true },
+};
+
+// A table cell's text styled as a link.
+export function DrillLink({
+  children,
+  label,
+  onClick,
+}: {
+  children: ReactNode;
+  label: string;
+  onClick: () => void;
+}): JSX.Element {
+  return (
+    <Link
+      component="button"
+      type="button"
+      underline="hover"
+      color="inherit"
+      aria-label={label}
+      onClick={onClick}
+      sx={{ fontWeight: "inherit", textAlign: "inherit" }}
+    >
+      {children}
+    </Link>
+  );
+}
 
 export function CountHeaderCells({ keys }: { keys: (keyof CategoryCounts)[] }): JSX.Element {
   return (
@@ -44,7 +79,19 @@ export function CountHeaderCells({ keys }: { keys: (keyof CategoryCounts)[] }): 
 }
 
 // One boxed number per column; zero renders as an em dash.
-export function CountCells({ counts, keys }: { counts: CategoryCounts; keys: (keyof CategoryCounts)[] }): JSX.Element {
+// With onSelect, each non-zero badge is a button reporting the filter for that
+// column; `subject` names the row for screen readers.
+export function CountCells({
+  counts,
+  keys,
+  onSelect,
+  subject,
+}: {
+  counts: CategoryCounts;
+  keys: (keyof CategoryCounts)[];
+  onSelect?: (filter: DrillDownFilter) => void;
+  subject?: string;
+}): JSX.Element {
   return (
     <>
       {COUNT_COLUMNS.filter((c) => keys.includes(c.key)).map((c) => {
@@ -57,8 +104,16 @@ export function CountCells({ counts, keys }: { counts: CategoryCounts; keys: (ke
               </Typography>
             ) : (
               <Box
+                component={onSelect ? "button" : "div"}
+                {...(onSelect && {
+                  type: "button",
+                  "aria-label": `Show ${value} ${c.legend} ${subject ?? ""} in Risk Register`.replace(/\s+/g, " "),
+                  onClick: () => onSelect(COUNT_FILTERS[c.key]),
+                })}
                 sx={{
                   display: "inline-block",
+                  font: "inherit",
+                  ...(onSelect && { cursor: "pointer", "&:hover": { filter: "brightness(0.95)" } }),
                   minWidth: 40,
                   px: 1,
                   py: 0.25,
@@ -81,12 +136,23 @@ export function CountCells({ counts, keys }: { counts: CategoryCounts; keys: (ke
 }
 
 // A register chip in its stable palette colour; full name on hover.
-export function RegisterChip({ register, color, full }: { register: ScopeRegister; color: string; full?: boolean }): JSX.Element {
+export function RegisterChip({
+  register,
+  color,
+  full,
+  onClick,
+}: {
+  register: ScopeRegister;
+  color: string;
+  full?: boolean;
+  onClick?: () => void;
+}): JSX.Element {
   return (
     <Tooltip title={register.name}>
       <Chip
         size="small"
         label={full ? register.name : register.label}
+        onClick={onClick}
         sx={{ bgcolor: `${color}26`, border: `1px solid ${color}`, fontWeight: 600 }}
       />
     </Tooltip>

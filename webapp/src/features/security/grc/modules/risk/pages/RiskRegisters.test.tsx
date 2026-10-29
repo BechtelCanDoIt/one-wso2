@@ -217,3 +217,30 @@ describe("Risk Registers — register-template columns", () => {
     expect(lastList().get("team_id")).toBe("2,1");
   });
 });
+
+describe("Risk Registers — dashboard deep links", () => {
+  it("filters by the valid team and category ids and drops the rest", async () => {
+    renderAt("?team=2,abc,0,1&category=5,-1,x,6");
+    await waitFor(() => expect(lastList().get("team_id")).toBe("2,1"));
+    expect(lastList().get("category_id")).toBe("5,6");
+    expect(await screen.findByText("#5, #6")).toBeInTheDocument();
+  });
+
+  it("sends no filter when every id in the link is invalid", async () => {
+    renderAt("?team=abc,0&category=-3,x");
+    await screen.findByText("2026-ASG-Q2-0001");
+    expect(listRequests().every((p) => p.get("team_id") === null && p.get("category_id") === null)).toBe(true);
+    expect(screen.queryByText("Risk Category:")).not.toBeInTheDocument();
+  });
+
+  it("stops filtering by category when its chip is removed", async () => {
+    const user = userEvent.setup();
+    renderAt("?category=5,6");
+    await waitFor(() => expect(lastList().get("category_id")).toBe("5,6"));
+
+    await user.click(within(screen.getByText("Risk Category:").parentElement!).getByTestId("CancelIcon"));
+
+    await waitFor(() => expect(lastList().get("category_id")).toBeNull());
+    expect(screen.queryByText("Risk Category:")).not.toBeInTheDocument();
+  });
+});
