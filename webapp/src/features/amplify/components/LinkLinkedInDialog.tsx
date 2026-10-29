@@ -14,42 +14,64 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button, Dialog, DialogContent, Typography } from "@wso2/oxygen-ui";
+import { useState } from "react";
+import { Box, Button, Dialog, DialogContent, Link, TextField, Typography } from "@wso2/oxygen-ui";
 import { LinkIcon, LinkedinIcon } from "@wso2/oxygen-ui-icons-react";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
+import { amplifyPrivacyNoticeUrl } from "@config/apiConfig";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { useStartLinkedInConnect } from "../api/useAmplifyMutations";
+import { useDeclineLinkedInConsent, useStartLinkedInConnect } from "../api/useAmplifyMutations";
 import { describeAmplifyError } from "../util/amplifyError";
 import { isAllowedLink } from "../util/linkedinPost";
+import { isLinkedInProfileUrl } from "../util/linkedinProfile";
 
 /**
- * The "Link Your LinkedIn Account" popup an unlinked Amplify click opens.
+ * The "Link Your LinkedIn Account" popup an unlinked Amplify click opens. It asks for consent first.
  *
- * Link Me asks amplify-api for a LinkedIn consent URL and sends the browser
- * there. LinkedIn comes back to /amplify/connect/callback, which finishes the
- * link and returns to `returnTo` with the post's share dialog open.
+ * "I consent" asks amplify-api for a LinkedIn consent URL and sends the browser there. LinkedIn comes back to
+ * /amplify/connect/callback, which finishes the link and returns to `returnTo` with the post's share dialog open.
  *
- * The copy is the A9 placeholder until Legal signs off. The wireframe's "We
- * only keep your LinkedIn member ID" isn't true in phase 1: Amplify keeps an
- * encrypted LinkedIn token so it can post for you.
+ * "I don't consent" switches to a second step: the employee shares from their own LinkedIn and gives their profile
+ * URL so WSO2 can track it. No link or token is created. `onDeclined` (Next after saving, or Back) closes every popup and returns to
+ * Celebrate. The popup opens again on the next unlinked click.
  */
 export default function LinkLinkedInDialog({
   open,
   onClose,
+  onDeclined,
   returnTo,
   pendingCampaignId,
   reconnect = false,
 }: {
   open: boolean;
   onClose: () => void;
+  /** Leave the decline step (Next after saving, or Back): close every popup. Defaults to `onClose`. */
+  onDeclined?: () => void;
   returnTo: string;
   pendingCampaignId?: string;
   reconnect?: boolean;
 }) {
   const start = useStartLinkedInConnect();
+  const decline = useDeclineLinkedInConsent();
   const { showError } = useNotifications();
+  const [declined, setDeclined] = useState(false);
+  const [profileUrl, setProfileUrl] = useState("");
+  const busy = start.isPending || decline.isPending;
+  const trimmedUrl = profileUrl.trim();
+  const urlInvalid = trimmedUrl.length > 0 && !isLinkedInProfileUrl(trimmedUrl);
 
-  const linkMe = () => {
+  const reset = () => {
+    setDeclined(false);
+    setProfileUrl("");
+  };
+
+  // Leaving the decline step in either direction lands on Celebrate.
+  const leaveDecline = () => {
+    reset();
+    (onDeclined ?? onClose)();
+  };
+
+  const consent = () => {
     start.mutate(
       { returnTo, pendingCampaignId },
       {
@@ -63,10 +85,28 @@ export default function LinkLinkedInDialog({
     );
   };
 
+  const saveProfileUrl = () => {
+    decline.mutate(
+      { profileUrl: trimmedUrl || undefined },
+      {
+        onSuccess: leaveDecline,
+        onError: (err) => showError(describeAmplifyError(err)),
+      },
+    );
+  };
+
+  const privacyNotice = amplifyPrivacyNoticeUrl ? (
+    <Link href={amplifyPrivacyNoticeUrl} target="_blank" rel="noopener noreferrer">
+      WSO2 Employee Privacy Notice
+    </Link>
+  ) : (
+    "WSO2 Employee Privacy Notice"
+  );
+
   return (
     <Dialog
       open={open}
-      onClose={start.isPending ? undefined : onClose}
+      onClose={busy ? undefined : declined ? leaveDecline : onClose}
       maxWidth="xs"
       fullWidth
       slotProps={{ paper: { sx: { ...dialogPaperSx, borderColor: "primary.main" } } }}
@@ -81,25 +121,63 @@ export default function LinkLinkedInDialog({
             {reconnect ? "Link Your LinkedIn Account Again" : "Link Your LinkedIn Account"}
           </Typography>
         </Box>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {reconnect ? "Your LinkedIn link has expired. " : ""}
-          I consent to allow WSO2 to link to my LinkedIn profile account so that we can repost on my behalf. We only
-          keep:
-        </Typography>
-        <Box component="ul" sx={{ m: 0, mb: 2, pl: 2.5, typography: "body2", color: "text.secondary" }}>
-          <li>LinkedIn id (urn)</li>
-          <li>Token to post on your behalf, securely stored encrypted</li>
-          <li>Scopes</li>
-          <li>And supporting data such as time captured, as required by LinkedIn rules and functionality</li>
-        </Box>
-        <Box sx={{ display: "flex", gap: 1 }}>
-          <Button variant="contained" startIcon={<LinkIcon size={16} />} onClick={linkMe} disabled={start.isPending}>
-            {start.isPending ? "Opening LinkedIn…" : "Link me"}
-          </Button>
-          <Button onClick={onClose} disabled={start.isPending}>
-            Not now
-          </Button>
-        </Box>
+        {declined ? (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              I&apos;ll share WSO2 content directly from my LinkedIn account, without connecting my account to the
+              Amplify App. I&apos;m sharing my LinkedIn profile URL so WSO2 can track my sharing efforts.
+            </Typography>
+            <TextField
+              label="LinkedIn profile URL (optional)"
+              placeholder="https://www.linkedin.com/in/your-name"
+              value={profileUrl}
+              onChange={(e) => setProfileUrl(e.target.value)}
+              error={urlInvalid}
+              helperText={urlInvalid ? "Use your profile address, like https://www.linkedin.com/in/your-name" : " "}
+              fullWidth
+              size="small"
+              disabled={busy}
+              slotProps={{ htmlInput: { maxLength: 255 } }}
+              sx={{ mb: 1 }}
+            />
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button
+                variant="contained"
+                onClick={saveProfileUrl}
+                disabled={busy || urlInvalid}
+              >
+                {decline.isPending ? "Saving…" : "Next"}
+              </Button>
+              <Button onClick={leaveDecline} disabled={busy}>
+                Back
+              </Button>
+            </Box>
+          </>
+        ) : (
+          <>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              {reconnect ? "Your LinkedIn link has expired. " : ""}
+              By using the Amplify App, I agree to connect my LinkedIn profile with WSO2 so I can share WSO2 content
+              with my LinkedIn connections and followers.
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+              I understand that WSO2 will use the Amplify App to track the reach and engagement of content shared
+              through the app.
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              To learn more about how WSO2 collects and uses my personal information, please read the{" "}
+              {privacyNotice}.
+            </Typography>
+            <Box sx={{ display: "flex", gap: 1 }}>
+              <Button variant="contained" startIcon={<LinkIcon size={16} />} onClick={consent} disabled={busy}>
+                {start.isPending ? "Opening LinkedIn…" : "I consent"}
+              </Button>
+              <Button onClick={() => setDeclined(true)} disabled={busy}>
+                I don&apos;t consent
+              </Button>
+            </Box>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );
