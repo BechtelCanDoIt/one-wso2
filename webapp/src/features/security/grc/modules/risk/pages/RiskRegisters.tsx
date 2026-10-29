@@ -1411,6 +1411,7 @@ export default function RiskRegisters(): JSX.Element {
           open={assessOpen}
           riskCode={drawerDetail.risk_code}
           detail={drawerDetail}
+          users={users}
           canEditRiskDetails={
             riskRoles(
               drawerDetail,
@@ -1418,6 +1419,7 @@ export default function RiskRegisters(): JSX.Element {
               drawerDetail.effective_privileges.includes(RiskPrivilege.ComplianceApproveRisk),
             ).isRiskAssigner
           }
+          isRiskAssigner={drawerDetail.assigner_id === currentUserId}
           riskScores={riskScores}
           previousScore={drawerDetail.effective_score ?? drawerDetail.gross_score}
           previousIsInitial={!drawerDetail.assessments.some((a) => !a.is_initial)}

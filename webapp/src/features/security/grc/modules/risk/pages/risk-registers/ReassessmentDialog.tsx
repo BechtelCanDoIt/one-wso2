@@ -14,12 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseDateOnly, toDateOnlyString } from "@features/security/grc/utils/dateTime";
 import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
+import { originalPlanHelp } from "./utils";
 import {
   AdapterDateFns,
   Alert,
+  Autocomplete,
   Box,
   Button,
   DatePickers,
@@ -38,12 +40,29 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
-import { fetchManagementApprovers, fetchRiskOwnerCandidates } from "../../api/riskApi";
-import type { CreateAssessmentPayload, RiskDetail, RiskScore, RiskScoreInfo, UserOption } from "../../api/riskApi";
+import {
+  fetchManagementApprovers,
+  fetchRiskAssignerCandidates,
+  fetchRiskOwnerCandidates,
+  resolveUserByEmail,
+  searchEmployees,
+} from "../../api/riskApi";
+import type {
+  CreateAssessmentPayload,
+  EmployeeOption,
+  RiskDetail,
+  RiskScore,
+  RiskScoreInfo,
+  UserOption,
+} from "../../api/riskApi";
 import { dialogPaperSx } from "../cardStyles";
 import RiskScoreGrid from "./RiskScoreGrid";
 
 const { DatePicker, LocalizationProvider } = DatePickers;
+
+// Minimum characters before searching — matches the backend's own floor.
+const MIN_EMPLOYEE_SEARCH_LEN = 2;
+const EMPLOYEE_SEARCH_DEBOUNCE_MS = 300;
 
 // withCurrent keeps the risk's saved person selectable even when they are not
 // among today's candidates, so opening the dialog never silently blanks a field.
@@ -55,13 +74,21 @@ function withCurrent(candidates: UserOption[], id: number, name: string): UserOp
 interface ReassessmentDialogProps {
   open: boolean;
   riskCode: string;
-  // The risk being assessed — source of the current owner, approver and
-  // implementation date the "Risk details" section starts from.
+  // The risk being assessed — source of the current owner, approver,
+  // assigner, action owner and implementation date the "Risk details" section
+  // starts from.
   detail: RiskDetail;
+  // Only used to show the current Action Owner's name — RiskDetail carries the
+  // action owner's id but not their name.
+  users: UserOption[];
   // True for the risk's Risk Assigner (or a compliance admin). Only they may
-  // change owner, approver and implementation date; everyone else sees them
-  // read-only. The backend enforces the same rule.
+  // change these details; everyone else sees them read-only. The backend
+  // enforces the same rule.
   canEditRiskDetails: boolean;
+  // True only when the current user is this risk's Risk Assigner. A compliance
+  // admin can edit the details too but keeps that right after handing the risk
+  // on, so the hand-off warning is for the assigner alone.
+  isRiskAssigner: boolean;
   riskScores: RiskScore[];
   // The risk's residual score before this assessment — RiskDetail.effective_score,
   // i.e. the latest reassessment if one exists, else the gross score. Null only
@@ -79,7 +106,9 @@ export default function ReassessmentDialog({
   open,
   riskCode,
   detail,
+  users,
   canEditRiskDetails,
+  isRiskAssigner,
   riskScores,
   previousScore,
   previousIsInitial,
@@ -97,22 +126,79 @@ export default function ReassessmentDialog({
   const authFetch = useAuthApiClient();
   const [ownerId, setOwnerId] = useState(detail.owner_id);
   const [managementApproverId, setManagementApproverId] = useState(detail.management_approver_id);
+  const [assignerId, setAssignerId] = useState(detail.assigner_id);
   const [implementationDate, setImplementationDate] = useState<Date | null>(parseDateOnly(detail.implementation_date));
+  const [assignerCandidates, setAssignerCandidates] = useState<UserOption[]>([]);
   const [ownerCandidates, setOwnerCandidates] = useState<UserOption[]>([]);
   const [approverCandidates, setApproverCandidates] = useState<UserOption[]>([]);
   const [candidatesError, setCandidatesError] = useState(false);
+
+  // Action Owner can be any employee, searched live against the HR entity and
+  // resolved to a user id on selection — same as Update Assignees.
+  const currentActionOwnerId = detail.action_plan?.action_owner_id ?? null;
+  const [actionOwnerId, setActionOwnerId] = useState<number | null>(currentActionOwnerId);
+  const [actionOwnerOptions, setActionOwnerOptions] = useState<EmployeeOption[]>([]);
+  const currentActionOwnerOption = useMemo<EmployeeOption | null>(() => {
+    const u = users.find((x) => x.id === currentActionOwnerId);
+    return u ? { name: u.display_name, email: u.email } : null;
+  }, [users, currentActionOwnerId]);
+  const [actionOwnerSelected, setActionOwnerSelected] = useState<EmployeeOption | null>(currentActionOwnerOption);
+  const [actionOwnerSearchLoading, setActionOwnerSearchLoading] = useState(false);
+  const [actionOwnerResolving, setActionOwnerResolving] = useState(false);
+  const [actionOwnerError, setActionOwnerError] = useState<string | null>(null);
+  const actionOwnerDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Bumped on every pick or clear, so a slower lookup for an earlier pick can
+  // never overwrite a later one.
+  const actionOwnerRequest = useRef(0);
+
+  const runActionOwnerSearch = useCallback((query: string) => {
+    if (query.trim().length < MIN_EMPLOYEE_SEARCH_LEN) {
+      setActionOwnerOptions([]);
+      setActionOwnerError(null);
+      return;
+    }
+    setActionOwnerSearchLoading(true);
+    setActionOwnerError(null);
+    searchEmployees(authFetch, query)
+      .then(setActionOwnerOptions)
+      .catch(() => {
+        setActionOwnerOptions([]);
+        setActionOwnerError("Unable to reach the employee directory. Please try again.");
+      })
+      .finally(() => setActionOwnerSearchLoading(false));
+  }, [authFetch]);
+
+  const handleActionOwnerInputChange = (value: string): void => {
+    if (actionOwnerDebounce.current) clearTimeout(actionOwnerDebounce.current);
+    actionOwnerDebounce.current = setTimeout(() => runActionOwnerSearch(value), EMPLOYEE_SEARCH_DEBOUNCE_MS);
+  };
 
   // Start from the risk as it is each time the dialog opens on it.
   useEffect(() => {
     if (!open) return;
     setOwnerId(detail.owner_id);
     setManagementApproverId(detail.management_approver_id);
+    setAssignerId(detail.assigner_id);
     setImplementationDate(parseDateOnly(detail.implementation_date));
+    setActionOwnerId(detail.action_plan?.action_owner_id ?? null);
+    setActionOwnerSelected(currentActionOwnerOption);
+    setActionOwnerError(null);
+    // A lookup still pending from a previous opening must not land on this one.
+    actionOwnerRequest.current++;
+    setActionOwnerResolving(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when the dialog opens on a risk; re-running when the users list arrives would wipe the user's unsaved picks
   }, [open, detail]);
+
+  // Fill in the current Action Owner's name if the users list lands after the
+  // dialog opened, without touching a replacement the user already picked.
+  useEffect(() => {
+    setActionOwnerSelected((selected) => selected ?? currentActionOwnerOption);
+  }, [currentActionOwnerOption]);
 
   // Candidates are role-filtered as in Add Risk and Update Assignees, so only
   // someone who already holds the grant can be picked. Only the assigner can
-  // change them, so nobody else needs the lists.
+  // change them, so nobody else needs the lists. The assigner list is scoped to
+  // the source register, as in Update Assignees.
   useEffect(() => {
     if (!open || !canEditRiskDetails) return;
     let cancelled = false;
@@ -121,19 +207,22 @@ export default function ReassessmentDialog({
     void Promise.allSettled([
       fetchRiskOwnerCandidates(authFetch, teamIds),
       fetchManagementApprovers(authFetch, teamIds),
-    ]).then(([owners, approvers]) => {
+      fetchRiskAssignerCandidates(authFetch, [detail.source_register_id]),
+    ]).then(([owners, approvers, assigners]) => {
       if (cancelled) return;
-      if (owners.status !== "fulfilled" || approvers.status !== "fulfilled") {
+      if (owners.status !== "fulfilled" || approvers.status !== "fulfilled" || assigners.status !== "fulfilled") {
         setCandidatesError(true);
         return;
       }
       setOwnerCandidates(owners.value);
       setApproverCandidates(approvers.value);
+      setAssignerCandidates(assigners.value);
     });
     return () => { cancelled = true; };
   }, [open, canEditRiskDetails, authFetch, detail.source_register_id, detail.assignment_team_id]);
 
   const ownerOptions = withCurrent(ownerCandidates, detail.owner_id, detail.owner_name);
+  const assignerOptions = withCurrent(assignerCandidates, detail.assigner_id, detail.assigner_name);
   const approverOptions = withCurrent(approverCandidates, detail.management_approver_id, detail.management_approver_name);
   const currentImplementationDate = toDateOnlyString(parseDateOnly(detail.implementation_date));
 
@@ -154,7 +243,14 @@ export default function ReassessmentDialog({
     setReassessmentDate(null);
     setOwnerId(detail.owner_id);
     setManagementApproverId(detail.management_approver_id);
+    setAssignerId(detail.assigner_id);
     setImplementationDate(parseDateOnly(detail.implementation_date));
+    setActionOwnerId(currentActionOwnerId);
+    setActionOwnerSelected(currentActionOwnerOption);
+    setActionOwnerError(null);
+    // Drop a lookup still in flight, so it can't overwrite the reset owner.
+    actionOwnerRequest.current++;
+    setActionOwnerResolving(false);
     setErrors({});
     setApiError("");
     onClose();
@@ -212,6 +308,8 @@ export default function ReassessmentDialog({
       if (canEditRiskDetails) {
         if (ownerId !== detail.owner_id) payload.owner_id = ownerId;
         if (managementApproverId !== detail.management_approver_id) payload.management_approver_id = managementApproverId;
+        if (assignerId !== detail.assigner_id) payload.assigner_id = assignerId;
+        if (actionOwnerId !== null && actionOwnerId !== currentActionOwnerId) payload.action_owner_id = actionOwnerId;
         const nextDate = toDateOnlyString(implementationDate);
         if (nextDate && nextDate !== currentImplementationDate) payload.implementation_date = nextDate;
       }
@@ -330,7 +428,7 @@ export default function ReassessmentDialog({
             <Stack gap={2}>
               {candidatesError && (
                 <Alert severity="error">
-                  Unable to load the Risk Owner and Management Approver candidates. Close the dialog and try again.
+                  Unable to load the Risk Owner, Risk Assigner and Management Approver candidates. Close the dialog and try again.
                 </Alert>
               )}
               <FormControl fullWidth disabled={submitting || !canEditRiskDetails}>
@@ -338,6 +436,15 @@ export default function ReassessmentDialog({
                 <Select labelId="assess-risk-owner-label" label="Risk Owner" value={ownerId} onChange={(e) => setOwnerId(Number(e.target.value))}>
                   {ownerOptions.map((u) => <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>)}
                 </Select>
+              </FormControl>
+              <FormControl fullWidth disabled={submitting || !canEditRiskDetails}>
+                <InputLabel id="assess-risk-assigner-label">Risk Assigner</InputLabel>
+                <Select labelId="assess-risk-assigner-label" label="Risk Assigner" value={assignerId} onChange={(e) => setAssignerId(Number(e.target.value))}>
+                  {assignerOptions.map((u) => <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>)}
+                </Select>
+                {isRiskAssigner && assignerId !== detail.assigner_id && (
+                  <FormHelperText>You will no longer be able to change this risk's details once it is saved.</FormHelperText>
+                )}
               </FormControl>
               <FormControl fullWidth disabled={submitting || !canEditRiskDetails} error={!!errors.approver || approverMissing}>
                 <InputLabel id="assess-management-approver-label">Management Approver</InputLabel>
@@ -363,6 +470,64 @@ export default function ReassessmentDialog({
                   </FormHelperText>
                 )}
               </FormControl>
+              <Autocomplete
+                options={actionOwnerOptions}
+                loading={actionOwnerSearchLoading || actionOwnerResolving}
+                filterOptions={(opts) => opts}
+                getOptionLabel={(option) => option.name}
+                isOptionEqualToValue={(option, value) => option.email === value.email}
+                value={actionOwnerSelected}
+                // The backend can only set the owner of an existing plan and
+                // answers 409 otherwise, so don't offer a pick that can only fail.
+                disabled={submitting || !canEditRiskDetails || !detail.action_plan}
+                onInputChange={(_, newInputValue, reason) => {
+                  if (reason === "input") handleActionOwnerInputChange(newInputValue);
+                }}
+                onChange={(_, newValue) => {
+                  // An Action Owner is replaced, never removed, so clearing the
+                  // field puts the current one back.
+                  const request = ++actionOwnerRequest.current;
+                  if (!newValue) {
+                    setActionOwnerResolving(false);
+                    setActionOwnerSelected(currentActionOwnerOption);
+                    setActionOwnerId(currentActionOwnerId);
+                    return;
+                  }
+                  setActionOwnerResolving(true);
+                  resolveUserByEmail(authFetch, newValue)
+                    .then((resolved) => {
+                      if (request !== actionOwnerRequest.current) return;
+                      setActionOwnerSelected(newValue);
+                      setActionOwnerId(resolved.id);
+                      setActionOwnerError(null);
+                    })
+                    .catch(() => {
+                      if (request !== actionOwnerRequest.current) return;
+                      setActionOwnerSelected(currentActionOwnerOption);
+                      setActionOwnerId(currentActionOwnerId);
+                      setActionOwnerError("Unable to link this employee to a user account. Please try again.");
+                    })
+                    .finally(() => {
+                      if (request === actionOwnerRequest.current) setActionOwnerResolving(false);
+                    });
+                }}
+                loadingText="Searching…"
+                noOptionsText={actionOwnerError ?? "Type at least 2 characters of the employee's email to search"}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Action Owner"
+                    placeholder="Search by email"
+                    error={!!actionOwnerError}
+                    helperText={
+                      actionOwnerError ??
+                      (!detail.action_plan
+                        ? "This risk has no action plan, so there is no Action Owner to set."
+                        : originalPlanHelp(detail.action_plan))
+                    }
+                  />
+                )}
+              />
               <LocalizationProvider dateAdapter={AdapterDateFns}>
                 <DatePicker
                   label="Implementation Date"
@@ -397,7 +562,7 @@ export default function ReassessmentDialog({
         </Button>
         <Button
           onClick={handleSubmit}
-          disabled={submitting}
+          disabled={submitting || actionOwnerResolving}
           variant="contained"
         >
           {submitting ? "Saving..." : "Save Assessment"}
