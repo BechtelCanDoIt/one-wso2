@@ -21,6 +21,7 @@ import { MemoryRouter } from "react-router";
 import type { CustomerResult } from "@features/legal/api/useCustomerSearch";
 import type { NdaPdfProps } from "@features/legal/pages/NdaPdfDocument";
 import NdaPage from "@features/legal/pages/NdaPage";
+import { HttpError } from "@api/http";
 import { downloadHint } from "@features/legal/downloadHint";
 import { EMPTY_MANUAL_COUNTERPARTY } from "@features/legal/manualCounterparty";
 
@@ -73,10 +74,13 @@ beforeAll(() => {
   URL.revokeObjectURL = vi.fn();
 });
 
+type AccessData = { canSearchSalesforce: boolean; ndaRecordsEnabled?: boolean; canViewNdaRecords?: boolean };
 type Access = {
   isPending: boolean;
   isError: boolean;
-  data?: { canSearchSalesforce: boolean; ndaRecordsEnabled?: boolean; canViewNdaRecords?: boolean };
+  data?: AccessData;
+  /** Re-asks GET /me; the page calls it when the first check failed. */
+  refetch?: () => Promise<{ data?: AccessData }>;
 };
 const access = vi.hoisted(() => ({ value: {} as Access }));
 vi.mock("@features/legal/api/useNdaAccess", () => ({
@@ -302,6 +306,46 @@ describe("NdaPage records", () => {
 
     expect(await screen.findByText(/Couldn't record the NDA, so it wasn't downloaded/)).toBeInTheDocument();
     expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("says why a refused record was refused, without suggesting a retry", async () => {
+    recording.mutateAsync.mockRejectedValue(
+      new HttpError("/ndas", 400, JSON.stringify({ message: "counterpartyName is too long" })),
+    );
+    const user = userEvent.setup();
+    renderPage(recordsOn);
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    expect(await screen.findByText(/counterpartyName is too long/)).toBeInTheDocument();
+    expect(screen.queryByText(/Please try again/)).not.toBeInTheDocument();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("downloads nothing when the access check failed and still can't answer", async () => {
+    const refetch = vi.fn(async () => ({ data: undefined }));
+    const user = userEvent.setup();
+    renderPage({ isPending: false, isError: true, refetch });
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    expect(await screen.findByText(/Couldn't reach the NDA service to record this NDA/)).toBeInTheDocument();
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(rendered.props).toBeNull();
+    expect(recording.mutateAsync).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("asks again when the access check failed, and records if records are on", async () => {
+    const refetch = vi.fn(async () => ({ data: { canSearchSalesforce: false, ndaRecordsEnabled: true } }));
+    const user = userEvent.setup();
+    renderPage({ isPending: false, isError: true, refetch });
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(recording.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ counterpartyName: "Example Vendor Ltd" }));
   });
 
   it("records nothing when the PDF can't be built", async () => {

@@ -41,6 +41,7 @@ import { useCustomerSearch, formatCustomerAddress, type CustomerResult } from "@
 import { useNdaAccess } from "@features/legal/api/useNdaAccess";
 import { useRecordNda } from "@features/legal/api/useNdaRecords";
 import ManualCounterpartyFields from "@features/legal/components/ManualCounterpartyFields";
+import { ACCESS_UNKNOWN_MESSAGE, recordFailureMessage } from "@features/legal/recordErrors";
 import NdaRecordsTable from "@features/legal/components/NdaRecordsTable";
 import { countryName } from "@features/legal/countries";
 import { downloadHint } from "@features/legal/downloadHint";
@@ -168,6 +169,19 @@ export default function NdaPage(): JSX.Element {
   const handleDownload = async () => {
     setGenerating(true);
     try {
+      // Whether this NDA must be recorded comes from GET /me. If that check
+      // failed, ask again rather than download unrecorded; if it still can't
+      // answer, download nothing. Manual entry stays usable meanwhile.
+      let accessData = access.data;
+      if (!accessData && isLegalBackendConfigured()) {
+        accessData = (await access.refetch()).data;
+        if (!accessData) {
+          setSnack({ open: true, severity: "error", message: ACCESS_UNKNOWN_MESSAGE });
+          return;
+        }
+      }
+      const recordsEnabled = accessData?.ndaRecordsEnabled === true;
+
       const customerName = partyName;
       const customerAddress = partyAddress;
       const now = new Date();
@@ -192,7 +206,7 @@ export default function NdaPage(): JSX.Element {
       // Record only once the PDF exists, so a PDF that fails to build leaves
       // no record behind; download only once it is recorded, so every
       // downloaded NDA is in the Legal team's records when they are on.
-      if (access.data?.ndaRecordsEnabled) {
+      if (recordsEnabled) {
         try {
           await recordNda.mutateAsync({
             template,
@@ -203,12 +217,8 @@ export default function NdaPage(): JSX.Element {
             source: isManual ? "manual" : "salesforce",
             salesforceAccountId: isManual ? null : (selectedCustomer?.id ?? null),
           });
-        } catch {
-          setSnack({
-            open: true,
-            severity: "error",
-            message: "Couldn't record the NDA, so it wasn't downloaded. Please try again.",
-          });
+        } catch (err) {
+          setSnack({ open: true, severity: "error", message: recordFailureMessage(err) });
           return;
         }
       }
