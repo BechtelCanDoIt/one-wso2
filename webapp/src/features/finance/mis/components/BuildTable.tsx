@@ -15,7 +15,7 @@
 // under the License.
 
 import { memo, useId, useLayoutEffect, useMemo, useRef, useState, type Ref, type UIEvent } from "react";
-import { Box, ButtonBase, ListingTable, Typography } from "@wso2/oxygen-ui";
+import { Box, ButtonBase, ListingTable, TableSortLabel, Typography } from "@wso2/oxygen-ui";
 import WideTableNotice from "@components/wide-table-notice/WideTableNotice";
 import {
   ROW_WINDOW_THRESHOLD,
@@ -43,6 +43,9 @@ import {
   leadHeadCellSx,
   sectionRowSx,
 } from "./buildTableSx";
+import BuildColumnFilter from "./BuildColumnFilter";
+import type { BuildFilters } from "./buildTableFilter";
+import { sortsColumn, type BuildSort, type BuildSortColumn } from "./buildTableSort";
 import { gridFrameSx } from "./misLookTokens";
 
 // The grid's visual rules, in one place (the values are `buildTableSx.ts`):
@@ -144,6 +147,8 @@ export interface BuildTableProps<L extends BuildLeadColumn = BuildLeadColumn> {
   leadCell?: (row: BuildRow, column: L) => string;
   /** One per Period, in display order. */
   columnGroups: readonly BuildColumnGroup[];
+  /** Asks again for the Periods whose group is `failed`; each such header offers it. */
+  onRetryFailed?: () => void;
   /** Repeated under every Period — Amount, % of Opening. */
   subColumns: readonly BuildSubColumn[];
   rows: readonly BuildRow[];
@@ -184,6 +189,17 @@ export interface BuildTableProps<L extends BuildLeadColumn = BuildLeadColumn> {
    * it off and keeps `maxBodyHeight`.
    */
   fill?: boolean;
+  /**
+   * The column the rows are sorted by. The page sorts the rows and hands the
+   * same list to the table and the export; the table only draws the marks.
+   */
+  sort?: BuildSort | null;
+  /** Makes every column header a sort button. Without it the headers are plain. */
+  onSort?: (column: BuildSortColumn) => void;
+  /** The text each identity column is filtered by. */
+  filters?: BuildFilters;
+  /** Gives every identity column a text filter. Without it the headers have none. */
+  onFilter?: (key: string, text: string) => void;
 }
 
 export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>({
@@ -192,6 +208,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
   leadColumns,
   leadCell,
   columnGroups,
+  onRetryFailed,
   subColumns,
   rows,
   cell,
@@ -202,6 +219,10 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
   emphasisStyle,
   collapseLoneSubHeader = false,
   fill = false,
+  sort = null,
+  onSort,
+  filters,
+  onFilter,
 }: BuildTableProps<L>) {
   // The Period label stands alone when it has one sub-column under it (a Build
   // with one ARR type); the sub-header row only exists with several. Kept in
@@ -251,6 +272,21 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
     () => subColumns.map((column) => ({ ...column, width: Math.max(column.width, fillWidth) })),
     [subColumns, fillWidth],
   );
+  const ariaSortFor = (column: BuildSortColumn) =>
+    sortsColumn(sort, column) ? (sort?.direction === "desc" ? "descending" : "ascending") : undefined;
+  /** A header's label, as a sort button when the page can sort. */
+  const sortable = (label: string, column: BuildSortColumn) =>
+    onSort ? (
+      <TableSortLabel
+        active={sortsColumn(sort, column)}
+        direction={sortsColumn(sort, column) ? sort?.direction : "asc"}
+        onClick={() => onSort(column)}
+      >
+        {label}
+      </TableSortLabel>
+    ) : (
+      label
+    );
   /** The id heading one identity column. The first keeps the name it shipped with. */
   const leadHeaderId = (index: number) =>
     index === 0 ? ids.rowLabelHeader : ids.leadHeader(lead[index].key);
@@ -350,10 +386,22 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                     // table algorithm has to resolve on its own.
                     rowSpan={columnGroups.length && subColumns.length && !singleHeaderRow ? 2 : 1}
                     scope="col"
+                    aria-sort={ariaSortFor({ kind: "lead", key: column.key })}
                     style={{ width: column.width, minWidth: column.width }}
                     sx={[leadHeadCellSx(leadOffsets[index])]}
                   >
-                    {column.label}
+                    {onFilter && column.filterable !== false ? (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+                        {sortable(column.label, { kind: "lead", key: column.key })}
+                        <BuildColumnFilter
+                          label={column.label}
+                          text={filters?.[column.key] ?? ""}
+                          onChange={(text) => onFilter(column.key, text)}
+                        />
+                      </Box>
+                    ) : (
+                      sortable(column.label, { kind: "lead", key: column.key })
+                    )}
                   </ListingTable.Cell>
                 ))}
                 {columnGroups.map((group) => (
@@ -362,6 +410,11 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                     id={ids.groupHeader(group.key)}
                     colSpan={subColumns.length}
                     scope="colgroup"
+                    aria-sort={
+                      singleHeaderRow
+                        ? ariaSortFor({ kind: "figure", groupKey: group.key, subKey: subColumns[0].key })
+                        : undefined
+                    }
                     sx={[
                       headCellSx,
                       {
@@ -373,7 +426,12 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                       },
                     ]}
                   >
-                    {group.label}
+                    {singleHeaderRow
+                      ? sortable(group.label, { kind: "figure", groupKey: group.key, subKey: subColumns[0].key })
+                      : group.label}
+                    {group.failed && (
+                      <FailedColumnNote label={group.label} onRetry={onRetryFailed} />
+                    )}
                   </ListingTable.Cell>
                 ))}
               </ListingTable.Row>
@@ -392,6 +450,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                       key={`${group.key}:${subColumn.key}`}
                       id={ids.subHeader(group.key, subColumn.key)}
                       scope="col"
+                      aria-sort={ariaSortFor({ kind: "figure", groupKey: group.key, subKey: subColumn.key })}
                       style={{
                         top: periodRowHeight,
                         width: subColumn.width,
@@ -406,7 +465,7 @@ export default function BuildTable<L extends BuildLeadColumn = BuildLeadColumn>(
                         grandTotalSx(subColumn.key),
                       ]}
                     >
-                      {subColumn.label}
+                      {sortable(subColumn.label, { kind: "figure", groupKey: group.key, subKey: subColumn.key })}
                     </ListingTable.Cell>
                   )),
                 )}
@@ -606,7 +665,7 @@ const WindowedRow = memo(function WindowedRow({
                 grand(subColumn.key),
               ]}
             >
-              {figure.onActivate ? (
+              {figure.onActivate && !group.failed ? (
                 // A real button inside the cell, not a click handler
                 // on the cell. A `<td onClick>` is invisible to the
                 // keyboard and announces nothing, and a drill-down
@@ -642,6 +701,10 @@ const WindowedRow = memo(function WindowedRow({
                 >
                   {figure.text}
                 </ButtonBase>
+              ) : group.failed ? (
+                <span role="img" aria-label="Not loaded">
+                  {"\u2014"}
+                </span>
               ) : (
                 figure.text
               )}
@@ -654,6 +717,38 @@ const WindowedRow = memo(function WindowedRow({
 });
 
 /** The space rows outside the window would have taken, as one empty row. */
+function FailedColumnNote({ label, onRetry }: { label: string; onRetry?: () => void }) {
+  return (
+    <Box
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "inherit",
+        gap: 0.5,
+        fontWeight: 400,
+        color: "error.main",
+      }}
+    >
+      <span>Couldn't load</span>
+      {onRetry && (
+        <ButtonBase
+          onClick={onRetry}
+          aria-label={`Retry loading ${label}`}
+          sx={{
+            font: "inherit",
+            color: "inherit",
+            textDecoration: "underline",
+            borderRadius: 0.5,
+            px: 0.25,
+          }}
+        >
+          Retry
+        </ButtonBase>
+      )}
+    </Box>
+  );
+}
+
 function RowSpacer({ height, columnCount }: { height: number; columnCount: number }) {
   if (height <= 0) return null;
   return (

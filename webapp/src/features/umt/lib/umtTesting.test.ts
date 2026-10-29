@@ -13,14 +13,16 @@ import {
   umtAutomatedTestResultLabel,
   umtShouldPollStagingTestResults,
   umtStagingRowIsComplete,
+  umtTestingBlocker,
   umtTestingResultRequiresComment,
 } from "./umtTesting";
 
 function record(
   manualTestResult: string | null | undefined,
   manualTestComment: string | null | undefined,
+  automatedTestResult: string | null | undefined = "success",
 ): UmtStagingTestResultRecord {
-  return { productId: 1, manualTestResult, manualTestComment };
+  return { productId: 1, manualTestResult, manualTestComment, automatedTestResult };
 }
 
 describe("umtTestingResultRequiresComment", () => {
@@ -64,10 +66,10 @@ describe("isTestingComplete", () => {
     expect(isTestingComplete(null, [])).toBe(false);
   });
 
-  it("is vacuously true for an empty, null, or undefined record list once Staging is reached", () => {
-    expect(isTestingComplete("Staging", [])).toBe(true);
-    expect(isTestingComplete("Staging", null)).toBe(true);
-    expect(isTestingComplete("Staging", undefined)).toBe(true);
+  it("is false for an empty, null, or undefined record list, since nothing has been reviewed", () => {
+    expect(isTestingComplete("Staging", [])).toBe(false);
+    expect(isTestingComplete("Staging", null)).toBe(false);
+    expect(isTestingComplete("Staging", undefined)).toBe(false);
   });
 
   it("is true only once every row is complete", () => {
@@ -76,6 +78,32 @@ describe("isTestingComplete", () => {
 
   it("is false when one row among several is incomplete", () => {
     expect(isTestingComplete("Staging", [record("success", null), record("failure", null)])).toBe(false);
+  });
+});
+
+describe("umtTestingBlocker", () => {
+  it("is null when every automated run succeeded and every manual row is complete", () => {
+    expect(umtTestingBlocker([record("success", null), record("failure", "Broken")])).toBeNull();
+  });
+
+  it("reports an empty record list as having no results", () => {
+    expect(umtTestingBlocker([])).toBe("no-results");
+    expect(umtTestingBlocker(null)).toBe("no-results");
+    expect(umtTestingBlocker(undefined, true)).toBe("no-results");
+  });
+
+  it("reports an automated run that has not succeeded, ahead of an incomplete manual row", () => {
+    expect(umtTestingBlocker([record("success", null, "building")])).toBe("automated-run");
+    expect(umtTestingBlocker([record("failure", null, "failure")])).toBe("automated-run");
+  });
+
+  it("ignores the automated runs for an admin, and reports the manual row instead", () => {
+    expect(umtTestingBlocker([record("success", null, "failure")], true)).toBeNull();
+    expect(umtTestingBlocker([record("failure", null, "failure")], true)).toBe("manual-result");
+  });
+
+  it("reports an incomplete manual row once the automated runs are fine", () => {
+    expect(umtTestingBlocker([record("failure", null)])).toBe("manual-result");
   });
 });
 

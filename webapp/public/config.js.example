@@ -74,9 +74,7 @@ window.config = {
 
   // Pitstop backend that serves Smart Search — powers Sales → Library, the
   // plain-language search over Pitstop's content. Include the version segment.
-  // Shown only while `smartSearch` is on in ONE_WSO2_PREVIEW_FEATURES below.
-  // With the flag on and this unset, the page says "not connected" and makes
-  // no requests.
+  // When this is unset, the page says "not connected" and makes no requests.
   // ONE_WSO2_SMART_SEARCH_BACKEND_URL: "<your-pitstop-backend-url>",
 
   // Promotion backend. Requests carry the x-user-timezone-offset header.
@@ -221,6 +219,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { umt: false, infra: false, cado2: false, nda: false, smartSearch: false, amplify: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, cado2: false, nda: false, amplify: false },
 
 };

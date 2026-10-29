@@ -82,6 +82,7 @@ import type {
   PopulationDetails,
   RequirementType,
 } from "@features/security/grc/modules/audit/types/audit";
+import { auditDisplayName } from "@features/security/grc/modules/audit/utils/format";
 import type { AuditUser } from "@features/security/grc/modules/audit/types/user";
 import { todayUtcDateOnlyString } from "@features/security/grc/utils/dateTime";
 import { auditPaths } from "@features/security/grc/modules/audit/paths";
@@ -1730,7 +1731,10 @@ function Step2Controls({
             renderValue={(v) =>
               v === ""
                 ? <span style={{ opacity: 0.5 }}>Select source audit</span>
-                : (sameFrameworkAudits.find((a) => String(a.id) === v)?.name ?? "")
+                : (() => {
+                    const source = sameFrameworkAudits.find((a) => String(a.id) === v);
+                    return source ? auditDisplayName(source) : "";
+                  })()
             }
           >
             {sameFrameworkAudits.length === 0 ? (
@@ -1740,7 +1744,7 @@ function Step2Controls({
             ) : (
               sameFrameworkAudits.map((a) => (
                 <MenuItem key={a.id} value={String(a.id)}>
-                  {a.name}
+                  {auditDisplayName(a)}
                 </MenuItem>
               ))
             )}
@@ -2008,7 +2012,9 @@ export default function CreateAuditPage(): JSX.Element {
   }, [frameworks, preselectedFrameworkId, framework]);
 
   const nameConflict = name.trim().length > 0 && (auditsForNameCheck?.items ?? []).some(
-    (a) => a.name.toLowerCase() === name.trim().toLowerCase(),
+    (a) =>
+      a.name.toLowerCase() === name.trim().toLowerCase() ||
+      (a.displayName ?? "").toLowerCase() === name.trim().toLowerCase(),
   );
 
   const step1Valid =

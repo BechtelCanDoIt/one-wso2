@@ -54,6 +54,8 @@ import type { BuildRow } from "./buildTableModel";
 export interface ArrSummaryResponse {
   openingArr?: number | string | null;
   newArr?: number | string | null;
+  /** Acquired ARR for the column, in USD. Absent when the response omits it. */
+  acquiredArr?: number | string | null;
   transferredIn?: number | string | null;
   expansions?: number | string | null;
   reductions?: number | string | null;
@@ -79,6 +81,8 @@ export interface ArrSummaryResponse {
   percentLostTotal?: number | string | null;
   openingSubscriptionCustomers?: number | string | null;
   newCustomers?: number | string | null;
+  /** Logos counted as acquired in the column. Absent when the response omits it. */
+  acquiredCustomers?: number | string | null;
   transferredInCount?: number | string | null;
   lostCustomers?: number | string | null;
   transferredOutCount?: number | string | null;
@@ -114,6 +118,7 @@ const SECTIONS: readonly SectionSpec[] = [
     rows: [
       { id: "opening-arr", label: MIS_ROW_LABELS.OPENING_ARR, field: "openingArr", emphasis: true },
       { id: "new-arr", label: MIS_ROW_LABELS.NEW, field: "newArr" },
+      { id: "acquired-arr", label: MIS_ROW_LABELS.ACQUIRED_ARR, field: "acquiredArr" },
       {
         id: "transferred-in",
         label: MIS_ROW_LABELS.TRANSFERRED_IN,
@@ -222,6 +227,11 @@ const SECTIONS: readonly SectionSpec[] = [
         field: "openingSubscriptionCustomers",
       },
       { id: "new-customers", label: MIS_ROW_LABELS.NEW_CUSTOMERS, field: "newCustomers" },
+      {
+        id: "acquired-customers",
+        label: MIS_ROW_LABELS.ACQUIRED_CUSTOMERS,
+        field: "acquiredCustomers",
+      },
       {
         id: "transferred-in-customers",
         label: MIS_ROW_LABELS.TRANSFERRED_IN_CUSTOMERS,

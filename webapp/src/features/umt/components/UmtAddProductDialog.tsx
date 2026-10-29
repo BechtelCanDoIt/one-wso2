@@ -31,8 +31,10 @@ import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import {
   EMPTY_CREATE_PRODUCT_FORM,
+  isValidEmail,
   buildUmtCreateProductRequest,
   isCreateProductFormValid,
+  isValidProductVersion,
   type UmtCreateProductFormValues,
 } from "../lib/umtProducts";
 import { useUmtCreateProduct } from "../api/useUmtProducts";
@@ -53,13 +55,19 @@ export default function UmtAddProductDialog({ open, onClose }: { open: boolean; 
   const isBusy = createProduct.isPending;
   const isFormValid = isCreateProductFormValid(values);
 
-  const field = (key: keyof UmtCreateProductFormValues, label: string) => ({
-    value: values[key],
-    onChange: (event: ChangeEvent<HTMLInputElement>) =>
-      setValues((current) => ({ ...current, [key]: event.target.value })),
-    error: submitted && values[key].trim().length === 0,
-    helperText: submitted && values[key].trim().length === 0 ? `${label} is required` : undefined,
-  });
+  const field = (key: keyof UmtCreateProductFormValues, label: string) => {
+    const text = values[key].trim();
+    const isMissing = submitted && text.length === 0;
+    // An address is checked as it is typed, once there is something to check.
+    const isMalformedEmail = (key === "leadMail" || key === "edMail") && text.length > 0 && !isValidEmail(text);
+    return {
+      value: values[key],
+      onChange: (event: ChangeEvent<HTMLInputElement>) =>
+        setValues((current) => ({ ...current, [key]: event.target.value })),
+      error: isMissing || isMalformedEmail,
+      helperText: isMissing ? `${label} is required` : isMalformedEmail ? "Enter a valid email address." : undefined,
+    };
+  };
 
   const handleClose = () => {
     if (isBusy) return;
@@ -103,7 +111,20 @@ export default function UmtAddProductDialog({ open, onClose }: { open: boolean; 
           {submitError && <Alert severity="error">{submitError}</Alert>}
 
           <TextField label="Product Name (eg: wso2am)" required size="small" {...field("name", "Product name")} />
-          <TextField label="Product Version (eg: 4.0.0)" required size="small" {...field("version", "Product version")} />
+          <TextField
+            label="Product Version (eg: 4.0.0)"
+            required
+            size="small"
+            {...field("version", "Product version")}
+            error={submitted && !isValidProductVersion(values.version)}
+            helperText={
+              submitted && !isValidProductVersion(values.version)
+                ? values.version.trim().length === 0
+                  ? "Product version is required"
+                  : "Use the X.Y.Z format, for example 4.0.0."
+                : undefined
+            }
+          />
           <TextField label="Lead Email" required size="small" {...field("leadMail", "Lead email")} />
           <TextField label="ED Email" required size="small" {...field("edMail", "ED email")} />
           <TextField label="FTP Host" required size="small" {...field("ftpHost", "FTP host")} />

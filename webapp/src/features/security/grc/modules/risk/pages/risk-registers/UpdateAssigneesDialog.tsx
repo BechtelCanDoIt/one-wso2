@@ -33,6 +33,7 @@ import {
 } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
 import { formatBackendTimestampForDisplay } from "@features/security/grc/utils/dateTime";
+import { originalPlanHelp } from "./utils";
 import {
   fetchManagementApprovers,
   fetchRiskAssignerCandidates,
@@ -258,17 +259,6 @@ export default function UpdateAssigneesDialog({
     timeStyle: "short",
   });
 
-  // Action Owner belongs to one plan: the risk's original action plan, created
-  // with the risk. Plans the assigner added later keep their own owners, so
-  // name the plan rather than let this read as "every Action Owner".
-  const originalPlanDescription = detail.action_plan?.description?.trim() ?? "";
-  const originalPlanHelp =
-    "Sets the owner of the risk's original action plan" +
-    (originalPlanDescription
-      ? ` ("${originalPlanDescription.length > 60 ? `${originalPlanDescription.slice(0, 60)}…` : originalPlanDescription}")`
-      : "") +
-    ". Other action plans keep their own owners.";
-
   const assignerOptions = withCurrent(assignerCandidates, detail.assigner_id, detail.assigner_name);
   const ownerOptions = withCurrent(ownerCandidates, detail.owner_id, detail.owner_name);
   const managementApproverOptions = withCurrent(
@@ -339,6 +329,8 @@ export default function UpdateAssigneesDialog({
               value={managementApproverId}
               onChange={(e) => setManagementApproverId(Number(e.target.value))}
             >
+              {/* A LOW/MEDIUM risk may have no approver yet. */}
+              {!detail.management_approver_id && <MenuItem value={0}>None</MenuItem>}
               {managementApproverOptions.map((u) => <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>)}
             </Select>
           </FormControl>
@@ -398,7 +390,7 @@ export default function UpdateAssigneesDialog({
                   actionOwnerError ??
                   (!detail.action_plan
                     ? "This risk has no action plan, so there is no Action Owner to set."
-                    : originalPlanHelp)
+                    : originalPlanHelp(detail.action_plan))
                 }
               />
             )}

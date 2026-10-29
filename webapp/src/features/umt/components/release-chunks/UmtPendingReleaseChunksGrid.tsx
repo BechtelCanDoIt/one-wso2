@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -48,12 +48,13 @@ import {
   useUmtReleaseChunk,
   useUmtRetriggerDockerBuild,
   useUmtSendReleaseChunkEmail,
-  useUmtTriggerCstBuild,
+  useUmtRetriggerCstBuild,
   useUmtTriggerProductBuild,
   useUmtTriggerReleaseChunkBuilds,
   useUmtTriggerTgBuild,
 } from "../../api/useUmtReleaseChunkActions";
 import {
+  useFetchFreshUmtReleaseChunkBuildStatus,
   useUmtReleaseChunkRowStatuses,
   useUmtReleaseChunks,
   type UmtReleaseChunkRowStatus,
@@ -65,6 +66,7 @@ import {
   umtReleaseChunkRowAction,
   umtReleaseReadiness,
   type UmtReleaseChunkRowAction,
+  type UmtReleaseReadiness,
 } from "../../lib/umtReleaseChunks";
 import UmtReleaseChunkBuildInfoDialog from "./UmtReleaseChunkBuildInfoDialog";
 import UmtReleaseChunkConfirmDialog from "./UmtReleaseChunkConfirmDialog";
@@ -126,6 +128,19 @@ const ACTION_COPY: Record<
     confirmLabel: "Proceed and Release",
   },
 };
+
+// True when a release check passed. When it did not, the user is told why: a
+// level that has not built successfully, or a build status that could not be
+// read, which is not consent to release.
+function releaseReadinessAnswered(readiness: UmtReleaseReadiness, showWarning: (message: string) => void): boolean {
+  if (readiness === "ready") return true;
+  showWarning(
+    readiness === "blocked"
+      ? "One or more update levels have not built successfully. Check their build status before releasing."
+      : "Build status for this release chunk is unavailable, so it cannot be released yet. Refresh the table and try again.",
+  );
+  return false;
+}
 
 // One update level's TG build status, which comes from a different request
 // than the update level itself. The two are matched on the product and
@@ -198,54 +213,62 @@ export default function UmtPendingReleaseChunksGrid() {
   const gate = useUmtGate();
   const rows = chunks.data?.chunks ?? [];
   const rowStatuses = useUmtReleaseChunkRowStatuses(rows.map((row) => row.id));
+  const fetchFreshBuildStatus = useFetchFreshUmtReleaseChunkBuildStatus();
   const { showSuccess, showError, showWarning } = useNotifications();
 
   const [actionTarget, setActionTarget] = useState<ActionTarget | null>(null);
   const [buildInfoChunkId, setBuildInfoChunkId] = useState<number | null>(null);
+  const [isCheckingRelease, setIsCheckingRelease] = useState(false);
 
   const targetChunkId = actionTarget?.chunkId ?? 0;
   const emailMutation = useUmtSendReleaseChunkEmail(targetChunkId);
   const triggerBuildsMutation = useUmtTriggerReleaseChunkBuilds(targetChunkId);
-  const cstMutation = useUmtTriggerCstBuild(targetChunkId);
+  const cstMutation = useUmtRetriggerCstBuild(targetChunkId);
   const dockerMutation = useUmtRetriggerDockerBuild(targetChunkId);
   const releaseMutation = useUmtReleaseChunk(targetChunkId);
 
   const confirmBusy =
+    isCheckingRelease ||
     emailMutation.isPending ||
     triggerBuildsMutation.isPending ||
     cstMutation.isPending ||
     dockerMutation.isPending ||
     releaseMutation.isPending;
 
+  const latestActionRequest = useRef(0);
+
   // Stable, so that the column definitions closing over it can be too.
   const requestAction = useCallback((kind: ActionKind, chunkId: number) => {
+    latestActionRequest.current += 1;
     setActionTarget({ kind, chunkId });
   }, []);
 
   // Release is offered only once every update level has built successfully.
-  // The status comes from what the row already fetched, so the case where it
-  // has none is answered rather than waved through — see umtReleaseReadiness.
+  // The build status is fetched fresh on every click rather than read from the
+  // row, since a level may have been rebuilt since the page loaded. A status
+  // that cannot be fetched is answered rather than waved through — see
+  // umtReleaseReadiness.
   const handleReleaseClick = useCallback(
-    (chunkId: number) => {
-      switch (umtReleaseReadiness(rowStatuses[chunkId]?.buildStatus)) {
-        case "ready":
-          requestAction("release", chunkId);
-          return;
-        case "blocked":
-          showWarning(
-            "Cannot release the release chunk with integration test failures, please escalate to the relevant product teams to get them successful.",
-          );
-          return;
-        default:
-          showWarning(
-            "Build status for this release chunk is unavailable, so it cannot be released yet. Reload the page and try again.",
-          );
-      }
+    async (chunkId: number) => {
+      const request = ++latestActionRequest.current;
+      const buildStatus = await fetchFreshBuildStatus(chunkId);
+      if (request !== latestActionRequest.current) return;
+      if (releaseReadinessAnswered(umtReleaseReadiness(buildStatus), showWarning)) requestAction("release", chunkId);
     },
-    // rowStatuses is what decides this, so it has to be a dependency: a stale
-    // capture here would read an old build status as permission to release.
-    [requestAction, rowStatuses, showWarning],
+    [fetchFreshBuildStatus, requestAction, showWarning],
   );
+
+  // The release dialog can stay open a while after the check that opened it,
+  // so confirming it checks again. Resolves to whether the release may go on;
+  // when it may not, the user has been told why.
+  async function releaseStillAllowed(chunkId: number): Promise<boolean> {
+    setIsCheckingRelease(true);
+    try {
+      return releaseReadinessAnswered(umtReleaseReadiness(await fetchFreshBuildStatus(chunkId)), showWarning);
+    } finally {
+      setIsCheckingRelease(false);
+    }
+  }
 
   async function handleConfirm() {
     if (!actionTarget) return;
@@ -279,8 +302,16 @@ export default function UmtPendingReleaseChunksGrid() {
           break;
         }
         case "release":
+          if (!(await releaseStillAllowed(actionTarget.chunkId))) {
+            setActionTarget(null);
+            return;
+          }
+          // The service only accepts the request here; the release itself
+          // runs afterwards and can still fail, which the chunk's row shows.
           await releaseMutation.mutateAsync();
-          showSuccess("Chunks released successfully.");
+          showSuccess(
+            `Release of release chunk ${actionTarget.chunkId} has started. Its row shows the progress and whether it completed.`,
+          );
           break;
       }
       setActionTarget(null);
@@ -616,7 +647,7 @@ function RowActionsCell({
 }: {
   action: UmtReleaseChunkRowAction;
   chunkId: number;
-  onRelease: (chunkId: number) => void;
+  onRelease: (chunkId: number) => Promise<void>;
   onRequestAction: (kind: ActionKind, chunkId: number) => void;
   onShowBuildInfo: (chunkId: number) => void;
 }) {
@@ -625,15 +656,7 @@ function RowActionsCell({
       return (
         <ChunkCell>
           <ChunkLine>
-            <Tooltip title="Release">
-              <IconButton
-                size="small"
-                aria-label="Release"
-                onClick={() => onRelease(chunkId)}
-              >
-                <RocketIcon size={16} />
-              </IconButton>
-            </Tooltip>
+            <ReleaseButton chunkId={chunkId} onRelease={onRelease} />
           </ChunkLine>
           {action.failedReason && (
             <ChunkLine>
@@ -682,7 +705,9 @@ function RowActionsCell({
         <ChunkCell>
           <ChunkLine gap={1}>
             <CircularProgress size={16} />
-            <Typography variant="body2">Releasing chunks…</Typography>
+            <Typography variant="body2">
+              {action.activity === "creating" ? "Creating chunk…" : "Releasing chunks…"}
+            </Typography>
           </ChunkLine>
         </ChunkCell>
       );
@@ -709,15 +734,7 @@ function RowActionsCell({
                 <MailIcon size={16} />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Release">
-              <IconButton
-                size="small"
-                aria-label="Release"
-                onClick={() => onRelease(chunkId)}
-              >
-                <RocketIcon size={16} />
-              </IconButton>
-            </Tooltip>
+            <ReleaseButton chunkId={chunkId} onRelease={onRelease} />
           </ChunkLine>
         </ChunkCell>
       );
@@ -725,6 +742,38 @@ function RowActionsCell({
     default:
       return null;
   }
+}
+
+// Release first fetches the chunk's build status afresh, so the click waits on
+// the network before anything opens. The spinner is held here rather than in
+// the grid, so that a check starting or ending doesn't rebuild the columns.
+function ReleaseButton({
+  chunkId,
+  onRelease,
+}: {
+  chunkId: number;
+  onRelease: (chunkId: number) => Promise<void>;
+}) {
+  const [checking, setChecking] = useState(false);
+  return (
+    <Tooltip title="Release">
+      <IconButton
+        size="small"
+        aria-label="Release"
+        disabled={checking}
+        onClick={async () => {
+          setChecking(true);
+          try {
+            await onRelease(chunkId);
+          } finally {
+            setChecking(false);
+          }
+        }}
+      >
+        {checking ? <CircularProgress size={16} /> : <RocketIcon size={16} />}
+      </IconButton>
+    </Tooltip>
+  );
 }
 
 // Unlocking removes the chunk and demotes its updates back out of it, freeing
@@ -763,41 +812,17 @@ function ProductBuildRetriggerButton({
   chunkId: number;
   level: UmtReleaseChunkUpdateLevel;
 }) {
-  const { showSuccess, showError } = useNotifications();
   const trigger = useUmtTriggerProductBuild(chunkId);
-  // Still a line, even with nothing to offer: the levels below it have to
-  // stay on the same rows as their names and statuses in the columns beside.
-  if (!umtCanRetriggerBuild(level.buildStatus)) {
-    return <ChunkLine />;
-  }
   return (
-    <ChunkLine>
-      <Tooltip title="Retrigger Job">
-        <IconButton
-          size="small"
-          aria-label="Retrigger Job"
-          disabled={trigger.isPending}
-          onClick={async () => {
-            try {
-              await trigger.mutateAsync({
-                productName: level.productName ?? "",
-                productVersion: level.productVersion ?? "",
-                channel: level.channel ?? "full",
-              });
-              showSuccess("Build triggered successfully!");
-            } catch (error) {
-              showError(describeError(error));
-            }
-          }}
-        >
-          {trigger.isPending ? (
-            <CircularProgress size={16} />
-          ) : (
-            <RotateCwIcon size={16} />
-          )}
-        </IconButton>
-      </Tooltip>
-    </ChunkLine>
+    <LevelBuildRetriggerButton
+      label="Retrigger Job"
+      title="Retrigger Build"
+      successMessage="Build triggered successfully!"
+      canRetrigger={umtCanRetriggerBuild(level.buildStatus)}
+      chunkId={chunkId}
+      level={level}
+      trigger={trigger}
+    />
   );
 }
 
@@ -810,30 +835,70 @@ function TgBuildRetriggerButton({
   level: UmtReleaseChunkUpdateLevel;
   status?: string | null;
 }) {
-  const { showSuccess, showError } = useNotifications();
   const trigger = useUmtTriggerTgBuild(chunkId);
-  if (!umtCanRetriggerBuild(status)) {
+  return (
+    <LevelBuildRetriggerButton
+      label="Retrigger TG Job"
+      title="Retrigger TG Build"
+      successMessage="TG build triggered successfully!"
+      canRetrigger={umtCanRetriggerBuild(status)}
+      chunkId={chunkId}
+      level={level}
+      trigger={trigger}
+    />
+  );
+}
+
+// A retrigger for one update level. Like every other build action on this
+// screen it starts a job outside the app, so it asks first.
+function LevelBuildRetriggerButton({
+  label,
+  title,
+  successMessage,
+  canRetrigger,
+  chunkId,
+  level,
+  trigger,
+}: {
+  label: string;
+  title: string;
+  successMessage: string;
+  canRetrigger: boolean;
+  chunkId: number;
+  level: UmtReleaseChunkUpdateLevel;
+  trigger: ReturnType<typeof useUmtTriggerProductBuild>;
+}) {
+  const { showSuccess, showError } = useNotifications();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Still a line, even with nothing to offer: the levels below it have to
+  // stay on the same rows as their names and statuses in the columns beside.
+  if (!canRetrigger) {
     return <ChunkLine />;
   }
+  const levelName = `${level.productName ?? "N/A"} ${level.productVersion ?? ""}`.trim();
+
+  async function handleConfirm() {
+    try {
+      await trigger.mutateAsync({
+        productName: level.productName ?? "",
+        productVersion: level.productVersion ?? "",
+        channel: level.channel ?? "full",
+      });
+      setConfirmOpen(false);
+      showSuccess(successMessage);
+    } catch (error) {
+      showError(describeError(error));
+    }
+  }
+
   return (
     <ChunkLine>
-      <Tooltip title="Retrigger TG Job">
+      <Tooltip title={label}>
         <IconButton
           size="small"
-          aria-label="Retrigger TG Job"
+          aria-label={label}
           disabled={trigger.isPending}
-          onClick={async () => {
-            try {
-              await trigger.mutateAsync({
-                productName: level.productName ?? "",
-                productVersion: level.productVersion ?? "",
-                channel: level.channel ?? "full",
-              });
-              showSuccess("TG build triggered successfully!");
-            } catch (error) {
-              showError(describeError(error));
-            }
-          }}
+          onClick={() => setConfirmOpen(true)}
         >
           {trigger.isPending ? (
             <CircularProgress size={16} />
@@ -842,6 +907,15 @@ function TgBuildRetriggerButton({
           )}
         </IconButton>
       </Tooltip>
+      <UmtReleaseChunkConfirmDialog
+        open={confirmOpen}
+        title={title}
+        message={`Are you sure you want to retrigger the build for ${levelName} in release chunk ID: ${chunkId}?`}
+        confirmLabel="Confirm"
+        busy={trigger.isPending}
+        onCancel={() => setConfirmOpen(false)}
+        onConfirm={() => void handleConfirm()}
+      />
     </ChunkLine>
   );
 }

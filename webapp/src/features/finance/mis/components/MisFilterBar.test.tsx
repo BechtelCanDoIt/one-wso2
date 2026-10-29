@@ -639,12 +639,12 @@ describe("coming back to a Build mid-session", () => {
                 element={
                   <>
                     <Harness />
-                    <Link to={misPaths.analysis}>to ARR Analysis</Link>
+                    <Link to={misPaths.portfolio}>to Portfolio</Link>
                   </>
                 }
               />
               <Route
-                path={misPaths.analysis}
+                path={misPaths.portfolio}
                 element={
                   <>
                     <Link to={misPaths.arrBuild}>back to the Build</Link>
@@ -659,7 +659,7 @@ describe("coming back to a Build mid-session", () => {
     );
 
   const leaveAndReturn = async () => {
-    await userEvent.click(screen.getByRole("link", { name: "to ARR Analysis" }));
+    await userEvent.click(screen.getByRole("link", { name: "to Portfolio" }));
     await userEvent.click(screen.getByRole("link", { name: "back to the Build" }));
   };
 
@@ -680,7 +680,7 @@ describe("coming back to a Build mid-session", () => {
     // Table's own Years Back even mid-session, and only the session keeps the
     // reader's.
     renderMisRoutes("?years=3");
-    await userEvent.click(screen.getByRole("link", { name: "to ARR Analysis" }));
+    await userEvent.click(screen.getByRole("link", { name: "to Portfolio" }));
     await userEvent.click(screen.getByRole("link", { name: "back to Customers" }));
     expect(address()).toBe("?table=customers");
     await expandMore();

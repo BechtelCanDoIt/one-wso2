@@ -111,7 +111,7 @@ export default function ParHistoryTab() {
           History
         </Button>
         <Stack direction="row" alignItems="center" spacing={1.5} sx={{ mb: 1.5 }}>
-          <Typography variant="subtitle2" color="text.secondary">
+          <Typography variant="subtitle2" color="text.secondary" sx={{ fontWeight: 600 }}>
             {opened.cycleName}
           </Typography>
           {opened.kind === "legacy" && (
@@ -171,7 +171,8 @@ export default function ParHistoryTab() {
 
 // Plain scrollable table, no pagination -- reverted per explicit request:
 // a paginated DataGrid felt less human-friendly here than just scrolling
-// the full list, unlike the admin drill-down views where pagination stays.
+// the full list. The admin History list (ParAdminHistoryTab) does the same;
+// pagination stays only inside a cycle's own drill-down grids.
 function HistoryTable({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => void }) {
   // Default (not size="small") row height -- "small" made every row
   // noticeably more cramped for this plain <Table stickyHeader> list.

@@ -73,6 +73,8 @@ import {
   downloadBlob,
   fieldLabel,
   formatDate,
+  riskAcceptorLabel,
+  riskRoles,
   viewBlob,
 } from "./utils";
 import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
@@ -153,19 +155,24 @@ const PENDING_AMENDMENT_VISIBLE_STATUSES = new Set([
   "PENDING_COMPLIANCE_REVIEW",
 ]);
 
+// Change-log rows written before the IN_REMEDIATION → APPROVED rename keep the
+// old value in details.to (history was deliberately not rewritten), so both
+// spellings count.
+const isApprovedTarget = (to: unknown) => to === "APPROVED" || to === "IN_REMEDIATION";
+
 // Finds the field-level changes belonging to the amendment currently under
 // review, purely from the history log — no dedicated backend state exists for
 // this (risk_type stays "UPDATED" forever once any mid-remediation edit ever
 // happens, so it can't tell "current" from "long since approved").
 //
 // history is newest-first. The boundary is the most recent REJECT, or the
-// most recent APPROVE that landed the risk back in IN_REMEDIATION — the one
+// most recent APPROVE that landed the risk back in APPROVED — the one
 // point every approval path (the risk's original submission, or an
 // amendment's) converges on. Everything newer than that boundary with action
 // UPDATE belongs to the amendment now under review; a REJECT resets the
 // window so a superseded edit never bleeds into a later cycle.
 //
-// Gated on the risk having reached IN_REMEDIATION at least once, anywhere in
+// Gated on the risk having reached APPROVED at least once, anywhere in
 // its full history — not just as this scan's break point. Without that
 // guard, a risk still churning through its very first approval (rejected
 // during PENDING_REVISION, edited, resubmitted) would have its scan stop at
@@ -173,14 +180,14 @@ const PENDING_AMENDMENT_VISIBLE_STATUSES = new Set([
 // post-remediation amendment, which this banner is specifically not about.
 function pendingAmendmentChanges(history: HistoryEntry[]): HistoryEntry[] {
   const everReachedRemediation = history.some(
-    (e) => e.action === "APPROVE" && e.details?.to === "IN_REMEDIATION",
+    (e) => e.action === "APPROVE" && isApprovedTarget(e.details?.to),
   );
   if (!everReachedRemediation) return [];
 
   const changes: HistoryEntry[] = [];
   for (const entry of history) {
     if (entry.action === "REJECT") break;
-    if (entry.action === "APPROVE" && entry.details?.to === "IN_REMEDIATION") break;
+    if (entry.action === "APPROVE" && isApprovedTarget(entry.details?.to)) break;
     if (entry.action === "UPDATE" && entry.field_changed) changes.push(entry);
   }
   return changes;
@@ -681,7 +688,7 @@ function ActionPlanCard({
   const isOwner = plan.action_owner_id !== null && plan.action_owner_id === currentUserId;
   // Mirrors the backend gate: steps/plan can only be completed while the
   // risk is actively being remediated, not before compliance approval.
-  const riskActive = riskStatus === "IN_REMEDIATION" || riskStatus === "ESCALATED";
+  const riskActive = riskStatus === "APPROVED" || riskStatus === "ESCALATED";
   // Being the plan's action owner IS the authorisation — no privilege check.
   // RISK_COMPLETE_ACTION_STEPS was retired along with the action-owner role,
   // because an Action Owner may be any employee and hold no role at all; the
@@ -887,12 +894,13 @@ export function ActionFooter({
     case "PENDING_MANAGEMENT_CLOSURE_APPROVAL":
       return rejectAndApprove("Approve Closure", actions.onManagementApprove, RiskPrivilege.ManagementApproveRisk, RiskPrivilege.ManagementRejectRisk, isManagementApprover);
 
-    case "IN_REMEDIATION": {
+    case "APPROVED": {
       const showEdit = can(RiskPrivilege.UpdateRisk) && isRiskAssigner;
-      // Reassessment is deliberately NOT identity-gated — the backend applies
-      // no assigner check to it either, and keeping the two in step matters
-      // more than tightening one side unilaterally.
-      const showAssess = can(RiskPrivilege.AssessRisk);
+      // Only this risk's Risk Owner and Risk Assigner see Assess Risk, in step
+      // with the backend's identity gate on POST /risks/{id}/assess. The
+      // assigner alone may change owner, approver and implementation date in
+      // it; the dialog shows those read-only to the owner.
+      const showAssess = can(RiskPrivilege.AssessRisk) && (isRiskOwner || isRiskAssigner);
       // At least one action plan must be COMPLETED first — not necessarily
       // all of them, since an abandoned STANDARD plan from a prior
       // escalation cycle shouldn't permanently block resubmission.
@@ -997,12 +1005,9 @@ export function ActionFooter({
 
     case "ESCALATED": {
       // An escalation is answered with a comment, which returns the risk to its
-      // assigner. Who may do that is decided server-side from the risk's level
-      // (Management Approver for HIGH, a line manager for MEDIUM/LOW) — and a
-      // lead holds no risk privilege by virtue of managing someone, so there is
-      // nothing meaningful to gate on here. The button is offered to anyone who
-      // can see the risk, and the server refuses if they aren't entitled.
-      if (!hasOpenEscalation) return null;
+      // assigner. Only a compliance admin may do that (the server enforces it
+      // too), so nobody else is offered the button.
+      if (!hasOpenEscalation || !can(RiskPrivilege.ComplianceApproveRisk)) return null;
       return (
         <Box sx={{ pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
           <Button variant="contained" fullWidth disabled={disabled} onClick={actions.onCommentEscalation}>
@@ -1075,12 +1080,11 @@ export default function RiskDetailDrawer({
   // hide actions the server would have allowed.
   // An unresolved escalation is what puts the risk in the Overdue tab and
   // enables the review action — the workflow status doesn't say, because a
-  // commented escalation is back to IN_REMEDIATION while still open.
+  // commented escalation is back to APPROVED while still open.
   const openEscalation = escalations.find((e) => e.status === "OPEN") ?? null;
 
   const canOverrideAssignee = can(RiskPrivilege.ComplianceApproveRisk);
-  const isRiskOwner = canOverrideAssignee || (!!detail && detail.owner_id === currentUserId);
-  const isRiskAssigner = canOverrideAssignee || (!!detail && detail.assigner_id === currentUserId);
+  const { isRiskOwner, isRiskAssigner } = riskRoles(detail, currentUserId, canOverrideAssignee);
   const isManagementApprover =
     canOverrideAssignee || (!!detail && detail.management_approver_id === currentUserId);
 
@@ -1182,6 +1186,14 @@ export default function RiskDetailDrawer({
                         </Typography>
                       );
                     })()
+                  )}
+                  {detail.treatment_strategy && (
+                    <Chip
+                      label={detail.treatment_strategy}
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                    />
                   )}
                 </Stack>
               </>
@@ -1337,6 +1349,7 @@ export default function RiskDetailDrawer({
                 <InfoGrid>
                   <InfoTile label="Assignment Team">{detail.assignment_team_name}</InfoTile>
                   <InfoTile label="Treatment Strategy">{detail.treatment_strategy}</InfoTile>
+                  <InfoTile label="Accepted By">{riskAcceptorLabel(detail.risk_acceptor)}</InfoTile>
                 </InfoGrid>
               </SectionCard>
 

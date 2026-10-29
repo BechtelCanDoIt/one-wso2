@@ -141,6 +141,8 @@ import AssetNameSettingsPage from "@features/marketing-ops/admin/pages/AssetName
 import EmailWorkbenchSettingsPage from "@features/marketing-ops/admin/pages/EmailWorkbenchSettingsPage";
 import BlockCatalogPage from "@features/marketing-ops/email-workbench/pages/BlockCatalogPage";
 import EventsSettingsPage from "@features/marketing-ops/admin/pages/EventsSettingsPage";
+import EventsNotificationsPage from "@features/marketing-ops/admin/pages/EventsNotificationsPage";
+import MarketingAdminRoute from "@features/marketing-ops/components/MarketingAdminRoute";
 import PostBuilderPage from "@features/marketing-ops/design-studio/pages/PostBuilderPage";
 import {
   EventsMinePage,
@@ -177,7 +179,7 @@ const GeneralReportTab = lazy(() => import("@features/leave/pages/LeaveReportsPa
 const SabbaticalReportTab = lazy(
   () => import("@features/leave/components/SabbaticalReportTab"),
 );
-// Sales Library: only routed when the `smartSearch` preview flag is on.
+// Sales Library: loaded when its page is opened.
 const LibraryPage = lazy(() => import("@features/sales/smartSearch/pages/LibraryPage"));
 
 import SabbaticalApplyTab from "@features/leave/pages/LeaveSabbaticalPage";
@@ -196,7 +198,8 @@ import CcNewTransactionsPage from "@features/finance/cc/pages/CcNewTransactionsP
 import CcPendingPage from "@features/finance/cc/pages/CcPendingPage";
 import CcApprovePage from "@features/finance/cc/pages/CcApprovePage";
 import CcHistoryPage from "@features/finance/cc/pages/CcHistoryPage";
-import CcSettingsPage from "@features/finance/cc/pages/CcSettingsPage";
+import CcAdminPage from "@features/finance/cc/pages/CcAdminPage";
+import { ccPaths } from "@features/finance/cc/ccPaths";
 import SubsidiariesPage from "@features/finance/masterdata/pages/SubsidiariesPage";
 import DepartmentsPage from "@features/finance/masterdata/pages/DepartmentsPage";
 import ExpenseTypesPage from "@features/finance/masterdata/pages/ExpenseTypesPage";
@@ -204,8 +207,10 @@ import CreditCardsPage from "@features/finance/masterdata/pages/CreditCardsPage"
 import ExpenseNewClaimPage from "@features/finance/expense/pages/ExpenseNewClaimPage";
 import MisArrBuildPage from "@features/finance/mis/pages/MisArrBuildPage";
 import MisSession from "@features/finance/mis/components/MisSession";
+import { misPaths } from "@constants/misApps";
 import { MIS_PERIODS } from "@features/finance/mis/util/misViewVocabulary";
 import MisArrAnalysisPage from "@features/finance/mis/pages/MisArrAnalysisPage";
+import MisAnalysisRedirect from "@features/finance/mis/pages/MisAnalysisRedirect";
 import ExpenseClaimsTab from "@features/finance/expense/pages/ExpenseHistoryPage";
 import ClaimApprovalPage, {
   ClaimApprovalIndex,
@@ -230,6 +235,7 @@ import TradeReferenceDeactivatedPage from "@features/due-diligence/trade-referen
 import DueDiligencePreferencesPage from "@features/due-diligence/preferences/pages/PreferencesPage";
 import ViewPdfPage from "@features/due-diligence/shared/pages/ViewPdfPage";
 import ViewImagePage from "@features/due-diligence/shared/pages/ViewImagePage";
+import LegacyDueDiligenceRedirect from "@features/due-diligence/components/LegacyDueDiligenceRedirect";
 import UmtCreateReleaseChunkPage from "@features/umt/pages/UmtCreateReleaseChunkPage";
 import UmtHomePage from "@features/umt/pages/UmtHomePage";
 import UmtProductsPage from "@features/umt/pages/UmtProductsPage";
@@ -242,6 +248,8 @@ import InfraHomePage from "@features/infra/pages/InfraHomePage";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
 import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPage";
 import InfraRepositoryAccessPage from "@features/infra/pages/InfraRepositoryAccessPage";
+import InfraGitHubSettingsPage from "@features/infra/pages/InfraGitHubSettingsPage";
+import InfraMyRequestsPage from "@features/infra/pages/InfraMyRequestsPage";
 
 export default function App() {
   return (
@@ -256,23 +264,17 @@ export default function App() {
               with the earlier addresses forwarding. The feature owns the
               tree, as CadO2 and the GRC modules own theirs. */}
           {engineeringRoutes}
-          {/* Engineering → UMT. UmtShell owns its role gate. Behind the same
-              preview flag as its rail group — hiding only the rail entries
-              would leave the routes reachable by URL. Nested under
+          {/* Engineering → UMT. UmtShell owns its role gate. Nested under
               /engineering/ so the Engineering rail renders around them. */}
-          {isPreviewEnabled("umt") && (
-            <>
-              <Route path="engineering/umt" element={<UmtHomePage />} />
-              <Route path="engineering/umt/updates" element={<UmtUpdatesPage />} />
-              <Route path="engineering/umt/updates/:id" element={<UmtUpdateView />} />
-              {/* Admin-only: UmtProductsPage itself enforces this via UmtShell's
-                  requireAdmin, independent of the rail item's own visibility. */}
-              <Route path="engineering/umt/products" element={<UmtProductsPage />} />
-              <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
-              <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
-              <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
-            </>
-          )}
+          <Route path="engineering/umt" element={<UmtHomePage />} />
+          <Route path="engineering/umt/updates" element={<UmtUpdatesPage />} />
+          <Route path="engineering/umt/updates/:id" element={<UmtUpdateView />} />
+          {/* Admin-only: UmtProductsPage itself enforces this via UmtShell's
+              requireAdmin, independent of the rail item's own visibility. */}
+          <Route path="engineering/umt/products" element={<UmtProductsPage />} />
+          <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
+          <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
+          <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
           {isPreviewEnabled("infra") && (
             <>
               <Route path="infra" element={<InfraHomePage />} />
@@ -285,6 +287,8 @@ export default function App() {
                 path="infra/github/repository-access-requests"
                 element={<InfraRepositoryAccessPage />}
               />
+              <Route path="infra/admin/github-settings" element={<InfraGitHubSettingsPage />} />
+              <Route path="infra/github/my-requests" element={<InfraMyRequestsPage />} />
             </>
           )}
           {/* My Team — placeholder for now; the real subordinates view is on
@@ -439,7 +443,9 @@ export default function App() {
           <Route path="finance/cc/pending" element={<CcPendingPage />} />
           <Route path="finance/cc/approve" element={<CcApprovePage />} />
           <Route path="finance/cc/history" element={<CcHistoryPage />} />
-          <Route path="finance/cc/settings" element={<CcSettingsPage />} />
+          <Route path="finance/cc/admin" element={<CcAdminPage />} />
+          {/* Old Settings bookmarks */}
+          <Route path="finance/cc/settings" element={<Navigate to={ccPaths.admin} replace />} />
           <Route path="finance/opd/dashboard" element={<OpdDashboardScreen />} />
           <Route path="finance/expense/dashboard" element={<ExpenseDashboardScreen />} />
           {/* Finance → Master Data: the four reference tables the other
@@ -478,7 +484,7 @@ export default function App() {
               URL you may not use gives a legible locked state rather than a
               redirect that leaves the reader guessing.
 
-              ARR Analysis is the one exception, and it is a different question.
+              Portfolio is the one exception, and it is a different question.
               `productsUsageEnabled` decides whether that screen EXISTS rather
               than who may read it, so with the flag off its route redirects to
               ARR Build — see MisArrAnalysisPage, which holds the redirect
@@ -509,7 +515,8 @@ export default function App() {
               path="finance/mis/mrr-build"
               element={<MisArrBuildPage period={MIS_PERIODS.MONTHLY} />}
             />
-            <Route path="finance/mis/analysis" element={<MisArrAnalysisPage />} />
+            <Route path="finance/mis/portfolio" element={<MisArrAnalysisPage />} />
+            <Route path={misPaths.legacyAnalysis} element={<MisAnalysisRedirect />} />
           </Route>
           <Route path="people-ops" element={<PerspectiveLanding />} />
           {/* People Ops → Org Chart: the company's reporting hierarchy, ported
@@ -925,14 +932,15 @@ export default function App() {
           />
           {/* Marketing Admin — each operation's configuration lands with the
               operation, so this grows one panel per phase. Admin-gated by the
-              rail and by MarketingOpsShell; the backend enforces it too. */}
-          <Route path="marketing-ops/admin/utm" element={<UtmSettingsPage />} />
-          <Route
-            path="marketing-ops/admin/asset-name"
-            element={<AssetNameSettingsPage />}
-          />
-          <Route path="marketing-ops/admin/pardot" element={<EmailWorkbenchSettingsPage />} />
-          <Route path="marketing-ops/admin/events" element={<EventsSettingsPage />} />
+              rail and by MarketingAdminRoute, which decides before a page
+              mounts and fetches; the backend enforces it too. */}
+          <Route path="marketing-ops/admin" element={<MarketingAdminRoute />}>
+            <Route path="utm" element={<UtmSettingsPage />} />
+            <Route path="asset-name" element={<AssetNameSettingsPage />} />
+            <Route path="pardot" element={<EmailWorkbenchSettingsPage />} />
+            <Route path="events" element={<EventsSettingsPage />} />
+            <Route path="events-notifications" element={<EventsNotificationsPage />} />
+          </Route>
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
           {/* Event Platform — event agendas, speakers and swag shops, a different
@@ -979,18 +987,16 @@ export default function App() {
           {/* One deal, as a page rather than a drawer: it can be linked, refreshed and
               returned to with Back. ?letter= opens it filtered to one MEDDPICC Letter. */}
           <Route path="sales/deals/:opportunityId" element={<DealPage />} />
-          {/* Sales → Library, Smart Search over Pitstop's content. Behind the `smartSearch` preview
-              flag, and loaded lazily so nothing of it is downloaded while the flag is off. */}
-          {isPreviewEnabled("smartSearch") && (
-            <Route
-              path="sales/library"
-              element={
-                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
-                  <LibraryPage />
-                </Suspense>
-              }
-            />
-          )}
+          {/* Sales → Library, Smart Search over Pitstop's content. Loaded lazily, so nothing of it is
+              downloaded until the page is opened. */}
+          <Route
+            path="sales/library"
+            element={
+              <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                <LibraryPage />
+              </Suspense>
+            }
+          />
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
               menu app. One page, as the original was. */}
@@ -1091,35 +1097,35 @@ export default function App() {
             {adminRoutes}
           </Route>
           {/* Due Diligence — ported from digiops-finance/apps/due_diligence's
-              admin-app. Routes live OUTSIDE both the Finance and Legal path
-              prefixes (same reason /settings does): a screen reachable from
-              two different rails can't itself live under either one's own
-              prefix. See DUE_DILIGENCE_APPS and SideRail's fromPerspective
-              navigation state for how each rail stays selected once inside. */}
-          <Route path="due-diligence" element={<Navigate to="/due-diligence/partners" replace />} />
-          <Route path="due-diligence/partners" element={<PartnersListPage />} />
-          <Route path="due-diligence/partners/pending/:id" element={<PartnerPendingPage />} />
-          <Route path="due-diligence/partners/:id/:tabName" element={<PartnerDashboardPage />} />
-          <Route path="due-diligence/trade-references" element={<TradeReferencesListPage />} />
+              admin-app. Lives under the Legal prefix, like Legal → NDA, so the
+              URL decides the rail; Finance's rail links here too and opens the
+              Legal rail. Old /due-diligence/* links redirect to the same page
+              under /legal. See DUE_DILIGENCE_BASE_PATH. */}
+          <Route path="legal/due-diligence" element={<Navigate to="/legal/due-diligence/partners" replace />} />
+          <Route path="legal/due-diligence/partners" element={<PartnersListPage />} />
+          <Route path="legal/due-diligence/partners/pending/:id" element={<PartnerPendingPage />} />
+          <Route path="legal/due-diligence/partners/:id/:tabName" element={<PartnerDashboardPage />} />
+          <Route path="legal/due-diligence/trade-references" element={<TradeReferencesListPage />} />
           <Route
-            path="due-diligence/trade-references/pending/:linkId"
+            path="legal/due-diligence/trade-references/pending/:linkId"
             element={<TradeReferencePendingPage />}
           />
           <Route
-            path="due-diligence/trade-references/rejected/:companyId/:linkId"
+            path="legal/due-diligence/trade-references/rejected/:companyId/:linkId"
             element={<TradeReferenceRejectedPage />}
           />
           <Route
-            path="due-diligence/trade-references/deactivated/:linkId"
+            path="legal/due-diligence/trade-references/deactivated/:linkId"
             element={<TradeReferenceDeactivatedPage />}
           />
           <Route
-            path="due-diligence/trade-references/:companyId/:linkId"
+            path="legal/due-diligence/trade-references/:companyId/:linkId"
             element={<TradeReferenceDashboardPage />}
           />
-          <Route path="due-diligence/preferences" element={<DueDiligencePreferencesPage />} />
-          <Route path="due-diligence/view-pdf" element={<ViewPdfPage />} />
-          <Route path="due-diligence/view-image" element={<ViewImagePage />} />
+          <Route path="legal/due-diligence/preferences" element={<DueDiligencePreferencesPage />} />
+          <Route path="legal/due-diligence/view-pdf" element={<ViewPdfPage />} />
+          <Route path="legal/due-diligence/view-image" element={<ViewImagePage />} />
+          <Route path="due-diligence/*" element={<LegacyDueDiligenceRedirect />} />
           {/* Banking's admin/lead screens — Change Requests, Report,
               Employee Operations, and Admin views. Route lives OUTSIDE both
               the People Ops and

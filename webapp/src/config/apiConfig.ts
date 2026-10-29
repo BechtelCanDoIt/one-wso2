@@ -40,6 +40,10 @@ export const peopleServiceUrls = {
     `${peopleBackendUrl}/employees/${encodeURIComponent(employeeId)}`,
   employeePersonalInfo: (employeeId: string) =>
     `${peopleBackendUrl}/employees/${encodeURIComponent(employeeId)}/personal-info`,
+  // How a team member is linked to the caller. Lead-only: 403 for anyone not
+  // in the caller's chain.
+  employeeReportingLine: (employeeId: string) =>
+    `${peopleBackendUrl}/employees/${encodeURIComponent(employeeId)}/reporting-line`,
   // Vehicles endpoints — keyed on the caller's email (backend enforces
   // employeeEmail === userInfo.email in the JWT). encodeURIComponent so
   // the `@` in the email survives the URL.
@@ -409,8 +413,15 @@ export const parServiceUrls = {
   // roster's own completion counts rely on them. The roster/grouping view
   // only needs names/scores, not full submitted answers, for every
   // participant in the cycle; a specific opened record is fetched
-  // separately, in full, via parLegacyHistory below.
+  // separately, in full, via parLegacyHistory below. The cycle name goes in
+  // the query string, not the path: a "/" in it (e.g. "2016 Quarterly Review
+  // - Q3/Q4") becomes %2F in a path, which the production gateway answers
+  // with a 307 redirect instead of passing on.
   legacyParHistoryCyclesParticipants: (cycleName: string, summary = false) =>
+    `${parBackendUrl}/legacy-par-history-cycles/participants?cycleName=${encodeURIComponent(cycleName)}${summary ? "&summary=true" : ""}`,
+  // The older path form of the same request, for a backend that doesn't
+  // have the query-parameter route yet (see useLegacyParHistoryByCycle).
+  legacyParHistoryCyclesParticipantsByPath: (cycleName: string, summary = false) =>
     `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants${summary ? "?summary=true" : ""}`,
 };
 
@@ -529,9 +540,15 @@ export const ccServiceUrls = {
   // Admin view's "Group by: Reporting Manager" — the same backlog rolled up
   // under each report's manager. Finance only, enforced server-side.
   managerCompliance: `${ccBackendUrl}/transactions/manager-compliance-summary`,
+  // POST — emails one reporting manager their team's unsubmitted backlog, copying
+  // the caller. Takes only the manager and the date range: the backend reads the
+  // figures itself at send time, so a reminder never carries what this page last
+  // fetched. Finance only, enforced server-side.
+  managerReminder: `${ccBackendUrl}/transactions/manager-reminder`,
   // Lead view: every lead's approval backlog, and one lead's team within it.
   leadApprovalSummary: `${ccBackendUrl}/transactions/lead-approval-summary`,
   leadTeamCardHolders: `${ccBackendUrl}/transactions/lead-team-card-holder-summary`,
+  leadTeamUnsubmittedSummary: `${ccBackendUrl}/transactions/lead-team-unsubmitted-summary`,
   expenseTypes: `${ccBackendUrl}/configurations/expense-types`,
   subRegions: `${ccBackendUrl}/configurations/sub-regions`,
   productAndBusinessUnits: `${ccBackendUrl}/configurations/product-and-business-units`,
@@ -637,7 +654,7 @@ export function isUmtBackendConfigured(): boolean {
 }
 
 export const umtServiceUrls = {
-  // GET — caller identity and UMT-local roles; this is the UMT access gate.
+  // GET — caller identity and UMT-local roles; this is the perspective gate.
   userInfo: `${umtBackendUrl}/update/user-info`,
   // GET — products, versions, issue types, lifecycles and user emails shared
   // by the update workflows. This endpoint deliberately sits outside /update.
@@ -722,6 +739,9 @@ export const umtServiceUrls = {
   // PUT accepts exactly one product per call.
   updateIntegrationTestStaging: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/integrationTest/staging`,
+  // POST (null body) — starts one product's automated staging test run again.
+  updateIntegrationTestStagingRetrigger: (id: string | number, productName: string, baseVersion: string) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/integrationTest/staging/${encodeURIComponent(productName)}/${encodeURIComponent(baseVersion)}/retrigger`,
   updateHotfixInfo: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/hotfixInfo`,
   // GET — the hotfix's Jenkins integration-test status ({ buildStatus });
@@ -798,9 +818,10 @@ export const umtServiceUrls = {
   // builds").
   releaseChunkTriggerBuilds: (id: string | number) =>
     `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/triggerBuilds`,
-  // POST (null body) — (re)triggers the chunk's CST build.
-  releaseChunkTriggerCstBuild: (id: string | number) =>
-    `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/triggerCSTBuild`,
+  // POST (null body) — retriggers the chunk's CST build. The backend refuses
+  // it while the previous CST build is still pending or in progress.
+  releaseChunkRetriggerCstBuild: (id: string | number) =>
+    `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/retriggerCSTBuild`,
   // POST (null body) — retriggers failed docker builds for the chunk.
   releaseChunkRetriggerDockerBuild: (id: string | number) =>
     `${umtBackendUrl}/update/releaseChunk/${encodeURIComponent(id)}/retriggerDockerBuild`,
@@ -1040,6 +1061,9 @@ export const marketingOpsServiceUrls = {
     `${marketingOpsBackendUrl}/api/events/statuses/${encodeURIComponent(name)}`,
   eventsStatusDuplicate: (source: string) =>
     `${marketingOpsBackendUrl}/api/events/statuses/${encodeURIComponent(source)}/duplicate`,
+  // Submission emails — admin only, reading included.
+  eventsNotifications: `${marketingOpsBackendUrl}/api/events/notifications`,
+  eventsNotificationsTest: `${marketingOpsBackendUrl}/api/events/notifications/test`,
   // ---- events: review (gated by the separate `events-review` capability) ----
   eventsReviewQueue: `${marketingOpsBackendUrl}/api/events/review/queue`,
   eventsReviewSubmission: (id: string) =>
@@ -1436,6 +1460,10 @@ export function isLegalBackendConfigured(): boolean {
 
 export const legalServiceUrls = {
   customerSearch: `${legalBackendUrl}/customer-search`,
+  // GET: what the caller may do, e.g. { canSearchSalesforce: true }.
+  me: `${legalBackendUrl}/me`,
+  // POST records a generated NDA; GET lists them all (Legal team only).
+  ndas: `${legalBackendUrl}/ndas`,
 };
 
 export const csmUrl: string = window.config?.ONE_WSO2_CSM_URL ?? "";
@@ -1466,13 +1494,32 @@ export const infraServiceUrls = {
   employees: `${infraBackendUrl}/employees`,
   // GET /organizations — active GitHub orgs. Drives visibility, plan, issues, and PR protection.
   organizations: `${infraBackendUrl}/organizations`,
+  // GET/PUT/DELETE /organizations/{id} — read, update, or delete one organization.
+  organization: (id: number) => `${infraBackendUrl}/organizations/${id}`,
+  // PATCH /organizations/{name}/sync-plan — refresh the organization plan from GitHub.
+  organizationSyncPlan: (name: string) =>
+    `${infraBackendUrl}/organizations/${encodeURIComponent(name)}/sync-plan`,
+  // PUT/DELETE /leads/{id} — update or delete one functional lead.
+  lead: (id: number) => `${infraBackendUrl}/leads/${id}`,
+  // PUT/DELETE /topics/{id} — update or delete one topic.
+  topic: (id: number) => `${infraBackendUrl}/topics/${id}`,
   // GET /topics — topic catalog for the creation form.
   topics: `${infraBackendUrl}/topics`,
+  // GET /default-teams — teams offered when an admin adds an organization.
+  defaultTeams: `${infraBackendUrl}/default-teams`,
+  // PUT/DELETE /default-teams/{id} — update or delete one default team.
+  defaultTeam: (id: number) => `${infraBackendUrl}/default-teams/${id}`,
   // GET /teams?organization= — internal committer teams for that GitHub org.
   teams: (organization: string) =>
     `${infraBackendUrl}/teams?organization=${encodeURIComponent(organization)}`,
   // GET /repository-requests — repository requests for the caller.
   repositoryRequests: `${infraBackendUrl}/repository-requests`,
+  // GET, PATCH /repository-requests/{id} — one creation request, and the edit of a pending one.
+  repositoryRequest: (id: number) =>
+    `${infraBackendUrl}/repository-requests/${id}`,
+  // GET, POST /repository-requests/{id}/comments — comment thread on a creation request.
+  repositoryRequestComments: (id: number) =>
+    `${infraBackendUrl}/repository-requests/${id}/comments`,
   // POST /github/verify-and-persist-user — verify a GitHub user and persist their information.
   githubVerifyAndPersistUser: `${infraBackendUrl}/github/verify-and-persist-user`,
   // POST /set-default-repository-access — set the default repository access for the caller.
@@ -1979,16 +2026,15 @@ export const cado2ServiceUrls = {
   // Salesforce lookups, read live through the backend.
   accounts: (nameContains: string): string =>
     `${cado2BackendUrl}/accounts?nameContains=${encodeSegment(nameContains)}&limit=20`,
-  // Open opportunities to quote; closed-won ones for a renewal to renew.
   accountOpportunities: (accountId: string, status: "open" | "won" = "open"): string =>
-    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${status}`,
+    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${encodeSegment(status)}`,
   accountContacts: (accountId: string): string =>
     `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/contacts`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (
     currency: string,
-    search: string,
+    nameContains: string,
     page: { pricebookId: string; limit: number; offset: number },
   ): string => {
     const q = new URLSearchParams({
@@ -1997,8 +2043,7 @@ export const cado2ServiceUrls = {
       limit: String(page.limit),
       offset: String(page.offset),
     });
-    // The product name or its product code.
-    if (search) q.set("search", search);
+    if (nameContains) q.set("search", nameContains);
     return `${cado2BackendUrl}/products?${q.toString()}`;
   },
   pricebooks: (currency: string): string => `${cado2BackendUrl}/pricebooks?currency=${encodeSegment(currency)}`,
@@ -2016,18 +2061,24 @@ export const cado2ServiceUrls = {
   },
   quote: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}`,
   quoteRevise: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/revise`,
+  // A new quote on the same opportunity, a copy of this version (D108).
+  quoteClone: (quoteId: number, version: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/clone`,
   quoteClose: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/close`,
   // Makes the quote its opportunity's primary quote, or releases it (D68).
   quotePrimary: (quoteId: number): string => `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/primary`,
-  // The products on an opportunity, priced from its price book: a new quote starts from them (D72).
-  opportunityProducts: (accountId: string, opportunityId: string): string =>
-    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/products?accountId=${encodeURIComponent(accountId)}`,
   // The quotes on an opportunity, with which is primary (D68).
   opportunityQuotes: (opportunityId: string): string =>
     `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/quotes`,
   // What AMs may do with quotes they don't own (D69; Admin).
   adminQuoteAccess: `${cado2BackendUrl}/admin/quote-access`,
   adminSalesforceSync: `${cado2BackendUrl}/admin/salesforce-sync`,
+  // Whether approval emails go out (D103; Admin).
+  adminEmailNotifications: `${cado2BackendUrl}/admin/email-notifications`,
+  // Insights (D106): Deal Desk and above, Admins.
+  insightsApprovalOperations: `${cado2BackendUrl}/insights/approval-operations`,
+  insightsQuotes: `${cado2BackendUrl}/insights/quotes`,
+  insightsQuote: (quoteId: number): string => `${cado2BackendUrl}/insights/quotes/${encodeSegment(quoteId)}`,
   quoteAuditEvents: (quoteId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/audit-events`,
   quoteVersion: (quoteId: number, version: number): string =>
@@ -2046,6 +2097,9 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/documents/preview`,
   quoteDocumentFile: (quoteId: number, documentId: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/documents/${encodeSegment(documentId)}/file`,
+  // Retries attaching the primary quote's order form to its opportunity (D111).
+  quoteDocumentAttach: (quoteId: number, documentId: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/documents/${encodeSegment(documentId)}/attach`,
   approvalPreview: `${cado2BackendUrl}/approvals/preview`,
   storedApprovalPreview: (quoteId: number, version: number): string =>
     `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/versions/${encodeSegment(version)}/approval-preview`,
@@ -2070,6 +2124,29 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/admin/product-categories/search?q=${encodeSegment(q)}`,
   productCategory: (productId: string): string =>
     `${cado2BackendUrl}/admin/product-categories/${encodeSegment(productId)}`,
+  // Legal terms: the texts quotes use; Admin › Legal Texts; Legal's terms on a version.
+  legalConfig: `${cado2BackendUrl}/legal`,
+  adminLegal: `${cado2BackendUrl}/admin/legal`,
+  adminLegalText: (key: string): string => `${cado2BackendUrl}/admin/legal/texts/${encodeSegment(key)}`,
+  adminLegalNotices: `${cado2BackendUrl}/admin/legal/notices`,
+  adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
+  legalTerms: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/legal-terms`,
+  // Supporting documents (DGD-10): the Admin's library of PDFs, and what a
+  // quote adds after its order form.
+  supportingDocuments: `${cado2BackendUrl}/supporting-documents`,
+  quoteSupportingDocuments: (quoteId: number): string =>
+    `${cado2BackendUrl}/quotes/${encodeSegment(quoteId)}/supporting-documents`,
+  adminSupportingDocuments: `${cado2BackendUrl}/admin/supporting-documents`,
+  adminSupportingDocumentsOrder: `${cado2BackendUrl}/admin/supporting-documents/order`,
+  adminSupportingDocument: (id: number, action?: "versions" | "retire" | "restore" | "file"): string =>
+    `${cado2BackendUrl}/admin/supporting-documents/${encodeSegment(id)}${action ? `/${action}` : ""}`,
+  // Product bundles: Admins keep them; an AM's
+  // quote reads a parent's children from its price book.
+  adminBundles: `${cado2BackendUrl}/admin/bundles`,
+  adminBundle: (productId: string): string => `${cado2BackendUrl}/admin/bundles/${encodeSegment(productId)}`,
+  bundleChildren: (productId: string, currency: string, pricebookId: string): string =>
+    `${cado2BackendUrl}/bundles/${encodeSegment(productId)}?currency=${encodeSegment(currency)}&pricebookId=${encodeSegment(pricebookId)}`,
   // Pricing formulas (D81): read by AMs and Admins; changed by Admins.
   pricingFormulas: `${cado2BackendUrl}/pricing-formulas`,
   adminPricingFormula: (productId: string): string =>
@@ -2157,8 +2234,7 @@ export function buildMeetingsUrl(params: {
 // Smart Search — Sales → Library, the plain-language search over Pitstop's content. It is served by
 // the Pitstop backend, which re-checks every result against what the caller may see in Pitstop, so
 // nothing is filtered here. The base URL includes its version segment. Unset means "not connected":
-// the page says so and makes no requests. Gated as a whole by the `smartSearch` preview flag too
-// (previewFeatures.ts).
+// the page says so and makes no requests.
 export const smartSearchBackendUrl: string = stripTrailingSlashes(
   window.config?.ONE_WSO2_SMART_SEARCH_BACKEND_URL ?? "",
 );
@@ -2213,7 +2289,7 @@ export const misArrServiceUrls = {
   // Drives useMisGate.
   userInfo: `${misArrBackendUrl}/user-info`,
   // Every option list the filter bar's menus are made of, in one response —
-  // and the ARR Analysis feature flag. A plain GET, so the URL is the key.
+  // and the Portfolio feature flag. A plain GET, so the URL is the key.
   appConfigs: `${misArrBackendUrl}/app-configs`,
   // A read that takes a filter body, so it is a POST — which makes the React
   // Query key the body rather than the URL. See §6 of the port spec.

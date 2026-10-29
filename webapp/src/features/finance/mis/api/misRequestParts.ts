@@ -89,15 +89,25 @@ const LIST_FILTER_WIRE_NAMES: Readonly<Record<string, string>> = {
  * units win over product units when both are set, which is the source's
  * precedence.
  */
-export function businessUnitsFor(filters: MisAppliedFilters): string[] | null {
-  if (filters.buProductSelection !== CUSTOM_UNIT) {
-    return [BACKEND_UNIT_CODES[filters.buProductSelection] ?? ALL_BUSINESS_UNITS];
+export function businessUnitsFor(selection: UnitSelection): string[] | null {
+  if (selection.buProductSelection !== CUSTOM_UNIT) {
+    return [BACKEND_UNIT_CODES[selection.buProductSelection] ?? ALL_BUSINESS_UNITS];
   }
-  const units = filters.customBusinessUnits?.filter(Boolean) ?? [];
+  const units = selection.customBusinessUnits?.filter(Boolean) ?? [];
   if (units.length) return units;
-  const products = filters.customProductUnits?.filter(Boolean) ?? [];
+  const products = selection.customProductUnits?.filter(Boolean) ?? [];
   return products.length ? products : null;
 }
+
+/** A unit selection: the Build's own fields on the Applied set, or All ARR Metrics' copy of them. */
+type UnitSelection = Pick<MisAppliedFilters, "buProductSelection" | "customBusinessUnits" | "customProductUnits">;
+
+/** The Unit All ARR Metrics is cut by, in the shape `businessUnitsFor` reads. */
+export const metricsUnitSelection = (filters: MisAppliedFilters): UnitSelection => ({
+  buProductSelection: filters.metricsUnit,
+  customBusinessUnits: filters.metricsCustomBusinessUnits,
+  customProductUnits: filters.metricsCustomProductUnits,
+});
 
 /**
  * The filters the reader actually narrowed, under their wire names.

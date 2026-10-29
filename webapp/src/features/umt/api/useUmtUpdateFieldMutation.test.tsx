@@ -29,10 +29,18 @@ const { umtServiceUrls } = await import("@config/apiConfig");
 
 function renderMutation() {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
+  const invalidateQueries = vi.spyOn(client, "invalidateQueries");
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={client}>{children}</QueryClientProvider>
   );
-  return renderHook(() => useUmtUpdateFieldMutation("42"), { wrapper }).result;
+  const { result } = renderHook(() => useUmtUpdateFieldMutation("42"), { wrapper });
+  return { result, invalidateQueries };
+}
+
+function invalidatedKeys(invalidateQueries: ReturnType<typeof vi.spyOn>) {
+  return invalidateQueries.mock.calls.map(
+    (call: unknown[]) => (call[0] as { queryKey?: unknown[] })?.queryKey?.[0],
+  );
 }
 
 beforeEach(() => {
@@ -47,7 +55,7 @@ describe("useUmtUpdateFieldMutation", () => {
   // The backend quotes the reason in the updated-ETA comment it posts on the
   // customer's case and the update's issues.
   it("PUTs a new worst-case estimate with its reason to the dedicated endpoint", async () => {
-    const result = renderMutation();
+    const { result } = renderMutation();
 
     await act(async () => {
       await result.current.mutateAsync({
@@ -64,12 +72,34 @@ describe("useUmtUpdateFieldMutation", () => {
   });
 
   it("PUTs any other field to the update itself", async () => {
-    const result = renderMutation();
+    const { result } = renderMutation();
 
     await act(async () => {
       await result.current.mutateAsync({ field: "assignedTo", value: "dev@wso2.com" });
     });
 
     expect(authedPut).toHaveBeenCalledWith(umtServiceUrls.update("42"), "token", { assignedTo: "dev@wso2.com" });
+  });
+
+  it("invalidates the ETA log after an ETA change", async () => {
+    const { result, invalidateQueries } = renderMutation();
+
+    await act(async () => {
+      await result.current.mutateAsync({ field: "worstCaseEstimate", value: "2026-10-01", reason: "Blocked on a fix" });
+    });
+
+    expect(invalidatedKeys(invalidateQueries)).toEqual(
+      expect.arrayContaining(["umt-update", "umt-updates", "umt-update-worst-case-estimate-log"]),
+    );
+  });
+
+  it("leaves the ETA log alone when another field changes", async () => {
+    const { result, invalidateQueries } = renderMutation();
+
+    await act(async () => {
+      await result.current.mutateAsync({ field: "assignedTo", value: "someone" });
+    });
+
+    expect(invalidatedKeys(invalidateQueries)).not.toContain("umt-update-worst-case-estimate-log");
   });
 });

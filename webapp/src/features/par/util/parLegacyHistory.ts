@@ -77,6 +77,13 @@ export const formatLegacyCycleName = (cycleName: string): string => {
   return LEGACY_CYCLE_DISPLAY_NAMES[normalized] ?? normalized;
 };
 
+// Top 5%/20% was only introduced starting 2021 -- every earlier era
+// (2015-2020) never captured it, so anything showing it there (a "Not
+// Assigned" row, a 0 slot count) would just be clutter. Accepts a raw or
+// already-formatted name (formatLegacyCycleName is idempotent).
+export const legacyCycleHasSpecialRatings = (cycleName: string): boolean =>
+  (Number(formatLegacyCycleName(cycleName).match(/^(\d{4})/)?.[1]) || 0) >= 2021;
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -117,6 +124,25 @@ export function parseLegacyQuestionAnswers(json: string | null): ParLegacyQuesti
   } catch {
     return [];
   }
+}
+
+// "360 Confirmation" is stored with a trailing period in real 2020-2023
+// data and without one in 2024 -- compare the normalized title.
+const THREE_SIXTY_CONFIRMATION_TITLE = "360 Confirmation";
+
+/** Whether this answer is the "360 Confirmation" workflow note rather than real per-question feedback. */
+export function isThreeSixtyConfirmation(qa: ParLegacyQuestionAnswer): boolean {
+  return qa.title?.trim().replace(/\.$/, "") === THREE_SIXTY_CONFIRMATION_TITLE;
+}
+
+/**
+ * "PAR Shared By" is the per-question Manager Answer By -- the lead who
+ * actually reviewed that cycle -- not the record's reviewerName/reviewerEmail
+ * (the employee's CURRENT lead). Returns the first non-blank name, trimmed,
+ * or null when no answerer was recorded.
+ */
+export function getLegacySharedByName(questionAnswers: ParLegacyQuestionAnswer[]): string | null {
+  return questionAnswers.map((qa) => qa.managerAnsweredBy?.trim()).find((name) => name) ?? null;
 }
 
 export function parseLegacyFeedback360(json: string | null): ParLegacyThreeSixtyReview[] {

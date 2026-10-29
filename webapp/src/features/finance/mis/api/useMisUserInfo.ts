@@ -17,7 +17,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet } from "@api/http";
-import { httpRetry } from "@api/errors";
+import { misReadRetry, misReadRetryDelay } from "./misReadRetry";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { isMisArrConfigured, misArrServiceUrls } from "@config/apiConfig";
@@ -63,7 +63,8 @@ export function useMisUserInfo(enabled = true) {
       return authedGet<MisUserInfo>(misArrServiceUrls.userInfo, accessToken);
     },
     staleTime: 5 * 60 * 1000,
-    retry: httpRetry,
+    retry: misReadRetry,
+    retryDelay: misReadRetryDelay,
   });
 
   return foldIdentityError(query, subState, retryIdentity);

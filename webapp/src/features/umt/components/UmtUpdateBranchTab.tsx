@@ -18,6 +18,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import {
   Box,
   Button,
+  Checkbox,
   CircularProgress,
   DataGrid,
   Dialog,
@@ -25,6 +26,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  FormControlLabel,
   Grid,
   Link,
   Paper,
@@ -37,7 +39,7 @@ import { Info } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import type { UmtMeta } from "../api/umtTypes";
+import { UMT_PRODUCT_TYPE, type UmtMeta } from "../api/umtTypes";
 import type {
   UmtBranchCreationRequest,
   UmtUpdateBranch,
@@ -49,6 +51,13 @@ import {
   useUmtComponentMaxUpdateLevel,
   useUmtCreateBranch,
 } from "../api/useUmtBranches";
+import {
+  umtBranchCreationPayload,
+  umtComponentDirPathError,
+  umtMonoRepoFields,
+  umtReleaseTag,
+} from "../lib/umtBranches";
+import { umtIssueLink } from "../lib/umtIssueLink";
 
 const { DataGrid: DataGridComponent } = DataGrid;
 
@@ -61,17 +70,27 @@ interface ProductBranchRow extends BranchGridRow {
   sourceProduct?: UmtUpdateProduct;
 }
 
-interface BranchFormValues {
+interface RepoFormValues {
   publicRepoUrl: string;
   releaseTag: string;
 }
 
-interface UpdateLevelFormValues extends BranchFormValues {
+interface BranchFormValues extends RepoFormValues {
+  isMonoRepo: boolean;
+  componentDirPath: string;
+}
+
+interface UpdateLevelFormValues extends RepoFormValues {
   productName: string;
   productVersion: string;
 }
 
-const EMPTY_BRANCH_FORM: BranchFormValues = { publicRepoUrl: "", releaseTag: "" };
+const EMPTY_BRANCH_FORM: BranchFormValues = {
+  publicRepoUrl: "",
+  releaseTag: "",
+  isMonoRepo: false,
+  componentDirPath: "",
+};
 const EMPTY_UPDATE_LEVEL_FORM: UpdateLevelFormValues = {
   publicRepoUrl: "",
   releaseTag: "",
@@ -130,7 +149,7 @@ export default function UmtUpdateBranchTab({
       (update.products ?? []).map((updateProduct, index) => {
         const productName = updateProduct.product?.name ?? "N/A";
         const rawVersion = updateProduct.product?.version ?? "N/A";
-        const version = rawVersion.endsWith(".full") ? rawVersion.slice(0, -5) : rawVersion;
+        const version = umtReleaseTag(rawVersion);
         const metadata = products[productName]?.find((product) => product.version === rawVersion);
 
         return {
@@ -176,12 +195,12 @@ export default function UmtUpdateBranchTab({
       ),
     ];
   }, [createdProductRows, initialProductRows]);
-  const compatibleInitialProduct = update.products?.find((product) => product.type === "CompatibleInitial");
+  const compatibleInitialProduct = update.products?.find((product) => product.type === UMT_PRODUCT_TYPE.compatibleInitial);
 
   const submitBranch = useCallback(
     async (request: UmtBranchCreationRequest, successMessage: string) => {
       try {
-        await createBranch.mutateAsync(toBranchCreationPayload(request, update));
+        await createBranch.mutateAsync(umtBranchCreationPayload(request, update));
         showSuccess(successMessage);
         return true;
       } catch (error) {
@@ -192,18 +211,22 @@ export default function UmtUpdateBranchTab({
     [createBranch, update, showSuccess, showError],
   );
 
+  const componentDirPathError = umtComponentDirPathError(branchForm.isMonoRepo, branchForm.componentDirPath);
+
   const handleCreateComponentBranch = async () => {
     if (readOnly) return;
     setBranchFormSubmitted(true);
-    if (branchFormError(branchForm)) return;
+    if (repoFormError(branchForm) || componentDirPathError) return;
 
     const created = await submitBranch(
       {
-        ...branchForm,
+        publicRepoUrl: branchForm.publicRepoUrl,
+        releaseTag: branchForm.releaseTag,
         branchType: "ComponentBranch",
         channel: "full",
         productName: compatibleInitialProduct?.product?.name ?? "",
         productVersion: compatibleInitialProduct?.product?.version ?? "",
+        ...umtMonoRepoFields(branchForm.isMonoRepo, branchForm.componentDirPath),
       },
       `${update.isHotfix ? "Hotfix" : "Update"} branch requested successfully`,
     );
@@ -233,7 +256,7 @@ export default function UmtUpdateBranchTab({
 
   const handleFindUpdateLevel = async () => {
     setUpdateLevelSubmitted(true);
-    if (branchFormError(updateLevelForm)) return;
+    if (updateLevelFormError(updateLevelForm)) return;
     try {
       const response = await findUpdateLevel.mutateAsync(updateLevelForm);
       setIdentifiedVersion(displayValue(response?.version));
@@ -274,6 +297,7 @@ export default function UmtUpdateBranchTab({
           label="Public Repository URL"
           onChange={(event) => setBranchForm((current) => ({ ...current, publicRepoUrl: event.target.value }))}
           placeholder="Enter Public Repository URL"
+          required
           size="small"
           value={branchForm.publicRepoUrl}
         />
@@ -284,9 +308,36 @@ export default function UmtUpdateBranchTab({
           label="Release Version"
           onChange={(event) => setBranchForm((current) => ({ ...current, releaseTag: event.target.value }))}
           placeholder="Enter Release Version"
+          required
           size="small"
           value={branchForm.releaseTag}
         />
+        <FormControlLabel
+          control={
+            <Checkbox
+              checked={branchForm.isMonoRepo}
+              onChange={(event) => setBranchForm((current) => ({ ...current, isMonoRepo: event.target.checked }))}
+            />
+          }
+          label="Mono repo"
+        />
+        {branchForm.isMonoRepo && (
+          <TextField
+            error={branchFormSubmitted && Boolean(componentDirPathError)}
+            fullWidth
+            helperText={
+              branchFormSubmitted && componentDirPathError
+                ? componentDirPathError
+                : "Directory of the component in the repository, e.g. components/identity"
+            }
+            label="Component Directory Path"
+            onChange={(event) => setBranchForm((current) => ({ ...current, componentDirPath: event.target.value }))}
+            placeholder="Enter Component Directory Path"
+            required
+            size="small"
+            value={branchForm.componentDirPath}
+          />
+        )}
         <Stack direction="row" spacing={2} sx={{ justifyContent: "flex-end" }}>
           <Button variant="outlined" onClick={() => setUpdateLevelOpen(true)}>Find Update Level</Button>
           <Button
@@ -489,12 +540,15 @@ function branchColumn(
   getValue: (row: BranchGridRow) => string | null | undefined = (row) => row[field as keyof BranchGridRow] as string | null | undefined,
   link = false,
 ): DataGrid.GridColDef {
+  // `width` is the column's minimum; any extra room is shared out in
+  // proportion to it, so the grid fills its container rather than leaving
+  // empty space after the last column.
   return {
     field,
     headerName,
+    flex: width,
     minWidth: width,
     sortable: false,
-    width,
     renderCell: (params) => (
       <CenteredCell>{link ? <ExternalValue value={getValue(params.row)} /> : displayValue(getValue(params.row))}</CenteredCell>
     ),
@@ -512,11 +566,11 @@ function ExternalValue({ value }: { value: string | null | undefined }) {
 }
 
 function InternalIssueLink({ value }: { value: string | null | undefined }) {
-  if (!value?.includes("internal/")) return "N/A";
-  const parts = value.split("/");
+  const issue = umtIssueLink(value);
+  if (!issue) return displayValue(value);
   return (
-    <Link href={value} target="_blank" rel="noopener noreferrer" underline="hover">
-      {parts[4] && parts.at(-1) ? `${parts[4]}#${parts.at(-1)}` : value}
+    <Link href={issue.href} target="_blank" rel="noopener noreferrer" underline="hover">
+      {issue.label}
     </Link>
   );
 }
@@ -557,7 +611,7 @@ function UpdateLevelDialog({
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
             {fields.map(({ key, label, placeholder }) => {
-              const requiredError = submitted && (key === "releaseTag" || key === "publicRepoUrl") && !form[key].trim();
+              const requiredError = submitted && !form[key].trim();
               const repoError = key === "publicRepoUrl" && submitted
                 ? publicRepoError(form.publicRepoUrl)
                 : undefined;
@@ -585,29 +639,6 @@ function UpdateLevelDialog({
   );
 }
 
-// The non-hotfix endpoint binds `BranchCreationRequest`, which declares exactly
-// these five fields; `productVersion`/`jiraId`/`wso2CaseId` only exist on
-// `HotfixBranchCreationRequest`. This is a projection onto the backend
-// contract, not a trim of "extra" fields — sending productVersion to the
-// non-hotfix branch endpoint is a no-op the backend discards.
-function toBranchCreationPayload(request: UmtBranchCreationRequest, update: UmtUpdateSummary): UmtBranchCreationRequest {
-  if (!update.isHotfix) {
-    return {
-      branchType: request.branchType,
-      channel: request.channel,
-      productName: request.productName,
-      publicRepoUrl: request.publicRepoUrl,
-      releaseTag: request.releaseTag,
-    };
-  }
-  return {
-    ...request,
-    jiraId: update.jiraId ?? "",
-    wso2CaseId: update.wso2CaseId ?? "",
-    productVersion: request.productVersion ?? "",
-  };
-}
-
 function branchProductKey(name: string | null | undefined, version: string | null | undefined): string {
   return JSON.stringify([name ?? "", version ?? ""]);
 }
@@ -616,8 +647,13 @@ function branchRowId(branch: UmtUpdateBranch, index: number): string {
   return `${branch.branchType ?? "branch"}-${branch.productName ?? "product"}-${branch.branchUrl ?? index}-${index}`;
 }
 
-function branchFormError(values: BranchFormValues): boolean {
+function repoFormError(values: RepoFormValues): boolean {
   return Boolean(publicRepoError(values.publicRepoUrl) || !values.releaseTag.trim());
+}
+
+// Finding an update level needs the product as well as the repository.
+function updateLevelFormError(values: UpdateLevelFormValues): boolean {
+  return repoFormError(values) || !values.productName.trim() || !values.productVersion.trim();
 }
 
 function publicRepoError(value: string): string | undefined {

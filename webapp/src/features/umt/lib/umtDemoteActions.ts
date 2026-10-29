@@ -14,11 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { UmtEditStepId } from "./umtEditSteps";
+import type { UmtLifecycleState } from "../api/umtTypes";
+import { isFilesAnalysisPrAnalyzed, type UmtEditStepId } from "./umtEditSteps";
 
 export interface UmtDemoteAction {
   label: string;
-  targetLifecycleState: string;
+  targetLifecycleState: UmtLifecycleState;
   color?: "error";
 }
 
@@ -28,24 +29,17 @@ export interface UmtDemoteAction {
 // separate branching for them.
 export function computeUmtDemoteActions(
   stepId: UmtEditStepId,
-  lifecycleState: string | null | undefined,
-  isHotfix: boolean,
+  lifecycleState: UmtLifecycleState | null | undefined,
   isAdmin: boolean,
 ): UmtDemoteAction[] {
   switch (stepId) {
     case "files-analysis":
-      return lifecycleState === "PRAnalyzed"
+      return isFilesAnalysisPrAnalyzed(lifecycleState)
         ? [{ label: "Demote to Development", targetLifecycleState: "Development" }]
         : [];
     case "description-instruction":
-      // Both of this step's demote buttons are gated on !isHotfix; there is
-      // no separate rule for the hotfix branch.
-      return isHotfix
-        ? []
-        : [
-            { label: "Demote to PRAnalyzed", targetLifecycleState: "PRAnalyzed" },
-            { label: "Demote to Development", targetLifecycleState: "Development" },
-          ];
+      // A hotfix is offered the same demotion as any other update.
+      return [{ label: "Demote to PRAnalyzed", targetLifecycleState: "PRAnalyzed" }];
     case "file-approval":
       // Gated on isAdmin specifically (UMT_ADMIN role), narrower than the
       // Admin-or-Product-Lead gate on this step's own Proceed/approve action.
@@ -53,6 +47,9 @@ export function computeUmtDemoteActions(
       return isAdmin ? [{ label: "Demote to Staging", targetLifecycleState: "Staging" }] : [];
     case "testing":
     case "validate":
+      // While staging or a test environment is being requested the update is
+      // on its way and there is nothing to demote yet.
+      if (lifecycleState === "StagingRequested" || lifecycleState === "TestingEnvironmentRequested") return [];
       // From Staging, the demotion is requested through DemoteStagingRequested,
       // which tears staging down before the update lands in Development; it
       // can't go straight to Development.
@@ -63,8 +60,10 @@ export function computeUmtDemoteActions(
         },
       ];
     case "verifying":
+      // Moving an update out of UATStaging is an administrator's move, so no
+      // one else is offered the button.
       if (lifecycleState === "UATStaging") {
-        return [{ label: "Demote to Testing", targetLifecycleState: "Staging" }];
+        return isAdmin ? [{ label: "Demote to Testing", targetLifecycleState: "Staging" }] : [];
       }
       if (lifecycleState === "OnHold") {
         return [{ label: "Reopen", targetLifecycleState: "Development", color: "error" }];

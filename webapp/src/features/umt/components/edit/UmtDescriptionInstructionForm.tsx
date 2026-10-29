@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Autocomplete,
   Box,
@@ -87,11 +87,12 @@ function toRow(product: ProductWithId): DescriptionInstructionRow {
 export default function UmtDescriptionInstructionForm({
   id,
   update,
-  heading = "Description and Instruction",
+  onDirtyChange,
 }: {
   id: string;
   update: UmtUpdateSummary;
-  heading?: string;
+  // Reports unsaved changes, so the wizard can hold Next until they're saved.
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { showSuccess, showError } = useNotifications();
   const saveMutation = useUmtSaveDescriptionInstruction(id);
@@ -225,12 +226,28 @@ export default function UmtDescriptionInstructionForm({
     setIsBehaviorChangeApproved(backendBehaviorChangeApproved);
   }
 
+  // Every product has to be covered by a row: a save carries exactly the rows
+  // shown, so a product left out would have nothing saved for it.
   const isSaveDisabled =
     rows.length === 0 ||
+    missingProducts.length > 0 ||
     !isGeneralDescriptionChecked ||
     !isImplementationDetailsChecked ||
     !isImpactChecked ||
     (isBehaviorChanged === "Yes" && !isBehaviorChangeApproved);
+
+  // What would be lost by leaving the step: rows added or removed, a hotfix's
+  // description or instruction that differs from the saved one, or a
+  // behaviour-change answer that differs from the saved one.
+  const isHotfixDirty =
+    Boolean(update.isHotfix) &&
+    (hotfixDescription !== (firstProduct?.description ?? "") || hotfixInstruction !== (firstProduct?.instruction ?? ""));
+  const isBehaviorDirty = !update.isHotfix && (isBehaviorChanged === "Yes") !== backendBehaviorChanged;
+  const isDirty = isRowsDirty || isHotfixDirty || isBehaviorDirty;
+  useEffect(() => {
+    onDirtyChange?.(isDirty);
+  }, [isDirty, onDirtyChange]);
+  useEffect(() => () => onDirtyChange?.(false), [onDirtyChange]);
 
   async function handleSave() {
     const productsPayload: UmtProductDetailsRequest[] = rows.map((row) => ({
@@ -277,7 +294,6 @@ export default function UmtDescriptionInstructionForm({
   if (update.isHotfix) {
     return (
       <Stack spacing={3}>
-        <Typography variant="h5">{heading}</Typography>
         <TextField
           label="Hotfix Description"
           value={hotfixDescription}
@@ -365,8 +381,6 @@ export default function UmtDescriptionInstructionForm({
 
   return (
     <Stack spacing={3}>
-      <Typography variant="h5">{heading}</Typography>
-
       <Box>
         <DataGridComponent
           autoHeight
@@ -403,6 +417,11 @@ export default function UmtDescriptionInstructionForm({
         {missingProducts.length === 0 && products.length > 0 && (
           <Typography variant="body2" color="text.secondary">
             All products already have a description and instruction.
+          </Typography>
+        )}
+        {missingProducts.length > 0 && (
+          <Typography variant="body2" color="text.secondary">
+            Every product needs a description and instruction before saving.
           </Typography>
         )}
       </Stack>

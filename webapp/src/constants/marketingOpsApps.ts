@@ -360,6 +360,13 @@ export const MARKETING_OPS_APPS: readonly MenuApp[] = [
         requires: ["admin"],
         path: "/marketing-ops/admin/events",
       },
+      {
+        id: "mops-admin-events-notifications",
+        label: "Events Notifications",
+        desc: "Who is emailed when an attendee list is submitted for review, and whether anyone is.",
+        requires: ["admin"],
+        path: "/marketing-ops/admin/events-notifications",
+      },
     ],
   },
 ];

@@ -24,7 +24,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
+import { umtPaths } from "../lib/umtPaths";
 
 const state = vi.hoisted(() => ({
   uat: undefined as unknown,
@@ -104,6 +105,14 @@ describe("UmtCreateReleaseChunkPage", () => {
     await userEvent.click(rowCheckbox);
   }
 
+  it("puts Create Release Chunk at the bottom right, below the grid", () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    renderPage();
+
+    expect(createButton().parentElement).toHaveStyle({ display: "flex", justifyContent: "flex-end" });
+    expect(screen.getByRole("grid").compareDocumentPosition(createButton())).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it("refuses to create while the UAT list it validates against is missing", async () => {
     state.uat = undefined;
     renderPage();
@@ -139,4 +148,65 @@ describe("UmtCreateReleaseChunkPage", () => {
     expect(state.create).not.toHaveBeenCalled();
   });
 
+  it("restores the selection kept in its history entry", () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    render(
+      <MemoryRouter initialEntries={[{ pathname: umtPaths.newReleaseChunk, state: { selectedIds: [11] } }]}>
+        <UmtCreateReleaseChunkPage />
+      </MemoryRouter>,
+    );
+
+    const [, rowCheckbox] = screen.getAllByRole("checkbox");
+    expect(rowCheckbox).toBeChecked();
+    expect(createButton()).toBeEnabled();
+  });
+
+  // A restored id with no row behind it was never checked against UAT and is
+  // not shown ticked, so it must not reach the request.
+  it("submits only the restored updates that are on screen", async () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    render(
+      <MemoryRouter initialEntries={[{ pathname: umtPaths.newReleaseChunk, state: { selectedIds: [11, 42] } }]}>
+        <UmtCreateReleaseChunkPage />
+      </MemoryRouter>,
+    );
+
+    await userEvent.click(createButton());
+
+    expect(state.create).toHaveBeenCalledWith([11]);
+  });
+
+  it("refuses to create when none of the restored updates are on screen", () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    render(
+      <MemoryRouter initialEntries={[{ pathname: umtPaths.newReleaseChunk, state: { selectedIds: [42] } }]}>
+        <UmtCreateReleaseChunkPage />
+      </MemoryRouter>,
+    );
+
+    expect(createButton()).toBeDisabled();
+  });
+
+  it("links to an update with a way back that keeps the selection", async () => {
+    state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    function LocationState() {
+      return <pre data-testid="location-state">{JSON.stringify(useLocation().state)}</pre>;
+    }
+    render(
+      <MemoryRouter initialEntries={[umtPaths.newReleaseChunk]}>
+        <Routes>
+          <Route path={umtPaths.newReleaseChunk} element={<UmtCreateReleaseChunkPage />} />
+          <Route path={umtPaths.update(":id")} element={<LocationState />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await selectTheUpdate();
+    await userEvent.click(screen.getByRole("link", { name: "View update 11" }));
+
+    expect(JSON.parse(screen.getByTestId("location-state").textContent ?? "null")).toEqual({
+      backTo: umtPaths.newReleaseChunk,
+      backState: { selectedIds: [11] },
+    });
+  });
 });

@@ -20,9 +20,10 @@ import { HttpError } from "@api/http";
 import FieldGrid, { type FieldDef } from "../../components/FieldGrid";
 import SectionHeader from "../../../people-ops/components/SectionHeader";
 import { display, formatDate, fullName, serviceLength } from "../../api/derive";
-import { useTeamMember } from "../api/useTeamSearch";
+import { useTeamMember, useTeamMemberReportingLine } from "../api/useTeamSearch";
 import { employeeStatusMeta } from "../util/employeeStatus";
 import EmployeeAvatar from "../components/EmployeeAvatar";
+import ReportingLineNote from "../components/ReportingLineNote";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 
 // One team member's record, read-only.
@@ -47,6 +48,9 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 export default function TeamMemberPage() {
   const { employeeId } = useParams<{ employeeId: string }>();
   const member = useTeamMember(employeeId);
+  // Fetched alongside the record, never instead of it: a failure here leaves
+  // the note out and nothing else.
+  const reportingLine = useTeamMemberReportingLine(employeeId);
 
   const back = (
     <Button
@@ -148,6 +152,7 @@ export default function TeamMemberPage() {
           <Typography variant="body2" color="text.secondary">
             {display(e.designation)} · {display(e.workEmail)}
           </Typography>
+          <ReportingLineNote line={reportingLine.data} />
         </Box>
       </Box>
 

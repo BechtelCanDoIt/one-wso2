@@ -26,7 +26,7 @@
  * something to slip into a migration.
  */
 
-import React, { useRef, useState } from "react";
+import { useNotifications } from "@context/notifications/NotificationsContext";
 import {
   Autocomplete,
   Box,
@@ -35,6 +35,9 @@ import {
   Collapse,
   FormControl,
   IconButton,
+  ListSubheader,
+  MenuItem,
+  Select,
   Table,
   TableBody,
   TableCell,
@@ -45,13 +48,14 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { ChevronDownIcon, CirclePlusIcon, ExternalLinkIcon, FileIcon, InfoIcon } from "@wso2/oxygen-ui-icons-react";
-import { useNotifications } from "@context/notifications/NotificationsContext";
+import React, { useMemo, useRef, useState } from "react";
 import { describeError } from "../util/financeError";
 import { formatNice, money } from "../util/financeFormat";
-import { CC_SNACK } from "./ccCopy";
 import { CC_ATTACHMENT_ACCEPT, CC_ATTACHMENT_MAX_BYTES, maxSizeLabel } from "../util/financeReceipts";
-import type { CcFundingSource, CcJobNumberDetails, CcTransaction } from "./ccTypes";
+import { CC_SNACK } from "./ccCopy";
 import { formatJobDate, normalizeJobNumber } from "./ccJobNumber";
+import { groupProductUnits } from "./ccPendingSubmissions";
+import type { CcFundingSource, CcJobNumberDetails, CcTransaction } from "./ccTypes";
 
 export function FieldLabel({ children, id }: { children: React.ReactNode; id?: string }) {
   return (
@@ -112,6 +116,65 @@ export function Field({
 
 export function Placeholder() {
   return <span style={{ opacity: 0.6 }}>Select…</span>;
+}
+
+/**
+ * A select of product units, listed under headings for their business units. The value is the
+ * unit's index in `productUnits`, not its name, because product unit names repeat across business
+ * units.
+ *
+ * @param labelId - the id of the label naming the select, which {@link Field} passes in
+ */
+export function ProductUnitSelect({
+  value,
+  onChange,
+  productUnits,
+  businessUnits,
+  disabled,
+  labelId,
+}: {
+  value: number | null;
+  onChange: (index: number | null) => void;
+  productUnits: string[];
+  businessUnits: string[];
+  disabled?: boolean;
+  labelId?: string;
+}) {
+  const groups = useMemo(() => groupProductUnits(productUnits, businessUnits), [productUnits, businessUnits]);
+  return (
+    <Select<number | "">
+      labelId={labelId}
+      value={value ?? ""}
+      disabled={disabled}
+      onChange={(e) => onChange(e.target.value === "" ? null : Number(e.target.value))}
+      displayEmpty
+      renderValue={(v) => (v === "" ? <Placeholder /> : productUnits[Number(v)] ?? String(v))}
+    >
+      {groups.flatMap(([businessUnit, units]) => [
+        <ListSubheader
+          key={`h-${businessUnit}`}
+          // A group with few items lets the next sticky header overtake it mid-scroll, overlapping
+          // its text with the item still scrolling out underneath.
+          disableSticky
+          sx={{
+            // A theme token, so the tint follows the colour scheme.
+            bgcolor: "action.hover",
+            // Full contrast and normal weight, rather than ListSubheader's dim, bold default.
+            color: "text.primary",
+            fontWeight: 400,
+          }}
+        >
+          {businessUnit}
+        </ListSubheader>,
+        ...units.map((unit) => (
+          // Indented, so each option reads as belonging to the business unit above it.
+          <MenuItem key={unit.index} value={unit.index} sx={{ pl: 4 }}>
+            {unit.label}
+          </MenuItem>
+        )),
+      ])}
+    </Select>
+  );
 }
 
 /** Just the info icon button. */

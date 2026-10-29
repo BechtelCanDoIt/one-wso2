@@ -110,7 +110,7 @@ describe("before the call answers", () => {
   // The first render of EVERY mount, not only a cold load: useAsgardeoSub keeps
   // its own state and starts at "loading", so the query is keyed on no sub and
   // switched off, which leaves it pending and idle. That is not an answer.
-  // Reported as settled, it read as the backend saying ARR Analysis is off, and
+  // Reported as settled, it read as the backend saying Portfolio is off, and
   // the route redirected on every visit (found live on stage, 2026-09-25).
   it("is still loading while the session's sub is being read", () => {
     identity.value = { status: "loading" };
@@ -122,12 +122,32 @@ describe("before the call answers", () => {
   });
 });
 
+describe("a transient failure", () => {
+  it("recovers after two 503s without the reader doing anything", async () => {
+    authedGet
+      .mockRejectedValueOnce(new HttpError("https://mis.example", 503, ""))
+      .mockRejectedValueOnce(new HttpError("https://mis.example", 503, ""));
+    const { result } = renderConfigs();
+    await waitFor(() => expect(result.current.isLoading).toBe(false), { timeout: 5000 });
+    expect(result.current.isError).toBe(false);
+    expect(result.current.options.salesRegions).toEqual(["APAC", "EMEA"]);
+    expect(authedGet).toHaveBeenCalledTimes(3);
+  });
+
+  it("is not retried when the backend refuses with a 403", async () => {
+    answer.value = new HttpError("https://mis.example", 403, "");
+    const { result } = renderConfigs();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(authedGet).toHaveBeenCalledTimes(1);
+  });
+});
+
 describe("when the call fails", () => {
   // The menus are the only casualty: every OTHER control on the bar — Type,
   // View, Years Back, YTD, Channel, Scale — has its options written down in
   // this app, so a bar whose lists came back empty is still a usable bar.
   it("says so, offers a retry, and still leaves the bar usable", async () => {
-    // A 4xx, which `httpRetry` refuses to retry — so the failure is the
+    // A 4xx, which `misReadRetry` refuses to retry — so the failure is the
     // hook's answer rather than a race with a backoff.
     answer.value = new HttpError("https://mis.example", 403, "");
     const { result } = renderConfigs();
@@ -158,9 +178,9 @@ describe("a 200 that is not the shape it should be", () => {
   });
 });
 
-// ---- the ARR Analysis feature flag ----------------------------------------
+// ---- the Portfolio feature flag ----------------------------------------
 //
-// `productsUsageEnabled` decides whether ARR Analysis exists at all — the rail
+// `productsUsageEnabled` decides whether Portfolio exists at all — the rail
 // entry, and whether its route redirects. It rides in on this response rather
 // than getting a call of its own, so it is read here.
 //
@@ -170,7 +190,7 @@ describe("a 200 that is not the shape it should be", () => {
 // therefore false in all three, and callers separate them by `isLoading` and
 // `isError` — which is what lets the route hold rather than redirect on a cold
 // load, and say so rather than redirect on a failure.
-describe("the ARR Analysis flag", () => {
+describe("the Portfolio flag", () => {
   it("is on when the backend says so", async () => {
     answer.value = { productsUsageEnabled: true };
     const { result } = renderConfigs();

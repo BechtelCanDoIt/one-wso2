@@ -193,6 +193,8 @@ export interface HistoryEntry {
   created_by: string;
   /** created_by resolved to an email by the backend; falls back to created_by when unresolved. */
   created_by_email?: string;
+  /** created_by resolved to a display name; used when there is no email. */
+  created_by_name?: string;
   created_at: string;
 }
 
@@ -207,6 +209,31 @@ export interface HistoryDetails {
   previousLevel?: string;
   overdueDays?: number;
   plan?: string;
+}
+
+// AuditTrailEntry is a history entry plus the risk it belongs to, as listed on
+// Risk Hub > Audit Trail.
+export interface AuditTrailEntry extends HistoryEntry {
+  risk_code: string;
+  risk_title: string;
+}
+
+export interface AuditTrailPage {
+  items: AuditTrailEntry[];
+  total: number;
+  offset: number;
+  limit: number;
+}
+
+export interface AuditTrailParams {
+  from?: string;
+  to?: string;
+  /** Actions to include (UPDATE, APPROVE, ...); empty means any. */
+  actions?: string[];
+  /** Substring of the risk code or title. */
+  search?: string;
+  limit: number;
+  offset: number;
 }
 
 export interface RiskAssessmentRecord {
@@ -241,6 +268,8 @@ export interface RiskDetail {
   owner_id: number;
   impact_description: string | null;
   treatment_strategy: string | null;
+  // CUSTOMER | WSO2; null until recorded (risks that predate the field).
+  risk_acceptor?: string | null;
   source_register_id: number;
   assignment_team_id: number;
   progress: string | null;
@@ -315,6 +344,7 @@ export interface ListRisksParams {
   risk_type?: string[];
   treatment_strategy?: string[];
   owner_id?: number[];
+  category_id?: number[];
   // Register-template filters: a risk whose template lacks the field never
   // matches.
   customer_id?: number[];
@@ -327,7 +357,7 @@ export interface ListRisksParams {
   due_overdue?: boolean;
   // Risks carrying an unresolved escalation — what the Overdue Risks tab
   // filters on. Not the ESCALATED status: once management comments, the risk
-  // returns to IN_REMEDIATION while the escalation stays open, so it shows in
+  // returns to APPROVED while the escalation stays open, so it shows in
   // Approved Risks and Overdue at the same time.
   open_escalation?: boolean;
   offset?: number;
@@ -362,6 +392,8 @@ export interface UpdateRiskPayload {
   gross_score_id?: number;
   implementation_date?: string;
   treatment_strategy?: string;
+  // Omit to leave unchanged; it cannot be cleared.
+  risk_acceptor?: string;
   assignment_team_id?: number;
   action_plan_description?: string;
   action_owner_id?: number;
@@ -379,6 +411,14 @@ export interface CreateAssessmentPayload {
   impact: number;
   progress: string;
   reassessment_date: string;
+  // Optional corrections to the risk, Risk Assigner only (the backend answers
+  // 403 otherwise). Saved with the assessment and never sent for re-approval.
+  // Send only what changed.
+  owner_id?: number;
+  management_approver_id?: number;
+  implementation_date?: string;
+  assigner_id?: number;
+  action_owner_id?: number;
 }
 
 // ── Dashboard types (mirror model/dashboard.go) ────────────────────────────────
@@ -471,6 +511,30 @@ export interface CommonOpenCategory extends CategoryCounts {
   register_ids: number[];
 }
 
+// One Risk Category's open managed-services risks, split by effective residual
+// level. customers counts distinct customers; total = high + medium + low.
+export interface ManagedServicesTheme {
+  category_id: number;
+  category_name: string;
+  customers: number;
+  total: number;
+  high: number;
+  medium: number;
+  low: number;
+}
+
+// Risks raised in MANAGED_SERVICES registers. open_risks / closed_risks count
+// distinct risks; themes count open risks only, so a risk in several
+// categories appears under each and the themes can sum past open_risks.
+export interface ManagedServicesRisks {
+  customer_count: number;
+  open_risks: number;
+  closed_risks: number;
+  high_open: number;
+  high_closed: number;
+  themes: ManagedServicesTheme[];
+}
+
 export interface HighRiskItem {
   id: number;
   risk_code: string;
@@ -493,6 +557,8 @@ export interface DashboardSummary {
   // Optional: absent when served by a backend older than these fields.
   repeated_categories?: RepeatedCategory[];
   common_open_categories?: CommonOpenCategory[];
+  // Optional: absent when served by a backend older than this field.
+  managed_services?: ManagedServicesRisks;
   high_risks: HighRiskItem[];
 }
 
@@ -782,6 +848,7 @@ export function buildCreateRiskPayload(data: AddRiskFormValues): Record<string, 
     action_plan_description: data.actionPlanDescription,
     action_steps: data.actionSteps.map((s) => ({ description: s.description })),
     treatment_strategy: data.treatmentStrategy,
+    risk_acceptor: data.riskAcceptor || undefined,
     progress: data.progress || undefined,
     git_issue_url: data.gitIssueUrl || undefined,
     email_subject: data.emailSubject,
@@ -865,10 +932,10 @@ export async function deleteRiskEvidence(authFetch: AuthFetch, riskId: number, f
   return handleResponse<void>(res);
 }
 
-export async function fetchRisks(
-  authFetch: AuthFetch,
-  params: ListRisksParams = {},
-): Promise<RiskListPage> {
+// The filter half of ListRisksParams as a query string — everything but paging.
+// Shared by the list and the CSV export so the export can never drift from
+// what the table is showing.
+function riskFilterQuery(params: ListRisksParams): URLSearchParams {
   const q = new URLSearchParams();
   if (params.statuses?.length) q.set("statuses", params.statuses.join(","));
   if (params.team_id?.length) q.set("team_id", params.team_id.join(","));
@@ -877,6 +944,7 @@ export async function fetchRisks(
   if (params.risk_type?.length) q.set("risk_type", params.risk_type.join(","));
   if (params.treatment_strategy?.length) q.set("treatment_strategy", params.treatment_strategy.join(","));
   if (params.owner_id?.length) q.set("owner_id", params.owner_id.join(","));
+  if (params.category_id?.length) q.set("category_id", params.category_id.join(","));
   if (params.customer_id?.length) q.set("customer_id", params.customer_id.join(","));
   if (params.environment?.length) q.set("environment", params.environment.join(","));
   if (params.platform_id?.length) q.set("platform_id", params.platform_id.join(","));
@@ -886,10 +954,37 @@ export async function fetchRisks(
   if (params.due_to) q.set("due_to", params.due_to);
   if (params.due_overdue) q.set("due_overdue", "true");
   if (params.open_escalation) q.set("open_escalation", "true");
+  return q;
+}
+
+export async function fetchRisks(
+  authFetch: AuthFetch,
+  params: ListRisksParams = {},
+): Promise<RiskListPage> {
+  const q = riskFilterQuery(params);
   if (params.offset !== undefined) q.set("offset", String(params.offset));
   if (params.limit !== undefined) q.set("limit", String(params.limit));
   const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks?${q}`);
   return handleResponse<RiskListPage>(res);
+}
+
+// Downloads every risk matching the filters as CSV — all pages, not just the
+// one on screen. offset/limit are deliberately not sent: the server walks the
+// whole result itself.
+export async function exportRisks(
+  authFetch: AuthFetch,
+  params: ListRisksParams = {},
+): Promise<{ blob: Blob; fileName: string }> {
+  const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks/export?${riskFilterQuery(params)}`);
+  if (!res.ok) {
+    // Errors come back as JSON, same as every other endpoint.
+    return handleResponse<never>(res);
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const fileName =
+    /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition)?.[1] ??
+    `risk-report-${new Date().toISOString().slice(0, 10)}.csv`;
+  return { blob: await res.blob(), fileName };
 }
 
 export async function fetchRiskDetail(
@@ -1048,14 +1143,24 @@ export async function fetchRiskHistory(authFetch: AuthFetch, riskId: number): Pr
   return handleResponse<HistoryEntry[]>(res);
 }
 
+// fetchAuditTrail pages through history across every risk the caller can see,
+// newest first. The backend applies the same visibility as the register list.
+export async function fetchAuditTrail(authFetch: AuthFetch, params: AuditTrailParams): Promise<AuditTrailPage> {
+  const qs = new URLSearchParams({ limit: String(params.limit), offset: String(params.offset) });
+  if (params.from) qs.set("from", params.from);
+  if (params.to) qs.set("to", params.to);
+  if (params.actions?.length) qs.set("action", params.actions.join(","));
+  if (params.search?.trim()) qs.set("search", params.search.trim());
+  const res = await authFetch(`${BACKEND_BASE_URL}/api/v1/risks/audit-trail?${qs.toString()}`);
+  return handleResponse<AuditTrailPage>(res);
+}
+
 // commentOnEscalation answers an escalation. The comment alone returns the risk
-// to its assigner (ESCALATED → IN_REMEDIATION); the escalation stays open, so
+// to its assigner (ESCALATED → APPROVED); the escalation stays open, so
 // the risk remains in the Overdue tab until the assigner submits it for
 // completion approval.
 //
-// Who may call this is decided server-side by risk level: the risk's Management
-// Approver for a HIGH risk, or the assigner's/action owner's line manager for
-// MEDIUM and LOW. A compliance admin may always do it.
+// Only a compliance admin may call this; the server returns 403 otherwise.
 export async function commentOnEscalation(
   authFetch: AuthFetch,
   riskId: number,
@@ -1097,7 +1202,7 @@ export async function completeActionStep(
 
 // completeActionPlan requires every step already COMPLETED (enforced
 // server-side); for a MANAGEMENT plan this also resolves its escalation and
-// reverts the risk to IN_REMEDIATION.
+// reverts the risk to APPROVED.
 export async function completeActionPlan(
   authFetch: AuthFetch,
   riskId: number,
@@ -1115,7 +1220,7 @@ export async function fetchEscalations(authFetch: AuthFetch, riskId: number): Pr
 }
 
 // escalateRisk is the manual trigger — Compliance/Admin escalating an
-// overdue IN_REMEDIATION risk on demand instead of waiting for the daily job
+// overdue APPROVED risk on demand instead of waiting for the daily job
 // (up to 24h) to reach it. Same outcome either way: the risk moves to
 // ESCALATED and shows up in the Overdue Risks tab.
 export async function escalateRisk(authFetch: AuthFetch, riskId: number): Promise<Escalation> {

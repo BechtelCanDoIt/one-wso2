@@ -22,6 +22,7 @@ import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import JSZip from "jszip";
+import type { UmtFileOperation } from "../api/umtUpdates";
 import type { UmtPendingManualUpload } from "../lib/umtPrAnalysis";
 
 vi.mock("@context/notifications/NotificationsContext", () => ({
@@ -32,14 +33,14 @@ const { default: UmtAddManualFilesSection } = await import(
   "../components/edit/pr-analysis/UmtAddManualFilesSection"
 );
 
-function renderSection() {
+function renderSection(files: UmtFileOperation[] = []) {
   const onFilesChange = vi.fn();
   const onBundlesInfoChanged = vi.fn();
   render(
     <UmtAddManualFilesSection
       updateId="42"
       disabled={false}
-      files={[]}
+      files={files}
       onFilesChange={onFilesChange}
       bundlesInfoChanges={[]}
       onBundlesInfoChanged={onBundlesInfoChanged}
@@ -88,6 +89,83 @@ describe("single manual file", () => {
     expect(pendingUploadsOf(onFilesChange)).toEqual([
       expect.objectContaining({ file, row: expect.objectContaining({ file: "repository/components/dropins/foo.jar" }) }),
     ]);
+  });
+});
+
+// Removing a file takes no file: the path says which one goes, so the form
+// asks for no source and nothing is uploaded.
+describe("a removed manual file", () => {
+  async function chooseOperation(operation: "Added" | "Modified" | "Removed") {
+    await userEvent.click(screen.getByRole("combobox", { name: "Operation" }));
+    await userEvent.click(screen.getByRole("option", { name: operation }));
+  }
+
+  it("is listed under its path with no file to upload", async () => {
+    const { onFilesChange } = renderSection();
+    await fillPathAndOperation("repository/components/dropins/old.jar", "Removed");
+
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => expect(onFilesChange).toHaveBeenCalled());
+    expect(onFilesChange.mock.calls[0][0]).toEqual([
+      expect.objectContaining({ file: "repository/components/dropins/old.jar", operation: "Removed" }),
+    ]);
+    expect(pendingUploadsOf(onFilesChange)).toEqual([]);
+  });
+
+  it("does not ask where its file comes from", async () => {
+    renderSection();
+    await fillPathAndOperation("repository/components/dropins/old.jar", "Removed");
+
+    expect(screen.queryByRole("radio", { name: "Upload File" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Choose File")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "SVN Location" })).not.toBeInTheDocument();
+  });
+
+  it("asks for the file again when the operation goes back to Added", async () => {
+    const { onFilesChange } = renderSection();
+    await fillPathAndOperation("repository/components/dropins/old.jar", "Removed");
+    await chooseOperation("Added");
+
+    expect(screen.getByRole("radio", { name: "Upload File" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(await screen.findByText("Choose a file to upload.")).toBeInTheDocument();
+    expect(onFilesChange).not.toHaveBeenCalled();
+  });
+
+  it("leaves out a file picked before the operation became Removed", async () => {
+    const { onFilesChange } = renderSection();
+    await fillPathAndOperation("repository/components/dropins/old.jar", "Added");
+    pickFile(new File(["jar"], "old.jar"));
+    await chooseOperation("Removed");
+
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    await waitFor(() => expect(onFilesChange).toHaveBeenCalled());
+    expect(pendingUploadsOf(onFilesChange)).toEqual([]);
+  });
+
+  it("is refused when its path is already listed", async () => {
+    const { onFilesChange } = renderSection([
+      { file: "repository/components/dropins/old.jar", operation: "Removed", sourceFilePath: "" },
+    ]);
+    await fillPathAndOperation("repository/components/dropins/old.jar", "Removed");
+
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(await screen.findByText(/has already been added/)).toBeInTheDocument();
+    expect(onFilesChange).not.toHaveBeenCalled();
+  });
+
+  it("still needs bundle info for a plugin JAR", async () => {
+    const { onFilesChange } = renderSection();
+    await fillPathAndOperation("repository/components/plugins/foo_1.0.0.jar", "Removed");
+
+    await userEvent.click(screen.getByRole("button", { name: "Add" }));
+
+    expect(await screen.findByText(/bundles?\.info/)).toBeInTheDocument();
+    expect(onFilesChange).not.toHaveBeenCalled();
   });
 });
 

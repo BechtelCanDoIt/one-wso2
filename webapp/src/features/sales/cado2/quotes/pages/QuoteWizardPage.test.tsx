@@ -38,12 +38,19 @@ const deleteDraft = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: 
 vi.mock("@features/sales/cado2/approvals/components/LazyApprovalDiagram", async () => ({
   default: (await import("@features/sales/cado2/approvals/components/ApprovalReasons")).default,
 }));
+// No supporting documents in the library (DGD-10); tested on their own.
+vi.mock("@features/sales/cado2/quotes/api/useSupportingDocuments", async (actual) => ({
+  ...(await actual<typeof import("@features/sales/cado2/quotes/api/useSupportingDocuments")>()),
+  useSupportingDocumentLibrary: () => ({ data: [], isPending: false, error: null }),
+  useQuoteSupportingDocuments: () => ({ data: undefined, isPending: false, error: null }),
+  useSetQuoteSupportingDocuments: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null }),
+  useHasSupportingDocuments: () => false,
+}));
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
   return {
     MIN_ACCOUNT_SEARCH: 3,
     useAccountSearch: () => idle(),
     useOpportunityQuotes: () => idle(),
-    useOpportunityProducts: () => ({ ...idle(), data: undefined }),
     useAccountOpportunities: () => idle(),
     useAccountContacts: () => idle(),
     useProducts: () => idle(),
@@ -57,6 +64,14 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     }),
     useCurrencies: () => ({ ...idle(), data: ["USD", "GBP"] }),
     useActiveLegalEntities: () => ({ ...idle(), data: [{ id: 1, code: "WSO2_LLC", name: "WSO2, LLC.", country: "USA" }] }),
+    // The legal texts: the partner role names its agreement.
+    useLegalConfig: () => ({
+      ...idle(),
+      data: {
+        texts: { TERMS_ONPREM_DIRECT: "Direct terms.", TERMS_ONPREM_PARTNER: "Partner terms.", TERMS_SAAS_DIRECT: "SaaS.", TERMS_SAAS_PARTNER: "SaaS (partner)." },
+        notices: [],
+      },
+    }),
     useQuoteSettings: () => ({ ...idle(), data: { validityDays: 30 } }),
     usePricingPreview: () => pricing,
     useQuoteVersion: () => version,
@@ -138,7 +153,7 @@ describe("QuoteWizardPage — drafts", () => {
     expect(steps.getByRole("button", { name: "Products & Pricing" })).toBeDisabled();
     expect(steps.getByRole("button", { name: "Review" })).toBeDisabled();
     expect(screen.getByRole("heading", { level: 2, name: "Overview" })).toBeInTheDocument();
-    expect(screen.getByText("Step 1 of 4")).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 5")).toBeInTheDocument();
     expect(screen.queryByText(/to fix/)).toBeNull(); // the steps enforce what is required; no issue list
   });
 
@@ -279,7 +294,7 @@ describe("QuoteWizardPage — review and submit", () => {
     expect(field).toHaveAttribute("readonly");
     expect(screen.queryByRole("listbox", { name: "Price books" })).toBeNull(); // nothing to choose
     expect(screen.queryByText("Different price book")).toBeNull();
-    expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
+    expect(screen.getAllByRole("button", { name: "Add product to Year 1" })[0]).toBeEnabled();
   });
 
   // 2026-10-09: one price book (the opportunity's), named; not "the USD price books".
@@ -289,7 +304,7 @@ describe("QuoteWizardPage — review and submit", () => {
     renderWizard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
     expect(
-      screen.getByText("Add products from the USD Price Book (Current) price book. Prices come from this price book."),
+      screen.getByText("No products yet. Add them from USD Price Book (Current)."),
     ).toBeInTheDocument();
     expect(screen.queryByText(/price books/)).toBeNull();
   });
@@ -299,7 +314,7 @@ describe("QuoteWizardPage — review and submit", () => {
     renderWizard();
     await userEvent.setup().click(screen.getByRole("button", { name: "Products & Pricing" }));
     expect(screen.getByRole("textbox", { name: "Price book" })).toHaveValue("—");
-    expect(screen.getByRole("button", { name: "Add product" })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Add product to Year 1" })[0]).toBeDisabled();
   });
 
   it("reviews the stored numbers in one view, as an order form with the deal figures", async () => {
@@ -320,8 +335,8 @@ describe("QuoteWizardPage — review and submit", () => {
 
     const products = screen.getByRole("table", { name: "Products" });
     expect(within(products).getByText("WSO2 Gateway")).toBeInTheDocument();
-    // The line and the subscription subtotal; the total order value is in the box under the table (D97).
-    expect(within(products).getAllByText("6,480.00")).toHaveLength(2);
+    // The line, the subscription subtotal and the Year 1 total; the total order value closes the card (D97).
+    expect(within(products).getAllByText("6,480.00")).toHaveLength(3);
     expect(screen.getByRole("region", { name: "Order totals" })).toHaveTextContent("6,480.00");
     expect(within(products).getByText("10%")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Deal Figures" })).toBeInTheDocument();
@@ -513,6 +528,23 @@ describe("QuoteWizardPage — lifecycle", () => {
     renderWizard();
 
     expect(screen.getByText(/Copied from version 1/)).toBeInTheDocument();
+  });
+
+  // D108: a fresh clone opens at Overview, saying where it came from.
+  it("opens a clone at Overview, saying where it came from", () => {
+    Object.assign(version, { data: ready });
+    render(
+      <Cado2ToastProvider>
+        <MemoryRouter initialEntries={[{ pathname: "/sales/cado2/quotes/5/versions/1/edit", state: { clonedFrom: "Q-26-00003 v2" } }]}>
+          <Routes>
+            <Route path="sales/cado2/quotes/:quoteId/versions/:version/edit" element={<QuoteWizardPage />} />
+          </Routes>
+        </MemoryRouter>
+      </Cado2ToastProvider>,
+    );
+
+    expect(screen.getByText(/Cloned from Q-26-00003 v2, with its prices/)).toBeInTheDocument();
+    expect(screen.getByText("Step 1 of 5")).toBeInTheDocument();
   });
 
   it("returns to the quote page from Back to quote", async () => {

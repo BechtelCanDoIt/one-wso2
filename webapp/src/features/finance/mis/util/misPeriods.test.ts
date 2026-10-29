@@ -18,6 +18,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { inZone } from "@/test/timeZone";
 import {
   ENDING_MONTH_TODAY,
+  FORECAST_STATES,
   MIS_PERIODS,
   MIS_WINDOWS,
   type MisAppliedFilters,
@@ -34,6 +35,7 @@ import {
   getTtmPeriods,
   pacificColumnRanges,
   buildColumnRanges,
+  summaryColumnRanges,
 } from "./misPeriods";
 
 // The Annually column ranges, in Pacific Time. Spec §3 and §10.8.
@@ -635,5 +637,237 @@ describe("the Cumulative flag, which only Quarterly and Monthly have", () => {
     } as unknown as MisAppliedFilters).slice(-3);
     // All three of the current year now open on the same day — 1 January.
     expect(new Set(cumulative.map((r) => r.start)).size).toBe(1);
+  });
+});
+
+// Under a Forecasted or Renewal type the Subscription Build draws the current
+// year and the two years after it. Each range opens on the previous 31 December
+// and closes at the Ending Month.
+describe("the Subscription Build's columns under a forecast type", () => {
+  const forecasting = (extra: Record<string, unknown> = {}) =>
+    ({
+      yearsBack: 5,
+      isYtd: true,
+      endingMonth: ENDING_MONTH_TODAY,
+      forecast: FORECAST_STATES.ENABLE,
+      ...extra,
+    }) as unknown as MisAppliedFilters;
+
+  const buildRanges = (filters: MisAppliedFilters, window: MisWindow = MIS_WINDOWS.CALENDAR) =>
+    buildColumnRanges(MIS_PERIODS.ANNUALLY, window, filters, ASOF);
+
+  it("draws the current year and the two after it, each opening on the previous 31 December", () => {
+    expect(buildRanges(forecasting())).toEqual([
+      { opening: "2025/12/31", start: "2026/01/01", end: "2026/09/12" },
+      { opening: "2026/12/31", start: "2027/01/01", end: "2027/09/12" },
+      { opening: "2027/12/31", start: "2028/01/01", end: "2028/09/12" },
+    ]);
+  });
+
+  it("headers each column with its opening balance date and its end", () => {
+    expect(buildRanges(forecasting()).map(buildColumnLabel)).toEqual([
+      "2025/12/31 - 2026/09/12",
+      "2026/12/31 - 2027/09/12",
+      "2027/12/31 - 2028/09/12",
+    ]);
+  });
+
+  it("closes every column at the Ending Month, whether or not YTD is on", () => {
+    const ends = (isYtd: boolean) =>
+      buildRanges(forecasting({ isYtd, endingMonth: "March" })).map((range) => range.end);
+    expect(ends(true)).toEqual(["2026/03/31", "2027/03/31", "2028/03/31"]);
+    expect(ends(false)).toEqual(["2026/03/31", "2027/03/31", "2028/03/31"]);
+  });
+
+  it("keeps calendar ranges under every type that is not a forecast", () => {
+    const calendar = forecasting({
+      forecast: FORECAST_STATES.DISABLE,
+      columnDateRanges: getAnnualPeriods({ isYtd: true, yearsBack: 5, asOf: ASOF }),
+    });
+    expect(buildRanges(calendar)).toHaveLength(5);
+    expect(buildRanges(calendar).at(-1)?.end).toBe("2026/09/12");
+  });
+
+  it("leaves a TTM Window to its own trailing ranges", () => {
+    const ttm = forecasting({ columnDateRanges: getTtmPeriods({ yearsBack: 5, asOf: ASOF }) });
+    expect(buildRanges(ttm, MIS_WINDOWS.TTM)).toEqual(ttm.columnDateRanges);
+  });
+
+});
+
+// A Forecasted or Renewal QRR lays out eight quarters from the one still open.
+// Every column, including the open one, closes on the quarter's last day, so
+// the quarter-end forecast loads and the header names the quarter.
+describe("quarterly columns under a forecast type", () => {
+  const forecasting = (extra: Record<string, unknown> = {}) =>
+    ({
+      yearsBack: 1,
+      forecast: FORECAST_STATES.ENABLE,
+      columnDateRanges: getQuarterlyPeriods({ yearsBack: 1, asOf: ASOF }),
+      ...extra,
+    }) as unknown as MisAppliedFilters;
+
+  // 12 September 2026 is inside Q3, so the open quarter closes 30 September
+  // and the seven after it run out to Q2 2028.
+  const forecastQuarters = [
+    { opening: "2026/06/30", start: "2026/07/01", end: "2026/09/30", periodKey: "2026 Q3" },
+    { opening: "2026/09/30", start: "2026/10/01", end: "2026/12/31", periodKey: "2026 Q4" },
+    { opening: "2026/12/31", start: "2027/01/01", end: "2027/03/31", periodKey: "2027 Q1" },
+    { opening: "2027/03/31", start: "2027/04/01", end: "2027/06/30", periodKey: "2027 Q2" },
+    { opening: "2027/06/30", start: "2027/07/01", end: "2027/09/30", periodKey: "2027 Q3" },
+    { opening: "2027/09/30", start: "2027/10/01", end: "2027/12/31", periodKey: "2027 Q4" },
+    { opening: "2027/12/31", start: "2028/01/01", end: "2028/03/31", periodKey: "2028 Q1" },
+    { opening: "2028/03/31", start: "2028/04/01", end: "2028/06/30", periodKey: "2028 Q2" },
+  ];
+
+  it("closes the open quarter on its last day and runs seven quarters past it", () => {
+    expect(
+      buildColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, forecasting(), ASOF),
+    ).toEqual(forecastQuarters);
+  });
+
+  it("names that quarter, so the header is not today's date", () => {
+    const [open] = buildColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, forecasting(), ASOF);
+    expect(buildColumnLabel(open)).toBe("2026 Q3");
+    expect(asOfColumnLabel(open)).toBe("As of 2026 Q3");
+  });
+
+  it("gives the summaries and Customers the same quarter-end columns", () => {
+    const filters = forecasting();
+    expect(summaryColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toEqual(
+      forecastQuarters,
+    );
+    expect(customerColumnRanges(MIS_PERIODS.QUARTERLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toEqual(
+      forecastQuarters,
+    );
+  });
+
+  it("still accumulates from 1 January when Cumulative is on", () => {
+    const columns = buildColumnRanges(
+      MIS_PERIODS.QUARTERLY,
+      MIS_WINDOWS.CALENDAR,
+      forecasting({ cumulativeQuarterly: true }),
+      ASOF,
+    );
+    expect(columns[0]).toMatchObject({ opening: "2025/12/31", end: "2026/09/30" });
+    expect(columns[2]).toMatchObject({ opening: "2026/12/31", end: "2027/03/31" });
+  });
+});
+
+// A Forecasted or Renewal MRR uses the same layout one period down: 24 months
+// from the one still open, each closing on the month's last day.
+describe("monthly columns under a forecast type", () => {
+  const forecasting = (extra: Record<string, unknown> = {}) =>
+    ({
+      yearsBack: 1,
+      forecast: FORECAST_STATES.ENABLE,
+      columnDateRanges: getMonthlyPeriods({ yearsBack: 1, asOf: ASOF }),
+      ...extra,
+    }) as unknown as MisAppliedFilters;
+
+  const columnsOf = (extra: Record<string, unknown> = {}) =>
+    buildColumnRanges(MIS_PERIODS.MONTHLY, MIS_WINDOWS.CALENDAR, forecasting(extra), ASOF);
+
+  it("closes the open month on its last day and runs twenty-three months past it", () => {
+    const columns = columnsOf();
+    expect(columns).toHaveLength(24);
+    expect(columns[0]).toEqual({
+      opening: "2026/08/31",
+      start: "2026/09/01",
+      end: "2026/09/30",
+      periodKey: "2026 September",
+    });
+    expect(columns[17]).toEqual({
+      opening: "2028/01/31",
+      start: "2028/02/01",
+      end: "2028/02/29",
+      periodKey: "2028 February",
+    });
+    expect(columns[23]).toEqual({
+      opening: "2028/07/31",
+      start: "2028/08/01",
+      end: "2028/08/31",
+      periodKey: "2028 August",
+    });
+  });
+
+  it("names that month, so the header is not today's date", () => {
+    const [open] = columnsOf();
+    expect(buildColumnLabel(open)).toBe("2026 September");
+    expect(asOfColumnLabel(open)).toBe("As of 2026 September");
+  });
+
+  it("gives the summaries and Customers the same month-end columns", () => {
+    const filters = forecasting();
+    const open = {
+      opening: "2026/08/31",
+      start: "2026/09/01",
+      end: "2026/09/30",
+      periodKey: "2026 September",
+    };
+    expect(summaryColumnRanges(MIS_PERIODS.MONTHLY, MIS_WINDOWS.CALENDAR, filters, ASOF)[0]).toEqual(open);
+    expect(customerColumnRanges(MIS_PERIODS.MONTHLY, MIS_WINDOWS.CALENDAR, filters, ASOF)[0]).toEqual(open);
+    expect(summaryColumnRanges(MIS_PERIODS.MONTHLY, MIS_WINDOWS.CALENDAR, filters, ASOF)).toHaveLength(24);
+  });
+
+  it("still accumulates from 1 January when Cumulative is on", () => {
+    const columns = columnsOf({ cumulativeMonthly: true });
+    expect(columns[0]).toMatchObject({ opening: "2025/12/31", end: "2026/09/30" });
+    // January 2027 is the fifth column: Sep, Oct, Nov, Dec, Jan.
+    expect(columns[4]).toMatchObject({ opening: "2026/12/31", end: "2027/01/31" });
+  });
+});
+
+// Region Summary, BU Summary and Customers share the forecast columns. They
+// show the current year and the next two years as full-year ranges, so one
+// rule serves all three.
+describe("the summaries' and Customers' columns under a forecast type", () => {
+  const forecasting = (extra: Record<string, unknown> = {}) =>
+    ({
+      yearsBack: 5,
+      isYtd: false,
+      endingMonth: ENDING_MONTH_TODAY,
+      forecast: FORECAST_STATES.ENABLE,
+      ...extra,
+    }) as unknown as MisAppliedFilters;
+
+  const ranges = {
+    summaries: (filters: MisAppliedFilters) =>
+      summaryColumnRanges(MIS_PERIODS.ANNUALLY, MIS_WINDOWS.CALENDAR, filters, ASOF),
+    customers: (filters: MisAppliedFilters) =>
+      customerColumnRanges(MIS_PERIODS.ANNUALLY, MIS_WINDOWS.CALENDAR, filters, ASOF),
+  };
+
+  it.each(Object.entries(ranges))("%s: current year, then the next two in full", (_table, rangesOf) => {
+    expect(rangesOf(forecasting())).toEqual([
+      { start: "2026/01/01", end: "2026/09/12" },
+      { start: "2027/01/01", end: "2027/12/31" },
+      { start: "2028/01/01", end: "2028/12/31" },
+    ]);
+  });
+
+  it.each(Object.entries(ranges))("%s: YTD cuts every year at the as-of month and day", (_table, rangesOf) => {
+    expect(rangesOf(forecasting({ isYtd: true })).map((range) => range.end)).toEqual([
+      "2026/09/12",
+      "2027/09/12",
+      "2028/09/12",
+    ]);
+  });
+
+  it.each(Object.entries(ranges))("%s: headers follow the ranges", (_table, rangesOf) => {
+    expect(rangesOf(forecasting()).map(asOfColumnLabel)).toEqual([
+      "As of 2026/09/12",
+      "As of 2027/12/31",
+      "As of 2028/12/31",
+    ]);
+  });
+
+  it.each(Object.entries(ranges))("%s: keeps calendar ranges when it is not a forecast", (_table, rangesOf) => {
+    const calendar = forecasting({
+      forecast: FORECAST_STATES.DISABLE,
+      columnDateRanges: getAnnualPeriods({ isYtd: false, yearsBack: 5, asOf: ASOF }),
+    });
+    expect(rangesOf(calendar)).toHaveLength(5);
+    expect(rangesOf(calendar).at(-1)?.end).toBe("2026/09/12");
   });
 });

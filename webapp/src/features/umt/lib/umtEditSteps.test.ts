@@ -15,6 +15,8 @@ import {
   umtStepRequiresDescriptions,
   type UmtEditStepId,
 } from "./umtEditSteps";
+import type { UmtLifecycleState } from "../api/umtTypes";
+import { umtLifecycle, umtLifecycleState } from "./umtLifecycleState";
 
 const NORMAL_NO_FILES: UmtEditStepId[] = [
   "files-analysis",
@@ -94,7 +96,7 @@ describe("computeUmtEditSteps", () => {
 
   it("falls back to the normal sequence for a null or unrecognized lifecycle", () => {
     expect(ids(computeUmtEditSteps(null, false))).toEqual(NORMAL_NO_FILES);
-    expect(ids(computeUmtEditSteps("SomeFutureLifecycle", false))).toEqual(NORMAL_NO_FILES);
+    expect(ids(computeUmtEditSteps(umtLifecycle("SomeFutureLifecycle"), false))).toEqual(NORMAL_NO_FILES);
   });
 });
 
@@ -200,7 +202,7 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
   const cloudSteps = computeUmtEditSteps("CloudSupportLifecycle", false);
 
   it("maps each recognized lifecycleState to its step for the normal sequence", () => {
-    const cases: [string, UmtEditStepId][] = [
+    const cases: [UmtLifecycleState, UmtEditStepId][] = [
       ["Development", "files-analysis"],
       ["PRAnalyzed", "files-analysis"],
       ["ProductAnalyzed", "description-instruction"],
@@ -247,7 +249,7 @@ describe("umtActiveStepId / umtActiveStepIndex", () => {
 
   it("defaults to the first step for null or unrecognized lifecycleState", () => {
     expect(umtActiveStepId(null, normalSteps)).toBe("files-analysis");
-    expect(umtActiveStepId("SomeFutureState", normalSteps)).toBe("files-analysis");
+    expect(umtActiveStepId(umtLifecycleState("SomeFutureState"), normalSteps)).toBe("files-analysis");
     expect(umtActiveStepIndex(null, normalSteps)).toBe(0);
   });
 

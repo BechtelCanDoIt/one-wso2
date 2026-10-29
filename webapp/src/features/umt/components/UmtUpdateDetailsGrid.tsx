@@ -41,7 +41,9 @@ import { CheckIcon, HistoryIcon, PencilIcon, XIcon } from "@wso2/oxygen-ui-icons
 import type { UmtUpdateSummary, UmtWorstCaseEstimateLogEntry } from "../api/umtUpdates";
 import type { UmtUpdateFieldChange } from "../api/useUmtUpdateFieldMutation";
 import { useUmtWorstCaseEstimateLog } from "../api/useUmtWorstCaseEstimateLog";
-import { formatCalendarDate, formatTimestamp } from "../lib/umtDates";
+import { formatCalendarDate, formatTimestamp, parseCalendarDate } from "../lib/umtDates";
+import { umtIssueLink } from "../lib/umtIssueLink";
+import { renderLinkValue } from "./umtViewSectionPrimitives";
 
 const { DatePicker, LocalizationProvider } = DatePickers;
 const { DataGrid: DataGridComponent } = DataGrid;
@@ -148,11 +150,11 @@ export default function UmtUpdateDetailsGrid({
           loading={loading}
           value={update?.highlightInstructions}
         />
-        <UpdateField
-          label="QA Artifacts Location"
-          loading={loading}
-          value={update?.qaArtifactsLocation}
-        />
+        <UpdateField label="QA Artifacts Location" loading={loading}>
+          <Typography variant="body1" sx={{ fontWeight: 600, overflowWrap: "anywhere" }}>
+            {renderLinkValue(update?.qaArtifactsLocation)}
+          </Typography>
+        </UpdateField>
       </Grid>
     </Stack>
   );
@@ -284,7 +286,7 @@ function EditableWorstCaseDate({
 }) {
   const [editing, setEditing] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
-  const [draft, setDraft] = useState<Date | null>(() => parseDate(value));
+  const [draft, setDraft] = useState<Date | null>(() => parseCalendarDate(value));
   // Required: the backend quotes it in the updated-ETA comment on the
   // customer's case and the update's issues.
   const [reason, setReason] = useState("");
@@ -296,20 +298,28 @@ function EditableWorstCaseDate({
     setLastCanEdit(canEdit);
     if (!canEdit) {
       setEditing(false);
-      setDraft(parseDate(value));
+      setDraft(parseCalendarDate(value));
       setReason("");
     }
   }
 
   const cancel = () => {
-    setDraft(parseDate(value));
+    setDraft(parseCalendarDate(value));
     setReason("");
     setEditing(false);
   };
 
-  const isDraftValid = draft !== null && !Number.isNaN(draft.getTime());
+  // The picker enforces these rules only on its calendar; its text field also
+  // accepts a typed date, which must pass the same checks before it is saved.
+  const minSelectableDate = parseCalendarDate(value) ?? new Date();
+  const isSelectableDate = (date: Date | null): date is Date => {
+    if (!date || Number.isNaN(date.getTime())) return false;
+    if (date.getDay() !== UMT_RELEASE_WEEKDAY) return false;
+    return startOfDay(date) >= startOfDay(minSelectableDate);
+  };
+
   const save = async () => {
-    if (draft === null || !isDraftValid || !reason.trim()) return;
+    if (!isSelectableDate(draft) || !reason.trim()) return;
     try {
       await onSave({ field: "worstCaseEstimate", value: toDateInputValue(draft), reason });
       setReason("");
@@ -340,7 +350,7 @@ function EditableWorstCaseDate({
                     aria-label={`Edit ${label}`}
                     size="small"
                     onClick={() => {
-                      setDraft(parseDate(value));
+                      setDraft(parseCalendarDate(value));
                       setReason("");
                       setEditing(true);
                     }}
@@ -362,14 +372,14 @@ function EditableWorstCaseDate({
           )}
         </>
       ) : (
-        <Stack spacing={1}>
+        <Stack spacing={2} useFlexGap>
           <LocalizationProvider dateAdapter={AdapterDateFns}>
             <DatePicker
               label={label}
               value={draft}
               onChange={setDraft}
-              minDate={parseDate(value) ?? new Date()}
-              shouldDisableDate={(date) => date.getDay() !== 4}
+              minDate={minSelectableDate}
+              shouldDisableDate={(date) => date.getDay() !== UMT_RELEASE_WEEKDAY}
               slotProps={{ textField: { required: true, size: "small" } }}
             />
           </LocalizationProvider>
@@ -386,7 +396,7 @@ function EditableWorstCaseDate({
           <EditActions
             label={label}
             saving={saving}
-            saveDisabled={!isDraftValid || !reason.trim()}
+            saveDisabled={!isSelectableDate(draft) || !reason.trim()}
             onCancel={cancel}
             onSave={() => void save()}
           />
@@ -420,7 +430,7 @@ function EtaLogDialog({
   onRetry: () => void;
 }) {
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
       <DialogTitle>ETA Log</DialogTitle>
       <DialogContent>
         {loading ? (
@@ -466,6 +476,7 @@ const etaLogColumns: DataGrid.GridColDef[] = [
   etaLogColumn("newDate", "New Date", 140, formatCalendarDate),
   etaLogColumn("timestamp", "Updated Timestamp", 200, formatTimestamp),
   etaLogColumn("changedBy", "Changed By", 180, displayValue),
+  etaLogColumn("reason", "Reason", 260, displayValue, 2),
 ];
 
 function etaLogColumn(
@@ -473,10 +484,11 @@ function etaLogColumn(
   headerName: string,
   minWidth: number,
   format: (value: string | null | undefined) => string,
+  flex = 1,
 ): DataGrid.GridColDef {
   return {
     field,
-    flex: 1,
+    flex,
     headerName,
     minWidth,
     sortable: false,
@@ -489,10 +501,19 @@ function etaLogColumn(
 }
 
 function EtaLogEmptyState() {
-  return <Typography color="text.secondary">No ETA changes recorded.</Typography>;
+  return (
+    <Stack sx={{ alignItems: "center", color: "text.secondary", height: "100%", justifyContent: "center", py: 3 }}>
+      <Typography variant="body2">No ETA changes recorded.</Typography>
+    </Stack>
+  );
 }
 
-const etaLogGridSx = { border: 0, minHeight: 100 } as const;
+// Reasons are free text, so cells wrap instead of clipping with an ellipsis.
+const etaLogGridSx = {
+  border: 0,
+  minHeight: 100,
+  "& .MuiDataGrid-cell": { overflowWrap: "anywhere", whiteSpace: "normal" },
+} as const;
 
 function EditActions({
   label,
@@ -568,42 +589,27 @@ function UpdateField({
 }
 
 function GitHubIssueLink({ value }: { value: string | null | undefined }) {
-  const url = displayValue(value);
+  const issue = umtIssueLink(value);
 
-  if (url === "N/A" || !url.includes("internal/")) {
+  if (!issue) {
     return (
       <Typography variant="body1" sx={{ fontWeight: 600 }}>
-        {displayValue(undefined)}
+        {displayValue(value)}
       </Typography>
     );
   }
 
-  const parts = url.split("/");
-  const repository = parts[4];
-  const issueNumber = parts.at(-1);
-
   return (
     <Link
-      href={url}
+      href={issue.href}
       target="_blank"
       rel="noopener noreferrer"
       underline="hover"
       sx={{ fontWeight: 600 }}
     >
-      {repository && issueNumber ? `${repository}#${issueNumber}` : url}
+      {issue.label}
     </Link>
   );
-}
-
-// Rebuild the UTC calendar day as a local-midnight Date: the DatePicker and
-// `shouldDisableDate` both read local fields, so the day-of-week check and the
-// displayed day have to agree with the UTC day the backend stored.
-function parseDate(value: string | null | undefined): Date | null {
-  const normalizedValue = displayValue(value);
-  if (normalizedValue === "N/A") return null;
-  const parsed = new Date(normalizedValue);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
 }
 
 function toDateInputValue(date: Date): string {
@@ -611,6 +617,16 @@ function toDateInputValue(date: Date): string {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+// UMT releases on Thursdays; Date.getDay() numbers Sunday 0..Saturday 6.
+const UMT_RELEASE_WEEKDAY = 4;
+
+// Day-granularity comparison, matching how the DatePicker applies `minDate`:
+// comparing raw timestamps would reject today whenever `minDate` defaults to
+// `new Date()`, which carries the current time of day.
+function startOfDay(date: Date): number {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
 function displayValue(value: string | number | null | undefined): string {

@@ -31,6 +31,7 @@ const state = vi.hoisted(() => ({
   isProductLead: false,
   additionalFileOperations: [] as unknown[],
   stagingResults: [] as unknown[],
+  stagingQuery: "success" as "success" | "pending" | "error",
   hotfixTestStatus: null as string | null,
   releaseHotfix: vi.fn<(reason: string | null) => Promise<void>>(async () => undefined),
 }));
@@ -44,7 +45,11 @@ vi.mock("../api/useUmtUpdateViewData", () => ({
 }));
 
 vi.mock("../api/useUmtTesting", () => ({
-  useUmtStagingTestResults: () => ({ isSuccess: true, data: state.stagingResults }),
+  useUmtStagingTestResults: () => ({
+    isSuccess: state.stagingQuery === "success",
+    isError: state.stagingQuery === "error",
+    data: state.stagingQuery === "success" ? state.stagingResults : undefined,
+  }),
 }));
 
 vi.mock("../api/useUmtHotfixRelease", () => ({
@@ -79,6 +84,12 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 
 vi.mock("../api/useUmtPrAnalysis", () => ({
   useUmtIsAdvancingToPrAnalyzed: () => false,
+}));
+
+// Two log entries: the stay a saved pointer belongs to is the lifecycle state
+// plus the length of this log.
+vi.mock("../api/useUmtLifecycleHistory", () => ({
+  useUmtLifecycleHistory: () => ({ isSuccess: true, data: [{}, {}] }),
 }));
 // Stands in for changing an input without clicking Analyze.
 vi.mock("../components/edit/files-analysis/UmtFilesAnalysisStep", () => ({
@@ -149,8 +160,12 @@ function makeUpdate(overrides: Partial<UmtUpdateSummary> = {}): UmtUpdateSummary
   };
 }
 
-function persistStep(stepId: string) {
-  window.localStorage.setItem("one-wso2.umt-edit-step.v1.42", stepId);
+// Saved as reached in the current stay of `lifecycleState`.
+function persistStep(stepId: string, lifecycleState = "ProductAnalyzed") {
+  window.localStorage.setItem(
+    "one-wso2.umt-edit-step.v2.42",
+    JSON.stringify({ stayKey: `${lifecycleState}#2`, stepId }),
+  );
 }
 
 function renderTab(update: UmtUpdateSummary) {
@@ -169,6 +184,7 @@ beforeEach(() => {
   state.isProductLead = false;
   state.additionalFileOperations = [];
   state.stagingResults = [];
+  state.stagingQuery = "success";
   state.hotfixTestStatus = null;
   state.releaseHotfix.mockClear();
 });
@@ -316,6 +332,55 @@ describe("Testing and Validate (Staging)", () => {
 
     expect(forwardButton()).toBeDisabled();
   });
+
+  it("holds Testing's Next while there are no staging rows to review", () => {
+    state.stagingResults = [];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText("There are no test results to review yet.")).toBeInTheDocument();
+  });
+
+  it("holds Testing's Next while the staging results are loading, and says so", () => {
+    state.stagingQuery = "pending";
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText("Loading the test results.")).toBeInTheDocument();
+    expect(screen.queryByText(/needs a submitted test result/)).not.toBeInTheDocument();
+  });
+
+  it("holds Testing's Next when the staging results fail to load, and says so", () => {
+    state.stagingQuery = "error";
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/The test results couldn't be loaded/)).toBeInTheDocument();
+    expect(screen.queryByText(/needs a submitted test result/)).not.toBeInTheDocument();
+  });
+
+  it("holds Testing's Next while an automated run has not succeeded, and says why", () => {
+    state.stagingResults = [{ productId: 1, manualTestResult: "success", automatedTestResult: "failure" }];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/The automated tests must pass before proceeding/)).toBeInTheDocument();
+  });
+
+  it("lets an admin past an automated run that has not succeeded", () => {
+    state.isAdmin = true;
+    state.stagingResults = [{ productId: 1, manualTestResult: "success", automatedTestResult: "failure" }];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeEnabled();
+  });
+
+  it("opens Testing's Next once every automated run and manual result has succeeded", () => {
+    state.stagingResults = [{ productId: 1, manualTestResult: "success", automatedTestResult: "success" }];
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(forwardButton()).toBeEnabled();
+  });
 });
 
 describe("File Approval", () => {
@@ -343,14 +408,14 @@ describe("File Approval", () => {
   // goes to WaitingFileApproval for a lead to approve. Only that second step is
   // lead-only.
   it("lets a developer hand a Staging update with manual files over for approval", () => {
-    persistStep("file-approval");
+    persistStep("file-approval", "Staging");
     renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
 
     expect(forwardButton()).toBeEnabled();
   });
 
   it("calls the hand-off Proceed, not an approval, and sends UATStaging", async () => {
-    persistStep("file-approval");
+    persistStep("file-approval", "Staging");
     renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
 
     expect(screen.queryByRole("button", { name: "Approve and Proceed" })).not.toBeInTheDocument();
@@ -373,7 +438,7 @@ describe("while a demotion from Staging is in flight (DemoteStagingRequested)", 
   });
 
   it("stays locked even on a step pointer saved before the demotion", () => {
-    persistStep("validate");
+    persistStep("validate", "Staging");
     renderTab(demoting());
 
     expect(screen.queryByTestId("step-validate")).not.toBeInTheDocument();

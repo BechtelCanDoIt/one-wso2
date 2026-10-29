@@ -20,6 +20,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { HttpError } from "@api/http";
 import type { UmtFileOperation, UmtUpdateSummary } from "../../../api/umtUpdates";
 import type { UmtPendingManualUpload } from "../../../lib/umtPrAnalysis";
 
@@ -32,19 +33,28 @@ const state = vi.hoisted(() => ({
   advance: vi.fn(),
   advancePending: false,
   advanceFailed: false,
+  // The operation of the one file a previous analysis left on the update.
+  analyzedFileOperation: "Added",
   analysisFetching: false,
+  analysisLoaded: true,
+  analysisFailed: false,
+  analysisError: null as unknown,
+  analysisRefetch: vi.fn(),
   showError: vi.fn(),
 }));
 
 vi.mock("../../../api/useUmtUpdateViewData", () => ({
   useUmtPullRequestAnalysis: () => ({
     isFetching: state.analysisFetching,
-    data: {
+    isError: state.analysisFailed,
+    error: state.analysisError,
+    refetch: state.analysisRefetch,
+    data: !state.analysisLoaded ? undefined : {
       pullRequests: [{ pr: "https://github.com/wso2/carbon/pull/1", preferredVersion: "4.9.0" }],
       additionalFileOperations: [
         {
           file: "repository/components/dropins/a.jar",
-          operation: "Added",
+          operation: state.analyzedFileOperation,
           downloadURL: "https://blob.example.com/a.jar?sig=secret",
         },
       ],
@@ -122,6 +132,14 @@ vi.mock("./UmtAddManualFilesSection", () => ({
       >
         Add stub uploaded file
       </button>
+      <button
+        onClick={() => {
+          onFilesChange([...files, { file: `repository/conf/changed-${files.length}.xml`, operation: "Modified" }]);
+          onDirty();
+        }}
+      >
+        Add stub modified file
+      </button>
     </div>
   ),
 }));
@@ -153,7 +171,12 @@ describe("UmtPrAnalysisStep", () => {
     state.advance.mockReset().mockResolvedValue(undefined);
     state.advancePending = false;
     state.advanceFailed = false;
+    state.analyzedFileOperation = "Added";
     state.analysisFetching = false;
+    state.analysisLoaded = true;
+    state.analysisFailed = false;
+    state.analysisError = null;
+    state.analysisRefetch.mockReset();
     state.showError.mockClear();
   });
 
@@ -190,6 +213,14 @@ describe("UmtPrAnalysisStep", () => {
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
   });
 
+  it("shows the results as completed in PRAnalyzed even when praStatus isn't COMPLETED", () => {
+    state.status = "NONE";
+    renderStep(summary("PRAnalyzed", { praStatus: "NONE" }));
+
+    expect(screen.getByText("PR analysis results")).toBeInTheDocument();
+    expect(screen.getByText("PR Analysis was successfully completed.")).toBeInTheDocument();
+  });
+
   it("holds the results back in PRAnalyzed while the product analysis is still running", () => {
     state.advancePending = true;
     renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
@@ -211,7 +242,7 @@ describe("UmtPrAnalysisStep", () => {
     expect(state.advance).not.toHaveBeenCalled();
   });
 
-  it("waits for a refetch of the analysis to land before filling the inputs from it", () => {
+  it("holds the placeholder, not stale drafts, until a refetch of the analysis lands", () => {
     localStorage.setItem(
       "one-wso2.umt-pr-analysis-prs.v1.42",
       JSON.stringify([{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }]),
@@ -220,14 +251,84 @@ describe("UmtPrAnalysisStep", () => {
     const update = summary("PRAnalyzed", { praStatus: "COMPLETED" });
     const { rerender } = renderStep(update);
 
-    expect(screen.getByText("https://github.com/wso2/carbon/pull/999")).toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "Loading pull request analysis" })).toBeInTheDocument();
+    expect(screen.queryByText("https://github.com/wso2/carbon/pull/999")).not.toBeInTheDocument();
     expect(screen.queryByText("https://github.com/wso2/carbon/pull/1")).not.toBeInTheDocument();
 
     state.analysisFetching = false;
     rerender(<UmtPrAnalysisStep id="42" update={update} />);
 
+    expect(screen.queryByRole("status", { name: "Loading pull request analysis" })).not.toBeInTheDocument();
     expect(screen.getByText("https://github.com/wso2/carbon/pull/1")).toBeInTheDocument();
     expect(screen.queryByText("https://github.com/wso2/carbon/pull/999")).not.toBeInTheDocument();
+  });
+
+  it("shows a placeholder shaped like the section while the analysis loads, with Analyze disabled", () => {
+    state.analysisLoaded = false;
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.getByRole("status", { name: "Loading pull request analysis" })).toBeInTheDocument();
+    expect(screen.queryByText("Update Type")).not.toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this section.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+  });
+
+  it("shows an error with a retry when the analysis can't be loaded, and keeps Analyze disabled", () => {
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.getByText("Couldn't load this section.")).toBeInTheDocument();
+    expect(screen.queryByRole("status", { name: "Loading pull request analysis" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(state.analysisRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  // A 404 is an analysis that was never stored, which no retry can load. The
+  // drafts are all there is, so the inputs open on them and Analyze runs.
+  it("says the analysis hasn't been performed when it 404s in PRAnalyzed, and lets Analyze run from the drafts", async () => {
+    localStorage.setItem(
+      "one-wso2.umt-pr-analysis-prs.v1.42",
+      JSON.stringify([{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }]),
+    );
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    state.analysisError = new HttpError("https://umt.example.com/update/42/pullRequestAnalysis", 404, "");
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.getByText("Pull Request Analysis has not been performed for this update yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Couldn't load this section.")).not.toBeInTheDocument();
+    expect(screen.getByText("https://github.com/wso2/carbon/pull/999")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "start"]));
+    expect(state.start).toHaveBeenCalledWith(
+      expect.objectContaining({ pullRequests: [{ pr: "https://github.com/wso2/carbon/pull/999", preferredVersion: "" }] }),
+    );
+  });
+
+  it("waits out a refetch before treating a 404 as an analysis that was never performed", () => {
+    state.analysisLoaded = false;
+    state.analysisFailed = true;
+    state.analysisFetching = true;
+    state.analysisError = new HttpError("https://umt.example.com/update/42/pullRequestAnalysis", 404, "");
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    expect(screen.queryByText("Pull Request Analysis has not been performed for this update yet.")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+  });
+
+  it("doesn't hold up the inputs in Development while the analysis is missing", () => {
+    state.status = "NONE";
+    state.analysisLoaded = false;
+    renderStep(summary("Development"));
+
+    expect(screen.queryByRole("status", { name: "Loading pull request analysis" })).not.toBeInTheDocument();
+    expect(screen.getByText("Update Type")).toBeInTheDocument();
   });
 
   it("lets Analyze be run again after the advance has failed", async () => {
@@ -275,10 +376,113 @@ describe("UmtPrAnalysisStep", () => {
     expect(screen.getByRole("radio", { name: label })).toBeChecked();
   });
 
-  it("warns about added files, then demotes, uploads and submits, in that order", async () => {
+  it("lets Analyze be run after a demote to Development, without editing an input", async () => {
+    const { rerender } = renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+
+    state.status = "NONE";
+    rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { praStatus: "NONE" })} />);
+
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled());
+  });
+
+  it("lets Analyze be run again after a failed analysis, without editing an input", async () => {
+    state.status = "NONE";
+    const { rerender } = renderStep(summary("Development", { praStatus: "NONE" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    await vi.waitFor(() => expect(state.start).toHaveBeenCalledTimes(1));
+
+    state.status = "FAILED_PR_MERGE_CONFLICT";
+    rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { praStatus: "FAILED_PR_MERGE_CONFLICT" })} />);
+
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    await vi.waitFor(() => expect(state.start).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps Analyze off after a completed analysis until an input changes", async () => {
+    state.status = "NONE";
+    const { rerender } = renderStep(summary("Development", { praStatus: "NONE" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+    await vi.waitFor(() => expect(state.start).toHaveBeenCalledTimes(1));
+
+    // A completed analysis in Development counts as still running, so the
+    // button is off for that reason alone. Check it once the update has moved
+    // on to PRAnalyzed and the analysis is loaded.
+    state.status = "COMPLETED";
+    rerender(<UmtPrAnalysisStep id="42" update={summary("PRAnalyzed", { praStatus: "COMPLETED" })} />);
+    await screen.findByText("repository/components/dropins/a.jar");
+
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+
+    expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled();
+  });
+
+  describe("Analyze on an Instructions Only update", () => {
+    const analyzeButton = () => screen.queryByRole("button", { name: "Analyze" });
+
+    it("is gone once the analysis is completed, since there is nothing left to analyze", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED", isInstructionsOnly: true }));
+
+      expect(screen.getByRole("radio", { name: "Instructions Only Update" })).toBeChecked();
+      expect(analyzeButton()).not.toBeInTheDocument();
+    });
+
+    it("is not shown while the completed analysis is still loading", () => {
+      state.analysisLoaded = false;
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED", isInstructionsOnly: true }));
+
+      expect(analyzeButton()).not.toBeInTheDocument();
+    });
+
+    it("is there before the analysis has run", () => {
+      state.status = "NONE";
+      renderStep(summary("Development", { praStatus: "NONE", isInstructionsOnly: true }));
+
+      expect(analyzeButton()).toBeEnabled();
+    });
+
+    it("comes back when the update type is changed, so the update can be analyzed as the other type", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED", isInstructionsOnly: true }));
+
+      fireEvent.click(screen.getByRole("radio", { name: "General Update" }));
+
+      expect(analyzeButton()).toBeInTheDocument();
+    });
+
+    it("is offered when a completed update of another type is switched to Instructions Only", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+      fireEvent.click(screen.getByRole("radio", { name: "Instructions Only Update" }));
+
+      expect(analyzeButton()).toBeEnabled();
+    });
+
+    it("stays for a completed update of another type", () => {
+      renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+      expect(analyzeButton()).toBeInTheDocument();
+    });
+  });
+
+  it("follows the recorded update type when it changes while the step stays mounted", () => {
+    const { rerender } = renderStep(summary("Development"));
+    expect(screen.getByRole("radio", { name: "General Update" })).toBeChecked();
+
+    rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { isInstructionsOnly: true })} />);
+
+    expect(screen.getByRole("radio", { name: "Instructions Only Update" })).toBeChecked();
+  });
+
+  it("warns when the update has both added and modified files, then demotes, uploads and submits, in that order", async () => {
     renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add stub modified file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
     expect(screen.getByText("Added and Modified Files")).toBeInTheDocument();
     expect(state.calls).toEqual([]);
@@ -288,13 +492,44 @@ describe("UmtPrAnalysisStep", () => {
     await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "upload", "start"]));
   });
 
+  it("analyzes without the warning when the update has only added files", async () => {
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    expect(screen.queryByText("Added and Modified Files")).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "upload", "start"]));
+  });
+
+  it("analyzes without the warning when the update has only modified files", async () => {
+    state.analyzedFileOperation = "Modified";
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub modified file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    expect(screen.queryByText("Added and Modified Files")).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "start"]));
+  });
+
+  it("analyzes without the warning when no file was added or modified", async () => {
+    state.analyzedFileOperation = "Removed";
+    renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
+    fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
+
+    expect(screen.queryByText("Added and Modified Files")).not.toBeInTheDocument();
+    await vi.waitFor(() => expect(state.calls).toEqual(["transition:Development", "upload", "start"]));
+  });
+
   it("uploads a picked file under the path it is analyzed with, and a placeholder under none", async () => {
     renderStep(summary("PRAnalyzed", { praStatus: "COMPLETED" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Add stub uploaded file" }));
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
 
     await vi.waitFor(() => expect(state.upload).toHaveBeenCalledTimes(2));
     expect(state.upload.mock.calls[0][0]).toEqual(
@@ -314,7 +549,6 @@ describe("UmtPrAnalysisStep", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
 
     await vi.waitFor(() =>
       expect(state.showError).toHaveBeenCalledWith(
@@ -325,7 +559,6 @@ describe("UmtPrAnalysisStep", () => {
 
     await vi.waitFor(() => expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
 
     await vi.waitFor(() => expect(state.start).toHaveBeenCalledTimes(1));
     expect(state.upload).toHaveBeenCalledTimes(3);
@@ -337,7 +570,6 @@ describe("UmtPrAnalysisStep", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add stub file" }));
     fireEvent.click(screen.getByRole("button", { name: "Analyze" }));
-    fireEvent.click(screen.getByRole("button", { name: "Yes Proceed" }));
     await vi.waitFor(() => expect(state.transition).toHaveBeenCalledWith("Development"));
 
     rerender(<UmtPrAnalysisStep id="42" update={summary("Development", { praStatus: "COMPLETED" })} />);

@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { UmtLifecycle, UmtLifecycleState } from "../api/umtTypes";
 import type { UmtPullRequestAnalysis } from "../api/umtUpdates";
 
 export type UmtEditStepId =
@@ -92,7 +93,7 @@ const CLOUD_SUPPORT_STEPS: UmtEditStepDefinition[] = [
 // or already `WaitingFileApproval`) inserts File Approval right before
 // Verifying. Both insertions can apply independently of each other.
 export function computeUmtEditSteps(
-  lifecycle: string | null | undefined,
+  lifecycle: UmtLifecycle | null | undefined,
   hasAdditionalFileOperations: boolean,
 ): UmtEditStepDefinition[] {
   if (lifecycle === "CloudSupportLifecycle") {
@@ -130,7 +131,7 @@ export function computeUmtEditSteps(
 // list even before/without a fresh PR-analysis result.
 export function umtHasAdditionalFileOperations(
   pullRequestAnalysis: UmtPullRequestAnalysis | null | undefined,
-  lifecycleState: string | null | undefined,
+  lifecycleState: UmtLifecycleState | null | undefined,
 ): boolean {
   return (
     (pullRequestAnalysis?.additionalFileOperations?.length ?? 0) > 0 ||
@@ -161,7 +162,7 @@ export function umtHasAdditionalFileOperations(
 // Development and PRAnalyzed both map to "files-analysis": the step shows the
 // PR analysis in Development, and the PR analysis followed by the product
 // analysis in PRAnalyzed.
-const LIFECYCLE_STATE_TO_STEP: Record<string, UmtEditStepId> = {
+const LIFECYCLE_STATE_TO_STEP: Partial<Record<UmtLifecycleState, UmtEditStepId>> = {
   Development: "files-analysis",
   PRAnalyzed: "files-analysis",
   ProductAnalyzed: "description-instruction",
@@ -180,13 +181,26 @@ const LIFECYCLE_STATE_TO_STEP: Record<string, UmtEditStepId> = {
   Completed: "completed",
 };
 
-const CLOUD_SUPPORT_STATE_TO_STEP: Record<string, UmtEditStepId> = {
+// The Files Analysis step is in its second phase, the product analysis shown
+// below the PR analysis, only in PRAnalyzed. Everything that depends on that
+// phase (the product analysis, the shared step actions, the locked PR block,
+// the demote button) reads it from here so they always agree.
+export function isFilesAnalysisPrAnalyzed(lifecycleState: string | null | undefined): boolean {
+  return lifecycleState === "PRAnalyzed";
+}
+
+// Development is the only state whose step proceeds, to Released. Completed
+// and OnHold sit past it with nothing to proceed to, so they land on the final
+// step, which has no Proceed, rather than on Development's.
+const CLOUD_SUPPORT_STATE_TO_STEP: Partial<Record<UmtLifecycleState, UmtEditStepId>> = {
   Development: "cloud-development",
   Released: "cloud-released",
+  Completed: "cloud-released",
+  OnHold: "cloud-released",
 };
 
 export function umtActiveStepId(
-  lifecycleState: string | null | undefined,
+  lifecycleState: UmtLifecycleState | null | undefined,
   steps: UmtEditStepDefinition[],
 ): UmtEditStepId {
   const isCloudSupport = steps.some((step) => step.id === "cloud-development");
@@ -199,7 +213,7 @@ export function umtActiveStepId(
 }
 
 export function umtActiveStepIndex(
-  lifecycleState: string | null | undefined,
+  lifecycleState: UmtLifecycleState | null | undefined,
   steps: UmtEditStepDefinition[],
 ): number {
   const activeId = umtActiveStepId(lifecycleState, steps);

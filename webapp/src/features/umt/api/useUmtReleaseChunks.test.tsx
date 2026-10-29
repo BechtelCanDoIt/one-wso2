@@ -196,6 +196,85 @@ describe("useUmtReleaseChunkRowStatuses", () => {
     expect(result.current).toEqual({});
     expect(authedGet).not.toHaveBeenCalled();
   });
+
+  describe("a chunk whose status is changing", () => {
+    // Serves each chunk id the status the test last set for it.
+    const statuses: Record<number, string> = {};
+    function serveStatuses() {
+      authedGet.mockImplementation((url: string) => {
+        for (const id of Object.keys(statuses).map(Number)) {
+          if (url === umtServiceUrls.releaseChunk(id)) return Promise.resolve({ id, updateIds: [id], status: statuses[id] });
+          if (url === umtServiceUrls.releaseChunkBuildStatus(id)) return Promise.resolve({ id, updateIds: [id], updateLevels: [] });
+        }
+        return Promise.reject(new Error(`unexpected url ${url}`));
+      });
+    }
+
+    // The interval the chunk's status query is polling by right now.
+    function statusInterval(client: QueryClient, id: number) {
+      const query = client.getQueryCache().find({ queryKey: ["umt-release-chunk-status", "user-under-test", id] });
+      return (query?.options as unknown as { refetchInterval: (q: unknown) => number | false }).refetchInterval(query);
+    }
+
+    it.each(["requestedToCreate", "requestedToRelease", "releasing", "retriggering"])(
+      "is read again every few seconds while it is %s",
+      async (status) => {
+        statuses[1] = status;
+        serveStatuses();
+        const { client, Wrapper } = wrapper();
+        const { result } = renderHook(() => useUmtReleaseChunkRowStatuses([1]), { wrapper: Wrapper });
+        await waitFor(() => expect(result.current[1]?.chunkStatus).toBeDefined());
+
+        expect(statusInterval(client, 1)).toBe(5000);
+      },
+    );
+
+    it.each(["created", "releasingFailed", "releasingDockerFailed", "Released"])(
+      "is not read again once it is %s",
+      async (status) => {
+        statuses[1] = status;
+        serveStatuses();
+        const { client, Wrapper } = wrapper();
+        const { result } = renderHook(() => useUmtReleaseChunkRowStatuses([1]), { wrapper: Wrapper });
+        await waitFor(() => expect(result.current[1]?.chunkStatus).toBeDefined());
+
+        expect(statusInterval(client, 1)).toBe(false);
+      },
+    );
+
+    it("refreshes the chunk lists and that chunk's builds once it settles, and not before", async () => {
+      statuses[1] = "releasing";
+      serveStatuses();
+      const { client, Wrapper } = wrapper();
+      const invalidate = vi.spyOn(client, "invalidateQueries");
+      const { result } = renderHook(() => useUmtReleaseChunkRowStatuses([1]), { wrapper: Wrapper });
+      await waitFor(() => expect(result.current[1]?.chunkStatus?.status).toBe("releasing"));
+      expect(invalidate).not.toHaveBeenCalled();
+
+      statuses[1] = "Released";
+      await client.refetchQueries({ queryKey: ["umt-release-chunk-status"] });
+
+      await waitFor(() => expect(result.current[1]?.chunkStatus?.status).toBe("Released"));
+      await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ["umt-release-chunks"] }));
+      expect(invalidate).toHaveBeenCalledWith({ queryKey: ["umt-released-chunks"] });
+      expect(invalidate).toHaveBeenCalledWith(expect.objectContaining({ predicate: expect.any(Function) }));
+    });
+
+    it("does not refresh the lists for a chunk that was never in progress", async () => {
+      statuses[1] = "created";
+      serveStatuses();
+      const { client, Wrapper } = wrapper();
+      const invalidate = vi.spyOn(client, "invalidateQueries");
+      const { result } = renderHook(() => useUmtReleaseChunkRowStatuses([1]), { wrapper: Wrapper });
+      await waitFor(() => expect(result.current[1]?.chunkStatus?.status).toBe("created"));
+
+      statuses[1] = "releasingFailed";
+      await client.refetchQueries({ queryKey: ["umt-release-chunk-status"] });
+      await waitFor(() => expect(result.current[1]?.chunkStatus?.status).toBe("releasingFailed"));
+
+      expect(invalidate).not.toHaveBeenCalled();
+    });
+  });
 });
 
 describe("useUmtReleaseChunkDockerBuildStatus", () => {

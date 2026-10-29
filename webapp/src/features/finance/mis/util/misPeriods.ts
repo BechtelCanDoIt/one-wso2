@@ -42,6 +42,7 @@ import {
   CUMULATIVE_KEY_BY_PERIOD,
   DELAYED_MRR,
   DELAYED_QRR,
+  FORECAST_STATES,
   MIS_PERIODS,
   type MisPeriod,
 } from "./misViewVocabulary";
@@ -62,6 +63,8 @@ export interface AnnualPeriodsOptions {
   endingMonth?: string;
   /** Prior years to include. The current year is always added on top. */
   yearsBack?: number;
+  /** Years after the current one to include, as the forecast columns do. */
+  yearsAhead?: number;
   /** Today, on the Pacific calendar. Read from the clock when omitted. */
   asOf?: MisCivilDate;
 }
@@ -82,12 +85,13 @@ export function getAnnualPeriods({
   isYtd,
   endingMonth,
   yearsBack = 5,
+  yearsAhead = 0,
   asOf,
 }: AnnualPeriodsOptions): MisDateRange[] {
   const today = asOf ?? pacificCivilDate();
   const ranges: MisDateRange[] = [];
-  for (let back = yearsBack; back >= 0; back--) {
-    const year = today.year - back;
+  for (let offset = -yearsBack; offset <= yearsAhead; offset++) {
+    const year = today.year + offset;
     ranges.push({
       start: formatCivilDate(startOfYear(year)),
       end: formatCivilDate(annualEnd(year, today, { isYtd, endingMonth })),
@@ -364,6 +368,88 @@ export function getQuarterlyPeriods({
   return columns;
 }
 
+/** How many quarters a forecast lays out, counting the one still open. */
+const FORECAST_QUARTER_COUNT = 8;
+
+/**
+ * The Quarterly columns under a Forecasted or Renewal type.
+ *
+ * Eight quarters from the one still open. Every column, including the open
+ * one, is named for its quarter and closes on the quarter's last day.
+ * Closing the open quarter on today asks for the partial figure, so the
+ * quarter-end forecast never loads.
+ */
+function forecastQuarterRanges(today: MisCivilDate, cumulative: boolean): MisDateRange[] {
+  const columns: MisDateRange[] = [];
+  let year = today.year;
+  let quarter = quarterOf(today);
+  for (let step = 0; step < FORECAST_QUARTER_COUNT; step++) {
+    columns.push(
+      periodColumn(
+        quarterOpening(year, quarter, cumulative),
+        endOfMonth(year, quarter * 3),
+        `${year} Q${quarter}`,
+        today,
+        false,
+      ),
+    );
+    quarter += 1;
+    if (quarter > 4) {
+      quarter = 1;
+      year += 1;
+    }
+  }
+  return columns;
+}
+
+/** How many months a forecast lays out, counting the one still open. */
+const FORECAST_MONTH_COUNT = 24;
+
+/**
+ * The Monthly columns under a Forecasted or Renewal type.
+ *
+ * The same rule as `forecastQuarterRanges`, one period down: twenty-four
+ * months from the one still open, each closing on its last day. Closing the
+ * open month on today asks for the partial figure.
+ */
+function forecastMonthRanges(today: MisCivilDate, cumulative: boolean): MisDateRange[] {
+  const columns: MisDateRange[] = [];
+  let year = today.year;
+  let month = today.month;
+  for (let step = 0; step < FORECAST_MONTH_COUNT; step++) {
+    columns.push(
+      periodColumn(
+        monthOpening(year, month, cumulative),
+        endOfMonth(year, month),
+        `${year} ${MONTH_FULL_NAMES[month - 1]}`,
+        today,
+        false,
+      ),
+    );
+    month += 1;
+    if (month > 12) {
+      month = 1;
+      year += 1;
+    }
+  }
+  return columns;
+}
+
+function forecastPeriodsWhenEnabled(
+  period: MisPeriod,
+  filters: ForecastRangeFilters & { cumulativeQuarterly?: boolean; cumulativeMonthly?: boolean },
+  today: MisCivilDate,
+): MisDateRange[] | undefined {
+  if (filters.forecast !== FORECAST_STATES.ENABLE) return undefined;
+  if (period === MIS_PERIODS.QUARTERLY) {
+    return forecastQuarterRanges(today, filters.cumulativeQuarterly === true);
+  }
+  if (period === MIS_PERIODS.MONTHLY) {
+    return forecastMonthRanges(today, filters.cumulativeMonthly === true);
+  }
+  return undefined;
+}
+
 /**
  * The Monthly Build's columns: `yearsBack * 12` months back, ending at the
  * current month.
@@ -479,50 +565,140 @@ export const pacificColumnRanges: ColumnRangesFor = (period, viewWindow, filters
  * The ranges the SUBSCRIPTION Build's columns cover — which is not the same
  * list as the Applied set's `columnDateRanges`, on a Calendar Window.
  *
- * The source computes Annually bounds with two generators that disagree by one,
- * and the tables on the ARR Build screen read the SHORTER of the two:
- *
- *   columnDateRanges   getAnnualPeriods({yearsBack})              6 at Years Back 5
- *                        (viewState.js:267) — and nine other Annually
- *                        tables take their columns straight from it
- *   Subscription         generateFullYearRanges(-(yearsBack - 1), 0)  5 at Years Back 5
- *                        (tableUtils.js, `case 'subscription'`)
+ * Two annual calculations disagree by one year, and the tables on the ARR
+ * Build screen read the shorter of the two. At Years Back 5 the applied set
+ * carries six ranges and the Subscription columns draw five.
  *
  * So on a Calendar Window these tables draw the LAST `yearsBack` of the ranges
  * and the oldest is never shown. Kept as a slice of the Applied
  * set rather than a second computation, so the columns are literally drawn from
  * the ranges the filters carry and the two cannot drift.
  *
- * **Software/Cloud Customers reads this too, which is not obvious from the
- * source.** That table FETCHES `generateFullYearRanges(-yearsBack, 0)` — one
- * year more than Subscription — while its column definition
- * (`tableUtils.js:1091`) is `-(yearsBack - 1)`, identical to Subscription's. So
- * the source asks the backend for a year it then never renders. This port
- * renders what the source renders and does not make the wasted call.
- * Ticket 10 shipped the fetch list by mistake
- * and showed six Periods where the source shows five.
+ * Software/Cloud Customers reads the same shorter slice, including off a
+ * forecast type. Its fetch used to ask for one year more than the columns
+ * draw. Shipping that longer list showed six periods where the table shows
+ * five, and asked for a year the screen never renders. The columns and the
+ * fetch now share the shorter list.
  *
  * A TTM Window has no such split: there the columns ARE `columnDateRanges`.
+ *
+ * Under a forecast type on a Calendar Window the Build draws its own forecast
+ * ranges instead; see `forecastBuildRanges`.
  */
 export function buildColumnRanges(
+  period: MisPeriod,
+  viewWindow: MisWindow,
+  filters: Pick<
+    MisAppliedFilters,
+    "columnDateRanges" | "yearsBack" | "cumulativeQuarterly" | "cumulativeMonthly"
+  > &
+    ForecastRangeFilters,
+  asOf?: MisCivilDate,
+): readonly MisDateRange[] {
+  const today = asOf ?? pacificCivilDate();
+  const forecastPeriods = forecastPeriodsWhenEnabled(period, filters, today);
+  if (forecastPeriods) return forecastPeriods;
+  if (drawsForecastColumns(period, viewWindow, filters)) {
+    return forecastBuildRanges(filters, today);
+  }
+  return calendarColumnRanges(period, viewWindow, filters);
+}
+
+/**
+ * The columns of the Customers table and the two summaries, which differ from
+ * the Subscription Build's only under a forecast type.
+ */
+export function summaryColumnRanges(
+  period: MisPeriod,
+  viewWindow: MisWindow,
+  filters: Pick<
+    MisAppliedFilters,
+    "columnDateRanges" | "yearsBack" | "cumulativeQuarterly" | "cumulativeMonthly"
+  > &
+    ForecastRangeFilters,
+  asOf?: MisCivilDate,
+): readonly MisDateRange[] {
+  const forecastPeriods = forecastPeriodsWhenEnabled(period, filters, asOf ?? pacificCivilDate());
+  if (forecastPeriods) return forecastPeriods;
+  if (drawsForecastColumns(period, viewWindow, filters)) {
+    return getAnnualPeriods({
+      isYtd: filters.isYtd ?? false,
+      endingMonth: filters.endingMonth,
+      yearsBack: 0,
+      yearsAhead: FORECAST_YEARS_AHEAD,
+      asOf,
+    });
+  }
+  return calendarColumnRanges(period, viewWindow, filters);
+}
+
+function calendarColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
   filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack">,
 ): readonly MisDateRange[] {
   const ranges = filters.columnDateRanges ?? [];
   // The slice below is an ANNUALLY rule and only an annual one: it exists
-  // because the source computes annual bounds with two generators that
-  // disagree by one. `generateQuarters` and `generateMonths` have no such
-  // twin — one generator feeds both the columns and the fetch — so slicing a
-  // Quarterly Build would cut seven quarters to one at the default Years Back.
+  // because the two annual calculations disagree by one year. Quarterly and
+  // Monthly each have one calculation, feeding both the columns and the
+  // fetch, so slicing a Quarterly Build would cut seven quarters to one at
+  // the default Years Back.
   if (period !== MIS_PERIODS.ANNUALLY) return ranges;
   if (viewWindow === MIS_WINDOWS.TTM) return ranges;
   return ranges.slice(-Math.max(1, filters.yearsBack));
 }
 
+/** Forecast columns run from the current year to this many years after it. */
+const FORECAST_YEARS_AHEAD = 2;
+
+type ForecastRangeFilters = Partial<Pick<MisAppliedFilters, "forecast" | "isYtd" | "endingMonth">>;
+
 /**
- * The Software/Cloud Customers table's column ranges, which are the Build's
- * except on a Delayed type.
+ * Whether an Annually Calendar table lays its columns out as forecast ranges.
+ *
+ * Quarterly and Monthly have their own forecast layouts. A TTM Window keeps
+ * its trailing ranges before any annual forecast layout applies.
+ */
+const drawsForecastColumns = (
+  period: MisPeriod,
+  viewWindow: MisWindow,
+  { forecast }: ForecastRangeFilters,
+): boolean =>
+  period === MIS_PERIODS.ANNUALLY &&
+  viewWindow === MIS_WINDOWS.CALENDAR &&
+  forecast === FORECAST_STATES.ENABLE;
+
+/**
+ * The Subscription Build's columns under a Forecasted or Renewal type: the
+ * current year and the two after it, each opening on the 31 December before it
+ * and closing at the Ending Month of its year.
+ *
+ * YTD does not apply: every column closes at the Ending Month, or at today's
+ * month and day when it is Today.
+ */
+function forecastBuildRanges(
+  { endingMonth }: ForecastRangeFilters,
+  today: MisCivilDate,
+): MisDateRange[] {
+  const month = asksForAMonth(endingMonth) ? monthNumber(endingMonth) : null;
+  return Array.from({ length: FORECAST_YEARS_AHEAD + 1 }, (_, yearsAhead) => {
+    const year = today.year + yearsAhead;
+    const end =
+      month == null
+        ? { year, month: today.month, day: Math.min(today.day, lastDayOfMonth(year, today.month)) }
+        : endOfMonth(year, month);
+    const opening = endOfYear(year - 1);
+    return {
+      opening: formatCivilDate(opening),
+      start: formatCivilDate(nextDay(opening)),
+      end: formatCivilDate(end),
+    };
+  });
+}
+
+/**
+ * The Software/Cloud Customers table's column ranges, which are the
+ * summaries' except on a Delayed type.
  *
  * On Delayed QRR the source shows **two historic quarters plus the current
  * day**, and on Delayed MRR **six historic months plus the current day**
@@ -533,8 +709,8 @@ export function buildColumnRanges(
  * it stands today.
  *
  * It is the one table with ranges of its own, which is why this is a wrapper
- * rather than a branch inside `buildColumnRanges` — the other three tables and
- * the Build itself must not see it.
+ * rather than a branch inside `summaryColumnRanges` — the two summaries and the
+ * Build itself must not see it.
  *
  * The source's branch names `quarterly` and `monthly` only, so a Delayed
  * ANNUALLY type has no special case and falls through: reproduced rather than
@@ -544,7 +720,8 @@ export function buildColumnRanges(
 export function customerColumnRanges(
   period: MisPeriod,
   viewWindow: MisWindow,
-  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "qrrType" | "mrrType">,
+  filters: Pick<MisAppliedFilters, "columnDateRanges" | "yearsBack" | "qrrType" | "mrrType"> &
+    ForecastRangeFilters,
   asOf?: MisCivilDate,
 ): readonly MisDateRange[] {
   const today = asOf ?? pacificCivilDate();
@@ -554,7 +731,7 @@ export function customerColumnRanges(
   if (period === MIS_PERIODS.MONTHLY && filters.mrrType === DELAYED_MRR) {
     return recentMonths(today, 6);
   }
-  return buildColumnRanges(period, viewWindow, filters);
+  return summaryColumnRanges(period, viewWindow, filters, asOf);
 }
 
 /** `back` whole quarters, then the one still running, closing today. */

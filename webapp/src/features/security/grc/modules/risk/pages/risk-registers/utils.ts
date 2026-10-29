@@ -45,17 +45,43 @@ export const FIELD_LABELS: Record<string, string> = {
   management_approver_id: "management approver",
   assignment_team_id: "assignment team",
   action_owner_id: "action owner",
+  risk_acceptor: "accepted by",
+  risk_identified_date: "date identified",
+  identified_by_type: "identified by (type)",
+  identified_by_name: "identified by",
+  gross_score_id: "gross risk score",
+  compliance_reference_ids: "compliance references",
+  risk_category_ids: "risk categories",
+  platform_ids: "platforms",
+  product_ids: "products",
+  deployment_type_id: "deployment type",
+  environments: "environments",
+  evidence: "evidence",
 };
 
-// Fields whose history values are internal user/team ids. An id means nothing
-// to a reader, so these changes render by name only ("Changed risk owner").
+// Fields whose history values are internal ids that the backend never turns
+// into a name. An id means nothing to a reader, so these changes render by
+// label only ("Changed gross risk score").
+//
+// Assignee fields (owner, assigner, approver, action owner, team) are not here:
+// the backend swaps their ids for names, and when it cannot, the id is shown
+// as recorded rather than hidden.
 const ID_VALUED_FIELDS = new Set([
-  "assigner_id",
-  "owner_id",
-  "management_approver_id",
-  "assignment_team_id",
-  "action_owner_id",
+  "gross_score_id",
+  "compliance_reference_ids",
+  "risk_category_ids",
+  "platform_ids",
+  "product_ids",
+  "deployment_type_id",
 ]);
+
+const RISK_ACCEPTOR_LABELS: Record<string, string> = { CUSTOMER: "Customer", WSO2: "WSO2" };
+
+// riskAcceptorLabel names who accepted a risk, or "Not set" for a risk whose
+// acceptor has not been recorded yet.
+export function riskAcceptorLabel(acceptor: string | null | undefined): string {
+  return (acceptor && RISK_ACCEPTOR_LABELS[acceptor]) || "Not set";
+}
 
 export function fieldLabel(field: string): string {
   return FIELD_LABELS[field] ?? field.replace(/_/g, " ");
@@ -74,7 +100,8 @@ export function readValue(raw: string | null): string {
 }
 
 // changedValue is readValue for one side of a field diff, blank for the fields
-// whose values are ids (see ID_VALUED_FIELDS) so the diff renders by name only.
+// whose values are ids that are never named (see ID_VALUED_FIELDS), so the diff
+// renders by label only.
 export function changedValue(field: string, raw: string | null): string {
   return ID_VALUED_FIELDS.has(field) ? "" : readValue(raw);
 }
@@ -83,7 +110,9 @@ export const STATUS_CONFIG: Record<string, StatusCfg> = {
   PENDING_RISK_OWNER_APPROVAL:    { label: "Pending Owner Approval",      color: "warning" },
   PENDING_MANAGEMENT_APPROVAL:    { label: "Pending Management Approval",  color: "warning" },
   PENDING_COMPLIANCE_REVIEW:      { label: "Pending Compliance Approval",  color: "default" },
-  IN_REMEDIATION:                 { label: "In Remediation",               color: "info" },
+  APPROVED:                       { label: "Approved",                     color: "info" },
+  // Legacy value still present in risk_change_log rows written before the rename.
+  IN_REMEDIATION:                 { label: "Approved",                     color: "info" },
   PENDING_OWNER_COMPLETION_APPROVAL: { label: "Awaiting Owner Sign-off",   color: "warning" },
   PENDING_MANAGEMENT_CLOSURE_APPROVAL: { label: "Awaiting Management Sign-off", color: "warning" },
   PENDING_COMPLIANCE_CLOSURE:     { label: "Awaiting Closure",             color: "default", sx: { bgcolor: "#c8e6c9", color: "#1b5e20" } },
@@ -234,7 +263,7 @@ export const PENDING_REVISION_STATUSES = [
 ];
 
 // Statuses that appear in the "Approved Risks" tab.
-export const APPROVED_OPEN_STATUSES = ["IN_REMEDIATION"];
+export const APPROVED_OPEN_STATUSES = ["APPROVED"];
 
 // ESCALATED risks stay visible here too (their chip still reads "Open" — see
 // statusLabel()/OutlinedStatusChip() in RiskRegisters.tsx, which special-case
@@ -246,12 +275,12 @@ export const APPROVED_ALL_STATUSES = [...APPROVED_OPEN_STATUSES, "CLOSED", "ESCA
 //
 // The tab itself no longer filters by status — membership is "has an
 // unresolved escalation" (the open_escalation query param), because a
-// commented escalation returns the risk to IN_REMEDIATION while staying open,
+// commented escalation returns the risk to APPROVED while staying open,
 // so it must appear under Approved Risks and Overdue at the same time. These
 // are simply the statuses a risk can realistically be in while escalated.
 export const OVERDUE_STATUSES = [
   "ESCALATED",
-  "IN_REMEDIATION",
+  "APPROVED",
   "PENDING_AMENDMENT",
   "PENDING_OWNER_COMPLETION_APPROVAL",
 ];
@@ -270,3 +299,31 @@ export const ALL_OPEN_STATUSES = [
   ...APPROVED_OPEN_STATUSES,
   "ESCALATED",
 ];
+
+// riskRoles is who the caller is ON THIS RISK. canOverride is the
+// compliance-admin override (RISK_COMPLIANCE_APPROVE in the risk's source
+// register, read from its effective_privileges): it stands in for both roles,
+// exactly as the backend's canOverrideAssignee does, so the two stay in step.
+export function riskRoles(
+  detail: { owner_id: number; assigner_id: number } | null,
+  currentUserId: number | null,
+  canOverride: boolean,
+): { isRiskOwner: boolean; isRiskAssigner: boolean } {
+  return {
+    isRiskOwner: canOverride || (!!detail && detail.owner_id === currentUserId),
+    isRiskAssigner: canOverride || (!!detail && detail.assigner_id === currentUserId),
+  };
+}
+
+// originalPlanHelp explains that an Action Owner field sets the owner of one
+// plan: the risk's original action plan, created with the risk. Plans added
+// later keep their own owners, so name the plan rather than let the field read
+// as "every Action Owner".
+export function originalPlanHelp(actionPlan: { description?: string | null } | null | undefined): string {
+  const description = actionPlan?.description?.trim() ?? "";
+  return (
+    "Sets the owner of the risk's original action plan" +
+    (description ? ` ("${description.length > 60 ? `${description.slice(0, 60)}…` : description}")` : "") +
+    ". Other action plans keep their own owners."
+  );
+}

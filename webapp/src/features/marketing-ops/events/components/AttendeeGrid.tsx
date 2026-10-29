@@ -15,8 +15,10 @@
 // under the License.
 
 import {
+  memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -60,8 +62,14 @@ import { LEAVE_MS, tint, useToneColors, type ToneColors } from "./eventsStyles";
 // So: ordinary DOM, ordinary React, ordinary MUI. Dropdowns portal normally and take the
 // app's theme. One cell edits at a time. Keyboard movement is a few lines, not a subsystem.
 //
-// No virtualization: an event list is hundreds of rows, not millions. If one ever arrives
-// with several thousand, render windowing goes HERE — not another library.
+// Rows are WINDOWED: only the rows in view (plus a margin) are in the DOM, with a spacer
+// row above and below standing in for the rest. Every cell carries its own styles, so
+// building all of them for a list of several hundred rows stalls a tab switch or a
+// dismissed banner. Rows are a fixed height, so the visible range is a multiplication
+// and needs no library.
+//
+// Each row is also memoised (GridRowView), so a change elsewhere on the page — a banner
+// dismissed, the save indicator ticking — re-renders none of them.
 
 export interface CellRef {
   row_id: string;
@@ -88,6 +96,9 @@ const MIN_WIDTH = 90;
 const BELOW_GRID = 96;
 /** Never squeeze the grid smaller than this, however short the window. */
 const MIN_GRID_HEIGHT = 220;
+/** Rows kept in the DOM beyond each edge of the viewport, so a fast scroll never shows
+ *  blank rows before React catches up. */
+const OVERSCAN = 15;
 
 /** Past this a column stops being readable and starts being a wall. Notes and address are
  *  prose and get a longer leash; everything else is a field value. */
@@ -167,6 +178,7 @@ export default function AttendeeGrid({
   focusField,
   optionsFor,
   height,
+  fill,
   toolbar,
   attached,
   selected,
@@ -197,6 +209,9 @@ export default function AttendeeGrid({
    *  state's options follow that row's country. */
   optionsFor?: (field: string, row: GridRow) => string[] | undefined;
   height?: number;
+  /** Take all the height the parent gives it (a flex column) instead of measuring the
+   *  window. Used by the expanded view, where the parent IS the window. */
+  fill?: boolean;
   /** Chrome rendered inside the frame, above the scroll area. */
   toolbar?: ReactNode;
   /** Square off the top so the frame reads as the body of the tab rail above it. */
@@ -251,7 +266,7 @@ export default function AttendeeGrid({
   // sent-back banner, the upload summary, the issue bar growing to two lines.
   const [available, setAvailable] = useState<number | null>(null);
   useEffect(() => {
-    if (height) return; // an explicit height wins
+    if (height || fill) return; // an explicit height, or the parent's, wins
     const measure = () => {
       const el = scrollRef.current;
       if (!el) return;
@@ -270,7 +285,7 @@ export default function AttendeeGrid({
       window.removeEventListener("resize", measure);
       observer.disconnect();
     };
-  }, [height]);
+  }, [height, fill]);
 
   /** What each column needs to show its widest cell in full — including, for a cell with a
    *  suggestion, BOTH values, the arrow and the two buttons. Recomputed when the data
@@ -317,19 +332,122 @@ export default function AttendeeGrid({
   // Bring one row into view and mark it for a moment. The mark matters as much as the
   // scroll: landing mid-grid with nothing indicated leaves you guessing which of the twenty
   // visible rows was meant.
-  const rowRefs = useRef<Record<string, HTMLElement | null>>({});
   //
   // The mark itself is DERIVED from the request rather than set alongside the scroll: a request
   // is marked until its own timer says it is spent. Each ask carries a nonce, so asking
   // twice for the same row flashes it twice.
   const [spent, setSpent] = useState<number | null>(null);
+  // The rendered row height, measured below (windowing). Declared here because the jump
+  // reads it too.
+  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
   const flashed = jumpToRow && jumpToRow.nonce !== spent ? jumpToRow.rowId : null;
   useEffect(() => {
     if (!jumpToRow) return;
-    rowRefs.current[jumpToRow.rowId]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    // By index, not by element: with windowing a far-away row isn't in the DOM to scroll to.
+    const at = rows.findIndex((r) => r.id === jumpToRow.rowId);
+    const el = scrollRef.current;
+    if (at >= 0 && el) {
+      el.scrollTo({
+        top: Math.max(0, HEADER_HEIGHT + at * rowHeight - el.clientHeight / 2 + rowHeight / 2),
+        behavior: "smooth",
+      });
+    }
     const t = setTimeout(() => setSpent(jumpToRow.nonce), 1600);
     return () => clearTimeout(t);
+    // Deliberately only on a new request: re-running when `rows` changes would yank the
+    // view back to the row after every edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [jumpToRow]);
+
+  // ---- windowing --------------------------------------------------------------------------
+  //
+  // Which rows are in the DOM: those inside the scroll viewport, plus OVERSCAN either side
+  // so a quick scroll doesn't show blank rows before React catches up.
+  const [view, setView] = useState({ top: 0, height: 0 });
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let frame = 0;
+    const read = () => {
+      frame = 0;
+      setView((v) =>
+        v.top === el.scrollTop && v.height === el.clientHeight
+          ? v
+          : { top: el.scrollTop, height: el.clientHeight },
+      );
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(read);
+    };
+    read();
+    el.addEventListener("scroll", onScroll, { passive: true });
+    const observer = new ResizeObserver(onScroll);
+    observer.observe(el);
+    return () => {
+      el.removeEventListener("scroll", onScroll);
+      observer.disconnect();
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+  // A different tab is a different list: start it at the top.
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: 0 });
+  }, [tab]);
+  // The real row height, read from the DOM once a row exists. ROW_HEIGHT is the cell's
+  // height; the bottom border adds to it, and guessing wrong drifts the spacers by a pixel
+  // a row — 800 pixels by the end of a long list.
+  const tbodyRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    const first = tbodyRef.current?.querySelector<HTMLElement>("tr[data-row]");
+    const h = first?.getBoundingClientRect().height;
+    if (h && Math.abs(h - rowHeight) > 0.5) setRowHeight(h);
+  }, [rowHeight, rows.length, tab]);
+
+  const editingIndex = editing ? rows.findIndex((r) => r.id === editing.rowId) : -1;
+  const bodyTop = Math.max(0, view.top - HEADER_HEIGHT);
+  let first = Math.max(0, Math.floor(bodyTop / rowHeight) - OVERSCAN);
+  let last = Math.min(
+    rows.length,
+    Math.ceil((bodyTop + (view.height || 600)) / rowHeight) + OVERSCAN,
+  );
+  // The row being edited always stays in the DOM. Scrolled out of the window it would
+  // unmount, and an input removed from the page fires no blur — whatever was typed would
+  // be lost without a word.
+  if (editingIndex >= 0) {
+    first = Math.min(first, editingIndex);
+    last = Math.max(last, editingIndex + 1);
+  }
+
+  // Keyboard movement can step onto a row outside the viewport; bring it in.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || editingIndex < 0) return;
+    const top = HEADER_HEIGHT + editingIndex * rowHeight;
+    if (top < el.scrollTop + HEADER_HEIGHT) el.scrollTop = top - HEADER_HEIGHT;
+    else if (top + rowHeight > el.scrollTop + el.clientHeight)
+      el.scrollTop = top + rowHeight - el.clientHeight;
+    // Only when the edited cell moves, not on every scroll.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.rowId, editing?.field]);
+
+  // Handlers the rows call, made STABLE so memoised rows don't re-render because a parent
+  // passed a fresh arrow function. Each reads the latest prop through a ref.
+  const latest = useRef({ onEdit, onAccept, onReject, onDeleteRow, onToggleRow, optionsFor, setEditing });
+  useLayoutEffect(() => {
+    latest.current = { onEdit, onAccept, onReject, onDeleteRow, onToggleRow, optionsFor, setEditing };
+  });
+  const rowApi = useMemo<RowApi>(
+    () => ({
+      edit: (edits) => latest.current.onEdit(edits),
+      accept: (cells) => latest.current.onAccept(cells),
+      reject: (cells) => latest.current.onReject(cells),
+      deleteRow: (id) => latest.current.onDeleteRow?.(id),
+      toggleRow: (id) => latest.current.onToggleRow?.(id),
+      options: (field, row) => latest.current.optionsFor?.(field, row),
+      setEditing: (next) => latest.current.setEditing(next),
+    }),
+    [],
+  );
 
   const startResize = useCallback(
     (field: string, e: ReactMouseEvent) => {
@@ -421,6 +539,8 @@ export default function AttendeeGrid({
         // Fused to the tab rail above: its bottom border IS this frame's top edge, so the
         // grid reads as the contents of the selected tab rather than a separate object.
         ...(attached ? { borderTop: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0 } : {}),
+        // minHeight 0 is what lets a flex child shrink below its content and scroll.
+        ...(fill ? { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" } : {}),
       }}
     >
       {/* Chrome for the surface — undo/redo, what needs attention. Inside the frame so it
@@ -448,7 +568,7 @@ export default function AttendeeGrid({
           // The scrollbar lives below the last row instead of on top of it, which is what
           // made the final row impossible to click before.
           overflow: "auto",
-          maxHeight: height ?? available ?? 520,
+          ...(fill ? { flex: 1, minHeight: 0 } : { maxHeight: height ?? available ?? 520 }),
           position: "relative",
         }}
       >
@@ -526,125 +646,211 @@ export default function AttendeeGrid({
             </Box>
           </Box>
 
-          <Box component="tbody" onKeyDown={onKeyDown}>
-            {rows.map((row, rowIndex) => (
-              <Box
-                component="tr"
-                key={row.id}
-                ref={(el: HTMLElement | null) => {
-                  rowRefs.current[row.id] = el;
-                }}
-                sx={{
-                  "&:hover .evt-del": { opacity: 1 },
-                  ...(flashed === row.id ? { "& > td": { bgcolor: tint(tones.accent, 0.11) } } : {}),
-                  // Seen LEAVING, not teleported away: a beat of green to say "that one is
-                  // done", then out. Applied per cell because a <tr> background sits behind
-                  // the <td> backgrounds the grid already sets.
-                  ...(leavingRows?.has(row.id)
-                    ? {
-                        pointerEvents: "none",
-                        "& > td": { animation: `evtLeave ${LEAVE_MS}ms ease-out forwards` },
-                        "@keyframes evtLeave": {
-                          "0%": { opacity: 1, backgroundColor: tint(tones.accepted, 0) },
-                          "12%": { opacity: 1, backgroundColor: tint(tones.accepted, 0.22) },
-                          "60%": { opacity: 1, backgroundColor: tint(tones.accepted, 0.22) },
-                          "100%": { opacity: 0, backgroundColor: tint(tones.accepted, 0) },
-                        },
-                        "@media (prefers-reduced-motion: reduce)": {
-                          "& > td": {
-                            animation: "none",
-                            backgroundColor: tint(tones.accepted, 0.19),
-                          },
-                        },
-                      }
-                    : {}),
-                }}
-              >
-                <Box
-                  component="td"
-                  sx={{
-                    ...bodyCell,
-                    width: gutter,
-                    position: "sticky",
-                    left: 0,
-                    zIndex: 1,
-                    textAlign: "center",
-                    fontSize: 10,
-                    color: "text.disabled",
-                    ...gutterEdge,
-                    ...(selected?.has(row.id)
-                      ? tinted(tint(tones.accent, 0.07))
-                      : { bgcolor: "background.paper" }),
-                  }}
-                >
-                  <Box
-                    sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.25 }}
-                  >
-                    {selectable && (
-                      <Checkbox
-                        size="small"
-                        checked={selected!.has(row.id)}
-                        onChange={() => onToggleRow!(row.id)}
-                        inputProps={{ "aria-label": `Select row ${rowIndex + 1}` }}
-                        sx={checkboxSx}
-                      />
-                    )}
-                    {rowNumber ? rowNumber(row, rowIndex) : rowIndex + 1}
-                    {editable && onDeleteRow && (
-                      <Tooltip title="Remove this row">
-                        <Box
-                          component="span"
-                          className="evt-del"
-                          onMouseDown={fire(() => onDeleteRow(row.id), busy)}
-                          sx={{
-                            display: "inline-flex",
-                            opacity: 0,
-                            cursor: "pointer",
-                            color: "error.main",
-                            transition: "opacity .12s",
-                          }}
-                        >
-                          <X size={11} />
-                        </Box>
-                      </Tooltip>
-                    )}
-                  </Box>
-                </Box>
-
-                {columns.map((field) => (
-                  <Cell
-                    key={field}
-                    row={row}
-                    field={field}
-                    width={widthFor(field)}
-                    editable={editable}
-                    busy={busy}
-                    focused={focusField === field}
-                    isEditing={editing?.rowId === row.id && editing.field === field}
-                    options={optionsFor?.(field, row)}
-                    clearable={isClearable(field, tab, config)}
-                    tones={tones}
-                    onStartEdit={() =>
-                      editable && !isComputed(field) && setEditing({ rowId: row.id, field })
-                    }
-                    onStopEdit={() => setEditing(null)}
-                    onCommit={(value) => {
-                      if ((row.data[field] ?? "") !== value) {
-                        onEdit([{ row_id: row.id, field, value }]);
-                      }
-                    }}
-                    onAccept={onAccept}
-                    onReject={onReject}
-                  />
-                ))}
-              </Box>
-            ))}
+          <Box component="tbody" onKeyDown={onKeyDown} ref={tbodyRef}>
+            {first > 0 && (
+              <tr aria-hidden>
+                <td colSpan={columns.length + 1} style={{ height: first * rowHeight, padding: 0, border: 0 }} />
+              </tr>
+            )}
+            {rows.slice(first, last).map((row, i) => {
+              const rowIndex = first + i;
+              return (
+                <GridRowView
+                  key={row.id}
+                  row={row}
+                  number={rowNumber ? rowNumber(row, rowIndex) : rowIndex + 1}
+                  columns={columns}
+                  widthFor={widthFor}
+                  gutter={gutter}
+                  editable={editable}
+                  busy={busy}
+                  selectable={selectable}
+                  isSelected={Boolean(selected?.has(row.id))}
+                  canDelete={Boolean(editable && onDeleteRow)}
+                  flashed={flashed === row.id}
+                  leaving={Boolean(leavingRows?.has(row.id))}
+                  focusField={focusField}
+                  editingField={editing?.rowId === row.id ? editing.field : null}
+                  tab={tab}
+                  config={config}
+                  tones={tones}
+                  api={rowApi}
+                />
+              );
+            })}
+            {last < rows.length && (
+              <tr aria-hidden>
+                <td
+                  colSpan={columns.length + 1}
+                  style={{ height: (rows.length - last) * rowHeight, padding: 0, border: 0 }}
+                />
+              </tr>
+            )}
           </Box>
         </Box>
       </Box>
     </Box>
   );
 }
+
+/** What a row may do, as stable functions — see `rowApi` in AttendeeGrid. */
+interface RowApi {
+  edit: (edits: { row_id: string; field: string; value: string }[]) => void;
+  accept: (cells: CellRef[]) => void;
+  reject: (cells: CellRef[]) => void;
+  deleteRow: (rowId: string) => void;
+  toggleRow: (rowId: string) => void;
+  options: (field: string, row: GridRow) => string[] | undefined;
+  setEditing: (next: Editing | null) => void;
+}
+
+// One row, memoised. Every prop is either data that changes only when THIS row's display
+// does, or stable — so editing one cell re-renders one row, and anything outside the grid
+// re-renders none. Keep it that way: an inline object or arrow passed here quietly turns
+// the memo off for every row.
+const GridRowView = memo(function GridRowView({
+  row,
+  number,
+  columns,
+  widthFor,
+  gutter,
+  editable,
+  busy,
+  selectable,
+  isSelected,
+  canDelete,
+  flashed,
+  leaving,
+  focusField,
+  editingField,
+  tab,
+  config,
+  tones,
+  api,
+}: {
+  row: GridRow;
+  number: number;
+  columns: string[];
+  widthFor: (field: string) => number;
+  gutter: number;
+  editable: boolean;
+  busy: boolean;
+  selectable: boolean;
+  isSelected: boolean;
+  canDelete: boolean;
+  flashed: boolean;
+  leaving: boolean;
+  focusField?: string;
+  editingField: string | null;
+  tab: Tab;
+  config: EventsConfig;
+  tones: ToneColors;
+  api: RowApi;
+}) {
+  return (
+    <Box
+      component="tr"
+      data-row=""
+      sx={{
+        "&:hover .evt-del": { opacity: 1 },
+        ...(flashed ? { "& > td": { bgcolor: tint(tones.accent, 0.11) } } : {}),
+        // Seen LEAVING, not teleported away: a beat of green to say "that one is
+        // done", then out. Applied per cell because a <tr> background sits behind
+        // the <td> backgrounds the grid already sets.
+        ...(leaving
+          ? {
+              pointerEvents: "none",
+              "& > td": { animation: `evtLeave ${LEAVE_MS}ms ease-out forwards` },
+              "@keyframes evtLeave": {
+                "0%": { opacity: 1, backgroundColor: tint(tones.accepted, 0) },
+                "12%": { opacity: 1, backgroundColor: tint(tones.accepted, 0.22) },
+                "60%": { opacity: 1, backgroundColor: tint(tones.accepted, 0.22) },
+                "100%": { opacity: 0, backgroundColor: tint(tones.accepted, 0) },
+              },
+              "@media (prefers-reduced-motion: reduce)": {
+                "& > td": {
+                  animation: "none",
+                  backgroundColor: tint(tones.accepted, 0.19),
+                },
+              },
+            }
+          : {}),
+      }}
+    >
+      <Box
+        component="td"
+        sx={{
+          ...bodyCell,
+          width: gutter,
+          position: "sticky",
+          left: 0,
+          zIndex: 1,
+          textAlign: "center",
+          fontSize: 10,
+          color: "text.disabled",
+          ...gutterEdge,
+          ...(isSelected ? tinted(tint(tones.accent, 0.07)) : { bgcolor: "background.paper" }),
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 0.25 }}>
+          {selectable && (
+            <Checkbox
+              size="small"
+              checked={isSelected}
+              onChange={() => api.toggleRow(row.id)}
+              inputProps={{ "aria-label": `Select row ${number}` }}
+              sx={checkboxSx}
+            />
+          )}
+          {number}
+          {canDelete && (
+            <Tooltip title="Remove this row">
+              <Box
+                component="span"
+                className="evt-del"
+                onMouseDown={fire(() => api.deleteRow(row.id), busy)}
+                sx={{
+                  display: "inline-flex",
+                  opacity: 0,
+                  cursor: "pointer",
+                  color: "error.main",
+                  transition: "opacity .12s",
+                }}
+              >
+                <X size={11} />
+              </Box>
+            </Tooltip>
+          )}
+        </Box>
+      </Box>
+
+      {columns.map((field) => (
+        <Cell
+          key={field}
+          row={row}
+          field={field}
+          width={widthFor(field)}
+          editable={editable}
+          busy={busy}
+          focused={focusField === field}
+          isEditing={editingField === field}
+          options={api.options(field, row)}
+          clearable={isClearable(field, tab, config)}
+          tones={tones}
+          onStartEdit={() => editable && !isComputed(field) && api.setEditing({ rowId: row.id, field })}
+          onStopEdit={() => api.setEditing(null)}
+          onCommit={(value) => {
+            if ((row.data[field] ?? "") !== value) {
+              api.edit([{ row_id: row.id, field, value }]);
+            }
+          }}
+          onAccept={api.accept}
+          onReject={api.reject}
+        />
+      ))}
+    </Box>
+  );
+});
 
 function Cell({
   row,

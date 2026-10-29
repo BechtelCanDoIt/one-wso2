@@ -48,7 +48,8 @@ export const INFRA_APPS: readonly MenuApp[] = [
         {
             id: "infra-github-my-requests",
             label: "My Requests",
-            desc: "Your creation and access requests.",
+            desc: "Your repository creation requests.",
+            path: "/infra/github/my-requests",
             requires: ["admin"],
         },
         {
@@ -82,7 +83,8 @@ export const INFRA_APPS: readonly MenuApp[] = [
         {
             id: "infra-github-settings",
             label: "GitHub Settings",
-            desc: "Organizations, topics, leads, default teams, repo-team leads.",
+            desc: "Organizations, topics, functional leads, and default teams.",
+            path: "/infra/admin/github-settings",
             requires: ["admin"],
         },
     ],

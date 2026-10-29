@@ -18,11 +18,17 @@ import { describe, expect, it } from "vitest";
 import { defaultAppliedFilters } from "../util/misViewState";
 import {
   CUSTOM_UNIT,
+  FORECAST_STATES,
   MIS_PERIODS,
   MIS_TABLES,
+  MIS_WINDOWS,
   type MisAppliedFilters,
 } from "../util/misViewVocabulary";
-import { getMonthlyPeriods, getQuarterlyPeriods } from "../util/misPeriods";
+import {
+  buildColumnRanges,
+  getMonthlyPeriods,
+  getQuarterlyPeriods,
+} from "../util/misPeriods";
 import { arrSummaryRequests } from "./misArrSummaryRequest";
 
 // One POST per Build column. Ported from digiops-finance
@@ -86,6 +92,31 @@ describe("the column a request is compared against", () => {
     const [first] = arrSummaryRequests(quarters, DEFAULTS, MIS_PERIODS.QUARTERLY);
     expect(first.startDate).toBe("2024-12-31");
     expect(first.prevColDateRange).toEqual({ startDate: "2024-10-01", endDate: "2024-12-31" });
+  });
+
+  it("asks a forecast for the quarter's last day, not for today", () => {
+    // A forecast for `2026 Q3` ends on 30 September and opens on 30 June.
+    // Ending on the as-of date would request the partial figure instead.
+    const asOf = { year: 2026, month: 9, day: 12 };
+    const ranges = buildColumnRanges(
+      MIS_PERIODS.QUARTERLY,
+      MIS_WINDOWS.CALENDAR,
+      {
+        ...defaultAppliedFilters(MIS_PERIODS.QUARTERLY, MIS_TABLES.SUBSCRIPTION),
+        forecast: FORECAST_STATES.ENABLE,
+      },
+      asOf,
+    );
+    const [open] = arrSummaryRequests(ranges, {
+      ...defaultAppliedFilters(MIS_PERIODS.QUARTERLY, MIS_TABLES.SUBSCRIPTION),
+      qrrType: "Forecasted QRR",
+      forecast: FORECAST_STATES.ENABLE,
+    }, MIS_PERIODS.QUARTERLY);
+    expect(open).toMatchObject({
+      arrType: "Forecasted QRR",
+      startDate: "2026-06-30",
+      endDate: "2026-09-30",
+    });
   });
 
   it("is the previous MONTH for the first column of a Monthly Build", () => {

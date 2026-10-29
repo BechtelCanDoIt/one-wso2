@@ -55,6 +55,7 @@ describe("the ARR movement", () => {
     expect(labelsIn("arr-movement")).toEqual([
       "Opening ARR",
       "New",
+      "Acquired ARR",
       "Expansions",
       "Reductions",
       "Lost",
@@ -109,6 +110,7 @@ describe("transfers between the channel and direct books", () => {
     expect(labelsIn("arr-movement", "Channel")).toEqual([
       "Opening ARR",
       "New",
+      "Acquired ARR",
       "Transferred In (included in new)",
       "Expansions",
       "Reductions",
@@ -129,6 +131,7 @@ describe("transfers between the channel and direct books", () => {
     expect(labelsIn("customers", "Direct")).toEqual([
       "Opening Customers",
       "New Customers",
+      "Acquired Customers",
       "Transferred In Customers (included in new)",
       "Lost Customers",
       "Transferred Out Customers (included in lost)",
@@ -147,7 +150,11 @@ describe("what kind of number each row holds", () => {
       );
     expect(kindOf("arr-movement", "Opening ARR")).toBe(MIS_VALUE_TYPES.CURRENCY);
     expect(kindOf("arr-movement", "y/y growth")).toBe(MIS_VALUE_TYPES.PERCENTAGE);
+    expect(kindOf("arr-movement", "Acquired ARR")).toBe(MIS_VALUE_TYPES.CURRENCY);
+    expect(arrBuildFieldFor("acquired-arr")).toBe("acquiredArr");
+    expect(arrBuildFieldFor("acquired-customers")).toBe("acquiredCustomers");
     expect(kindOf("customers", "Opening Customers")).toBe(MIS_VALUE_TYPES.COUNT);
+    expect(kindOf("customers", "Acquired Customers")).toBe(MIS_VALUE_TYPES.COUNT);
     expect(kindOf("logo-percentages", "% New Logos")).toBe(MIS_VALUE_TYPES.PERCENTAGE);
   });
 });
@@ -189,8 +196,8 @@ describe("how big a Subscription Build can get", () => {
     // is as tall with one customer's revenue in it as with fifty thousand. The
     // figures arrive as columns, never as rows. That is what makes windowing
     // (ticket 07) a question about the CUSTOMER tables (ticket 10), not this one.
-    expect(visibleRowCount("All")).toBe(34);
-    expect(visibleRowCount("Channel")).toBe(38);
+    expect(visibleRowCount("All")).toBe(36);
+    expect(visibleRowCount("Channel")).toBe(40);
   });
 
   it("stays well inside what an unwindowed table can render", () => {

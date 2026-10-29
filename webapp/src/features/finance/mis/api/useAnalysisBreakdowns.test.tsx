@@ -43,9 +43,11 @@ vi.mock("@config/apiConfig", () => ({
 const byPartnerType = new Map<string, unknown>();
 const byIndustryAnswer = new Map<string, unknown>();
 const authedPost = vi.fn(async (_url: string, body: { partnerType?: string; industries?: string[] }) => {
-  const answer = body.industries
+  const queued = body.industries
     ? byIndustryAnswer.get(body.industries[0])
     : byPartnerType.get(String(body.partnerType));
+  // An array is a script: one answer per call, in order, the last repeating.
+  const answer = Array.isArray(queued) ? (queued.length > 1 ? queued.shift() : queued[0]) : queued;
   if (answer instanceof Error) throw answer;
   return answer;
 });
@@ -215,6 +217,33 @@ describe("the industry breakdown", () => {
     expect(result.current.byIndustry.Information).toBe(400);
     expect(result.current.byIndustry.Utilities).toBeUndefined();
     expect(result.current.isError).toBe(false);
+  });
+
+  // One of six parallel reads failed on stage and the card stayed degraded
+  // until a reload: the read was tried twice, a second apart, then cached as
+  // failed. A gateway blip must cost a delay, not the card.
+  it("ends fully loaded when an industry's read fails twice and then succeeds", async () => {
+    byIndustryAnswer.set("Information", 400);
+    const unavailable = new HttpError("https://mis.example", 503, "");
+    byIndustryAnswer.set("Utilities", [unavailable, unavailable, 250]);
+    const { result } = renderHook(
+      () => useAnalysisIndustries(filters, ON, ["Information", "Utilities"]),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false), { timeout: 5000 });
+    expect(result.current.byIndustry).toEqual({ Information: 400, Utilities: 250 });
+  });
+
+  it("still loses the industry whose read keeps failing", async () => {
+    byIndustryAnswer.set("Information", 400);
+    byIndustryAnswer.set("Utilities", new HttpError("https://mis.example", 503, ""));
+    const { result } = renderHook(
+      () => useAnalysisIndustries(filters, ON, ["Information", "Utilities"]),
+      { wrapper },
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false), { timeout: 5000 });
+    expect(result.current.byIndustry.Information).toBe(400);
+    expect(result.current.byIndustry.Utilities).toBeUndefined();
   });
 
   it("asks nothing while it is disabled", () => {

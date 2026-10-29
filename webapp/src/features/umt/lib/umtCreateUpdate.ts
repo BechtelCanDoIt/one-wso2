@@ -6,7 +6,7 @@
 // http://www.apache.org/licenses/LICENSE-2.0
 
 import { localIsoDate } from "@utils/localDate";
-import type { UmtMetadataProduct } from "../api/umtTypes";
+import type { UmtLifecycle, UmtMetadataProduct } from "../api/umtTypes";
 import type { UmtCreateUpdateRequest } from "../api/umtUpdates";
 
 export type UmtCreateUpdateType = "regular" | "security" | "cloud-support";
@@ -14,7 +14,7 @@ export type UmtCreateIssueType = "bug" | "improvement" | "new-feature";
 
 const NOT_APPLICABLE = "N/A";
 
-const LIFECYCLE_BY_UPDATE_TYPE: Record<UmtCreateUpdateType, string> = {
+const LIFECYCLE_BY_UPDATE_TYPE: Record<UmtCreateUpdateType, UmtLifecycle> = {
   regular: "UpdateLifecycle",
   security: "SecurityUpdateLifecycle",
   "cloud-support": "CloudSupportLifecycle",
@@ -42,13 +42,35 @@ export function laterDate(date: Date, days: number): Date {
   return result;
 }
 
+const INTERNAL_GITHUB_ISSUE_URL_REGEX =
+  /^https:\/\/github\.com\/wso2-[A-Za-z0-9-]+\/[A-Za-z0-9-]+\/issues\/[0-9]+$/;
+
+// Whether the value, ignoring surrounding whitespace, is a GitHub issue URL in
+// a `wso2-` organisation, such as wso2-enterprise. The `wso2` organisation
+// itself does not qualify, and no trailing slash is accepted. A format check
+// like the one below.
+export function isValidInternalGithubIssueUrl(value: string): boolean {
+  return INTERNAL_GITHUB_ISSUE_URL_REGEX.test(value.trim());
+}
+
 // A format check only — the backend does the authoritative existence check
-// via a real GitHub API call.
+// via a real GitHub API call. No trailing slash is accepted.
 const GITHUB_ISSUE_URL_REGEX =
-  /^https:\/\/github\.com\/[^/]*wso2[^/]*\/[A-Za-z0-9-]+\/issues\/[0-9]+\/?$/;
+  /^https:\/\/github\.com\/[^/]*wso2[^/]*\/[A-Za-z0-9-]+\/issues\/[0-9]+$/;
 
 export function isValidGithubIssueUrl(value: string): boolean {
   return GITHUB_ISSUE_URL_REGEX.test(value.trim());
+}
+
+// A security update's issue is tracked in the security-internals repository,
+// not in just any WSO2 repository.
+const SECURITY_ISSUE_URL_REGEX =
+  /^https:\/\/github\.com\/wso2-enterprise\/security-internals\/issues\/[0-9]+$/;
+
+// Checks the form's public-or-security issue field against the rule for the
+// update type it belongs to.
+export function isValidPublicOrSecurityIssueUrl(updateType: UmtCreateUpdateType, value: string): boolean {
+  return updateType === "security" ? SECURITY_ISSUE_URL_REGEX.test(value.trim()) : isValidGithubIssueUrl(value);
 }
 
 // A case id must match this format whenever one is present (required
@@ -94,6 +116,12 @@ export function resolveCreateUpdateProductId(
   return match?.id ?? null;
 }
 
+// A product's base level is the one its updates start from, `X.Y.Z.0.full`,
+// which is the level customers are on.
+export function umtIsBaseLevelVersion(version: string | null | undefined): boolean {
+  return (version ?? "").trim().endsWith(".0.full");
+}
+
 export interface UmtCreateUpdateFormValues {
   isProactive: boolean;
   isHotfix: boolean;
@@ -121,6 +149,13 @@ export function isAfterDay(before: Date, after: Date): boolean {
   return startOfDay(after) > startOfDay(before);
 }
 
+// Whether the update is a hotfix. Only a customer-reported update can be: a
+// proactive update has no case id to go with one, whatever `isHotfix` holds.
+// Both the dates the form accepts and the request sent follow this.
+function isHotfixRequired(values: UmtCreateUpdateFormValues): boolean {
+  return !values.isProactive && values.isHotfix;
+}
+
 export function isCreateUpdateFormValid(values: UmtCreateUpdateFormValues): boolean {
   const hasCaseId = values.isProactive || isValidCaseId(values.caseId);
   // DatePicker reports a truthy but Invalid Date while the user is mid-typing
@@ -138,20 +173,21 @@ export function isCreateUpdateFormValid(values: UmtCreateUpdateFormValues): bool
     isAfterDay(values.bestCaseEstimate!, values.mostLikelyEstimate!) &&
     isAfterDay(values.mostLikelyEstimate!, values.worstCaseEstimate!);
 
+  const isHotfix = isHotfixRequired(values);
   const hasThursdayDates =
     hasValidDates &&
-    isValidEstimateDate(values.bestCaseEstimate!, values.isHotfix) &&
-    isValidEstimateDate(values.mostLikelyEstimate!, values.isHotfix) &&
-    isValidEstimateDate(values.worstCaseEstimate!, values.isHotfix);
+    isValidEstimateDate(values.bestCaseEstimate!, isHotfix) &&
+    isValidEstimateDate(values.mostLikelyEstimate!, isHotfix) &&
+    isValidEstimateDate(values.worstCaseEstimate!, isHotfix);
 
   return (
     hasCaseId &&
     values.productId !== null &&
+    isValidInternalGithubIssueUrl(values.internalGitIssue) &&
     hasValidDates &&
     hasOrderedDates &&
     hasThursdayDates &&
-    isValidGithubIssueUrl(values.internalGitIssue) &&
-    isValidGithubIssueUrl(values.publicOrSecurityGitIssue)
+    isValidPublicOrSecurityIssueUrl(values.updateType, values.publicOrSecurityGitIssue)
   );
 }
 
@@ -169,6 +205,6 @@ export function buildUmtCreateUpdateRequest(values: UmtCreateUpdateFormValues): 
     issueType: ISSUE_TYPE_LABEL[values.issueType],
     lifecycle: LIFECYCLE_BY_UPDATE_TYPE[values.updateType],
     productId: values.productId!,
-    hotfixRequired: values.isHotfix,
+    hotfixRequired: isHotfixRequired(values),
   };
 }

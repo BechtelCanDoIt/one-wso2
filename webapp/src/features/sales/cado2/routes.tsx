@@ -32,14 +32,20 @@ import ApprovalSlasPage from "./admin/approval-slas/pages/ApprovalSlasPage";
 import LegalEntitiesPage from "./admin/legal-entities/pages/LegalEntitiesPage";
 import CurrenciesPage from "./admin/currencies/pages/CurrenciesPage";
 import ProductCategoriesPage from "./admin/product-categories/pages/ProductCategoriesPage";
+import ProductBundlesPage from "./admin/product-bundles/pages/ProductBundlesPage";
 import QuoteAccessPage from "./admin/quote-access/pages/QuoteAccessPage";
 import SalesforceSyncPage from "./admin/salesforce-sync/pages/SalesforceSyncPage";
+import EmailNotificationsPage from "./admin/email-notifications/pages/EmailNotificationsPage";
 import PricingFormulasPage from "./admin/pricing-formulas/pages/PricingFormulasPage";
 import PricingFormulaHistoryPage from "./admin/pricing-formulas/pages/PricingFormulaHistoryPage";
+import SupportingDocumentsPage from "./admin/supporting-documents/pages/SupportingDocumentsPage";
 
 // The heavy screens load on first use.
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
 const QuoteDetailPage = lazy(() => import("./quotes/pages/QuoteDetailPage"));
+const InsightsPage = lazy(() => import("./insights/pages/InsightsPage"));
+// Its rich-text editor is heavy too.
+const LegalTextsPage = lazy(() => import("./admin/legal-texts/pages/LegalTextsPage"));
 
 const loading = <Skeleton variant="rounded" height={240} />;
 const deferred = (page: ReactNode) => <Suspense fallback={loading}>{page}</Suspense>;
@@ -76,6 +82,11 @@ export const cado2Routes = (
         </Cado2Requires>
       }
     />
+    <Route path="insights" element={<Navigate to={cado2Paths.insights()} replace />} />
+    <Route
+      path="insights/:tab"
+      element={<Cado2Requires need="insights">{deferred(<InsightsPage />)}</Cado2Requires>}
+    />
     <Route
       path="admin"
       element={
@@ -90,8 +101,12 @@ export const cado2Routes = (
       <Route path="legal-entities" element={<LegalEntitiesPage />} />
       <Route path="currencies" element={<CurrenciesPage />} />
       <Route path="product-categories" element={<ProductCategoriesPage />} />
+      <Route path="product-bundles" element={<ProductBundlesPage />} />
+      <Route path="legal-texts" element={deferred(<LegalTextsPage />)} />
+      <Route path="supporting-documents" element={<SupportingDocumentsPage />} />
       <Route path="quote-access" element={<QuoteAccessPage />} />
       <Route path="salesforce-sync" element={<SalesforceSyncPage />} />
+      <Route path="email-notifications" element={<EmailNotificationsPage />} />
       <Route path="pricing-formulas" element={<PricingFormulasPage />} />
       <Route path="pricing-formulas/:productId" element={<PricingFormulaHistoryPage />} />
       <Route path="*" element={<Navigate to={cado2Paths.adminSection(FIRST_ADMIN_SECTION)} replace />} />

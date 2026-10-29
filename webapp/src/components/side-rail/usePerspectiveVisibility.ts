@@ -265,10 +265,9 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // UMT is the same shape of problem again: Product Management is
   // UMT_ADMIN-only, decided by UMT's own /update/user-info roles, which bear
   // no relation to the people-app privilege numbers `caps` is built from.
-  // Only fetched while Engineering is active. UMT's rows exist only while
-  // its preview flag is on.
+  // Only fetched while Engineering is active.
   const isEngineering = active.key === "engineering";
-  const umtGate = useUmtGate(isEngineering && isPreviewEnabled("umt"));
+  const umtGate = useUmtGate(isEngineering);
   const engineeringAdminGate = useEngineeringAdminGate(isEngineering);
 
   // Amplify → New Post and Current Posts are limited to the amplify_po and

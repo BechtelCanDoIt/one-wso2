@@ -19,7 +19,7 @@
 // runs; only the HTTP helper is stubbed.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { UmtUpdateProduct, UmtUpdateSummary } from "../api/umtUpdates";
@@ -65,11 +65,11 @@ function makeUpdate(overrides: Partial<UmtUpdateSummary> = {}): UmtUpdateSummary
   return { id: 42, lifecycleState: "ProductAnalyzed", products: [DESCRIBED], ...overrides };
 }
 
-function renderForm(update: UmtUpdateSummary) {
+function renderForm(update: UmtUpdateSummary, onDirtyChange?: (dirty: boolean) => void) {
   const client = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <UmtDescriptionInstructionForm id="42" update={update} />
+      <UmtDescriptionInstructionForm id="42" update={update} onDirtyChange={onDirtyChange} />
     </QueryClientProvider>,
   );
 }
@@ -157,6 +157,105 @@ describe("Description and Instruction save", () => {
     renderForm(makeUpdate({ productBehaviourChanges: true } as Partial<UmtUpdateSummary>));
 
     expect(screen.getByRole("radio", { name: "Yes" })).toBeChecked();
+  });
+
+  it("holds Save while a product is left without a description, and says so", async () => {
+    renderForm(makeUpdate({ products: [DESCRIBED, UNDESCRIBED] }));
+    await tickVerificationBoxes();
+
+    expect(saveButton()).toBeDisabled();
+    expect(screen.getByText("Every product needs a description and instruction before saving.")).toBeInTheDocument();
+  });
+
+  it("holds Save after the row for a product is deleted", async () => {
+    renderForm(makeUpdate({ products: [DESCRIBED, { ...UNDESCRIBED, description: "Fixes login.", instruction: "None." }] }));
+    await tickVerificationBoxes();
+    expect(saveButton()).toBeEnabled();
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Delete row" })[0]);
+
+    expect(saveButton()).toBeDisabled();
+  });
+
+  it("saves every product once the missing one has been given a description", async () => {
+    renderForm(makeUpdate({ products: [DESCRIBED, UNDESCRIBED] }));
+    await tickVerificationBoxes();
+
+    await userEvent.click(screen.getByRole("button", { name: "Description and Instructions" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Common Description/ }), {
+      target: { value: "Fixes SSO login." },
+    });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Common Instructions/ }), {
+      target: { value: "Restart the server." },
+    });
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    expect(saveButton()).toBeEnabled();
+    await userEvent.click(saveButton());
+
+    await waitFor(() => expect(bodySentTo(umtServiceUrls.updateProductsDetails("42"))).toBeDefined());
+    expect(bodySentTo(umtServiceUrls.updateProductsDetails("42"))).toEqual([
+      expect.objectContaining({ productId: 1 }),
+      expect.objectContaining({ productId: 2, description: "Fixes SSO login.", instruction: "Restart the server." }),
+    ]);
+  });
+});
+
+// What the step reports to the wizard, which holds Next while anything is
+// unsaved: leaving would discard it.
+describe("unsaved changes", () => {
+  const lastReport = (onDirtyChange: ReturnType<typeof vi.fn>) => onDirtyChange.mock.calls.at(-1)?.[0];
+
+  it("are not reported while nothing has been edited", () => {
+    const onDirtyChange = vi.fn();
+    renderForm(makeUpdate(), onDirtyChange);
+
+    expect(lastReport(onDirtyChange)).toBe(false);
+  });
+
+  it("are reported once a row is deleted", async () => {
+    const onDirtyChange = vi.fn();
+    renderForm(makeUpdate({ products: [DESCRIBED, { ...UNDESCRIBED, description: "Fixes login.", instruction: "None." }] }), onDirtyChange);
+
+    await userEvent.click(screen.getAllByRole("button", { name: "Delete row" })[0]);
+
+    expect(lastReport(onDirtyChange)).toBe(true);
+  });
+
+  it("are reported when the behaviour change differs from the saved one, and stop when it matches again", async () => {
+    const onDirtyChange = vi.fn();
+    renderForm(makeUpdate(), onDirtyChange);
+
+    await userEvent.click(screen.getByRole("radio", { name: "Yes" }));
+    expect(lastReport(onDirtyChange)).toBe(true);
+
+    await userEvent.click(screen.getByRole("radio", { name: "No" }));
+    expect(lastReport(onDirtyChange)).toBe(false);
+  });
+
+  it("are reported when a hotfix's description or instruction differs from the saved one", () => {
+    const onDirtyChange = vi.fn();
+    renderForm(makeUpdate({ isHotfix: true }), onDirtyChange);
+    expect(lastReport(onDirtyChange)).toBe(false);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /Hotfix Description/ }), { target: { value: "Fixes it." } });
+    expect(lastReport(onDirtyChange)).toBe(true);
+
+    fireEvent.change(screen.getByRole("textbox", { name: /Hotfix Description/ }), {
+      target: { value: DESCRIBED.description },
+    });
+    expect(lastReport(onDirtyChange)).toBe(false);
+  });
+
+  it("are no longer reported once the step is left", () => {
+    const onDirtyChange = vi.fn();
+    const { unmount } = renderForm(makeUpdate(), onDirtyChange);
+
+    unmount();
+
+    expect(lastReport(onDirtyChange)).toBe(false);
   });
 });
 

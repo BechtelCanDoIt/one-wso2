@@ -32,6 +32,7 @@ import { umtCanReleaseHotfix, umtHotfixTestStatusLabel } from "../lib/umtHotfixR
 
 const NORMAL = computeUmtEditSteps("UpdateLifecycle", false);
 const NORMAL_WITH_FILES = computeUmtEditSteps("UpdateLifecycle", true);
+const CLOUD = computeUmtEditSteps("CloudSupportLifecycle", false);
 
 function demoteTargets(...args: Parameters<typeof computeUmtDemoteActions>): string[] {
   return computeUmtDemoteActions(...args).map((action) => action.targetLifecycleState);
@@ -53,27 +54,38 @@ describe("lifecycle state → step mapping", () => {
   it("keeps DemoteStagingRequested on the Testing step, not Files Analysis", () => {
     expect(umtActiveStepId("DemoteStagingRequested", NORMAL)).toBe("testing");
   });
+
+  // Cloud Support's Development step proceeds to Released, a move that is not
+  // available from Completed or OnHold, so those states have no step that
+  // proceeds.
+  it("keeps a Completed or OnHold Cloud Support update off its Development step", () => {
+    expect(umtActiveStepId("Development", CLOUD)).toBe("cloud-development");
+    expect(umtActiveStepId("Completed", CLOUD)).toBe("cloud-released");
+    expect(umtActiveStepId("OnHold", CLOUD)).toBe("cloud-released");
+  });
 });
 
 describe("demote actions", () => {
-  it("offers Development from Files Analysis at PRAnalyzed, and PRAnalyzed/Development from Description", () => {
-    expect(demoteTargets("files-analysis", "PRAnalyzed", false, false)).toEqual(["Development"]);
-    expect(demoteTargets("description-instruction", "ProductAnalyzed", false, false)).toEqual([
-      "PRAnalyzed",
-      "Development",
-    ]);
+  it("offers Development from Files Analysis at PRAnalyzed, and only PRAnalyzed from Description", () => {
+    expect(demoteTargets("files-analysis", "PRAnalyzed", false)).toEqual(["Development"]);
+    expect(demoteTargets("description-instruction", "ProductAnalyzed", false)).toEqual(["PRAnalyzed"]);
   });
 
   it("lets an admin send a UATStaging update back to Staging, and offers Reopen on OnHold", () => {
-    expect(demoteTargets("verifying", "UATStaging", false, true)).toEqual(["Staging"]);
-    expect(demoteTargets("verifying", "OnHold", false, false)).toEqual(["Development"]);
+    expect(demoteTargets("verifying", "UATStaging", true)).toEqual(["Staging"]);
+    expect(demoteTargets("verifying", "OnHold", false)).toEqual(["Development"]);
+  });
+
+  // Moving an update out of UATStaging is an administrator's move.
+  it("hides UATStaging's Demote to Testing from anyone but an admin", () => {
+    expect(demoteTargets("verifying", "UATStaging", false)).toEqual([]);
   });
 
   // A demotion from Staging goes through DemoteStagingRequested, which tears
   // staging down; it can't go straight to Development.
   it("demotes Testing/Validate at Staging via DemoteStagingRequested", () => {
-    expect(demoteTargets("testing", "Staging", false, false)).toEqual(["DemoteStagingRequested"]);
-    expect(demoteTargets("validate", "Staging", false, false)).toEqual(["DemoteStagingRequested"]);
+    expect(demoteTargets("testing", "Staging", false)).toEqual(["DemoteStagingRequested"]);
+    expect(demoteTargets("validate", "Staging", false)).toEqual(["DemoteStagingRequested"]);
   });
 });
 
@@ -89,6 +101,43 @@ describe("Testing step gate at Staging", () => {
     expect(
       isTestingComplete("Staging", [{ productId: 1, manualTestResult: "success", automatedTestResult: "success" }]),
     ).toBe(true);
+  });
+
+  it("stays closed when there are no test records, since nothing has been reviewed", () => {
+    expect(isTestingComplete("Staging", [])).toBe(false);
+    expect(isTestingComplete("Staging", null)).toBe(false);
+    expect(isTestingComplete("Staging", undefined)).toBe(false);
+  });
+
+  it("stays closed until every automated run has succeeded", () => {
+    for (const automatedTestResult of ["failure", "building", "pending", undefined]) {
+      expect(isTestingComplete("Staging", [{ productId: 1, manualTestResult: "success", automatedTestResult }])).toBe(
+        false,
+      );
+    }
+    expect(
+      isTestingComplete("Staging", [
+        { productId: 1, manualTestResult: "success", automatedTestResult: "success" },
+        { productId: 2, manualTestResult: "success", automatedTestResult: "failure" },
+      ]),
+    ).toBe(false);
+  });
+
+  it("lets an admin proceed past an automated run that has not succeeded", () => {
+    expect(
+      isTestingComplete("Staging", [{ productId: 1, manualTestResult: "success", automatedTestResult: "failure" }], {
+        isAdmin: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("still needs every manual result and at least one record for an admin", () => {
+    expect(isTestingComplete("Staging", [], { isAdmin: true })).toBe(false);
+    expect(
+      isTestingComplete("Staging", [{ productId: 1, manualTestResult: "failure", manualTestComment: "" }], {
+        isAdmin: true,
+      }),
+    ).toBe(false);
   });
 });
 

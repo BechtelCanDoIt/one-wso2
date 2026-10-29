@@ -266,13 +266,93 @@ describe("the Unit parameter", () => {
   });
 });
 
+describe("the All ARR Metrics Unit", () => {
+  // The Region Summary's second view cuts by a Unit of its own, independent of
+  // the Build tab's. It is the only Table that writes it.
+  const base = defaultAppliedFilters(ANNUALLY, EXIT_ARR_BY_REGION);
+
+  it("opens on All BU and writes nothing while it is there", () => {
+    expect(base.metricsUnit).toBe("BU_ALL");
+    expect(serializeViewState({ period: ANNUALLY, table: EXIT_ARR_BY_REGION, filters: base })).toBe(
+      "table=region-summary",
+    );
+  });
+
+  it("round-trips a unit, Moesif included", () => {
+    for (const metricsUnit of ["BU_APIM", "BU_AGENT_PLATFORM", "CL_MOESIF"]) {
+      const search = serializeViewState({
+        period: ANNUALLY,
+        table: EXIT_ARR_BY_REGION,
+        filters: { ...base, metricsUnit },
+      });
+      expect(parseViewState(search, { period: ANNUALLY }).filters).toEqual({ metricsUnit });
+    }
+    expect(
+      params(serializeViewState({
+        period: ANNUALLY,
+        table: EXIT_ARR_BY_REGION,
+        filters: { ...base, metricsUnit: "CL_MOESIF" },
+      })),
+    ).toEqual({ table: "region-summary", metrics: "cl-moesif" });
+  });
+
+  it("round-trips a custom selection, and reads its lists only beside Custom", () => {
+    const search = serializeViewState({
+      period: ANNUALLY,
+      table: EXIT_ARR_BY_REGION,
+      filters: {
+        ...base,
+        metricsUnit: "CUSTOM",
+        metricsCustomBusinessUnits: ["APIM_BU", "IAM_BU"],
+      },
+    });
+    expect(params(search)).toEqual({
+      table: "region-summary",
+      metrics: "custom",
+      metricsBu: "APIM_BU,IAM_BU",
+    });
+    expect(parseViewState(search, { period: ANNUALLY }).filters).toEqual({
+      metricsUnit: "CUSTOM",
+      metricsCustomBusinessUnits: ["APIM_BU", "IAM_BU"],
+    });
+    expect(
+      parseViewState("?table=region-summary&metrics=bu-iam&metricsBu=APIM_BU", { period: ANNUALLY }).filters,
+    ).toEqual({ metricsUnit: "BU_IAM" });
+  });
+
+  it("falls back to All for a value that is not one of the eight", () => {
+    for (const metrics of ["bu-nope", "sw-apim", "cl-apim", "x", ""]) {
+      const parsed = parseViewState(`?table=region-summary&metrics=${metrics}`, { period: ANNUALLY });
+      expect(parsed.filters.metricsUnit).toBeUndefined();
+      expect(
+        hydrateAppliedFilters(parsed.filters, ANNUALLY, EXIT_ARR_BY_REGION).metricsUnit,
+      ).toBe("BU_ALL");
+    }
+  });
+
+  it("is neither written nor read on any other Table", () => {
+    const search = serializeViewState({
+      period: ANNUALLY,
+      table: SUBSCRIPTION,
+      filters: { ...defaultAppliedFilters(ANNUALLY, SUBSCRIPTION), metricsUnit: "BU_APIM" },
+    });
+    expect(search).toBe("");
+    expect(parseViewState("?metrics=bu-apim", { period: ANNUALLY }).filters).toEqual({});
+  });
+});
+
 describe("the Type parameter", () => {
   // The Table decides which types exist, so validating against a single global
   // list would restore a view the filter bar cannot show — a Renewal column on
   // a summary table that has no Renewal option.
-  it("offers Total and Closed Won only on the summary tables", () => {
-    expect(allowedTypeValues(ANNUALLY, EXIT_ARR_BY_REGION)).toEqual(["Total ARR", "Closed Won ARR"]);
-    expect(allowedTypeValues(ANNUALLY, EXIT_ARR_BY_BU)).toEqual(["Total ARR", "Closed Won ARR"]);
+  it("offers Total, Closed Won and Forecasted on the summary tables, on every Period", () => {
+    for (const table of [EXIT_ARR_BY_REGION, EXIT_ARR_BY_BU]) {
+      expect(allowedTypeValues(ANNUALLY, table)).toEqual(["Total ARR", "Closed Won ARR", "Forecasted ARR"]);
+      expect(allowedTypeValues(MIS_PERIODS.QUARTERLY, table))
+        .toEqual(["Total QRR", "Closed Won QRR", "Forecasted QRR"]);
+      expect(allowedTypeValues(MIS_PERIODS.MONTHLY, table))
+        .toEqual(["Total MRR", "Closed Won MRR", "Forecasted MRR"]);
+    }
   });
 
   it("drops Renewal on Customers and Delayed on the Build", () => {
@@ -286,6 +366,8 @@ describe("the Type parameter", () => {
     const at = (table: string, type: string) =>
       parseViewState(`?table=${table}&type=${type}`, { period: ANNUALLY }).filters.arrType;
     expect(at("region-summary", "Closed+Won+ARR")).toBe("Closed Won ARR");
+    expect(at("region-summary", "Forecasted+ARR")).toBe("Forecasted ARR");
+    expect(at("bu-summary", "Forecasted+ARR")).toBe("Forecasted ARR");
     expect(at("region-summary", "Renewal+ARR")).toBeUndefined();
     expect(at("bu-summary", "Delayed+ARR")).toBeUndefined();
     expect(at("customers", "Delayed+ARR")).toBe("Delayed ARR");
@@ -308,6 +390,20 @@ describe("the Type parameter", () => {
     // that can cut a trailing window, not to the two that only report a balance.
     expect(allowedTypeValues(ANNUALLY, EXIT_ARR_BY_REGION, ttm))
       .toEqual(["Total ARR", "Closed Won ARR"]);
+    expect(allowedTypeValues(ANNUALLY, EXIT_ARR_BY_BU, ttm))
+      .toEqual(["Total ARR", "Closed Won ARR"]);
+  });
+
+  it("opens a summary link carrying Forecasted on it, with forecast mode on, and writes it back", () => {
+    const view = parseViewState("?table=region-summary&type=Forecasted+ARR", { period: ANNUALLY });
+    expect(view.filters.arrType).toBe("Forecasted ARR");
+    expect(hydrateAppliedFilters(view.filters, ANNUALLY, EXIT_ARR_BY_REGION).forecast).toBe("Enable");
+    expect(params(serializeViewState({
+      period: ANNUALLY,
+      table: EXIT_ARR_BY_REGION,
+      viewWindow: MIS_WINDOWS.CALENDAR,
+      filters: { ...defaultAppliedFilters(ANNUALLY, EXIT_ARR_BY_REGION), arrType: "Forecasted ARR" },
+    }))).toEqual({ table: "region-summary", type: "Forecasted ARR" });
   });
 
   it("carries a Delayed TTM Build in the address, and refuses a forecast there", () => {

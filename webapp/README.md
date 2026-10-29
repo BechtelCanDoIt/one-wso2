@@ -42,6 +42,7 @@ host injects a fresh `config.js` per environment.
 | `npm run dev` | dev server at http://localhost:3000 |
 | `npm run build` | `tsc -b && vite build` → `dist/` |
 | `npm run preview` | serve the production build |
+| `npm run check:prod-pdf` | check that the NDA PDF downloads under the production CSP (`vite build` + `vite preview` + Chrome) |
 | `npm test` | run the test suite once (`vitest run`) |
 | `npm run test:watch` | tests in watch mode |
 | `npm run lint` | ESLint |
@@ -65,7 +66,7 @@ env vars use the `ONE_WSO2_` prefix (`vite.config.ts`).
 | `ONE_WSO2_ASGARDEO_MYACCOUNT_URL` | optional; defaults to the auth base URL with `api.` swapped for `myaccount.` | |
 | `ONE_WSO2_THEME` | `wso2` (default), `acrylicOrange`, `acrylicPurple`, `classic`, `highContrast`, `paleIndigo`, `paleGray` | `wso2` |
 | `ONE_WSO2_IDLE_AUTO_SIGN_OUT` | optional; `true` signs out 30 minutes after inactivity instead of waiting at the idle prompt | `false` |
-| `ONE_WSO2_PREVIEW_FEATURES` | features built but not released; absent or `false` hides them | `{ umt: false }` |
+| `ONE_WSO2_PREVIEW_FEATURES` | features built but not released; absent or `false` hides them | `{ infra: false }` |
 
 ### Feature backends
 
@@ -93,7 +94,7 @@ naming the key and makes no requests.
 | Due Diligence | `ONE_WSO2_DUE_DILIGENCE_BACKEND_URL` |
 | Finance MIS | `ONE_WSO2_MIS_ARR_BACKEND_URL` |
 | Infra Portal | `ONE_WSO2_INFRA_BACKEND_URL` |
-| Sales Library (Smart Search over Pitstop content) | `ONE_WSO2_SMART_SEARCH_BACKEND_URL` (also needs `smartSearch` in `ONE_WSO2_PREVIEW_FEATURES`) |
+| Sales Library (Smart Search over Pitstop content) | `ONE_WSO2_SMART_SEARCH_BACKEND_URL` |
 | CSM (separate app, opened in a new tab) | `ONE_WSO2_CSM_URL` |
 
 ## Import aliases
@@ -148,7 +149,7 @@ A **perspective** is a role- or purpose-shaped area of the app. They are registe
 `src/constants/perspectives.ts` (`PERSPECTIVES`), and the launcher (the waffle, top right) lists
 them in that order: People Ops, Finance, Legal, CSM, Sales, Knowledge, Engineering, Infra
 Portal, Marketing Ops, Security and Compliance, and Me. Knowledge and Infra Portal are behind
-preview flags. UMT is an app inside Engineering, behind its own `umt` flag. CSM is a separate app
+preview flags. UMT is an app inside Engineering. CSM is a separate app
 opened in a new tab.
 
 - **Me** is the default landing and a default favourite. Each person can choose a different landing

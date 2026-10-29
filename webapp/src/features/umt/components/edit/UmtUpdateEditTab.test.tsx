@@ -31,6 +31,7 @@ const state = vi.hoisted(() => ({
   isProductLead: false,
   additionalFileOperations: [] as unknown[],
   stagingResults: [] as unknown[],
+  ignoredFiles: [] as string[],
 }));
 
 vi.mock("../../api/useUmtUpdateViewData", () => ({
@@ -38,7 +39,10 @@ vi.mock("../../api/useUmtUpdateViewData", () => ({
     isSuccess: true,
     data: { additionalFileOperations: state.additionalFileOperations },
   }),
-  useUmtProductAnalysis: () => ({ isSuccess: true, data: {} }),
+  useUmtProductAnalysis: () => ({
+    isSuccess: true,
+    data: { ignoredFilePathsDuringPartialProductAnalysis: state.ignoredFiles },
+  }),
 }));
 
 vi.mock("../../api/useUmtTesting", () => ({
@@ -47,6 +51,12 @@ vi.mock("../../api/useUmtTesting", () => ({
 
 vi.mock("../../api/useUmtPrAnalysis", () => ({
   useUmtIsAdvancingToPrAnalyzed: () => false,
+}));
+
+// Two log entries: the stay a saved pointer belongs to is the lifecycle state
+// plus the length of this log.
+vi.mock("../../api/useUmtLifecycleHistory", () => ({
+  useUmtLifecycleHistory: () => ({ isSuccess: true, data: [{}, {}] }),
 }));
 
 vi.mock("../../api/useUmtHotfixRelease", () => ({
@@ -79,11 +89,22 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showSuccess: vi.fn(), showError: vi.fn(), showWarning: vi.fn() }),
 }));
 
+// A step that can hold unsaved edits reports them through onDirtyChange; the
+// stubs do so from a button.
+type DirtyReporter = { onDirtyChange?: (dirty: boolean) => void };
+const unsavedButton = ({ onDirtyChange }: DirtyReporter, label: string) => (
+  <button onClick={() => onDirtyChange?.(true)}>{label}</button>
+);
+
 vi.mock("./files-analysis/UmtFilesAnalysisStep", () => ({
-  default: () => <div data-testid="step-files-analysis" />,
+  default: (props: DirtyReporter) => (
+    <div data-testid="step-files-analysis">{unsavedButton(props, "Leave changes unanalysed")}</div>
+  ),
 }));
 vi.mock("./description-instruction/UmtDescriptionInstructionStep", () => ({
-  default: () => <div data-testid="step-description-instruction" />,
+  default: (props: DirtyReporter) => (
+    <div data-testid="step-description-instruction">{unsavedButton(props, "Leave rows unsaved")}</div>
+  ),
 }));
 vi.mock("./security-advisory/UmtSecurityAdvisoryStep", () => ({
   default: () => <div data-testid="step-security-advisory" />,
@@ -95,7 +116,9 @@ vi.mock("./testing/UmtTestingStep", () => ({
   default: () => <div data-testid="step-testing" />,
 }));
 vi.mock("./validate/UmtValidateStep", () => ({
-  default: () => <div data-testid="step-validate" />,
+  default: (props: DirtyReporter) => (
+    <div data-testid="step-validate">{unsavedButton(props, "Leave rows unsaved")}</div>
+  ),
 }));
 vi.mock("./file-approval/UmtFileApprovalStep", () => ({
   default: () => <div data-testid="step-file-approval" />,
@@ -140,8 +163,13 @@ function makeUpdate(overrides: Partial<UmtUpdateSummary> = {}): UmtUpdateSummary
   };
 }
 
-function persistStep(stepId: string) {
-  window.localStorage.setItem("one-wso2.umt-edit-step.v1.42", stepId);
+const PERSISTED_STEP_KEY = "one-wso2.umt-edit-step.v2.42";
+
+// Saved as reached in the current stay of `lifecycleState`, so only the run
+// rules decide whether it is honoured; pass a different `stayKey` to save it
+// under another stay instead.
+function persistStep(stepId: string, lifecycleState = "ProductAnalyzed", stayKey = `${lifecycleState}#2`) {
+  window.localStorage.setItem(PERSISTED_STEP_KEY, JSON.stringify({ stayKey, stepId }));
 }
 
 function renderTab(update: UmtUpdateSummary) {
@@ -160,6 +188,7 @@ beforeEach(() => {
   state.isProductLead = false;
   state.additionalFileOperations = [];
   state.stagingResults = [];
+  state.ignoredFiles = [];
 });
 
 describe("a step pointer saved under another lifecycle state", () => {
@@ -189,14 +218,26 @@ describe("a step pointer saved under another lifecycle state", () => {
     persistStep("validate");
     renderTab(makeUpdate());
 
-    expect(window.localStorage.getItem("one-wso2.umt-edit-step.v1.42")).toBeNull();
+    expect(window.localStorage.getItem(PERSISTED_STEP_KEY)).toBeNull();
   });
 
   it("from a later state also leaves Files Analysis alone", () => {
-    persistStep("integration-tests");
+    persistStep("integration-tests", "PRAnalyzed");
     renderTab(makeUpdate({ lifecycleState: "PRAnalyzed", promoteStages: ["ProductAnalyzed"] }));
 
     expect(screen.getByTestId("step-files-analysis")).toBeInTheDocument();
+  });
+});
+
+describe("a step pointer saved in another stay of the same state", () => {
+  // The update left this state and came back since, so the pointer says
+  // nothing about where it is now, though the step is within the state's run.
+  it("is not restored", () => {
+    persistStep("integration-tests", "ProductAnalyzed", "ProductAnalyzed#1");
+    renderTab(makeUpdate());
+
+    expect(screen.queryByTestId("step-integration-tests")).not.toBeInTheDocument();
+    expect(screen.getByTestId("step-description-instruction")).toBeInTheDocument();
   });
 });
 
@@ -209,10 +250,88 @@ describe("a step pointer within the current state's run", () => {
   });
 
   it("is still honoured under Staging", () => {
-    persistStep("validate");
+    persistStep("validate", "Staging");
     renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
 
     expect(screen.getByTestId("step-validate")).toBeInTheDocument();
+  });
+});
+
+describe("Proceed from Files Analysis, once the product analysis has run", () => {
+  const filesAnalysis = () => makeUpdate({ lifecycleState: "PRAnalyzed", promoteStages: ["ProductAnalyzed"] });
+  const IGNORED = ["repository/conf/carbon.xml", "repository/conf/deployment.toml"];
+
+  it("goes straight on when the product analysis ignored no files", async () => {
+    renderTab(filesAnalysis());
+
+    await userEvent.click(forwardButton());
+
+    await vi.waitFor(() => expect(state.transition).toHaveBeenCalledWith("ProductAnalyzed"));
+  });
+
+  it("lists the files the product analysis ignored, and asks before going on", async () => {
+    state.ignoredFiles = IGNORED;
+    renderTab(filesAnalysis());
+
+    await userEvent.click(forwardButton());
+
+    expect(await screen.findByText("Ignored Files")).toBeInTheDocument();
+    for (const file of IGNORED) expect(screen.getByText(file)).toBeInTheDocument();
+    expect(state.transition).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Acknowledge and Proceed" }));
+
+    await vi.waitFor(() => expect(state.transition).toHaveBeenCalledWith("ProductAnalyzed"));
+  });
+
+  it("does not go on when the ignored files are not acknowledged", async () => {
+    state.ignoredFiles = IGNORED;
+    renderTab(filesAnalysis());
+    await userEvent.click(forwardButton());
+    await screen.findByText("Ignored Files");
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    await vi.waitFor(() => expect(screen.queryByText("Ignored Files")).not.toBeInTheDocument());
+    expect(state.transition).not.toHaveBeenCalled();
+  });
+
+  it("asks about unanalysed changes first, and the ignored files second", async () => {
+    state.ignoredFiles = IGNORED;
+    renderTab(filesAnalysis());
+    await userEvent.click(screen.getByRole("button", { name: "Leave changes unanalysed" }));
+
+    await userEvent.click(forwardButton());
+    await userEvent.click(await screen.findByRole("button", { name: "Proceed Anyway" }));
+
+    expect(await screen.findByText("Ignored Files")).toBeInTheDocument();
+    expect(state.transition).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Acknowledge and Proceed" }));
+    await vi.waitFor(() => expect(state.transition).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("unsaved description rows", () => {
+  const SAVE_FIRST = "Save your description and instruction changes before proceeding.";
+
+  it("hold Description and Instruction's Next until they are saved", async () => {
+    renderTab(makeUpdate());
+    expect(forwardButton()).toBeEnabled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Leave rows unsaved" }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(SAVE_FIRST)).toBeInTheDocument();
+  });
+
+  it("hold Validate's Proceed until they are saved", async () => {
+    persistStep("validate", "Staging");
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Leave rows unsaved" }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(SAVE_FIRST)).toBeInTheDocument();
   });
 });
 
@@ -234,7 +353,7 @@ describe("descriptions on the way out of a state", () => {
   });
 
   it("are re-checked by Validate's Proceed at Staging", () => {
-    persistStep("validate");
+    persistStep("validate", "Staging");
     renderTab(
       makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"], products: [COMPLETE, UNDESCRIBED] }),
     );
@@ -261,5 +380,95 @@ describe("descriptions on the way out of a state", () => {
     await userEvent.click(forwardButton());
 
     expect(state.transition).toHaveBeenCalledWith("UATStaging");
+  });
+});
+
+describe("demote buttons", () => {
+  const demoteButton = (name: string) => screen.queryByRole("button", { name });
+
+  it("offers a hotfix the same Demote to PRAnalyzed as any other update on Description and Instruction", () => {
+    renderTab(makeUpdate({ isHotfix: true }));
+
+    expect(demoteButton("Demote to PRAnalyzed")).toBeInTheDocument();
+    expect(demoteButton("Demote to Development")).not.toBeInTheDocument();
+  });
+
+  it("leaves a UATStaging update's Demote to Testing to an admin", () => {
+    renderTab(makeUpdate({ lifecycleState: "UATStaging", promoteStages: [] }));
+    expect(demoteButton("Demote to Testing")).not.toBeInTheDocument();
+  });
+
+  it("shows an admin a UATStaging update's Demote to Testing", () => {
+    state.isAdmin = true;
+    renderTab(makeUpdate({ lifecycleState: "UATStaging", promoteStages: [] }));
+
+    expect(demoteButton("Demote to Testing")).toBeInTheDocument();
+  });
+});
+
+describe("a Cloud Support update", () => {
+  const cloud = (lifecycleState: string) => makeUpdate({ lifecycle: "CloudSupportLifecycle", lifecycleState });
+  const proceedButton = () => screen.queryByRole("button", { name: "Proceed" });
+
+  it("proceeds from Development", () => {
+    renderTab(cloud("Development"));
+
+    expect(proceedButton()).toBeInTheDocument();
+  });
+
+  it("has nothing to proceed to once it is Completed", () => {
+    renderTab(cloud("Completed"));
+
+    expect(proceedButton()).not.toBeInTheDocument();
+    expect(screen.getByText("All states completed.")).toBeInTheDocument();
+  });
+
+  it("has nothing to proceed to while it is on hold, and says it is on hold", () => {
+    renderTab(cloud("OnHold"));
+
+    expect(proceedButton()).not.toBeInTheDocument();
+    expect(screen.getByText("This update is on hold.")).toBeInTheDocument();
+    expect(screen.queryByText("All states completed.")).not.toBeInTheDocument();
+  });
+});
+
+describe("a step with no usable next lifecycle state", () => {
+  it("says why Proceed is disabled when the backend sends none", () => {
+    persistStep("integration-tests");
+    renderTab(makeUpdate({ promoteStages: [] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/didn't provide a usable next lifecycle state/)).toBeInTheDocument();
+  });
+
+  it("says why Proceed is disabled when the backend sends a state it doesn't know", () => {
+    persistStep("integration-tests");
+    renderTab(makeUpdate({ promoteStages: ["SomeFutureState"] }));
+
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText(/didn't provide a usable next lifecycle state/)).toBeInTheDocument();
+  });
+});
+
+describe("the Testing step's demote while it waits", () => {
+  const demoteButton = () => screen.queryByRole("button", { name: "Demote to Development" });
+
+  it("offers none while staging is being requested", () => {
+    renderTab(makeUpdate({ lifecycleState: "StagingRequested", promoteStages: [] }));
+
+    expect(screen.getByTestId("step-testing")).toBeInTheDocument();
+    expect(demoteButton()).not.toBeInTheDocument();
+  });
+
+  it("offers none to a hotfix while its test environment is being requested", () => {
+    renderTab(makeUpdate({ lifecycleState: "TestingEnvironmentRequested", isHotfix: true, promoteStages: [] }));
+
+    expect(demoteButton()).not.toBeInTheDocument();
+  });
+
+  it("is there once the update is at Staging", () => {
+    renderTab(makeUpdate({ lifecycleState: "Staging", promoteStages: ["UATStaging"] }));
+
+    expect(demoteButton()).toBeInTheDocument();
   });
 });

@@ -15,10 +15,11 @@
 // under the License.
 
 import { useMutation, useQueryClient, type Query } from "@tanstack/react-query";
-import { authedDelete, authedPost } from "@api/http";
+import { authedDelete, authedGet, authedPost } from "@api/http";
 import { umtServiceUrls } from "@config/apiConfig";
 import { useAccessToken } from "@hooks/useAccessToken";
-import type { UmtCreateReleaseChunkRequest, UmtReleaseChunk } from "./umtReleaseChunks";
+import { umtReleaseChunkCanRelease } from "../lib/umtReleaseChunks";
+import type { UmtCreateReleaseChunkRequest, UmtReleaseChunk, UmtReleaseChunkStatus } from "./umtReleaseChunks";
 
 // POST /update/releaseChunk — body is the raw array of update ids, not an
 // object.
@@ -108,14 +109,14 @@ export function useUmtTriggerReleaseChunkBuilds(chunkId: number) {
   });
 }
 
-export function useUmtTriggerCstBuild(chunkId: number) {
+export function useUmtRetriggerCstBuild(chunkId: number) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
 
   return useMutation<void, Error, void>({
     mutationFn: async () => {
       const accessToken = await getAccessToken();
-      await authedPost(umtServiceUrls.releaseChunkTriggerCstBuild(chunkId), accessToken, null);
+      await authedPost(umtServiceUrls.releaseChunkRetriggerCstBuild(chunkId), accessToken, null);
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["umt-release-chunk-build-status"] });
@@ -181,6 +182,18 @@ export function useUmtRetriggerDockerBuild(chunkId: number) {
 // this flow asks anyone for a per-release note.
 const UMT_RELEASE_MESSAGE = "Releasing chunk";
 
+// Releasing runs the whole release again, so the chunk's own status is read
+// just before the request and a chunk that is being released or has been
+// released is refused: the row that offered Release may be a stale one, in
+// another tab or from before a first click took effect. A status that cannot
+// be read refuses too, rather than guessing.
+export class UmtReleaseChunkNotReleasableError extends Error {
+  constructor() {
+    super("This release chunk is already being released or has been released.");
+    this.name = "UmtReleaseChunkNotReleasableError";
+  }
+}
+
 export function useUmtReleaseChunk(chunkId: number) {
   const getAccessToken = useAccessToken();
   const queryClient = useQueryClient();
@@ -188,15 +201,24 @@ export function useUmtReleaseChunk(chunkId: number) {
   return useMutation<void, Error, void>({
     mutationFn: async () => {
       const accessToken = await getAccessToken();
+      const current = await authedGet<UmtReleaseChunkStatus>(umtServiceUrls.releaseChunk(chunkId), accessToken);
+      if (!umtReleaseChunkCanRelease(current?.status)) throw new UmtReleaseChunkNotReleasableError();
       await authedPost(umtServiceUrls.releaseChunkRelease(chunkId), accessToken, {
         "release-message": UMT_RELEASE_MESSAGE,
       });
+    },
+    // A refusal means the row is out of date, so it is read again.
+    onError: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["umt-release-chunk-status"] });
     },
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ["umt-release-chunks"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-release-chunk-status"] }),
         queryClient.invalidateQueries({ queryKey: ["umt-released-chunks"] }),
+        // Releasing moves the chunk's updates out of UAT.
+        queryClient.invalidateQueries({ queryKey: ["umt-updates"] }),
+        queryClient.invalidateQueries({ queryKey: ["umt-update"] }),
       ]);
     },
   });

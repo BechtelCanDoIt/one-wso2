@@ -52,6 +52,14 @@ export interface InfraOrganization {
     /** 1 when the org allows issues, 0 when it does not. */
     enableIssues: number | boolean;
     defaultTeams?: string | null;
+    /** Comma-separated default team IDs, e.g. "1,4". */
+    teamIds?: string | null;
+}
+export interface InfraDefaultTeam {
+    teamId: number;
+    teamName: string;
+    /** GitHub team permission: push, pull, triage, or admin. */
+    permissionLevel: string;
 }
 export interface InfraTopic {
     topicId: number;
@@ -75,4 +83,51 @@ export interface GitHubVerifyResponse {
     status: string;
     githubUserId?: string | null;
     githubUsername?: string | null;
+}
+export type InfraRequestState = "Pending" | "Approved" | "Rejected";
+
+export interface InfraRepositoryRequest {
+  id: number;
+  email: string;
+  leadEmail: string;
+  requirement: string;
+  ccList: string;
+  repoName: string;
+  organizationId: number;
+  organizationName: string;
+  organizationVisibility?: string;
+  repoType: string;
+  description: string;
+  enableIssues: string;
+  websiteUrl: string | null;
+  topics: string;
+  prProtection: string;
+  teams: string;
+  enableTriageWso2All: string;
+  enableTriageWso2AllInterns: string;
+  disableTriageReason: string;
+  cicdRequirement?: string;
+  jenkinsJobType?: string | null;
+  jenkinsGroupId?: string | null;
+  azureDevopsOrg?: string | null;
+  azureDevopsProject?: string | null;
+  state: InfraRequestState;
+  timestamp: string;
+  updatedAt: string | null;
+}
+
+export interface InfraRequestComment {
+  commentId: number;
+  requestId: number;
+  authorEmail: string;
+  commentText: string;
+  createdAt: string;
+}
+
+export interface InfraRepositoryRequestList {
+  totalCount: number;
+  pendingCount: number;
+  approvedCount: number;
+  rejectedCount: number;
+  repositoryRequests: InfraRepositoryRequest[];
 }

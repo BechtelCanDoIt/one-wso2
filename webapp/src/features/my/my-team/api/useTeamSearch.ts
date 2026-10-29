@@ -29,6 +29,7 @@ import type {
   Employee,
   EmployeeSearchPayload,
   FilteredEmployeesResponse,
+  ReportingLine,
 } from "../../api/types";
 
 const EMPTY: FilteredEmployeesResponse = { employees: [], totalCount: 0 };
@@ -90,6 +91,27 @@ export function useTeamMember(employeeId: string | undefined) {
     enabled: ready && Boolean(employeeId),
     queryFn: async () =>
       authedGet<Employee>(peopleServiceUrls.employee(employeeId as string), await getAccessToken()),
+    staleTime: 5 * 60 * 1000,
+    retry: httpRetry,
+  });
+  return foldIdentityError(query, subState, retryIdentity);
+}
+
+/**
+ * How one team member is linked to the caller.
+ *
+ * Sub-scoped: the answer is relative to whoever is asking.
+ */
+export function useTeamMemberReportingLine(employeeId: string | undefined) {
+  const { getAccessToken, subState, retryIdentity, userSub, ready } = useBasis();
+  const query = useQuery<ReportingLine>({
+    queryKey: ["my-team", "reporting-line", userSub, employeeId],
+    enabled: ready && Boolean(employeeId),
+    queryFn: async () =>
+      authedGet<ReportingLine>(
+        peopleServiceUrls.employeeReportingLine(employeeId as string),
+        await getAccessToken(),
+      ),
     staleTime: 5 * 60 * 1000,
     retry: httpRetry,
   });

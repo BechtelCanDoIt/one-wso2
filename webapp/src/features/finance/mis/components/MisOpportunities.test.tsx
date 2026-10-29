@@ -17,7 +17,10 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import ExcelJS from "exceljs";
+import { bytesOf, captureDownloads } from "@/test/downloads";
 import MisOpportunities from "./MisOpportunities";
 import type { OpportunityResponse } from "./opportunityRows";
 import { MIS_SCALES, type MisScale } from "../util/misViewVocabulary";
@@ -136,5 +139,110 @@ describe("the states that are not a list", () => {
   it("shows no table while the read is in flight", () => {
     showDialog({ over: { isLoading: true, opportunities: [] } });
     expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  });
+});
+
+describe("finding one opportunity in the list", () => {
+  const BOOK = [
+    opportunity({ id: "OPP-1", name: "Renewal FY26", stageName: "Closed Won", apimArr: 1000 }),
+    opportunity({ id: "OPP-2", name: "Expansion Apac", stageName: "Negotiation", apimArr: 90_000 }),
+    opportunity({ id: "OPP-3", name: "renewal west", stageName: "Closed Won", apimArr: 12_000 }),
+  ];
+  const table = () => screen.getByRole("table", { name: "Opportunities behind this account", hidden: true });
+  const names = () =>
+    within(table())
+      .getAllByRole("row", { hidden: true })
+      .slice(1)
+      .map((row) => row.children[3]?.textContent ?? "");
+  const header = (label: string) =>
+    within(table()).getByRole("columnheader", { name: new RegExp(`^${label}(?: Filter by.*)?$`), hidden: true });
+  const sortButton = (label: string) => within(header(label)).getByRole("button", { name: label });
+
+  it("sorts every column: ascending, descending, then off", async () => {
+    showDialog({ over: { opportunities: BOOK } });
+    const before = names();
+    for (const label of ["Account ID", "Opportunity Name", "Stage Name", "Subscription Start Date", "API Platform", "Cloud Total"]) {
+      await userEvent.click(sortButton(label));
+      expect(header(label), `${label} ascending`).toHaveAttribute("aria-sort", "ascending");
+      await userEvent.click(sortButton(label));
+      expect(header(label), `${label} descending`).toHaveAttribute("aria-sort", "descending");
+      await userEvent.click(sortButton(label));
+      expect(header(label), `${label} off`).not.toHaveAttribute("aria-sort");
+    }
+    expect(names()).toEqual(before);
+  }, 60_000);
+
+  it("orders the figures as numbers", async () => {
+    showDialog({ over: { opportunities: BOOK } });
+    await userEvent.click(sortButton("API Platform"));
+    expect(names()).toEqual(["Renewal FY26", "renewal west", "Expansion Apac"]);
+    await userEvent.click(sortButton("API Platform"));
+    expect(names()).toEqual(["Expansion Apac", "renewal west", "Renewal FY26"]);
+  });
+
+  it("filters the text columns by what they contain, ignoring case", async () => {
+    showDialog({ over: { opportunities: BOOK } });
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Opportunity Name/, hidden: true }));
+    await userEvent.type(await screen.findByLabelText("Filter Opportunity Name"), "RENEWAL");
+    expect(names()).toEqual(["Renewal FY26", "renewal west"]);
+    expect(screen.getByText("2 opportunities")).toBeInTheDocument();
+  });
+
+  it("offers no text filter on a figure column", () => {
+    showDialog({ over: { opportunities: BOOK } });
+    expect(screen.queryByRole("button", { name: /^Filter by API Platform$/, hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Filter by Stage Name/, hidden: true })).toBeInTheDocument();
+  });
+
+  it("exports the rows as sorted and filtered, in Excel", async () => {
+    const { blobs } = captureDownloads();
+    showDialog({ over: { opportunities: BOOK } });
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Opportunity Name/, hidden: true }));
+    await userEvent.type(await screen.findByLabelText("Filter Opportunity Name"), "renewal");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByLabelText("Filter Opportunity Name")).not.toBeInTheDocument());
+    await userEvent.click(sortButton("API Platform"));
+    await userEvent.click(sortButton("API Platform"));
+
+    await userEvent.click(screen.getByRole("button", { name: /^export$/i }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /^excel/i }));
+    await waitFor(() => expect(blobs).toHaveLength(1));
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await bytesOf(blobs[0]));
+    const exported: string[] = [];
+    workbook.getWorksheet("Opportunities")!.eachRow((row) => exported.push(String(row.getCell(4).value ?? "")));
+    expect(exported.filter((name) => /renewal/i.test(name))).toEqual(["renewal west", "Renewal FY26"]);
+    expect(exported).not.toContain("Expansion Apac");
+  });
+
+  it("keeps the filter when the same account returns a new list, and clears it for another account", async () => {
+    const { rerender } = showDialog({ over: { opportunities: BOOK } });
+    await userEvent.click(screen.getByRole("button", { name: /^Filter by Opportunity Name/, hidden: true }));
+    await userEvent.type(await screen.findByLabelText("Filter Opportunity Name"), "RENEWAL");
+    expect(names()).toEqual(["Renewal FY26", "renewal west"]);
+
+    rerender(
+      <MisOpportunities
+        open
+        onClose={() => {}}
+        account={ACCOUNT}
+        asOf="2026/06/30"
+        state={state({ opportunities: BOOK.map((row) => ({ ...row })) })}
+        scale={MIS_SCALES.UNITS}
+      />,
+    );
+    expect(names()).toEqual(["Renewal FY26", "renewal west"]);
+
+    rerender(
+      <MisOpportunities
+        open
+        onClose={() => {}}
+        account={{ id: "ACC-2", name: "Contoso" }}
+        asOf="2026/06/30"
+        state={state({ opportunities: BOOK })}
+        scale={MIS_SCALES.UNITS}
+      />,
+    );
+    expect(names()).toEqual(["Renewal FY26", "Expansion Apac", "renewal west"]);
   });
 });

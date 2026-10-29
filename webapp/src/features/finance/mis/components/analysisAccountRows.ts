@@ -14,12 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// `POST /accounts` as ARR Analysis reads it: one row per account, and the
+// `POST /accounts` as Portfolio reads it: one row per account, and the
 // option lists the loaded accounts can supply when the backend's cannot.
-//
-// Ported from digiops-finance `arrAnalysis/ArrAnalysisDashboard.js` —
-// `toDashboardRows` (:345-368), `parseProductsInUse` (:283-300) and the
-// `allFilterOptions` effect (:806-830).
 //
 // ---- this is the SAME endpoint the Build's customers table reads -----------
 //
@@ -30,13 +26,11 @@
 // here rather than being imported from there, where it carries the other
 // table's fields.
 //
-// ---- four fields the source builds and nothing reads -----------------------
+// ---- three response fields nothing here reads -------------------------------
 //
-// `toDashboardRows` also writes `accountId`, `businessUnits`, `industry` and
-// `activationDate` onto every row. No column definition reads any of them, and
-// neither does the filter-option scrape. Not ported — spec §9.
-// (`businessUnits` is not even on `AccountDetails`, so the source's branch
-// always yields `[]`.)
+// The response also carries `accountId`, `businessUnits` and `activationDate`.
+// No column definition reads any of them, and neither does the filter-option
+// scrape. `businessUnits` is not on `AccountDetails`, so it is never present.
 
 /**
  * One account, as the ARR backend sends it
@@ -57,6 +51,7 @@ export interface AnalysisAccountsResponse {
   /** Plural on the wire, singular in meaning — one region per account. */
   salesRegions?: string;
   subRegion?: string;
+  naicsIndustry?: string;
   billingCountry?: string;
   /** Years, as a string. */
   customerLifetime?: string;
@@ -93,6 +88,8 @@ export interface AnalysisAccountRow {
   partnerType: string;
   salesRegion: string;
   subRegion: string;
+  /** The account's NAICS industry, which the industry chart apportions each bar by. */
+  industry: string;
   country: string;
   /**
    * A NUMBER, where the wire sends a string — a deliberate deviation. The
@@ -161,6 +158,7 @@ export function analysisAccountRows(
     partnerType: account?.partnerType ?? "",
     salesRegion: account?.salesRegions ?? "",
     subRegion: account?.subRegion ?? "",
+    industry: account?.naicsIndustry ?? "",
     country: account?.billingCountry ?? "",
     lifetimeYears: figure(account?.customerLifetime),
     apimBu: figure(account?.apimBuTotal),

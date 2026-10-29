@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Divider, Stack, Typography } from "@wso2/oxygen-ui";
+import { Divider, Stack } from "@wso2/oxygen-ui";
 import type { UmtUpdateSummary } from "../../../api/umtUpdates";
 import UmtUpdateDetailsGrid from "../../UmtUpdateDetailsGrid";
 import UmtUpdateViewSections from "../../UmtUpdateViewSections";
@@ -25,7 +25,6 @@ import UmtUpdateViewSections from "../../UmtUpdateViewSections";
 export default function UmtVerifyingStep({ id, update }: { id: string; update: UmtUpdateSummary }) {
   return (
     <Stack spacing={3}>
-      <Typography variant="h5">Verifying</Typography>
       <UmtUpdateDetailsGrid id={id} update={update} loading={false} canEdit={false} />
       <Divider />
       <UmtUpdateViewSections id={id} update={update} />

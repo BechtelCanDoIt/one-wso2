@@ -20,6 +20,8 @@ import type { CreateBankAccountRequestPayload } from "@features/my/api/types";
 export interface BankAccountFormValues {
   accountName: string;
   beneficiaryAddress: string;
+  // Consultancy only — the other Account Types never show or send it.
+  beneficiaryCity: string;
   // Sent to the backend as `accountHoldersCountry` (note the plural): its
   // request record requires it, and for Consultancy it also builds the
   // vendor's address. The dialog's own Bank Location default does not depend
@@ -56,8 +58,12 @@ export function banksLocationKey(location: string): string {
   return location === "US" ? "United States" : location;
 }
 
-// Step 1 — Account Holder Info.
-export function validateAccountHolder(values: BankAccountFormValues): BankAccountFormErrors {
+// Step 1 — Account Holder Info. Takes the Account Type for the same reason
+// validateBankInfo does: one field below is only asked of Consultancy.
+export function validateAccountHolder(
+  values: BankAccountFormValues,
+  accountType: AccountType,
+): BankAccountFormErrors {
   const errors: BankAccountFormErrors = {};
 
   // "Required" means non-empty, exactly as the source's schema has it — a
@@ -80,6 +86,13 @@ export function validateAccountHolder(values: BankAccountFormValues): BankAccoun
     errors.accountNumber = "Account No is required";
   } else if (values.accountNumber.length > 34) {
     errors.accountNumber = "Account Number must be at most 34 characters";
+  }
+
+  // Only Consultancy builds a NetSuite vendor address, so only Consultancy
+  // asks for a city. Blank-after-trim is rejected here rather than left to
+  // the backend, which returns a 400 for exactly the same case.
+  if (accountType === "CONSULTANCY" && !values.beneficiaryCity.trim()) {
+    errors.beneficiaryCity = "Account Holder's City is required";
   }
 
   return errors;
@@ -145,6 +158,12 @@ export function buildCreateBankAccountRequestPayload(
     accountName: values.accountName,
     accountNumber: values.accountNumber,
     beneficiaryAddress: values.beneficiaryAddress,
+    // Omitted rather than sent empty for the other Account Types: the
+    // backend treats a blank city as "not supplied" and stores NULL, so
+    // leaving the key out says the same thing without relying on that.
+    ...(accountType === "CONSULTANCY"
+      ? { beneficiaryCity: values.beneficiaryCity.trim() }
+      : {}),
     bankName: values.bankName,
     bankSwiftCode: values.bankSwiftCode,
     bankCode: values.bankCode,

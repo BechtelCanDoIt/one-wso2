@@ -39,6 +39,7 @@ const failingVersions = new Set<number>();
 const mutation = () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null as Error | null });
 const recall = mutation();
 const revise = mutation();
+const clone = mutation();
 const close = mutation();
 const del = mutation();
 
@@ -54,14 +55,26 @@ vi.mock("@features/sales/cado2/approvals/api/useApprovalApi", () => ({
   useDecideStep: () => decide,
 }));
 
-const me = { data: { sub: "s", email: "approver@wso2.com", roles: [], approverRoles: ["DEAL_DESK"] as string[] } };
-vi.mock("@features/sales/cado2/api/useCado2Me", () => ({ useCado2Me: () => me }));
+const me = { data: { sub: "s", email: "approver@wso2.com", roles: [] as string[], approverRoles: ["DEAL_DESK"] as string[] } };
+vi.mock("@features/sales/cado2/api/useCado2Me", async (actual) => ({
+  ...(await actual<typeof import("@features/sales/cado2/api/useCado2Me")>()),
+  useCado2Me: () => me,
+}));
 
 const documents = query(undefined as unknown);
 const issue = { ...mutation(), mutateAsync: vi.fn() };
+const attach = { ...mutation(), mutateAsync: vi.fn() };
 const files = { preview: vi.fn(), download: vi.fn() };
 const setPrimary = { mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null };
 const opportunityQuotes = { data: [] as unknown[], error: null, isPending: false, isFetching: false, refetch: vi.fn() };
+// No supporting documents in the library (DGD-10); tested on their own.
+vi.mock("@features/sales/cado2/quotes/api/useSupportingDocuments", async (actual) => ({
+  ...(await actual<typeof import("@features/sales/cado2/quotes/api/useSupportingDocuments")>()),
+  useSupportingDocumentLibrary: () => ({ data: [], isPending: false, error: null }),
+  useQuoteSupportingDocuments: () => ({ data: undefined, isPending: false, error: null }),
+  useSetQuoteSupportingDocuments: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null }),
+  useHasSupportingDocuments: () => false,
+}));
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useQuote: () => quote,
   useQuoteVersion: (_id: number, n: number) =>
@@ -69,12 +82,14 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useAuditEvents: () => history,
   useRecallVersion: () => recall,
   useReviseQuote: () => revise,
+  useCloneQuote: () => clone,
   useCloseQuote: () => close,
   useSetPrimary: () => setPrimary,
   useOpportunityQuotes: () => opportunityQuotes,
   useDeleteDraft: () => del,
   useDocuments: (_q: number, _v: number, enabled: boolean) => (enabled ? documents : query(undefined)),
   useIssueOrderForm: () => issue,
+  useAttachOrderForm: () => attach,
   useDocumentFiles: () => files,
 }));
 
@@ -122,6 +137,8 @@ beforeEach(() => {
   Object.assign(decide, mutation());
   workflow.data = null;
   me.data.approverRoles = ["DEAL_DESK"];
+  me.data.roles = [];
+  Object.assign(clone, mutation());
   Object.assign(recall, mutation());
   Object.assign(revise, mutation());
   Object.assign(close, mutation());
@@ -130,6 +147,7 @@ beforeEach(() => {
   failingVersions.clear();
   Object.assign(opportunityQuotes, { error: null });
   Object.assign(documents, { error: null });
+  Object.assign(attach, { ...mutation(), mutateAsync: vi.fn() });
 });
 
 // D68: primary is a setting of the quote, changed in any status.
@@ -182,6 +200,16 @@ describe("QuoteDetailPage — lifecycle", () => {
     expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
   });
 
+  it("goes back to the Quote Report, with its filters, when opened from there", () => {
+    const back = "/sales/cado2/insights/report?q=north&status=SUBMITTED";
+    showAt(`/sales/cado2/quotes/5/quote?${new URLSearchParams({ from: "insights", back })}`, submitted.quote, submitted);
+    expect(screen.getByRole("link", { name: /Quote Report/ })).toHaveAttribute("href", back);
+    cleanup();
+    // Only an Insights address is accepted as the way back.
+    showAt(`/sales/cado2/quotes/5/quote?${new URLSearchParams({ from: "insights", back: "https://evil.example" })}`, submitted.quote, submitted);
+    expect(screen.getByRole("link", { name: /Quotes/ })).toHaveAttribute("href", "/sales/cado2/quotes");
+  });
+
   it("offers Recall in the menu on a submitted quote, with no main button", async () => {
     show(submitted.quote, submitted);
     const user = userEvent.setup();
@@ -218,6 +246,30 @@ describe("QuoteDetailPage — lifecycle", () => {
 
     expect(revise.mutate).toHaveBeenCalledWith({ quoteId: 5 }, expect.anything());
     expect(await screen.findByText("wizard")).toBeInTheDocument();
+  });
+
+  // D108: any AM clones the version shown into a new quote on the same opportunity.
+  it("clones the version into a new draft quote", async () => {
+    me.data.roles = ["SALES"];
+    clone.mutate.mockImplementation((_vars, opts) => opts.onSuccess({ ...ready, quote: { ...ready.quote, id: 9 } }));
+    show(submitted.quote, submitted);
+    const user = userEvent.setup();
+
+    await openMenu(user);
+    expect(menuItems()).toEqual(["Recall", "Make primary", "Clone quote"]);
+    await user.click(screen.getByRole("menuitem", { name: "Clone quote" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Clone Q-26-00005 v1?" }));
+    expect(dialog.getByText(/same account and opportunity/)).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Clone" }));
+
+    expect(clone.mutate).toHaveBeenCalledWith({ quoteId: 5, version: 1 }, expect.anything());
+    expect(await screen.findByText("wizard")).toBeInTheDocument();
+  });
+
+  it("offers no Clone without the AM role", async () => {
+    show(submitted.quote, submitted);
+    await openMenu(userEvent.setup());
+    expect(menuItems()).not.toContain("Clone quote");
   });
 
   it("needs a reason to close, and warns that it is permanent", async () => {
@@ -413,7 +465,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     };
     show({ ...submitted.quote, actions: [] }, allMapped);
     expect(screen.getByRole("region", { name: "Your approval as Deal Desk" })).toHaveTextContent(
-      "Nothing non-standard: no further approvals are needed.",
+      "Standard quote: your approval is the only one needed.",
     );
   });
 
@@ -425,7 +477,7 @@ describe("QuoteDetailPage — lifecycle", () => {
     show({ ...submitted.quote, actions: [] }, allMapped);
     const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
     expect(panel).toHaveTextContent("Further approvals follow, with no specific points recorded.");
-    expect(panel).not.toHaveTextContent("no further approvals are needed");
+    expect(panel).not.toHaveTextContent("your approval is the only one needed");
   });
 
   // The decision note is a toast now (2026-10-13), so it no longer belongs to a quote.
@@ -564,7 +616,7 @@ describe("QuoteDetailPage — versions and history", () => {
 
     expect(screen.getByText("Q-26-00005 · Version 1")).toBeInTheDocument();
     expect(screen.getByText("Recalled")).toBeInTheDocument();
-    expect(screen.getByText(/You're viewing version 1\. The latest is version 2; actions apply to the latest\./)).toBeInTheDocument();
+    expect(screen.getByText(/You're viewing version 1\. The latest is version 2\. Clone copies this version; other actions apply to the latest\./)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "View latest version" })).toHaveAttribute("href", "/sales/cado2/quotes/5/quote");
     expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Edit draft" })).toBeNull();
@@ -641,6 +693,45 @@ describe("QuoteDetailPage — order form", () => {
     expect(panel().getByText("Issued 12 Oct 2026")).toBeInTheDocument();
     expect(panel().getByRole("button", { name: "Download PDF" })).toBeInTheDocument();
     expect(panel().queryByRole("button", { name: "Issue order form" })).toBeNull();
+  });
+
+  // D111: the primary quote's order form on its Salesforce opportunity.
+  const issued = (extra: object) => ({
+    data: {
+      canPreview: false, canIssue: false, issueDate: "2026-10-13", expiryDate: "2026-11-12",
+      documents: [{ id: 9, documentNumber: 1, documentType: "ORDER_FORM", layout: "DIRECT", status: "ACTIVE", fileName: "Q-26-00005-v1-d1.pdf",
+        sizeBytes: 70000, sha256: "a".repeat(64), issueDate: "2026-10-12", expiryDate: "2026-11-11", generatedAt: "2026-10-12T09:00:00Z",
+        generatedByEmail: "rep@wso2.com", salesforceStatus: "", salesforceAt: null, canAttach: false, ...extra }],
+    },
+  });
+
+  it("says the order form is attached to Salesforce, or was replaced there", () => {
+    Object.assign(documents, issued({ salesforceStatus: "ATTACHED", salesforceAt: "2026-10-12T09:01:00Z" }));
+    show(quoteOf(approved), approved);
+    expect(panel().getByText(/^Attached to Salesforce · /)).toBeInTheDocument();
+  });
+
+  it("says when another quote's order form replaced it in Salesforce", () => {
+    Object.assign(documents, issued({ salesforceStatus: "REMOVED", salesforceAt: "2026-10-14T09:01:00Z" }));
+    show(quoteOf(approved), approved);
+    expect(panel().getByText(/another quote's order form replaced it/)).toBeInTheDocument();
+  });
+
+  it("retries a failed attach", async () => {
+    Object.assign(documents, issued({ salesforceStatus: "NOT_ATTACHED", canAttach: true }));
+    attach.mutateAsync.mockResolvedValue({});
+    show(quoteOf(approved), approved);
+
+    expect(panel().getByText("Not attached to Salesforce")).toBeInTheDocument();
+    await userEvent.setup().click(panel().getByRole("button", { name: "Retry" }));
+    expect(attach.mutateAsync).toHaveBeenCalledWith({ quoteId: approved.quote.id, documentId: 9 });
+    expect(await screen.findByRole("status")).toHaveTextContent("Order form attached to Salesforce");
+  });
+
+  it("says nothing about Salesforce for a secondary quote", () => {
+    Object.assign(documents, issued({}));
+    show(quoteOf(approved), approved);
+    expect(panel().queryByText(/Salesforce/)).toBeNull();
   });
 
   it("says a failed issue in the shared error notice, with what failed", async () => {

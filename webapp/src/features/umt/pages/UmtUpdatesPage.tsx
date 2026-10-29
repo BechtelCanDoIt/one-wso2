@@ -57,8 +57,12 @@ import {
 import { useUmtUpdates } from "../api/useUmtUpdates";
 import { formatCalendarDate, formatDate } from "../lib/umtDates";
 import { gridCellContentSx } from "../lib/umtGrid";
+import { umtLifecycleState } from "../lib/umtLifecycleState";
 import { writePersistedSelectedTab } from "../lib/umtLocalState";
 import { umtPaths } from "../lib/umtPaths";
+import type { UmtBackLinkState } from "../lib/umtBackLink";
+import { UMT_UPDATES_RETURN_STATE } from "../lib/umtUpdatesFilterMemory";
+import { useUmtUpdatesView } from "../lib/useUmtUpdatesView";
 import UmtCreateUpdateDialog from "../components/UmtCreateUpdateDialog";
 import UmtShell from "../components/UmtShell";
 import UmtUpdateFiltersDrawer from "../components/UmtUpdateFiltersDrawer";
@@ -171,9 +175,7 @@ export default function UmtUpdatesPage() {
 
 function UmtUpdatesBody() {
   const navigate = useNavigate();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(PAGE_SIZE_OPTIONS[0]);
-  const [filters, setFilters] = useState<UmtUpdateFilters>(EMPTY_UMT_UPDATE_FILTERS);
+  const { filters, setFilters, page, setPage, pageSize, setPageSize } = useUmtUpdatesView(PAGE_SIZE_OPTIONS[0]);
   const [filterOpen, setFilterOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<ColumnKey[]>(DEFAULT_COLUMNS);
@@ -188,6 +190,9 @@ function UmtUpdatesBody() {
   const search = useUmtUpdates(request);
   const rows = search.data?.updates ?? [];
   const totalPages = search.data?.totalPages ?? 0;
+  // A restored page can be past the end if the list shrank while the user was
+  // away, which would show an empty grid; move it to the last page instead.
+  if (totalPages > 0 && page >= totalPages) setPage(totalPages - 1);
   const activeFilters = activeUmtFilterCount(filters);
   const displayedColumns = useMemo(
     () => COLUMNS.filter((column) => visibleColumns.includes(column.key)),
@@ -211,9 +216,18 @@ function UmtUpdatesBody() {
     setActionRow(null);
   };
 
+  // The update page's back arrow returns here as a return, filters and all.
+  const goToUpdate = useCallback(
+    (id: number) =>
+      navigate(umtPaths.update(id), {
+        state: { backTo: umtPaths.updates, backState: UMT_UPDATES_RETURN_STATE } satisfies UmtBackLinkState,
+      }),
+    [navigate],
+  );
+
   const viewUpdate = (id: number) => {
     closeActions();
-    navigate(umtPaths.update(id));
+    goToUpdate(id);
   };
 
   // "View"/"Edit"/"Branch" are one detail page with three tabs, not three
@@ -223,7 +237,7 @@ function UmtUpdatesBody() {
   const openUpdateOnTab = (id: number, tab: string) => {
     closeActions();
     writePersistedSelectedTab(String(id), tab);
-    navigate(umtPaths.update(id));
+    goToUpdate(id);
   };
 
   const gridColumns = useMemo<DataGrid.GridColDef<UmtUpdateSummary>[]>(
@@ -316,7 +330,7 @@ function UmtUpdatesBody() {
               getRowHeight={() => "auto"}
               hideFooter
               loading={search.isPending}
-              onRowClick={(params) => navigate(umtPaths.update(params.row.id))}
+              onRowClick={(params) => goToUpdate(params.row.id)}
               rows={rows}
               slots={{ noRowsOverlay: UpdatesEmptyState }}
               sx={updatesGridSx}
@@ -403,6 +417,8 @@ const updatesGridSx = {
     zIndex: 2,
     boxShadow: "-2px 0 4px rgba(0, 0, 0, 0.15)",
   },
+  "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": { outline: "none" },
+  "& .MuiDataGrid-cell:focus-visible": { outline: "auto 1px" },
 } as const;
 function renderCell(row: UmtUpdateSummary, key: ColumnKey): ReactNode {
   switch (key) {
@@ -422,7 +438,7 @@ function renderCell(row: UmtUpdateSummary, key: ColumnKey): ReactNode {
     case "issues": return <LinkList values={row.issues} />;
     case "pullRequests": return <LinkList values={row.pullRequests} />;
     case "artifacts": return <Artifacts values={row.artifacts ?? []} />;
-    case "releasedDate": return row.lifecycleState === "Released" ? formatDate(row.lastUpdatedTimestamp) : <NA />;
+    case "releasedDate": return umtLifecycleState(row.lifecycleState) === "Released" ? formatDate(row.lastUpdatedTimestamp) : <NA />;
   }
 }
 
@@ -548,7 +564,7 @@ function csvValue(row: UmtUpdateSummary, key: ColumnKey): string {
     case "issues": return (row.issues ?? []).join("; ");
     case "pullRequests": return (row.pullRequests ?? []).join("; ");
     case "artifacts": return (row.artifacts ?? []).join("; ");
-    case "releasedDate": return row.lifecycleState === "Released" ? formatDate(row.lastUpdatedTimestamp) : "";
+    case "releasedDate": return umtLifecycleState(row.lifecycleState) === "Released" ? formatDate(row.lastUpdatedTimestamp) : "";
   }
 }
 

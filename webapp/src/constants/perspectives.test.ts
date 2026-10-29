@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { umt?: boolean; infra?: boolean; cado2?: boolean; smartSearch?: boolean } = {},
+  preview: { infra?: boolean; cado2?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -40,7 +40,7 @@ afterEach(() => {
 
 const keys = (perspectives: readonly { key: string }[]) => perspectives.map((p) => p.key);
 
-// Finance MIS shipped out of preview. The ARR Dashboard and ARR Analysis are
+// Finance MIS shipped out of preview. The ARR Dashboard and Portfolio are
 // part of Finance with no preview config, which is what production looks like.
 // Quarterly and Monthly stay routes of the dashboard, not rows of their own.
 describe("Finance MIS's rail entries", () => {
@@ -118,18 +118,25 @@ describe("CadO2's rail entries", () => {
   it("are a CadO2 group under Sales once the flag is on", async () => {
     const perspectives = await load({ cado2: true });
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sec-app-cado2");
-    expect(group?.label).toBe("CADO2");
+    expect(group?.label).toBe("QuickQuote");
     expect(group?.alwaysGroup).toBe(true);
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
       ["Quotes", "/sales/cado2/quotes"],
       ["My Approvals", "/sales/cado2/approvals"],
+      ["Insights", "/sales/cado2/insights/operations"],
       ["Admin", "/sales/cado2/admin"],
     ]);
   });
 
   it("are gone when the flag is off, or never mentioned", async () => {
     for (const preview of [{ cado2: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
+      expect(salesIdsIn(await load(preview))).toEqual([
+        "sales-echo",
+        "sales-meetings",
+        "sales-deals",
+        "sales-pitstop",
+        "sales-library",
+      ]);
     }
   });
 
@@ -141,13 +148,13 @@ describe("CadO2's rail entries", () => {
   });
 });
 
-// The Library lands behind its own flag, inside a Sales Pitstop group in the Sales perspective.
+// The Library shipped out of preview: its Sales Pitstop group is part of the Sales perspective with no preview flags set.
 describe("the Ask Sales rail entry", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? []).map((section) => section.id);
 
-  it("is an Ask Sales row in a Sales Pitstop group, after Echo, once the flag is on", async () => {
-    const perspectives = await load({ smartSearch: true });
+  it("is an Ask Sales row in a Sales Pitstop group, after Echo, with no preview flags set", async () => {
+    const perspectives = await load({});
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-pitstop");
     expect(group?.label).toBe("Sales Pitstop");
     expect(group?.alwaysGroup).toBe(true);
@@ -157,22 +164,20 @@ describe("the Ask Sales rail entry", () => {
     expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-pitstop"]);
   });
 
-  it("sits before CadO2 when both flags are on", async () => {
-    expect(salesIdsIn(await load({ smartSearch: true, cado2: true }))).toEqual([
+  it("sits before CadO2 when its flag is on", async () => {
+    expect(salesIdsIn(await load({ cado2: true }))).toEqual([
       "sales-echo",
       "sales-pitstop",
       "sec-app-cado2",
     ]);
   });
 
-  it("is gone when the flag is off, or never mentioned", async () => {
-    for (const preview of [{ smartSearch: false }, {}]) {
-      expect(salesIdsIn(await load(preview))).toEqual(["sales-echo"]);
-    }
+  it("is not affected by the other preview flags being off", async () => {
+    expect(salesIdsIn(await load({ cado2: false }))).toEqual(["sales-echo", "sales-pitstop"]);
   });
 
   it("never joins the Echo gate's ids", async () => {
-    const { SALES_ITEM_IDS } = await load({ smartSearch: true });
+    const { SALES_ITEM_IDS } = await load({});
     // Echo and Deals are gated through ONE_WSO2_REVOPS_BACKEND_URL; the Library is decided by its own backend.
     expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
   });
@@ -182,31 +187,26 @@ describe("UMT inside Engineering", () => {
   const umtGroupOf = (perspectives: Perspectives) =>
     perspectives.findPerspectiveByKey("engineering")?.sections?.find((s) => s.id === "engineering-umt");
 
-  it("is not a perspective of its own whatever the flags say", async () => {
-    for (const preview of [{}, { umt: true }]) {
-      const { PERSPECTIVES } = await load(preview);
-      expect(keys(PERSPECTIVES)).not.toContain("umt");
-    }
+  it("is not a perspective of its own", async () => {
+    const { PERSPECTIVES } = await load();
+    expect(keys(PERSPECTIVES)).not.toContain("umt");
   });
 
-  it("is a group in the Engineering rail when its flag is on", async () => {
-    const perspectives = await load({ umt: true });
+  it("is a group in the Engineering rail", async () => {
+    const perspectives = await load();
     const group = umtGroupOf(perspectives);
     expect(group?.label).toBe("UMT");
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
       ["Overview", "/engineering/umt"],
       ["Updates", "/engineering/umt/updates"],
-      ["Product Management", "/engineering/umt/products"],
+      ["Products", "/engineering/umt/products"],
       ["Release Chunks", "/engineering/umt/release-chunks"],
       ["Statistics", "/engineering/umt/statistics"],
       ["Documentation", undefined],
     ]);
+    // Documentation leaves the app, so the rail marks it as opening a new tab.
+    expect(group?.children?.find((c) => c.id === "umt-documentation")?.opensInNewTab).toBe(true);
     expect(perspectives.findPerspectiveByPath("/engineering/umt/updates/42")?.key).toBe("engineering");
-  });
-
-  it("is absent while its own flag is off or absent", async () => {
-    expect(umtGroupOf(await load({ umt: false }))).toBeUndefined();
-    expect(umtGroupOf(await load())).toBeUndefined();
   });
 
   // usePerspectiveVisibility falls through to sectionAllowed(s.requires, caps)
@@ -217,14 +217,14 @@ describe("UMT inside Engineering", () => {
   // useFinanceGate.test.tsx's "no longer carries the retired approval ids" for
   // the same shape of guard.
   it("keeps Product Management in the UMT admin gate set", async () => {
-    const { UMT_ADMIN_ITEM_IDS } = await load({ umt: true });
+    const { UMT_ADMIN_ITEM_IDS } = await load();
     expect(UMT_ADMIN_ITEM_IDS.has("umt-products")).toBe(true);
   });
 
   // Every UMT row is decided by UMT's own roles. An id missing from this set
   // would fall back to `requires`, which none of them sets: visible to all.
   it("gates every UMT row, the group included, on UMT's roles", async () => {
-    const perspectives = await load({ umt: true });
+    const perspectives = await load();
     const group = umtGroupOf(perspectives);
     const ids = [group?.id, ...(group?.children ?? []).map((c) => c.id)];
     expect(new Set(ids)).toEqual(perspectives.UMT_ITEM_IDS);
@@ -237,7 +237,7 @@ describe("perspectives whose landing forwards to the first rail item", () => {
   // sees "Nothing here for you yet", permanently, with no way to tell that
   // from a privilege problem.
   it("only ever sits on a perspective with a route and sections", async () => {
-    const { PERSPECTIVES } = await load({ umt: true });
+    const { PERSPECTIVES } = await load();
     const forwarding = PERSPECTIVES.filter((p) => p.forwardsToFirstItem);
     expect(forwarding.length).toBeGreaterThan(0);
     for (const p of forwarding) {
@@ -250,7 +250,7 @@ describe("perspectives whose landing forwards to the first rail item", () => {
   // so it keeps its Overview row. This fails if a later pass sweeps it up with
   // the rest.
   it("leaves Me alone", async () => {
-    const { PERSPECTIVES } = await load({ umt: true });
+    const { PERSPECTIVES } = await load();
     expect(PERSPECTIVES.find((p) => p.key === "me")?.forwardsToFirstItem).toBeUndefined();
   });
 
@@ -281,8 +281,8 @@ describe("perspectives whose landing forwards to the first rail item", () => {
   });
 
   // Engineering shipped out of preview. Download Stats is its first app. UMT
-  // is the second, and only while its own preview flag is on. The waffle,
-  // favourites, and landing choices all read this registry.
+  // is the second. The waffle, favourites, and landing choices all read this
+  // registry.
   describe("the Engineering perspective", () => {
     it("offers Download Stats and its six screens with no preview flags set", async () => {
       const { PERSPECTIVES, reachablePerspectives, findPerspectiveByPath } = await load();
@@ -321,7 +321,7 @@ describe("a rail row does one thing", () => {
     window.config = {
       ...(window.config ?? {}),
       ONE_WSO2_PREVIEW_FEATURES: previewOn
-        ? { umt: true, infra: true, cado2: true, nda: true, smartSearch: true }
+        ? { infra: true, cado2: true, nda: true }
         : {},
       // ISAC and CSM are only in the registry once their addresses are set.
       ONE_WSO2_MARKETINGOPS_ISAC_URL: "https://isac.example",
@@ -333,11 +333,31 @@ describe("a rail row does one thing", () => {
     const ids = rows.map((row) => row.id);
     // Guards against this walking nothing and passing for the wrong reason.
     expect(ids).toContain("mops-isac");
-    expect(ids.includes("umt-documentation")).toBe(previewOn);
+    expect(ids).toContain("umt-documentation");
 
     const doingMoreThanOne = rows
       .filter((row) => [row.path, row.externalUrl, row.onSelect].filter((field) => field !== undefined).length > 1)
       .map((row) => row.id);
     expect(doingMoreThanOne).toEqual([]);
+  });
+});
+
+// Due Diligence lives under the Legal prefix, so the URL alone selects the
+// Legal rail, whichever rail the link was clicked in.
+describe("Due Diligence", () => {
+  it("is under /legal, so its pages open the Legal rail", async () => {
+    const perspectives = await load();
+    expect(perspectives.findPerspectiveByPath("/legal/due-diligence/partners")?.key).toBe("legal");
+    expect(perspectives.findPerspectiveByPath("/legal/due-diligence/partners/12/finance")?.key).toBe("legal");
+  });
+
+  it("links every rail item to /legal/due-diligence", async () => {
+    const { DUE_DILIGENCE_APPS } = await import("./dueDiligenceApps");
+    const paths = DUE_DILIGENCE_APPS.flatMap((app) => app.items.map((item) => item.path));
+    expect(paths).toEqual([
+      "/legal/due-diligence/partners",
+      "/legal/due-diligence/trade-references",
+      "/legal/due-diligence/preferences",
+    ]);
   });
 });

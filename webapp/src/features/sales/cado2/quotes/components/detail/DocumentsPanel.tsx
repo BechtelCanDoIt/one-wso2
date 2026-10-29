@@ -22,16 +22,24 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Stack,
   Typography,
 } from "@wso2/oxygen-ui";
 import { DownloadIcon, EyeIcon, FileTextIcon, SendIcon } from "@wso2/oxygen-ui-icons-react";
 import type { DocumentView } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { useDocumentFiles, useDocuments, useIssueOrderForm } from "@features/sales/cado2/quotes/api/useQuoteApi";
-import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import {
+  useAttachOrderForm,
+  useDocumentFiles,
+  useDocuments,
+  useIssueOrderForm,
+} from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { formatDate, formatDateTime } from "@features/sales/cado2/quotes/form/draftForm";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import SupportingDocumentsSection from "./SupportingDocumentsSection";
+import { useHasSupportingDocuments } from "@features/sales/cado2/quotes/api/useSupportingDocuments";
 
 /** Saves a Blob under a file name (a click on a temporary link). */
 function saveBlob(blob: Blob, name: string): void {
@@ -49,19 +57,59 @@ function saveBlob(blob: Blob, name: string): void {
  *   approved ──[Preview PDF]── watermarked, never stored (DGD-3)
  *            └─[Issue order form]── stored; issue date today, expiry +30
  *   issued   ──[Download]── the same file every time
+ *
+ * The primary quote's order form also goes to its Salesforce opportunity
+ * (D111); the panel says whether it's there, with a retry when it failed.
+ *
+ * The supporting documents that follow the order form (DGD-10) are listed
+ * here too, and can change until Issue; before approval the panel shows
+ * only them, when there are any. On an older version they are read-only.
  */
 export default function DocumentsPanel({
   quoteId,
   version,
   approved,
+  olderVersion = false,
 }: {
   quoteId: number;
   version: number;
-  /** The version is approved; nothing to show before that. */
+  /** The version is approved; before that, only the supporting documents show. */
   approved: boolean;
+  /** An older version in view mode: the supporting documents can't be changed from it. */
+  olderVersion?: boolean;
 }): JSX.Element | null {
-  const docs = useDocuments(quoteId, version, approved);
+  if (!approved) return <BeforeApproval quoteId={quoteId} olderVersion={olderVersion} />;
+  return <ApprovedOrderForm quoteId={quoteId} version={version} olderVersion={olderVersion} />;
+}
+
+/** Before approval: the supporting documents, if the quote has anything to say about them. */
+function BeforeApproval({ quoteId, olderVersion }: { quoteId: number; olderVersion: boolean }): JSX.Element | null {
+  const visible = useHasSupportingDocuments(quoteId);
+  if (!visible) return null;
+  return (
+    <SectionCard title="Order Form" icon={<FileTextIcon size={18} />}>
+      <Typography variant="body2" color="text.secondary">
+        The order form can be previewed and issued once the quote is approved.
+      </Typography>
+      <Divider sx={{ my: 1.5 }} />
+      <SupportingDocumentsSection quoteId={quoteId} readOnly={olderVersion} />
+    </SectionCard>
+  );
+}
+
+function ApprovedOrderForm({
+  quoteId,
+  version,
+  olderVersion,
+}: {
+  quoteId: number;
+  version: number;
+  olderVersion: boolean;
+}): JSX.Element | null {
+  const hasSupporting = useHasSupportingDocuments(quoteId);
+  const docs = useDocuments(quoteId, version, true);
   const issue = useIssueOrderForm();
+  const attach = useAttachOrderForm();
   const notify = useCado2Toast();
   const files = useDocumentFiles();
   const [confirming, setConfirming] = useState(false);
@@ -69,7 +117,6 @@ export default function DocumentsPanel({
   // What failed and why, shown as the shared ErrorNotice (2026-10-13).
   const [error, setError] = useState<{ what: string; cause: unknown } | null>(null);
 
-  if (!approved) return null;
   // A failed load says so, rather than the card vanishing (2026-10-13).
   if (docs.error) {
     return (
@@ -89,9 +136,11 @@ export default function DocumentsPanel({
     setError(null);
     try {
       const blob = await files.preview(quoteId, version);
-      const url = URL.createObjectURL(blob);
-      if (tab) tab.location.href = url;
-      else saveBlob(blob, `PREVIEW-v${version}.pdf`);
+      if (tab) {
+        const url = URL.createObjectURL(blob);
+        tab.location.href = url;
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else saveBlob(blob, `PREVIEW-v${version}.pdf`);
     } catch (e) {
       tab?.close();
       setError({ what: "Couldn't open the preview.", cause: e });
@@ -109,6 +158,16 @@ export default function DocumentsPanel({
       setError({ what: "Couldn't download the order form.", cause: e });
     } finally {
       setBusy(null);
+    }
+  };
+
+  const retryAttach = async (doc: DocumentView) => {
+    setError(null);
+    try {
+      await attach.mutateAsync({ quoteId, documentId: doc.id });
+      notify("Order form attached to Salesforce");
+    } catch (e) {
+      setError({ what: "Couldn't attach the order form to Salesforce.", cause: e });
     }
   };
 
@@ -141,6 +200,11 @@ export default function DocumentsPanel({
             <Typography variant="caption" color="text.secondary" component="div">
               {active.fileName}
             </Typography>
+            <SalesforceLine
+              doc={active}
+              retrying={attach.isPending}
+              onRetry={() => void retryAttach(active)}
+            />
           </Box>
           <Button
             variant="contained"
@@ -169,6 +233,13 @@ export default function DocumentsPanel({
         </Typography>
       )}
 
+      {hasSupporting ? (
+        <>
+          <Divider sx={{ my: 1.5 }} />
+          <SupportingDocumentsSection quoteId={quoteId} readOnly={olderVersion} />
+        </>
+      ) : null}
+
       <Dialog open={confirming} onClose={() => !issue.isPending && setConfirming(false)} aria-labelledby="issue-title">
         <DialogTitle id="issue-title">Issue the order form?</DialogTitle>
         <DialogContent>
@@ -195,4 +266,38 @@ export default function DocumentsPanel({
       </Dialog>
     </SectionCard>
   );
+}
+
+/** Where the order form stands in Salesforce (D111); nothing when it isn't for Salesforce. */
+function SalesforceLine({ doc, retrying, onRetry }: { doc: DocumentView; retrying: boolean; onRetry: () => void }): JSX.Element | null {
+  const at = doc.salesforceAt ? formatDateTime(doc.salesforceAt) : "";
+  switch (doc.salesforceStatus) {
+    case "ATTACHED":
+      return (
+        <Typography variant="caption" color="text.secondary" component="div">
+          Attached to Salesforce · {at}
+        </Typography>
+      );
+    case "REMOVED":
+      return (
+        <Typography variant="caption" color="text.secondary" component="div">
+          Removed from Salesforce · {at}: another quote&apos;s order form replaced it
+        </Typography>
+      );
+    case "NOT_ATTACHED":
+      return (
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5 }}>
+          <Typography variant="caption" color="warning.main">
+            Not attached to Salesforce
+          </Typography>
+          {doc.canAttach ? (
+            <Button size="small" onClick={onRetry} disabled={retrying}>
+              {retrying ? "Attaching…" : "Retry"}
+            </Button>
+          ) : null}
+        </Stack>
+      );
+    default:
+      return null;
+  }
 }

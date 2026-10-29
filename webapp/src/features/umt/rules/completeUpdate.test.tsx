@@ -94,3 +94,34 @@ describe("Complete Update dialog", () => {
     });
   });
 });
+
+// Typing on one side disables the other, and a disabled field is skipped by
+// keyboard focus, so the disabled side says why.
+describe("Complete Update dialog's disabled side", () => {
+  it("asks for the new pull requests to be cleared before a reason", async () => {
+    renderDialog();
+
+    await enterNewPullRequest("https://github.com/wso2/carbon-apimgt/pull/3");
+
+    expect(screen.getByRole("textbox", { name: "Reason to Skip" })).toBeDisabled();
+    expect(screen.getByText("Clear the pull requests to enter a reason.")).toBeInTheDocument();
+  });
+
+  it("says the update already has public pull requests when those are what closes the reason", () => {
+    renderDialog({ publicPullRequests: ["https://github.com/wso2/carbon-apimgt/pull/1"] });
+
+    expect(screen.getByRole("textbox", { name: "Reason to Skip" })).toBeDisabled();
+    expect(screen.getByText("This update already has public pull requests.")).toBeInTheDocument();
+    expect(screen.queryByText("Clear the pull requests to enter a reason.")).not.toBeInTheDocument();
+  });
+
+  it("asks for the reason to be cleared before pull requests", async () => {
+    renderDialog();
+
+    await userEvent.click(screen.getByRole("textbox", { name: "Reason to Skip" }));
+    await userEvent.paste("No public change.");
+
+    expect(screen.getByRole("textbox", { name: "Public Pull Request" })).toBeDisabled();
+    expect(screen.getByText("Clear the reason to add pull requests.")).toBeInTheDocument();
+  });
+});

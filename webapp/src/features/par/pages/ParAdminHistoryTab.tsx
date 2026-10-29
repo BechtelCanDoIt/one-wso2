@@ -14,9 +14,23 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
-import { Box, Card, Chip, DataGrid, IconButton, InputAdornment, Skeleton, Stack, TextField, Tooltip } from "@wso2/oxygen-ui";
-import { ArrowRightIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { useLayoutEffect, useRef, useState } from "react";
+import {
+  Box,
+  Card,
+  Chip,
+  InputAdornment,
+  Link,
+  Skeleton,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+} from "@wso2/oxygen-ui";
+import { ChevronRightIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDistinctLegacyParCycles, useParCyclesByStatus } from "../api/useParAdmin";
 import { buildAdminHistoryRows, type AdminHistoryRow } from "../util/parAdminHistory";
@@ -24,7 +38,6 @@ import { formatShortDate } from "../util/parDate";
 import ParEmptyState from "../components/ParEmptyState";
 import ParOrgSummary from "../components/ParOrgSummary";
 import ParAdminLegacyCycleView from "../components/ParAdminLegacyCycleView";
-import { ParGridToolbar } from "../components/parGridToolbar";
 import type { ParCycle } from "../api/types";
 
 type Selection = { kind: "none" } | { kind: "real"; cycle: ParCycle } | { kind: "legacy"; cycleName: string };
@@ -39,6 +52,17 @@ export default function ParAdminHistoryTab() {
   const legacyCycles = useDistinctLegacyParCycles();
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
   const [searchText, setSearchText] = useState("");
+  // The row last opened, so coming back from a cycle scrolls the list back
+  // to it instead of leaving the admin at the top of a long list. A layout
+  // effect, so the scroll lands before paint rather than visibly jumping.
+  const [lastOpenedKey, setLastOpenedKey] = useState<string | undefined>(undefined);
+  const rowRefs = useRef(new Map<string, HTMLTableRowElement>());
+
+  useLayoutEffect(() => {
+    if (selection.kind === "none" && lastOpenedKey) {
+      rowRefs.current.get(lastOpenedKey)?.scrollIntoView({ block: "center" });
+    }
+  }, [selection.kind, lastOpenedKey]);
 
   if (selection.kind === "real") {
     return <ParOrgSummary cycle={selection.cycle} historyMode onBack={() => setSelection({ kind: "none" })} />;
@@ -65,6 +89,7 @@ export default function ParAdminHistoryTab() {
     );
   }
 
+  // Pre-sorted by buildAdminHistoryRows on the raw end date, latest first.
   const rows = buildAdminHistoryRows(closedCycles.data ?? [], legacyCycles.data ?? []);
 
   if (rows.length === 0) {
@@ -73,46 +98,22 @@ export default function ParAdminHistoryTab() {
 
   const filteredRows = searchText ? rows.filter((row) => row.cycleName.toLowerCase().includes(searchText.toLowerCase())) : rows;
 
-  const columns: DataGrid.GridColDef<AdminHistoryRow>[] = [
-    {
-      field: "cycleName",
-      headerName: "Cycle Name",
-      flex: 2,
-      renderCell: (params) => (
-        <Stack direction="row" alignItems="center" spacing={1}>
-          <span>{params.row.cycleName}</span>
-          {params.row.isLegacy && <Chip label="Legacy" size="small" color="warning" variant="outlined" />}
-        </Stack>
-      ),
-    },
-    // Raw values kept for sorting — formatShortDate's "D Mon 'YY" labels
-    // would otherwise sort lexicographically, not chronologically.
-    { field: "startDate", headerName: "Start Date", flex: 1, valueFormatter: (value: string | null) => (value ? formatShortDate(value) : "-") },
-    { field: "endDate", headerName: "End Date", flex: 1, valueFormatter: (value: string | null) => (value ? formatShortDate(value) : "-") },
-    {
-      field: "actions",
-      headerName: "",
-      sortable: false,
-      flex: 0.4,
-      renderCell: (params) => (
-        <Tooltip title="Open Cycle" arrow>
-          <IconButton onClick={() => handleRowClick(params.row)}>
-            <ArrowRightIcon size={18} />
-          </IconButton>
-        </Tooltip>
-      ),
-    },
-  ];
-
-  const handleRowClick = (row: AdminHistoryRow) => {
+  const handleOpen = (row: AdminHistoryRow) => {
     if (row.isLegacy) {
+      setLastOpenedKey(row.key);
       setSelection({ kind: "legacy", cycleName: row.cycleName });
     } else {
       const cycle = closedCycles.data?.find((c) => c.parCycleId === row.parCycleId);
-      if (cycle) setSelection({ kind: "real", cycle });
+      if (cycle) {
+        setLastOpenedKey(row.key);
+        setSelection({ kind: "real", cycle });
+      }
     }
   };
 
+  // Plain scrollable table, no pagination -- same as the employee's own
+  // History tab (ParHistoryTab.tsx), so the full list of cycles is one
+  // scroll rather than pages of ten.
   return (
     <Card variant="outlined" sx={{ p: 2 }}>
       <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 1.5 }}>
@@ -132,22 +133,62 @@ export default function ParAdminHistoryTab() {
           }}
         />
       </Box>
-      <DataGrid.DataGrid
-        rows={filteredRows}
-        columns={columns}
-        getRowId={(row) => row.key}
-        rowHeight={56}
-        disableRowSelectionOnClick
-        onRowClick={(params) => handleRowClick(params.row)}
-        showToolbar
-        slots={{ toolbar: ParGridToolbar }}
-        sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
-        // Pre-sorted by buildAdminHistoryRows on the raw end date — no
-        // sortModel here, since sorting on endDate's rendered (formatted)
-        // string would sort lexicographically rather than chronologically.
-        initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
-        pageSizeOptions={[10, 20, 25]}
-      />
+      {filteredRows.length === 0 ? (
+        <ParEmptyState text="No cycles match your search." />
+      ) : (
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700 }}>Cycle Name</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>Start Date</TableCell>
+                <TableCell sx={{ fontWeight: 700 }}>End Date</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredRows.map((row) => (
+                <TableRow
+                  key={row.key}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(row.key, el);
+                    else rowRefs.current.delete(row.key);
+                  }}
+                  hover
+                  selected={row.key === lastOpenedKey}
+                  sx={{ cursor: "pointer" }}
+                  onClick={() => handleOpen(row)}
+                >
+                  {/* The row keeps its native <tr> semantics; the cycle name
+                      is the keyboard-reachable control. stopPropagation so a
+                      click on it doesn't also fire the row's handler. */}
+                  <TableCell>
+                    <Link
+                      component="button"
+                      underline="hover"
+                      color="inherit"
+                      aria-label={`Open ${row.cycleName}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpen(row);
+                      }}
+                      sx={{ textAlign: "left", font: "inherit" }}
+                    >
+                      {row.cycleName}
+                    </Link>
+                    {row.isLegacy && <Chip label="Legacy" size="small" color="warning" variant="outlined" sx={{ ml: 1 }} />}
+                  </TableCell>
+                  <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{row.startDate ? formatShortDate(row.startDate) : "-"}</TableCell>
+                  <TableCell sx={{ fontVariantNumeric: "tabular-nums" }}>{row.endDate ? formatShortDate(row.endDate) : "-"}</TableCell>
+                  <TableCell align="right">
+                    <ChevronRightIcon size={16} />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
     </Card>
   );
 }

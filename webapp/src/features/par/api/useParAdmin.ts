@@ -204,10 +204,13 @@ export function useDistinctLegacyParCycles(enabled = true) {
 // fetchLegacyParHistoryByCycle, for the History tab's legacy drill-down.
 // Always summary-mode (names/scores only, no full submitted answers) --
 // hundreds to low thousands of participants org-wide is the confirmed real
-// scale, and fetching every one of those rows' full AES-decrypted comments
-// plus two JSON-aggregated fields just to render a roster/grouping list is
-// real per-row backend work (and payload size) spent on data this view never
-// displays. ParAdminLegacyCycleView.tsx fetches one record's full detail
+// scale, and computing every one of those rows' two JSON-aggregated fields
+// (questionAnswers, feedback360) just to render a roster/grouping list
+// is real per-row backend work (and payload size) spent on data this view
+// never displays. Summary mode still returns overallCommentEmployee/
+// overallCommentManager and employeeHasQuestionAnswer, which the
+// Employee PAR / Lead's Feedback completion checks rely on.
+// ParAdminLegacyCycleView.tsx fetches one record's full detail
 // separately, via useParLegacyHistory below, only once it's actually opened.
 export function useLegacyParHistoryByCycle(cycleName: string | undefined, enabled = true) {
   const { isSignedIn, getAccessToken, backendConfigured } = useParBaseline();
@@ -216,11 +219,25 @@ export function useLegacyParHistoryByCycle(cycleName: string | undefined, enable
     enabled: enabled && isSignedIn && backendConfigured && Boolean(cycleName),
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      return authedGet<ParLegacyHistory[]>(
-        parServiceUrls.legacyParHistoryCyclesParticipants(cycleName!, true),
-        accessToken,
-        digiopsHeaders(),
-      );
+      try {
+        return await authedGet<ParLegacyHistory[]>(
+          parServiceUrls.legacyParHistoryCyclesParticipants(cycleName!, true),
+          accessToken,
+          digiopsHeaders(),
+        );
+      } catch (e) {
+        // A backend without the query-parameter route yet answers 404
+        // (through the gateway) or 405 (directly). Fall back to the path
+        // form so this works whichever of the two is deployed first.
+        if (e instanceof HttpError && (e.status === 404 || e.status === 405)) {
+          return authedGet<ParLegacyHistory[]>(
+            parServiceUrls.legacyParHistoryCyclesParticipantsByPath(cycleName!, true),
+            accessToken,
+            digiopsHeaders(),
+          );
+        }
+        throw e;
+      }
     },
     staleTime: 60 * 1000,
     retry: defaultQueryRetry,

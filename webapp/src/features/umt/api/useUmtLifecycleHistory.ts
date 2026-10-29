@@ -38,6 +38,12 @@ export function useUmtLifecycleHistory(id: string, enabled = true) {
         umtServiceUrls.updateLifecycleStateLog(id),
         await getAccessToken(),
       ),
+    // Opted back in because the app-wide client disables it. A transition
+    // made while this page was unmounted (from another page, tab or user) only
+    // marks the cached log stale; without this, returning showed the old log,
+    // and the Edit tab's step pointer keyed on its length outlived the stay it
+    // was saved in.
+    refetchOnMount: true,
     retry: httpRetry,
   });
 

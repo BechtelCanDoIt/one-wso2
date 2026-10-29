@@ -25,7 +25,7 @@ import { cado2Access, useCado2Me, type Cado2Access } from "../api/useCado2Me";
 import Cado2ToastProvider from "@features/sales/cado2/components/toast/Cado2ToastProvider";
 import { cado2Paths } from "../cado2Paths";
 
-const NAME = "CADO2";
+const NAME = "QuickQuote";
 
 /**
  * The frame every CadO2 route renders in: resolves access once, in the order
@@ -80,7 +80,7 @@ export default function Cado2Shell(): JSX.Element {
   }
 
   const access = cado2Access(me.data);
-  if (!access.canQuote && !access.canApprove && !access.isAdmin) {
+  if (!access.canQuote && !access.canApprove && !access.isAdmin && !access.canViewInsights) {
     return (
       <Box>
         <PageTitle label={NAME} />
@@ -97,11 +97,12 @@ export default function Cado2Shell(): JSX.Element {
 }
 
 /** What a route needs, in CadO2's terms. */
-export type Cado2Need = "quote" | "approve" | "admin";
+export type Cado2Need = "quote" | "approve" | "admin" | "insights";
 
 function allows(need: Cado2Need, access: Cado2Access): boolean {
   if (need === "quote") return access.canQuote;
   if (need === "approve") return access.canApprove;
+  if (need === "insights") return access.canViewInsights;
   return access.isAdmin;
 }
 

@@ -238,6 +238,13 @@ export interface MisAppliedFilters {
   buProductSelection: string;
   customBusinessUnits: string[];
   customProductUnits: string[];
+  /**
+   * The Region Summary's All ARR Metrics Unit: one of `MIS_METRICS_UNITS`'s
+   * codes. Its own value, so a Build's Unit never reaches the metrics.
+   */
+  metricsUnit: string;
+  metricsCustomBusinessUnits: string[];
+  metricsCustomProductUnits: string[];
   /** Derived from the type on every apply. Never a URL parameter. */
   forecast: MisForecastState;
   salesRegion: string[];
@@ -408,7 +415,7 @@ export const typeValueOf = (filters: MisAppliedFilters): string =>
  * Whether a confidence level applies, asked of each Period's own type key.
  *
  * Three INDEPENDENT checks, not one over whichever key happens to be set. The
- * summary tables mirror a Quarterly or Monthly type into `arrType` (spec §3),
+ * summary tables mirror a Quarterly or Monthly type into `arrType`,
  * so a filter set can legitimately carry both — and collapsing the three with
  * `arrType || qrrType || mrrType` would read the mirror and silently drop the
  * confidence off a Forecasted QRR. Mirrors `useArrTableSummary.js:272-275`.

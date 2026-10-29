@@ -14,10 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { bytesOf, captureDownloads } from "@/test/downloads";
 import type { RiskListItem } from "../api/riskApi";
 import RiskRegisters from "./RiskRegisters";
 
@@ -45,7 +46,7 @@ function item(over: Partial<RiskListItem>): RiskListItem {
     risk_level_color: "#00B050",
     owner_name: "Owner",
     assigner_name: "Assigner",
-    workflow_status: "IN_REMEDIATION",
+    workflow_status: "APPROVED",
     risk_type: "NEW",
     implementation_date: null,
     rejection_comment: null,
@@ -84,6 +85,9 @@ const lookups: Record<string, unknown> = {
   "/risks/platforms": [{ id: 1, name: "Choreo", status: "ACTIVE" }],
 };
 
+// What /me/privileges answers; a test narrows it to act as another role.
+let privileges: string[] = ["RISK_VIEW_RISKS", "RISK_VIEW_ALL_RISKS"];
+
 const listRequests = (): URLSearchParams[] =>
   authFetch.mock.calls
     .map(([u]) => String(u))
@@ -94,11 +98,14 @@ const requested = (): string[] =>
   authFetch.mock.calls.map(([u]) => String(u).replace("http://backend.test/api/v1", ""));
 
 beforeEach(() => {
+  privileges = ["RISK_VIEW_RISKS", "RISK_VIEW_ALL_RISKS"]; // Compliance
   authFetch.mockReset();
   authFetch.mockImplementation(async (input: string) => {
     const url = new URL(String(input));
     const path = url.pathname.replace("/api/v1", "");
     const json = (body: unknown) => new Response(JSON.stringify(body), { status: 200 });
+    if (path === "/me/privileges") return json({ privileges });
+    if (path === "/risks/me/involvement") return json({ namedOnRisk: false });
     if (path === "/risks/teams") return json(registers);
     if (path === "/risks") {
       const teams = url.searchParams.get("team_id") ?? "";
@@ -215,5 +222,132 @@ describe("Risk Registers — register-template columns", () => {
     await waitFor(() => expect(headers()).not.toContain("Customer"));
     await waitFor(() => expect(lastList().get("customer_id")).toBeNull());
     expect(lastList().get("team_id")).toBe("2,1");
+  });
+});
+
+describe("Risk Registers — dashboard deep links", () => {
+  it("filters by the valid team and category ids and drops the rest", async () => {
+    renderAt("?team=2,abc,0,1&category=5,-1,x,6");
+    await waitFor(() => expect(lastList().get("team_id")).toBe("2,1"));
+    expect(lastList().get("category_id")).toBe("5,6");
+    expect(await screen.findByText("#5, #6")).toBeInTheDocument();
+  });
+
+  it("sends no filter when every id in the link is invalid", async () => {
+    renderAt("?team=abc,0&category=-3,x");
+    await screen.findByText("2026-ASG-Q2-0001");
+    expect(listRequests().every((p) => p.get("team_id") === null && p.get("category_id") === null)).toBe(true);
+    expect(screen.queryByText("Risk Category:")).not.toBeInTheDocument();
+  });
+
+  it("stops filtering by category when its chip is removed", async () => {
+    const user = userEvent.setup();
+    renderAt("?category=5,6");
+    await waitFor(() => expect(lastList().get("category_id")).toBe("5,6"));
+
+    await user.click(within(screen.getByText("Risk Category:").parentElement!).getByTestId("CancelIcon"));
+
+    await waitFor(() => expect(lastList().get("category_id")).toBeNull());
+    expect(screen.queryByText("Risk Category:")).not.toBeInTheDocument();
+  });
+});
+
+describe("Risk Registers — Report Download", () => {
+  const exportRequests = (): URLSearchParams[] =>
+    authFetch.mock.calls
+      .map(([u]) => String(u))
+      .filter((u) => u.includes("/api/v1/risks/export?"))
+      .map((u) => new URL(u).searchParams);
+
+  // Answers the export endpoint with a CSV, and everything else as the page's
+  // default fake does.
+  const answerExport = (response: () => Response) => {
+    const base = authFetch.getMockImplementation()!;
+    authFetch.mockImplementation(async (input: string) =>
+      String(input).includes("/api/v1/risks/export") ? response() : base(input),
+    );
+  };
+
+  it("downloads the CSV for the filters in force, with no paging", async () => {
+    const csv = "\uFEFFRisk Code\n2026-MS-BANKONESUB-Q2-0001\n";
+    answerExport(
+      () =>
+        new Response(csv, {
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv",
+            "Content-Disposition": 'attachment; filename="risk-report-2026-10-27.csv"',
+          },
+        }),
+    );
+    const downloads = captureDownloads();
+    const user = userEvent.setup();
+    renderAt("?team=2");
+    await screen.findByText("2026-MS-BANKONESUB-Q2-0001");
+
+    await user.click(screen.getByRole("button", { name: "Report Download" }));
+
+    await waitFor(() => expect(downloads.filenames).toEqual(["risk-report-2026-10-27.csv"]));
+    expect(Array.from(new Uint8Array(await bytesOf(downloads.blobs[0])))).toEqual(
+      Array.from(new TextEncoder().encode(csv)),
+    );
+    const sent = exportRequests();
+    expect(sent).toHaveLength(1);
+    expect(sent[0].get("team_id")).toBe("2");
+    expect(sent[0].get("statuses")).not.toBeNull(); // the tab's scope travels too
+    expect(sent[0].get("limit")).toBeNull();
+    expect(sent[0].get("offset")).toBeNull();
+  });
+
+  it("disables Report Download when the filters return no risks", async () => {
+    const base = authFetch.getMockImplementation()!;
+    authFetch.mockImplementation(async (input: string) =>
+      new URL(String(input)).pathname === "/api/v1/risks"
+        ? new Response(JSON.stringify({ items: [], total: 0, offset: 0, limit: 50 }), { status: 200 })
+        : base(input),
+    );
+    renderAt("");
+
+    expect(await screen.findByText("No risks found.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Report Download" })).toBeDisabled();
+  });
+
+  it("shows the server's message when the export fails", async () => {
+    answerExport(() => new Response(JSON.stringify({ message: "too many risks" }), { status: 422 }));
+    const downloads = captureDownloads();
+    const user = userEvent.setup();
+    renderAt("");
+    await screen.findByText("2026-ASG-Q2-0001");
+
+    await user.click(screen.getByRole("button", { name: "Report Download" }));
+
+    expect(await screen.findByText("too many risks")).toBeInTheDocument();
+    expect(downloads.blobs).toHaveLength(0);
+  });
+  // Report Download is for Compliance Admin and Compliance Team only; they hold
+  // RISK_VIEW_ALL_RISKS and nobody else does.
+  it.each([
+    ["a risk owner", ["RISK_VIEW_RISKS", "RISK_OWNER_APPROVE"]],
+    ["a risk assigner", ["RISK_VIEW_RISKS", "RISK_CREATE", "RISK_UPDATE"]],
+    ["someone with no risk role", []],
+  ])("hides Report Download from %s", async (_who, granted) => {
+    privileges = granted;
+    renderAt("");
+    await screen.findByText("2026-ASG-Q2-0001");
+    await waitFor(() => expect(requested()).toContain("/risks/me/involvement"));
+    // The button is hidden until the privileges arrive anyway, so let them land
+    // before asserting it is still hidden.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    expect(screen.queryByRole("button", { name: "Report Download" })).not.toBeInTheDocument();
+  });
+
+  it("shows Report Download to Compliance", async () => {
+    renderAt("");
+    await screen.findByText("2026-ASG-Q2-0001");
+
+    expect(await screen.findByRole("button", { name: "Report Download" })).toBeEnabled();
   });
 });

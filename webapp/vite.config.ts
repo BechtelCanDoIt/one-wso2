@@ -44,7 +44,13 @@ import path from "path";
 // through its Choreo default URL, not only through a *.wso2.com gateway URL.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self' https://accounts.google.com https://apis.google.com",
+  // 'wasm-unsafe-eval': @react-pdf/renderer lays out PDFs with yoga-layout,
+  // which is WebAssembly, so every PDF built in the browser needs it (today
+  // Legal → NDA and the Partner dashboard report); without it they fail.
+  // It allows WebAssembly compilation only. Do NOT add 'unsafe-eval' to fix a
+  // future CSP error: it re-enables JavaScript eval() and new Function() on
+  // every page.
+  "script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net",
   "font-src 'self' data: https://wso2.cachefly.net",
@@ -122,7 +128,7 @@ const vitestConfig = defineVitestConfig({
   test: {
     globals: true,
     environment: "jsdom",
-    css: true,
+    css: !["true", "1"].includes(process.env.DISABLE_VITEST_CSS ?? ""),
     setupFiles: ["./src/test/setup.ts"],
     exclude: [...configDefaults.exclude],
     server: {

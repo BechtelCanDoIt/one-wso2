@@ -47,7 +47,7 @@ import {
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { Eye, RefreshCw, Search, X } from "@wso2/oxygen-ui-icons-react";
+import { Download, Eye, RefreshCw, Search, X } from "@wso2/oxygen-ui-icons-react";
 import type { JSX } from "react";
 import type * as React from "react";
 import { useSearchParams } from "react-router";
@@ -69,7 +69,9 @@ import {
   fetchAssignmentTeams,
   fetchComplianceReferences,
   fetchLookupOptions,
+  fetchRiskCategories,
   fetchRiskDetail,
+  exportRisks,
   fetchRisks,
   fetchRiskScores,
   fetchSourceRegisterTeams,
@@ -85,7 +87,9 @@ import type {
   ComplianceReference,
   Escalation,
   HistoryEntry,
+  ListRisksParams,
   LookupOption,
+  RiskCategory,
   RiskEnvironment,
   RiskDetail,
   RiskListItem,
@@ -120,8 +124,12 @@ import {
   PENDING_REVISION_STATUSES,
   STATUS_CONFIG,
   calcDue,
+  downloadBlob,
   formatDate,
+  riskRoles,
 } from "./risk-registers/utils";
+import { RiskPrivilege } from "../privileges";
+import { useRiskPrivileges } from "../hooks/useRiskPrivileges";
 import { LEVEL_LABELS, LEVEL_ORDER, TREATMENT_LABELS, TREATMENT_ORDER } from "./dashboard/constants";
 
 // ── Tab definitions ────────────────────────────────────────────────────────────
@@ -156,14 +164,14 @@ const TABS: TabDef[] = [
 // "Open" (an escalated risk is still just an open remediation to the
 // assigner); the Overdue Risks tab is the only place it shows as "Escalated".
 function statusLabel(status: string, activeTab?: TabKey): string {
-  if (status === "IN_REMEDIATION") return "Open";
+  if (status === "APPROVED") return "Open";
   if (status === "CLOSED") return "Closed";
   if (status === "ESCALATED" && activeTab === "approved") return "Open";
   return STATUS_CONFIG[status]?.label ?? status;
 }
 
 function OutlinedStatusChip({ status, activeTab }: { status: string; activeTab?: TabKey }): JSX.Element {
-  if (status === "IN_REMEDIATION") return <Chip label="Open" color="info" size="small" variant="outlined" />;
+  if (status === "APPROVED") return <Chip label="Open" color="info" size="small" variant="outlined" />;
   if (status === "CLOSED") return <Chip label="Closed" color="success" size="small" variant="outlined" />;
   if (status === "ESCALATED" && activeTab === "approved") {
     return <Chip label="Open" color="info" size="small" variant="outlined" />;
@@ -227,6 +235,9 @@ interface Filters {
   riskType: string[];
   treatmentStrategy: string[];
   ownerId: number[];
+  // Set only by a dashboard drill-down (no filter-bar control): its chip shows
+  // above the table and removes it.
+  categoryId: number[];
   // Register-template columns' filters. Only meaningful while the matching
   // column is shown (see templateInView), and cleared when it is hidden.
   customerId: number[];
@@ -239,6 +250,17 @@ interface Filters {
   dueOverdueOnly: boolean;
 }
 
+// A comma-separated list of positive integer ids from the URL; anything else is
+// dropped, as ids start at 1 and a bad value must not become a filter that
+// silently matches nothing.
+function parseIds(raw: string | null): number[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map(Number)
+    .filter((n) => Number.isSafeInteger(n) && n > 0);
+}
+
 const EMPTY_FILTERS: Filters = {
   search: "",
   teamId: [],
@@ -247,6 +269,7 @@ const EMPTY_FILTERS: Filters = {
   riskType: [],
   treatmentStrategy: [],
   ownerId: [],
+  categoryId: [],
   customerId: [],
   environment: [],
   platformId: [],
@@ -393,10 +416,15 @@ function FilterBar({
 
 export default function RiskRegisters(): JSX.Element {
   const authFetch = useAuthApiClient();
-  // No privilege hook here any more: the only consumer was the detail drawer,
-  // which now gates on the risk's own effective_privileges. The Registers list
-  // itself needs none — the server returns exactly the rows this caller may
-  // see, so there is nothing left to hide client-side.
+  // The Registers list needs no privilege: the server returns exactly the rows
+  // this caller may see, so there is nothing to hide client-side (the detail
+  // drawer gates on the risk's own effective_privileges). The one exception is
+  // Report Download, which is for Compliance Admin and Compliance Team only —
+  // RISK_VIEW_ALL_RISKS, held only by those two among the seeded roles, and the
+  // privilege the export endpoint itself checks, so the button never shows for
+  // a caller it would refuse.
+  const { can } = useRiskPrivileges();
+  const canExport = can(RiskPrivilege.ViewAllRisks);
 
   const [activeTab, setActiveTab] = useState<TabKey>("approved");
   const [approvedFilter, setApprovedFilter] = useState<"" | "open" | "closed">("");
@@ -416,6 +444,7 @@ export default function RiskRegisters(): JSX.Element {
   const [assignmentTeams, setAssignmentTeams] = useState<RiskTeam[]>([]);
   const [riskScores, setRiskScores] = useState<RiskScore[]>([]);
   const [users, setUsers] = useState<UserOption[]>([]);
+  const [riskCategories, setRiskCategories] = useState<RiskCategory[]>([]);
   const [complianceRefs, setComplianceRefs] = useState<ComplianceReference[]>([]);
 
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
@@ -484,7 +513,7 @@ export default function RiskRegisters(): JSX.Element {
       // so this bypasses the tab partition entirely rather than picking one.
       if (allStagesView) return ALL_OPEN_STATUSES;
       if (activeTab === "approved") {
-        if (approvedFilter === "open") return ["IN_REMEDIATION", "ESCALATED"];
+        if (approvedFilter === "open") return ["APPROVED", "ESCALATED"];
         if (approvedFilter === "closed") return ["CLOSED"];
         return APPROVED_ALL_STATUSES;
       }
@@ -525,7 +554,7 @@ export default function RiskRegisters(): JSX.Element {
     { label: "Updated Risk", value: "UPDATED" },
   ];
   // Deliberately not passing activeTab here: in the Approved tab this would
-  // otherwise render two checkboxes both labeled "Open" (IN_REMEDIATION and
+  // otherwise render two checkboxes both labeled "Open" (APPROVED and
   // ESCALATED as separate filter values) — confusing for a secondary,
   // power-user filter. ESCALATED keeps its own "Escalated" checkbox label;
   // only the primary table chip and the Open/Closed/All dropdown get the
@@ -567,6 +596,7 @@ export default function RiskRegisters(): JSX.Element {
     fetchAssignmentTeams(authFetch).then(setAssignmentTeams).catch(console.error);
     fetchRiskScores(authFetch).then(setRiskScores).catch(console.error);
     fetchUsers(authFetch).then(setUsers).catch(console.error);
+    fetchRiskCategories(authFetch).then(setRiskCategories).catch(console.error);
     fetchComplianceReferences(authFetch).then(setComplianceRefs).catch(console.error);
   }, []);
 
@@ -576,17 +606,44 @@ export default function RiskRegisters(): JSX.Element {
     setPage(0);
   }, [activeTab, filters, allStagesView]);
 
+  // The filter half of the list request — everything the table is narrowed by,
+  // but no paging. loadRisks adds offset/limit; the CSV export sends it as-is,
+  // so what is downloaded is exactly the set the filters select.
+  const buildFilterParams = useCallback(
+    (): ListRisksParams => ({
+      statuses: getStatuses(),
+      team_id: filters.teamId.length ? filters.teamId : undefined,
+      level: filters.level.length ? filters.level : undefined,
+      search: filters.search || undefined,
+      risk_type: filters.riskType.length ? filters.riskType : undefined,
+      treatment_strategy: filters.treatmentStrategy.length ? filters.treatmentStrategy : undefined,
+      owner_id: filters.ownerId.length ? filters.ownerId : undefined,
+      category_id: filters.categoryId.length ? filters.categoryId : undefined,
+      customer_id: filters.customerId.length ? filters.customerId : undefined,
+      environment: filters.environment.length ? filters.environment : undefined,
+      platform_id: filters.platformId.length ? filters.platformId : undefined,
+      submitted_from: filters.submittedFrom || undefined,
+      submitted_to: filters.submittedTo || undefined,
+      due_from: filters.dueFrom || undefined,
+      due_to: filters.dueTo || undefined,
+      due_overdue: filters.dueOverdueOnly || undefined,
+      open_escalation: activeTabDef.openEscalationOnly || undefined,
+    }),
+    [filters, getStatuses, activeTabDef.openEscalationOnly],
+  );
+
+  // getStatuses() returns [] both when no Status filter is selected (no
+  // restriction) and when the selected Status values are disjoint from the
+  // current tab/approvedFilter scope (genuinely zero matches). The list and
+  // export treat an empty array as "no filter" and omit the statuses param
+  // entirely, which the backend then reads as "no restriction" — silently
+  // returning risks from every workflow status instead of none. So the
+  // disjoint case is short-circuited rather than sent to the server.
+  const matchesNothing = buildFilterParams().statuses?.length === 0 && filters.status.length > 0;
+
   const loadRisks = useCallback(async () => {
     const seq = ++loadSeqRef.current;
-    const statuses = getStatuses();
-    // getStatuses() returns [] both when no Status filter is selected (no
-    // restriction) and when the selected Status values are disjoint from the
-    // current tab/approvedFilter scope (genuinely zero matches). fetchRisks
-    // treats an empty array as "no filter" and omits the statuses param
-    // entirely, which the backend then reads as "no restriction" — silently
-    // returning risks from every workflow status instead of none. Short-
-    // circuit the disjoint case here rather than hitting the server.
-    if (statuses.length === 0 && filters.status.length > 0) {
+    if (matchesNothing) {
       setRisks([]);
       setTotal(0);
       setListError("");
@@ -597,22 +654,7 @@ export default function RiskRegisters(): JSX.Element {
     setListError("");
     try {
       const result = await fetchRisks(authFetch, {
-        statuses,
-        team_id: filters.teamId.length ? filters.teamId : undefined,
-        level: filters.level.length ? filters.level : undefined,
-        search: filters.search || undefined,
-        risk_type: filters.riskType.length ? filters.riskType : undefined,
-        treatment_strategy: filters.treatmentStrategy.length ? filters.treatmentStrategy : undefined,
-        owner_id: filters.ownerId.length ? filters.ownerId : undefined,
-        customer_id: filters.customerId.length ? filters.customerId : undefined,
-        environment: filters.environment.length ? filters.environment : undefined,
-        platform_id: filters.platformId.length ? filters.platformId : undefined,
-        submitted_from: filters.submittedFrom || undefined,
-        submitted_to: filters.submittedTo || undefined,
-        due_from: filters.dueFrom || undefined,
-        due_to: filters.dueTo || undefined,
-        due_overdue: filters.dueOverdueOnly || undefined,
-        open_escalation: activeTabDef.openEscalationOnly || undefined,
+        ...buildFilterParams(),
         offset: page * rowsPerPage,
         limit: rowsPerPage,
       });
@@ -625,7 +667,25 @@ export default function RiskRegisters(): JSX.Element {
     } finally {
       if (seq === loadSeqRef.current) setLoading(false);
     }
-  }, [activeTab, filters, getStatuses, page, rowsPerPage]);
+  }, [activeTab, buildFilterParams, matchesNothing, page, rowsPerPage]);
+
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
+
+  // Report Download: every risk the current tab and filters select, as CSV —
+  // all pages, not just the one on screen.
+  const handleExport = async () => {
+    setExporting(true);
+    setExportError("");
+    try {
+      const { blob, fileName } = await exportRisks(authFetch, buildFilterParams());
+      downloadBlob(blob, fileName);
+    } catch (e: unknown) {
+      setExportError(e instanceof Error ? e.message : "Failed to download the report.");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   useEffect(() => {
     loadRisks();
@@ -740,7 +800,8 @@ export default function RiskRegisters(): JSX.Element {
     const level = searchParams.get("level");
     const team = searchParams.get("team");
     const treatment = searchParams.get("treatment");
-    if (!view && !tab && !approved && !level && !team && !treatment) return;
+    const category = searchParams.get("category");
+    if (!view && !tab && !approved && !level && !team && !treatment && !category) return;
 
     // level/treatment come straight from the URL — a stale bookmark or typo
     // must not become a filter chip that silently matches nothing; dropping
@@ -755,7 +816,10 @@ export default function RiskRegisters(): JSX.Element {
       // > 0 as well as an integer, matching the riskId check above: ids start
       // at 1, and RiskDashboard uses 0 for "all registers", so team=0 would
       // otherwise reach the API as a filter that matches nothing.
-      teamId: team && Number.isSafeInteger(Number(team)) && Number(team) > 0 ? [Number(team)] : [],
+      // team and category take a comma-separated list: a Common Open Category
+      // row spans several registers.
+      teamId: parseIds(team),
+      categoryId: parseIds(category),
       treatmentStrategy: validTreatment ? [validTreatment] : [],
     });
     if (view === "all-stages") {
@@ -769,7 +833,7 @@ export default function RiskRegisters(): JSX.Element {
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        ["view", "tab", "approved", "level", "team", "treatment"].forEach((k) => next.delete(k));
+        ["view", "tab", "approved", "level", "team", "treatment", "category"].forEach((k) => next.delete(k));
         return next;
       },
       { replace: true },
@@ -872,7 +936,7 @@ export default function RiskRegisters(): JSX.Element {
     setActionSuccess("Action plan added.");
   };
 
-  // Commenting returns the risk to its assigner (ESCALATED → IN_REMEDIATION),
+  // Commenting returns the risk to its assigner (ESCALATED → APPROVED),
   // so this closes the drawer and reloads like any other workflow-changing
   // action. The risk stays in the Overdue tab — the escalation is still open —
   // but its status has changed, so the list must refresh.
@@ -914,7 +978,7 @@ export default function RiskRegisters(): JSX.Element {
     }
   };
 
-  // Completing a MANAGEMENT plan reverts the risk to IN_REMEDIATION
+  // Completing a MANAGEMENT plan reverts the risk to APPROVED
   // server-side, moving it out of the Overdue tab — so, unlike step
   // completion, this closes the drawer and reloads the list like any other
   // workflow-changing action.
@@ -941,7 +1005,7 @@ export default function RiskRegisters(): JSX.Element {
     if (isPendingRevision) {
       openDrawer(savedId);
     } else {
-      const willMove = editDetail.workflow_status === "IN_REMEDIATION";
+      const willMove = editDetail.workflow_status === "APPROVED";
       setActionSuccess(
         willMove
           ? "Risk updated. It has been moved for Risk Owner Approval."
@@ -989,16 +1053,44 @@ export default function RiskRegisters(): JSX.Element {
   const dashboardFilterSummary = [
     filters.level[0] && (LEVEL_LABELS[filters.level[0]] ?? filters.level[0]),
     filters.treatmentStrategy[0] && (TREATMENT_LABELS[filters.treatmentStrategy[0]] ?? filters.treatmentStrategy[0]),
-    filters.teamId[0] !== undefined && (sourceTeams.find((t) => t.id === filters.teamId[0])?.name ?? null),
+    filters.teamId.length > 0 &&
+      filters.teamId.map((id) => sourceTeams.find((t) => t.id === id)?.name).filter(Boolean).join(", "),
+    filters.categoryId.length > 0 &&
+      filters.categoryId.map((id) => riskCategories.find((c) => c.id === id)?.name).filter(Boolean).join(", "),
   ]
     .filter(Boolean)
     .join(" · ");
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Typography variant="h4" fontWeight={700} sx={{ mb: 3 }}>
-        Risk Registers
-      </Typography>
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="flex-start"
+        flexWrap="wrap"
+        gap={2}
+        sx={{ mb: 3 }}
+      >
+        <Typography variant="h4" fontWeight={700}>
+          Risk Registers
+        </Typography>
+        {canExport && (
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
+            disabled={exporting || loading || matchesNothing || total === 0}
+            onClick={() => void handleExport()}
+          >
+            Report Download
+          </Button>
+        )}
+      </Stack>
+      {exportError && (
+        <Alert severity="error" onClose={() => setExportError("")} sx={{ mb: 2 }}>
+          {exportError}
+        </Alert>
+      )}
 
       {allStagesView ? (
         <Paper
@@ -1031,6 +1123,21 @@ export default function RiskRegisters(): JSX.Element {
             ))}
           </Tabs>
         </Box>
+      )}
+
+      {filters.categoryId.length > 0 && (
+        <Stack direction="row" alignItems="center" gap={1} sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            Risk Category:
+          </Typography>
+          <Chip
+            size="small"
+            label={
+              filters.categoryId.map((id) => riskCategories.find((c) => c.id === id)?.name ?? `#${id}`).join(", ")
+            }
+            onDelete={() => setFilters({ ...filters, categoryId: [] })}
+          />
+        </Stack>
       )}
 
       <Paper variant="outlined" sx={{ p: 2, mb: 2, ...darkCardSx }}>
@@ -1366,6 +1473,16 @@ export default function RiskRegisters(): JSX.Element {
         <ReassessmentDialog
           open={assessOpen}
           riskCode={drawerDetail.risk_code}
+          detail={drawerDetail}
+          users={users}
+          canEditRiskDetails={
+            riskRoles(
+              drawerDetail,
+              currentUserId,
+              drawerDetail.effective_privileges.includes(RiskPrivilege.ComplianceApproveRisk),
+            ).isRiskAssigner
+          }
+          isRiskAssigner={drawerDetail.assigner_id === currentUserId}
           riskScores={riskScores}
           previousScore={drawerDetail.effective_score ?? drawerDetail.gross_score}
           previousIsInitial={!drawerDetail.assessments.some((a) => !a.is_initial)}
