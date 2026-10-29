@@ -21,6 +21,8 @@ import { MemoryRouter } from "react-router";
 import type { CustomerResult } from "@features/legal/api/useCustomerSearch";
 import type { NdaPdfProps } from "@features/legal/pages/NdaPdfDocument";
 import NdaPage from "@features/legal/pages/NdaPage";
+import { downloadHint } from "@features/legal/downloadHint";
+import { EMPTY_MANUAL_COUNTERPARTY } from "@features/legal/manualCounterparty";
 
 vi.mock("@config/apiConfig", () => ({
   isLegalBackendConfigured: () => true,
@@ -42,9 +44,13 @@ const ACME_LANKA: CustomerResult = {
   },
 };
 
+const search = vi.hoisted(() => ({ failed: false }));
 vi.mock("@features/legal/api/useCustomerSearch", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@features/legal/api/useCustomerSearch")>()),
-  useCustomerSearch: () => ({ data: [ACME_LANKA], isFetching: false }),
+  useCustomerSearch: () =>
+    search.failed
+      ? { data: undefined, isFetching: false, isError: true }
+      : { data: [ACME_LANKA], isFetching: false, isError: false },
 }));
 
 // Capture what the page asks the PDF renderer to draw, instead of drawing it.
@@ -68,8 +74,9 @@ vi.mock("@features/legal/api/useNdaAccess", () => ({
   useNdaAccess: () => access.value,
 }));
 
-function renderPage(a: Access) {
+function renderPage(a: Access, { searchFails = false } = {}) {
   access.value = a;
+  search.failed = searchFails;
   return render(
     <MemoryRouter>
       <NdaPage />
@@ -99,16 +106,33 @@ describe("NdaPage counterparty", () => {
     expect(screen.queryByRole("textbox", { name: /Legal name/ })).not.toBeInTheDocument();
   });
 
-  it("keeps the download button visible but disabled until the form is complete", () => {
+  it("keeps the download button visible but disabled until the form is complete, and says what's missing", () => {
     renderPage({ isPending: false, isError: false, data: { canSearchSalesforce: false } });
-    expect(screen.getByRole("button", { name: /Download NDA PDF/ })).toBeDisabled();
+    const download = screen.getByRole("button", { name: /Download NDA PDF/ });
+    expect(download).toBeDisabled();
+    expect(download).toHaveAccessibleDescription(
+      "To download, fill in the legal name, street address and city, and choose the country.",
+    );
   });
 
-  it("falls back to manual entry, and says why, when access can't be checked", () => {
+  it("falls back to manual entry with a single message when access can't be checked", () => {
     renderPage({ isPending: false, isError: true });
-    expect(screen.getByText(/Couldn't check whether you can search Salesforce customers/)).toBeInTheDocument();
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent(/Enter the counterparty's registered legal name/);
     expect(screen.queryByRole("button", { name: "Salesforce customer" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: /Legal name/ })).toBeInTheDocument();
+  });
+
+  it("says the search is broken, not that the customer doesn't exist, and offers manual entry", async () => {
+    const user = userEvent.setup();
+    renderPage({ isPending: false, isError: false, data: { canSearchSalesforce: true } }, { searchFails: true });
+    expect(screen.getByText(/Customer search isn't working right now/)).toBeInTheDocument();
+
+    // The alert's own button, not the toggle with the same label.
+    const alert = screen.getByText(/Customer search isn't working right now/).closest("[role=alert]") as HTMLElement;
+    await user.click(within(alert).getByRole("button", { name: "Enter details manually" }));
+    expect(screen.getByRole("textbox", { name: /Legal name/ })).toBeInTheDocument();
+    expect(screen.queryByText(/Customer search isn't working right now/)).not.toBeInTheDocument();
   });
 });
 
@@ -135,19 +159,19 @@ describe("NdaPage counterparty and WSO2 company", () => {
     renderPage(allowed);
 
     await pickSalesforceCustomer(user);
-    expect(wso2Company()).toHaveTextContent("WSO2 Lanka (Pvt) Ltd (LK)");
+    expect(wso2Company()).toHaveValue("WSO2 Lanka (Pvt) Ltd (LK)");
 
     // Manual entry has no country yet, so the Sri Lanka entity must not stay behind.
     await user.click(screen.getByRole("button", { name: "Enter details manually" }));
-    expect(within(wso2Company()).queryByText(/WSO2/)).not.toBeInTheDocument();
+    expect(wso2Company()).toHaveValue("");
 
     await user.type(screen.getByRole("combobox", { name: /Country/ }), "United Kingdom");
     await user.click(await screen.findByRole("option", { name: "United Kingdom" }));
-    expect(wso2Company()).toHaveTextContent("WSO2 (UK) Ltd (UK)");
+    expect(wso2Company()).toHaveValue("WSO2 (UK) Ltd (UK)");
 
     // Back to the Salesforce customer, back to its entity.
     await user.click(screen.getByRole("button", { name: "Salesforce customer" }));
-    expect(wso2Company()).toHaveTextContent("WSO2 Lanka (Pvt) Ltd (LK)");
+    expect(wso2Company()).toHaveValue("WSO2 Lanka (Pvt) Ltd (LK)");
   });
 
   it("puts the active counterparty and its entity into the NDA", async () => {
@@ -165,5 +189,34 @@ describe("NdaPage counterparty and WSO2 company", () => {
       customerAddress: "1 Example Road, London, United Kingdom",
       wso2Company: "WSO2 (UK) Ltd \u2014 UK",
     });
+  });
+});
+
+describe("downloadHint", () => {
+  const base = {
+    isManual: false,
+    manualParty: EMPTY_MANUAL_COUNTERPARTY,
+    hasCustomer: false,
+    hasCountry: false,
+    hasWso2Company: false,
+  };
+
+  it("asks for a customer, not the WSO2 Company the customer will fill in", () => {
+    expect(downloadHint(base)).toBe("To download, choose a customer.");
+  });
+
+  it("asks for the WSO2 Company when the country has no matching entity", () => {
+    expect(downloadHint({ ...base, hasCustomer: true, hasCountry: true })).toBe("To download, choose a WSO2 Company.");
+  });
+
+  it("lists only the manual fields still empty", () => {
+    const party = { ...EMPTY_MANUAL_COUNTERPARTY, name: "Example Vendor Ltd", street: "1 Example Road" };
+    expect(downloadHint({ ...base, isManual: true, manualParty: party })).toBe(
+      "To download, fill in the city, and choose the country.",
+    );
+  });
+
+  it("is null once everything is filled in", () => {
+    expect(downloadHint({ ...base, hasCustomer: true, hasCountry: true, hasWso2Company: true })).toBeNull();
   });
 });
