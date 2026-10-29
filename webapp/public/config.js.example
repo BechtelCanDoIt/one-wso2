@@ -41,6 +41,8 @@ window.config = {
   // ONE_WSO2_AMPLIFY_BACKEND_URL: "<your-amplify-api-proxy-url>",
   // WSO2's LinkedIn organization URN, sent as the owner of every new post.
   // ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN: "urn:li:organization:<id>",
+  // WSO2 Employee Privacy Notice, linked from the Link Me consent pop-up.
+  ONE_WSO2_AMPLIFY_PRIVACY_NOTICE_URL: "https://wso2.com/privacy-policy",
   // Where post links and the LinkedIn sign-in may point. Default: LinkedIn only. Dev/demos with the mock:
   // ONE_WSO2_AMPLIFY_POST_LINK_ORIGINS: ["https://www.linkedin.com", "https://linkedin.com", "http://localhost:19091"],
 
