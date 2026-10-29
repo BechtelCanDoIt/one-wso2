@@ -1772,6 +1772,7 @@ export const amplifyServiceUrls = {
   dashboardScorecard: `${amplifyBackendUrl}/dashboards/scorecard`,
   connectStart: `${amplifyBackendUrl}/connections/linkedin/start`,
   connectComplete: `${amplifyBackendUrl}/connections/linkedin/complete`,
+  connectRemove: `${amplifyBackendUrl}/connections/linkedin`,
   connectDecline: `${amplifyBackendUrl}/connections/linkedin/decline`,
 };
 

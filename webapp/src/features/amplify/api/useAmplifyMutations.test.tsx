@@ -22,11 +22,13 @@ import type { ReactNode } from "react";
 vi.mock("@api/http", () => ({
   authedPost: vi.fn(async () => ({ run: "STARTED" })),
   authedPatch: vi.fn(async () => ({})),
+  authedDelete: vi.fn(async () => undefined),
 }));
 vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "token" }));
 vi.mock("@hooks/useAsgardeoSub", () => ({ useAsgardeoSub: () => ({ state: { status: "ready", sub: "sub-1" } }) }));
 
-import { useRegisterCampaign } from "./useAmplifyMutations";
+import { authedDelete } from "@api/http";
+import { useRegisterCampaign, useRemoveLinkedInConnection } from "./useAmplifyMutations";
 import type { CampaignDraft } from "./amplifyTypes";
 
 // The app's QueryClient sets refetchOnMount: false, so a list that no page is showing must be refetched by the
@@ -47,5 +49,24 @@ describe("saving a post", () => {
     });
 
     expect(loadList).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("removing the LinkedIn connection", () => {
+  it("sends DELETE /connections/linkedin and refetches the caller's /me status", async () => {
+    const qc = new QueryClient({ defaultOptions: { queries: { refetchOnMount: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+    const loadMe = vi.fn(async () => ({ linkedin: { status: "ACTIVE" } }));
+    await qc.fetchQuery({ queryKey: ["amplify", "me", "sub-1"], queryFn: loadMe });
+
+    const { result } = renderHook(() => useRemoveLinkedInConnection(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync();
+    });
+
+    expect(vi.mocked(authedDelete).mock.calls[0][0]).toMatch(/\/connections\/linkedin$/);
+    expect(loadMe).toHaveBeenCalledTimes(2);
   });
 });
