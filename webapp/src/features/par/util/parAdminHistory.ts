@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { deriveLegacyCycleDates, formatLegacyCycleName, hasLegacyContent } from "./parLegacyHistory";
+import { deriveLegacyCycleDates, formatLegacyCycleName, hasLegacyContent, legacyCycleHasSpecialRatings } from "./parLegacyHistory";
 import { resolveLegacyRating } from "./legacyParRatingResolvers";
 import type { ParCycle, ParLegacyCycleSummary, ParLegacyHistory } from "../api/types";
 
@@ -80,8 +80,23 @@ export const isLegacyLeadFeedbackDone = (record: ParLegacyHistory): boolean =>
 // one cycle whose special rating depends on questionAnswers, which the
 // summary-mode list doesn't carry -- passing [] here means that cycle's
 // special ratings read as none rather than silently miscounting them.
+// Falls back to overallSpecialRating like ParLegacyRecordDetail does, so the
+// list and the opened record agree.
 export const legacySpecialRating = (record: ParLegacyHistory) =>
-  resolveLegacyRating(formatLegacyCycleName(record.cycleName), record.managerScoreCode, []).special;
+  resolveLegacyRating(formatLegacyCycleName(record.cycleName), record.managerScoreCode, []).special ??
+  record.overallSpecialRating;
+
+// Whether the admin cycle lists (Team View slots, roster Top 5%/20% column)
+// show special ratings. Same as the detail page's rule, except 2021 H1: its
+// special rating comes from a question answer the summary-mode list doesn't
+// carry, so the list could only ever show 0 / "Not Assigned" there.
+export const legacyCycleListHasSpecialRatings = (cycleName: string): boolean =>
+  legacyCycleHasSpecialRatings(cycleName) && formatLegacyCycleName(cycleName) !== "2021 Performance Evaluation - H1";
+
+// The name every admin legacy screen shows: the record's own migrated
+// first + last name, else its email. Read per record, not looked up by email,
+// so a row without a name never borrows another row's.
+export const legacyEmployeeName = (record: ParLegacyHistory): string => record.employeeName?.trim() || record.employeeEmail;
 
 // The overall rating every admin legacy grid shows. Same resolver
 // ParLegacyRecordDetail uses, so a record can't show a different rating in a

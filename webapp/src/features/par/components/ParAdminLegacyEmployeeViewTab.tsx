@@ -15,14 +15,16 @@
 // under the License.
 
 import { useMemo } from "react";
-import { Avatar, Box, Chip, DataGrid, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Avatar, Box, DataGrid, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
-import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyOverallRating } from "../util/parAdminHistory";
+import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyEmployeeName, legacyOverallRating } from "../util/parAdminHistory";
+import ParStatusChip from "./ParStatusChip";
 import { ParGridToolbar } from "./parGridToolbar";
 import type { ParLegacyHistory } from "../api/types";
 
+// Same chip as the team roster, so both legacy grids label it alike.
 function DoneChip({ done }: { done: boolean }) {
-  return <Chip size="small" label={done ? "Done" : "Not Done"} color={done ? "success" : "default"} variant="outlined" />;
+  return <ParStatusChip content={done ? "COMPLETED" : "Not Done"} />;
 }
 
 // Legacy counterpart of ParOrgEmployeeViewTab: every participant in the
@@ -36,7 +38,6 @@ export default function ParAdminLegacyEmployeeViewTab({
   onPaginationModelChange,
   sortModel,
   onSortModelChange,
-  nameFor,
   thumbnailFor,
   onOpenRecord,
 }: {
@@ -49,22 +50,21 @@ export default function ParAdminLegacyEmployeeViewTab({
   onPaginationModelChange: (model: DataGrid.GridPaginationModel) => void;
   sortModel: DataGrid.GridSortModel;
   onSortModelChange: (model: DataGrid.GridSortModel) => void;
-  nameFor: (email: string) => string;
   thumbnailFor: (email: string) => string | undefined;
   onOpenRecord: (record: ParLegacyHistory) => void;
 }) {
   const filteredRows = useMemo(() => {
-    const term = searchText.toLowerCase();
+    const term = searchText.trim().toLowerCase();
     return term
       ? records.filter(
           (row) =>
-            nameFor(row.employeeEmail).toLowerCase().includes(term) ||
+            legacyEmployeeName(row).toLowerCase().includes(term) ||
             row.employeeEmail.toLowerCase().includes(term) ||
             (row.reviewerName ?? "").toLowerCase().includes(term) ||
             (row.department ?? "").toLowerCase().includes(term),
         )
       : records;
-  }, [records, nameFor, searchText]);
+  }, [records, searchText]);
 
   const columns = useMemo<DataGrid.GridColDef<ParLegacyHistory>[]>(
     () => [
@@ -72,7 +72,7 @@ export default function ParAdminLegacyEmployeeViewTab({
         field: "employeeName",
         headerName: "Employee Name",
         flex: 1.8,
-        valueGetter: (_v, row) => nameFor(row.employeeEmail),
+        valueGetter: (_v, row) => legacyEmployeeName(row),
         renderCell: (params) => (
           <Box sx={{ display: "flex", alignItems: "center", height: "100%" }}>
             <Avatar
@@ -80,8 +80,9 @@ export default function ParAdminLegacyEmployeeViewTab({
               slotProps={{ img: { referrerPolicy: "no-referrer" } }}
               sx={{ mr: 2, height: "2.2rem", width: "2.2rem" }}
             />
+            {/* No migrated name: the email is already in the next column. */}
             <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 600 }}>
-              {params.value}
+              {params.value === params.row.employeeEmail ? "-" : params.value}
             </Typography>
           </Box>
         ),
@@ -140,7 +141,7 @@ export default function ParAdminLegacyEmployeeViewTab({
         ),
       },
     ],
-    [nameFor, thumbnailFor, onOpenRecord],
+    [thumbnailFor, onOpenRecord],
   );
 
   return (

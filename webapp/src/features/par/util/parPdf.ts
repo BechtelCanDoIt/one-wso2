@@ -24,6 +24,7 @@ import {
   getLegacySharedByName,
   hasLegacyContent,
   isThreeSixtyConfirmation,
+  legacyCycleHasSpecialRatings,
   parseLegacyFeedback360,
   stripRedundantRatingPrefix,
 } from "./parLegacyHistory";
@@ -220,12 +221,9 @@ export function downloadLegacyParPdf(
     }
   };
 
-  // Top 5%/20% was only introduced starting 2021 -- every earlier era never
-  // captured it at all, so the line is omitted entirely there instead of
-  // always printing "Not Assigned" clutter. 2021 onward always prints it
-  // (even as "Not Assigned"), matching ParLegacyRecordDetail.tsx's own
-  // hideSpecialRating / dedicated Top 5%/20% Rating row.
-  const hideSpecialRating = (Number(cycleName.match(/^(\d{4})/)?.[1]) || 0) < 2021;
+  // 2021 onward always prints the line (even as "Not Assigned"), matching
+  // ParLegacyRecordDetail.tsx's own dedicated Top 5%/20% Rating row.
+  const hideSpecialRating = !legacyCycleHasSpecialRatings(cycleName);
   // 2015 cycles only: those have both an employee and a lead rating, so
   // neither goes in the header -- each side's rating sits in its own section
   // instead (Employee's Feedback already carries the employee's; Lead's
