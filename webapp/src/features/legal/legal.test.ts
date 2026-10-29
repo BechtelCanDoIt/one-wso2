@@ -114,6 +114,16 @@ describe("entityForCountry", () => {
   });
 });
 
+describe("NDA_ENTITY_CONFIGS", () => {
+  // Legal confirmed the Brazilian company is now an LTDA (it was an EIRELI);
+  // the name appears in the opening paragraph and under WSO2's signature.
+  it("names WSO2 Brasil as an LTDA in the NDA", () => {
+    const brasil = NDA_ENTITY_CONFIGS["WSO2 Brasil \u2014 BR"];
+    expect(brasil.entityFull).toBe("WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA");
+    expect(brasil.signatureLabel).toBe("WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA");
+  });
+});
+
 describe("formatCustomerAddress", () => {
   const empty = { billingStreet: null, billingCity: null, billingState: null, billingPostalCode: null, billingCountry: null };
 

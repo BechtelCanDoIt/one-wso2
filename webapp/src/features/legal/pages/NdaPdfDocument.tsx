@@ -153,13 +153,13 @@ export const NDA_ENTITY_CONFIGS: Record<string, NdaEntityConfig> = {
   },
 
   "WSO2 Brasil — BR": {
-    entityFull: "WSO2 BRASIL TECNOLOGIA E SOFTWARE EIRELI",
+    entityFull: "WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA",
     entityDescription:
       "a corporation incorporated under the laws of Brazil and enrolled with the National Corporate Taxpayers' Registry (CNPJ/MF) under the number 24.325.269/0001-06, having its principal place of business at Rua Gomes De Carvalho, N. 1507, Bloco A, Andar 4 Sxx, Vila Ol\u00edmpia, Zip Code 04.547-005, in the city of S\u00e3o Paulo, state of S\u00e3o Paulo, Brazil",
     jurisdictionPhrase: "Brazil and/or overseas",
     governingLaw:
       'This Agreement is governed by the laws of Brazil. In the event of a dispute between the parties hereto, arising out of or in connection with or with respect to this Agreement or any breach thereof, such dispute shall be determined and settled by arbitration in Sao Paulo, Brazil in accordance with the rules of the International Chamber of Commerce ("ICC"). The award rendered by the arbitrator shall be final and binding on the parties thereto, and judgment may be entered in any court of competent jurisdiction. Nothing in the above provision shall prevent either party from applying to a court of competent jurisdiction for equitable or injunctive relief.',
-    signatureLabel: "WSO2 BRASIL TECNOLOGIA E SOFTWARE EIRELI",
+    signatureLabel: "WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA",
     countries: ["BR", "Brazil", "Brasil"],
   },
 };
