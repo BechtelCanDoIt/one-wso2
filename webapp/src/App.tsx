@@ -168,7 +168,7 @@ const GeneralReportTab = lazy(() => import("@features/leave/pages/LeaveReportsPa
 const SabbaticalReportTab = lazy(
   () => import("@features/leave/components/SabbaticalReportTab"),
 );
-// Sales Library: only routed when the `smartSearch` preview flag is on.
+// Sales Library: loaded when its page is opened.
 const LibraryPage = lazy(() => import("@features/sales/smartSearch/pages/LibraryPage"));
 
 import SabbaticalApplyTab from "@features/leave/pages/LeaveSabbaticalPage";
@@ -979,18 +979,16 @@ export default function App() {
           {/* One deal, as a page rather than a drawer: it can be linked, refreshed and
               returned to with Back. ?letter= opens it filtered to one MEDDPICC Letter. */}
           <Route path="sales/deals/:opportunityId" element={<DealPage />} />
-          {/* Sales → Library, Smart Search over Pitstop's content. Behind the `smartSearch` preview
-              flag, and loaded lazily so nothing of it is downloaded while the flag is off. */}
-          {isPreviewEnabled("smartSearch") && (
-            <Route
-              path="sales/library"
-              element={
-                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
-                  <LibraryPage />
-                </Suspense>
-              }
-            />
-          )}
+          {/* Sales → Library, Smart Search over Pitstop's content. Loaded lazily, so nothing of it is
+              downloaded until the page is opened. */}
+          <Route
+            path="sales/library"
+            element={
+              <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                <LibraryPage />
+              </Suspense>
+            }
+          />
           <Route path="settings" element={<SettingsPage />} />
           {/* Me → Menu: the cafeteria screen ported from the standalone
               menu app. One page, as the original was. */}

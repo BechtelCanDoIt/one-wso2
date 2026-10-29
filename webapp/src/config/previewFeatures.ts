@@ -79,14 +79,7 @@ export type PreviewFeature =
    * route. Held back until it is ready for production. Due Diligence, the
    * rest of the Legal perspective, is unaffected.
    */
-  | "nda"
-  /**
-   * Sales → Library, the Smart Search over Pitstop's content: its rail row and
-   * the `/sales/library` route. Held back while it is built piece by piece.
-   * With the flag on and `ONE_WSO2_SMART_SEARCH_BACKEND_URL` unset, the page
-   * says "not connected" and makes no requests.
-   */
-  | "smartSearch";
+  | "nda";
 
 /**
  * Whether a preview feature should be shown.

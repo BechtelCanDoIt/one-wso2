@@ -2163,8 +2163,7 @@ export function buildMeetingsUrl(params: {
 // Smart Search — Sales → Library, the plain-language search over Pitstop's content. It is served by
 // the Pitstop backend, which re-checks every result against what the caller may see in Pitstop, so
 // nothing is filtered here. The base URL includes its version segment. Unset means "not connected":
-// the page says so and makes no requests. Gated as a whole by the `smartSearch` preview flag too
-// (previewFeatures.ts).
+// the page says so and makes no requests.
 export const smartSearchBackendUrl: string = stripTrailingSlashes(
   window.config?.ONE_WSO2_SMART_SEARCH_BACKEND_URL ?? "",
 );

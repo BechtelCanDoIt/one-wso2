@@ -94,7 +94,7 @@ naming the key and makes no requests.
 | Due Diligence | `ONE_WSO2_DUE_DILIGENCE_BACKEND_URL` |
 | Finance MIS | `ONE_WSO2_MIS_ARR_BACKEND_URL` |
 | Infra Portal | `ONE_WSO2_INFRA_BACKEND_URL` |
-| Sales Library (Smart Search over Pitstop content) | `ONE_WSO2_SMART_SEARCH_BACKEND_URL` (also needs `smartSearch` in `ONE_WSO2_PREVIEW_FEATURES`) |
+| Sales Library (Smart Search over Pitstop content) | `ONE_WSO2_SMART_SEARCH_BACKEND_URL` |
 | CSM (separate app, opened in a new tab) | `ONE_WSO2_CSM_URL` |
 
 ## Import aliases
