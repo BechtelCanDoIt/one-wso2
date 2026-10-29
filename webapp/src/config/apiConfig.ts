@@ -1786,6 +1786,9 @@ export const amplifyPostLinkOrigins: readonly string[] = (() => {
 })();
 
 /** WSO2's LinkedIn organization URN, the owner New Post sends. Empty when unset. */
+/** Link target for "WSO2 Employee Privacy Notice" in the Link Me consent pop-up. Empty shows plain text. */
+export const amplifyPrivacyNoticeUrl: string = (window.config?.ONE_WSO2_AMPLIFY_PRIVACY_NOTICE_URL ?? "").trim();
+
 export const amplifyLinkedInOrgUrn: string = (window.config?.ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN ?? "").trim();
 
 export const amplifyServiceUrls = {
@@ -1816,6 +1819,8 @@ export const amplifyServiceUrls = {
   dashboardScorecard: `${amplifyBackendUrl}/dashboards/scorecard`,
   connectStart: `${amplifyBackendUrl}/connections/linkedin/start`,
   connectComplete: `${amplifyBackendUrl}/connections/linkedin/complete`,
+  connectRemove: `${amplifyBackendUrl}/connections/linkedin`,
+  connectDecline: `${amplifyBackendUrl}/connections/linkedin/decline`,
 };
 
 // ---------------------------------------------------------------------------
