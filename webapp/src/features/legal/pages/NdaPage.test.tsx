@@ -14,13 +14,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { CustomerResult } from "@features/legal/api/useCustomerSearch";
 import type { NdaPdfProps } from "@features/legal/pages/NdaPdfDocument";
 import NdaPage from "@features/legal/pages/NdaPage";
+import { HttpError } from "@api/http";
 import { downloadHint } from "@features/legal/downloadHint";
 import { EMPTY_MANUAL_COUNTERPARTY } from "@features/legal/manualCounterparty";
 
@@ -54,12 +55,17 @@ vi.mock("@features/legal/api/useCustomerSearch", async (importOriginal) => ({
 }));
 
 // Capture what the page asks the PDF renderer to draw, instead of drawing it.
-const rendered = vi.hoisted(() => ({ props: null as NdaPdfProps | null }));
+const rendered = vi.hoisted(() => ({ props: null as NdaPdfProps | null, fail: false }));
 vi.mock("@react-pdf/renderer", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@react-pdf/renderer")>()),
   pdf: (element: { props: NdaPdfProps }) => {
     rendered.props = element.props;
-    return { toBlob: async () => new Blob(["%PDF-"]) };
+    return {
+      toBlob: async () => {
+        if (rendered.fail) throw new Error("PDF layout failed");
+        return new Blob(["%PDF-"]);
+      },
+    };
   },
 }));
 
@@ -68,17 +74,41 @@ beforeAll(() => {
   URL.revokeObjectURL = vi.fn();
 });
 
-type Access = { isPending: boolean; isError: boolean; data?: { canSearchSalesforce: boolean } };
+type AccessData = { canSearchSalesforce: boolean; ndaRecordsEnabled?: boolean; canViewNdaRecords?: boolean };
+type Access = {
+  isPending: boolean;
+  isError: boolean;
+  data?: AccessData;
+  /** Re-asks GET /me; the page calls it when the first check failed. */
+  refetch?: () => Promise<{ data?: AccessData }>;
+};
 const access = vi.hoisted(() => ({ value: {} as Access }));
 vi.mock("@features/legal/api/useNdaAccess", () => ({
   useNdaAccess: () => access.value,
 }));
 
-function renderPage(a: Access, { searchFails = false } = {}) {
+// Recording an NDA, and the records list, without a backend.
+const recording = vi.hoisted(() => ({
+  mutateAsync: vi.fn<(input: unknown) => Promise<unknown>>(),
+}));
+vi.mock("@features/legal/api/useNdaRecords", () => ({
+  useRecordNda: () => ({ mutateAsync: recording.mutateAsync }),
+  useNdaRecords: () => ({ data: { items: [], total: 0, days: 7 }, isPending: false, isError: false }),
+}));
+
+beforeEach(() => {
+  rendered.props = null;
+  rendered.fail = false;
+  vi.mocked(URL.createObjectURL).mockClear();
+  recording.mutateAsync.mockReset();
+  recording.mutateAsync.mockResolvedValue({});
+});
+
+function renderPage(a: Access, { searchFails = false, url = "/legal/nda" } = {}) {
   access.value = a;
   search.failed = searchFails;
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[url]}>
       <NdaPage />
     </MemoryRouter>,
   );
@@ -218,5 +248,148 @@ describe("downloadHint", () => {
 
   it("is null once everything is filled in", () => {
     expect(downloadHint({ ...base, hasCustomer: true, hasCountry: true, hasWso2Company: true })).toBeNull();
+  });
+});
+
+describe("NdaPage records", () => {
+  const recordsOn: Access = {
+    isPending: false,
+    isError: false,
+    data: { canSearchSalesforce: false, ndaRecordsEnabled: true, canViewNdaRecords: false },
+  };
+
+  async function fillManualParty(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByRole("textbox", { name: /Legal name/ }), "Example Vendor Ltd");
+    await user.type(screen.getByRole("textbox", { name: /Street address/ }), "1 Example Road");
+    await user.type(screen.getByRole("textbox", { name: /City/ }), "London");
+    await user.type(screen.getByRole("combobox", { name: /Country/ }), "United Kingdom");
+    await user.click(await screen.findByRole("option", { name: "United Kingdom" }));
+  }
+
+  it("records the NDA before downloading it", async () => {
+    const user = userEvent.setup();
+    renderPage(recordsOn);
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    await waitFor(() => expect(rendered.props).not.toBeNull());
+    expect(recording.mutateAsync).toHaveBeenCalledWith({
+      template: "Mutual NDA \u2014 Standard",
+      wso2Entity: "WSO2 (UK) Ltd \u2014 UK",
+      counterpartyName: "Example Vendor Ltd",
+      counterpartyAddress: "1 Example Road, London, United Kingdom",
+      counterpartyCountry: "United Kingdom",
+      source: "manual",
+      salesforceAccountId: null,
+    });
+  });
+
+  it("records a Salesforce customer with its account ID", async () => {
+    const user = userEvent.setup();
+    renderPage({ ...recordsOn, data: { ...recordsOn.data!, canSearchSalesforce: true } });
+    await user.type(screen.getByRole("combobox", { name: "Customer Name" }), "Acme");
+    await user.click(await screen.findByRole("option", { name: "Acme Lanka" }));
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    await waitFor(() => expect(rendered.props).not.toBeNull());
+    expect(recording.mutateAsync).toHaveBeenCalledWith(
+      expect.objectContaining({ counterpartyName: "Acme Lanka", source: "salesforce", salesforceAccountId: "001" }),
+    );
+  });
+
+  it("downloads nothing when the NDA can't be recorded", async () => {
+    recording.mutateAsync.mockRejectedValue(new Error("503"));
+    const user = userEvent.setup();
+    renderPage(recordsOn);
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    expect(await screen.findByText(/Couldn't record the NDA, so it wasn't downloaded/)).toBeInTheDocument();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("says why a refused record was refused, without suggesting a retry", async () => {
+    recording.mutateAsync.mockRejectedValue(
+      new HttpError("/ndas", 400, JSON.stringify({ message: "counterpartyName is too long" })),
+    );
+    const user = userEvent.setup();
+    renderPage(recordsOn);
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    expect(await screen.findByText(/counterpartyName is too long/)).toBeInTheDocument();
+    expect(screen.queryByText(/Please try again/)).not.toBeInTheDocument();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("downloads nothing when the access check failed and still can't answer", async () => {
+    const refetch = vi.fn(async () => ({ data: undefined }));
+    const user = userEvent.setup();
+    renderPage({ isPending: false, isError: true, refetch });
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    expect(await screen.findByText(/Couldn't reach the NDA service to record this NDA/)).toBeInTheDocument();
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(rendered.props).toBeNull();
+    expect(recording.mutateAsync).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("asks again when the access check failed, and records if records are on", async () => {
+    const refetch = vi.fn(async () => ({ data: { canSearchSalesforce: false, ndaRecordsEnabled: true } }));
+    const user = userEvent.setup();
+    renderPage({ isPending: false, isError: true, refetch });
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    await waitFor(() => expect(URL.createObjectURL).toHaveBeenCalled());
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(recording.mutateAsync).toHaveBeenCalledWith(expect.objectContaining({ counterpartyName: "Example Vendor Ltd" }));
+  });
+
+  it("records nothing when the PDF can't be built", async () => {
+    rendered.fail = true;
+    const user = userEvent.setup();
+    renderPage(recordsOn);
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    expect(await screen.findByText("Failed to generate PDF. Please try again.")).toBeInTheDocument();
+    expect(recording.mutateAsync).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("downloads without recording when NDA records are off", async () => {
+    const user = userEvent.setup();
+    renderPage({ ...recordsOn, data: { canSearchSalesforce: false, ndaRecordsEnabled: false } });
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    await waitFor(() => expect(rendered.props).not.toBeNull());
+    expect(recording.mutateAsync).not.toHaveBeenCalled();
+  });
+
+  it("offers the NDA records tab only to those who may view them", () => {
+    renderPage(recordsOn, { url: "/legal/nda?tab=records" });
+    expect(screen.queryByRole("tab", { name: "NDA Records" })).not.toBeInTheDocument();
+    expect(screen.getByText("Generate WSO2's standard Mutual NDA as a PDF.")).toBeInTheDocument();
+    // Without the permission, ?tab=records still shows the form.
+    expect(screen.getByRole("button", { name: /Download NDA PDF/ })).toBeInTheDocument();
+  });
+
+  it("shows the records table on the NDA records tab", async () => {
+    const user = userEvent.setup();
+    renderPage({ ...recordsOn, data: { ...recordsOn.data!, canViewNdaRecords: true } });
+
+    expect(screen.getByRole("tab", { name: "Generate NDA" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Generate WSO2's standard Mutual NDA as a PDF.")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "NDA Records" }));
+    expect(screen.getByRole("table", { name: "Generated NDAs" })).toBeInTheDocument();
+    expect(screen.getByText("View all generated NDAs.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Download NDA PDF/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("tab", { name: "Generate NDA" }));
+    expect(screen.getByRole("button", { name: /Download NDA PDF/ })).toBeInTheDocument();
   });
 });

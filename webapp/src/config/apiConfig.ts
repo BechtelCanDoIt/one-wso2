@@ -1455,6 +1455,8 @@ export const legalServiceUrls = {
   customerSearch: `${legalBackendUrl}/customer-search`,
   // GET: what the caller may do, e.g. { canSearchSalesforce: true }.
   me: `${legalBackendUrl}/me`,
+  // POST records a generated NDA; GET lists them all (Legal team only).
+  ndas: `${legalBackendUrl}/ndas`,
 };
 
 export const csmUrl: string = window.config?.ONE_WSO2_CSM_URL ?? "";
