@@ -93,6 +93,7 @@ function renderDialog(
   canEditRiskDetails: boolean,
   detail: Partial<RiskDetail> = {},
   riskScores: RiskScore[] = [],
+  isRiskAssigner: boolean = canEditRiskDetails,
 ) {
   const onSubmit = vi.fn<(p: CreateAssessmentPayload) => Promise<void>>().mockResolvedValue();
   render(
@@ -102,6 +103,7 @@ function renderDialog(
       detail={riskDetail({ implementation_date: "2030-01-01", ...detail })}
       users={[]}
       canEditRiskDetails={canEditRiskDetails}
+      isRiskAssigner={isRiskAssigner}
       riskScores={riskScores}
       previousScore={null}
       previousIsInitial
@@ -158,6 +160,20 @@ describe("ReassessmentDialog risk details", () => {
     expect(onSubmit.mock.calls[0][0]).not.toHaveProperty("action_owner_id");
   });
 
+  it("does not warn a compliance admin who is not the assigner, since they keep edit rights", async () => {
+    const u = userEvent.setup();
+    renderDialog(true, {}, [], false);
+
+    await u.click(screen.getByRole("combobox", { name: "Risk Assigner" }));
+    await u.click(within(await screen.findByRole("listbox")).getByText("New Assigner"));
+    expect(screen.queryByText(/no longer be able to change this risk's details/)).not.toBeInTheDocument();
+  });
+
+  it("says the Action Owner only sets the original action plan's owner", async () => {
+    renderDialog(true);
+    expect(await screen.findByText(/original action plan/)).toBeInTheDocument();
+  });
+
   it("disables the Action Owner when the risk has no action plan", async () => {
     renderDialog(true, { action_plan: null });
     expect(await screen.findByRole("combobox", { name: "Action Owner" })).toBeDisabled();
@@ -193,6 +209,7 @@ describe("ReassessmentDialog risk details", () => {
       detail: riskDetail({ implementation_date: "2030-01-01" }),
       users: [],
       canEditRiskDetails: true,
+      isRiskAssigner: true,
       riskScores: [],
       previousScore: null,
       previousIsInitial: true,

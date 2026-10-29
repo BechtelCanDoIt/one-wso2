@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { parseDateOnly, toDateOnlyString } from "@features/security/grc/utils/dateTime";
 import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
+import { originalPlanHelp } from "./utils";
 import {
   AdapterDateFns,
   Alert,
@@ -84,6 +85,10 @@ interface ReassessmentDialogProps {
   // change these details; everyone else sees them read-only. The backend
   // enforces the same rule.
   canEditRiskDetails: boolean;
+  // True only when the current user is this risk's Risk Assigner. A compliance
+  // admin can edit the details too but keeps that right after handing the risk
+  // on, so the hand-off warning is for the assigner alone.
+  isRiskAssigner: boolean;
   riskScores: RiskScore[];
   // The risk's residual score before this assessment — RiskDetail.effective_score,
   // i.e. the latest reassessment if one exists, else the gross score. Null only
@@ -103,6 +108,7 @@ export default function ReassessmentDialog({
   detail,
   users,
   canEditRiskDetails,
+  isRiskAssigner,
   riskScores,
   previousScore,
   previousIsInitial,
@@ -436,7 +442,7 @@ export default function ReassessmentDialog({
                 <Select labelId="assess-risk-assigner-label" label="Risk Assigner" value={assignerId} onChange={(e) => setAssignerId(Number(e.target.value))}>
                   {assignerOptions.map((u) => <MenuItem key={u.id} value={u.id}>{u.display_name}</MenuItem>)}
                 </Select>
-                {canEditRiskDetails && assignerId !== detail.assigner_id && (
+                {isRiskAssigner && assignerId !== detail.assigner_id && (
                   <FormHelperText>You will no longer be able to change this risk's details once it is saved.</FormHelperText>
                 )}
               </FormControl>
@@ -515,7 +521,9 @@ export default function ReassessmentDialog({
                     error={!!actionOwnerError}
                     helperText={
                       actionOwnerError ??
-                      (!detail.action_plan ? "This risk has no action plan, so there is no Action Owner to set." : undefined)
+                      (!detail.action_plan
+                        ? "This risk has no action plan, so there is no Action Owner to set."
+                        : originalPlanHelp(detail.action_plan))
                     }
                   />
                 )}

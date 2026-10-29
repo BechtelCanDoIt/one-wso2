@@ -296,3 +296,16 @@ export function riskRoles(
     isRiskAssigner: canOverride || (!!detail && detail.assigner_id === currentUserId),
   };
 }
+
+// originalPlanHelp explains that an Action Owner field sets the owner of one
+// plan: the risk's original action plan, created with the risk. Plans added
+// later keep their own owners, so name the plan rather than let the field read
+// as "every Action Owner".
+export function originalPlanHelp(actionPlan: { description?: string | null } | null | undefined): string {
+  const description = actionPlan?.description?.trim() ?? "";
+  return (
+    "Sets the owner of the risk's original action plan" +
+    (description ? ` ("${description.length > 60 ? `${description.slice(0, 60)}…` : description}")` : "") +
+    ". Other action plans keep their own owners."
+  );
+}
