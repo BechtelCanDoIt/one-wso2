@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState, type JSX } from "react";
+import { useId, useState, type JSX } from "react";
 import {
   Alert,
   Autocomplete,
@@ -38,6 +38,7 @@ import { useCustomerSearch, formatCustomerAddress, type CustomerResult } from "@
 import { useNdaAccess } from "@features/legal/api/useNdaAccess";
 import ManualCounterpartyFields from "@features/legal/components/ManualCounterpartyFields";
 import { countryName } from "@features/legal/countries";
+import { downloadHint } from "@features/legal/downloadHint";
 import { ndaFileNamePart } from "@features/legal/fileName";
 import {
   EMPTY_MANUAL_COUNTERPARTY,
@@ -95,7 +96,12 @@ export default function NdaPage(): JSX.Element {
   const [partyMode, setPartyMode] = useState<PartyMode>("salesforce");
   const [manualParty, setManualParty] = useState<ManualCounterparty>(EMPTY_MANUAL_COUNTERPARTY);
 
-  const { data: customerOptions = [], isFetching: searchingCustomers } = useCustomerSearch(customerInput);
+  const {
+    data: customerOptions = [],
+    isFetching: searchingCustomers,
+    isError: searchFailed,
+  } = useCustomerSearch(customerInput);
+  const downloadHintId = useId();
 
   // Only the groups the legal backend allows (Sales and Legal) may pick the
   // other party from Salesforce; everyone else enters it by hand. Until the
@@ -117,6 +123,15 @@ export default function NdaPage(): JSX.Element {
   const partyReady = isManual ? isManualCounterpartyComplete(manualParty) : selectedCustomer !== null;
 
   const allFilled = Boolean(template && wso2Company && partyReady);
+  const missingHint = checkingAccess
+    ? null
+    : downloadHint({
+        isManual,
+        manualParty,
+        hasCustomer: selectedCustomer !== null,
+        hasCountry: Boolean(partyCountry),
+        hasWso2Company: Boolean(wso2Company),
+      });
 
   // Switching mode re-derives the entity from that mode's party, so the
   // governing law never stays behind from the other mode's country.
@@ -182,12 +197,18 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <PerspectiveHeader
         title="NDA"
-        subtitle="Create WSO2's standard Mutual NDA for a customer, vendor or partner, and download it as a PDF."
+        subtitle="Generate WSO2's standard Mutual NDA as a PDF."
       />
 
       <Stack spacing={3} sx={{ maxWidth: 480 }}>
         {/* NDA Template — locked to Mutual NDA Standard for now */}
-        <TextField fullWidth label="NDA Template" value={template} disabled />
+        <TextField
+          fullWidth
+          label="NDA Template"
+          value={template}
+          disabled
+          helperText="Only the standard Mutual NDA is available for now."
+        />
 
         {/* Counterparty — a Salesforce customer, or details typed in by hand.
             One group with its own heading, so the WSO2 Company below reads as
@@ -218,18 +239,14 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
           )}
 
           {/* Guidance before the user starts typing or searching, not after:
-              the NDA uses these details exactly as given. */}
+              the NDA uses these details exactly as given. Also the only message
+              when access can't be checked: why the search is missing means
+              nothing to the user, what to enter instead does. */}
           {!checkingAccess && (
             <Alert severity="info">
               {isManual
                 ? "Enter the counterparty's registered legal name and address. They go into the NDA exactly as you type them, so check them first."
                 : "Search by the customer's Salesforce account name. The NDA uses the name and billing address from Salesforce, so check them in the details shown."}
-            </Alert>
-          )}
-
-          {access.isError && (
-            <Alert severity="info">
-              Couldn&apos;t check whether you can search Salesforce customers, so enter the counterparty&apos;s details below.
             </Alert>
           )}
 
@@ -260,7 +277,9 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
               noOptionsText={
                 customerInput.length < 2
                   ? "Type to search customers"
-                  : "No customers found"
+                  : searchFailed
+                    ? "Customer search isn't working right now"
+                    : "No customers found"
               }
               renderInput={(params) => (
                 <TextField
@@ -280,6 +299,26 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
                 />
               )}
             />
+          )}
+
+          {/* A failed search must not read as "No customers found": the user
+              would conclude the customer doesn't exist. */}
+          {!isManual && searchFailed && (
+            <Alert
+              severity="warning"
+              action={
+                <Button
+                  color="inherit"
+                  size="small"
+                  onClick={() => handlePartyModeChange("manual")}
+                  sx={{ textTransform: "none" }}
+                >
+                  Enter details manually
+                </Button>
+              }
+            >
+              Customer search isn&apos;t working right now. Try again, or enter the details manually.
+            </Alert>
           )}
 
           {/* Customer verification card — shown once a customer is selected */}
@@ -319,29 +358,38 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
               helperText={
                 partyCountry && !wso2Company
                   ? `No WSO2 entity matches the counterparty's country "${partyCountry}". Choose one.`
-                  : "Filled in from the counterparty's country, or choose it here. Check it: it sets the governing law."
+                  : "Set from the counterparty's country. It decides which law governs the NDA."
               }
             />
           )}
         />
 
         {/* Always shown, so users know where the form ends; enabled once the
-            entity and the counterparty are complete. */}
-        <Button
-          variant="contained"
-          startIcon={
-            generating ? (
-              <CircularProgress size={16} sx={{ color: "inherit" }} />
-            ) : (
-              <DownloadIcon size={16} />
-            )
-          }
-          disabled={!allFilled || generating}
-          onClick={() => void handleDownload()}
-          sx={{ alignSelf: "flex-start", textTransform: "none" }}
-        >
-          {generating ? "Generating PDF\u2026" : "Download NDA PDF"}
-        </Button>
+            entity and the counterparty are complete. Until then the line
+            under it says what is still missing. */}
+        <Stack spacing={0.5} sx={{ alignItems: "flex-start" }}>
+          <Button
+            variant="contained"
+            startIcon={
+              generating ? (
+                <CircularProgress size={16} sx={{ color: "inherit" }} />
+              ) : (
+                <DownloadIcon size={16} />
+              )
+            }
+            disabled={!allFilled || generating}
+            onClick={() => void handleDownload()}
+            aria-describedby={missingHint ? downloadHintId : undefined}
+            sx={{ textTransform: "none" }}
+          >
+            {generating ? "Generating PDF\u2026" : "Download NDA PDF"}
+          </Button>
+          {missingHint && (
+            <Typography id={downloadHintId} variant="caption" sx={{ color: "text.secondary" }}>
+              {missingHint}
+            </Typography>
+          )}
+        </Stack>
       </Stack>
 
       <Snackbar
