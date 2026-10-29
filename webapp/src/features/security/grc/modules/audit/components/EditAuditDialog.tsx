@@ -80,7 +80,7 @@ function EditForm({
 
   // Only what actually changed is sent, so an untouched field is never rewritten.
   const changes: EditAuditFields = {};
-  if (name.trim() !== currentName) changes.displayName = name.trim();
+  if (name.trim() !== currentName.trim()) changes.displayName = name.trim();
   if (periodStart !== audit.periodStart) changes.periodStart = periodStart;
   if (periodEnd !== audit.periodEnd) changes.periodEnd = periodEnd;
   if (scope.trim() !== currentScope.trim()) changes.scopeDescription = scope.trim();

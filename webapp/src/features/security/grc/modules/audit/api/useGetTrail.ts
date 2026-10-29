@@ -58,6 +58,8 @@ export interface TrailDetails {
   // Audit-level CREATED/DELETED carry name; UPDATED carries whichever fields
   // changed (periodStart/periodEnd/scopeDescription/status).
   name?: string;
+  // Set on an audit UPDATED event when the user-facing name changed.
+  displayName?: string;
   periodStart?: string;
   periodEnd?: string;
   scopeDescription?: string;
