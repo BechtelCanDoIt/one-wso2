@@ -41,7 +41,7 @@ import { CheckIcon, HistoryIcon, PencilIcon, XIcon } from "@wso2/oxygen-ui-icons
 import type { UmtUpdateSummary, UmtWorstCaseEstimateLogEntry } from "../api/umtUpdates";
 import type { UmtUpdateFieldChange } from "../api/useUmtUpdateFieldMutation";
 import { useUmtWorstCaseEstimateLog } from "../api/useUmtWorstCaseEstimateLog";
-import { formatCalendarDate, formatTimestamp } from "../lib/umtDates";
+import { formatCalendarDate, formatTimestamp, parseCalendarDate } from "../lib/umtDates";
 import { umtIssueLink } from "../lib/umtIssueLink";
 import { renderLinkValue } from "./umtViewSectionPrimitives";
 
@@ -286,7 +286,7 @@ function EditableWorstCaseDate({
 }) {
   const [editing, setEditing] = useState(false);
   const [logOpen, setLogOpen] = useState(false);
-  const [draft, setDraft] = useState<Date | null>(() => parseDate(value));
+  const [draft, setDraft] = useState<Date | null>(() => parseCalendarDate(value));
   // Required: the backend quotes it in the updated-ETA comment on the
   // customer's case and the update's issues.
   const [reason, setReason] = useState("");
@@ -298,20 +298,20 @@ function EditableWorstCaseDate({
     setLastCanEdit(canEdit);
     if (!canEdit) {
       setEditing(false);
-      setDraft(parseDate(value));
+      setDraft(parseCalendarDate(value));
       setReason("");
     }
   }
 
   const cancel = () => {
-    setDraft(parseDate(value));
+    setDraft(parseCalendarDate(value));
     setReason("");
     setEditing(false);
   };
 
   // The picker enforces these rules only on its calendar; its text field also
   // accepts a typed date, which must pass the same checks before it is saved.
-  const minSelectableDate = parseDate(value) ?? new Date();
+  const minSelectableDate = parseCalendarDate(value) ?? new Date();
   const isSelectableDate = (date: Date | null): date is Date => {
     if (!date || Number.isNaN(date.getTime())) return false;
     if (date.getDay() !== UMT_RELEASE_WEEKDAY) return false;
@@ -350,7 +350,7 @@ function EditableWorstCaseDate({
                     aria-label={`Edit ${label}`}
                     size="small"
                     onClick={() => {
-                      setDraft(parseDate(value));
+                      setDraft(parseCalendarDate(value));
                       setReason("");
                       setEditing(true);
                     }}
@@ -610,17 +610,6 @@ function GitHubIssueLink({ value }: { value: string | null | undefined }) {
       {issue.label}
     </Link>
   );
-}
-
-// Rebuild the UTC calendar day as a local-midnight Date: the DatePicker and
-// `shouldDisableDate` both read local fields, so the day-of-week check and the
-// displayed day have to agree with the UTC day the backend stored.
-function parseDate(value: string | null | undefined): Date | null {
-  const normalizedValue = displayValue(value);
-  if (normalizedValue === "N/A") return null;
-  const parsed = new Date(normalizedValue);
-  if (Number.isNaN(parsed.getTime())) return null;
-  return new Date(parsed.getUTCFullYear(), parsed.getUTCMonth(), parsed.getUTCDate());
 }
 
 function toDateInputValue(date: Date): string {
