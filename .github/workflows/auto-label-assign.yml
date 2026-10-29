@@ -1,0 +1,134 @@
+# Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+#
+# WSO2 LLC. licenses this file to you under the Apache License,
+# Version 2.0 (the "License"); you may not use this file except
+# in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied. See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: Auto Label and Assign PR
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review]
+
+jobs:
+  auto-label-assign:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      issues: write
+      contents: read
+    steps:
+      - name: Apply labels
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            const prNumber = pr.number;
+
+            // Fetch all changed files (handles PRs with >30 files via pagination)
+            const files = await github.paginate(
+              github.rest.pulls.listFiles,
+              { owner, repo, pull_number: prNumber, per_page: 100 }
+            );
+            const filenames = files.map(f => f.filename);
+            core.info(`Changed files:\n${filenames.join('\n')}`);
+
+            // App labels — one per One WSO2 sub-app, applied when any file under its feature folder changes.
+            const apps = {
+              'banking-admin': 'Banking',
+              'due-diligence': 'Due Diligence',
+              'engineering':   'Engineering',
+              'finance':       'Finance',
+              'infra':         'Infra',
+              'leave':         'Leave',
+              'legal':         'Legal',
+              'marketing-ops': 'Marketing Ops',
+              'menu':          'Menu',
+              'my':            'My',
+              'org-chart':     'Org Chart',
+              'par':           'PAR',
+              'people-ops':    'People Ops',
+              'promotion':     'Promotion',
+              'sales':         'Sales',
+              'security':      'Security',
+              'subscriptions': 'Subscriptions',
+              'til':           'TIL',
+              'umt':           'UMT',
+            };
+            const appRules = Object.entries(apps).map(([dir, name]) => ({
+              label: `App/${name}`,
+              test: f => f.startsWith(`webapp/src/features/${dir}/`),
+            }));
+
+            // Area labels — everything that is not a single sub-app.
+            const sharedFeatureDirs = ['debug', 'favourites', 'pinned', 'settings', 'tour'];
+            const fileRules = [
+              ...appRules,
+              {
+                label: 'Area/Shell',
+                test: f =>
+                  /^webapp\/src\/(api|components|config|constants|context|hooks|layouts|utils)\//.test(f) ||
+                  /^webapp\/src\/[^/]+\.tsx?$/.test(f) ||
+                  sharedFeatureDirs.some(d => f.startsWith(`webapp/src/features/${d}/`)),
+              },
+              { label: 'Area/Tests', test: f => f.startsWith('webapp/e2e/') || f.startsWith('webapp/src/test/') },
+              { label: 'Area/Docs',  test: f => f.startsWith('docs/') || /\.md$/.test(f) },
+              { label: 'Area/CI',    test: f => f.startsWith('.github/') },
+            ];
+
+            const labelsToApply = [...new Set(
+              fileRules.filter(({ test }) => filenames.some(test)).map(({ label }) => label)
+            )];
+
+            // Type label — inferred from the conventional-commit prefix in the PR title.
+            // Strips leading [TAG] prefixes (e.g. "[CSM][Web] fix: ...") before matching.
+            const titleBody = pr.title.toLowerCase().trim().replace(/^(\[[^\]]*\]\s*)+/, '');
+            const typeRules = [
+              { label: 'Type/Bug',         pattern: /^fix[:(!]/ },
+              { label: 'Type/New Feature', pattern: /^feat[:(!]/ },
+              { label: 'Type/Improvement', pattern: /^(perf|improve)[:(!]/ },
+              { label: 'Type/Docs',        pattern: /^docs?[:(!]/ },
+              { label: 'Type/UX',          pattern: /^ux[:(!]/ },
+              { label: 'Type/Task',        pattern: /^(chore|ci|refactor|build|test)[:(!]/ },
+            ];
+            const typeLabel = typeRules.find(r => r.pattern.test(titleBody))?.label;
+            if (typeLabel) labelsToApply.push(typeLabel);
+
+            core.info(`Labels to apply: ${labelsToApply.join(', ') || '(none)'}`);
+
+            if (labelsToApply.length > 0) {
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: prNumber,
+                labels: labelsToApply,
+              });
+            }
+
+      - name: Assign PR author
+        continue-on-error: true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const { owner, repo } = context.repo;
+            await github.rest.issues.addAssignees({
+              owner,
+              repo,
+              issue_number: pr.number,
+              assignees: [pr.user.login],
+            });
+            core.info(`Assigned: ${pr.user.login}`);
