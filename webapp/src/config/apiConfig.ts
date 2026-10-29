@@ -413,9 +413,12 @@ export const parServiceUrls = {
   // roster's own completion counts rely on them. The roster/grouping view
   // only needs names/scores, not full submitted answers, for every
   // participant in the cycle; a specific opened record is fetched
-  // separately, in full, via parLegacyHistory below.
+  // separately, in full, via parLegacyHistory below. The cycle name goes in
+  // the query string, not the path: a "/" in it (e.g. "2016 Quarterly Review
+  // - Q3/Q4") becomes %2F in a path, which the production gateway answers
+  // with a 307 redirect instead of passing on.
   legacyParHistoryCyclesParticipants: (cycleName: string, summary = false) =>
-    `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants${summary ? "?summary=true" : ""}`,
+    `${parBackendUrl}/legacy-par-history-cycles/participants?cycleName=${encodeURIComponent(cycleName)}${summary ? "&summary=true" : ""}`,
 };
 
 // Leave app backend (people-ops-suite/apps/leave-app). Its own service

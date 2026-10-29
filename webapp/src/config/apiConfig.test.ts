@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { promotionServiceUrls } from "@config/apiConfig";
+import { parServiceUrls, promotionServiceUrls } from "@config/apiConfig";
 
 // statusArray's comma must stay unencoded, or the backend won't split it.
 // These pin the exact query string so a switch back to URLSearchParams
@@ -42,5 +42,25 @@ describe("promotionServiceUrls: statusArray must stay comma-joined, not percent-
     expect(promotionServiceUrls.promotionRecommendations({ leadEmail: "a b@x.com" })).toContain(
       `leadEmail=${encodeURIComponent("a b@x.com")}`,
     );
+  });
+});
+
+// A "/" in a cycle name must never reach the URL path as %2F: the production
+// gateway answers that with a 307 redirect, so the roster loads empty.
+describe("parServiceUrls.legacyParHistoryCyclesParticipants", () => {
+  it("sends the cycle name as a query parameter, never in the path", () => {
+    const url = parServiceUrls.legacyParHistoryCyclesParticipants("2016 Quarterly Review - Q3/Q4", true);
+    expect(url).toMatch(/\/legacy-par-history-cycles\/participants\?cycleName=/);
+    expect(new URL(url, "http://x").pathname).not.toContain("%2F");
+    expect(new URL(url, "http://x").searchParams.get("cycleName")).toBe("2016 Quarterly Review - Q3/Q4");
+    expect(new URL(url, "http://x").searchParams.get("summary")).toBe("true");
+  });
+
+  it("round-trips names with spaces, double spaces and symbols, and omits summary when false", () => {
+    for (const name of ["2019  Performance Evaluation - Q2", "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees", "A&B=C #1?"]) {
+      const url = new URL(parServiceUrls.legacyParHistoryCyclesParticipants(name), "http://x");
+      expect(url.searchParams.get("cycleName")).toBe(name);
+      expect(url.searchParams.has("summary")).toBe(false);
+    }
   });
 });
