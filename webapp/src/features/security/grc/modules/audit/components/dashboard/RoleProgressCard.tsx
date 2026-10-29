@@ -18,21 +18,11 @@ import { Alert, Box, Skeleton, Tooltip, Typography } from "@wso2/oxygen-ui";
 import type { JSX } from "react";
 import { useState } from "react";
 import { useGetDashboard } from "@features/security/grc/modules/audit/api/useGetDashboard";
-import type { Audit, ControlStatus } from "@features/security/grc/modules/audit/types/audit";
+import type { Audit } from "@features/security/grc/modules/audit/types/audit";
 import type { AssigneeRole } from "@features/security/grc/modules/audit/types/dashboard";
-import { CONTROL_STATUS_COLORS, CONTROL_STATUS_LABELS } from "@features/security/grc/modules/audit/utils/controlStatus";
-import { ALL_PROGRAMS, auditIdsFor, groupByAssignee, OVERDUE_STATUS } from "@features/security/grc/modules/audit/utils/assigneeProgress";
+import { ALL_PROGRAMS, auditIdsFor, groupByAssignee, statusColor, statusLabel } from "@features/security/grc/modules/audit/utils/assigneeProgress";
 import AuditProgramFilter from "./AuditProgramFilter";
 import SectionCard from "./SectionCard";
-
-const OVERDUE_COLOR = "#E53935";
-
-function statusLabel(s: string): string {
-  return s === OVERDUE_STATUS ? "Overdue" : CONTROL_STATUS_LABELS[s as ControlStatus] ?? s;
-}
-function statusColor(s: string): string {
-  return s === OVERDUE_STATUS ? OVERDUE_COLOR : CONTROL_STATUS_COLORS[s as ControlStatus] ?? "#94A3B8";
-}
 
 interface RoleProgressCardProps {
   title: string;

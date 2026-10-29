@@ -14,7 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { ControlStatus } from "@features/security/grc/modules/audit/types/audit";
 import type { AssigneeRole, AssigneeStatusCount } from "@features/security/grc/modules/audit/types/dashboard";
+import { CONTROL_STATUS_COLORS, CONTROL_STATUS_LABELS } from "@features/security/grc/modules/audit/utils/controlStatus";
 
 export interface AssigneeRow {
   /** Stable key: the person's id when known, else their display name. */
@@ -26,6 +28,14 @@ export interface AssigneeRow {
 
 // Pseudo-status the entity emits for an assignee's past-due controls.
 export const OVERDUE_STATUS = "OVERDUE";
+export const OVERDUE_COLOR = "#E53935";
+
+export function statusLabel(s: string): string {
+  return s === OVERDUE_STATUS ? "Overdue" : CONTROL_STATUS_LABELS[s as ControlStatus] ?? s;
+}
+export function statusColor(s: string): string {
+  return s === OVERDUE_STATUS ? OVERDUE_COLOR : CONTROL_STATUS_COLORS[s as ControlStatus] ?? "#94A3B8";
+}
 
 // Groups the role's rows by assignee, keeping only the statuses in `statuses`
 // (the view's condition) and dropping assignees left with nothing. Largest

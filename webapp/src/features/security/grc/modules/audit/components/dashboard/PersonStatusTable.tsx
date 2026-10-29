@@ -21,23 +21,14 @@ import {
 import type { JSX } from "react";
 import { useState } from "react";
 import { useGetDashboard } from "@features/security/grc/modules/audit/api/useGetDashboard";
-import type { Audit, ControlStatus } from "@features/security/grc/modules/audit/types/audit";
-import { CONTROL_STATUS_COLORS, CONTROL_STATUS_LABELS } from "@features/security/grc/modules/audit/utils/controlStatus";
+import type { Audit } from "@features/security/grc/modules/audit/types/audit";
 import {
-  ALL_PROGRAMS, auditIdsFor, groupByAssignee, OVERDUE_STATUS, toMatrix,
+  ALL_PROGRAMS, auditIdsFor, groupByAssignee, OVERDUE_COLOR, OVERDUE_STATUS, statusColor, statusLabel, toMatrix,
 } from "@features/security/grc/modules/audit/utils/assigneeProgress";
 import AuditProgramFilter from "./AuditProgramFilter";
 import SectionCard from "./SectionCard";
 
-const OVERDUE_COLOR = "#E53935";
 const PAGE_SIZE = 10;
-
-function statusLabel(s: string): string {
-  return s === OVERDUE_STATUS ? "Overdue" : CONTROL_STATUS_LABELS[s as ControlStatus] ?? s;
-}
-function statusColor(s: string): string {
-  return s === OVERDUE_STATUS ? OVERDUE_COLOR : CONTROL_STATUS_COLORS[s as ControlStatus] ?? "#94A3B8";
-}
 
 interface PersonStatusTableProps {
   title: string;

@@ -40,7 +40,7 @@ import {
 import KpiCards, { type KpiItem } from "@features/security/grc/modules/audit/components/dashboard/KpiCards";
 import PhaseDonut from "@features/security/grc/modules/audit/components/dashboard/PhaseDonut";
 import AuditProgramFilter from "@features/security/grc/modules/audit/components/dashboard/AuditProgramFilter";
-import { ALL_PROGRAMS, auditIdsFor } from "@features/security/grc/modules/audit/utils/assigneeProgress";
+import { ALL_PROGRAMS, auditIdsFor, OVERDUE_STATUS } from "@features/security/grc/modules/audit/utils/assigneeProgress";
 import PersonStatusTable from "@features/security/grc/modules/audit/components/dashboard/PersonStatusTable";
 import RoleProgressCard from "@features/security/grc/modules/audit/components/dashboard/RoleProgressCard";
 import SectionCard from "@features/security/grc/modules/audit/components/dashboard/SectionCard";
@@ -102,7 +102,7 @@ function TeamCard({ audits }: { audits: Audit[] }): JSX.Element {
 const AUDITOR_STATUSES = ["EVIDENCE_UNDER_VALIDATION", "POPULATION_UNDER_VALIDATION"] as const;
 const OWNER_STATUSES = [
   "POPULATION_PENDING", "EVIDENCE_PENDING", "EVIDENCE_NEED_CLARIFICATION",
-  "POPULATION_NEED_CLARIFICATION", "OVERDUE",
+  "POPULATION_NEED_CLARIFICATION", OVERDUE_STATUS,
 ] as const;
 const COMPLIANCE_STATUSES = ["EVIDENCE_INTERNAL_REVIEW", "POPULATION_INTERNAL_REVIEW"] as const;
 
