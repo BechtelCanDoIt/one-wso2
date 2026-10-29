@@ -30,6 +30,9 @@ export const LinkedinIcon = forwardRef<SVGSVGElement, LucideProps>(
       strokeWidth = 2,
       absoluteStrokeWidth,
       className,
+      "aria-hidden": ariaHidden,
+      "aria-label": ariaLabel,
+      "aria-labelledby": ariaLabelledby,
       ...rest
     },
     ref,
@@ -38,6 +41,9 @@ export const LinkedinIcon = forwardRef<SVGSVGElement, LucideProps>(
       absoluteStrokeWidth && typeof size === "number"
         ? (Number(strokeWidth) * 24) / size
         : strokeWidth;
+
+    const hasAccessibleName = Boolean(ariaLabel ?? ariaLabelledby);
+    const resolvedAriaHidden = ariaHidden ?? (hasAccessibleName ? undefined : true);
 
     return (
       <svg
@@ -52,7 +58,9 @@ export const LinkedinIcon = forwardRef<SVGSVGElement, LucideProps>(
         strokeLinecap="round"
         strokeLinejoin="round"
         className={className}
-        aria-hidden="true"
+        aria-hidden={resolvedAriaHidden}
+        aria-label={ariaLabel}
+        aria-labelledby={ariaLabelledby}
         {...rest}
       >
         <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z" />
