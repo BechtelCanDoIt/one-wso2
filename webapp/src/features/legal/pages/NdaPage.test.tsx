@@ -54,12 +54,17 @@ vi.mock("@features/legal/api/useCustomerSearch", async (importOriginal) => ({
 }));
 
 // Capture what the page asks the PDF renderer to draw, instead of drawing it.
-const rendered = vi.hoisted(() => ({ props: null as NdaPdfProps | null }));
+const rendered = vi.hoisted(() => ({ props: null as NdaPdfProps | null, fail: false }));
 vi.mock("@react-pdf/renderer", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@react-pdf/renderer")>()),
   pdf: (element: { props: NdaPdfProps }) => {
     rendered.props = element.props;
-    return { toBlob: async () => new Blob(["%PDF-"]) };
+    return {
+      toBlob: async () => {
+        if (rendered.fail) throw new Error("PDF layout failed");
+        return new Blob(["%PDF-"]);
+      },
+    };
   },
 }));
 
@@ -89,6 +94,8 @@ vi.mock("@features/legal/api/useNdaRecords", () => ({
 
 beforeEach(() => {
   rendered.props = null;
+  rendered.fail = false;
+  vi.mocked(URL.createObjectURL).mockClear();
   recording.mutateAsync.mockReset();
   recording.mutateAsync.mockResolvedValue({});
 });
@@ -294,7 +301,19 @@ describe("NdaPage records", () => {
     await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
 
     expect(await screen.findByText(/Couldn't record the NDA, so it wasn't downloaded/)).toBeInTheDocument();
-    expect(rendered.props).toBeNull();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it("records nothing when the PDF can't be built", async () => {
+    rendered.fail = true;
+    const user = userEvent.setup();
+    renderPage(recordsOn);
+    await fillManualParty(user);
+    await user.click(screen.getByRole("button", { name: /Download NDA PDF/ }));
+
+    expect(await screen.findByText("Failed to generate PDF. Please try again.")).toBeInTheDocument();
+    expect(recording.mutateAsync).not.toHaveBeenCalled();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
   });
 
   it("downloads without recording when NDA records are off", async () => {

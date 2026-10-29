@@ -168,29 +168,6 @@ export default function NdaPage(): JSX.Element {
   const handleDownload = async () => {
     setGenerating(true);
     try {
-      // When NDA records are on, record first and download nothing if that
-      // fails, so every downloaded NDA is in the Legal team's records.
-      if (access.data?.ndaRecordsEnabled) {
-        try {
-          await recordNda.mutateAsync({
-            template,
-            wso2Entity: wso2Company,
-            counterpartyName: partyName,
-            counterpartyAddress: partyAddress,
-            counterpartyCountry: partyCountry,
-            source: isManual ? "manual" : "salesforce",
-            salesforceAccountId: isManual ? null : (selectedCustomer?.id ?? null),
-          });
-        } catch {
-          setSnack({
-            open: true,
-            severity: "error",
-            message: "Couldn't record the NDA, so it wasn't downloaded. Please try again.",
-          });
-          return;
-        }
-      }
-
       const customerName = partyName;
       const customerAddress = partyAddress;
       const now = new Date();
@@ -211,6 +188,30 @@ export default function NdaPage(): JSX.Element {
           year={now.getFullYear()}
         />,
       ).toBlob();
+
+      // Record only once the PDF exists, so a PDF that fails to build leaves
+      // no record behind; download only once it is recorded, so every
+      // downloaded NDA is in the Legal team's records when they are on.
+      if (access.data?.ndaRecordsEnabled) {
+        try {
+          await recordNda.mutateAsync({
+            template,
+            wso2Entity: wso2Company,
+            counterpartyName: partyName,
+            counterpartyAddress: partyAddress,
+            counterpartyCountry: partyCountry,
+            source: isManual ? "manual" : "salesforce",
+            salesforceAccountId: isManual ? null : (selectedCustomer?.id ?? null),
+          });
+        } catch {
+          setSnack({
+            open: true,
+            severity: "error",
+            message: "Couldn't record the NDA, so it wasn't downloaded. Please try again.",
+          });
+          return;
+        }
+      }
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
