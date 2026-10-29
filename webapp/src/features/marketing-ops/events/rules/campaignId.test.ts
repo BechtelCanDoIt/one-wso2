@@ -15,8 +15,8 @@
 // under the License.
 
 // The campaign ID read out of the submission's Salesforce URL and stamped on every row.
-// Same cases as the Marketing Ops backend's test_events_campaign_id.py, so the grid
-// here and the server's CSV cannot disagree.
+// The Marketing Ops backend applies the same rule when it builds the CSV, and is tested
+// against the same cases, so the grid here and the server's CSV cannot disagree.
 
 import { describe, expect, it } from "vitest";
 import { campaignIdFrom, derive } from "./validate";

@@ -103,6 +103,11 @@ const SAVE_DEBOUNCE_MS = 1200;
  *  undo costs anything; 50 corrections is far more than a session needs. */
 const HISTORY_LIMIT = 50;
 
+/** Whether a key event came from a text-entry element, where Escape and Ctrl+Z belong
+ *  to the field being typed in rather than to the page. */
+const isEditableTarget = (el: HTMLElement | null): boolean =>
+  Boolean(el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable));
+
 /** Does this row have a problem in scope? With a field, only that column counts. */
 const broken = (row: { issues: { field: string }[] }, field: string | null) =>
   field ? row.issues.some((i) => i.field === field) : row.issues.length > 0;
@@ -423,7 +428,7 @@ function Workspace({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       const el = e.target as HTMLElement | null;
-      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if (isEditableTarget(el)) return;
       setJumpTo(null);
       setPinned(null);
     };
@@ -440,7 +445,7 @@ function Workspace({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || jumpTo) return;
       const el = e.target as HTMLElement | null;
-      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if (isEditableTarget(el)) return;
       if (el?.closest('[role="dialog"], [role="presentation"]')) return;
       setExpanded(false);
     };
@@ -511,7 +516,7 @@ function Workspace({
     const onKey = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
       const el = e.target as HTMLElement | null;
-      if (el && (/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName) || el.isContentEditable)) return;
+      if (isEditableTarget(el)) return;
       e.preventDefault();
       if (e.shiftKey) redo();
       else undo();

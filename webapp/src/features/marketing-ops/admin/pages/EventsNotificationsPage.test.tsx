@@ -15,13 +15,17 @@
 // under the License.
 
 // The recipients box: Enter makes a chip, a pasted list makes one chip per address, an
-// invalid address stays in the box with a message, and Save sends the chips.
+// invalid address stays in the box with a message, and Save sends the chips. Then the
+// controls lock while a save is in flight, and a test email is reported as sent only
+// when the server says it was.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 const mutateAsync = vi.fn();
+const testMutateAsync = vi.fn();
+const saving = vi.hoisted(() => ({ value: false }));
 
 vi.mock("../../components/MarketingOpsShell", () => ({
   default: ({ children }: { children: ReactNode }) => <>{children}</>,
@@ -32,8 +36,8 @@ vi.mock("../../api/useEvents", () => ({
     data: { enabled: false, recipients: ["ana@wso2.com"], delivery_configured: true },
     isError: false,
   }),
-  useSaveNotificationSettings: () => ({ mutateAsync, isPending: false }),
-  useSendTestNotification: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useSaveNotificationSettings: () => ({ mutateAsync, isPending: saving.value }),
+  useSendTestNotification: () => ({ mutateAsync: testMutateAsync, isPending: false }),
 }));
 
 import EventsNotificationsPage from "./EventsNotificationsPage";
@@ -43,7 +47,10 @@ const chips = () =>
   Array.from(document.querySelectorAll(".MuiChip-label")).map((el) => el.textContent);
 
 describe("recipients chip input", () => {
-  beforeEach(() => mutateAsync.mockReset().mockResolvedValue({}));
+  beforeEach(() => {
+    saving.value = false;
+    mutateAsync.mockReset().mockResolvedValue({});
+  });
 
   it("shows the saved recipients as chips", () => {
     render(<EventsNotificationsPage />);
@@ -87,5 +94,41 @@ describe("recipients chip input", () => {
       enabled: false,
       recipients: ["ana@wso2.com", "ben@wso2.com"],
     });
+  });
+});
+
+describe("while a save is in flight", () => {
+  beforeEach(() => {
+    saving.value = true;
+  });
+
+  it("locks the switch and the recipients box, so no edit is lost when it lands", () => {
+    render(<EventsNotificationsPage />);
+    expect(screen.getByLabelText("Email the reviewers when a list is submitted")).toBeDisabled();
+    expect(box()).toBeDisabled();
+  });
+});
+
+describe("send a test email", () => {
+  beforeEach(() => {
+    saving.value = false;
+    testMutateAsync.mockReset();
+  });
+
+  it("reports the send when the server confirms it", async () => {
+    testMutateAsync.mockResolvedValue({ sent: true, recipients: 1 });
+    render(<EventsNotificationsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Send a test email" }));
+    expect(await screen.findByText(/Test email sent to 1 recipient\./)).toBeInTheDocument();
+  });
+
+  it("reports a failure, not a send, when the server says nothing went out", async () => {
+    testMutateAsync.mockResolvedValue({ sent: false, recipients: 1 });
+    render(<EventsNotificationsPage />);
+    fireEvent.click(screen.getByRole("button", { name: "Send a test email" }));
+    expect(
+      await screen.findByText(/didn't confirm the test email was sent/),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Test email sent/)).not.toBeInTheDocument();
   });
 });

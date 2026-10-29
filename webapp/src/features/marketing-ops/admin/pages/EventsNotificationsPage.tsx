@@ -155,7 +155,11 @@ export default function EventsNotificationsPage() {
     setNotice(null);
     try {
       const r = await test.mutateAsync();
-      const n = r?.recipients ?? saved?.recipients.length ?? 0;
+      if (!r?.sent) {
+        setError("The email service didn't confirm the test email was sent. Check the backend logs.");
+        return;
+      }
+      const n = r.recipients ?? saved?.recipients.length ?? 0;
       setNotice(
         `Test email sent to ${n} ${n === 1 ? "recipient" : "recipients"}. ` +
           "If it hasn't arrived in a few minutes, check spam, then the backend logs.",
@@ -164,6 +168,10 @@ export default function EventsNotificationsPage() {
       setError(describeError(e));
     }
   }
+
+  // Locked while a save is in flight: the save clears the edits when it lands, so a
+  // change made in the meantime would be dropped without a word.
+  const locked = save.isPending;
 
   const canTest =
     Boolean(saved?.recipients.length) && !dirty && Boolean(saved?.delivery_configured);
@@ -218,7 +226,8 @@ export default function EventsNotificationsPage() {
             </Box>
             <Switch
               checked={enabled}
-              inputProps={{ "aria-label": "Email the reviewers when a list is submitted" }}
+              disabled={locked}
+              slotProps={{ input: { "aria-label": "Email the reviewers when a list is submitted" } }}
               onChange={(e) => setEnabledEdit(e.target.checked)}
             />
           </Box>
@@ -233,6 +242,7 @@ export default function EventsNotificationsPage() {
             freeSolo
             options={[]}
             open={false}
+            disabled={locked}
             value={recipients}
             inputValue={draft}
             onChange={(_event, next, reason) => {

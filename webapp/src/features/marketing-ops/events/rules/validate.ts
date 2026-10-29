@@ -103,8 +103,9 @@ export interface EventContext {
 
 // A Salesforce campaign ID: the 701 key prefix, 12 more characters, and optionally the
 // three-character case-safe suffix. Found anywhere in the text, so a Lightning URL, a
-// Classic URL and a bare pasted ID all work. Mirrors campaign_id_from_url in the
-// Marketing Ops backend's store.py — keep the two in step.
+// Classic URL and a bare pasted ID all work. The Marketing Ops backend
+// (ONE_WSO2_MARKETINGOPS_BACKEND_URL) applies the same rule when it builds the CSV, so
+// a change here has to be made there too.
 const CAMPAIGN_ID = /(?<![A-Za-z0-9])(701[A-Za-z0-9]{12})([A-Za-z0-9]{3})?(?![A-Za-z0-9])/
 const SUFFIX_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345'
 

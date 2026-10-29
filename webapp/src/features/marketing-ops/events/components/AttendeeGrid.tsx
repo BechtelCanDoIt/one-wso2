@@ -63,11 +63,10 @@ import { LEAVE_MS, tint, useToneColors, type ToneColors } from "./eventsStyles";
 // app's theme. One cell edits at a time. Keyboard movement is a few lines, not a subsystem.
 //
 // Rows are WINDOWED: only the rows in view (plus a margin) are in the DOM, with a spacer
-// row above and below standing in for the rest. This comment used to say an event list was
-// hundreds of rows and windowing could wait for thousands. It couldn't: a real list of 828
-// registrants is ~17,000 cells, each with its own styles, and building them all made a
-// tab switch or a dismissed banner visibly stall. Rows are a fixed height, so the
-// arithmetic is a multiplication — no library, as promised.
+// row above and below standing in for the rest. Every cell carries its own styles, so
+// building all of them for a list of several hundred rows stalls a tab switch or a
+// dismissed banner. Rows are a fixed height, so the visible range is a multiplication
+// and needs no library.
 //
 // Each row is also memoised (GridRowView), so a change elsewhere on the page — a banner
 // dismissed, the save indicator ticking — re-renders none of them.
@@ -338,6 +337,9 @@ export default function AttendeeGrid({
   // is marked until its own timer says it is spent. Each ask carries a nonce, so asking
   // twice for the same row flashes it twice.
   const [spent, setSpent] = useState<number | null>(null);
+  // The rendered row height, measured below (windowing). Declared here because the jump
+  // reads it too.
+  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
   const flashed = jumpToRow && jumpToRow.nonce !== spent ? jumpToRow.rowId : null;
   useEffect(() => {
     if (!jumpToRow) return;
@@ -362,7 +364,6 @@ export default function AttendeeGrid({
   // Which rows are in the DOM: those inside the scroll viewport, plus OVERSCAN either side
   // so a quick scroll doesn't show blank rows before React catches up.
   const [view, setView] = useState({ top: 0, height: 0 });
-  const [rowHeight, setRowHeight] = useState(ROW_HEIGHT);
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
