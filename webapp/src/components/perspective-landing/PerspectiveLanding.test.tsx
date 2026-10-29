@@ -107,14 +107,14 @@ describe("a perspective landing that forwards to the first item", () => {
     expect(screen.getByTestId("url")).toHaveTextContent("/security/risk/dashboard");
   });
 
-  // Some destinations sit outside their perspective's path prefix — Legal and
-  // Finance both forward into the shared /due-diligence/* routes — and the rail
+  // Some destinations sit outside their perspective's path prefix — Finance and
+  // People Ops both reach the shared /banking/admin — and the rail
   // reads the URL first. Without this the perspective survives only by the
   // sessionStorage memory an effect happened to write before we left.
   it("carries the perspective through the redirect", () => {
-    const partners = leaf("dd-partners", "/due-diligence/partners");
-    visibility.current.visibleLeaves = [partners];
-    visibility.current.firstVisibleLeaf = partners;
+    const bankingAdmin = leaf("banking-admin", "/banking/admin");
+    visibility.current.visibleLeaves = [bankingAdmin];
+    visibility.current.firstVisibleLeaf = bankingAdmin;
     renderLanding();
     expect(screen.getByTestId("from")).toHaveTextContent("security");
   });

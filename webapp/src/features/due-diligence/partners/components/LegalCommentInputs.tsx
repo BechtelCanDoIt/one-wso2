@@ -24,6 +24,7 @@ import { FILE_UPLOAD_LIMIT } from "@features/due-diligence/constants";
 import { useDeletePartnerFile, useUploadPartnerFile } from "../api/useFinance";
 import { useAddLegalComment, useEditLegalComment } from "../api/useLegal";
 import type { LegalComment, LegalFileSubmission, LegalSubQuestion } from "../api/legalTypes";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 const LEGAL_COMMENT_QUESTION_ID = 80;
 
@@ -74,13 +75,10 @@ export default function LegalCommentInputs({
 
   const openFile = (fileName: string) => {
     const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-    const path = extension === "pdf" ? "/due-diligence/view-pdf" : ["jpg", "jpeg", "png"].includes(extension) ? "/due-diligence/view-image" : null;
-    // `from=legal` — see the identical note in FinanceSubQuestionDetails.tsx;
-    // a new tab has no history entry to carry `fromPerspective` on, so the
-    // URL itself has to say which perspective opened it.
+    const path = extension === "pdf" ? `${DUE_DILIGENCE_BASE_PATH}/view-pdf` : ["jpg", "jpeg", "png"].includes(extension) ? `${DUE_DILIGENCE_BASE_PATH}/view-image` : null;
     if (path)
       window.open(
-        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}&from=legal`,
+        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}`,
         "_blank",
         "noopener,noreferrer",
       );

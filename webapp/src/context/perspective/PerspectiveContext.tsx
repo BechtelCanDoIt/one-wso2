@@ -81,14 +81,14 @@ function writeLastPerspective(key: string): void {
 // UNLESS sessionStorage remembers a better answer, see below.
 //
 // A `?from=` query param is the same idea, for the one case navigation state
-// can't reach: a file viewer opened with `window.open` (e.g. a Due Diligence
-// attachment) is a brand-new tab, not a client-side navigation — there is no
+// can't reach: a file viewer opened with `window.open` is a brand-new tab,
+// not a client-side navigation — there is no
 // history entry to attach state to, but the URL that opens it is built by
 // the caller, so it can carry the origin perspective itself.
 //
 // sessionStorage is the last fallback before Me, for the one case NEITHER
 // state NOR a query param survives: a plain browser refresh on a page that
-// owns no perspective (e.g. /due-diligence/partners, reached earlier via a
+// owns no perspective (e.g. /banking/admin, reached earlier via a
 // rail click) carries no history state and no query param — the URL is just
 // its own path. Whenever `active` resolves to something other than Me by any
 // other means, that key is remembered for the rest of the tab, so a refresh

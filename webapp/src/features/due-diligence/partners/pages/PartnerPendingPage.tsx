@@ -26,7 +26,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { CheckIcon, FileTextIcon } from "@wso2/oxygen-ui-icons-react";
-import { useLocation, useParams } from "react-router";
+import { useLocation, useNavigate, useParams } from "react-router";
 import DueDiligenceShell from "@features/due-diligence/components/DueDiligenceShell";
 import { DUE_DILIGENCE_EYEBROW } from "@constants/dueDiligenceApps";
 import { useDueDiligenceGate } from "@features/due-diligence/api/useDueDiligenceGate";
@@ -47,7 +47,7 @@ import {
   useChangePartnerLinkStatus,
   useUpdatePartner,
 } from "../api/usePartners";
-import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // Ported from the source app's Resellers/ResellerDashboard/PendingPage.js —
 // what's shown for a partner link whose form hasn't been submitted yet.
@@ -70,7 +70,7 @@ import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDilig
 export default function PartnerPendingPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
-  const navigate = useDueDiligenceNavigate();
+  const navigate = useNavigate();
   const gate = useDueDiligenceGate();
   const getAccessToken = useAccessToken();
   const changeStatus = useChangePartnerLinkStatus();
@@ -155,7 +155,7 @@ export default function PartnerPendingPage() {
           {
             onSuccess: () => {
               notify("success", "Updated successfully");
-              navigate("/due-diligence/partners");
+              navigate(`${DUE_DILIGENCE_BASE_PATH}/partners`);
             },
             onError: (err) =>
               notify("error", `Couldn't update. ${humanizeHttpError(err)}`),
@@ -191,7 +191,7 @@ export default function PartnerPendingPage() {
     <DueDiligenceShell
       back={{
         label: "Return to Partners",
-        onClick: () => navigate("/due-diligence/partners"),
+        onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/partners`),
       }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Partner — pending signature"

@@ -169,9 +169,10 @@ function appsToSections(apps: readonly MenuApp[]): PerspectiveSection[] {
 // backend's own GET /employee-privileges, not `requires` — see
 // useBankingAdminAccess and this id's dispatch in usePerspectiveVisibility.
 // Its route lives OUTSIDE both perspectives, at a neutral top-level
-// /banking/admin (see App.tsx), the same reason Due Diligence's own routes
-// live outside Finance/Legal: a screen reached from two rails can't itself
-// live under either rail's own path prefix.
+// /banking/admin (see App.tsx): the URL picks the rail first
+// (findPerspectiveByPath), so a screen under either rail's prefix would switch
+// the other rail's users to it. Due Diligence made the opposite choice: its
+// routes live under /legal, so opening it from Finance shows the Legal rail.
 export const BANKING_ADMIN_ITEM_ID = "banking-admin";
 
 const BANKING_ADMIN_SECTION: PerspectiveSection = {

@@ -221,6 +221,7 @@ import TradeReferenceDeactivatedPage from "@features/due-diligence/trade-referen
 import DueDiligencePreferencesPage from "@features/due-diligence/preferences/pages/PreferencesPage";
 import ViewPdfPage from "@features/due-diligence/shared/pages/ViewPdfPage";
 import ViewImagePage from "@features/due-diligence/shared/pages/ViewImagePage";
+import LegacyDueDiligenceRedirect from "@features/due-diligence/components/LegacyDueDiligenceRedirect";
 import UmtCreateReleaseChunkPage from "@features/umt/pages/UmtCreateReleaseChunkPage";
 import UmtHomePage from "@features/umt/pages/UmtHomePage";
 import UmtProductsPage from "@features/umt/pages/UmtProductsPage";
@@ -1037,35 +1038,35 @@ export default function App() {
             {adminRoutes}
           </Route>
           {/* Due Diligence — ported from digiops-finance/apps/due_diligence's
-              admin-app. Routes live OUTSIDE both the Finance and Legal path
-              prefixes (same reason /settings does): a screen reachable from
-              two different rails can't itself live under either one's own
-              prefix. See DUE_DILIGENCE_APPS and SideRail's fromPerspective
-              navigation state for how each rail stays selected once inside. */}
-          <Route path="due-diligence" element={<Navigate to="/due-diligence/partners" replace />} />
-          <Route path="due-diligence/partners" element={<PartnersListPage />} />
-          <Route path="due-diligence/partners/pending/:id" element={<PartnerPendingPage />} />
-          <Route path="due-diligence/partners/:id/:tabName" element={<PartnerDashboardPage />} />
-          <Route path="due-diligence/trade-references" element={<TradeReferencesListPage />} />
+              admin-app. Lives under the Legal prefix, like Legal → NDA, so the
+              URL decides the rail; Finance's rail links here too and opens the
+              Legal rail. Old /due-diligence/* links redirect to the same page
+              under /legal. See DUE_DILIGENCE_BASE_PATH. */}
+          <Route path="legal/due-diligence" element={<Navigate to="/legal/due-diligence/partners" replace />} />
+          <Route path="legal/due-diligence/partners" element={<PartnersListPage />} />
+          <Route path="legal/due-diligence/partners/pending/:id" element={<PartnerPendingPage />} />
+          <Route path="legal/due-diligence/partners/:id/:tabName" element={<PartnerDashboardPage />} />
+          <Route path="legal/due-diligence/trade-references" element={<TradeReferencesListPage />} />
           <Route
-            path="due-diligence/trade-references/pending/:linkId"
+            path="legal/due-diligence/trade-references/pending/:linkId"
             element={<TradeReferencePendingPage />}
           />
           <Route
-            path="due-diligence/trade-references/rejected/:companyId/:linkId"
+            path="legal/due-diligence/trade-references/rejected/:companyId/:linkId"
             element={<TradeReferenceRejectedPage />}
           />
           <Route
-            path="due-diligence/trade-references/deactivated/:linkId"
+            path="legal/due-diligence/trade-references/deactivated/:linkId"
             element={<TradeReferenceDeactivatedPage />}
           />
           <Route
-            path="due-diligence/trade-references/:companyId/:linkId"
+            path="legal/due-diligence/trade-references/:companyId/:linkId"
             element={<TradeReferenceDashboardPage />}
           />
-          <Route path="due-diligence/preferences" element={<DueDiligencePreferencesPage />} />
-          <Route path="due-diligence/view-pdf" element={<ViewPdfPage />} />
-          <Route path="due-diligence/view-image" element={<ViewImagePage />} />
+          <Route path="legal/due-diligence/preferences" element={<DueDiligencePreferencesPage />} />
+          <Route path="legal/due-diligence/view-pdf" element={<ViewPdfPage />} />
+          <Route path="legal/due-diligence/view-image" element={<ViewImagePage />} />
+          <Route path="due-diligence/*" element={<LegacyDueDiligenceRedirect />} />
           {/* Banking's admin/lead screens — Change Requests, Report,
               Employee Operations, and Admin views. Route lives OUTSIDE both
               the People Ops and

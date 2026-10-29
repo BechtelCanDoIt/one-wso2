@@ -344,3 +344,23 @@ describe("a rail row does one thing", () => {
     expect(doingMoreThanOne).toEqual([]);
   });
 });
+
+// Due Diligence lives under the Legal prefix, so the URL alone selects the
+// Legal rail, whichever rail the link was clicked in.
+describe("Due Diligence", () => {
+  it("is under /legal, so its pages open the Legal rail", async () => {
+    const perspectives = await load();
+    expect(perspectives.findPerspectiveByPath("/legal/due-diligence/partners")?.key).toBe("legal");
+    expect(perspectives.findPerspectiveByPath("/legal/due-diligence/partners/12/finance")?.key).toBe("legal");
+  });
+
+  it("links every rail item to /legal/due-diligence", async () => {
+    const { DUE_DILIGENCE_APPS } = await import("./dueDiligenceApps");
+    const paths = DUE_DILIGENCE_APPS.flatMap((app) => app.items.map((item) => item.path));
+    expect(paths).toEqual([
+      "/legal/due-diligence/partners",
+      "/legal/due-diligence/trade-references",
+      "/legal/due-diligence/preferences",
+    ]);
+  });
+});

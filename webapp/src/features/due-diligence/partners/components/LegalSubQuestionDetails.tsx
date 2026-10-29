@@ -20,6 +20,7 @@ import { FileIcon } from "@wso2/oxygen-ui-icons-react";
 import { useDueDiligenceGate } from "@features/due-diligence/api/useDueDiligenceGate";
 import { LEGAL_CHOOSE_FILE_SUBQUESTION_ID } from "@features/due-diligence/constants";
 import type { LegalAnswer, LegalFileSubmission, LegalQuestion, LegalSubQuestion } from "../api/legalTypes";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 /**
  * Ported from the source app's Resellers/ResellerDashboard/Legal/SubQuestionDetails.js.
@@ -76,13 +77,10 @@ export default function LegalSubQuestionDetails({
 
   const openFile = (fileName: string) => {
     const extension = fileName.split(".").pop()?.toLowerCase() ?? "";
-    const path = extension === "pdf" ? "/due-diligence/view-pdf" : ["jpg", "jpeg", "png"].includes(extension) ? "/due-diligence/view-image" : null;
-    // `from=legal` — see the identical note in FinanceSubQuestionDetails.tsx;
-    // a new tab has no history entry to carry `fromPerspective` on, so the
-    // URL itself has to say which perspective opened it.
+    const path = extension === "pdf" ? `${DUE_DILIGENCE_BASE_PATH}/view-pdf` : ["jpg", "jpeg", "png"].includes(extension) ? `${DUE_DILIGENCE_BASE_PATH}/view-image` : null;
     if (path)
       window.open(
-        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}&from=legal`,
+        `${path}?fileName=${encodeURIComponent(fileName)}&extension=${encodeURIComponent(extension)}`,
         "_blank",
         "noopener,noreferrer",
       );
