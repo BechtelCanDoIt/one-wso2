@@ -159,6 +159,10 @@ export interface BankAccount {
   // rendered here comes through the same optional-chaining path as the
   // nullable fields, so nullable is the safer type to declare.
   beneficiaryAddress: string | null;
+  // Collected for CONSULTANCY only, where it fills the city on the NetSuite
+  // vendor address. Null for the other Account Types, and for Consultancy
+  // accounts created before the field existed.
+  beneficiaryCity: string | null;
   bankAddress: string | null;
   // Only meaningful for CONSULTANCY; null for SALARY/REIMBURSEMENT.
   paymentMethod: string | null;
@@ -274,6 +278,8 @@ export interface CreateBankAccountRequestPayload {
   accountName: string;
   accountNumber: string;
   beneficiaryAddress: string;
+  /** CONSULTANCY only — left out for the other Account Types, which have no city field. */
+  beneficiaryCity?: string;
   bankName: string;
   bankSwiftCode: string;
   bankCode: string;
