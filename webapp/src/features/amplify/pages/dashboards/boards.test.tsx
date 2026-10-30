@@ -70,8 +70,8 @@ const operations: DashboardOperations = {
     campaignsLive: 6,
     campaignsLivePriority: 2,
     campaignsClosingWithin7Days: 1,
-    reposts7d: 187,
-    repostsPrev7d: 164,
+    repostsThisMonth: 187,
+    repostsPrevMonth: 164,
     peopleConnected: 150,
     connectionsExpired: 4,
     pointsThisMonth: 1840,
@@ -90,7 +90,7 @@ const operations: DashboardOperations = {
       announcement: { status: "QUEUED", attempts: 3 },
     },
   ],
-  shareHealth: { windowDays: 7, published: 187, queued: 2, failed: 5, failedByReason: { NEEDS_RECONNECT: 4, PROVIDER_REJECTED: 1 } },
+  shareHealth: { windowStart: "2026-10-01T00:00:00Z", published: 187, queued: 2, failed: 5, failedByReason: { NEEDS_RECONNECT: 4, PROVIDER_REJECTED: 1 } },
   connections: { active: 140, expiring: 6, expired: 4, revoked: 0, neverConnected: 680 },
 };
 
@@ -98,7 +98,7 @@ describe("OperationsBoard", () => {
   it("shows the API's numbers and the retry the worker is on, with no reminder or retry buttons", () => {
     render(<OperationsBoard data={operations} />);
     expect(screen.getByText("187 / 0")).toBeTruthy();
-    expect(screen.getByText("+23 vs previous 7 days")).toBeTruthy();
+    expect(screen.getByText("+23 vs last month")).toBeTruthy();
     expect(screen.getByText("Retrying · attempt 3")).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "Novera" })).toBeTruthy();
     expect(screen.getByRole("columnheader", { name: "Reposts" })).toBeTruthy();
@@ -108,27 +108,27 @@ describe("OperationsBoard", () => {
     expect(screen.queryByRole("button", { name: /remind|retry/i })).toBeNull();
   });
 
-  it("switches the points tile between week, month and year, and splits last week's reposts", () => {
+  it("switches the points tile between month and year, and splits this month's reposts", () => {
     const withPeriods: DashboardOperations = {
       ...operations,
-      kpis: { ...operations.kpis, reposts7d: 8, repostsPrev7d: 5, reposts7dWithCommentary: 2, pointsThisWeek: 40, pointsThisMonth: 1840, pointsThisYear: 9000 },
+      kpis: { ...operations.kpis, repostsThisMonth: 8, repostsPrevMonth: 5, repostsThisMonthWithCommentary: 2, pointsThisMonth: 1840, pointsThisYear: 9000 },
     };
     render(<OperationsBoard data={withPeriods} />);
     const tile = screen.getByRole("region", { name: "Points awarded" });
-    expect(within(tile).getByText("40")).toBeTruthy();
-    expect(within(tile).getByRole("button", { name: "Week" }).getAttribute("aria-pressed")).toBe("true");
-    fireEvent.click(within(tile).getByRole("button", { name: "Month" }));
     expect(within(tile).getByText("1,840")).toBeTruthy();
+    expect(within(tile).getByRole("button", { name: "Month" }).getAttribute("aria-pressed")).toBe("true");
+    expect(within(tile).queryByRole("button", { name: "Week" })).toBeNull();
     fireEvent.click(within(tile).getByRole("button", { name: "Year" }));
     expect(within(tile).getByText("9,000")).toBeTruthy();
     const reposts = screen.getByRole("region", { name: "Reposts / Reposts with Comments" });
     expect(within(reposts).getByText("6 / 2")).toBeTruthy();
-    expect(within(reposts).getByText(/\+3 vs previous 7 days/)).toBeTruthy();
+    expect(within(reposts).getByText(/\+3 vs last month/)).toBeTruthy();
   });
 
-  it("treats a missing split or period as 0", () => {
+  it("treats a missing split or year as 0", () => {
     render(<OperationsBoard data={operations} />);
     const tile = screen.getByRole("region", { name: "Points awarded" });
+    fireEvent.click(within(tile).getByRole("button", { name: "Year" }));
     expect(within(tile).getByText("0")).toBeTruthy();
   });
 
@@ -336,9 +336,9 @@ describe("GlanceBoard", () => {
     asOf: "2026-10-22T09:15:00Z",
     month: "2026-10",
     reposts: { thisMonth: 612, previousMonth: 443 },
-    weekly: [
-      { weekStart: "2026-09-01", reposts: 21 },
-      { weekStart: "2026-09-08", reposts: 187 },
+    monthly: [
+      { monthStart: "2026-09-01", reposts: 21 },
+      { monthStart: "2026-10-01", reposts: 187 },
     ],
     participants: 128,
     headcount: 830,
