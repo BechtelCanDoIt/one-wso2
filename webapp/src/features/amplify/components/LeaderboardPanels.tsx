@@ -19,6 +19,7 @@ import type { Leaderboard, TopBoard } from "../api/amplifyTypes";
 import type { PeopleByEmail } from "../api/useAmplifyPeople";
 import { AmplifyPanel } from "./AmplifyShell";
 import { nameOrUnknown } from "../api/usePersonLookup";
+import HowWinnersAreChosen from "./HowWinnersAreChosen";
 import PersonLink from "./PersonLink";
 import TopAmplifiersPodium from "./TopAmplifiersPodium";
 
@@ -63,8 +64,8 @@ function TopThree({ board, people }: { board: TopBoard; people: PeopleByEmail })
     <>
       {leaders.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
-          {board.period === "WEEK"
-            ? "No points yet this week. Amplify a post and be first on the board."
+          {board.period === "MONTH"
+            ? `Nobody has reached ${(board.minPoints ?? 0).toLocaleString()} points this month yet. Amplify a post and be first on the board.`
             : "No points yet. Amplify a post and be first on the board."}
         </Typography>
       ) : (
@@ -93,8 +94,10 @@ function TopThree({ board, people }: { board: TopBoard; people: PeopleByEmail })
 function MyPosition({ board }: { board: TopBoard }) {
   const me = board.me;
   const ranked = me.rank != null;
-  const weekly = board.period === "WEEK";
-  let tagline = weekly ? "Amplify a post this week to get on the board." : "Amplify your first post to get on the board.";
+  const monthly = board.period === "MONTH";
+  let tagline = monthly ? "Amplify a post this month to get on the board." : "Amplify your first post to get on the board.";
+  const toQualify = board.minPoints != null && !ranked ? board.minPoints - (me.points ?? 0) : 0;
+  if (monthly && toQualify > 0 && (me.points ?? 0) > 0) tagline = `${pts(toQualify)} to qualify for the top ${board.topN}.`;
   if (ranked && me.inTopN) tagline = `You're in the top ${board.topN}. Keep it up!`;
   else if (ranked && me.pointsToTopN != null) tagline = `${pts(me.pointsToTopN)} to the top ${board.topN}.`;
   else if (ranked && me.pointsToNextRank != null) tagline = `${pts(me.pointsToNextRank)} to the next rank.`;
@@ -105,7 +108,7 @@ function MyPosition({ board }: { board: TopBoard }) {
         variant="overline"
         sx={{ display: "block", fontWeight: 700, letterSpacing: "0.08em", color: "text.secondary", lineHeight: 1.5, mb: 1 }}
       >
-        {board.period === "WEEK" ? "My position this week" : "My position"}
+        {board.period === "MONTH" ? "My position this month" : "My position"}
       </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: { xs: 2, sm: 4 } }}>
         <Box>
@@ -136,10 +139,13 @@ function MyPosition({ board }: { board: TopBoard }) {
 export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people: PeopleByEmail }) {
   return (
     <AmplifyPanel
-      title={board.period === "WEEK" ? "Top three amplifiers this week 🏆🎉" : "Top three amplifiers 🏆🎉"}
+      title={board.period === "MONTH" ? "Top three amplifiers this month 🏆🎉" : "Top three amplifiers 🏆🎉"}
       ariaLabel="top-amplifiers"
     >
       <TopThree board={board} people={people} />
+      {board.period === "MONTH" && board.minPoints != null && (
+        <HowWinnersAreChosen minPoints={board.minPoints} topN={board.topN} />
+      )}
       <Divider sx={{ my: 2 }} />
       <MyPosition board={board} />
     </AmplifyPanel>
@@ -168,6 +174,7 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
               <TableRow>
                 <TableCell sx={{ width: 56 }}>#</TableCell>
                 <TableCell>Team member</TableCell>
+                <TableCell>House</TableCell>
                 <TableCell align="right">Points</TableCell>
               </TableRow>
             </TableHead>
@@ -188,6 +195,7 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
                       {entry.isMe && <Chip size="small" color="primary" label="You" />}
                     </Box>
                   </TableCell>
+                  <TableCell>{entry.houseName ?? "—"}</TableCell>
                   <TableCell align="right">{pts(entry.points)}</TableCell>
                 </TableRow>
               ))}
