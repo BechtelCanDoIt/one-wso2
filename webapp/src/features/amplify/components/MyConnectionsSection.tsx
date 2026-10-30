@@ -50,7 +50,7 @@ export default function MyConnectionsSection() {
   const connected = status === "ACTIVE" || status === "EXPIRING";
   const reconnect = status === "NEEDS_RECONNECT";
   const chip = STATUS_LABEL[status] ?? STATUS_LABEL.NOT_CONNECTED;
-  const expires = dateOnly(me.data.linkedin.expires_at);
+  const expires = dateOnly(me.data.linkedin.expiresAt);
 
   return (
     <Box sx={{ maxWidth: 520 }}>
