@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 import {
   closesAtFromDateInput,
+  dateInputValue,
   isAllowedLink,
   isLinkedInShortLink,
   linkedInPostUrl,
@@ -95,6 +96,16 @@ describe("linkedInPostUrl", () => {
   });
 });
 
+describe("dateInputValue", () => {
+  it("is the local calendar day, wherever the offset puts UTC", () => {
+    // Local midnight and a minute before the next one: `toISOString()` would be off by a day in some offsets.
+    expect(dateInputValue(new Date(2026, 9, 31, 0, 30))).toBe("2026-10-31");
+    expect(dateInputValue(new Date(2026, 9, 31, 23, 30))).toBe("2026-10-31");
+    expect(dateInputValue(new Date(2026, 9, 31, 0, 30), 30)).toBe("2026-11-30");
+    expect(dateInputValue(new Date(2026, 11, 31, 23, 59), 1)).toBe("2027-01-01");
+  });
+});
+
 describe("closesAtFromDateInput", () => {
   it("ends the chosen day", () => {
     expect(closesAtFromDateInput("2026-11-17")).toBe("2026-11-17T23:59:59Z");
@@ -109,6 +120,15 @@ describe("post links stay on LinkedIn", () => {
     expect(postUrnFromUrl("https://www.linkedin.com@evil.example/feed/update/urn:li:share:1/")).toBeNull();
     expect(postUrnFromUrl("http://www.linkedin.com/feed/update/urn:li:share:1/")).toBeNull();
     expect(postUrnFromUrl("javascript:alert('urn:li:share:1')")).toBeNull();
+  });
+
+  it("reads a protocol-relative or scheme-less link only when its host is allowed", () => {
+    expect(postUrnFromUrl("//evil.example/feed/update/urn:li:share:1/")).toBeNull();
+    expect(postUrnFromUrl("evil.example/feed/update/urn:li:share:1/")).toBeNull();
+    expect(postUrnFromUrl("/feed/update/urn:li:share:1/")).toBeNull();
+    expect(postUrnFromUrl("see urn:li:share:1 here")).toBeNull();
+    expect(postUrnFromUrl("//www.linkedin.com/feed/update/urn:li:share:7123/")).toBe("urn:li:share:7123");
+    expect(postUrnFromUrl("www.linkedin.com/feed/update/urn:li:share:7123/")).toBe("urn:li:share:7123");
   });
 
   it("still takes a bare URN (registered without a link)", () => {

@@ -46,6 +46,11 @@ describe("indexPeople", () => {
     expect(people.get("ada@wso2.com")).toEqual({ name: "Ada Lovelace", photoUrl: "https://cdn.example/ada.png" });
   });
 
+  it("trims the email before keying, so a padded directory value still matches a clean lookup", () => {
+    const people = indexPeople([record({ workEmail: "  Ada@WSO2.com " })]);
+    expect(people.get("ada@wso2.com")?.name).toBe("Ada Lovelace");
+  });
+
   it("treats a missing or empty thumbnail as no photo", () => {
     const people = indexPeople([record({ employeeThumbnail: null }), record({ workEmail: "b@wso2.com", employeeThumbnail: "" })]);
     expect(people.get("ada@wso2.com")?.photoUrl).toBeNull();

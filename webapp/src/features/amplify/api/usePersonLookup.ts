@@ -37,12 +37,15 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /** True when a "name" is really an id, which Amplify stores when the sign-in never gave it a name. */
 export function looksLikeId(name: string | null | undefined): boolean {
-  return !name || UUID.test(name.trim());
+  // A blank or whitespace-only "name" is as good as none.
+  return !name?.trim() || UUID.test(name.trim());
 }
 
 /** A name for display: the directory's, else what Amplify recorded, never a bare id. */
 export function nameOrUnknown(directoryName: string | undefined, recorded: string | null | undefined): string {
-  return directoryName || (looksLikeId(recorded) ? "Unknown employee" : (recorded ?? "").trim());
+  const fromDirectory = directoryName?.trim();
+  if (fromDirectory) return fromDirectory;
+  return looksLikeId(recorded) ? "Unknown employee" : (recorded ?? "").trim();
 }
 
 function fullName(r: EmployeeDirectoryRecord): string {
@@ -59,13 +62,13 @@ export function usePersonLookup(): (p: PersonRef) => ResolvedPerson {
     const byEmail = new Map<string, EmployeeDirectoryRecord>();
     const byId = new Map<string, EmployeeDirectoryRecord>();
     for (const r of directory.data ?? []) {
-      if (typeof r.workEmail === "string" && r.workEmail.trim()) byEmail.set(r.workEmail.toLowerCase(), r);
+      if (typeof r.workEmail === "string" && r.workEmail.trim()) byEmail.set(r.workEmail.trim().toLowerCase(), r);
       if (r.employeeId) byId.set(r.employeeId, r);
     }
     return { byEmail, byId };
   }, [directory.data]);
   return (p) => {
-    const rec = (p.email ? index.byEmail.get(p.email.toLowerCase()) : undefined) ?? index.byId.get(p.employeeId);
+    const rec = (p.email ? index.byEmail.get(p.email.trim().toLowerCase()) : undefined) ?? index.byId.get(p.employeeId);
     const recorded = looksLikeId(p.displayName) ? "" : (p.displayName ?? "").trim();
     return {
       name: (rec && fullName(rec)) || recorded || "Unknown employee",

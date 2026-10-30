@@ -37,12 +37,12 @@ export type AmplifyGrant =
 export type LinkedInStatus = "ACTIVE" | "EXPIRING" | "NEEDS_RECONNECT" | "REMOVED" | "NOT_CONNECTED";
 
 export interface AmplifyMe {
-  employee: { employee_id: string; email: string; display_name: string };
+  employee: { employeeId: string; email: string; displayName: string };
   /** The caller's Asgardeo groups that amplify-api's access configuration names. */
   roles: string[];
   grants: AmplifyGrant[];
   capabilities: string[];
-  linkedin: { status: LinkedInStatus; expires_at?: string | null };
+  linkedin: { status: LinkedInStatus; expiresAt?: string | null };
 }
 
 export type CampaignStatus = "SCHEDULED" | "OPEN" | "CLOSED" | "ARCHIVED";

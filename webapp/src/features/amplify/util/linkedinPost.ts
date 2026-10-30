@@ -18,6 +18,8 @@ import { amplifyPostLinkOrigins } from "@config/apiConfig";
 
 // The post kinds amplify-api accepts (parsePostUrn in amplify-common).
 const URN = /urn:li:(share|ugcPost|article|video|document|event|activity):([A-Za-z0-9_-]{1,100})/;
+// A bare URN is the whole input, nothing around it.
+const BARE_URN = /^urn:li:(share|ugcPost|article|video|document|event|activity):([A-Za-z0-9_-]{1,100})$/;
 // The public "copy link" form: /posts/<slug>-<kind>-<id>-<suffix>. LinkedIn writes the post kind into the slug:
 // /posts/wso2_some-slug-activity-7123-AbCd, /posts/some-slug-share-7123-AbCd, /posts/some-slug-ugcPost-7123-AbCd.
 const POST_SLUG = /-(activity|share|ugcPost)-(\d{1,100})(?:[-/?#]|$)/;
@@ -49,38 +51,45 @@ export function isAllowedLink(raw: string | null | undefined, origins: readonly 
  *
  * Accepts the two forms people paste: the feed form
  * (`/feed/update/urn:li:share:7123/`, also URL-encoded) and the "copy link"
- * form (`/posts/<slug>-activity|share|ugcPost-7123-xyz`). A bare URN works too.
- * A URL on any other host is refused, even if it carries a URN: every employee's
- * card would link to it. Short links (`lnkd.in/...`) hide the id behind a redirect
+ * form (`/posts/<slug>-activity|share|ugcPost-7123-xyz`). A bare URN works too,
+ * but only as the whole input. Everything else is parsed as a link, with `https://`
+ * added when it has no scheme (`www.linkedin.com/...`, `//www.linkedin.com/...`), and
+ * its origin is checked before any URN is read from it. A link on any other host is
+ * refused, even if it carries a URN: every employee's card would link to it. Short links (`lnkd.in/...`) hide the id behind a redirect
  * and can't be read here; see `isLinkedInShortLink`.
  */
 export function postUrnFromUrl(raw: string, origins: readonly string[] = amplifyPostLinkOrigins): string | null {
   const value = raw.trim();
   if (!value) return null;
-  // Anything with a scheme except `urn:` is a link (https:, http:, javascript:, …) and must pass the origin check.
-  const looksLikeUrl = /^[a-z][a-z0-9+.-]*:/i.test(value) && !/^urn:/i.test(value);
-  if (looksLikeUrl && !isAllowedLink(value, origins)) return null;
-  // For a link, read only its path: LinkedIn's own redirects append `?highlightedUpdateUrn=urn:li:activity:…`,
-  // a different id from the one in the path, and the path is the post that was linked.
-  let subject = value;
-  if (looksLikeUrl) {
-    try {
-      subject = new URL(value).pathname;
-    } catch {
-      // Not parseable: keep it as typed.
-    }
-  }
-  let decoded = subject;
+  const bare = BARE_URN.exec(decodeOrSame(value));
+  if (bare) return `urn:li:${bare[1]}:${bare[2]}`;
+  // Anything else is a link (https:, http:, javascript:, a protocol-relative `//host/...`, a bare `host/...`) and
+  // must pass the origin check before a URN is read from it.
+  const candidate = /^[a-z][a-z0-9+.-]*:/i.test(value) ? value : value.startsWith("//") ? `https:${value}` : `https://${value}`;
+  if (!isAllowedLink(candidate, origins)) return null;
+  // Read only its path: LinkedIn's own redirects append `?highlightedUpdateUrn=urn:li:activity:…`, a different id
+  // from the one in the path, and the path is the post that was linked.
+  let subject: string;
   try {
-    decoded = decodeURIComponent(subject);
+    subject = new URL(candidate).pathname;
   } catch {
-    // A stray % — read it as typed.
+    return null;
   }
+  const decoded = decodeOrSame(subject);
   const urn = URN.exec(decoded);
   if (urn) return `urn:li:${urn[1]}:${urn[2]}`;
   const slug = POST_SLUG.exec(decoded);
-  if (slug && looksLikeUrl && /\/posts\//i.test(decoded)) return `urn:li:${slug[1]}:${slug[2]}`;
+  if (slug && /\/posts\//i.test(decoded)) return `urn:li:${slug[1]}:${slug[2]}`;
   return null;
+}
+
+// A stray % (not a valid escape) is read as typed.
+function decodeOrSame(text: string): string {
+  try {
+    return decodeURIComponent(text);
+  } catch {
+    return text;
+  }
 }
 
 /** LinkedIn's share-sheet short link (`https://lnkd.in/...`). The post id is behind a redirect, so it can't be read. */
@@ -95,10 +104,14 @@ export function linkedInPostUrl(resourceUrn: string, resourceUrl?: string | null
   return `https://www.linkedin.com/feed/update/${resourceUrn}/`;
 }
 
-/** `yyyy-mm-dd` for a date input, `days` after `from`. */
+/**
+ * `yyyy-mm-dd` for a date input: the local calendar day `days` after `from`. Built from local fields, not
+ * `toISOString()`, which is UTC and shows the previous day east of Greenwich around midnight.
+ */
 export function dateInputValue(from: Date, days = 0): string {
-  const d = new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
-  return d.toISOString().slice(0, 10);
+  const d = new Date(from.getFullYear(), from.getMonth(), from.getDate() + days);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** End of that day in UTC, as the ISO timestamp amplify-api expects for `closesAt`. */

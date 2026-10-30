@@ -1785,10 +1785,10 @@ export const amplifyPostLinkOrigins: readonly string[] = (() => {
   return configured.length > 0 ? configured : ["https://www.linkedin.com", "https://linkedin.com"];
 })();
 
-/** WSO2's LinkedIn organization URN, the owner New Post sends. Empty when unset. */
 /** Link target for "WSO2 Employee Privacy Notice" in the Link Me consent pop-up. Empty shows plain text. */
 export const amplifyPrivacyNoticeUrl: string = (window.config?.ONE_WSO2_AMPLIFY_PRIVACY_NOTICE_URL ?? "").trim();
 
+/** WSO2's LinkedIn organization URN, the owner New Post sends. Empty when unset. */
 export const amplifyLinkedInOrgUrn: string = (window.config?.ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN ?? "").trim();
 
 export const amplifyServiceUrls = {
