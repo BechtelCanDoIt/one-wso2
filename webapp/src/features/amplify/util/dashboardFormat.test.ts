@@ -53,7 +53,7 @@ describe("dashboardFormat", () => {
   });
 
   it("describes change without inventing a base", () => {
-    expect(deltaText(187, 164, "previous 7 days")).toBe("+23 vs previous 7 days");
+    expect(deltaText(187, 164, "last month")).toBe("+23 vs last month");
     expect(deltaText(5, 9)).toBe("-4 vs previous period");
     expect(deltaText(3, 3)).toBe("same as previous period");
     expect(changePercent(138, 100)).toBe("+38%");

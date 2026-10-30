@@ -52,6 +52,13 @@ export function shortDate(iso: string): string {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
+/** "Oct 2026" for the month an ISO date falls in (UTC). */
+export function monthLabel(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-US", { month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 /** "Oct 20 - Nov 19" for a post's window. */
 export function windowText(opensAt: string, closesAt: string): string {
   return `${shortDate(opensAt)} – ${shortDate(closesAt)}`;
