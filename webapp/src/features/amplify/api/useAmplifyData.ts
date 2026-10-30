@@ -111,7 +111,7 @@ export function useAmplifyLeaderboard() {
 
 /**
  * The company top three and the caller's own position (Celebrate), for the scope the server is set to,
- * this week by default. The server sums the week once and every caller reuses it for 2 hours, so a short
+ * this month by default. The server sums the month once and every caller reuses it for 2 hours, so a short
  * client stale time only costs a cheap cache hit.
  */
 export function useAmplifyTopBoard() {
