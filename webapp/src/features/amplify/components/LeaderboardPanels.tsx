@@ -169,19 +169,12 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
       )}
       {board.teamStatus === "OK" && team && (
         <Box sx={{ overflowX: "auto" }}>
-          {team.houseName && (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              House:{" "}
-              <Box component="strong" sx={{ color: "text.primary", fontWeight: 700 }}>
-                {team.houseName}
-              </Box>
-            </Typography>
-          )}
           <Table size="small" aria-label="Team leaderboard">
             <TableHead>
               <TableRow>
                 <TableCell sx={{ width: 56 }}>#</TableCell>
                 <TableCell>Team member</TableCell>
+                <TableCell>House</TableCell>
                 <TableCell align="right">Points</TableCell>
               </TableRow>
             </TableHead>
@@ -202,6 +195,7 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
                       {entry.isMe && <Chip size="small" color="primary" label="You" />}
                     </Box>
                   </TableCell>
+                  <TableCell>{entry.houseName ?? "—"}</TableCell>
                   <TableCell align="right">{pts(entry.points)}</TableCell>
                 </TableRow>
               ))}

@@ -122,6 +122,8 @@ export interface TeamEntry {
   points: number;
   teamRank: number;
   companyRank: number;
+  /** The member's house from the people directory; absent when they have none. */
+  houseName?: string | null;
   isMe: boolean;
 }
 
@@ -129,7 +131,7 @@ export interface Leaderboard {
   topN: number;
   company: LeaderboardEntry[];
   me: PersonalStanding;
-  myTeam?: { teamName: string; houseName?: string | null; headcount: number; activeCount: number; entries: TeamEntry[] } | null;
+  myTeam?: { teamName: string; headcount: number; activeCount: number; entries: TeamEntry[] } | null;
   teamStatus: "OK" | "NO_TEAM" | "UNAVAILABLE";
 }
 
