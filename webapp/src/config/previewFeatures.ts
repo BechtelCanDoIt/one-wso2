@@ -76,8 +76,8 @@ export type PreviewFeature =
    * Amplify, the whole app: its launcher tile, its rail group (Celebrate,
    * New Post, Current Posts) and every route under `/amplify`. Held back until
    * the Amplify API proxy is live for the phase 1 pilot. Who sees New Post and
-   * Current Posts is still decided by the `amplify_po` / `amplify_marketing`
-   * groups once this is on.
+   * Current Posts is still decided by amplify-api's `CAN_CAMPAIGN` grant
+   * (GET /me) once this is on.
    */
   | "amplify";
 

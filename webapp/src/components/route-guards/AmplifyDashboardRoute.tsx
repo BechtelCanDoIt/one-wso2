@@ -21,10 +21,10 @@ import { useAmplifyDashboardAccess } from "@features/amplify/api/useAmplifyEdito
 import { AMPLIFY_CELEBRATE_PATH } from "@constants/perspectives";
 
 /**
- * Closes the Dashboarding boards to everyone without an amplify_* role
- * (amplify_po, amplify_marketing, amplify_slt, amplify_admin), at the route.
- * The rail already hides the group; this stops a typed or bookmarked URL. Same
- * rules as AmplifyEditorRoute: wait while the token is decoded, say so when the
+ * Closes the Dashboarding boards to everyone amplify-api doesn't grant
+ * `CAN_DASHBOARD` (GET /me), at the route. The rail already hides the group;
+ * this stops a typed or bookmarked URL. Same rules as AmplifyEditorRoute: wait
+ * while /me loads, say so when the
  * check fails, and send everyone else to Celebrate.
  */
 export default function AmplifyDashboardRoute({ children }: { children: ReactNode }): JSX.Element | null {
