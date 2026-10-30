@@ -28,14 +28,14 @@ export type PeopleByEmail = ReadonlyMap<string, AmplifyPerson>;
 
 const NOBODY: PeopleByEmail = new Map();
 
-/** Keyed by lowercased work email, the key amplify-api returns on every row. */
+/** Keyed by trimmed, lowercased work email, the key amplify-api returns on every row. */
 export function indexPeople(records: readonly EmployeeDirectoryRecord[]): PeopleByEmail {
   const people = new Map<string, AmplifyPerson>();
   for (const r of records) {
     // One row without an email (a contractor, a placeholder) is skipped, not a crash for the whole page.
     if (typeof r.workEmail !== "string" || !r.workEmail.trim()) continue;
     const name = `${r.firstName ?? ""} ${r.lastName ?? ""}`.trim();
-    people.set(r.workEmail.toLowerCase(), { name, photoUrl: r.employeeThumbnail || null });
+    people.set(r.workEmail.trim().toLowerCase(), { name, photoUrl: r.employeeThumbnail || null });
   }
   return people;
 }

@@ -16,9 +16,12 @@
 
 // Writes to amplify-api.
 //
-// Every POST carries an Idempotency-Key, so a double click or a retry after a
-// dropped response replays the stored answer instead of doing it twice. No
-// React Query `retry`: a 4xx here is a final answer.
+// Every POST carries an Idempotency-Key, a fresh one per HTTP call, so it
+// de-duplicates a retry of that same call (a proxy or the network resending it),
+// not a second click. A double click is stopped where the call is made: each
+// submit control is disabled while its mutation is pending. A manual re-submit
+// after a failure is a new action and gets a new key. No React Query `retry`:
+// a 4xx here is a final answer.
 
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { authedDelete, authedPatch, authedPost } from "@api/http";

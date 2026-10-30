@@ -29,8 +29,8 @@ vi.mock("./RemoveLinkedInDialog", () => ({
 
 import MyConnectionsSection from "./MyConnectionsSection";
 
-const withStatus = (status: string, expires_at: string | null = null) => {
-  me = { isPending: false, isError: false, data: { linkedin: { status, expires_at } } };
+const withStatus = (status: string, expiresAt: string | null = null) => {
+  me = { isPending: false, isError: false, data: { linkedin: { status, expiresAt } } };
 };
 
 describe("MyConnectionsSection", () => {

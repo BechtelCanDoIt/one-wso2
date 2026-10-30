@@ -49,7 +49,7 @@ describe("amplifyEditorVisibility", () => {
 
 describe("hasAmplifyGrant", () => {
   const me = (grants: AmplifyMe["grants"]): AmplifyMe => ({
-    employee: { employee_id: "e-1", email: "e@wso2.com", display_name: "E" },
+    employee: { employeeId: "e-1", email: "e@wso2.com", displayName: "E" },
     roles: [],
     grants,
     capabilities: [],
