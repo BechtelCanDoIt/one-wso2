@@ -122,6 +122,8 @@ export interface TeamEntry {
   points: number;
   teamRank: number;
   companyRank: number;
+  /** The member's house from the people directory; absent when they have none. */
+  houseName?: string | null;
   isMe: boolean;
 }
 
@@ -135,12 +137,14 @@ export interface Leaderboard {
 
 /** GET /leaderboard/top: the Celebrate top three and the caller's own line, company wide. */
 export interface TopBoard {
-  /** WEEK = this calendar week (Monday to Sunday UTC); ALL = all time. Set by `leaderboard.top_scope`. */
-  period: "WEEK" | "ALL";
-  weekStart?: string | null;
-  weekEnd?: string | null;
+  /** MONTH = this calendar month (UTC); ALL = all time. Set by `leaderboard.top_scope`. */
+  period: "MONTH" | "ALL";
+  /** Points needed in the month to qualify for the top three; null for ALL. */
+  minPoints?: number | null;
+  monthStart?: string | null;
+  monthEnd?: string | null;
   topN: number;
-  /** When the weekly totals were read; the server reuses them for 2 hours. */
+  /** When the monthly totals were read; the server reuses them for 2 hours. */
   generatedAt: string;
   company: LeaderboardEntry[];
   me: PersonalStanding;
@@ -198,22 +202,22 @@ export interface DashboardOperations {
     campaignsLive: number;
     campaignsLivePriority: number;
     campaignsClosingWithin7Days: number;
-    reposts7d: number;
-    repostsPrev7d: number;
+    /** Reposts since the 1st of the month (UTC). */
+    repostsThisMonth: number;
+    repostsPrevMonth: number;
     peopleConnected: number;
     connectionsExpired: number;
-    /** Calendar week from Monday UTC; absent until the API sends it. */
-    pointsThisWeek?: number;
     pointsThisMonth: number;
     /** Calendar year; absent until the API sends it. */
     pointsThisYear?: number;
     peopleWithPoints: number;
-    /** Of `reposts7d`, the ones with the employee's own comment. */
-    reposts7dWithCommentary?: number;
+    /** Of `repostsThisMonth`, the ones with the employee's own comment. */
+    repostsThisMonthWithCommentary?: number;
   };
   campaigns: DashboardCampaignRow[];
   shareHealth: {
-    windowDays: number;
+    /** The 1st of the current month, 00:00 UTC. */
+    windowStart: string;
     published: number;
     queued: number;
     failed: number;
@@ -309,7 +313,8 @@ export interface DashboardGlance {
   asOf: string;
   month: string;
   reposts: { thisMonth: number; previousMonth: number };
-  weekly: { weekStart: string; reposts: number }[];
+  /** Last six calendar months, oldest first, the current month last. */
+  monthly: { monthStart: string; reposts: number }[];
   participants: number;
   headcount?: number | null;
   campaignsLive: number;
@@ -325,7 +330,7 @@ export interface DashboardGlance {
 }
 
 export interface ScorecardMeasure {
-  key: "connected" | "expired" | "shareSuccess" | "chatCards" | "priorityReach" | "active30Days" | "repostsPerWeek";
+  key: "connected" | "expired" | "shareSuccess" | "chatCards" | "priorityReach" | "active30Days" | "repostsPerMonth";
   label: string;
   unit: "PERCENT" | "COUNT";
   value: number;
