@@ -503,9 +503,10 @@ const ME_SECTIONS: PerspectiveSection[] = [
 // PO and Marketing register those posts. Phase 1 screens only (see
 // docs/requirements "Phase 1 - WSO2 Amplify User Experience").
 //
-// New Post and Current Posts are for amplify-api's CAN_CAMPAIGN grant only
-// (GET /me) — see useAmplifyEditorAccess and AmplifyEditorRoute. Everyone
-// else neither sees the rows nor opens the routes.
+// New Post and Current Posts are for the ONE_WSO2_AMPLIFY_BACKEND_URL
+// backend's CAN_CAMPAIGN grant only (GET /me) — see useAmplifyEditorAccess
+// and AmplifyEditorRoute. Everyone else neither sees the rows nor opens the
+// routes.
 export const AMPLIFY_CELEBRATE_PATH = "/amplify/celebrate";
 export const AMPLIFY_NEW_POST_PATH = "/amplify/new-post";
 export const AMPLIFY_CURRENT_POSTS_PATH = "/amplify/current-posts";
@@ -516,8 +517,9 @@ export const AMPLIFY_EDITOR_ITEM_IDS: ReadonlySet<string> = new Set([
   AMPLIFY_CURRENT_POSTS_ITEM_ID,
 ]);
 
-// Dashboarding: boards for anyone amplify-api grants CAN_DASHBOARD (by default
-// PO, Marketing, SLT and Admin). A plain employee neither sees the group nor opens the routes — see
+// Dashboarding: boards for anyone the ONE_WSO2_AMPLIFY_BACKEND_URL backend
+// grants CAN_DASHBOARD (by default PO, Marketing, SLT and Admin). A plain
+// employee neither sees the group nor opens the routes — see
 // useAmplifyDashboardAccess and AmplifyDashboardRoute. At A Glance comes first.
 export const AMPLIFY_DASHBOARDS_PATH = "/amplify/dashboards";
 export const AMPLIFY_DASHBOARD_GLANCE_PATH = `${AMPLIFY_DASHBOARDS_PATH}/glance`;
