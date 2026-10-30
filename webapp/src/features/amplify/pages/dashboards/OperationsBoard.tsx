@@ -23,17 +23,16 @@ import { announcementLabel, commentedReposts, plainReposts, updatedStamp, deltaT
 
 const ANNOUNCEMENT_TONE = { SENT: "info", QUEUED: "warning", FAILED: "error", NONE: "default" } as const;
 
-type PointsPeriod = "week" | "month" | "year";
+type PointsPeriod = "month" | "year";
 const POINTS_PERIODS: { key: PointsPeriod; label: string }[] = [
-  { key: "week", label: "Week" },
   { key: "month", label: "Month" },
   { key: "year", label: "Year" },
 ];
 
-/** Points awarded, switchable between this week (Monday UTC), this month and this year. */
+/** Points awarded, switchable between this month and this year (UTC). */
 function PointsTile({ kpis }: { kpis: DashboardOperations["kpis"] }) {
-  const [period, setPeriod] = useState<PointsPeriod>("week");
-  const value = { week: kpis.pointsThisWeek, month: kpis.pointsThisMonth, year: kpis.pointsThisYear }[period];
+  const [period, setPeriod] = useState<PointsPeriod>("month");
+  const value = { month: kpis.pointsThisMonth, year: kpis.pointsThisYear }[period];
   return (
     <StatCard
       label="Points awarded"
@@ -76,10 +75,10 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
         />
         <StatCard
           label="Reposts / Reposts with Comments"
-          value={`${num(plainReposts({ reposts: kpis.reposts7d, repostsWithCommentary: kpis.reposts7dWithCommentary }))} / ${num(
-            commentedReposts({ reposts: kpis.reposts7d, repostsWithCommentary: kpis.reposts7dWithCommentary }),
+          value={`${num(plainReposts({ reposts: kpis.repostsThisMonth, repostsWithCommentary: kpis.repostsThisMonthWithCommentary }))} / ${num(
+            commentedReposts({ reposts: kpis.repostsThisMonth, repostsWithCommentary: kpis.repostsThisMonthWithCommentary }),
           )}`}
-          detail={deltaText(kpis.reposts7d, kpis.repostsPrev7d, "previous 7 days")}
+          detail={deltaText(kpis.repostsThisMonth, kpis.repostsPrevMonth, "last month")}
         />
         <StatCard
           label="Employees connected"
@@ -131,7 +130,7 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
         </Box>
 
         <Box sx={{ flex: "1 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
-          <Block title={`Share health, ${shareHealth.windowDays} days`}>
+          <Block title="Share health, this month">
             <StackedBar
               label={`${shareHealth.published} published, ${shareHealth.queued} queued, ${shareHealth.failed} failed`}
               segments={[

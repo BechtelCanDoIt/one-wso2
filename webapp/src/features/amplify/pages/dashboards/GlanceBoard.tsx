@@ -23,21 +23,21 @@ import { nameOrUnknown, type PersonRef } from "../../api/usePersonLookup";
 import AmplifyShell from "../../components/AmplifyShell";
 import PersonLink from "../../components/PersonLink";
 import { Block, BoardState, Empty, MedalRank, StatCard } from "../../components/DashboardParts";
-import { updatedStamp, changePercent, num, percentOf, shortDate } from "../../util/dashboardFormat";
+import { updatedStamp, changePercent, monthLabel, num, percentOf } from "../../util/dashboardFormat";
 
-function WeeklyLine({ weekly }: { weekly: DashboardGlance["weekly"] }) {
-  if (weekly.length === 0) return <Empty>No reposts recorded yet.</Empty>;
-  const max = Math.max(1, ...weekly.map((w) => w.reposts));
-  const step = weekly.length > 1 ? 500 / (weekly.length - 1) : 0;
-  const pts = weekly.map((w, i) => [10 + i * step, 130 - (w.reposts / max) * 108] as const);
+function MonthlyLine({ monthly }: { monthly: DashboardGlance["monthly"] }) {
+  if (monthly.length === 0) return <Empty>No reposts recorded yet.</Empty>;
+  const max = Math.max(1, ...monthly.map((w) => w.reposts));
+  const step = monthly.length > 1 ? 500 / (monthly.length - 1) : 0;
+  const pts = monthly.map((w, i) => [10 + i * step, 130 - (w.reposts / max) * 108] as const);
   const last = pts[pts.length - 1];
-  const label = weekly.map((w) => `week of ${shortDate(w.weekStart)}: ${w.reposts}`).join(", ");
+  const label = monthly.map((w) => `${monthLabel(w.monthStart)}: ${w.reposts}`).join(", ");
   return (
     <>
       <svg
         viewBox="0 0 520 150"
         role="img"
-        aria-label={`Weekly reposts. ${label}`}
+        aria-label={`Monthly reposts. ${label}`}
         style={{ width: "100%", height: "auto" }}
       >
         <line x1="0" y1="130" x2="520" y2="130" stroke="currentColor" strokeOpacity="0.25" />
@@ -52,8 +52,8 @@ function WeeklyLine({ weekly }: { weekly: DashboardGlance["weekly"] }) {
         <circle cx={last[0]} cy={last[1]} r="6" fill="#FF7300" />
       </svg>
       <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "text.secondary" }}>
-        <span>Week of {shortDate(weekly[0].weekStart)}</span>
-        <span>This week · {num(weekly[weekly.length - 1].reposts)}</span>
+        <span>{monthLabel(monthly[0].monthStart)}</span>
+        <span>This month · {num(monthly[monthly.length - 1].reposts)}</span>
       </Box>
     </>
   );
@@ -108,7 +108,7 @@ export function GlanceBoard({
               </Typography>
             </Box>
             <Box sx={{ mt: 2 }}>
-              <WeeklyLine weekly={data.weekly} />
+              <MonthlyLine monthly={data.monthly} />
             </Box>
           </Block>
         </Box>
@@ -128,7 +128,7 @@ export function GlanceBoard({
             detail={`${num(t.reached)} of ${num(t.live)} reached ${t.thresholdPercent}% of connected`}
           />
           <StatCard
-            label="Share success, 7 days"
+            label="Share success, this month"
             value={percentOf(success.published, success.attempts)}
             detail={`${num(success.published)} of ${num(success.attempts)} attempts published`}
           />

@@ -40,7 +40,7 @@ import ShareDialog from "../components/ShareDialog";
 // Celebrate: every employee's Amplify page. In order (phase 1 UX review):
 //  1. Posts to amplify, priority first then newest. Gone once you've shared
 //     them all ("all caught up").
-//  2. Top three leaders, company wide, this week by default (leaderboard.top_scope).
+//  2. Top three leaders, company wide, this month by default (leaderboard.top_scope).
 //  3. My position, for the same scope.
 //  4. Team leaderboard.
 // No My Coins section in phase 1.
