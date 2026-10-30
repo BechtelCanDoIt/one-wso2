@@ -17,7 +17,7 @@
 // Reads from amplify-api, through its API proxy.
 //
 // Every key is scoped to the signed-in subject, same as TIL: a tab switching
-// accounts must not serve the previous user's roles or LinkedIn status from cache.
+// accounts must not serve the previous user's grants or LinkedIn status from cache.
 
 import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
@@ -46,12 +46,16 @@ export function useAmplifyQueryBasis() {
   return { getAccessToken, subState, retryIdentity, userSub, ready };
 }
 
-/** The caller, their amplify_* roles and their LinkedIn connection status (GET /me). */
-export function useAmplifyMe() {
+/**
+ * The caller, their grants and their LinkedIn connection status (GET /me).
+ * `enabled` keeps it quiet off the Amplify perspective (the rail asks for the
+ * Amplify gate on every perspective it renders).
+ */
+export function useAmplifyMe(enabled = true) {
   const { getAccessToken, subState, retryIdentity, userSub, ready } = useAmplifyQueryBasis();
   const query = useQuery<AmplifyMe>({
     queryKey: amplifyKey("me", userSub),
-    enabled: ready,
+    enabled: ready && enabled,
     queryFn: async () => authedGet<AmplifyMe>(amplifyServiceUrls.me, await getAccessToken()),
     staleTime: 60 * 1000,
     retry: amplifyRetry,
@@ -63,7 +67,7 @@ export function useAmplifyMe() {
  * Campaigns, priority first then newest (the API's order).
  *
  * `open` is what every employee sees. `all` is any status and only answers for
- * PO and Marketing; anyone else is limited to open posts server-side.
+ * `CAN_CAMPAIGN`; anyone else is limited to open posts server-side.
  */
 export function useAmplifyCampaigns(status: "open" | "all") {
   const { getAccessToken, subState, retryIdentity, userSub, ready } = useAmplifyQueryBasis();

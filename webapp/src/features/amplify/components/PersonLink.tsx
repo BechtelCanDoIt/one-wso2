@@ -21,7 +21,7 @@ import type { PersonRef } from "../api/usePersonLookup";
 import PersonDetailDialog from "../pages/dashboards/PersonDetailDialog";
 
 /**
- * A person's name. For anyone with an amplify_* role it is a button that opens that person's Post Performance
+ * A person's name. For anyone granted `CAN_DASHBOARD` it is a button that opens that person's Post Performance
  * popup; everyone else gets plain text. `onSelect` hands the click to the caller (to close another popup first);
  * without it the link opens the popup itself.
  */

@@ -270,10 +270,10 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   const umtGate = useUmtGate(isEngineering);
   const engineeringAdminGate = useEngineeringAdminGate(isEngineering);
 
-  // Amplify → New Post and Current Posts are limited to the amplify_po and
-  // amplify_marketing groups (id_token groups claim), same shape as Hello → Sarah.
+  // Amplify → New Post and Current Posts need amplify-api's CAN_CAMPAIGN grant
+  // (GET /me), same shape as the Marketing Ops gate.
   const amplifyEditorGate = useAmplifyEditorAccess(active.key === "amplify");
-  // Dashboarding → the five boards are limited to anyone holding an amplify_* role.
+  // Dashboarding → the five boards need the CAN_DASHBOARD grant.
   const amplifyDashboardGate = useAmplifyDashboardAccess(active.key === "amplify");
 
   // Both services are a Colombo-office perk, so both screens are Sri-Lanka-only

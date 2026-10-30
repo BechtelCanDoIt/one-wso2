@@ -12,46 +12,88 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
+// under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
-import { useAmplifyDashboardAccess } from "./useAmplifyEditorAccess";
+import type { AmplifyGrant } from "./amplifyTypes";
+import { useAmplifyDashboardAccess, useAmplifyEditorAccess } from "./useAmplifyEditorAccess";
 
-const groupsState = vi.hoisted(() => ({
-  value: { ready: true, groups: [] as string[], error: undefined as string | undefined, retry: () => undefined },
+const meState = vi.hoisted(() => ({
+  configured: true,
+  value: {
+    data: undefined as { grants: string[] } | undefined,
+    isPending: false,
+    isError: false,
+    error: null as Error | null,
+    refetch: () => Promise.resolve(),
+  },
 }));
 
-vi.mock("@hooks/useAsgardeoGroups", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@hooks/useAsgardeoGroups")>();
-  return { ...actual, useAsgardeoGroups: () => groupsState.value };
-});
+vi.mock("./useAmplifyData", () => ({
+  isAmplifyBackendConfigured: () => meState.configured,
+  useAmplifyMe: () => meState.value,
+}));
 
-function setGroups(groups: string[], ready = true) {
-  groupsState.value = { ready, groups, error: undefined, retry: () => undefined };
+function setGrants(grants: AmplifyGrant[] | undefined, isPending = false) {
+  meState.value = {
+    data: grants ? { grants } : undefined,
+    isPending,
+    isError: false,
+    error: null,
+    refetch: () => Promise.resolve(),
+  };
 }
 
-beforeEach(() => setGroups([]));
+beforeEach(() => {
+  meState.configured = true;
+  setGrants(["EMPLOYEE"]);
+});
 
 describe("useAmplifyDashboardAccess", () => {
-  it.each(["amplify_po", "amplify_marketing", "amplify_slt", "amplify_admin"])("lets %s in", (role) => {
-    setGroups([role]);
+  it("lets CAN_DASHBOARD in", () => {
+    setGrants(["EMPLOYEE", "CAN_DASHBOARD"]);
     expect(renderHook(() => useAmplifyDashboardAccess()).result.current.hasAccess).toBe(true);
   });
 
-  it("keeps a plain employee out", () => {
-    setGroups(["some_other_group"]);
+  it("keeps a plain employee out, and CAN_CAMPAIGN alone isn't enough", () => {
+    expect(renderHook(() => useAmplifyDashboardAccess()).result.current.hasAccess).toBe(false);
+    setGrants(["EMPLOYEE", "CAN_CAMPAIGN"]);
     expect(renderHook(() => useAmplifyDashboardAccess()).result.current.hasAccess).toBe(false);
   });
 
   it("answers no access, not resolving, when disabled", () => {
-    setGroups(["amplify_po"]);
+    setGrants(["EMPLOYEE", "CAN_DASHBOARD"]);
     const r = renderHook(() => useAmplifyDashboardAccess(false)).result.current;
     expect(r).toMatchObject({ hasAccess: false, isResolving: false });
   });
 
-  it("is resolving, with no access, until the token is decoded", () => {
-    setGroups(["amplify_po"], false);
+  it("answers no access, not resolving, when amplify-api isn't configured", () => {
+    meState.configured = false;
+    setGrants(undefined, true);
+    const r = renderHook(() => useAmplifyDashboardAccess()).result.current;
+    expect(r).toMatchObject({ hasAccess: false, isResolving: false });
+  });
+
+  it("is resolving, with no access, until /me answers", () => {
+    setGrants(undefined, true);
     const r = renderHook(() => useAmplifyDashboardAccess()).result.current;
     expect(r).toMatchObject({ hasAccess: false, isResolving: true });
+  });
+
+  it("reports a failed /me as an error, not as no access to explain", () => {
+    meState.value = { ...meState.value, data: undefined, isError: true, error: new Error("boom") };
+    const r = renderHook(() => useAmplifyDashboardAccess()).result.current;
+    expect(r.hasAccess).toBe(false);
+    expect(r.error).toBeTruthy();
+  });
+});
+
+describe("useAmplifyEditorAccess", () => {
+  it("follows CAN_CAMPAIGN", () => {
+    setGrants(["EMPLOYEE", "CAN_CAMPAIGN"]);
+    expect(renderHook(() => useAmplifyEditorAccess()).result.current.hasAccess).toBe(true);
+    setGrants(["EMPLOYEE", "CAN_DASHBOARD", "CAN_ADMIN"]);
+    expect(renderHook(() => useAmplifyEditorAccess()).result.current.hasAccess).toBe(false);
   });
 });

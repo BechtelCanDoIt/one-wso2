@@ -35,9 +35,9 @@ const STATUS_LABEL: Record<CampaignStatus, string> = {
 };
 
 // Current Posts: the official WSO2 LinkedIn posts in Amplify, for PO and
-// Marketing to update. Archived posts are left out. Only amplify_po and
-// amplify_marketing reach this page (AmplifyEditorRoute); amplify-api limits
-// any-status reads and every edit to the same two roles.
+// Marketing to update. Archived posts are left out. Only callers granted
+// CAN_CAMPAIGN reach this page (AmplifyEditorRoute); amplify-api limits
+// any-status reads and every edit to the same grant.
 export default function CurrentPostsPage() {
   const navigate = useNavigate();
   const campaigns = useAmplifyCampaigns("all");
