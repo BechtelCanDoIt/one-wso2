@@ -17,13 +17,30 @@
 // Wire shapes from amplify-api's OpenAPI (marketing-tools apps/amplify/amplify-api/openapi.yaml).
 // Only the fields these screens read are typed; the rest pass through untouched.
 
-export type AmplifyRole = "amplify_po" | "amplify_marketing" | "amplify_slt" | "amplify_admin";
+/**
+ * What amplify-api lets the caller do (GET /me `grants`, ADR-038). The
+ * Asgardeo groups behind each grant are amplify-api configuration; the UI
+ * gates on grants and never on a group name.
+ */
+export type AmplifyGrant =
+  | "EMPLOYEE"
+  | "CAN_CAMPAIGN"
+  | "CAN_DASHBOARD"
+  | "CAN_EXPORT"
+  | "CAN_REVIEW_SHARES"
+  | "CAN_POINT_RULES"
+  | "CAN_ADJUST_POINTS"
+  | "CAN_PO_DASHBOARD"
+  | "CAN_REPORTS"
+  | "CAN_ADMIN";
 
 export type LinkedInStatus = "ACTIVE" | "EXPIRING" | "NEEDS_RECONNECT" | "REMOVED" | "NOT_CONNECTED";
 
 export interface AmplifyMe {
   employee: { employee_id: string; email: string; display_name: string };
-  roles: AmplifyRole[];
+  /** The caller's Asgardeo groups that amplify-api's access configuration names. */
+  roles: string[];
+  grants: AmplifyGrant[];
   capabilities: string[];
   linkedin: { status: LinkedInStatus; expires_at?: string | null };
 }

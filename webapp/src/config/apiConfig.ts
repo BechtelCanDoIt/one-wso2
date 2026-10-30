@@ -1809,7 +1809,7 @@ export const amplifyServiceUrls = {
   // Teams or BUs ranked against each other (open to every employee, ADR-035).
   leaderboardTop: `${amplifyBackendUrl}/leaderboard/top`,
   leaderboardGroups: `${amplifyBackendUrl}/leaderboard/groups`,
-  // The boards under Dashboarding (amplify_po / marketing / slt / admin only, 403 for anyone else).
+  // The boards under Dashboarding (CAN_DASHBOARD only, 403 for anyone else).
   dashboardOperations: `${amplifyBackendUrl}/dashboards/operations`,
   dashboardCampaigns: `${amplifyBackendUrl}/dashboards/campaigns`,
   dashboardParticipation: `${amplifyBackendUrl}/dashboards/participation`,

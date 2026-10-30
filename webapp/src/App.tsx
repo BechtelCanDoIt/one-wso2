@@ -1020,7 +1020,7 @@ export default function App() {
           <Route path="knowledge/today-i-learned/:id" element={<TilEntryRoute />} />
           {/* Amplify, behind its preview flag like the rail entry. /amplify
               forwards to Celebrate. New Post and Current Posts are for
-              amplify_po / amplify_marketing only: AmplifyEditorRoute sends
+              CAN_CAMPAIGN only (GET /me): AmplifyEditorRoute sends
               everyone else to Celebrate. The LinkedIn callback has no rail row;
               LinkedIn redirects there after consent. */}
           {isPreviewEnabled("amplify") && (
@@ -1043,7 +1043,7 @@ export default function App() {
                   </AmplifyEditorRoute>
                 }
               />
-              {/* Dashboarding: any amplify_* role (PO, Marketing, SLT, Admin).
+              {/* Dashboarding: CAN_DASHBOARD only (GET /me).
                   AmplifyDashboardRoute sends everyone else to Celebrate. */}
               <Route path="amplify/dashboards" element={<Navigate to="/amplify/dashboards/glance" replace />} />
               {(

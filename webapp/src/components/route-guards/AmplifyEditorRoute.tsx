@@ -22,10 +22,10 @@ import { useAmplifyEditorAccess } from "@features/amplify/api/useAmplifyEditorAc
 import { AMPLIFY_CELEBRATE_PATH } from "@constants/perspectives";
 
 /**
- * Closes New Post and Current Posts to everyone outside amplify_po and
- * amplify_marketing, at the route. The rail already hides the rows; this stops
- * a typed or bookmarked URL. Same rules as SriLankaRoute: wait while the token
- * is decoded, say so when the check fails, and send everyone else to Celebrate.
+ * Closes New Post and Current Posts to everyone amplify-api doesn't grant
+ * `CAN_CAMPAIGN` (GET /me), at the route. The rail already hides the rows; this
+ * stops a typed or bookmarked URL. Same rules as SriLankaRoute: wait while /me
+ * loads, say so when the check fails, and send everyone else to Celebrate.
  */
 export default function AmplifyEditorRoute({ children }: { children: ReactNode }): JSX.Element | null {
   const { hasAccess, isResolving, error, retry } = useAmplifyEditorAccess();
