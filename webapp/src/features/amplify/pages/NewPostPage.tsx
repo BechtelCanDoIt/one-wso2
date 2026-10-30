@@ -33,8 +33,8 @@ const SUMMARY_MAX = 2000;
 
 // New Post: PO and Marketing register an official WSO2 LinkedIn post, with a
 // category and a priority flag. Save queues it for the next Amplify run;
-// Save & Share Now starts a run straight away. Only amplify_po and
-// amplify_marketing reach this page (AmplifyEditorRoute), and amplify-api
+// Save & Share Now starts a run straight away. Only callers granted
+// CAN_CAMPAIGN reach this page (AmplifyEditorRoute), and amplify-api
 // refuses POST /campaigns from anyone else.
 export default function NewPostPage() {
   const navigate = useNavigate();
