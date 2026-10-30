@@ -169,6 +169,14 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
       )}
       {board.teamStatus === "OK" && team && (
         <Box sx={{ overflowX: "auto" }}>
+          {team.houseName && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+              House:{" "}
+              <Box component="strong" sx={{ color: "text.primary", fontWeight: 700 }}>
+                {team.houseName}
+              </Box>
+            </Typography>
+          )}
           <Table size="small" aria-label="Team leaderboard">
             <TableHead>
               <TableRow>

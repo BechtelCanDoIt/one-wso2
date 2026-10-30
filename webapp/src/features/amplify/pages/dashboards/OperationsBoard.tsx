@@ -88,48 +88,8 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
         <PointsTile kpis={kpis} />
       </Box>
 
-      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "flex-start" }}>
-        <Box sx={{ flex: "999 1 640px", minWidth: 0 }}>
-          <Block title="Posts">
-            {data.campaigns.length === 0 ? (
-              <Empty>No posts are live or were closed in the last 30 days.</Empty>
-            ) : (
-              <Box sx={{ overflowX: "auto" }}>
-                <Table size="small" sx={{ minWidth: 620 }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Post</TableCell>
-                      <TableCell>Category</TableCell>
-                      <TableCell>Window</TableCell>
-                      <TableCell align="right">Reposts</TableCell>
-                      <TableCell align="right">Reposts/Comments</TableCell>
-                      <TableCell>Novera</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {data.campaigns.map((p) => (
-                      <TableRow key={p.campaignId}>
-                        <TableCell>
-                          {p.title}
-                          {p.isPriority && <PriorityPill />}
-                        </TableCell>
-                        <TableCell>{p.categoryLabel}</TableCell>
-                        <TableCell>{windowText(p.opensAt, p.closesAt)}</TableCell>
-                        <TableCell align="right">{num(plainReposts(p))}</TableCell>
-                        <TableCell align="right">{num(commentedReposts(p))}</TableCell>
-                        <TableCell>
-                          <StateChip label={announcementLabel(p.announcement)} tone={ANNOUNCEMENT_TONE[p.announcement?.status ?? "NONE"]} />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Box>
-            )}
-          </Block>
-        </Box>
-
-        <Box sx={{ flex: "1 1 320px", minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
+      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "stretch" }}>
+        <Box sx={{ flex: "1 1 320px", minWidth: 0 }}>
           <Block title="Share health, this month">
             <StackedBar
               label={`${shareHealth.published} published, ${shareHealth.queued} queued, ${shareHealth.failed} failed`}
@@ -153,6 +113,8 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
               </Typography>
             )}
           </Block>
+        </Box>
+        <Box sx={{ flex: "1 1 320px", minWidth: 0 }}>
           <Block title="Connections">
             <StackedBar
               label={`${connections.active} active, ${connections.expiring} expiring, ${connections.expired} expired, ${connections.revoked} revoked`}
@@ -177,6 +139,44 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
           </Block>
         </Box>
       </Box>
+
+      <Block title="Posts">
+        {data.campaigns.length === 0 ? (
+          <Empty>No posts are live or were closed in the last 30 days.</Empty>
+        ) : (
+          <Box sx={{ overflowX: "auto" }}>
+            <Table size="small" sx={{ minWidth: 620 }}>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Post</TableCell>
+                  <TableCell>Category</TableCell>
+                  <TableCell>Window</TableCell>
+                  <TableCell align="right">Reposts</TableCell>
+                  <TableCell align="right">Reposts/Comments</TableCell>
+                  <TableCell>Novera</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {data.campaigns.map((p) => (
+                  <TableRow key={p.campaignId}>
+                    <TableCell>
+                      {p.title}
+                      {p.isPriority && <PriorityPill />}
+                    </TableCell>
+                    <TableCell>{p.categoryLabel}</TableCell>
+                    <TableCell>{windowText(p.opensAt, p.closesAt)}</TableCell>
+                    <TableCell align="right">{num(plainReposts(p))}</TableCell>
+                    <TableCell align="right">{num(commentedReposts(p))}</TableCell>
+                    <TableCell>
+                      <StateChip label={announcementLabel(p.announcement)} tone={ANNOUNCEMENT_TONE[p.announcement?.status ?? "NONE"]} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Box>
+        )}
+      </Block>
     </Box>
   );
 }

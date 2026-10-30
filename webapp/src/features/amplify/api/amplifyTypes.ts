@@ -129,7 +129,7 @@ export interface Leaderboard {
   topN: number;
   company: LeaderboardEntry[];
   me: PersonalStanding;
-  myTeam?: { teamName: string; headcount: number; activeCount: number; entries: TeamEntry[] } | null;
+  myTeam?: { teamName: string; houseName?: string | null; headcount: number; activeCount: number; entries: TeamEntry[] } | null;
   teamStatus: "OK" | "NO_TEAM" | "UNAVAILABLE";
 }
 
