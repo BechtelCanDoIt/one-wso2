@@ -15,15 +15,10 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { hasAnyGroup } from "@hooks/useAsgardeoGroups";
 import { AMPLIFY_CURRENT_POSTS_ITEM_ID, AMPLIFY_NEW_POST_ITEM_ID } from "@constants/perspectives";
 import { AMPLIFY_DASHBOARD_ITEM_IDS } from "@constants/perspectives";
-import {
-  AMPLIFY_DASHBOARD_GROUPS,
-  AMPLIFY_EDITOR_GROUPS,
-  amplifyEditorVisibility,
-  amplifyVisibility,
-} from "./useAmplifyEditorAccess";
+import type { AmplifyMe } from "./amplifyTypes";
+import { amplifyEditorVisibility, amplifyVisibility, hasAmplifyGrant } from "./useAmplifyEditorAccess";
 
 const retry = () => undefined;
 
@@ -40,7 +35,7 @@ describe("amplifyEditorVisibility", () => {
     expect(v.canSee(AMPLIFY_CURRENT_POSTS_ITEM_ID)).toBe(false);
   });
 
-  it("fails closed while the token is still being decoded", () => {
+  it("fails closed while /me is loading", () => {
     const v = amplifyEditorVisibility({ hasAccess: true, isResolving: true, retry });
     expect(v.canSee(AMPLIFY_NEW_POST_ITEM_ID)).toBe(false);
     expect(v.resolving).toBe(true);
@@ -52,22 +47,23 @@ describe("amplifyEditorVisibility", () => {
   });
 });
 
-describe("AMPLIFY_EDITOR_GROUPS", () => {
-  it("is exactly PO and Marketing", () => {
-    expect(hasAnyGroup(["amplify_po"], AMPLIFY_EDITOR_GROUPS)).toBe(true);
-    expect(hasAnyGroup(["amplify_marketing"], AMPLIFY_EDITOR_GROUPS)).toBe(true);
-    expect(hasAnyGroup(["amplify_admin", "amplify_slt"], AMPLIFY_EDITOR_GROUPS)).toBe(false);
-    expect(hasAnyGroup(["amplify_po_typo"], AMPLIFY_EDITOR_GROUPS)).toBe(false);
+describe("hasAmplifyGrant", () => {
+  const me = (grants: AmplifyMe["grants"]): AmplifyMe => ({
+    employee: { employee_id: "e-1", email: "e@wso2.com", display_name: "E" },
+    roles: [],
+    grants,
+    capabilities: [],
+    linkedin: { status: "NOT_CONNECTED" },
   });
-});
 
-describe("AMPLIFY_DASHBOARD_GROUPS", () => {
-  it("is every known amplify_* role, and nothing an employee holds", () => {
-    for (const role of ["amplify_po", "amplify_marketing", "amplify_slt", "amplify_admin"]) {
-      expect(hasAnyGroup([role], AMPLIFY_DASHBOARD_GROUPS)).toBe(true);
-    }
-    expect(hasAnyGroup([], AMPLIFY_DASHBOARD_GROUPS)).toBe(false);
-    expect(hasAnyGroup(["employee", "amplify_po_typo", "amplify_"], AMPLIFY_DASHBOARD_GROUPS)).toBe(false);
+  it("answers from GET /me grants, not group names", () => {
+    expect(hasAmplifyGrant(me(["EMPLOYEE", "CAN_CAMPAIGN"]), "CAN_CAMPAIGN")).toBe(true);
+    expect(hasAmplifyGrant(me(["EMPLOYEE", "CAN_CAMPAIGN"]), "CAN_DASHBOARD")).toBe(false);
+    expect(hasAmplifyGrant(me(["EMPLOYEE"]), "CAN_CAMPAIGN")).toBe(false);
+  });
+
+  it("fails closed with no answer yet", () => {
+    expect(hasAmplifyGrant(undefined, "CAN_DASHBOARD")).toBe(false);
   });
 });
 
@@ -93,7 +89,7 @@ describe("amplifyVisibility", () => {
     for (const id of AMPLIFY_DASHBOARD_ITEM_IDS) expect(v.canSee(id)).toBe(false);
   });
 
-  it("fails closed while the token is still being decoded", () => {
+  it("fails closed while /me is loading", () => {
     const v = amplifyVisibility(resolving, resolving);
     for (const id of AMPLIFY_DASHBOARD_ITEM_IDS) expect(v.canSee(id)).toBe(false);
     expect(v.resolving).toBe(true);
