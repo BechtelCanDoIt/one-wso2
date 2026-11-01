@@ -183,7 +183,7 @@ describe("foldVisibility", () => {
     );
 
     expect(folded.canSee({ id: AMPLIFY_NEW_POST_ITEM_ID })).toBe(true);
-    // Held back by the adapter even though people-app says this caller is an admin.
+    // Held back by the adapter even though this caller holds the admin capability.
     expect(folded.canSee({ id: AMPLIFY_CURRENT_POSTS_ITEM_ID })).toBe(false);
     for (const id of AMPLIFY_DASHBOARD_ITEM_IDS) expect(folded.canSee({ id })).toBe(false);
   });
