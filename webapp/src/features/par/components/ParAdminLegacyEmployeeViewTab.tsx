@@ -53,17 +53,22 @@ export default function ParAdminLegacyEmployeeViewTab({
   thumbnailFor: (email: string) => string | undefined;
   onOpenRecord: (record: ParLegacyHistory) => void;
 }) {
+  // Searching a name also matches every row that person leads, so matches
+  // are ranked: employee name, then email, then lead, then department. The
+  // sort is stable, so the cycle's own order holds within each rank, and a
+  // column sort the admin picks still takes over.
   const filteredRows = useMemo(() => {
     const term = searchText.trim().toLowerCase();
-    return term
-      ? records.filter(
-          (row) =>
-            legacyEmployeeName(row).toLowerCase().includes(term) ||
-            row.employeeEmail.toLowerCase().includes(term) ||
-            (row.reviewerName ?? "").toLowerCase().includes(term) ||
-            (row.department ?? "").toLowerCase().includes(term),
-        )
-      : records;
+    if (!term) return records;
+    const rank = (row: ParLegacyHistory) =>
+      [legacyEmployeeName(row), row.employeeEmail, row.reviewerName ?? "", row.department ?? ""].findIndex((value) =>
+        value.toLowerCase().includes(term),
+      );
+    return records
+      .map((row) => ({ row, rank: rank(row) }))
+      .filter(({ rank }) => rank !== -1)
+      .sort((a, b) => a.rank - b.rank)
+      .map(({ row }) => row);
   }, [records, searchText]);
 
   const columns = useMemo<DataGrid.GridColDef<ParLegacyHistory>[]>(
