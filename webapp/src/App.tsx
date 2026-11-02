@@ -130,6 +130,7 @@ import GlancePage from "@features/amplify/pages/dashboards/GlanceBoard";
 import OperationsPage from "@features/amplify/pages/dashboards/OperationsBoard";
 import PostPerformancePage from "@features/amplify/pages/dashboards/PostPerformanceBoard";
 import ParticipationPage from "@features/amplify/pages/dashboards/ParticipationBoard";
+import TeamPage from "@features/amplify/pages/dashboards/TeamBoard";
 import ScorecardPage from "@features/amplify/pages/dashboards/ScorecardBoard";
 import MasterDataRoute from "@components/route-guards/MasterDataRoute";
 import AdCampaignsAnalyticsPage from "@features/marketing-ops/ad-campaigns/pages/AdCampaignsAnalyticsPage";
@@ -1112,6 +1113,7 @@ export default function App() {
                   ["operations", OperationsPage],
                   ["posts", PostPerformancePage],
                   ["participation", ParticipationPage],
+                  ["team", TeamPage],
                   ["scorecard", ScorecardPage],
                 ] as const
               ).map(([slug, Page]) => (
