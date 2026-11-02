@@ -33,7 +33,7 @@ async function hoverTooltip(item: CalendarItem): Promise<string> {
 
 describe("the chip's tooltip", () => {
   it("labels an event's calendar date (its Due Date) Date, not Event Start Date", async () => {
-    // Issue #72's shape: Due 4 Nov, the event itself starting 5 Nov.
+  
     const base = sampleItem("84:event");
     if (base.category !== "event") throw new Error("not an event");
     const item: CalendarItem = {
