@@ -24,7 +24,7 @@
  * branching the build or holding work out of `main`.
  *
  * ```js
- * ONE_WSO2_PREVIEW_FEATURES: { infra: true },
+ * ONE_WSO2_PREVIEW_FEATURES: { cado2: true },
  * ```
  *
  * ## Absent means off
@@ -54,10 +54,6 @@
  * rather than a feature that is silently never enabled anywhere.
  */
 export type PreviewFeature =
-  /* The whole Infra Portal perspective. Still being ported, so the waffle
-   * tile, landing option, and `/infra` route stay hidden until this is on.
-   */
-  | "infra"
   /**
    * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
    * Approvals, Admin), every route under `/sales/cado2`, and its backend

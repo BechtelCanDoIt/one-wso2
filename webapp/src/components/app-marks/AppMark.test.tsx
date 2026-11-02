@@ -18,6 +18,7 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { render } from "@testing-library/react";
+import { PERSPECTIVES } from "@constants/perspectives";
 import { appMark } from "./appMarkRegistry";
 import { APP_MARK_TONES } from "./appMarkTones";
 
@@ -46,19 +47,11 @@ describe("app marks", () => {
    * perspective's PR on it would be the wrong coupling — the launcher falls back
    * to that perspective's line glyph until someone draws it a mark.
    *
-   * Checked with every preview flag on: this is a completeness check on what
-   * has been BUILT, not on what is currently released, so a perspective held
-   * back by a preview flag (Infra Portal) must not read as
-   * a dead tone here the way an unauthored mark would.
+   * Completeness check on authored marks: every perspective that has a mark
+   * must also have tones, both ways.
    */
-  it("pairs every mark with its tones, both ways", async () => {
-    vi.resetModules();
-    window.config = {
-      ...(window.config ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { infra: true },
-    } as Window["config"];
-    const { PERSPECTIVES: allPerspectives } = await import("@constants/perspectives");
-    const marked = allPerspectives.filter((p) => appMark(p.key)).map((p) => p.key);
+  it("pairs every mark with its tones, both ways", () => {
+    const marked = PERSPECTIVES.filter((p) => appMark(p.key)).map((p) => p.key);
     expect(new Set(marked)).toEqual(new Set(Object.keys(APP_MARK_TONES)));
   });
 

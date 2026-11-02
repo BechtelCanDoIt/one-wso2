@@ -264,22 +264,18 @@ export default function App() {
           <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
           <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
           <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
-          {isPreviewEnabled("infra") && (
-            <>
-              <Route path="infra" element={<InfraHomePage />} />
-              <Route
-                  path="infra/github/repository-requests"
-                  element={<InfraNewRepositoryPage />}
-              />
-              <Route path="infra/github/callback" element={<InfraGitHubCallbackPage />} />
-              <Route
-                path="infra/github/repository-access-requests"
-                element={<InfraRepositoryAccessPage />}
-              />
-              <Route path="infra/admin/github-settings" element={<InfraGitHubSettingsPage />} />
-              <Route path="infra/github/my-requests" element={<InfraMyRequestsPage />} />
-            </>
-          )}
+          <Route path="infra" element={<InfraHomePage />} />
+          <Route
+            path="infra/github/repository-requests"
+            element={<InfraNewRepositoryPage />}
+          />
+          <Route path="infra/github/callback" element={<InfraGitHubCallbackPage />} />
+          <Route
+            path="infra/github/repository-access-requests"
+            element={<InfraRepositoryAccessPage />}
+          />
+          <Route path="infra/admin/github-settings" element={<InfraGitHubSettingsPage />} />
+          <Route path="infra/github/my-requests" element={<InfraMyRequestsPage />} />
           {/* My Team — placeholder for now; the real subordinates view is on
               hold this iteration (mirrors people-app's lead-only nav item). */}
           {/* My Team — a lead's reporting chain, ported from people-app. */}

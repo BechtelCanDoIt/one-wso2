@@ -331,20 +331,13 @@ describe("claimsForPerspective", () => {
     expect(claimsForPerspective("engineering")).toEqual(expect.arrayContaining(["engineering", "umt"]));
   });
 
-  it("covers infra when its flag is on, and promotion regardless", async () => {
-    const previous = window.config;
-    vi.resetModules();
-    window.config = {
-      ...(previous ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { infra: true },
-    } as Window["config"];
-    const { PERSPECTIVES: flagged } = await import("@constants/perspectives");
-    const fold = await import("./visibilityFold");
-    const keys = flagged.map((perspective) => perspective.key);
-    expect(keys).toEqual(expect.arrayContaining(["infra", "engineering"]));
-    const people = flagged.find((perspective) => perspective.key === "people");
-    expect(fold.sectionIdsIn(people?.sections ?? []).has("promotion-lead-portal")).toBe(true);
-    expect(fold.claimsForPerspective("people")).toContain("promotion");
+  it("covers infra and promotion", () => {
+    expect(PERSPECTIVES.map((perspective) => perspective.key)).toEqual(
+      expect.arrayContaining(["infra", "engineering"]),
+    );
+    const people = PERSPECTIVES.find((perspective) => perspective.key === "people");
+    expect(sectionIdsIn(people?.sections ?? []).has("promotion-lead-portal")).toBe(true);
+    expect(claimsForPerspective("people")).toContain("promotion");
 
     const names = [
       "par",
@@ -363,12 +356,12 @@ describe("claimsForPerspective", () => {
       "subscriptions",
       "engineering",
     ] as const;
-    for (const perspective of flagged) {
-      const sectionIds = fold.sectionIdsIn(perspective.sections ?? []);
-      const inPlay = new Set(fold.claimsForPerspective(perspective.key));
+    for (const perspective of PERSPECTIVES) {
+      const sectionIds = sectionIdsIn(perspective.sections ?? []);
+      const inPlay = new Set(claimsForPerspective(perspective.key));
       for (const id of sectionIds) {
         for (const name of names) {
-          const claim = fold.claimOf(name);
+          const claim = claimOf(name);
           const covers =
             claim.kind === "sections"
               ? claim.ids.has(id)
@@ -376,12 +369,11 @@ describe("claimsForPerspective", () => {
           if (covers) expect(inPlay.has(name), `${perspective.key} ${id} claimed by ${name}`).toBe(true);
         }
       }
-      const adapters = fold.claimsForPerspective(perspective.key).map((name) => adapter({ name }));
-      expect(fold.claimConflicts(adapters, shell({ perspectiveKey: perspective.key, sectionIds })), perspective.key).toEqual(
+      const adapters = claimsForPerspective(perspective.key).map((name) => adapter({ name }));
+      expect(claimConflicts(adapters, shell({ perspectiveKey: perspective.key, sectionIds })), perspective.key).toEqual(
         [],
       );
     }
-    window.config = previous;
   });
 
   it("gives every real perspective a single owner per section", () => {
