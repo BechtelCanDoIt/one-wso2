@@ -19,10 +19,10 @@ import { Avatar, Box, Button, Card, Chip, DataGrid, IconButton, InputAdornment, 
 import { ArrowLeftIcon, ArrowRightIcon, EyeIcon, SearchIcon, UserIcon, UsersIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
-import { useLegacyParHistoryByCycle } from "../api/useParAdmin";
+import { useLegacyParHistoryByCycles } from "../api/useParAdmin";
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { formatShortDate } from "../util/parDate";
-import { deriveLegacyCycleDates } from "../util/parLegacyHistory";
+import { deriveLegacyCycleDates, formatLegacyCycleName, legacyCycleLabel } from "../util/parLegacyHistory";
 import {
   groupLegacyParticipantsByTeam,
   isLegacyEmployeeParDone,
@@ -31,6 +31,7 @@ import {
   legacyEmployeeName,
   legacyOverallRating,
   legacySpecialRating,
+  rankSearchMatches,
   type LegacyTeamGroup,
 } from "../util/parAdminHistory";
 import ParAdminLegacyEmployeeViewTab from "./ParAdminLegacyEmployeeViewTab";
@@ -90,7 +91,7 @@ function Breadcrumb({ items, current }: { items: { label: string; onClick: () =>
 // Same header as ParOrgSummary's historyMode: a Back button, then the
 // History link, the cycle as a chip, its date range, plus the Legacy marker.
 function CycleHeader({ cycleName, onBack }: { cycleName: string; onBack: () => void }) {
-  const { startDate, endDate } = deriveLegacyCycleDates(cycleName);
+  const { startDate, endDate } = deriveLegacyCycleDates(formatLegacyCycleName(cycleName));
   return (
     <Stack spacing={1}>
       <Button size="small" startIcon={<ArrowLeftIcon size={14} />} onClick={onBack} sx={{ alignSelf: "flex-start" }}>
@@ -103,7 +104,7 @@ function CycleHeader({ cycleName, onBack }: { cycleName: string; onBack: () => v
         <Typography component="span" sx={{ mx: 0.5 }}>
           /
         </Typography>
-        <Chip label={cycleName} size="small" color="primary" variant="outlined" />
+        <Chip label={legacyCycleLabel(cycleName)} size="small" color="primary" variant="outlined" />
         {startDate && endDate && (
           <Typography component="span" variant="caption" color="text.secondary">
             ({formatShortDate(startDate)} - {formatShortDate(endDate)})
@@ -122,8 +123,19 @@ function CycleHeader({ cycleName, onBack }: { cycleName: string; onBack: () => v
 // DataGrids throughout rather than plain MUI tables, matching how every
 // other legacy-table screen in this port (e.g. ParOrgTeamViewTab.tsx) has
 // already upgraded from source's plain tables.
-export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleName: string; onBack: () => void }) {
-  const history = useLegacyParHistoryByCycle(cycleName);
+// storedCycleNames: every spelling the cycle is stored under (one admin
+// History row can merge several, see buildAdminHistoryRows); the roster is
+// all of them together. Defaults to cycleName itself.
+export default function ParAdminLegacyCycleView({
+  cycleName,
+  storedCycleNames = [cycleName],
+  onBack,
+}: {
+  cycleName: string;
+  storedCycleNames?: string[];
+  onBack: () => void;
+}) {
+  const history = useLegacyParHistoryByCycles(storedCycleNames);
   const hasSpecialRatings = legacyCycleListHasSpecialRatings(cycleName);
   // Leave's employee directory is used for avatars only (the legacy table has
   // no photos), same deviation ParOrgTeamRoster.tsx/ParLeadTeamRoster.tsx make.
@@ -135,7 +147,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
 
   const [selection, setSelection] = useState<Selection>({ level: "groups" });
   // The roster/grouping fetch above is summary-only (see
-  // useLegacyParHistoryByCycle's own comment) -- once a specific record is
+  // fetchLegacyCycleParticipants' comment) -- once a specific record is
   // opened, fetch that one employee's FULL legacy history (same endpoint
   // the self-view uses; admins are authorized for any employee) and pick out
   // the one cycle being viewed, rather than rendering the summary row with
@@ -201,22 +213,24 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
   const records = useMemo(() => history.data ?? [], [history.data]);
   const groups = useMemo(() => groupLegacyParticipantsByTeam(records), [records]);
   // Searches only the columns on screen: the internal id and, when hidden,
-  // the slot counts would otherwise match with no visible reason.
+  // the slot counts would otherwise match with no visible reason. Matches
+  // are ranked by the first column that matched, in this order (team, sub
+  // team, lead, department, BU, then the counts); the sort is stable, so the
+  // department/lead order holds within a rank, and a column sort the admin
+  // picks still takes over.
   const filteredGroups = useMemo(() => {
     const term = searchText.trim().toLowerCase();
     if (!term) return groups;
-    return groups.filter((g) =>
-      [
-        g.parBusinessUnit,
-        g.parDepartment,
-        g.parTeam,
-        g.parSubTeam,
-        g.parLeadEmail,
-        g.employeeParCompletion,
-        g.leadFeedbackCompletion,
-        ...(hasSpecialRatings ? [g.numberOf5pSlots, g.numberOf20pSlots] : []),
-      ].some((value) => String(value).toLowerCase().includes(term)),
-    );
+    return rankSearchMatches(groups, term, (g) => [
+      g.parTeam,
+      g.parSubTeam,
+      g.parLeadEmail,
+      g.parDepartment,
+      g.parBusinessUnit,
+      g.employeeParCompletion,
+      g.leadFeedbackCompletion,
+      ...(hasSpecialRatings ? [g.numberOf5pSlots, g.numberOf20pSlots] : []),
+    ]);
   }, [groups, searchText, hasSpecialRatings]);
   // Each record's rating and special rating, resolved once rather than in
   // every valueGetter call DataGrid makes while sorting and filtering.
@@ -370,14 +384,24 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
     [openRoster, hasSpecialRatings],
   );
 
+  // The header (Back + "History" link) stays while loading and on an error,
+  // so a cycle that fails to load can still be left.
   if (history.isLoading) {
-    return <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 1.5 }} />;
+    return (
+      <Stack spacing={2}>
+        <CycleHeader cycleName={cycleName} onBack={onBack} />
+        <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 1.5 }} />
+      </Stack>
+    );
   }
   if (history.isError) {
     return (
-      <ErrorNotice error={history.error} onRetry={() => history.refetch()} retrying={history.isFetching}>
-        Couldn't load this legacy cycle's PAR history.
-      </ErrorNotice>
+      <Stack spacing={2}>
+        <CycleHeader cycleName={cycleName} onBack={onBack} />
+        <ErrorNotice error={history.error} onRetry={() => history.refetch()} retrying={history.isFetching}>
+          Couldn't load this legacy cycle's PAR history.
+        </ErrorNotice>
+      </Stack>
     );
   }
 
@@ -388,7 +412,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         <Breadcrumb
           items={[
             { label: "History", onClick: onBack },
-            { label: cycleName, onClick: () => setSelection({ level: "groups" }) },
+            { label: legacyCycleLabel(cycleName), onClick: () => setSelection({ level: "groups" }) },
             ...(group ? [{ label: group.parLeadEmail, onClick: () => setSelection({ level: "roster", group }) }] : []),
           ]}
           current={legacyEmployeeName(record)}
@@ -423,7 +447,7 @@ export default function ParAdminLegacyCycleView({ cycleName, onBack }: { cycleNa
         <Breadcrumb
           items={[
             { label: "History", onClick: onBack },
-            { label: cycleName, onClick: () => setSelection({ level: "groups" }) },
+            { label: legacyCycleLabel(cycleName), onClick: () => setSelection({ level: "groups" }) },
           ]}
           current={group.parLeadEmail}
         />

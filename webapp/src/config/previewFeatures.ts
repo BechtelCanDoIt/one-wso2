@@ -24,7 +24,7 @@
  * branching the build or holding work out of `main`.
  *
  * ```js
- * ONE_WSO2_PREVIEW_FEATURES: { infra: true },
+ * ONE_WSO2_PREVIEW_FEATURES: { cado2: true },
  * ```
  *
  * ## Absent means off
@@ -54,10 +54,6 @@
  * rather than a feature that is silently never enabled anywhere.
  */
 export type PreviewFeature =
-  /* The whole Infra Portal perspective. Still being ported, so the waffle
-   * tile, landing option, and `/infra` route stay hidden until this is on.
-   */
-  | "infra"
   /**
    * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
    * Approvals, Admin), every route under `/sales/cado2`, and its backend
@@ -71,7 +67,15 @@ export type PreviewFeature =
    * route. Held back until it is ready for production. Due Diligence, the
    * rest of the Legal perspective, is unaffected.
    */
-  | "nda";
+  | "nda"
+  /**
+   * Amplify, the whole app: its launcher tile, its rail group (Celebrate,
+   * New Post, Current Posts) and every route under `/amplify`. Held back until
+   * the Amplify API proxy is live for the phase 1 pilot. Who sees New Post and
+   * Current Posts is still decided by amplify-api's `CAN_CAMPAIGN` grant
+   * (GET /me) once this is on.
+   */
+  | "amplify";
 
 /**
  * Whether a preview feature should be shown.

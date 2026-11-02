@@ -25,13 +25,26 @@ export interface AdminHistoryRow {
   endDate: string | null;
   isLegacy: boolean;
   parCycleId?: number;
+  // Legacy rows only: every stored spelling of this cycle (see below).
+  storedCycleNames?: string[];
 }
 
 // Ports HistoryPanel.tsx's own mergedRows: every closed real cycle plus one
 // row per distinct legacy cycle, latest end date first. An entry with no
 // derivable end date (never expected in practice) sorts to the very end
-// rather than the top.
+// rather than the top. Stored spellings of the same legacy cycle (a raw and
+// the canonical 2015 name, say) become ONE row carrying all of them, so the
+// admin sees one cycle with everyone in it rather than two same-titled
+// halves. A cycle stored under one spelling keeps it as its name, exactly
+// as before.
 export function buildAdminHistoryRows(closedCycles: ParCycle[], legacyCycles: ParLegacyCycleSummary[]): AdminHistoryRow[] {
+  const storedNamesByCanonical = new Map<string, string[]>();
+  for (const { cycleName } of legacyCycles) {
+    const canonical = formatLegacyCycleName(cycleName);
+    const names = storedNamesByCanonical.get(canonical) ?? [];
+    if (!names.includes(cycleName)) names.push(cycleName);
+    storedNamesByCanonical.set(canonical, names);
+  }
   const rows: AdminHistoryRow[] = [
     ...closedCycles.map((cycle) => ({
       key: `cycle-${cycle.parCycleId}`,
@@ -41,14 +54,15 @@ export function buildAdminHistoryRows(closedCycles: ParCycle[], legacyCycles: Pa
       isLegacy: false,
       parCycleId: cycle.parCycleId,
     })),
-    ...legacyCycles.map((cycle) => {
-      const { startDate, endDate } = deriveLegacyCycleDates(cycle.cycleName);
+    ...Array.from(storedNamesByCanonical, ([canonical, storedCycleNames]) => {
+      const { startDate, endDate } = deriveLegacyCycleDates(canonical);
       return {
-        key: `legacy-${cycle.cycleName}`,
-        cycleName: cycle.cycleName,
+        key: `legacy-${canonical}`,
+        cycleName: storedCycleNames.length === 1 ? storedCycleNames[0] : canonical,
         startDate,
         endDate,
         isLegacy: true,
+        storedCycleNames,
       };
     }),
   ];
@@ -97,6 +111,17 @@ export const legacyCycleListHasSpecialRatings = (cycleName: string): boolean =>
 // first + last name, else its email. Read per record, not looked up by email,
 // so a row without a name never borrows another row's.
 export const legacyEmployeeName = (record: ParLegacyHistory): string => record.employeeName?.trim() || record.employeeEmail;
+
+// Keeps the items where `term` (already trimmed and lower-cased) appears in
+// any of `fields(item)`, ranked by the first field that matched. The sort is
+// stable, so the input order holds within a rank.
+export function rankSearchMatches<T>(items: readonly T[], term: string, fields: (item: T) => readonly unknown[]): T[] {
+  return items
+    .map((item) => ({ item, rank: fields(item).findIndex((value) => String(value).toLowerCase().includes(term)) }))
+    .filter(({ rank }) => rank !== -1)
+    .sort((a, b) => a.rank - b.rank)
+    .map(({ item }) => item);
+}
 
 // The overall rating every admin legacy grid shows. Same resolver
 // ParLegacyRecordDetail uses, so a record can't show a different rating in a

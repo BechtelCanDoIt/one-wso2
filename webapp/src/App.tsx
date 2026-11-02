@@ -120,6 +120,17 @@ import MyTeamPage from "@features/my/my-team/pages/MyTeamPage";
 import TeamMemberPage from "@features/my/my-team/pages/TeamMemberPage";
 import PerspectiveLanding from "@components/perspective-landing/PerspectiveLanding";
 import SriLankaRoute from "@components/route-guards/SriLankaRoute";
+import AmplifyEditorRoute from "@components/route-guards/AmplifyEditorRoute";
+import AmplifyDashboardRoute from "@components/route-guards/AmplifyDashboardRoute";
+import CelebratePage from "@features/amplify/pages/CelebratePage";
+import NewPostPage from "@features/amplify/pages/NewPostPage";
+import CurrentPostsPage from "@features/amplify/pages/CurrentPostsPage";
+import LinkedInCallbackPage from "@features/amplify/pages/LinkedInCallbackPage";
+import GlancePage from "@features/amplify/pages/dashboards/GlanceBoard";
+import OperationsPage from "@features/amplify/pages/dashboards/OperationsBoard";
+import PostPerformancePage from "@features/amplify/pages/dashboards/PostPerformanceBoard";
+import ParticipationPage from "@features/amplify/pages/dashboards/ParticipationBoard";
+import ScorecardPage from "@features/amplify/pages/dashboards/ScorecardBoard";
 import MasterDataRoute from "@components/route-guards/MasterDataRoute";
 import AdCampaignsAnalyticsPage from "@features/marketing-ops/ad-campaigns/pages/AdCampaignsAnalyticsPage";
 import CampaignTrackerPage from "@features/marketing-ops/ad-campaigns/pages/CampaignTrackerPage";
@@ -264,22 +275,18 @@ export default function App() {
           <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
           <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
           <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
-          {isPreviewEnabled("infra") && (
-            <>
-              <Route path="infra" element={<InfraHomePage />} />
-              <Route
-                  path="infra/github/repository-requests"
-                  element={<InfraNewRepositoryPage />}
-              />
-              <Route path="infra/github/callback" element={<InfraGitHubCallbackPage />} />
-              <Route
-                path="infra/github/repository-access-requests"
-                element={<InfraRepositoryAccessPage />}
-              />
-              <Route path="infra/admin/github-settings" element={<InfraGitHubSettingsPage />} />
-              <Route path="infra/github/my-requests" element={<InfraMyRequestsPage />} />
-            </>
-          )}
+          <Route path="infra" element={<InfraHomePage />} />
+          <Route
+            path="infra/github/repository-requests"
+            element={<InfraNewRepositoryPage />}
+          />
+          <Route path="infra/github/callback" element={<InfraGitHubCallbackPage />} />
+          <Route
+            path="infra/github/repository-access-requests"
+            element={<InfraRepositoryAccessPage />}
+          />
+          <Route path="infra/admin/github-settings" element={<InfraGitHubSettingsPage />} />
+          <Route path="infra/github/my-requests" element={<InfraMyRequestsPage />} />
           {/* My Team — placeholder for now; the real subordinates view is on
               hold this iteration (mirrors people-app's lead-only nav item). */}
           {/* My Team — a lead's reporting chain, ported from people-app. */}
@@ -1007,6 +1014,56 @@ export default function App() {
               "Read more" link lands on (AppLayout drops its shell for
               that; see layouts/fullPageRoutes). */}
           <Route path="knowledge/today-i-learned/:id" element={<TilEntryRoute />} />
+          {/* Amplify, behind its preview flag like the rail entry. /amplify
+              forwards to Celebrate. New Post and Current Posts are for
+              CAN_CAMPAIGN only (GET /me): AmplifyEditorRoute sends
+              everyone else to Celebrate. The LinkedIn callback has no rail row;
+              LinkedIn redirects there after consent. */}
+          {isPreviewEnabled("amplify") && (
+            <>
+              <Route path="amplify" element={<PerspectiveLanding />} />
+              <Route path="amplify/celebrate" element={<CelebratePage />} />
+              <Route
+                path="amplify/new-post"
+                element={
+                  <AmplifyEditorRoute>
+                    <NewPostPage />
+                  </AmplifyEditorRoute>
+                }
+              />
+              <Route
+                path="amplify/current-posts"
+                element={
+                  <AmplifyEditorRoute>
+                    <CurrentPostsPage />
+                  </AmplifyEditorRoute>
+                }
+              />
+              {/* Dashboarding: CAN_DASHBOARD only (GET /me).
+                  AmplifyDashboardRoute sends everyone else to Celebrate. */}
+              <Route path="amplify/dashboards" element={<Navigate to="/amplify/dashboards/glance" replace />} />
+              {(
+                [
+                  ["glance", GlancePage],
+                  ["operations", OperationsPage],
+                  ["posts", PostPerformancePage],
+                  ["participation", ParticipationPage],
+                  ["scorecard", ScorecardPage],
+                ] as const
+              ).map(([slug, Page]) => (
+                <Route
+                  key={slug}
+                  path={`amplify/dashboards/${slug}`}
+                  element={
+                    <AmplifyDashboardRoute>
+                      <Page />
+                    </AmplifyDashboardRoute>
+                  }
+                />
+              ))}
+              <Route path="amplify/connect/callback" element={<LinkedInCallbackPage />} />
+            </>
+          )}
           {/* Legal perspective — currently just a second entry point into Due
               Diligence, alongside Finance (see the finance/ routes below and
               DUE_DILIGENCE_APPS). */}
