@@ -15,7 +15,7 @@
 // under the License.
 
 // Marketing Calendar: a month of the events, content, social posts and emails the
-// marketing team plans in GitHub (digiops-marketing#1596).
+// marketing team plans in GitHub.
 //
 // The page is the shell and the access check. The calendar itself is a layout
 // route (MarketingCalendarLayout) with one tab per view: All, Events, Content,
