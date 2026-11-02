@@ -20,10 +20,9 @@ import { categoryChipColor, categoryStyle } from "../calendarCategories";
 import { longDate } from "../calendarDates";
 import type { CalendarItem } from "../marketingCalendarTypes";
 
-// One item's details in a drawer on the right, the same shape as Event
-// Platform's SpeakerPreviewDrawer. The fields are chosen by the item's own
-// category, so an item opened from the All view reads the same as from its tab.
-// A field with no value is left out rather than shown as a dash (pending Q12).
+// One item's details in a drawer on the right. The fields are chosen by the
+// item's own category, so an item opened from the All view reads the same as
+// from its tab. A field with no value is left out rather than shown as a dash.
 export default function CalendarItemDrawer({
   item,
   onClose,
