@@ -20,14 +20,16 @@ import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
-import { isInfraBackendConfigured, infraServiceUrls } from "@config/apiConfig";
 import type { InfraUserInfo } from "./infraTypes";
+import { useIdToken } from "@hooks/useIdToken";
+import { infraBackendUrl, infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
 
 export { isInfraBackendConfigured };
 
 export function useInfraUserInfo(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
+  const getIdToken = useIdToken();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
   const userSub = subState.status === "ready" ? subState.sub : undefined;
   const configured = isInfraBackendConfigured();
@@ -36,7 +38,11 @@ export function useInfraUserInfo(enabled = true) {
     enabled: enabled && isSignedIn && configured && Boolean(userSub),
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      return authedGet<InfraUserInfo>(infraServiceUrls.userInfo, accessToken);
+      const extra =
+        infraBackendUrl.startsWith("http://localhost")
+          ? { "x-jwt-assertion": await getIdToken() }
+          : undefined;
+      return authedGet<InfraUserInfo>(infraServiceUrls.userInfo, accessToken, extra);
     },
     staleTime: 5 * 60 * 1000,
     retry: httpRetry,

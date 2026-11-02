@@ -31,6 +31,7 @@ const RESTRICTED_IDS = new Set(
 );
 
 const EMPLOYEE_IDS = new Set([
+  "infra-github-connection",
   "infra-github-new-repository",
   "infra-github-repository-access",
   "infra-github-request-access",

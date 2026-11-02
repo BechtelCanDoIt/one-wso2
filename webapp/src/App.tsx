@@ -264,7 +264,8 @@ export default function App() {
           <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
           <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
           <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
-          <Route path="infra" element={<InfraHomePage />} />
+          <Route path="infra" element={<PerspectiveLanding />} />
+          <Route path="infra/github/connection" element={<InfraHomePage />} />
           <Route
             path="infra/github/repository-requests"
             element={<InfraNewRepositoryPage />}

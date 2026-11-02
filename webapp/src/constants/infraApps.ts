@@ -20,11 +20,18 @@ import type { MenuApp } from "@constants/appMenu";
 export const INFRA_APPS: readonly MenuApp[] = [
   {
     key: "github",
-    name: "Infra Portal",
+    name: "Repository Management",
     icon: GitHub,
     alwaysGroup: true,
-    purpose: "Connect GitHub, request repositories, and review those requests.",
+    purpose: "Connect GitHub and request repositories.",
     items: [
+        {
+            id: "infra-github-connection",
+            label: "GitHub Connection",
+            desc: "Connect your GitHub account.",
+            path: "/infra/github/connection",
+            requires: ["admin"],
+        },
         {
             id: "infra-github-new-repository",
             label: "New Repository",

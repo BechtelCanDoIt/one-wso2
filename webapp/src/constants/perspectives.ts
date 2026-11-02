@@ -819,6 +819,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     access: true,
     path: "/infra",
     externallyGated: true,
+    forwardsToFirstItem: true,
     sections: appsToSections(INFRA_APPS),
   },
   // Marketing Ops — UNLOCKED. Ported so far: Utilities (UTM + Asset Name
