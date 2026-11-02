@@ -35,6 +35,7 @@ import { Empty, Panel, PagingFooter } from "@features/marketing-ops/crm-upload/c
 import { NUMERIC, TH } from "@features/marketing-ops/crm-upload/components/crmStyles";
 import type { Employee, EmployeeSort } from "../../api/types";
 import { employeeStatusMeta } from "../util/employeeStatus";
+import { cameThrough, isAdditionalReport, viaLabel } from "../util/reportingLine";
 import { formatStartDate, type SortableField } from "../util/teamSearch";
 import EmployeeAvatar from "./EmployeeAvatar";
 
@@ -53,7 +54,8 @@ interface Column {
   sortField?: SortableField;
   align?: "center";
   width?: number;
-  render: (e: Employee) => ReactNode;
+  /** `viewerEmail` is the signed-in lead's work email, for cells that depend on who is looking. */
+  render: (e: Employee, viewerEmail: string | undefined) => ReactNode;
 }
 
 const naText = (v: string | null | undefined) => (v && v.trim() ? v : "N/A");
@@ -71,7 +73,7 @@ const COLUMNS: readonly Column[] = [
     label: "Employee",
     // Sorts on the concatenated name, which is what the server offers.
     sortField: "fullName",
-    render: (e) => (
+    render: (e, viewerEmail) => (
       <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
         <EmployeeAvatar employee={e} />
         {/* Deliberately a real <button> with NO handler of its own. It exists to
@@ -106,6 +108,19 @@ const COLUMNS: readonly Column[] = [
         >
           {`${e.firstName ?? ""} ${e.lastName ?? ""}`.trim() || e.employeeId}
         </Box>
+        {/* Outside the button, so the name stays the row's accessible name.
+            flexShrink 0: a long name truncates before the chip does. */}
+        {isAdditionalReport(e, viewerEmail) && (
+          <Tooltip title="You're their additional manager" enterDelay={600}>
+            <Chip
+              label="Additional"
+              size="small"
+              variant="outlined"
+              sx={{ height: 20, fontSize: 10.5, fontWeight: 600, borderWidth: 1.5, flexShrink: 0 }}
+            />
+          </Tooltip>
+        )}
+        <ViaChip employee={e} viewerEmail={viewerEmail} />
       </Box>
     ),
   },
@@ -166,6 +181,38 @@ const COLUMNS: readonly Column[] = [
   },
 ];
 
+/**
+ * For someone in the team only through one of the viewer's additional reports:
+ * which one. Dashed, one step removed from the Additional chip, because the
+ * viewer is not their additional manager, only the additional manager of
+ * someone above them.
+ */
+function ViaChip({ employee, viewerEmail }: { employee: Employee; viewerEmail: string | undefined }) {
+  const via = cameThrough(employee, viewerEmail);
+  if (!via) return null;
+  return (
+    <Tooltip
+      title={`In your team through ${`${via.firstName} ${via.lastName}`.trim()}, whom you're an additional manager of`}
+      enterDelay={600}
+    >
+      <Chip
+        label={viaLabel(via)}
+        size="small"
+        variant="outlined"
+        sx={{
+          height: 20,
+          fontSize: 10.5,
+          fontWeight: 600,
+          borderWidth: 1.5,
+          borderStyle: "dashed",
+          color: "text.secondary",
+          flexShrink: 0,
+        }}
+      />
+    </Tooltip>
+  );
+}
+
 /** Truncating text with the full value available on hover. */
 function Ellipsis({ text }: { text: string }) {
   return (
@@ -187,6 +234,7 @@ function Ellipsis({ text }: { text: string }) {
 
 export default function MyTeamTable({
   employees,
+  viewerEmail,
   total,
   page,
   pageSize,
@@ -198,6 +246,7 @@ export default function MyTeamTable({
   onClearFilters,
 }: {
   employees: Employee[];
+  viewerEmail?: string;
   total: number;
   page: number;
   pageSize: number;
@@ -278,7 +327,7 @@ export default function MyTeamTable({
                   >
                     {COLUMNS.map((col) => (
                       <TableCell key={col.key} align={col.align}>
-                        {col.render(e)}
+                        {col.render(e, viewerEmail)}
                       </TableCell>
                     ))}
                   </TableRow>

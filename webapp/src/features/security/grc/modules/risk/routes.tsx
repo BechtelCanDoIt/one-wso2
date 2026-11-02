@@ -19,6 +19,7 @@ import RiskDashboard from "@features/security/grc/modules/risk/pages/RiskDashboa
 import RiskRegisters from "@features/security/grc/modules/risk/pages/RiskRegisters";
 import AddRisk from "@features/security/grc/modules/risk/pages/AddRisk";
 import RiskAnalytics from "@features/security/grc/modules/risk/pages/RiskAnalytics";
+import RiskAuditTrail from "@features/security/grc/modules/risk/pages/RiskAuditTrail";
 import PrivilegeGuard from "./components/PrivilegeGuard";
 import { RiskPrivilege } from "./privileges";
 
@@ -41,5 +42,8 @@ export const riskRoutes = (
     <Route path="registers" element={<RiskRegisters />} />
     <Route path="add" element={<PrivilegeGuard privilege={RiskPrivilege.CreateRisk}><AddRisk /></PrivilegeGuard>} />
     <Route path="analytics" element={<PrivilegeGuard privilege={RiskPrivilege.ViewAnalytics}><RiskAnalytics /></PrivilegeGuard>} />
+    {/* Risk owners and the compliance team only — the same rule the backend
+        applies to GET /api/v1/risks/audit-trail (see RiskPrivilege.ViewAuditTrail). */}
+    <Route path="audit-trail" element={<PrivilegeGuard privilege={RiskPrivilege.ViewAuditTrail}><RiskAuditTrail /></PrivilegeGuard>} />
   </Route>
 );

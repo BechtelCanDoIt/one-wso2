@@ -9,7 +9,7 @@
 // updated-ETA comment on the customer's case and the update's issues, and
 // doesn't refuse a change without one itself.
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { UmtUpdateFieldChange } from "../api/useUmtUpdateFieldMutation";
@@ -20,12 +20,12 @@ vi.mock("../api/useUmtWorstCaseEstimateLog", () => ({
 
 const { default: UmtUpdateDetailsGrid } = await import("./UmtUpdateDetailsGrid");
 
-function renderGrid() {
+function renderGrid(worstCaseEstimate = "2026-11-05T00:00:00Z") {
   const onSave = vi.fn<(change: UmtUpdateFieldChange) => Promise<void>>(async () => undefined);
   render(
     <UmtUpdateDetailsGrid
       id="42"
-      update={{ id: 42, lifecycleState: "Development", worstCaseEstimate: "2026-11-05T00:00:00Z" }}
+      update={{ id: 42, lifecycleState: "Development", worstCaseEstimate }}
       loading={false}
       canEdit
       onSave={onSave}
@@ -85,5 +85,39 @@ describe("worst-case estimate editor", () => {
     await openWorstCaseEditor();
 
     expect(screen.getByRole("textbox", { name: /Reason for the change/ })).toHaveValue("");
+  });
+});
+
+// The backend sends the estimate as a wall-clock time with no zone, which the
+// browser reads as local midnight. The stored Thursday must survive on both
+// sides of UTC.
+describe.each(["Asia/Colombo", "America/New_York"])("zoneless worst-case estimate in %s", (tz) => {
+  let previousTz: string | undefined;
+  beforeEach(() => {
+    previousTz = process.env.TZ;
+    process.env.TZ = tz;
+  });
+  afterEach(() => {
+    process.env.TZ = previousTz;
+  });
+
+  it("shows the stored day", () => {
+    renderGrid("Nov 12, 2026 12:00:00 AM");
+
+    expect(screen.getByText("12 Nov 2026")).toBeInTheDocument();
+  });
+
+  it("saves the stored day", async () => {
+    const { onSave } = renderGrid("Nov 12, 2026 12:00:00 AM");
+    await openWorstCaseEditor();
+
+    await enterReason("Blocked on a dependency release");
+    await userEvent.click(saveButton());
+
+    expect(onSave).toHaveBeenCalledWith({
+      field: "worstCaseEstimate",
+      value: "2026-11-12",
+      reason: "Blocked on a dependency release",
+    });
   });
 });

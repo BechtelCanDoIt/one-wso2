@@ -116,6 +116,10 @@ export interface PerspectiveSection {
   // QueryClient, so it can read what a hook has already fetched. Mutually
   // exclusive with `path`.
   onSelect?: (context: { queryClient: QueryClient }) => void;
+  // Marks an `onSelect` row whose action opens another site. The rail shows it
+  // with the arrow the launcher puts on tiles that leave One WSO2. Only read on
+  // a group's children: a top-level row, or a `path` row, ignores it.
+  opensInNewTab?: boolean;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group
@@ -165,9 +169,10 @@ function appsToSections(apps: readonly MenuApp[]): PerspectiveSection[] {
 // backend's own GET /employee-privileges, not `requires` — see
 // useBankingAdminAccess and this id's dispatch in usePerspectiveVisibility.
 // Its route lives OUTSIDE both perspectives, at a neutral top-level
-// /banking/admin (see App.tsx), the same reason Due Diligence's own routes
-// live outside Finance/Legal: a screen reached from two rails can't itself
-// live under either rail's own path prefix.
+// /banking/admin (see App.tsx): the URL picks the rail first
+// (findPerspectiveByPath), so a screen under either rail's prefix would switch
+// the other rail's users to it. Due Diligence made the opposite choice: its
+// routes live under /legal, so opening it from Finance shows the Legal rail.
 export const BANKING_ADMIN_ITEM_ID = "banking-admin";
 
 const BANKING_ADMIN_SECTION: PerspectiveSection = {
@@ -514,12 +519,12 @@ const UMT_SECTION: PerspectiveSection = {
     // same way Finance/Leave/Subscriptions items are (see the comment above
     // SUBSCRIPTION_ITEM_IDS).
     { id: "umt-products", label: "Products", icon: BoxIcon, path: umtPaths.products },
-    { id: "umt-release-chunks", label: "Releases", icon: LucideLayoutGrid, path: umtPaths.releaseChunks },
+    { id: "umt-release-chunks", label: "Release Chunks", icon: LucideLayoutGrid, path: umtPaths.releaseChunks },
     { id: "umt-statistics", label: "Statistics", icon: BarChart3, path: umtPaths.statistics },
     // Opens the documentation site in a new tab. The address is UMT backend
     // configuration (/update/documentation), not a build-time value, so the
     // row runs an action that reads it at click time.
-    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Docs", icon: Book, onSelect: openUmtDocumentation },
+    { id: UMT_DOCUMENTATION_ITEM_ID, label: "Documentation", icon: Book, onSelect: openUmtDocumentation, opensInNewTab: true },
   ],
 };
 
@@ -565,7 +570,7 @@ const SALES_ECHO_SECTION: PerspectiveSection = {
 // Sales Pitstop's Library: Smart Search over Pitstop's content. No `requires`, and not in
 // SALES_ITEM_IDS: it is not gated by the ONE_WSO2_REVOPS_BACKEND_URL backend that gates Calls and
 // Deals. The ONE_WSO2_SMART_SEARCH_BACKEND_URL backend decides what each caller may see. A group even
-// with one screen, so the rail names both the product and the screen. Held back by the `smartSearch` flag.
+// with one screen, so the rail names both the product and the screen.
 const SALES_PITSTOP_SECTION: PerspectiveSection = {
   id: "sales-pitstop",
   label: "Sales Pitstop",
@@ -576,7 +581,7 @@ const SALES_PITSTOP_SECTION: PerspectiveSection = {
 
 const SALES_SECTIONS: PerspectiveSection[] = [
   SALES_ECHO_SECTION,
-  ...(isPreviewEnabled("smartSearch") ? [SALES_PITSTOP_SECTION] : []),
+  SALES_PITSTOP_SECTION,
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
   // Its group shows CADO2's own logo, as Echo's does (D101).
@@ -797,8 +802,7 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
   // the perspective the way MIS is inside Finance — its own registry
   // (downloadStatsApps.ts), one rail row, screens in a tab bar — because its
   // Admin screen is gated by the Download Stats API's own user-info, not by
-  // `requires`. UMT is the second app, and only while its own preview flag
-  // is on. Engineering itself is shipped.
+  // `requires`. UMT is the second app. Engineering itself is shipped.
   {
     key: "engineering",
     label: "Engineering",
@@ -808,25 +812,18 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
     forwardsToFirstItem: true,
     sections: [
       ...appsToSections(DOWNLOAD_STATS_APPS),
-      ...(isPreviewEnabled("umt") ? [UMT_SECTION] : []),
+      UMT_SECTION,
     ],
   },
-  // Held behind a preview flag, whole perspective and all, until it's ready
-  // for production. With the flag off the entry does not exist, so the waffle,
-  // landing options, and favourites stay clean.
-  ...(isPreviewEnabled("infra")
-  ? [
-      {
-        key: "infra",
-        label: "Infrastructure",
-        icon: ServerIcon,
-        access: true,
-        path: "/infra",
-        externallyGated: true,
-        sections: appsToSections(INFRA_APPS),
-      },
-    ]
-  : []),
+  {
+    key: "infra",
+    label: "Infrastructure",
+    icon: ServerIcon,
+    access: true,
+    path: "/infra",
+    externallyGated: true,
+    sections: appsToSections(INFRA_APPS),
+  },
   // Marketing Ops — UNLOCKED. Ported so far: Utilities (UTM + Asset Name
   // generators and their Marketing Admin panels) and Ad Campaigns → Analytics.
   // Still in Marketing Ops itself: Email Workbench, Events, CRM Upload — those

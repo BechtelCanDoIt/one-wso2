@@ -57,7 +57,10 @@ export type SlaState = "ON_TRACK" | "AT_RISK" | "BREACHED";
 export interface ApprovalStep {
   readonly stepId: number | null;
   readonly role: ApprovalRole;
+  /** "Regional Director · NA" for a regional step (D13). */
   readonly roleLabel: string;
+  /** Only approvers in this sales region may act (D13); null = anyone with the role. */
+  readonly region?: string | null;
   /** Empty for Deal Desk; both for a role shared by the branches. */
   readonly branches: readonly ApprovalBranch[];
   readonly dependsOn: readonly ApprovalRole[];
@@ -109,6 +112,7 @@ export interface ApprovalInboxItem {
   readonly stepId: number;
   readonly role: ApprovalRole;
   readonly roleLabel: string;
+  readonly region?: string | null;
   readonly requestedAt: string | null;
   /** The step's deadline and how it stands; the inbox comes most urgent first. */
   readonly dueAt?: string | null;
@@ -157,6 +161,8 @@ export interface ApprovalSettings {
   readonly saasClassification: string;
   /** Billing frequencies that need the CFO (D89); none = the rule is off. */
   readonly billingApproval: readonly BillingFrequency[];
+  /** Approval roles whose steps only approvers in the account's region may act on (D13). */
+  readonly regionalRoles: readonly string[];
 }
 
 export interface ApprovalRoleInfo {

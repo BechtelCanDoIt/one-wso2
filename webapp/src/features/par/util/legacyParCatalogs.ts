@@ -15,7 +15,7 @@
 // under the License.
 
 // Groups each era's known PeopleHR question labels into named categories
-// (2015) or a single flat "Performance Questions and Answers" list
+// (2015) or a single flat "Employee Feedback" list
 // (2016/2017/2018), with the full question wording ("subtext") shown above
 // each answer, and (2015's rating categories only) the raw 0-5 answer
 // shown as a filled chip rather than body text. No
@@ -23,6 +23,7 @@
 // "manager score as comment" special case -- neither is needed for parity
 // on this main view.
 import type { ParLegacyQuestionAnswer } from "../api/types";
+import { isThreeSixtyConfirmation } from "./parLegacyHistory";
 
 export type LegacyCatalogAnswerType = "rating" | "text";
 
@@ -39,11 +40,19 @@ export interface LegacyCatalogQuestion {
   // promotion questions, which are genuinely lead-only despite the
   // original catalog never distinguishing sides for 2015).
   leadOnly?: boolean;
+  // Stricter than leadOnly: never shown on the Employee's Feedback panel,
+  // whatever the employee typed (explicit request -- an employee's answer
+  // to "Promotion confirmed?"/"Revised Designation" is not part of their
+  // own feedback).
+  hiddenFromEmployee?: boolean;
   // Explicit local request: some flat-display prompts (2020's "SHARE
   // FEEDBACK..." criteria list) read as one continuous instructional
   // paragraph rather than a short question label -- italicize the label
   // too instead of the usual bold, matching that reading.
   italicLabel?: boolean;
+  // Shown instead of label, which still has to match the stored question
+  // title exactly -- e.g. to drop a stored title's trailing full stop.
+  displayLabel?: string;
 }
 
 export interface LegacyCatalogCategory {
@@ -58,6 +67,12 @@ export interface LegacyCatalogCategory {
 
 const t = (label: string, subtext: string): LegacyCatalogQuestion => ({ label, subtext });
 const leadOnly = (label: string, subtext: string): LegacyCatalogQuestion => ({ label, subtext, leadOnly: true });
+const promotionQuestion = (label: string): LegacyCatalogQuestion => ({
+  label,
+  subtext: "",
+  leadOnly: true,
+  hiddenFromEmployee: true,
+});
 // Every employeeOnly question in this catalog turned out to also want the
 // italic-label treatment (the 2017-2019 "feedback on the quarter"-style
 // prompts, same request as 2020's SHARE FEEDBACK question) -- no plain
@@ -278,20 +293,23 @@ export const LEGACY_2017_CATALOG: Record<string, LegacyCatalogQuestion[]> = {
       "Any specific areas you want to discuss?",
       "Basically all you need to write here is list (or detail) down anything in particular you would like addressed in the discussions with your TL (for e.g: Career progression, plans for higher studies etc or anything else you want to talk about or address).",
     ),
-    t(
-      "Your feedback and observations on the quarter in review.",
-      "The purpose is to get input from each of you on how we can do things better. It does not necessarily have to be directly related to your work, and could be feedback in general. This is an opportunity for you to give feedback on everything and is not related to your performance rating. This feedback will be shared with everyone anonymously at the end of the quarter.",
-    ),
-    leadOnly("Promotion confirmed?", ""),
-    leadOnly("Revised Designation ( if recommended for promotion )", ""),
+    {
+      ...t(
+        "Your feedback and observations on the quarter in review.",
+        "The purpose is to get input from each of you on how we can do things better. It does not necessarily have to be directly related to your work, and could be feedback in general. This is an opportunity for you to give feedback on everything and is not related to your performance rating. This feedback will be shared with everyone anonymously at the end of the quarter.",
+      ),
+      displayLabel: "Your feedback and observations on the quarter in review",
+    },
+    promotionQuestion("Promotion confirmed?"),
+    promotionQuestion("Revised Designation ( if recommended for promotion )"),
   ],
   "2017 Quarterly Review - Q2": [
     t(
       "Any specific areas you want to discuss?",
       "Basically all you need to write here is list (or detail) down anything in particular you would like addressed in the discussions with your Team Lead.",
     ),
-    leadOnly("Promotion confirmed?", ""),
-    leadOnly("Revised Designation ( if recommended for promotion )", ""),
+    promotionQuestion("Promotion confirmed?"),
+    promotionQuestion("Revised Designation ( if recommended for promotion )"),
   ],
   "2017 Quarterly Review - Q3": [
     leadOnly(
@@ -306,8 +324,8 @@ export const LEGACY_2017_CATALOG: Record<string, LegacyCatalogQuestion[]> = {
       "Is the employee performing at the next level?",
       "Employees - Please type N/A\nTeam Leads - Yes/No. If Yes, please give details on the stage of the next level the employee is at. If No, provide details on how they can move to the next level.",
     ),
-    leadOnly("Promotion confirmed?", ""),
-    leadOnly("Revised Designation ( if recommended for promotion )", ""),
+    promotionQuestion("Promotion confirmed?"),
+    promotionQuestion("Revised Designation ( if recommended for promotion )"),
   ],
   "2017 Quarterly Review - Q4": [
     leadOnly(
@@ -322,8 +340,8 @@ export const LEGACY_2017_CATALOG: Record<string, LegacyCatalogQuestion[]> = {
       "Is the employee performing at the next level?",
       "Employees - Please type N/A\nTeam Leads - Yes/No. If Yes, please give details on the stage of the next level the employee is at. If No, provide details on how they can move to the next level.",
     ),
-    leadOnly("Promotion confirmed?", ""),
-    leadOnly("Revised Designation ( if recommended for promotion )", ""),
+    promotionQuestion("Promotion confirmed?"),
+    promotionQuestion("Revised Designation ( if recommended for promotion )"),
   ],
 };
 
@@ -338,8 +356,8 @@ const Q1_Q2_2018: LegacyCatalogQuestion[] = [
     "Is the employee performing at the next level?",
     "If Yes, please give details on the stage of the next level the employee is at. If No, provide details on how they can move to the next level.",
   ),
-  leadOnly("Promotion confirmed?", ""),
-  leadOnly("Revised Designation ( if recommended for promotion ).", ""),
+  promotionQuestion("Promotion confirmed?"),
+  promotionQuestion("Revised Designation ( if recommended for promotion )."),
 ];
 const Q3_Q4_2018: LegacyCatalogQuestion[] = [
   employeeOnlyItalic(
@@ -465,6 +483,10 @@ function hasData(text: string | null | undefined, treatNAAsAbsent: boolean): boo
   return !(treatNAAsAbsent && text.trim().toUpperCase() === "N/A");
 }
 
+// Title of a side's non-category (flat/perQuestion) group -- 2015's
+// category groups keep their own catalog titles instead.
+export const sideFeedbackTitle = (side: "employee" | "lead") => (side === "employee" ? "Employee Feedback" : "Lead Feedback");
+
 export interface LegacyGroupRow {
   label: string;
   subtext: string;
@@ -472,6 +494,10 @@ export interface LegacyGroupRow {
   managerFeedback: string | null;
   italicLabel?: boolean;
 }
+
+/** The answer a row carries for the given side. */
+export const legacyRowAnswer = (row: LegacyGroupRow, side: "employee" | "lead") =>
+  side === "employee" ? row.employeeAnswer : row.managerFeedback;
 // How a group's rows render:
 //  - "category": 2015 only -- the GROUP itself is an accordion (its own
 //    title, "(Rating scale from 1 to 5)" caption for rating categories),
@@ -495,14 +521,24 @@ export interface LegacyGroup {
 }
 
 // One dispatcher covering every catalogued era -- returns grouped sections
-// for the Employee's Feedback / Lead's Feedback panels, or null when this cycle
-// name has no catalog at all; callers fall back to the flat
-// questionAnswers list in that case.
+// for the Employee's Feedback / Lead's Feedback panels. A cycle with no
+// catalog lists its recorded questions as-is (getUncataloguedQuestionGroups).
+// Null when the side has no answers to show; callers render "N/A" then.
 export function getLegacyQuestionGroups(
   cycleName: string,
   questionAnswers: ParLegacyQuestionAnswer[],
   side: "employee" | "lead",
 ): LegacyGroup[] | null {
+  // employeeOnly/leadOnly hide a question's other side only when that side
+  // is genuinely empty -- the stored data can carry a lead's own answer on
+  // some "employee-only" prompts (e.g. 2020+'s SHARE FEEDBACK question), and
+  // that answer must not be silently dropped. hiddenFromEmployee questions
+  // are never shown on the employee side, answered or not.
+  const showOnSide = (question: LegacyCatalogQuestion, answer: ParLegacyQuestionAnswer | undefined) =>
+    side === "employee"
+      ? !question.hiddenFromEmployee && (!question.leadOnly || hasData(answer?.employeeAnswer, true))
+      : !question.employeeOnly || hasData(answer?.managerFeedback, true);
+
   const categories = LEGACY_2015_CATALOG[cycleName];
   if (categories) {
     const groups = categories
@@ -511,11 +547,11 @@ export function getLegacyQuestionGroups(
         type: category.type,
         layout: "category" as const,
         rows: category.questions
-          .filter((question) => (side === "employee" ? !question.leadOnly : !question.employeeOnly))
-          .map((question) => {
-            const answer = findAnswer(question.label, questionAnswers);
+          .map((question) => ({ question, answer: findAnswer(question.label, questionAnswers) }))
+          .filter(({ question, answer }) => showOnSide(question, answer))
+          .map(({ question, answer }) => {
             return {
-              label: question.label,
+              label: question.displayLabel ?? question.label,
               subtext: question.subtext,
               employeeAnswer: answer?.employeeAnswer ?? null,
               managerFeedback: answer?.managerFeedback ?? null,
@@ -524,7 +560,7 @@ export function getLegacyQuestionGroups(
           // N/A shows as a real answer for 2015 too (not hidden) -- explicit
           // request: whatever the lead/employee actually wrote, including a
           // literal "N/A", should display rather than being silently hidden.
-          .filter((row) => hasData(side === "employee" ? row.employeeAnswer : row.managerFeedback, false)),
+          .filter((row) => hasData(legacyRowAnswer(row, side), false)),
       }))
       .filter((group) => group.rows.length > 0);
     return groups.length > 0 ? groups : null;
@@ -538,7 +574,7 @@ export function getLegacyQuestionGroups(
     LEGACY_2020_CATALOG[cycleName] ??
     LEGACY_2021_CATALOG[cycleName];
   if (!flatQuestions) {
-    return null;
+    return getUncataloguedQuestionGroups(questionAnswers, side);
   }
   const treatNAAsAbsent = Boolean(LEGACY_2016_CATALOG[cycleName]);
   const isFlatDisplay =
@@ -547,19 +583,41 @@ export function getLegacyQuestionGroups(
     LEGACY_2020_FLAT_DISPLAY_CYCLES.has(cycleName) ||
     LEGACY_2021_FLAT_DISPLAY_CYCLES.has(cycleName);
   const rows = flatQuestions
-    .filter((question) => (side === "employee" ? !question.leadOnly : !question.employeeOnly))
-    .map((question) => {
-      const answer = findAnswer(question.label, questionAnswers);
+    .map((question) => ({ question, answer: findAnswer(question.label, questionAnswers) }))
+    .filter(({ question, answer }) => showOnSide(question, answer))
+    .map(({ question, answer }) => {
       return {
-        label: question.label,
+        label: question.displayLabel ?? question.label,
         subtext: question.subtext,
         employeeAnswer: answer?.employeeAnswer ?? null,
         managerFeedback: answer?.managerFeedback ?? null,
         italicLabel: question.italicLabel,
       };
     })
-    .filter((row) => hasData(side === "employee" ? row.employeeAnswer : row.managerFeedback, treatNAAsAbsent));
+    .filter((row) => hasData(legacyRowAnswer(row, side), treatNAAsAbsent));
   return rows.length > 0
-    ? [{ title: "Performance Questions and Answers", type: "text", layout: isFlatDisplay ? "flat" : "perQuestion", rows }]
+    ? [{ title: sideFeedbackTitle(side), type: "text", layout: isFlatDisplay ? "flat" : "perQuestion", rows }]
     : null;
+}
+
+// A cycle with no catalog still has real per-question answers on BOTH
+// sides -- previously only the employee's were shown (flattened into the
+// Employee Comment box) and the lead's were dropped entirely. Lists every
+// recorded question as-is, in stored order. "360 Confirmation" is excluded
+// here too -- it has its own dedicated section (see
+// ParLegacyRecordDetail.tsx's threeSixtyConfirmationAnswer).
+function getUncataloguedQuestionGroups(
+  questionAnswers: ParLegacyQuestionAnswer[],
+  side: "employee" | "lead",
+): LegacyGroup[] | null {
+  const rows = questionAnswers
+    .filter((qa) => !isThreeSixtyConfirmation(qa))
+    .filter((qa) => hasData(side === "employee" ? qa.employeeAnswer : qa.managerFeedback, true))
+    .map((qa) => ({
+      label: qa.title?.trim() || "Answer",
+      subtext: "",
+      employeeAnswer: qa.employeeAnswer ?? null,
+      managerFeedback: qa.managerFeedback ?? null,
+    }));
+  return rows.length > 0 ? [{ title: sideFeedbackTitle(side), type: "text", layout: "flat", rows }] : null;
 }

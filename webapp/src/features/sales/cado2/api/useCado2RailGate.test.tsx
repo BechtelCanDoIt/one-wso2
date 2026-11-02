@@ -36,15 +36,18 @@ vi.mock("./useCado2Me", async (importOriginal) => ({
   useCado2Me: () => ({ ...state.me, refetch: vi.fn() }),
 }));
 
-const me = (roles: Cado2Me["roles"], approverRoles: string[] = []): Cado2Me => ({
+const me = (roles: Cado2Me["roles"], approverRoles: string[] = [], canViewInsights = false): Cado2Me => ({
   sub: "u1",
   email: "rep@wso2.com",
   roles,
   approverRoles,
+  canViewInsights,
 });
 
 const visible = (gate: ReturnType<typeof useCado2RailGate>) =>
-  [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals, CADO2_ITEM.admin].filter((id) => gate.canSee(id));
+  [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals, CADO2_ITEM.insights, CADO2_ITEM.admin].filter((id) =>
+    gate.canSee(id),
+  );
 
 beforeEach(() => {
   state.configured = true;
@@ -62,6 +65,12 @@ describe("which CadO2 rows a person sees", () => {
     state.me.data = me([], ["DEAL_DESK"]);
     const { result } = renderHook(() => useCado2RailGate(true));
     expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.approvals]);
+  });
+
+  it("Deal Desk and above see Insights when the backend says so (D105)", () => {
+    state.me.data = me([], ["DEAL_DESK"], true);
+    const { result } = renderHook(() => useCado2RailGate(true));
+    expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.approvals, CADO2_ITEM.insights]);
   });
 
   it("an admin-only person sees Admin, and nothing else", () => {
@@ -106,12 +115,12 @@ describe("which CadO2 rows a person sees", () => {
   it("with no backend configured every row stays, and each page explains what is missing", () => {
     state.configured = false;
     const { result } = renderHook(() => useCado2RailGate(true));
-    expect(visible(result.current)).toHaveLength(4);
+    expect(visible(result.current)).toHaveLength(5);
     expect(result.current.isResolving).toBe(false);
   });
 
   it("fails closed for an id it has no case for", () => {
-    expect(cado2CanSee("sales-cado2-something-new", { canQuote: true, canApprove: true, isAdmin: true })).toBe(false);
+    expect(cado2CanSee("sales-cado2-something-new", { canQuote: true, canApprove: true, isAdmin: true, canViewInsights: true })).toBe(false);
   });
 });
 
@@ -119,7 +128,7 @@ describe("the cado2 adapter's claim", () => {
   it("covers every CadO2 row, the group included", () => {
     expect(claimOf("cado2")).toEqual({ kind: "sections", ids: CADO2_ITEM_IDS });
     expect([...CADO2_ITEM_IDS].sort()).toEqual(
-      [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals, CADO2_ITEM.admin].sort(),
+      [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals, CADO2_ITEM.insights, CADO2_ITEM.admin].sort(),
     );
   });
 

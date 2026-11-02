@@ -46,6 +46,12 @@ export const RiskPrivilege = {
   ManageActionPlans:     "RISK_MANAGE_ACTION_PLANS",
   ManageComplianceRefs:  "RISK_MANAGE_COMPLIANCE_REFS",
   ViewAnalytics:         "RISK_VIEW_ANALYTICS",
+  // SYNTHETIC: not a privilege in the privilege table. The backend reports
+  // whether the caller is a risk owner or on the compliance team (the only roles
+  // that may open Risk Hub > Audit Trail) on GET /api/v1/risks/me/involvement,
+  // and mergeRiskPrivileges materialises it here, so the nav and route guard
+  // can ask it like any other privilege. The backend enforces the same rule.
+  ViewAuditTrail:        "RISK_VIEW_AUDIT_TRAIL",
   // RETIRED alongside the MANAGEMENT action plan itself: an escalation is now
   // answered with a comment, and additional plans are created by the Risk
   // Assigner under ManageActionPlans. Seeded INACTIVE server-side, so it

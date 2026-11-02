@@ -21,6 +21,7 @@ import DeleteDraftDialog from "@features/sales/cado2/quotes/components/detail/De
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
   useAuditEvents,
+  useCloneQuote,
   useCloseQuote,
   useQuote,
   useQuoteVersion,
@@ -47,16 +48,28 @@ import {
 import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/sales/cado2/approvals/model/myApprovals";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
+import LegalTermsEditor from "@features/sales/cado2/approvals/components/LegalTermsEditor";
+import { legalApproveBlock } from "@features/sales/cado2/quotes/form/legalModel";
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
-import { ArrowDownIcon, ArrowLeftIcon, PencilIcon, RotateCcwIcon, StarIcon, Trash2Icon, Undo2Icon, XCircleIcon } from "@wso2/oxygen-ui-icons-react";
+import {
+  ArrowDownIcon,
+  ArrowLeftIcon,
+  CopyIcon,
+  PencilIcon,
+  RotateCcwIcon,
+  StarIcon,
+  Trash2Icon,
+  Undo2Icon,
+  XCircleIcon,
+} from "@wso2/oxygen-ui-icons-react";
 import QuoteActionsMenu from "@features/sales/cado2/quotes/components/detail/QuoteActionsMenu";
 import PrimaryStar from "@features/sales/cado2/components/primary-star/PrimaryStar";
-import { useCado2Me } from "@features/sales/cado2/api/useCado2Me";
+import { cado2Access, useCado2Me } from "@features/sales/cado2/api/useCado2Me";
 import { cado2Paths, type Cado2QuoteTab } from "@features/sales/cado2/cado2Paths";
 import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 
-type Dialog = "recall" | "revise" | "close" | "delete" | "primary" | null;
+type Dialog = "recall" | "revise" | "clone" | "close" | "delete" | "primary" | null;
 
 const scrollToYourApproval = () =>
   document.getElementById(YOUR_APPROVAL_ANCHOR)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -80,6 +93,12 @@ export default function QuoteDetailPage(): JSX.Element {
   // Opened from My Approvals (?from=approvals): the back link returns there.
   const [search] = useSearchParams();
   const fromApprovals = search.get("from") === "approvals";
+  // Opened from the Quote Report (?from=insights&back=…): the back link returns
+  // to the report with its filters. Only an Insights address is accepted.
+  const insightsBack = search.get("from") === "insights" ? search.get("back") : null;
+  const backToReport = insightsBack?.startsWith(cado2Paths.insights("report").split("?")[0]) ? insightsBack : null;
+  const keepFrom = (path: string) =>
+    backToReport ? `${path}${path.includes("?") ? "&" : "?"}${new URLSearchParams({ from: "insights", back: backToReport })}` : path;
   const quoteId = Number(params.quoteId);
   const tab = TAB_SEGMENTS.indexOf(params.tab as Cado2QuoteTab);
   const quote = useQuote(quoteId);
@@ -90,10 +109,11 @@ export default function QuoteDetailPage(): JSX.Element {
   const shownNumber = quote.data?.versions.some((x) => x.versionNumber === asked) ? asked : latestNumber;
   const viewingOlder = shownNumber !== null && latestNumber !== null && shownNumber !== latestNumber;
   const shownParam = viewingOlder ? (shownNumber ?? undefined) : undefined;
-  const openTab = (i: number) => navigate(cado2Paths.quote(quoteId, TAB_SEGMENTS[i], fromApprovals, shownParam));
+  const openTab = (i: number) => navigate(keepFrom(cado2Paths.quote(quoteId, TAB_SEGMENTS[i], fromApprovals, shownParam)));
   const shown = useQuoteVersion(quoteId, shownNumber);
   const recall = useRecallVersion();
   const revise = useReviseQuote();
+  const clone = useCloneQuote();
   const close = useCloseQuote();
   const events = useAuditEvents(quoteId);
   const sheet = useMemo(() => (shown.data ? sheetFromVersion(shown.data) : null), [shown.data]);
@@ -120,6 +140,7 @@ export default function QuoteDetailPage(): JSX.Element {
   const openDialog = (d: Dialog) => {
     recall.reset();
     revise.reset();
+    clone.reset();
     close.reset();
     setDialog(d);
   };
@@ -153,6 +174,10 @@ export default function QuoteDetailPage(): JSX.Element {
   const approverRoles = me.data?.approverRoles ?? [];
   // Something to decide: the "Your decision" band shows.
   const hasDecision = actionable.length > 0;
+  // Any AM who can read the quote may clone the version shown (D108).
+  const cloneAction = cado2Access(me.data).canQuote
+    ? [{ label: "Clone quote", icon: <CopyIcon size={16} />, onClick: () => openDialog("clone") }]
+    : [];
 
   const approvalProps = { isDraft, workflow, preview: approvalPreview };
   // Opens the Quote tab if needed, then scrolls to "Your approval".
@@ -203,11 +228,11 @@ export default function QuoteDetailPage(): JSX.Element {
       <Stack spacing={1.5}>
         <Link
           component={RouterLink}
-          to={fromApprovals ? cado2Paths.approvals : cado2Paths.quotes}
+          to={backToReport ?? (fromApprovals ? cado2Paths.approvals : cado2Paths.quotes)}
           variant="body2"
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, alignSelf: "flex-start" }}
         >
-          <ArrowLeftIcon size={14} /> {fromApprovals ? "My Approvals" : "Quotes"}
+          <ArrowLeftIcon size={14} /> {backToReport ? "Quote Report" : fromApprovals ? "My Approvals" : "Quotes"}
         </Link>
         {/* The record header (frontend.md, "Page titles"): the account is the
             page's title on every tab, with everything about who and what the
@@ -228,7 +253,10 @@ export default function QuoteDetailPage(): JSX.Element {
                 <>
                   {/* One main button, the next step for this status; the rest is under "⋯" (2026-10-12). */}
                   {mainAction}
-                  {viewingOlder ? null : (
+                  {viewingOlder ? (
+                    // An older version's only action: cloning it.
+                    cloneAction.length ? <QuoteActionsMenu actions={cloneAction} destructive={[]} /> : null
+                  ) : (
                     <QuoteActionsMenu
                       actions={[
                         ...(can("RECALL") ? [{ label: "Recall", icon: <Undo2Icon size={16} />, onClick: () => openDialog("recall") }] : []),
@@ -245,6 +273,7 @@ export default function QuoteDetailPage(): JSX.Element {
                               },
                             ]
                           : []),
+                        ...cloneAction,
                       ]}
                       destructive={[
                         ...(v.status === "DRAFT" && can("CLOSE")
@@ -261,7 +290,8 @@ export default function QuoteDetailPage(): JSX.Element {
         ) : null}
         {viewingOlder ? (
           <Alert severity="info">
-            You&apos;re viewing version {v.versionNumber}. The latest is version {latestNumber}; actions apply to the latest.
+            You&apos;re viewing version {v.versionNumber}. The latest is version {latestNumber}. Clone copies this version; other
+            actions apply to the latest.
           </Alert>
         ) : null}
       </Stack>
@@ -291,6 +321,8 @@ export default function QuoteDetailPage(): JSX.Element {
                   actionable={actionable}
                   repCategories={[...repCategoryPoints(sheet.lines), ...renewalStartPoints(sheet)]}
                   onDecide={openDecision}
+                  legalEditor={v.legal ? <LegalTermsEditor key={v.updatedAt} quoteId={q.id} versionNumber={v.versionNumber} legal={v.legal} /> : undefined}
+                  legalApproveBlock={legalApproveBlock(v.legal)}
                 />
               </Box>
             ) : null}
@@ -316,7 +348,14 @@ export default function QuoteDetailPage(): JSX.Element {
                   events={events.data ?? []}
                   eventsError={events.error}
                   onRetryEvents={() => void events.refetch()}
-                  documents={<DocumentsPanel quoteId={q.id} version={v.versionNumber} approved={v.status === "APPROVED"} />}
+                  documents={
+                    <DocumentsPanel
+                      quoteId={q.id}
+                      version={v.versionNumber}
+                      approved={v.status === "APPROVED"}
+                      olderVersion={viewingOlder}
+                    />
+                  }
                 />
                 <OpportunityQuotesPanel quoteId={q.id} opportunityId={q.sfOpportunityId} />
               </Stack>
@@ -402,6 +441,31 @@ export default function QuoteDetailPage(): JSX.Element {
         >
           Version {v.versionNumber + 1} starts as an exact copy of version {v.versionNumber}, with the same prices. Version{" "}
           {v.versionNumber} stays as it is.
+        </LifecycleDialog>
+      ) : null}
+      {dialog === "clone" ? (
+        <LifecycleDialog
+          title={`Clone ${q.quoteNumber ?? "this quote"} v${v.versionNumber}?`}
+          confirmLabel="Clone"
+          pending={clone.isPending}
+          error={clone.error}
+          onClose={() => setDialog(null)}
+          onConfirm={() =>
+            clone.mutate(
+              { quoteId: q.id, version: v.versionNumber },
+              {
+                onSuccess: (res) => {
+                  setDialog(null);
+                  navigate(cado2Paths.editVersion(res.quote.id, res.version.versionNumber), {
+                    state: { clonedFrom: `${q.quoteNumber ?? "the quote"} v${v.versionNumber}` },
+                  });
+                },
+              },
+            )
+          }
+        >
+          A new draft quote is created on the same account and opportunity, with everything from version {v.versionNumber}{" "}
+          at the same prices. You can change anything except the account and opportunity. This quote stays as it is.
         </LifecycleDialog>
       ) : null}
       {dialog === "delete" ? (

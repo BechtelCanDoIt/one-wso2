@@ -29,7 +29,7 @@ import {
 //
 // It is the Exit ARR summary's opposite in one way that decides everything
 // else: Exit ARR is a BALANCE per region (one figure, split seven ways by
-// business unit) and this is the MOVEMENT of that balance (seven figures, from
+// business unit) and this is the MOVEMENT of that balance (eight figures, from
 // an Opening to a Closing, cut by ONE business unit at a time). So the columns
 // here are the Build's `{opening} - {end}` spans rather than `As of {end}`, and
 // the unit is a narrowing rather than a breakdown.
@@ -95,11 +95,12 @@ describe("which regions the table has rows for", () => {
   });
 });
 
-describe("the seven metric columns", () => {
+describe("the movement columns", () => {
   it("runs from an Opening balance to a Closing one, the way a Build reads", () => {
     expect(REGION_METRICS_SUB_COLUMNS.map((column) => column.label)).toEqual([
       "Opening ARR",
       "First Sale",
+      "Acquired ARR",
       "Expansion",
       "Reduction",
       "Loss",
@@ -115,6 +116,7 @@ describe("the seven metric columns", () => {
     expect(fieldByKey).toEqual({
       opening: "opening",
       "first-sale": "firstSale",
+      acquired: "acquired",
       expansion: "expansions",
       reduction: "reductions",
       loss: "lost",
@@ -126,7 +128,7 @@ describe("the seven metric columns", () => {
 
 describe("the figure in a cell", () => {
   const book = answered({
-    apac: metrics({ opening: 100, firstSale: 20, expansions: 30, reductions: 5, lost: 10, netNew: 35, ending: 135 }),
+    apac: metrics({ opening: 100, firstSale: 20, acquired: 7, expansions: 30, reductions: 5, lost: 10, netNew: 35, ending: 135 }),
   });
 
   it("reads each metric off its own field", () => {
@@ -134,6 +136,7 @@ describe("the figure in a cell", () => {
     expect(apac).toEqual({
       opening: 100,
       firstSale: 20,
+      acquired: 7,
       expansions: 30,
       reductions: 5,
       lost: 10,
@@ -145,6 +148,7 @@ describe("the figure in a cell", () => {
   it("is zero for a metric the backend left out, because every cell here is computed", () => {
     const apac = regionMetricsTable(answered({ apac: {} })).figures.get("2025 - 2026")!.get("apac")!;
     expect(apac.opening).toBe(0);
+    expect(apac.acquired).toBe(0);
     expect(apac.ending).toBe(0);
   });
 
@@ -158,8 +162,8 @@ describe("the figure in a cell", () => {
 
 describe("the Total row", () => {
   const twoRegions = answered({
-    apac: metrics({ opening: 100, expansions: 30, ending: 135 }),
-    eu: metrics({ opening: 50, expansions: 5, ending: 60 }),
+    apac: metrics({ opening: 100, acquired: 10, expansions: 30, ending: 135 }),
+    eu: metrics({ opening: 50, acquired: 4, expansions: 5, ending: 60 }),
   });
 
   it("is last, under the regions it adds up", () => {
@@ -177,6 +181,7 @@ describe("the Total row", () => {
   it("adds each metric down the regions", () => {
     const total = regionMetricsTable(twoRegions).figures.get("2025 - 2026")!.get(REGION_METRICS_TOTAL_ROW_ID)!;
     expect(total.opening).toBe(150);
+    expect(total.acquired).toBe(14);
     expect(total.expansions).toBe(35);
     expect(total.ending).toBe(195);
   });

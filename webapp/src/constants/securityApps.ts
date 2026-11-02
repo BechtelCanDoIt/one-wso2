@@ -79,6 +79,7 @@ export const SECURITY_APPS: readonly MenuApp[] = [
       { id: "security-risk-registers", label: "Risk Registers", desc: "Every risk you can see, across the approval workflow.", path: "/security/risk/registers" },
       { id: "security-risk-add", label: "Add Risk", desc: "Raise a new risk: basic information, assessment scoring, and its action plan.", path: "/security/risk/add" },
       { id: "security-risk-analytics", label: "Analytics", desc: "Trends, workflow funnel and compliance coverage, with CSV export.", path: "/security/risk/analytics" },
+      { id: "security-risk-audit-trail", label: "Audit Trail", desc: "Every change made to the risks you can see — who changed what, and when.", path: "/security/risk/audit-trail" },
     ],
   },
   {
@@ -137,6 +138,7 @@ export const SECURITY_ITEM_PRIVILEGE: Readonly<Record<string, string>> = {
   "security-risk-registers": "RISK_VIEW_RISKS",
   "security-risk-add": "RISK_CREATE",
   "security-risk-analytics": "RISK_VIEW_ANALYTICS",
+  "security-risk-audit-trail": "RISK_VIEW_AUDIT_TRAIL",
   "security-admin-users": "MANAGE_USERS",
   "security-admin-audit-hub": "MANAGE_AUDIT_HUB",
   "security-admin-risk-hub": "MANAGE_RISK_HUB",

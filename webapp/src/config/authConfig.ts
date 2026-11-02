@@ -65,9 +65,8 @@ declare global {
       // pages show a not-connected state and make no requests.
       ONE_WSO2_CADO2_BACKEND_URL?: string;
       // Base URL for the Pitstop backend that serves Smart Search, version
-      // segment included. Optional — when absent (and the `smartSearch` preview
-      // flag is on) Sales → Library shows a not-connected state and makes no
-      // requests.
+      // segment included. Optional — when absent Sales → Library shows a
+      // not-connected state and makes no requests.
       ONE_WSO2_SMART_SEARCH_BACKEND_URL?: string;
       // Base URL for the MEDDPICC backend (digiops-sales echo-backend), which
       // powers the Deals tab and the MEDDPICC column under Sales. Optional —

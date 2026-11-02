@@ -94,6 +94,7 @@ describe("what is not a number", () => {
 describe("which kind of number a Build row holds", () => {
   it("calls the customer lines counts", () => {
     expect(misValueTypeForRow(MIS_ROW_LABELS.OPENING_CUSTOMERS)).toBe(COUNT);
+    expect(misValueTypeForRow(MIS_ROW_LABELS.ACQUIRED_CUSTOMERS)).toBe(COUNT);
     expect(misValueTypeForRow(MIS_ROW_LABELS.CLOSING_CUSTOMERS)).toBe(COUNT);
   });
 
@@ -105,6 +106,7 @@ describe("which kind of number a Build row holds", () => {
 
   it("calls the movement lines currency", () => {
     expect(misValueTypeForRow(MIS_ROW_LABELS.OPENING_ARR)).toBe(CURRENCY);
+    expect(misValueTypeForRow(MIS_ROW_LABELS.ACQUIRED_ARR)).toBe(CURRENCY);
     expect(misValueTypeForRow(MIS_ROW_LABELS.LOST)).toBe(CURRENCY);
   });
 

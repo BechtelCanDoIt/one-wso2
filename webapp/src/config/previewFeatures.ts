@@ -24,7 +24,7 @@
  * branching the build or holding work out of `main`.
  *
  * ```js
- * ONE_WSO2_PREVIEW_FEATURES: { umt: true },
+ * ONE_WSO2_PREVIEW_FEATURES: { cado2: true },
  * ```
  *
  * ## Absent means off
@@ -55,18 +55,6 @@
  */
 export type PreviewFeature =
   /**
-   * Engineering → UMT, the whole app — its rail group and every route under
-   * `/engineering/umt`. Engineering itself is shipped; this flag only hides
-   * UMT. Held back as a whole inside Engineering.
-   * `useUmtGate`'s own role check against the UMT backend is unrelated and
-   * keeps working the same regardless of this flag.
-   */
-  | "umt"
-  /* The whole Infra Portal perspective. Still being ported, so the waffle
-   * tile, landing option, and `/infra` route stay hidden until this is on.
-   */
-  | "infra"
-  /**
    * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
    * Approvals, Admin), every route under `/sales/cado2`, and its backend
    * calls. Held back as a whole until every screen is in place. CadO2's own
@@ -80,13 +68,6 @@ export type PreviewFeature =
    * rest of the Legal perspective, is unaffected.
    */
   | "nda"
-  /**
-   * Sales → Library, the Smart Search over Pitstop's content: its rail row and
-   * the `/sales/library` route. Held back while it is built piece by piece.
-   * With the flag on and `ONE_WSO2_SMART_SEARCH_BACKEND_URL` unset, the page
-   * says "not connected" and makes no requests.
-   */
-  | "smartSearch"
   /**
    * Marketing Ops → Marketing Calendar, the month view of events, content, social
    * posts and emails planned in GitHub: its rail group, the

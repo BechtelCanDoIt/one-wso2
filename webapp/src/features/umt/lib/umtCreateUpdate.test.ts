@@ -14,7 +14,9 @@ import {
   isValidCaseId,
   isValidEstimateDate,
   isValidGithubIssueUrl,
+  isValidInternalGithubIssueUrl,
   resolveCreateUpdateProductId,
+  umtIsBaseLevelVersion,
   type UmtCreateUpdateFormValues,
 } from "./umtCreateUpdate";
 
@@ -42,6 +44,45 @@ describe("isValidGithubIssueUrl", () => {
     expect(isValidGithubIssueUrl("https://gitlab.com/wso2/repo/issues/123")).toBe(false);
     expect(isValidGithubIssueUrl("not a url")).toBe(false);
     expect(isValidGithubIssueUrl("")).toBe(false);
+  });
+
+  it("rejects a trailing slash", () => {
+    expect(isValidGithubIssueUrl("https://github.com/wso2/internal-issues/issues/123/")).toBe(false);
+  });
+});
+
+describe("isValidInternalGithubIssueUrl", () => {
+  it("accepts an issue in a wso2- organisation, ignoring surrounding whitespace", () => {
+    expect(isValidInternalGithubIssueUrl("https://github.com/wso2-enterprise/internal-issues/issues/123")).toBe(true);
+    expect(isValidInternalGithubIssueUrl(" https://github.com/wso2-support/product-is/issues/7 ")).toBe(true);
+  });
+
+  it("rejects the wso2 organisation, look-alike organisations, and a trailing slash", () => {
+    expect(isValidInternalGithubIssueUrl("https://github.com/wso2/internal-issues/issues/123")).toBe(false);
+    expect(isValidInternalGithubIssueUrl("https://github.com/notwso2/repo/issues/1")).toBe(false);
+    expect(isValidInternalGithubIssueUrl("https://github.com/wso2-/repo/issues/1")).toBe(false);
+    expect(isValidInternalGithubIssueUrl("https://github.com/wso2-enterprise/repo/issues/1/")).toBe(false);
+  });
+
+  it("rejects a non-GitHub or malformed URL", () => {
+    expect(isValidInternalGithubIssueUrl("https://gitlab.com/wso2-enterprise/repo/issues/1")).toBe(false);
+    expect(isValidInternalGithubIssueUrl("")).toBe(false);
+  });
+});
+
+describe("umtIsBaseLevelVersion", () => {
+  it("is true for a version at the product's base level", () => {
+    expect(umtIsBaseLevelVersion("4.2.0.0.full")).toBe(true);
+    expect(umtIsBaseLevelVersion(" 7.0.0.0.full ")).toBe(true);
+  });
+
+  it("is false for a later level, another channel, or no version", () => {
+    expect(umtIsBaseLevelVersion("4.2.0.15.full")).toBe(false);
+    expect(umtIsBaseLevelVersion("4.2.0.10.full")).toBe(false);
+    expect(umtIsBaseLevelVersion("4.2.0.0.security")).toBe(false);
+    expect(umtIsBaseLevelVersion("")).toBe(false);
+    expect(umtIsBaseLevelVersion(null)).toBe(false);
+    expect(umtIsBaseLevelVersion(undefined)).toBe(false);
   });
 });
 
@@ -114,7 +155,7 @@ function baseValues(overrides: Partial<UmtCreateUpdateFormValues> = {}): UmtCrea
     updateType: "regular",
     issueType: "bug",
     caseId: "CS12345",
-    internalGitIssue: "https://github.com/wso2/internal-issues/issues/1",
+    internalGitIssue: "https://github.com/wso2-enterprise/internal-issues/issues/1",
     publicOrSecurityGitIssue: "https://github.com/wso2/public-issues/issues/2",
     productId: 11,
     // Local-time constructors, not ISO date-only strings (which parse as

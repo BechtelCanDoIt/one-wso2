@@ -68,7 +68,7 @@ function LibraryContent(): JSX.Element {
 }
 
 /**
- * Sales — Library: plain-language search over Pitstop's content, behind the `smartSearch` preview flag.
+ * Sales — Library: plain-language search over Pitstop's content.
  * Without a backend URL it says which key to set and makes no request.
  */
 export default function LibraryPage(): JSX.Element {

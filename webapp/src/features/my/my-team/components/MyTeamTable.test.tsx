@@ -159,6 +159,80 @@ describe("MyTeamTable rows", () => {
   });
 });
 
+// The list mixes people who report to the viewer, people the viewer is an
+// additional manager of, and everyone below them. Only the second kind is
+// marked: without it, someone there through an additional-manager link reads
+// as a mistake.
+describe("MyTeamTable additional reports", () => {
+  const VIEWER = "lead@wso2.com";
+
+  it("marks someone the viewer is an additional manager of", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "other@wso2.com", additionalManagerEmails: "lead@wso2.com" })],
+    });
+    expect(screen.getByText("Additional")).toBeInTheDocument();
+    // The chip sits beside the name, not inside the row's keyboard target.
+    expect(screen.getByRole("button", { name: "Jane Perera" })).toBeInTheDocument();
+  });
+
+  it("does not mark a direct report, or anyone further down", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [
+        employee({ employeeId: "E001", managerEmail: "lead@wso2.com", additionalManagerEmails: "" }),
+        employee({ employeeId: "E002", managerEmail: "other@wso2.com", additionalManagerEmails: "" }),
+        employee({ employeeId: "E003", managerEmail: "other@wso2.com", additionalManagerEmails: "x@wso2.com" }),
+      ],
+    });
+    expect(screen.queryByText("Additional")).toBeNull();
+  });
+
+  it("does not mark someone who also reports to the viewer directly", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "lead@wso2.com", additionalManagerEmails: "lead@wso2.com" })],
+    });
+    expect(screen.queryByText("Additional")).toBeNull();
+  });
+
+  // Their reports are in the team too, and need the same explanation one step
+  // removed: which additional report they came through.
+  const through = {
+    throughEmployeeId: "LK100002",
+    throughFirstName: "Test",
+    throughLastName: "Person",
+  };
+
+  it("marks someone the viewer reaches only through an additional report", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "test.person@wso2.com", additionalManagerEmails: "", ...through })],
+    });
+    expect(screen.getByText("Via Test")).toBeInTheDocument();
+    expect(
+      screen.getByLabelText("In your team through Test Person, whom you're an additional manager of"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows only Additional for the viewer's own additional report", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "other@wso2.com", additionalManagerEmails: VIEWER, ...through })],
+    });
+    expect(screen.getByText("Additional")).toBeInTheDocument();
+    expect(screen.queryByText(/^Via /)).toBeNull();
+  });
+
+  it("does not mark a row the server names no one for", () => {
+    renderTable({
+      viewerEmail: VIEWER,
+      employees: [employee({ managerEmail: "other@wso2.com", additionalManagerEmails: "" })],
+    });
+    expect(screen.queryByText(/^Via /)).toBeNull();
+  });
+});
+
 describe("MyTeamTable empty states", () => {
   it("says the team is empty when nothing is filtering", () => {
     renderTable({ employees: [], total: 0, hasFilters: false });

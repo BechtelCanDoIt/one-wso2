@@ -71,8 +71,8 @@ export default function PerspectiveLanding(): JSX.Element {
   // route and forwarding again.
   //
   // `state` for the same reason SideRail's RouteItem passes it: some
-  // destinations sit outside their perspective's path prefix (Legal and Finance
-  // both forward into the shared /due-diligence/* routes), and the rail asks the
+  // destinations sit outside their perspective's path prefix (Finance and People
+  // Ops both reach the shared /banking/admin), and the rail asks the
   // URL first. Without this it falls through to the sessionStorage memory of the
   // last non-Me perspective, which happens to hold the right answer here — but
   // only because an effect ran before we left, which is not a thing to depend on.

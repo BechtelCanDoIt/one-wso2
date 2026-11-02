@@ -30,6 +30,8 @@ import { cado2ServiceUrls } from "@config/apiConfig";
 import { useCado2Basis } from "@features/sales/cado2/api/cado2Basis";
 import type {
   Account,
+  BundleChildren,
+  LegalConfig,
   ActiveLegalEntity,
   Contact,
   DeleteDraftResult,
@@ -39,7 +41,6 @@ import type {
   DraftResponse,
   Issue,
   Opportunity,
-  OpportunityProducts,
   OpportunityQuote,
   PricebookOption,
   PricingFormula,
@@ -111,6 +112,45 @@ export function useAccountContacts(accountId: string | null) {
 /** How many products one page of the Add-line list loads. */
 export const PRODUCT_PAGE = 50;
 
+/** The legal texts quotes use: standard terms and notices. */
+export function useLegalConfig() {
+  const { getToken, ready, key } = useCado2Basis();
+  return useQuery<LegalConfig, Error>({
+    queryKey: key("legal-config"),
+    queryFn: async () => authedGet<LegalConfig>(cado2ServiceUrls.legalConfig, await getToken()),
+    enabled: ready,
+    staleTime: LOOKUP_STALE_MS,
+    retry: httpRetry,
+  });
+}
+
+/** Legal writes the non-standard terms (and may reword the special terms) during their approval. */
+export function useWriteLegalTerms(quoteId: number, versionNumber: number) {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<DraftResponse, Error, { onPremTerms?: string; saasTerms?: string; specialTerms?: string }>({
+    mutationFn: async (body) =>
+      cado2Send<DraftResponse>("PUT", cado2ServiceUrls.legalTerms(quoteId, versionNumber), await getToken(), body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key() }),
+  });
+}
+
+/**
+ * The children a bundle parent brings, priced from the quote's
+ * book; none for a product without a bundle. Idle until a product is chosen.
+ */
+export function useBundleChildren(productId: string | null, currency: string, pricebookId: string) {
+  const { getToken, ready, key } = useCado2Basis();
+  return useQuery<BundleChildren, Error>({
+    queryKey: key("bundle-children", productId, currency, pricebookId),
+    queryFn: async () =>
+      authedGet<BundleChildren>(cado2ServiceUrls.bundleChildren(productId!, currency, pricebookId), await getToken()),
+    enabled: ready && Boolean(productId && currency && pricebookId),
+    staleTime: LOOKUP_STALE_MS,
+    retry: httpRetry,
+  });
+}
+
 /**
  * The products of the quote's price book (the opportunity's), by name,
  * a page at a time, each with that book's price only. A page shorter
@@ -172,15 +212,6 @@ export function useQuoteList(status = "", scope: QuoteScope = "mine") {
 /** A quote with its version list and the caller's actions. */
 export function useQuote(quoteId: number | null) {
   return useAuthedQuery<QuoteView>(["quotes", "one", quoteId], quoteId ? cado2ServiceUrls.quote(quoteId) : null, "live");
-}
-
-/** The products on an opportunity, priced from its price book: what a new quote starts from (D72). */
-export function useOpportunityProducts(accountId: string | null, opportunityId: string | null) {
-  return useAuthedQuery<OpportunityProducts>(
-    ["opportunity-products", accountId, opportunityId],
-    accountId && opportunityId ? cado2ServiceUrls.opportunityProducts(accountId, opportunityId) : null,
-    "live",
-  );
 }
 
 /**
@@ -299,6 +330,13 @@ export function useReviseQuote() {
   );
 }
 
+/** Clones a version into a new quote on the same opportunity (D108). */
+export function useCloneQuote() {
+  return useLifecycleAction<{ quoteId: number; version: number }>(({ quoteId, version }, token) =>
+    cado2Send<DraftResponse>("POST", cado2ServiceUrls.quoteClone(quoteId, version), token, {}),
+  );
+}
+
 /**
  * Deletes the latest version while it is a draft. With no other
  * version the quote goes too; otherwise the previous version is cached as the latest.
@@ -379,6 +417,20 @@ export function useIssueOrderForm() {
     onSuccess: (_, { quoteId, version }) => {
       void queryClient.invalidateQueries({ queryKey: key("quotes") });
       void queryClient.invalidateQueries({ queryKey: key("quote-version", quoteId, version) });
+    },
+  });
+}
+
+/** Retries attaching the primary quote's order form to its Salesforce opportunity (D111). */
+export function useAttachOrderForm() {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<DocumentView, Error, { quoteId: number; documentId: number }>({
+    mutationFn: async ({ quoteId, documentId }) =>
+      cado2Send<DocumentView>("POST", cado2ServiceUrls.quoteDocumentAttach(quoteId, documentId), await getToken(), {}),
+    onSuccess: (_, { quoteId }) => {
+      void queryClient.invalidateQueries({ queryKey: key("quotes", "documents", quoteId) });
+      void queryClient.invalidateQueries({ queryKey: key("quotes", "history", quoteId) });
     },
   });
 }

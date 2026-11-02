@@ -147,7 +147,7 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("warns about integration test failures when a level has not succeeded", async () => {
+  it("warns that a level has not built successfully when it has not succeeded", async () => {
     state.buildStatus = state.freshBuildStatus = {
       id: 42,
       updateIds: [101],
@@ -159,9 +159,27 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
 
     await waitFor(() =>
       expect(state.showWarning).toHaveBeenCalledWith(
-        expect.stringContaining("integration test failures"),
+        expect.stringContaining("have not built successfully"),
       ),
     );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("does not call a level that is still building a failure, nor ask to escalate", async () => {
+    state.buildStatus = state.freshBuildStatus = {
+      id: 42,
+      updateIds: [101],
+      updateLevels: [{ buildStatus: "SUCCESS" }, { buildStatus: "IN_PROGRESS" }],
+    };
+    render(<UmtPendingReleaseChunksGrid />);
+
+    await clickRelease();
+
+    await waitFor(() => expect(state.showWarning).toHaveBeenCalledTimes(1));
+    const [message] = state.showWarning.mock.calls[0] as [string];
+    expect(message).toContain("have not built successfully");
+    expect(message).toContain("Check their build status");
+    expect(message).not.toMatch(/failure|escalate/i);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
@@ -198,7 +216,7 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
 
     await waitFor(() =>
       expect(state.showWarning).toHaveBeenCalledWith(
-        expect.stringContaining("integration test failures"),
+        expect.stringContaining("have not built successfully"),
       ),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -244,5 +262,59 @@ describe("UmtPendingReleaseChunksGrid release gate", () => {
 
     expect(dialog).not.toHaveTextContent("Proceed and Release");
     expect(state.showWarning).not.toHaveBeenCalled();
+  });
+
+  // The release dialog can stay open a while after the check that opened it.
+  describe("when the release is confirmed", () => {
+    const succeeded = { id: 42, updateIds: [101], updateLevels: [{ buildStatus: "SUCCESS" }] };
+    const failed = { id: 42, updateIds: [101], updateLevels: [{ buildStatus: "SUCCESS" }, { buildStatus: "FAILURE" }] };
+    const confirm = () => userEvent.click(screen.getByRole("button", { name: "Proceed and Release" }));
+
+    // Answers the first check, which opens the dialog, then the given statuses.
+    function checksAnswering(...later: unknown[]) {
+      const answers = [succeeded, ...later];
+      const calls = vi.fn(async () => answers[Math.min(calls.mock.calls.length - 1, answers.length - 1)]);
+      state.fetchFresh = calls;
+      return calls;
+    }
+
+    it("checks the build status again, and releases when every level has still succeeded", async () => {
+      const checks = checksAnswering(succeeded);
+      render(<UmtPendingReleaseChunksGrid />);
+      await clickRelease();
+      await screen.findByRole("dialog");
+
+      await confirm();
+
+      await waitFor(() => expect(state.releaseMutate).toHaveBeenCalledTimes(1));
+      expect(checks).toHaveBeenCalledTimes(2);
+    });
+
+    it("does not release when a level has failed since the dialog opened, and says so", async () => {
+      checksAnswering(failed);
+      render(<UmtPendingReleaseChunksGrid />);
+      await clickRelease();
+      await screen.findByRole("dialog");
+
+      await confirm();
+
+      await waitFor(() =>
+        expect(state.showWarning).toHaveBeenCalledWith(expect.stringContaining("have not built successfully")),
+      );
+      expect(state.releaseMutate).not.toHaveBeenCalled();
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    });
+
+    it("does not release when the build status can no longer be read", async () => {
+      checksAnswering(undefined);
+      render(<UmtPendingReleaseChunksGrid />);
+      await clickRelease();
+      await screen.findByRole("dialog");
+
+      await confirm();
+
+      await waitFor(() => expect(state.showWarning).toHaveBeenCalledWith(expect.stringContaining("unavailable")));
+      expect(state.releaseMutate).not.toHaveBeenCalled();
+    });
   });
 });

@@ -54,6 +54,20 @@ export interface FieldDef {
 /** Every status' columns, in display order. */
 export type FieldDefs = Record<string, FieldDef[]>;
 
+/** Who is emailed when a list is submitted, and whether anyone is. */
+export interface NotificationSettings {
+  enabled: boolean;
+  recipients: string[];
+}
+
+export interface NotificationSettingsOut extends NotificationSettings {
+  updated_by?: string | null;
+  updated_at?: string | null;
+  /** Whether the server holds the email service settings. Without them nothing is sent,
+   *  however the switch is set. */
+  delivery_configured: boolean;
+}
+
 /** A member status — which is also a tab name a workbook may use. */
 export interface MemberStatus {
   id?: number;
@@ -77,14 +91,13 @@ export const STATUS_LABEL: Record<Status, string> = {
   Imported: "Imported",
 };
 
-export type LeadState = "New" | "MQL";
-
 export interface SubmissionSummary {
   id: string;
   event_name: string;
   event_date?: string | null;
   sf_campaign_url?: string | null;
-  lead_state: LeadState;
+  /** Read out of sf_campaign_url by the server; null when the URL holds none. */
+  campaign_id?: string | null;
   owner_email?: string | null;
   status: Status;
   row_count: number;

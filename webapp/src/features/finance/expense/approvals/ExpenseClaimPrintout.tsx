@@ -19,7 +19,7 @@
 import { createPortal } from "react-dom";
 import { Box, GlobalStyles } from "@wso2/oxygen-ui";
 import { money } from "../../util/financeFormat";
-import type { ReceiptSource } from "../../util/financeReceipts";
+import type { ReceiptPages } from "./useClaimReceipts";
 import { approvalDateTime } from "./expenseApprovalFormat";
 import type { ApprovalClaim } from "./expenseApprovalTypes";
 
@@ -58,7 +58,18 @@ const PRINT_STYLES = (
           color: "#000",
         },
         "#expense-claim-printout .printout-item": { breakInside: "avoid" },
-        "#expense-claim-printout .printout-receipt": { breakBefore: "page" },
+        "#expense-claim-printout .printout-receipt": {
+          breakBefore: "page",
+          // Keeps a receipt's heading on the same sheet as the bill it names.
+          breakInside: "avoid",
+        },
+        // A scanned bill is often far taller than it is wide, and width alone
+        // does not stop it running past the foot of the sheet. Bound the height
+        // to the page less its heading, and letterbox rather than crop.
+        "#expense-claim-printout .printout-receipt img": {
+          maxHeight: "24cm",
+          objectFit: "contain",
+        },
       },
     }}
   />
@@ -70,7 +81,7 @@ export function ExpenseClaimPrintout({
 }: {
   claim: ApprovalClaim;
   /** One entry per line item, `null` where the receipt could not be fetched. */
-  receipts: (ReceiptSource | null)[] | null;
+  receipts: (ReceiptPages | null)[] | null;
 }) {
   const currency = claim.currencyCode ?? "LKR";
   // Portalled to `document.body`, and it has to be: the stylesheet hides every
@@ -119,22 +130,58 @@ export function ExpenseClaimPrintout({
           </Box>
         ))}
 
-        {/* One receipt per page, as the source's report lays them out. A line
-            whose receipt failed to load simply has no page — the numbering
-            gap is the source's behaviour too. */}
-        {(receipts ?? []).map((src, i) =>
-          src && src.type.startsWith("image/") ? (
+        {/* One printed page per page of a receipt: an image receipt is one,
+            a PDF is one per page of the document. Every line that carries a
+            receipt gets at least one page, including the ones that could not
+            be rendered, so a reader checking bills against claim items is
+            never left guessing whether a receipt is missing or was never
+            attached. */}
+        {(receipts ?? []).map((receipt, i) => {
+          // Nothing was attached to this line, so there is no bill to account
+          // for and no page to print.
+          if (!claim.transactions[i]?.receiptUrl) return null;
+
+          const heading = `Claim Item ${i + 1} Receipt`;
+
+          if (receipt && receipt.pages.length > 0) {
+            return receipt.pages.map((page, pageIndex) => (
+              <Box key={`${i}-${pageIndex}`} className="printout-receipt" sx={{ pt: 2 }}>
+                <Box sx={{ textAlign: "center", fontSize: 15, pb: 1 }}>
+                  {receipt.pages.length > 1
+                    ? `${heading} (page ${pageIndex + 1} of ${receipt.pages.length})`
+                    : heading}
+                </Box>
+                <Box
+                  component="img"
+                  src={page}
+                  alt={`Receipt for claim item ${i + 1}`}
+                  sx={{ display: "block", maxWidth: "100%", mx: "auto" }}
+                />
+              </Box>
+            ));
+          }
+
+          // Either the receipt never arrived, or it arrived in a form that
+          // could not be rendered. Say which, on its own page, rather than
+          // dropping it and leaving the report looking complete.
+          return (
             <Box key={i} className="printout-receipt" sx={{ pt: 2 }}>
-              <Box sx={{ textAlign: "center", fontSize: 15, pb: 1 }}>Claim Item {i + 1} Receipt</Box>
+              <Box sx={{ textAlign: "center", fontSize: 15, pb: 1 }}>{heading}</Box>
               <Box
-                component="img"
-                src={src.url}
-                alt={`Receipt for claim item ${i + 1}`}
-                sx={{ display: "block", maxWidth: "100%", mx: "auto" }}
-              />
+                sx={{
+                  border: "1px solid #999",
+                  p: 2,
+                  textAlign: "center",
+                  lineHeight: 1.6,
+                }}
+              >
+                {receipt
+                  ? "This receipt could not be read. Open the claim in One WSO2 to view it."
+                  : "This receipt could not be loaded."}
+              </Box>
             </Box>
-          ) : null,
-        )}
+          );
+        })}
         </Box>,
         document.body,
       )}

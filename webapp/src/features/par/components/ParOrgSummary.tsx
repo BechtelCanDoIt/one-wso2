@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { Box, Button, Card, Chip, Dialog, DialogContent, DialogTitle, Divider, Grid, IconButton, Link, Skeleton, Stack, Tab, Tabs, Tooltip, Typography } from "@wso2/oxygen-ui";
 import {
+  ArrowLeftIcon,
   CalendarIcon,
   ExternalLinkIcon,
   FileTextIcon,
@@ -129,6 +130,11 @@ export default function ParOrgSummary({
 
   return (
     <Stack spacing={2}>
+      {historyMode && (
+        <Button size="small" startIcon={<ArrowLeftIcon size={14} />} onClick={onBack} sx={{ alignSelf: "flex-start", mb: -1 }}>
+          Back
+        </Button>
+      )}
       <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
           {historyMode && (

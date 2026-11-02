@@ -45,6 +45,7 @@ const ACCOUNT_TYPE_FIELDS: Record<AccountType, FieldConfig[]> = {
   CONSULTANCY: [
     { key: "accountName", label: "Account Holder's Name" },
     { key: "beneficiaryAddress", label: "Account Holder's Address" },
+    { key: "beneficiaryCity", label: "Account Holder's City" },
     { key: "bankName", label: "Bank Name" },
     { key: "accountNumber", label: "Account No" },
     { key: "paymentMethod", label: "Payment Method" },

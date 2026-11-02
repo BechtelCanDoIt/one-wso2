@@ -27,14 +27,14 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { ChevronDownIcon } from "@wso2/oxygen-ui-icons-react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import DueDiligenceShell from "@features/due-diligence/components/DueDiligenceShell";
 import { DUE_DILIGENCE_EYEBROW } from "@constants/dueDiligenceApps";
 import { humanizeHttpError } from "@api/http";
 import { usePartnerInfo } from "@features/due-diligence/partners/api/usePartners";
 import { useTradeReferenceDetail, useTradeReferenceQuestions } from "../api/useTradeReferences";
 import TradeReferenceQuestionDetails from "../components/TradeReferenceQuestionDetails";
-import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // The reject page shows only the reject-reason question and its neighbors
 // (37 "reason for rejection", 38 "additional comments"), plus 39 — a direct
@@ -44,7 +44,7 @@ const REJECTED_PAGE_QUESTION_IDS = new Set([74, 37, 38, 39]);
 // Ported from the source app's TradeReferences/TradeReferenceDashboard/RejectedPage.js.
 export default function TradeReferenceRejectedPage() {
   const { companyId, linkId } = useParams<{ companyId: string; linkId: string }>();
-  const navigate = useDueDiligenceNavigate();
+  const navigate = useNavigate();
   const partnerInfo = usePartnerInfo(companyId ?? "");
   const detail = useTradeReferenceDetail(companyId ?? "", linkId ?? "");
   const questionData = useTradeReferenceQuestions();
@@ -56,7 +56,7 @@ export default function TradeReferenceRejectedPage() {
 
   return (
     <DueDiligenceShell
-      back={{ onClick: () => navigate("/due-diligence/trade-references") }}
+      back={{ onClick: () => navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references`) }}
       eyebrow={DUE_DILIGENCE_EYEBROW}
       title="Trade reference — rejected"
     >

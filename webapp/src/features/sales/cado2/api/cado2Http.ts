@@ -39,6 +39,19 @@ export async function cado2Send<T>(
   }
 }
 
+/** A form upload (a file and its fields) that answers with a JSON body. */
+export async function cado2Upload<T>(url: string, accessToken: string, form: FormData): Promise<T> {
+  // No Content-Type: the browser sets multipart/form-data with its boundary.
+  const res = await fetchWithReauth(url, { method: "POST", body: form }, accessToken);
+  const text = await res.text().catch(() => "");
+  if (!res.ok) throw new HttpError(url, res.status, text);
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new HttpError(url, res.status, text);
+  }
+}
+
 /** Only PDFs are handed to the page; anything else is refused rather than previewed. */
 const ALLOWED_FILE_TYPES = new Set(["application/pdf"]);
 

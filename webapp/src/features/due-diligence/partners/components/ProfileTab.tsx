@@ -15,9 +15,9 @@
 // under the License.
 
 import { Alert, Box, Button, CircularProgress, Divider, Stack, TextField, Typography } from "@wso2/oxygen-ui";
-import { useLocation } from "react-router";
 import { humanizeHttpError } from "@api/http";
 import { usePartnerInfo } from "../api/usePartners";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
 
@@ -26,7 +26,6 @@ const IMAGE_EXTENSIONS = new Set(["jpg", "jpeg", "png"]);
 // signatory details.
 export default function ProfileTab({ companyId }: { companyId: string }) {
   const partnerInfo = usePartnerInfo(companyId);
-  const location = useLocation();
   const data = partnerInfo.data?.[0];
 
   if (partnerInfo.isLoading) {
@@ -50,17 +49,10 @@ export default function ProfileTab({ companyId }: { companyId: string }) {
   const viewDocument = () => {
     if (!data.fileName) return;
     const extension = data.fileName.split(".").pop()?.toLowerCase() ?? "";
-    const path = extension === "pdf" ? "/due-diligence/view-pdf" : IMAGE_EXTENSIONS.has(extension) ? "/due-diligence/view-image" : null;
+    const path = extension === "pdf" ? `${DUE_DILIGENCE_BASE_PATH}/view-pdf` : IMAGE_EXTENSIONS.has(extension) ? `${DUE_DILIGENCE_BASE_PATH}/view-image` : null;
     if (!path) return;
-    // Profile is reachable from either perspective's rail, so unlike
-    // Finance's/Legal's own viewers there's no single hardcoded answer here
-    // — forward whichever one actually got the caller to this dashboard (see
-    // useDueDiligenceNavigate). A new tab has no history entry to carry
-    // `fromPerspective` on, so the URL has to say it instead.
-    const fromPerspective = (location.state as { fromPerspective?: string } | null)?.fromPerspective;
-    const from = fromPerspective ? `&from=${encodeURIComponent(fromPerspective)}` : "";
     window.open(
-      `${path}?fileName=${encodeURIComponent(data.fileName)}&extension=${encodeURIComponent(extension)}${from}`,
+      `${path}?fileName=${encodeURIComponent(data.fileName)}&extension=${encodeURIComponent(extension)}`,
       "_blank",
       "noopener,noreferrer",
     );

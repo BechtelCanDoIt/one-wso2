@@ -51,6 +51,7 @@ const CURRENCY_CODE = "USD";
 export const MIS_ROW_LABELS = {
   OPENING_ARR: "Opening ARR",
   NEW: "New",
+  ACQUIRED_ARR: "Acquired ARR",
   TRANSFERRED_IN: "Transferred In (included in new)",
   EXPANSIONS: "Expansions",
   REDUCTIONS: "Reductions",
@@ -75,6 +76,7 @@ export const MIS_ROW_LABELS = {
   PERCENT_LOST_TOTAL: "% Lost Total",
   OPENING_CUSTOMERS: "Opening Customers",
   NEW_CUSTOMERS: "New Customers",
+  ACQUIRED_CUSTOMERS: "Acquired Customers",
   TRANSFERRED_IN_CUSTOMERS: "Transferred In Customers (included in new)",
   LOST_CUSTOMERS: "Lost Customers",
   TRANSFERRED_OUT_CUSTOMERS: "Transferred Out Customers (included in lost)",
@@ -96,6 +98,7 @@ export type MisValueType = (typeof MIS_VALUE_TYPES)[keyof typeof MIS_VALUE_TYPES
 const VALUE_TYPE_BY_ROW: ReadonlyMap<string, MisValueType> = new Map([
   [MIS_ROW_LABELS.OPENING_CUSTOMERS, MIS_VALUE_TYPES.COUNT],
   [MIS_ROW_LABELS.NEW_CUSTOMERS, MIS_VALUE_TYPES.COUNT],
+  [MIS_ROW_LABELS.ACQUIRED_CUSTOMERS, MIS_VALUE_TYPES.COUNT],
   [MIS_ROW_LABELS.TRANSFERRED_IN_CUSTOMERS, MIS_VALUE_TYPES.COUNT],
   [MIS_ROW_LABELS.LOST_CUSTOMERS, MIS_VALUE_TYPES.COUNT],
   [MIS_ROW_LABELS.TRANSFERRED_OUT_CUSTOMERS, MIS_VALUE_TYPES.COUNT],

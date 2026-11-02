@@ -15,9 +15,11 @@
 // under the License.
 
 import {
+  Alert,
   Box,
   Button,
   Chip,
+  CircularProgress,
   Divider,
   LinearProgress,
   Paper,
@@ -31,6 +33,7 @@ import {
   AlertTriangle,
   CalendarDays,
   ChevronLeft,
+  Download,
   History,
   Settings,
 } from "@wso2/oxygen-ui-icons-react";
@@ -50,7 +53,11 @@ import { useAuditPrivileges } from "@features/security/grc/modules/audit/hooks/u
 import { AuditPrivilege } from "@features/security/grc/modules/audit/privileges";
 import { useGetAudit } from "@features/security/grc/modules/audit/api/useGetAudit";
 import { useGetControls } from "@features/security/grc/modules/audit/api/useGetControls";
-import { daysLeft, formatDateRange } from "@features/security/grc/modules/audit/utils/format";
+import { exportControls } from "@features/security/grc/modules/audit/api/exportControls";
+import { useAuthApiClient } from "@features/security/grc/shim/useAuthApiClient";
+import { downloadBlob } from "@features/security/grc/modules/audit/utils/fileView";
+import { buildControlExportQuery } from "@features/security/grc/modules/audit/utils/controlExportQuery";
+import { auditDisplayName, daysLeft, formatDateRange } from "@features/security/grc/modules/audit/utils/format";
 import {
   EMPTY_CONTROL_FILTERS,
   applyControlFilters,
@@ -123,10 +130,17 @@ export default function AuditDetailPage(): JSX.Element {
   const [search, setSearch] = useState("");
   const [selectedControl, setSelectedControl] = useState<AuditControl | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const authFetch = useAuthApiClient();
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
   const { can } = useAuditPrivileges();
   const canManageControls = can(AuditPrivilege.ManageControls);
   // Same internal-audience gate as the control History tab — see ControlDrawer.
   const canViewHistory = can(AuditPrivilege.ViewInternalComments);
+  // Export is for Compliance Admin and Compliance Team only. Among the seeded
+  // roles only they hold ReviewEvidence — the same privilege the server checks
+  // on the export endpoint, so the button never shows for a caller it would 403.
+  const canExport = can(AuditPrivilege.ReviewEvidence);
 
   const controls = useMemo(() => controlsData?.items ?? [], [controlsData]);
 
@@ -225,6 +239,25 @@ export default function AuditDetailPage(): JSX.Element {
     }
   }
 
+  // Export: every control the current view selects — the tab, or the search and
+  // column filters — not just the page of the table that is showing.
+  async function handleExport() {
+    setExporting(true);
+    setExportError("");
+    try {
+      const { blob, fileName } = await exportControls(
+        authFetch,
+        auditId,
+        buildControlExportQuery(activeQuickFilter, filters, search),
+      );
+      downloadBlob(blob, fileName);
+    } catch (e: unknown) {
+      setExportError(e instanceof Error ? e.message : "Failed to export controls.");
+    } finally {
+      setExporting(false);
+    }
+  }
+
   const isFiltered =
     activeQuickFilter !== null ||
     activeFilterCount(filters) > 0 ||
@@ -264,14 +297,32 @@ export default function AuditDetailPage(): JSX.Element {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      {/* Back button */}
-      <Button
-        startIcon={<ChevronLeft size={16} />}
-        onClick={handleBack}
-        sx={{ mb: 2, textTransform: "none", color: "text.secondary", pl: 0 }}
-      >
-        Audits
-      </Button>
+      {/* Back button and export */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ mb: 2 }}>
+        <Button
+          startIcon={<ChevronLeft size={16} />}
+          onClick={handleBack}
+          sx={{ textTransform: "none", color: "text.secondary", pl: 0 }}
+        >
+          Audits
+        </Button>
+        {canExport && (
+          <Button
+            variant="outlined"
+            startIcon={exporting ? <CircularProgress size={14} /> : <Download size={16} />}
+            disabled={exporting || controlsLoading || filteredControls.length === 0}
+            onClick={() => void handleExport()}
+            sx={{ textTransform: "none" }}
+          >
+            Export
+          </Button>
+        )}
+      </Stack>
+      {exportError && (
+        <Alert severity="error" onClose={() => setExportError("")} sx={{ mb: 2 }}>
+          {exportError}
+        </Alert>
+      )}
 
       {/* Audit header card — identity + progress in one place */}
       {auditLoading ? (
@@ -283,7 +334,7 @@ export default function AuditDetailPage(): JSX.Element {
               <Box sx={{ minWidth: 260 }}>
                 <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap" mb={0.75}>
                   <Typography variant="h5" fontWeight={700}>
-                    {audit.name}
+                    {auditDisplayName(audit)}
                   </Typography>
                   <AuditStatusChip status={audit.status} />
                 </Stack>

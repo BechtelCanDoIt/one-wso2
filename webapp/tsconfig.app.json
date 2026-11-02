@@ -31,5 +31,5 @@
       "@utils/*": ["src/utils/*"]
     }
   },
-  "include": ["src"]
+  "include": ["src", "scripts/prod-pdf-check"]
 }

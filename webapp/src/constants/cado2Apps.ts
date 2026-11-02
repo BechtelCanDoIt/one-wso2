@@ -25,7 +25,13 @@
 // against CadO2's roles. An id missing from CADO2_ITEM_IDS would fall through
 // to the capability check and show to people-app admins instead.
 
-import { ClipboardCheckIcon, FileTextIcon, ReceiptTextIcon, SettingsIcon } from "@wso2/oxygen-ui-icons-react";
+import {
+  ChartColumnIcon,
+  ClipboardCheckIcon,
+  FileTextIcon,
+  ReceiptTextIcon,
+  SettingsIcon,
+} from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
 
@@ -35,13 +41,14 @@ export const CADO2_GROUP_ID = "sec-app-cado2";
 export const CADO2_ITEM = {
   quotes: "sales-cado2-quotes",
   approvals: "sales-cado2-approvals",
+  insights: "sales-cado2-insights",
   admin: "sales-cado2-admin",
 } as const;
 
 export const CADO2_APPS: readonly MenuApp[] = [
   {
     key: "cado2",
-    name: "CADO2",
+    name: "QuickQuote",
     // A line icon, as MenuApp needs; the Sales rail shows CADO2's own logo
     // instead (Cado2LogoIcon, set in perspectives.ts like Echo's).
     icon: ReceiptTextIcon,
@@ -66,10 +73,18 @@ export const CADO2_APPS: readonly MenuApp[] = [
         path: cado2Paths.approvals,
       },
       {
+        id: CADO2_ITEM.insights,
+        label: "Insights",
+        icon: ChartColumnIcon,
+        desc: "What's in approval, where it waits, and a report of every quote with export.",
+        requires: ["admin"],
+        path: cado2Paths.insights(),
+      },
+      {
         id: CADO2_ITEM.admin,
         label: "Admin",
         icon: SettingsIcon,
-        desc: "The approval matrix, approval SLAs and CADO2's reference data.",
+        desc: "The approval matrix, approval SLAs and QuickQuote's reference data.",
         requires: ["admin"],
         path: cado2Paths.admin,
       },

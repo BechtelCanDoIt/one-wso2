@@ -97,8 +97,38 @@ function regexFor(pattern: string): RegExp | null {
 export interface EventContext {
   name: string
   date: string          // ISO yyyy-mm-dd
-  /** 'New' or 'MQL', chosen once for the whole submission. */
-  leadState?: string
+  /** The Salesforce campaign URL given when the submission was started. */
+  campaignUrl?: string | null
+}
+
+// A Salesforce campaign ID: the 701 key prefix, 12 more characters, and optionally the
+// three-character case-safe suffix. Found anywhere in the text, so a Lightning URL, a
+// Classic URL and a bare pasted ID all work. The Marketing Ops backend
+// (ONE_WSO2_MARKETINGOPS_BACKEND_URL) applies the same rule when it builds the CSV, so
+// a change here has to be made there too.
+const CAMPAIGN_ID = /(?<![A-Za-z0-9])(701[A-Za-z0-9]{12})([A-Za-z0-9]{3})?(?![A-Za-z0-9])/
+const SUFFIX_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345'
+
+/** Salesforce's case-safe 18-character form of a 15-character ID. The short form is
+ *  case-sensitive and the CSV passes through Excel, whose lookups are not. */
+function to18(id15: string): string {
+  let suffix = ''
+  for (let start = 0; start < 15; start += 5) {
+    let bits = 0
+    for (let i = 0; i < 5; i++) {
+      const c = id15[start + i]
+      if (c >= 'A' && c <= 'Z') bits |= 1 << i
+    }
+    suffix += SUFFIX_ALPHABET[bits]
+  }
+  return id15 + suffix
+}
+
+/** The 18-character campaign ID in a Salesforce campaign URL, or '' when there is none. */
+export function campaignIdFrom(url: string | null | undefined): string {
+  const m = CAMPAIGN_ID.exec(url ?? '')
+  if (!m) return ''
+  return m[2] ? m[1] + m[2] : to18(m[1])
 }
 
 /** `<campaign name>, <year>` — e.g. "Exito BFSI Summit Philippines, 2026".
@@ -121,8 +151,9 @@ export function derive(row: Row, tab: Tab, event: EventContext, config: EventsCo
   if (method) next.opt_in_method = method
   if (event.date) next.opt_in_timestamp = event.date
   // One answer for the whole submission, stamped on every row because the Pardot import
-  // is a flat file with nowhere else to carry it.
-  if (event.leadState) next.lead_state = event.leadState
+  // is a flat file with nowhere else to carry it. Always set, even to '', so a URL that
+  // was cleared does not leave the old ID behind.
+  next.campaign_id = campaignIdFrom(event.campaignUrl)
   return next
 }
 

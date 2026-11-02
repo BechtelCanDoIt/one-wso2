@@ -68,7 +68,7 @@ export default function ParLegacyReviewSection({ feedback360 }: { feedback360: s
             return (
             <Accordion key={`${review.reviewerName}-${index}`} variant="outlined">
               <AccordionSummary expandIcon={<ChevronDownIcon size={16} />}>
-                <Stack sx={{ width: "100%" }}>
+                <Stack sx={{ width: "100%", minWidth: 0 }}>
                   <Stack direction="row" alignItems="center" spacing={1}>
                     <Typography sx={{ mr: "auto", fontWeight: 500 }}>{review.reviewerName}</Typography>
                     <Tooltip title="Copy review">
@@ -83,13 +83,18 @@ export default function ParLegacyReviewSection({ feedback360 }: { feedback360: s
                       </IconButton>
                     </Tooltip>
                   </Stack>
-                  <Stack direction="row" alignItems="center" spacing={1}>
+                  <Stack direction="row" alignItems="center" useFlexGap sx={{ flexWrap: "wrap", gap: 1, minWidth: 0 }}>
                     <Typography variant="caption" color="text.secondary">
                       {review.ratingQuestion}
                     </Typography>
                     {/* Always show the rating chip, with "N/A" when the
-                    rating is blank. */}
-                    <Chip size="small" label={`Rating: ${rating || "N/A"}`} />
+                    rating is blank. Some reviewers typed sentences here, so
+                    the chip wraps instead of overflowing the card. */}
+                    <Chip
+                      size="small"
+                      label={`Rating: ${rating || "N/A"}`}
+                      sx={{ height: "auto", maxWidth: "100%", "& .MuiChip-label": { whiteSpace: "normal", py: 0.5 } }}
+                    />
                   </Stack>
                 </Stack>
               </AccordionSummary>

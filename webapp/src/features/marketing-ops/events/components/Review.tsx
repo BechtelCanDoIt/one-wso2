@@ -308,7 +308,7 @@ export function ReviewDetail({ id, onBack }: { id: string; onBack: () => void })
     <Box>
       <WorkspaceHead
         title={sub.event_name}
-        caption={[sub.owner_email ?? "unknown submitter", `${sub.lead_state} leads`, sub.source_filename]
+        caption={[sub.owner_email ?? "unknown submitter", sub.source_filename]
           .filter(Boolean)
           .join(" · ")}
         onBack={onBack}
@@ -372,6 +372,16 @@ export function ReviewDetail({ id, onBack }: { id: string; onBack: () => void })
         >
           Salesforce campaign
         </Typography>
+        {sub.campaign_id && (
+          <Typography sx={{ fontSize: 13, fontWeight: 700, fontFamily: "monospace" }}>
+            {sub.campaign_id}
+          </Typography>
+        )}
+        {sub.sf_campaign_url && !sub.campaign_id && (
+          <Typography sx={{ fontSize: 13, color: "warning.main", fontWeight: 600 }}>
+            No campaign ID in this link —
+          </Typography>
+        )}
         {sub.sf_campaign_url ? (
           <Link
             href={sub.sf_campaign_url}

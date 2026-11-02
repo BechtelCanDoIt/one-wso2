@@ -16,10 +16,10 @@
  * under the License.
  */
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { CcTransaction } from "./ccTypes";
 
@@ -259,6 +259,13 @@ describe("a job that cannot fund the spend", () => {
     // number, a comment and an expense type — never for the units. So the
     // source warns and saves, and blocking here would be a deviation.
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+});
+
+describe("an already categorised transaction", () => {
+  it("shows its stored product unit once the unit lists load", async () => {
+    show({ ...txn, productUnit: "Other", businessUnit: "Corp" });
+    expect(await screen.findByRole("combobox", { name: "Product unit" })).toHaveTextContent("Other");
   });
 });
 

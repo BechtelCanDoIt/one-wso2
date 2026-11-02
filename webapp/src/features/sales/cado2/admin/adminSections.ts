@@ -35,6 +35,7 @@ export const ADMIN_SECTION_GROUPS: readonly AdminSectionGroup[] = [
     sections: [
       { id: "approval-matrix", label: "Approval Matrix" },
       { id: "approval-slas", label: "Approval SLAs" },
+      { id: "email-notifications", label: "Email Notifications" },
     ],
   },
   {
@@ -51,6 +52,9 @@ export const ADMIN_SECTION_GROUPS: readonly AdminSectionGroup[] = [
       { id: "legal-entities", label: "Legal Entities" },
       { id: "currencies", label: "Currencies" },
       { id: "product-categories", label: "Product Categories" },
+      { id: "product-bundles", label: "Product Bundles" },
+      { id: "legal-texts", label: "Legal Texts" },
+      { id: "supporting-documents", label: "Supporting Documents" },
     ],
   },
 ];

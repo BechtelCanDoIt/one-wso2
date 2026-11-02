@@ -23,7 +23,6 @@ import {
   useAccountOpportunities,
   useActiveLegalEntities,
   useCurrencies,
-  useOpportunityProducts,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { Account, Opportunity } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
@@ -38,8 +37,6 @@ import {
   emptyAddress,
   emptyContact,
   parseDateString,
-  pulledLines,
-  termFromDates,
   type DraftFormValues,
 } from "@features/sales/cado2/quotes/form/draftForm";
 import SalesforceFindings, { type Finding } from "@features/sales/cado2/quotes/components/SalesforceFindings";
@@ -194,17 +191,16 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
   const markRevealed = useCallback(() => setRevealedFor(opportunityId), [opportunityId]);
   const showRest = Boolean(opportunityId) && (locked || revealedFor === opportunityId);
 
-  // A new quote starts from its opportunity's products (D72): only the
-  // products, 1 unit each, priced from its price book; once per opportunity
-  // chosen, before the first save fixes it.
-  const pulled = useOpportunityProducts(!locked && accountId ? accountId : null, !locked && opportunityId ? opportunityId : null);
-  const pulledFor = useRef<string | null>(null);
+  // A new quote starts with no products: the AM adds them in the tool, the
+  // source of truth for the opportunity's products (D110; was D72). Choosing
+  // another opportunity before the first save drops lines priced for the
+  // previous one's price book.
+  const opportunityShown = useRef(opportunityId);
   useEffect(() => {
-    if (locked || !pulled.data || !opportunityId || pulledFor.current === opportunityId) return;
-    pulledFor.current = opportunityId;
-    setValue("lines", pulledLines(pulled.data.products), { shouldDirty: true });
-    setValue("notBroughtIn", pulled.data.notBroughtIn, { shouldDirty: true });
-  }, [locked, pulled.data, opportunityId, setValue]);
+    if (locked || opportunityShown.current === opportunityId) return;
+    if (opportunityShown.current) setValue("lines", [], { shouldDirty: true });
+    opportunityShown.current = opportunityId;
+  }, [locked, opportunityId, setValue]);
   // Likewise, the opportunity list waits until the account's findings have
   // all ticked in (2026-10-09), so the page doesn't change under them.
   const [accountRevealedFor, setAccountRevealedFor] = useState<string | null>(null);
@@ -219,6 +215,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
   const currencies = useCurrencies();
 
   const oppIssue = useFieldIssue("sfOpportunityId");
+  const previousIssue = useFieldIssue("previousOpportunityIds");
 
   const accountAddress = useWatch({ control, name: "accountAddress" });
   const accountSalesRegion = useWatch({ control, name: "accountSalesRegion" });
@@ -248,6 +245,9 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
 
   const chooseOpportunity = (o: Opportunity | undefined) => {
     if (!o) return;
+    // What another opportunity renews isn't what this one renews: the AM
+    // chooses again.
+    if (o.id !== getValues("opportunityId")) setValue("previousOpportunityIds", [], { shouldDirty: true });
     setValue("opportunityId", o.id, { shouldDirty: true });
     setValue("opportunityName", o.name ?? "", { shouldDirty: true });
     setValue("dealType", o.dealType, { shouldDirty: true });
@@ -256,15 +256,10 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
     setValue("dealKind", o.dealKind, { shouldDirty: true });
     setValue("recordTypeName", o.recordTypeName ?? "", { shouldDirty: true });
     setValue("isRenewal", o.dealKind === "RENEWAL", { shouldDirty: true });
-    if (o.dealKind !== "RENEWAL") setValue("previousOpportunityIds", [], { shouldDirty: true });
-    // The term from the opportunity's subscription dates (D85): its start,
-    // and its end as a number of years when it makes one, else as a date.
+    // The contract start from the opportunity; without
+    // one the AM enters it. Its end is not read: the AM adds the years.
     const start = o.subsStartDate && parseDateString(o.subsStartDate) ? o.subsStartDate : "";
     setValue("startDate", start, { shouldDirty: true });
-    const term = termFromDates(start, o.subsEndDate);
-    setValue("termMode", term.termMode, { shouldDirty: true });
-    setValue("termYears", term.termYears, { shouldDirty: true });
-    setValue("termEndDate", term.termEndDate, { shouldDirty: true });
     // Pre-fill addresses: partner deals bill the partner and ship
     // to the customer; direct deals bill and ship to the customer.
     const v = getValues();
@@ -300,13 +295,6 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
     const own = opportunities.data?.find((o) => o.id === opportunityId);
     const locked = lockedRenewalStart(own, renewedOf(ids));
     setValue("startDate", locked?.date ?? "", { shouldDirty: true });
-    // The end is still the opportunity's own, now read against this start (D85).
-    if (own?.subsEndDate && locked && locked.source === "RENEWED") {
-      const term = termFromDates(locked.date, own.subsEndDate);
-      setValue("termMode", term.termMode, { shouldDirty: true });
-      setValue("termYears", term.termYears, { shouldDirty: true });
-      setValue("termEndDate", term.termEndDate, { shouldDirty: true });
-    }
   };
 
   // Watched, not read once: picking an account re-renders on its id before
@@ -357,7 +345,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
         {accountId && !accountSalesRegion ? (
           <Alert severity="error" role="alert">
             <AlertTitle>This account has no sales region in Salesforce</AlertTitle>
-            CADO2 needs the account&apos;s Sales Region (<code>Sales_Regions__c</code>) to route approvals. Ask your
+            QuickQuote needs the account&apos;s Sales Region (<code>Sales_Regions__c</code>) to route approvals. Ask your
             Salesforce admin to set it on the account, then choose the account again
             {locked ? " (or save the draft to refresh it)" : ""}.
           </Alert>
@@ -432,7 +420,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                 render={({ field }) => (
                   <Box>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Choose the closed-won opportunities this renews; several when co-terminated deals are consolidated. Their
+                      Required. Choose the closed-won opportunities this renews; several when co-terminated deals are consolidated. Their
                       ARR is compared with this quote&apos;s to check for a downsell, and the quote starts the day after they end.
                     </Typography>
                     {wonOpportunities.error ? (
@@ -452,6 +440,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
                       loading={wonOpportunities.isPending}
                       selected={field.value}
                       onChange={chooseRenewed}
+                      error={previousIssue}
                       emptyText="This account has no closed-won opportunities in Salesforce."
                       instruction="Tick the opportunities this quote renews"
                     />

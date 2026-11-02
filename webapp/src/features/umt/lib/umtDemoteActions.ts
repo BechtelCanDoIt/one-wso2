@@ -30,7 +30,6 @@ export interface UmtDemoteAction {
 export function computeUmtDemoteActions(
   stepId: UmtEditStepId,
   lifecycleState: UmtLifecycleState | null | undefined,
-  isHotfix: boolean,
   isAdmin: boolean,
 ): UmtDemoteAction[] {
   switch (stepId) {
@@ -39,9 +38,8 @@ export function computeUmtDemoteActions(
         ? [{ label: "Demote to Development", targetLifecycleState: "Development" }]
         : [];
     case "description-instruction":
-      // This step's demote button is gated on !isHotfix; there is no separate
-      // rule for the hotfix branch.
-      return isHotfix ? [] : [{ label: "Demote to PRAnalyzed", targetLifecycleState: "PRAnalyzed" }];
+      // A hotfix is offered the same demotion as any other update.
+      return [{ label: "Demote to PRAnalyzed", targetLifecycleState: "PRAnalyzed" }];
     case "file-approval":
       // Gated on isAdmin specifically (UMT_ADMIN role), narrower than the
       // Admin-or-Product-Lead gate on this step's own Proceed/approve action.
@@ -49,6 +47,9 @@ export function computeUmtDemoteActions(
       return isAdmin ? [{ label: "Demote to Staging", targetLifecycleState: "Staging" }] : [];
     case "testing":
     case "validate":
+      // While staging or a test environment is being requested the update is
+      // on its way and there is nothing to demote yet.
+      if (lifecycleState === "StagingRequested" || lifecycleState === "TestingEnvironmentRequested") return [];
       // From Staging, the demotion is requested through DemoteStagingRequested,
       // which tears staging down before the update lands in Development; it
       // can't go straight to Development.
@@ -59,8 +60,10 @@ export function computeUmtDemoteActions(
         },
       ];
     case "verifying":
+      // Moving an update out of UATStaging is an administrator's move, so no
+      // one else is offered the button.
       if (lifecycleState === "UATStaging") {
-        return [{ label: "Demote to Testing", targetLifecycleState: "Staging" }];
+        return isAdmin ? [{ label: "Demote to Testing", targetLifecycleState: "Staging" }] : [];
       }
       if (lifecycleState === "OnHold") {
         return [{ label: "Reopen", targetLifecycleState: "Development", color: "error" }];

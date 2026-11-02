@@ -27,6 +27,7 @@ function values(overrides: Partial<BankAccountFormValues> = {}): BankAccountForm
   return {
     accountName: "P Person",
     beneficiaryAddress: "No 23, Galle Road, Colombo",
+    beneficiaryCity: "Colombo",
     accountHolderCountry: "Sri Lanka",
     accountNumber: "1234567890",
     bankLocation: "Sri Lanka",
@@ -44,69 +45,90 @@ describe("validateAccountHolder", () => {
   // The source's Yup `required()` rejects only an empty string, so a value that
   // is nothing but spaces gets through. Matched exactly, not "improved".
   it("does not trim: spaces-only name and account number pass, like the source", () => {
-    const errors = validateAccountHolder(values({ accountName: "   ", accountNumber: "   " }));
+    const errors = validateAccountHolder(values({ accountName: "   ", accountNumber: "   " }), "SALARY");
     expect(errors.accountName).toBeUndefined();
     expect(errors.accountNumber).toBeUndefined();
   });
 
   it("requires the account holder's name", () => {
-    expect(validateAccountHolder(values({ accountName: "" })).accountName).toBe(
+    expect(validateAccountHolder(values({ accountName: "" }), "SALARY").accountName).toBe(
       "Account Holder's Name is required",
     );
   });
 
   it("requires the account holder's address", () => {
     expect(
-      validateAccountHolder(values({ beneficiaryAddress: "" })).beneficiaryAddress,
+      validateAccountHolder(values({ beneficiaryAddress: "" }), "SALARY").beneficiaryAddress,
     ).toBe("Account Holder's Address is required");
   });
 
   it("rejects an address with fewer than three comma-separated parts", () => {
     expect(
-      validateAccountHolder(values({ beneficiaryAddress: "No 23, Galle Road" }))
+      validateAccountHolder(values({ beneficiaryAddress: "No 23, Galle Road" }), "SALARY")
         .beneficiaryAddress,
     ).toBe("Address must contain at least three elements separated by commas");
   });
 
   it("counts comma-separated parts the way the source does: untrimmed, so a blank-but-present part still counts", () => {
     expect(
-      validateAccountHolder(values({ beneficiaryAddress: "No 23, ,Colombo" })).beneficiaryAddress,
+      validateAccountHolder(values({ beneficiaryAddress: "No 23, ,Colombo" }), "SALARY").beneficiaryAddress,
     ).toBeUndefined();
   });
 
   it("rejects an address with an empty part between commas", () => {
     expect(
-      validateAccountHolder(values({ beneficiaryAddress: "No 23,,Colombo" })).beneficiaryAddress,
+      validateAccountHolder(values({ beneficiaryAddress: "No 23,,Colombo" }), "SALARY").beneficiaryAddress,
     ).toBe("Address must contain at least three elements separated by commas");
   });
 
   it("accepts an address with three or more comma-separated parts", () => {
     expect(
-      validateAccountHolder(values({ beneficiaryAddress: "No 23, Galle Road, Colombo" }))
+      validateAccountHolder(values({ beneficiaryAddress: "No 23, Galle Road, Colombo" }), "SALARY")
         .beneficiaryAddress,
     ).toBeUndefined();
   });
 
   it("requires the account holder's country", () => {
-    expect(validateAccountHolder(values({ accountHolderCountry: "" })).accountHolderCountry).toBe(
+    expect(validateAccountHolder(values({ accountHolderCountry: "" }), "SALARY").accountHolderCountry).toBe(
       "Please select a country from the list",
     );
   });
 
   it("requires the account number", () => {
-    expect(validateAccountHolder(values({ accountNumber: "" })).accountNumber).toBe(
+    expect(validateAccountHolder(values({ accountNumber: "" }), "SALARY").accountNumber).toBe(
       "Account No is required",
     );
   });
 
   it("rejects an account number longer than 34 characters", () => {
     expect(
-      validateAccountHolder(values({ accountNumber: "1".repeat(35) })).accountNumber,
+      validateAccountHolder(values({ accountNumber: "1".repeat(35) }), "SALARY").accountNumber,
     ).toBe("Account Number must be at most 34 characters");
   });
 
   it("returns no errors for a fully valid submission", () => {
-    expect(validateAccountHolder(values())).toEqual({});
+    expect(validateAccountHolder(values(), "SALARY")).toEqual({});
+  });
+
+  // Only Consultancy builds a NetSuite vendor address, so only Consultancy
+  // asks for a city.
+  it("requires the account holder's city for CONSULTANCY", () => {
+    expect(validateAccountHolder(values({ beneficiaryCity: "" }), "CONSULTANCY").beneficiaryCity).toBe(
+      "Account Holder's City is required",
+    );
+  });
+
+  it("rejects a spaces-only city for CONSULTANCY", () => {
+    expect(
+      validateAccountHolder(values({ beneficiaryCity: "   " }), "CONSULTANCY").beneficiaryCity,
+    ).toBe("Account Holder's City is required");
+  });
+
+  it("does not ask for a city for SALARY or REIMBURSEMENT", () => {
+    for (const type of ["SALARY", "REIMBURSEMENT"] as const) {
+      expect(validateAccountHolder(values({ beneficiaryCity: "" }), type).beneficiaryCity)
+        .toBeUndefined();
+    }
   });
 });
 
@@ -218,6 +240,22 @@ describe("buildCreateBankAccountRequestPayload", () => {
     );
     expect(payload.branchName).toBe("");
     expect(payload.branchCode).toBe("");
+  });
+
+  it("sends the trimmed city for CONSULTANCY", () => {
+    const payload = buildCreateBankAccountRequestPayload(
+      values({ beneficiaryCity: "  Colombo  " }),
+      "CONSULTANCY",
+      "person@wso2.com",
+    );
+    expect(payload.beneficiaryCity).toBe("Colombo");
+  });
+
+  it("leaves the city out entirely for SALARY and REIMBURSEMENT", () => {
+    for (const type of ["SALARY", "REIMBURSEMENT"] as const) {
+      const payload = buildCreateBankAccountRequestPayload(values(), type, "person@wso2.com");
+      expect(payload).not.toHaveProperty("beneficiaryCity");
+    }
   });
 
   it("stamps effectiveFrom as today, regardless of account type", () => {

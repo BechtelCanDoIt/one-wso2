@@ -365,7 +365,7 @@ function ArrBuildGrid({ view, scaleState }: { view: MisViewState; scaleState: Mi
     return {
       text: formatMisValue(raw, misValueTypeForRow(row.label), { scale }),
       negative: typeof raw === "number" && raw < 0,
-      // Only the fourteen rows that ARE a set of customers. A y/y growth, a
+      // Only the sixteen rows that ARE a set of customers. A y/y growth, a
       // retention ratio or a percentage is arithmetic over other rows, so there
       // is nothing to open and the cell stays plain text — which is two thirds
       // of the Build.

@@ -52,18 +52,11 @@ import {
   resolveEmployeeCycleRating,
 } from "../util/parEmployeeHistory";
 import type { MergedCycleOption } from "../util/parEmployeeHistory";
-import {
-  deriveLegacyRatingFromScore,
-  formatLegacyCycleName,
-  formatLegacyQuestionAnswers,
-  hasLegacyContent,
-  parseLegacyQuestionAnswers,
-} from "../util/parLegacyHistory";
+import { formatLegacyCycleName } from "../util/parLegacyHistory";
 import { decodeParComment } from "../util/parComment";
 import ParEmptyState from "../components/ParEmptyState";
 import { ParCommentView } from "../components/ParContent";
 import ParHistoryReviewSection from "../components/ParHistoryReviewSection";
-import ParLegacyReviewSection from "../components/ParLegacyReviewSection";
 import ParStatusChip from "../components/ParStatusChip";
 import type { ParEmployee } from "../api/types";
 import type { ParLegacyHistoryByEmail, ParRatingByEmail } from "../api/useLeadHistory";
@@ -340,18 +333,6 @@ export default function ParLeadEmployeeHistoryTab() {
     ? legacyRecords.find((record) => formatLegacyCycleName(record.cycleName) === cycleSelection.cycleName)
     : undefined;
 
-  // Legacy feedback is split into per-question rubric segments
-  // (questionAnswers replaces the old fixed segment1/segment2 fields); only
-  // the employee's own answers get concatenated. The lead's side stays a
-  // single overall comment — per-question managerFeedback entries aren't
-  // the lead's actual feedback.
-  const legacyEmployeeContent = formatLegacyQuestionAnswers(
-    parseLegacyQuestionAnswers(selectedLegacyRecord?.questionAnswers ?? null),
-  );
-  const legacyLeadContent = hasLegacyContent(selectedLegacyRecord?.overallCommentManager)
-    ? selectedLegacyRecord!.overallCommentManager!
-    : "";
-
   // Scoped to the selected employee's own fan-out fetch, not whether any of
   // the lead's other reports still has one in flight.
   const legacyIsLoadingForSelected = selectedEmployeeEmail ? (legacyFanOut.isLoadingByEmail[selectedEmployeeEmail] ?? false) : false;
@@ -374,7 +355,6 @@ export default function ParLeadEmployeeHistoryTab() {
   // once if the rating resolves first.
   const showRealDetails =
     isRealCycle && Boolean(selectedEmployeeEmail) && rating.isSuccess && Boolean(rating.data) && isOwnRecord && reviews.isSuccess;
-  const showLegacyDetails = isLegacyCycle && Boolean(selectedLegacyRecord);
 
   const isLoadingSelection =
     (isRealCycle && Boolean(selectedEmployeeEmail) && (rating.isLoading || reviews.isLoading)) ||
@@ -504,72 +484,9 @@ export default function ParLeadEmployeeHistoryTab() {
         <ParEmptyState text="No PAR record found for the selected cycle, or it could not be loaded right now. Try again, or check back later if this seems wrong." />
       )}
 
-      {showLegacyDetails && selectedLegacyRecord && (
-        <Stack spacing={2}>
-          <Card variant="outlined" sx={{ px: 2, py: 1.25 }}>
-            <Grid container spacing={1.5} alignItems="center">
-              <Grid size="auto">
-                {/* Legacy records carry no thumbnail — matches source's own
-                    Avatar here, which never passes a src for this branch. */}
-                <Avatar variant="rounded" alt="Employee Thumbnail" sx={{ width: "3rem", height: "3rem", borderRadius: 3 }} />
-              </Grid>
-              {(() => {
-                const derived = deriveLegacyRatingFromScore(selectedLegacyRecord.managerScoreCode);
-                const rating2 = selectedLegacyRecord.overallRating ?? derived.rating;
-                const special = selectedLegacyRecord.overallSpecialRating ?? derived.special;
-                return (
-                  <Grid size="grow">
-                    <Stack direction="row" spacing={1} flexWrap="wrap">
-                      {special && special !== "NOT_ASSIGNED" && <ParStatusChip content={special} />}
-                      {rating2 && rating2 !== "NOT_ASSIGNED" && <ParStatusChip content={rating2} />}
-                    </Stack>
-                    {(selectedLegacyRecord.reviewerEmail || selectedLegacyRecord.reviewerName) && (
-                      <Chip
-                        size="small"
-                        variant="outlined"
-                        sx={{ mt: 1 }}
-                        label={`PAR shared by: ${selectedLegacyRecord.reviewerEmail ?? selectedLegacyRecord.reviewerName}`}
-                      />
-                    )}
-                  </Grid>
-                );
-              })()}
-              <InfoItem
-                label="Employee"
-                value={selectedEmployee?.employeeName ?? selectedLegacyRecord.employeeEmail}
-                secondaryValue={selectedLegacyRecord.employeeEmail}
-              />
-              <InfoItem
-                label="Lead"
-                value={selectedLegacyRecord.reviewerName ?? selectedLegacyRecord.reviewerEmail ?? ""}
-                secondaryValue={selectedLegacyRecord.reviewerEmail ?? ""}
-              />
-              <InfoItem
-                label="Team"
-                value={selectedLegacyRecord.team ?? ""}
-                secondaryValue={selectedLegacyRecord.department ?? ""}
-              />
-            </Grid>
-          </Card>
-
-          <Accordion variant="outlined" disabled={!legacyEmployeeContent}>
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee's Feedback</AccordionSummary>
-            <AccordionDetails>
-              <Divider sx={{ my: 1 }} />
-              <ParCommentView html={legacyEmployeeContent} />
-            </AccordionDetails>
-          </Accordion>
-          <Accordion variant="outlined" disabled={!legacyLeadContent}>
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Lead's Feedback</AccordionSummary>
-            <AccordionDetails>
-              <Divider sx={{ my: 1 }} />
-              <ParCommentView html={legacyLeadContent} />
-            </AccordionDetails>
-          </Accordion>
-
-          <ParLegacyReviewSection feedback360={selectedLegacyRecord.feedback360} />
-        </Stack>
-      )}
+      {/* No legacy record detail here: a lead never receives a report's
+          legacy history (see legacyFanOut above), so there is nothing to show.
+          Admins read legacy records in the Admin view instead. */}
 
       {showRealDetails && rating.data && (
         <Stack spacing={2}>

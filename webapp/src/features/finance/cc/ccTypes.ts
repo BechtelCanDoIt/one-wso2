@@ -31,6 +31,22 @@ export type CcAttachmentType = "receipt" | "contract";
 export const CC_TRAVEL_CATEGORY = "Travel";
 export const CC_MARKETING_CATEGORY = "Marketing";
 
+/** The most characters a transaction comment can have. */
+export const CC_COMMENT_MAX = 30;
+
+/** Whether an expense category is Travel, matched exactly. */
+export function isTravelCategory(category: string | null | undefined): boolean {
+  return category === CC_TRAVEL_CATEGORY;
+}
+
+/**
+ * Whether an expense category is Marketing or one of its sub-categories, such as
+ * "Marketing - Digital", matched by prefix.
+ */
+export function isMarketingCategory(category: string | null | undefined): boolean {
+  return Boolean(category?.startsWith(CC_MARKETING_CATEGORY));
+}
+
 export interface CcEmployee {
   employeeId: string;
   workEmail: string;
@@ -175,12 +191,8 @@ export function ccCardName(label: string | null | undefined, index: number): str
 // are set (mirrors the backend's validateRequiredFields).
 export function ccTxnComplete(t: CcTransaction): boolean {
   if (!t.expenseTypeLabel || !t.txnComment) return false;
-  if (t.expenseCategoryLabel === CC_TRAVEL_CATEGORY) return Boolean(t.travelJobNumber);
-  // EditPane.tsx:364 matches with startsWith, so a sub-category such as
-  // "Marketing - Digital" still needs a sub-region. Matching the exact string
-  // let every sub-category skip the rule.
-  if (t.expenseCategoryLabel?.startsWith(CC_MARKETING_CATEGORY))
-    return Boolean(t.subRegion && t.productUnit);
+  if (isTravelCategory(t.expenseCategoryLabel)) return Boolean(t.travelJobNumber);
+  if (isMarketingCategory(t.expenseCategoryLabel)) return Boolean(t.subRegion && t.productUnit);
   return Boolean(t.productUnit);
 }
 
@@ -202,6 +214,12 @@ export interface CcAgeBucketAmount {
 
 export interface CcTransactionSummary {
   current: CcPendingSnapshot | null;
+  ageBuckets: Record<string, CcAgeBucketAmount>;
+}
+
+/** One lead's team not-yet-submitted summary — average age plus the age-bucket map. */
+export interface CcLeadTeamUnsubmittedSummary {
+  avgDaysOutstanding: number | null;
   ageBuckets: Record<string, CcAgeBucketAmount>;
 }
 
@@ -263,6 +281,10 @@ export interface CcLeadApprovalSummary {
   bucket8To14: number;
   bucket15To30: number;
   bucket30Plus: number;
+  // Work the lead's team has not submitted at all yet. It never reaches their approval
+  // queue, so none of the counts above account for it.
+  unsubmittedCount: number;
+  unsubmittedAmount: number;
 }
 
 /** One card holder inside a lead's team — `leadCompliance.ts:29-39`. */
@@ -276,4 +298,13 @@ export interface CcLeadTeamCardHolder {
   bucket8To14: number;
   bucket15To30: number;
   bucket30Plus: number;
+  // Work this card holder has not submitted at all yet. It never reaches the lead's
+  // approval queue, so none of the pending fields above account for it.
+  unsubmittedCount: number;
+  unsubmittedAmount: number;
+  oldestUnsubmittedDays: number;
+  unsubmittedBucket0To7: number;
+  unsubmittedBucket8To14: number;
+  unsubmittedBucket15To30: number;
+  unsubmittedBucket30Plus: number;
 }

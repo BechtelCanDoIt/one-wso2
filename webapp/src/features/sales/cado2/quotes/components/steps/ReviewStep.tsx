@@ -18,10 +18,11 @@ import { useMemo, type JSX, type ReactNode } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { Stack } from "@wso2/oxygen-ui";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
-import { useActiveLegalEntities } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { useActiveLegalEntities, useLegalConfig } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import type { DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
 import { sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import QuoteSheet from "@features/sales/cado2/quotes/components/sheet/QuoteSheet";
+import { SupportingDocumentsSummary } from "@features/sales/cado2/quotes/components/SupportingDocumentsCard";
 
 interface ReviewStepProps {
   /** The pricing to show: stored for a frozen or unchanged version, else live. */
@@ -30,6 +31,8 @@ interface ReviewStepProps {
   readonly savedLegalEntityName: string | null;
   /** The live approval chain; null for a frozen version. */
   readonly approvals: ReactNode;
+  /** The saved quote, for its supporting documents; null before the first save. */
+  readonly quoteId?: number | null;
 }
 
 /**
@@ -37,10 +40,11 @@ interface ReviewStepProps {
  * (F4-1), built from the form, so the rep sees exactly what submitting will
  * freeze: the order form, the deal figures and, for multi-year, the schedule.
  */
-export default function ReviewStep({ preview, savedLegalEntityName, approvals }: ReviewStepProps): JSX.Element {
+export default function ReviewStep({ preview, savedLegalEntityName, approvals, quoteId = null }: ReviewStepProps): JSX.Element {
   const { control } = useFormContext<DraftFormValues>();
   const v = useWatch({ control }) as DraftFormValues;
   const legalEntities = useActiveLegalEntities();
+  const legalConfig = useLegalConfig();
 
   const active = legalEntities.data?.find((e) => String(e.id) === v.legalEntityId);
   const sheet = useMemo(() => {
@@ -49,14 +53,15 @@ export default function ReviewStep({ preview, savedLegalEntityName, approvals }:
       : v.legalEntityId && savedLegalEntityName
         ? { name: savedLegalEntityName }
         : null;
-    return sheetFromForm(v, preview, legalEntity);
-  }, [v, preview, active, savedLegalEntityName]);
+    return sheetFromForm(v, preview, legalEntity, legalConfig.data ?? null);
+  }, [v, preview, active, savedLegalEntityName, legalConfig.data]);
 
   return (
     <Stack spacing={2.5}>
       {/* A card of its own (the approval preview is a SectionCard). */}
       {approvals}
       <QuoteSheet sheet={sheet} />
+      <SupportingDocumentsSummary quoteId={quoteId} />
     </Stack>
   );
 }

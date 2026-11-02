@@ -19,6 +19,10 @@ import {
   deriveLegacyCycleDates,
   deriveLegacyRatingFromScore,
   formatLegacyCycleName,
+  getLegacySharedByName,
+  isThreeSixtyConfirmation,
+  legacyCycleHasSpecialRatings,
+  legacyCycleLabel,
   parseLegacyFeedback360,
   parseLegacyQuestionAnswers,
 } from "./parLegacyHistory";
@@ -58,6 +62,40 @@ describe("formatLegacyCycleName", () => {
   it("passes through an already-canonical or genuinely-uncatalogued name unchanged", () => {
     expect(formatLegacyCycleName("2022 Performance Evaluation - H1")).toBe("2022 Performance Evaluation - H1");
     expect(formatLegacyCycleName("2099 Some Future Cycle")).toBe("2099 Some Future Cycle");
+  });
+});
+
+describe("legacyCycleLabel", () => {
+  it.each([
+    ["ANNUAL PERFORMANCE REVIEW -2015", "2015 Annual Performance Evaluation"],
+    ["2015 ANNUAL PERFORMANCE REVIEW", "2015 Annual Performance Evaluation"],
+    ["ANNUAL PERFORMANCE REVIEW for Engineering Employees - 2015", "2015 Annual Performance Evaluation - Engineering Employees"],
+    ["2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees", "2015 Annual Performance Evaluation - Engineering Employees"],
+    ["(3) ANNUAL PERFORMANCE REVIEW - Engineering Employees", "2015 Annual Performance Evaluation - Engineering Employees"],
+    ["ANNUAL PERFORMANCE REVIEW for Engineering Team Leads - 2015", "2015 Annual Performance Evaluation - Engineering Team Leads"],
+    ["2015 ANNUAL PERFORMANCE REVIEW for Engineering Team Leads", "2015 Annual Performance Evaluation - Engineering Team Leads"],
+    ["ANNUAL PERFORMANCE REVIEW for Team Leads -2015", "2015 Annual Performance Evaluation - Team Leads"],
+    ["2015 ANNUAL PERFORMANCE REVIEW for Team Leads", "2015 Annual Performance Evaluation - Team Leads"],
+  ])("shows %s as %s", (stored, label) => {
+    expect(legacyCycleLabel(stored)).toBe(label);
+  });
+
+  it("leaves the canonical name used for lookups unchanged", () => {
+    expect(formatLegacyCycleName("ANNUAL PERFORMANCE REVIEW -2015")).toBe("2015 ANNUAL PERFORMANCE REVIEW");
+  });
+
+  it.each([
+    "Quarterly Review - Q3/Q4",
+    "2016 Quarterly Review - Q3/Q4",
+    "2019  Performance Evaluation - Q2",
+    "2022 Performance Evaluation - H1",
+    "2099 Some Future Cycle",
+  ])("returns any other name exactly as given: %s", (name) => {
+    expect(legacyCycleLabel(name)).toBe(name);
+  });
+
+  it("matches a 2015 name with stray spacing", () => {
+    expect(legacyCycleLabel("  2015 ANNUAL PERFORMANCE REVIEW for  Team Leads ")).toBe("2015 Annual Performance Evaluation - Team Leads");
   });
 });
 
@@ -121,5 +159,61 @@ describe("deriveLegacyCycleDates", () => {
 
   it("returns nulls for a name that doesn't match the convention", () => {
     expect(deriveLegacyCycleDates("Some Other Cycle")).toEqual({ startDate: null, endDate: null });
+  });
+});
+
+describe("isThreeSixtyConfirmation", () => {
+  const qa = (title: string | null) => ({ title, employeeAnswer: null, managerFeedback: null });
+
+  it("matches the title with or without a trailing period", () => {
+    expect(isThreeSixtyConfirmation(qa("360 Confirmation."))).toBe(true);
+    expect(isThreeSixtyConfirmation(qa(" 360 Confirmation "))).toBe(true);
+    expect(isThreeSixtyConfirmation(qa("360 Feedback"))).toBe(false);
+    expect(isThreeSixtyConfirmation(qa(null))).toBe(false);
+  });
+});
+
+describe("getLegacySharedByName", () => {
+  const qa = (managerAnsweredBy?: string | null) => ({
+    title: "Q",
+    employeeAnswer: null,
+    managerFeedback: null,
+    managerAnsweredBy,
+  });
+
+  it("returns the first recorded Manager Answer By", () => {
+    expect(getLegacySharedByName([qa(null), qa("Lead One"), qa("Lead Two")])).toBe("Lead One");
+  });
+
+  it("skips blank names and trims the one it returns", () => {
+    expect(getLegacySharedByName([qa("   "), qa("  Lead One ")])).toBe("Lead One");
+  });
+
+  it("returns null when no answerer was recorded", () => {
+    expect(getLegacySharedByName([qa()])).toBeNull();
+    expect(getLegacySharedByName([qa("  ")])).toBeNull();
+    expect(getLegacySharedByName([])).toBeNull();
+  });
+});
+
+describe("legacyCycleHasSpecialRatings", () => {
+  it("is false for cycles before 2021, which never had Top 5%/20% ratings", () => {
+    expect(legacyCycleHasSpecialRatings("2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees")).toBe(false);
+    expect(legacyCycleHasSpecialRatings("2019  Performance Evaluation - Q2")).toBe(false);
+    expect(legacyCycleHasSpecialRatings("2020 Performance Evaluation - H2")).toBe(false);
+  });
+
+  it("is true from 2021 H1 onwards", () => {
+    expect(legacyCycleHasSpecialRatings("2021 Performance Evaluation - H1")).toBe(true);
+    expect(legacyCycleHasSpecialRatings("2024 Performance Evaluation - H1")).toBe(true);
+  });
+
+  it("normalizes a raw name itself", () => {
+    expect(legacyCycleHasSpecialRatings(" 2021  Performance Evaluation - H2 ")).toBe(true);
+    expect(legacyCycleHasSpecialRatings("ANNUAL PERFORMANCE REVIEW -2015")).toBe(false);
+  });
+
+  it("is false for a name that doesn't start with a year", () => {
+    expect(legacyCycleHasSpecialRatings("(Unknown Cycle)")).toBe(false);
   });
 });

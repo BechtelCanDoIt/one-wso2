@@ -37,9 +37,10 @@ export function stripRedundantRatingPrefix(text: string): string {
 // legacy cycle's "<year> ..." convention (e.g. "2016 Quarterly Review -
 // Q2") -- real data has been seen with BOTH this raw form and the
 // translated one, depending on which import path produced the row.
-// Display-only -- does not touch par_cycle_name as stored. Every catalog/
-// rating lookup and cycle-name display in this feature should normalize
-// through this first.
+// Does not touch par_cycle_name as stored. This gives the canonical name
+// that every catalog/rating lookup in this feature should normalize through
+// first; it is not the on-screen title -- show a cycle name with
+// legacyCycleLabel (below), which also applies the 2015 display names.
 const LEGACY_CYCLE_DISPLAY_NAMES: Record<string, string> = {
   "ANNUAL PERFORMANCE REVIEW -2015": "2015 ANNUAL PERFORMANCE REVIEW",
   "ANNUAL PERFORMANCE REVIEW for Team Leads -2015": "2015 ANNUAL PERFORMANCE REVIEW for Team Leads",
@@ -76,6 +77,27 @@ export const formatLegacyCycleName = (cycleName: string): string => {
   const normalized = cycleName.trim().replace(/\s+/g, " ");
   return LEGACY_CYCLE_DISPLAY_NAMES[normalized] ?? normalized;
 };
+
+// On-screen titles for the 2015 cycles. Text only: catalog, rating and
+// roster lookups keep using formatLegacyCycleName's canonical name, and the
+// stored par_cycle_name is untouched. Any other name is returned exactly as
+// given, so non-2015 cycles display as they did before.
+const LEGACY_CYCLE_LABELS: Record<string, string> = {
+  "2015 ANNUAL PERFORMANCE REVIEW": "2015 Annual Performance Evaluation",
+  "2015 ANNUAL PERFORMANCE REVIEW for Engineering Employees": "2015 Annual Performance Evaluation - Engineering Employees",
+  "2015 ANNUAL PERFORMANCE REVIEW for Engineering Team Leads": "2015 Annual Performance Evaluation - Engineering Team Leads",
+  "2015 ANNUAL PERFORMANCE REVIEW for Team Leads": "2015 Annual Performance Evaluation - Team Leads",
+};
+
+export const legacyCycleLabel = (cycleName: string): string =>
+  LEGACY_CYCLE_LABELS[formatLegacyCycleName(cycleName)] ?? cycleName;
+
+// Top 5%/20% was only introduced starting 2021 -- every earlier era
+// (2015-2020) never captured it, so anything showing it there (a "Not
+// Assigned" row, a 0 slot count) would just be clutter. Accepts a raw or
+// already-formatted name (formatLegacyCycleName is idempotent).
+export const legacyCycleHasSpecialRatings = (cycleName: string): boolean =>
+  (Number(formatLegacyCycleName(cycleName).match(/^(\d{4})/)?.[1]) || 0) >= 2021;
 
 function escapeHtml(value: string): string {
   return value
@@ -117,6 +139,25 @@ export function parseLegacyQuestionAnswers(json: string | null): ParLegacyQuesti
   } catch {
     return [];
   }
+}
+
+// "360 Confirmation" is stored with a trailing period in real 2020-2023
+// data and without one in 2024 -- compare the normalized title.
+const THREE_SIXTY_CONFIRMATION_TITLE = "360 Confirmation";
+
+/** Whether this answer is the "360 Confirmation" workflow note rather than real per-question feedback. */
+export function isThreeSixtyConfirmation(qa: ParLegacyQuestionAnswer): boolean {
+  return qa.title?.trim().replace(/\.$/, "") === THREE_SIXTY_CONFIRMATION_TITLE;
+}
+
+/**
+ * "PAR Shared By" is the per-question Manager Answer By -- the lead who
+ * actually reviewed that cycle -- not the record's reviewerName/reviewerEmail
+ * (the employee's CURRENT lead). Returns the first non-blank name, trimmed,
+ * or null when no answerer was recorded.
+ */
+export function getLegacySharedByName(questionAnswers: ParLegacyQuestionAnswer[]): string | null {
+  return questionAnswers.map((qa) => qa.managerAnsweredBy?.trim()).find((name) => name) ?? null;
 }
 
 export function parseLegacyFeedback360(json: string | null): ParLegacyThreeSixtyReview[] {

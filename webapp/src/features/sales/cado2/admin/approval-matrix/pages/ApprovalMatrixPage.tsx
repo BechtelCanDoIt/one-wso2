@@ -49,6 +49,7 @@ import type {
   ApprovalGroup,
   ApprovalMapping,
   ApprovalMatrix,
+  ApprovalRoleInfo,
   ApprovalSettings,
   MatchField,
 } from "@features/sales/cado2/approvals/api/approvalTypes";
@@ -160,7 +161,9 @@ export default function ApprovalMatrixPage(): JSX.Element {
       <Box role="tabpanel" aria-label={TABS[tab]}>
         {tab === 0 ? <GroupsEditor matrix={draft} onChange={(groups) => update({ groups })} /> : null}
         {tab === 1 ? <MappingsEditor matrix={draft} onChange={(mappings) => update({ mappings })} /> : null}
-        {tab === 2 ? <SettingsEditor settings={draft.settings} onChange={(settings) => update({ settings })} /> : null}
+        {tab === 2 ? (
+          <SettingsEditor settings={draft.settings} roles={draft.roles} onChange={(settings) => update({ settings })} />
+        ) : null}
         {tab === 3 ? <ChangeLog /> : null}
       </Box>
 
@@ -464,8 +467,18 @@ function MappingsEditor({ matrix, onChange }: { matrix: ApprovalMatrix; onChange
 
 // --- Commercial rules --------------------------------------------------------
 
-function SettingsEditor({ settings, onChange }: { settings: ApprovalSettings; onChange: (s: ApprovalSettings) => void }): JSX.Element {
+function SettingsEditor({
+  settings,
+  roles,
+  onChange,
+}: {
+  settings: ApprovalSettings;
+  roles: readonly ApprovalRoleInfo[];
+  onChange: (s: ApprovalSettings) => void;
+}): JSX.Element {
   const set = (patch: Partial<ApprovalSettings>) => onChange({ ...settings, ...patch });
+  // The Account Manager approves by submitting, so has no steps (S3).
+  const approverRoles = roles.filter((r) => r.code !== "ACCOUNT_MANAGER");
   const rule = (title: string, chain: string, field: JSX.Element, note?: string) => (
     <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems={{ md: "center" }}>
@@ -552,6 +565,32 @@ function SettingsEditor({ settings, onChange }: { settings: ApprovalSettings; on
         "Renewal downsell",
         "RD → Area GM → CRO → Chief of Staff → CFO, then the CEO above the percentage",
         num("CEO above (% of previous ARR)", settings.downsellCeoPercent, (v) => set({ downsellCeoPercent: v })),
+      )}
+      {rule(
+        "Regional approvers",
+        "Only approvers in the account's sales region (D13)",
+        <Stack>
+          {approverRoles.map((r) => (
+            <FormControlLabel
+              key={r.code}
+              control={
+                <Checkbox
+                  size="small"
+                  checked={settings.regionalRoles.includes(r.code)}
+                  onChange={(_, on) =>
+                    set({
+                      regionalRoles: on
+                        ? approverRoles.map((x) => x.code).filter((c) => c === r.code || settings.regionalRoles.includes(c))
+                        : settings.regionalRoles.filter((c) => c !== r.code),
+                    })
+                  }
+                />
+              }
+              label={<Typography variant="body2">{r.label}</Typography>}
+            />
+          ))}
+        </Stack>,
+        settings.regionalRoles.length === 0 ? "Every approver acts on quotes from any region." : undefined,
       )}
       <Stack direction="row" spacing={1} alignItems="center" sx={{ color: "text.secondary", pt: 1 }}>
         <ArrowDownIcon size={14} />

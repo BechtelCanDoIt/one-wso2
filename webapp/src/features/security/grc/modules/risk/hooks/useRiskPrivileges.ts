@@ -80,14 +80,15 @@ export function useRiskPrivileges(enabled = true): RiskPrivilegeState {
         authFetch(`${BACKEND_BASE_URL}/api/v1/me/privileges`)
           .then((res) => res.json() as Promise<{ privileges?: string[]; allowAll?: boolean }>),
         authFetch(`${BACKEND_BASE_URL}/api/v1/risks/me/involvement`)
-          .then((res) => res.json() as Promise<{ namedOnRisk?: boolean }>)
-          .catch(() => ({ namedOnRisk: false })),
+          .then((res) => res.json() as Promise<{ namedOnRisk?: boolean; canViewAuditTrail?: boolean }>)
+          .catch(() => ({ namedOnRisk: false, canViewAuditTrail: false })),
       ])
         .then(([privData, involvement]) => {
           _promise = null;
           return mergeRiskPrivileges(
             privData.allowAll ? null : (privData.privileges ?? []),
             involvement.namedOnRisk === true,
+            involvement.canViewAuditTrail === true,
           );
         })
         .catch(() => { _promise = null; return new Set<string>(); });

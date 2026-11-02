@@ -27,12 +27,18 @@ import type { OrgSelection } from "../../api/useOrgReference";
 // aside. What matters is which selection reaches useOrgReference, because that
 // is what narrows the dependent option lists.
 vi.mock("@components/perspective-header/PerspectiveHeader", () => ({ default: () => null }));
-vi.mock("../components/MyTeamTable", () => ({ default: () => null }));
+const tableSpy = vi.fn();
+vi.mock("../components/MyTeamTable", () => ({
+  default: (props: unknown) => {
+    tableSpy(props);
+    return null;
+  },
+}));
 
 const LEAD_PRIVILEGE = 993;
 vi.mock("@api/useUserInfo", () => ({
   useUserInfo: () => ({
-    data: { privileges: [LEAD_PRIVILEGE] },
+    data: { privileges: [LEAD_PRIVILEGE], workEmail: "lead@wso2.com" },
     isLoading: false,
     isError: false,
     isFetching: false,
@@ -100,6 +106,14 @@ function renderPage() {
 
 beforeEach(() => {
   useOrgReferenceSpy.mockClear();
+  tableSpy.mockClear();
+});
+
+// The table marks additional reports by comparing each row with the viewer, so
+// it has to be told who is viewing. The search itself still never is.
+it("tells the table who is viewing", () => {
+  renderPage();
+  expect(tableSpy).toHaveBeenLastCalledWith(expect.objectContaining({ viewerEmail: "lead@wso2.com" }));
 });
 
 // The dialog reports every edit upward so the dependent lists narrow as you go.

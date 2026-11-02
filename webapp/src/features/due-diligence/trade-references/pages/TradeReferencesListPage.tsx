@@ -43,7 +43,8 @@ import { useRenewTradeReferenceLink, useTradeReferences } from "../api/useTradeR
 import { useCopyClientLink } from "@features/due-diligence/shared/api/useCopyClientLink";
 import { joinTradeReferenceLinks, type TradeReferenceRow } from "../api/tradeReferenceTypes";
 import { TRADE_REFERENCE_STATUS, tradeReferenceStatusChipColor } from "@features/due-diligence/constants";
-import { useDueDiligenceNavigate } from "@features/due-diligence/api/useDueDiligenceNavigate";
+import { useNavigate } from "react-router";
+import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 type SortColumn = "Partner Company" | "Reference Company" | "Contact Email" | "Form Status";
 type SortDirection = "asc" | "desc";
@@ -64,7 +65,7 @@ export default function TradeReferencesListPage() {
   const tradeReferences = useTradeReferences();
   const renewLink = useRenewTradeReferenceLink();
   const copyClientLink = useCopyClientLink();
-  const navigate = useDueDiligenceNavigate();
+  const navigate = useNavigate();
 
   const [search, setSearch] = useState("");
   // Defaults ALL checked, unlike Partners' filters — matches the source's own
@@ -165,19 +166,19 @@ export default function TradeReferencesListPage() {
       row.status === TRADE_REFERENCE_STATUS.DRAFTED ||
       row.status === TRADE_REFERENCE_STATUS.ACTIVE
     ) {
-      navigate(`/due-diligence/trade-references/${row.companyId}/${row.linkId}`, {
+      navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references/${row.companyId}/${row.linkId}`, {
         state: { encodeString: row.encodeString },
       });
     } else if (row.status === TRADE_REFERENCE_STATUS.DEACTIVATED) {
-      navigate(`/due-diligence/trade-references/deactivated/${row.linkId}`, {
+      navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references/deactivated/${row.linkId}`, {
         state: { row, encodeString: row.encodeString },
       });
     } else if (row.status === TRADE_REFERENCE_STATUS.REJECTED) {
-      navigate(`/due-diligence/trade-references/rejected/${row.companyId}/${row.linkId}`, {
+      navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references/rejected/${row.companyId}/${row.linkId}`, {
         state: { row, encodeString: row.encodeString },
       });
     } else {
-      navigate(`/due-diligence/trade-references/pending/${row.linkId}`, {
+      navigate(`${DUE_DILIGENCE_BASE_PATH}/trade-references/pending/${row.linkId}`, {
         state: { row, encodeString: row.encodeString },
       });
     }
