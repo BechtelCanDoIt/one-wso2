@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { infra?: boolean; cado2?: boolean } = {},
+  preview: { cado2?: boolean; nda?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -254,25 +254,9 @@ describe("perspectives whose landing forwards to the first rail item", () => {
     expect(PERSPECTIVES.find((p) => p.key === "me")?.forwardsToFirstItem).toBeUndefined();
   });
 
-  // Infra Portal is behind a preview flag, so the registry depends on
-  // `window.config` and has to be imported fresh per state rather than once at
-  // the top of the file.
   describe("the Infra Portal perspective", () => {
-    it("is absent from the registry when the preview flag is off", async () => {
-      const { PERSPECTIVES, reachablePerspectives } = await load({ infra: false });
-      expect(keys(PERSPECTIVES)).not.toContain("infra");
-      expect(keys(reachablePerspectives())).not.toContain("infra");
-    });
-  
-    it("is absent on an absent flag, not only on an explicit false", async () => {
-      const { PERSPECTIVES } = await load();
-      expect(keys(PERSPECTIVES)).not.toContain("infra");
-    });
-  
-    it("is present, built and routable, when the preview flag is on", async () => {
-      const { PERSPECTIVES, reachablePerspectives, findPerspectiveByPath } = await load({
-        infra: true,
-      });
+    it("is present, built and routable with no preview flag", async () => {
+      const { PERSPECTIVES, reachablePerspectives, findPerspectiveByPath } = await load();
       expect(keys(PERSPECTIVES)).toContain("infra");
       expect(keys(reachablePerspectives())).toContain("infra");
       expect(findPerspectiveByPath("/infra")?.key).toBe("infra");
@@ -321,7 +305,7 @@ describe("a rail row does one thing", () => {
     window.config = {
       ...(window.config ?? {}),
       ONE_WSO2_PREVIEW_FEATURES: previewOn
-        ? { infra: true, cado2: true, nda: true }
+        ? { cado2: true, nda: true }
         : {},
       // ISAC and CSM are only in the registry once their addresses are set.
       ONE_WSO2_MARKETINGOPS_ISAC_URL: "https://isac.example",
