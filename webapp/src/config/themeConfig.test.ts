@@ -148,10 +148,17 @@ describe("DataGrid panel overlay", () => {
     }
   });
 
+  it("reads the CSS variable when the theme has one, as it does at runtime", () => {
+    const panelContent = dataGridOf(resolveTheme(THEME_OPTIONS[0].key)).panelContent as Override;
+    const palette = { background: { default: "#fff" } };
+    const vars = { palette: { background: { default: "var(--bg-default)" } } };
+    expect(panelContent({ theme: { palette, vars } }).backgroundColor).toBe("var(--bg-default)");
+  });
+
   it("keeps Oxygen's own DataGrid overrides alongside it", () => {
     for (const { key } of THEME_OPTIONS) {
       expect(Object.keys(dataGridOf(resolveTheme(key)))).toEqual(
-        expect.arrayContaining([...Object.keys(dataGridOf(THEMES[key])), "panelContent"]),
+        expect.arrayContaining([...Object.keys(dataGridOf(THEMES[key])), "panelContent", "menu"]),
       );
     }
   });

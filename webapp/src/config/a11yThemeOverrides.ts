@@ -128,6 +128,12 @@ export function withA11yOverrides(base: OxygenTheme): OxygenTheme {
   }): Record<string, unknown> => ({
     backgroundColor: (theme.vars ?? theme).palette.background.default,
   });
+  // The grid's own menus (density selector, column header menu) are a Paper
+  // inside the grid's popper, painted from the same translucent
+  // `background.paper`, so they get the same solid fill.
+  const solidMenuPaper = (props: Parameters<typeof solidPanel>[0]): Record<string, unknown> => ({
+    "& .MuiPaper-root": solidPanel(props),
+  });
 
   return {
     ...base,
@@ -164,6 +170,7 @@ export function withA11yOverrides(base: OxygenTheme): OxygenTheme {
         styleOverrides: {
           ...baseDataGrid.styleOverrides,
           panelContent: solidPanel,
+          menu: solidMenuPaper,
         },
       },
     },
