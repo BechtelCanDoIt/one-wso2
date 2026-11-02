@@ -34,7 +34,9 @@ vi.mock("@config/apiConfig", () => ({
     return backend.url;
   },
   isInfraBackendConfigured: () => true,
-  infraServiceUrls: { leads: "http://localhost:8090/leads" },
+  get infraServiceUrls() {
+    return { leads: `${backend.url}/leads` };
+  },
 }));
 
 const { useInfraLeads } = await import("./useInfraDirectory");
@@ -65,7 +67,7 @@ describe("useInfraLeads localhost JWT header", () => {
     const { result } = renderHook(() => useInfraLeads(), { wrapper: ({ children }) => wrap(children) });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(authedGet).toHaveBeenCalledWith(
-      "http://localhost:8090/leads",
+      "http://localhost.example.com/leads",
       "access-token",
       undefined,
     );

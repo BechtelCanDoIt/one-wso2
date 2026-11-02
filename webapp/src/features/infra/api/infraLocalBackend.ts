@@ -36,5 +36,8 @@ export function infraLocalAssertionHeaders(idToken: string) {
 
 export function useInfraLocalHeaders() {
   const getIdToken = useIdToken();
-  return async () => infraLocalAssertionHeaders(await getIdToken());
+  return async () => {
+    if (!isLocalInfraBackend(infraBackendUrl)) return undefined;
+    return infraLocalAssertionHeaders(await getIdToken());
+  };
 }
