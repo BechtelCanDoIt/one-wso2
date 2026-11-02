@@ -22,11 +22,12 @@ import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdToken } from "@hooks/useIdToken";
 import { infraBackendUrl, infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
 import type { InfraEmployee, InfraLead, InfraOrganization, InfraTopic } from "./infraTypes";
+import { isLocalInfraBackend } from "./infraLocalBackend";
 
 function useLocalHeaders() {
   const getIdToken = useIdToken();
   return async () =>
-    infraBackendUrl.startsWith("http://localhost")
+    isLocalInfraBackend(infraBackendUrl)
       ? { "x-jwt-assertion": await getIdToken() }
       : undefined;
 }

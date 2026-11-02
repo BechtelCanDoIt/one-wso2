@@ -23,6 +23,7 @@ import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import type { InfraUserInfo } from "./infraTypes";
 import { useIdToken } from "@hooks/useIdToken";
 import { infraBackendUrl, infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
+import { isLocalInfraBackend } from "./infraLocalBackend";
 
 export { isInfraBackendConfigured };
 
@@ -38,10 +39,9 @@ export function useInfraUserInfo(enabled = true) {
     enabled: enabled && isSignedIn && configured && Boolean(userSub),
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      const extra =
-        infraBackendUrl.startsWith("http://localhost")
-          ? { "x-jwt-assertion": await getIdToken() }
-          : undefined;
+      const extra = isLocalInfraBackend(infraBackendUrl)
+        ? { "x-jwt-assertion": await getIdToken() }
+        : undefined;
       return authedGet<InfraUserInfo>(infraServiceUrls.userInfo, accessToken, extra);
     },
     staleTime: 5 * 60 * 1000,
