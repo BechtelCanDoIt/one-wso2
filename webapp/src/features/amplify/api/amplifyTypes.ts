@@ -145,13 +145,17 @@ export interface PersonalStanding {
   inTopN: boolean;
 }
 
+/**
+ * One My Team row. `employeeId` is null for a member nobody has recorded points for (no standing row), so there is
+ * no person page or history to link to. `companyRank` is null for the same members.
+ */
 export interface TeamEntry {
-  employeeId: string;
+  employeeId: string | null;
   displayName: string;
   email: string;
   points: number;
   teamRank: number;
-  companyRank: number;
+  companyRank: number | null;
   /** The member's house from the people directory; absent when they have none. */
   houseName?: string | null;
   isMe: boolean;
