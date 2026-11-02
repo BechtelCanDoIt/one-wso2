@@ -126,3 +126,33 @@ describe("theme registry", () => {
     expect(Object.keys(THEMES).length).toBeGreaterThan(offered.length);
   });
 });
+
+describe("DataGrid panel overlay", () => {
+  type Override = (props: { theme: unknown }) => Record<string, unknown>;
+  const dataGridOf = (theme: unknown) =>
+    (theme as { components?: { MuiDataGrid?: { styleOverrides?: Record<string, unknown> } } }).components?.MuiDataGrid
+      ?.styleOverrides ?? {};
+
+  it("paints the Columns/Filters panel with an opaque colour in every offered theme and scheme", () => {
+    for (const { key } of THEME_OPTIONS) {
+      const theme = resolveTheme(key) as unknown as {
+        colorSchemes: Record<"light" | "dark", { palette: { background: { default: string } } }>;
+      };
+      const panelContent = dataGridOf(theme).panelContent as Override;
+      for (const scheme of ["light", "dark"] as const) {
+        const palette = theme.colorSchemes[scheme].palette;
+        const { backgroundColor } = panelContent({ theme: { palette } });
+        // #rgb or #rrggbb, never a #rrggbbaa that lets the grid show through.
+        expect(backgroundColor, `${key} ${scheme}`).toMatch(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+      }
+    }
+  });
+
+  it("keeps Oxygen's own DataGrid overrides alongside it", () => {
+    for (const { key } of THEME_OPTIONS) {
+      expect(Object.keys(dataGridOf(resolveTheme(key)))).toEqual(
+        expect.arrayContaining([...Object.keys(dataGridOf(THEMES[key])), "panelContent"]),
+      );
+    }
+  });
+});
