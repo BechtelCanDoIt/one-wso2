@@ -17,7 +17,7 @@
 import { useMemo } from "react";
 import { Avatar, Box, DataGrid, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
-import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyEmployeeName, legacyOverallRating } from "../util/parAdminHistory";
+import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyEmployeeName, legacyOverallRating, rankSearchMatches } from "../util/parAdminHistory";
 import ParStatusChip from "./ParStatusChip";
 import { ParGridToolbar } from "./parGridToolbar";
 import type { ParLegacyHistory } from "../api/types";
@@ -60,15 +60,14 @@ export default function ParAdminLegacyEmployeeViewTab({
   const filteredRows = useMemo(() => {
     const term = searchText.trim().toLowerCase();
     if (!term) return records;
-    const rank = (row: ParLegacyHistory) =>
-      [legacyEmployeeName(row), row.employeeEmail, row.reviewerName ?? "", row.department ?? ""].findIndex((value) =>
-        value.toLowerCase().includes(term),
-      );
-    return records
-      .map((row) => ({ row, rank: rank(row) }))
-      .filter(({ rank }) => rank !== -1)
-      .sort((a, b) => a.rank - b.rank)
-      .map(({ row }) => row);
+    // The raw name, not legacyEmployeeName: that falls back to the email, so
+    // a nameless row (shown as "-") would rank its email match as a name match.
+    return rankSearchMatches(records, term, (row) => [
+      row.employeeName?.trim() ?? "",
+      row.employeeEmail,
+      row.reviewerName ?? "",
+      row.department ?? "",
+    ]);
   }, [records, searchText]);
 
   const columns = useMemo<DataGrid.GridColDef<ParLegacyHistory>[]>(

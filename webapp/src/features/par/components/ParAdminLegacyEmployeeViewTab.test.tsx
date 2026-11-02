@@ -57,10 +57,10 @@ const records = [
   legacyRecord({ legacyHeaderId: 5, employeeName: "Saman Kumara", employeeEmail: "saman@wso2.com", reviewerName: "Lead Two" }),
 ];
 
-function show(searchText: string, sortModel: DataGrid.GridSortModel = []) {
+function show(searchText: string, sortModel: DataGrid.GridSortModel = [], rows: ParLegacyHistory[] = records) {
   render(
     <ParAdminLegacyEmployeeViewTab
-      records={records}
+      records={rows}
       searchText={searchText}
       onSearchTextChange={() => {}}
       paginationModel={{ page: 0, pageSize: 10 }}
@@ -97,6 +97,16 @@ describe("ParAdminLegacyEmployeeViewTab search", () => {
     show("  ");
 
     expect(shownNames()).toEqual(["Amal Perera", "Nimal Silva", "Ruwan Jayasinghe", "Kasun Fernando", "Saman Kumara"]);
+  });
+
+  it("ranks a nameless row's email match as an email match, not a name match", () => {
+    const rows = [
+      legacyRecord({ legacyHeaderId: 1, employeeName: null, employeeEmail: "kasun@wso2.com" }),
+      legacyRecord({ legacyHeaderId: 2, employeeName: "Kasun Fernando", employeeEmail: "kf@wso2.com" }),
+    ];
+    show("kasun", [], rows);
+
+    expect(shownNames()).toEqual(["Kasun Fernando", "-"]);
   });
 
   it("lets a column sort the admin picks override the ranking", () => {

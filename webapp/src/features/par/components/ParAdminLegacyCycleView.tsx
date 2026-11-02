@@ -31,6 +31,7 @@ import {
   legacyEmployeeName,
   legacyOverallRating,
   legacySpecialRating,
+  rankSearchMatches,
   type LegacyTeamGroup,
 } from "../util/parAdminHistory";
 import ParAdminLegacyEmployeeViewTab from "./ParAdminLegacyEmployeeViewTab";
@@ -220,22 +221,16 @@ export default function ParAdminLegacyCycleView({
   const filteredGroups = useMemo(() => {
     const term = searchText.trim().toLowerCase();
     if (!term) return groups;
-    const rank = (g: LegacyTeamGroup) =>
-      [
-        g.parTeam,
-        g.parSubTeam,
-        g.parLeadEmail,
-        g.parDepartment,
-        g.parBusinessUnit,
-        g.employeeParCompletion,
-        g.leadFeedbackCompletion,
-        ...(hasSpecialRatings ? [g.numberOf5pSlots, g.numberOf20pSlots] : []),
-      ].findIndex((value) => String(value).toLowerCase().includes(term));
-    return groups
-      .map((g) => ({ g, rank: rank(g) }))
-      .filter(({ rank }) => rank !== -1)
-      .sort((a, b) => a.rank - b.rank)
-      .map(({ g }) => g);
+    return rankSearchMatches(groups, term, (g) => [
+      g.parTeam,
+      g.parSubTeam,
+      g.parLeadEmail,
+      g.parDepartment,
+      g.parBusinessUnit,
+      g.employeeParCompletion,
+      g.leadFeedbackCompletion,
+      ...(hasSpecialRatings ? [g.numberOf5pSlots, g.numberOf20pSlots] : []),
+    ]);
   }, [groups, searchText, hasSpecialRatings]);
   // Each record's rating and special rating, resolved once rather than in
   // every valueGetter call DataGrid makes while sorting and filtering.
