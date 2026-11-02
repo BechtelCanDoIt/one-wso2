@@ -46,7 +46,7 @@ const p = (id: string, code: string, classification: string, productUnit: string
   productUnit,
 });
 
-// The FY26 split, as in the backend's tests.
+// The FY26 split: a list, two patterns and rules at every level.
 const mappings: ApprovalMapping[] = [
   list(["01tLIST"], "SERVICES"), // 0
   sku("PC-*", "SAAS"), // 1
@@ -57,7 +57,7 @@ const mappings: ApprovalMapping[] = [
   rule("", "APIM", "PLATFORM"), // 6
 ];
 
-// D117: the same ranking as the backend.
+// D117: the most specific mapping wins.
 describe("productMapping", () => {
   it("picks the most specific mapping", () => {
     expect(winnerFor(mappings, p("a", "P-API", "PS", "APIM"))).toBe(3);
@@ -70,7 +70,7 @@ describe("productMapping", () => {
     expect(winnerFor(mappings, p("g", "C-ASG", "CL", "Asgardeo"))).toBe(-1);
   });
 
-  it("matches and overlaps patterns like the backend", () => {
+  it("matches whole codes and detects overlapping patterns", () => {
     expect(globMatch("pc-*", "pc-api-b")).toBe(true);
     expect(globMatch("pc-*", "xpc-api")).toBe(false);
     expect(globMatch("*-gold", "pc-iam-golden")).toBe(false);

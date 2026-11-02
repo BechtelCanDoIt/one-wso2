@@ -83,7 +83,7 @@ export default function ProductMappingTab({
   const products = catalog.data ?? null;
   const [editing, setEditing] = useState<Editing>(null);
   const [removing, setRemoving] = useState<number | null>(null);
-  const groupName = (code: string) => matrix.groups.find((g) => g.code === code)?.name || code;
+  const groupName = (code: string) => groupLabel(matrix, code);
   const mappings = matrix.mappings;
   const indexed = mappings.map((m, i) => ({ m, i }));
 

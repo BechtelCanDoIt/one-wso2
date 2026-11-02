@@ -686,6 +686,20 @@ describe("QuoteDetailPage — order form", () => {
     expect(issue.mutateAsync).toHaveBeenCalledWith({ quoteId: approved.quote.id, version: 1 });
   });
 
+  // A preview opened from the Issue confirmation that fails says so there.
+  it("shows a failed preview inside the issue confirmation", async () => {
+    Object.assign(documents, { data: { canPreview: true, canIssue: true, issueDate: "2026-10-12", expiryDate: "2026-11-11", documents: [] } });
+    files.preview.mockRejectedValueOnce(new Error("Service unavailable"));
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    show(quoteOf(approved), approved);
+    const user = userEvent.setup();
+    await user.click(panel().getByRole("button", { name: "Issue order form" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Issue the order form?" }));
+    await user.click(dialog.getByRole("button", { name: "Open the preview" }));
+    expect(await dialog.findByText(/Couldn't open the preview/)).toBeInTheDocument();
+    open.mockRestore();
+  });
+
   // D122: an approved quote can be recalled until its order form is issued.
   it("recalls an approved quote that isn't issued yet, saying only changed approvals are asked again", async () => {
     Object.assign(documents, { data: { canPreview: true, canIssue: true, issueDate: "2026-10-12", expiryDate: "2026-11-11", documents: [] } });

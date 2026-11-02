@@ -186,7 +186,7 @@ export function useMatrixProducts(enabled: boolean) {
 
 /**
  * Checks (confirm = false) or saves (confirm = true) a matrix. A check only
- * reports the in-flight quotes the change would recall.
+ * reports how many quotes are in approval, and saving recalls none of them (D118).
  */
 export function useSaveApprovalMatrix() {
   const { getToken, key } = useCado2Basis();

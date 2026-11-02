@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Product mapping (D117), the same rules as the backend's approval/mapping.go,
-// so what the admin page counts and warns about is what QuickQuote does:
+// Product mapping (D117): how QuickQuote ranks mappings, so what the admin
+// page counts and warns about is what quotes get:
 //
 //   1 product list   >   2 SKU pattern (more fixed characters first)
 //   > 3 classification + product unit   > classification only   > product unit only
@@ -108,7 +108,7 @@ export function winnerFor(mappings: readonly ApprovalMapping[], p: CatalogProduc
 export const matchedBy = (m: ApprovalMapping, catalog: readonly CatalogProduct[]): CatalogProduct[] =>
   catalog.filter((p) => matches(m, p));
 
-/** "PC-*", "CL + APIM", "Classification CO", "Product Unit APIM", "3 products". */
+/** "pattern PC-*", "Classification CL + Product Unit APIM", "Classification CO", "Product Unit APIM", "a list of 3 products". */
 export function mappingLabel(m: ApprovalMapping): string {
   if (m.kind === "PRODUCTS") return m.products.length === 1 ? m.products[0].name || m.products[0].id : `a list of ${m.products.length} products`;
   if (m.kind === "SKU") return `pattern ${m.skuPattern}`;

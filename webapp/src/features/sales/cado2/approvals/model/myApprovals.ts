@@ -42,7 +42,7 @@ export interface ReasonRow {
   readonly roles?: readonly string[];
   /** Why a resubmission asks again (D119). */
   readonly note?: string;
-  /** Already approved in this version (D119). */
+  /** The earlier version in which this reason was already approved (D119). */
   readonly carriedFromVersion?: number;
 }
 

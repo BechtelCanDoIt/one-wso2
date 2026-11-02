@@ -225,7 +225,15 @@ function ApprovedOrderForm({
           <Button variant="outlined" startIcon={<EyeIcon size={16} />} onClick={() => void preview()} disabled={busy !== null}>
             {busy === "preview" ? "Preparing preview…" : "Preview PDF"}
           </Button>
-          <Button variant="contained" startIcon={<SendIcon size={16} />} onClick={() => setConfirming(true)} disabled={busy !== null}>
+          <Button
+            variant="contained"
+            startIcon={<SendIcon size={16} />}
+            onClick={() => {
+              setError(null);
+              setConfirming(true);
+            }}
+            disabled={busy !== null}
+          >
             Issue order form
           </Button>
         </Stack>
@@ -265,6 +273,8 @@ function ApprovedOrderForm({
             <Typography variant="body2" color="text.secondary">
               If something is wrong after issuing, close this quote and clone it into a new one.
             </Typography>
+            {/* A preview that fails from here says so here, not behind the dialog. */}
+            {error ? <ErrorNotice error={error.cause}>{error.what}</ErrorNotice> : null}
           </Stack>
         </DialogContent>
         <DialogActions>
