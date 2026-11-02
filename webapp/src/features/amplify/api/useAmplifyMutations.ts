@@ -18,7 +18,7 @@
 //
 // Every POST carries an Idempotency-Key, one per user action rather than one
 // per HTTP call: the key is minted on the first call of an attempt and reused
-// by every call that overlaps it, so a double click reaches amplify-api twice
+// by every call with the same variables that overlaps it, so a double click reaches amplify-api twice
 // with the same key and its idempotency record answers the second with the
 // first's result instead of publishing twice. The key is dropped when the
 // attempt settles, so a re-submit after a failure — a new action — gets a new
@@ -46,16 +46,27 @@ import type {
 } from "./amplifyTypes";
 
 // One key per user action: minted by the first call of an attempt, shared by
-// every call that overlaps it, released when the attempt settles.
-function useIdempotencyKey(): { headers: () => Record<string, string>; release: () => void } {
-  const key = useRef<string | null>(null);
+// every call that overlaps it with the same variables (a double click), released
+// when that attempt settles. Two different submissions that overlap on one hook
+// (a different draft, another share) are different actions and get their own keys.
+function useIdempotencyKey(): {
+  headers: (variables: unknown) => Record<string, string>;
+  release: (variables: unknown) => void;
+} {
+  const keys = useRef(new Map<string, string>());
+  const idOf = (variables: unknown): string => JSON.stringify(variables ?? null);
   return {
-    headers() {
-      key.current ??= crypto.randomUUID();
-      return { "Idempotency-Key": key.current };
+    headers(variables) {
+      const id = idOf(variables);
+      let key = keys.current.get(id);
+      if (key === undefined) {
+        key = crypto.randomUUID();
+        keys.current.set(id, key);
+      }
+      return { "Idempotency-Key": key };
     },
-    release() {
-      key.current = null;
+    release(variables) {
+      keys.current.delete(idOf(variables));
     },
   };
 }
@@ -80,17 +91,17 @@ export function useRegisterCampaign() {
   const sub = useAmplifySub();
   const idem = useIdempotencyKey();
   return useMutation<CampaignRegistration | null, Error, { draft: CampaignDraft; shareNow: boolean }>({
-    mutationFn: async ({ draft, shareNow }) =>
+    mutationFn: async (vars) =>
       authedPost<CampaignRegistration>(
-        `${amplifyServiceUrls.campaigns}?shareNow=${shareNow}`,
+        `${amplifyServiceUrls.campaigns}?shareNow=${vars.shareNow}`,
         await getAccessToken(),
-        draft,
-        idem.headers(),
+        vars.draft,
+        idem.headers(vars),
       ),
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("campaigns", sub));
     },
-    onSettled: idem.release,
+    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
@@ -115,17 +126,17 @@ export function useRequestShare() {
   const sub = useAmplifySub();
   const idem = useIdempotencyKey();
   return useMutation<Share | null, Error, { campaignId: string; kind: ShareKind; commentary?: string }>({
-    mutationFn: async ({ campaignId, kind, commentary }) =>
+    mutationFn: async (vars) =>
       authedPost<Share>(
-        amplifyServiceUrls.shares(campaignId),
+        amplifyServiceUrls.shares(vars.campaignId),
         await getAccessToken(),
-        commentary === undefined ? { kind } : { kind, commentary },
-        idem.headers(),
+        vars.commentary === undefined ? { kind: vars.kind } : { kind: vars.kind, commentary: vars.commentary },
+        idem.headers(vars),
       ),
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("my-shares", sub));
     },
-    onSettled: idem.release,
+    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
@@ -139,9 +150,9 @@ export function useStartLinkedInConnect() {
         amplifyServiceUrls.connectStart,
         await getAccessToken(),
         body,
-        idem.headers(),
+        idem.headers(body),
       ),
-    onSettled: idem.release,
+    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
@@ -151,10 +162,10 @@ export function useDeclineLinkedInConsent() {
   const idem = useIdempotencyKey();
   return useMutation<null, Error, { profileUrl?: string }>({
     mutationFn: async (body) => {
-      await authedPost<unknown>(amplifyServiceUrls.connectDecline, await getAccessToken(), body, idem.headers());
+      await authedPost<unknown>(amplifyServiceUrls.connectDecline, await getAccessToken(), body, idem.headers(body));
       return null;
     },
-    onSettled: idem.release,
+    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
@@ -186,11 +197,11 @@ export function useCompleteLinkedInConnect() {
         amplifyServiceUrls.connectComplete,
         await getAccessToken(),
         body,
-        idem.headers(),
+        idem.headers(body),
       ),
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("me", sub));
     },
-    onSettled: idem.release,
+    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
