@@ -43,7 +43,7 @@ describe("isPreviewEnabled", () => {
     expect(isPreviewEnabled("amplify")).toBe(false);
   });
 
-  // Amplify's perspective, rail group and routes are all behind this one key.
+  // `amplify` is a preview key like the others: off unless the deployment sets it.
   it("turns Amplify on when the deployment sets it", () => {
     setFlags({ amplify: true });
     expect(isPreviewEnabled("amplify")).toBe(true);
