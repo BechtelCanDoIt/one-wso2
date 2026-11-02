@@ -100,6 +100,23 @@ describe("the Idempotency-Key", () => {
     expect(keyOf(calls[0])).toBe(keyOf(calls[1]));
   });
 
+  it("differs for two different submissions that overlap on one hook", async () => {
+    const post = deferred();
+    vi.mocked(authedPost).mockImplementation(() => post.promise as never);
+    const { result } = setup();
+
+    await act(async () => {
+      const first = result.current.mutateAsync({ draft: { title: "First" } as CampaignDraft, shareNow: false });
+      const second = result.current.mutateAsync({ draft: { title: "Second" } as CampaignDraft, shareNow: false });
+      post.resolve({ run: "STARTED" });
+      await Promise.all([first, second]);
+    });
+
+    const calls = vi.mocked(authedPost).mock.calls;
+    expect(calls).toHaveLength(2);
+    expect(keyOf(calls[0])).not.toBe(keyOf(calls[1]));
+  });
+
   it("is new once the attempt has settled, because that is a new action", async () => {
     vi.mocked(authedPost).mockImplementation(async () => ({ run: "STARTED" }) as never);
     const { result } = setup();
