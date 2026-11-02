@@ -510,6 +510,7 @@ const ME_SECTIONS: PerspectiveSection[] = [
 export const AMPLIFY_CELEBRATE_PATH = "/amplify/celebrate";
 export const AMPLIFY_NEW_POST_PATH = "/amplify/new-post";
 export const AMPLIFY_CURRENT_POSTS_PATH = "/amplify/current-posts";
+export const AMPLIFY_TEAM_PATH = "/amplify/team";
 export const AMPLIFY_NEW_POST_ITEM_ID = "amplify-new-post";
 export const AMPLIFY_CURRENT_POSTS_ITEM_ID = "amplify-current-posts";
 export const AMPLIFY_EDITOR_ITEM_IDS: ReadonlySet<string> = new Set([

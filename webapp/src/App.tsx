@@ -125,6 +125,7 @@ import AmplifyDashboardRoute from "@components/route-guards/AmplifyDashboardRout
 import CelebratePage from "@features/amplify/pages/CelebratePage";
 import NewPostPage from "@features/amplify/pages/NewPostPage";
 import CurrentPostsPage from "@features/amplify/pages/CurrentPostsPage";
+import TeamRosterPage from "@features/amplify/pages/TeamRosterPage";
 import LinkedInCallbackPage from "@features/amplify/pages/LinkedInCallbackPage";
 import GlancePage from "@features/amplify/pages/dashboards/GlanceBoard";
 import OperationsPage from "@features/amplify/pages/dashboards/OperationsBoard";
@@ -1023,6 +1024,8 @@ export default function App() {
             <>
               <Route path="amplify" element={<PerspectiveLanding />} />
               <Route path="amplify/celebrate" element={<CelebratePage />} />
+              {/* The full team roster. Every employee sees their own team (or the company, by the server's rules). */}
+              <Route path="amplify/team" element={<TeamRosterPage />} />
               <Route
                 path="amplify/new-post"
                 element={

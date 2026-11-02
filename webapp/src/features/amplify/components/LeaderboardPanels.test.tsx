@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Leaderboard } from "../api/amplifyTypes";
 import { TeamLeaderboardPanel } from "./LeaderboardPanels";
@@ -65,6 +65,16 @@ describe("TeamLeaderboardPanel", () => {
     expect(within(rows[3]).getByText("Linus Torvalds")).toBeTruthy();
     expect(within(rows[3]).queryByRole("button")).toBeNull();
     expect(within(rows[3]).getByText("0 pts")).toBeTruthy();
+  });
+
+  it("offers a link to the full team page only when a handler is given", () => {
+    const onViewAll = vi.fn();
+    const { unmount } = render(<TeamLeaderboardPanel board={board()} people={new Map()} />);
+    expect(screen.queryByRole("button", { name: "View full team" })).toBeNull();
+    unmount();
+    render(<TeamLeaderboardPanel board={board()} people={new Map()} onViewAll={onViewAll} />);
+    fireEvent.click(screen.getByRole("button", { name: "View full team" }));
+    expect(onViewAll).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the caller's row when the team roster is unavailable", () => {
