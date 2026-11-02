@@ -362,6 +362,10 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
               open={customerListOpen && !searchFailed}
               onOpen={() => setCustomerListOpen(true)}
               onClose={() => setCustomerListOpen(false)}
+              // MUI skips onClose on blur while a failed search keeps the list
+              // closed, so the list would reopen once the cleared input ends the
+              // error. Forget the open state whenever focus leaves.
+              onBlur={() => setCustomerListOpen(false)}
               filterOptions={(x) => x}
               loading={searchingCustomers}
               loadingText="Searching…"
