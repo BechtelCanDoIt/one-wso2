@@ -14,8 +14,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
-import { isLocalInfraBackend } from "./infraLocalBackend";
+import { describe, expect, it, vi } from "vitest";
+
+const backend = vi.hoisted(() => ({ url: "" }));
+vi.mock("@config/apiConfig", () => ({
+  get infraBackendUrl() {
+    return backend.url;
+  },
+}));
+
+const { isLocalInfraBackend, infraLocalAssertionHeaders } = await import("./infraLocalBackend");
 
 describe("isLocalInfraBackend", () => {
   it("accepts http://localhost with a port", () => {
@@ -33,5 +41,24 @@ describe("isLocalInfraBackend", () => {
   it("rejects empty or invalid URLs", () => {
     expect(isLocalInfraBackend("")).toBe(false);
     expect(isLocalInfraBackend("not-a-url")).toBe(false);
+  });
+});
+
+describe("infraLocalAssertionHeaders", () => {
+  it("attaches x-jwt-assertion for http://localhost", () => {
+    backend.url = "http://localhost:8090";
+    expect(infraLocalAssertionHeaders("id-token")).toEqual({
+      "x-jwt-assertion": "id-token",
+    });
+  });
+
+  it("omits the header for a localhost lookalike host", () => {
+    backend.url = "http://localhost.example.com";
+    expect(infraLocalAssertionHeaders("id-token")).toBeUndefined();
+  });
+
+  it("omits the header for remote hosts", () => {
+    backend.url = "https://infra.example.com";
+    expect(infraLocalAssertionHeaders("id-token")).toBeUndefined();
   });
 });

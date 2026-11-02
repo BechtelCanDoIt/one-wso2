@@ -19,23 +19,14 @@ import { useAsgardeo } from "@asgardeo/react";
 import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
-import { useIdToken } from "@hooks/useIdToken";
-import { infraBackendUrl, infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
+import { infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
 import type { InfraEmployee, InfraLead, InfraOrganization, InfraTopic } from "./infraTypes";
-import { isLocalInfraBackend } from "./infraLocalBackend";
-
-function useLocalHeaders() {
-  const getIdToken = useIdToken();
-  return async () =>
-    isLocalInfraBackend(infraBackendUrl)
-      ? { "x-jwt-assertion": await getIdToken() }
-      : undefined;
-}
+import { useInfraLocalHeaders } from "./infraLocalBackend";
 
 export function useInfraLeads(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
-  const localHeaders = useLocalHeaders();
+  const localHeaders = useInfraLocalHeaders();
   const configured = isInfraBackendConfigured();
   return useQuery<InfraLead[]>({
     queryKey: ["infra-leads"],
@@ -52,7 +43,7 @@ export function useInfraLeads(enabled = true) {
 export function useInfraEmployees(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
-  const localHeaders = useLocalHeaders();
+  const localHeaders = useInfraLocalHeaders();
   const configured = isInfraBackendConfigured();
   return useQuery<InfraEmployee[]>({
     queryKey: ["infra-employees"],
@@ -73,7 +64,7 @@ export function useInfraEmployees(enabled = true) {
 export function useInfraOrganizations(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
-  const localHeaders = useLocalHeaders();
+  const localHeaders = useInfraLocalHeaders();
   const configured = isInfraBackendConfigured();
   return useQuery<InfraOrganization[]>({
     queryKey: ["infra-organizations"],
@@ -94,7 +85,7 @@ export function useInfraOrganizations(enabled = true) {
 export function useInfraTopics(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
-  const localHeaders = useLocalHeaders();
+  const localHeaders = useInfraLocalHeaders();
   const configured = isInfraBackendConfigured();
   return useQuery<InfraTopic[]>({
     queryKey: ["infra-topics"],
@@ -111,7 +102,7 @@ export function useInfraTopics(enabled = true) {
 export function useInfraTeams(organizationName: string, enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
-  const localHeaders = useLocalHeaders();
+  const localHeaders = useInfraLocalHeaders();
   const configured = isInfraBackendConfigured();
   const organization = organizationName.trim();
   return useQuery<string[]>({

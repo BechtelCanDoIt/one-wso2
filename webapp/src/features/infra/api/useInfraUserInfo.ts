@@ -10,7 +10,7 @@
 // Unless required by applicable law or agreed to in writing,
 // software distributed under the License is distributed on an
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
+// KIND, either express or implied. See the License for the
 // specific language governing permissions and limitations
 // under the License.
 
@@ -20,17 +20,16 @@ import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
+import { infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
 import type { InfraUserInfo } from "./infraTypes";
-import { useIdToken } from "@hooks/useIdToken";
-import { infraBackendUrl, infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
-import { isLocalInfraBackend } from "./infraLocalBackend";
+import { useInfraLocalHeaders } from "./infraLocalBackend";
 
 export { isInfraBackendConfigured };
 
 export function useInfraUserInfo(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
-  const getIdToken = useIdToken();
+  const localHeaders = useInfraLocalHeaders();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
   const userSub = subState.status === "ready" ? subState.sub : undefined;
   const configured = isInfraBackendConfigured();
@@ -39,10 +38,11 @@ export function useInfraUserInfo(enabled = true) {
     enabled: enabled && isSignedIn && configured && Boolean(userSub),
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      const extra = isLocalInfraBackend(infraBackendUrl)
-        ? { "x-jwt-assertion": await getIdToken() }
-        : undefined;
-      return authedGet<InfraUserInfo>(infraServiceUrls.userInfo, accessToken, extra);
+      return authedGet<InfraUserInfo>(
+        infraServiceUrls.userInfo,
+        accessToken,
+        await localHeaders(),
+      );
     },
     staleTime: 5 * 60 * 1000,
     retry: httpRetry,

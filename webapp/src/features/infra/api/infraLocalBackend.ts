@@ -14,6 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { useIdToken } from "@hooks/useIdToken";
+import { infraBackendUrl } from "@config/apiConfig";
+
 /** True only for http://localhost[...], not lookalike hosts. */
 export function isLocalInfraBackend(url: string): boolean {
   if (!url) return false;
@@ -23,4 +26,15 @@ export function isLocalInfraBackend(url: string): boolean {
   } catch {
     return false;
   }
+}
+
+export function infraLocalAssertionHeaders(idToken: string) {
+  return isLocalInfraBackend(infraBackendUrl)
+    ? { "x-jwt-assertion": idToken }
+    : undefined;
+}
+
+export function useInfraLocalHeaders() {
+  const getIdToken = useIdToken();
+  return async () => infraLocalAssertionHeaders(await getIdToken());
 }

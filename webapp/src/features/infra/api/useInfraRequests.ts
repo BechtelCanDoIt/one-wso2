@@ -20,14 +20,9 @@ import { authedGet, authedPost } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useIdToken } from "@hooks/useIdToken";
-import { infraBackendUrl, infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
+import { infraServiceUrls, isInfraBackendConfigured } from "@config/apiConfig";
 import type { InfraRepositoryRequestList, InfraRequestComment } from "./infraTypes";
-
-function localAssertionHeaders(idToken: string) {
-  return infraBackendUrl.startsWith("http://localhost")
-    ? { "x-jwt-assertion": idToken }
-    : undefined;
-}
+import { infraLocalAssertionHeaders } from "./infraLocalBackend";
 
 export function useMyCreationRequests(
   memberEmail: string,
@@ -54,7 +49,7 @@ export function useMyCreationRequests(
       return authedGet<InfraRepositoryRequestList>(
         `${infraServiceUrls.repositoryRequests}?${params.toString()}`,
         accessToken,
-        localAssertionHeaders(await getIdToken()),
+        infraLocalAssertionHeaders(await getIdToken()),
       );
     },
     retry: httpRetry,
@@ -74,7 +69,7 @@ export function useRepositoryRequestComments(requestId: number | null) {
       return authedGet<InfraRequestComment[]>(
         infraServiceUrls.repositoryRequestComments(requestId as number),
         accessToken,
-        localAssertionHeaders(await getIdToken()),
+        infraLocalAssertionHeaders(await getIdToken()),
       );
     },
     retry: httpRetry,
@@ -88,14 +83,11 @@ export function useAddRepositoryRequestComment(requestId: number) {
   return useMutation({
     mutationFn: async (body: { authorEmail: string; commentText: string }) => {
       const accessToken = await getAccessToken();
-      const localAssertion = infraBackendUrl.startsWith("http://localhost")
-        ? { "x-jwt-assertion": await getIdToken() }
-        : undefined;
       return authedPost<unknown>(
         infraServiceUrls.repositoryRequestComments(requestId),
         accessToken,
         body,
-        localAssertion,
+        infraLocalAssertionHeaders(await getIdToken()),
       );
     },
     onSuccess: () => {

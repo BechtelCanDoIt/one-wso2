@@ -45,9 +45,7 @@ const EMPLOYEE_ITEMS = [
   "infra-github-connection",
   "infra-github-new-repository",
   "infra-github-repository-access",
-  "infra-github-request-access",
   "infra-github-my-requests",
-  "infra-security-dashboard",
 ] as const;
 
 function expectEmployeeScreens(gate: ReturnType<typeof useInfraGate>, visible: boolean) {
