@@ -121,6 +121,20 @@ export const UMT_PR_ANALYSIS_STATUS = {
   COMPLETED: "COMPLETED",
 } as const;
 
+export function isUmtPrAnalysisInFlight(status: string | null | undefined): boolean {
+  return status === UMT_PR_ANALYSIS_STATUS.QUEUED || status === UMT_PR_ANALYSIS_STATUS.PROCESSING;
+}
+
+// An analysis requested with promotion runs until the backend has also moved
+// the update to PRAnalyzed and run its product analysis. praStatus is
+// COMPLETED before that, so the pending flag is what says it has ended.
+export function isUmtPrAnalysisRunning(update: {
+  praStatus?: string | null;
+  praPromotionPending?: boolean | null;
+}): boolean {
+  return Boolean(update.praPromotionPending) || isUmtPrAnalysisInFlight(update.praStatus);
+}
+
 // The backend also returns bare "failed"/"failure", or a longer
 // FAILED_.../FAILURE_... value with a trailing detail message.
 export function isUmtPrAnalysisFailed(status: string | null | undefined): boolean {

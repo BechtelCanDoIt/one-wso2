@@ -23,11 +23,11 @@ import type { UmtUpdateSummary } from "../../api/umtUpdates";
 import { useUmtGate } from "../../api/useUmtGate";
 import { useUmtHotfixTestStatus, useUmtReleaseHotfix } from "../../api/useUmtHotfixRelease";
 import { useUmtLifecycleTransition } from "../../api/useUmtLifecycleTransition";
-import { useUmtIsAdvancingToPrAnalyzed } from "../../api/useUmtPrAnalysis";
 import { useUmtProductAnalysis, useUmtPullRequestAnalysis } from "../../api/useUmtUpdateViewData";
 import {
   computeUmtEditSteps,
   isFilesAnalysisPrAnalyzed,
+  isFilesAnalysisProductAnalysisReady,
   resolveUmtEditActiveIndex,
   umtActiveStepIndex,
   umtHasAdditionalFileOperations,
@@ -76,7 +76,6 @@ export default function UmtUpdateEditTab({
   const hotfixTestStatus = useUmtHotfixTestStatus(id, update.isHotfix ? update.lifecycleState : null);
   const gate = useUmtGate();
   const transition = useUmtLifecycleTransition(id);
-  const isAdvancingToPrAnalyzed = useUmtIsAdvancingToPrAnalyzed(id);
   const releaseHotfix = useUmtReleaseHotfix(id);
   const { showSuccess, showError } = useNotifications();
 
@@ -153,7 +152,11 @@ export default function UmtUpdateEditTab({
   // Files Analysis spans Development and PRAnalyzed; the product analysis
   // (and the shared step actions under it) only exists once PRAnalyzed, and
   // only once the run that promoted the update has finished its analysis.
-  const isProductAnalysis = isFilesAnalysis && isFilesAnalysisPrAnalyzed(update.lifecycleState) && !isAdvancingToPrAnalyzed;
+  // Until then the update can't leave PRAnalyzed: the backend rejects a
+  // demote while the promotion is pending, as the product analysis would undo it.
+  const isFilesAnalysisPrAnalyzedStep = isFilesAnalysis && isFilesAnalysisPrAnalyzed(update.lifecycleState);
+  const isProductAnalysis = isFilesAnalysis && isFilesAnalysisProductAnalysisReady(update);
+  const isPromotionRunning = isFilesAnalysisPrAnalyzedStep && !isProductAnalysis;
   const isIntegrationTests = currentStep.id === "integration-tests";
   const isSecurityAdvisory = currentStep.id === "security-advisory";
   const isTesting = currentStep.id === "testing";
@@ -371,7 +374,7 @@ export default function UmtUpdateEditTab({
           <UmtEditStepPlaceholder stepLabel={currentStep.label} />
         )}
       </Box>
-      {!isTerminal && !isLocked && (!isFilesAnalysis || isProductAnalysis) && (
+      {!isTerminal && !isLocked && (!isFilesAnalysis || isFilesAnalysisPrAnalyzedStep) && (
         <UmtEditStepActions
           proceedLabel={
             isAwaitingFileApproval
@@ -385,6 +388,7 @@ export default function UmtUpdateEditTab({
                     : "Proceed"
           }
           proceedDisabled={
+            isPromotionRunning ||
             !currentStep.proceedWired ||
             !roleAllowed ||
             !stepReady ||
@@ -392,7 +396,9 @@ export default function UmtUpdateEditTab({
           }
           proceedLoading={transition.isPending || releaseHotfix.isPending}
           explanation={
-            !currentStep.proceedWired
+            isPromotionRunning
+              ? "Product analysis is running. Wait for it to finish."
+              : !currentStep.proceedWired
               ? "This step isn't wired up yet."
               : !roleAllowed
                 ? "Only UMT Admins or Product Leads can approve this step."
@@ -435,6 +441,7 @@ export default function UmtUpdateEditTab({
           demoteActions={demoteActions.map((action) => ({
             label: action.label,
             color: action.color,
+            disabled: isPromotionRunning,
             onClick: () => void handleDemote(action.targetLifecycleState),
           }))}
           demoteLoading={transition.isPending}

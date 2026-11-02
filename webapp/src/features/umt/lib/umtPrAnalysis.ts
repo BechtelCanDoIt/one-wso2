@@ -15,7 +15,12 @@
 // under the License.
 
 import type JSZip from "jszip";
-import { UMT_PR_ANALYSIS_STATUS, isUmtPrAnalysisFailed, type UmtUpdateType } from "../api/umtTypes";
+import {
+  UMT_PR_ANALYSIS_STATUS,
+  isUmtPrAnalysisFailed,
+  isUmtPrAnalysisInFlight,
+  type UmtUpdateType,
+} from "../api/umtTypes";
 import type { UmtFileOperation } from "../api/umtUpdates";
 
 // `[0-9]+` not `[0-9]*` (a missing PR number is not a PR link) and anchored at
@@ -224,7 +229,7 @@ export function isPrAnalyzeDisabled(params: {
 }): boolean {
   const { status, hasNewInputsSinceLastAnalysis, updateType, pullRequestCount, manualFileCount } = params;
 
-  if (status === UMT_PR_ANALYSIS_STATUS.QUEUED || status === UMT_PR_ANALYSIS_STATUS.PROCESSING) return true;
+  if (isUmtPrAnalysisInFlight(status)) return true;
   // A failed analysis can be run again as it is, whatever has changed since:
   // waiting for an input to change would leave a transient failure stuck.
   if (!hasNewInputsSinceLastAnalysis && !isUmtPrAnalysisFailed(status)) return true;
