@@ -47,4 +47,32 @@ describe("TeamLeaderboardPanel", () => {
     expect(within(rows[1]).getByText("Oak")).toBeTruthy();
     expect(within(rows[2]).getByText("—")).toBeTruthy();
   });
+
+  it("shows a member with no standing row as plain text, with no person link", () => {
+    const b = board();
+    b.myTeam!.entries.push({
+      employeeId: null,
+      displayName: "Linus Torvalds",
+      email: "linus@example.com",
+      points: 0,
+      teamRank: 3,
+      companyRank: null,
+      houseName: null,
+      isMe: false,
+    });
+    render(<TeamLeaderboardPanel board={b} people={new Map()} />);
+    const rows = screen.getAllByRole("row");
+    expect(within(rows[3]).getByText("Linus Torvalds")).toBeTruthy();
+    expect(within(rows[3]).queryByRole("button")).toBeNull();
+    expect(within(rows[3]).getByText("0 pts")).toBeTruthy();
+  });
+
+  it("keeps the caller's row when the team roster is unavailable", () => {
+    const b = board();
+    b.teamStatus = "UNAVAILABLE";
+    b.myTeam!.entries = [b.myTeam!.entries[0]];
+    render(<TeamLeaderboardPanel board={b} people={new Map()} />);
+    expect(screen.getByText(/Only you are shown/)).toBeTruthy();
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+  });
 });

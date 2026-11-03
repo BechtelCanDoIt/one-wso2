@@ -15,7 +15,7 @@
 // under the License.
 
 import { Avatar, Box, Chip, Divider, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
-import type { Leaderboard, TopBoard } from "../api/amplifyTypes";
+import type { Leaderboard, TeamEntry, TopBoard } from "../api/amplifyTypes";
 import type { PeopleByEmail } from "../api/useAmplifyPeople";
 import { AmplifyPanel } from "./AmplifyShell";
 import { nameOrUnknown } from "../api/usePersonLookup";
@@ -155,11 +155,15 @@ export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people:
 /** My Team, ranked within the caller's team. */
 export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
   const team = board.myTeam;
+  // With the directory down the team view lists only the caller (teamStatus UNAVAILABLE), so show that row too.
+  const showRows = Boolean(team && team.entries.length > 0 && (board.teamStatus === "OK" || board.teamStatus === "UNAVAILABLE"));
   return (
     <AmplifyPanel title={team ? `Team leaderboard · ${team.teamName}` : "Team leaderboard"}>
       {board.teamStatus === "UNAVAILABLE" && (
         <Typography variant="body2" color="text.secondary">
-          Your team&apos;s board isn&apos;t available right now. Try again later.
+          {showRows
+            ? "Only you are shown: your team's roster isn't available right now."
+            : "Your team's board isn't available right now. Try again later."}
         </Typography>
       )}
       {board.teamStatus === "NO_TEAM" && (
@@ -167,7 +171,7 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
           We couldn&apos;t find your team.
         </Typography>
       )}
-      {board.teamStatus === "OK" && team && (
+      {showRows && team && (
         <Box sx={{ overflowX: "auto" }}>
           <Table size="small" aria-label="Team leaderboard">
             <TableHead>
@@ -181,7 +185,7 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
             <TableBody>
               {team.entries.map((entry) => (
                 <TableRow
-                  key={entry.employeeId}
+                  key={entry.email}
                   selected={entry.isMe}
                   sx={entry.isMe ? { "& td": { fontWeight: 700 } } : undefined}
                 >
@@ -189,9 +193,7 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
                   <TableCell>
                     <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                       <PersonAvatar email={entry.email} fallbackName={entry.displayName} people={people} size={24} />
-                      <PersonLink person={{ employeeId: entry.employeeId, displayName: entry.displayName, email: entry.email }}>
-                        {nameOf(entry.email, entry.displayName, people)}
-                      </PersonLink>
+                      <TeamMemberName entry={entry} people={people} />
                       {entry.isMe && <Chip size="small" color="primary" label="You" />}
                     </Box>
                   </TableCell>
@@ -204,5 +206,19 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
         </Box>
       )}
     </AmplifyPanel>
+  );
+}
+
+/**
+ * A team member's name. Linked to their person page only when they have a standing row (`employeeId` set);
+ * a member nobody has recorded points for has no page to open, so the name is plain text.
+ */
+function TeamMemberName({ entry, people }: { entry: TeamEntry; people: PeopleByEmail }) {
+  const name = nameOf(entry.email, entry.displayName, people);
+  if (entry.employeeId === null) return <>{name}</>;
+  return (
+    <PersonLink person={{ employeeId: entry.employeeId, displayName: entry.displayName, email: entry.email }}>
+      {name}
+    </PersonLink>
   );
 }
