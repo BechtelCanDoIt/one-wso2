@@ -14,8 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render } from "@testing-library/react";
+vi.mock("../api/useAmplifyData", () => ({
+  useAmplifyConfig: () => ({ linkedinOrgUrn: "urn:li:organization:1", privacyNoticeUrl: "https://example.test/privacy", postLinkOrigins: ["https://www.linkedin.com", "https://linkedin.com"] }),
+}));
+
 import PostCard, { DEFAULT_POST_IMAGE } from "./PostCard";
 import type { Campaign } from "../api/amplifyTypes";
 

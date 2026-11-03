@@ -35,6 +35,9 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showError, showSuccess: vi.fn() }),
 }));
 
+vi.mock("../../api/useAmplifyData", () => ({
+  useAmplifyConfig: () => ({ linkedinOrgUrn: "urn:li:organization:1", privacyNoticeUrl: "https://example.test/privacy", postLinkOrigins: ["https://www.linkedin.com", "https://linkedin.com"] }),
+}));
 vi.mock("../../api/useAmplifyEditorAccess", () => ({
   useAmplifyDashboardAccess: () => ({ hasAccess: true, isResolving: false, retry: vi.fn() }),
 }));
