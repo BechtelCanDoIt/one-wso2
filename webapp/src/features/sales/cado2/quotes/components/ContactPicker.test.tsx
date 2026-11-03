@@ -19,19 +19,40 @@ import type { JSX } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { emptyDraftForm, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
+import type { Contact } from "@features/sales/cado2/quotes/api/quoteTypes";
+import { emptyDraftForm, type ContactValue, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
 import ContactPicker from "./ContactPicker";
 
-const contacts = [
-  { id: "003A", name: "Marco Ruiz", title: "Head of IT", email: "marco@acme.example" },
-  { id: "003B", name: "Ana Payables", title: "Finance", email: "ap@acme.example" },
+const OPP = "006000000000001AAA";
+const contacts: Contact[] = [
+  { id: "003A", name: "Marco Ruiz", title: "Head of IT", email: "marco@acme.example", roles: ["Economic Buyer", "Champion"] },
+  { id: "003B", name: "Ana Payables", title: "Finance", email: "ap@acme.example", roles: [] },
 ];
 
-function Harness(): JSX.Element {
-  const form = useForm<DraftFormValues>({ defaultValues: emptyDraftForm() });
+function Harness({
+  list = contacts,
+  billing,
+  loadError,
+  onRetry,
+}: {
+  list?: Contact[];
+  billing?: ContactValue;
+  loadError?: unknown;
+  onRetry?: () => void;
+}): JSX.Element {
+  const form = useForm<DraftFormValues>({ defaultValues: { ...emptyDraftForm(), ...(billing ? { billingContact: billing } : {}) } });
   return (
     <FormProvider {...form}>
-      <ContactPicker name="billingContact" issueField="contacts.billing" label="Billing contact" contacts={contacts} loading={false} />
+      <ContactPicker
+        name="billingContact"
+        issueField="contacts.billing"
+        label="Billing contact"
+        opportunityId={OPP}
+        contacts={list}
+        loading={false}
+        loadError={loadError}
+        onRetry={onRetry}
+      />
       <Value />
     </FormProvider>
   );
@@ -42,33 +63,37 @@ function Value(): JSX.Element {
 }
 
 describe("ContactPicker", () => {
-  // 2026-10-09: nothing is listed until the AM chooses to pick from Salesforce
-  // (an open list on arrival read as a directory, not a choice).
-  it("starts with nothing chosen and the two ways to choose, without a list", async () => {
+  // 2026-10-09: nothing is listed until the AM chooses to pick (an open list
+  // on arrival read as a directory, not a choice). D124: no typing in.
+  it("starts with nothing chosen and one way to choose, without a list", async () => {
     render(<Harness />);
     const user = userEvent.setup();
     const empty = within(screen.getByLabelText("Billing contact: none chosen"));
     expect(empty.getByText("No billing contact chosen yet")).toBeInTheDocument();
-    expect(empty.getByRole("button", { name: "Someone not in Salesforce…" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /not in Salesforce/ })).toBeNull();
     expect(screen.queryByRole("radiogroup")).toBeNull();
 
-    await user.click(empty.getByRole("button", { name: "Choose from Salesforce" }));
+    await user.click(empty.getByRole("button", { name: "Choose from the opportunity" }));
     expect(screen.getByText("Choose the billing contact")).toBeInTheDocument();
     expect(screen.getByRole("radiogroup", { name: "Billing contact" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /not in Salesforce/ })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByRole("radiogroup")).toBeNull();
     expect(screen.getByText("value: none")).toBeInTheDocument();
   });
 
-  it("searches the account's contacts and shows the choice as a card with Change", async () => {
+  it("lists the opportunity's contacts with their roles, searches and shows the choice as a card", async () => {
     render(<Harness />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Choose from Salesforce" }));
+    await user.click(screen.getByRole("button", { name: "Choose from the opportunity" }));
     const list = () => within(screen.getByRole("radiogroup", { name: "Billing contact" }));
     expect(list().getAllByRole("radio")).toHaveLength(2);
+    expect(list().getByText(/Economic Buyer, Champion · Head of IT/)).toBeInTheDocument();
 
-    await user.type(screen.getByRole("textbox", { name: "Search billing contact" }), "finance");
+    await user.type(screen.getByRole("textbox", { name: "Search billing contact" }), "champion");
     expect(list().getAllByRole("radio")).toHaveLength(1);
+    await user.clear(screen.getByRole("textbox", { name: "Search billing contact" }));
+    await user.type(screen.getByRole("textbox", { name: "Search billing contact" }), "finance");
     await user.click(list().getByRole("radio", { name: "Ana Payables" }));
 
     expect(screen.getByText("value: salesforce 003B")).toBeInTheDocument();
@@ -81,14 +106,28 @@ describe("ContactPicker", () => {
     expect(screen.getByLabelText("Billing contact: Ana Payables")).toBeInTheDocument();
   });
 
-  it("takes someone not in Salesforce, typed in", async () => {
-    render(<Harness />);
+  // D124: most opportunities have no contacts yet; the AM adds one in Salesforce.
+  it("with no contacts on the opportunity, links to it in Salesforce and refreshes", async () => {
+    const retry = vi.fn();
+    render(<Harness list={[]} onRetry={retry} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Someone not in Salesforce…" }));
-    expect(screen.getByText("value: manual")).toBeInTheDocument();
-    expect(screen.getByRole("textbox", { name: "Name" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Pick from Salesforce instead" }));
-    expect(screen.getByRole("radiogroup", { name: "Billing contact" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Choose from the opportunity" }));
+    expect(screen.getByText(/This opportunity has no contacts in Salesforce\. Add the billing contact/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Open the opportunity in Salesforce/ })).toHaveAttribute("href", expect.stringContaining(OPP));
+    await user.click(screen.getByRole("button", { name: "Refresh" }));
+    expect(retry).toHaveBeenCalled();
+  });
+
+  // D124: a contact typed in before is shown, with a request to choose again.
+  it("asks to choose again for a contact typed in before", async () => {
+    render(<Harness billing={{ mode: "manual", sfContactId: "", name: "Jane Payables", title: "", email: "ap@reseller.example" }} />);
+    const user = userEvent.setup();
+    const warning = screen.getByLabelText("Billing contact: typed in");
+    expect(warning).toHaveTextContent("Jane Payables · ap@reseller.example was typed in.");
+    expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
+    await user.click(within(warning).getByRole("button", { name: "Choose from the opportunity" }));
+    await user.click(screen.getByRole("radio", { name: "Marco Ruiz" }));
+    expect(screen.getByText("value: salesforce 003A")).toBeInTheDocument();
   });
 });
 
@@ -96,19 +135,11 @@ describe("ContactPicker", () => {
 describe("ContactPicker — contacts that fail to load", () => {
   it("says the contacts couldn't be loaded, with a retry", async () => {
     const retry = vi.fn();
-    function Failing(): JSX.Element {
-      const form = useForm<DraftFormValues>({ defaultValues: emptyDraftForm() });
-      return (
-        <FormProvider {...form}>
-          <ContactPicker name="billingContact" issueField="contacts.billing" label="Billing contact" contacts={[]} loading={false} loadError={new Error("down")} onRetry={retry} />
-        </FormProvider>
-      );
-    }
-    render(<Failing />);
+    render(<Harness list={[]} loadError={new Error("down")} onRetry={retry} />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Choose from Salesforce" }));
-    expect(screen.getByText(/^Couldn't load the account's contacts from Salesforce\./)).toBeInTheDocument();
-    expect(screen.queryByText("This account has no contacts in Salesforce.")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Choose from the opportunity" }));
+    expect(screen.getByText(/^Couldn't load the opportunity's contacts from Salesforce\./)).toBeInTheDocument();
+    expect(screen.queryByText(/This opportunity has no contacts/)).toBeNull();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(retry).toHaveBeenCalled();
   });

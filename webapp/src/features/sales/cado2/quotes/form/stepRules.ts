@@ -36,8 +36,8 @@ export interface StepCheck {
   readonly message: string;
 }
 
-const hasContact = (c: ContactValue) =>
-  (c.mode === "salesforce" && Boolean(c.sfContactId)) || (c.mode === "manual" && c.name.trim() !== "");
+// Only a contact from the opportunity counts (D124); one typed in before it doesn't.
+const hasContact = (c: ContactValue) => c.mode === "salesforce" && Boolean(c.sfContactId);
 
 const addressComplete = (a: AddressValue) =>
   Boolean(a.companyName.trim() && a.addressLine1.trim() && a.city.trim() && a.country.trim());

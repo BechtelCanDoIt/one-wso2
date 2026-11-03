@@ -24,6 +24,8 @@ const complete = (): DraftFormValues => ({
   ...fromVersion({ ...fullPartnerQuote, version: { ...fullPartnerQuote.version, status: "DRAFT" } }),
   partnerContractName: "Value Added Reseller",
   partnerContractDate: "2024-03-12",
+  // The fixture's billing contact was typed in, which no longer counts (D124).
+  billingContact: { mode: "salesforce", sfContactId: "003000000000002", name: "Ana Payables", title: "", email: "ap@acme.example" },
 });
 
 describe("stepChecks", () => {
@@ -31,6 +33,12 @@ describe("stepChecks", () => {
     const checks = stepChecks(complete());
     expect(checks).toEqual([[], [], [], []]);
     expect(reachableStep(checks)).toBe(4);
+  });
+
+  // D124: a contact typed in before doesn't count; it's chosen again from the opportunity.
+  it("asks again for a billing contact that was typed in", () => {
+    const typedIn = { ...complete(), billingContact: { mode: "manual" as const, sfContactId: "", name: "Jane Payables", title: "", email: "" } };
+    expect(stepChecks(typedIn)[2].map((c) => c.field)).toEqual(["contacts.billing"]);
   });
 
   it("starts a new quote at Overview with everything to choose", () => {

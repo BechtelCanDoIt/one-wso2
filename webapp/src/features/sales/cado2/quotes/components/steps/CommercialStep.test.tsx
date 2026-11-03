@@ -25,7 +25,7 @@ import {
 import CommercialStep from "./CommercialStep";
 
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
-  useAccountContacts: () => ({
+  useOpportunityContacts: () => ({
     data: [],
     isPending: false,
     isFetching: false,

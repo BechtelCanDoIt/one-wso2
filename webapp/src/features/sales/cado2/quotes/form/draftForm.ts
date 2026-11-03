@@ -39,7 +39,11 @@ import type {
 import { sumMoney } from "@features/sales/cado2/utils/money";
 import { cleanLegalText, isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
 
-/** Contact: none yet, a Salesforce contact of the account, or typed in. */
+/**
+ * Contact: none yet, or one of the opportunity's contacts in Salesforce
+ * (D124). "manual" is a contact typed in before D124: shown, kept until
+ * replaced, but it can't be submitted.
+ */
 export interface ContactValue {
   mode: "none" | "salesforce" | "manual";
   sfContactId: string;

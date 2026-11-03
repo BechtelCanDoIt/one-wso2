@@ -102,10 +102,11 @@ export function useAccountOpportunities(accountId: string | null, status: "open"
   );
 }
 
-export function useAccountContacts(accountId: string | null) {
+/** The contacts on the opportunity in Salesforce (D124; was the account's, D22). */
+export function useOpportunityContacts(opportunityId: string | null) {
   return useAuthedQuery<Contact[]>(
-    ["account-contacts", accountId],
-    accountId ? cado2ServiceUrls.accountContacts(accountId) : null,
+    ["opportunity-contacts", opportunityId],
+    opportunityId ? cado2ServiceUrls.opportunityContacts(opportunityId) : null,
   );
 }
 

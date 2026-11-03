@@ -1964,8 +1964,10 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/accounts?nameContains=${encodeSegment(nameContains)}&limit=20`,
   accountOpportunities: (accountId: string, status: "open" | "won" = "open"): string =>
     `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${encodeSegment(status)}`,
-  accountContacts: (accountId: string): string =>
-    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/contacts`,
+  // The contacts on an opportunity (D124): the billing and security contacts
+  // are chosen from these only.
+  opportunityContacts: (opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/contacts`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (

@@ -49,6 +49,8 @@ const wonList = [
 const asked: string[] = [];
 /** The opportunities lookup fails (2026-10-13). */
 const salesforceDown = { on: false };
+/** The opportunity has no contacts in Salesforce yet (D124). */
+const noContacts = { on: false };
 const lookup = (data: unknown) => ({ data, isPending: false, isFetching: false, error: null });
 
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
@@ -60,7 +62,8 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
     if (salesforceDown.on) return { ...lookup(undefined), error: new Error("down"), refetch: () => undefined };
     return lookup(status === "won" ? wonList : [{ ...renewal, currencyIsoCode: oppCurrency, ...oppDates }]);
   },
-  useAccountContacts: () => lookup([{ id: "003A", name: "Marco Ruiz" }, { id: "003B", name: "Ana" }]),
+  useOpportunityContacts: (id: string | null) =>
+    lookup(id && !noContacts.on ? [{ id: "003A", name: "Marco Ruiz", roles: [] }, { id: "003B", name: "Ana", roles: [] }] : []),
   useActiveLegalEntities: () => lookup([]),
   useCurrencies: () => lookup(["USD"]),
 }));
@@ -139,9 +142,9 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
     // The opportunity list waits until every finding is showing (2026-10-09).
     expect(screen.queryByRole("listbox", { name: "Opportunity" })).toBeNull();
-    expect(await within(found).findByText("2 found", {}, { timeout: 3000 })).toBeInTheDocument(); // contacts, the last line
+    expect(await within(found).findByText("1 found, newest first", {}, { timeout: 3000 })).toBeInTheDocument(); // the last line
     expect(await screen.findByRole("listbox", { name: "Opportunity" })).toBeInTheDocument();
-    expect(within(found).getByText("1 found, newest first")).toBeInTheDocument();
+    expect(within(found).queryByText("Contacts")).toBeNull(); // they belong to the opportunity (D124)
     expect(within(found).getByText("Philadelphia, USA")).toBeInTheDocument();
     for (const r of REST) expect(screen.queryByRole("region", { name: r })).toBeNull();
   });
@@ -149,7 +152,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
   it("shows the account's location and sales region, not its name again", async () => {
     render(<Harness values={account} />);
     const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
-    await within(found).findByText("2 found", {}, { timeout: 3000 });
+    await within(found).findByText("1 found, newest first", {}, { timeout: 3000 });
     // The name is shown above the findings; no "Account" line repeats it.
     expect(within(found).queryByText("Account")).toBeNull();
     expect(within(found).getByText("Location")).toBeInTheDocument();
@@ -170,7 +173,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
 
     expect(screen.getByLabelText("Chosen account")).toHaveTextContent("Northwind Logistics");
     const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
-    await within(found).findByText("2 found", {}, { timeout: 3000 });
+    await within(found).findByText("1 found, newest first", {}, { timeout: 3000 });
     expect(within(found).queryByText("Northwind Logistics")).toBeNull();
     expect(within(found).queryByText("Found")).toBeNull();
     searchResults = [];
@@ -179,7 +182,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
   it("says when Salesforce has no sub-region, without stopping the quote", async () => {
     render(<Harness values={{ ...account, accountSubRegion: "" }} />);
     const found = await screen.findByLabelText("Found in Salesforce for This Account", {}, { timeout: 3000 });
-    await within(found).findByText("2 found", {}, { timeout: 3000 }); // the last line is in
+    await within(found).findByText("1 found, newest first", {}, { timeout: 3000 }); // the last line is in
     expect(within(found).getByText("NA")).toBeInTheDocument();
     expect(within(found).getByText("Not set in Salesforce")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
@@ -202,7 +205,21 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     // The subscription it covers, not its pipeline stage (2026-10-09).
     expect(within(found).getByText("No subscription dates in Salesforce")).toBeInTheDocument();
     expect(within(found).queryByText(/Negotiation/)).toBeNull();
+    expect(await within(found).findByText("2 on this opportunity", {}, { timeout: 3000 })).toBeInTheDocument(); // D124
     for (const r of REST) expect(await screen.findByRole("region", { name: r })).toBeInTheDocument();
+  });
+
+  // D124: the billing contact comes from the opportunity, so say early when it has none.
+  it("warns when the opportunity has no contacts in Salesforce", async () => {
+    noContacts.on = true;
+    try {
+      render(<Harness values={deal} locked />);
+      expect(screen.getByLabelText("What Salesforce Says About This Deal")).toHaveTextContent(
+        "None on this opportunity. Add the billing contact to it in Salesforce before Commercials.",
+      );
+    } finally {
+      noContacts.on = false;
+    }
   });
 
   it("warns inside the findings when Salesforce lacks the channel", async () => {

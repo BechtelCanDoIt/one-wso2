@@ -15,10 +15,11 @@
 // under the License.
 
 import { useState, type JSX } from "react";
-import { Controller, useFormContext, useWatch } from "react-hook-form";
-import { Avatar, Box, Button, ButtonBase, Chip, InputAdornment, Paper, Skeleton, Stack, TextField, Typography } from "@wso2/oxygen-ui";
-import { MailIcon, SearchIcon, UserPlusIcon } from "@wso2/oxygen-ui-icons-react";
+import { useFormContext, useWatch } from "react-hook-form";
+import { Alert, Avatar, Box, Button, ButtonBase, Chip, InputAdornment, Paper, Skeleton, Stack, TextField, Typography } from "@wso2/oxygen-ui";
+import { MailIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import SalesforceLink from "@features/sales/cado2/components/salesforce-link/SalesforceLink";
 import type { Contact } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { emptyContact, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
 import { initialsOfName } from "@features/sales/cado2/utils/initials";
@@ -31,7 +32,9 @@ interface ContactPickerProps {
   /** Backend field prefix for issues, e.g. "contacts.billing". */
   readonly issueField: string;
   readonly label: string;
-  /** The customer account's contacts. */
+  /** The quote's opportunity, for "Open the opportunity in Salesforce". */
+  readonly opportunityId: string;
+  /** The contacts on the opportunity in Salesforce (D124). */
   readonly contacts: readonly Contact[];
   readonly loading: boolean;
   /** The contacts couldn't be loaded: shown as an error, not "no contacts" (2026-10-13). */
@@ -44,18 +47,22 @@ interface ContactPickerProps {
 const ROLE: Record<ContactField, string> = { billingContact: "billing contact", securityContact: "security contact" };
 
 /**
- * Pick a contact of the account, or type in someone who isn't in Salesforce.
- * Nothing chosen yet: a card offering "Choose from Salesforce" or "Someone
- * not in Salesforce…" (2026-10-09: an open list on arrival read as a directory,
- * not a choice). Choosing shows a searchable list headed "Choose the billing
- * contact"; a click on a name picks it (F5 feedback, 2026-09-25). A chosen
- * contact shows as a card with Change. Only Salesforce Ids and typed text are
- * sent; the backend snapshots the contact's details.
+ * Pick one of the opportunity's contacts in Salesforce (D124: not the
+ * account's, and never typed in). Nothing chosen yet: a card offering
+ * "Choose from the opportunity" (2026-10-09: an open list on arrival read as
+ * a directory, not a choice). Choosing shows a searchable list headed "Choose
+ * the billing contact", each with its roles on the opportunity; a click on a
+ * name picks it (F5 feedback, 2026-09-25). With none on the opportunity, the
+ * AM is sent to Salesforce to add one, then refreshes. A chosen contact shows
+ * as a card with Change. Only Salesforce Ids are sent; the backend snapshots
+ * the contact's details. A contact typed in before D124 is shown with a
+ * request to choose again.
  */
 export default function ContactPicker({
   name,
   issueField,
   label,
+  opportunityId,
   contacts,
   loading,
   loadError,
@@ -65,18 +72,13 @@ export default function ContactPicker({
   const { control, setValue } = useFormContext<DraftFormValues>();
   const value = useWatch({ control, name });
   const idIssue = useFieldIssue(`${issueField}.sfContactId`);
-  const nameIssue = useFieldIssue(`${issueField}.name`);
   const [changing, setChanging] = useState(false);
   const [search, setSearch] = useState("");
 
   const pick = (c: Contact) => {
-    setValue(name, { mode: "salesforce", sfContactId: c.id ?? "", name: c.name ?? "", title: c.title ?? "", email: c.email ?? "" }, { shouldDirty: true });
+    setValue(name, { mode: "salesforce", sfContactId: c.id, name: c.name ?? "", title: c.title ?? "", email: c.email ?? "" }, { shouldDirty: true });
     setChanging(false);
     setSearch("");
-  };
-  const typeIn = () => {
-    setValue(name, { ...emptyContact, mode: "manual" }, { shouldDirty: true });
-    setChanging(false);
   };
   const clear = () => setValue(name, { ...emptyContact }, { shouldDirty: true });
 
@@ -93,7 +95,13 @@ export default function ContactPicker({
     </Box>
   );
 
-  // Nothing chosen yet: say so, and offer the two ways to choose.
+  const issue = idIssue ? (
+    <Typography variant="caption" color="error">
+      {idIssue}
+    </Typography>
+  ) : null;
+
+  // Nothing chosen yet: say so, and offer to choose.
   if (value.mode === "none" && !changing) {
     return (
       <Stack spacing={1}>
@@ -104,18 +112,33 @@ export default function ContactPicker({
               No {ROLE[name]} chosen yet
             </Typography>
             <Button size="small" variant="outlined" startIcon={<SearchIcon size={14} />} onClick={() => setChanging(true)}>
-              Choose from Salesforce
-            </Button>
-            <Button size="small" startIcon={<UserPlusIcon size={14} />} onClick={typeIn}>
-              Someone not in Salesforce…
+              Choose from the opportunity
             </Button>
           </Stack>
         </Paper>
-        {idIssue ? (
-          <Typography variant="caption" color="error">
-            {idIssue}
-          </Typography>
-        ) : null}
+        {issue}
+      </Stack>
+    );
+  }
+
+  // Typed in before D124: kept until replaced, but it can't be submitted.
+  if (value.mode === "manual" && !changing) {
+    return (
+      <Stack spacing={1}>
+        {heading}
+        <Alert
+          severity="warning"
+          aria-label={`${label}: typed in`}
+          action={
+            <Button size="small" color="inherit" onClick={() => setChanging(true)}>
+              Choose from the opportunity
+            </Button>
+          }
+        >
+          {[value.name, value.email].filter((s) => s.trim()).join(" · ") || "A typed-in contact"} was typed in. The {ROLE[name]}{" "}
+          now comes from the opportunity&apos;s contacts in Salesforce: choose it again.
+        </Alert>
+        {issue}
       </Stack>
     );
   }
@@ -144,50 +167,14 @@ export default function ContactPicker({
             </Button>
           </Stack>
         </Paper>
-        {idIssue ? (
-          <Typography variant="caption" color="error">
-            {idIssue}
-          </Typography>
-        ) : null}
+        {issue}
       </Stack>
     );
   }
 
-  // Typed in: the fields, with a way back to Salesforce.
-  if (value.mode === "manual" && !changing) {
-    return (
-      <Stack spacing={1.5}>
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-          {heading}
-          <Button size="small" onClick={() => setChanging(true)}>
-            Pick from Salesforce instead
-          </Button>
-        </Stack>
-        <Stack direction={{ xs: "column", sm: "row" }} spacing={1.5}>
-          <Controller
-            name={`${name}.name`}
-            control={control}
-            render={({ field }) => (
-              <TextField {...field} label="Name" size="small" fullWidth required error={Boolean(nameIssue)} helperText={nameIssue} />
-            )}
-          />
-          <Controller
-            name={`${name}.email`}
-            control={control}
-            render={({ field }) => <TextField {...field} label="Email" type="email" size="small" fullWidth />}
-          />
-          <Controller name={`${name}.title`} control={control} render={({ field }) => <TextField {...field} label="Title" size="small" fullWidth />} />
-        </Stack>
-        <Typography variant="caption" color="text.secondary">
-          Someone not in Salesforce. They are kept on this quote only, not added to Salesforce.
-        </Typography>
-      </Stack>
-    );
-  }
-
-  // Choosing: a searchable list of the account's contacts.
+  // Choosing: a searchable list of the opportunity's contacts.
   const term = search.trim().toLowerCase();
-  const shown = contacts.filter((c) => c.id && (!term || [c.name, c.title, c.email].some((f) => f?.toLowerCase().includes(term))));
+  const shown = contacts.filter((c) => !term || [c.name, c.title, c.email, ...c.roles].some((f) => f?.toLowerCase().includes(term)));
   const hadValue = value.mode !== "none";
   return (
     <Stack spacing={1}>
@@ -199,7 +186,7 @@ export default function ContactPicker({
           </Typography>
           <TextField
             size="small"
-            placeholder="Search by name, title or email"
+            placeholder="Search by name, role, title or email"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             slotProps={{
@@ -215,7 +202,7 @@ export default function ContactPicker({
           />
           {loadError ? (
             <ErrorNotice error={loadError} onRetry={onRetry} retrying={loading}>
-              Couldn&apos;t load the account&apos;s contacts from Salesforce.
+              Couldn&apos;t load the opportunity&apos;s contacts from Salesforce.
             </ErrorNotice>
           ) : loading ? (
             <Stack spacing={1} aria-label="Loading contacts">
@@ -223,9 +210,26 @@ export default function ContactPicker({
                 <Skeleton key={i} variant="rounded" height={48} />
               ))}
             </Stack>
+          ) : contacts.length === 0 ? (
+            <Stack spacing={1} sx={{ px: 0.5 }}>
+              <Typography variant="body2" color="text.secondary">
+                This opportunity has no contacts in Salesforce. Add the {ROLE[name]} to the opportunity&apos;s contact
+                roles there, then refresh.
+              </Typography>
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <SalesforceLink object="Opportunity" id={opportunityId}>
+                  Open the opportunity in Salesforce
+                </SalesforceLink>
+                {onRetry ? (
+                  <Button size="small" onClick={onRetry}>
+                    Refresh
+                  </Button>
+                ) : null}
+              </Stack>
+            </Stack>
           ) : shown.length === 0 ? (
             <Typography variant="body2" color="text.secondary" sx={{ px: 0.5 }}>
-              {contacts.length === 0 ? "This account has no contacts in Salesforce." : `No contacts match “${search}”.`}
+              No contacts match “{search}”.
             </Typography>
           ) : (
             <Box role="radiogroup" aria-label={label} sx={{ display: "flex", flexDirection: "column", gap: 0.75, maxHeight: 260, overflowY: "auto" }}>
@@ -234,7 +238,7 @@ export default function ContactPicker({
                   key={c.id}
                   role="radio"
                   aria-checked={value.mode === "salesforce" && value.sfContactId === c.id}
-                  aria-label={c.name ?? c.id ?? ""}
+                  aria-label={c.name ?? c.id}
                   onClick={() => pick(c)}
                   sx={{
                     display: "flex",
@@ -254,6 +258,7 @@ export default function ContactPicker({
                       {c.name ?? c.id}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" component="div" noWrap>
+                      {c.roles.length ? `${c.roles.join(", ")}${c.title || c.email ? " · " : ""}` : ""}
                       {c.title ?? ""}
                       {c.title && c.email ? " · " : ""}
                       {c.email ? (
@@ -267,10 +272,7 @@ export default function ContactPicker({
               ))}
             </Box>
           )}
-          <Stack direction="row" spacing={1} justifyContent="space-between" sx={{ flexWrap: "wrap", rowGap: 1 }}>
-            <Button size="small" startIcon={<UserPlusIcon size={14} />} onClick={typeIn}>
-              Someone not in Salesforce…
-            </Button>
+          <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ flexWrap: "wrap", rowGap: 1 }}>
             {changing || hadValue ? (
               <Stack direction="row" spacing={1}>
                 {hadValue ? (
@@ -295,11 +297,7 @@ export default function ContactPicker({
           </Stack>
         </Stack>
       </Paper>
-      {idIssue ? (
-        <Typography variant="caption" color="error">
-          {idIssue}
-        </Typography>
-      ) : null}
+      {issue}
     </Stack>
   );
 }

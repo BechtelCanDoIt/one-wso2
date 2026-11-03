@@ -119,11 +119,13 @@ export interface RenewalStart {
 /** First Sale, Renewal or Expansion; any other record type is OTHER. */
 export type DealKind = "FIRST_SALE" | "RENEWAL" | "EXPANSION" | "OTHER";
 
+/** A contact on the opportunity, with its roles there, e.g. "Economic Buyer" (D124). */
 export interface Contact {
-  readonly id: string | null;
+  readonly id: string;
   readonly name: string | null;
   readonly title: string | null;
   readonly email: string | null;
+  readonly roles: readonly string[];
 }
 
 export interface PricebookEntry {
