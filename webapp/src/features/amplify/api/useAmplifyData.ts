@@ -74,7 +74,7 @@ export function useAmplifyConfig(): AmplifyAppConfig {
   return {
     linkedinOrgUrn: data?.config?.linkedinOrgUrn ?? "",
     privacyNoticeUrl: data?.config?.privacyNoticeUrl ?? "",
-    postLinkOrigins: data?.config?.postLinkOrigins?.length ? data.config.postLinkOrigins : [...DEFAULT_POST_LINK_ORIGINS],
+    postLinkOrigins: data?.config?.campaignLinkOrigins?.length ? data.config.campaignLinkOrigins : [...DEFAULT_POST_LINK_ORIGINS],
   };
 }
 
