@@ -97,6 +97,44 @@ function decodeOrSame(text: string): string {
   }
 }
 
+/** The post kinds the New Post form offers. amplify-api also reads article, video, document, event and activity. */
+export const POST_KINDS = ["share", "ugcPost"] as const;
+export type PostKind = (typeof POST_KINDS)[number];
+export const DEFAULT_POST_KIND: PostKind = "share";
+
+export function isPostKind(value: string): value is PostKind {
+  return (POST_KINDS as readonly string[]).includes(value);
+}
+
+/** Where a post lives: the form shows this as fixed text, then the kind list, then the id. */
+export const POST_PERMALINK_PREFIX = "https://www.linkedin.com/feed/update/";
+
+// Same id shape amplify-api accepts (parsePostUrn in amplify-common).
+const POST_ID = /^[A-Za-z0-9_-]{1,100}$/;
+
+/** `urn:li:<kind>:<id>` for the New Post form's kind list and id box, or null when the id isn't a valid one. */
+export function postUrnFor(kind: PostKind, id: string): string | null {
+  const trimmed = id.trim();
+  return POST_ID.test(trimmed) ? `urn:li:${kind}:${trimmed}` : null;
+}
+
+/** The permalink stored with a registered post: the fixed prefix plus the URN. */
+export function postPermalink(urn: string): string {
+  return `${POST_PERMALINK_PREFIX}${urn}/`;
+}
+
+/**
+ * Kind and id when someone pastes a whole link or URN into the id box, only for share and ugcPost. Anything else
+ * (activity, article, a link off LinkedIn) is null, so it is refused rather than turned into an id that may not exist.
+ */
+export function postRefFromPaste(
+  raw: string,
+  origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS,
+): { kind: PostKind; id: string } | null {
+  const m = /^urn:li:([A-Za-z]+):(.+)$/.exec(postUrnFromUrl(raw, origins) ?? "");
+  return m && isPostKind(m[1]) ? { kind: m[1], id: m[2] } : null;
+}
+
 /** LinkedIn's share-sheet short link (`https://lnkd.in/...`). The post id is behind a redirect, so it can't be read. */
 export function isLinkedInShortLink(raw: string): boolean {
   const origin = originOf(raw);

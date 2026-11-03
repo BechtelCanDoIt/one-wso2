@@ -35,7 +35,7 @@ import { closesAtFromDateInput } from "../util/linkedinPost";
 import CategoryPicker from "./CategoryPicker";
 
 /**
- * Update Post: the card fields Amplify owns (headline, summary, image,
+ * Update Post: the card fields Amplify owns (headline, summary, post link, image,
  * category, priority, tracking end). The post itself is edited on LinkedIn.
  * Sends the version it read; a stale one comes back as VERSION_CONFLICT.
  *
@@ -47,6 +47,7 @@ export default function EditPostDialog({ campaign, onClose }: { campaign: Campai
   const [title, setTitle] = useState(campaign.title);
   const [summary, setSummary] = useState(campaign.summary ?? "");
   const [imageUrl, setImageUrl] = useState(campaign.imageUrl ?? "");
+  const [resourceUrl, setResourceUrl] = useState(campaign.resourceUrl ?? "");
   const [category, setCategory] = useState(campaign.categoryCode);
   const [isPriority, setIsPriority] = useState(campaign.isPriority);
   const [trackUntil, setTrackUntil] = useState(campaign.closesAt.slice(0, 10));
@@ -62,6 +63,8 @@ export default function EditPostDialog({ campaign, onClose }: { campaign: Campai
           title: title.trim(),
           summary: summary.trim(),
           imageUrl: imageUrl.trim() || undefined,
+          // Sent only when it changed; blank clears the link (amplify-api validates the origin).
+          resourceUrl: resourceUrl.trim() !== (campaign.resourceUrl ?? "") ? resourceUrl.trim() : undefined,
           categoryCode: category,
           isPriority,
           closesAt: closesAtFromDateInput(trackUntil),
@@ -100,6 +103,15 @@ export default function EditPostDialog({ campaign, onClose }: { campaign: Campai
             minRows={3}
             fullWidth
             slotProps={{ htmlInput: { maxLength: 2000 } }}
+            disabled={busy}
+          />
+          <TextField
+            label="Post URL"
+            placeholder="https://www.linkedin.com/feed/update/urn:li:share:…"
+            value={resourceUrl}
+            onChange={(e) => setResourceUrl(e.target.value)}
+            fullWidth
+            slotProps={{ htmlInput: { maxLength: 2048 } }}
             disabled={busy}
           />
           <TextField
