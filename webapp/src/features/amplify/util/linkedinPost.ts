@@ -27,7 +27,8 @@ const URN = /urn:li:(share|ugcPost|article|video|document|event|activity):([A-Za
 const BARE_URN = /^urn:li:(share|ugcPost|article|video|document|event|activity):([A-Za-z0-9_-]{1,100})$/;
 // The public "copy link" form: /posts/<slug>-<kind>-<id>-<suffix>. LinkedIn writes the post kind into the slug:
 // /posts/wso2_some-slug-activity-7123-AbCd, /posts/some-slug-share-7123-AbCd, /posts/some-slug-ugcPost-7123-AbCd.
-const POST_SLUG = /-(activity|share|ugcPost)-(\d{1,100})(?:[-/?#]|$)/;
+// The leading greedy `^.*` makes the match start at the LAST kind-id pair, so a title like "ten-share-100-ways" can't win.
+const POST_SLUG = /^.*-(activity|share|ugcPost)-(\d{1,100})(?:[-/?#]|$)/;
 
 /**
  * `scheme://host[:port]` of an http(s) URL, lowercase, or null for anything

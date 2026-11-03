@@ -99,6 +99,15 @@ describe("postUrnFromUrl", () => {
     );
   });
 
+  it("reads the last kind-id pair in the slug, not one the title happens to contain", () => {
+    expect(postUrnFromUrl("https://www.linkedin.com/posts/ten-share-100-ways-share-7518434065226887168-Jsow")).toBe(
+      "urn:li:share:7518434065226887168",
+    );
+    expect(postUrnFromUrl("https://www.linkedin.com/posts/x-activity-5-tips-ugcPost-7123-AbCd/")).toBe(
+      "urn:li:ugcPost:7123",
+    );
+  });
+
   it("refuses a copy-link slug with an unknown kind or no id", () => {
     expect(postUrnFromUrl("https://www.linkedin.com/posts/x-reshare-7518434065226887168-Jsow")).toBeNull();
     expect(postUrnFromUrl("https://www.linkedin.com/posts/x-share-abc-Jsow")).toBeNull();
