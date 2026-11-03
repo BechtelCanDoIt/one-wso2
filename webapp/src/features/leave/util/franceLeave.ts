@@ -16,8 +16,7 @@
 
 // Pure rules for the France leave features: sick notes, Other Authorized lead
 // approval, rejection reasons, cancelling and the pending-wait label. No
-// React and no fetching, so each rule is unit-tested on its own. Mirrors the
-// standalone Leave App's utils/leaveRules.ts.
+// React and no fetching, so each rule is unit-tested on its own.
 
 import type { DatabaseLeave, LeaveStatus, LeaveType } from "../api/leaveTypes";
 import { daysAgo, parseIso } from "./leaveDates";
@@ -26,7 +25,8 @@ const MB = 1024 * 1024;
 const SICK_NOTE_EXTENSIONS = ["pdf", "jpg", "jpeg", "png"];
 
 // A leave whose start is more than this many days in the past can't be
-// cancelled from here (matches leave-app's allowedDaysToCancelLeave default).
+// cancelled from here. The leave backend applies its own window, 30 days by
+// default.
 export const CANCEL_WINDOW_DAYS = 30;
 
 export const REJECTION_REASON_MAX = 500;
@@ -47,10 +47,7 @@ export function needsLeadApproval(leaveType: LeaveType): boolean {
   return leaveType === "other_authorized";
 }
 
-/**
- * Other Authorized leave needs a reason, because the lead decides on it. The
- * backend refuses a blank one and always keeps it private.
- */
+/** Other Authorized leave needs a reason, because the lead decides on it. */
 export function needsReason(leaveType: LeaveType): boolean {
   return leaveType === "other_authorized";
 }

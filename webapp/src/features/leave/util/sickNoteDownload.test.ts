@@ -17,12 +17,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from "vitest";
 
 const fetchWithReauth = vi.fn();
-vi.mock("@api/http", () => ({ fetchWithReauth: (...a: unknown[]) => fetchWithReauth(...a) }));
+vi.mock("@api/http", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@api/http")>()),
+  fetchWithReauth: (...a: unknown[]) => fetchWithReauth(...a),
+}));
 vi.mock("@config/apiConfig", () => ({
   leaveServiceUrls: { sickNote: (id: number) => `https://leave.test/leaves/${id}/sick-note` },
 }));
 
-const { downloadSickNote, extensionForContentType, messageFromErrorText } = await import("./sickNoteDownload");
+const { describeError } = await import("@api/errors");
+const { HttpError } = await import("@api/http");
+const { downloadSickNote, extensionForContentType } = await import("./sickNoteDownload");
 
 describe("extensionForContentType", () => {
   it("maps the three accepted types and nothing else", () => {
@@ -31,19 +36,6 @@ describe("extensionForContentType", () => {
     expect(extensionForContentType("image/png")).toBe("png");
     expect(extensionForContentType("text/html")).toBe("");
     expect(extensionForContentType("")).toBe("");
-  });
-});
-
-describe("messageFromErrorText", () => {
-  it("reads message from a JSON body", () => {
-    expect(messageFromErrorText('{"message":"No sick note"}')).toBe("No sick note");
-  });
-  it("gives null for JSON without a message", () => {
-    expect(messageFromErrorText('{"other":1}')).toBeNull();
-    expect(messageFromErrorText('{"message":""}')).toBeNull();
-  });
-  it("gives null for non-JSON", () => {
-    expect(messageFromErrorText("<html>Bad gateway</html>")).toBeNull();
   });
 });
 
@@ -84,16 +76,33 @@ describe("downloadSickNote", () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith("blob:note");
   });
 
-  it("throws the body's message on a non-OK response", async () => {
+  it("saves an unexpected type as bare bytes with no extension", async () => {
+    fetchWithReauth.mockResolvedValue(
+      new Response(new Blob(["<script>alert(1)</script>"], { type: "text/html" }), {
+        status: 200,
+        headers: { "Content-Type": "text/html" },
+      }),
+    );
+    await downloadSickNote(5, "tok");
+
+    expect(downloadName).toBe("sick-note-5");
+    expect((URL.createObjectURL as Mock).mock.calls[0][0].type).toBe("application/octet-stream");
+  });
+
+  it("throws an HttpError whose message is the body's on a non-OK response", async () => {
     fetchWithReauth.mockResolvedValue(
       new Response(JSON.stringify({ message: "Sick note was deleted" }), { status: 404 }),
     );
-    await expect(downloadSickNote(1, "tok")).rejects.toThrow("Sick note was deleted");
+    const err = await downloadSickNote(1, "tok").catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(HttpError);
+    expect((err as InstanceType<typeof HttpError>).status).toBe(404);
+    expect(describeError(err)).toBe("Sick note was deleted");
     expect(click).not.toHaveBeenCalled();
   });
 
-  it("falls back to a generic message when the body has none", async () => {
+  it("gives the status when the body has no message", async () => {
     fetchWithReauth.mockResolvedValue(new Response("boom", { status: 500 }));
-    await expect(downloadSickNote(1, "tok")).rejects.toThrow("Couldn't download the sick note.");
+    const err = await downloadSickNote(1, "tok").catch((e: unknown) => e);
+    expect(describeError(err)).toBe("Something went wrong (HTTP 500).");
   });
 });

@@ -29,8 +29,8 @@ interface SickNoteFieldProps {
   onChange: (file: File | null) => void;
 }
 
-// The sick-note picker for France sick leave. Mirrors the standalone Leave
-// App's SickNoteUpload; the file rules live in util/franceLeave.ts.
+// The sick-note picker for France sick leave. The file rules live in
+// util/franceLeave.ts.
 export default function SickNoteField({ file, problem, maxBytes, contentTypes, onChange }: SickNoteFieldProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 

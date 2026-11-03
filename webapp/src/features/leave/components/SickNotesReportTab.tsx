@@ -127,7 +127,7 @@ export default function SickNotesReportTab() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder={COPY.employeeFilterPlaceholder}
-              inputProps={{ "aria-label": COPY.employeeFilter }}
+              slotProps={{ htmlInput: { "aria-label": COPY.employeeFilter } }}
             />
           </Box>
         </Box>

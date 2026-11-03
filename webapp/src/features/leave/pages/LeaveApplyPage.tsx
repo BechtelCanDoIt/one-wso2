@@ -121,12 +121,8 @@ function ApplyForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location]);
 
-  // Only France + Sick needs a note. Drop the file when that stops being true,
-  // so a note picked for sick leave is never sent with another type.
+  // Only France + Sick needs a note.
   const sickNoteRequired = needsSickNote(location, leaveType);
-  useEffect(() => {
-    if (!sickNoteRequired) setSickNote(null);
-  }, [sickNoteRequired]);
   const maxBytes = appConfig.data?.sickNoteMaxBytes;
   const contentTypes = appConfig.data?.sickNoteContentTypes;
   // With no limits yet there is nothing to check the file against, so the
@@ -139,12 +135,18 @@ function ApplyForm() {
   const submit = sickNoteRequired ? submitSick : submitPlain;
 
   // Other Authorized: the lead decides on the reason, so it is required and
-  // never public. Picking the type turns a public comment back to private.
+  // never public.
   const reasonRequired = needsReason(leaveType);
   const reasonMissing = reasonRequired && comment.trim() === "";
-  useEffect(() => {
-    if (reasonRequired) setIsPublic(false);
-  }, [reasonRequired]);
+
+  // Leaving sick leave drops the file, so a note picked for it is never sent
+  // with another type. Picking Other Authorized turns a public comment back to
+  // private.
+  const chooseLeaveType = (t: LeaveType) => {
+    setLeaveType(t);
+    if (!needsSickNote(location, t)) setSickNote(null);
+    if (needsReason(t)) setIsPublic(false);
+  };
 
   // Which leave types this employee can pick, and (for the balance panel)
   // which of those are quota-tracked — both location-gated, matching
@@ -481,7 +483,7 @@ function ApplyForm() {
               <Button
                 size="small"
                 variant={active ? "contained" : "outlined"}
-                onClick={() => setLeaveType(t)}
+                onClick={() => chooseLeaveType(t)}
                 startIcon={<TypeIcon size={14} />}
                 sx={{ fontSize: 12, fontWeight: 600, borderRadius: 1.25, textTransform: "none" }}
               >

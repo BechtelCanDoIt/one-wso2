@@ -14,14 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { fetchWithReauth } from "@api/http";
+import { fetchWithReauth, HttpError } from "@api/http";
 import { leaveServiceUrls } from "@config/apiConfig";
-
-const FALLBACK_MESSAGE = "Couldn't download the sick note.";
-
-// How long the object URL outlives the click. Revoking in the same tick can
-// abort the download in Safari (same reason as utils/saveFile).
-const REVOKE_DELAY_MS = 10_000;
+import { saveBlob } from "@utils/saveFile";
 
 const EXTENSIONS: Record<string, string> = {
   "application/pdf": "pdf",
@@ -34,36 +29,18 @@ export function extensionForContentType(type: string): string {
   return EXTENSIONS[type] ?? "";
 }
 
-// `message` from a JSON error body, or null when the body is not JSON or has none.
-export function messageFromErrorText(text: string): string | null {
-  try {
-    const body = JSON.parse(text) as { message?: unknown } | null;
-    if (typeof body?.message === "string" && body.message) return body.message;
-  } catch {
-    // Not JSON — caller falls back.
-  }
-  return null;
-}
-
 // GET /leaves/{id}/sick-note and hand the bytes to the browser as a download.
 export async function downloadSickNote(leaveId: number, accessToken: string): Promise<void> {
-  const res = await fetchWithReauth(leaveServiceUrls.sickNote(leaveId), { method: "GET" }, accessToken);
+  const url = leaveServiceUrls.sickNote(leaveId);
+  const res = await fetchWithReauth(url, { method: "GET" }, accessToken);
   if (!res.ok) {
-    throw new Error(messageFromErrorText(await res.text().catch(() => "")) ?? FALLBACK_MESSAGE);
+    const body = await res.text().catch(() => "");
+    throw new HttpError(url, res.status, body);
   }
   const blob = await res.blob();
-  // Only the three accepted types keep their type; anything else is saved as
-  // bare bytes so a server-influenced type is never rendered in our origin.
+  // saveBlob saves any type it does not know as bare bytes, so a
+  // server-influenced type is never rendered in our origin.
   const type = (res.headers.get("Content-Type") ?? blob.type).split(";")[0].trim();
   const ext = extensionForContentType(type);
-  const saved = ext ? new Blob([blob], { type }) : new Blob([blob], { type: "application/octet-stream" });
-
-  const url = URL.createObjectURL(saved);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = ext ? `sick-note-${leaveId}.${ext}` : `sick-note-${leaveId}`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), REVOKE_DELAY_MS);
+  saveBlob(new Blob([blob], { type }), ext ? `sick-note-${leaveId}.${ext}` : `sick-note-${leaveId}`);
 }
