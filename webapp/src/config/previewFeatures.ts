@@ -75,7 +75,20 @@ export type PreviewFeature =
    * while the business owners settle which GitHub items it shows
    * (digiops-marketing#1596).
    */
-  | "marketingCalendar";
+  | "marketingCalendar"
+  /**
+   * Amplify, the whole app: its launcher tile, its rail group (Celebrate,
+   * New Post, Current Posts) and every route under `/amplify`. Held back until
+   * the Amplify API proxy is live for the phase 1 pilot. Who sees New Post and
+   * Current Posts is still decided by amplify-api's `CAN_CAMPAIGN` grant
+   * (GET /me) once this is on.
+   */
+  | "amplify"
+  /**
+   * Marketing Ops → Campaign Tracker → Pacing tab. The BudgetSyncPacingPanel
+   * is still being built out; this flag hides the tab until it is ready.
+   */
+  | "campaignTrackerPacing";
 
 /**
  * Whether a preview feature should be shown.
