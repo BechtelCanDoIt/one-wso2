@@ -22,8 +22,40 @@ import {
   isLinkedInShortLink,
   linkedInPostUrl,
   originOf,
+  POST_KINDS,
+  postKindFromUrl,
+  postUrlPlaceholder,
+  postUrnForKind,
   postUrnFromUrl,
 } from "./linkedinPost";
+
+describe("post kind choice", () => {
+  const share = "https://www.linkedin.com/feed/update/urn:li:share:7123/";
+  it("offers share and ugcPost", () => {
+    expect([...POST_KINDS]).toEqual(["share", "ugcPost"]);
+  });
+  it("follows the chosen kind in the placeholder", () => {
+    expect(postUrlPlaceholder("share")).toContain("urn:li:share:");
+    expect(postUrlPlaceholder("ugcPost")).toContain("urn:li:ugcPost:");
+  });
+  it("takes the id from the link and the kind from the list", () => {
+    expect(postUrnForKind(share, "share")).toBe("urn:li:share:7123");
+    expect(postUrnForKind(share, "ugcPost")).toBe("urn:li:ugcPost:7123");
+    expect(postUrnForKind("urn:li:ugcPost:9", "share")).toBe("urn:li:share:9");
+  });
+  it("refuses kinds the list can't offer and unreadable links", () => {
+    expect(postUrnForKind("https://www.linkedin.com/feed/update/urn:li:activity:7123/", "share")).toBeNull();
+    expect(postUrnForKind("https://www.linkedin.com/posts/x-activity-7123-AbCd", "ugcPost")).toBeNull();
+    expect(postUrnForKind("https://evil.example/feed/update/urn:li:share:7123/", "share")).toBeNull();
+    expect(postUrnForKind("", "share")).toBeNull();
+  });
+  it("reads the kind a pasted link carries, when it is share or ugcPost", () => {
+    expect(postKindFromUrl(share)).toBe("share");
+    expect(postKindFromUrl("urn:li:ugcPost:5")).toBe("ugcPost");
+    expect(postKindFromUrl("https://www.linkedin.com/posts/x-ugcPost-7123-AbCd")).toBe("ugcPost");
+    expect(postKindFromUrl("https://www.linkedin.com/posts/x-activity-7123-AbCd")).toBeNull();
+  });
+});
 
 describe("postUrnFromUrl", () => {
   it("reads the feed form", () => {

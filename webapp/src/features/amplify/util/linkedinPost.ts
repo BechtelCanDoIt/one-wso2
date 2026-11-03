@@ -97,6 +97,50 @@ function decodeOrSame(text: string): string {
   }
 }
 
+/** The post kinds the New Post form offers. amplify-api also reads article, video, document, event and activity. */
+export const POST_KINDS = ["share", "ugcPost"] as const;
+export type PostKind = (typeof POST_KINDS)[number];
+export const DEFAULT_POST_KIND: PostKind = "share";
+
+export function isPostKind(value: string): value is PostKind {
+  return (POST_KINDS as readonly string[]).includes(value);
+}
+
+/** The placeholder for the Post URL field, following the chosen kind. */
+export function postUrlPlaceholder(kind: PostKind): string {
+  return `https://www.linkedin.com/feed/update/urn:li:${kind}:…`;
+}
+
+/** Kind and id of the post a pasted link or URN points to, or null when `postUrnFromUrl` can't read one. */
+export function postRefFromUrl(
+  raw: string,
+  origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS,
+): { kind: string; id: string } | null {
+  const m = /^urn:li:([A-Za-z]+):(.+)$/.exec(postUrnFromUrl(raw, origins) ?? "");
+  return m ? { kind: m[1], id: m[2] } : null;
+}
+
+/**
+ * The URN to register for a pasted link: the id from the link, the kind from the drop list (it overrides the kind in
+ * the link). Null when there is no readable post, or the link carries a kind the list can't offer (activity, article...):
+ * that is refused rather than converted into an id that may not exist under the chosen kind.
+ */
+export function postUrnForKind(
+  raw: string,
+  kind: PostKind,
+  origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS,
+): string | null {
+  const ref = postRefFromUrl(raw, origins);
+  if (!ref || !isPostKind(ref.kind)) return null;
+  return `urn:li:${kind}:${ref.id}`;
+}
+
+/** The list choice a pasted link implies (share or ugcPost), or null when it carries neither. */
+export function postKindFromUrl(raw: string, origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS): PostKind | null {
+  const ref = postRefFromUrl(raw, origins);
+  return ref && isPostKind(ref.kind) ? ref.kind : null;
+}
+
 /** LinkedIn's share-sheet short link (`https://lnkd.in/...`). The post id is behind a redirect, so it can't be read. */
 export function isLinkedInShortLink(raw: string): boolean {
   const origin = originOf(raw);

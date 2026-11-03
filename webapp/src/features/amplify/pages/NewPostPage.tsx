@@ -15,7 +15,7 @@
 // under the License.
 
 import { useState, type FormEvent } from "react";
-import { Alert, Box, Button, FormControlLabel, Switch, TextField, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Button, FormControlLabel, MenuItem, Switch, TextField, Typography } from "@wso2/oxygen-ui";
 import { useNavigate } from "react-router";
 import { AMPLIFY_CURRENT_POSTS_PATH } from "@constants/perspectives";
 import { useNotifications } from "@context/notifications/NotificationsContext";
@@ -24,7 +24,18 @@ import { useRegisterCampaign } from "../api/useAmplifyMutations";
 import AmplifyShell, { AmplifyPanel } from "../components/AmplifyShell";
 import CategoryPicker from "../components/CategoryPicker";
 import { describeAmplifyError } from "../util/amplifyError";
-import { closesAtFromDateInput, isAllowedLink, isLinkedInShortLink, postUrnFromUrl } from "../util/linkedinPost";
+import {
+  DEFAULT_POST_KIND,
+  POST_KINDS,
+  closesAtFromDateInput,
+  isAllowedLink,
+  isLinkedInShortLink,
+  isPostKind,
+  postKindFromUrl,
+  postUrlPlaceholder,
+  postUrnForKind,
+  type PostKind,
+} from "../util/linkedinPost";
 
 // amplify-api's limits (CampaignDraft in openapi.yaml).
 const TITLE_MAX = 200;
@@ -42,6 +53,7 @@ export default function NewPostPage() {
   const { showError, showSuccess } = useNotifications();
 
   const [postUrl, setPostUrl] = useState("");
+  const [postKind, setPostKind] = useState<PostKind>(DEFAULT_POST_KIND);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -53,11 +65,18 @@ export default function NewPostPage() {
   // The first category until one is chosen, so there is always a choice.
   const category = chosenCategory || categories.data?.[0]?.code || "";
   const { linkedinOrgUrn, postLinkOrigins } = useAmplifyConfig();
-  const resourceUrn = postUrnFromUrl(postUrl, postLinkOrigins);
+  const resourceUrn = postUrnForKind(postUrl, postKind, postLinkOrigins);
   const urlError = touched && !resourceUrn;
   const titleError = touched && !title.trim();
   const orgConfigured = Boolean(linkedinOrgUrn);
   const valid = Boolean(resourceUrn) && Boolean(title.trim()) && Boolean(category);
+
+  // Pasting a link or URN that carries share or ugcPost moves the list to it; the employee can still change it.
+  const onPostUrlChange = (value: string) => {
+    setPostUrl(value);
+    const kind = postKindFromUrl(value, postLinkOrigins);
+    if (kind) setPostKind(kind);
+  };
 
   const save = (shareNow: boolean) => {
     setTouched(true);
@@ -114,10 +133,27 @@ export default function NewPostPage() {
         <AmplifyPanel title="LinkedIn post">
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <TextField
+              select
+              label="Post type"
+              value={postKind}
+              onChange={(e) => {
+                if (isPostKind(e.target.value)) setPostKind(e.target.value);
+              }}
+              helperText="Sets the kind in the registered urn:li:<kind>:<id>."
+              fullWidth
+              disabled={busy}
+            >
+              {POST_KINDS.map((kind) => (
+                <MenuItem key={kind} value={kind}>
+                  {kind}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
               label="Post URL"
-              placeholder="https://www.linkedin.com/feed/update/urn:li:share:…"
+              placeholder={postUrlPlaceholder(postKind)}
               value={postUrl}
-              onChange={(e) => setPostUrl(e.target.value)}
+              onChange={(e) => onPostUrlChange(e.target.value)}
               required
               fullWidth
               error={urlError}
