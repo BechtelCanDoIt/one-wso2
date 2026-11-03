@@ -76,7 +76,6 @@ export type PreviewFeature =
    * (GET /me) once this is on.
    */
   | "amplify"
-  | "til"
   /**
    * Marketing Ops → Campaign Tracker → Pacing tab. The BudgetSyncPacingPanel
    * is still being built out; this flag hides the tab until it is ready.
