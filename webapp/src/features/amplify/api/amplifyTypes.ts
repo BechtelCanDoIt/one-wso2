@@ -44,7 +44,7 @@ export interface AmplifyMe {
   capabilities: string[];
   linkedin: { status: LinkedInStatus; expiresAt?: string | null };
   /** Deployment settings from amplify-api's Choreo configs (not from `window.config`). */
-  config: AmplifyAppConfig;
+  config: { linkedinOrgUrn: string; privacyNoticeUrl: string; campaignLinkOrigins: string[] };
 }
 
 export interface AmplifyAppConfig {
