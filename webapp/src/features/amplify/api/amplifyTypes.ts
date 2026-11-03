@@ -161,6 +161,43 @@ export interface TeamEntry {
   isMe: boolean;
 }
 
+/**
+ * One row of GET /team. `employeeId` is null for a roster member nobody has recorded points for, so there is no
+ * person page or history to link to. `rank` (company rank) is null for the same members.
+ */
+export interface TeamPageEntry {
+  employeeId: string | null;
+  displayName: string;
+  email: string;
+  points: number;
+  rank: number | null;
+  teamRank: number;
+  previousRank: number | null;
+  /** ISO timestamp of the last recorded point, or null. */
+  lastActivityAt: string | null;
+  actions: { canAdjust: boolean; canReverse: boolean };
+}
+
+export interface TeamPageSummary {
+  /** Roster size from the people directory; null when the directory can't supply it. */
+  headcount: number | null;
+  /** People in the roster with points (not the search match count). */
+  activeCount: number;
+}
+
+/** GET /team: the roster for the caller's team, or the whole company for PO, `CAN_ADJUST_POINTS` or COMPANY visibility. */
+export interface TeamPage {
+  period: string;
+  scope: "TEAM" | "COMPANY";
+  page: number;
+  size: number;
+  /** Matching roster entries (after the search), across all pages. */
+  total: number;
+  summary: TeamPageSummary;
+  entries: TeamPageEntry[];
+  teamStatus: "OK" | "NO_TEAM" | "UNAVAILABLE";
+}
+
 export interface Leaderboard {
   topN: number;
   company: LeaderboardEntry[];

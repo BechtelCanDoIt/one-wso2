@@ -19,7 +19,7 @@ import { Button, Skeleton } from "@wso2/oxygen-ui";
 import { Volume2Icon } from "@wso2/oxygen-ui-icons-react";
 import { useNavigate, useSearchParams } from "react-router";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
-import { AMPLIFY_CELEBRATE_PATH } from "@constants/perspectives";
+import { AMPLIFY_CELEBRATE_PATH, AMPLIFY_TEAM_PATH } from "@constants/perspectives";
 import type { Campaign } from "../api/amplifyTypes";
 import {
   useAmplifyCampaigns,
@@ -165,7 +165,7 @@ export default function CelebratePage() {
           Couldn&apos;t load the team leaderboard.
         </ErrorNotice>
       ) : (
-        <TeamLeaderboardPanel board={board.data} people={people} />
+        <TeamLeaderboardPanel board={board.data} people={people} onViewAll={() => navigate(AMPLIFY_TEAM_PATH)} />
       )}
 
       <LinkLinkedInDialog

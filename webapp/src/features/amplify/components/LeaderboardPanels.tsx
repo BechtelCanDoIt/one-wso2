@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Avatar, Box, Chip, Divider, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { Avatar, Box, Button, Chip, Divider, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import type { Leaderboard, TeamEntry, TopBoard } from "../api/amplifyTypes";
 import type { PeopleByEmail } from "../api/useAmplifyPeople";
 import { AmplifyPanel } from "./AmplifyShell";
@@ -153,7 +153,16 @@ export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people:
 }
 
 /** My Team, ranked within the caller's team. */
-export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; people: PeopleByEmail }) {
+export function TeamLeaderboardPanel({
+  board,
+  people,
+  onViewAll,
+}: {
+  board: Leaderboard;
+  people: PeopleByEmail;
+  /** Opens the full team page. The link is shown only when this is given. */
+  onViewAll?: () => void;
+}) {
   const team = board.myTeam;
   // With the directory down the team view lists only the caller (teamStatus UNAVAILABLE), so show that row too.
   const showRows = Boolean(team && team.entries.length > 0 && (board.teamStatus === "OK" || board.teamStatus === "UNAVAILABLE"));
@@ -170,6 +179,13 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
         <Typography variant="body2" color="text.secondary">
           We couldn&apos;t find your team.
         </Typography>
+      )}
+      {onViewAll && (
+        <Box sx={{ mb: 1 }}>
+          <Button size="small" onClick={onViewAll}>
+            View full team
+          </Button>
+        </Box>
       )}
       {showRows && team && (
         <Box sx={{ overflowX: "auto" }}>
