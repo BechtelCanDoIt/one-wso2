@@ -17,10 +17,9 @@
 import { useState, type FormEvent } from "react";
 import { Alert, Box, Button, FormControlLabel, Switch, TextField, Typography } from "@wso2/oxygen-ui";
 import { useNavigate } from "react-router";
-import { amplifyLinkedInOrgUrn } from "@config/apiConfig";
 import { AMPLIFY_CURRENT_POSTS_PATH } from "@constants/perspectives";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { useAmplifyCategories } from "../api/useAmplifyData";
+import { useAmplifyCategories, useAmplifyConfig } from "../api/useAmplifyData";
 import { useRegisterCampaign } from "../api/useAmplifyMutations";
 import AmplifyShell, { AmplifyPanel } from "../components/AmplifyShell";
 import CategoryPicker from "../components/CategoryPicker";
@@ -53,10 +52,11 @@ export default function NewPostPage() {
 
   // The first category until one is chosen, so there is always a choice.
   const category = chosenCategory || categories.data?.[0]?.code || "";
-  const resourceUrn = postUrnFromUrl(postUrl);
+  const { linkedinOrgUrn, postLinkOrigins } = useAmplifyConfig();
+  const resourceUrn = postUrnFromUrl(postUrl, postLinkOrigins);
   const urlError = touched && !resourceUrn;
   const titleError = touched && !title.trim();
-  const orgConfigured = Boolean(amplifyLinkedInOrgUrn);
+  const orgConfigured = Boolean(linkedinOrgUrn);
   const valid = Boolean(resourceUrn) && Boolean(title.trim()) && Boolean(category);
 
   const save = (shareNow: boolean) => {
@@ -67,9 +67,9 @@ export default function NewPostPage() {
         shareNow,
         draft: {
           resourceUrn,
-          ownerUrn: amplifyLinkedInOrgUrn,
+          ownerUrn: linkedinOrgUrn,
           // Only a link on an allowed origin is sent; a bare URN registers the post without one.
-          resourceUrl: isAllowedLink(postUrl) ? postUrl.trim() : undefined,
+          resourceUrl: isAllowedLink(postUrl, postLinkOrigins) ? postUrl.trim() : undefined,
           title: title.trim(),
           summary: summary.trim() || undefined,
           imageUrl: imageUrl.trim() || undefined,
@@ -106,8 +106,8 @@ export default function NewPostPage() {
     >
       {!orgConfigured && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Set <code>ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN</code> in <code>public/config.js</code> before registering
-          posts. Amplify only accepts posts from the WSO2 company page.
+          Amplify doesn&apos;t have a LinkedIn company page configured yet (<code>WSO2ORGANIZATIONURN</code> on
+          amplify-api), so posts can&apos;t be registered. Amplify only accepts posts from the WSO2 company page.
         </Alert>
       )}
       <Box component="form" noValidate onSubmit={onSubmit}>

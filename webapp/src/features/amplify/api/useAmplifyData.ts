@@ -26,7 +26,8 @@ import { useAccessToken } from "@hooks/useAccessToken";
 import { amplifyServiceUrls, isAmplifyBackendConfigured } from "@config/apiConfig";
 import { foldIdentityError, useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { amplifyRetry } from "../util/amplifyError";
-import type { AmplifyMe, CampaignPage, Category, Leaderboard, Share, TopBoard } from "./amplifyTypes";
+import { DEFAULT_POST_LINK_ORIGINS } from "../util/linkedinPost";
+import type { AmplifyAppConfig, AmplifyMe, CampaignPage, Category, Leaderboard, Share, TopBoard } from "./amplifyTypes";
 
 export { isAmplifyBackendConfigured };
 
@@ -61,6 +62,20 @@ export function useAmplifyMe(enabled = true) {
     retry: amplifyRetry,
   });
   return foldIdentityError(query, subState, retryIdentity);
+}
+
+/**
+ * Deployment settings amplify-api sends in `GET /me` (LinkedIn company page, privacy notice, allowed post-link
+ * origins). Until /me loads, or if it fails, the org and privacy values are empty and links are limited to
+ * LinkedIn, so nothing is sent or followed on a guess.
+ */
+export function useAmplifyConfig(): AmplifyAppConfig {
+  const { data } = useAmplifyMe();
+  return {
+    linkedinOrgUrn: data?.config?.linkedinOrgUrn ?? "",
+    privacyNoticeUrl: data?.config?.privacyNoticeUrl ?? "",
+    postLinkOrigins: data?.config?.postLinkOrigins?.length ? data.config.postLinkOrigins : [...DEFAULT_POST_LINK_ORIGINS],
+  };
 }
 
 /**

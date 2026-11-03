@@ -14,7 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { amplifyPostLinkOrigins } from "@config/apiConfig";
+/**
+ * Origins a post link (and the LinkedIn sign-in redirect) may use until amplify-api's list arrives in `GET /me`
+ * (`campaignLinkOrigins`): LinkedIn only. amplify-api applies the same rule; this keeps the UI from sending or
+ * showing anything else.
+ */
+export const DEFAULT_POST_LINK_ORIGINS: readonly string[] = ["https://www.linkedin.com", "https://linkedin.com"];
 
 // The post kinds amplify-api accepts (parsePostUrn in amplify-common).
 const URN = /urn:li:(share|ugcPost|article|video|document|event|activity):([A-Za-z0-9_-]{1,100})/;
@@ -40,7 +45,7 @@ export function originOf(raw: string): string | null {
 }
 
 /** Whether a link may be sent, shown or followed: its origin is on the allowed list (LinkedIn by default). */
-export function isAllowedLink(raw: string | null | undefined, origins: readonly string[] = amplifyPostLinkOrigins): boolean {
+export function isAllowedLink(raw: string | null | undefined, origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS): boolean {
   if (!raw) return false;
   const origin = originOf(raw);
   return origin !== null && origins.includes(origin);
@@ -58,7 +63,7 @@ export function isAllowedLink(raw: string | null | undefined, origins: readonly 
  * refused, even if it carries a URN: every employee's card would link to it. Short links (`lnkd.in/...`) hide the id behind a redirect
  * and can't be read here; see `isLinkedInShortLink`.
  */
-export function postUrnFromUrl(raw: string, origins: readonly string[] = amplifyPostLinkOrigins): string | null {
+export function postUrnFromUrl(raw: string, origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS): string | null {
   const value = raw.trim();
   if (!value) return null;
   const bare = BARE_URN.exec(decodeOrSame(value));
@@ -99,8 +104,12 @@ export function isLinkedInShortLink(raw: string): boolean {
 }
 
 /** The public URL for a post. The stored link only if its origin is allowed; otherwise built from the URN. */
-export function linkedInPostUrl(resourceUrn: string, resourceUrl?: string | null): string {
-  if (resourceUrl && isAllowedLink(resourceUrl)) return resourceUrl;
+export function linkedInPostUrl(
+  resourceUrn: string,
+  resourceUrl?: string | null,
+  origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS,
+): string {
+  if (resourceUrl && isAllowedLink(resourceUrl, origins)) return resourceUrl;
   return `https://www.linkedin.com/feed/update/${resourceUrn}/`;
 }
 

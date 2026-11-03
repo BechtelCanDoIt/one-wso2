@@ -54,6 +54,7 @@ describe("hasAmplifyGrant", () => {
     grants,
     capabilities: [],
     linkedin: { status: "NOT_CONNECTED" },
+    config: { linkedinOrgUrn: "", privacyNoticeUrl: "", postLinkOrigins: [] },
   });
 
   it("answers from GET /me grants, not group names", () => {
