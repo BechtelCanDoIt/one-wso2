@@ -75,7 +75,12 @@ export type PreviewFeature =
    * Current Posts is still decided by amplify-api's `CAN_CAMPAIGN` grant
    * (GET /me) once this is on.
    */
-  | "amplify";
+  | "amplify"
+  /**
+   * Marketing Ops → Campaign Tracker → Pacing tab. The BudgetSyncPacingPanel
+   * is still being built out; this flag hides the tab until it is ready.
+   */
+  | "campaignTrackerPacing";
 
 /**
  * Whether a preview feature should be shown.
