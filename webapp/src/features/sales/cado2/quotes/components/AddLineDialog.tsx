@@ -59,6 +59,7 @@ import {
   formatDate,
   LINE_CATEGORIES,
   lineDatesProblem,
+  childQuantity,
   newLineKey,
   parseDateString,
   salesPriceProblem,
@@ -383,6 +384,7 @@ export default function AddLineDialog({
           salesPrice: "",
           key: newLineKey(),
           parentKey: "",
+          bundleFixedQuantity: null,
         };
     const saved: LineValue = {
       ...base,
@@ -397,8 +399,8 @@ export default function AddLineDialog({
       startDate: year && startDate !== year.start ? startDate : "",
       endDate: year && recurring && endDate !== year.end ? endDate : "",
     };
-    // Its bundle comes with it: same year and dates, its quantity to start
-    // with, no discount, priced from the same book.
+    // Its bundle comes with it: same year and dates, the quantity its rule
+    // says (D125: fixed, or the parent's), no discount, priced from the same book.
     const children: LineValue[] = line
       ? []
       : bundled.flatMap((p) => {
@@ -420,7 +422,7 @@ export default function AddLineDialog({
               recurring: p.recurring,
               classification: p.classification ?? "",
               unitOfMeasure: "",
-              quantity: saved.quantity,
+              quantity: childQuantity(saved.quantity, p.fixedQuantity),
               discount: "0",
               yearNumber: saved.yearNumber,
               startDate: saved.startDate,
@@ -428,6 +430,7 @@ export default function AddLineDialog({
               salesPrice: "",
               key: newLineKey(),
               parentKey: saved.key,
+              bundleFixedQuantity: p.fixedQuantity,
             } satisfies LineValue,
           ];
         });
@@ -533,8 +536,9 @@ export default function AddLineDialog({
             )}
             {bundled.length ? (
             <Alert severity="info" variant="outlined" aria-label="Bundle">
-              Comes with {bundled.map((p) => p.name ?? p.id).join(", ")}. {bundled.length === 1 ? "It is" : "They are"} added with it, in
-              the same year and dates, and can only be removed with it.
+              Comes with{" "}
+              {bundled.map((p) => `${p.name ?? p.id} (${p.fixedQuantity === null ? "same quantity" : `always ${p.fixedQuantity}`})`).join(", ")}.{" "}
+              {bundled.length === 1 ? "It is" : "They are"} added with it, in the same year and dates, and can only be removed with it.
             </Alert>
           ) : null}
           {bundleFailed ? (
@@ -611,15 +615,23 @@ export default function AddLineDialog({
               slotProps={{ input: { startAdornment: <InputAdornment position="start">{currency}</InputAdornment> } }}
             />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              {/* D125: a bundle child's quantity comes from the bundle, not the AM. */}
               <TextField
                 label="Quantity"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 size="small"
-                required
+                required={!isChild}
+                disabled={isChild}
                 inputMode="numeric"
-                error={Boolean(show("quantity"))}
-                helperText={show("quantity") ?? "Whole units only"}
+                error={!isChild && Boolean(show("quantity"))}
+                helperText={
+                  isChild
+                    ? line?.bundleFixedQuantity != null
+                      ? `Set by the bundle: always ${line.bundleFixedQuantity}`
+                      : `Set by the bundle: the same as ${parentName ?? "its parent"}`
+                    : (show("quantity") ?? "Whole units only")
+                }
               />
               <TextField
                 label="Discount"

@@ -152,6 +152,7 @@ function filled(): DraftFormValues {
         salesPrice: "",
         key: `k-${Math.random()}`,
         parentKey: "",
+        bundleFixedQuantity: null,
       },
       {
         lineId: null,
@@ -175,6 +176,7 @@ function filled(): DraftFormValues {
         salesPrice: "",
         key: `k-${Math.random()}`,
         parentKey: "",
+        bundleFixedQuantity: null,
       },
     ],
   };

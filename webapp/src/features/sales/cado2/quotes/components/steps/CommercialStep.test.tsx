@@ -55,6 +55,7 @@ const line = (discount: string): LineValue => ({
   salesPrice: "",
   key: `k-${Math.random()}`,
   parentKey: "",
+  bundleFixedQuantity: null,
 });
 
 function Harness({ lines, values = {} }: { lines: LineValue[]; values?: Partial<DraftFormValues> }) {

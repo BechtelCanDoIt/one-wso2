@@ -18,7 +18,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { JSX } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { AdapterDateFns, DatePickers } from "@wso2/oxygen-ui";
 import {
   emptyDraftForm,
@@ -72,7 +72,14 @@ const line = (name: string, category: LineValue["category"]): LineValue => ({
   salesPrice: "",
   key: `k-${Math.random()}`,
   parentKey: "",
+  bundleFixedQuantity: null,
 });
+
+/** Each line's quantity, by key, to check what the form holds. */
+function Quantities(): JSX.Element {
+  const lines = useWatch<DraftFormValues, "lines">({ name: "lines" });
+  return <p aria-label="Quantities">{lines.map((l) => `${l.key}=${l.quantity}`).join(" ")}</p>;
+}
 
 function Harness({
   startDate = "2027-01-01",
@@ -98,6 +105,7 @@ function Harness({
     <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
       <FormProvider {...form}>
         <ProductsStep preview={null} />
+        <Quantities />
       </FormProvider>
     </DatePickers.LocalizationProvider>
   );
@@ -215,6 +223,25 @@ describe("ProductsStep (Products & Pricing)", () => {
     expect(within(table).getByText("Support")).toBeInTheDocument(); // now in its group
     expect(within(table).queryByText("Uncategorised")).toBeNull(); // gone once empty
     expect(within(table).queryByRole("rowgroup", { name: "Uncategorised" })).toBeNull();
+  });
+
+  // D125: a bundle child's quantity follows its rule when the AM changes the parent's.
+  it("updates the children's quantities when the parent's changes", async () => {
+    const user = userEvent.setup();
+    const gw = { ...line("WSO2 Gateway", "SUBSCRIPTION"), key: "gw", quantity: "5" };
+    const monitoring = { ...line("Monitoring", "SUBSCRIPTION"), key: "mon", parentKey: "gw", quantity: "5" };
+    const support = { ...line("Enterprise Support", "SUPPORT"), key: "sup", parentKey: "gw", quantity: "1", bundleFixedQuantity: 1 };
+    render(<Harness values={{ lines: [gw, monitoring, support] }} />);
+    expect(screen.getByLabelText("Quantities")).toHaveTextContent("gw=5 mon=5 sup=1");
+
+    await user.click(screen.getByRole("button", { name: "Edit line 1" }));
+    const dialog = screen.getByRole("dialog");
+    const qty = within(dialog).getByRole("textbox", { name: "Quantity" });
+    await user.clear(qty);
+    await user.type(qty, "10");
+    await user.click(within(dialog).getByRole("button", { name: "Save product" }));
+
+    expect(screen.getByLabelText("Quantities")).toHaveTextContent("gw=10 mon=10 sup=1");
   });
 
   // D91, amended 2026-10-23: the commission card sits above the term and the products, before any product too.

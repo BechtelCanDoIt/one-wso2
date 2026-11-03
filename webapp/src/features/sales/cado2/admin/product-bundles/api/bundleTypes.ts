@@ -14,11 +14,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** A product in a bundle, as Salesforce had it when the bundle was saved. */
+/**
+ * A product in a bundle, as Salesforce had it when the bundle was saved, and
+ * its quantity rule (D125): always fixedQuantity, or null for the parent's
+ * quantity, following it.
+ */
 export interface BundleProduct {
   readonly productId: string;
   readonly name: string | null;
   readonly code: string | null;
+  readonly fixedQuantity: number | null;
+}
+
+/** One child to save, with its quantity rule (null = the parent's quantity). */
+export interface BundleChildInput {
+  readonly productId: string;
+  readonly fixedQuantity: number | null;
 }
 
 /** An Admin's bundle: a parent and the products that always come with it, in order. */

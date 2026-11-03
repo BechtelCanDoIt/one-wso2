@@ -119,6 +119,7 @@ function savedSupportLine(): LineValue {
     salesPrice: "",
     key: `k-${Math.random()}`,
     parentKey: "",
+    bundleFixedQuantity: null,
     keepPricing: {
       method: "FORMULA",
       formulaVersionId: 6,
@@ -219,9 +220,9 @@ describe("AddLineDialog", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: "25000", salesPrice: "27500.5" }), []);
   });
 
-  // A bundle parent brings its children, same year and dates, its quantity to start with.
+  // A bundle parent brings its children, same year and dates; "same quantity" ones take its quantity (D125).
   it("adds a bundle parent with the products that come with it", async () => {
-    bundle.parents = { [gateway.id]: { children: [support], missing: ["Onboarding"] } };
+    bundle.parents = { [gateway.id]: { children: [{ ...support, fixedQuantity: null }], missing: ["Onboarding"] } };
     try {
       const onSave = vi.fn();
       render(
@@ -249,10 +250,43 @@ describe("AddLineDialog", () => {
       await user.click(screen.getByRole("button", { name: "Add 2 products" }));
       const [parent, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
       expect(children).toHaveLength(1);
-      expect(children[0]).toMatchObject({ productId: support.id, quantity: "4", yearNumber: 2, category: "SUPPORT", parentKey: parent.key });
+      expect(children[0]).toMatchObject({ productId: support.id, quantity: "4", yearNumber: 2, category: "SUPPORT", parentKey: parent.key,
+        bundleFixedQuantity: null });
     } finally {
       bundle.parents = {};
     }
+  });
+
+  // D125: a child with a fixed quantity (Enterprise Support: always 1) whatever the parent's.
+  it("adds a bundle child with its fixed quantity", async () => {
+    bundle.parents = { [gateway.id]: { children: [{ ...support, fixedQuantity: 1 }], missing: [] } };
+    try {
+      const onSave = renderDialog();
+      const user = await pick(/WSO2 API Manager/);
+      expect(screen.getByLabelText("Bundle")).toHaveTextContent("WSO2 Enterprise Support Plan - APIM (always 1)");
+      await user.click(screen.getByRole("combobox", { name: /Category/ }));
+      await user.click(screen.getByRole("option", { name: "Subscription" }));
+      const qty = screen.getByRole("textbox", { name: "Quantity" });
+      await user.clear(qty);
+      await user.type(qty, "5");
+
+      await user.click(screen.getByRole("button", { name: "Add 2 products" }));
+      const [parent, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
+      expect(parent.quantity).toBe("5");
+      expect(children[0]).toMatchObject({ quantity: "1", bundleFixedQuantity: 1 });
+    } finally {
+      bundle.parents = {};
+    }
+  });
+
+  // D125: the AM can't change a bundle child's quantity; the dialog says where it comes from.
+  it("locks a bundle child's quantity", async () => {
+    const onSave = renderDialog(vi.fn(), { ...savedSupportLine(), parentKey: "p", bundleFixedQuantity: 1 });
+    const qty = screen.getByRole("textbox", { name: "Quantity" });
+    expect(qty).toBeDisabled();
+    expect(screen.getByText("Set by the bundle: always 1")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Save product" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ quantity: "1" }), []);
   });
 
   // A product whose bundle can't be read isn't added alone.
@@ -304,6 +338,7 @@ describe("AddLineDialog", () => {
       salesPrice: "",
       key: `k-${Math.random()}`,
       parentKey: "",
+      bundleFixedQuantity: null,
     };
     const onSave = renderDialog(vi.fn(), line);
 

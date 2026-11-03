@@ -24,6 +24,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
+  MenuItem,
   Paper,
   Skeleton,
   Stack,
@@ -33,6 +34,7 @@ import {
   TableContainer,
   TableHead,
   TableRow,
+  TextField,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
@@ -54,6 +56,17 @@ import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
 
 /** The most products a bundle brings besides its parent (as the backend). */
 const MAX_CHILDREN = 10;
+/** The largest fixed quantity a child can have (as the backend, D125). */
+const MAX_FIXED_QUANTITY = 9999;
+
+/** A child's quantity rule as the dialog edits it; a child not listed has the parent's quantity. */
+type QuantityRules = Record<string, { fixed: boolean; quantity: string }>;
+
+const validFixed = (s: string) => /^\d+$/.test(s) && Number(s) >= 1 && Number(s) <= MAX_FIXED_QUANTITY;
+
+/** How a child's quantity is set, as the bundles table says it (D125). */
+const quantityRuleText = (fixedQuantity: number | null) =>
+  fixedQuantity === null ? "same quantity as the parent" : `always ${fixedQuantity}`;
 
 const asProduct = (id: string, name: string | null, code: string | null): FormulaProduct => ({ id, name: name ?? id, code });
 
@@ -71,6 +84,16 @@ function BundleDialog({ bundle, onClose }: { bundle: Bundle | null; onClose: () 
   const [children, setChildren] = useState<FormulaProduct[]>(
     bundle ? bundle.children.map((c) => asProduct(c.productId, c.name, c.code)) : [],
   );
+  // Each child's quantity rule (D125); a child added later has the parent's quantity.
+  const [rules, setRules] = useState<QuantityRules>(() =>
+    Object.fromEntries(
+      (bundle?.children ?? []).map((c) => [c.productId, { fixed: c.fixedQuantity !== null, quantity: String(c.fixedQuantity ?? 1) }]),
+    ),
+  );
+  const ruleOf = (id: string) => rules[id] ?? { fixed: false, quantity: "1" };
+  const setRule = (id: string, change: Partial<{ fixed: boolean; quantity: string }>) =>
+    setRules((r) => ({ ...r, [id]: { ...ruleOf(id), ...change } }));
+  const badQuantity = children.find((c) => ruleOf(c.id).fixed && !validFixed(ruleOf(c.id).quantity));
   const [tried, setTried] = useState(false);
   const problem = !parent
     ? "Choose the parent product"
@@ -80,13 +103,18 @@ function BundleDialog({ bundle, onClose }: { bundle: Bundle | null; onClose: () 
         ? `A bundle brings at most ${MAX_CHILDREN} products`
         : children.some((c) => c.id === parent.id)
           ? "The parent can't be in its own bundle"
-          : "";
+          : badQuantity
+            ? `A fixed quantity is a whole number from 1 to ${MAX_FIXED_QUANTITY}`
+            : "";
 
   const save = () => {
     setTried(true);
     if (problem || !parent) return;
     set.mutate(
-      { parentProductId: parent.id, childProductIds: children.map((c) => c.id) },
+      {
+        parentProductId: parent.id,
+        children: children.map((c) => ({ productId: c.id, fixedQuantity: ruleOf(c.id).fixed ? Number(ruleOf(c.id).quantity) : null })),
+      },
       {
         onSuccess: () => {
           notify("Bundle saved");
@@ -124,8 +152,55 @@ function BundleDialog({ bundle, onClose }: { bundle: Bundle | null; onClose: () 
             value={children}
             onChange={setChildren}
             error={tried && problem && parent ? problem : undefined}
-            helperText="Added with the parent, in this order, in the same year and dates. An AM can change their quantity, sales price and discount, but can only remove them with the parent."
+            helperText="Added with the parent, in this order, in the same year and dates. An AM can change their sales price and discount, but not their quantity, and can only remove them with the parent."
           />
+          {/* D125: the quantity comes from here; the AM can't change it. */}
+          {children.length > 0 ? (
+            <Stack spacing={1.25} role="group" aria-label="Quantities">
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                  Quantity
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  &quot;Same as the parent&quot; follows the parent&apos;s quantity, also when the AM changes it. A fixed
+                  quantity, such as 1 for a support plan, stays the same whatever the parent&apos;s.
+                </Typography>
+              </Box>
+              {children.map((c) => {
+                const rule = ruleOf(c.id);
+                return (
+                  <Stack key={c.id} direction={{ xs: "column", sm: "row" }} spacing={1.25} alignItems={{ sm: "center" }}>
+                    <Typography variant="body2" sx={{ flexGrow: 1, minWidth: 0 }} noWrap>
+                      {productLabel(c.name, c.code)}
+                    </Typography>
+                    <TextField
+                      select
+                      size="small"
+                      label="Quantity"
+                      value={rule.fixed ? "fixed" : "parent"}
+                      onChange={(e) => setRule(c.id, { fixed: e.target.value === "fixed" })}
+                      sx={{ minWidth: 200 }}
+                      slotProps={{ htmlInput: { "aria-label": `Quantity of ${c.name}` } }}
+                    >
+                      <MenuItem value="parent">Same as the parent</MenuItem>
+                      <MenuItem value="fixed">Always</MenuItem>
+                    </TextField>
+                    {rule.fixed ? (
+                      <TextField
+                        size="small"
+                        type="number"
+                        value={rule.quantity}
+                        onChange={(e) => setRule(c.id, { quantity: e.target.value })}
+                        error={tried && !validFixed(rule.quantity)}
+                        sx={{ width: 110 }}
+                        slotProps={{ htmlInput: { min: 1, max: MAX_FIXED_QUANTITY, "aria-label": `Fixed quantity of ${c.name}` } }}
+                      />
+                    ) : null}
+                  </Stack>
+                );
+              })}
+            </Stack>
+          ) : null}
           {set.error ? <Alert severity="error">{messageOf(set.error) ?? "Couldn't save the bundle. Try again."}</Alert> : null}
         </Stack>
       </DialogContent>
@@ -205,7 +280,10 @@ export default function ProductBundlesPage(): JSX.Element {
                     <TableCell sx={{ verticalAlign: "top" }}>
                       {b.children.map((c) => (
                         <Typography key={c.productId} variant="body2">
-                          {productLabel(c.name ?? c.productId, c.code)}
+                          {productLabel(c.name ?? c.productId, c.code)}{" "}
+                          <Typography component="span" variant="caption" color="text.secondary">
+                            · {quantityRuleText(c.fixedQuantity)}
+                          </Typography>
                         </Typography>
                       ))}
                     </TableCell>
@@ -250,7 +328,7 @@ export default function ProductBundlesPage(): JSX.Element {
           }}
           onConfirm={() =>
             remove.mutate(
-              { parentProductId: removing.parentProductId, childProductIds: null },
+              { parentProductId: removing.parentProductId, children: null },
               {
                 onSuccess: () => {
                   notify("Bundle removed");

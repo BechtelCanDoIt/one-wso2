@@ -46,6 +46,7 @@ import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cad
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   addYear,
+  childQuantity,
   childrenOf,
   cloneYear,
   contractYears,
@@ -157,13 +158,20 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
       if (children.length === 0) insert(at, line);
       else replace([...lines.slice(0, at), line, ...children, ...lines.slice(at)]);
     } else if (childrenOf(lines, line.key).length > 0) {
-      // A parent's children keep its year and dates.
+      // A parent's children keep its year and dates, and those with the
+      // parent's quantity follow it (D125).
       replace(
         lines.map((l, i) =>
           i === editing.index
             ? line
             : l.parentKey === line.key
-              ? { ...l, yearNumber: line.yearNumber, startDate: line.startDate, endDate: l.recurring ? line.endDate : "" }
+              ? {
+                  ...l,
+                  yearNumber: line.yearNumber,
+                  startDate: line.startDate,
+                  endDate: l.recurring ? line.endDate : "",
+                  quantity: childQuantity(line.quantity, l.bundleFixedQuantity),
+                }
               : l,
         ),
       );

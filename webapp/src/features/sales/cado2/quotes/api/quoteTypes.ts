@@ -207,8 +207,11 @@ export interface ScheduleRow {
 }
 
 /** GET /bundles/{productId}: the children a parent brings, priced from the quote's book; Missing names those not in it. */
+/** A bundle child with its quantity rule (D125): always fixedQuantity, or null for the parent's. */
+export type BundleChild = Product & { readonly fixedQuantity: number | null };
+
 export interface BundleChildren {
-  readonly children: readonly Product[];
+  readonly children: readonly BundleChild[];
   readonly missing: readonly string[];
 }
 
@@ -523,6 +526,8 @@ export interface LineView {
   readonly yearNumber: number | null;
   /** A bundle child's parent line number; null otherwise. */
   readonly parentLineNumber?: number | null;
+  /** A bundle child's quantity rule (D125): always this many, or null for its parent's quantity. */
+  readonly bundleFixedQuantity?: number | null;
   /** Null until the quote has a start date and a year (D78). */
   readonly startDate: string | null;
   readonly endDate: string | null;
