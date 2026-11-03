@@ -98,6 +98,8 @@ export interface CampaignPatch {
   title?: string;
   summary?: string;
   imageUrl?: string;
+  /** New link to the post; a blank string clears it. amplify-api applies the allowed-origin rule. */
+  resourceUrl?: string;
   categoryCode?: string;
   isPriority?: boolean;
   closesAt?: string;
