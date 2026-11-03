@@ -43,6 +43,17 @@ export interface AmplifyMe {
   grants: AmplifyGrant[];
   capabilities: string[];
   linkedin: { status: LinkedInStatus; expiresAt?: string | null };
+  /** Deployment settings from amplify-api's Choreo configs (not from `window.config`). */
+  config: AmplifyAppConfig;
+}
+
+export interface AmplifyAppConfig {
+  /** WSO2's LinkedIn company page, the owner New Post sends. Empty when amplify-api has none. */
+  linkedinOrgUrn: string;
+  /** Privacy notice link for the consent pop-up. Empty shows plain text. */
+  privacyNoticeUrl: string;
+  /** Origins a post link may use (`scheme://host[:port]`, lowercase). */
+  postLinkOrigins: string[];
 }
 
 export type CampaignStatus = "SCHEDULED" | "OPEN" | "CLOSED" | "ARCHIVED";
@@ -87,6 +98,8 @@ export interface CampaignPatch {
   title?: string;
   summary?: string;
   imageUrl?: string;
+  /** New link to the post; a blank string clears it. amplify-api applies the allowed-origin rule. */
+  resourceUrl?: string;
   categoryCode?: string;
   isPriority?: boolean;
   closesAt?: string;

@@ -26,7 +26,9 @@ vi.mock("../api/useAmplifyMutations", () => ({
 vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
 }));
-vi.mock("@config/apiConfig", () => ({ amplifyPrivacyNoticeUrl: "https://example.test/privacy" }));
+vi.mock("../api/useAmplifyData", () => ({
+  useAmplifyConfig: () => ({ linkedinOrgUrn: "urn:li:organization:1", privacyNoticeUrl: "https://example.test/privacy", postLinkOrigins: ["https://www.linkedin.com", "https://linkedin.com"] }),
+}));
 
 import LinkLinkedInDialog from "./LinkLinkedInDialog";
 import { isLinkedInProfileUrl } from "../util/linkedinProfile";
