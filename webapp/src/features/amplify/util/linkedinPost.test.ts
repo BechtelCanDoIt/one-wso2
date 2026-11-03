@@ -22,8 +22,40 @@ import {
   isLinkedInShortLink,
   linkedInPostUrl,
   originOf,
+  POST_KINDS,
+  POST_PERMALINK_PREFIX,
+  postPermalink,
+  postRefFromPaste,
+  postUrnFor,
   postUrnFromUrl,
 } from "./linkedinPost";
+
+describe("post kind and id", () => {
+  it("offers share and ugcPost", () => {
+    expect([...POST_KINDS]).toEqual(["share", "ugcPost"]);
+  });
+  it("builds the URN from the chosen kind and the id", () => {
+    expect(postUrnFor("share", "7123")).toBe("urn:li:share:7123");
+    expect(postUrnFor("ugcPost", " 7123 ")).toBe("urn:li:ugcPost:7123");
+  });
+  it("refuses an empty or malformed id", () => {
+    expect(postUrnFor("share", "")).toBeNull();
+    expect(postUrnFor("share", "71 23")).toBeNull();
+    expect(postUrnFor("share", "urn:li:share:7")).toBeNull();
+    expect(postUrnFor("share", "a".repeat(101))).toBeNull();
+  });
+  it("stores the permalink as the fixed prefix plus the URN", () => {
+    expect(POST_PERMALINK_PREFIX).toBe("https://www.linkedin.com/feed/update/");
+    expect(postPermalink("urn:li:ugcPost:7123")).toBe("https://www.linkedin.com/feed/update/urn:li:ugcPost:7123/");
+  });
+  it("reads kind and id from a pasted link or URN, share and ugcPost only", () => {
+    expect(postRefFromPaste("https://www.linkedin.com/feed/update/urn:li:share:7123/")).toEqual({ kind: "share", id: "7123" });
+    expect(postRefFromPaste("urn:li:ugcPost:5")).toEqual({ kind: "ugcPost", id: "5" });
+    expect(postRefFromPaste("https://www.linkedin.com/posts/x-ugcPost-7123-AbCd")).toEqual({ kind: "ugcPost", id: "7123" });
+    expect(postRefFromPaste("https://www.linkedin.com/posts/x-activity-7123-AbCd")).toBeNull();
+    expect(postRefFromPaste("https://evil.example/feed/update/urn:li:share:7123/")).toBeNull();
+  });
+});
 
 describe("postUrnFromUrl", () => {
   it("reads the feed form", () => {

@@ -18,9 +18,9 @@ import { useState } from "react";
 import { Box, Button, Dialog, DialogContent, Link, TextField, Typography } from "@wso2/oxygen-ui";
 import { LinkIcon, LinkedinIcon } from "@wso2/oxygen-ui-icons-react";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
-import { amplifyPrivacyNoticeUrl } from "@config/apiConfig";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useDeclineLinkedInConsent, useStartLinkedInConnect } from "../api/useAmplifyMutations";
+import { useAmplifyConfig } from "../api/useAmplifyData";
 import { describeAmplifyError } from "../util/amplifyError";
 import { isAllowedLink } from "../util/linkedinPost";
 import { isLinkedInProfileUrl } from "../util/linkedinProfile";
@@ -54,6 +54,7 @@ export default function LinkLinkedInDialog({
   const start = useStartLinkedInConnect();
   const decline = useDeclineLinkedInConsent();
   const { showError } = useNotifications();
+  const { privacyNoticeUrl, postLinkOrigins } = useAmplifyConfig();
   const [declined, setDeclined] = useState(false);
   const [profileUrl, setProfileUrl] = useState("");
   const busy = start.isPending || decline.isPending;
@@ -77,7 +78,7 @@ export default function LinkLinkedInDialog({
       {
         onSuccess: (auth) => {
           // Only ever follow a LinkedIn (or, in dev, the listed mock) sign-in page.
-          if (auth?.authorizationUrl && isAllowedLink(auth.authorizationUrl)) window.location.assign(auth.authorizationUrl);
+          if (auth?.authorizationUrl && isAllowedLink(auth.authorizationUrl, postLinkOrigins)) window.location.assign(auth.authorizationUrl);
           else showError("Something went wrong, please try again.");
         },
         onError: (err) => showError(describeAmplifyError(err)),
@@ -95,8 +96,8 @@ export default function LinkLinkedInDialog({
     );
   };
 
-  const privacyNotice = amplifyPrivacyNoticeUrl ? (
-    <Link href={amplifyPrivacyNoticeUrl} target="_blank" rel="noopener noreferrer">
+  const privacyNotice = privacyNoticeUrl ? (
+    <Link href={privacyNoticeUrl} target="_blank" rel="noopener noreferrer">
       WSO2 Employee Privacy Notice
     </Link>
   ) : (

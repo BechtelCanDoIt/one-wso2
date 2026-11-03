@@ -15,17 +15,26 @@
 // under the License.
 
 import { useState, type FormEvent } from "react";
-import { Alert, Box, Button, FormControlLabel, Switch, TextField, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Button, FormControlLabel, MenuItem, Switch, TextField, Typography } from "@wso2/oxygen-ui";
 import { useNavigate } from "react-router";
-import { amplifyLinkedInOrgUrn } from "@config/apiConfig";
 import { AMPLIFY_CURRENT_POSTS_PATH } from "@constants/perspectives";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import { useAmplifyCategories } from "../api/useAmplifyData";
+import { useAmplifyCategories, useAmplifyConfig } from "../api/useAmplifyData";
 import { useRegisterCampaign } from "../api/useAmplifyMutations";
 import AmplifyShell, { AmplifyPanel } from "../components/AmplifyShell";
 import CategoryPicker from "../components/CategoryPicker";
 import { describeAmplifyError } from "../util/amplifyError";
-import { closesAtFromDateInput, isAllowedLink, isLinkedInShortLink, postUrnFromUrl } from "../util/linkedinPost";
+import {
+  DEFAULT_POST_KIND,
+  POST_KINDS,
+  closesAtFromDateInput,
+  POST_PERMALINK_PREFIX,
+  isPostKind,
+  postPermalink,
+  postRefFromPaste,
+  postUrnFor,
+  type PostKind,
+} from "../util/linkedinPost";
 
 // amplify-api's limits (CampaignDraft in openapi.yaml).
 const TITLE_MAX = 200;
@@ -42,7 +51,8 @@ export default function NewPostPage() {
   const categories = useAmplifyCategories();
   const { showError, showSuccess } = useNotifications();
 
-  const [postUrl, setPostUrl] = useState("");
+  const [postId, setPostId] = useState("");
+  const [postKind, setPostKind] = useState<PostKind>(DEFAULT_POST_KIND);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -53,11 +63,23 @@ export default function NewPostPage() {
 
   // The first category until one is chosen, so there is always a choice.
   const category = chosenCategory || categories.data?.[0]?.code || "";
-  const resourceUrn = postUrnFromUrl(postUrl);
-  const urlError = touched && !resourceUrn;
+  const { linkedinOrgUrn, postLinkOrigins } = useAmplifyConfig();
+  const resourceUrn = postUrnFor(postKind, postId);
+  const idError = touched && !resourceUrn;
   const titleError = touched && !title.trim();
-  const orgConfigured = Boolean(amplifyLinkedInOrgUrn);
+  const orgConfigured = Boolean(linkedinOrgUrn);
   const valid = Boolean(resourceUrn) && Boolean(title.trim()) && Boolean(category);
+
+  // Pasting a whole link or URN into the id box fills the kind list and keeps just the id.
+  const onPostIdChange = (value: string) => {
+    const pasted = /[:/]/.test(value) ? postRefFromPaste(value, postLinkOrigins) : null;
+    if (pasted) {
+      setPostKind(pasted.kind);
+      setPostId(pasted.id);
+    } else {
+      setPostId(value);
+    }
+  };
 
   const save = (shareNow: boolean) => {
     setTouched(true);
@@ -67,9 +89,9 @@ export default function NewPostPage() {
         shareNow,
         draft: {
           resourceUrn,
-          ownerUrn: amplifyLinkedInOrgUrn,
-          // Only a link on an allowed origin is sent; a bare URN registers the post without one.
-          resourceUrl: isAllowedLink(postUrl) ? postUrl.trim() : undefined,
+          ownerUrn: linkedinOrgUrn,
+          // amplify-api reposts by the URN; the link is the permalink shown on the cards.
+          resourceUrl: postPermalink(resourceUrn),
           title: title.trim(),
           summary: summary.trim() || undefined,
           imageUrl: imageUrl.trim() || undefined,
@@ -106,30 +128,55 @@ export default function NewPostPage() {
     >
       {!orgConfigured && (
         <Alert severity="warning" sx={{ mb: 2 }}>
-          Set <code>ONE_WSO2_AMPLIFY_LINKEDIN_ORG_URN</code> in <code>public/config.js</code> before registering
-          posts. Amplify only accepts posts from the WSO2 company page.
+          Amplify doesn&apos;t have a LinkedIn company page configured yet (<code>WSO2ORGANIZATIONURN</code> on
+          amplify-api), so posts can&apos;t be registered. Amplify only accepts posts from the WSO2 company page.
         </Alert>
       )}
       <Box component="form" noValidate onSubmit={onSubmit}>
         <AmplifyPanel title="LinkedIn post">
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <TextField
-              label="Post URL"
-              placeholder="https://www.linkedin.com/feed/update/urn:li:share:…"
-              value={postUrl}
-              onChange={(e) => setPostUrl(e.target.value)}
-              required
-              fullWidth
-              error={urlError}
-              helperText={
-                urlError
-                  ? isLinkedInShortLink(postUrl)
-                    ? "Short links (lnkd.in) can't be read. Open the post and paste the address from your browser's address bar."
-                    : "Paste the link to a post on LinkedIn."
-                  : "Must be a post on the WSO2 company page."
-              }
-              disabled={busy}
-            />
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexWrap: "wrap" }}>
+              <Typography
+                component="span"
+                sx={{ fontFamily: "monospace", fontSize: "0.9rem", color: "text.secondary", pt: 2, whiteSpace: "nowrap" }}
+              >
+                {POST_PERMALINK_PREFIX}
+              </Typography>
+              <TextField
+                select
+                label="Post type"
+                value={postKind}
+                onChange={(e) => {
+                  if (isPostKind(e.target.value)) setPostKind(e.target.value);
+                }}
+                sx={{ minWidth: 170 }}
+                disabled={busy}
+              >
+                {POST_KINDS.map((kind) => (
+                  <MenuItem key={kind} value={kind}>
+                    {`urn:li:${kind}`}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Typography component="span" sx={{ pt: 2, color: "text.secondary" }}>
+                :
+              </Typography>
+              <TextField
+                label="Post ID"
+                placeholder="7123456789012345678"
+                value={postId}
+                onChange={(e) => onPostIdChange(e.target.value)}
+                required
+                error={idError}
+                helperText={
+                  idError
+                    ? "Enter the post's numeric ID (the digits after the last colon)."
+                    : "Must be a post on the WSO2 company page."
+                }
+                sx={{ flex: 1, minWidth: 220 }}
+                disabled={busy}
+              />
+            </Box>
             <TextField
               label="Headline"
               value={title}

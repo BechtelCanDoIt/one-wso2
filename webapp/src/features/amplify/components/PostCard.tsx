@@ -17,6 +17,7 @@
 import { useState, type ReactNode } from "react";
 import { Box, Chip, Link, Paper, Typography } from "@wso2/oxygen-ui";
 import type { Campaign } from "../api/amplifyTypes";
+import { useAmplifyConfig } from "../api/useAmplifyData";
 import { linkedInPostUrl } from "../util/linkedinPost";
 
 // Black card with the white Amplify pulse mark at 80% of the frame height (public/amplify).
@@ -59,11 +60,12 @@ export default function PostCard({
   chips?: ReactNode;
   action?: ReactNode;
 }) {
+  const { postLinkOrigins } = useAmplifyConfig();
   return (
     <Paper variant="outlined" sx={{ p: 1.5, height: "100%", display: "flex", flexDirection: "column", gap: 1 }}>
       <Box sx={{ minWidth: 0 }}>
         <Link
-          href={linkedInPostUrl(campaign.resourceUrn, campaign.resourceUrl)}
+          href={linkedInPostUrl(campaign.resourceUrn, campaign.resourceUrl, postLinkOrigins)}
           target="_blank"
           rel="noopener noreferrer"
           underline="hover"
