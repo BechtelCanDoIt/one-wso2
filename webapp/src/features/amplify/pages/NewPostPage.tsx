@@ -28,12 +28,11 @@ import {
   DEFAULT_POST_KIND,
   POST_KINDS,
   closesAtFromDateInput,
-  isAllowedLink,
-  isLinkedInShortLink,
+  POST_PERMALINK_PREFIX,
   isPostKind,
-  postKindFromUrl,
-  postUrlPlaceholder,
-  postUrnForKind,
+  postPermalink,
+  postRefFromPaste,
+  postUrnFor,
   type PostKind,
 } from "../util/linkedinPost";
 
@@ -52,7 +51,7 @@ export default function NewPostPage() {
   const categories = useAmplifyCategories();
   const { showError, showSuccess } = useNotifications();
 
-  const [postUrl, setPostUrl] = useState("");
+  const [postId, setPostId] = useState("");
   const [postKind, setPostKind] = useState<PostKind>(DEFAULT_POST_KIND);
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
@@ -65,17 +64,21 @@ export default function NewPostPage() {
   // The first category until one is chosen, so there is always a choice.
   const category = chosenCategory || categories.data?.[0]?.code || "";
   const { linkedinOrgUrn, postLinkOrigins } = useAmplifyConfig();
-  const resourceUrn = postUrnForKind(postUrl, postKind, postLinkOrigins);
-  const urlError = touched && !resourceUrn;
+  const resourceUrn = postUrnFor(postKind, postId);
+  const idError = touched && !resourceUrn;
   const titleError = touched && !title.trim();
   const orgConfigured = Boolean(linkedinOrgUrn);
   const valid = Boolean(resourceUrn) && Boolean(title.trim()) && Boolean(category);
 
-  // Pasting a link or URN that carries share or ugcPost moves the list to it; the employee can still change it.
-  const onPostUrlChange = (value: string) => {
-    setPostUrl(value);
-    const kind = postKindFromUrl(value, postLinkOrigins);
-    if (kind) setPostKind(kind);
+  // Pasting a whole link or URN into the id box fills the kind list and keeps just the id.
+  const onPostIdChange = (value: string) => {
+    const pasted = /[:/]/.test(value) ? postRefFromPaste(value, postLinkOrigins) : null;
+    if (pasted) {
+      setPostKind(pasted.kind);
+      setPostId(pasted.id);
+    } else {
+      setPostId(value);
+    }
   };
 
   const save = (shareNow: boolean) => {
@@ -87,8 +90,8 @@ export default function NewPostPage() {
         draft: {
           resourceUrn,
           ownerUrn: linkedinOrgUrn,
-          // Only a link on an allowed origin is sent; a bare URN registers the post without one.
-          resourceUrl: isAllowedLink(postUrl, postLinkOrigins) ? postUrl.trim() : undefined,
+          // amplify-api reposts by the URN; the link is the permalink shown on the cards.
+          resourceUrl: postPermalink(resourceUrn),
           title: title.trim(),
           summary: summary.trim() || undefined,
           imageUrl: imageUrl.trim() || undefined,
@@ -132,40 +135,48 @@ export default function NewPostPage() {
       <Box component="form" noValidate onSubmit={onSubmit}>
         <AmplifyPanel title="LinkedIn post">
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <TextField
-              select
-              label="Post type"
-              value={postKind}
-              onChange={(e) => {
-                if (isPostKind(e.target.value)) setPostKind(e.target.value);
-              }}
-              helperText="Sets the kind in the registered urn:li:<kind>:<id>."
-              fullWidth
-              disabled={busy}
-            >
-              {POST_KINDS.map((kind) => (
-                <MenuItem key={kind} value={kind}>
-                  {kind}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Post URL"
-              placeholder={postUrlPlaceholder(postKind)}
-              value={postUrl}
-              onChange={(e) => onPostUrlChange(e.target.value)}
-              required
-              fullWidth
-              error={urlError}
-              helperText={
-                urlError
-                  ? isLinkedInShortLink(postUrl)
-                    ? "Short links (lnkd.in) can't be read. Open the post and paste the address from your browser's address bar."
-                    : "Paste the link to a post on LinkedIn."
-                  : "Must be a post on the WSO2 company page."
-              }
-              disabled={busy}
-            />
+            <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, flexWrap: "wrap" }}>
+              <Typography
+                component="span"
+                sx={{ fontFamily: "monospace", fontSize: "0.9rem", color: "text.secondary", pt: 2, whiteSpace: "nowrap" }}
+              >
+                {POST_PERMALINK_PREFIX}
+              </Typography>
+              <TextField
+                select
+                label="Post type"
+                value={postKind}
+                onChange={(e) => {
+                  if (isPostKind(e.target.value)) setPostKind(e.target.value);
+                }}
+                sx={{ minWidth: 170 }}
+                disabled={busy}
+              >
+                {POST_KINDS.map((kind) => (
+                  <MenuItem key={kind} value={kind}>
+                    {`urn:li:${kind}`}
+                  </MenuItem>
+                ))}
+              </TextField>
+              <Typography component="span" sx={{ pt: 2, color: "text.secondary" }}>
+                :
+              </Typography>
+              <TextField
+                label="Post ID"
+                placeholder="7123456789012345678"
+                value={postId}
+                onChange={(e) => onPostIdChange(e.target.value)}
+                required
+                error={idError}
+                helperText={
+                  idError
+                    ? "Enter the post's numeric ID (the digits after the last colon)."
+                    : "Must be a post on the WSO2 company page."
+                }
+                sx={{ flex: 1, minWidth: 220 }}
+                disabled={busy}
+              />
+            </Box>
             <TextField
               label="Headline"
               value={title}
