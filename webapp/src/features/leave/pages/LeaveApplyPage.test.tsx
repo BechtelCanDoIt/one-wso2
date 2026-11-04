@@ -32,7 +32,7 @@ const appConfigData = {
   },
 };
 
-const state = { employeesLoading: false };
+const state = { employeesLoading: false, sickPending: false };
 // Upload limits arrive with the app config on a current backend; a test can drop them.
 const limits = { sickNoteMaxBytes: 5 * 1024 * 1024, sickNoteContentTypes: ["application/pdf", "image/jpeg", "image/png"] };
 const configState = { withLimits: true };
@@ -99,7 +99,7 @@ vi.mock("../api/useLeaveMutations", () => ({
   }),
   useSubmitSickLeave: () => ({
     mutate: sickMutate,
-    isPending: false,
+    isPending: state.sickPending,
     isError: false,
     error: null,
   }),
@@ -113,6 +113,7 @@ beforeEach(() => {
   submitMutate.mockClear();
   sickMutate.mockClear();
   configState.withLimits = true;
+  state.sickPending = false;
   user.location = "Sri Lanka";
 });
 
@@ -707,6 +708,17 @@ describe("France leave on Apply", () => {
     await u.click(screen.getByText("Sick Leave"));
     expect(screen.queryByText("note.pdf")).toBeNull();
     expect(await screen.findByRole("button", { name: /Submit Leave/ })).toBeDisabled();
+  });
+
+  // The sick-leave call is in flight while Congés Payés, which posts through
+  // the other call, is selected: nothing may start a second request.
+  it("holds Submit and the leave type while a sick-leave request is in flight", async () => {
+    state.sickPending = true;
+    user.location = "France";
+    show();
+    expect(await screen.findByRole("button", { name: /Submitting/ })).toBeDisabled();
+    expect(screen.getByText("Compassionate").closest("button")).toBeDisabled();
+    expect(screen.getByText("Sick Leave").closest("button")).toBeDisabled();
   });
 
   it("keeps Submit disabled while the upload limits are loading", async () => {

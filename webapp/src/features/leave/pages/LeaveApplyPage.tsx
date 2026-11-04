@@ -133,6 +133,9 @@ function ApplyForm() {
   const sickNoteReady = !sickNoteRequired || (limitsLoaded && sickNote !== null && sickNoteIssue === "");
   // France sick leave posts through the multipart call; everything else is unchanged.
   const submit = sickNoteRequired ? submitSick : submitPlain;
+  // Either call can be in flight whatever type is selected now, so a request
+  // in flight blocks another submit and holds the type until it settles.
+  const submitting = submitPlain.isPending || submitSick.isPending;
 
   // Other Authorized: the lead decides on the reason, so it is required and
   // never public.
@@ -242,7 +245,7 @@ function ApplyForm() {
     typeof workingDays === "number" &&
     // Half-day requests are worth 0.5, so gate on > 0, not >= 1.
     workingDays > 0 &&
-    !submit.isPending &&
+    !submitting &&
     Boolean(userInfo.data) &&
     // Mandatory recipients (lead + People Ops) come from appConfig; don't
     // let a submit go out without them if appConfig hasn't resolved yet.
@@ -484,6 +487,7 @@ function ApplyForm() {
                 size="small"
                 variant={active ? "contained" : "outlined"}
                 onClick={() => chooseLeaveType(t)}
+                disabled={submitting}
                 startIcon={<TypeIcon size={14} />}
                 sx={{ fontSize: 12, fontWeight: 600, borderRadius: 1.25, textTransform: "none" }}
               >
@@ -696,7 +700,7 @@ function ApplyForm() {
             disabled={!canSubmit && !explainableBlock}
           sx={{ fontWeight: 600 }}
         >
-          {submit.isPending ? "Submitting…" : validating ? "Validating…" : "Submit Leave"}
+          {submitting ? "Submitting…" : validating ? "Validating…" : "Submit Leave"}
         </Button>
       </Box>
     
@@ -713,7 +717,7 @@ function ApplyForm() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setConfirming(false)}>{SUBMIT_CONFIRMATION.cancelText}</Button>
-          <Button variant="contained" onClick={executeSubmit} disabled={submit.isPending}>
+          <Button variant="contained" onClick={executeSubmit} disabled={submitting}>
             {SUBMIT_CONFIRMATION.okText}
           </Button>
         </DialogActions>

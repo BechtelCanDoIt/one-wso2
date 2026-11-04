@@ -34,6 +34,7 @@ describe("extensionForContentType", () => {
     expect(extensionForContentType("application/pdf")).toBe("pdf");
     expect(extensionForContentType("image/jpeg")).toBe("jpg");
     expect(extensionForContentType("image/png")).toBe("png");
+    expect(extensionForContentType("Application/PDF")).toBe("pdf");
     expect(extensionForContentType("text/html")).toBe("");
     expect(extensionForContentType("")).toBe("");
   });

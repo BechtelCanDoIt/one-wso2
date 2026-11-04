@@ -25,8 +25,9 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 // File extension (no dot) for a sick-note content type; "" when unknown.
+// Media types are case-insensitive, so the lookup is too.
 export function extensionForContentType(type: string): string {
-  return EXTENSIONS[type] ?? "";
+  return EXTENSIONS[type.toLowerCase()] ?? "";
 }
 
 // GET /leaves/{id}/sick-note and hand the bytes to the browser as a download.
