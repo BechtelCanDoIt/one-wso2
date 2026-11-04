@@ -245,6 +245,7 @@ import UmtUpdateView from "@features/umt/pages/UmtUpdateView";
 import UmtUpdatesPage from "@features/umt/pages/UmtUpdatesPage";
 import { engineeringRoutes } from "@features/engineering/routes";
 import InfraHomePage from "@features/infra/pages/InfraHomePage";
+import InfraPerspectiveLanding from "@features/infra/pages/InfraPerspectiveLanding";
 import InfraNewRepositoryPage from "@features/infra/pages/InfraNewRepositoryPage";
 import InfraGitHubCallbackPage from "@features/infra/pages/InfraGitHubCallbackPage";
 import InfraRepositoryAccessPage from "@features/infra/pages/InfraRepositoryAccessPage";
@@ -275,7 +276,8 @@ export default function App() {
           <Route path="engineering/umt/release-chunks" element={<UmtReleaseChunksPage />} />
           <Route path="engineering/umt/release-chunks/new" element={<UmtCreateReleaseChunkPage />} />
           <Route path="engineering/umt/statistics" element={<UmtStatisticsPage />} />
-          <Route path="infra" element={<InfraHomePage />} />
+          <Route path="infra" element={<InfraPerspectiveLanding />} />
+          <Route path="infra/github/connection" element={<InfraHomePage />} />
           <Route
             path="infra/github/repository-requests"
             element={<InfraNewRepositoryPage />}

@@ -137,7 +137,7 @@ function DefaultRepositoryAccess() {
     if (!isConnected) {
         return (
         <Typography variant="body2" color="text.secondary">
-            Connect with GitHub from the home page to see default repository access.
+            Connect with GitHub from GitHub Connection to see default repository access.
         </Typography>
         );
     }
