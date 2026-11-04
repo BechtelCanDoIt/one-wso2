@@ -65,7 +65,7 @@ function TopThree({ board, people }: { board: TopBoard; people: PeopleByEmail })
       {leaders.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           {board.period === "MONTH"
-            ? `Nobody has reached ${(board.minPoints ?? 0).toLocaleString()} points this month yet. Amplify a post and be first on the board.`
+            ? "No points yet this month. Amplify a post and be first on the board."
             : "No points yet. Amplify a post and be first on the board."}
         </Typography>
       ) : (
@@ -96,8 +96,6 @@ function MyPosition({ board }: { board: TopBoard }) {
   const ranked = me.rank != null;
   const monthly = board.period === "MONTH";
   let tagline = monthly ? "Amplify a post this month to get on the board." : "Amplify your first post to get on the board.";
-  const toQualify = board.minPoints != null && !ranked ? board.minPoints - (me.points ?? 0) : 0;
-  if (monthly && toQualify > 0 && (me.points ?? 0) > 0) tagline = `${pts(toQualify)} to qualify for the top ${board.topN}.`;
   if (ranked && me.inTopN) tagline = `You're in the top ${board.topN}. Keep it up!`;
   else if (ranked && me.pointsToTopN != null) tagline = `${pts(me.pointsToTopN)} to the top ${board.topN}.`;
   else if (ranked && me.pointsToNextRank != null) tagline = `${pts(me.pointsToNextRank)} to the next rank.`;
@@ -143,9 +141,7 @@ export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people:
       ariaLabel="top-amplifiers"
     >
       <TopThree board={board} people={people} />
-      {board.period === "MONTH" && board.minPoints != null && (
-        <HowWinnersAreChosen minPoints={board.minPoints} topN={board.topN} />
-      )}
+      {board.period === "MONTH" && <HowWinnersAreChosen minPoints={board.minPoints} topN={board.topN} />}
       <Divider sx={{ my: 2 }} />
       <MyPosition board={board} />
     </AmplifyPanel>

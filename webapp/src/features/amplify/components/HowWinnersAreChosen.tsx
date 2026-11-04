@@ -52,8 +52,8 @@ function RuleTile({ figure, lead, text, tone }: { figure: string; lead: string; 
   );
 }
 
-/** Explains the monthly podium: the points needed to qualify, and who gets recognized. */
-export default function HowWinnersAreChosen({ minPoints, topN }: { minPoints: number; topN: number }) {
+/** Explains the monthly podium: the points needed to qualify (when there is a minimum), and who gets recognized. */
+export default function HowWinnersAreChosen({ minPoints, topN }: { minPoints?: number | null; topN: number }) {
   return (
     <Box component="section" aria-label="How monthly winners are chosen" sx={{ mt: 3 }}>
       <Typography
@@ -64,12 +64,14 @@ export default function HowWinnersAreChosen({ minPoints, topN }: { minPoints: nu
         How monthly winners are chosen
       </Typography>
       <Box component="ul" sx={{ display: "flex", flexWrap: "wrap", gap: 1.5, p: 0, m: 0 }}>
-        <RuleTile
-          figure={minPoints.toLocaleString()}
-          lead="Minimum to qualify."
-          text={`Earn at least ${minPoints.toLocaleString()} points in the month.`}
-          tone="primary"
-        />
+        {minPoints != null && (
+          <RuleTile
+            figure={minPoints.toLocaleString()}
+            lead="Minimum to qualify."
+            text={`Earn at least ${minPoints.toLocaleString()} points in the month.`}
+            tone="primary"
+          />
+        )}
         <RuleTile
           figure={`Top ${topN}`}
           lead="Recognized every month."

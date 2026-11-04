@@ -169,7 +169,7 @@ export interface Leaderboard {
 export interface TopBoard {
   /** MONTH = this calendar month (UTC); ALL = all time. Set by `leaderboard.top_scope`. */
   period: "MONTH" | "ALL";
-  /** Points needed in the month to qualify for the top three; null for ALL. */
+  /** Always null: the Celebrate top three has no points minimum (ADR-037). */
   minPoints?: number | null;
   monthStart?: string | null;
   monthEnd?: string | null;
