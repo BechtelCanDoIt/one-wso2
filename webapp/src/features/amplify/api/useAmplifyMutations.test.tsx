@@ -31,16 +31,6 @@ import { authedDelete, authedPost } from "@api/http";
 import { useRegisterCampaign, useRemoveLinkedInConnection } from "./useAmplifyMutations";
 import type { CampaignDraft } from "./amplifyTypes";
 
-const keyOf = (call: unknown[]): string => (call[3] as Record<string, string>)["Idempotency-Key"];
-
-function deferred() {
-  let resolve: (value: unknown) => void = () => {};
-  const promise = new Promise((r) => {
-    resolve = r as (value: unknown) => void;
-  });
-  return { promise, resolve };
-}
-
 // The app's QueryClient sets refetchOnMount: false, so a list that no page is showing must be refetched by the
 // mutation itself, or Current Posts keeps its old rows after New Post saves.
 describe("saving a post", () => {
@@ -62,90 +52,25 @@ describe("saving a post", () => {
   });
 });
 
-// A double click reaches mutate() twice before React re-renders the disabled
-// button. Both calls must carry one key, or amplify-api records two posts; a
-// submit after the attempt settles is a new action and gets a new key.
-describe("the Idempotency-Key", () => {
-  const draft = {} as CampaignDraft;
-
-  // Call history carries across tests otherwise, and these assert on calls[0].
+// The Choreo API proxy's CORS allow-list has no Idempotency-Key, so a POST that
+// sends one is blocked in the browser after its preflight passes.
+describe("a POST", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  function setup() {
+  it("sends no Idempotency-Key header", async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { refetchOnMount: false } } });
     const wrapper = ({ children }: { children: ReactNode }) => (
       <QueryClientProvider client={qc}>{children}</QueryClientProvider>
     );
-    return renderHook(() => useRegisterCampaign(), { wrapper });
-  }
-
-  it("is shared by two submits that overlap, so the second is a replay", async () => {
-    const post = deferred();
-    vi.mocked(authedPost).mockImplementation(() => post.promise as never);
-    const { result } = setup();
-
-    let first: Promise<unknown>;
-    let second: Promise<unknown>;
+    const { result } = renderHook(() => useRegisterCampaign(), { wrapper });
     await act(async () => {
-      first = result.current.mutateAsync({ draft, shareNow: false });
-      second = result.current.mutateAsync({ draft, shareNow: false });
-      post.resolve({ run: "STARTED" });
-      await Promise.all([first, second]);
+      await result.current.mutateAsync({ draft: {} as CampaignDraft, shareNow: false });
     });
 
-    const calls = vi.mocked(authedPost).mock.calls;
-    expect(calls).toHaveLength(2);
-    expect(keyOf(calls[0])).toBe(keyOf(calls[1]));
-  });
-
-  it("differs for two different submissions that overlap on one hook", async () => {
-    const post = deferred();
-    vi.mocked(authedPost).mockImplementation(() => post.promise as never);
-    const { result } = setup();
-
-    await act(async () => {
-      const first = result.current.mutateAsync({ draft: { title: "First" } as CampaignDraft, shareNow: false });
-      const second = result.current.mutateAsync({ draft: { title: "Second" } as CampaignDraft, shareNow: false });
-      post.resolve({ run: "STARTED" });
-      await Promise.all([first, second]);
-    });
-
-    const calls = vi.mocked(authedPost).mock.calls;
-    expect(calls).toHaveLength(2);
-    expect(keyOf(calls[0])).not.toBe(keyOf(calls[1]));
-  });
-
-  it("is new once the attempt has settled, because that is a new action", async () => {
-    vi.mocked(authedPost).mockImplementation(async () => ({ run: "STARTED" }) as never);
-    const { result } = setup();
-
-    await act(async () => {
-      await result.current.mutateAsync({ draft, shareNow: false });
-      await result.current.mutateAsync({ draft, shareNow: false });
-    });
-
-    const calls = vi.mocked(authedPost).mock.calls;
-    expect(calls).toHaveLength(2);
-    expect(keyOf(calls[0])).not.toBe(keyOf(calls[1]));
-  });
-
-  it("is released after a failure too, so a retry is not answered from the failed attempt", async () => {
-    vi.mocked(authedPost).mockRejectedValueOnce(new Error("502"));
-    const { result } = setup();
-
-    await act(async () => {
-      await expect(result.current.mutateAsync({ draft, shareNow: false })).rejects.toThrow("502");
-    });
-    vi.mocked(authedPost).mockImplementation(async () => ({ run: "STARTED" }) as never);
-    await act(async () => {
-      await result.current.mutateAsync({ draft, shareNow: false });
-    });
-
-    const calls = vi.mocked(authedPost).mock.calls;
-    expect(calls).toHaveLength(2);
-    expect(keyOf(calls[0])).not.toBe(keyOf(calls[1]));
+    const call = vi.mocked(authedPost).mock.calls[0] as unknown[];
+    expect(call).toHaveLength(3);
   });
 });
 
