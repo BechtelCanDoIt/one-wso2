@@ -234,8 +234,12 @@ export function quoteLabel(number: string | null, accountName?: string | null, o
   return number ?? ([accountName, opportunityName].filter(Boolean).join(" · ") || "Draft quote");
 }
 
-/** What happened, in words. */
-export function describeEvent({ event: e, count }: HistoryEntry): string {
+/** What happened, in words; "(as Deal Desk)" when Deal Desk changed someone else's quote (D127). */
+export function describeEvent(entry: HistoryEntry): string {
+  return entry.event.metadata?.actingAs === "DEAL_DESK" ? `${eventText(entry)} (as Deal Desk)` : eventText(entry);
+}
+
+function eventText({ event: e, count }: HistoryEntry): string {
   const v = e.versionNumber ? `Version ${e.versionNumber}` : "Quote";
   const meta = e.metadata ?? {};
   switch (e.eventType) {
@@ -317,6 +321,9 @@ export function describeEvent({ event: e, count }: HistoryEntry): string {
       const after = Array.isArray(meta.after) ? (meta.after as unknown[]).filter((t) => typeof t === "string") : [];
       return after.length ? `Supporting documents changed: ${after.join(", ")}` : "Supporting documents removed";
     }
+    // D128: written by Deal Desk during its approval.
+    case "SPECIAL_TERMS_WRITTEN":
+      return meta.specialTerms === false ? `Deal Desk removed the special terms of ${v.toLowerCase()}` : `Deal Desk wrote the special terms of ${v.toLowerCase()}`;
     default:
       return e.eventType;
   }

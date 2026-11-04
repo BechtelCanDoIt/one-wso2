@@ -92,7 +92,9 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useIssueOrderForm: () => issue,
   useAttachOrderForm: () => attach,
   useDocumentFiles: () => files,
+  useWriteSpecialTerms: () => writeSpecial,
 }));
+const writeSpecial = mutation();
 
 /** The submitted quote with every product mapped: no category chosen by the AM. */
 const allMapped: DraftResponse = {
@@ -479,6 +481,26 @@ describe("QuoteDetailPage — lifecycle", () => {
     const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
     expect(panel).toHaveTextContent("Further approvals follow, with no specific points recorded.");
     expect(panel).not.toHaveTextContent("your approval is the only one needed");
+  });
+
+  // D128: Deal Desk writes the special terms in its panel, sees why the
+  // earlier version came back, and can't approve "See Special Terms" billing
+  // before describing it.
+  it("lets Deal Desk write the special terms, with the earlier return in view", () => {
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("DEAL_DESK", 11, { status: "PENDING", canAct: true })],
+      previousReturn: { versionNumber: 1, roleLabel: "Legal", byEmail: "legal@wso2.com", at: null, comment: "Did the customer agree to 60 days?" },
+    };
+    const seeSpecial = { ...allMapped, version: { ...allMapped.version, billingFrequency: "SPECIAL_TERMS" as const } };
+    show({ ...submitted.quote, actions: [], actingAs: "DEAL_DESK" }, seeSpecial);
+    expect(screen.getByText("As Deal Desk")).toBeInTheDocument(); // D127: someone else's quote
+    const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
+    expect(panel).toHaveTextContent("Returned by Legal on v1 (legal@wso2.com): “Did the customer agree to 60 days?”");
+    expect(panel).toHaveTextContent("Billing says See Special Terms: switch the special terms on and describe the billing.");
+    expect(panel).toHaveTextContent("Describe the billing in the special terms, saved, before approving.");
+    expect(within(panel).getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(within(panel).getByRole("button", { name: "Save special terms" })).toBeDisabled();
   });
 
   // The decision note is a toast now (2026-10-13), so it no longer belongs to a quote.

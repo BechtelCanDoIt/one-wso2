@@ -104,7 +104,8 @@ export default function LegalSection({ sheet }: { sheet: QuoteSheet }): JSX.Elem
                 <LegalHtml html={legal.specialTerms} />
               </LegalQuote>
               {legal.specialTermsByLegal ? (
-                // Both texts on the version Legal reworded (D109): the AM's behind a toggle.
+                // Both texts on the version Legal reworded (D109): the earlier wording behind a toggle
+                // (Deal Desk's since D128, the AM's before).
                 <Stack spacing={0.75} sx={{ mt: 0.5 }}>
                   <Typography variant="caption" color="text.secondary">
                     Reworded by Legal during their approval
@@ -112,13 +113,13 @@ export default function LegalSection({ sheet }: { sheet: QuoteSheet }): JSX.Elem
                       <>
                         {" · "}
                         <Link component="button" type="button" variant="caption" onClick={() => setShowAm((s) => !s)} aria-expanded={showAm}>
-                          {showAm ? "Hide what the AM wrote" : "Show what the AM wrote"}
+                          {showAm ? "Hide the wording before Legal's" : "Show the wording before Legal's"}
                         </Link>
                       </>
                     ) : null}
                   </Typography>
                   {showAm && legal.amSpecialTerms ? (
-                    <Box aria-label="What the AM wrote" sx={{ color: "text.secondary" }}>
+                    <Box aria-label="The wording before Legal's" sx={{ color: "text.secondary" }}>
                       <LegalQuote>
                         <LegalHtml html={legal.amSpecialTerms} />
                       </LegalQuote>

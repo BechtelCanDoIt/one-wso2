@@ -49,6 +49,8 @@ import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approv
 import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/sales/cado2/approvals/model/myApprovals";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import LegalTermsEditor from "@features/sales/cado2/approvals/components/LegalTermsEditor";
+import SpecialTermsEditor from "@features/sales/cado2/approvals/components/SpecialTermsEditor";
+import ActingAsChip from "@features/sales/cado2/quotes/components/detail/ActingAsChip";
 import { legalApproveBlock } from "@features/sales/cado2/quotes/form/legalModel";
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
 import {
@@ -171,6 +173,8 @@ export default function QuoteDetailPage(): JSX.Element {
   const counts = [null, null, q.versions.length, events.data ? events.data.length : null];
   // Steps the caller may decide now; usually one.
   const actionable = (workflow.data?.steps ?? []).filter((s) => s.canAct);
+  // D86, D128: billing says See Special Terms, which Deal Desk writes before approving.
+  const billingSeesSpecialTerms = v.billingFrequency === "SPECIAL_TERMS";
   const approverRoles = me.data?.approverRoles ?? [];
   // Something to decide: the "Your decision" band shows.
   const hasDecision = actionable.length > 0;
@@ -247,6 +251,7 @@ export default function QuoteDetailPage(): JSX.Element {
                   {/* The version shown: the latest, or an older one in view mode. */}
                   <StatusChip color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
                   {q.isPrimary ? <Chip size="small" variant="outlined" icon={<PrimaryStar label="" />} label="Primary" /> : null}
+                  <ActingAsChip quote={q} />
                 </Stack>
               ),
               actions: (
@@ -323,6 +328,18 @@ export default function QuoteDetailPage(): JSX.Element {
                   onDecide={openDecision}
                   legalEditor={v.legal ? <LegalTermsEditor key={v.updatedAt} quoteId={q.id} versionNumber={v.versionNumber} legal={v.legal} /> : undefined}
                   legalApproveBlock={legalApproveBlock(v.legal)}
+                  deskEditor={
+                    <SpecialTermsEditor
+                      key={v.updatedAt}
+                      quoteId={q.id}
+                      versionNumber={v.versionNumber}
+                      enabled={v.specialTerms.enabled}
+                      text={v.specialTerms.text}
+                      billingSeesSpecialTerms={billingSeesSpecialTerms}
+                    />
+                  }
+                  deskApproveBlock={billingSeesSpecialTerms && !v.specialTerms.enabled ? "Describe the billing in the special terms" : ""}
+                  previousReturn={workflow.data?.previousReturn}
                 />
               </Box>
             ) : null}

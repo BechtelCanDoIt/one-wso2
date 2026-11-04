@@ -136,6 +136,17 @@ export function useWriteLegalTerms(quoteId: number, versionNumber: number) {
   });
 }
 
+/** Deal Desk writes the special terms during its approval (D128); blank clears them. */
+export function useWriteSpecialTerms(quoteId: number, versionNumber: number) {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<DraftResponse, Error, { enabled: boolean; specialTerms: string }>({
+    mutationFn: async (body) =>
+      cado2Send<DraftResponse>("PUT", cado2ServiceUrls.specialTerms(quoteId, versionNumber), await getToken(), body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key() }),
+  });
+}
+
 /**
  * The children a bundle parent brings, priced from the quote's
  * book; none for a product without a bundle. Idle until a product is chosen.

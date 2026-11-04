@@ -37,7 +37,7 @@ import type {
   PricingPreview,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
-import { cleanLegalText, isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
+import { isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
 
 /**
  * Contact: none yet, or one of the opportunity's contacts in Salesforce
@@ -792,11 +792,6 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
     ...termInput(v),
     partnerCommissionPercent: isPartnerLed(v) ? opt(v.partnerCommissionPercent) : undefined,
     netTermsDays: v.netTermsDays ? Number(v.netTermsDays) : undefined,
-    specialTerms: {
-      enabled: v.specialTermsEnabled,
-      // Rich text (2026-10-24), cleaned; the editor's empty value is none.
-      text: v.specialTermsEnabled ? opt(cleanLegalText(v.specialTerms)) : undefined,
-    },
     // No longer used: section 04 is per product type.
     governingTerms: { enabled: false },
     termsOnPremNonStandard: v.termsOnPremNonStandard,

@@ -2074,6 +2074,9 @@ export const cado2ServiceUrls = {
   adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
   legalTerms: (quoteId: number, versionNumber: number): string =>
     `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/legal-terms`,
+  // Deal Desk writes the special terms during its approval (D128).
+  specialTerms: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/special-terms`,
   // Supporting documents (DGD-10): the Admin's library of PDFs, and what a
   // quote adds after its order form.
   supportingDocuments: `${cado2BackendUrl}/supporting-documents`,

@@ -81,6 +81,7 @@ import WizardStepper from "@features/sales/cado2/quotes/components/wizard/Wizard
 import StepIntro from "@features/sales/cado2/quotes/components/wizard/StepIntro";
 import { nextHint, reachableStep, stepChecks } from "@features/sales/cado2/quotes/form/stepRules";
 import PageHeader from "@features/sales/cado2/components/page-header/PageHeader";
+import ActingAsChip from "@features/sales/cado2/quotes/components/detail/ActingAsChip";
 import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
 import { STATUS_COLOR, STATUS_LABEL, quoteLabel } from "@features/sales/cado2/quotes/lifecycle/lifecycle";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
@@ -456,6 +457,7 @@ export default function QuoteWizardPage(): JSX.Element {
                     color={version ? STATUS_COLOR[version.status] : "default"}
                     label={version ? STATUS_LABEL[version.status] : "Not saved yet"}
                   />
+                  {saved ? <ActingAsChip quote={saved.quote} /> : null}
                   {/* A new quote is all unsaved, so "Unsaved changes" is only for saved ones. */}
                   {saved && isDirty ? (
                     <Chip size="small" variant="outlined" color="warning" label="Unsaved changes" />

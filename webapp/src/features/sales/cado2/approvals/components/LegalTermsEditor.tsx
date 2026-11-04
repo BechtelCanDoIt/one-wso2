@@ -91,7 +91,9 @@ export default function LegalTermsEditor({
           value={special}
           onChange={setSpecial}
           helperText={
-            legal.specialTermsByLegal ? `Reworded by Legal. The AM wrote: "${legalPlainText(legal.amSpecialTerms ?? "")}"` : "As the AM wrote them: reword if needed."
+            legal.specialTermsByLegal
+              ? `Reworded by Legal. Before: "${legalPlainText(legal.amSpecialTerms ?? "")}"`
+              : "As Deal Desk wrote them: reword if needed."
           }
         />
       ) : null}

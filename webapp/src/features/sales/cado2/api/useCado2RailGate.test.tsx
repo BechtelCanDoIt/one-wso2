@@ -62,15 +62,21 @@ describe("which CadO2 rows a person sees", () => {
   });
 
   it("an approver who doesn't quote sees My Approvals only", () => {
-    state.me.data = me([], ["DEAL_DESK"]);
+    state.me.data = me([], ["CFO"]);
     const { result } = renderHook(() => useCado2RailGate(true));
     expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.approvals]);
+  });
+
+  it("Deal Desk sees the Quotes page too, as it may change any quote (D127)", () => {
+    state.me.data = me([], ["DEAL_DESK"]);
+    const { result } = renderHook(() => useCado2RailGate(true));
+    expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals]);
   });
 
   it("Deal Desk and above see Insights when the backend says so (D105)", () => {
     state.me.data = me([], ["DEAL_DESK"], true);
     const { result } = renderHook(() => useCado2RailGate(true));
-    expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.approvals, CADO2_ITEM.insights]);
+    expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals, CADO2_ITEM.insights]);
   });
 
   it("an admin-only person sees Admin, and nothing else", () => {
@@ -120,7 +126,7 @@ describe("which CadO2 rows a person sees", () => {
   });
 
   it("fails closed for an id it has no case for", () => {
-    expect(cado2CanSee("sales-cado2-something-new", { canQuote: true, canApprove: true, isAdmin: true, canViewInsights: true })).toBe(false);
+    expect(cado2CanSee("sales-cado2-something-new", { canQuote: true, canWorkOnQuotes: true, canApprove: true, isAdmin: true, canViewInsights: true })).toBe(false);
   });
 });
 

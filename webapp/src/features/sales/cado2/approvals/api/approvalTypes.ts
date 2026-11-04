@@ -125,6 +125,17 @@ export interface ApprovalWorkflow {
   readonly createdAt: string;
   readonly completedAt: string | null;
   readonly steps: readonly ApprovalStep[];
+  /** Why the version this one was revised from was returned (D128); null otherwise. */
+  readonly previousReturn?: PreviousReturn | null;
+}
+
+/** The return that ended the earlier version. */
+export interface PreviousReturn {
+  readonly versionNumber: number;
+  readonly roleLabel: string;
+  readonly byEmail: string | null;
+  readonly at: string | null;
+  readonly comment: string | null;
 }
 
 export type ApprovalOutcome = "approve" | "return";
