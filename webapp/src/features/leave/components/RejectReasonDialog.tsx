@@ -27,7 +27,7 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { REJECTION_REASON_MAX, rejectionReasonProblem } from "../util/franceLeave";
-import { OTHER_AUTHORIZED_APPROVE } from "../util/leaveCopy";
+import { OTHER_AUTHORIZED_APPROVE } from "../util/leaveUiText";
 
 const COPY = OTHER_AUTHORIZED_APPROVE.rejectDialog;
 

@@ -45,7 +45,7 @@ import { CcBulkEditDialog } from "../CcBulkEditDialog";
 import { sortByCompleteness } from "../ccPendingSubmissions";
 import { ToolbarNoExport as NewTxnToolbar } from "../ccGridToolbar";
 import { selectedIds } from "../ccSelection";
-import { CC_SNACK } from "../ccCopy";
+import { CC_SNACK } from "../ccUiText";
 import { useCcCardLabel, useCcEmployeeSubmit, useCcSaveDraft } from "../useCcMutations";
 import { useCcTransactions, useCcUserInfo, useCreditCards } from "../useCc";
 import { ccTxnComplete, type CcTransaction } from "../ccTypes";

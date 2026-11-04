@@ -17,7 +17,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { CC_SNACK, ruleWording } from "./ccCopy";
+import { CC_SNACK, ruleWording } from "./ccUiText";
 
 /**
  * The source's own words, character for character.

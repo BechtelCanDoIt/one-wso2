@@ -72,7 +72,7 @@ import {
   HISTORY_CARD_COPY,
   SnackMessage,
   noLeaveHistoryFor,
-} from "../util/leaveCopy";
+} from "../util/leaveUiText";
 
 // The same wording and the same chip the lead report uses for its own day
 // total (LeaveReportsPage.tsx:306-311), so the two screens agree.

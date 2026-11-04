@@ -53,7 +53,6 @@ import { Fragment, useRef, useState } from "react";
 import { ClaimGroupHeading, useCollapsedGroups } from "../approvals/ClaimGroupHeading";
 import { StatusChip } from "../components/FinanceChips";
 import { CcPickOne } from "./CcPickOne";
-import { describeRuleError } from "./ccCopy";
 import {
   type CcRuleFilters,
   type CcRuleGroup,
@@ -66,6 +65,7 @@ import {
   sortRules,
 } from "./ccTaggingRuleList";
 import { type CcTaggingRule, ccCardIsActive, ccHolderCardName } from "./ccTypes";
+import { describeRuleError } from "./ccUiText";
 import { useCcOwnCards, useCcTaggingRules } from "./useCc";
 
 /** The groups in the order shown, each with its heading, note and row accent. */

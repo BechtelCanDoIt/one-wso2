@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { DAY_PORTION_LABEL, GENERIC_LABEL, LEAVE_TOOLTIP, SnackMessage, leaveTypeLabel } from "./leaveCopy";
+import { DAY_PORTION_LABEL, GENERIC_LABEL, LEAVE_TOOLTIP, SnackMessage, leaveTypeLabel } from "./leaveUiText";
 
 // The source names the same leave type differently per location. Collapsing
 // them — which the port had done — renames leave for three of four locations.

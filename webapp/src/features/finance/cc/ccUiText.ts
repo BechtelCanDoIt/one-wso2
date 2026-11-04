@@ -29,10 +29,11 @@ import { describeError } from "../util/financeError";
  * Errors are deliberately not listed. The source pairs each failure with a
  * fixed "Unable to …" line; this port surfaces the cause through
  * `describeError` instead, which is the choice the leave port already made
- * (`leaveCopy.ts:78-85` keeps its error strings but the screens do not use
- * them). One convention across the ported apps beats matching this one.
+ * (`leaveUiText.ts` keeps its error strings in `SnackMessage.error`, but the
+ * screens do not use them). One convention across the ported apps beats
+ * matching this one.
  *
- * Pinned character-for-character by ccCopy.test.ts — this wording is what
+ * Pinned character-for-character by ccUiText.test.ts — this wording is what
  * drifted, and nothing held it.
  */
 export const CC_SNACK = {

@@ -17,9 +17,9 @@
  */
 
 import type { RailBadgeMap } from "@components/side-rail/railBadge";
-import { CC_RULE_BADGE } from "./ccCopy";
 import { groupRules } from "./ccTaggingRuleList";
 import { ccHasAccess } from "./ccTypes";
+import { CC_RULE_BADGE } from "./ccUiText";
 import { useCcTaggingRules, useCcUserInfo } from "./useCc";
 
 /**

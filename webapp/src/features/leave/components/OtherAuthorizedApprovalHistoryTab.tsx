@@ -31,7 +31,7 @@ import type { LeaveStatus } from "../api/leaveTypes";
 import { useLeaves } from "../api/useLeaveData";
 import { isoDay } from "../util/leaveDates";
 import { describeError } from "../util/leaveError";
-import { OTHER_AUTHORIZED_APPROVE as COPY } from "../util/leaveCopy";
+import { OTHER_AUTHORIZED_APPROVE as COPY } from "../util/leaveUiText";
 import { StatusChip } from "./LeaveChips";
 import { HeadCell } from "./SabbaticalTable";
 

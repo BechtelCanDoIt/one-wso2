@@ -76,7 +76,7 @@ import {
   PUBLIC_COMMENT_LABEL,
   PUBLIC_COMMENT_NOTE,
   SUBMIT_SUCCESS,
-} from "../util/leaveCopy";
+} from "../util/leaveUiText";
 import { withLoadingAdornment } from "@components/picker-loading/pickerLoading";
 import { useLeaveGate } from "../api/useLeaveGate";
 import { historyPathAfterSubmit } from "../leaveTabs";

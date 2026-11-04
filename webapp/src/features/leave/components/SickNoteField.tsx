@@ -18,7 +18,7 @@
 import { useRef, type ChangeEvent } from "react";
 import { Button, Stack, Typography } from "@wso2/oxygen-ui";
 import { PaperclipIcon, UploadIcon } from "@wso2/oxygen-ui-icons-react";
-import { SICK_NOTE_COPY } from "../util/leaveCopy";
+import { SICK_NOTE_COPY } from "../util/leaveUiText";
 
 interface SickNoteFieldProps {
   file: File | null;
