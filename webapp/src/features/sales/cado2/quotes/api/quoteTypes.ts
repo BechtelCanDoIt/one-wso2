@@ -207,8 +207,16 @@ export interface ScheduleRow {
 }
 
 /** GET /bundles/{productId}: the children a parent brings, priced from the quote's book; Missing names those not in it. */
-/** A bundle child with its quantity rule (D125): always fixedQuantity, or null for the parent's. */
-export type BundleChild = Product & { readonly fixedQuantity: number | null };
+/**
+ * A bundle child with its quantity rule (D125): always fixedQuantity, or null
+ * for the parent's; and how the AM adds it (D131): always, one of the named
+ * choice, or optional.
+ */
+export type BundleChild = Product & {
+  readonly fixedQuantity: number | null;
+  readonly addMode?: "ALWAYS" | "CHOOSE_ONE" | "OPTIONAL";
+  readonly choiceName?: string | null;
+};
 
 export interface BundleChildren {
   readonly children: readonly BundleChild[];

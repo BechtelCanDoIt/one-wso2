@@ -36,8 +36,8 @@ const apimBundle = {
   parentName: "WSO2 API Manager",
   parentCode: "APIM",
   children: [
-    { productId: "01t000000000002AAA", name: "API Management Enterprise Support", code: "SUP-APIM", fixedQuantity: 1 },
-    { productId: "01t000000000003AAA", name: "API Analytics", code: null, fixedQuantity: null },
+    { productId: "01t000000000002AAA", name: "API Management Enterprise Support", code: "SUP-APIM", fixedQuantity: 1, addMode: "ALWAYS", choiceName: null },
+    { productId: "01t000000000003AAA", name: "API Analytics", code: null, fixedQuantity: null, addMode: "ALWAYS", choiceName: null },
   ],
   updatedByEmail: "admin@wso2.com",
   updatedAt: "2026-10-23T10:00:00Z",
@@ -93,8 +93,8 @@ describe("ProductBundlesPage", () => {
       {
         parentProductId: apimBundle.parentProductId,
         children: [
-          { productId: "01t000000000002AAA", fixedQuantity: 1 },
-          { productId: "01t000000000003AAA", fixedQuantity: null },
+          { productId: "01t000000000002AAA", fixedQuantity: 1, addMode: "ALWAYS", choiceName: null },
+          { productId: "01t000000000003AAA", fixedQuantity: null, addMode: "ALWAYS", choiceName: null },
         ],
       },
       expect.anything(),
@@ -124,8 +124,39 @@ describe("ProductBundlesPage", () => {
     expect(set.mutate).toHaveBeenCalledWith(
       expect.objectContaining({
         children: [
-          { productId: "01t000000000002AAA", fixedQuantity: null },
-          { productId: "01t000000000003AAA", fixedQuantity: 3 },
+          { productId: "01t000000000002AAA", fixedQuantity: null, addMode: "ALWAYS", choiceName: null },
+          { productId: "01t000000000003AAA", fixedQuantity: 3, addMode: "ALWAYS", choiceName: null },
+        ],
+      }),
+      expect.anything(),
+    );
+  });
+
+  // D131: how each child is added. Products sharing a choice name form one choice; a choice needs two.
+  it("makes a choice of two products, and refuses a choice of one", async () => {
+    Object.assign(bundles, { isPending: false, data: [apimBundle] });
+    render(<ProductBundlesPage />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Edit the bundle of WSO2 API Manager" }));
+    const dialog = within(screen.getByRole("dialog"));
+
+    await user.click(dialog.getByRole("combobox", { name: /How API Management Enterprise Support is added/ }));
+    await user.click(screen.getByRole("option", { name: "Choose one" }));
+    await user.type(dialog.getByRole("combobox", { name: "Choice of API Management Enterprise Support" }), "Support tier");
+    await user.click(dialog.getByRole("button", { name: "Save bundle" }));
+    expect(set.mutate).not.toHaveBeenCalled();
+    expect(dialog.getByText(/The choice “Support tier” has only one product/)).toBeInTheDocument();
+
+    // The second joins the first's choice by itself.
+    await user.click(dialog.getByRole("combobox", { name: /How API Analytics is added/ }));
+    await user.click(screen.getByRole("option", { name: "Choose one" }));
+    expect(dialog.getByRole("combobox", { name: "Choice of API Analytics" })).toHaveValue("Support tier");
+    await user.click(dialog.getByRole("button", { name: "Save bundle" }));
+    expect(set.mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        children: [
+          { productId: "01t000000000002AAA", fixedQuantity: 1, addMode: "CHOOSE_ONE", choiceName: "Support tier" },
+          { productId: "01t000000000003AAA", fixedQuantity: null, addMode: "CHOOSE_ONE", choiceName: "Support tier" },
         ],
       }),
       expect.anything(),
