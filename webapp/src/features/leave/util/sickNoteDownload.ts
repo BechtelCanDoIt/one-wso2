@@ -25,9 +25,11 @@ const EXTENSIONS: Record<string, string> = {
 };
 
 // File extension (no dot) for a sick-note content type; "" when unknown.
-// Media types are case-insensitive, so the lookup is too.
+// Media types are case-insensitive, so the lookup is too, and only the
+// map's own keys count, never inherited ones such as "constructor".
 export function extensionForContentType(type: string): string {
-  return EXTENSIONS[type.toLowerCase()] ?? "";
+  const key = type.toLowerCase();
+  return Object.hasOwn(EXTENSIONS, key) ? EXTENSIONS[key] : "";
 }
 
 // GET /leaves/{id}/sick-note and hand the bytes to the browser as a download.

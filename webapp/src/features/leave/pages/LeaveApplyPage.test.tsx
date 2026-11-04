@@ -719,6 +719,11 @@ describe("France leave on Apply", () => {
     expect(await screen.findByRole("button", { name: /Submitting/ })).toBeDisabled();
     expect(screen.getByText("Compassionate").closest("button")).toBeDisabled();
     expect(screen.getByText("Sick Leave").closest("button")).toBeDisabled();
+
+    // An invalid range normally leaves Submit pressable to explain itself, but
+    // not while a request is in flight.
+    setDate(screen.getByLabelText("End"), "2020-01-01");
+    expect(screen.getByRole("button", { name: /Submitting/ })).toBeDisabled();
   });
 
   it("keeps Submit disabled while the upload limits are loading", async () => {

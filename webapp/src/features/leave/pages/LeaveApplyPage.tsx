@@ -696,8 +696,9 @@ function ApplyForm() {
           variant="contained"
           onClick={handleSubmit}
           // Enabled while a range is merely invalid or has no working days, so
-          // pressing it produces the message rather than nothing at all.
-            disabled={!canSubmit && !explainableBlock}
+          // pressing it produces the message rather than nothing at all, but
+          // never while a request is in flight.
+          disabled={submitting || (!canSubmit && !explainableBlock)}
           sx={{ fontWeight: 600 }}
         >
           {submitting ? "Submitting…" : validating ? "Validating…" : "Submit Leave"}
