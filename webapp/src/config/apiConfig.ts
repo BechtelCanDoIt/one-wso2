@@ -2021,8 +2021,10 @@ export const cado2ServiceUrls = {
     `${cado2BackendUrl}/accounts?nameContains=${encodeSegment(nameContains)}&limit=20`,
   accountOpportunities: (accountId: string, status: "open" | "won" = "open"): string =>
     `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/opportunities?status=${encodeSegment(status)}`,
-  accountContacts: (accountId: string): string =>
-    `${cado2BackendUrl}/accounts/${encodeSegment(accountId)}/contacts`,
+  // The contacts on an opportunity (D124): the billing and security contacts
+  // are chosen from these only.
+  opportunityContacts: (opportunityId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/contacts`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (
@@ -2129,6 +2131,16 @@ export const cado2ServiceUrls = {
   adminLegalNotice: (id: number): string => `${cado2BackendUrl}/admin/legal/notices/${id}`,
   legalTerms: (quoteId: number, versionNumber: number): string =>
     `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/legal-terms`,
+  // Deal Desk writes the special terms during its approval (D128).
+  specialTerms: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/special-terms`,
+  // Deal Desk and Legal lenses, and "Looks fine" on their notes (D129).
+  review: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/review`,
+  // The Deal Desk board, a column at a time (D130).
+  deskColumn: (column: string, query: string): string => `${cado2BackendUrl}/desk/columns/${column}${query ? `?${query}` : ""}`,
+  reviewMarks: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/review/marks`,
   // Supporting documents (DGD-10): the Admin's library of PDFs, and what a
   // quote adds after its order form.
   supportingDocuments: `${cado2BackendUrl}/supporting-documents`,

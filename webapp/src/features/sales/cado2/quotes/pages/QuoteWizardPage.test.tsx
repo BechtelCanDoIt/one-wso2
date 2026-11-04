@@ -52,7 +52,7 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => {
     useAccountSearch: () => idle(),
     useOpportunityQuotes: () => idle(),
     useAccountOpportunities: () => idle(),
-    useAccountContacts: () => idle(),
+    useOpportunityContacts: () => idle(),
     useProducts: () => idle(),
     usePricebooks: () => ({
       ...idle(),

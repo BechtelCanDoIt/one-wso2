@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState, type JSX } from "react";
+import { useState, type JSX, type ReactNode } from "react";
 import { Box, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
 import { ScaleIcon } from "@wso2/oxygen-ui-icons-react";
 import SheetCard from "@features/sales/cado2/components/section-card/SectionCard";
@@ -40,7 +40,17 @@ function Heading({ title }: { title: string }): JSX.Element {
  * notices, special terms (Legal's wording when they changed it). As
  * submitted on a frozen version.
  */
-export default function LegalSection({ sheet }: { sheet: QuoteSheet }): JSX.Element | null {
+/**
+ * Under a lens (D129), what the reviewer writes, in place: Legal's governing
+ * terms where the governing terms are; the special terms (Deal Desk's, or
+ * Legal's rewording) where the special terms are.
+ */
+export interface LegalWriting {
+  readonly governing?: ReactNode;
+  readonly special?: ReactNode;
+}
+
+export default function LegalSection({ sheet, writing }: { sheet: QuoteSheet; writing?: LegalWriting }): JSX.Element | null {
   const legal = sheet.legal;
   const [showAm, setShowAm] = useState(false);
   if (!legal) return null;
@@ -58,79 +68,88 @@ export default function LegalSection({ sheet }: { sheet: QuoteSheet }): JSX.Elem
       }
     >
       <Stack spacing={2.5}>
-        <Box>
-          <Heading title="Governing terms" />
-          {sheet.dealType === "PARTNER" ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-              {legal.contractName || "No partner agreement chosen"} · {legal.partnerName || "—"} ·{" "}
-              {legal.contractDate ? formatDate(legal.contractDate) : "no agreement date"}
-            </Typography>
-          ) : null}
-          <Stack spacing={1.5}>
-            {sections.blocks.map((b) => (
-              <Box key={b.kind}>
-                {sections.blocks.length > 1 || b.nonStandard ? (
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
-                    {sections.blocks.length > 1 ? (
-                      <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
-                        {BLOCK_TITLE[b.kind]}
-                      </Typography>
-                    ) : null}
-                    {b.nonStandard ? <Chip size="small" variant="outlined" label="Written by Legal" /> : null}
-                  </Stack>
-                ) : null}
-                {b.nonStandard && isEmptyLegalText(b.text) ? (
-                  <Typography variant="body2" color="text.secondary">
-                    Legal writes these terms during their approval.
-                  </Typography>
-                ) : (
-                  <LegalQuote>
-                    <LegalHtml html={b.text} />
-                  </LegalQuote>
-                )}
-              </Box>
-            ))}
-          </Stack>
-        </Box>
+        {writing?.governing ? (
+          <Box data-note-target="governingTerms">{writing.governing}</Box>
+        ) : (
+          <Box data-note-target="governingTerms">
+            <Heading title="Governing terms" />
+            {sheet.dealType === "PARTNER" ? (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {legal.contractName || "No partner agreement chosen"} · {legal.partnerName || "—"} ·{" "}
+                {legal.contractDate ? formatDate(legal.contractDate) : "no agreement date"}
+              </Typography>
+            ) : null}
+            <Stack spacing={1.5}>
+              {sections.blocks.map((b) => (
+                <Box key={b.kind}>
+                  {sections.blocks.length > 1 || b.nonStandard ? (
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.75, flexWrap: "wrap", rowGap: 0.5 }}>
+                      {sections.blocks.length > 1 ? (
+                        <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 700 }}>
+                          {BLOCK_TITLE[b.kind]}
+                        </Typography>
+                      ) : null}
+                      {b.nonStandard ? <Chip size="small" variant="outlined" label="Written by Legal" /> : null}
+                    </Stack>
+                  ) : null}
+                  {b.nonStandard && isEmptyLegalText(b.text) ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Legal writes these terms during their approval.
+                    </Typography>
+                  ) : (
+                    <LegalQuote>
+                      <LegalHtml html={b.text} />
+                    </LegalQuote>
+                  )}
+                </Box>
+              ))}
+            </Stack>
+          </Box>
+        )}
         <Box>
           <Heading title="Legal terms and notices" />
           <LegalNotices notices={sections.notices} />
         </Box>
-        <Box>
-          <Heading title="Special terms" />
-          {legal.specialTerms ? (
-            <>
-              <LegalQuote>
-                <LegalHtml html={legal.specialTerms} />
-              </LegalQuote>
-              {legal.specialTermsByLegal ? (
-                // Both texts on the version Legal reworded (D109): the AM's behind a toggle.
-                <Stack spacing={0.75} sx={{ mt: 0.5 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Reworded by Legal during their approval
-                    {legal.amSpecialTerms ? (
-                      <>
-                        {" · "}
-                        <Link component="button" type="button" variant="caption" onClick={() => setShowAm((s) => !s)} aria-expanded={showAm}>
-                          {showAm ? "Hide what the AM wrote" : "Show what the AM wrote"}
-                        </Link>
-                      </>
+        {writing?.special ? (
+          <Box data-note-target="specialTerms">{writing.special}</Box>
+        ) : (
+          <Box data-note-target="specialTerms">
+            <Heading title="Special terms" />
+            {legal.specialTerms ? (
+              <>
+                <LegalQuote>
+                  <LegalHtml html={legal.specialTerms} />
+                </LegalQuote>
+                {legal.specialTermsByLegal ? (
+                  // Both texts on the version Legal reworded (D109): the earlier wording behind a toggle
+                  // (Deal Desk's since D128, the AM's before).
+                  <Stack spacing={0.75} sx={{ mt: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Reworded by Legal during their approval
+                      {legal.amSpecialTerms ? (
+                        <>
+                          {" · "}
+                          <Link component="button" type="button" variant="caption" onClick={() => setShowAm((s) => !s)} aria-expanded={showAm}>
+                            {showAm ? "Hide the wording before Legal's" : "Show the wording before Legal's"}
+                          </Link>
+                        </>
+                      ) : null}
+                    </Typography>
+                    {showAm && legal.amSpecialTerms ? (
+                      <Box aria-label="The wording before Legal's" sx={{ color: "text.secondary" }}>
+                        <LegalQuote>
+                          <LegalHtml html={legal.amSpecialTerms} />
+                        </LegalQuote>
+                      </Box>
                     ) : null}
-                  </Typography>
-                  {showAm && legal.amSpecialTerms ? (
-                    <Box aria-label="What the AM wrote" sx={{ color: "text.secondary" }}>
-                      <LegalQuote>
-                        <LegalHtml html={legal.amSpecialTerms} />
-                      </LegalQuote>
-                    </Box>
-                  ) : null}
-                </Stack>
-              ) : null}
-            </>
-          ) : (
-            <Typography variant="body2">None</Typography>
-          )}
-        </Box>
+                  </Stack>
+                ) : null}
+              </>
+            ) : (
+              <Typography variant="body2">None</Typography>
+            )}
+          </Box>
+        )}
       </Stack>
     </SheetCard>
   );

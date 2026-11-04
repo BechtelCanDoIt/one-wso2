@@ -92,6 +92,7 @@ import {
   type QuoteSortKey,
 } from "@features/sales/cado2/quotes/list/quoteListModel";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
+import { cado2Access, useCado2Me } from "@features/sales/cado2/api/useCado2Me";
 
 /** The last layout chosen, for next time; the page works without storage. */
 const LAYOUT_KEY = "cado2.quotes.layout";
@@ -575,7 +576,10 @@ function ScopeLabel({ icon, label, count, on }: { icon: ReactNode; label: string
 export default function MyQuotesPage(): JSX.Element {
   useDocumentTitle("Quotes");
   const [params, setParams] = useSearchParams();
-  const scope: QuoteScope = params.get("scope") === "all" ? "all" : "mine";
+  // D127: Deal Desk without the Sales role owns no quotes and starts none,
+  // so it sees All quotes only and no New Quote.
+  const { canQuote } = cado2Access(useCado2Me().data);
+  const scope: QuoteScope = !canQuote || params.get("scope") === "all" ? "all" : "mine";
   const layoutParam = params.get("layout");
   const layout: QuoteLayout =
     layoutParam === "tree" || layoutParam === "list"
@@ -621,14 +625,16 @@ export default function MyQuotesPage(): JSX.Element {
       <PageHeader
         title="Quotes"
         actions={
-          <Button
-            variant="contained"
-            component={RouterLink}
-            to={cado2Paths.newQuote}
-            startIcon={<PlusIcon size={18} />}
-          >
-            New Quote
-          </Button>
+          canQuote ? (
+            <Button
+              variant="contained"
+              component={RouterLink}
+              to={cado2Paths.newQuote}
+              startIcon={<PlusIcon size={18} />}
+            >
+              New Quote
+            </Button>
+          ) : null
         }
       />
 
@@ -653,10 +659,12 @@ export default function MyQuotesPage(): JSX.Element {
               "& .MuiTab-root": { minHeight: 56, textTransform: "none", fontSize: "0.95rem", fontWeight: 600 },
             }}
           >
-            <Tab
-              value="mine"
-              label={<ScopeLabel icon={<UserIcon size={18} />} label="My quotes" count={mineList.data?.total} on={mine} />}
-            />
+            {canQuote ? (
+              <Tab
+                value="mine"
+                label={<ScopeLabel icon={<UserIcon size={18} />} label="My quotes" count={mineList.data?.total} on={mine} />}
+              />
+            ) : null}
             <Tab
               value="all"
               label={<ScopeLabel icon={<UsersIcon size={18} />} label="All quotes" count={allList.data?.total} on={!mine} />}

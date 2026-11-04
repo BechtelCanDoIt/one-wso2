@@ -20,7 +20,7 @@ import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router";
 import type { DraftResponse, QuoteView } from "@features/sales/cado2/quotes/api/quoteTypes";
-import type { ApprovalStep, ApprovalWorkflow } from "@features/sales/cado2/approvals/api/approvalTypes";
+import type { ApprovalStep, ApprovalWorkflow, Review } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { ready, submitted } from "@features/sales/cado2/quotes/testing/fixtures";
 import QuoteDetailPage from "./QuoteDetailPage";
 
@@ -45,6 +45,9 @@ const del = mutation();
 
 const decide = mutation();
 const workflow = { data: null as ApprovalWorkflow | null, isPending: false, error: null, refetch: vi.fn() };
+// D129: the caller's lenses; none unless a test sets them.
+const review = { data: { lenses: [] } as Review | undefined };
+const markNote = mutation();
 // The drawing needs a real browser (layout, ResizeObserver); its text companion stands in.
 vi.mock("@features/sales/cado2/approvals/components/LazyApprovalDiagram", async () => ({
   default: (await import("@features/sales/cado2/approvals/components/ApprovalReasons")).default,
@@ -53,6 +56,8 @@ vi.mock("@features/sales/cado2/approvals/api/useApprovalApi", () => ({
   useApprovalWorkflow: () => workflow,
   useStoredApprovalPreview: () => ({ data: undefined, isPending: false, isFetching: false, error: null }),
   useDecideStep: () => decide,
+  useReview: () => review,
+  useMarkNote: () => markNote,
   useApproveOnBehalf: () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, error: null }),
 }));
 
@@ -92,7 +97,9 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useIssueOrderForm: () => issue,
   useAttachOrderForm: () => attach,
   useDocumentFiles: () => files,
+  useWriteSpecialTerms: () => writeSpecial,
 }));
+const writeSpecial = mutation();
 
 /** The submitted quote with every product mapped: no category chosen by the AM. */
 const allMapped: DraftResponse = {
@@ -138,6 +145,8 @@ beforeEach(() => {
   Object.assign(decide, mutation());
   workflow.data = null;
   me.data.approverRoles = ["DEAL_DESK"];
+  review.data = { lenses: [] };
+  Object.assign(markNote, mutation());
   me.data.roles = [];
   Object.assign(clone, mutation());
   Object.assign(recall, mutation());
@@ -156,6 +165,14 @@ describe("QuoteDetailPage — primary quote", () => {
   const oq = (quoteId: number, isPrimary: boolean, quoteNumber: string) => ({
     quoteId, quoteNumber, ownerEmail: "nimesha@wso2.com", isPrimary, status: "APPROVED", versionNumber: 1,
     currencyIsoCode: "USD", tcv: "1000.00", createdAt: "2026-10-02T08:00:00Z", updatedAt: "2026-10-02T08:00:00Z",
+  });
+
+  it("shows a pure approver none of the side panels: no timeline, order form or opportunity's quotes", () => {
+    me.data.approverRoles = ["CFO"];
+    opportunityQuotes.data = [oq(3, true, "Q-26-00031")];
+    show(submitted.quote, submitted);
+    expect(screen.queryByRole("region", { name: "This Opportunity's Quotes" })).toBeNull();
+    expect(screen.queryByText(/^Owner · /)).toBeNull(); // the timeline panel's owner line
   });
 
   it("makes a quote in approval primary, releasing the current one, after asking", async () => {
@@ -479,6 +496,26 @@ describe("QuoteDetailPage — lifecycle", () => {
     const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
     expect(panel).toHaveTextContent("Further approvals follow, with no specific points recorded.");
     expect(panel).not.toHaveTextContent("your approval is the only one needed");
+  });
+
+  // D128: Deal Desk writes the special terms in its panel, sees why the
+  // earlier version came back, and can't approve "See Special Terms" billing
+  // before describing it.
+  it("lets Deal Desk write the special terms, with the earlier return in view", () => {
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [reasonStep("DEAL_DESK", 11, { status: "PENDING", canAct: true })],
+      previousReturn: { versionNumber: 1, roleLabel: "Legal", byEmail: "legal@wso2.com", at: null, comment: "Did the customer agree to 60 days?" },
+    };
+    const seeSpecial = { ...allMapped, version: { ...allMapped.version, billingFrequency: "SPECIAL_TERMS" as const } };
+    show({ ...submitted.quote, actions: [], actingAs: "DEAL_DESK" }, seeSpecial);
+    expect(screen.getByText("As Deal Desk")).toBeInTheDocument(); // D127: someone else's quote
+    const panel = screen.getByRole("region", { name: "Your approval as Deal Desk" });
+    expect(panel).toHaveTextContent("Returned by Legal on v1 (legal@wso2.com): “Did the customer agree to 60 days?”");
+    expect(panel).toHaveTextContent("Billing says See Special Terms: switch the special terms on and describe the billing.");
+    expect(panel).toHaveTextContent("Describe the billing in the special terms, saved, before approving.");
+    expect(within(panel).getByRole("button", { name: "Approve" })).toBeDisabled();
+    expect(within(panel).getByRole("button", { name: "Save special terms" })).toBeDisabled();
   });
 
   // The decision note is a toast now (2026-10-13), so it no longer belongs to a quote.
@@ -820,5 +857,148 @@ describe("QuoteDetailPage — load errors say so", () => {
     Object.assign(documents, { data: undefined, error: new Error("down") });
     show({ ...approved.quote, versions: [{ versionNumber: 1, status: "APPROVED", tcv: "6480.00", submittedAt: null, updatedAt: approved.version.updatedAt }] } as unknown as QuoteView, approved);
     expect(screen.getByText(/^Couldn't load the order form\./)).toBeInTheDocument();
+  });
+});
+
+// D129: Deal Desk sees the quote through its lens: notes beside what they
+// point at, its writing in place, its decision in a bar of its own.
+describe("QuoteDetailPage — lenses", () => {
+  const step = (role: ApprovalStep["role"], stepId: number, over: Partial<ApprovalStep> = {}): ApprovalStep => ({
+    stepId, role, roleLabel: role === "DEAL_DESK" ? "Deal Desk" : role, branches: ["DISCOUNT"], dependsOn: [], triggers: [],
+    status: "WAITING", requestedAt: null, actedAt: null, actedByEmail: null, comment: null, canAct: false, cantActReason: null, ...over,
+  });
+  const note = (over: Partial<Review["lenses"][number]["notes"][number]>): Review["lenses"][number]["notes"][number] => ({
+    key: "DISCOUNT.L1", rule: "DISCOUNT", lineNumber: 1,
+    reasons: ["Year 1 · line 1 · WSO2 API Manager (APIM): 18% discount is above the Account Manager's 15% limit"],
+    roles: ["Regional Director · NA"], target: "line:1", yoursToWrite: false, state: "OPEN",
+    markedByEmail: null, markedAt: null, markedOnVersion: null, ...over,
+  });
+  const deskLens = (notes: Review["lenses"][number]["notes"]) => {
+    review.data = { lenses: [{ role: "DEAL_DESK", roleLabel: "Deal Desk", canMark: true, notes }] };
+  };
+
+  it("shows an approver the decision and the approval notes beside the quote, with no switch", async () => {
+    const user = userEvent.setup();
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [step("DEAL_DESK", 11, { status: "PENDING", canAct: true }), step("REGIONAL_DIRECTOR", 12, { roleLabel: "Regional Director · NA" })],
+    };
+    deskLens([note({}), note({ key: "AM_CATEGORY.L1", rule: "AM_CATEGORY", reasons: ["Line 1 · WSO2 API Manager: category chosen by the AM: Subscription"], roles: [] })]);
+    show({ ...submitted.quote, actions: [] }, allMapped);
+
+    expect(screen.queryByRole("button", { name: "As Submitted" })).toBeNull();
+    expect(screen.queryByRole("tablist", { name: "Your roles on this quote" })).toBeNull(); // one role: no tabs
+    const notes = screen.getByRole("complementary", { name: "Deal Desk approval notes" });
+    const discount = within(notes).getByRole("article", { name: "18% discount" });
+    expect(discount).toHaveTextContent("Above the Account Manager's 15% limit");
+    expect(discount).toHaveTextContent("Regional Director · NA approves after you");
+    expect(within(notes).getByRole("article", { name: "Category chosen by the AM" })).toHaveTextContent("Only Deal Desk checks this");
+    // The decision is a card of its own; the old "Your approval" box is gone.
+    const decision = screen.getByRole("region", { name: "Your decision as Deal Desk" });
+    expect(decision).not.toHaveTextContent("After you");
+    expect(within(decision).getByRole("button", { name: "Approve" })).toBeEnabled();
+    expect(screen.queryByRole("region", { name: "Your approval" })).toBeNull();
+
+    await user.click(within(discount).getByRole("button", { name: "Looks fine" }));
+    expect(markNote.mutate).toHaveBeenCalledWith({ role: "DEAL_DESK", key: "DISCOUNT.L1", fine: true });
+  });
+
+  it("gives someone with several roles on the quote a tab per role, opening on the one whose turn it is", async () => {
+    const user = userEvent.setup();
+    me.data.approverRoles = ["DEAL_DESK", "CFO"];
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [
+        step("DEAL_DESK", 11, { status: "APPROVED", actedByEmail: "arjun@wso2.com", actedAt: "2026-11-03T09:00:00Z" }),
+        step("CFO", 12, { status: "PENDING", canAct: true }),
+      ],
+    };
+    review.data = {
+      lenses: [
+        { role: "DEAL_DESK", roleLabel: "Deal Desk", canMark: false, notes: [note({ state: "FINE", byApproval: true, markedByEmail: "arjun@wso2.com" })] },
+        { role: "CFO", roleLabel: "CFO", canMark: true, notes: [note({ key: "PAYMENT_TERMS", rule: "PAYMENT_TERMS", lineNumber: 0, target: "paymentTerms", roles: [], reasons: ["Net 60 payment terms"] })] },
+      ],
+    };
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    // One card holds it all: the roles, the decision or how it stands, the notes.
+    const card = screen.getByRole("region", { name: "Approval" });
+    const tabs = within(card).getByRole("tablist", { name: "Your roles on this quote" });
+    expect(within(card).getByRole("complementary", { name: "CFO approval notes" })).toBeInTheDocument();
+    expect(within(tabs).getByRole("tab", { name: /CFO/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("region", { name: "Your decision as CFO" })).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "CFO approval notes" })).toHaveTextContent("Net 60 payment terms");
+
+    // Deal Desk already approved: its status, and its notes green by that approval.
+    await user.click(within(tabs).getByRole("tab", { name: /Deal Desk/ }));
+    expect(screen.getByRole("region", { name: "Deal Desk approval: Approved" })).toHaveTextContent("By arjun@wso2.com");
+    expect(screen.getByRole("article", { name: "18% discount" })).toHaveTextContent("Approved · arjun");
+    expect(screen.queryByRole("region", { name: "Your decision as CFO" })).toBeNull();
+  });
+
+  it("shows a green note with who marked it, and Check again", async () => {
+    const user = userEvent.setup();
+    workflow.data = { status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null, steps: [step("DEAL_DESK", 11, { status: "PENDING", canAct: true })] };
+    deskLens([note({ state: "FINE", markedByEmail: "priya@wso2.com", markedOnVersion: 1 })]);
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    const card = screen.getByRole("article", { name: "18% discount" });
+    expect(card).toHaveTextContent("Looks fine on v1 · priya");
+    await user.click(within(card).getByRole("button", { name: "Check again" }));
+    expect(markNote.mutate).toHaveBeenCalledWith({ role: "DEAL_DESK", key: "DISCOUNT.L1", fine: false });
+  });
+
+  it("says in the notes panel that a standard quote needs only Deal Desk", () => {
+    workflow.data = { status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null, steps: [step("DEAL_DESK", 11, { status: "PENDING", canAct: true })] };
+    deskLens([]);
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    expect(screen.getByRole("complementary", { name: "Deal Desk approval notes" })).toHaveTextContent(
+      "Standard quote. No approval rules apply, so your approval is the only one needed.",
+    );
+    expect(within(screen.getByRole("region", { name: "Your decision as Deal Desk" })).getByRole("button", { name: "Approve" })).toBeEnabled();
+  });
+
+  it("puts the special terms in the quote as Deal Desk's to write, and holds Approve for See Special Terms billing", () => {
+    workflow.data = { status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null, steps: [step("DEAL_DESK", 11, { status: "PENDING", canAct: true })] };
+    deskLens([note({ key: "SEE_SPECIAL_TERMS", rule: "SEE_SPECIAL_TERMS", lineNumber: 0, target: "billingFrequency", roles: [], yoursToWrite: true,
+      reasons: ["Billing says See Special Terms: describe the billing in the special terms"] })]);
+    const seeSpecial = { ...allMapped, version: { ...allMapped.version, billingFrequency: "SPECIAL_TERMS" as const } };
+    show({ ...submitted.quote, actions: [] }, seeSpecial);
+    expect(screen.getByRole("region", { name: "Special terms: yours to write" })).toBeInTheDocument();
+    const card = screen.getByRole("article", { name: "Billing: See Special Terms" });
+    expect(card).toHaveTextContent("Yours to write");
+    expect(within(card).queryByRole("button", { name: "Looks fine" })).toBeNull();
+    const bar = screen.getByRole("region", { name: "Your decision as Deal Desk" });
+    expect(bar).toHaveTextContent("Billing says See Special Terms: write the special terms first");
+    expect(within(bar).getByRole("button", { name: "Approve" })).toBeDisabled();
+  });
+
+  // D120 on the Quote tab: Deal Desk, having approved, may step in for an away approver.
+  it("offers Deal Desk Approve on behalf in the approval card once it has approved", () => {
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [
+        step("DEAL_DESK", 11, { status: "APPROVED", actedByEmail: "arjun@wso2.com", actedAt: "2026-11-03T09:00:00Z" }),
+        step("REGIONAL_DIRECTOR", 12, { roleLabel: "Regional Director · NA", status: "PENDING", canApproveOnBehalf: true }),
+        step("CFO", 13, { status: "PENDING" }),
+      ],
+    };
+    deskLens([note({ state: "FINE", byApproval: true, markedByEmail: "arjun@wso2.com" })]);
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    const card = screen.getByRole("region", { name: "Approval" });
+    const stepIn = within(card).getByRole("region", { name: "Approve on behalf" });
+    const rows = within(stepIn).getAllByRole("listitem");
+    expect(rows).toHaveLength(1); // not the CFO
+    expect(rows[0]).toHaveTextContent("Regional Director · NA");
+    expect(within(stepIn).getByRole("button", { name: "Approve on behalf…" })).toBeInTheDocument();
+  });
+
+  // D130: "Recall as Deal Desk" on the board opens the quote with its Recall confirmation, once.
+  it("opens the confirmation the board asked for, with a Deal Desk back link", async () => {
+    const user = userEvent.setup();
+    showAt("/sales/cado2/quotes/5/quote?from=desk&do=recall", { ...submitted.quote, actions: ["RECALL"] }, submitted);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(/Recall version 1\?/);
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull(); // once, not again
+    expect(screen.getByRole("link", { name: /Deal Desk/ })).toHaveAttribute("href", "/sales/cado2/desk");
   });
 });

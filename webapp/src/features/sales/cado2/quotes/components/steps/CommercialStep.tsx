@@ -19,7 +19,7 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { Alert, Checkbox, FormControlLabel, Stack, TextField, Typography } from "@wso2/oxygen-ui";
 import { MapPinIcon, MessageSquareTextIcon, TruckIcon } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
-import { useAccountContacts } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { useOpportunityContacts } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { discountedLines, type DraftFormValues } from "@features/sales/cado2/quotes/form/draftForm";
 import AddressFields from "@features/sales/cado2/quotes/components/AddressFields";
 import ContactPicker from "@features/sales/cado2/quotes/components/ContactPicker";
@@ -50,11 +50,11 @@ function Section({ title, icon, hint, children }: { title: string; icon: ReactNo
  */
 export default function CommercialStep(): JSX.Element {
   const { control } = useFormContext<DraftFormValues>();
-  const [accountId, dealType, sameAsBillTo, lines] = useWatch({
+  const [opportunityId, dealType, sameAsBillTo, lines] = useWatch({
     control,
-    name: ["accountId", "dealType", "shipToSameAsBillTo", "lines"],
+    name: ["opportunityId", "dealType", "shipToSameAsBillTo", "lines"],
   });
-  const contacts = useAccountContacts(accountId || null);
+  const contacts = useOpportunityContacts(opportunityId || null);
   const partnerDeal = dealType === "PARTNER";
   const discounted = discountedLines(lines);
 
@@ -86,6 +86,7 @@ export default function CommercialStep(): JSX.Element {
           name="billingContact"
           issueField="contacts.billing"
           label="Billing contact"
+          opportunityId={opportunityId}
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
           loadError={contacts.error}
@@ -112,6 +113,7 @@ export default function CommercialStep(): JSX.Element {
           name="securityContact"
           issueField="contacts.security"
           label="Security contact (optional)"
+          opportunityId={opportunityId}
           contacts={contacts.data ?? []}
           loading={contacts.isFetching}
           loadError={contacts.error}

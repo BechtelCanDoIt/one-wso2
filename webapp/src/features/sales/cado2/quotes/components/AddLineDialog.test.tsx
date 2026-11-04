@@ -119,6 +119,7 @@ function savedSupportLine(): LineValue {
     salesPrice: "",
     key: `k-${Math.random()}`,
     parentKey: "",
+    bundleFixedQuantity: null,
     keepPricing: {
       method: "FORMULA",
       formulaVersionId: 6,
@@ -219,9 +220,9 @@ describe("AddLineDialog", () => {
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ unitPrice: "25000", salesPrice: "27500.5" }), []);
   });
 
-  // A bundle parent brings its children, same year and dates, its quantity to start with.
+  // A bundle parent brings its children, same year and dates; "same quantity" ones take its quantity (D125).
   it("adds a bundle parent with the products that come with it", async () => {
-    bundle.parents = { [gateway.id]: { children: [support], missing: ["Onboarding"] } };
+    bundle.parents = { [gateway.id]: { children: [{ ...support, fixedQuantity: null }], missing: ["Onboarding"] } };
     try {
       const onSave = vi.fn();
       render(
@@ -249,10 +250,106 @@ describe("AddLineDialog", () => {
       await user.click(screen.getByRole("button", { name: "Add 2 products" }));
       const [parent, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
       expect(children).toHaveLength(1);
-      expect(children[0]).toMatchObject({ productId: support.id, quantity: "4", yearNumber: 2, category: "SUPPORT", parentKey: parent.key });
+      expect(children[0]).toMatchObject({ productId: support.id, quantity: "4", yearNumber: 2, category: "SUPPORT", parentKey: parent.key,
+        bundleFixedQuantity: null });
     } finally {
       bundle.parents = {};
     }
+  });
+
+  // D131: a choice the AM must make (nothing picked for them), and an optional product.
+  it("adds a bundle parent with the AM's picks only, once each choice is made", async () => {
+    const enterprise = { ...support, fixedQuantity: 1, addMode: "CHOOSE_ONE", choiceName: "Support tier" };
+    const premium = { ...support, id: "01t000000000009", name: "WSO2 Premium Support - APIM", productCode: "PREM-APIM", fixedQuantity: null, addMode: "CHOOSE_ONE", choiceName: "Support tier" };
+    const training = { ...support, id: "01t000000000010", name: "Training", productCode: "TRN", fixedQuantity: 1, addMode: "OPTIONAL", choiceName: null };
+    bundle.parents = { [gateway.id]: { children: [enterprise, premium, training], missing: [] } };
+    try {
+      const onSave = vi.fn();
+      render(
+        <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
+          <AddLineDialog open line={null} currency="USD" pricebook={quoteBook} year={{ number: 1, start: "2027-01-01", end: "2027-12-31" }} onSave={onSave} onClose={vi.fn()} />
+        </DatePickers.LocalizationProvider>,
+      );
+      const user = await pick(/WSO2 API Manager/);
+      await user.click(screen.getByRole("combobox", { name: /Category/ }));
+      await user.click(screen.getByRole("option", { name: "Subscription" }));
+      const picks = screen.getByRole("region", { name: "Comes with it" });
+      expect(within(picks).getByRole("radio", { name: /Premium Support/ })).not.toBeChecked();
+      expect(screen.getByText("To add: pick support tier")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Add product" })).toBeDisabled();
+
+      await user.click(within(picks).getByRole("radio", { name: /Premium Support/ }));
+      await user.click(within(picks).getByRole("checkbox", { name: /Training/ }));
+      await user.click(screen.getByRole("button", { name: "Add 3 products" }));
+      const [parent, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
+      expect(children.map((c) => c.productId)).toEqual([premium.id, training.id]);
+      expect(children.every((c) => c.parentKey === parent.key)).toBe(true);
+    } finally {
+      bundle.parents = {};
+    }
+  });
+
+  // D131: editing the parent shows its picks; a new pick swaps the child, a kept one stays as it was.
+  it("changes an edited parent's picks, keeping the children it keeps", async () => {
+    const enterprise = { ...support, fixedQuantity: null, addMode: "CHOOSE_ONE", choiceName: "Support tier" };
+    const premium = { ...support, id: "01t000000000009", name: "WSO2 Premium Support - APIM", productCode: "PREM-APIM", fixedQuantity: null, addMode: "CHOOSE_ONE", choiceName: "Support tier" };
+    const training = { ...support, id: "01t000000000010", name: "Training", productCode: "TRN", fixedQuantity: 1, addMode: "OPTIONAL", choiceName: null };
+    bundle.parents = { [gateway.id]: { children: [enterprise, premium, training], missing: [] } };
+    const parentLine = { ...savedSupportLine(), lineId: 300, productId: gateway.id, productName: gateway.name, key: "p", parentKey: "", keepPricing: undefined, quantity: "4" } as LineValue;
+    const kept = { ...savedSupportLine(), lineId: 302, productId: training.id, productName: "Training", key: "t", parentKey: "p", discount: "15", quantity: "1" } as LineValue;
+    const old = { ...savedSupportLine(), lineId: 301, productId: enterprise.id, key: "e", parentKey: "p", quantity: "4" } as LineValue;
+    try {
+      const onSave = vi.fn();
+      render(
+        <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
+          <AddLineDialog open line={parentLine} currentChildren={[old, kept]} currency="USD" pricebook={quoteBook} year={{ number: 1, start: "2027-01-01", end: "2027-12-31" }} onSave={onSave} onClose={vi.fn()} />
+        </DatePickers.LocalizationProvider>,
+      );
+      const user = userEvent.setup();
+      const picks = screen.getByRole("region", { name: "Comes with it" });
+      expect(within(picks).getByRole("radio", { name: /Enterprise Support/ })).toBeChecked();
+      expect(within(picks).getByRole("checkbox", { name: /Training/ })).toBeChecked();
+      await user.click(within(picks).getByRole("radio", { name: /Premium Support/ }));
+      await user.click(screen.getByRole("button", { name: "Save product" }));
+      const [, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
+      expect(children.map((c) => c.productId)).toEqual([premium.id, training.id]);
+      expect(children[1]).toMatchObject({ lineId: 302, discount: "15" });
+      expect(children[0]).toMatchObject({ lineId: null, quantity: "4", parentKey: "p" });
+    } finally {
+      bundle.parents = {};
+    }
+  });
+
+  // D125: a child with a fixed quantity (Enterprise Support: always 1) whatever the parent's.
+  it("adds a bundle child with its fixed quantity", async () => {
+    bundle.parents = { [gateway.id]: { children: [{ ...support, fixedQuantity: 1 }], missing: [] } };
+    try {
+      const onSave = renderDialog();
+      const user = await pick(/WSO2 API Manager/);
+      expect(screen.getByLabelText("Bundle")).toHaveTextContent("WSO2 Enterprise Support Plan - APIM (always 1)");
+      await user.click(screen.getByRole("combobox", { name: /Category/ }));
+      await user.click(screen.getByRole("option", { name: "Subscription" }));
+      const qty = screen.getByRole("textbox", { name: "Quantity" });
+      await user.clear(qty);
+      await user.type(qty, "5");
+
+      await user.click(screen.getByRole("button", { name: "Add 2 products" }));
+      const [parent, children] = onSave.mock.calls[0] as [LineValue, LineValue[]];
+      expect(parent.quantity).toBe("5");
+      expect(children[0]).toMatchObject({ quantity: "1", bundleFixedQuantity: 1 });
+    } finally {
+      bundle.parents = {};
+    }
+  });
+
+  // D125: the AM can't change a bundle child's quantity; the dialog says where it comes from.
+  it("locks a bundle child's quantity", async () => {
+    const onSave = renderDialog(vi.fn(), { ...savedSupportLine(), parentKey: "p", bundleFixedQuantity: 1 });
+    const qty = screen.getByRole("textbox", { name: "Quantity" });
+    expect(qty).toBeDisabled();
+    expect(screen.getByText("Set by the bundle: always 1")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Save product" }));
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ quantity: "1" }), null);
   });
 
   // A product whose bundle can't be read isn't added alone.
@@ -304,6 +401,7 @@ describe("AddLineDialog", () => {
       salesPrice: "",
       key: `k-${Math.random()}`,
       parentKey: "",
+      bundleFixedQuantity: null,
     };
     const onSave = renderDialog(vi.fn(), line);
 
@@ -312,7 +410,7 @@ describe("AddLineDialog", () => {
     expect(screen.queryByRole("combobox", { name: /Product/ })).toBeNull();
     expect(screen.getByText(/remove this line and add it/)).toBeInTheDocument();
     await userEvent.setup().click(screen.getByRole("button", { name: "Save product" }));
-    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }), []);
+    expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ lineId: 7, category: "SUPPORT", categorySource: "MAPPED" }), null);
   });
 
   it("lists the quote's price book only, with its prices, and no choice of book", async () => {
@@ -442,7 +540,7 @@ describe("AddLineDialog — closing", () => {
       expect(screen.getByRole("textbox", { name: "Discount" })).toBeEnabled();
       await user.click(screen.getByRole("button", { name: "Save product" }));
       expect(onSave).toHaveBeenCalledWith(
-        expect.objectContaining({ lineId: 228, useLatestPricing: true, unitPrice: "53000", unitOfMeasure: "" }), []);
+        expect.objectContaining({ lineId: 228, useLatestPricing: true, unitPrice: "53000", unitOfMeasure: "" }), null);
     } finally {
       formulas.list = [];
     }
@@ -455,7 +553,7 @@ describe("AddLineDialog — closing", () => {
       expect(screen.getByText(/A newer version of this formula is in force: v4 · 20 Oct 2026/)).toBeInTheDocument();
       const user = userEvent.setup();
       await user.click(screen.getByRole("button", { name: "Save product" }));
-      expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ useLatestPricing: undefined }), []);
+      expect(onSave).toHaveBeenLastCalledWith(expect.objectContaining({ useLatestPricing: undefined }), null);
       expect(onSave.mock.lastCall?.[0].keepPricing.formulaVersionId).toBe(6);
     } finally {
       formulas.list = [];

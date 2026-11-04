@@ -15,7 +15,7 @@
 // under the License.
 
 import { useState, type JSX, type ReactNode } from "react";
-import { Box, Button, Chip, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Button, Chip, Stack, Typography } from "@wso2/oxygen-ui";
 import {
   BadgePercentIcon,
   CalendarClockIcon,
@@ -32,7 +32,7 @@ import {
 } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
 import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
-import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
+import type { ApprovalOutcome, ApprovalStep, PreviousReturn } from "@features/sales/cado2/approvals/api/approvalTypes";
 import {
   deskSummary,
   reasonRows,
@@ -57,6 +57,12 @@ interface YourApprovalPanelProps {
   readonly legalEditor?: ReactNode;
   /** Why Legal can't approve yet (terms to write); "" when they can. */
   readonly legalApproveBlock?: string;
+  /** Deal Desk's editor for the special terms it writes (D128), under its points. */
+  readonly deskEditor?: ReactNode;
+  /** Why Deal Desk can't approve yet (special terms to write); "" when it can. */
+  readonly deskApproveBlock?: string;
+  /** Why the earlier version was returned, for Deal Desk (D128). */
+  readonly previousReturn?: PreviousReturn | null;
 }
 
 /** Where the header's "Your approval" link scrolls to. */
@@ -192,6 +198,17 @@ function ShortList({ rows, label }: { readonly rows: readonly ReasonRow[]; reado
   );
 }
 
+/** Why the earlier version came back, so Deal Desk knows what to look at (D128). */
+function ReturnedNote({ r }: { readonly r: PreviousReturn }): JSX.Element {
+  return (
+    <Alert severity="info" sx={{ mb: 1.5 }}>
+      Returned by {r.roleLabel} on v{r.versionNumber}
+      {r.byEmail ? ` (${r.byEmail})` : ""}
+      {r.comment ? `: “${r.comment}”` : ""}
+    </Alert>
+  );
+}
+
 /** Deal Desk: everything non-standard about the quote, once each, with the approvals it needs. */
 function DeskReview({
   steps,
@@ -266,6 +283,9 @@ export default function YourApprovalPanel({
   onDecide,
   legalEditor,
   legalApproveBlock = "",
+  deskEditor,
+  deskApproveBlock = "",
+  previousReturn = null,
 }: YourApprovalPanelProps): JSX.Element | null {
   if (actionable.length === 0) return null;
   return (
@@ -291,8 +311,10 @@ export default function YourApprovalPanel({
               label={`Your approval as ${s.roleLabel}`}
               stretch
             >
+              {deskReview && previousReturn ? <ReturnedNote r={previousReturn} /> : null}
               {deskReview ? <DeskReview steps={steps} step={s} repCategories={repCategories} /> : <OwnReasons step={s} />}
               {s.role === "LEGAL" && legalEditor ? <Box sx={{ mt: 2 }}>{legalEditor}</Box> : null}
+              {deskReview && deskEditor ? <Box sx={{ mt: 2 }}>{deskEditor}</Box> : null}
               {/* The decision sits with its reasons; the card already names the role. */}
               {/* Under the reasons, Approve first: where the eye ends after reading. Pushed
                   to the card's foot, so side-by-side cards line their buttons up. */}
@@ -302,12 +324,17 @@ export default function YourApprovalPanel({
                   {legalApproveBlock}, saved, before approving.
                 </Typography>
               ) : null}
+              {deskReview && deskApproveBlock ? (
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  {deskApproveBlock}, saved, before approving.
+                </Typography>
+              ) : null}
               <Stack direction="row" spacing={1} justifyContent="flex-start" sx={{ mt: "auto", pt: 2, flexWrap: "wrap", rowGap: 1 }}>
                 <Button
                   variant="contained"
                   color="success"
                   onClick={() => onDecide("approve", s)}
-                  disabled={s.role === "LEGAL" && legalApproveBlock !== ""}
+                  disabled={(s.role === "LEGAL" && legalApproveBlock !== "") || (deskReview && deskApproveBlock !== "")}
                 >
                   Approve
                 </Button>

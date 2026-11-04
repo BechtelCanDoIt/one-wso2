@@ -102,10 +102,11 @@ export function useAccountOpportunities(accountId: string | null, status: "open"
   );
 }
 
-export function useAccountContacts(accountId: string | null) {
+/** The contacts on the opportunity in Salesforce (D124; was the account's, D22). */
+export function useOpportunityContacts(opportunityId: string | null) {
   return useAuthedQuery<Contact[]>(
-    ["account-contacts", accountId],
-    accountId ? cado2ServiceUrls.accountContacts(accountId) : null,
+    ["opportunity-contacts", opportunityId],
+    opportunityId ? cado2ServiceUrls.opportunityContacts(opportunityId) : null,
   );
 }
 
@@ -131,6 +132,17 @@ export function useWriteLegalTerms(quoteId: number, versionNumber: number) {
   return useMutation<DraftResponse, Error, { onPremTerms?: string; saasTerms?: string; specialTerms?: string }>({
     mutationFn: async (body) =>
       cado2Send<DraftResponse>("PUT", cado2ServiceUrls.legalTerms(quoteId, versionNumber), await getToken(), body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: key() }),
+  });
+}
+
+/** Deal Desk writes the special terms during its approval (D128); blank clears them. */
+export function useWriteSpecialTerms(quoteId: number, versionNumber: number) {
+  const { getToken, key } = useCado2Basis();
+  const queryClient = useQueryClient();
+  return useMutation<DraftResponse, Error, { enabled: boolean; specialTerms: string }>({
+    mutationFn: async (body) =>
+      cado2Send<DraftResponse>("PUT", cado2ServiceUrls.specialTerms(quoteId, versionNumber), await getToken(), body),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key() }),
   });
 }

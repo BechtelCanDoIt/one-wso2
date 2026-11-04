@@ -97,6 +97,16 @@ describe("history", () => {
     expect(describeEvent(entries[3])).toBe("Version 1 submitted · expires 31 Oct 2026");
   });
 
+  // D127: what Deal Desk did on someone else's quote says so.
+  it("marks what Deal Desk did as Deal Desk", () => {
+    const [revised, submitted] = groupHistory([
+      event({ id: 1, eventType: "VERSION_CREATED", versionNumber: 2, metadata: { actingAs: "DEAL_DESK" } }),
+      event({ id: 2, eventType: "VERSION_SUBMITTED", versionNumber: 2 }),
+    ]);
+    expect(describeEvent(revised)).toBe("Version 2 created (as Deal Desk)");
+    expect(describeEvent(submitted)).toBe("Version 2 submitted");
+  });
+
   it("says which draft was deleted", () => {
     const e = event({ eventType: "VERSION_DELETED", versionNumber: null, metadata: { versionNumber: 2 } });
     expect(describeEvent({ event: e, count: 1 })).toBe("Version 2 draft deleted");

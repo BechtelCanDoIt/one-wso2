@@ -129,7 +129,7 @@ export default function OrderFormTable({
     const index = lines.indexOf(l);
     return (
       <Fragment key={l.number}>
-        <TableRow>
+        <TableRow data-note-target={`line:${l.number}`}>
           <TableCell sx={{ minWidth: 200 }}>
             <Typography variant="body2" sx={{ fontWeight: 500, color: "text.primary" }}>
               {l.productName}

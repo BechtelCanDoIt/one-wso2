@@ -44,6 +44,7 @@ import SupportingDocumentsPage from "./admin/supporting-documents/pages/Supporti
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
 const QuoteDetailPage = lazy(() => import("./quotes/pages/QuoteDetailPage"));
 const InsightsPage = lazy(() => import("./insights/pages/InsightsPage"));
+const DeskBoardPage = lazy(() => import("./desk/pages/DeskBoardPage"));
 // Its rich-text editor is heavy too.
 const LegalTextsPage = lazy(() => import("./admin/legal-texts/pages/LegalTextsPage"));
 
@@ -56,7 +57,7 @@ export const cado2Routes = (
     <Route
       path="quotes"
       element={
-        <Cado2Requires need="quote">
+        <Cado2Requires need="quotes">
           <MyQuotesPage />
         </Cado2Requires>
       }
@@ -67,7 +68,7 @@ export const cado2Routes = (
     />
     <Route
       path="quotes/:quoteId/versions/:version/edit"
-      element={<Cado2Requires need="quote">{deferred(<QuoteWizardPage />)}</Cado2Requires>}
+      element={<Cado2Requires need="quotes">{deferred(<QuoteWizardPage />)}</Cado2Requires>}
     />
     {/* A quote is open to its owner, CadO2 admins and its approvers; the
         backend decides per quote, so no role guard here. Each tab is a route,
@@ -82,6 +83,7 @@ export const cado2Routes = (
         </Cado2Requires>
       }
     />
+    <Route path="desk" element={<Cado2Requires need="desk">{deferred(<DeskBoardPage />)}</Cado2Requires>} />
     <Route path="insights" element={<Navigate to={cado2Paths.insights()} replace />} />
     <Route
       path="insights/:tab"

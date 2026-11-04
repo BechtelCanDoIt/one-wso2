@@ -119,11 +119,13 @@ export interface RenewalStart {
 /** First Sale, Renewal or Expansion; any other record type is OTHER. */
 export type DealKind = "FIRST_SALE" | "RENEWAL" | "EXPANSION" | "OTHER";
 
+/** A contact on the opportunity, with its roles there, e.g. "Economic Buyer" (D124). */
 export interface Contact {
-  readonly id: string | null;
+  readonly id: string;
   readonly name: string | null;
   readonly title: string | null;
   readonly email: string | null;
+  readonly roles: readonly string[];
 }
 
 export interface PricebookEntry {
@@ -205,8 +207,19 @@ export interface ScheduleRow {
 }
 
 /** GET /bundles/{productId}: the children a parent brings, priced from the quote's book; Missing names those not in it. */
+/**
+ * A bundle child with its quantity rule (D125): always fixedQuantity, or null
+ * for the parent's; and how the AM adds it (D131): always, one of the named
+ * choice, or optional.
+ */
+export type BundleChild = Product & {
+  readonly fixedQuantity: number | null;
+  readonly addMode?: "ALWAYS" | "CHOOSE_ONE" | "OPTIONAL";
+  readonly choiceName?: string | null;
+};
+
 export interface BundleChildren {
-  readonly children: readonly Product[];
+  readonly children: readonly BundleChild[];
   readonly missing: readonly string[];
 }
 
@@ -473,7 +486,7 @@ export interface DraftInput {
   /** Partner-led quotes only: one % for every line. */
   readonly partnerCommissionPercent?: string;
   readonly netTermsDays?: number;
-  readonly specialTerms: { readonly enabled: boolean; readonly text?: string };
+  // No specialTerms: Deal Desk writes them during its approval (D128).
   readonly governingTerms: {
     readonly enabled: boolean;
     readonly text?: string;
@@ -521,6 +534,8 @@ export interface LineView {
   readonly yearNumber: number | null;
   /** A bundle child's parent line number; null otherwise. */
   readonly parentLineNumber?: number | null;
+  /** A bundle child's quantity rule (D125): always this many, or null for its parent's quantity. */
+  readonly bundleFixedQuantity?: number | null;
   /** Null until the quote has a start date and a year (D78). */
   readonly startDate: string | null;
   readonly endDate: string | null;
@@ -684,8 +699,10 @@ export interface QuoteView {
   readonly sfSyncedAt?: string | null;
   readonly sfSyncedByEmail?: string | null;
   readonly sfSyncedVersion?: number | null;
-  /** The caller may change the quote: its owner, or another AM when Admin allows it (D69). */
+  /** The caller may change the quote: its owner, or another AM when Admin allows it (D69), or Deal Desk (D127). */
   readonly canEdit: boolean;
+  /** "DEAL_DESK" when the caller changes it as Deal Desk, not as its owner (D127). */
+  readonly actingAs?: "DEAL_DESK" | null;
   readonly ownerEmail: string;
   readonly sfOpportunityId: string;
   readonly sfAccountId: string;
@@ -768,7 +785,9 @@ export interface AuditEvent {
     | "ORDER_FORM_DETACHED"
     | "ORDER_FORM_ATTACH_FAILED"
     // The AM changed the supporting documents (DGD-10); metadata: before, after.
-    | "SUPPORTING_DOCUMENTS_CHANGED";
+    | "SUPPORTING_DOCUMENTS_CHANGED"
+    // Deal Desk wrote the special terms during its step (D128); metadata: specialTerms (any now).
+    | "SPECIAL_TERMS_WRITTEN";
   readonly versionNumber: number | null;
   readonly actorEmail: string;
   readonly occurredAt: string;

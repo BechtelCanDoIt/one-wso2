@@ -37,9 +37,13 @@ import type {
   PricingPreview,
 } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { sumMoney } from "@features/sales/cado2/utils/money";
-import { cleanLegalText, isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
+import { isEmptyLegalText } from "@features/sales/cado2/utils/legalRichText";
 
-/** Contact: none yet, a Salesforce contact of the account, or typed in. */
+/**
+ * Contact: none yet, or one of the opportunity's contacts in Salesforce
+ * (D124). "manual" is a contact typed in before D124: shown, kept until
+ * replaced, but it can't be submitted.
+ */
 export interface ContactValue {
   mode: "none" | "salesforce" | "manual";
   sfContactId: string;
@@ -120,6 +124,11 @@ export interface LineValue {
   key: string;
   /** A bundle child: its parent line's key; "" otherwise. It follows the parent's year and dates and leaves with it. */
   parentKey: string;
+  /**
+   * A bundle child's quantity rule (D125): always this many, or null for its
+   * parent's quantity, following it. The AM can't change a child's quantity.
+   */
+  bundleFixedQuantity: number | null;
 }
 
 let lineKeys = 0;
@@ -128,6 +137,9 @@ export const newLineKey = () => `line-${Date.now().toString(36)}-${++lineKeys}`;
 
 /** A bundle parent's children, in order. */
 export const childrenOf = (lines: readonly LineValue[], key: string) => lines.filter((l) => l.parentKey !== "" && l.parentKey === key);
+
+/** A bundle child's quantity from its rule (D125): its fixed quantity, or its parent's. */
+export const childQuantity = (parentQuantity: string, fixed: number | null) => (fixed === null ? parentQuantity : String(fixed));
 
 /** The most contract years a quote can have (D85). */
 export const MAX_YEARS = 10;
@@ -662,6 +674,7 @@ export function fromVersion(res: DraftResponse): DraftFormValues {
       salesPrice: l.salesPrice && Number(l.salesPrice) !== Number(l.unitPrice) ? String(Number(l.salesPrice)) : "",
       key: `saved-${l.id}`,
       parentKey: l.parentLineNumber ? `saved-${v.lines.find((p) => p.lineNumber === l.parentLineNumber)?.id ?? ""}` : "",
+      bundleFixedQuantity: l.parentLineNumber ? (l.bundleFixedQuantity ?? null) : null,
     })),
     netTermsDays: (["30", "45", "60"] as const).find((n) => String(v.netTermsDays) === n) ?? "",
     poNumber: v.poNumber ?? "",
@@ -779,11 +792,6 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
     ...termInput(v),
     partnerCommissionPercent: isPartnerLed(v) ? opt(v.partnerCommissionPercent) : undefined,
     netTermsDays: v.netTermsDays ? Number(v.netTermsDays) : undefined,
-    specialTerms: {
-      enabled: v.specialTermsEnabled,
-      // Rich text (2026-10-24), cleaned; the editor's empty value is none.
-      text: v.specialTermsEnabled ? opt(cleanLegalText(v.specialTerms)) : undefined,
-    },
     // No longer used: section 04 is per product type.
     governingTerms: { enabled: false },
     termsOnPremNonStandard: v.termsOnPremNonStandard,

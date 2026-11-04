@@ -58,7 +58,12 @@ export function useCado2Me(enabled = true): UseQueryResult<Cado2Me, Error> {
 
 /** What a person may open in CadO2. */
 export interface Cado2Access {
+  /** Starts quotes: SALES. */
   canQuote: boolean;
+  /** Opens the Quotes page and works on existing quotes: SALES, or Deal Desk (D127). */
+  canWorkOnQuotes: boolean;
+  /** Holds the Deal Desk approval role: the Deal Desk board (D130). */
+  isDealDesk: boolean;
   canApprove: boolean;
   isAdmin: boolean;
   canViewInsights: boolean;
@@ -67,9 +72,13 @@ export interface Cado2Access {
 export function cado2Access(me: Cado2Me | undefined): Cado2Access {
   const roles = me?.roles ?? [];
   const isAdmin = roles.includes("ADMIN");
+  const canQuote = roles.includes("SALES");
   return {
     // Roles add up; ADMIN is the admin panel only and gives no quote access.
-    canQuote: roles.includes("SALES"),
+    canQuote,
+    // D127: Deal Desk may change any quote, but only SALES starts one.
+    canWorkOnQuotes: canQuote || (me?.approverRoles.includes("DEAL_DESK") ?? false),
+    isDealDesk: me?.approverRoles.includes("DEAL_DESK") ?? false,
     canApprove: (me?.approverRoles.length ?? 0) > 0,
     isAdmin,
     canViewInsights: me?.canViewInsights === true,

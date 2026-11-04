@@ -52,7 +52,7 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
         <Fact label="Sales region" value={sheet.salesRegion || "Not set in Salesforce"} />
         <Fact label="Sub-region" value={sheet.subRegion || "Not set"} />
         <Fact label="WSO2 legal entity" value={sheet.legalEntity?.name} hint={sheet.legalEntity?.address} />
-        <Fact label={term.label} value={term.value} hint={term.hint} />
+        <Fact noteTarget="term startDate" label={term.label} value={term.value} hint={term.hint} />
         <Fact label="Currency" value={sheet.currency} />
         {sheet.pricebookName ? (
           <Fact label="Price book" value={sheet.pricebookName} hint="The Salesforce opportunity's; every line is priced from it" />

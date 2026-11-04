@@ -358,13 +358,13 @@ describe("LegalSection", () => {
   });
 
   // D109: both texts on the version Legal reworded; the AM's behind a toggle.
-  it("shows what the AM wrote on request", () => {
+  it("shows the wording before Legal's on request", () => {
     render(<QuoteSheet sheet={withLegal} />);
     const legal = within(screen.getByRole("region", { name: "Legal" }));
     expect(legal.queryByText("AM's wording")).toBeNull();
-    fireEvent.click(legal.getByRole("button", { name: "Show what the AM wrote" }));
+    fireEvent.click(legal.getByRole("button", { name: "Show the wording before Legal's" }));
     expect(legal.getByText("AM's wording")).toBeInTheDocument();
-    fireEvent.click(legal.getByRole("button", { name: "Hide what the AM wrote" }));
+    fireEvent.click(legal.getByRole("button", { name: "Hide the wording before Legal's" }));
     expect(legal.queryByText("AM's wording")).toBeNull();
   });
 

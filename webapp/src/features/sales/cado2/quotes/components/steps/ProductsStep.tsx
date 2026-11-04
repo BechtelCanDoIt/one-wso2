@@ -46,6 +46,7 @@ import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cad
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
   addYear,
+  childQuantity,
   childrenOf,
   cloneYear,
   contractYears,
@@ -149,21 +150,34 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
   const sheet = useMemo(() => sheetFromForm(values, preview, null), [values, preview]);
   const total = orderForm(sheet.lines, sheet.partnerCommissionPercent);
 
-  const onSave = (line: LineValue, children: LineValue[]) => {
+  const onSave = (line: LineValue, children: LineValue[] | null) => {
     const lines = getValues("lines");
     if (editing.index === null) {
       // After its year's lines, its bundle right below it.
       const at = insertIndex(lines, line.yearNumber);
-      if (children.length === 0) insert(at, line);
+      if (!children?.length) insert(at, line);
       else replace([...lines.slice(0, at), line, ...children, ...lines.slice(at)]);
+    } else if (children !== null) {
+      // An edited parent whose picks may have changed (D131): its children
+      // are replaced by what the dialog sends, right below it.
+      const rest = lines.filter((l) => l.parentKey !== line.key);
+      const at = rest.findIndex((l) => l.key === line.key);
+      replace([...rest.slice(0, at), line, ...children, ...rest.slice(at + 1)]);
     } else if (childrenOf(lines, line.key).length > 0) {
-      // A parent's children keep its year and dates.
+      // A parent's children keep its year and dates, and those with the
+      // parent's quantity follow it (D125).
       replace(
         lines.map((l, i) =>
           i === editing.index
             ? line
             : l.parentKey === line.key
-              ? { ...l, yearNumber: line.yearNumber, startDate: line.startDate, endDate: l.recurring ? line.endDate : "" }
+              ? {
+                  ...l,
+                  yearNumber: line.yearNumber,
+                  startDate: line.startDate,
+                  endDate: l.recurring ? line.endDate : "",
+                  quantity: childQuantity(line.quantity, l.bundleFixedQuantity),
+                }
               : l,
         ),
       );
@@ -447,6 +461,7 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
           pricebook={{ id: values.defaultPricebookId, name: values.defaultPricebookName }}
           year={editingYear && editingYear.start ? (editingYear as ContractYear) : null}
           parentName={editing.index === null ? null : sheet.lines[editing.index]?.parentName}
+          currentChildren={editing.index === null ? [] : childrenOf(getValues("lines"), getValues(`lines.${editing.index}`).key)}
           onSave={onSave}
           onClose={() => setEditing({ open: false, index: null, year: 1 })}
         />

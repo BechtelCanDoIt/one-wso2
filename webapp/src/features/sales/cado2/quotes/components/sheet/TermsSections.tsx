@@ -33,21 +33,27 @@ function TextBlock({ children }: { children: ReactNode }): JSX.Element {
  * Billing (every quote, D88), payment terms and PO: as on the Commercials
  * step (D86). The terms are in the Legal section.
  */
-export function TermsSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
+export function TermsSection({ sheet, specialSlot }: { sheet: QuoteSheet; specialSlot?: ReactNode }): JSX.Element {
   return (
     <SheetCard title="Commercial Terms" icon={<FileTextIcon size={18} />}>
       <FactGrid>
-        <Fact label="Billing frequency" value={sheet.billingFrequency ? BILLING_LABEL[sheet.billingFrequency] : ""} />
+        <Fact noteTarget="billingFrequency" label="Billing frequency" value={sheet.billingFrequency ? BILLING_LABEL[sheet.billingFrequency] : ""} />
         <Fact
+          noteTarget="paymentTerms"
           label="Payment terms"
           value={sheet.netTermsDays ? `Net ${sheet.netTermsDays}` : ""}
           hint={sheet.netTermsDays ? `Due ${sheet.netTermsDays} days after the invoice` : undefined}
         />
         <Fact label="PO number" value={sheet.poNumber ?? "None"} />
       </FactGrid>
-      {/* Without the legal sections (texts not configured), the special terms show here. */}
-      {!sheet.legal ? (
-        <Box sx={{ mt: 2.5 }}>
+      {/* Without the legal sections (texts not configured), the special terms show here;
+          under Deal Desk's lens, its editor (D129). */}
+      {!sheet.legal && specialSlot ? (
+        <Box sx={{ mt: 2.5 }} data-note-target="specialTerms">
+          {specialSlot}
+        </Box>
+      ) : !sheet.legal ? (
+        <Box sx={{ mt: 2.5 }} data-note-target="specialTerms">
           <Typography variant="overline" color="text.secondary">
             Special terms
           </Typography>

@@ -20,7 +20,7 @@ import { httpRetry } from "@api/errors";
 import { cado2ServiceUrls } from "@config/apiConfig";
 import { useCado2Basis } from "@features/sales/cado2/api/cado2Basis";
 import { cado2Send } from "@features/sales/cado2/api/cado2Http";
-import type { Bundle } from "./bundleTypes";
+import type { Bundle, BundleChildInput } from "./bundleTypes";
 
 const DOMAIN = "bundles";
 
@@ -39,11 +39,11 @@ export function useBundles(): UseQueryResult<Bundle[], Error> {
 export function useSetBundle() {
   const { getToken, key } = useCado2Basis();
   const queryClient = useQueryClient();
-  return useMutation<void, Error, { parentProductId: string; childProductIds: readonly string[] | null }>({
-    mutationFn: async ({ parentProductId, childProductIds }) => {
+  return useMutation<void, Error, { parentProductId: string; children: readonly BundleChildInput[] | null }>({
+    mutationFn: async ({ parentProductId, children }) => {
       const token = await getToken();
-      if (childProductIds === null) await authedDelete(cado2ServiceUrls.adminBundle(parentProductId), token);
-      else await cado2Send("PUT", cado2ServiceUrls.adminBundle(parentProductId), token, { childProductIds });
+      if (children === null) await authedDelete(cado2ServiceUrls.adminBundle(parentProductId), token);
+      else await cado2Send("PUT", cado2ServiceUrls.adminBundle(parentProductId), token, { children });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: key(DOMAIN) }),
   });

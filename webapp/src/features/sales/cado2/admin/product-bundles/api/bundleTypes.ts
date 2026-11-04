@@ -14,11 +14,33 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** A product in a bundle, as Salesforce had it when the bundle was saved. */
+/**
+ * A product in a bundle, as Salesforce had it when the bundle was saved, and
+ * its quantity rule (D125): always fixedQuantity, or null for the parent's
+ * quantity, following it.
+ */
 export interface BundleProduct {
   readonly productId: string;
   readonly name: string | null;
   readonly code: string | null;
+  readonly fixedQuantity: number | null;
+  /** How the AM adds it (D131); a choice's products share choiceName. */
+  readonly addMode: BundleAddMode;
+  readonly choiceName: string | null;
+}
+
+/**
+ * How a bundle child comes with its parent (D131): always (locked), one of a
+ * named choice (the AM picks exactly one), or optional (the AM may add it).
+ */
+export type BundleAddMode = "ALWAYS" | "CHOOSE_ONE" | "OPTIONAL";
+
+/** One child to save, with its quantity rule (null = the parent's quantity) and how it's added. */
+export interface BundleChildInput {
+  readonly productId: string;
+  readonly fixedQuantity: number | null;
+  readonly addMode: BundleAddMode;
+  readonly choiceName: string | null;
 }
 
 /** An Admin's bundle: a parent and the products that always come with it, in order. */

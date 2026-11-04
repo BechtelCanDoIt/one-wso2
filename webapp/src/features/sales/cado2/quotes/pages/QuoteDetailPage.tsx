@@ -16,7 +16,7 @@
 
 import { useEffect, useMemo, useRef, useState, type JSX } from "react";
 import { Link as RouterLink, Navigate, useNavigate, useParams, useSearchParams } from "react-router";
-import { Alert, Box, Button, Chip, CircularProgress, Link, Stack, Tab, Tabs, Typography } from "@wso2/oxygen-ui";
+import { Alert, alpha, Box, Button, Chip, CircularProgress, Divider, Link, Paper, Stack, Tab, Tabs, Typography, type Theme } from "@wso2/oxygen-ui";
 import DeleteDraftDialog from "@features/sales/cado2/quotes/components/detail/DeleteDraftDialog";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
@@ -43,12 +43,20 @@ import QuoteApprovals from "@features/sales/cado2/approvals/components/QuoteAppr
 import {
   useApprovalWorkflow,
   useDecideStep,
+  useMarkNote,
+  useReview,
   useStoredApprovalPreview,
 } from "@features/sales/cado2/approvals/api/useApprovalApi";
-import type { ApprovalOutcome, ApprovalStep } from "@features/sales/cado2/approvals/api/approvalTypes";
+import type { ApprovalOutcome, ApprovalStep, LensRole } from "@features/sales/cado2/approvals/api/approvalTypes";
 import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/sales/cado2/approvals/model/myApprovals";
+import ReviewNotes from "@features/sales/cado2/approvals/components/ReviewNotes";
+import DecisionCard from "@features/sales/cado2/approvals/components/DecisionCard";
+import YoursToWrite from "@features/sales/cado2/approvals/components/YoursToWrite";
+import OnBehalfPanel from "@features/sales/cado2/approvals/components/OnBehalfPanel";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import LegalTermsEditor from "@features/sales/cado2/approvals/components/LegalTermsEditor";
+import SpecialTermsEditor from "@features/sales/cado2/approvals/components/SpecialTermsEditor";
+import ActingAsChip from "@features/sales/cado2/quotes/components/detail/ActingAsChip";
 import { legalApproveBlock } from "@features/sales/cado2/quotes/form/legalModel";
 import YourApprovalPanel, { YOUR_APPROVAL_ANCHOR } from "@features/sales/cado2/approvals/components/YourApprovalPanel";
 import {
@@ -81,6 +89,29 @@ const TAB_SEGMENTS: readonly Cado2QuoteTab[] = ["quote", "approvals", "versions"
 const APPROVALS_TAB = 1;
 
 /**
+ * Under a lens (D129), what a note points at is marked quietly: a thin line
+ * at its left edge, red to look at, green once fine; the selected note's
+ * place gets a light background.
+ */
+const noteTint = (theme: Theme) => {
+  const { error, success, text } = theme.palette;
+  const line = (c: string) => `inset 2px 0 0 ${alpha(c, 0.75)}`;
+  return {
+    "& [data-note-state]": { cursor: "pointer", transition: "background-color .15s" },
+    "& [data-note-state]:not(tr)": { borderRadius: 0.5, ml: -1.25, pl: 1.25 },
+    "& [data-note-state='open']:not(tr)": { boxShadow: line(error.main) },
+    "& [data-note-state='fine']:not(tr)": { boxShadow: line(success.main) },
+    "& tr[data-note-state='open'] > td:first-of-type": { boxShadow: line(error.main) },
+    "& tr[data-note-state='fine'] > td:first-of-type": { boxShadow: line(success.main) },
+    "& [data-note-active='true']:not(tr), & tr[data-note-active='true'] > td": { bgcolor: alpha(text.primary, 0.05) },
+  };
+};
+
+/** Takes the reader to a place in the quote sheet, e.g. the special terms. */
+const scrollToTarget = (target: string) =>
+  document.querySelector(`[data-note-target~="${target}"]`)?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+
+/**
  * The quote page: the latest
  * version as a complete read-only quote, every version with Compare, and the
  * History. The owner's lifecycle buttons follow the backend's `actions`
@@ -93,6 +124,8 @@ export default function QuoteDetailPage(): JSX.Element {
   // Opened from My Approvals (?from=approvals): the back link returns there.
   const [search] = useSearchParams();
   const fromApprovals = search.get("from") === "approvals";
+  // Opened from the Deal Desk board (?from=desk): the back link returns there (D130).
+  const fromDesk = search.get("from") === "desk";
   // Opened from the Quote Report (?from=insights&back=…): the back link returns
   // to the report with its filters. Only an Insights address is accepted.
   const insightsBack = search.get("from") === "insights" ? search.get("back") : null;
@@ -117,13 +150,24 @@ export default function QuoteDetailPage(): JSX.Element {
   const close = useCloseQuote();
   const events = useAuditEvents(quoteId);
   const sheet = useMemo(() => (shown.data ? sheetFromVersion(shown.data) : null), [shown.data]);
-  const [dialog, setDialog] = useState<Dialog>(null);
+  const [dialogState, setDialogState] = useState<Dialog>(null);
+  // Opened from the board with ?do=recall|revise: that confirmation opens once (D130).
+  const [linkUsed, setLinkUsed] = useState(false);
+  const setDialog = (d: Dialog) => {
+    setLinkUsed(true);
+    setDialogState(d);
+  };
   const [decision, setDecision] = useState<Decision>(null);
   const shownStatus = shown.data?.version.status ?? null;
   const isDraft = shownStatus === "DRAFT";
   const workflow = useApprovalWorkflow(quoteId, shownNumber, shownStatus !== null && !isDraft);
   const approvalPreview = useStoredApprovalPreview(quoteId, shownNumber, isDraft);
   const decide = useDecideStep();
+  // D129: Deal Desk and Legal see the quote through their lens, with notes.
+  const review = useReview(quoteId, shownNumber, shownStatus !== null && !isDraft);
+  const markNote = useMarkNote(quoteId, shownNumber ?? 0);
+  const [rolePick, setRolePick] = useState<{ version: number | null; role: string } | null>(null);
+  const [sheetEl, setSheetEl] = useState<HTMLElement | null>(null);
   const me = useCado2Me();
   // After a decision: what was recorded, as a toast (2026-10-13).
   const notify = useCado2Toast();
@@ -168,12 +212,82 @@ export default function QuoteDetailPage(): JSX.Element {
   // The number once submitted; before that, the customer and deal.
   const name = quoteLabel(q.quoteNumber, v.accountName, v.opportunityName);
   const can = (a: "RECALL" | "REVISE" | "CLOSE") => q.actions.includes(a);
+  const askedAction = search.get("do");
+  const linkDialog: Dialog =
+    linkUsed || viewingOlder ? null : askedAction === "recall" && can("RECALL") ? "recall" : askedAction === "revise" && can("REVISE") ? "revise" : null;
+  const dialog = dialogState ?? linkDialog;
   const counts = [null, null, q.versions.length, events.data ? events.data.length : null];
   // Steps the caller may decide now; usually one.
   const actionable = (workflow.data?.steps ?? []).filter((s) => s.canAct);
+  // D86, D128: billing says See Special Terms, which Deal Desk writes before approving.
+  const billingSeesSpecialTerms = v.billingFrequency === "SPECIAL_TERMS";
   const approverRoles = me.data?.approverRoles ?? [];
-  // Something to decide: the "Your decision" band shows.
-  const hasDecision = actionable.length > 0;
+  // D129: the caller's approval roles on this quote, each with its notes.
+  // Several roles: tabs, opening on the one whose turn it is; the choice
+  // holds for the version shown.
+  const lenses = review.data?.lenses ?? [];
+  const lensRoles: string[] = lenses.map((l) => l.role);
+  const pickedRole = rolePick && rolePick.version === shownNumber ? rolePick.role : null;
+  const lens = lenses.find((l) => l.role === pickedRole) ?? lenses.find((l) => l.canMark) ?? lenses[0] ?? null;
+  const steps = workflow.data?.steps ?? [];
+  const pendingFor = (role: string) =>
+    steps.find((s) => s.role === role && s.status === "PENDING" && (s.canAct || Boolean(s.cantActReason))) ?? null;
+  // The decision bar: the lens role's pending step, or under As Submitted the first lens role's.
+  // The card at the top of the column: the decision when it's the reviewer's
+  // turn, else how their role's approval stands.
+  const barStep = lens ? (pendingFor(lens.role) ?? steps.find((s) => s.role === lens.role) ?? null) : null;
+  const canWrite = (role: LensRole) => steps.some((s) => s.role === role && s.canAct);
+  const deskBlock = billingSeesSpecialTerms && !v.specialTerms.enabled ? "Billing says See Special Terms: write the special terms first" : "";
+  const barBlock = barStep?.role === "DEAL_DESK" ? deskBlock : barStep?.role === "LEGAL" ? legalApproveBlock(v.legal) : "";
+  const goToBlock = () => {
+    if (!barStep) return;
+    setRolePick({ version: shownNumber, role: barStep.role });
+    setTimeout(() => scrollToTarget(barStep.role === "DEAL_DESK" ? "specialTerms" : "governingTerms"), 50);
+  };
+  // What the lens role writes, in its place in the quote.
+  // Keyed by version, not by updatedAt: a save mustn't reset the editor and hide its "Saved".
+  const writing =
+    lens?.role === "DEAL_DESK" && canWrite("DEAL_DESK")
+      ? {
+          special: (
+            <YoursToWrite
+              title="Special terms"
+              intro="Only Deal Desk writes the special terms, here on this version (no new version). Legal reviews them after you approve."
+            >
+              <SpecialTermsEditor
+                key={`${q.id}-${v.versionNumber}`}
+                quoteId={q.id}
+                versionNumber={v.versionNumber}
+                enabled={v.specialTerms.enabled}
+                text={v.specialTerms.text}
+                billingSeesSpecialTerms={billingSeesSpecialTerms}
+                minHeight={260}
+              />
+            </YoursToWrite>
+          ),
+        }
+      : lens?.role === "LEGAL" && canWrite("LEGAL") && v.legal
+        ? {
+            governing: v.legal.sections.blocks.some((b) => b.nonStandard) ? (
+              <YoursToWrite title="Governing terms" intro="The AM marked these non-standard: write them as they should print. Approve waits for them.">
+                <LegalTermsEditor key={`${q.id}-${v.versionNumber}`} quoteId={q.id} versionNumber={v.versionNumber} legal={v.legal} minHeight={220} part="governing" />
+              </YoursToWrite>
+            ) : undefined,
+            special:
+              v.legal.specialTerms !== null ? (
+                <YoursToWrite
+                  title="Special terms"
+                  label="To review"
+                  intro="Written by Deal Desk. Review them, and change the wording only if it needs it; your wording replaces theirs on the order form."
+                >
+                  <LegalTermsEditor key={`${q.id}-${v.versionNumber}`} quoteId={q.id} versionNumber={v.versionNumber} legal={v.legal} minHeight={220} part="special" />
+                </YoursToWrite>
+              ) : undefined,
+          }
+        : undefined;
+  // Something else to decide (a role without a lens): the "Your decision" band shows.
+  const panelSteps = actionable.filter((s) => !lensRoles.includes(s.role));
+  const hasDecision = panelSteps.length > 0;
   // Any AM who can read the quote may clone the version shown (D108).
   const cloneAction = cado2Access(me.data).canQuote
     ? [{ label: "Clone quote", icon: <CopyIcon size={16} />, onClick: () => openDialog("clone") }]
@@ -193,6 +307,17 @@ export default function QuoteDetailPage(): JSX.Element {
     decide.reset();
     setDecision({ outcome, step });
   };
+  // D129: the lens role's decision, at the top of the column beside the quote.
+  const decisionCard =
+    barStep && !viewingOlder ? (
+      <DecisionCard
+        step={barStep}
+        steps={steps}
+        block={barBlock}
+        onGoToBlock={goToBlock}
+        onDecide={openDecision}
+      />
+    ) : null;
 
   // The page's one main button: the approver's task, else the AM's next step.
   // In approval and approved have none; their actions are in the menu.
@@ -228,11 +353,11 @@ export default function QuoteDetailPage(): JSX.Element {
       <Stack spacing={1.5}>
         <Link
           component={RouterLink}
-          to={backToReport ?? (fromApprovals ? cado2Paths.approvals : cado2Paths.quotes)}
+          to={backToReport ?? (fromApprovals ? cado2Paths.approvals : fromDesk ? cado2Paths.desk : cado2Paths.quotes)}
           variant="body2"
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, alignSelf: "flex-start" }}
         >
-          <ArrowLeftIcon size={14} /> {backToReport ? "Quote Report" : fromApprovals ? "My Approvals" : "Quotes"}
+          <ArrowLeftIcon size={14} /> {backToReport ? "Quote Report" : fromApprovals ? "My Approvals" : fromDesk ? "Deal Desk" : "Quotes"}
         </Link>
         {/* The record header (frontend.md, "Page titles"): the account is the
             page's title on every tab, with everything about who and what the
@@ -247,6 +372,7 @@ export default function QuoteDetailPage(): JSX.Element {
                   {/* The version shown: the latest, or an older one in view mode. */}
                   <StatusChip color={STATUS_COLOR[v.status]} label={STATUS_LABEL[v.status]} />
                   {q.isPrimary ? <Chip size="small" variant="outlined" icon={<PrimaryStar label="" />} label="Primary" /> : null}
+                  <ActingAsChip quote={q} />
                 </Stack>
               ),
               actions: (
@@ -318,22 +444,43 @@ export default function QuoteDetailPage(): JSX.Element {
                 </Typography>
                 <YourApprovalPanel
                   steps={workflow.data?.steps ?? []}
-                  actionable={actionable}
+                  actionable={panelSteps}
                   repCategories={[...repCategoryPoints(sheet.lines), ...renewalStartPoints(sheet)]}
                   onDecide={openDecision}
                   legalEditor={v.legal ? <LegalTermsEditor key={v.updatedAt} quoteId={q.id} versionNumber={v.versionNumber} legal={v.legal} /> : undefined}
                   legalApproveBlock={legalApproveBlock(v.legal)}
+                  deskEditor={
+                    <SpecialTermsEditor
+                      key={v.updatedAt}
+                      quoteId={q.id}
+                      versionNumber={v.versionNumber}
+                      enabled={v.specialTerms.enabled}
+                      text={v.specialTerms.text}
+                      billingSeesSpecialTerms={billingSeesSpecialTerms}
+                    />
+                  }
+                  deskApproveBlock={billingSeesSpecialTerms && !v.specialTerms.enabled ? "Describe the billing in the special terms" : ""}
+                  previousReturn={workflow.data?.previousReturn}
                 />
               </Box>
             ) : null}
+            {lens && workflow.data?.previousReturn ? (
+              <Alert severity="info">
+                Why version {workflow.data.previousReturn.versionNumber} came back: returned by {workflow.data.previousReturn.roleLabel}
+                {workflow.data.previousReturn.byEmail ? ` (${workflow.data.previousReturn.byEmail})` : ""}
+                {workflow.data.previousReturn.comment ? `: “${workflow.data.previousReturn.comment}”` : ""}
+              </Alert>
+            ) : null}
             <Box
-              sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0,1fr)", lg: "minmax(0,1fr) 320px" }, gap: 3, alignItems: "start" }}
+              sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0,1fr)", lg: "minmax(0,1fr) 340px" }, gap: 3, alignItems: "start" }}
             >
-              <Box component="section" aria-label="The deal" sx={{ minWidth: 0 }}>
-                <QuoteSheet sheet={sheet} />
+              <Box component="section" aria-label="The deal" ref={setSheetEl} sx={(theme) => ({ minWidth: 0, ...(lens ? noteTint(theme) : {}) })}>
+                <QuoteSheet sheet={sheet} writing={writing} />
               </Box>
               {/* The side column is pinned as one, so no part of it slides under
-                  another; taller than the screen, it scrolls on its own (2026-10-13). */}
+                  another; taller than the screen, it scrolls on its own (2026-10-13).
+                  An approver's part comes first: their roles (tabs, only with
+                  several), the decision, the approval notes (D129). */}
               <Stack
                 spacing={3}
                 sx={{
@@ -343,21 +490,88 @@ export default function QuoteDetailPage(): JSX.Element {
                   overflowY: { lg: "auto" },
                 }}
               >
-                <StatusPanel
-                  latest={shown.data}
-                  events={events.data ?? []}
-                  eventsError={events.error}
-                  onRetryEvents={() => void events.refetch()}
-                  documents={
-                    <DocumentsPanel
-                      quoteId={q.id}
-                      version={v.versionNumber}
-                      approved={v.status === "APPROVED"}
-                      olderVersion={viewingOlder}
+                {lens ? (
+                  // The approver's part as one card: their roles (tabs, only with several),
+                  // the decision or how it stands, then the approval notes.
+                  // flexShrink 0: in the height-capped column, a clipping card may otherwise be squeezed to nothing.
+                  // "Your approval" from another tab jumps here, to the card's top, so the role tabs stay in view.
+                  <Paper
+                    id={hasDecision ? undefined : YOUR_APPROVAL_ANCHOR}
+                    variant="outlined"
+                    component="section"
+                    aria-label="Approval"
+                    sx={{ borderRadius: 2, overflow: "hidden", flexShrink: 0, scrollMarginTop: 16 }}
+                  >
+                    {lenses.length > 1 ? (
+                      <Tabs
+                        value={lens.role}
+                        onChange={(_, role: string) => setRolePick({ version: shownNumber, role })}
+                        // Scrollable: several roles may not fit the column; arrows show when they don't.
+                        variant="scrollable"
+                        scrollButtons="auto"
+                        allowScrollButtonsMobile
+                        aria-label="Your roles on this quote"
+                        sx={{ minHeight: 40, borderBottom: 1, borderColor: "divider", "& .MuiTab-root": { minHeight: 40, minWidth: 0, px: 1.5, textTransform: "none", fontWeight: 600 } }}
+                      >
+                        {lenses.map((l) => (
+                          <Tab
+                            key={l.role}
+                            value={l.role}
+                            label={
+                              <Stack direction="row" spacing={0.75} alignItems="center">
+                                <span>{l.roleLabel}</span>
+                                {pendingFor(l.role)?.canAct ? (
+                                  <Box component="span" title="Your turn" sx={{ width: 7, height: 7, borderRadius: "50%", bgcolor: "primary.main" }} />
+                                ) : null}
+                              </Stack>
+                            }
+                          />
+                        ))}
+                      </Tabs>
+                    ) : null}
+                    {decisionCard}
+                    {decisionCard ? <Divider /> : null}
+                    <ReviewNotes
+                      lens={lens}
+                      sheet={sheetEl}
+                      pending={markNote.isPending}
+                      onMark={(key, fine) => markNote.mutate({ role: lens.role, key, fine })}
+                      empty={
+                        lens.role === "DEAL_DESK"
+                          ? "Standard quote. No approval rules apply, so your approval is the only one needed."
+                          : "No notes from the approval rules on this quote."
+                      }
                     />
-                  }
-                />
-                <OpportunityQuotesPanel quoteId={q.id} opportunityId={q.sfOpportunityId} />
+                    {/* Deal Desk may step in for an away approver (D120), here as on the Approvals tab. */}
+                    {lens.role === "DEAL_DESK" && !viewingOlder && steps.some((s) => s.canApproveOnBehalf) ? (
+                      <>
+                        <Divider />
+                        <OnBehalfPanel embedded quoteId={q.id} versionNumber={v.versionNumber} steps={steps} />
+                      </>
+                    ) : null}
+                  </Paper>
+                ) : null}
+                {/* The timeline, the order form and the opportunity's quotes are for who works on
+                    quotes (Sales, Deal Desk); a pure approver has the approval card above. */}
+                {cado2Access(me.data).canWorkOnQuotes ? (
+                  <>
+                  <StatusPanel
+                    latest={shown.data}
+                    events={events.data ?? []}
+                    eventsError={events.error}
+                    onRetryEvents={() => void events.refetch()}
+                    documents={
+                      <DocumentsPanel
+                        quoteId={q.id}
+                        version={v.versionNumber}
+                        approved={v.status === "APPROVED"}
+                        olderVersion={viewingOlder}
+                      />
+                    }
+                  />
+                    <OpportunityQuotesPanel quoteId={q.id} opportunityId={q.sfOpportunityId} />
+                  </>
+                ) : null}
               </Stack>
             </Box>
           </Stack>

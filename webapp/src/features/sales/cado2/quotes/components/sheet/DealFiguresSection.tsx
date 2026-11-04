@@ -30,16 +30,24 @@ function Figure({
   label,
   value,
   children,
+  noteTarget,
 }: {
   icon: ReactNode;
   tone: Tone;
   label: string;
+  /** A lens note may point at it (D129). */
+  noteTarget?: string;
   /** The figure; null when the workings below say it all (ARR over several years). */
   value: string | null;
   children: ReactNode;
 }): JSX.Element {
   return (
-    <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, display: "flex", gap: 1.5, alignItems: "flex-start" }} aria-label={label}>
+    <Paper
+      variant="outlined"
+      sx={{ p: 2, borderRadius: 2, display: "flex", gap: 1.5, alignItems: "flex-start" }}
+      aria-label={label}
+      data-note-target={noteTarget}
+    >
       <Box
         aria-hidden
         sx={{ width: 40, height: 40, flexShrink: 0, borderRadius: 1.5, display: "grid", placeItems: "center", color: `${tone}.main`, bgcolor: "action.selected" }}
@@ -89,6 +97,7 @@ export default function DealFiguresSection({
             {/* ARR per year, every year alike, as a mini table
                 (2026-10-23). One year: the figure itself. */}
             <Figure
+              noteTarget="arr"
               icon={<RepeatIcon size={20} />}
               tone="secondary"
               label="ARR · annual recurring revenue"

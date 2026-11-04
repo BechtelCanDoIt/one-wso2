@@ -55,10 +55,20 @@ import {
   useProductList,
 } from "@features/sales/cado2/components/product-list/productList";
 import { ProductListPaper, ProductOption } from "@features/sales/cado2/components/product-list/ProductListParts";
+import BundlePicks from "./BundlePicks";
+import {
+  asksTheAm,
+  missingChoices,
+  NO_PICKS,
+  pickedChildren,
+  picksFrom,
+  type BundlePicksValue,
+} from "@features/sales/cado2/quotes/form/bundlePicks";
 import {
   formatDate,
   LINE_CATEGORIES,
   lineDatesProblem,
+  childQuantity,
   newLineKey,
   parseDateString,
   salesPriceProblem,
@@ -208,8 +218,14 @@ interface AddLineDialogProps {
   readonly year: ContractYear | null;
   /** Editing a bundle child: its parent's name; it keeps the parent's dates. */
   readonly parentName?: string | null;
-  /** The line, and for a new bundle parent the children that come with it. */
-  readonly onSave: (line: LineValue, children: LineValue[]) => void;
+  /** Editing a bundle parent: its child lines now, whose picks it shows (D131). */
+  readonly currentChildren?: readonly LineValue[];
+  /**
+   * The line, and the children that come with it: for a new bundle parent,
+   * or an edited one whose picks the AM may change (D131); null = its
+   * children unchanged.
+   */
+  readonly onSave: (line: LineValue, children: LineValue[] | null) => void;
   readonly onClose: () => void;
 }
 
@@ -232,6 +248,7 @@ export default function AddLineDialog({
   pricebook,
   year,
   parentName = null,
+  currentChildren = [],
   onSave,
   onClose,
 }: AddLineDialogProps): JSX.Element {
@@ -258,13 +275,27 @@ export default function AddLineDialog({
   const [startDate, setStartDate] = useState(line?.startDate || year?.start || "");
   const [endDate, setEndDate] = useState(line?.endDate || year?.end || "");
   const formulas = usePricingFormulas();
-  // A new product's bundle: what comes with it from this price book.
-  const bundle = useBundleChildren(!line && product ? product.id : null, currency, pricebook.id);
+  const isChild = Boolean(line?.parentKey);
+  // A new product's bundle, or an edited parent's (its picks, D131): what
+  // comes with it from this price book.
+  const bundle = useBundleChildren(!line ? (product?.id ?? null) : isChild ? null : (line.productId ?? null), currency, pricebook.id);
   const bundled = bundle.data?.children ?? [];
   // A product whose bundle couldn't be read isn't added alone: its children
   // must come with it, and can't be added as children later.
   const bundleFailed = !line && Boolean(product) && Boolean(bundle.error);
-  const isChild = Boolean(line?.parentKey);
+  // D131: a bundle with choices or optional products asks the AM; the picks
+  // start empty for a new product, from the child lines for an edited parent.
+  const asks = asksTheAm(bundled);
+  const [pickState, setPickState] = useState<{ productId: string; value: BundlePicksValue } | null>(null);
+  const pickedFor = line ? (line.productId ?? "") : (product?.id ?? "");
+  const picks =
+    pickState && pickState.productId === pickedFor
+      ? pickState.value
+      : line
+        ? picksFrom(bundled, currentChildren.map((c) => c.productId ?? ""))
+        : NO_PICKS;
+  const stillToPick = asks ? missingChoices(bundled, picks) : [];
+  const comesCount = (asks ? pickedChildren(bundled, picks) : bundled).length;
 
   // A product carries one price: the quote's book's.
   const entry = product?.pricebookEntries[0];
@@ -357,7 +388,7 @@ export default function AddLineDialog({
 
   const save = () => {
     setTried(true);
-    if (Object.keys(problems).length > 0 || (!isChild && datesProblem) || salesProblem) return;
+    if (Object.keys(problems).length > 0 || (!isChild && datesProblem) || salesProblem || stillToPick.length > 0) return;
     const base: LineValue = keepsExisting
       ? { ...line }
       : {
@@ -383,6 +414,7 @@ export default function AddLineDialog({
           salesPrice: "",
           key: newLineKey(),
           parentKey: "",
+          bundleFixedQuantity: null,
         };
     const saved: LineValue = {
       ...base,
@@ -397,12 +429,29 @@ export default function AddLineDialog({
       startDate: year && startDate !== year.start ? startDate : "",
       endDate: year && recurring && endDate !== year.end ? endDate : "",
     };
-    // Its bundle comes with it: same year and dates, its quantity to start
-    // with, no discount, priced from the same book.
-    const children: LineValue[] = line
-      ? []
-      : bundled.flatMap((p) => {
+    // Its bundle comes with it: same year and dates, the quantity its rule
+    // says (D125: fixed, or the parent's), no discount, priced from the same
+    // book; with choices, only what the AM picked (D131). An edited parent's
+    // children it keeps stay as they were (discount, sales price).
+    const comes = asks ? pickedChildren(bundled, picks) : bundled;
+    const children: LineValue[] | null =
+      line && !(asks && !isChild)
+        ? null
+        : comes.flatMap((p) => {
           const e = p.pricebookEntries[0];
+          const kept = currentChildren.find((c) => c.productId === p.id);
+          if (kept) {
+            return [
+              {
+                ...kept,
+                yearNumber: saved.yearNumber,
+                startDate: saved.startDate,
+                endDate: kept.recurring ? saved.endDate : "",
+                quantity: childQuantity(saved.quantity, p.fixedQuantity),
+                bundleFixedQuantity: p.fixedQuantity,
+              },
+            ];
+          }
           if (!e) return [];
           return [
             {
@@ -420,7 +469,7 @@ export default function AddLineDialog({
               recurring: p.recurring,
               classification: p.classification ?? "",
               unitOfMeasure: "",
-              quantity: saved.quantity,
+              quantity: childQuantity(saved.quantity, p.fixedQuantity),
               discount: "0",
               yearNumber: saved.yearNumber,
               startDate: saved.startDate,
@@ -428,6 +477,7 @@ export default function AddLineDialog({
               salesPrice: "",
               key: newLineKey(),
               parentKey: saved.key,
+              bundleFixedQuantity: p.fixedQuantity,
             } satisfies LineValue,
           ];
         });
@@ -531,10 +581,19 @@ export default function AddLineDialog({
                 />
               </ProductListContext.Provider>
             )}
-            {bundled.length ? (
+            {asks ? (
+            <BundlePicks
+              items={bundled}
+              value={picks}
+              onChange={(value) => setPickState({ productId: pickedFor, value })}
+              parentQuantity={quantity}
+              showMissing={tried}
+            />
+          ) : !line && bundled.length ? (
             <Alert severity="info" variant="outlined" aria-label="Bundle">
-              Comes with {bundled.map((p) => p.name ?? p.id).join(", ")}. {bundled.length === 1 ? "It is" : "They are"} added with it, in
-              the same year and dates, and can only be removed with it.
+              Comes with{" "}
+              {bundled.map((p) => `${p.name ?? p.id} (${p.fixedQuantity === null ? "same quantity" : `always ${p.fixedQuantity}`})`).join(", ")}.{" "}
+              {bundled.length === 1 ? "It is" : "They are"} added with it, in the same year and dates, and can only be removed with it.
             </Alert>
           ) : null}
           {bundleFailed ? (
@@ -611,15 +670,23 @@ export default function AddLineDialog({
               slotProps={{ input: { startAdornment: <InputAdornment position="start">{currency}</InputAdornment> } }}
             />
             <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+              {/* D125: a bundle child's quantity comes from the bundle, not the AM. */}
               <TextField
                 label="Quantity"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 size="small"
-                required
+                required={!isChild}
+                disabled={isChild}
                 inputMode="numeric"
-                error={Boolean(show("quantity"))}
-                helperText={show("quantity") ?? "Whole units only"}
+                error={!isChild && Boolean(show("quantity"))}
+                helperText={
+                  isChild
+                    ? line?.bundleFixedQuantity != null
+                      ? `Set by the bundle: always ${line.bundleFixedQuantity}`
+                      : `Set by the bundle: the same as ${parentName ?? "its parent"}`
+                    : (show("quantity") ?? "Whole units only")
+                }
               />
               <TextField
                 label="Discount"
@@ -670,9 +737,19 @@ export default function AddLineDialog({
         </Stack>
       </DialogContent>
       <DialogActions>
+        {stillToPick.length ? (
+          <Typography variant="body2" sx={{ mr: "auto", pl: 1, color: "warning.dark" }}>
+            To {line ? "save" : "add"}: pick {stillToPick.map((n) => n.toLowerCase()).join(" and ")}
+          </Typography>
+        ) : null}
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" onClick={save} disabled={(!line && Boolean(product) && bundle.isFetching) || bundleFailed}>
-          {line ? "Save product" : bundled.length ? `Add ${bundled.length + 1} products` : "Add product"}
+        <Button
+          variant="contained"
+          onClick={save}
+          disabled={(Boolean(product ?? line) && bundle.isFetching && !isChild) || bundleFailed || stillToPick.length > 0}
+        >
+          {/* With choices, what the picks bring (D131). */}
+          {line ? "Save product" : comesCount ? `Add ${comesCount + 1} products` : "Add product"}
         </Button>
       </DialogActions>
     </Dialog>

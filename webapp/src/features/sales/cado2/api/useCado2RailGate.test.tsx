@@ -45,7 +45,7 @@ const me = (roles: Cado2Me["roles"], approverRoles: string[] = [], canViewInsigh
 });
 
 const visible = (gate: ReturnType<typeof useCado2RailGate>) =>
-  [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals, CADO2_ITEM.insights, CADO2_ITEM.admin].filter((id) =>
+  [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.desk, CADO2_ITEM.approvals, CADO2_ITEM.insights, CADO2_ITEM.admin].filter((id) =>
     gate.canSee(id),
   );
 
@@ -62,15 +62,21 @@ describe("which CadO2 rows a person sees", () => {
   });
 
   it("an approver who doesn't quote sees My Approvals only", () => {
-    state.me.data = me([], ["DEAL_DESK"]);
+    state.me.data = me([], ["CFO"]);
     const { result } = renderHook(() => useCado2RailGate(true));
     expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.approvals]);
+  });
+
+  it("Deal Desk sees the Quotes page too, as it may change any quote (D127), and its board (D130)", () => {
+    state.me.data = me([], ["DEAL_DESK"]);
+    const { result } = renderHook(() => useCado2RailGate(true));
+    expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.desk, CADO2_ITEM.approvals]);
   });
 
   it("Deal Desk and above see Insights when the backend says so (D105)", () => {
     state.me.data = me([], ["DEAL_DESK"], true);
     const { result } = renderHook(() => useCado2RailGate(true));
-    expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.approvals, CADO2_ITEM.insights]);
+    expect(visible(result.current)).toEqual([CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.desk, CADO2_ITEM.approvals, CADO2_ITEM.insights]);
   });
 
   it("an admin-only person sees Admin, and nothing else", () => {
@@ -115,12 +121,12 @@ describe("which CadO2 rows a person sees", () => {
   it("with no backend configured every row stays, and each page explains what is missing", () => {
     state.configured = false;
     const { result } = renderHook(() => useCado2RailGate(true));
-    expect(visible(result.current)).toHaveLength(5);
+    expect(visible(result.current)).toHaveLength(6);
     expect(result.current.isResolving).toBe(false);
   });
 
   it("fails closed for an id it has no case for", () => {
-    expect(cado2CanSee("sales-cado2-something-new", { canQuote: true, canApprove: true, isAdmin: true, canViewInsights: true })).toBe(false);
+    expect(cado2CanSee("sales-cado2-something-new", { canQuote: true, canWorkOnQuotes: true, isDealDesk: true, canApprove: true, isAdmin: true, canViewInsights: true })).toBe(false);
   });
 });
 
@@ -128,7 +134,7 @@ describe("the cado2 adapter's claim", () => {
   it("covers every CadO2 row, the group included", () => {
     expect(claimOf("cado2")).toEqual({ kind: "sections", ids: CADO2_ITEM_IDS });
     expect([...CADO2_ITEM_IDS].sort()).toEqual(
-      [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.approvals, CADO2_ITEM.insights, CADO2_ITEM.admin].sort(),
+      [CADO2_GROUP_ID, CADO2_ITEM.quotes, CADO2_ITEM.desk, CADO2_ITEM.approvals, CADO2_ITEM.insights, CADO2_ITEM.admin].sort(),
     );
   });
 

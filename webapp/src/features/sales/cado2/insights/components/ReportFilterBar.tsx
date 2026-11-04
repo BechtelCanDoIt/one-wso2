@@ -52,7 +52,15 @@ const APPROVER_ROLES = [
 
 
 /** The search box: applies once typing pauses, so each key isn't a request. */
-function SearchBox({ value, onCommit }: { readonly value: string; readonly onCommit: (v: string) => void }): JSX.Element {
+export function SearchBox({
+  value,
+  onCommit,
+  placeholder = "Quote, account, opportunity, partner or product",
+}: {
+  readonly value: string;
+  readonly onCommit: (v: string) => void;
+  readonly placeholder?: string;
+}): JSX.Element {
   const [draft, setDraft] = useState(value);
   // A change from outside (Clear all, the URL) replaces what's typed.
   const [seen, setSeen] = useState(value);
@@ -69,7 +77,7 @@ function SearchBox({ value, onCommit }: { readonly value: string; readonly onCom
     <TextField
       size="small"
       label="Search"
-      placeholder="Quote, account, opportunity, partner or product"
+      placeholder={placeholder}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       slotProps={{
@@ -82,7 +90,7 @@ function SearchBox({ value, onCommit }: { readonly value: string; readonly onCom
 }
 
 /** A labelled dropdown of fixed choices. */
-function Choice<T extends string>({
+export function Choice<T extends string>({
   label: text,
   value,
   options,
@@ -115,7 +123,7 @@ function Choice<T extends string>({
 }
 
 /** A short exclusive choice, e.g. All / Direct / Partner. */
-function Segmented<T extends string>({
+export function Segmented<T extends string>({
   label: text,
   value,
   options,
@@ -157,7 +165,7 @@ function Segmented<T extends string>({
   );
 }
 
-function Group({ title, children, hint }: { readonly title: string; readonly children: ReactNode; readonly hint?: string }): JSX.Element {
+export function Group({ title, children, hint }: { readonly title: string; readonly children: ReactNode; readonly hint?: string }): JSX.Element {
   return (
     <Stack spacing={1.5} sx={{ minWidth: 0 }}>
       <Typography variant="caption" sx={{ fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "text.disabled" }}>

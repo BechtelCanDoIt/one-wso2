@@ -152,6 +152,7 @@ function filled(): DraftFormValues {
         salesPrice: "",
         key: `k-${Math.random()}`,
         parentKey: "",
+        bundleFixedQuantity: null,
       },
       {
         lineId: null,
@@ -175,6 +176,7 @@ function filled(): DraftFormValues {
         salesPrice: "",
         key: `k-${Math.random()}`,
         parentKey: "",
+        bundleFixedQuantity: null,
       },
     ],
   };
@@ -240,7 +242,7 @@ describe("toDraftInput", () => {
     });
     expect(input.shipTo).toBeUndefined();
     expect(input.shipToSameAsBillTo).toBe(true);
-    expect(input.specialTerms).toEqual({ enabled: false, text: undefined });
+    expect(input).not.toHaveProperty("specialTerms"); // Deal Desk's (D128)
   });
 
   it("sends the years, a shortened last year, and each line's own dates", () => {

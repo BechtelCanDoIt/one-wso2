@@ -36,7 +36,9 @@ export interface Cado2RailGate {
 export function cado2CanSee(itemId: string, access: Cado2Access): boolean {
   switch (itemId) {
     case CADO2_ITEM.quotes:
-      return access.canQuote;
+      return access.canWorkOnQuotes;
+    case CADO2_ITEM.desk:
+      return access.isDealDesk;
     case CADO2_ITEM.approvals:
       return access.canApprove;
     case CADO2_ITEM.insights:
@@ -44,7 +46,7 @@ export function cado2CanSee(itemId: string, access: Cado2Access): boolean {
     case CADO2_ITEM.admin:
       return access.isAdmin;
     case CADO2_GROUP_ID:
-      return access.canQuote || access.canApprove || access.isAdmin || access.canViewInsights;
+      return access.canWorkOnQuotes || access.canApprove || access.isAdmin || access.canViewInsights;
     default:
       // Fail closed: a CadO2 id with no case here is hidden from everyone.
       return false;

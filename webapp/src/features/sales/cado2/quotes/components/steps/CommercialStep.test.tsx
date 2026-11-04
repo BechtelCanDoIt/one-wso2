@@ -25,7 +25,7 @@ import {
 import CommercialStep from "./CommercialStep";
 
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
-  useAccountContacts: () => ({
+  useOpportunityContacts: () => ({
     data: [],
     isPending: false,
     isFetching: false,
@@ -55,6 +55,7 @@ const line = (discount: string): LineValue => ({
   salesPrice: "",
   key: `k-${Math.random()}`,
   parentKey: "",
+  bundleFixedQuantity: null,
 });
 
 function Harness({ lines, values = {} }: { lines: LineValue[]; values?: Partial<DraftFormValues> }) {

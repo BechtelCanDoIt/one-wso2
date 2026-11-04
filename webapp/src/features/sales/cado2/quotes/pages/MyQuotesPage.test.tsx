@@ -65,6 +65,13 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useDeleteDraft: () => deleteDraft,
 }));
 
+// A rep by default; Deal Desk without the Sales role in its own test (D127).
+const me = { data: { sub: "s", email: "rep@wso2.com", roles: ["SALES"] as string[], approverRoles: [] as string[] } };
+vi.mock("@features/sales/cado2/api/useCado2Me", async (actual) => ({
+  ...(await actual<typeof import("@features/sales/cado2/api/useCado2Me")>()),
+  useCado2Me: () => me,
+}));
+
 const NOW = new Date().toISOString();
 const item = (
   id: number,
@@ -151,6 +158,7 @@ beforeEach(() => {
     isPending: false,
   });
   setPrimary.mutate = vi.fn();
+  me.data = { sub: "s", email: "rep@wso2.com", roles: ["SALES"], approverRoles: [] };
   localStorage.clear();
 });
 
@@ -367,6 +375,15 @@ describe("Quotes page", () => {
       "Q-26-00004",
       "Q-26-00005",
     ]);
+  });
+
+  it("shows Deal Desk without the Sales role every quote, with no My quotes tab and no New Quote (D127)", () => {
+    me.data = { sub: "s", email: "dd@wso2.com", roles: [], approverRoles: ["DEAL_DESK"] };
+    renderPage();
+    expect(screen.queryByRole("tab", { name: /My quotes/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /All quotes/ })).toHaveAttribute("aria-selected", "true");
+    expect(bodyRows()).toHaveLength(everyone.length);
+    expect(screen.queryByRole("link", { name: "New Quote" })).not.toBeInTheDocument();
   });
 
   it("welcomes a rep with no quotes", () => {
