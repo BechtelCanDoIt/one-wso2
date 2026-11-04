@@ -65,7 +65,7 @@ function TopThree({ board, people }: { board: TopBoard; people: PeopleByEmail })
       {leaders.length === 0 ? (
         <Typography variant="body2" color="text.secondary">
           {board.period === "MONTH"
-            ? `Nobody has reached ${(board.minPoints ?? 0).toLocaleString()} points this month yet. Amplify a post and be first on the board.`
+            ? "No points yet this month. Amplify a post and be first on the board."
             : "No points yet. Amplify a post and be first on the board."}
         </Typography>
       ) : (
@@ -143,9 +143,7 @@ export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people:
       ariaLabel="top-amplifiers"
     >
       <TopThree board={board} people={people} />
-      {board.period === "MONTH" && board.minPoints != null && (
-        <HowWinnersAreChosen minPoints={board.minPoints} topN={board.topN} />
-      )}
+      {board.period === "MONTH" && <HowWinnersAreChosen minPoints={board.minPoints} topN={board.topN} />}
       <Divider sx={{ my: 2 }} />
       <MyPosition board={board} />
     </AmplifyPanel>
