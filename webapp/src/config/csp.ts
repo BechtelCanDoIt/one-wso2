@@ -69,6 +69,12 @@ export function parseAuthOrigins(raw: string | undefined): string[] {
 // route that streams a single file's bytes, so img-src allows
 // *.blob.core.windows.net.
 //
+// Amplify shows each campaign's image on its post card, and campaigns are
+// WSO2 LinkedIn posts whose images live on LinkedIn's media CDN, so img-src
+// allows https://media.licdn.com (that host only, not *.licdn.com). Those
+// URLs are signed and expire after about a week; a card whose image fails to
+// load falls back to the default image.
+//
 // The Lead Portal's evidence-attachment picker (useGoogleDrivePicker.ts)
 // loads Google Identity Services + the Picker API at runtime, needing three
 // more origins: script-src for the two loaded scripts, connect-src for the
@@ -102,7 +108,7 @@ export function buildCsp(extraAuthOrigins: readonly string[] = []): string {
     // every page.
     "script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net",
+    "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net https://media.licdn.com",
     "font-src 'self' data: https://wso2.cachefly.net",
     `connect-src 'self' https://*.wso2.com https://*.choreoapis.dev https://*.asgardeo.io https://*.googleapis.com https://accounts.google.com${extra}`,
     "media-src 'self' https://*.choreoapis.dev https://*.wso2.com",

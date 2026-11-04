@@ -39,6 +39,14 @@ describe("buildCsp: default allowlist", () => {
     expect(directive(csp, "connect-src")).toContain("https://*.wso2.com");
     expect(directive(csp, "frame-src")).toContain("https://*.wso2.com");
   });
+
+  // Amplify post cards show the campaign image from LinkedIn's media CDN.
+  it("loads LinkedIn post images from media.licdn.com only", () => {
+    const csp = buildCsp();
+    const linkedInImageSources = directive(csp, "img-src").split(" ").filter((source) => source.includes("licdn"));
+    expect(linkedInImageSources).toEqual(["https://media.licdn.com"]);
+    expect(directive(csp, "connect-src")).not.toContain("licdn.com");
+  });
 });
 
 describe("buildCsp: extra sign-in origins", () => {
