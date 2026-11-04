@@ -22,7 +22,8 @@ import UmtPrAnalysisStep from "../pr-analysis/UmtPrAnalysisStep";
 import UmtProductAnalysisStep from "../product-analysis/UmtProductAnalysisStep";
 
 // Development shows the PR analysis alone; PRAnalyzed adds the product
-// analysis below it, once the run that got it there has finished.
+// analysis below it, once the run that got it there has finished. A failed
+// product analysis has none to show: paError says why, in the PR analysis.
 export default function UmtFilesAnalysisStep({
   id,
   update,
@@ -44,7 +45,7 @@ export default function UmtFilesAnalysisStep({
   return (
     <Stack spacing={3}>
       <UmtPrAnalysisStep id={id} update={update} onDirtyChange={setIsPrAnalysisDirty} />
-      {isFilesAnalysisProductAnalysisReady(update) && (
+      {isFilesAnalysisProductAnalysisReady(update) && !update.paError && (
         <>
           <Divider />
           <UmtProductAnalysisStep id={id} update={update} onDirtyChange={setIsProductAnalysisDirty} />

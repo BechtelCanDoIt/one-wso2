@@ -41,7 +41,6 @@ import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { UmtBundleInfoChange, UmtFileOperation, UmtPullRequestAnalysisItem, UmtUpdateSummary } from "../../../api/umtUpdates";
 import {
-  isUmtPrAnalysisFailed,
   isUmtPrAnalysisInFlight,
   isUmtPrAnalysisRunning,
   type UmtUpdateType,
@@ -207,9 +206,10 @@ export default function UmtPrAnalysisStep({
   // Spans Analyze's whole run (demote, uploads, submission).
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  // How a run this page watched ended is announced once: in PRAnalyzed, or
-  // back in Development with the reason the promotion or product analysis
-  // failed. A failed PR analysis is left to the status message.
+  // How a run this page watched ended is announced once: the reason the
+  // promotion or product analysis failed, or else in PRAnalyzed. paError comes
+  // first, as a failed demote back to Development leaves the update in
+  // PRAnalyzed with it. A failed PR analysis is left to the status message.
   const watchedRunRef = useRef(false);
   useEffect(() => {
     if (isRunning) {
@@ -218,8 +218,8 @@ export default function UmtPrAnalysisStep({
     }
     if (!watchedRunRef.current) return;
     watchedRunRef.current = false;
-    if (isPrAnalyzed) showSuccess(`Update ${id} advanced to PRAnalyzed.`);
-    else if (update.paError) showError(update.paError);
+    if (update.paError) showError(update.paError);
+    else if (isPrAnalyzed) showSuccess(`Update ${id} advanced to PRAnalyzed.`);
   }, [isRunning, isPrAnalyzed, update.paError, id, showSuccess, showError]);
 
   const [isPrDialogOpen, setIsPrDialogOpen] = useState(false);
@@ -382,13 +382,7 @@ export default function UmtPrAnalysisStep({
   const failedPromotion = update.paError || undefined;
   const statusMessage = failedPromotion
     ? { lines: [failedPromotion], tone: "error" as const }
-    : prAnalysisStatusMessage(
-        isPrAnalyzed
-          ? "COMPLETED"
-          : isUmtPrAnalysisFailed(update.praStatus)
-            ? `${update.praStatus}_${update.praError ?? ""}`
-            : update.praStatus,
-      );
+    : prAnalysisStatusMessage(isPrAnalyzed ? "COMPLETED" : update.praStatus, update.praError);
   const statusColor =
     statusMessage.tone === "error" ? "error.main" : statusMessage.tone === "success" ? "success.main" : "text.primary";
   const analyzeDisabled = isPrAnalyzeDisabled({
@@ -406,9 +400,14 @@ export default function UmtPrAnalysisStep({
 
   // An Instructions Only update has no inputs, so once its analysis has
   // completed there is nothing left to analyze: no Analyze button, until the
-  // update type is changed or the update goes back to Development.
+  // update type is changed or the update goes back to Development. A failed
+  // product analysis keeps the button and its reason, so it can be run again.
   const isInstructionsOnlyAnalyzed =
-    isPrAnalyzed && updateType === "instructionsOnlyUpdate" && (awaitingAnalysis || !hasNewInputs) && !isBusy;
+    isPrAnalyzed &&
+    updateType === "instructionsOnlyUpdate" &&
+    (awaitingAnalysis || !hasNewInputs) &&
+    !isBusy &&
+    !failedPromotion;
 
   return (
     <Stack spacing={3}>
@@ -535,7 +534,7 @@ export default function UmtPrAnalysisStep({
           <>
             <Stack direction="row" spacing={2} sx={{ alignItems: "center", justifyContent: "flex-end", mt: 3 }}>
               {isBusy && <CircularProgress size={22} />}
-              {(isBusy || updateType !== "instructionsOnlyUpdate") && (
+              {(isBusy || updateType !== "instructionsOnlyUpdate" || Boolean(failedPromotion)) && (
                 <Stack sx={{ flex: 1, minWidth: 0 }}>
                   {runningMessage ? (
                     <Typography variant="body2" color="text.primary">

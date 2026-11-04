@@ -135,8 +135,8 @@ export function isUmtPrAnalysisRunning(update: {
   return Boolean(update.praPromotionPending) || isUmtPrAnalysisInFlight(update.praStatus);
 }
 
-// The backend also returns bare "failed"/"failure", or a longer
-// FAILED_.../FAILURE_... value with a trailing detail message.
+// praStatus is FAILED, with the reason in praError. Bare "failed"/"failure"
+// and FAILED_.../FAILURE_... values are accepted too.
 export function isUmtPrAnalysisFailed(status: string | null | undefined): boolean {
   return /^(failed|failure)/i.test(status ?? "");
 }

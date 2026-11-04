@@ -157,6 +157,10 @@ export default function UmtUpdateEditTab({
   const isFilesAnalysisPrAnalyzedStep = isFilesAnalysis && isFilesAnalysisPrAnalyzed(update.lifecycleState);
   const isProductAnalysis = isFilesAnalysis && isFilesAnalysisProductAnalysisReady(update);
   const isPromotionRunning = isFilesAnalysisPrAnalyzedStep && !isProductAnalysis;
+  // A failed demote after a failed product analysis leaves the update in
+  // PRAnalyzed with paError and no product analysis to proceed on. Demote or
+  // Analyze stay open to recover.
+  const isPromotionFailed = isFilesAnalysisPrAnalyzedStep && Boolean(update.paError);
   const isIntegrationTests = currentStep.id === "integration-tests";
   const isSecurityAdvisory = currentStep.id === "security-advisory";
   const isTesting = currentStep.id === "testing";
@@ -389,6 +393,7 @@ export default function UmtUpdateEditTab({
           }
           proceedDisabled={
             isPromotionRunning ||
+            isPromotionFailed ||
             !currentStep.proceedWired ||
             !roleAllowed ||
             !stepReady ||
@@ -398,6 +403,8 @@ export default function UmtUpdateEditTab({
           explanation={
             isPromotionRunning
               ? "Product analysis is running. Wait for it to finish."
+              : isPromotionFailed
+              ? "The product analysis failed. Run Analyze again."
               : !currentStep.proceedWired
               ? "This step isn't wired up yet."
               : !roleAllowed

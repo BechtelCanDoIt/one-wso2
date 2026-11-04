@@ -242,12 +242,15 @@ export interface UmtPrAnalysisStatusMessage {
   tone: "error" | "success" | "primary";
 }
 
-// The failed-status detail is split on a colon not immediately followed by
+// The failure reason is split on a colon not immediately followed by
 // "//" (so it doesn't break URLs), or right before the phrase
 // "Request timed out".
 const PR_ANALYSIS_FAILURE_DETAIL_SPLIT = /(?::(?!\/\/)\s*)|(?=Request timed out)/g;
 
-export function prAnalysisStatusMessage(status: string | null | undefined): UmtPrAnalysisStatusMessage {
+export function prAnalysisStatusMessage(
+  status: string | null | undefined,
+  error?: string | null,
+): UmtPrAnalysisStatusMessage {
   if (status === UMT_PR_ANALYSIS_STATUS.QUEUED) {
     return { lines: ["PR Analysis task is queued."], tone: "primary" };
   }
@@ -258,7 +261,7 @@ export function prAnalysisStatusMessage(status: string | null | undefined): UmtP
     return { lines: ["PR Analysis was successfully completed."], tone: "success" };
   }
   if (isUmtPrAnalysisFailed(status)) {
-    const detail = (status ?? "")
+    const detail = (error ?? "")
       .split(PR_ANALYSIS_FAILURE_DETAIL_SPLIT)
       .map((part) => part.trim())
       .filter((part) => part.length > 0);

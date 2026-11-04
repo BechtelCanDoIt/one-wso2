@@ -23,8 +23,8 @@ vi.mock("../product-analysis/UmtProductAnalysisStep", () => ({ default: () => <d
 
 const { default: UmtFilesAnalysisStep } = await import("./UmtFilesAnalysisStep");
 
-function renderStep(lifecycleState: string, praStatus = "COMPLETED") {
-  render(<UmtFilesAnalysisStep id="42" update={{ id: 42, lifecycleState, praStatus } as UmtUpdateSummary} />);
+function renderStep(lifecycleState: string, praStatus = "COMPLETED", paError?: string) {
+  render(<UmtFilesAnalysisStep id="42" update={{ id: 42, lifecycleState, praStatus, paError } as UmtUpdateSummary} />);
 }
 
 describe("UmtFilesAnalysisStep", () => {
@@ -44,6 +44,13 @@ describe("UmtFilesAnalysisStep", () => {
   it("holds the product analysis back while the run that promoted the update is still going", () => {
     renderStep("PRAnalyzed", "PROCESSING");
 
+    expect(screen.queryByText("Product analysis")).not.toBeInTheDocument();
+  });
+
+  it("leaves the product analysis out in PRAnalyzed when it failed and the demote failed too", () => {
+    renderStep("PRAnalyzed", "COMPLETED", "Product analysis failed: Files API unavailable");
+
+    expect(screen.getByText("PR analysis")).toBeInTheDocument();
     expect(screen.queryByText("Product analysis")).not.toBeInTheDocument();
   });
 });

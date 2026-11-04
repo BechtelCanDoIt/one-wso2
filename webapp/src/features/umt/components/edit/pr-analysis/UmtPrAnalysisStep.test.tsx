@@ -264,6 +264,23 @@ describe("UmtPrAnalysisStep", () => {
     expect(screen.getByRole("button", { name: "Analyze" })).toBeEnabled();
   });
 
+  it("announces paError, not PRAnalyzed, when the demote after a failed product analysis fails too", () => {
+    const paError =
+      "Product analysis failed: Files API unavailable. Demotion to Development also failed, so the update is still in PRAnalyzed.";
+    const { rerender } = renderStep(summary("Development", { praStatus: "COMPLETED", praPromotionPending: true }));
+
+    rerender(
+      <UmtPrAnalysisStep
+        id="42"
+        update={summary("PRAnalyzed", { praStatus: "COMPLETED", praPromotionPending: false, paError })}
+      />,
+    );
+
+    expect(screen.getByText(paError)).toBeInTheDocument();
+    expect(state.showError).toHaveBeenCalledWith(paError);
+    expect(state.showSuccess).not.toHaveBeenCalled();
+  });
+
   it("shows praError when the PR analysis fails", () => {
     const { rerender } = renderStep(summary("Development", { praStatus: "PROCESSING", praPromotionPending: true }));
 
@@ -276,7 +293,7 @@ describe("UmtPrAnalysisStep", () => {
 
     expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
     expect(screen.getByText("PR Analysis task was failed.")).toBeInTheDocument();
-    expect(screen.getByText("FAILED_PR_MERGE_CONFLICT")).toBeInTheDocument();
+    expect(screen.getByText("PR_MERGE_CONFLICT")).toBeInTheDocument();
     expect(state.showSuccess).not.toHaveBeenCalled();
   });
 
@@ -463,6 +480,19 @@ describe("UmtPrAnalysisStep", () => {
 
       expect(screen.getByRole("radio", { name: "Instructions Only Update" })).toBeChecked();
       expect(analyzeButton()).not.toBeInTheDocument();
+    });
+
+    it("stays in PRAnalyzed with paError, so the failed product analysis can be run again", () => {
+      renderStep(
+        summary("PRAnalyzed", {
+          praStatus: "COMPLETED",
+          isInstructionsOnly: true,
+          paError: "Product analysis failed: Files API unavailable",
+        }),
+      );
+
+      expect(screen.getByText("Product analysis failed: Files API unavailable")).toBeInTheDocument();
+      expect(analyzeButton()).toBeEnabled();
     });
 
     it("is not shown while the completed analysis is still loading", () => {

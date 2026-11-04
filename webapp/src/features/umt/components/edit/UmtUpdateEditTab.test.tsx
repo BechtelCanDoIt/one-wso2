@@ -431,6 +431,14 @@ describe("Files Analysis in PRAnalyzed while the promotion is pending", () => {
     await vi.waitFor(() => expect(state.transition).toHaveBeenCalledWith("Development"));
   });
 
+  it("disables Proceed but keeps Demote to Development when the product analysis failed and the demote did too", () => {
+    renderTab({ ...filesAnalysis(false), paError: "Product analysis failed: Files API unavailable" });
+
+    expect(demoteButton()).toBeEnabled();
+    expect(forwardButton()).toBeDisabled();
+    expect(screen.getByText("The product analysis failed. Run Analyze again.")).toBeInTheDocument();
+  });
+
   it("shows the backend's message when the demote is rejected anyway", async () => {
     state.transition.mockRejectedValueOnce(new Error("The update is being promoted to PRAnalyzed after its PR analysis"));
     renderTab(filesAnalysis(false));
