@@ -96,8 +96,6 @@ function MyPosition({ board }: { board: TopBoard }) {
   const ranked = me.rank != null;
   const monthly = board.period === "MONTH";
   let tagline = monthly ? "Amplify a post this month to get on the board." : "Amplify your first post to get on the board.";
-  const toQualify = board.minPoints != null && !ranked ? board.minPoints - (me.points ?? 0) : 0;
-  if (monthly && toQualify > 0 && (me.points ?? 0) > 0) tagline = `${pts(toQualify)} to qualify for the top ${board.topN}.`;
   if (ranked && me.inTopN) tagline = `You're in the top ${board.topN}. Keep it up!`;
   else if (ranked && me.pointsToTopN != null) tagline = `${pts(me.pointsToTopN)} to the top ${board.topN}.`;
   else if (ranked && me.pointsToNextRank != null) tagline = `${pts(me.pointsToNextRank)} to the next rank.`;

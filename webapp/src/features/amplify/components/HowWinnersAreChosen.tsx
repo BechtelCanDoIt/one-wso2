@@ -83,7 +83,7 @@ export default function HowWinnersAreChosen({ minPoints, topN }: { minPoints?: n
         <Box component="strong" sx={{ color: "text.primary", fontWeight: 700 }}>
           Please note:
         </Box>{" "}
-        if more than {topN === 3 ? "three" : topN} advocates tie for the top spots, a further evaluation will be conducted
+        if more than {topN === 3 ? "three" : topN} advocates qualify for the top spots, a further evaluation will be conducted
         based on post reach.
       </Typography>
     </Box>
