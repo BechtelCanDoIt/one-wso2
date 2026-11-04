@@ -43,8 +43,8 @@ describe("buildCsp: default allowlist", () => {
   // Amplify post cards show the campaign image from LinkedIn's media CDN.
   it("loads LinkedIn post images from media.licdn.com only", () => {
     const csp = buildCsp();
-    expect(directive(csp, "img-src")).toContain("https://media.licdn.com");
-    expect(directive(csp, "img-src")).not.toContain("*.licdn.com");
+    const linkedInImageSources = directive(csp, "img-src").split(" ").filter((source) => source.includes("licdn"));
+    expect(linkedInImageSources).toEqual(["https://media.licdn.com"]);
     expect(directive(csp, "connect-src")).not.toContain("licdn.com");
   });
 });
