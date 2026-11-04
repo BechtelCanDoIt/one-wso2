@@ -75,27 +75,27 @@ export function reasonRows(step: ApprovalStep, carried = false): ReasonRow[] {
   for (const t of step.triggers) {
     if (t.rule === "DEAL_DESK_REVIEW" || seen.has(t.reason) || (t.carriedFromVersion != null) !== carried) continue;
     seen.add(t.reason);
-    const rule = RULE[t.rule] ?? { kind: "other" as const, title: "Approval rule" };
     const extra = { ...(t.note ? { note: t.note } : {}), ...(t.carriedFromVersion != null ? { carriedFromVersion: t.carriedFromVersion } : {}) };
-    const split = t.lineNumber > 0 ? t.reason.indexOf(": ") : -1;
-    if (split < 0) {
-      rows.push({ kind: rule.kind, title: rule.title, detail: t.reason, ...extra });
-      continue;
-    }
-    // "Line 2 · Product (Group)" and what about it.
-    const head = t.reason.slice(0, split);
-    const rest = t.reason.slice(split + 2);
-    const grouped = /^(.*) \(([^()]+)\)$/.exec(head);
-    const title = grouped ? grouped[1] : head;
-    const group = grouped ? grouped[2] : undefined;
-    const discount = /^([\d.]+%) discount (.*)$/.exec(rest);
-    rows.push(
-      discount
-        ? { kind: rule.kind, title, group, figure: discount[1], detail: capital(discount[2].replace(/^is /, "")), ...extra }
-        : { kind: rule.kind, title, group, detail: capital(rest), ...extra },
-    );
+    rows.push({ ...parseReason(t.rule, t.lineNumber, t.reason), ...extra });
   }
   return rows;
+}
+
+/** One backend reason sentence, split for display (see ReasonRow). */
+export function parseReason(ruleCode: string, lineNumber: number, reason: string): ReasonRow {
+  const rule = RULE[ruleCode] ?? { kind: "other" as const, title: "Approval rule" };
+  const split = lineNumber > 0 ? reason.indexOf(": ") : -1;
+  if (split < 0) return { kind: rule.kind, title: rule.title, detail: reason };
+  // "Line 2 · Product (Group)" and what about it.
+  const head = reason.slice(0, split);
+  const rest = reason.slice(split + 2);
+  const grouped = /^(.*) \(([^()]+)\)$/.exec(head);
+  const title = grouped ? grouped[1] : head;
+  const group = grouped ? grouped[2] : undefined;
+  const discount = /^([\d.]+%) discount (.*)$/.exec(rest);
+  return discount
+    ? { kind: rule.kind, title, group, figure: discount[1], detail: capital(discount[2].replace(/^is /, "")) }
+    : { kind: rule.kind, title, group, detail: capital(rest) };
 }
 
 const CATEGORY_LABEL: Record<string, string> = {

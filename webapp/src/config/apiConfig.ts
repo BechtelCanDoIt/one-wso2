@@ -2077,6 +2077,11 @@ export const cado2ServiceUrls = {
   // Deal Desk writes the special terms during its approval (D128).
   specialTerms: (quoteId: number, versionNumber: number): string =>
     `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/special-terms`,
+  // Deal Desk and Legal lenses, and "Looks fine" on their notes (D129).
+  review: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/review`,
+  reviewMarks: (quoteId: number, versionNumber: number): string =>
+    `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/review/marks`,
   // Supporting documents (DGD-10): the Admin's library of PDFs, and what a
   // quote adds after its order form.
   supportingDocuments: `${cado2BackendUrl}/supporting-documents`,

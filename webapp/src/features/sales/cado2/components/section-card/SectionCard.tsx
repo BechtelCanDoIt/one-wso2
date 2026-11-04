@@ -67,11 +67,24 @@ export default function SectionCard({ title, icon, aside, children, label, stret
   );
 }
 
-/** A labelled value in a grid of facts; "Not set yet" when empty. */
-export function Fact({ label, value, hint }: { label: string; value: ReactNode; hint?: ReactNode }): JSX.Element {
+/**
+ * A labelled value in a grid of facts; "Not set yet" when empty. `noteTarget`
+ * lets a lens note point at it (D129), e.g. "paymentTerms".
+ */
+export function Fact({
+  label,
+  value,
+  hint,
+  noteTarget,
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  noteTarget?: string;
+}): JSX.Element {
   const empty = value === null || value === undefined || value === "";
   return (
-    <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }} data-note-target={noteTarget}>
       <Typography variant="overline" color="text.secondary" sx={{ lineHeight: 1.6, display: "block" }}>
         {label}
       </Typography>

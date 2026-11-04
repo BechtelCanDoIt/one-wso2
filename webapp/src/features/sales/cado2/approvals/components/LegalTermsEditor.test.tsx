@@ -70,4 +70,39 @@ describe("LegalTermsEditor", () => {
     );
     expect(screen.getByText("The terms on this quote are standard.")).toBeInTheDocument();
   });
+
+  // D129: under Legal's lens each is written in its own place and saved on its own.
+  it("writes only the governing terms, or only the special terms, under the lens", async () => {
+    const user = userEvent.setup();
+    write.mutate.mockClear();
+    const { unmount } = render(<LegalTermsEditor quoteId={7} versionNumber={1} legal={legal} part="governing" />);
+    expect(screen.queryByRole("textbox", { name: "Special terms" })).toBeNull();
+    await user.type(screen.getByRole("textbox", { name: /SaaS products: governing terms/ }), "Bespoke SaaS terms.");
+    await user.click(screen.getByRole("button", { name: "Save governing terms" }));
+    expect(write.mutate).toHaveBeenLastCalledWith({ onPremTerms: undefined, saasTerms: "Bespoke SaaS terms.", specialTerms: undefined }, expect.anything());
+    unmount();
+
+    render(<LegalTermsEditor quoteId={7} versionNumber={1} legal={legal} part="special" />);
+    expect(screen.queryByRole("textbox", { name: /governing terms/ })).toBeNull();
+    expect(screen.queryByText(/Value Added Reseller · Acme Reseller/)).toBeNull();
+    const special = screen.getByRole("textbox", { name: "Special terms" });
+    await user.clear(special);
+    await user.type(special, "Legal's wording");
+    await user.click(screen.getByRole("button", { name: "Save special terms" }));
+    expect(write.mutate).toHaveBeenLastCalledWith({ onPremTerms: undefined, saasTerms: undefined, specialTerms: "Legal's wording" }, expect.anything());
+  });
+
+  it("says Saved after a save, until the next change", async () => {
+    const user = userEvent.setup();
+    write.mutate.mockImplementation((_body: unknown, opts?: { onSuccess?: () => void }) => opts?.onSuccess?.());
+    render(<LegalTermsEditor quoteId={7} versionNumber={1} legal={legal} part="special" />);
+    const special = screen.getByRole("textbox", { name: "Special terms" });
+    await user.type(special, " more");
+    await user.click(screen.getByRole("button", { name: "Save special terms" }));
+    expect(screen.getByRole("status")).toHaveTextContent("Saved on this version");
+    expect(screen.getByRole("button", { name: "Save special terms" })).toBeDisabled();
+    await user.type(special, "!");
+    expect(screen.queryByRole("status")).toBeNull();
+    write.mutate.mockReset();
+  });
 });

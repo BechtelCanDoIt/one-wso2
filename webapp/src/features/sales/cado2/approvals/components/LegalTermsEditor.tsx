@@ -16,6 +16,7 @@
 
 import { useState, type JSX } from "react";
 import { Alert, Button, Stack, Typography } from "@wso2/oxygen-ui";
+import { CircleCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import type { LegalView } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { useWriteLegalTerms } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
@@ -34,33 +35,50 @@ export default function LegalTermsEditor({
   quoteId,
   versionNumber,
   legal,
+  minHeight = 140,
+  part = "both",
 }: {
   quoteId: number;
   versionNumber: number;
   legal: LegalView;
+  /** The editors' height; taller in the lens's own section (D129). */
+  minHeight?: number;
+  /**
+   * Under Legal's lens (D129) the governing terms and the special terms are
+   * written in their own places, each saved on its own; elsewhere, both.
+   */
+  part?: "both" | "governing" | "special";
 }): JSX.Element {
   const write = useWriteLegalTerms(quoteId, versionNumber);
   const notify = useCado2Toast();
-  const blocks = legal.sections.blocks.filter((b) => b.nonStandard);
+  const blocks = part === "special" ? [] : legal.sections.blocks.filter((b) => b.nonStandard);
+  const withSpecial = part !== "governing" && legal.specialTerms !== null;
   const [texts, setTexts] = useState<Record<string, string>>(() => Object.fromEntries(blocks.map((b) => [b.kind, b.text])));
   const [special, setSpecial] = useState(legal.specialTerms ?? "");
-  const partner = legal.contractName || legal.contractDate;
+  // Saved and not changed since: the button says so, in green, until the next edit.
+  const [saved, setSaved] = useState(false);
+  const partner = part !== "special" && (legal.contractName || legal.contractDate);
   // Compared as clean rich text, so opening the editor doesn't count as a change.
   const changed =
     blocks.some((b) => !sameLegalText(texts[b.kind] ?? "", b.text)) ||
-    (legal.specialTerms !== null && !sameLegalText(special, legal.specialTerms ?? ""));
+    (withSpecial && !sameLegalText(special, legal.specialTerms ?? ""));
 
   const save = () =>
     write.mutate(
       {
         onPremTerms: blocks.some((b) => b.kind === "ONPREM") ? cleanLegalText(texts.ONPREM ?? "") : undefined,
         saasTerms: blocks.some((b) => b.kind === "SAAS") ? cleanLegalText(texts.SAAS ?? "") : undefined,
-        specialTerms: legal.specialTerms !== null ? cleanLegalText(special) : undefined,
+        specialTerms: withSpecial ? cleanLegalText(special) : undefined,
       },
-      { onSuccess: () => notify("Terms saved") },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          notify(part === "special" ? "Special terms saved" : part === "governing" ? "Governing terms saved" : "Terms saved");
+        },
+      },
     );
 
-  if (blocks.length === 0 && legal.specialTerms === null) {
+  if (blocks.length === 0 && !withSpecial) {
     return (
       <Typography variant="body2" color="text.secondary">
         The terms on this quote are standard.
@@ -79,17 +97,24 @@ export default function LegalTermsEditor({
           key={b.kind}
           label={`${BLOCK_TITLE[b.kind]}: governing terms`}
           value={texts[b.kind] ?? ""}
-          onChange={(html) => setTexts((t) => ({ ...t, [b.kind]: html }))}
-          minHeight={140}
+          onChange={(html) => {
+            setSaved(false);
+            setTexts((t) => ({ ...t, [b.kind]: html }));
+          }}
+          minHeight={minHeight}
           required
           helperText="The AM marked these non-standard: write the terms that apply to this customer."
         />
       ))}
-      {legal.specialTerms !== null ? (
+      {withSpecial ? (
         <LegalRichTextField
           label="Special terms"
           value={special}
-          onChange={setSpecial}
+          onChange={(html) => {
+            setSaved(false);
+            setSpecial(html);
+          }}
+          minHeight={part === "special" ? minHeight : undefined}
           helperText={
             legal.specialTermsByLegal
               ? `Reworded by Legal. Before: "${legalPlainText(legal.amSpecialTerms ?? "")}"`
@@ -98,10 +123,18 @@ export default function LegalTermsEditor({
         />
       ) : null}
       {write.error ? <Alert severity="error">{messageOf(write.error) ?? "Couldn't save the terms. Try again."}</Alert> : null}
-      <Stack direction="row" spacing={1}>
-        <Button variant="outlined" onClick={save} disabled={!changed || write.isPending}>
-          {write.isPending ? "Saving…" : "Save terms"}
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Button variant="outlined" onClick={save} disabled={saved || !changed || write.isPending}>
+          {write.isPending ? "Saving…" : part === "special" ? "Save special terms" : part === "governing" ? "Save governing terms" : "Save terms"}
         </Button>
+        {saved ? (
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "success.main" }} role="status">
+            <CircleCheckIcon size={16} aria-hidden />
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Saved on this version
+            </Typography>
+          </Stack>
+        ) : null}
       </Stack>
     </Stack>
   );

@@ -283,3 +283,47 @@ export interface ApprovalSlaChange {
   readonly changedAt: string;
 }
 
+
+/** The approval role whose notes a lens shows (D129): any approver; Deal Desk and Legal also write in the quote. */
+export type LensRole = ApprovalRole;
+
+/** A note's state: red to look at, green looks fine, or red again because it changed since an earlier version. */
+export type ReviewNoteState = "OPEN" | "FINE" | "CHANGED";
+
+/**
+ * One note of a lens (D129): something on the quote a rule flagged, and where
+ * it is. `target` is "line:2", or paymentTerms, billingFrequency, term,
+ * startDate, arr, specialTerms, governingTerms.
+ */
+export interface ReviewNote {
+  readonly key: string;
+  readonly rule: string;
+  readonly lineNumber: number;
+  /** The rule sentences, as on the approval. */
+  readonly reasons: readonly string[];
+  /** Who approves it after Deal Desk; empty on Legal's lens and Deal Desk's own checks. */
+  readonly roles: readonly string[];
+  readonly target: string;
+  /** Done by writing (special terms, Legal's terms), not by marking. */
+  readonly yoursToWrite: boolean;
+  readonly state: ReviewNoteState;
+  readonly markedByEmail: string | null;
+  readonly markedAt: string | null;
+  /** The earlier version a carried "Looks fine" was made on. */
+  readonly markedOnVersion: number | null;
+  /** Green because the role approved (marked by = the approver), not because of a mark. */
+  readonly byApproval?: boolean;
+}
+
+/** One role's lens: its notes, and whether the caller may mark them now. */
+export interface ReviewLens {
+  readonly role: LensRole;
+  readonly roleLabel: string;
+  readonly canMark: boolean;
+  readonly notes: readonly ReviewNote[];
+}
+
+/** A version through the caller's lenses; none for a draft. */
+export interface Review {
+  readonly lenses: readonly ReviewLens[];
+}

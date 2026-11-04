@@ -16,6 +16,7 @@
 
 import { useState, type JSX } from "react";
 import { Alert, Button, Stack, Switch, Typography } from "@wso2/oxygen-ui";
+import { CircleCheckIcon } from "@wso2/oxygen-ui-icons-react";
 import { useWriteSpecialTerms } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
@@ -42,6 +43,7 @@ export default function SpecialTermsEditor({
   enabled,
   text,
   billingSeesSpecialTerms,
+  minHeight = 120,
 }: {
   quoteId: number;
   versionNumber: number;
@@ -51,11 +53,15 @@ export default function SpecialTermsEditor({
   text: string | null;
   /** Billing says See Special Terms (D86): the terms must describe it. */
   billingSeesSpecialTerms: boolean;
+  /** The editor's height; taller in the lens's own section (D129). */
+  minHeight?: number;
 }): JSX.Element {
   const write = useWriteSpecialTerms(quoteId, versionNumber);
   const notify = useCado2Toast();
   const [on, setOn] = useState(enabled);
   const [special, setSpecial] = useState(text ?? "");
+  // Saved and not changed since: the button says so, in green, until the next edit.
+  const [saved, setSaved] = useState(false);
   // Compared as clean rich text, so opening the editor doesn't count as a change.
   const changed = on !== enabled || !sameLegalText(special, text ?? "");
   const blank = cleanLegalText(special) === "";
@@ -63,7 +69,12 @@ export default function SpecialTermsEditor({
   const save = () =>
     write.mutate(
       { enabled: on, specialTerms: cleanLegalText(special) },
-      { onSuccess: () => notify(on ? "Special terms saved" : "Special terms switched off") },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          notify(on ? "Special terms saved" : "Special terms switched off");
+        },
+      },
     );
 
   return (
@@ -72,7 +83,10 @@ export default function SpecialTermsEditor({
       <Stack direction="row" spacing={0.5} alignItems="center">
         <Switch
           checked={on}
-          onChange={(_, value) => setOn(value)}
+          onChange={(_, value) => {
+            setSaved(false);
+            setOn(value);
+          }}
           sx={VISIBLE_SWITCH}
           slotProps={{ input: { role: "switch", "aria-label": "Special terms" } }}
         />
@@ -82,8 +96,11 @@ export default function SpecialTermsEditor({
         <LegalRichTextField
           label="Special terms"
           value={special}
-          onChange={setSpecial}
-          minHeight={120}
+          onChange={(html) => {
+            setSaved(false);
+            setSpecial(html);
+          }}
+          minHeight={minHeight}
           helperText={
             billingSeesSpecialTerms
               ? "Billing says See Special Terms: describe the billing here. Legal reviews the special terms after you approve."
@@ -98,10 +115,18 @@ export default function SpecialTermsEditor({
         </Typography>
       )}
       {write.error ? <Alert severity="error">{messageOf(write.error) ?? "Couldn't save the special terms. Try again."}</Alert> : null}
-      <Stack direction="row" spacing={1}>
-        <Button variant="outlined" onClick={save} disabled={!changed || (on && blank) || write.isPending}>
+      <Stack direction="row" spacing={1.5} alignItems="center">
+        <Button variant="outlined" onClick={save} disabled={saved || !changed || (on && blank) || write.isPending}>
           {write.isPending ? "Saving…" : "Save special terms"}
         </Button>
+        {saved ? (
+          <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: "success.main" }} role="status">
+            <CircleCheckIcon size={16} aria-hidden />
+            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+              Saved on this version
+            </Typography>
+          </Stack>
+        ) : null}
       </Stack>
     </Stack>
   );
