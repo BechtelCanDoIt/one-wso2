@@ -16,18 +16,13 @@
 
 // Writes to amplify-api.
 //
-// Every POST carries an Idempotency-Key, one per user action rather than one
-// per HTTP call: the key is minted on the first call of an attempt and reused
-// by every call with the same variables that overlaps it, so a double click reaches amplify-api twice
-// with the same key and its idempotency record answers the second with the
-// first's result instead of publishing twice. The key is dropped when the
-// attempt settles, so a re-submit after a failure — a new action — gets a new
-// one. Controls are also disabled while their mutation is pending, which stops
-// the second click in most cases but cannot stop it in the frame between the
-// click and the re-render. No React Query `retry`: a 4xx here is a final
-// answer.
+// No Idempotency-Key header: the Choreo API proxy's CORS allow-list doesn't
+// include it, so a browser POST carrying it passes the preflight and is then
+// blocked. amplify-api treats the header as optional. Controls are disabled
+// while their mutation is pending, which stops most double clicks, and a share
+// is one per campaign per employee on the server. No React Query `retry`: a 4xx
+// here is a final answer.
 
-import { useRef } from "react";
 import { useMutation, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { authedDelete, authedPatch, authedPost } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
@@ -44,32 +39,6 @@ import type {
   Share,
   ShareKind,
 } from "./amplifyTypes";
-
-// One key per user action: minted by the first call of an attempt, shared by
-// every call that overlaps it with the same variables (a double click), released
-// when that attempt settles. Two different submissions that overlap on one hook
-// (a different draft, another share) are different actions and get their own keys.
-function useIdempotencyKey(): {
-  headers: (variables: unknown) => Record<string, string>;
-  release: (variables: unknown) => void;
-} {
-  const keys = useRef(new Map<string, string>());
-  const idOf = (variables: unknown): string => JSON.stringify(variables ?? null);
-  return {
-    headers(variables) {
-      const id = idOf(variables);
-      let key = keys.current.get(id);
-      if (key === undefined) {
-        key = crypto.randomUUID();
-        keys.current.set(id, key);
-      }
-      return { "Idempotency-Key": key };
-    },
-    release(variables) {
-      keys.current.delete(idOf(variables));
-    },
-  };
-}
 
 // Marks the key stale and refetches it now, including lists no page is showing. The app's QueryClient sets
 // `refetchOnMount: false`, so a stale list that isn't on screen would otherwise never reload: save a post on
@@ -89,19 +58,16 @@ export function useRegisterCampaign() {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
   const sub = useAmplifySub();
-  const idem = useIdempotencyKey();
   return useMutation<CampaignRegistration | null, Error, { draft: CampaignDraft; shareNow: boolean }>({
     mutationFn: async (vars) =>
       authedPost<CampaignRegistration>(
         `${amplifyServiceUrls.campaigns}?shareNow=${vars.shareNow}`,
         await getAccessToken(),
         vars.draft,
-        idem.headers(vars),
       ),
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("campaigns", sub));
     },
-    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
@@ -124,48 +90,40 @@ export function useRequestShare() {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
   const sub = useAmplifySub();
-  const idem = useIdempotencyKey();
   return useMutation<Share | null, Error, { campaignId: string; kind: ShareKind; commentary?: string }>({
     mutationFn: async (vars) =>
       authedPost<Share>(
         amplifyServiceUrls.shares(vars.campaignId),
         await getAccessToken(),
         vars.commentary === undefined ? { kind: vars.kind } : { kind: vars.kind, commentary: vars.commentary },
-        idem.headers(vars),
       ),
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("my-shares", sub));
     },
-    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
 /** POST /connections/linkedin/start. The caller sends the browser to `authorizationUrl`. */
 export function useStartLinkedInConnect() {
   const getAccessToken = useAccessToken();
-  const idem = useIdempotencyKey();
   return useMutation<ConnectAuthorization | null, Error, { returnTo: string; pendingCampaignId?: string }>({
     mutationFn: async (body) =>
       authedPost<ConnectAuthorization>(
         amplifyServiceUrls.connectStart,
         await getAccessToken(),
         body,
-        idem.headers(body),
       ),
-    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
 /** POST /connections/linkedin/decline with the LinkedIn profile URL of an employee who doesn't consent to link. */
 export function useDeclineLinkedInConsent() {
   const getAccessToken = useAccessToken();
-  const idem = useIdempotencyKey();
   return useMutation<null, Error, { profileUrl?: string }>({
     mutationFn: async (body) => {
-      await authedPost<unknown>(amplifyServiceUrls.connectDecline, await getAccessToken(), body, idem.headers(body));
+      await authedPost<unknown>(amplifyServiceUrls.connectDecline, await getAccessToken(), body);
       return null;
     },
-    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
 
@@ -190,18 +148,15 @@ export function useCompleteLinkedInConnect() {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
   const sub = useAmplifySub();
-  const idem = useIdempotencyKey();
   return useMutation<LinkedInConnection | null, Error, { code: string; state: string; redirectUri: string }>({
     mutationFn: async (body) =>
       authedPost<LinkedInConnection>(
         amplifyServiceUrls.connectComplete,
         await getAccessToken(),
         body,
-        idem.headers(body),
       ),
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("me", sub));
     },
-    onSettled: (_data, _error, variables) => idem.release(variables),
   });
 }
