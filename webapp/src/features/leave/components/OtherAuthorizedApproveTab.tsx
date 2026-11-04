@@ -43,7 +43,7 @@ import { useApproveLeave } from "../api/useLeaveMutations";
 import { waitingFor } from "../util/franceLeave";
 import { isoDay } from "../util/leaveDates";
 import { describeError } from "../util/leaveError";
-import { OTHER_AUTHORIZED_APPROVE as COPY, SnackMessage } from "../util/leaveCopy";
+import { OTHER_AUTHORIZED_APPROVE as COPY, SnackMessage } from "../util/leaveUiText";
 import RejectReasonDialog from "./RejectReasonDialog";
 import { HeadCell } from "./SabbaticalTable";
 

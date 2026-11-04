@@ -19,21 +19,11 @@
 import { describeError } from "../util/financeError";
 
 /**
- * What the card-expense screens say when something succeeds.
+ * What the card-expense screens say when an action succeeds.
  *
- * Verbatim from the source's `SnackMessage.success` (config/constant.ts). The
- * port had rewritten four of these and dropped three, which is how the same
- * action came to be announced differently in the two apps — "Transaction
- * updated" here against "Successfully saved the edited transaction" there.
+ * Errors aren't listed: each failure shows its cause from `describeError` instead of a fixed message.
  *
- * Errors are deliberately not listed. The source pairs each failure with a
- * fixed "Unable to …" line; this port surfaces the cause through
- * `describeError` instead, which is the choice the leave port already made
- * (`leaveCopy.ts:78-85` keeps its error strings but the screens do not use
- * them). One convention across the ported apps beats matching this one.
- *
- * Pinned character-for-character by ccCopy.test.ts — this wording is what
- * drifted, and nothing held it.
+ * Pinned word for word by `ccUiText.test.ts`, so a change to any message is deliberate.
  */
 export const CC_SNACK = {
   success: {

@@ -28,8 +28,8 @@ import {
   DialogTitle,
 } from "@wso2/oxygen-ui";
 import { useId } from "react";
-import { CC_RULE_SNACK, describeRuleError } from "./ccCopy";
 import type { CcTaggingRule } from "./ccTypes";
+import { CC_RULE_SNACK, describeRuleError } from "./ccUiText";
 import { useCcDeleteTaggingRule } from "./useCcMutations";
 
 /**

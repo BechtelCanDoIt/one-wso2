@@ -20,9 +20,9 @@ import { HttpError } from "@api/http";
 import { Box, CircularProgress, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { SparklesIcon } from "@wso2/oxygen-ui-icons-react";
 import type { ReactNode } from "react";
-import { describeRuleError } from "../ccCopy";
 import { ruleAmountRange } from "../ccTaggingRuleList";
 import type { CcTaggingRule } from "../ccTypes";
+import { describeRuleError } from "../ccUiText";
 import { useCcTaggingRule } from "../useCc";
 
 const TEXT_SX = { fontSize: 12 } as const;

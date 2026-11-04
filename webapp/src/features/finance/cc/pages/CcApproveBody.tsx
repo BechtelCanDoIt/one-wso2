@@ -37,10 +37,10 @@ import { FINANCE_GRID_SX } from "../../util/financeGridSx";
 import { CcApproveDetail } from "../CcApproveDetail";
 import { CcEditDialog } from "../CcEditDialog";
 import { CcPickOne } from "../CcPickOne";
-import { CC_SNACK } from "../ccCopy";
 import { ToolbarNoExport as ApproveToolbar } from "../ccGridToolbar";
 import { selectedIds as gridSelectedIds } from "../ccSelection";
 import { CC_FILTER_ALL, type CcTransaction } from "../ccTypes";
+import { CC_SNACK } from "../ccUiText";
 import { useCcTransactions, useCcUserInfo, useCreditCards } from "../useCc";
 import { useCcApprove, useCcSaveEdit } from "../useCcMutations";
 

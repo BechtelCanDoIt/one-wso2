@@ -39,7 +39,6 @@ import {
 } from "@wso2/oxygen-ui";
 import { InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import { type ReactNode, useId, useState } from "react";
-import { CC_RULE_SNACK, describeRuleError } from "./ccCopy";
 import {
   Field,
   FieldLabel,
@@ -72,6 +71,7 @@ import {
   ccHolderCardName,
   ccRuleUnconfigured,
 } from "./ccTypes";
+import { CC_RULE_SNACK, describeRuleError } from "./ccUiText";
 import { useCcMenus, useCcOwnCards } from "./useCc";
 import { useCcCreateTaggingRule, useCcUpdateTaggingRule } from "./useCcMutations";
 

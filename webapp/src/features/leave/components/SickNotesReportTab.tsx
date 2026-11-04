@@ -39,7 +39,7 @@ import { StatusChip } from "./LeaveChips";
 import { useSickNotes } from "../api/useLeaveData";
 import { useLeaveGate } from "../api/useLeaveGate";
 import { downloadSickNote } from "../util/sickNoteDownload";
-import { REPORT_VALIDATION_MESSAGE, SICK_NOTES_REPORT } from "../util/leaveCopy";
+import { REPORT_VALIDATION_MESSAGE, SICK_NOTES_REPORT } from "../util/leaveUiText";
 import { describeError } from "../util/leaveError";
 import { isoDay, toIso } from "../util/leaveDates";
 
