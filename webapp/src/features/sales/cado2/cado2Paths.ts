@@ -62,11 +62,19 @@ export const cado2Paths = {
    * A quote's page opened from the Quote Report: its back link returns to
    * `back` (the report with its filters), labelled "Quote Report".
    */
+  /**
+   * A quote's page opened from the Deal Desk board: its back link returns
+   * there (D130); `action` opens that action's confirmation (Recall, Revise).
+   */
+  quoteFromDesk: (quoteId: number, tab: Cado2QuoteTab = "quote", action?: "recall" | "revise"): string =>
+    `${CADO2_PATH}/quotes/${quoteId}/${tab}?from=desk${action ? `&do=${action}` : ""}`,
   quoteFromInsights: (quoteId: number, back: string): string =>
     `${CADO2_PATH}/quotes/${quoteId}/quote?${new URLSearchParams({ from: "insights", back }).toString()}`,
   editVersion: (quoteId: number, version: number): string =>
     `${CADO2_PATH}/quotes/${quoteId}/versions/${version}/edit`,
   approvals: `${CADO2_PATH}/approvals`,
+  /** The Deal Desk board (D130). */
+  desk: `${CADO2_PATH}/desk`,
   /** Insights, on one of its tabs; `search` keeps a report's filters (D106). */
   insights: (tab: Cado2InsightsTab = "operations", search = ""): string =>
     `${CADO2_PATH}/insights/${tab}${search ? `?${search}` : ""}`,

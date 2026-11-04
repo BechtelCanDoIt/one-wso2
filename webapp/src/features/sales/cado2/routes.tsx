@@ -44,6 +44,7 @@ import SupportingDocumentsPage from "./admin/supporting-documents/pages/Supporti
 const QuoteWizardPage = lazy(() => import("./quotes/pages/QuoteWizardPage"));
 const QuoteDetailPage = lazy(() => import("./quotes/pages/QuoteDetailPage"));
 const InsightsPage = lazy(() => import("./insights/pages/InsightsPage"));
+const DeskBoardPage = lazy(() => import("./desk/pages/DeskBoardPage"));
 // Its rich-text editor is heavy too.
 const LegalTextsPage = lazy(() => import("./admin/legal-texts/pages/LegalTextsPage"));
 
@@ -82,6 +83,7 @@ export const cado2Routes = (
         </Cado2Requires>
       }
     />
+    <Route path="desk" element={<Cado2Requires need="desk">{deferred(<DeskBoardPage />)}</Cado2Requires>} />
     <Route path="insights" element={<Navigate to={cado2Paths.insights()} replace />} />
     <Route
       path="insights/:tab"

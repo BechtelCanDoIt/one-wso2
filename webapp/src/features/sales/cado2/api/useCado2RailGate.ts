@@ -37,6 +37,8 @@ export function cado2CanSee(itemId: string, access: Cado2Access): boolean {
   switch (itemId) {
     case CADO2_ITEM.quotes:
       return access.canWorkOnQuotes;
+    case CADO2_ITEM.desk:
+      return access.isDealDesk;
     case CADO2_ITEM.approvals:
       return access.canApprove;
     case CADO2_ITEM.insights:

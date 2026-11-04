@@ -31,6 +31,7 @@ import {
   FileTextIcon,
   ReceiptTextIcon,
   SettingsIcon,
+  SquareKanbanIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
@@ -40,6 +41,7 @@ export const CADO2_GROUP_ID = "sec-app-cado2";
 
 export const CADO2_ITEM = {
   quotes: "sales-cado2-quotes",
+  desk: "sales-cado2-desk",
   approvals: "sales-cado2-approvals",
   insights: "sales-cado2-insights",
   admin: "sales-cado2-admin",
@@ -63,6 +65,14 @@ export const CADO2_APPS: readonly MenuApp[] = [
         desc: "Your quotes and everyone else's: drafts, submitted, approved and closed.",
         requires: ["admin"],
         path: cado2Paths.quotes,
+      },
+      {
+        id: CADO2_ITEM.desk,
+        label: "Deal Desk",
+        icon: SquareKanbanIcon,
+        desc: "Every quote in flight, by what it needs from Deal Desk next.",
+        requires: ["admin"],
+        path: cado2Paths.desk,
       },
       {
         id: CADO2_ITEM.approvals,

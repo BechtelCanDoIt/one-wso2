@@ -62,6 +62,8 @@ export interface Cado2Access {
   canQuote: boolean;
   /** Opens the Quotes page and works on existing quotes: SALES, or Deal Desk (D127). */
   canWorkOnQuotes: boolean;
+  /** Holds the Deal Desk approval role: the Deal Desk board (D130). */
+  isDealDesk: boolean;
   canApprove: boolean;
   isAdmin: boolean;
   canViewInsights: boolean;
@@ -76,6 +78,7 @@ export function cado2Access(me: Cado2Me | undefined): Cado2Access {
     canQuote,
     // D127: Deal Desk may change any quote, but only SALES starts one.
     canWorkOnQuotes: canQuote || (me?.approverRoles.includes("DEAL_DESK") ?? false),
+    isDealDesk: me?.approverRoles.includes("DEAL_DESK") ?? false,
     canApprove: (me?.approverRoles.length ?? 0) > 0,
     isAdmin,
     canViewInsights: me?.canViewInsights === true,

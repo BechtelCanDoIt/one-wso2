@@ -970,4 +970,35 @@ describe("QuoteDetailPage — lenses", () => {
     expect(bar).toHaveTextContent("Billing says See Special Terms: write the special terms first");
     expect(within(bar).getByRole("button", { name: "Approve" })).toBeDisabled();
   });
+
+  // D120 on the Quote tab: Deal Desk, having approved, may step in for an away approver.
+  it("offers Deal Desk Approve on behalf in the approval card once it has approved", () => {
+    workflow.data = {
+      status: "IN_PROGRESS", createdAt: "2026-10-06T09:00:00Z", completedAt: null,
+      steps: [
+        step("DEAL_DESK", 11, { status: "APPROVED", actedByEmail: "arjun@wso2.com", actedAt: "2026-11-03T09:00:00Z" }),
+        step("REGIONAL_DIRECTOR", 12, { roleLabel: "Regional Director · NA", status: "PENDING", canApproveOnBehalf: true }),
+        step("CFO", 13, { status: "PENDING" }),
+      ],
+    };
+    deskLens([note({ state: "FINE", byApproval: true, markedByEmail: "arjun@wso2.com" })]);
+    show({ ...submitted.quote, actions: [] }, allMapped);
+    const card = screen.getByRole("region", { name: "Approval" });
+    const stepIn = within(card).getByRole("region", { name: "Approve on behalf" });
+    const rows = within(stepIn).getAllByRole("listitem");
+    expect(rows).toHaveLength(1); // not the CFO
+    expect(rows[0]).toHaveTextContent("Regional Director · NA");
+    expect(within(stepIn).getByRole("button", { name: "Approve on behalf…" })).toBeInTheDocument();
+  });
+
+  // D130: "Recall as Deal Desk" on the board opens the quote with its Recall confirmation, once.
+  it("opens the confirmation the board asked for, with a Deal Desk back link", async () => {
+    const user = userEvent.setup();
+    showAt("/sales/cado2/quotes/5/quote?from=desk&do=recall", { ...submitted.quote, actions: ["RECALL"] }, submitted);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(/Recall version 1\?/);
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).toBeNull(); // once, not again
+    expect(screen.getByRole("link", { name: /Deal Desk/ })).toHaveAttribute("href", "/sales/cado2/desk");
+  });
 });

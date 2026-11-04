@@ -52,6 +52,7 @@ import { decisionNote, renewalStartPoints, repCategoryPoints } from "@features/s
 import ReviewNotes from "@features/sales/cado2/approvals/components/ReviewNotes";
 import DecisionCard from "@features/sales/cado2/approvals/components/DecisionCard";
 import YoursToWrite from "@features/sales/cado2/approvals/components/YoursToWrite";
+import OnBehalfPanel from "@features/sales/cado2/approvals/components/OnBehalfPanel";
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import LegalTermsEditor from "@features/sales/cado2/approvals/components/LegalTermsEditor";
 import SpecialTermsEditor from "@features/sales/cado2/approvals/components/SpecialTermsEditor";
@@ -123,6 +124,8 @@ export default function QuoteDetailPage(): JSX.Element {
   // Opened from My Approvals (?from=approvals): the back link returns there.
   const [search] = useSearchParams();
   const fromApprovals = search.get("from") === "approvals";
+  // Opened from the Deal Desk board (?from=desk): the back link returns there (D130).
+  const fromDesk = search.get("from") === "desk";
   // Opened from the Quote Report (?from=insights&back=…): the back link returns
   // to the report with its filters. Only an Insights address is accepted.
   const insightsBack = search.get("from") === "insights" ? search.get("back") : null;
@@ -147,7 +150,13 @@ export default function QuoteDetailPage(): JSX.Element {
   const close = useCloseQuote();
   const events = useAuditEvents(quoteId);
   const sheet = useMemo(() => (shown.data ? sheetFromVersion(shown.data) : null), [shown.data]);
-  const [dialog, setDialog] = useState<Dialog>(null);
+  const [dialogState, setDialogState] = useState<Dialog>(null);
+  // Opened from the board with ?do=recall|revise: that confirmation opens once (D130).
+  const [linkUsed, setLinkUsed] = useState(false);
+  const setDialog = (d: Dialog) => {
+    setLinkUsed(true);
+    setDialogState(d);
+  };
   const [decision, setDecision] = useState<Decision>(null);
   const shownStatus = shown.data?.version.status ?? null;
   const isDraft = shownStatus === "DRAFT";
@@ -203,6 +212,10 @@ export default function QuoteDetailPage(): JSX.Element {
   // The number once submitted; before that, the customer and deal.
   const name = quoteLabel(q.quoteNumber, v.accountName, v.opportunityName);
   const can = (a: "RECALL" | "REVISE" | "CLOSE") => q.actions.includes(a);
+  const askedAction = search.get("do");
+  const linkDialog: Dialog =
+    linkUsed || viewingOlder ? null : askedAction === "recall" && can("RECALL") ? "recall" : askedAction === "revise" && can("REVISE") ? "revise" : null;
+  const dialog = dialogState ?? linkDialog;
   const counts = [null, null, q.versions.length, events.data ? events.data.length : null];
   // Steps the caller may decide now; usually one.
   const actionable = (workflow.data?.steps ?? []).filter((s) => s.canAct);
@@ -340,11 +353,11 @@ export default function QuoteDetailPage(): JSX.Element {
       <Stack spacing={1.5}>
         <Link
           component={RouterLink}
-          to={backToReport ?? (fromApprovals ? cado2Paths.approvals : cado2Paths.quotes)}
+          to={backToReport ?? (fromApprovals ? cado2Paths.approvals : fromDesk ? cado2Paths.desk : cado2Paths.quotes)}
           variant="body2"
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, alignSelf: "flex-start" }}
         >
-          <ArrowLeftIcon size={14} /> {backToReport ? "Quote Report" : fromApprovals ? "My Approvals" : "Quotes"}
+          <ArrowLeftIcon size={14} /> {backToReport ? "Quote Report" : fromApprovals ? "My Approvals" : fromDesk ? "Deal Desk" : "Quotes"}
         </Link>
         {/* The record header (frontend.md, "Page titles"): the account is the
             page's title on every tab, with everything about who and what the
@@ -529,6 +542,13 @@ export default function QuoteDetailPage(): JSX.Element {
                           : "No notes from the approval rules on this quote."
                       }
                     />
+                    {/* Deal Desk may step in for an away approver (D120), here as on the Approvals tab. */}
+                    {lens.role === "DEAL_DESK" && !viewingOlder && steps.some((s) => s.canApproveOnBehalf) ? (
+                      <>
+                        <Divider />
+                        <OnBehalfPanel embedded quoteId={q.id} versionNumber={v.versionNumber} steps={steps} />
+                      </>
+                    ) : null}
                   </Paper>
                 ) : null}
                 {/* The timeline, the order form and the opportunity's quotes are for who works on

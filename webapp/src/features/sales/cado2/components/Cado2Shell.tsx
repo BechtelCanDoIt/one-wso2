@@ -100,11 +100,12 @@ export default function Cado2Shell(): JSX.Element {
  * What a route needs, in CadO2's terms: "quote" starts one (SALES), "quotes"
  * works on existing ones (SALES or Deal Desk, D127).
  */
-export type Cado2Need = "quote" | "quotes" | "approve" | "admin" | "insights";
+export type Cado2Need = "quote" | "quotes" | "desk" | "approve" | "admin" | "insights";
 
 function allows(need: Cado2Need, access: Cado2Access): boolean {
   if (need === "quote") return access.canQuote;
   if (need === "quotes") return access.canWorkOnQuotes;
+  if (need === "desk") return access.isDealDesk;
   if (need === "approve") return access.canApprove;
   if (need === "insights") return access.canViewInsights;
   return access.isAdmin;

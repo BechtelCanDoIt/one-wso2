@@ -28,6 +28,8 @@ interface OnBehalfPanelProps {
   readonly quoteId: number;
   readonly versionNumber: number;
   readonly steps: readonly ApprovalStep[];
+  /** Part of the approval card on the Quote tab: no frame of its own. */
+  readonly embedded?: boolean;
 }
 
 /**
@@ -36,7 +38,7 @@ interface OnBehalfPanelProps {
  * CEO or Legal (the backend says which: canApproveOnBehalf). A reason is
  * required; the approver is told by email.
  */
-export default function OnBehalfPanel({ quoteId, versionNumber, steps }: OnBehalfPanelProps): JSX.Element | null {
+export default function OnBehalfPanel({ quoteId, versionNumber, steps, embedded = false }: OnBehalfPanelProps): JSX.Element | null {
   const approve = useApproveOnBehalf();
   const notify = useCado2Toast();
   const [chosen, setChosen] = useState<ApprovalStep | null>(null);
@@ -44,13 +46,17 @@ export default function OnBehalfPanel({ quoteId, versionNumber, steps }: OnBehal
   if (!stuck.length) return null;
 
   return (
-    <Box sx={{ mb: 2, p: 1.5, borderRadius: 1.5, border: 1, borderColor: "divider" }} aria-label="Approve on behalf">
+    <Box
+      component="section"
+      sx={embedded ? { p: 2 } : { mb: 2, p: 1.5, borderRadius: 1.5, border: 1, borderColor: "divider" }}
+      aria-label="Approve on behalf"
+    >
       <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-        Is an approver away?
+        Approval delegation
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        As Deal Desk you can approve on their behalf, with a reason. They are told by email. Not for the CFO, the CEO or
-        Legal.
+        As Deal Desk you may approve on behalf of an approver who can't act, with a reason. The approver is told by
+        email. Not available for the CFO, the CEO or Legal.
       </Typography>
       <Stack component="ul" spacing={1} sx={{ m: 0, mt: 1.5, p: 0, listStyle: "none" }}>
         {stuck.map((s) => (

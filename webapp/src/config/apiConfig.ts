@@ -2080,6 +2080,8 @@ export const cado2ServiceUrls = {
   // Deal Desk and Legal lenses, and "Looks fine" on their notes (D129).
   review: (quoteId: number, versionNumber: number): string =>
     `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/review`,
+  // The Deal Desk board, a column at a time (D130).
+  deskColumn: (column: string, query: string): string => `${cado2BackendUrl}/desk/columns/${column}${query ? `?${query}` : ""}`,
   reviewMarks: (quoteId: number, versionNumber: number): string =>
     `${cado2BackendUrl}/quotes/${quoteId}/versions/${versionNumber}/review/marks`,
   // Supporting documents (DGD-10): the Admin's library of PDFs, and what a
