@@ -33,4 +33,10 @@ describe("HowWinnersAreChosen", () => {
     render(<HowWinnersAreChosen minPoints={250} topN={3} />);
     expect(screen.getByText("Earn at least 250 points in the month.")).toBeTruthy();
   });
+
+  it("leaves the minimum tile out when there is none", () => {
+    render(<HowWinnersAreChosen topN={3} />);
+    expect(screen.queryByText("Minimum to qualify.")).toBeNull();
+    expect(screen.getByText("The top 3 advocates are celebrated.")).toBeTruthy();
+  });
 });
