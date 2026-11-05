@@ -122,14 +122,6 @@ describe("ccCardIsActive", () => {
 
 describe("ccBillsAddress", () => {
   it("adds the user's name to the inbox as a plus alias", () => {
-    expect(ccBillsAddress("card-invoices@wso2.com", "jane@wso2.com")).toBe("card-invoices+jane@wso2.com");
-  });
-
-  it.each([
-    ["no inbox", "", "jane@wso2.com"],
-    ["an inbox without a domain", "card-invoices", "jane@wso2.com"],
-    ["no work email", "card-invoices@wso2.com", ""],
-  ])("gives nothing with %s", (_, inbox, workEmail) => {
-    expect(ccBillsAddress(inbox, workEmail)).toBeNull();
+    expect(ccBillsAddress("jane@wso2.com")).toBe("card-invoices+jane@wso2.com");
   });
 });

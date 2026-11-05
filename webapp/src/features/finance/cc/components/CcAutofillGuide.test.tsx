@@ -24,10 +24,8 @@ import { CcAutofillGuideCard, CcAutofillGuideDialog } from "./CcAutofillGuide";
 
 afterEach(() => localStorage.clear());
 
-const INBOX = "card-invoices@wso2.com";
 const showCard = (hasRules = true) => render(<CcAutofillGuideCard sub="sub-jane" hasRules={hasRules} />);
-const showDialog = (inbox = INBOX) =>
-  render(<CcAutofillGuideDialog open onClose={vi.fn()} inbox={inbox} workEmail="jane@wso2.com" />);
+const showDialog = () => render(<CcAutofillGuideDialog open onClose={vi.fn()} workEmail="jane@wso2.com" />);
 const steps = () => screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
 
 describe("CcAutofillGuideCard", () => {
@@ -99,16 +97,5 @@ describe("CcAutofillGuideDialog", () => {
 
     expect(await navigator.clipboard.readText()).toBe("card-invoices+jane@wso2.com");
     expect(screen.getByRole("button", { name: "Copied" })).toBeInTheDocument();
-  });
-
-  it("leaves out the address step when the inbox isn't configured", () => {
-    showDialog("");
-
-    expect(steps()).toEqual([
-      "The receipt is attached for you",
-      "Your rules fill in the details",
-      "New suppliers get a rule to set up",
-    ]);
-    expect(screen.queryByText(/billing address/)).not.toBeInTheDocument();
   });
 });

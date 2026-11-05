@@ -89,33 +89,25 @@ export function CcAutofillGuideCard({
 export function CcAutofillGuideDialog({
   open,
   onClose,
-  inbox,
   workEmail,
 }: {
   /** Whether the dialog is shown. */
   open: boolean;
   /** Called to close the dialog. */
   onClose: () => void;
-  /** The bills inbox from the runtime config. Without one, the step about sending bills is left out. */
-  inbox: string;
   /** The user's work email, whose name before the `@` makes their billing address. */
   workEmail: string;
 }) {
-  const address = ccBillsAddress(inbox, workEmail);
   const steps: { title: string; body: ReactNode }[] = [
-    ...(address
-      ? [
-          {
-            title: "Send your bills to your billing address",
-            body: (
-              <>
-                <BillsAddress address={address} />
-                Set it as the billing email with suppliers such as GitHub or AWS, or forward bills to it.
-              </>
-            ),
-          },
-        ]
-      : []),
+    {
+      title: "Send your bills to your billing address",
+      body: (
+        <>
+          <BillsAddress address={ccBillsAddress(workEmail)} />
+          Set it as the billing email with suppliers such as GitHub or AWS, or forward bills to it.
+        </>
+      ),
+    },
     {
       title: "The receipt is attached for you",
       body:

@@ -48,11 +48,6 @@ vi.mock("@hooks/useAsgardeoSub", () => ({
   useAsgardeoSub: () => ({ state: { status: "ready", sub: "sub-jane" }, retry: () => {} }),
 }));
 
-vi.mock("@config/apiConfig", async (original) => ({
-  ...(await original<typeof import("@config/apiConfig")>()),
-  ccBillsInbox: "card-invoices@wso2.com",
-}));
-
 // The real shell adds the eyebrow and the not-configured gate, which this page doesn't decide.
 vi.mock("../../components/FinanceShell", () => ({
   default: ({ title, children }: { title: string; children: ReactNode }) => (
