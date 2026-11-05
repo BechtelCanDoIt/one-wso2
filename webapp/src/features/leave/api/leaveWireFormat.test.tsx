@@ -20,15 +20,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import type { LeavePayload } from "./leaveTypes";
 
-// jsdom's Blob has no .text().
-const readBlobText = (b: Blob) =>
-  new Promise<string>((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result));
-    r.onerror = () => reject(r.error);
-    r.readAsText(b);
-  });
-
 // Four of the five defects the audit found are payload defects: a query param
 // that is not sent, a filter that is not applied, a recipient list that goes out
 // empty. None of them would show in a unit test of the helper that builds the
@@ -43,10 +34,6 @@ vi.mock("@api/http", () => ({
   authedPost: (url: string, _token: string, body: unknown) => {
     requests.push({ method: "POST", url, body });
     return Promise.resolve({});
-  },
-  authedUpload: (url: string, _token: string, formData: FormData) => {
-    requests.push({ method: "UPLOAD", url, body: formData });
-    return Promise.resolve({ message: "ok" });
   },
   authedDelete: (url: string) => {
     requests.push({ method: "DELETE", url });
@@ -308,7 +295,7 @@ describe("the leave entitlement request", () => {
 });
 
 describe("a sick-leave submit", () => {
-  it("sends exactly a `leave` JSON part and a `sickNote` file part", async () => {
+  it("posts JSON with the leave and the sick note as base64 text", async () => {
     const payload: LeavePayload = {
       startDate: "2026-03-02",
       endDate: "2026-03-03",
@@ -324,14 +311,11 @@ describe("a sick-leave submit", () => {
     result.current.mutate({ payload, sickNote: file });
     await waitFor(() => expect(requests).toHaveLength(1));
 
-    expect(requests[0].method).toBe("UPLOAD");
+    // A JSON body, not a multipart file: Cloudflare challenges raw binary bodies.
+    expect(requests[0].method).toBe("POST");
     expect(requests[0].url).toBe("https://leave.test/leaves/sick-leave");
-    const form = requests[0].body as FormData;
-    expect([...form.keys()].sort()).toEqual(["leave", "sickNote"]);
-    const leave = form.get("leave") as Blob;
-    expect(leave.type).toBe("application/json");
-    expect(JSON.parse(await readBlobText(leave))).toEqual(payload);
-    expect((form.get("sickNote") as File).name).toBe("note.pdf");
+    // "JVBERi0xLjQ=" is base64 of "%PDF-1.4", with no `data:` prefix.
+    expect(requests[0].body).toEqual({ leave: payload, sickNote: "JVBERi0xLjQ=" });
   });
 
   it("invalidates the same three caches as a plain submit", async () => {
