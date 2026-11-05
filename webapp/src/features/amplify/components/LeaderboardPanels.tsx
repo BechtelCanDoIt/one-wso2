@@ -135,6 +135,12 @@ function MyPosition({ board }: { board: TopBoard }) {
   );
 }
 
+/**
+ * The monthly minimum the page states when the API sends none. `GET /leaderboard/top` returns
+ * `minPoints: null` while the podium has no points gate, but the rule still belongs on the screen.
+ */
+const DEFAULT_MIN_POINTS = 100;
+
 /** One box: the company's top three, a rule, then the caller's own position. */
 export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people: PeopleByEmail }) {
   return (
@@ -143,7 +149,9 @@ export function TopAmplifiersPanel({ board, people }: { board: TopBoard; people:
       ariaLabel="top-amplifiers"
     >
       <TopThree board={board} people={people} />
-      {board.period === "MONTH" && <HowWinnersAreChosen minPoints={board.minPoints} topN={board.topN} />}
+      {board.period === "MONTH" && (
+        <HowWinnersAreChosen minPoints={board.minPoints ?? DEFAULT_MIN_POINTS} topN={board.topN} />
+      )}
       <Divider sx={{ my: 2 }} />
       <MyPosition board={board} />
     </AmplifyPanel>
