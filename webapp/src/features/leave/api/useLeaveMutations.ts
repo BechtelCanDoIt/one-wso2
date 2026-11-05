@@ -15,9 +15,10 @@
 // under the License.
 
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { authedDelete, authedPost, authedUpload } from "@api/http";
+import { authedDelete, authedPost } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { leaveServiceUrls } from "@config/apiConfig";
+import { fileToBase64 } from "../util/fileToBase64";
 import type { CalculatedLeave, LeavePayload, LeaveValidationPayload } from "./leaveTypes";
 
 // POST /leaves?isValidationOnlyMode=true — returns computed working days +
@@ -76,19 +77,18 @@ export function useSubmitLeave() {
   });
 }
 
-// POST /leaves/sick-leave — multipart: `leave` (JSON Blob, same body as
-// POST /leaves) and `sickNote` (the file). No Content-Type is set by hand;
-// authedUpload leaves it to the browser so the boundary is kept.
+// POST /leaves/sick-leave — JSON: `leave` (same body as POST /leaves) and
+// `sickNote` (the file as base64 text). Not multipart: Cloudflare in front of
+// the API gateway answers a request body carrying raw binary with a bot
+// challenge (403, no CORS header), which a browser request can't pass.
 export function useSubmitSickLeave() {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
   return useMutation<void, Error, { payload: LeavePayload; sickNote: File }>({
     mutationFn: async ({ payload, sickNote }) => {
+      const body = { leave: payload, sickNote: await fileToBase64(sickNote) };
       const accessToken = await getAccessToken();
-      const form = new FormData();
-      form.append("leave", new Blob([JSON.stringify(payload)], { type: "application/json" }));
-      form.append("sickNote", sickNote);
-      await authedUpload<unknown>(leaveServiceUrls.sickLeave, accessToken, form);
+      await authedPost<unknown>(leaveServiceUrls.sickLeave, accessToken, body);
     },
     // Same effects as useSubmitLeave: balance, list and the copy-list config.
     onSuccess: async () => {
