@@ -25,10 +25,11 @@ export function rate(r: number | null | undefined): string {
   return `${Math.round((r ?? 0) * 100)}%`;
 }
 
-/** part / whole as a whole percent, "-" when there is no whole. */
+/** part / whole as a whole percent, "-" when there is no whole, "<1%" when some but under half a percent. */
 export function percentOf(part: number, whole: number | null | undefined): string {
   if (!whole) return "-";
-  return `${Math.round((part / whole) * 100)}%`;
+  const p = Math.round((part / whole) * 100);
+  return p === 0 && part > 0 ? "<1%" : `${p}%`;
 }
 
 /** This period against the one before: "+23 vs previous", "same as previous", "-4 vs previous". */

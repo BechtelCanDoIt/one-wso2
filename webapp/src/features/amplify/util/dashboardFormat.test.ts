@@ -50,6 +50,8 @@ describe("dashboardFormat", () => {
     expect(percentOf(150, 830)).toBe("18%");
     expect(percentOf(1, 0)).toBe("-");
     expect(percentOf(1, null)).toBe("-");
+    expect(percentOf(2, 912)).toBe("<1%");
+    expect(percentOf(0, 912)).toBe("0%");
   });
 
   it("describes change without inventing a base", () => {

@@ -46,17 +46,10 @@ export function Funnel({ data }: { data: DashboardParticipation }) {
     value: f.connected,
     detail: f.employees ? `${num(f.connected)} · ${percentOf(f.connected, f.employees)}` : num(f.connected),
   });
-  steps.push({
-    name: "Reposted at least once",
-    value: f.reposted,
-    detail: `${num(f.reposted)} · ${percentOf(f.reposted, f.connected)} of connected`,
-  });
-  steps.push({
-    name: "Active in last 30 days",
-    value: f.active30Days,
-    detail: `${num(f.active30Days)} · ${percentOf(f.active30Days, f.connected)} of connected`,
-    color: "primary.main",
-  });
+  // Counts only: reposters and active people include those who reposted and then disconnected, so they are not a
+  // subset of "connected", and a share of connected could pass 100%.
+  steps.push({ name: "Reposted at least once", value: f.reposted, detail: num(f.reposted) });
+  steps.push({ name: "Active in last 30 days", value: f.active30Days, detail: num(f.active30Days), color: "primary.main" });
   return (
     <Block title="Employee journey">
       <Box component="ol" sx={{ listStyle: "none", m: 0, p: 0, display: "flex", flexDirection: "column", gap: 1.5 }}>
@@ -71,7 +64,7 @@ export function Funnel({ data }: { data: DashboardParticipation }) {
       <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
         {num(f.expired)} connections have expired.
         {f.employees != null && f.employees > f.connected
-          ? ` ${num(f.employees - f.connected)} employees have never connected.`
+          ? ` ${num(f.employees - f.connected)} employees are not connected.`
           : ""}
       </Typography>
     </Block>
