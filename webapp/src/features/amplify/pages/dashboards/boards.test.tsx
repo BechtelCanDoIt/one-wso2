@@ -284,9 +284,21 @@ describe("Participation", () => {
 
   it("shows the funnel with expired connections and never-connected employees", () => {
     render(<Funnel data={funnel} />);
-    expect(screen.getByText("128 · 85% of connected")).toBeTruthy();
+    expect(screen.getByText("150 · 18%")).toBeTruthy();
+    expect(screen.getByText("128")).toBeTruthy();
+    expect(screen.queryByText(/of connected/)).toBeNull();
     expect(screen.getByText(/4 connections have expired\./)).toBeTruthy();
-    expect(screen.getByText(/680 employees have never connected/)).toBeTruthy();
+    expect(screen.getByText(/680 employees are not connected/)).toBeTruthy();
+  });
+
+  // Staging, 5 Nov: one person reposted and then disconnected, so reposted (3) was above connected (2) and the old
+  // board said "150% of connected".
+  it("shows more reposters than connections as counts, with no share over 100%", () => {
+    render(<Funnel data={{ asOf: funnel.asOf, funnel: { employees: 912, connected: 2, reposted: 3, active30Days: 3, expired: 0 } }} />);
+    expect(screen.getByText("2 · <1%")).toBeTruthy();
+    expect(screen.getAllByText("3")).toHaveLength(2);
+    expect(screen.queryByText(/150%|of connected/)).toBeNull();
+    expect(screen.getByText(/910 employees are not connected/)).toBeTruthy();
   });
 
   it("shows one pill per BU with exactly one selected, and no All BUs pill", () => {
