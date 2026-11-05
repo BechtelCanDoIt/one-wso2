@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fileToBase64 } from "./fileToBase64";
 
 const decode = (text: string) => Uint8Array.from(atob(text), (c) => c.charCodeAt(0));
@@ -29,6 +29,27 @@ describe("fileToBase64", () => {
 
   it("encodes an empty file as empty text", async () => {
     expect(await fileToBase64(new File([], "empty.pdf"))).toBe("");
+  });
+
+  it("rejects when the file can't be read, so the submit shows an error", async () => {
+    const failingReader = (error: DOMException | null) =>
+      class {
+        error = error;
+        onload: (() => void) | null = null;
+        onerror: (() => void) | null = null;
+        readAsDataURL() {
+          queueMicrotask(() => this.onerror?.());
+        }
+      };
+    try {
+      const readError = new DOMException("The file was moved.", "NotReadableError");
+      vi.stubGlobal("FileReader", failingReader(readError));
+      await expect(fileToBase64(new Blob(["x"]))).rejects.toBe(readError);
+      vi.stubGlobal("FileReader", failingReader(null));
+      await expect(fileToBase64(new Blob(["x"]))).rejects.toThrow("The file could not be read.");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("round-trips a file larger than one chunk, every byte value included", async () => {
