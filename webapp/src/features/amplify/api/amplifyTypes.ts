@@ -210,7 +210,7 @@ export interface Leaderboard {
 export interface TopBoard {
   /** MONTH = this calendar month (UTC); ALL = all time. Set by `leaderboard.top_scope`. */
   period: "MONTH" | "ALL";
-  /** Points needed in the month to qualify for the top three; null for ALL. */
+  /** The monthly minimum shown as the rule on the page; everyone with points is still ranked and the top N always shows. Null for ALL. */
   minPoints?: number | null;
   monthStart?: string | null;
   monthEnd?: string | null;
