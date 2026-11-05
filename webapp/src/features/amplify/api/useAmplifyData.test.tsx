@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, focusManager } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
@@ -33,7 +33,14 @@ vi.mock("@config/apiConfig", () => ({
 
 import { authedGet } from "@api/http";
 import type { Share } from "./amplifyTypes";
-import { QUEUED_SHARE_POLL_MS, pollWhileQueued, sharePublishedSince, useMyShares } from "./useAmplifyData";
+import {
+  QUEUED_SHARE_POLL_MS,
+  pollWhileQueued,
+  sharePublishedSince,
+  useAmplifyLeaderboard,
+  useAmplifyTopBoard,
+  useMyShares,
+} from "./useAmplifyData";
 
 const share = (id: string, status: Share["status"]): Share => ({ id, campaignId: "c-" + id, status });
 
@@ -95,6 +102,36 @@ describe("useMyShares", () => {
     await waitFor(() => expect(loadTop).toHaveBeenCalledTimes(2));
   });
 
+  it("checks again every 30 s while a share is queued, and stops once it is published", async () => {
+    vi.useFakeTimers();
+    const { wrapper } = setup();
+    vi.mocked(authedGet).mockResolvedValue({ items: [share("s1", "QUEUED")] });
+    const { unmount } = renderHook(() => useMyShares(), { wrapper });
+    try {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(authedGet).toHaveBeenCalledTimes(1);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(QUEUED_SHARE_POLL_MS);
+      });
+      expect(authedGet).toHaveBeenCalledTimes(2);
+
+      vi.mocked(authedGet).mockResolvedValue({ items: [share("s1", "PUBLISHED")] });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(QUEUED_SHARE_POLL_MS);
+      });
+      expect(authedGet).toHaveBeenCalledTimes(3);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(QUEUED_SHARE_POLL_MS * 4);
+      });
+      expect(authedGet).toHaveBeenCalledTimes(3);
+    } finally {
+      unmount();
+      vi.useRealTimers();
+    }
+  });
+
   it("leaves the boards alone when nothing was published", async () => {
     const { qc, wrapper } = setup();
     const loadBoard = vi.fn(async () => ({}));
@@ -110,5 +147,56 @@ describe("useMyShares", () => {
     });
 
     expect(loadBoard).toHaveBeenCalledTimes(1);
+  });
+});
+
+// The app's QueryClient turns refetchOnMount and refetchOnWindowFocus off; the two Celebrate boards turn them back on,
+// so other people's reposts show when Celebrate is opened again or its tab regains focus.
+describe("the Celebrate boards", () => {
+  const TEN_MINUTES_AGO = () => Date.now() - 10 * 60 * 1000;
+  const boards = [
+    { name: "the leaderboard", key: ["amplify", "leaderboard", "sub-1"], useBoard: useAmplifyLeaderboard },
+    { name: "the top board", key: ["amplify", "leaderboard-top", "sub-1"], useBoard: useAmplifyTopBoard },
+  ];
+
+  beforeEach(() => {
+    vi.mocked(authedGet).mockReset();
+    vi.mocked(authedGet).mockResolvedValue({ fresh: true });
+  });
+
+  function setup() {
+    const qc = new QueryClient({
+      defaultOptions: { queries: { retry: false, refetchOnMount: false, refetchOnWindowFocus: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+    return { qc, wrapper };
+  }
+
+  it.each(boards)("$name reloads stale data when the page opens", async ({ key, useBoard }) => {
+    const { qc, wrapper } = setup();
+    qc.setQueryData(key, { cached: true }, { updatedAt: TEN_MINUTES_AGO() });
+    const { result, unmount } = renderHook(() => useBoard(), { wrapper });
+    await waitFor(() => expect(result.current.data).toEqual({ fresh: true }));
+    expect(authedGet).toHaveBeenCalledTimes(1);
+    unmount();
+  });
+
+  it.each(boards)("$name reloads stale data when the tab regains focus", async ({ key, useBoard }) => {
+    const { qc, wrapper } = setup();
+    const { unmount } = renderHook(() => useBoard(), { wrapper });
+    await waitFor(() => expect(authedGet).toHaveBeenCalledTimes(1));
+    qc.setQueryData(key, { fresh: true }, { updatedAt: TEN_MINUTES_AGO() });
+    try {
+      act(() => {
+        focusManager.setFocused(false);
+        focusManager.setFocused(true);
+      });
+      await waitFor(() => expect(authedGet).toHaveBeenCalledTimes(2));
+    } finally {
+      focusManager.setFocused(undefined);
+      unmount();
+    }
   });
 });
