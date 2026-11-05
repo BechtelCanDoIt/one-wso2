@@ -69,6 +69,14 @@ export type PreviewFeature =
    */
   | "nda"
   /**
+   * Marketing Ops → Marketing Calendar, the month view of events, content, social
+   * posts and emails planned in GitHub: its rail group, the
+   * `/marketing-ops/marketing-calendar` route, and its backend calls. Held back
+   * while the business owners settle which GitHub items it shows
+   * (digiops-marketing#1596).
+   */
+  | "marketingCalendar"
+  /**
    * Amplify, the whole app: its launcher tile, its rail group (Celebrate,
    * New Post, Current Posts) and every route under `/amplify`. Held back until
    * the Amplify API proxy is live for the phase 1 pilot. Who sees New Post and

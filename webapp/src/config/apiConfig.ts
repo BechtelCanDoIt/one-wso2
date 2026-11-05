@@ -1123,6 +1123,12 @@ export const marketingOpsServiceUrls = {
   crmUploadTrigger: (kind: "leads" | "accounts") =>
     `${marketingOpsBackendUrl}/api/crm-upload/triggers/${kind}`,
 
+  // GitHub issues planned as events, content, social posts and emails, read live
+  // through the Engineering Entity Service on every call — nothing is cached server
+  // side. `from` and `to` are civil dates (YYYY-MM-DD), both included.
+  marketingCalendarItems: (from: string, to: string) =>
+    `${marketingOpsBackendUrl}/api/marketing-calendar/items?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+
   // The remaining operation root — /api/audit — gets its builders added by the phase
   // that ports it, so this object never lists a URL nothing calls.
 };

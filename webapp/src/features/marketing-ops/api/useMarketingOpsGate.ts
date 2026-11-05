@@ -91,6 +91,8 @@ const ITEM_CAPABILITY: Record<
   "mops-event-platform-speakers": "eventplatform",
   "mops-event-platform-admin": "eventplatform",
   "mops-event-platform-shop": ["eventplatform", "eventplatform-shop"],
+  // Marketing Calendar — read-only, so one capability covers the whole screen.
+  "mops-marketing-calendar": "marketingcalendar",
 };
 
 // Menu ids belonging to the Marketing Admin app. Gated on `isAdmin` alone

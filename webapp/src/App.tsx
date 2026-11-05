@@ -144,6 +144,8 @@ import EventsSettingsPage from "@features/marketing-ops/admin/pages/EventsSettin
 import EventsNotificationsPage from "@features/marketing-ops/admin/pages/EventsNotificationsPage";
 import MarketingAdminRoute from "@features/marketing-ops/components/MarketingAdminRoute";
 import PostBuilderPage from "@features/marketing-ops/design-studio/pages/PostBuilderPage";
+import MarketingCalendarPage from "@features/marketing-ops/marketing-calendar/pages/MarketingCalendarPage";
+import { marketingCalendarViewRoutes } from "@features/marketing-ops/marketing-calendar/routes";
 import {
   EventsMinePage,
   EventsReviewPage,
@@ -1011,6 +1013,14 @@ export default function App() {
             path="marketing-ops/design-studio/post-builder"
             element={<PostBuilderPage />}
           />
+          {/* Marketing Calendar — a read-only month of what the marketing team plans in
+              GitHub, one tab per view (All, Events, Content, Social, Email) under a
+              shared layout. Held back by the `marketingCalendar` preview flag. */}
+          {isPreviewEnabled("marketingCalendar") && (
+            <Route path="marketing-ops/marketing-calendar" element={<MarketingCalendarPage />}>
+              {marketingCalendarViewRoutes}
+            </Route>
+          )}
           {/* Sales opens on the first rail row the caller can see, which is
               Echo → Meetings (`forwardsToFirstItem`); someone the backend
               refuses is told so here, by PerspectiveLanding. */}

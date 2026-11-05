@@ -451,19 +451,22 @@ export const PROMOTION_CYCLE_HISTORY_ITEM_ID = "promotion-cycle-history";
 // Marketing Ops backend's own /api/me. Whatever renders these sections must ask
 // that gate, not just read `requires`.
 //
-// ISAC leads the rail. It is NOT in MARKETING_OPS_APPS, deliberately: that
-// registry is the set of operations this webapp implements, and every item in it
-// resolves to a route we own. ISAC is a separate application that One WSO2 only
+// The Marketing Calendar leads the rail, then ISAC. ISAC is NOT in
+// MARKETING_OPS_APPS, deliberately: that registry is the set of operations this
+// webapp implements, and every item in it resolves to a route we own. ISAC is a separate application that One WSO2 only
 // points at, so it belongs here — where the rail is assembled — rather than in a
 // registry that also feeds the overview page's cards and the capability gate.
 //
 // It is omitted entirely when its URL isn't configured. A rail item that goes
 // nowhere is worse than one that isn't there.
+const MARKETING_OPS_APP_SECTIONS = appsToSections(MARKETING_OPS_APPS);
+const isMarketingCalendar = (section: PerspectiveSection) => section.id === "sec-app-marketing-calendar";
 const MARKETING_OPS_SECTIONS: PerspectiveSection[] = [
+  ...MARKETING_OPS_APP_SECTIONS.filter(isMarketingCalendar),
   ...(isIsacConfigured()
     ? [{ id: "mops-isac", label: "ISAC", icon: SatelliteDishIcon, externalUrl: isacUrl }]
     : []),
-  ...appsToSections(MARKETING_OPS_APPS),
+  ...MARKETING_OPS_APP_SECTIONS.filter((section) => !isMarketingCalendar(section)),
 ];
 
 // The Me home landing. The landing page itself already is the ported

@@ -345,3 +345,20 @@ describe("Due Diligence", () => {
     ]);
   });
 });
+
+describe("the Marketing Ops rail", () => {
+  it("leads with the Marketing Calendar, then ISAC, when the calendar's preview flag is on", async () => {
+    vi.resetModules();
+    window.config = {
+      ...(window.config ?? {}),
+      ONE_WSO2_PREVIEW_FEATURES: { marketingCalendar: true },
+      ONE_WSO2_MARKETINGOPS_ISAC_URL: "https://isac.example",
+    } as Window["config"];
+    const { PERSPECTIVES } = await import("./perspectives");
+
+    const ids = PERSPECTIVES.find((perspective) => perspective.key === "marketing")?.sections?.map(
+      (section) => section.id,
+    );
+    expect(ids?.slice(0, 3)).toEqual(["sec-app-marketing-calendar", "mops-isac", "sec-app-email-workbench"]);
+  });
+});
