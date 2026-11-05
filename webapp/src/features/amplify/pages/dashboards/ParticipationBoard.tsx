@@ -33,7 +33,7 @@ import {
   type ExportPeriod,
 } from "../../util/dashboardFormat";
 
-/** Employees → connected → reposted → active: where people drop out. */
+/** Employees, connected, reposted, active: how many people are at each stage (separate counts, not a strict funnel). */
 export function Funnel({ data }: { data: DashboardParticipation }) {
   const f = data.funnel;
   const top = f.employees && f.employees > 0 ? f.employees : Math.max(1, f.connected);
@@ -362,7 +362,7 @@ export default function ParticipationPage() {
   return (
     <AmplifyShell
       title="Participation"
-      subtitle="Where employees drop out between hearing of Amplify and reposting regularly, and which teams lead."
+      subtitle="How many employees are at each stage of Amplify, from connecting LinkedIn to reposting regularly, and which teams lead."
     >
       <BoardState queries={[funnel]}>
         {funnel.data && (
