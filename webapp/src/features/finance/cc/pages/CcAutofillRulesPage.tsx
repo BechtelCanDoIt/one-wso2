@@ -17,7 +17,7 @@
  */
 
 import ErrorNotice from "@components/error-notice/ErrorNotice";
-import { ccBillsInbox, isCcBackendConfigured } from "@config/apiConfig";
+import { isCcBackendConfigured } from "@config/apiConfig";
 import { FINANCE_EYEBROW } from "@constants/financeApps";
 import { useAsgardeoSub } from "@hooks/useAsgardeoSub";
 import { Alert, Skeleton } from "@wso2/oxygen-ui";
@@ -81,7 +81,6 @@ export default function CcAutofillRulesPage() {
           <CcAutofillGuideDialog
             open={guideOpen}
             onClose={() => setGuideOpen(false)}
-            inbox={ccBillsInbox}
             workEmail={userInfo.data.workEmail}
           />
         </>
