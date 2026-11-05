@@ -722,9 +722,10 @@ export const umtServiceUrls = {
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/dependency`,
   updatePullRequestAnalysis: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/pullRequestAnalysis`,
-  // GET — polled while PR analysis is QUEUED/PROCESSING.
-  updatePullRequestAnalysisStatus: (id: string | number) =>
-    `${umtBackendUrl}/update/${encodeURIComponent(id)}/pullRequestAnalysisStatus`,
+  // POST — starts a PR analysis. With `promote`, the backend then moves the
+  // update to PRAnalyzed and runs its product analysis.
+  startPullRequestAnalysis: (id: string | number) =>
+    `${umtBackendUrl}/update/${encodeURIComponent(id)}/pullRequestAnalysis?promote=true`,
   // POST (multipart) — uploads one manually-added file for PR analysis.
   updatePullRequestAnalysisFile: (id: string | number) =>
     `${umtBackendUrl}/update/${encodeURIComponent(id)}/pullRequestAnalysis/file`,
