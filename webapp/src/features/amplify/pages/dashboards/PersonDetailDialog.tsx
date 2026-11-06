@@ -63,7 +63,8 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
       </Box>
       <DialogContent>
         {!hasId ? (
-          <Empty>No Amplify activity yet.</Empty>
+          // Same note as the Backend's 404 below: with no id the request would never reach it (gateway 404).
+          <Empty>Amplify has no activity for this person yet.</Empty>
         ) : q.isPending ? (
           <Skeleton variant="rounded" height={160} />
         ) : q.isError ? (

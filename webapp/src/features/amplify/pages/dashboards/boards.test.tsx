@@ -274,13 +274,13 @@ describe("PersonDetailDialog", () => {
     render(<PersonDetailDialog person={{ employeeId, displayName: "Ada Lovelace", email: "ada@example.com" }} onClose={() => undefined} />);
     expect(screen.getByText("Ada Lovelace Amplify Details")).toBeTruthy();
     expect(screen.getByText(/Team: Digital Engineering/)).toBeTruthy();
-    expect(screen.getByText("No Amplify activity yet.")).toBeTruthy();
+    expect(screen.getByText("Amplify has no activity for this person yet.")).toBeTruthy();
     expect(screen.queryByText("Points this month")).toBeNull();
   });
 
   it("shows the board for a person with an id", () => {
     render(<PersonDetailDialog person={{ employeeId: "e1", displayName: "Ada Lovelace", email: "ada@example.com" }} onClose={() => undefined} />);
-    expect(screen.queryByText("No Amplify activity yet.")).toBeNull();
+    expect(screen.queryByText("Amplify has no activity for this person yet.")).toBeNull();
     expect(screen.getByText("Points this month")).toBeTruthy();
   });
 });
