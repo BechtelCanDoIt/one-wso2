@@ -37,6 +37,7 @@ import LinkLinkedInDialog from "../components/LinkLinkedInDialog";
 import PostCard, { CategoryChip, PriorityChip } from "../components/PostCard";
 import PostCarousel from "../components/PostCarousel";
 import ShareDialog from "../components/ShareDialog";
+import { campaignForShareParam } from "../util/linkedinPost";
 
 // Celebrate: every employee's Amplify page. In order (phase 1 UX review):
 //  1. Posts to amplify, priority first then newest. Gone once you've shared
@@ -92,9 +93,8 @@ export default function CelebratePage() {
   // post's share dialog, so the click that started it carries on. Derived from
   // the URL rather than copied into state; closing the dialog clears both.
   const pendingShareId = searchParams.get("share");
-  const pendingCampaign = pendingShareId
-    ? (openCampaigns.find((c) => c.id === pendingShareId) ?? null)
-    : null;
+  // Novera sends the campaign id; a LinkedIn post id or post URL resolves to the same campaign.
+  const pendingCampaign = campaignForShareParam(pendingShareId, openCampaigns);
   const pendingShare =
     pendingCampaign && linked && !sharedCampaignIds.has(pendingCampaign.id) ? pendingCampaign : null;
 
@@ -122,9 +122,13 @@ export default function CelebratePage() {
       return;
     }
     if (shares.isPending || campaigns.isPending) return;
-    if (!sharedCampaignIds.has(pendingShareId)) return;
-    if (thankedShareId.current === pendingShareId) return;
-    thankedShareId.current = pendingShareId;
+    // The share rows key on the campaign id, so a post id or URL in the link
+    // is looked up as its campaign first; only a campaign id can match when
+    // the post has closed and the open list no longer names it.
+    const targetId = pendingCampaign?.id ?? pendingShareId;
+    if (!sharedCampaignIds.has(targetId)) return;
+    if (thankedShareId.current === targetId) return;
+    thankedShareId.current = targetId;
     showSuccess(
       pendingCampaign
         ? `Thank you for already amplifying this campaign: ${pendingCampaign.title}`
