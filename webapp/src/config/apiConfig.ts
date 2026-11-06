@@ -2020,6 +2020,28 @@ export function isCado2BackendConfigured(): boolean {
 
 const encodeSegment = (value: string | number): string => encodeURIComponent(String(value));
 
+// Procurement — Finance → Procurement, purchase requests through to Procurement
+// assignment. Its own backend, version segment included. Unset means "not
+// connected": its pages say so and make no requests. Gated as a whole by the
+// `procurement` preview flag as well (previewFeatures.ts).
+export const procurementBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_PROCUREMENT_BACKEND_URL ?? "",
+);
+
+export function isProcurementBackendConfigured(): boolean {
+  return Boolean(procurementBackendUrl);
+}
+
+export const procurementServiceUrls = {
+  me: `${procurementBackendUrl}/me`,
+  lookups: `${procurementBackendUrl}/lookups`,
+  directory: (query: string): string => `${procurementBackendUrl}/directory?q=${encodeSegment(query)}`,
+  requests: `${procurementBackendUrl}/purchase-requests`,
+  request: (requestId: string): string => `${procurementBackendUrl}/purchase-requests/${encodeSegment(requestId)}`,
+  requestDocuments: (requestId: string): string =>
+    `${procurementBackendUrl}/purchase-requests/${encodeSegment(requestId)}/documents`,
+};
+
 export const cado2ServiceUrls = {
   // The caller's CadO2 roles (SALES, ADMIN) and approval roles. Decides the rail
   // and every CadO2 route; the backend re-checks each call on its own.

@@ -88,7 +88,15 @@ export type PreviewFeature =
    * Marketing Ops → Campaign Tracker → Pacing tab. The BudgetSyncPacingPanel
    * is still being built out; this flag hides the tab until it is ready.
    */
-  | "campaignTrackerPacing";
+  | "campaignTrackerPacing"
+  /**
+   * Finance → Procurement, phase 1 (raise a purchase request, track it, team
+   * lead approval, Procurement assignment): its rail group, every route under
+   * `/finance/procurement`, and its backend calls. Held back until the
+   * Procurement backend exists and the phase 1 security review is signed off.
+   * See docs/ported-apps/procurement.md.
+   */
+  | "procurement";
 
 /**
  * Whether a preview feature should be shown.

@@ -68,6 +68,13 @@ window.config = {
   // ONE_WSO2_SALESFORCE_BASE_URL.
   // ONE_WSO2_CADO2_BACKEND_URL: "<your-cado2-backend-url>",
 
+  // Procurement backend — powers Finance → Procurement (raise and track
+  // purchase requests, team lead approval, Procurement assignment). Shown only
+  // while `procurement` is on in ONE_WSO2_PREVIEW_FEATURES below. With the flag
+  // on and this unset, its pages say "not connected" and make no requests
+  // (a dev build serves sample data instead).
+  // ONE_WSO2_PROCUREMENT_BACKEND_URL: "<your-procurement-backend-url>",
+
   // Pitstop backend that serves Smart Search — powers Sales → Library, the
   // plain-language search over Pitstop's content. Include the version segment.
   // When this is unset, the page says "not connected" and makes no requests.
@@ -215,6 +222,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, cado2: false, nda: false, amplify: false, marketingCalendar: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, cado2: false, nda: false, amplify: false, marketingCalendar: false, procurement: false },
 
 };
