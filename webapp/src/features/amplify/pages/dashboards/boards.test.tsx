@@ -28,6 +28,7 @@ import { GlanceBoard } from "./GlanceBoard";
 import { OperationsBoard } from "./OperationsBoard";
 import { ExportPanel, Funnel, HouseTable, TeamTable } from "./ParticipationBoard";
 import { PostPerformanceBoard } from "./PostPerformanceBoard";
+import PersonDetailDialog from "./PersonDetailDialog";
 import { ScorecardBoard } from "./ScorecardBoard";
 
 const showError = vi.fn();
@@ -263,6 +264,24 @@ describe("PostPerformanceBoard", () => {
     const event = within(table).getByRole("rowheader", { name: "Event" }).parentElement!;
     expect(within(event).getByText("10")).toBeTruthy();
     expect(within(event).getByText("0")).toBeTruthy();
+  });
+});
+
+describe("PersonDetailDialog", () => {
+  // My Team lists everyone in the directory team; a member Amplify holds no id for comes with `employeeId: null`.
+  // Staging and prod, 6 Nov: clicking one asked for `/dashboards/people/` (gateway 404, shown as a CORS error).
+  it.each([null, ""])("shows the directory header and a note, not the board, for a person with no id (%s)", (employeeId) => {
+    render(<PersonDetailDialog person={{ employeeId, displayName: "Ada Lovelace", email: "ada@example.com" }} onClose={() => undefined} />);
+    expect(screen.getByText("Ada Lovelace Amplify Details")).toBeTruthy();
+    expect(screen.getByText(/Team: Digital Engineering/)).toBeTruthy();
+    expect(screen.getByText("No Amplify activity yet.")).toBeTruthy();
+    expect(screen.queryByText("Points this month")).toBeNull();
+  });
+
+  it("shows the board for a person with an id", () => {
+    render(<PersonDetailDialog person={{ employeeId: "e1", displayName: "Ada Lovelace", email: "ada@example.com" }} onClose={() => undefined} />);
+    expect(screen.queryByText("No Amplify activity yet.")).toBeNull();
+    expect(screen.getByText("Points this month")).toBeTruthy();
   });
 });
 

@@ -20,7 +20,8 @@ import type { EmployeeDirectoryRecord } from "@features/org-chart/api/orgChartTy
 
 /** Who a name belongs to, as far as the caller knows. */
 export interface PersonRef {
-  employeeId: string;
+  /** Null when Amplify sent no id (no points in the period yet, or never signed in): there is no board to open. */
+  employeeId: string | null;
   /** What Amplify recorded; may be the employee id itself. */
   displayName?: string | null;
   email?: string | null;
@@ -68,7 +69,7 @@ export function usePersonLookup(): (p: PersonRef) => ResolvedPerson {
     return { byEmail, byId };
   }, [directory.data]);
   return (p) => {
-    const rec = (p.email ? index.byEmail.get(p.email.trim().toLowerCase()) : undefined) ?? index.byId.get(p.employeeId);
+    const rec = (p.email ? index.byEmail.get(p.email.trim().toLowerCase()) : undefined) ?? (p.employeeId ? index.byId.get(p.employeeId) : undefined);
     const recorded = looksLikeId(p.displayName) ? "" : (p.displayName ?? "").trim();
     return {
       name: (rec && fullName(rec)) || recorded || "Unknown employee",

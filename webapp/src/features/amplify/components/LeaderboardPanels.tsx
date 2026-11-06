@@ -185,7 +185,7 @@ export function TeamLeaderboardPanel({ board, people }: { board: Leaderboard; pe
             <TableBody>
               {team.entries.map((entry) => (
                 <TableRow
-                  key={entry.employeeId}
+                  key={entry.employeeId || entry.email}
                   selected={entry.isMe}
                   sx={entry.isMe ? { "& td": { fontWeight: 700 } } : undefined}
                 >
