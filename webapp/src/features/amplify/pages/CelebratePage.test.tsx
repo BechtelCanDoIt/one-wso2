@@ -104,13 +104,13 @@ vi.mock("../components/ShareDialog", () => ({
 
 import CelebratePage from "./CelebratePage";
 
-const campaign = (id: string, title: string) => ({
+const campaign = (id: string, title: string, resourceUrn = `urn:li:share:${id}`) => ({
   id,
   title,
   categoryCode: "PRODUCT",
   isPriority: false,
   status: "OPEN",
-  resourceUrn: `urn:li:share:${id}`,
+  resourceUrn,
   tags: [],
   opensAt: "2026-11-01T00:00:00Z",
   closesAt: "2026-11-30T00:00:00Z",
@@ -213,6 +213,27 @@ describe("CelebratePage and the Novera share link", () => {
     render(<CelebratePage />);
     expect(h.showSuccess).toHaveBeenCalledWith("Thank you for already amplifying this campaign.");
     expect(h.setSearchParams).toHaveBeenCalledWith({}, { replace: true });
+  });
+
+  it("accepts a LinkedIn post id in place of the campaign id", () => {
+    h.state.params = new URLSearchParams({ share: "7411000001" });
+    h.state.campaigns = [campaign("c-1", "Launch week", "urn:li:share:7411000001")];
+    h.state.shares = [share("c-1")];
+    render(<CelebratePage />);
+    expect(h.showSuccess).toHaveBeenCalledWith(
+      "Thank you for already amplifying this campaign: Launch week",
+    );
+    expect(h.setSearchParams).toHaveBeenCalledWith({}, { replace: true });
+  });
+
+  it("opens the share dialog from a LinkedIn post URL", () => {
+    h.state.params = new URLSearchParams({
+      share: "https://www.linkedin.com/feed/update/urn:li:share:7411000001/",
+    });
+    h.state.campaigns = [campaign("c-1", "Launch week", "urn:li:share:7411000001")];
+    render(<CelebratePage />);
+    expect(screen.getByText("share dialog: Launch week")).toBeTruthy();
+    expect(h.showSuccess).not.toHaveBeenCalled();
   });
 
   it("waits for the shares before answering, so an unloaded list is not treated as amplified", () => {
