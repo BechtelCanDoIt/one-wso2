@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 // Novera's card button links to /amplify/celebrate?share=<campaignId>. When the
@@ -31,6 +31,8 @@ const h = vi.hoisted(() => ({
     shares: [] as Array<Record<string, unknown>>,
     sharesPending: false,
     campaignsPending: false,
+    linkStatus: "ACTIVE",
+    mePending: false,
   },
 }));
 
@@ -44,7 +46,10 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 }));
 
 vi.mock("../api/useAmplifyData", () => ({
-  useAmplifyMe: () => ({ data: { linkedin: { status: "ACTIVE" } }, isPending: false }),
+  useAmplifyMe: () => ({
+    data: h.state.mePending ? undefined : { linkedin: { status: h.state.linkStatus } },
+    isPending: h.state.mePending,
+  }),
   useAmplifyCampaigns: () => ({
     data: { items: h.state.campaigns },
     isPending: h.state.campaignsPending,
@@ -71,7 +76,27 @@ vi.mock("../components/LeaderboardPanels", () => ({
   TeamLeaderboardPanel: () => null,
   TopAmplifiersPanel: () => null,
 }));
-vi.mock("../components/LinkLinkedInDialog", () => ({ default: () => null }));
+vi.mock("../components/LinkLinkedInDialog", () => ({
+  default: ({
+    open,
+    onClose,
+    pendingCampaignId,
+    reconnect,
+  }: {
+    open: boolean;
+    onClose: () => void;
+    pendingCampaignId?: string;
+    reconnect?: boolean;
+  }) =>
+    open ? (
+      <div>
+        link dialog: {pendingCampaignId} {reconnect ? "reconnect" : "connect"}
+        <button type="button" onClick={onClose}>
+          close link
+        </button>
+      </div>
+    ) : null,
+}));
 vi.mock("../components/ShareDialog", () => ({
   default: ({ campaign }: { campaign: { title: string } | null }) =>
     campaign ? <div>share dialog: {campaign.title}</div> : null,
@@ -107,6 +132,8 @@ describe("CelebratePage and the Novera share link", () => {
     h.state.shares = [];
     h.state.sharesPending = false;
     h.state.campaignsPending = false;
+    h.state.linkStatus = "ACTIVE";
+    h.state.mePending = false;
   });
 
   it("thanks the caller when the linked post is already amplified, and clears the link", () => {
@@ -126,6 +153,49 @@ describe("CelebratePage and the Novera share link", () => {
     expect(screen.getByText("share dialog: Launch week")).toBeTruthy();
     expect(h.showSuccess).not.toHaveBeenCalled();
     expect(h.setSearchParams).not.toHaveBeenCalled();
+  });
+
+  it("opens the LinkedIn consent popup when an unlinked caller follows the card link", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.linkStatus = "NOT_CONNECTED";
+    render(<CelebratePage />);
+    expect(screen.getByText(/link dialog: c1 connect/)).toBeTruthy();
+    expect(screen.queryByText("share dialog: Launch week")).toBeNull();
+    expect(h.showSuccess).not.toHaveBeenCalled();
+  });
+
+  it("asks an expired link to reconnect", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.linkStatus = "NEEDS_RECONNECT";
+    render(<CelebratePage />);
+    expect(screen.getByText(/link dialog: c1 reconnect/)).toBeTruthy();
+  });
+
+  it("clears the link param when the consent popup is dismissed", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.linkStatus = "NOT_CONNECTED";
+    render(<CelebratePage />);
+    fireEvent.click(screen.getByRole("button", { name: "close link" }));
+    expect(h.setSearchParams).toHaveBeenCalledWith({}, { replace: true });
+  });
+
+  it("thanks an unlinked caller whose post is already amplified, without a consent popup", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.linkStatus = "NOT_CONNECTED";
+    h.state.shares = [share("c1")];
+    render(<CelebratePage />);
+    expect(h.showSuccess).toHaveBeenCalledWith(
+      "Thank you for already amplifying this campaign: Launch week",
+    );
+    expect(screen.queryByText(/link dialog/)).toBeNull();
+  });
+
+  it("waits for /me before deciding whether consent is needed", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.mePending = true;
+    render(<CelebratePage />);
+    expect(screen.queryByText(/link dialog/)).toBeNull();
+    expect(h.showSuccess).not.toHaveBeenCalled();
   });
 
   it("retries a FAILED share instead of thanking the caller", () => {

@@ -98,6 +98,15 @@ export default function CelebratePage() {
   const pendingShare =
     pendingCampaign && linked && !sharedCampaignIds.has(pendingCampaign.id) ? pendingCampaign : null;
 
+  // The same link for an unlinked caller: the card's Amplify button would have
+  // opened the consent popup, so arriving through the card must do the same.
+  // Only once /me has answered — until then `linked` is false for everyone.
+  const pendingLink =
+    pendingCampaign && me.data !== undefined && !linked && !sharedCampaignIds.has(pendingCampaign.id)
+      ? pendingCampaign
+      : null;
+  const linkTarget = linking ?? pendingLink;
+
   // Novera's card button always opens /amplify/celebrate?share=<id>. When the
   // caller already amplified that post there is no dialog to open, so answer
   // the click with a thank-you instead of a page that quietly ignores it. The
@@ -215,11 +224,16 @@ export default function CelebratePage() {
       )}
 
       <LinkLinkedInDialog
-        open={linking !== null}
-        onClose={() => setLinking(null)}
+        open={linkTarget !== null}
+        onClose={() => {
+          setLinking(null);
+          // Closing a popup opened by the URL link clears it, so the page does
+          // not reopen it on the next render.
+          if (pendingLink) setSearchParams({}, { replace: true });
+        }}
         onDeclined={backToCelebrate}
-        returnTo={linking ? `${AMPLIFY_CELEBRATE_PATH}?share=${encodeURIComponent(linking.id)}` : AMPLIFY_CELEBRATE_PATH}
-        pendingCampaignId={linking?.id}
+        returnTo={linkTarget ? `${AMPLIFY_CELEBRATE_PATH}?share=${encodeURIComponent(linkTarget.id)}` : AMPLIFY_CELEBRATE_PATH}
+        pendingCampaignId={linkTarget?.id}
         reconnect={linkStatus === "NEEDS_RECONNECT"}
       />
       <ShareDialog campaign={shareTarget} onClose={closeShare} />
