@@ -30,7 +30,7 @@
 // they drift, the cost is a brief shade change, not a white flash.
 (function () {
   var BACKGROUNDS = {
-    wso2: { light: "#ffffff", dark: "#0b142b" },
+    wso2: { light: "#ffffff", dark: "#0f172a" },
     acrylicOrange: { light: "#f5f5f5", dark: "#000000" },
     oneWso2: { light: "#f5f5f5", dark: "#000000" },
     acrylicPurple: { light: "#f5f5f5", dark: "#000000" },

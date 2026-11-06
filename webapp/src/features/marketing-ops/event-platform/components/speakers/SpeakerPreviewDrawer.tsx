@@ -16,8 +16,7 @@
 
 
 import { Avatar, Box, Button, Drawer, IconButton, Typography } from "@wso2/oxygen-ui";
-import { PencilIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
-import { LinkedinIcon } from "@components/icons/LinkedinIcon";
+import { LinkedinIcon, PencilIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import type { Speaker } from "../../types/eventPlatformTypes";
 import { ExternalSpeakerChip, InternalSpeakerBadge } from "./SpeakerBadges";
 

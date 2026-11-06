@@ -16,8 +16,7 @@
 
 import { useState } from "react";
 import { Box, Button, Dialog, DialogContent, Link, TextField, Typography } from "@wso2/oxygen-ui";
-import { LinkIcon } from "@wso2/oxygen-ui-icons-react";
-import { LinkedinIcon } from "@components/icons/LinkedinIcon";
+import { LinkIcon, LinkedinIcon } from "@wso2/oxygen-ui-icons-react";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useDeclineLinkedInConsent, useStartLinkedInConnect } from "../api/useAmplifyMutations";

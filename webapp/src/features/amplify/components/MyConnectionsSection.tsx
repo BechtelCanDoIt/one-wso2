@@ -16,8 +16,7 @@
 
 import { useState } from "react";
 import { Alert, Box, Button, Chip, Skeleton, Typography } from "@wso2/oxygen-ui";
-import { LinkIcon } from "@wso2/oxygen-ui-icons-react";
-import { LinkedinIcon } from "@components/icons/LinkedinIcon";
+import { LinkIcon, LinkedinIcon } from "@wso2/oxygen-ui-icons-react";
 import { useAmplifyMe } from "../api/useAmplifyData";
 import type { LinkedInStatus } from "../api/amplifyTypes";
 import LinkLinkedInDialog from "./LinkLinkedInDialog";
