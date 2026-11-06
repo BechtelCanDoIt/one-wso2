@@ -147,22 +147,114 @@ describe("SideRail group rows", () => {
   });
 });
 
+const NO_OUTLINE = { border: "none", background: "none" };
+
 /**
- * Whether a group wears an outline. The rail used to draw one on the open group that holds the
- * current route, via a ::before on the group's <li>. jsdom ignores getComputedStyle's
- * pseudo-element argument, so this reads the ::before rule Emotion wrote instead.
+ * Border and background of the <li> around a group's rows. The rail used to paint both on that
+ * element's ::before, and jsdom leaves pseudo-elements out of getComputedStyle, so ::before and
+ * ::after are read from the rules that match the <li>. A border or tint on the <li> itself is
+ * its computed style. Either one is the outline.
  */
-function isOutlined(groupName: string): boolean {
-  const frame = screen.getByRole("button", { name: groupName }).closest("li")?.parentElement?.closest("li");
-  if (!frame) throw new Error(`no list around ${groupName}`);
-  const rule = [...document.styleSheets]
-    .flatMap((sheet) => [...sheet.cssRules])
-    .filter((r): r is CSSStyleRule => "selectorText" in r && (r as CSSStyleRule).selectorText.endsWith("::before"))
-    .filter((r) => frame.matches(r.selectorText.slice(0, -"::before".length)))
-    .at(-1);
-  if (!rule) return false;
-  const colour = rule.style.getPropertyValue("border-top-color");
-  return colour !== "" && colour !== "transparent";
+function outlineOf(groupName: string): { border: string; background: string } {
+  const wrapper = groupWrapper(groupName);
+  return joinPaint([
+    paintOf(getComputedStyle(wrapper)),
+    pseudoPaint(wrapper, "::before"),
+    pseudoPaint(wrapper, "::after"),
+  ]);
+}
+
+function groupWrapper(groupName: string): HTMLElement {
+  const plainRowList = screen.getByRole("button", { name: "Org Chart" }).closest("ul");
+  const wrapper = screen.getByRole("button", { name: groupName }).closest("li")?.parentElement?.closest("li");
+  if (!(wrapper instanceof HTMLElement) || wrapper.parentElement !== plainRowList) {
+    throw new Error(`no list around ${groupName}`);
+  }
+  return wrapper;
+}
+
+function joinPaint(parts: { border: string; background: string }[]): { border: string; background: string } {
+  return {
+    border: parts.map((part) => part.border).filter((border) => border !== "none").join("; ") || "none",
+    background: parts.map((part) => part.background).filter((background) => background !== "none").join("; ") || "none",
+  };
+}
+
+function paintOf(style: CSSStyleDeclaration): { border: string; background: string } {
+  const sides = [
+    ["top", style.borderTopWidth, style.borderTopColor],
+    ["right", style.borderRightWidth, style.borderRightColor],
+    ["bottom", style.borderBottomWidth, style.borderBottomColor],
+    ["left", style.borderLeftWidth, style.borderLeftColor],
+  ] as const;
+  const visible = sides.filter(([, width, color]) => px(width) > 0 && !isClear(color));
+  return {
+    border: visible.length === 0 ? "none" : visible.map(([side, width, color]) => `${side} ${width} ${color}`).join(", "),
+    background: isClear(style.backgroundColor) ? "none" : style.backgroundColor,
+  };
+}
+
+function isClear(color: string): boolean {
+  const value = color.trim().toLowerCase();
+  if (value === "" || value === "transparent") return true;
+  const rgba = value.match(/^rgba\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*([\d.]+)\s*\)$/);
+  if (rgba) return Number(rgba[1]) === 0;
+  const withSlash = value.match(/^rgba?\(\s*[\d.]+\s+[\d.]+\s+[\d.]+\s*\/\s*([\d.]+)%?\s*\)$/);
+  return withSlash !== null && Number(withSlash[1]) === 0;
+}
+
+function pseudoPaint(element: Element, pseudo: "::before" | "::after"): { border: string; background: string } {
+  const probe = document.createElement("div");
+  document.body.appendChild(probe);
+  try {
+    for (const rule of pseudoRules(element, pseudo)) copyDeclarations(rule, probe);
+    return paintOf(getComputedStyle(probe));
+  } finally {
+    probe.remove();
+  }
+}
+
+function copyDeclarations(rule: CSSStyleRule, target: HTMLElement) {
+  for (let index = 0; index < rule.style.length; index += 1) {
+    const property = rule.style.item(index);
+    target.style.setProperty(property, rule.style.getPropertyValue(property), rule.style.getPropertyPriority(property));
+  }
+}
+
+function pseudoRules(element: Element, pseudo: "::before" | "::after"): CSSStyleRule[] {
+  return styleRules().filter((rule) => {
+    if (!rule.selectorText.endsWith(pseudo)) return false;
+    return selectorMatches(element, rule.selectorText.slice(0, -pseudo.length));
+  });
+}
+
+function styleRules(): CSSStyleRule[] {
+  const rules: CSSStyleRule[] = [];
+  const walk = (list: CSSRuleList) => {
+    for (const rule of list) {
+      if (rule instanceof CSSStyleRule) rules.push(rule);
+      else if ("cssRules" in rule && rule.cssRules instanceof CSSRuleList) {
+        walk(rule.cssRules);
+      }
+    }
+  };
+  for (const sheet of document.styleSheets) {
+    try {
+      walk(sheet.cssRules);
+    } catch {
+      // A sheet from another origin does not expose its rules.
+    }
+  }
+  return rules;
+}
+
+function selectorMatches(element: Element, selector: string): boolean {
+  try {
+    return element.matches(selector);
+  } catch {
+    // jsdom throws when it cannot parse the selector.
+    return false;
+  }
 }
 
 describe("SideRail group outline", () => {
@@ -172,7 +264,7 @@ describe("SideRail group outline", () => {
 
     expect(screen.getByRole("button", { name: "Promotion" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Performance" })).toHaveAttribute("aria-expanded", "true");
-    expect(isOutlined("Promotion")).toBe(false);
-    expect(isOutlined("Performance")).toBe(false);
+    expect(outlineOf("Promotion")).toEqual(NO_OUTLINE);
+    expect(outlineOf("Performance")).toEqual(NO_OUTLINE);
   });
 });
