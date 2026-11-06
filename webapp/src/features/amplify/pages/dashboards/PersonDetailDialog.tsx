@@ -32,9 +32,12 @@ function initials(name: string): string {
 
 /**
  * One person's Post Performance, opened from any name an amplify_* role can click: the photo with name, team and
- * business unit, their numbers, and only the posts and categories that person reposted.
+ * business unit, their numbers, and only the posts and categories that person reposted. A team member Amplify
+ * sends no id for (no points in the period yet, or never signed in) gets the header from the people directory
+ * and a note, and no request.
  */
 export default function PersonDetailDialog({ person, onClose }: { person: PersonRef; onClose: () => void }) {
+  const hasId = Boolean(person.employeeId?.trim());
   const q = useDashboardPerson(person.employeeId);
   const lookup = usePersonLookup();
   // The popup can open before the board answers; the name Amplify holds for the person fills in then.
@@ -59,7 +62,10 @@ export default function PersonDetailDialog({ person, onClose }: { person: Person
         </IconButton>
       </Box>
       <DialogContent>
-        {q.isPending ? (
+        {!hasId ? (
+          // Same note as the Backend's 404 below: with no id the request would never reach it (gateway 404).
+          <Empty>Amplify has no activity for this person yet.</Empty>
+        ) : q.isPending ? (
           <Skeleton variant="rounded" height={160} />
         ) : q.isError ? (
           q.error instanceof HttpError && q.error.status === 404 ? (

@@ -146,12 +146,17 @@ export interface PersonalStanding {
 }
 
 export interface TeamEntry {
-  employeeId: string;
+  /**
+   * Null when Amplify sent no id: a member with no points in the period (the team list takes ids from the
+   * points), or who never signed in.
+   */
+  employeeId: string | null;
   displayName: string;
   email: string;
   points: number;
   teamRank: number;
-  companyRank: number;
+  /** Null for a member with no points in the period (no company rank). */
+  companyRank: number | null;
   /** The member's house from the people directory; absent when they have none. */
   houseName?: string | null;
   isMe: boolean;
