@@ -123,6 +123,8 @@ describe("SideRail group rows", () => {
 
     const header = wrappersAround("Promotion", horizontalSpace);
     expect(header).toEqual(takingNoSpace(header));
+    const down = wrappersAround("Promotion", verticalSpace);
+    expect(down).toEqual(takingNoSpace(down));
     const child = wrappersAround("Board", horizontalSpace);
     expect(child).toEqual(takingNoSpace(child));
   });
@@ -146,44 +148,30 @@ describe("SideRail group rows", () => {
 });
 
 /**
- * Whether a group wears its outline. GroupFrame draws it on its <li>'s ::before, and jsdom
- * ignores getComputedStyle's pseudo-element argument — it answers with the <li>'s own style —
- * so this reads the ::before rule Emotion wrote for the frame instead.
+ * Whether a group wears an outline. The rail used to draw one on the open group that holds the
+ * current route, via a ::before on the group's <li>. jsdom ignores getComputedStyle's
+ * pseudo-element argument, so this reads the ::before rule Emotion wrote instead.
  */
 function isOutlined(groupName: string): boolean {
   const frame = screen.getByRole("button", { name: groupName }).closest("li")?.parentElement?.closest("li");
-  if (!frame) throw new Error(`no frame around ${groupName}`);
+  if (!frame) throw new Error(`no list around ${groupName}`);
   const rule = [...document.styleSheets]
     .flatMap((sheet) => [...sheet.cssRules])
     .filter((r): r is CSSStyleRule => "selectorText" in r && (r as CSSStyleRule).selectorText.endsWith("::before"))
     .filter((r) => frame.matches(r.selectorText.slice(0, -"::before".length)))
     .at(-1);
-  if (!rule) throw new Error(`no outline rule on the frame around ${groupName}`);
+  if (!rule) return false;
   const colour = rule.style.getPropertyValue("border-top-color");
   return colour !== "" && colour !== "transparent";
 }
 
 describe("SideRail group outline", () => {
-  it("marks the open group you are in", () => {
-    renderSideRail({ collapsed: false, at: "/people-ops/promotion/lead" });
-
-    expect(isOutlined("Promotion")).toBe(true);
-  });
-
-  it("stays on the group you are in when you open another", () => {
+  it("does not outline the open group you are in, or a group opened beside it", () => {
     renderSideRail({ collapsed: false, at: "/people-ops/promotion/lead" });
     fireEvent.click(screen.getByRole("button", { name: "Performance" }));
 
+    expect(screen.getByRole("button", { name: "Promotion" })).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByRole("button", { name: "Performance" })).toHaveAttribute("aria-expanded", "true");
-    expect(isOutlined("Promotion")).toBe(true);
-    expect(isOutlined("Performance")).toBe(false);
-  });
-
-  it("marks no group while you are on a plain row, however many are open", () => {
-    renderSideRail({ collapsed: false, at: "/people-ops/org-chart" });
-    fireEvent.click(screen.getByRole("button", { name: "Promotion" }));
-    fireEvent.click(screen.getByRole("button", { name: "Performance" }));
-
     expect(isOutlined("Promotion")).toBe(false);
     expect(isOutlined("Performance")).toBe(false);
   });
