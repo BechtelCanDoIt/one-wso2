@@ -16,8 +16,9 @@
 
 import { useMemo, useState } from "react";
 import { Box, Button, Chip, Skeleton, Typography } from "@wso2/oxygen-ui";
-import { LinkedinIcon, PlusIcon } from "@wso2/oxygen-ui-icons-react";
+import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNavigate } from "react-router";
+import { LinkedinIcon } from "@components/icons/LinkedinIcon";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { AMPLIFY_NEW_POST_PATH } from "@constants/perspectives";
 import type { Campaign, CampaignStatus } from "../api/amplifyTypes";

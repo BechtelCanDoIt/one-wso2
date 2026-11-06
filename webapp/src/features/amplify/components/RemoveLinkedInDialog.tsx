@@ -15,7 +15,7 @@
 // under the License.
 
 import { Box, Button, Dialog, DialogContent, Typography } from "@wso2/oxygen-ui";
-import { LinkedinIcon } from "@wso2/oxygen-ui-icons-react";
+import { LinkedinIcon } from "@components/icons/LinkedinIcon";
 import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useRemoveLinkedInConnection } from "../api/useAmplifyMutations";
