@@ -232,6 +232,7 @@ import { auditRoutes } from "@features/security/grc/modules/audit/routes";
 import { adminRoutes } from "@features/security/grc/modules/admin/routes";
 import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
+import { procurementRoutes } from "@features/finance/procurement/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
 import PartnerPendingPage from "@features/due-diligence/partners/pages/PartnerPendingPage";
 import PartnerDashboardPage from "@features/due-diligence/partners/pages/PartnerDashboardPage";
@@ -1041,6 +1042,8 @@ export default function App() {
               preview flag; Cado2Shell resolves access for every page. See
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
           {isPreviewEnabled("cado2") && cado2Routes}
+          {/* Finance → Procurement, behind the `procurement` preview flag. */}
+          {isPreviewEnabled("procurement") && procurementRoutes}
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />
