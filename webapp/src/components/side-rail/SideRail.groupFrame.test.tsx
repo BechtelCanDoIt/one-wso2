@@ -88,8 +88,58 @@ function verticalSpace(el: Element): number {
   return (
     px(s.marginTop) + px(s.marginBottom) +
     px(s.paddingTop) + px(s.paddingBottom) +
-    px(s.borderTopWidth) + px(s.borderBottomWidth)
+    px(s.borderTopWidth) + px(s.borderBottomWidth) +
+    declaredBlockSpace(el)
   );
+}
+
+/**
+ * jsdom leaves margin-block, padding-block, and border-block off the physical sides, so a group
+ * can grow while marginTop and paddingTop stay empty. Those shorthands are read from the rules
+ * that match the element.
+ */
+function declaredBlockSpace(element: Element): number {
+  let marginStart = "";
+  let marginEnd = "";
+  let marginBlock = "";
+  let paddingStart = "";
+  let paddingEnd = "";
+  let paddingBlock = "";
+  let borderStart = "";
+  let borderEnd = "";
+  let borderBlock = "";
+  for (const rule of styleRules()) {
+    if (rule.selectorText.includes("::")) continue;
+    if (!selectorMatches(element, rule.selectorText)) continue;
+    const style = rule.style;
+    const keep = (property: string, current: string) => style.getPropertyValue(property) || current;
+    marginStart = keep("margin-block-start", marginStart);
+    marginEnd = keep("margin-block-end", marginEnd);
+    marginBlock = keep("margin-block", marginBlock);
+    paddingStart = keep("padding-block-start", paddingStart);
+    paddingEnd = keep("padding-block-end", paddingEnd);
+    paddingBlock = keep("padding-block", paddingBlock);
+    borderStart = keep("border-block-start-width", borderStart);
+    borderEnd = keep("border-block-end-width", borderEnd);
+    borderBlock = keep("border-block-width", "") || keep("border-block", borderBlock);
+  }
+  return (
+    pair(marginStart, marginEnd, marginBlock) +
+    pair(paddingStart, paddingEnd, paddingBlock) +
+    pair(borderStart, borderEnd, borderBlock)
+  );
+}
+
+function pair(start: string, end: string, shorthand: string): number {
+  if (start || end) return px(start) + px(end);
+  return bothSides(shorthand);
+}
+
+function bothSides(value: string): number {
+  const sizes = value.trim().split(/\s+/).filter((part) => part === "0" || /^[\d.]+(px|rem|em|%)$/.test(part));
+  if (sizes.length === 0) return 0;
+  if (sizes.length === 1) return px(sizes[0]) * 2;
+  return px(sizes[0]) + px(sizes[1]);
 }
 
 /**
@@ -145,17 +195,25 @@ describe("SideRail group rows", () => {
     const across = wrappersAround("Promotion", horizontalSpace);
     expect(across).toEqual(takingNoSpace(across));
   });
+
+  it("counts a margin-block on the open group's list", () => {
+    renderSideRail({ collapsed: false, at: "/people-ops/promotion/lead" });
+    withRule(groupWrapper("Promotion"), "", "margin-block: 8px", () => {
+      const down = wrappersAround("Promotion", verticalSpace);
+      expect(down).not.toEqual(takingNoSpace(down));
+    });
+  });
 });
 
-const NO_OUTLINE = { border: "none", background: "none" };
+const NO_OUTLINE = { border: "none", background: "none", shadow: "none" };
 
 /**
- * Border and background of the <li> around a group's rows. The rail used to paint both on that
- * element's ::before, and jsdom leaves pseudo-elements out of getComputedStyle, so ::before and
- * ::after are read from the rules that match the <li>. A border or tint on the <li> itself is
- * its computed style. Either one is the outline.
+ * Border, background, and shadow of the <li> around a group's rows. The rail used to paint the
+ * border and tint on that element's ::before, and jsdom leaves pseudo-elements out of
+ * getComputedStyle, so ::before and ::after are read from the rules that match the <li>. A border,
+ * tint, or shadow on the <li> itself is its computed style.
  */
-function outlineOf(groupName: string): { border: string; background: string } {
+function outlineOf(groupName: string): { border: string; background: string; shadow: string } {
   const wrapper = groupWrapper(groupName);
   return joinPaint([
     paintOf(getComputedStyle(wrapper)),
@@ -173,14 +231,13 @@ function groupWrapper(groupName: string): HTMLElement {
   return wrapper;
 }
 
-function joinPaint(parts: { border: string; background: string }[]): { border: string; background: string } {
-  return {
-    border: parts.map((part) => part.border).filter((border) => border !== "none").join("; ") || "none",
-    background: parts.map((part) => part.background).filter((background) => background !== "none").join("; ") || "none",
-  };
+function joinPaint(parts: (typeof NO_OUTLINE)[]): typeof NO_OUTLINE {
+  const pick = (key: keyof typeof NO_OUTLINE) =>
+    parts.map((part) => part[key]).filter((value) => value !== "none").join("; ") || "none";
+  return { border: pick("border"), background: pick("background"), shadow: pick("shadow") };
 }
 
-function paintOf(style: CSSStyleDeclaration): { border: string; background: string } {
+function paintOf(style: CSSStyleDeclaration): typeof NO_OUTLINE {
   const sides = [
     ["top", style.borderTopWidth, style.borderTopColor],
     ["right", style.borderRightWidth, style.borderRightColor],
@@ -191,6 +248,7 @@ function paintOf(style: CSSStyleDeclaration): { border: string; background: stri
   return {
     border: visible.length === 0 ? "none" : visible.map(([side, width, color]) => `${side} ${width} ${color}`).join(", "),
     background: isClear(style.backgroundColor) ? "none" : style.backgroundColor,
+    shadow: style.boxShadow && style.boxShadow !== "none" ? style.boxShadow : "none",
   };
 }
 
@@ -203,7 +261,7 @@ function isClear(color: string): boolean {
   return withSlash !== null && Number(withSlash[1]) === 0;
 }
 
-function pseudoPaint(element: Element, pseudo: "::before" | "::after"): { border: string; background: string } {
+function pseudoPaint(element: Element, pseudo: "::before" | "::after"): typeof NO_OUTLINE {
   const probe = document.createElement("div");
   document.body.appendChild(probe);
   try {
@@ -267,4 +325,38 @@ describe("SideRail group outline", () => {
     expect(outlineOf("Promotion")).toEqual(NO_OUTLINE);
     expect(outlineOf("Performance")).toEqual(NO_OUTLINE);
   });
+
+  it("notices a border, a shadow, or a ::before on the group list", () => {
+    renderSideRail({ collapsed: false, at: "/people-ops/promotion/lead" });
+    const wrapper = groupWrapper("Promotion");
+
+    withRule(wrapper, "", "border: 1px solid rgb(255, 122, 0); box-shadow: 0 0 0 1px rgb(255, 122, 0)", () => {
+      expect(outlineOf("Promotion")).not.toEqual(NO_OUTLINE);
+    });
+    expect(outlineOf("Promotion")).toEqual(NO_OUTLINE);
+
+    withRule(wrapper, "::before", 'content: ""; border: 1px solid rgb(255, 122, 0); background-color: rgba(255, 122, 0, 0.04)', () => {
+      expect(outlineOf("Promotion")).not.toEqual(NO_OUTLINE);
+    });
+    withRule(wrapper, "::after", 'content: ""; border: 1px solid rgb(255, 122, 0)', () => {
+      expect(outlineOf("Promotion")).not.toEqual(NO_OUTLINE);
+    });
+  });
 });
+
+function withRule(element: Element, pseudo: "" | "::before" | "::after", declarations: string, run: () => void) {
+  const style = document.createElement("style");
+  document.head.appendChild(style);
+  try {
+    style.sheet?.insertRule(`${ownSelector(element)}${pseudo} { ${declarations} }`, 0);
+    run();
+  } finally {
+    style.remove();
+  }
+}
+
+function ownSelector(element: Element): string {
+  const classes = [...element.classList];
+  if (classes.length === 0) throw new Error("the group list has no class");
+  return `.${classes.join(".")}`;
+}
