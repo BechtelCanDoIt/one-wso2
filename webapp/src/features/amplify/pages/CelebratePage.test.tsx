@@ -1,0 +1,155 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import type { ReactNode } from "react";
+
+// Novera's card button links to /amplify/celebrate?share=<campaignId>. When the
+// caller already amplified that post there is no share dialog to open, so the
+// page answers with a thank-you instead of ignoring the click.
+const h = vi.hoisted(() => ({
+  showSuccess: vi.fn(),
+  setSearchParams: vi.fn(),
+  navigate: vi.fn(),
+  state: {
+    params: new URLSearchParams(),
+    campaigns: [] as Array<Record<string, unknown>>,
+    shares: [] as Array<Record<string, unknown>>,
+    sharesPending: false,
+    campaignsPending: false,
+  },
+}));
+
+vi.mock("react-router", () => ({
+  useSearchParams: () => [h.state.params, h.setSearchParams],
+  useNavigate: () => h.navigate,
+}));
+
+vi.mock("@context/notifications/NotificationsContext", () => ({
+  useNotifications: () => ({ showSuccess: h.showSuccess, showError: vi.fn(), showWarning: vi.fn() }),
+}));
+
+vi.mock("../api/useAmplifyData", () => ({
+  useAmplifyMe: () => ({ data: { linkedin: { status: "ACTIVE" } }, isPending: false }),
+  useAmplifyCampaigns: () => ({
+    data: { items: h.state.campaigns },
+    isPending: h.state.campaignsPending,
+  }),
+  useMyShares: () => ({ data: { items: h.state.shares }, isPending: h.state.sharesPending }),
+  useAmplifyLeaderboard: () => ({ data: undefined, isPending: true }),
+  useAmplifyTopBoard: () => ({ data: undefined, isPending: true }),
+  useAmplifyCategories: () => ({ data: [] }),
+}));
+
+vi.mock("../api/useAmplifyPeople", () => ({ useAmplifyPeople: () => ({}) }));
+
+vi.mock("../components/AmplifyShell", () => ({
+  default: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  AmplifyPanel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+}));
+vi.mock("../components/PostCard", () => ({
+  default: () => null,
+  CategoryChip: () => null,
+  PriorityChip: () => null,
+}));
+vi.mock("../components/PostCarousel", () => ({ default: () => null }));
+vi.mock("../components/LeaderboardPanels", () => ({
+  TeamLeaderboardPanel: () => null,
+  TopAmplifiersPanel: () => null,
+}));
+vi.mock("../components/LinkLinkedInDialog", () => ({ default: () => null }));
+vi.mock("../components/ShareDialog", () => ({
+  default: ({ campaign }: { campaign: { title: string } | null }) =>
+    campaign ? <div>share dialog: {campaign.title}</div> : null,
+}));
+
+import CelebratePage from "./CelebratePage";
+
+const campaign = (id: string, title: string) => ({
+  id,
+  title,
+  categoryCode: "PRODUCT",
+  isPriority: false,
+  status: "OPEN",
+  resourceUrn: `urn:li:share:${id}`,
+  tags: [],
+  opensAt: "2026-11-01T00:00:00Z",
+  closesAt: "2026-11-30T00:00:00Z",
+  version: 1,
+});
+
+const share = (campaignId: string, status = "PUBLISHED") => ({
+  id: `share-${campaignId}`,
+  campaignId,
+  status,
+});
+
+describe("CelebratePage and the Novera share link", () => {
+  beforeEach(() => {
+    h.showSuccess.mockClear();
+    h.setSearchParams.mockClear();
+    h.state.params = new URLSearchParams();
+    h.state.campaigns = [campaign("c1", "Launch week")];
+    h.state.shares = [];
+    h.state.sharesPending = false;
+    h.state.campaignsPending = false;
+  });
+
+  it("thanks the caller when the linked post is already amplified, and clears the link", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.shares = [share("c1")];
+    render(<CelebratePage />);
+    expect(h.showSuccess).toHaveBeenCalledWith(
+      "Thank you for already amplifying this campaign: Launch week",
+    );
+    expect(h.setSearchParams).toHaveBeenCalledWith({}, { replace: true });
+    expect(screen.queryByText("share dialog: Launch week")).toBeNull();
+  });
+
+  it("opens the share dialog when the post has not been amplified yet", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    render(<CelebratePage />);
+    expect(screen.getByText("share dialog: Launch week")).toBeTruthy();
+    expect(h.showSuccess).not.toHaveBeenCalled();
+    expect(h.setSearchParams).not.toHaveBeenCalled();
+  });
+
+  it("retries a FAILED share instead of thanking the caller", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.shares = [share("c1", "FAILED")];
+    render(<CelebratePage />);
+    expect(screen.getByText("share dialog: Launch week")).toBeTruthy();
+    expect(h.showSuccess).not.toHaveBeenCalled();
+  });
+
+  it("still thanks the caller when the post has since left the open list", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.campaigns = [];
+    h.state.shares = [share("c1")];
+    render(<CelebratePage />);
+    expect(h.showSuccess).toHaveBeenCalledWith("Thank you for already amplifying this campaign.");
+    expect(h.setSearchParams).toHaveBeenCalledWith({}, { replace: true });
+  });
+
+  it("waits for the shares before answering, so an unloaded list is not treated as amplified", () => {
+    h.state.params = new URLSearchParams({ share: "c1" });
+    h.state.sharesPending = true;
+    render(<CelebratePage />);
+    expect(h.showSuccess).not.toHaveBeenCalled();
+    expect(h.setSearchParams).not.toHaveBeenCalled();
+  });
+});
