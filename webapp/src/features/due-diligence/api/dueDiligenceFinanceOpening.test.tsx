@@ -27,11 +27,10 @@ import { PERSPECTIVES } from "@constants/perspectives";
 import { DUE_DILIGENCE_BASE_PATH } from "@features/due-diligence/paths";
 
 // Opening Finance asks Due Diligence /user-info along with every other finance
-// gate. The deployed interceptor answers 403 before the resource can return
-// the empty role list. That refusal must settle as "no rows", so someone who
-// can open nothing in Finance sees the same empty card as Marketing Ops and
-// Security. A 403 reported as a failed read is what puts the error banner
-// on that screen.
+// gate. A refused user-info must settle as "no rows", so someone who can open
+// nothing in Finance sees the same empty card as Marketing Ops and Security.
+// Reporting that refusal as a failed read is what puts the error banner on
+// that screen.
 //
 // The Due Diligence gate and its /user-info hook run for real. Every other
 // gate that can stop this landing is mocked closed, including MIS, whose

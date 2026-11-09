@@ -42,14 +42,9 @@ export { isDueDiligenceBackendConfigured };
 // rarely, and a stale decision is corrected on the next mount rather than
 // needing to be live.
 //
-// A 403 here is the empty role list UserInfoResponse already describes.
-// That type says an authenticated caller with no Due Diligence groups gets
-// 200 and `roles: []`. The deployed interceptor still answers 403 before
-// that resource runs, when the caller is outside the employee group the
-// interceptor requires. Folding the 403 into `{ roles: [] }` is that same
-// answer, so the gate hides the rows and Finance shows the empty card
-// instead of treating the read as failed. Only 403. Any other status is an
-// outage and stays a failure with Retry.
+// A 403 means the caller has no Due Diligence role, so it is treated as an
+// empty role list. The gate hides those rows instead of treating the read as
+// failed. Any other status stays a failure.
 export function useDueDiligenceMe(enabled = true) {
   const { isSignedIn } = useAsgardeo();
   const getAccessToken = useAccessToken();
