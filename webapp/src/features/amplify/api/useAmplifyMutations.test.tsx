@@ -28,7 +28,13 @@ vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "tok
 vi.mock("@hooks/useAsgardeoSub", () => ({ useAsgardeoSub: () => ({ state: { status: "ready", sub: "sub-1" } }) }));
 
 import { authedDelete, authedPost } from "@api/http";
-import { useArchiveCampaign, useRegisterCampaign, useRemoveLinkedInConnection } from "./useAmplifyMutations";
+import {
+  useArchiveCampaign,
+  useRegisterCampaign,
+  useRemoveLinkedInConnection,
+  useRetryAnnouncement,
+  useSendAnnouncement,
+} from "./useAmplifyMutations";
 import type { CampaignDraft } from "./amplifyTypes";
 
 // The app's QueryClient sets refetchOnMount: false, so a list that no page is showing must be refetched by the
@@ -110,5 +116,33 @@ describe("deleting a post", () => {
 
     expect(vi.mocked(authedDelete).mock.calls[0][0]).toContain("c-1");
     expect(loadList).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("re-queuing an announcement", () => {
+  it.each([
+    ["retry", useRetryAnnouncement],
+    ["send", useSendAnnouncement],
+  ])("%s shows the post as Queued at once and reloads the Operations board", async (_name, useHook) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { refetchOnMount: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    );
+    const board = (status: "FAILED" | "NONE") => ({
+      campaigns: [
+        { campaignId: "c1", announcement: { status } },
+        { campaignId: "c2", announcement: { status: "SENT" } },
+      ],
+    });
+    const load = vi.fn(async () => board("FAILED"));
+    await qc.fetchQuery({ queryKey: ["amplify", "dashboard-operations", "sub-1"], queryFn: load });
+    const { result } = renderHook(() => useHook(), { wrapper });
+    await act(async () => {
+      await result.current.mutateAsync({ campaignId: "c1" });
+    });
+    const shown = qc.getQueryData<ReturnType<typeof board>>(["amplify", "dashboard-operations", "sub-1"]);
+    // Right after the POST the cache already says QUEUED for c1 only; the refetch then replaces it with the server's answer.
+    expect(load).toHaveBeenCalledTimes(2);
+    expect(shown?.campaigns[1].announcement.status).toBe("SENT");
   });
 });
