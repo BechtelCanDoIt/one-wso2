@@ -34,6 +34,7 @@ import type {
   CampaignDraft,
   CampaignPatch,
   CampaignRegistration,
+  DashboardOperations,
   ConnectAuthorization,
   LinkedInConnection,
   Share,
@@ -46,6 +47,23 @@ import type {
 // afterwards lands on fresh data.
 function refreshNow(qc: QueryClient, queryKey: unknown[]): Promise<void> {
   return qc.invalidateQueries({ queryKey, refetchType: "all" });
+}
+
+// The Operations board's snapshot can take seconds to rebuild, so a re-queued announcement is shown as Queued the
+// moment amplify-api accepts it; the reload then confirms it in the background.
+// Matches the board under any user id (one signed-in user per tab), so it cannot miss on a key that differs by `sub`.
+function markAnnouncementQueued(qc: QueryClient, campaignId: string): void {
+  qc.setQueriesData<DashboardOperations>({ queryKey: ["amplify", "dashboard-operations"] }, (old) =>
+    old
+      ? {
+          ...old,
+          campaigns: old.campaigns.map((c) =>
+            c.campaignId === campaignId ? { ...c, announcement: { status: "QUEUED", attempts: 0 } } : c,
+          ),
+        }
+      : old,
+  );
+  void qc.invalidateQueries({ queryKey: ["amplify", "dashboard-operations"], refetchType: "all" });
 }
 
 function useAmplifySub(): string | undefined {
@@ -100,6 +118,38 @@ export function useRequestShare() {
     onSuccess: async () => {
       await refreshNow(qc, amplifyKey("my-shares", sub));
     },
+  });
+}
+
+/**
+ * POST /admin/announcements/{campaignId}/retry: puts a FAILED Novera announcement back in the queue (CAN_ADMIN).
+ * The board's chip then reads Queued once the dashboards reload.
+ */
+export function useRetryAnnouncement() {
+  const getAccessToken = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { campaignId: string }>({
+    mutationFn: async (vars) =>
+      authedPost<unknown>(
+        amplifyServiceUrls.adminAnnouncementRetry(vars.campaignId),
+        await getAccessToken(),
+        {},
+      ),
+    onSuccess: (_data, vars) => markAnnouncementQueued(qc, vars.campaignId),
+  });
+}
+
+/**
+ * POST /admin/announcements/{campaignId}/send: queues the Novera announcement for a post that was never announced
+ * (CAN_ADMIN). The board's chip then reads Queued once the dashboards reload.
+ */
+export function useSendAnnouncement() {
+  const getAccessToken = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation<unknown, Error, { campaignId: string }>({
+    mutationFn: async (vars) =>
+      authedPost<unknown>(amplifyServiceUrls.adminAnnouncementSend(vars.campaignId), await getAccessToken(), {}),
+    onSuccess: (_data, vars) => markAnnouncementQueued(qc, vars.campaignId),
   });
 }
 

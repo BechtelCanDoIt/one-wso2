@@ -39,8 +39,16 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 vi.mock("../../api/useAmplifyData", () => ({
   useAmplifyConfig: () => ({ linkedinOrgUrn: "urn:li:organization:1", privacyNoticeUrl: "https://example.test/privacy", campaignLinkOrigins: ["https://www.linkedin.com", "https://linkedin.com"] }),
 }));
+const grants = vi.hoisted(() => ({ admin: false }));
+const retryMutate = vi.hoisted(() => vi.fn());
+const sendMutate = vi.hoisted(() => vi.fn());
 vi.mock("../../api/useAmplifyEditorAccess", () => ({
   useAmplifyDashboardAccess: () => ({ hasAccess: true, isResolving: false, retry: vi.fn() }),
+  useAmplifyGrant: () => ({ hasAccess: grants.admin, isResolving: false, retry: vi.fn() }),
+}));
+vi.mock("../../api/useAmplifyMutations", () => ({
+  useRetryAnnouncement: () => ({ mutate: retryMutate, isPending: false, isError: false }),
+  useSendAnnouncement: () => ({ mutate: sendMutate, isPending: false, isError: false }),
 }));
 vi.mock("../../api/useAmplifyDashboards", () => ({
   useDashboardPerson: () => ({
@@ -110,6 +118,57 @@ describe("OperationsBoard", () => {
     expect(screen.getByText("Updated 2:45 PM LK | Updated 5:15 AM EDT | Updated 9:15 AM UTC")).toBeTruthy();
     expect(screen.getByText(/680 employees have never connected/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: /remind|retry/i })).toBeNull();
+  });
+
+  describe("a failed Novera announcement", () => {
+    const failed: DashboardOperations = {
+      ...operations,
+      campaigns: [{ ...operations.campaigns[0], announcement: { status: "FAILED" } }],
+    };
+
+    it("turns into RETRY on hover for an admin and re-queues on click", () => {
+      grants.admin = true;
+      retryMutate.mockClear();
+      render(<OperationsBoard data={failed} />);
+      const chip = screen.getByText("Failed after retries");
+      fireEvent.mouseEnter(chip);
+      expect(screen.getByText("RETRY")).toBeTruthy();
+      fireEvent.click(screen.getByText("RETRY"));
+      expect(retryMutate).toHaveBeenCalledWith({ campaignId: operations.campaigns[0].campaignId });
+      fireEvent.mouseLeave(screen.getByText("RETRY"));
+      expect(screen.getByText("Failed after retries")).toBeTruthy();
+    });
+
+    it("stays plain text for anyone without the admin grant", () => {
+      grants.admin = false;
+      render(<OperationsBoard data={failed} />);
+      fireEvent.mouseEnter(screen.getByText("Failed after retries"));
+      expect(screen.queryByText("RETRY")).toBeNull();
+      expect(screen.queryByRole("button", { name: /retry the novera/i })).toBeNull();
+    });
+  });
+
+  describe("a post that was never announced", () => {
+    const none: DashboardOperations = {
+      ...operations,
+      campaigns: [{ ...operations.campaigns[0], announcement: { status: "NONE" } }],
+    };
+
+    it("turns into SEND on hover for an admin and queues on click", () => {
+      grants.admin = true;
+      sendMutate.mockClear();
+      render(<OperationsBoard data={none} />);
+      fireEvent.mouseEnter(screen.getByText("Not announced"));
+      fireEvent.click(screen.getByText("SEND"));
+      expect(sendMutate).toHaveBeenCalledWith({ campaignId: operations.campaigns[0].campaignId });
+    });
+
+    it("stays plain text for anyone without the admin grant", () => {
+      grants.admin = false;
+      render(<OperationsBoard data={none} />);
+      fireEvent.mouseEnter(screen.getByText("Not announced"));
+      expect(screen.queryByText("SEND")).toBeNull();
+    });
   });
 
   it("switches the points tile between month and year, and splits this month's reposts", () => {
