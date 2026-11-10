@@ -26,7 +26,6 @@ const CONFIRM_WORD = "delete";
 
 /**
  * Delete post confirmation, opened from Update post. The person types "delete" (any case) and clicks Go.
- * Deleting archives the post: the card leaves Celebrate and Current Posts, while existing shares and points stay.
  */
 export default function DeletePostDialog({
   campaign,
