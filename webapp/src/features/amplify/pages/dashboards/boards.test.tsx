@@ -390,16 +390,14 @@ describe("Participation", () => {
     expect(screen.getByText(/910 employees are not connected/)).toBeTruthy();
   });
 
-  it("shows one pill per BU with exactly one selected, and no All BUs pill", () => {
-    const onBu = vi.fn();
-    render(<TeamTable board={board} bus={["Engineering", "Sales"]} bu="Engineering" onBu={onBu} sort="rank" dir="asc" onSort={vi.fn()} />);
-    expect(screen.queryByText("All BUs")).toBeNull();
-    expect(screen.getByRole("button", { name: "Engineering" }).getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByRole("button", { name: "Sales" }).getAttribute("aria-pressed")).toBe("false");
+  it("shows the team leaderboard with no BU pills and no BU column", () => {
+    render(<TeamTable board={board} sort="rank" dir="asc" onSort={vi.fn()} />);
+    expect(screen.getByText("Team leaderboard")).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Business unit" })).toBeNull();
+    expect(screen.queryByRole("columnheader", { name: "BU" })).toBeNull();
+    expect(screen.queryByText("Engineering")).toBeNull();
     expect(screen.getByText("Digital Engineering")).toBeTruthy();
     expect(screen.getByText(/2 people with 20 points aren't placed/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Sales" }));
-    expect(onBu).toHaveBeenCalledWith("Sales");
   });
 
   it("shows a house leaderboard like the team one, without a BU column", () => {
@@ -414,7 +412,7 @@ describe("Participation", () => {
 
   it("makes every sortable header a button with aria-sort and an arrow on the active one", () => {
     const onSort = vi.fn();
-    render(<TeamTable board={board} bus={["Engineering"]} bu="Engineering" onBu={vi.fn()} sort="points" dir="desc" onSort={onSort} />);
+    render(<TeamTable board={board} sort="points" dir="desc" onSort={onSort} />);
     const points = screen.getByRole("columnheader", { name: /Points/ });
     expect(points.getAttribute("aria-sort")).toBe("descending");
     expect(points.textContent).toContain("↓");
