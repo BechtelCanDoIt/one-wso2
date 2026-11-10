@@ -58,6 +58,11 @@ vi.mock("../api/useAmplifyData", () => ({
   useAmplifyLeaderboard: () => ({ data: undefined, isPending: true }),
   useAmplifyTopBoard: () => ({ data: undefined, isPending: true }),
   useAmplifyCategories: () => ({ data: [] }),
+  useAmplifyConfig: () => ({
+    linkedinOrgUrn: "",
+    privacyNoticeUrl: "",
+    campaignLinkOrigins: ["https://www.linkedin.com", "https://linkedin.com"],
+  }),
 }));
 
 vi.mock("../api/useAmplifyPeople", () => ({ useAmplifyPeople: () => ({}) }));

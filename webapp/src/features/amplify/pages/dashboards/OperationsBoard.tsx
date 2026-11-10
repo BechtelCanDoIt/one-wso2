@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 
 import { useState } from "react";
+import { useNotifications } from "@context/notifications/NotificationsContext";
 import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import type { DashboardCampaignRow, DashboardOperations } from "../../api/amplifyTypes";
 import { useDashboardOperations } from "../../api/useAmplifyDashboards";
@@ -21,6 +22,7 @@ import AmplifyShell from "../../components/AmplifyShell";
 import { Block, BoardState, Empty, PriorityPill, StackedBar, StatCard, StateChip } from "../../components/DashboardParts";
 import { useAmplifyGrant } from "../../api/useAmplifyEditorAccess";
 import { useRetryAnnouncement, useSendAnnouncement } from "../../api/useAmplifyMutations";
+import { describeAmplifyError } from "../../util/amplifyError";
 import { announcementLabel, commentedReposts, plainReposts, updatedStamp, deltaText, num, percentOf, windowText } from "../../util/dashboardFormat";
 
 const ANNOUNCEMENT_TONE = { SENT: "info", QUEUED: "warning", FAILED: "error", NONE: "default" } as const;
@@ -32,6 +34,7 @@ const ANNOUNCEMENT_TONE = { SENT: "info", QUEUED: "warning", FAILED: "error", NO
  */
 function AnnouncementChip({ campaignId, announcement }: { campaignId: string; announcement: DashboardCampaignRow["announcement"] }) {
   const canAdmin = useAmplifyGrant("CAN_ADMIN").hasAccess;
+  const { showError } = useNotifications();
   const retry = useRetryAnnouncement();
   const send = useSendAnnouncement();
   const [hot, setHot] = useState(false);
@@ -47,7 +50,7 @@ function AnnouncementChip({ campaignId, announcement }: { campaignId: string; an
       color={hot && !pending ? "primary" : ANNOUNCEMENT_TONE[status]}
       label={pending ? "Queuing…" : hot ? action.verb : label}
       disabled={pending}
-      onClick={() => action.run.mutate({ campaignId })}
+      onClick={() => action.run.mutate({ campaignId }, { onError: (err) => showError(describeAmplifyError(err)) })}
       onMouseEnter={() => setHot(true)}
       onMouseLeave={() => setHot(false)}
       onFocus={() => setHot(true)}
