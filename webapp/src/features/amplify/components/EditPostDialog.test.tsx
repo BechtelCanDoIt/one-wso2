@@ -19,9 +19,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { Campaign } from "../api/amplifyTypes";
 
 const mutate = vi.fn();
+const archive = vi.fn();
 vi.mock("../api/useAmplifyMutations", () => ({
   useEditCampaign: () => ({ mutate, isPending: false }),
-  useArchiveCampaign: () => ({ mutate: vi.fn(), isPending: false }),
+  useArchiveCampaign: () => ({ mutate: archive, isPending: false }),
 }));
 vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
@@ -72,10 +73,34 @@ describe("EditPostDialog post URL", () => {
 });
 
 describe("EditPostDialog delete", () => {
+  beforeEach(() => archive.mockReset());
+
+  const openConfirm = (onClose = vi.fn()) => {
+    render(<EditPostDialog campaign={campaign} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    return onClose;
+  };
+
   it("opens the delete confirmation from the footer Delete button", () => {
     render(<EditPostDialog campaign={campaign} onClose={vi.fn()} />);
     expect(screen.queryByText(/Please confirm delete of/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Delete" }));
     expect(screen.getByText("Please confirm delete of: Hello")).toBeTruthy();
+  });
+
+  it("Cancel hides the confirmation and leaves Update post open", () => {
+    const onClose = openConfirm();
+    fireEvent.click(screen.getAllByRole("button", { name: "Cancel" }).at(-1)!);
+    expect(screen.queryByText(/Please confirm delete of/)).toBeNull();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("closes Update post after a successful delete", () => {
+    archive.mockImplementation((_v, opts) => opts?.onSuccess());
+    const onClose = openConfirm();
+    fireEvent.change(screen.getByPlaceholderText("delete"), { target: { value: "delete" } });
+    fireEvent.click(screen.getByRole("button", { name: "Go" }));
+    expect(archive.mock.calls[0][0]).toEqual({ id: "c-1" });
+    expect(onClose).toHaveBeenCalled();
   });
 });

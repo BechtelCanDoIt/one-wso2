@@ -127,7 +127,7 @@ export function useDeclineLinkedInConsent() {
   });
 }
 
-/** DELETE /campaigns/{id}: archives the post (PO and Marketing). The card leaves Celebrate and Current Posts; shares and points stay. */
+/** DELETE /campaigns/{id} (PO and Marketing): archives the post, then refetches the campaigns lists. */
 export function useArchiveCampaign() {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();

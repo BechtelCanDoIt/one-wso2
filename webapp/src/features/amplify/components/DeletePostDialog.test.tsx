@@ -16,6 +16,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { Campaign } from "../api/amplifyTypes";
 
 const mutate = vi.fn();
@@ -58,6 +59,21 @@ describe("DeletePostDialog", () => {
     expect(mutate.mock.calls[0][0]).toEqual({ id: "c-1" });
     expect(showSuccess).toHaveBeenCalledWith("Post deleted");
     expect(onDeleted).toHaveBeenCalled();
+  });
+
+  it("submits with the Enter key once the word matches", async () => {
+    const onDeleted = vi.fn();
+    mutate.mockImplementation((_v, opts) => opts.onSuccess());
+    render(<DeletePostDialog campaign={campaign} onCancel={vi.fn()} onDeleted={onDeleted} />);
+    await userEvent.type(screen.getByPlaceholderText("delete"), "delete{Enter}");
+    expect(mutate.mock.calls[0][0]).toEqual({ id: "c-1" });
+    expect(onDeleted).toHaveBeenCalled();
+  });
+
+  it("does not submit with Enter before the word matches", async () => {
+    render(<DeletePostDialog campaign={campaign} onCancel={vi.fn()} onDeleted={vi.fn()} />);
+    await userEvent.type(screen.getByPlaceholderText("delete"), "del{Enter}");
+    expect(mutate).not.toHaveBeenCalled();
   });
 
   it("shows the error and stays open when the delete fails", () => {
