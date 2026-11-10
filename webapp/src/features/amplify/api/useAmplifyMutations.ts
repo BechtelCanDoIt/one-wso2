@@ -49,9 +49,7 @@ function refreshNow(qc: QueryClient, queryKey: unknown[]): Promise<void> {
   return qc.invalidateQueries({ queryKey, refetchType: "all" });
 }
 
-// The Operations board's snapshot can take seconds to rebuild, so a re-queued announcement is shown as Queued the
-// moment amplify-api accepts it; the reload then confirms it in the background.
-// Matches the board under any user id (one signed-in user per tab), so it cannot miss on a key that differs by `sub`.
+// Shows the announcement as Queued before the server snapshot rebuilds; the prefix match covers every `sub`.
 function markAnnouncementQueued(qc: QueryClient, campaignId: string): void {
   qc.setQueriesData<DashboardOperations>({ queryKey: ["amplify", "dashboard-operations"] }, (old) =>
     old

@@ -221,6 +221,12 @@ describe("campaignForShareParam", () => {
     campaign("01a1a76c-b272-7128-894f-e044f9590303", "urn:li:ugcPost:7411000002"),
   ];
 
+  it("reads a post URL against the origins it is given", () => {
+    const url = "http://localhost:19091/feed/update/urn:li:share:7411000001/";
+    expect(campaignForShareParam(url, open)).toBeNull();
+    expect(campaignForShareParam(url, open, ["http://localhost:19091"])?.id).toBe("01a1a76c-b212-77c7-bed8-5ac2ebe4efc6");
+  });
+
   it("matches the campaign id Novera's button sends", () => {
     expect(campaignForShareParam("01a1a76c-b212-77c7-bed8-5ac2ebe4efc6", open)?.id).toBe(
       "01a1a76c-b212-77c7-bed8-5ac2ebe4efc6",

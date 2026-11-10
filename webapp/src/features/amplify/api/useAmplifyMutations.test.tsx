@@ -16,7 +16,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 vi.mock("@api/http", () => ({
@@ -134,15 +134,27 @@ describe("re-queuing an announcement", () => {
         { campaignId: "c2", announcement: { status: "SENT" } },
       ],
     });
-    const load = vi.fn(async () => board("FAILED"));
-    await qc.fetchQuery({ queryKey: ["amplify", "dashboard-operations", "sub-1"], queryFn: load });
+    type Board = ReturnType<typeof board>;
+    // The first load seeds the cache; the refetch the mutation triggers waits on `release`, so the cache can be read
+    // while the board is still reloading.
+    let release: (b: Board) => void = () => {};
+    const load = vi
+      .fn<() => Promise<Board>>()
+      .mockResolvedValueOnce(board("FAILED"))
+      .mockImplementationOnce(() => new Promise<Board>((resolve) => (release = resolve)));
+    const key = ["amplify", "dashboard-operations", "sub-1"];
+    await qc.fetchQuery({ queryKey: key, queryFn: load });
     const { result } = renderHook(() => useHook(), { wrapper });
     await act(async () => {
       await result.current.mutateAsync({ campaignId: "c1" });
     });
-    const shown = qc.getQueryData<ReturnType<typeof board>>(["amplify", "dashboard-operations", "sub-1"]);
-    // Right after the POST the cache already says QUEUED for c1 only; the refetch then replaces it with the server's answer.
-    expect(load).toHaveBeenCalledTimes(2);
-    expect(shown?.campaigns[1].announcement.status).toBe("SENT");
+    // POST accepted, refetch still pending: c1 already reads QUEUED, c2 is untouched.
+    await waitFor(() => expect(load).toHaveBeenCalledTimes(2));
+    const queued = qc.getQueryData<Board>(key);
+    expect(queued?.campaigns[0].announcement.status).toBe("QUEUED");
+    expect(queued?.campaigns[1].announcement.status).toBe("SENT");
+    // The refetch then replaces it with the server's answer.
+    await act(async () => release({ campaigns: [{ campaignId: "c1", announcement: { status: "SENT" } }, { campaignId: "c2", announcement: { status: "SENT" } }] }));
+    await waitFor(() => expect(qc.getQueryData<Board>(key)?.campaigns[0].announcement.status).toBe("SENT"));
   });
 });

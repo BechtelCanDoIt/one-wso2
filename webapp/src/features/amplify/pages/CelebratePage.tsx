@@ -24,6 +24,7 @@ import { AMPLIFY_CELEBRATE_PATH } from "@constants/perspectives";
 import type { Campaign } from "../api/amplifyTypes";
 import {
   useAmplifyCampaigns,
+  useAmplifyConfig,
   useAmplifyCategories,
   useAmplifyLeaderboard,
   useAmplifyMe,
@@ -57,6 +58,7 @@ export default function CelebratePage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { showSuccess } = useNotifications();
+  const { campaignLinkOrigins } = useAmplifyConfig();
 
   const [linking, setLinking] = useState<Campaign | null>(null);
   const [sharing, setSharing] = useState<Campaign | null>(null);
@@ -94,7 +96,7 @@ export default function CelebratePage() {
   // the URL rather than copied into state; closing the dialog clears both.
   const pendingShareId = searchParams.get("share");
   // Novera sends the campaign id; a LinkedIn post id or post URL resolves to the same campaign.
-  const pendingCampaign = campaignForShareParam(pendingShareId, openCampaigns);
+  const pendingCampaign = campaignForShareParam(pendingShareId, openCampaigns, campaignLinkOrigins);
   const pendingShare =
     pendingCampaign && linked && !sharedCampaignIds.has(pendingCampaign.id) ? pendingCampaign : null;
 

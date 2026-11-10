@@ -134,9 +134,20 @@ describe("OperationsBoard", () => {
       fireEvent.mouseEnter(chip);
       expect(screen.getByText("RETRY")).toBeTruthy();
       fireEvent.click(screen.getByText("RETRY"));
-      expect(retryMutate).toHaveBeenCalledWith({ campaignId: operations.campaigns[0].campaignId });
+      expect(retryMutate).toHaveBeenCalledWith({ campaignId: operations.campaigns[0].campaignId }, expect.any(Object));
       fireEvent.mouseLeave(screen.getByText("RETRY"));
       expect(screen.getByText("Failed after retries")).toBeTruthy();
+    });
+
+    it("tells the admin when the re-queue fails", () => {
+      grants.admin = true;
+      retryMutate.mockClear();
+      showError.mockClear();
+      render(<OperationsBoard data={failed} />);
+      fireEvent.click(screen.getByText("Failed after retries"));
+      const [, options] = retryMutate.mock.calls[0];
+      options.onError(new Error("boom"));
+      expect(showError).toHaveBeenCalledWith("Something went wrong, please try again.");
     });
 
     it("stays plain text for anyone without the admin grant", () => {
@@ -160,7 +171,7 @@ describe("OperationsBoard", () => {
       render(<OperationsBoard data={none} />);
       fireEvent.mouseEnter(screen.getByText("Not announced"));
       fireEvent.click(screen.getByText("SEND"));
-      expect(sendMutate).toHaveBeenCalledWith({ campaignId: operations.campaigns[0].campaignId });
+      expect(sendMutate).toHaveBeenCalledWith({ campaignId: operations.campaigns[0].campaignId }, expect.any(Object));
     });
 
     it("stays plain text for anyone without the admin grant", () => {

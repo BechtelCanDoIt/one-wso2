@@ -116,12 +116,13 @@ function urnIdOf(value: string | null | undefined): string | null {
 export function campaignForShareParam(
   param: string | null | undefined,
   campaigns: readonly Campaign[],
+  origins: readonly string[] = DEFAULT_POST_LINK_ORIGINS,
 ): Campaign | null {
   const value = param?.trim();
   if (!value) return null;
   const byId = campaigns.find((c) => c.id === value);
   if (byId) return byId;
-  const urn = postUrnFromUrl(value);
+  const urn = postUrnFromUrl(value, origins);
   if (urn) return campaigns.find((c) => c.resourceUrn === urn) ?? null;
   return POST_ID.test(value) ? (campaigns.find((c) => urnIdOf(c.resourceUrn) === value) ?? null) : null;
 }
