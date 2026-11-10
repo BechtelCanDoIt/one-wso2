@@ -19,7 +19,10 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import type { Campaign } from "../api/amplifyTypes";
 
 const mutate = vi.fn();
-vi.mock("../api/useAmplifyMutations", () => ({ useEditCampaign: () => ({ mutate, isPending: false }) }));
+vi.mock("../api/useAmplifyMutations", () => ({
+  useEditCampaign: () => ({ mutate, isPending: false }),
+  useArchiveCampaign: () => ({ mutate: vi.fn(), isPending: false }),
+}));
 vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
 }));
@@ -65,5 +68,14 @@ describe("EditPostDialog post URL", () => {
     fireEvent.change(screen.getByLabelText(/Post URL/), { target: { value: "" } });
     save();
     expect(patchOf().resourceUrl).toBe("");
+  });
+});
+
+describe("EditPostDialog delete", () => {
+  it("opens the delete confirmation from the footer Delete button", () => {
+    render(<EditPostDialog campaign={campaign} onClose={vi.fn()} />);
+    expect(screen.queryByText(/Please confirm delete of/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByText("Please confirm delete of: Hello")).toBeTruthy();
   });
 });

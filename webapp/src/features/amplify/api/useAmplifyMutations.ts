@@ -127,6 +127,22 @@ export function useDeclineLinkedInConsent() {
   });
 }
 
+/** DELETE /campaigns/{id}: archives the post (PO and Marketing). The card leaves Celebrate and Current Posts; shares and points stay. */
+export function useArchiveCampaign() {
+  const getAccessToken = useAccessToken();
+  const qc = useQueryClient();
+  const sub = useAmplifySub();
+  return useMutation<null, Error, { id: string }>({
+    mutationFn: async ({ id }) => {
+      await authedDelete(amplifyServiceUrls.campaign(id), await getAccessToken());
+      return null;
+    },
+    onSuccess: async () => {
+      await refreshNow(qc, amplifyKey("campaigns", sub));
+    },
+  });
+}
+
 /** DELETE /connections/linkedin: Amplify revokes the caller's token at LinkedIn, then drops its saved link. */
 export function useRemoveLinkedInConnection() {
   const getAccessToken = useAccessToken();
