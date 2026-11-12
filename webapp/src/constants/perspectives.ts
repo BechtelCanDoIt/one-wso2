@@ -529,6 +529,7 @@ export const AMPLIFY_DASHBOARD_GLANCE_PATH = `${AMPLIFY_DASHBOARDS_PATH}/glance`
 export const AMPLIFY_DASHBOARD_OPERATIONS_PATH = `${AMPLIFY_DASHBOARDS_PATH}/operations`;
 export const AMPLIFY_DASHBOARD_POSTS_PATH = `${AMPLIFY_DASHBOARDS_PATH}/posts`;
 export const AMPLIFY_DASHBOARD_PARTICIPATION_PATH = `${AMPLIFY_DASHBOARDS_PATH}/participation`;
+export const AMPLIFY_DASHBOARD_TEAM_PATH = `${AMPLIFY_DASHBOARDS_PATH}/team`;
 export const AMPLIFY_DASHBOARD_SCORECARD_PATH = `${AMPLIFY_DASHBOARDS_PATH}/scorecard`;
 export const AMPLIFY_DASHBOARDING_GROUP_ID = "amplify-dashboarding";
 
@@ -537,6 +538,7 @@ const AMPLIFY_DASHBOARD_SECTIONS: PerspectiveSection[] = [
   { id: "amplify-dashboard-operations", label: "Operations", icon: ActivityIcon, path: AMPLIFY_DASHBOARD_OPERATIONS_PATH },
   { id: "amplify-dashboard-posts", label: "Post Performance", icon: ChartColumnIcon, path: AMPLIFY_DASHBOARD_POSTS_PATH },
   { id: "amplify-dashboard-participation", label: "Participation", icon: UsersIcon, path: AMPLIFY_DASHBOARD_PARTICIPATION_PATH },
+  { id: "amplify-dashboard-team", label: "Team", icon: UserRoundIcon, path: AMPLIFY_DASHBOARD_TEAM_PATH },
   { id: "amplify-dashboard-scorecard", label: "Scorecard", icon: GaugeIcon, path: AMPLIFY_DASHBOARD_SCORECARD_PATH },
 ];
 export const AMPLIFY_DASHBOARD_ITEM_IDS: ReadonlySet<string> = new Set(AMPLIFY_DASHBOARD_SECTIONS.map((s) => s.id));

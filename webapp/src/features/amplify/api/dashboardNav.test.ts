@@ -42,6 +42,7 @@ describe("Amplify Dashboarding menu", () => {
       "Operations",
       "Post Performance",
       "Participation",
+      "Team",
       "Scorecard",
     ]);
     expect(group?.children?.map((c) => c.path)).toEqual([
@@ -49,6 +50,7 @@ describe("Amplify Dashboarding menu", () => {
       "/amplify/dashboards/operations",
       "/amplify/dashboards/posts",
       "/amplify/dashboards/participation",
+      "/amplify/dashboards/team",
       "/amplify/dashboards/scorecard",
     ]);
   });
@@ -57,6 +59,6 @@ describe("Amplify Dashboarding menu", () => {
     const m = await load();
     const group = m.PERSPECTIVES.find((p) => p.key === "amplify")?.sections?.find((s) => s.label === "Dashboarding");
     for (const child of group?.children ?? []) expect(m.AMPLIFY_DASHBOARD_ITEM_IDS.has(child.id)).toBe(true);
-    expect(m.AMPLIFY_DASHBOARD_ITEM_IDS.size).toBe(5);
+    expect(m.AMPLIFY_DASHBOARD_ITEM_IDS.size).toBe(6);
   });
 });

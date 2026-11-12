@@ -19,7 +19,7 @@ In the **Amplify** perspective's left menu you'll find:
 
 - **Celebrate**: everyone.
 - **New Post** and **Current Posts**: Marketing and PO.
-- **Dashboarding** (a collapsible group): At A Glance, Operations, Post Performance, Participation, Scorecard.
+- **Dashboarding** (a collapsible group): At A Glance, Operations, Post Performance, Participation, Team, Scorecard.
 
 ## Registering a post (New Post)
 
@@ -108,6 +108,15 @@ The person detail shows points this month, reposts, reposts with comments, the p
 - **Export**: choose **Week**, **Month** or **Year**, or set **From** and **To** dates, and click **Download CSV**. You get the raw rows behind the boards for that range.
 
 Handle the export like any employee data. Keep it in WSO2's tools and don't forward it.
+
+### Team
+
+"Who is in the company, and how many points does each person have?"
+
+- A table of everyone in the people directory, with their points and company rank. People who haven't earned points yet are listed too, with 0 points and no rank.
+- **Search** by name or email, **sort** by company rank, points or name, and page through the list.
+- A note above the table says how many people are active out of the total. If the people directory is down, the list shows only people with points and says so.
+- Click a name to open the person detail (only for people who have a standing).
 
 ### Scorecard
 
