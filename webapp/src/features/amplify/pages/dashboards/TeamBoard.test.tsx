@@ -54,6 +54,7 @@ function page(overrides: Partial<TeamPage> = {}): TeamPage {
         teamRank: 1,
         previousRank: null,
         lastActivityAt: null,
+        houseName: "Oak",
         actions: { canAdjust: false, canReverse: false },
       },
       {
@@ -79,6 +80,16 @@ function loaded(data: TeamPage) {
 describe("TeamBoard", () => {
   beforeEach(() => {
     useAmplifyTeamPage.mockReset();
+  });
+
+  it("shows each person's house, and a dash for someone with none", () => {
+    loaded(page());
+    render(<TeamBoard />);
+    expect(screen.getByRole("columnheader", { name: "House" })).toBeTruthy();
+    const rows = screen.getAllByRole("row");
+    // Columns: company rank, team rank, team member, house.
+    expect(within(rows[1]).getAllByRole("cell")[3].textContent).toBe("Oak");
+    expect(within(rows[2]).getAllByRole("cell")[3].textContent).toBe("—");
   });
 
   it("links only members with a standing row, and shows a dash for a null company rank", () => {

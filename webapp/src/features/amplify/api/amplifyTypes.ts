@@ -178,6 +178,8 @@ export interface TeamPageEntry {
   previousRank: number | null;
   /** ISO timestamp of the last recorded point, or null. */
   lastActivityAt: string | null;
+  /** The person's house from the people directory; null or absent when they have none. */
+  houseName?: string | null;
   actions: { canAdjust: boolean; canReverse: boolean };
 }
 

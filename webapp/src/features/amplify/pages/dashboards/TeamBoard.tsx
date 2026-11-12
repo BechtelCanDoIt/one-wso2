@@ -118,6 +118,7 @@ function TeamRosterBody({
                 <TableCell sx={{ width: 96 }}>Company rank</TableCell>
                 <TableCell sx={{ width: 96 }}>Team rank</TableCell>
                 <TableCell>Team member</TableCell>
+                <TableCell>House</TableCell>
                 <TableCell align="right">Points</TableCell>
                 <TableCell>Last activity</TableCell>
               </TableRow>
@@ -177,6 +178,7 @@ function RosterRow({ entry }: { entry: TeamPageEntry }) {
       <TableCell>
         <RosterName entry={entry} />
       </TableCell>
+      <TableCell>{entry.houseName ?? "—"}</TableCell>
       <TableCell align="right">{entry.points} pts</TableCell>
       <TableCell>{entry.lastActivityAt ? new Date(entry.lastActivityAt).toLocaleDateString() : "—"}</TableCell>
     </TableRow>
