@@ -215,10 +215,13 @@ function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined })
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const errors = checkProductForm(form);
   const shown = (field: keyof ProductFormErrors) => (touched.has(field) ? errors[field] : undefined);
-  const canSave = Object.keys(errors).length === 0 && !save.isPending;
+  // Photos still being scaled or uploaded aren't in the form yet; saving now would leave them out.
+  const [photosBusy, setPhotosBusy] = useState<ReadonlySet<string>>(new Set());
+  const waitingForPhotos = photosBusy.size > 0;
   // What the last save left in the form, so "Saved." goes once anything changes.
   const [savedInput, setSavedInput] = useState<string | null>(null);
   const currentInput = JSON.stringify(productInputOf(form));
+  const canSave = Object.keys(errors).length === 0 && !save.isPending && !waitingForPhotos;
 
   const set = <K extends keyof ProductForm>(field: K, value: ProductForm[K]) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -234,7 +237,7 @@ function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined })
       update.mutate(input, {
         onSuccess: (saved) => {
           // The store fills in what was left empty (the slug), so start again from what it kept,
-          // unless the form changed while saving.
+          // unless the form changed while saving (a photo that finished uploading, say).
           const next = productFormOf(saved);
           setForm((f) => (JSON.stringify(productInputOf(f)) === sent ? next : f));
           setSavedInput(JSON.stringify(productInputOf(next)));
@@ -323,6 +326,14 @@ function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined })
         productName={form.name.trim() || "This product"}
         images={form.images}
         onChange={(update) => setForm((f) => ({ ...f, images: update(f.images) }))}
+        onBusyChange={(view, busy) =>
+          setPhotosBusy((s) => {
+            const next = new Set(s);
+            if (busy) next.add(view);
+            else next.delete(view);
+            return next;
+          })
+        }
       />
       <FormControl size="small">
         <InputLabel id="swag-store-product-alternatives">Alternatives</InputLabel>
@@ -354,7 +365,7 @@ function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined })
       )}
       <Box>
         <Button type="submit" variant="contained" disabled={!canSave} startIcon={save.isPending ? <CircularProgress size={16} color="inherit" /> : undefined}>
-          {save.isPending ? "Saving…" : product ? "Save changes" : "Create draft"}
+          {save.isPending ? "Saving…" : waitingForPhotos ? "Waiting for photos…" : product ? "Save changes" : "Create draft"}
         </Button>
       </Box>
     </Card>
