@@ -12,6 +12,7 @@
 // "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
+// under the License.
 
 // Amplify-only colours. Kept apart from src/config/themeConfig.ts, which stays the
 // theme picker: nothing here overrides or reads a parent theme colour, it only adds
