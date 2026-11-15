@@ -80,12 +80,16 @@ function renderPage(path = "/people-ops/swag-store/demand") {
 }
 
 beforeEach(() => {
+  // Today is 15 Nov 2026, so the fixtures' December dates stay in the future.
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-11-15T12:00:00Z")); // midday UTC: 15 Nov in every timezone the tests run in
   window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { swagStore: true } } as Window["config"];
   Object.values(http).forEach((f) => f.mockReset());
   http.authedGet.mockResolvedValue({ items: ROWS });
 });
 
 afterEach(() => {
+  vi.useRealTimers();
   window.config = originalConfig;
 });
 
@@ -104,6 +108,15 @@ describe("the demand board", () => {
     expect(body[1]).toHaveTextContent(/1 person/);
     expect(body[1]).toHaveTextContent("Not set");
     expect(http.authedGet).toHaveBeenCalledWith("/admin/demand", "token");
+    expect(screen.getByRole("table", { name: "Demand" })).toBeInTheDocument();
+  });
+
+  it("marks a restock date that has passed as overdue", async () => {
+    http.authedGet.mockResolvedValue({ items: [demandRow({ restockEta: "2026-11-01T00:00:00Z" })] });
+    renderPage();
+    const [, row] = await screen.findAllByRole("row");
+    expect(row).toHaveTextContent(formatCivilDate("2026-11-01") ?? "missing");
+    expect(within(row).getByText("Overdue")).toBeInTheDocument();
   });
 
   it("says when nobody is waiting", async () => {
@@ -143,6 +156,34 @@ describe("a product's drawer", () => {
     await userEvent.click(within(m).getByRole("button", { name: "Save date" }));
     expect(http.authedPatch).toHaveBeenCalledWith("/admin/products/p-hoodie/variants/v-m", "token", { restockEta: "2026-12-24" });
     expect(await within(m).findByText("Saved.")).toBeInTheDocument();
+  });
+
+  it("saves only a changed date, and never one in the past", async () => {
+    renderPage("/people-ops/swag-store/demand/p-hoodie");
+    const l = within(await screen.findByRole("dialog", { name: "WSO2 Hoodie" })).getByRole("group", { name: "L" });
+    const save = within(l).getByRole("button", { name: "Save date" });
+    expect(save).toBeDisabled();
+    const date = within(l).getByLabelText("Restock date");
+    expect(date).toHaveAttribute("min", "2026-11-15");
+    await userEvent.clear(date);
+    await userEvent.type(date, "2026-11-01");
+    expect(within(l).getByText("Pick today or a later date.")).toBeInTheDocument();
+    expect(save).toBeDisabled();
+    await userEvent.clear(date);
+    await userEvent.type(date, "2026-11-15");
+    expect(save).toBeEnabled();
+  });
+
+  it("says Saved. only until the date is changed again", async () => {
+    http.authedPatch.mockResolvedValue(adminProduct());
+    renderPage("/people-ops/swag-store/demand/p-hoodie");
+    const m = within(await screen.findByRole("dialog", { name: "WSO2 Hoodie" })).getByRole("group", { name: "M" });
+    const date = within(m).getByLabelText("Restock date");
+    await userEvent.type(date, "2026-12-24");
+    await userEvent.click(within(m).getByRole("button", { name: "Save date" }));
+    expect(await within(m).findByText("Saved.")).toBeInTheDocument();
+    await userEvent.clear(date);
+    expect(within(m).queryByText("Saved.")).toBeNull();
   });
 
   it("clears a restock date", async () => {

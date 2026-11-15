@@ -15,6 +15,7 @@
 // under the License.
 
 import type { SwagStoreDemandRow } from "../api/swagStoreTypes";
+import { isCivilDate } from "./civilDate";
 
 /** One product on the demand board, with the options people wait for. */
 export interface DemandProduct {
@@ -30,10 +31,21 @@ export interface DemandProduct {
   readonly variants: readonly SwagStoreDemandRow[];
 }
 
-/** The civil date of the API's restock timestamp ("2026-12-12T00:00:00Z" → "2026-12-12"). */
+const UTC_MIDNIGHT = /^(\d{4}-\d{2}-\d{2})T00:00:00(?:\.0+)?Z$/;
+
+/**
+ * The civil date of a restock date. The demand endpoint sends it as a UTC-midnight
+ * timestamp ("2026-12-12T00:00:00Z" → "2026-12-12"); a plain civil date is read as
+ * it is. Anything else is null, never a guess that could be a day off.
+ */
 export function restockDate(eta: string | null): string | null {
-  return eta ? eta.slice(0, 10) : null;
+  if (!eta) return null;
+  const civil = isCivilDate(eta) ? eta : UTC_MIDNIGHT.exec(eta)?.[1];
+  return civil && isCivilDate(civil) ? civil : null;
 }
+
+/** An instant's time, so instants written with different offsets compare correctly. */
+const time = (instant: string): number => Date.parse(instant);
 
 /** Groups the per-option rows by product: most people waiting first, then whoever has waited longest. */
 export function groupDemand(rows: readonly SwagStoreDemandRow[]): DemandProduct[] {
@@ -45,10 +57,11 @@ export function groupDemand(rows: readonly SwagStoreDemandRow[]): DemandProduct[
       productId: variants[0].productId,
       productName: variants[0].productName,
       waiting: variants.reduce((n, v) => n + v.pendingAlerts, 0),
-      firstAlertAt: variants.map((v) => v.firstAlertAt).reduce((a, b) => (a < b ? a : b)),
+      firstAlertAt: variants.map((v) => v.firstAlertAt).reduce((a, b) => (time(b) < time(a) ? b : a)),
+      // Checked civil dates, all "YYYY-MM-DD", so text order is date order.
       nextRestock: dates.length > 0 ? dates.reduce((a, b) => (a < b ? a : b)) : null,
       variants: [...variants].sort((a, b) => b.pendingAlerts - a.pendingAlerts),
     };
   });
-  return groups.sort((a, b) => b.waiting - a.waiting || a.firstAlertAt.localeCompare(b.firstAlertAt));
+  return groups.sort((a, b) => b.waiting - a.waiting || time(a.firstAlertAt) - time(b.firstAlertAt));
 }

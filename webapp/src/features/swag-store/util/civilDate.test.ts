@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { formatCivilDate, formatInstant } from "./civilDate";
+import { civilToday, formatCivilDate, formatInstant, isCivilDate } from "./civilDate";
 
 describe("formatCivilDate", () => {
   it("shows the date it was given, whatever the viewer's timezone", () => {
@@ -37,5 +37,19 @@ describe("formatInstant", () => {
 
   it("shows a value it can't read as it came", () => {
     expect(formatInstant("yesterday")).toBe("yesterday");
+  });
+});
+
+describe("isCivilDate", () => {
+  it("takes real dates only", () => {
+    expect(isCivilDate("2026-12-12")).toBe(true);
+    expect(isCivilDate("2026-02-30")).toBe(false);
+    expect(isCivilDate("2026-12-12T00:00:00Z")).toBe(false);
+  });
+});
+
+describe("civilToday", () => {
+  it("is the viewer's own date, padded", () => {
+    expect(civilToday(new Date(2026, 10, 5, 23, 59))).toBe("2026-11-05");
   });
 });

@@ -52,9 +52,37 @@ describe("groupDemand", () => {
 });
 
 describe("restockDate", () => {
-  it("reads the civil date out of the API's timestamp", () => {
+  it("reads a civil date, or the civil date of a UTC-midnight timestamp", () => {
     expect(restockDate("2026-12-12T00:00:00Z")).toBe("2026-12-12");
+    expect(restockDate("2026-12-12T00:00:00.000Z")).toBe("2026-12-12");
     expect(restockDate("2026-12-12")).toBe("2026-12-12");
     expect(restockDate(null)).toBeNull();
+  });
+
+  it("reads nothing it can't be sure of, rather than a day off", () => {
+    // Local midnight in Colombo written in UTC: its first ten characters are the day before.
+    expect(restockDate("2026-12-11T18:30:00Z")).toBeNull();
+    expect(restockDate("2026-12-12T00:00:00+05:30")).toBeNull();
+    expect(restockDate("2026-13-40")).toBeNull();
+    expect(restockDate("soon")).toBeNull();
+  });
+});
+
+describe("groupDemand's times", () => {
+  it("compares instants by time, not by how they are written", () => {
+    const [group] = groupDemand([
+      demandRow({ variantId: "v-m", firstAlertAt: "2026-11-10T00:00:00Z" }),
+      // 9 Nov 23:30 UTC: earlier, though its text sorts later.
+      demandRow({ variantId: "v-l", firstAlertAt: "2026-11-10T05:00:00+05:30" }),
+    ]);
+    expect(group.firstAlertAt).toBe("2026-11-10T05:00:00+05:30");
+  });
+
+  it("breaks a tie by the earlier instant, however each is written", () => {
+    const groups = groupDemand([
+      demandRow({ productId: "p-a", pendingAlerts: 2, firstAlertAt: "2026-11-10T00:00:00Z" }),
+      demandRow({ productId: "p-b", pendingAlerts: 2, firstAlertAt: "2026-11-10T05:00:00+05:30" }),
+    ]);
+    expect(groups.map((g) => g.productId)).toEqual(["p-b", "p-a"]);
   });
 });

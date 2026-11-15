@@ -529,7 +529,6 @@ export interface SwagStoreOptionsInput {
   }[];
 }
 
-/** PATCH /admin/products/{id}/variants/{variantId} body. */
 /** GET /admin/demand: one variant people are waiting for. */
 export interface SwagStoreDemandRow {
   readonly productId: string;
@@ -541,11 +540,12 @@ export interface SwagStoreDemandRow {
   readonly pendingAlerts: number;
   /** When the first of those people asked (an instant). */
   readonly firstAlertAt: string;
-  /** The restock date as a UTC-midnight timestamp, or null when none is set. */
+  /** The restock date as a UTC-midnight timestamp (read with restockDate), or null when none is set. */
   readonly restockEta: string | null;
   readonly free: number;
 }
 
+/** PATCH /admin/products/{id}/variants/{variantId} body. */
 export interface SwagStoreVariantPatch {
   readonly sku?: string;
   readonly priceDelta?: number;

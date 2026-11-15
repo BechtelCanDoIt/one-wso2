@@ -37,7 +37,8 @@ import { XIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
 import type { SwagStoreDemandRow } from "../../api/swagStoreTypes";
-import { formatCivilDate, formatInstant } from "../../util/civilDate";
+import TintedChip from "../../components/TintedChip";
+import { civilToday, formatCivilDate, formatInstant } from "../../util/civilDate";
 import { groupDemand, restockDate, type DemandProduct } from "../../util/demand";
 import { messageFor } from "../../util/swagStoreError";
 import { useAdminDemand } from "../api/useAdminData";
@@ -94,9 +95,10 @@ export default function DemandPage(): JSX.Element {
 }
 
 function DemandTable({ products }: { products: readonly DemandProduct[] }): JSX.Element {
+  const today = civilToday();
   return (
     <Card variant="outlined" sx={{ borderRadius: 1.5, overflowX: "auto" }}>
-      <Table size="small">
+      <Table size="small" aria-label="Demand">
         <TableHead>
           <TableRow>
             <TableCell>Product</TableCell>
@@ -119,7 +121,11 @@ function DemandTable({ products }: { products: readonly DemandProduct[] }): JSX.
                 {p.variants.length} {p.variants.length === 1 ? "option" : "options"}
               </TableCell>
               <TableCell>{formatInstant(p.firstAlertAt)}</TableCell>
-              <TableCell>{dateText(p.nextRestock)}</TableCell>
+              <TableCell>
+                {dateText(p.nextRestock)}
+                {/* A restock that never came: shoppers still see the date, so it needs a new one. */}
+                {p.nextRestock && p.nextRestock < today && <TintedChip color="warning" label="Overdue" sx={{ ml: 1 }} />}
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -180,9 +186,14 @@ function WaitingOption({ productId, row }: { productId: string; row: SwagStoreDe
   const saved = restockDate(row.restockEta) ?? "";
   const [date, setDate] = useState(saved);
   const label = row.options || row.sku;
+  const today = civilToday();
+  // Shoppers see this date, so it can't be in the past. Empty clears it.
+  const past = date !== "" && date < today;
+  const canSave = date !== saved && !past && !patch.isPending;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!canSave) return;
     patch.mutate({ variantId: row.variantId, patch: { restockEta: date || null } });
   };
 
@@ -206,10 +217,15 @@ function WaitingOption({ productId, row }: { productId: string; row: SwagStoreDe
           type="date"
           label="Restock date"
           value={date}
-          onChange={(e) => setDate(e.target.value)}
-          slotProps={{ inputLabel: { shrink: true } }}
+          onChange={(e) => {
+            setDate(e.target.value);
+            patch.reset();
+          }}
+          error={past}
+          helperText={past ? "Pick today or a later date." : undefined}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: today } }}
         />
-        <Button type="submit" variant="outlined" size="small" disabled={patch.isPending}>
+        <Button type="submit" variant="outlined" size="small" disabled={!canSave}>
           {patch.isPending ? "Saving…" : "Save date"}
         </Button>
       </Box>
