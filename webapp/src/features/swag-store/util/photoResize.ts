@@ -42,10 +42,13 @@ export function needsScaling(size: { width: number; height: number }, bytes: num
   return Math.max(size.width, size.height) > MAX_PHOTO_EDGE || bytes > MAX_PHOTO_BYTES;
 }
 
-/** WebP where the browser can encode it; else PNG for a PNG (keeps transparency) and JPEG for the rest. */
+/** Sources that may be transparent. JPEG would paint the transparent parts black. */
+const MAY_BE_TRANSPARENT = new Set(["image/png", "image/webp"]);
+
+/** WebP where the browser can encode it; else PNG for a PNG or WebP (keeps transparency) and JPEG for the rest. */
 export function outputType(sourceType: string, webpSupported: boolean): OutputType {
   if (webpSupported) return "image/webp";
-  return sourceType === "image/png" ? "image/png" : "image/jpeg";
+  return MAY_BE_TRANSPARENT.has(sourceType) ? "image/png" : "image/jpeg";
 }
 
 function canvasOf(width: number, height: number): { canvas: HTMLCanvasElement; ctx: CanvasRenderingContext2D } {
