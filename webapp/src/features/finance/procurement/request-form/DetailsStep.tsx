@@ -16,13 +16,12 @@
 
 import { Box, Button, IconButton, Stack } from "@wso2/oxygen-ui";
 import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
-import type { ProcurementLookups, RequestDetails } from "../types";
+import type { RequestDetails } from "../types";
 import { ChipsField, SectionHeading, SelectField, StepTitle, TextInput, YesNoField, YesNoList } from "./formFields";
-import { detailsLabel, type RequestDraft } from "./requestFormModel";
+import { detailsLabel, USAGE_PERIODS, type RequestDraft } from "./requestFormModel";
 
 interface DetailsProps {
   details: RequestDetails;
-  lookups: ProcurementLookups;
   onChange: (patch: Partial<RequestDetails>) => void;
 }
 
@@ -160,7 +159,7 @@ function Assessment({ details, onChange }: Pick<DetailsProps, "details" | "onCha
   );
 }
 
-function ItDetails({ details, lookups, onChange }: DetailsProps) {
+function ItDetails({ details, onChange }: DetailsProps) {
   const d = details;
   return (
     <Stack spacing={2.5}>
@@ -184,7 +183,7 @@ function ItDetails({ details, lookups, onChange }: DetailsProps) {
       </Box>
 
       <SectionHeading>Usage</SectionHeading>
-      <SelectField required label="Expected usage period" placeholder="Select duration" options={lookups.usagePeriods} value={d.usagePeriod} onChange={(usagePeriod) => onChange({ usagePeriod })} />
+      <SelectField required label="Expected usage period" placeholder="Select duration" options={USAGE_PERIODS} value={d.usagePeriod} onChange={(usagePeriod) => onChange({ usagePeriod })} />
 
       <Justification details={d} onChange={onChange} roiPlaceholder={ROI_IT} />
       <Assessment details={d} onChange={onChange} />
@@ -206,18 +205,16 @@ function NonItDetails({ details, onChange }: Pick<DetailsProps, "details" | "onC
 // Step 3. The questions that belong to the chosen category.
 export default function DetailsStep({
   draft,
-  lookups,
   onChange,
 }: {
   draft: RequestDraft;
-  lookups: ProcurementLookups;
   onChange: (patch: Partial<RequestDetails>) => void;
 }) {
   return (
     <Stack spacing={3} sx={{ py: 1 }}>
       <StepTitle>{detailsLabel(draft.category)}</StepTitle>
       {draft.category === "IT" ? (
-        <ItDetails details={draft.details} lookups={lookups} onChange={onChange} />
+        <ItDetails details={draft.details} onChange={onChange} />
       ) : (
         <NonItDetails details={draft.details} onChange={onChange} />
       )}

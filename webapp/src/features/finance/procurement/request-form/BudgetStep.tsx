@@ -16,9 +16,11 @@
 
 import { useState, type ChangeEvent } from "react";
 import { Alert, Box, Button, IconButton, Stack, Typography } from "@wso2/oxygen-ui";
+import { describeError } from "@api/errors";
 import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
+import { useBudgetApprovers, useEngagementCodes } from "../api/useProcurement";
 import type { BudgetDetails, ProcurementLookups, Vendor } from "../types";
-import { OptionField, SectionHeading, SelectField, StepTitle, TextInput } from "./formFields";
+import { OptionField, SectionHeading, StepTitle, TextInput } from "./formFields";
 import { attachmentProblem, emptyVendor, MAX_ATTACHMENTS, type RequestDraft } from "./requestFormModel";
 
 const TWO_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } } as const;
@@ -112,14 +114,18 @@ export default function BudgetStep({
   onChange: (patch: Partial<RequestDraft>) => void;
 }) {
   const required = draft.category === "NON-IT";
-  const setBudget = (patch: Partial<BudgetDetails>) => onChange({ budget: { ...draft.budget, ...patch } });
+  const b = draft.budget;
+  // The engagement codes are asked for by the unit's name; the approvers by its code.
+  const unitName = lookups.businessUnits.find((u) => u.value === b.businessUnit)?.label ?? "";
+  const codes = useEngagementCodes(unitName);
+  const approvers = useBudgetApprovers({ businessUnit: b.businessUnit, region: b.region });
+  const approverChoices = (approvers.data ?? []).map((a) => ({ value: a.id, label: a.name }));
+  const setBudget = (patch: Partial<BudgetDetails>) => onChange({ budget: { ...b, ...patch } });
+  // Another business unit or region means other codes and approvers apply, so a pick made under the old one is cleared.
+  const changeUnit = (businessUnit: string) => onChange({ budget: { ...b, businessUnit, engagementCode: "" }, budgetApproverId: "" });
+  const changeRegion = (region: string) => onChange({ budget: { ...b, region }, budgetApproverId: "" });
   const setVendor = (index: number, patch: Partial<Vendor>) =>
     onChange({ vendors: draft.vendors.map((v, i) => (i === index ? { ...v, ...patch } : v)) });
-  const setApprover = (index: number, email: string) =>
-    onChange({ budgetApproverEmails: draft.budgetApproverEmails.map((e, i) => (i === index ? email : e)) });
-  const b = draft.budget;
-  const approverEmails = lookups.budgetApprovers.map((p) => p.email);
-  const approverLabels = Object.fromEntries(lookups.budgetApprovers.map((p) => [p.email, `${p.name} (${p.email})`]));
 
   return (
     <Stack spacing={2.5} sx={{ py: 1 }}>
@@ -146,38 +152,36 @@ export default function BudgetStep({
 
       <SectionHeading>Budget details</SectionHeading>
       <Box sx={THREE_COLUMNS}>
-        <OptionField label="Budget category" required={required} options={lookups.budgetCategories} value={b.category} onChange={(category) => setBudget({ category })} />
-        <OptionField label="Business unit" required={required} options={lookups.businessUnits} value={b.businessUnit} onChange={(businessUnit) => setBudget({ businessUnit })} />
-        <OptionField label="Product" required={required} options={lookups.products} value={b.product} onChange={(product) => setBudget({ product })} />
-        <OptionField label="Region" required={required} options={lookups.regions} value={b.region} onChange={(region) => setBudget({ region })} />
-        <OptionField label="Engagement code" required={required} placeholder="e.g. ENG-1001" options={lookups.engagementCodes} value={b.engagementCode} onChange={(engagementCode) => setBudget({ engagementCode })} />
+        <OptionField label="Budget category" required={required} choices={lookups.budgetCategories} value={b.category} onChange={(category) => setBudget({ category })} />
+        <OptionField label="Business unit" required={required} choices={lookups.businessUnits} value={b.businessUnit} onChange={changeUnit} />
+        <OptionField label="Product" required={required} choices={lookups.products} value={b.product} onChange={(product) => setBudget({ product })} />
+        <OptionField label="Region" required={required} choices={lookups.regions} value={b.region} onChange={changeRegion} />
+        <OptionField
+          label="Engagement code"
+          required={required}
+          choices={codes.data ?? []}
+          value={b.engagementCode}
+          onChange={(engagementCode) => setBudget({ engagementCode })}
+          disabled={!b.businessUnit}
+          placeholder={!b.businessUnit ? "Select a business unit first" : codes.isFetching ? "Loading…" : undefined}
+          emptyText="No engagement codes for this business unit"
+        />
         <TextInput label="Salesforce campaign name (if applicable)" value={b.salesforceCampaign} onChange={(salesforceCampaign) => setBudget({ salesforceCampaign })} />
       </Box>
+      {codes.isError && <Alert severity="error">{describeError(codes.error)}</Alert>}
 
       <SectionHeading>Budget approval</SectionHeading>
-      {draft.budgetApproverEmails.map((email, index) => (
-        <Box key={index} sx={{ display: "flex", gap: 1, alignItems: "flex-end" }}>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <SelectField
-              required={index === 0}
-              label={draft.budgetApproverEmails.length > 1 ? `Budget approver ${index + 1}` : "Budget approver"}
-              placeholder="Select approver"
-              options={approverEmails}
-              labels={approverLabels}
-              value={email}
-              onChange={(next) => setApprover(index, next)}
-            />
-          </Box>
-          {draft.budgetApproverEmails.length > 1 && (
-            <IconButton size="small" aria-label={`Remove budget approver ${index + 1}`} onClick={() => onChange({ budgetApproverEmails: draft.budgetApproverEmails.filter((_, i) => i !== index) })}>
-              <XIcon size={16} />
-            </IconButton>
-          )}
-        </Box>
-      ))}
-      <Button size="small" startIcon={<PlusIcon size={16} />} onClick={() => onChange({ budgetApproverEmails: [...draft.budgetApproverEmails, ""] })} sx={{ alignSelf: "flex-start" }}>
-        Add another budget approver
-      </Button>
+      <OptionField
+        label="Budget approver"
+        required={required}
+        choices={approverChoices}
+        value={draft.budgetApproverId}
+        onChange={(budgetApproverId) => onChange({ budgetApproverId })}
+        disabled={!b.businessUnit && !b.region}
+        placeholder={!b.businessUnit && !b.region ? "Select a business unit or region first" : approvers.isFetching ? "Loading…" : undefined}
+        emptyText="No budget approver covers this business unit or region"
+      />
+      {approvers.isError && <Alert severity="error">{describeError(approvers.error)}</Alert>}
 
       <SectionHeading>Notes</SectionHeading>
       <TextInput

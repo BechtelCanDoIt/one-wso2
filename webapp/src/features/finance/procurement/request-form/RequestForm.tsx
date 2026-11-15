@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { Alert, alpha, Box, Button, Checkbox, FormControlLabel, Step, StepButton, Stepper, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import type { ProcurementLookups, ProcurementMe, PurchaseRequestInput, RequestDetails } from "../types";
+import { useBudgetApprovers, useEngagementCodes } from "../api/useProcurement";
 import RequestSummary from "../components/RequestSummary";
 import BudgetStep from "./BudgetStep";
 import { StepTitle } from "./formFields";
@@ -24,6 +25,7 @@ import CategoryStep from "./CategoryStep";
 import DetailsStep from "./DetailsStep";
 import RequesterStep from "./RequesterStep";
 import {
+  budgetForDisplay,
   detailsLabel,
   draftToInput,
   incompleteSteps,
@@ -79,6 +81,11 @@ export default function RequestForm({
   const [missing, setMissing] = useState<string[]>([]);
   const [declarationMissing, setDeclarationMissing] = useState(false);
 
+  // The review shows labels and names, which the budget step's lists hold; the same questions share their cached answers.
+  const unitName = lookups.businessUnits.find((u) => u.value === draft.budget.businessUnit)?.label ?? "";
+  const engagementCodes = useEngagementCodes(unitName);
+  const budgetApprovers = useBudgetApprovers({ businessUnit: draft.budget.businessUnit, region: draft.budget.region });
+
   const patch = (next: Partial<RequestDraft>) => setDraft((current) => ({ ...current, ...next }));
   const patchDetails = (next: Partial<RequestDetails>) =>
     setDraft((current) => ({ ...current, details: { ...current.details, ...next } }));
@@ -124,7 +131,7 @@ export default function RequestForm({
       <Box>
         {step === STEP_REQUESTER && <RequesterStep draft={draft} me={me} today={todayIso()} onChange={patch} />}
         {step === STEP_CATEGORY && <CategoryStep category={draft.category} onChange={(category) => patch({ category })} />}
-        {step === STEP_DETAILS && <DetailsStep draft={draft} lookups={lookups} onChange={patchDetails} />}
+        {step === STEP_DETAILS && <DetailsStep draft={draft} onChange={patchDetails} />}
         {step === STEP_BUDGET && <BudgetStep draft={draft} lookups={lookups} files={files} onFiles={setFiles} onChange={patch} />}
         {step === STEP_REVIEW && (
           <Stack spacing={2}>
@@ -133,11 +140,12 @@ export default function RequestForm({
               view={{
                 category: draft.category,
                 requester: me,
-                teamLead: draft.teamLead,
+                teamLead: me.teamLead,
+                additionalApprovers: draft.additionalApprovers.map((a) => a.email),
                 details: draft.details,
                 vendors: draft.vendors,
-                budget: draft.budget,
-                budgetApproverEmails: draft.budgetApproverEmails,
+                budget: budgetForDisplay(draft.budget, lookups, engagementCodes.data ?? []),
+                budgetApprover: budgetApprovers.data?.find((a) => a.id === draft.budgetApproverId)?.name ?? "",
                 notes: draft.notes,
                 attachments: files.map((f) => ({ name: f.name, sizeBytes: f.size })),
                 date: { label: "Date", iso: todayIso() },

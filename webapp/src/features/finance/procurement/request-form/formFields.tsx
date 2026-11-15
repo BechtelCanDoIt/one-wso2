@@ -32,7 +32,7 @@ import {
   type Theme,
 } from "@wso2/oxygen-ui";
 import { XIcon } from "@wso2/oxygen-ui-icons-react";
-import type { YesNo } from "../types";
+import type { Choice, YesNo } from "../types";
 import { LONG_MAX, SHORT_MAX } from "./fieldLimits";
 
 export function FieldLabel({
@@ -277,52 +277,48 @@ export function SelectField({
 }
 
 /**
- * A pick from a list. One rule for every list: none given is a text box; a short
- * required list is a select; a short optional list is a select you can also clear
- * with the X; a long list is searched as you type and accepts what is typed.
+ * A pick from a list of codes, shown by their labels. One rule for every list: a
+ * short required list is a select; a short optional list is a select you can
+ * also clear with the X; a long list is searched as you type. Only a listed
+ * value can be chosen.
+ *
+ * @param emptyText - What the field says when there is nothing to choose from, such as before a dependent list is asked for
  */
 export function OptionField({
   label,
-  options,
+  choices,
   value,
   onChange,
   required,
   placeholder,
+  emptyText,
   disabled,
 }: {
   label: string;
-  options: readonly string[];
+  choices: readonly Choice[];
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
   placeholder?: string;
+  emptyText?: string;
   disabled?: boolean;
 }) {
   const id = useId();
-  if (options.length === 0) {
-    return <TextInput label={label} value={value} onChange={onChange} required={required} placeholder={placeholder} disabled={disabled} />;
-  }
-  if (options.length <= SELECT_MAX && required) {
-    return <SelectField label={label} options={options} value={value} onChange={onChange} required disabled={disabled} />;
-  }
-  if (options.length <= SELECT_MAX) {
-    // A saved value that is no longer in the list stays selectable, so editing a request never blanks it.
-    const items = value && !options.includes(value) ? [...options, value] : [...options];
+  // A saved value that is no longer in the list stays selectable, so editing a request never blanks it.
+  const items: Choice[] = value && !choices.some((c) => c.value === value) ? [...choices, { value, label: value }] : [...choices];
+  const prompt = items.length === 0 && emptyText ? emptyText : (placeholder ?? "Select");
+  if (items.length <= SELECT_MAX && required) {
     return (
-      <Box sx={{ minWidth: 0 }}>
-        <FieldLabel htmlFor={id}>{label}</FieldLabel>
-        <Autocomplete
-        clearIcon={<SmallClearIcon />}
-          id={id}
-          forcePopupIcon
-          size="small"
-          options={items}
-          value={value || null}
-          onChange={(_, next) => onChange(next ?? "")}
-          disabled={disabled}
-          renderInput={(params) => <TextField {...params} placeholder={placeholder ?? "Select"} />}
-        />
-      </Box>
+      <SelectField
+        required
+        label={label}
+        options={items.map((c) => c.value)}
+        labels={Object.fromEntries(items.map((c) => [c.value, c.label]))}
+        value={value}
+        onChange={onChange}
+        placeholder={prompt}
+        disabled={disabled || items.length === 0}
+      />
     );
   }
   return (
@@ -331,18 +327,18 @@ export function OptionField({
         {label}
       </FieldLabel>
       <Autocomplete
-        clearIcon={<SmallClearIcon />}
         id={id}
-        freeSolo
         forcePopupIcon
         size="small"
-        options={[...options]}
-        inputValue={value}
-        onInputChange={(_, next) => onChange(next)}
+        clearIcon={<SmallClearIcon />}
+        options={items}
+        value={items.find((c) => c.value === value) ?? null}
+        getOptionLabel={(c) => c.label}
+        isOptionEqualToValue={(a, b) => a.value === b.value}
+        onChange={(_, next) => onChange(next?.value ?? "")}
         disabled={disabled}
-        renderInput={(params) => (
-          <TextField {...params} placeholder={placeholder} slotProps={{ htmlInput: { ...params.inputProps, maxLength: SHORT_MAX } }} />
-        )}
+        noOptionsText={emptyText ?? "No options"}
+        renderInput={(params) => <TextField {...params} placeholder={prompt} />}
       />
     </Box>
   );

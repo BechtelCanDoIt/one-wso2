@@ -20,6 +20,8 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ChipsField, OptionField, SelectField, TextInput, YesNoField, YesNoList } from "./formFields";
 
+const choices = (...labels: string[]) => labels.map((label, i) => ({ value: `C-${i + 1}`, label }));
+
 function Chips({ initial = [] as string[] }) {
   const [values, setValues] = useState(initial);
   return <ChipsField label="User names" values={values} onChange={setValues} placeholder="e.g. Jane Silva" />;
@@ -60,18 +62,33 @@ describe("form fields", () => {
     expect(screen.getByRole("combobox")).toHaveTextContent("2 years");
   });
 
-  it("OptionField is a text box with no list, a select for a short one, and keeps a saved value outside the list", () => {
-    const { rerender } = render(<OptionField label="Engagement code" options={[]} value="" onChange={() => {}} />);
-    expect(screen.getByLabelText("Engagement code")).toHaveAttribute("type", "text");
-    rerender(<OptionField label="Region" options={["APAC", "EMEA"]} value="Legacy region" onChange={() => {}} />);
-    expect(screen.getByLabelText("Region")).toHaveValue("Legacy region");
+  it("OptionField shows labels for the codes it holds, and keeps a saved code that is no longer listed", () => {
+    const { rerender } = render(<OptionField required label="Region" choices={choices("APAC", "EMEA")} value="C-2" onChange={() => {}} />);
+    expect(screen.getByRole("combobox")).toHaveTextContent("EMEA");
+    rerender(<OptionField label="Region" choices={choices("APAC", "EMEA")} value="OLD-9" onChange={() => {}} />);
+    expect(screen.getByLabelText("Region")).toHaveValue("OLD-9");
+  });
+
+  it("OptionField hands back the code, never the label", async () => {
+    const user = userEvent.setup();
+    let chosen = "";
+    render(<OptionField required label="Region" choices={choices("APAC", "EMEA")} value="" onChange={(v) => (chosen = v)} />);
+    await user.click(screen.getByRole("combobox"));
+    await user.click(screen.getByRole("option", { name: "EMEA" }));
+    expect(chosen).toBe("C-2");
+  });
+
+  it("OptionField says why it is empty, and is disabled when there is nothing to choose", () => {
+    render(<OptionField required label="Engagement code" choices={[]} value="" onChange={() => {}} emptyText="No engagement codes for this business unit" />);
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("combobox")).toHaveTextContent("No engagement codes for this business unit");
   });
 
   it("never lists a None choice: a required list is a select, an optional one is cleared with its X", async () => {
     const user = userEvent.setup();
     function Optional() {
-      const [value, setValue] = useState("EMEA");
-      return <OptionField label="Region" options={["APAC", "EMEA"]} value={value} onChange={setValue} />;
+      const [value, setValue] = useState("C-2");
+      return <OptionField label="Region" choices={choices("APAC", "EMEA")} value={value} onChange={setValue} />;
     }
     const { unmount } = render(<Optional />);
     await user.click(screen.getByRole("button", { name: "Open" }));
@@ -80,7 +97,7 @@ describe("form fields", () => {
     expect(screen.getByLabelText("Region")).toHaveValue("");
     unmount();
 
-    render(<OptionField required label="Budget category" options={["A", "B"]} value="" onChange={() => {}} />);
+    render(<OptionField required label="Budget category" choices={choices("A", "B")} value="" onChange={() => {}} />);
     await user.click(screen.getByRole("combobox"));
     expect(screen.queryByRole("option", { name: /none/i })).toBeNull();
     expect(screen.getAllByRole("option")).toHaveLength(2);

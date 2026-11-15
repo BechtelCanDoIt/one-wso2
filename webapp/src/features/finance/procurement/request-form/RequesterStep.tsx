@@ -15,16 +15,19 @@
 // under the License.
 
 import { useId, useState } from "react";
-import { Alert, Autocomplete, Box, Stack, TextField } from "@wso2/oxygen-ui";
+import { Alert, Autocomplete, Box, Button, Stack, TextField } from "@wso2/oxygen-ui";
+import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import { useDirectorySearch } from "../api/useProcurement";
 import type { Person, ProcurementMe } from "../types";
 import { FieldLabel, SmallClearIcon, StepTitle, TextInput } from "./formFields";
-import { isSamePerson, type RequestDraft } from "./requestFormModel";
+import { isSamePerson, MAX_ADDITIONAL_APPROVERS, MIN_DIRECTORY_QUERY, type RequestDraft } from "./requestFormModel";
 
 const personLabel = (p: Person): string => `${p.name} (${p.email})`;
 
-// Step 1. Who is raising the request, and who approves it first.
+// Step 1. Who is raising the request. The backend decides the team lead from the
+// requester's manager. Other people who may approve are an exception, so they are
+// asked for only when the requester wants them, or when they are needed.
 export default function RequesterStep({
   draft,
   me,
@@ -36,15 +39,22 @@ export default function RequesterStep({
   today: string;
   onChange: (patch: Partial<RequestDraft>) => void;
 }) {
-  const leadId = useId();
-  const [input, setInput] = useState(draft.teamLead ? personLabel(draft.teamLead) : "");
+  const approversId = useId();
+  const [asked, setAsked] = useState(false);
+  const [open, setOpen] = useState(false);
   // What the directory is asked about: only what was typed, never the label of a picked person.
   const [query, setQuery] = useState("");
   const search = useDirectorySearch(query);
-  const options = [...(search.data ?? []), ...(draft.teamLead ? [draft.teamLead] : [])].filter(
-    (p, index, all) => all.findIndex((other) => other.id === p.id) === index,
+  const selected = draft.additionalApprovers;
+  const full = selected.length >= MAX_ADDITIONAL_APPROVERS;
+  // With no manager on record, the first additional approver becomes the team lead.
+  const needsApprover = !me.teamLead && !me.approvalExempt;
+  // Shown on request, when one is needed, and while there are any: a rejected request being edited keeps its approvers in view.
+  const showApprovers = asked || needsApprover || selected.length > 0;
+  const options = [...(search.data ?? []), ...selected].filter(
+    (p, index, all) => all.findIndex((other) => other.email === p.email) === index,
   );
-  const self = draft.teamLead !== null && isSamePerson(draft.teamLead, me);
+  const notAllowed = (p: Person): boolean => isSamePerson(p, me) || (me.teamLead !== null && isSamePerson(p, me.teamLead));
 
   return (
     <Stack spacing={3.5} sx={{ py: 1 }}>
@@ -54,32 +64,57 @@ export default function RequesterStep({
         <TextInput label="Your full name" value={me.name} disabled />
         <TextInput label="WSO2 email" value={me.email} disabled />
       </Box>
-      <Box>
-        <FieldLabel htmlFor={leadId} required>
-          Team lead (for approval)
-        </FieldLabel>
-        <Autocomplete
-          id={leadId}
-          clearIcon={<SmallClearIcon />}
-          size="small"
-          options={options}
-          value={draft.teamLead}
-          inputValue={input}
-          onInputChange={(_, next, reason) => {
-            setInput(next);
-            setQuery(reason === "input" ? next : "");
-          }}
-          onChange={(_, next) => onChange({ teamLead: next })}
-          getOptionLabel={personLabel}
-          isOptionEqualToValue={(a, b) => a.id === b.id}
-          filterOptions={(all) => all}
-          loading={search.isFetching}
-          noOptionsText={query.trim().length < 2 ? "Type at least 2 characters to search" : "No matching employee"}
-          renderInput={(params) => <TextField {...params} required placeholder="Search by name or email" />}
-        />
-      </Box>
+      <TextInput
+        disabled
+        label="Team lead (for approval)"
+        value={me.teamLead ? personLabel(me.teamLead) : me.approvalExempt ? "Your requests need no approval" : ""}
+        placeholder="No team lead found"
+      />
+      {showApprovers ? (
+        <Box>
+          <FieldLabel htmlFor={approversId} required={needsApprover}>
+            Additional approvers
+          </FieldLabel>
+          <Autocomplete
+            id={approversId}
+            // The list opens only once there is something to search for, so clicking the empty box shows nothing.
+            open={open && query.trim().length >= MIN_DIRECTORY_QUERY}
+            onOpen={() => setOpen(true)}
+            onClose={() => setOpen(false)}
+            multiple
+            filterSelectedOptions
+            forcePopupIcon={false}
+            size="small"
+            clearIcon={<SmallClearIcon />}
+            options={options}
+            value={selected}
+            onChange={(_, next) => {
+              onChange({ additionalApprovers: next });
+              if (next.length === 0 && !needsApprover) setAsked(false);
+            }}
+            onInputChange={(_, next, reason) => setQuery(reason === "input" ? next : "")}
+            getOptionLabel={personLabel}
+            isOptionEqualToValue={(a, b) => a.email === b.email}
+            getOptionDisabled={(p) => notAllowed(p) || (full && !selected.some((s) => s.email === p.email))}
+            filterOptions={(all) => all}
+            loading={search.isFetching}
+            noOptionsText={full ? `You can add up to ${MAX_ADDITIONAL_APPROVERS}` : "No matching employee"}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                // Focus the field only when the requester asked for it, not when it is simply there.
+                autoFocus={asked && selected.length === 0}
+                placeholder={selected.length ? "" : "Search by name or email"}
+              />
+            )}
+          />
+        </Box>
+      ) : (
+        <Button size="small" startIcon={<PlusIcon size={16} />} onClick={() => setAsked(true)} sx={{ alignSelf: "flex-start" }}>
+          Add an additional approver
+        </Button>
+      )}
       {search.isError && <Alert severity="error">{describeError(search.error)}</Alert>}
-      {self && <Alert severity="warning">You cannot be the team lead on your own request.</Alert>}
     </Stack>
   );
 }
