@@ -81,11 +81,18 @@ describe("the Procurement sample data", () => {
 
   it("searches the directory from 3 characters, capped, and never returns the requester", async () => {
     const api = createMockProcurementApi({ ...user, id: "blake.rivers@example.com", name: "Blake Rivers", email: "blake.rivers@example.com" });
-    expect(await api.searchDirectory("bl")).toEqual([]);
-    const found = await api.searchDirectory("dre");
+    expect(await api.searchDirectory("bl", false)).toEqual([]);
+    const found = await api.searchDirectory("dre", false);
     expect(found.map((p) => p.name)).toEqual(["Drew Parker"]);
-    expect((await api.searchDirectory("bla")).map((p) => p.email)).not.toContain("blake.rivers@example.com");
+    expect((await api.searchDirectory("bla", false)).map((p) => p.email)).not.toContain("blake.rivers@example.com");
     expect(found.length).toBeLessThanOrEqual(10);
+  });
+
+  it("leaves out people who are not leads when only leads are asked for", async () => {
+    const api = createMockProcurementApi(user);
+    expect((await api.searchDirectory("cas", false)).map((p) => p.name)).toEqual(["Casey Lane"]);
+    expect(await api.searchDirectory("cas", true)).toEqual([]);
+    expect((await api.searchDirectory("dre", true)).map((p) => p.name)).toEqual(["Drew Parker"]);
   });
 
   it("serves dependent lists only once a business unit or region is chosen", async () => {

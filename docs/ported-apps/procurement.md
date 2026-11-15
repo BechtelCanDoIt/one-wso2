@@ -70,7 +70,7 @@ between them, and `api/procurementApi.ts` is the only place that builds a URL.
 | `GET /reference-data?type=` | Budget category, business unit, product and region lists, as code and label. |
 | `GET /budget-approvers?businessUnit=&region=` | Approvers for a business unit (code) or region (code). At least one is required. |
 | `GET /engagement-codes?businessUnit=` | Engagement codes for a business unit, asked for by the unit's **name**. |
-| `GET /directory/employees?query=` | Additional approver search: email prefix, 3 or more characters. |
+| `GET /directory/employees?query=&leadsOnly=true` | Additional approver search: email prefix, 3 or more characters, leads only, since only a lead can approve. |
 | `GET /requests`, `GET /requests/{id}` | My Requests (rows) and one request. |
 
 **Not connected yet**

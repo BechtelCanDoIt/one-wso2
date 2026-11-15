@@ -52,6 +52,9 @@ export const MOCK_DIRECTORY: readonly Person[] = [
 
 const TEAM_LEAD = MOCK_DIRECTORY[10];
 
+/** People who are not leads, such as interns: the directory finds them only when leads are not asked for. */
+const NON_LEADS: ReadonlySet<string> = new Set(["casey.lane@example.com", "finley.brooks@example.com"]);
+
 /** A pick list where each label also has a code, as the backend serves them. */
 const choices = (prefix: string, labels: string[]): Choice[] =>
   labels.map((label, index) => ({ value: `${prefix}-${index + 1}`, label }));
@@ -255,11 +258,14 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
     getLookups: async () => MOCK_LOOKUPS,
     getBudgetApprovers: async ({ businessUnit, region }) => (businessUnit || region ? MOCK_BUDGET_APPROVERS : []),
     getEngagementCodes: async (businessUnitName) => (businessUnitName ? MOCK_ENGAGEMENT_CODES : []),
-    searchDirectory: async (query) => {
+    searchDirectory: async (query, leadsOnly) => {
       const q = query.trim().toLowerCase();
       if (q.length < MIN_QUERY_LENGTH) return [];
       return MOCK_DIRECTORY.filter(
-        (p) => p.email.toLowerCase() !== user.email.toLowerCase() && (p.email.toLowerCase().startsWith(q) || p.name.toLowerCase().includes(q)),
+        (p) =>
+          p.email.toLowerCase() !== user.email.toLowerCase() &&
+          !(leadsOnly && NON_LEADS.has(p.email)) &&
+          (p.email.toLowerCase().startsWith(q) || p.name.toLowerCase().includes(q)),
       ).slice(0, SEARCH_LIMIT);
     },
     listMyRequests: async () =>

@@ -2044,7 +2044,8 @@ export const procurementServiceUrls = {
   },
   engagementCodes: (businessUnit: string): string =>
     `${procurementBackendUrl}/engagement-codes?businessUnit=${encodeSegment(businessUnit)}`,
-  directoryEmployees: (query: string): string => `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}`,
+  directoryEmployees: (query: string, leadsOnly: boolean): string =>
+    `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}${leadsOnly ? "&leadsOnly=true" : ""}`,
   requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
   request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
 };

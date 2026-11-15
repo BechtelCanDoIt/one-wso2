@@ -21,19 +21,24 @@ import type { Person, ProcurementLookups, ProcurementMe } from "../types";
 import RequestForm from "./RequestForm";
 import { emptyDraft, type RequestDraft } from "./requestFormModel";
 
+const { directorySearch } = vi.hoisted(() => ({ directorySearch: vi.fn() }));
+
 // Everything the form asks the backend for, answered the way the backend would.
 vi.mock("../api/useProcurement", () => {
   const settled = { isFetching: false, isError: false, error: null };
   return {
     // Everyone the search might return, including the requester and the team lead.
-    useDirectorySearch: () => ({
-      ...settled,
-      data: [
-        { id: "other@example.com", name: "Other Approver", email: "other@example.com" },
-        { id: "lead@example.com", name: "Team Lead", email: "lead@example.com" },
-        { id: "requester@example.com", name: "Req Uester", email: "requester@example.com" },
-      ],
-    }),
+    useDirectorySearch: (query: string, leadsOnly: boolean) => {
+      directorySearch(query, leadsOnly);
+      return {
+        ...settled,
+        data: [
+          { id: "other@example.com", name: "Other Approver", email: "other@example.com" },
+          { id: "lead@example.com", name: "Team Lead", email: "lead@example.com" },
+          { id: "requester@example.com", name: "Req Uester", email: "requester@example.com" },
+        ],
+      };
+    },
     useEngagementCodes: (unitName: string) => ({ ...settled, data: unitName ? [{ value: "ENG-1", label: "ENG-1 - Platform" }] : [] }),
     useBudgetApprovers: ({ businessUnit, region }: { businessUnit: string; region: string }) => ({
       ...settled,
@@ -106,6 +111,14 @@ describe("RequestForm, the requester step", () => {
     expect(screen.queryByRole("listbox")).toBeNull();
     await user.type(field, "h");
     expect(await screen.findByRole("listbox")).toBeInTheDocument();
+  });
+
+  it("searches for leads only, because only leads can approve", async () => {
+    directorySearch.mockClear();
+    const { user } = renderForm({ ...me, teamLead: null });
+    await user.type(screen.getByLabelText(/Additional approvers/), "oth");
+    expect(directorySearch).toHaveBeenCalled();
+    expect(directorySearch.mock.calls.every(([, leadsOnly]) => leadsOnly === true)).toBe(true);
   });
 
   it("shows the field at once, as required, when there is no manager", () => {

@@ -103,16 +103,20 @@ export function useEngagementCodes(businessUnitName: string) {
   });
 }
 
-/** Directory matches for the approver picker; asks nothing until the query is long enough. */
-export function useDirectorySearch(query: string) {
+/**
+ * Directory matches for the approver picker; asks nothing until the query is long enough.
+ *
+ * @param leadsOnly - Keep only leads, who are the people who can approve a request
+ */
+export function useDirectorySearch(query: string, leadsOnly: boolean) {
   const { api, userId, enabled } = useProcurementContext();
   const trimmed = query.trim();
   return useQuery({
-    queryKey: [...root(userId), "directory", trimmed.toLowerCase()],
+    queryKey: [...root(userId), "directory", trimmed.toLowerCase(), leadsOnly],
     enabled: enabled && trimmed.length >= MIN_DIRECTORY_QUERY,
     staleTime: REFERENCE_STALE_TIME,
     retry: defaultQueryRetry,
-    queryFn: () => api!.searchDirectory(trimmed),
+    queryFn: () => api!.searchDirectory(trimmed, leadsOnly),
   });
 }
 

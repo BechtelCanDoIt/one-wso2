@@ -44,7 +44,8 @@ export default function RequesterStep({
   const [open, setOpen] = useState(false);
   // What the directory is asked about: only what was typed, never the label of a picked person.
   const [query, setQuery] = useState("");
-  const search = useDirectorySearch(query);
+  // Only leads can approve, so only leads are offered.
+  const search = useDirectorySearch(query, true);
   const selected = draft.additionalApprovers;
   const full = selected.length >= MAX_ADDITIONAL_APPROVERS;
   // With no manager on record, the first additional approver becomes the team lead.

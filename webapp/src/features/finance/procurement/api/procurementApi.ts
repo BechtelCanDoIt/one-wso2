@@ -51,8 +51,12 @@ export interface ProcurementApi {
   getBudgetApprovers: (scope: { businessUnit: string; region: string }) => Promise<BudgetApproverOption[]>;
   /** Engagement codes funded by a business unit, asked for by the unit's name; none when no unit is given. */
   getEngagementCodes: (businessUnitName: string) => Promise<Choice[]>;
-  /** Employees whose email starts with `query`; name and email only, capped by the backend. */
-  searchDirectory: (query: string) => Promise<Person[]>;
+  /**
+   * Employees whose email starts with `query`; name and email only, capped by the backend.
+   *
+   * @param leadsOnly - Keep only leads, who are the people who can approve a request
+   */
+  searchDirectory: (query: string, leadsOnly: boolean) => Promise<Person[]>;
   listMyRequests: () => Promise<RequestSummary[]>;
   getRequest: (requestId: string) => Promise<PurchaseRequest>;
   submitRequest: (input: PurchaseRequestInput, files: File[]) => Promise<PurchaseRequest>;
@@ -108,7 +112,8 @@ function createHttpProcurementApi(
       businessUnit || region ? toBudgetApprovers(await get<BackendBudgetApprover[]>(urls.budgetApprovers(businessUnit, region))) : [],
     getEngagementCodes: async (businessUnitName) =>
       businessUnitName ? toEngagementChoices(await get<BackendEngagementOption[]>(urls.engagementCodes(businessUnitName))) : [],
-    searchDirectory: async (query) => (await get<BackendDirectoryUser[]>(urls.directoryEmployees(query))).map(toPerson),
+    searchDirectory: async (query, leadsOnly) =>
+      (await get<BackendDirectoryUser[]>(urls.directoryEmployees(query, leadsOnly))).map(toPerson),
     listMyRequests: async () => (await get<BackendRequestSummary[]>(urls.requests(REQUEST_PAGE_SIZE))).map(toSummary),
     getRequest: async (requestId) => toRequest(await get<BackendRequestDetail>(urls.request(requestId))),
     submitRequest: (input, files) => submitting.submitRequest(input, files),
