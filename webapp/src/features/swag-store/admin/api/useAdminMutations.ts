@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import { hashKey, useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
 import { authedDelete, authedPatch, authedPost, authedPostText, authedPut, HttpError } from "@api/http";
 import { swagStoreServiceUrls } from "@config/apiConfig";
 import { useSwagStoreBasis } from "../../api/swagStoreBasis";
@@ -31,6 +31,9 @@ import type {
 } from "../../api/swagStoreTypes";
 import { orderSearchBody, type AdminOrdersView } from "../../util/adminOrdersViewState";
 import { saveCsv } from "../../util/saveCsv";
+import { ALERTS_KEY } from "../../shop/api/useAlerts";
+import { CART_KEY, CART_SUMMARY_KEY } from "../../shop/api/useCartData";
+import { PRODUCT_KEY, PRODUCTS_KEY } from "../../shop/api/useShopData";
 import { ADMIN_KEY } from "./useAdminData";
 
 /** An admin change can move any admin count or list, so all of them are read again. */
@@ -107,21 +110,28 @@ export function useSaveOffice(): UseMutationResult<void, Error, { id?: string; o
   });
 }
 
+/** Shop reads a product change can move: stock, status and prices, and (on removal) alerts and cart lines. */
+const SHOP_KEYS_A_PRODUCT_MOVES = [PRODUCTS_KEY, PRODUCT_KEY, "categories", ALERTS_KEY, CART_KEY, CART_SUMMARY_KEY] as const;
+
 /**
- * After a product change: the editor shows the saved product at once (every
- * product endpoint answers with it), and every admin and shop list is read
- * again, since stock, status and prices may have moved.
+ * After a product change, every admin and shop list is read again. The shop
+ * keys matter to someone who holds a store role and shops in the same session.
+ *
+ * @param product - The saved product. Every product endpoint answers with it, so
+ *   the editor shows it at once and its own query is not read again.
+ * @param deletedId - A product that no longer exists. Reading it again would 404
+ *   and swap the editor out before the navigation that follows the delete.
  */
-function useProductSaved(): (product: SwagStoreAdminProduct | null) => Promise<void> {
+function useProductSaved(): (product: SwagStoreAdminProduct | null, deletedId?: string) => Promise<void> {
   const { key } = useSwagStoreBasis();
   const queryClient = useQueryClient();
-  return async (product) => {
+  return async (product, deletedId) => {
     if (product) queryClient.setQueryData(key(ADMIN_KEY, "product", product.id), product);
+    const settledId = product?.id ?? deletedId;
+    const settled = settledId ? hashKey(key(ADMIN_KEY, "product", settledId)) : undefined;
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: key(ADMIN_KEY) }),
-      queryClient.invalidateQueries({ queryKey: key("products") }),
-      queryClient.invalidateQueries({ queryKey: key("product") }),
-      queryClient.invalidateQueries({ queryKey: key("categories") }),
+      queryClient.invalidateQueries({ queryKey: key(ADMIN_KEY), predicate: (q) => q.queryHash !== settled }),
+      ...SHOP_KEYS_A_PRODUCT_MOVES.map((part) => queryClient.invalidateQueries({ queryKey: key(part) })),
     ]);
   };
 }
@@ -141,7 +151,7 @@ export function useCreateProduct(): UseMutationResult<SwagStoreAdminProduct, Err
       const url = swagStoreServiceUrls.admin.products;
       return required(url, authedPost<SwagStoreAdminProduct>(url, await getToken(), input));
     },
-    onSuccess: saved,
+    onSuccess: (product) => saved(product),
   });
 }
 
@@ -154,7 +164,7 @@ export function useUpdateProduct(productId: string): UseMutationResult<SwagStore
       const url = swagStoreServiceUrls.admin.product(productId);
       return required(url, authedPatch<SwagStoreAdminProduct>(url, await getToken(), input));
     },
-    onSuccess: saved,
+    onSuccess: (product) => saved(product),
   });
 }
 
@@ -169,7 +179,7 @@ export function useSetProductStatus(
       const url = swagStoreServiceUrls.admin.product(productId);
       return required(url, authedPatch<SwagStoreAdminProduct>(url, await getToken(), change));
     },
-    onSuccess: saved,
+    onSuccess: (product) => saved(product),
   });
 }
 
@@ -179,7 +189,7 @@ export function useDeleteDraft(productId: string): UseMutationResult<void, Error
   const saved = useProductSaved();
   return useMutation<void, Error, void>({
     mutationFn: async () => authedDelete(swagStoreServiceUrls.admin.product(productId), await getToken()),
-    onSuccess: () => saved(null),
+    onSuccess: () => saved(null, productId),
   });
 }
 
@@ -192,7 +202,7 @@ export function useSetOptions(productId: string): UseMutationResult<SwagStoreAdm
       const url = swagStoreServiceUrls.admin.productOptions(productId);
       return required(url, authedPut<SwagStoreAdminProduct>(url, await getToken(), input));
     },
-    onSuccess: saved,
+    onSuccess: (product) => saved(product),
   });
 }
 
@@ -207,7 +217,7 @@ export function usePatchVariant(
       const url = swagStoreServiceUrls.admin.productVariant(productId, variantId);
       return required(url, authedPatch<SwagStoreAdminProduct>(url, await getToken(), patch));
     },
-    onSuccess: saved,
+    onSuccess: (product) => saved(product),
   });
 }
 

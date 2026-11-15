@@ -41,13 +41,23 @@ interface RemoveProductDialogProps {
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
+/** Open orders named in the dialog; the rest are counted. */
+const ORDERS_SHOWN = 5;
+
+/** The first few order numbers, then "and N more". */
+function orderList(orderNos: readonly string[]): string {
+  const shown = orderNos.slice(0, ORDERS_SHOWN).join(", ");
+  const more = orderNos.length - ORDERS_SHOWN;
+  return more > 0 ? `${shown} and ${more} more` : shown;
+}
+
 /**
  * "Remove from store": reads what the removal touches when it opens, and
  * confirms only once that is on screen. Orders already placed are still served.
  * While removing, nothing can be pressed and the dialog can't be closed.
  */
 export default function RemoveProductDialog({ product, onClose }: RemoveProductDialogProps): JSX.Element {
-  const impact = useRemovalImpact(product.id, true);
+  const impact = useRemovalImpact(product.id);
   const remove = useSetProductStatus(product.id);
   const [note, setNote] = useState("");
   const ready = impact.isSuccess && !impact.isFetching;
@@ -77,7 +87,7 @@ export default function RemoveProductDialog({ product, onClose }: RemoveProductD
               <Typography variant="body2">
                 {impact.data.openOrders.length === 0
                   ? "No open orders."
-                  : `${plural(impact.data.openOrders.length, "open order", "open orders")} (${plural(impact.data.openUnits, "unit", "units")}) still served: ${impact.data.openOrders.map((o) => o.orderNo).join(", ")}.`}
+                  : `${plural(impact.data.openOrders.length, "open order", "open orders")} (${plural(impact.data.openUnits, "unit", "units")}) still served: ${orderList(impact.data.openOrders.map((o) => o.orderNo))}.`}
               </Typography>
             </li>
             <li>

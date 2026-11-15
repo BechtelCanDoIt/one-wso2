@@ -81,6 +81,9 @@ export default function ProductsPage(): JSX.Element {
 function ProductsTable({ status, empty }: { status: SwagStoreProductStatus; empty: string }): JSX.Element {
   const [page, setPage] = useState(1);
   const products = useAdminProducts(status, page);
+  const pages = products.data ? Math.ceil(products.data.total / ADMIN_PRODUCTS_PAGE_SIZE) : 0;
+  // Products moved off this page (to another tab, say): go back to the last page that has some.
+  if (pages > 0 && page > pages) setPage(pages);
   if (products.isPending) return <Skeleton variant="rounded" height={220} aria-label="Loading the products" />;
   if (products.isError) {
     return (
@@ -90,8 +93,8 @@ function ProductsTable({ status, empty }: { status: SwagStoreProductStatus; empt
     );
   }
   const { items, total } = products.data;
-  if (items.length === 0) return <Typography color="text.secondary">{empty}</Typography>;
-  const pages = Math.ceil(total / ADMIN_PRODUCTS_PAGE_SIZE);
+  if (total === 0) return <Typography color="text.secondary">{empty}</Typography>;
+  if (items.length === 0) return <Typography color="text.secondary">There are no products on this page.</Typography>;
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Card variant="outlined" sx={{ borderRadius: 1.5, overflowX: "auto" }}>

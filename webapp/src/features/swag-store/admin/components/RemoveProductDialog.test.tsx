@@ -98,6 +98,14 @@ describe("removing a product", () => {
     expect(http.authedGet).toHaveBeenCalledWith("/admin/products/p-hoodie/removal-impact", "token");
   });
 
+  it("lists the first few open orders, then says how many more", async () => {
+    const orders = Array.from({ length: 8 }, (_, i) => ({ orderNo: `SS-1050${i}`, status: "CONFIRMED", units: 1 }));
+    http.authedGet.mockResolvedValue({ ...impact, openOrders: orders, openUnits: 8 });
+    renderDialog();
+    expect(await screen.findByText(/8 open orders \(8 units\) still served: SS-10500, SS-10501, SS-10502, SS-10503, SS-10504 and 3 more\./)).toBeInTheDocument();
+    expect(screen.queryByText(/SS-10505/)).toBeNull();
+  });
+
   it("keeps Confirm off and offers Retry when the impact can't be read", async () => {
     http.authedGet.mockRejectedValue(new HttpError("/x", 503, JSON.stringify({ message: "Database is down." })));
     renderDialog();

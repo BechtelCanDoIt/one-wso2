@@ -29,6 +29,7 @@ import {
   TextField,
 } from "@wso2/oxygen-ui";
 import type { SwagStoreAdminVariant } from "../../api/swagStoreTypes";
+import { formatCoins } from "../../util/coins";
 import { messageFor } from "../../util/swagStoreError";
 import { usePatchVariant } from "../api/useAdminMutations";
 
@@ -36,18 +37,24 @@ const INTEGER = /^-?\d+$/;
 
 interface VariantEditDialogProps {
   readonly productId: string;
+  /** The product's price, which the price change is added to. */
+  readonly basePrice: number;
   readonly variant: SwagStoreAdminVariant;
   readonly onClose: () => void;
 }
 
 /** One variant's SKU, price change, restock date and whether shoppers can buy it. */
-export default function VariantEditDialog({ productId, variant, onClose }: VariantEditDialogProps): JSX.Element {
+export default function VariantEditDialog({ productId, basePrice, variant, onClose }: VariantEditDialogProps): JSX.Element {
   const patch = usePatchVariant(productId);
   const [sku, setSku] = useState(variant.sku);
   const [priceDelta, setPriceDelta] = useState(String(variant.priceDelta));
   const [restockEta, setRestockEta] = useState(variant.restockEta ?? "");
   const [active, setActive] = useState(variant.active);
-  const valid = sku.trim() !== "" && INTEGER.test(priceDelta.trim());
+  const deltaOk = INTEGER.test(priceDelta.trim());
+  const price = basePrice + Number(priceDelta);
+  // The backend refuses a variant that costs less than 1 coin.
+  const priceOk = deltaOk && price >= 1;
+  const valid = sku.trim() !== "" && priceOk;
   const title = `Edit ${variant.sku}`;
 
   const submit = (e: FormEvent) => {
@@ -73,8 +80,14 @@ export default function VariantEditDialog({ productId, variant, onClose }: Varia
             size="small"
             value={priceDelta}
             onChange={(e) => setPriceDelta(e.target.value)}
-            error={!INTEGER.test(priceDelta.trim())}
-            helperText="Added to the product's price. Use a minus sign for less."
+            error={!priceOk}
+            helperText={
+              !deltaOk
+                ? "A whole number. Use a minus sign for less."
+                : priceOk
+                  ? `Added to the product's price. This option costs ${formatCoins(price)}.`
+                  : "Every option must cost at least 1 O2C."
+            }
             slotProps={{ htmlInput: { inputMode: "numeric" } }}
           />
           <TextField

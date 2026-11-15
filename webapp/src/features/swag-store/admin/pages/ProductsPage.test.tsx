@@ -15,7 +15,7 @@
 // under the License.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
@@ -58,8 +58,10 @@ function Where() {
   return <output data-testid="where">{pathname}</output>;
 }
 
-function renderPage(path = "/people-ops/swag-store/products/active") {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+function renderPage(
+  path = "/people-ops/swag-store/products/active",
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } }),
+) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
@@ -103,6 +105,24 @@ describe("the admin products list", () => {
   it("offers a new product", async () => {
     renderPage();
     expect(screen.getByRole("link", { name: "New product" })).toHaveAttribute("href", "/people-ops/swag-store/products/new");
+  });
+
+  it("goes back to the last page with products when its page empties, never saying the tab is empty", async () => {
+    const page1 = Array.from({ length: 50 }, (_, i) => adminProductRow({ id: `p-${i}`, name: `Product ${i}` }));
+    let total = 51;
+    http.authedGet.mockImplementation(async (url: string) =>
+      url.endsWith("offset=0") ? { items: page1, total } : { items: total > 50 ? [adminProductRow()] : [], total },
+    );
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+    renderPage(undefined, client);
+    await screen.findByRole("row", { name: /Product 0/ });
+    await userEvent.click(screen.getByRole("button", { name: "Go to page 2" }));
+    await screen.findByRole("row", { name: /WSO2 Hoodie/ });
+    // The hoodie moved to another tab; page 2 now reads back empty.
+    total = 50;
+    await act(() => client.invalidateQueries());
+    expect(await screen.findByRole("row", { name: /Product 0/ })).toBeInTheDocument();
+    expect(screen.queryByText("No active products.")).toBeNull();
   });
 
   it("says when a tab is empty, and shows a failure with Retry", async () => {

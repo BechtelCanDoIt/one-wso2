@@ -113,7 +113,11 @@ export const ADMIN_PRODUCTS_PAGE_SIZE = 50;
 /** One tab of the products list (GET /admin/products?status=). */
 export function useAdminProducts(status: SwagStoreProductStatus, page = 1): UseQueryResult<SwagStoreAdminProductList, Error> {
   const { getToken, ready, key } = useSwagStoreBasis();
-  const query = `status=${status}&limit=${ADMIN_PRODUCTS_PAGE_SIZE}&offset=${(page - 1) * ADMIN_PRODUCTS_PAGE_SIZE}`;
+  const query = new URLSearchParams({
+    status,
+    limit: String(ADMIN_PRODUCTS_PAGE_SIZE),
+    offset: String((page - 1) * ADMIN_PRODUCTS_PAGE_SIZE),
+  }).toString();
   return useQuery<SwagStoreAdminProductList, Error>({
     queryKey: key(ADMIN_KEY, "products", status, page),
     queryFn: async () => authedGet<SwagStoreAdminProductList>(`${swagStoreServiceUrls.admin.products}?${query}`, await getToken()),
@@ -149,13 +153,13 @@ export function useAdminCategories(): UseQueryResult<readonly SwagStoreAdminCate
   });
 }
 
-/** What removing a product would touch, read fresh each time the dialog opens. */
-export function useRemovalImpact(productId: string, enabled: boolean): UseQueryResult<SwagStoreRemovalImpact, Error> {
+/** What removing a product would touch, read fresh each time the dialog opens (it mounts this hook). */
+export function useRemovalImpact(productId: string): UseQueryResult<SwagStoreRemovalImpact, Error> {
   const { getToken, ready, key } = useSwagStoreBasis();
   return useQuery<SwagStoreRemovalImpact, Error>({
     queryKey: key(ADMIN_KEY, "removal-impact", productId),
     queryFn: async () => authedGet<SwagStoreRemovalImpact>(swagStoreServiceUrls.admin.removalImpact(productId), await getToken()),
-    enabled: ready && enabled,
+    enabled: ready,
     staleTime: 0,
     refetchOnMount: "always",
     retry: swagStoreRetry,

@@ -35,6 +35,9 @@ import type { SwagStoreAdminVariant, SwagStoreStockReason, SwagStoreStockResult 
 import { messageFor } from "../../util/swagStoreError";
 import { useStockMovement } from "../api/useAdminMutations";
 
+const UNSIGNED = /^\d+$/;
+const SIGNED = /^-?\d+$/;
+
 const REASONS: readonly { readonly value: SwagStoreStockReason; readonly label: string; readonly hint: string }[] = [
   { value: "RECEIVE", label: "Receive", hint: "New stock arrived. People waiting for it are emailed." },
   { value: "ADJUST", label: "Adjust", hint: "Correct a count. Use a minus sign to take units away." },
@@ -54,10 +57,12 @@ export default function StockDialog({ variant, onClose, onSaved }: StockDialogPr
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   const delta = Number(quantity);
-  const valid =
-    quantity.trim() !== "" &&
-    Number.isInteger(delta) &&
-    (reason === "ADJUST" ? delta !== 0 && Math.abs(delta) <= 100_000 : delta >= 1 && delta <= 100_000);
+  const whole = (reason === "ADJUST" ? SIGNED : UNSIGNED).test(quantity.trim());
+  const inRange = reason === "ADJUST" ? delta !== 0 && Math.abs(delta) <= 100_000 : delta >= 1 && delta <= 100_000;
+  // The backend refuses any change that takes on hand below what open orders hold.
+  const change = reason === "WRITE_OFF" ? -delta : reason === "ADJUST" ? delta : 0;
+  const belowReserved = whole && variant.onHand + change < variant.reserved;
+  const valid = whole && inRange && !belowReserved;
   const title = `Stock for ${variant.sku}`;
 
   const submit = (e: FormEvent) => {
@@ -104,7 +109,11 @@ export default function StockDialog({ variant, onClose, onSaved }: StockDialogPr
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             error={quantity !== "" && !valid}
-            helperText={REASONS.find((r) => r.value === reason)?.hint}
+            helperText={
+              belowReserved
+                ? `Open orders hold ${variant.reserved}, so at most ${variant.onHand - variant.reserved} can go.`
+                : REASONS.find((r) => r.value === reason)?.hint
+            }
           />
           <TextField
             label="Note (optional)"

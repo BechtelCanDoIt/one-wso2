@@ -22,26 +22,49 @@ import { checkOptions, type OptionDraft } from "../../util/productForm";
 import { messageFor } from "../../util/swagStoreError";
 import { useSetOptions } from "../api/useAdminMutations";
 
+type ValueRow = OptionDraft["values"][number] & { readonly key: string };
+/** A draft option with stable React keys, so removing a row keeps focus on the rows that stay. */
+type OptionRow = Omit<OptionDraft, "values"> & { readonly key: string; values: ValueRow[] };
+
+let lastKey = 0;
+const newKey = (): string => `row-${++lastKey}`;
+const valueRow = (value = "", swatchHex = ""): ValueRow => ({ key: newKey(), value, swatchHex });
+
+interface OptionsEditorProps {
+  readonly product: SwagStoreAdminProduct;
+  /** The options were saved. The editor remounts when they changed, so the parent says so. */
+  readonly onSaved: () => void;
+  /** The options were edited after a save. */
+  readonly onEdit: () => void;
+}
+
 /**
  * The product's options and their values, such as Size: S, M, L. Saving
  * replaces them all, and the backend makes a variant for each combination.
  */
-export default function OptionsEditor({ product }: { product: SwagStoreAdminProduct }): JSX.Element {
+export default function OptionsEditor({ product, onSaved, onEdit }: OptionsEditorProps): JSX.Element {
   const save = useSetOptions(product.id);
-  const [options, setOptions] = useState<OptionDraft[]>(() =>
-    product.options.map((o) => ({ name: o.name, values: o.values.map((v) => ({ value: v.value, swatchHex: v.swatchHex ?? "" })) })),
+  const [options, setOptionRows] = useState<OptionRow[]>(() =>
+    product.options.map((o) => ({ key: newKey(), name: o.name, values: o.values.map((v) => valueRow(v.value, v.swatchHex ?? "")) })),
   );
   const problem = checkOptions(options);
 
-  const update = (i: number, next: OptionDraft) => setOptions((all) => all.map((o, j) => (j === i ? next : o)));
+  const setOptions = (change: (all: OptionRow[]) => OptionRow[]) => {
+    setOptionRows(change);
+    onEdit();
+  };
+  const update = (i: number, next: OptionRow) => setOptions((all) => all.map((o, j) => (j === i ? next : o)));
 
   const submit = () => {
     if (problem) return;
-    save.mutate({
+    // mutateAsync, not mutate's onSuccess: new options remount this editor before that would run.
+    void save.mutateAsync({
       options: options.map((o) => ({
         name: o.name.trim(),
         values: o.values.map((v) => ({ value: v.value.trim(), ...(v.swatchHex.trim() ? { swatchHex: v.swatchHex.trim() } : {}) })),
       })),
+    }).then(onSaved, () => {
+      // Shown from save.error below.
     });
   };
 
@@ -51,10 +74,12 @@ export default function OptionsEditor({ product }: { product: SwagStoreAdminProd
         Options
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        Saving makes a variant for each combination. A product with no options has one variant.
+        Saving makes a variant for each combination. A combination that stays keeps its SKU, price change and stock. One
+        you drop is turned off, not deleted, and comes back as it was if you add it again. A product with no options has
+        one variant.
       </Typography>
       {options.map((option, i) => (
-        <Box key={i} sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
+        <Box key={option.key} sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, p: 1.5, display: "flex", flexDirection: "column", gap: 1 }}>
           <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
             <TextField
               label="Option name"
@@ -68,7 +93,7 @@ export default function OptionsEditor({ product }: { product: SwagStoreAdminProd
             </IconButton>
           </Box>
           {option.values.map((v, k) => (
-            <Box key={k} sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
+            <Box key={v.key} sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
               <TextField
                 size="small"
                 value={v.value}
@@ -100,7 +125,7 @@ export default function OptionsEditor({ product }: { product: SwagStoreAdminProd
               size="small"
               startIcon={<PlusIcon size={14} />}
               aria-label={`Add a value to ${option.name || "this option"}`}
-              onClick={() => update(i, { ...option, values: [...option.values, { value: "", swatchHex: "" }] })}
+              onClick={() => update(i, { ...option, values: [...option.values, valueRow()] })}
             >
               Add value
             </Button>
@@ -108,7 +133,7 @@ export default function OptionsEditor({ product }: { product: SwagStoreAdminProd
         </Box>
       ))}
       <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-        <Button size="small" startIcon={<PlusIcon size={14} />} onClick={() => setOptions((all) => [...all, { name: "", values: [{ value: "", swatchHex: "" }] }])}>
+        <Button size="small" startIcon={<PlusIcon size={14} />} onClick={() => setOptions((all) => [...all, { key: newKey(), name: "", values: [valueRow()] }])}>
           Add option
         </Button>
         <Button
@@ -121,7 +146,7 @@ export default function OptionsEditor({ product }: { product: SwagStoreAdminProd
           {save.isPending ? "Saving…" : "Save options"}
         </Button>
       </Box>
-      {problem && options.length > 0 && (
+      {problem && (
         <Typography variant="body2" color="warning.main">
           {problem}
         </Typography>

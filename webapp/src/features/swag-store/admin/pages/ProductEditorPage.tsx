@@ -101,6 +101,8 @@ export default function ProductEditorPage(): JSX.Element {
 
 function Editor({ product }: { product: SwagStoreAdminProduct | undefined }): JSX.Element {
   const [stockSaved, setStockSaved] = useState<string>();
+  // Here, not in OptionsEditor: new options remount it, and the notice must outlive that.
+  const [optionsSaved, setOptionsSaved] = useState(false);
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
       <Header product={product} />
@@ -109,7 +111,17 @@ function Editor({ product }: { product: SwagStoreAdminProduct | undefined }): JS
         <>
           <Divider />
           {/* Keyed by the saved options, so the editor restarts from what the backend kept. */}
-          <OptionsEditor key={JSON.stringify(product.options)} product={product} />
+          <OptionsEditor
+            key={JSON.stringify(product.options)}
+            product={product}
+            onSaved={() => setOptionsSaved(true)}
+            onEdit={() => setOptionsSaved(false)}
+          />
+          {optionsSaved && (
+            <Alert severity="success" role="status" onClose={() => setOptionsSaved(false)}>
+              Options saved. The variants below match them.
+            </Alert>
+          )}
           <Divider />
           {stockSaved && (
             <Alert severity="success" role="status" onClose={() => setStockSaved(undefined)}>
@@ -204,6 +216,9 @@ function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined })
   const errors = checkProductForm(form);
   const shown = (field: keyof ProductFormErrors) => (touched.has(field) ? errors[field] : undefined);
   const canSave = Object.keys(errors).length === 0 && !save.isPending;
+  // What the last save left in the form, so "Saved." goes once anything changes.
+  const [savedInput, setSavedInput] = useState<string | null>(null);
+  const currentInput = JSON.stringify(productInputOf(form));
 
   const set = <K extends keyof ProductForm>(field: K, value: ProductForm[K]) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -214,11 +229,25 @@ function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined })
     e.preventDefault();
     if (!canSave) return;
     const input = productInputOf(form);
-    if (product) update.mutate(input);
-    else create.mutate(input, { onSuccess: (saved) => navigate(swagStoreAdminPaths.product(saved.id), { replace: true }) });
+    const sent = JSON.stringify(input);
+    if (product) {
+      update.mutate(input, {
+        onSuccess: (saved) => {
+          // The store fills in what was left empty (the slug), so start again from what it kept,
+          // unless the form changed while saving.
+          const next = productFormOf(saved);
+          setForm((f) => (JSON.stringify(productInputOf(f)) === sent ? next : f));
+          setSavedInput(JSON.stringify(productInputOf(next)));
+        },
+      });
+    } else create.mutate(input, { onSuccess: (saved) => navigate(swagStoreAdminPaths.product(saved.id), { replace: true }) });
   };
 
+  // The first page of active products (50). The catalog is a few dozen items, so that is all of them.
+  // A saved alternative that isn't on it (a draft, or removed since) shows as "Not on sale" so it can be cleared.
   const alternatives = (actives.data?.items ?? []).filter((p) => p.id !== product?.id);
+  const offSale = form.alternatives.filter((id) => !alternatives.some((p) => p.id === id));
+  const alternativeName = (id: string) => alternatives.find((p) => p.id === id)?.name ?? "Not on sale";
 
   return (
     <Card variant="outlined" component="form" onSubmit={submit} noValidate sx={{ p: 2, borderRadius: 1.5, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -298,17 +327,22 @@ function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined })
           multiple
           value={[...form.alternatives]}
           onChange={(e) => set("alternatives", typeof e.target.value === "string" ? e.target.value.split(",") : e.target.value)}
-          renderValue={(ids) => ids.map((id) => alternatives.find((p) => p.id === id)?.name ?? id).join(", ")}
+          renderValue={(ids) => ids.map(alternativeName).join(", ")}
         >
           {alternatives.map((p) => (
             <MenuItem key={p.id} value={p.id}>
               {p.name}
             </MenuItem>
           ))}
+          {offSale.map((id) => (
+            <MenuItem key={id} value={id}>
+              Not on sale
+            </MenuItem>
+          ))}
         </Select>
       </FormControl>
       {save.isError && <Alert severity="error">{messageFor(save.error)}</Alert>}
-      {update.isSuccess && product && (
+      {update.isSuccess && product && savedInput === currentInput && (
         <Alert severity="success" role="status">
           Saved.
         </Alert>
@@ -435,7 +469,7 @@ function VariantTable({ product, onStockSaved }: { product: SwagStoreAdminProduc
           </Table>
         </Card>
       )}
-      {editing && <VariantEditDialog productId={product.id} variant={editing} onClose={() => setEditing(undefined)} />}
+      {editing && <VariantEditDialog productId={product.id} basePrice={product.price} variant={editing} onClose={() => setEditing(undefined)} />}
       {stocking && (
         <StockDialog
           variant={stocking}
