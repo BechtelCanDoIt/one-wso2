@@ -52,8 +52,8 @@ beforeEach(() => {
 });
 
 describe("theme registry", () => {
-  it("offers seven themes in the picker", () => {
-    expect(THEME_OPTIONS).toHaveLength(7);
+  it("offers eight themes in the picker", () => {
+    expect(THEME_OPTIONS).toHaveLength(8);
   });
 
   it("only offers keys that actually resolve", () => {
@@ -105,18 +105,24 @@ describe("theme registry", () => {
     expect(configThemeKey()).toBe(DEFAULT_THEME_KEY);
   });
 
-  it("offers seven visibly different themes, not aliases of one", () => {
+  it("offers eight visibly different themes, not aliases of one", () => {
     // The point of a picker is that the options look different. The light
     // primary alone no longer separates them: Classic is #ff7300 and WSO2 is
     // #FF7300 — the same colour in different case, so comparing raw strings
     // would "pass" by accident. They are genuinely different themes (different
     // secondary, surfaces, and dark mode), so the signature includes the dark
-    // background, which is where WSO2's blue (#0f172a) distinguishes itself.
+    // background, which is where WSO2's blue (#0b142b) distinguishes itself.
     const sigs = THEME_OPTIONS.map((o) => `${primaryOf(o.key).toLowerCase()}|${darkBgOf(o.key).toLowerCase()}`);
     expect(new Set(sigs).size).toBe(THEME_OPTIONS.length);
     expect(primaryOf("acrylicOrange")).toBe("#fa7b3f");
-    // The reason WSO2 is the default: it is the only dark mode that is not neutral.
-    expect(darkBgOf("wso2").toLowerCase()).toBe("#0f172a");
+    expect(darkBgOf("wso2").toLowerCase()).toBe("#0b142b");
+  });
+
+  it("defaults to the Choreo Labs brand theme", () => {
+    // Signal orange on the Blackout canvas, from the Choreo Labs colour sheet.
+    expect(DEFAULT_THEME_KEY).toBe("choreoLabs");
+    expect(primaryOf("choreoLabs").toLowerCase()).toBe("#ff4600");
+    expect(darkBgOf("choreoLabs").toLowerCase()).toBe("#050a1c");
   });
 
   it("registers more themes than it offers, and every offer is registered", () => {

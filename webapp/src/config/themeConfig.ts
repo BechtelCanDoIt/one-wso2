@@ -28,6 +28,9 @@ import {
   AcrylicPurpleTheme,
   ClassicTheme,
   HighContrastTheme,
+  // Oxygen's default theme is the Choreo Labs brand theme. Renamed here because
+  // `OxygenTheme` is also the theme type imported below.
+  OxygenTheme as ChoreoLabsTheme,
   PaleGrayTheme,
   PaleIndigoTheme,
   WSO2Theme,
@@ -36,6 +39,7 @@ import type { OxygenTheme } from "@wso2/oxygen-ui/styles/OxygenThemeBase";
 import { withA11yOverrides } from "@config/a11yThemeOverrides";
 
 export const THEMES = {
+  choreoLabs: ChoreoLabsTheme,
   acrylicOrange: AcrylicOrangeTheme,
   // Alias, resolvable but not offered — an earlier iteration persisted this key,
   // so saved preferences must keep working. canonicalThemeKey() folds it back.
@@ -43,9 +47,8 @@ export const THEMES = {
   acrylicPurple: AcrylicPurpleTheme,
   classic: ClassicTheme,
   highContrast: HighContrastTheme,
-  // Deliberately NOT offered: OxygenTheme (= AcrylicBaseTheme) and
-  // PaleBaseTheme, which are the bases the themes above extend rather than
-  // finished looks of their own.
+  // Deliberately NOT offered: PaleBaseTheme, which is the base the Pale themes
+  // extend rather than a finished look of its own.
   wso2: WSO2Theme,
   paleIndigo: PaleIndigoTheme,
   paleGray: PaleGrayTheme,
@@ -53,25 +56,25 @@ export const THEMES = {
 
 export type ThemeKey = keyof typeof THEMES;
 
-// WSO2 is the default: it is Oxygen's own WSO2-branded preset, and the only one
-// whose dark mode is the WSO2 blue (background.default #0f172a) rather than a
-// neutral black. THEME_OPTIONS lists it first — a test pins option[0] to this.
-export const DEFAULT_THEME_KEY: ThemeKey = "wso2";
+// Choreo Labs is the default: it is the brand theme. THEME_OPTIONS lists it
+// first — a test pins option[0] to this.
+export const DEFAULT_THEME_KEY: ThemeKey = "choreoLabs";
 
 /**
  * What the picker offers, in display order. The brand theme leads because it is
- * the default; the rest are the shipped presets. Deliberately a subset of
- * THEMES: `oneWso2` resolves to the same theme as `acrylicOrange` and is left
+ * the default; the shipped presets follow, with WSO2 last. Deliberately a subset
+ * of THEMES: `oneWso2` resolves to the same theme as `acrylicOrange` and is left
  * out so the menu does not list it twice.
  */
 export const THEME_OPTIONS: { key: ThemeKey; label: string }[] = [
-  { key: "wso2", label: "WSO2" },
+  { key: "choreoLabs", label: "Choreo Labs" },
   { key: "acrylicOrange", label: "Acrylic Orange" },
   { key: "acrylicPurple", label: "Acrylic Purple" },
   { key: "classic", label: "Classic" },
   { key: "highContrast", label: "High Contrast" },
   { key: "paleIndigo", label: "Pale Indigo" },
   { key: "paleGray", label: "Pale Gray" },
+  { key: "wso2", label: "WSO2" },
 ];
 
 export function isThemeKey(value: unknown): value is ThemeKey {

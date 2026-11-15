@@ -37,7 +37,7 @@ export default function GitHubConnectionGuide() {
         Connect your GitHub account
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
-        Connect GitHub succeeds only when the work email you use to sign in to One WSO2 is
+        Connect GitHub succeeds only when the work email you use to sign in to One App is
         added to that GitHub account and GitHub has marked it verified. It does not have to be the
         primary address.
       </Typography>
@@ -59,11 +59,11 @@ export default function GitHubConnectionGuide() {
         <li>
           Open <strong>Settings</strong>, then <strong>Emails</strong>.
         </li>
-        <li>Add the same work email you use for One WSO2.</li>
+        <li>Add the same work email you use for One App.</li>
         <li>Open GitHub’s verification mail and confirm the address. The address must show as verified.</li>
         <li>
-          Return to One WSO2, choose <strong>Connect with GitHub</strong> and pick that
-          account. Leave the tab open until One WSO2 returns.
+          Return to One App, choose <strong>Connect with GitHub</strong> and pick that
+          account. Leave the tab open until One App returns.
         </li>
       </Box>
     </Box>

@@ -1,4 +1,4 @@
-# One WSO2 Webapp
+# One App Webapp
 
 WSO2's internal cross-perspective portal: a React 19 + TypeScript + Vite single-page app. Sign-in is
 Asgardeo, UI is Oxygen UI, and every environment is configured at runtime through `window.config`,
@@ -63,7 +63,7 @@ Runtime config is read from `window.config`, set by `public/config.js`.
 | `ONE_WSO2_AUTH_SIGN_IN_REDIRECT_URL` | sign-in callback (must match the Asgardeo app) | `http://localhost:3000` |
 | `ONE_WSO2_AUTH_SIGN_OUT_REDIRECT_URL` | sign-out callback | `http://localhost:3000` |
 | `ONE_WSO2_ASGARDEO_MYACCOUNT_URL` | optional; defaults to the auth base URL with `api.` swapped for `myaccount.` | |
-| `ONE_WSO2_THEME` | `wso2` (default), `acrylicOrange`, `acrylicPurple`, `classic`, `highContrast`, `paleIndigo`, `paleGray` | `wso2` |
+| `ONE_WSO2_THEME` | `choreoLabs` (default), `acrylicOrange`, `acrylicPurple`, `classic`, `highContrast`, `paleIndigo`, `paleGray`, `wso2` | `choreoLabs` |
 | `ONE_WSO2_IDLE_AUTO_SIGN_OUT` | optional; `true` signs out 30 minutes after inactivity instead of waiting at the idle prompt | `false` |
 | `ONE_WSO2_PREVIEW_FEATURES` | features built but not released; absent or `false` hides them | `{ quickquote: false }` |
 
@@ -122,8 +122,7 @@ mirrored in `tsconfig.app.json`):
 webapp/
 ├── public/
 │   ├── config.js.example    → runtime config template (copy to config.js)
-│   ├── favicon-*.svg        → WSO2 logomark, light and dark
-│   └── wso2-logo-*.svg      → wordmarks for light and dark headers
+│   └── favicon-mark-*.svg   → Choreo Labs mark, light and dark
 ├── src/
 │   ├── main.tsx             → React root
 │   ├── AppWithConfig.tsx    → provider tree (Asgardeo, Router, theme, Query)
