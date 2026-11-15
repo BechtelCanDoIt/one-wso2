@@ -68,14 +68,14 @@ export default function NewRequestPage() {
       {!reference && me.data && lookups.data && (
         <RequestForm
           key={formKey}
-          initialDraft={emptyDraft(me.data.reportingLead)}
+          initialDraft={emptyDraft()}
           me={me.data}
           lookups={lookups.data}
           submitLabel="Submit request"
           submitting={submit.isPending}
           error={submit.isError ? describeError(submit.error) : undefined}
           onSubmit={(input, files) =>
-            submit.mutate({ input, files }, { onSuccess: (created) => setReference(created.reference) })
+            submit.mutate({ input, files }, { onSuccess: (created) => setReference(created.reference ?? "Pending") })
           }
         />
       )}

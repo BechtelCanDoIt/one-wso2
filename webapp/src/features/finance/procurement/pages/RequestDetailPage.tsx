@@ -22,21 +22,24 @@ import ProcurementShell from "../components/ProcurementShell";
 import { RequestStatusChip } from "../components/ProcurementChips";
 import RequestSummary from "../components/RequestSummary";
 import RequestForm from "../request-form/RequestForm";
-import { draftFromRequest } from "../request-form/requestFormModel";
-import { useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest } from "../api/useProcurement";
+import { budgetForDisplay, draftFromRequest } from "../request-form/requestFormModel";
+import { useEngagementCodes, useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest } from "../api/useProcurement";
 import { formatDate } from "../procurementFormat";
 import { procurementPaths } from "../procurementPaths";
 import type { PurchaseRequest } from "../types";
 
 function Decision({ request }: { request: PurchaseRequest }) {
+  if (request.status === "draft") return <Alert severity="info">This request has not been submitted.</Alert>;
+  if (request.status === "cancelled") return <Alert severity="info">This request was cancelled.</Alert>;
   const { decision, notes, decidedAt } = request.teamLeadDecision;
+  const approver = request.teamLead?.name ?? "the approvers";
   if (decision === "pending") {
-    return <Alert severity="info">Waiting for {request.teamLead.name} to approve or reject this request.</Alert>;
+    return <Alert severity="info">Waiting for {approver} to approve or reject this request.</Alert>;
   }
   const approved = decision === "approved";
   return (
     <Alert severity={approved ? "success" : "error"}>
-      {approved ? "Approved" : "Rejected"} by {request.teamLead.name}
+      {approved ? "Approved" : "Rejected"} by {approver}
       {decidedAt ? ` on ${formatDate(decidedAt)}` : ""}.
       {notes && (
         <Box component="span" sx={{ display: "block", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
@@ -70,6 +73,9 @@ export default function RequestDetailPage() {
   const request = useRequest(requestId);
   const [editing, setEditing] = useState(false);
   const data = request.data;
+  const lookups = useProcurementLookups();
+  const unitName = lookups.data?.businessUnits.find((u) => u.value === data?.budget.businessUnit)?.label ?? "";
+  const engagementCodes = useEngagementCodes(unitName);
 
   return (
     <>
@@ -77,12 +83,12 @@ export default function RequestDetailPage() {
         ← My requests
       </Link>
       <ProcurementShell
-        title={data ? `${data.reference} - ${data.title}` : "Purchase request"}
+        title={data ? `${data.reference ?? "Draft"} - ${data.title}` : "Purchase request"}
         actions={
           data && !editing ? (
             <Stack direction="row" spacing={2} alignItems="center">
               <RequestStatusChip status={data.status} />
-              {data.status === "rejected" && (
+              {data.status === "rejected" && data.category !== "EVENTS" && (
                 <Button variant="contained" onClick={() => setEditing(true)}>
                   Edit and resubmit
                 </Button>
@@ -124,13 +130,14 @@ export default function RequestDetailPage() {
                     category: data.category,
                     requester: data.requester,
                     teamLead: data.teamLead,
+                    additionalApprovers: data.additionalApprovers,
                     details: data.details,
                     vendors: data.vendors,
-                    budget: data.budget,
-                    budgetApproverEmails: data.budgetApprovers.map((a) => a.email),
+                    budget: lookups.data ? budgetForDisplay(data.budget, lookups.data, engagementCodes.data ?? []) : data.budget,
+                    budgetApprover: data.budgetApproverName,
                     notes: data.notes,
                     attachments: data.attachments.map((a) => ({ name: a.filename, sizeBytes: a.sizeBytes })),
-                    date: { label: "Raised", iso: data.submittedAt },
+                    date: data.submittedAt ? { label: "Raised", iso: data.submittedAt } : undefined,
                   }}
                 />
               </>

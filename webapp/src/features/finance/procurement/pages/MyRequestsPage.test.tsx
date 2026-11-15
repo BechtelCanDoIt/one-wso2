@@ -18,22 +18,25 @@ import { describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import type { PurchaseRequest } from "../types";
+import type { RequestSummary } from "../types";
 import MyRequestsPage from "./MyRequestsPage";
 
-const request = (id: string, reference: string): PurchaseRequest =>
-  ({
-    id,
-    reference,
-    title: `Title ${reference}`,
-    category: "IT",
-    status: "submitted",
-    teamLead: { id: "u-2", name: "Jordan Ellis", email: "jordan.ellis@example.com" },
-    submittedAt: "2026-10-28T09:12:00.000Z",
-  }) as PurchaseRequest;
+const request = (id: string, reference: string | null, submittedAt: string | null = "2026-10-28T09:12:00.000Z"): RequestSummary => ({
+  id,
+  reference,
+  title: `Title ${reference ?? id}`,
+  category: "IT",
+  status: reference ? "submitted" : "draft",
+  submittedAt,
+  updatedAt: "2026-10-28T09:12:00.000Z",
+});
 
 vi.mock("../api/useProcurement", () => ({
-  useMyRequests: () => ({ data: [request("a", "PR-2026-0002"), request("b", "PR-2026-0001")], isPending: false, isError: false }),
+  useMyRequests: () => ({
+    data: [request("a", "PR-2026-00002"), request("b", "PR-2026-00001"), request("c", null, null)],
+    isPending: false,
+    isError: false,
+  }),
 }));
 vi.mock("../components/ProcurementShell", () => ({ default: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 
@@ -49,15 +52,21 @@ function renderPage() {
 }
 
 describe("MyRequestsPage rows", () => {
+  it("show a draft as Draft and Not submitted, since it has no reference or date yet", () => {
+    renderPage();
+    expect(screen.getByText("Draft", { selector: "a" })).toBeInTheDocument();
+    expect(screen.getByText("Not submitted")).toBeInTheDocument();
+  });
+
   it("open the request when the row is clicked anywhere", async () => {
     renderPage();
-    await userEvent.setup().click(screen.getByText("Title PR-2026-0001"));
+    await userEvent.setup().click(screen.getByText("Title PR-2026-00001"));
     expect(screen.getByRole("heading", { name: "Detail page" })).toBeInTheDocument();
   });
 
   it("open the request from the reference link too, without underlining it", async () => {
     renderPage();
-    const link = screen.getByRole("link", { name: "PR-2026-0002" });
+    const link = screen.getByRole("link", { name: "PR-2026-00002" });
     expect(getComputedStyle(link).textDecorationLine).not.toBe("underline");
     await userEvent.setup().click(link);
     expect(screen.getByRole("heading", { name: "Detail page" })).toBeInTheDocument();

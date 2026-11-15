@@ -35,7 +35,7 @@ import { useMyRequests } from "../api/useProcurement";
 import { formatDate } from "../procurementFormat";
 import { procurementPaths } from "../procurementPaths";
 
-const CATEGORY_LABEL = { IT: "IT", "NON-IT": "Non-IT" } as const;
+const CATEGORY_LABEL = { IT: "IT", "NON-IT": "Non-IT", EVENTS: "Marketing & Events" } as const;
 
 export default function MyRequestsPage() {
   const requests = useMyRequests();
@@ -76,7 +76,6 @@ export default function MyRequestsPage() {
                 <TableCell>Request</TableCell>
                 <TableCell>Category</TableCell>
                 <TableCell>Status</TableCell>
-                <TableCell>Team lead</TableCell>
                 <TableCell>Raised</TableCell>
               </TableRow>
             </TableHead>
@@ -93,7 +92,7 @@ export default function MyRequestsPage() {
                 >
                   <TableCell>
                     <Link component={RouterLink} to={procurementPaths.request(r.id)} underline="none" sx={{ fontWeight: 500 }}>
-                      {r.reference}
+                      {r.reference ?? "Draft"}
                     </Link>
                   </TableCell>
                   <TableCell sx={{ overflowWrap: "anywhere" }}>{r.title}</TableCell>
@@ -101,8 +100,7 @@ export default function MyRequestsPage() {
                   <TableCell>
                     <RequestStatusChip status={r.status} />
                   </TableCell>
-                  <TableCell>{r.teamLead.name}</TableCell>
-                  <TableCell>{formatDate(r.submittedAt)}</TableCell>
+                  <TableCell>{r.submittedAt ? formatDate(r.submittedAt) : "Not submitted"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>

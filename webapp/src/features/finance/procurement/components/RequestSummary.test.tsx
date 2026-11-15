@@ -31,7 +31,8 @@ const view = (patch: Partial<RequestView> = {}): RequestView => ({
   details: { ...emptyDetails(), product: "ZoomInfo", plan: "Enterprise", description: "Data", usagePeriod: "1 year", businessJustification: "Needed", sensitiveData: "no", externalPii: "no", employeePii: "no", integrates: "no" },
   vendors: [{ ...emptyVendor(), name: "ZoomInfo" }],
   budget: emptyBudget(),
-  budgetApproverEmails: ["budget.owner@example.com"],
+  additionalApprovers: [],
+  budgetApprover: "Budget Owner",
   notes: "",
   attachments: [],
   ...patch,
@@ -50,6 +51,20 @@ describe("RequestSummary", () => {
     expect(screen.getByText("IT request")).toBeInTheDocument();
     expect(screen.getByText("Team lead: Jordan Ellis")).toBeInTheDocument();
     expect(screen.getByText(/^Raised /)).toBeInTheDocument();
+  });
+
+  it("shows the team lead and any additional approvers, and Not provided when there is no team lead", () => {
+    const { rerender } = render(<RequestSummary view={view({ additionalApprovers: ["other@example.com", "third@example.com"] })} />);
+    expect(screen.getByText("Jordan Ellis, jordan.ellis@example.com")).toBeInTheDocument();
+    expect(screen.getByText(/other@example.com/)).toBeInTheDocument();
+    rerender(<RequestSummary view={view({ teamLead: null })} />);
+    expect(screen.queryByText("Jordan Ellis, jordan.ellis@example.com")).toBeNull();
+  });
+
+  it("names a Marketing & Events request, which it only reads", () => {
+    render(<RequestSummary view={view({ category: "EVENTS" })} />);
+    expect(screen.getByText("Marketing & Events request")).toBeInTheDocument();
+    expect(screen.getByText("Marketing & Events Procurement")).toBeInTheDocument();
   });
 
   it("says Not provided for a skipped optional field and leaves out a required one that is empty", () => {

@@ -17,7 +17,9 @@
 import { StatusChip } from "@features/finance/components/FinanceChips";
 import type { RequestStatus } from "../types";
 
-const STATUS: Record<RequestStatus, { label: string; color: "warning" | "success" | "error" | "info" }> = {
+const STATUS: Record<RequestStatus, { label: string; color: "warning" | "success" | "error" | "info" | "default" }> = {
+  draft: { label: "Draft", color: "default" },
+  cancelled: { label: "Cancelled", color: "default" },
   submitted: { label: "Pending approval", color: "warning" },
   approved: { label: "Approved", color: "info" },
   rejected: { label: "Rejected", color: "error" },

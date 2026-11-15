@@ -17,7 +17,7 @@
 import { useState, type ReactNode } from "react";
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from "@wso2/oxygen-ui";
 import { formatBytes, formatDate } from "../procurementFormat";
-import type { BudgetDetails, Person, ProcurementCategory, RequestDetails, Vendor, YesNo } from "../types";
+import type { BudgetDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
 
 /** A file attached to the request, as a summary lists it. */
 export interface SummaryAttachment {
@@ -27,25 +27,34 @@ export interface SummaryAttachment {
 
 /** Everything a summary shows, whether it comes from a draft in the form or a saved request. */
 export interface RequestView {
-  category: ProcurementCategory | "";
+  category: RequestCategory | "";
   requester: Person;
   teamLead: Person | null;
+  /** Emails of the people who may approve besides the team lead. */
+  additionalApprovers: string[];
   details: RequestDetails;
   vendors: Vendor[];
+  /** Each value is what a person reads (a label), not a code. */
   budget: BudgetDetails;
-  budgetApproverEmails: string[];
+  /** The budget approver's name. */
+  budgetApprover: string;
   notes: string;
   attachments: SummaryAttachment[];
   /** A date to show with the key facts, with what it is called ("Date", "Raised"). */
   date?: { label: string; iso: string };
 }
 
-const CATEGORY_LABEL: Record<ProcurementCategory, string> = {
+const CATEGORY_LABEL: Record<RequestCategory, string> = {
   IT: "IT Related Procurement",
   "NON-IT": "Non-IT Related Procurement",
+  EVENTS: "Marketing & Events Procurement",
 };
 
-const CATEGORY_SHORT: Record<ProcurementCategory, string> = { IT: "IT request", "NON-IT": "Non-IT request" };
+const CATEGORY_SHORT: Record<RequestCategory, string> = {
+  IT: "IT request",
+  "NON-IT": "Non-IT request",
+  EVENTS: "Marketing & Events request",
+};
 
 /** Text longer than this, or with more lines than the clamp, is cut with a Show more. */
 const CLAMP_CHARS = 240;
@@ -238,7 +247,8 @@ export default function RequestSummary({
       <Section title="Requester" onEdit={edit(1)}>
         <Row label="Requester" value={view.requester.name} />
         <Row label="Email" value={view.requester.email} />
-        <Row label="Team lead (for approval)" value={view.teamLead ? joined(view.teamLead.name, view.teamLead.email) : ""} />
+        <Row label="Team lead (for approval)" value={view.teamLead ? joined(view.teamLead.name, view.teamLead.email) : ""} optional />
+        <Row label="Additional approvers" value={view.additionalApprovers.join("\n")} optional />
       </Section>
 
       <Section title="Requirement details" onEdit={edit(3)}>
@@ -268,7 +278,7 @@ export default function RequestSummary({
         <Row label="Region" value={b.region} optional={budgetOptional} />
         <Row label="Engagement code" value={b.engagementCode} optional={budgetOptional} />
         <Row label="Salesforce campaign" value={b.salesforceCampaign} optional />
-        <Row label="Budget approver" value={view.budgetApproverEmails.filter(Boolean).join("\n")} />
+        <Row label="Budget approver" value={view.budgetApprover} optional={budgetOptional} />
       </Section>
 
       <Section title="Documents and notes" onEdit={edit(4)}>
