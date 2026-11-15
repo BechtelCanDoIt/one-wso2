@@ -194,11 +194,47 @@ describe("the product page", () => {
 
   it("offers Notify me on an out-of-stock choice, and confirms the alert", async () => {
     backend();
-    http.authedPost.mockResolvedValue({ id: "alert-1" });
+    http.authedPost.mockImplementation(async () => {
+      backend({ alerts: { items: [stockAlert()] } });
+      return { id: "alert-1" };
+    });
     renderPage("/store/p/wso2-hoodie?colour=Heather%20grey&size=S");
     await userEvent.click(await screen.findByRole("button", { name: "Notify me" }));
     expect(http.authedPost).toHaveBeenCalledWith("/stock-alerts", "token", { variantId: "v-grey-s" });
     expect(await screen.findByText("We'll email you when it's back in stock.")).toBeInTheDocument();
+  });
+
+  it("keeps confirming a new alert while the alert list can't be read again", async () => {
+    backend();
+    http.authedPost.mockImplementation(async () => {
+      http.authedGet.mockImplementation(async (url: string) => {
+        if (url === "/stock-alerts") throw new HttpError(url, 503, "");
+        return url.startsWith("/products/") ? hoodie() : { items: [office()], defaultOfficeId: "office-colombo" };
+      });
+      return { id: "alert-1" };
+    });
+    renderPage("/store/p/wso2-hoodie?colour=Heather%20grey&size=S");
+    await userEvent.click(await screen.findByRole("button", { name: "Notify me" }));
+    expect(await screen.findByText("We'll email you when it's back in stock.")).toBeInTheDocument();
+  });
+
+  it("trusts a list read after the alert was made, so an alert stopped elsewhere offers Notify me again", async () => {
+    backend();
+    http.authedPost.mockResolvedValue({ id: "alert-1" });
+    renderPage("/store/p/wso2-hoodie?colour=Heather%20grey&size=S");
+    await userEvent.click(await screen.findByRole("button", { name: "Notify me" }));
+    await waitFor(() => expect(http.authedGet.mock.calls.filter(([url]) => url === "/stock-alerts")).toHaveLength(2));
+    expect(await screen.findByRole("button", { name: "Notify me" })).toBeEnabled();
+    expect(screen.queryByText("We'll email you when it's back in stock.")).toBeNull();
+  });
+
+  it("says plainly when the store answers an alert without its id", async () => {
+    backend();
+    http.authedPost.mockResolvedValue({});
+    renderPage("/store/p/wso2-hoodie?colour=Heather%20grey&size=S");
+    await userEvent.click(await screen.findByRole("button", { name: "Notify me" }));
+    expect(await screen.findByText("The store didn't confirm the alert. Try again.")).toBeInTheDocument();
+    expect(screen.queryByText(/HTTP 201/)).toBeNull();
   });
 
   it("shows an alert the shopper already set, and lets them stop it", async () => {
