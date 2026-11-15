@@ -149,6 +149,19 @@ describe("the admin orders list", () => {
     expect(headers).toEqual({ Accept: "text/csv" });
   });
 
+  it("offers a way back when the page it is on has emptied", async () => {
+    backend();
+    http.authedPost.mockImplementation(async (url: string, _t: string, body: { pagination: { offset: number } }) => {
+      if (url !== "/admin/orders/search") throw new Error(`unexpected ${url}`);
+      return body.pagination.offset === 0 ? { items: [adminOrder()], total: 25 } : { items: [], total: 25 };
+    });
+    renderPage("/people-ops/swag-store/orders?status=CONFIRMED&page=2");
+    expect(await screen.findByText("There are no orders on this page.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Go to page 1" }));
+    expect(await screen.findByRole("row", { name: /SS-10482/ })).toBeInTheDocument();
+    expect(screen.getByTestId("where")).not.toHaveTextContent("page=2");
+  });
+
   it("shows a list failure with Retry, never as no orders", async () => {
     backend();
     http.authedPost.mockRejectedValue(new HttpError("/admin/orders/search", 503, JSON.stringify({ message: "Database is down." })));
@@ -196,16 +209,16 @@ describe("the order drawer", () => {
 
   it("says someone already did it when the order moved meanwhile, and reads it again", async () => {
     backend();
-    http.authedPatch.mockRejectedValue(
-      new HttpError("/admin/orders/SS-10482", 409, JSON.stringify({ message: "m", errorCode: "state_conflict" })),
-    );
+    http.authedPatch.mockImplementation(async () => {
+      // Another operator got there first: the order reads back as ready.
+      backend({ detail: adminOrderDetail({ status: "READY_FOR_PICKUP", readyAt: "2026-11-15T03:00:00Z" }) });
+      throw new HttpError("/admin/orders/SS-10482", 409, JSON.stringify({ message: "m", errorCode: "state_conflict" }));
+    });
     renderPage("/people-ops/swag-store/orders/SS-10482");
     const drawer = await openDrawer();
     await userEvent.click(within(drawer).getByRole("button", { name: "Mark ready for pickup" }));
-    expect(await within(drawer).findByText("Someone already did this. The order has been reloaded.")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(http.authedGet.mock.calls.filter(([u]) => u === "/admin/orders/SS-10482").length).toBeGreaterThan(1),
-    );
+    expect(await within(drawer).findByRole("button", { name: "Mark collected" })).toBeInTheDocument();
+    expect(within(drawer).getByText("Someone already did this. The order has been reloaded.")).toBeInTheDocument();
   });
 
   it("adds a note", async () => {
@@ -215,6 +228,24 @@ describe("the order drawer", () => {
     await userEvent.type(within(drawer).getByRole("textbox", { name: "Add a note" }), "Called Sam");
     await userEvent.click(within(drawer).getByRole("button", { name: "Add note" }));
     expect(http.authedPost).toHaveBeenCalledWith("/admin/orders/SS-10482/notes", "token", { note: "Called Sam" });
+  });
+
+  it("holds the note field while the note is being added, so a later edit isn't wiped", async () => {
+    backend();
+    let finish: () => void = () => {};
+    http.authedPost.mockImplementation(async (url: string) => {
+      if (url.endsWith("/notes")) return new Promise((resolve) => (finish = () => resolve(null)));
+      throw new Error(`unexpected ${url}`);
+    });
+    renderPage("/people-ops/swag-store/orders/SS-10482");
+    const drawer = await openDrawer();
+    const field = within(drawer).getByRole("textbox", { name: "Add a note" });
+    await userEvent.type(field, "Called Sam");
+    await userEvent.click(within(drawer).getByRole("button", { name: "Add note" }));
+    expect(field).toBeDisabled();
+    finish();
+    await waitFor(() => expect(field).toBeEnabled());
+    expect(field).toHaveValue("");
   });
 
   it("closes back to the list, keeping the filters", async () => {

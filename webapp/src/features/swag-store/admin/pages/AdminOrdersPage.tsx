@@ -202,14 +202,25 @@ function OrdersTable({ view, onPage, search }: { view: AdminOrdersView; onPage: 
     );
   }
   const { items, total } = orders.data;
+  const pages = Math.ceil(total / ADMIN_ORDERS_PAGE_SIZE);
   if (items.length === 0) {
+    if (total === 0) {
+      return (
+        <Typography sx={{ py: 4, textAlign: "center" }} color="text.secondary">
+          No orders match.
+        </Typography>
+      );
+    }
+    // Orders moved off this page (say, the last one on it was marked ready): offer the last page that has some.
     return (
-      <Typography sx={{ py: 4, textAlign: "center" }} color="text.secondary">
-        {total > 0 ? "There are no orders on this page." : "No orders match."}
-      </Typography>
+      <Box sx={{ py: 4, display: "grid", justifyItems: "center", gap: 1.5 }}>
+        <Typography color="text.secondary">There are no orders on this page.</Typography>
+        <Button variant="outlined" onClick={() => onPage(pages)}>
+          Go to page {pages}
+        </Button>
+      </Box>
     );
   }
-  const pages = Math.ceil(total / ADMIN_ORDERS_PAGE_SIZE);
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
       <Card variant="outlined" sx={{ borderRadius: 1.5, overflowX: "auto", opacity: orders.isPlaceholderData ? 0.6 : 1 }}>
