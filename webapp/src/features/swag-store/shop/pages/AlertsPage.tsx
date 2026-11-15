@@ -98,6 +98,8 @@ export default function AlertsPage(): JSX.Element {
                   key={a.id}
                   alert={a}
                   removing={cancel.isPending && cancel.variables === a.id}
+                  // One removal at a time: the page tracks only the latest one's progress and error.
+                  held={cancel.isPending}
                   onRemove={() => cancel.mutate(a.id)}
                 />
               ))}
@@ -131,7 +133,16 @@ const visuallyHidden = {
   whiteSpace: "nowrap",
 } as const;
 
-function AlertRow({ alert, removing, onRemove }: { alert: SwagStoreAlert; removing: boolean; onRemove: () => void }): JSX.Element {
+interface AlertRowProps {
+  readonly alert: SwagStoreAlert;
+  /** This row's removal is running. */
+  readonly removing: boolean;
+  /** Any removal is running, so this row's Remove waits. */
+  readonly held: boolean;
+  readonly onRemove: () => void;
+}
+
+function AlertRow({ alert, removing, held, onRemove }: AlertRowProps): JSX.Element {
   const status = STATUS[alert.status] ?? { label: alert.status, color: "default" as const };
   const what = alert.options ? `${alert.productName}, ${alert.options}` : alert.productName;
   return (
@@ -148,7 +159,7 @@ function AlertRow({ alert, removing, onRemove }: { alert: SwagStoreAlert; removi
       <TableCell>{formatInstant(alert.createdAt)}</TableCell>
       <TableCell align="right">
         {alert.status === "PENDING" && (
-          <Button size="small" onClick={onRemove} disabled={removing} aria-label={`Remove the alert for ${what}`}>
+          <Button size="small" onClick={onRemove} disabled={held} aria-label={`Remove the alert for ${what}`}>
             {removing ? "Removing…" : "Remove"}
           </Button>
         )}

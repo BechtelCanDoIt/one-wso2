@@ -15,7 +15,7 @@
 // under the License.
 
 import { useMutation, useQuery, useQueryClient, type UseMutationResult, type UseQueryResult } from "@tanstack/react-query";
-import { authedDelete, authedGet, authedPost, HttpError } from "@api/http";
+import { authedDelete, authedGet, authedPost } from "@api/http";
 import { swagStoreServiceUrls } from "@config/apiConfig";
 import { useSwagStoreBasis } from "../../api/swagStoreBasis";
 import type { SwagStoreAlertList } from "../../api/swagStoreTypes";
@@ -46,7 +46,7 @@ export function useCreateAlert(productSlug?: string): UseMutationResult<string, 
   return useMutation<string, Error, string>({
     mutationFn: async (variantId) => {
       const created = await authedPost<{ id: string }>(swagStoreServiceUrls.stockAlerts, await getToken(), { variantId });
-      if (!created?.id) throw new HttpError(swagStoreServiceUrls.stockAlerts, 201, "");
+      if (!created?.id) throw new Error("The store didn't confirm the alert. Try again.");
       return created.id;
     },
     onSuccess: refreshAlerts,
