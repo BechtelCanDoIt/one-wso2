@@ -40,6 +40,7 @@ import {
   PackageIcon,
   PencilIcon,
   PlusIcon,
+  TableIcon,
   Trash2Icon,
 } from "@wso2/oxygen-ui-icons-react";
 import SectionCard from "@features/sales/cado2/components/section-card/SectionCard";
@@ -90,6 +91,8 @@ import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssu
 interface ProductsStepProps {
   /** The latest live preview, if the quote could be priced. */
   readonly preview: PricingPreview | null;
+  /** Opens the discount approval matrix with this quote's lines on it (D176). */
+  readonly onOpenMatrix?: () => void;
 }
 
 function LineIssue({ index }: { index: number }) {
@@ -132,7 +135,7 @@ function LineIssue({ index }: { index: number }) {
  * new year at the end. A new product goes after its year's other lines, so
  * line numbers run year by year.
  */
-export default function ProductsStep({ preview }: ProductsStepProps): JSX.Element {
+export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProps): JSX.Element {
   const { control, getValues, setValue } = useFormContext<DraftFormValues>();
   const { fields, insert, update, remove, replace } = useFieldArray({
     control,
@@ -410,8 +413,14 @@ export default function ProductsStep({ preview }: ProductsStepProps): JSX.Elemen
         title="Products"
         icon={<PackageIcon size={18} />}
         aside={
-          isRenewal || years.length > 1 ? (
+          isRenewal || years.length > 1 || onOpenMatrix ? (
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {/* D176: who approves which discount, with these lines on it. */}
+              {onOpenMatrix ? (
+                <Button size="small" startIcon={<TableIcon size={14} />} onClick={onOpenMatrix}>
+                  Discount approval matrix
+                </Button>
+              ) : null}
               {/* D159: the products on the opportunities this renewal replaces. */}
               {isRenewal ? (
                 <Tooltip title={previousIds.length === 0 ? "Choose the opportunities this renewal replaces in Overview to see their products." : ""}>
