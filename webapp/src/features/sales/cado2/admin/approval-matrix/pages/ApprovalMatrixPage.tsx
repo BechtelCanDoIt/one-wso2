@@ -51,11 +51,12 @@ import type {
   ApprovalSettings,
 } from "@features/sales/cado2/approvals/api/approvalTypes";
 import ProductMappingTab from "@features/sales/cado2/admin/approval-matrix/components/ProductMappingTab";
+import MatrixTab from "@features/sales/cado2/admin/approval-matrix/components/MatrixTab";
 import { mappingLabel } from "@features/sales/cado2/admin/approval-matrix/model/productMapping";
 import { roleLabel } from "@features/sales/cado2/approvals/model/approvalText";
 import { BILLING_LABEL, BILLING_OPTIONS, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 
-const TABS = ["Discount groups", "Product mapping", "Commercial rules", "Change log"] as const;
+const TABS = ["Discount groups", "Product mapping", "Matrix", "Commercial rules", "Change log"] as const;
 
 /**
  * The approval matrix, as admin data:
@@ -137,10 +138,11 @@ export default function ApprovalMatrixPage(): JSX.Element {
       <Box role="tabpanel" aria-label={TABS[tab]}>
         {tab === 0 ? <GroupsEditor matrix={draft} onChange={(groups) => update({ groups })} /> : null}
         {tab === 1 ? <ProductMappingTab matrix={draft} onChange={(mappings) => update({ mappings })} /> : null}
-        {tab === 2 ? (
+        {tab === 2 ? <MatrixTab matrix={draft} saved={loaded.data ?? draft} /> : null}
+        {tab === 3 ? (
           <SettingsEditor settings={draft.settings} roles={draft.roles} onChange={(settings) => update({ settings })} />
         ) : null}
-        {tab === 3 ? <ChangeLog /> : null}
+        {tab === 4 ? <ChangeLog /> : null}
       </Box>
 
       <Dialog open={inFlight !== null} onClose={() => !save.isPending && setInFlight(null)} fullWidth maxWidth="sm">

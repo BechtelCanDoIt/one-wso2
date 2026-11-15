@@ -62,6 +62,8 @@ const RULE: Record<string, { kind: ReasonKind; title: string }> = {
   BILLING_FREQUENCY: { kind: "payment", title: "Billing frequency" },
   // D171: a line charged other than its list price; Deal Desk checks it.
   SALES_PRICE: { kind: "discount", title: "Sales price changed" },
+  // D177: a discounted line no discount group covers; only Deal Desk checks it.
+  UNCOVERED_DISCOUNT: { kind: "discount", title: "Discount no approver covers" },
 };
 
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
