@@ -2034,12 +2034,19 @@ export function isProcurementBackendConfigured(): boolean {
 
 export const procurementServiceUrls = {
   me: `${procurementBackendUrl}/me`,
-  lookups: `${procurementBackendUrl}/lookups`,
-  directory: (query: string): string => `${procurementBackendUrl}/directory?q=${encodeSegment(query)}`,
-  requests: `${procurementBackendUrl}/purchase-requests`,
-  request: (requestId: string): string => `${procurementBackendUrl}/purchase-requests/${encodeSegment(requestId)}`,
-  requestDocuments: (requestId: string): string =>
-    `${procurementBackendUrl}/purchase-requests/${encodeSegment(requestId)}/documents`,
+  meTeamLead: `${procurementBackendUrl}/me/team-lead`,
+  referenceData: (type: string): string => `${procurementBackendUrl}/reference-data?type=${encodeSegment(type)}`,
+  budgetApprovers: (businessUnit: string, region: string): string => {
+    const q = new URLSearchParams();
+    if (businessUnit) q.set("businessUnit", businessUnit);
+    if (region) q.set("region", region);
+    return `${procurementBackendUrl}/budget-approvers?${q.toString()}`;
+  },
+  engagementCodes: (businessUnit: string): string =>
+    `${procurementBackendUrl}/engagement-codes?businessUnit=${encodeSegment(businessUnit)}`,
+  directoryEmployees: (query: string): string => `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}`,
+  requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
+  request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
 };
 
 export const cado2ServiceUrls = {

@@ -14,21 +14,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Shapes of the Procurement phase 1 contract, as the UI reads and writes them.
-// The backend does not exist yet: this is the contract the UI proposes, and
-// `api/procurementApi.ts` is the one place that has to change if it differs.
+// Shapes of the Procurement contract, as the UI reads and writes them. The
+// backend's own wire shapes live in api/backendTypes.ts; api/backendMapping.ts
+// converts between the two.
 
 export type ProcurementCategory = "IT" | "NON-IT";
 
+/** A category a request can have when it is read back; Marketing & Events cannot be raised here yet. */
+export type RequestCategory = ProcurementCategory | "EVENTS";
+
 /**
- * Where a request stands. `submitted` is waiting on the team lead; `approved`
- * is waiting for Procurement to assign it; `assigned` is where phase 1 ends.
+ * Where a request stands. `draft` is saved but not sent; `submitted` waits on
+ * the approvers; `approved` waits for Procurement to assign it; `assigned` is
+ * where phase 1 ends; `cancelled` was withdrawn by the requester.
  */
-export type RequestStatus = "submitted" | "approved" | "rejected" | "assigned";
+export type RequestStatus = "draft" | "submitted" | "approved" | "rejected" | "assigned" | "cancelled";
 
 export type YesNo = "yes" | "no";
 
-/** A signed-in employee, as the directory knows them. `id` is the Asgardeo user id. */
+/** An employee. `id` is the email, which is what the backend identifies people by. */
 export interface Person {
   id: string;
   name: string;
@@ -36,8 +40,12 @@ export interface Person {
 }
 
 export interface ProcurementMe extends Person {
-  /** The requester's reporting lead, who is the team lead unless the requester picks another. */
-  reportingLead: Person | null;
+  /** Procurement roles taken from the user's groups, e.g. `procurement_user`. */
+  roles: string[];
+  /** The manager who approves the user's requests, when there is one. */
+  teamLead: Person | null;
+  /** True for someone whose requests need no approver, such as the CEO. */
+  approvalExempt: boolean;
 }
 
 export interface Integration {
@@ -51,10 +59,6 @@ export interface Vendor {
   contact: string;
   email: string;
   phone: string;
-}
-
-export interface BudgetApprover {
-  email: string;
 }
 
 /** What the requester says about a request, per category. Free text is shown as text, never HTML. */
@@ -83,6 +87,7 @@ export interface RequestDetails {
   vendorDocsLink: string;
 }
 
+/** The budget details of a request. Each list value is the code the backend knows it by. */
 export interface BudgetDetails {
   category: string;
   businessUnit: string;
@@ -99,14 +104,16 @@ export interface AttachmentInfo {
   sizeBytes: number;
 }
 
-/** What the requester fills in. The requester, status and dates are set by the server, never sent. */
+/** What the requester fills in. The requester, team lead, status and dates are set by the server, never sent. */
 export interface PurchaseRequestInput {
   category: ProcurementCategory;
-  teamLeadId: string;
+  /** Emails of the people who may approve besides the team lead; at most 5. */
+  additionalApprovers: string[];
   details: RequestDetails;
   vendors: Vendor[];
   budget: BudgetDetails;
-  budgetApprovers: BudgetApprover[];
+  /** The chosen budget approver's id, or "" when none. */
+  budgetApproverId: string;
   notes: string;
   declarationAccepted: boolean;
 }
@@ -117,28 +124,49 @@ export interface TeamLeadDecision {
   decidedAt: string | null;
 }
 
-export interface PurchaseRequest extends Omit<PurchaseRequestInput, "teamLeadId"> {
+/** A row of My Requests. */
+export interface RequestSummary {
   id: string;
-  reference: string;
+  /** Null until the request is first submitted. */
+  reference: string | null;
   title: string;
+  category: RequestCategory;
   status: RequestStatus;
-  requester: Person;
-  teamLead: Person;
-  teamLeadDecision: TeamLeadDecision;
-  attachments: AttachmentInfo[];
-  submittedAt: string;
+  submittedAt: string | null;
   updatedAt: string;
 }
 
-/** The lists the form's pickers draw from. */
+export interface PurchaseRequest extends RequestSummary {
+  requester: Person;
+  /** Null when nobody approves, or the backend did not say who. */
+  teamLead: Person | null;
+  additionalApprovers: string[];
+  teamLeadDecision: TeamLeadDecision;
+  details: RequestDetails;
+  vendors: Vendor[];
+  budget: BudgetDetails;
+  budgetApproverId: string;
+  budgetApproverName: string;
+  notes: string;
+  attachments: AttachmentInfo[];
+}
+
+/** One entry of a pick list: what is stored, and what the person sees. */
+export interface Choice {
+  value: string;
+  label: string;
+}
+
+/** A budget approver the requester can choose. */
+export interface BudgetApproverOption {
+  id: string;
+  name: string;
+}
+
+/** The lists the form's pickers draw from. Engagement codes and budget approvers depend on the business unit and region, so they are asked for separately. */
 export interface ProcurementLookups {
-  itCategories: string[];
-  usagePeriods: string[];
-  budgetCategories: string[];
-  businessUnits: string[];
-  products: string[];
-  regions: string[];
-  /** Read-only NetSuite cost-center codes, through the Finance entity service. */
-  engagementCodes: string[];
-  budgetApprovers: Person[];
+  budgetCategories: Choice[];
+  businessUnits: Choice[];
+  products: Choice[];
+  regions: Choice[];
 }
