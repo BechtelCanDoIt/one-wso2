@@ -15,7 +15,7 @@
 // under the License.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
@@ -66,8 +66,10 @@ function Address() {
   return <output data-testid="address">{search}</output>;
 }
 
-function renderPage(path = "/store/p/wso2-hoodie") {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+function renderPage(
+  path = "/store/p/wso2-hoodie",
+  client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } }),
+) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[path]}>
@@ -215,6 +217,24 @@ describe("the product page", () => {
     });
     renderPage("/store/p/wso2-hoodie?colour=Heather%20grey&size=S");
     await userEvent.click(await screen.findByRole("button", { name: "Notify me" }));
+    expect(await screen.findByText("We'll email you when it's back in stock.")).toBeInTheDocument();
+  });
+
+  it("keeps a confirmed alert when only a list read from before the store answered is newer", async () => {
+    backend();
+    let answer: (v: unknown) => void = () => {};
+    http.authedPost.mockReturnValue(new Promise((resolve) => (answer = resolve)));
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryDelay: 0 } } });
+    renderPage("/store/p/wso2-hoodie?colour=Heather%20grey&size=S", client);
+    await userEvent.click(await screen.findByRole("button", { name: "Notify me" }));
+    // A background read lands while the alert is still being made: it can't list it yet.
+    await act(() => client.invalidateQueries({ predicate: (q) => q.queryKey.includes("alerts") }));
+    // Then the read after the store answers fails.
+    http.authedGet.mockImplementation(async (url: string) => {
+      if (url === "/stock-alerts") throw new HttpError(url, 503, "");
+      return url.startsWith("/products/") ? hoodie() : { items: [office()], defaultOfficeId: "office-colombo" };
+    });
+    await act(async () => answer({ id: "alert-1" }));
     expect(await screen.findByText("We'll email you when it's back in stock.")).toBeInTheDocument();
   });
 
