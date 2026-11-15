@@ -79,6 +79,8 @@ export default function OfficeFormDialog({ office, onClose }: OfficeFormDialogPr
 
   const leadOk = Number.isInteger(form.leadTimeDays) && form.leadTimeDays >= 0 && form.leadTimeDays <= 60;
   const canSave = form.name.trim() !== "" && leadOk && !save.isPending;
+  // Held while saving: what was sent is what gets saved, and the dialog closes on success.
+  const held = save.isPending;
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -104,6 +106,7 @@ export default function OfficeFormDialog({ office, onClose }: OfficeFormDialogPr
       label={label}
       size="small"
       required={required}
+      disabled={held}
       value={form[field]}
       onChange={(e) => set(field, e.target.value)}
       slotProps={{ htmlInput: { maxLength: 200 } }}
@@ -124,6 +127,7 @@ export default function OfficeFormDialog({ office, onClose }: OfficeFormDialogPr
             label="Lead time (working days)"
             size="small"
             type="number"
+            disabled={held}
             value={Number.isNaN(form.leadTimeDays) ? "" : form.leadTimeDays}
             onChange={(e) => set("leadTimeDays", e.target.value === "" ? Number.NaN : Number(e.target.value))}
             error={!leadOk}
@@ -133,12 +137,13 @@ export default function OfficeFormDialog({ office, onClose }: OfficeFormDialogPr
           <TextField
             label="HR locations"
             size="small"
+            disabled={held}
             value={locations}
             onChange={(e) => setLocations(e.target.value)}
             helperText="Comma-separated. People in these HR locations get this office by default."
           />
           <FormControlLabel
-            control={<Checkbox checked={form.active} onChange={(e) => set("active", e.target.checked)} />}
+            control={<Checkbox checked={form.active} disabled={held} onChange={(e) => set("active", e.target.checked)} />}
             label="Open for pickup"
           />
           {save.isError && <Alert severity="error">{messageFor(save.error)}</Alert>}

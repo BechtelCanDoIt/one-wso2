@@ -37,8 +37,10 @@ export default function NotifyMeButton({ variantId, productSlug }: NotifyMeButto
   const cancel = useCancelAlert(productSlug);
 
   const waiting = alerts.data?.items.find((a) => a.variantId === variantId && a.status === "PENDING");
-  // Until the list is read again, the alert just made stands in for it.
-  const justCreated = create.isSuccess && create.variables === variantId ? create.data : undefined;
+  // Until the list is read again, the alert just made stands in for it. A list
+  // read after it was made is the answer, even one without it (stopped elsewhere).
+  const listedSince = alerts.dataUpdatedAt >= create.submittedAt;
+  const justCreated = create.isSuccess && create.variables === variantId && !listedSince ? create.data : undefined;
   const alertId = waiting?.id ?? justCreated;
 
   if (alerts.isPending && !alertId) {

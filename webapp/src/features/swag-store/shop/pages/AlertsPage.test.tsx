@@ -102,6 +102,21 @@ describe("the alerts page", () => {
     await waitFor(() => expect(http.authedGet).toHaveBeenCalledTimes(2));
   });
 
+  it("holds every Remove while one removal runs, so removals never overlap", async () => {
+    http.authedGet.mockResolvedValue({ items: [stockAlert(), stockAlert({ id: "alert-2", options: "Heather grey · M" })] });
+    let finish: () => void = () => {};
+    http.authedDelete.mockReturnValue(new Promise<void>((resolve) => (finish = resolve)));
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Remove the alert for WSO2 Hoodie, Heather grey · S" }));
+    expect(screen.getByRole("button", { name: "Remove the alert for WSO2 Hoodie, Heather grey · S" })).toHaveTextContent("Removing…");
+    const other = screen.getByRole("button", { name: "Remove the alert for WSO2 Hoodie, Heather grey · M" });
+    expect(other).toBeDisabled();
+    expect(other).toHaveTextContent("Remove");
+    finish();
+    await waitFor(() => expect(other).toBeEnabled());
+    expect(http.authedDelete).toHaveBeenCalledTimes(1);
+  });
+
   it("explains a refused removal on the page", async () => {
     http.authedGet.mockResolvedValue({ items: [stockAlert()] });
     http.authedDelete.mockRejectedValue(new HttpError("/stock-alerts/alert-1", 404, JSON.stringify({ message: "Not found." })));

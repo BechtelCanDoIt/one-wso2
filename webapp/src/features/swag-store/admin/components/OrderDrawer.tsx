@@ -140,10 +140,15 @@ function OrderDetails({ order }: { order: SwagStoreAdminOrderDetail }): JSX.Elem
   );
 }
 
-/** Only the step that comes next: ready for pickup once paid, collected once ready. */
+/**
+ * Only the step that comes next: ready for pickup once paid, collected once ready.
+ * The step owns the transition, so a conflict notice survives the reload that
+ * swaps one form for the next.
+ */
 function NextStep({ order }: { order: SwagStoreAdminOrderDetail }): JSX.Element {
-  if (order.status === "CONFIRMED") return <ReadyForPickupForm orderNo={order.orderNo} />;
-  if (order.status === "READY_FOR_PICKUP") return <MarkCollectedForm orderNo={order.orderNo} />;
+  const move = useTransitionOrder(order.orderNo);
+  if (order.status === "CONFIRMED") return <ReadyForPickupForm move={move} />;
+  if (order.status === "READY_FOR_PICKUP") return <MarkCollectedForm move={move} />;
   const done =
     order.status === "COLLECTED"
       ? `Collected${order.collectedBy ? `, handed over by ${order.collectedBy}` : ""}.`
@@ -160,8 +165,9 @@ function transitionError(error: Error | null): string | undefined {
     : messageFor(error);
 }
 
-function ReadyForPickupForm({ orderNo }: { orderNo: string }): JSX.Element {
-  const move = useTransitionOrder(orderNo);
+type Transition = ReturnType<typeof useTransitionOrder>;
+
+function ReadyForPickupForm({ move }: { move: Transition }): JSX.Element {
   const [note, setNote] = useState("");
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -195,8 +201,7 @@ function ReadyForPickupForm({ orderNo }: { orderNo: string }): JSX.Element {
   );
 }
 
-function MarkCollectedForm({ orderNo }: { orderNo: string }): JSX.Element {
-  const move = useTransitionOrder(orderNo);
+function MarkCollectedForm({ move }: { move: Transition }): JSX.Element {
   const [idChecked, setIdChecked] = useState(false);
   const [note, setNote] = useState("");
   const submit = (e: FormEvent) => {
@@ -271,6 +276,8 @@ function Notes({ order }: { order: SwagStoreAdminOrderDetail }): JSX.Element {
           size="small"
           multiline
           minRows={2}
+          // Held while adding: success clears the field, so nothing typed meanwhile is lost.
+          disabled={add.isPending}
           value={note}
           onChange={(e) => setNote(e.target.value)}
           slotProps={{ htmlInput: { maxLength: NOTE_MAX } }}

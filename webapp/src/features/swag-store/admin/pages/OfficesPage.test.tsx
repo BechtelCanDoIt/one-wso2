@@ -102,6 +102,19 @@ describe("the pickup offices page", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   }, 15000);
 
+  it("holds the fields while saving, so nothing typed then is lost", async () => {
+    http.authedPost.mockReturnValue(new Promise(() => {}));
+    renderPage();
+    await userEvent.click(await screen.findByRole("button", { name: "Add office" }));
+    const dialog = screen.getByRole("dialog", { name: "Add office" });
+    await userEvent.type(within(dialog).getByRole("textbox", { name: "Name" }), "Galle");
+    await userEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(within(dialog).getByRole("textbox", { name: "Name" })).toBeDisabled();
+    expect(within(dialog).getByRole("textbox", { name: "HR locations" })).toBeDisabled();
+    expect(within(dialog).getByRole("spinbutton", { name: "Lead time (working days)" })).toBeDisabled();
+    expect(within(dialog).getByRole("checkbox", { name: "Open for pickup" })).toBeDisabled();
+  });
+
   it("edits an office, sending the whole office back", async () => {
     http.authedPatch.mockResolvedValue(adminOffice({ leadTimeDays: 4 }));
     renderPage();

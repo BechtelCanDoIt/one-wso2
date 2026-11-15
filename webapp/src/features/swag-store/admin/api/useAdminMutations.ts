@@ -76,6 +76,8 @@ export function useExportOrders(): UseMutationResult<void, Error, AdminOrdersVie
   const { getToken } = useSwagStoreBasis();
   return useMutation<void, Error, AdminOrdersView>({
     mutationFn: async (view) => {
+      // Paging is still checked (limit 1 to 100), but a CSV answer ignores it: the
+      // backend exports every match from the first, up to 5,000 rows.
       const body = { ...orderSearchBody(view), pagination: { limit: 100, offset: 0 } };
       const csv = await authedPostText(swagStoreServiceUrls.admin.ordersSearch, await getToken(), body, {
         Accept: "text/csv",
