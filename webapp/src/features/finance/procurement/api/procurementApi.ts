@@ -18,30 +18,45 @@
 // Screens and hooks talk to `ProcurementApi` only; nothing else in the feature
 // builds a URL or knows a mock exists.
 
-import { authedGet, authedPost, authedPut, fetchWithReauth } from "@api/http";
-import {
-  isProcurementBackendConfigured,
-  procurementServiceUrls as urls,
-} from "@config/apiConfig";
+import { authedGet } from "@api/http";
+import { isProcurementBackendConfigured, procurementServiceUrls as urls } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import type {
+  BudgetApproverOption,
+  Choice,
   Person,
   ProcurementLookups,
   ProcurementMe,
   PurchaseRequest,
   PurchaseRequestInput,
+  RequestSummary,
 } from "../types";
+import type {
+  BackendBudgetApprover,
+  BackendDirectoryUser,
+  BackendEngagementOption,
+  BackendReferenceItem,
+  BackendRequestDetail,
+  BackendRequestSummary,
+  BackendTeamLeadResult,
+  BackendUser,
+} from "./backendTypes";
+import { toBudgetApprovers, toChoices, toEngagementChoices, toMe, toPerson, toRequest, toSummary } from "./backendMapping";
 import { createMockProcurementApi } from "./mockProcurementApi";
 
 export interface ProcurementApi {
   getMe: () => Promise<ProcurementMe>;
   getLookups: () => Promise<ProcurementLookups>;
-  /** Employees whose name or email starts with `query`; name and email only, capped by the backend. */
+  /** Approvers who cover the business unit (by code) or the region (by code); none when neither is given. */
+  getBudgetApprovers: (scope: { businessUnit: string; region: string }) => Promise<BudgetApproverOption[]>;
+  /** Engagement codes funded by a business unit, asked for by the unit's name; none when no unit is given. */
+  getEngagementCodes: (businessUnitName: string) => Promise<Choice[]>;
+  /** Employees whose email starts with `query`; name and email only, capped by the backend. */
   searchDirectory: (query: string) => Promise<Person[]>;
-  listMyRequests: () => Promise<PurchaseRequest[]>;
+  listMyRequests: () => Promise<RequestSummary[]>;
   getRequest: (requestId: string) => Promise<PurchaseRequest>;
   submitRequest: (input: PurchaseRequestInput, files: File[]) => Promise<PurchaseRequest>;
-  /** Edit a rejected request and send it back to the team lead. */
+  /** Edit a rejected request and send it back to the approvers. */
   resubmitRequest: (requestId: string, input: PurchaseRequestInput, files: File[]) => Promise<PurchaseRequest>;
 }
 
@@ -55,35 +70,50 @@ export function isProcurementAvailable(): boolean {
   return isProcurementBackendConfigured() || isProcurementMockActive();
 }
 
-async function uploadDocuments(requestId: string, files: File[], accessToken: string): Promise<void> {
-  for (const file of files) {
-    const body = new FormData();
-    body.append("file", file);
-    const res = await fetchWithReauth(urls.requestDocuments(requestId), { method: "POST", body }, accessToken);
-    if (!res.ok) throw new Error(`"${file.name}" could not be uploaded.`);
-  }
-}
+/** The lists the form draws its budget fields from, as the backend names them. */
+const REFERENCE_TYPES = ["BUDGET_CATEGORY", "BUSINESS_UNIT", "PRODUCT", "REGION"] as const;
 
-function createHttpProcurementApi(getAccessToken: () => Promise<string>): ProcurementApi {
+/** My Requests shows one page of this many, the most the backend allows. */
+const REQUEST_PAGE_SIZE = 100;
+
+/**
+ * Reads come from the backend. Submitting is still the sample-data double: the
+ * backend saves a draft and submits it in two calls and stores different content
+ * than the form collects, which is the next piece of work. Until then a submit
+ * does not reach the backend, and resubmitting a real request is refused.
+ */
+function createHttpProcurementApi(
+  getAccessToken: () => Promise<string>,
+  user: Person,
+  submitting: ProcurementApi,
+): ProcurementApi {
+  const get = async <T>(url: string): Promise<T> => authedGet<T>(url, await getAccessToken());
   return {
-    getMe: async () => authedGet<ProcurementMe>(urls.me, await getAccessToken()),
-    getLookups: async () => authedGet<ProcurementLookups>(urls.lookups, await getAccessToken()),
-    searchDirectory: async (query) => authedGet<Person[]>(urls.directory(query), await getAccessToken()),
-    listMyRequests: async () => authedGet<PurchaseRequest[]>(urls.requests, await getAccessToken()),
-    getRequest: async (requestId) => authedGet<PurchaseRequest>(urls.request(requestId), await getAccessToken()),
-    submitRequest: async (input, files) => {
-      const token = await getAccessToken();
-      const created = await authedPost<PurchaseRequest>(urls.requests, token, input);
-      if (!created) throw new Error("The request was not created.");
-      await uploadDocuments(created.id, files, token);
-      return created;
+    getMe: async () => {
+      const [backendUser, lead] = await Promise.all([get<BackendUser>(urls.me), get<BackendTeamLeadResult>(urls.meTeamLead)]);
+      return toMe(backendUser, lead, user);
     },
-    resubmitRequest: async (requestId, input, files) => {
-      const token = await getAccessToken();
-      const updated = await authedPut<PurchaseRequest>(urls.request(requestId), token, input);
-      if (!updated) throw new Error("The request was not updated.");
-      await uploadDocuments(requestId, files, token);
-      return updated;
+    getLookups: async () => {
+      const [budgetCategories, businessUnits, products, regions] = await Promise.all(
+        REFERENCE_TYPES.map((type) => get<BackendReferenceItem[]>(urls.referenceData(type))),
+      );
+      return {
+        budgetCategories: toChoices(budgetCategories),
+        businessUnits: toChoices(businessUnits),
+        products: toChoices(products),
+        regions: toChoices(regions),
+      };
+    },
+    getBudgetApprovers: async ({ businessUnit, region }) =>
+      businessUnit || region ? toBudgetApprovers(await get<BackendBudgetApprover[]>(urls.budgetApprovers(businessUnit, region))) : [],
+    getEngagementCodes: async (businessUnitName) =>
+      businessUnitName ? toEngagementChoices(await get<BackendEngagementOption[]>(urls.engagementCodes(businessUnitName))) : [],
+    searchDirectory: async (query) => (await get<BackendDirectoryUser[]>(urls.directoryEmployees(query))).map(toPerson),
+    listMyRequests: async () => (await get<BackendRequestSummary[]>(urls.requests(REQUEST_PAGE_SIZE))).map(toSummary),
+    getRequest: async (requestId) => toRequest(await get<BackendRequestDetail>(urls.request(requestId))),
+    submitRequest: (input, files) => submitting.submitRequest(input, files),
+    resubmitRequest: async () => {
+      throw new Error("Resubmitting is not connected to the backend yet.");
     },
   };
 }
@@ -92,8 +122,9 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>): Procur
  * The API for the signed-in user.
  *
  * @param getAccessToken - Resolves the current access token
- * @param user - The signed-in user's identity, which the mock stands in for the backend with
+ * @param user - The signed-in user's identity, which the sample data stands in for the backend with
  */
 export function createProcurementApi(getAccessToken: () => Promise<string>, user: Person): ProcurementApi {
-  return isProcurementMockActive() ? createMockProcurementApi(user) : createHttpProcurementApi(getAccessToken);
+  const sample = createMockProcurementApi(user);
+  return isProcurementMockActive() ? sample : createHttpProcurementApi(getAccessToken, user, sample);
 }

@@ -20,13 +20,33 @@
 
 import type {
   BudgetDetails,
+  Choice,
   Person,
   ProcurementCategory,
+  ProcurementLookups,
+  ProcurementMe,
   PurchaseRequest,
   PurchaseRequestInput,
   RequestDetails,
   Vendor,
 } from "../types";
+
+/** The backend only searches the directory from this many characters. */
+export const MIN_DIRECTORY_QUERY = 3;
+
+/** The most additional approvers the backend accepts on a request. */
+export const MAX_ADDITIONAL_APPROVERS = 5;
+
+/** How long the software is expected to be used. Not stored by the backend yet, so it is not a looked-up list. */
+export const USAGE_PERIODS = [
+  "Trial / pilot (under 3 months)",
+  "Monthly plan",
+  "1 year",
+  "2 years",
+  "3+ years",
+  "Ongoing / perpetual",
+  "Other",
+] as const;
 
 export const REQUEST_STEPS = ["Requester details", "Procurement category", "Requirement details", "Vendor & budget", "Review & submit"] as const;
 
@@ -43,11 +63,13 @@ export const STEP_REVIEW = 5;
 
 export interface RequestDraft {
   category: ProcurementCategory | "";
-  teamLead: Person | null;
+  /** People who may approve besides the team lead, which the backend chooses. */
+  additionalApprovers: Person[];
   details: RequestDetails;
   vendors: Vendor[];
   budget: BudgetDetails;
-  budgetApproverEmails: string[];
+  /** The chosen budget approver's id, or "" when none. */
+  budgetApproverId: string;
   notes: string;
   declarationAccepted: boolean;
 }
@@ -87,15 +109,14 @@ export function emptyBudget(): BudgetDetails {
   return { category: "", businessUnit: "", product: "", region: "", engagementCode: "", salesforceCampaign: "" };
 }
 
-/** @param reportingLead - Who the team lead defaults to, when the requester has one */
-export function emptyDraft(reportingLead: Person | null): RequestDraft {
+export function emptyDraft(): RequestDraft {
   return {
     category: "",
-    teamLead: reportingLead,
+    additionalApprovers: [],
     details: emptyDetails(),
     vendors: [emptyVendor()],
     budget: emptyBudget(),
-    budgetApproverEmails: [""],
+    budgetApproverId: "",
     notes: "",
     declarationAccepted: false,
   };
@@ -104,18 +125,37 @@ export function emptyDraft(reportingLead: Person | null): RequestDraft {
 /** A rejected request, reopened for editing. The declaration must be made again on resubmit. */
 export function draftFromRequest(request: PurchaseRequest): RequestDraft {
   return {
-    category: request.category,
-    teamLead: request.teamLead,
+    category: request.category === "EVENTS" ? "" : request.category,
+    additionalApprovers: request.additionalApprovers.map((email) => ({ id: email, name: email, email })),
     details: { ...request.details },
     vendors: request.vendors.length ? request.vendors.map((v) => ({ ...v })) : [emptyVendor()],
     budget: { ...request.budget },
-    budgetApproverEmails: request.budgetApprovers.length ? request.budgetApprovers.map((a) => a.email) : [""],
+    budgetApproverId: request.budgetApproverId,
     notes: request.notes,
     declarationAccepted: false,
   };
 }
 
 const blank = (value: string): boolean => value.trim() === "";
+
+const labelIn = (list: readonly Choice[], value: string): string => list.find((c) => c.value === value)?.label ?? value;
+
+/**
+ * A budget as a person reads it: each code replaced by its label from the
+ * lists. A code that is no longer listed is shown as it is.
+ *
+ * @param engagement - The engagement codes of the budget's business unit
+ */
+export function budgetForDisplay(budget: BudgetDetails, lookups: ProcurementLookups, engagement: readonly Choice[]): BudgetDetails {
+  return {
+    category: labelIn(lookups.budgetCategories, budget.category),
+    businessUnit: labelIn(lookups.businessUnits, budget.businessUnit),
+    product: labelIn(lookups.products, budget.product),
+    region: labelIn(lookups.regions, budget.region),
+    engagementCode: labelIn(engagement, budget.engagementCode),
+    salesforceCampaign: budget.salesforceCampaign,
+  };
+}
 
 function itDetailsMissing(d: RequestDetails): string[] {
   const missing: string[] = [];
@@ -155,21 +195,27 @@ function budgetMissing(draft: RequestDraft): string[] {
     if (blank(b.product)) missing.push("Product");
     if (blank(b.region)) missing.push("Region");
     if (blank(b.engagementCode)) missing.push("Engagement code");
+    if (blank(draft.budgetApproverId)) missing.push("Budget approver");
   }
-  if (!draft.budgetApproverEmails.some((e) => !blank(e))) missing.push("Budget approver");
   return missing;
 }
 
 /**
  * What a step still needs, as the labels the person sees. Empty means the step is complete.
  *
- * @param requester - The signed-in user; nobody may be their own team lead
+ * @param me - The signed-in user, who may not approve their own request
  */
-export function missingForStep(step: number, draft: RequestDraft, requester: Person): string[] {
+export function missingForStep(step: number, draft: RequestDraft, me: ProcurementMe): string[] {
   switch (step) {
     case STEP_REQUESTER: {
-      if (!draft.teamLead) return ["Team lead"];
-      return isSamePerson(draft.teamLead, requester) ? ["a team lead other than yourself"] : [];
+      // With no manager on record, the first additional approver becomes the team lead.
+      if (!me.teamLead && !me.approvalExempt && draft.additionalApprovers.length === 0) {
+        return ["a team lead or an additional approver"];
+      }
+      const notAllowed = draft.additionalApprovers.some(
+        (a) => isSamePerson(a, me) || (me.teamLead !== null && isSamePerson(a, me.teamLead)),
+      );
+      return notAllowed ? ["additional approvers other than yourself and your team lead"] : [];
     }
     case STEP_CATEGORY:
       return draft.category ? [] : ["Procurement category"];
@@ -187,9 +233,9 @@ export function missingForStep(step: number, draft: RequestDraft, requester: Per
 }
 
 /** Every step before review, in order, with what each is missing; steps that are complete are left out. */
-export function incompleteSteps(draft: RequestDraft, requester: Person): { step: number; missing: string[] }[] {
+export function incompleteSteps(draft: RequestDraft, me: ProcurementMe): { step: number; missing: string[] }[] {
   return [STEP_REQUESTER, STEP_CATEGORY, STEP_DETAILS, STEP_BUDGET]
-    .map((step) => ({ step, missing: missingForStep(step, draft, requester) }))
+    .map((step) => ({ step, missing: missingForStep(step, draft, me) }))
     .filter((s) => s.missing.length > 0);
 }
 
@@ -203,14 +249,14 @@ const cleanList = (values: string[]): string[] => values.map((v) => v.trim()).fi
  * The request the backend is sent. The requester, status and dates are not in
  * it: the server takes them from the token and its own clock.
  *
- * @throws When the draft has no category or team lead; callers check `incompleteSteps` first
+ * @throws When the draft has no category; callers check `incompleteSteps` first
  */
 export function draftToInput(draft: RequestDraft): PurchaseRequestInput {
-  if (!draft.category || !draft.teamLead) throw new Error("The request is incomplete.");
+  if (!draft.category) throw new Error("The request is incomplete.");
   const d = draft.details;
   return {
     category: draft.category,
-    teamLeadId: draft.teamLead.id,
+    additionalApprovers: draft.additionalApprovers.map((a) => a.email),
     details: {
       ...d,
       userNames: cleanList(d.userNames),
@@ -219,7 +265,7 @@ export function draftToInput(draft: RequestDraft): PurchaseRequestInput {
     },
     vendors: draft.vendors.filter((v) => !blank(v.name)),
     budget: draft.budget,
-    budgetApprovers: cleanList(draft.budgetApproverEmails).map((email) => ({ email })),
+    budgetApproverId: draft.budgetApproverId,
     notes: draft.notes,
     declarationAccepted: draft.declarationAccepted,
   };

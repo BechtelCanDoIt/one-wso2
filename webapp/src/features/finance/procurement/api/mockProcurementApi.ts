@@ -14,13 +14,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// SAMPLE DATA ONLY, served in dev builds while the Procurement backend does not
-// exist (see isProcurementMockActive). Held in memory, so a reload starts over;
-// nothing is written to browser storage. It applies the rules the backend will
-// own, so the screens meet the same refusals: the team lead must be someone in
-// the directory and never the requester, and only a rejected request is edited.
+// SAMPLE DATA ONLY, served in dev builds while the Procurement backend is not
+// configured (see isProcurementMockActive), and used for submitting while that
+// is not connected. Held in memory, so a reload starts over; nothing is written
+// to browser storage. It follows the backend's rules where the screens meet
+// them: an additional approver is never the requester or the team lead, and
+// only a rejected request is edited.
 
 import type {
+  BudgetApproverOption,
+  Choice,
   Person,
   ProcurementLookups,
   ProcurementMe,
@@ -30,41 +33,31 @@ import type {
 import { emptyDetails } from "../request-form/requestFormModel";
 import type { ProcurementApi } from "./procurementApi";
 
+const person = (name: string, email: string): Person => ({ id: email, name, email });
+
 // Sample people, lists and vendors.
 export const MOCK_DIRECTORY: readonly Person[] = [
-  { id: "u-1", name: "Alex Morgan", email: "alex.morgan@example.com" },
-  { id: "u-2", name: "Blake Rivers", email: "blake.rivers@example.com" },
-  { id: "u-3", name: "Casey Lane", email: "casey.lane@example.com" },
-  { id: "u-4", name: "Drew Parker", email: "drew.parker@example.com" },
-  { id: "u-5", name: "Emery Quinn", email: "emery.quinn@example.com" },
-  { id: "u-6", name: "Finley Brooks", email: "finley.brooks@example.com" },
-  { id: "u-7", name: "Legal Reviewer", email: "legal.reviewer@example.com" },
-  { id: "u-8", name: "Security Reviewer", email: "security.reviewer@example.com" },
-  { id: "u-9", name: "Compliance Reviewer", email: "compliance.reviewer@example.com" },
-  { id: "u-10", name: "Budget Owner", email: "budget.owner@example.com" },
-  { id: "u-11", name: "Jordan Ellis", email: "jordan.ellis@example.com" },
+  person("Alex Morgan", "alex.morgan@example.com"),
+  person("Blake Rivers", "blake.rivers@example.com"),
+  person("Casey Lane", "casey.lane@example.com"),
+  person("Drew Parker", "drew.parker@example.com"),
+  person("Emery Quinn", "emery.quinn@example.com"),
+  person("Finley Brooks", "finley.brooks@example.com"),
+  person("Legal Reviewer", "legal.reviewer@example.com"),
+  person("Security Reviewer", "security.reviewer@example.com"),
+  person("Compliance Reviewer", "compliance.reviewer@example.com"),
+  person("Budget Owner", "budget.owner@example.com"),
+  person("Jordan Ellis", "jordan.ellis@example.com"),
 ];
 
+const TEAM_LEAD = MOCK_DIRECTORY[10];
+
+/** A pick list where each label also has a code, as the backend serves them. */
+const choices = (prefix: string, labels: string[]): Choice[] =>
+  labels.map((label, index) => ({ value: `${prefix}-${index + 1}`, label }));
+
 const MOCK_LOOKUPS: ProcurementLookups = {
-  itCategories: [
-    "Software licences & subscriptions (incl. renewals)",
-    "SaaS platform / cloud service",
-    "IT support services",
-    "Hosting services & domain names",
-    "IT hardware & equipment",
-    "Free / open-source tool (approval required)",
-    "Other IT solution",
-  ],
-  usagePeriods: [
-    "Trial / pilot (under 3 months)",
-    "Monthly plan",
-    "1 year",
-    "2 years",
-    "3+ years",
-    "Ongoing / perpetual",
-    "Other",
-  ],
-  budgetCategories: [
+  budgetCategories: choices("CAT", [
     "Software & Subscriptions",
     "Hardware & Equipment",
     "Cloud & Hosting",
@@ -75,8 +68,8 @@ const MOCK_LOOKUPS: ProcurementLookups = {
     "Travel & Accommodation",
     "Insurance",
     "Other",
-  ],
-  businessUnits: [
+  ]),
+  businessUnits: choices("BU", [
     "Finance",
     "Engineering - Platform",
     "Marketing",
@@ -85,8 +78,8 @@ const MOCK_LOOKUPS: ProcurementLookups = {
     "Facilities & Admin",
     "Legal",
     "Customer Success",
-  ],
-  products: [
+  ]),
+  products: choices("PRD", [
     "WSO2 API Manager",
     "WSO2 Identity Server",
     "WSO2 MI / Integration",
@@ -95,8 +88,8 @@ const MOCK_LOOKUPS: ProcurementLookups = {
     "Ballerina",
     "Cross-product / Platform",
     "Not product-specific",
-  ],
-  regions: [
+  ]),
+  regions: choices("REG", [
     "APAC - Sri Lanka",
     "APAC - India",
     "APAC - Australia",
@@ -107,47 +100,48 @@ const MOCK_LOOKUPS: ProcurementLookups = {
     "EMEA - Europe",
     "EMEA - Other",
     "Global / Multi-region",
-  ],
-  // The prototype ships no engagement codes, so the field takes what is typed.
-  engagementCodes: [],
-  // The prototype names its Budget Owner as the approver of every business unit.
-  budgetApprovers: MOCK_DIRECTORY.filter((p) => p.id === "u-10"),
+  ]),
 };
 
-const SEARCH_LIMIT = 8;
-const MIN_QUERY_LENGTH = 2;
+const MOCK_ENGAGEMENT_CODES: Choice[] = [
+  { value: "ENG-1001", label: "ENG-1001 - Platform Engineering" },
+  { value: "ENG-1002", label: "ENG-1002 - Sales Operations" },
+  { value: "ENG-2040", label: "ENG-2040 - Facilities" },
+];
+
+const MOCK_BUDGET_APPROVERS: BudgetApproverOption[] = [{ id: "10", name: "Budget Owner" }];
+
+/** The code of a sample list entry, found by its label. */
+const codeOf = (list: Choice[], label: string): string => list.find((c) => c.label === label)?.value ?? "";
+
+const SEARCH_LIMIT = 10;
+const MIN_QUERY_LENGTH = 3;
 
 function seedRequests(requester: Person): PurchaseRequest[] {
-  const base = {
-    budgetApprovers: [{ email: "budget.owner@example.com" }],
-    notes: "",
-    declarationAccepted: true,
-    requester,
-    attachments: [],
-  };
+  const L = MOCK_LOOKUPS;
+  const base = { additionalApprovers: [], notes: "", requester, attachments: [], budgetApproverId: "10", budgetApproverName: "Budget Owner" };
   const vendor = (name: string, website: string) => ({ name, website, contact: "", email: "", phone: "" });
   return [
     {
       ...base,
       id: "seed-1",
-      reference: "PR-2026-0003",
+      reference: "PR-2026-00003",
       title: "ZoomInfo",
       category: "IT",
       status: "submitted",
-      teamLead: MOCK_DIRECTORY[1],
+      teamLead: TEAM_LEAD,
       teamLeadDecision: { decision: "pending", notes: "", decidedAt: null },
       vendors: [vendor("ZoomInfo", "https://www.zoominfo.com")],
       budget: {
-        category: "Software & Subscriptions",
-        businessUnit: "Sales",
-        product: "Not product-specific",
-        region: "Global / Multi-region",
+        category: codeOf(L.budgetCategories, "Software & Subscriptions"),
+        businessUnit: codeOf(L.businessUnits, "Sales"),
+        product: codeOf(L.products, "Not product-specific"),
+        region: codeOf(L.regions, "Global / Multi-region"),
         engagementCode: "",
         salesforceCampaign: "",
       },
       details: {
         ...emptyDetails(),
-        itCategory: "Software licences & subscriptions (incl. renewals)",
         product: "ZoomInfo",
         plan: "Enterprise",
         description: "Contact and company data for the Sales team's prospecting.",
@@ -167,11 +161,11 @@ function seedRequests(requester: Person): PurchaseRequest[] {
     {
       ...base,
       id: "seed-2",
-      reference: "PR-2026-0002",
+      reference: "PR-2026-00002",
       title: "Co-working space, Colombo",
       category: "NON-IT",
       status: "rejected",
-      teamLead: MOCK_DIRECTORY[2],
+      teamLead: TEAM_LEAD,
       teamLeadDecision: {
         decision: "rejected",
         notes: "Please get a second quote and confirm the budget line.",
@@ -179,10 +173,10 @@ function seedRequests(requester: Person): PurchaseRequest[] {
       },
       vendors: [vendor("IWG / Spaces", "https://www.spacesworks.com")],
       budget: {
-        category: "Facilities & Office",
-        businessUnit: "Facilities & Admin",
-        product: "Not product-specific",
-        region: "APAC - Sri Lanka",
+        category: codeOf(L.budgetCategories, "Facilities & Office"),
+        businessUnit: codeOf(L.businessUnits, "Facilities & Admin"),
+        product: codeOf(L.products, "Not product-specific"),
+        region: codeOf(L.regions, "APAC - Sri Lanka"),
         engagementCode: "ENG-1001",
         salesforceCampaign: "",
       },
@@ -197,24 +191,23 @@ function seedRequests(requester: Person): PurchaseRequest[] {
     {
       ...base,
       id: "seed-3",
-      reference: "PR-2026-0001",
+      reference: "PR-2026-00001",
       title: "SentinelOne",
       category: "IT",
       status: "approved",
-      teamLead: MOCK_DIRECTORY[3],
+      teamLead: TEAM_LEAD,
       teamLeadDecision: { decision: "approved", notes: "", decidedAt: "2026-10-22T10:05:00.000Z" },
       vendors: [vendor("SentinelOne", "https://www.sentinelone.com")],
       budget: {
-        category: "Software & Subscriptions",
-        businessUnit: "Engineering - Platform",
-        product: "Cross-product / Platform",
-        region: "Global / Multi-region",
+        category: codeOf(L.budgetCategories, "Software & Subscriptions"),
+        businessUnit: codeOf(L.businessUnits, "Engineering - Platform"),
+        product: codeOf(L.products, "Cross-product / Platform"),
+        region: codeOf(L.regions, "Global / Multi-region"),
         engagementCode: "",
         salesforceCampaign: "",
       },
       details: {
         ...emptyDetails(),
-        itCategory: "SaaS platform / cloud service",
         product: "SentinelOne",
         plan: "Complete",
         description: "Endpoint protection for engineering laptops.",
@@ -237,16 +230,10 @@ function titleFor(input: PurchaseRequestInput): string {
   return text.trim().split("\n")[0].slice(0, 80) || "Untitled request";
 }
 
-function directoryPerson(id: string): Person {
-  const person = MOCK_DIRECTORY.find((p) => p.id === id);
-  if (!person) throw new Error("The team lead must be an active WSO2 employee.");
-  return person;
-}
-
 function buildMockProcurementApi(user: Person): ProcurementApi {
   const requests: PurchaseRequest[] = seedRequests(user);
   let counter = requests.length;
-  const me: ProcurementMe = { ...user, reportingLead: MOCK_DIRECTORY[10] };
+  const me: ProcurementMe = { ...user, roles: [], teamLead: TEAM_LEAD, approvalExempt: false };
 
   const find = (requestId: string): PurchaseRequest => {
     const found = requests.find((r) => r.id === requestId);
@@ -254,72 +241,76 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
     return found;
   };
 
-  const assertTeamLead = (input: PurchaseRequestInput): Person => {
-    const teamLead = directoryPerson(input.teamLeadId);
-    if (teamLead.id === user.id || teamLead.email.toLowerCase() === user.email.toLowerCase()) {
-      throw new Error("You cannot be the team lead on your own request.");
+  const assertApprovers = (input: PurchaseRequestInput): void => {
+    const emails = input.additionalApprovers.map((e) => e.toLowerCase());
+    if (emails.includes(user.email.toLowerCase()) || emails.includes(TEAM_LEAD.email.toLowerCase())) {
+      throw new Error("An additional approver cannot be you or your team lead.");
     }
-    return teamLead;
   };
 
-  const attachmentsOf = (files: File[]) =>
-    files.map((file, index) => ({ id: `doc-${Date.now()}-${index}`, filename: file.name, sizeBytes: file.size }));
+  const approverName = (id: string): string => MOCK_BUDGET_APPROVERS.find((a) => a.id === id)?.name ?? "";
 
   return {
     getMe: async () => me,
     getLookups: async () => MOCK_LOOKUPS,
+    getBudgetApprovers: async ({ businessUnit, region }) => (businessUnit || region ? MOCK_BUDGET_APPROVERS : []),
+    getEngagementCodes: async (businessUnitName) => (businessUnitName ? MOCK_ENGAGEMENT_CODES : []),
     searchDirectory: async (query) => {
       const q = query.trim().toLowerCase();
       if (q.length < MIN_QUERY_LENGTH) return [];
       return MOCK_DIRECTORY.filter(
-        (p) => p.id !== user.id && (p.name.toLowerCase().includes(q) || p.email.toLowerCase().startsWith(q)),
+        (p) => p.email.toLowerCase() !== user.email.toLowerCase() && (p.email.toLowerCase().startsWith(q) || p.name.toLowerCase().includes(q)),
       ).slice(0, SEARCH_LIMIT);
     },
-    listMyRequests: async () => [...requests].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt)),
+    listMyRequests: async () =>
+      [...requests]
+        .sort((a, b) => (b.submittedAt ?? b.updatedAt).localeCompare(a.submittedAt ?? a.updatedAt))
+        .map(({ id, reference, title, category, status, submittedAt, updatedAt }) => ({ id, reference, title, category, status, submittedAt, updatedAt })),
     getRequest: async (requestId) => find(requestId),
-    submitRequest: async (input, files) => {
+    submitRequest: async (input) => {
       if (!input.declarationAccepted) throw new Error("Confirm the declaration before submitting.");
-      const teamLead = assertTeamLead(input);
+      assertApprovers(input);
       counter += 1;
       const now = new Date().toISOString();
       const created: PurchaseRequest = {
         id: `mock-${counter}`,
-        reference: `PR-${now.slice(0, 4)}-${String(counter).padStart(4, "0")}`,
+        reference: `PR-${now.slice(0, 4)}-${String(counter).padStart(5, "0")}`,
         title: titleFor(input),
         category: input.category,
         status: "submitted",
         requester: user,
-        teamLead,
+        teamLead: TEAM_LEAD,
+        additionalApprovers: input.additionalApprovers,
         teamLeadDecision: { decision: "pending", notes: "", decidedAt: null },
         details: input.details,
         vendors: input.vendors,
         budget: input.budget,
-        budgetApprovers: input.budgetApprovers,
+        budgetApproverId: input.budgetApproverId,
+        budgetApproverName: approverName(input.budgetApproverId),
         notes: input.notes,
-        declarationAccepted: true,
-        attachments: attachmentsOf(files),
+        attachments: [],
         submittedAt: now,
         updatedAt: now,
       };
       requests.push(created);
       return created;
     },
-    resubmitRequest: async (requestId, input, files) => {
+    resubmitRequest: async (requestId, input) => {
       const existing = find(requestId);
       if (existing.status !== "rejected") throw new Error("Only a rejected request can be edited and resubmitted.");
-      const teamLead = assertTeamLead(input);
+      assertApprovers(input);
       Object.assign(existing, {
         title: titleFor(input),
         category: input.category,
         status: "submitted",
-        teamLead,
+        additionalApprovers: input.additionalApprovers,
         teamLeadDecision: { decision: "pending", notes: "", decidedAt: null },
         details: input.details,
         vendors: input.vendors,
         budget: input.budget,
-        budgetApprovers: input.budgetApprovers,
+        budgetApproverId: input.budgetApproverId,
+        budgetApproverName: approverName(input.budgetApproverId),
         notes: input.notes,
-        attachments: [...existing.attachments, ...attachmentsOf(files)],
         updatedAt: new Date().toISOString(),
       });
       return existing;

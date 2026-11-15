@@ -20,17 +20,17 @@ import { useAsgardeo } from "@asgardeo/react";
 import { defaultQueryRetry } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
+import { MIN_DIRECTORY_QUERY } from "../request-form/requestFormModel";
 import type { Person, PurchaseRequestInput } from "../types";
 import { createProcurementApi, isProcurementAvailable } from "./procurementApi";
 
 const REFERENCE_STALE_TIME = 5 * 60 * 1000;
-const MIN_DIRECTORY_QUERY = 2;
 
 /** The signed-in user as a Person, once their id_token has been read. */
 function useSignedInPerson(): Person | undefined {
   const { sub, email, displayName, ready } = useAsgardeoUser();
   return useMemo(
-    () => (ready && sub && email ? { id: sub, name: displayName ?? email, email } : undefined),
+    () => (ready && sub && email ? { id: email, name: displayName ?? email, email } : undefined),
     [ready, sub, email, displayName],
   );
 }
@@ -51,6 +51,7 @@ function useProcurementContext() {
   return { api, userId: person?.id, enabled: isSignedIn && isProcurementAvailable() && Boolean(api) };
 }
 
+/** The cache is kept per user, so one account's answers are never served to another. `userId` is the signed-in email. */
 const root = (userId: string | undefined) => ["procurement", userId] as const;
 
 export function useProcurementMe() {
@@ -75,7 +76,34 @@ export function useProcurementLookups() {
   });
 }
 
-/** Directory matches for the team lead picker; asks nothing until the query is long enough. */
+/**
+ * Budget approvers who cover a business unit or region (both by code). Asks
+ * nothing until one is chosen, because the backend needs at least one.
+ */
+export function useBudgetApprovers(scope: { businessUnit: string; region: string }) {
+  const { api, userId, enabled } = useProcurementContext();
+  return useQuery({
+    queryKey: [...root(userId), "budget-approvers", scope.businessUnit, scope.region],
+    enabled: enabled && Boolean(scope.businessUnit || scope.region),
+    staleTime: REFERENCE_STALE_TIME,
+    retry: defaultQueryRetry,
+    queryFn: () => api!.getBudgetApprovers(scope),
+  });
+}
+
+/** Engagement codes funded by a business unit, asked for by the unit's name; nothing until one is chosen. */
+export function useEngagementCodes(businessUnitName: string) {
+  const { api, userId, enabled } = useProcurementContext();
+  return useQuery({
+    queryKey: [...root(userId), "engagement-codes", businessUnitName],
+    enabled: enabled && Boolean(businessUnitName),
+    staleTime: REFERENCE_STALE_TIME,
+    retry: defaultQueryRetry,
+    queryFn: () => api!.getEngagementCodes(businessUnitName),
+  });
+}
+
+/** Directory matches for the approver picker; asks nothing until the query is long enough. */
 export function useDirectorySearch(query: string) {
   const { api, userId, enabled } = useProcurementContext();
   const trimmed = query.trim();

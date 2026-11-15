@@ -19,13 +19,14 @@ import type { Person, PurchaseRequestInput } from "../types";
 import { draftToInput, emptyDraft } from "../request-form/requestFormModel";
 import { createMockProcurementApi, MOCK_DIRECTORY, resetMockProcurementApis } from "./mockProcurementApi";
 
-const user: Person = { id: "me-1", name: "Req Uester", email: "requester@example.com" };
+const user: Person = { id: "requester@example.com", name: "Req Uester", email: "requester@example.com" };
 
-const input = (teamLeadId: string, declared = true): PurchaseRequestInput => {
-  const draft = emptyDraft(MOCK_DIRECTORY.find((p) => p.id === teamLeadId) ?? { id: teamLeadId, name: "x", email: "x@example.com" });
+const input = (approvers: Person[] = [], declared = true): PurchaseRequestInput => {
+  const draft = emptyDraft();
   return draftToInput({
     ...draft,
     category: "NON-IT",
+    additionalApprovers: approvers,
     details: { ...draft.details, description: "Chairs", businessJustification: "Worn out" },
     declarationAccepted: declared,
   });
@@ -33,47 +34,65 @@ const input = (teamLeadId: string, declared = true): PurchaseRequestInput => {
 
 beforeEach(() => resetMockProcurementApis());
 
-describe("the Procurement dev mock", () => {
-  it("raises a request as the signed-in user, awaiting the team lead", async () => {
+describe("the Procurement sample data", () => {
+  it("knows the signed-in user, their default team lead and that they need approval", async () => {
+    const me = await createMockProcurementApi(user).getMe();
+    expect(me).toMatchObject({ email: user.email, teamLead: { name: "Jordan Ellis" }, approvalExempt: false });
+  });
+
+  it("raises a request as the signed-in user, awaiting approval, with a backend-style reference", async () => {
     const api = createMockProcurementApi(user);
-    const created = await api.submitRequest(input("u-2"), []);
-    expect(created).toMatchObject({ status: "submitted", requester: user, teamLead: { id: "u-2" } });
+    const created = await api.submitRequest(input(), []);
+    expect(created).toMatchObject({ status: "submitted", requester: user });
+    expect(created.reference).toMatch(/^PR-\d{4}-\d{5}$/);
     expect(created.teamLeadDecision.decision).toBe("pending");
     expect((await api.listMyRequests()).map((r) => r.id)).toContain(created.id);
   });
 
+  it("lists rows without the request's content, newest first", async () => {
+    const rows = await createMockProcurementApi(user).listMyRequests();
+    expect(rows.map((r) => r.reference)).toEqual(["PR-2026-00003", "PR-2026-00002", "PR-2026-00001"]);
+    expect(Object.keys(rows[0]).sort()).toEqual(["category", "id", "reference", "status", "submittedAt", "title", "updatedAt"]);
+  });
+
   it("keeps one store per user across calls", async () => {
-    const created = await createMockProcurementApi(user).submitRequest(input("u-2"), []);
+    const created = await createMockProcurementApi(user).submitRequest(input(), []);
     expect(await createMockProcurementApi(user).getRequest(created.id)).toBeDefined();
   });
 
-  it("refuses the requester as their own team lead", async () => {
-    const api = createMockProcurementApi(MOCK_DIRECTORY[4]);
-    await expect(api.submitRequest(input(MOCK_DIRECTORY[4].id), [])).rejects.toThrow(/cannot be the team lead/);
-  });
-
-  it("refuses a team lead who is not in the directory", async () => {
-    await expect(createMockProcurementApi(user).submitRequest(input("ghost"), [])).rejects.toThrow(/active WSO2 employee/);
+  it("refuses the requester or the team lead as an additional approver", async () => {
+    const api = createMockProcurementApi(user);
+    const teamLead = MOCK_DIRECTORY[10];
+    await expect(api.submitRequest(input([user]), [])).rejects.toThrow(/cannot be you or your team lead/);
+    await expect(api.submitRequest(input([teamLead]), [])).rejects.toThrow(/cannot be you or your team lead/);
   });
 
   it("refuses a submission without the declaration", async () => {
-    await expect(createMockProcurementApi(user).submitRequest(input("u-2", false), [])).rejects.toThrow(/declaration/);
+    await expect(createMockProcurementApi(user).submitRequest(input([], false), [])).rejects.toThrow(/declaration/);
   });
 
   it("edits and resubmits only a rejected request", async () => {
     const api = createMockProcurementApi(user);
-    await expect(api.resubmitRequest("seed-1", input("u-2"), [])).rejects.toThrow(/Only a rejected request/);
-    const resubmitted = await api.resubmitRequest("seed-2", input("u-3"), []);
+    await expect(api.resubmitRequest("seed-1", input(), [])).rejects.toThrow(/Only a rejected request/);
+    const resubmitted = await api.resubmitRequest("seed-2", input(), []);
     expect(resubmitted.status).toBe("submitted");
     expect(resubmitted.teamLeadDecision.decision).toBe("pending");
   });
 
-  it("searches the directory with a minimum length, a cap, and never returns the requester", async () => {
-    const api = createMockProcurementApi({ ...user, id: "u-2", name: "Blake Rivers", email: "blake.rivers@example.com" });
-    expect(await api.searchDirectory("a")).toEqual([]);
-    const found = await api.searchDirectory("dr");
-    expect(found.length).toBeGreaterThan(0);
-    expect(found.every((p) => p.id !== "u-2")).toBe(true);
-    expect(found.length).toBeLessThanOrEqual(8);
+  it("searches the directory from 3 characters, capped, and never returns the requester", async () => {
+    const api = createMockProcurementApi({ ...user, id: "blake.rivers@example.com", name: "Blake Rivers", email: "blake.rivers@example.com" });
+    expect(await api.searchDirectory("bl")).toEqual([]);
+    const found = await api.searchDirectory("dre");
+    expect(found.map((p) => p.name)).toEqual(["Drew Parker"]);
+    expect((await api.searchDirectory("bla")).map((p) => p.email)).not.toContain("blake.rivers@example.com");
+    expect(found.length).toBeLessThanOrEqual(10);
+  });
+
+  it("serves dependent lists only once a business unit or region is chosen", async () => {
+    const api = createMockProcurementApi(user);
+    expect(await api.getEngagementCodes("")).toEqual([]);
+    expect((await api.getEngagementCodes("Sales")).length).toBeGreaterThan(0);
+    expect(await api.getBudgetApprovers({ businessUnit: "", region: "" })).toEqual([]);
+    expect(await api.getBudgetApprovers({ businessUnit: "BU-4", region: "" })).toEqual([{ id: "10", name: "Budget Owner" }]);
   });
 });

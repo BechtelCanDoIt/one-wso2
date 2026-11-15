@@ -15,9 +15,11 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import type { Person } from "../types";
+import type { Person, ProcurementLookups, ProcurementMe, PurchaseRequest } from "../types";
 import {
   attachmentProblem,
+  budgetForDisplay,
+  draftFromRequest,
   draftToInput,
   emptyDraft,
   incompleteSteps,
@@ -29,11 +31,20 @@ import {
   type RequestDraft,
 } from "./requestFormModel";
 
-const me: Person = { id: "u-1", name: "Req Uester", email: "requester@example.com" };
-const lead: Person = { id: "u-2", name: "Team Lead", email: "lead@example.com" };
+const lead: Person = { id: "lead@example.com", name: "Team Lead", email: "lead@example.com" };
+const other: Person = { id: "other@example.com", name: "Other Approver", email: "other@example.com" };
+const me: ProcurementMe = {
+  id: "requester@example.com",
+  name: "Req Uester",
+  email: "requester@example.com",
+  roles: [],
+  teamLead: lead,
+  approvalExempt: false,
+};
+const noManager: ProcurementMe = { ...me, teamLead: null };
 
 const completeIt = (): RequestDraft => {
-  const draft = emptyDraft(lead);
+  const draft = emptyDraft();
   return {
     ...draft,
     category: "IT",
@@ -49,31 +60,37 @@ const completeIt = (): RequestDraft => {
       employeePii: "no",
       integrates: "no",
     },
-    budgetApproverEmails: ["budget.owner@example.com"],
   };
 };
 
-describe("step 1, the team lead", () => {
-  it("is required", () => {
-    expect(missingForStep(STEP_REQUESTER, emptyDraft(null), me)).toEqual(["Team lead"]);
+describe("step 1, who approves", () => {
+  it("is settled by a manager on record, with no additional approver needed", () => {
+    expect(missingForStep(STEP_REQUESTER, emptyDraft(), me)).toEqual([]);
   });
 
-  it("cannot be the requester, by id or by email in any case", () => {
-    expect(missingForStep(STEP_REQUESTER, emptyDraft(me), me)).toHaveLength(1);
+  it("needs an additional approver when there is no manager, who then becomes the team lead", () => {
+    expect(missingForStep(STEP_REQUESTER, emptyDraft(), noManager)).toEqual(["a team lead or an additional approver"]);
+    expect(missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [other] }, noManager)).toEqual([]);
+  });
+
+  it("needs nobody for a requester whose requests need no approval", () => {
+    expect(missingForStep(STEP_REQUESTER, emptyDraft(), { ...noManager, approvalExempt: true })).toEqual([]);
+  });
+
+  it("refuses the requester or the team lead as an additional approver, by id or by email in any case", () => {
+    const refused = ["additional approvers other than yourself and your team lead"];
+    expect(missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [me] }, me)).toEqual(refused);
+    expect(missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [lead] }, me)).toEqual(refused);
     expect(
-      missingForStep(STEP_REQUESTER, emptyDraft({ ...me, id: "other", email: "Requester@WSO2.com" }), me),
-    ).toHaveLength(1);
-  });
-
-  it("is satisfied by someone else", () => {
-    expect(missingForStep(STEP_REQUESTER, emptyDraft(lead), me)).toEqual([]);
+      missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [{ ...lead, id: "x", email: "LEAD@example.com" }] }, me),
+    ).toEqual(refused);
   });
 });
 
 describe("step 2 and 3", () => {
   it("need a category before anything else is asked", () => {
-    expect(missingForStep(STEP_CATEGORY, emptyDraft(lead), me)).toEqual(["Procurement category"]);
-    expect(missingForStep(STEP_DETAILS, emptyDraft(lead), me)).toEqual(["Procurement category"]);
+    expect(missingForStep(STEP_CATEGORY, emptyDraft(), me)).toEqual(["Procurement category"]);
+    expect(missingForStep(STEP_DETAILS, emptyDraft(), me)).toEqual(["Procurement category"]);
   });
 
   it("ask an IT request for its security assessment", () => {
@@ -92,26 +109,25 @@ describe("step 2 and 3", () => {
   });
 
   it("ask a Non-IT request only for what and why", () => {
-    const draft: RequestDraft = { ...emptyDraft(lead), category: "NON-IT" };
+    const draft: RequestDraft = { ...emptyDraft(), category: "NON-IT" };
     expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["Details of goods / services", "Business justification"]);
   });
 });
 
 describe("step 4, budget", () => {
-  it("is optional for IT apart from a budget approver", () => {
-    const draft = { ...completeIt(), budgetApproverEmails: [""] };
-    expect(missingForStep(STEP_BUDGET, draft, me)).toEqual(["Budget approver"]);
+  it("is optional for IT, the budget approver included", () => {
     expect(missingForStep(STEP_BUDGET, completeIt(), me)).toEqual([]);
   });
 
-  it("is required for Non-IT", () => {
-    const draft: RequestDraft = { ...emptyDraft(lead), category: "NON-IT", budgetApproverEmails: ["a@example.com"] };
+  it("is required for Non-IT, with a budget approver", () => {
+    const draft: RequestDraft = { ...emptyDraft(), category: "NON-IT" };
     expect(missingForStep(STEP_BUDGET, draft, me)).toEqual([
       "Budget category",
       "Business unit",
       "Product",
       "Region",
       "Engagement code",
+      "Budget approver",
     ]);
   });
 });
@@ -119,16 +135,16 @@ describe("step 4, budget", () => {
 describe("incompleteSteps", () => {
   it("is empty for a finished request and lists steps in order otherwise", () => {
     expect(incompleteSteps(completeIt(), me)).toEqual([]);
-    expect(incompleteSteps(emptyDraft(null), me).map((s) => s.step)).toEqual([1, 2, 3, 4]);
+    expect(incompleteSteps(emptyDraft(), noManager).map((s) => s.step)).toEqual([1, 2, 3]);
   });
 });
 
 describe("draftToInput", () => {
-  it("sends the team lead by id and never the requester, status or dates", () => {
-    const input = draftToInput({ ...completeIt(), declarationAccepted: true });
-    expect(input.teamLeadId).toBe("u-2");
-    expect(Object.keys(input)).not.toEqual(expect.arrayContaining(["requester", "status", "submittedAt"]));
-    expect(input.budgetApprovers).toEqual([{ email: "budget.owner@example.com" }]);
+  it("sends the additional approvers' emails and the approver id, never the requester, team lead, status or dates", () => {
+    const input = draftToInput({ ...completeIt(), additionalApprovers: [other], budgetApproverId: "10", declarationAccepted: true });
+    expect(input.additionalApprovers).toEqual(["other@example.com"]);
+    expect(input.budgetApproverId).toBe("10");
+    expect(Object.keys(input)).not.toEqual(expect.arrayContaining(["requester", "teamLead", "status", "submittedAt"]));
   });
 
   it("drops blank vendors and integrations, and integrations when there are none", () => {
@@ -139,7 +155,48 @@ describe("draftToInput", () => {
   });
 
   it("refuses an incomplete draft", () => {
-    expect(() => draftToInput(emptyDraft(null))).toThrow();
+    expect(() => draftToInput(emptyDraft())).toThrow();
+  });
+});
+
+describe("draftFromRequest", () => {
+  const request = {
+    category: "IT",
+    additionalApprovers: ["other@example.com"],
+    details: completeIt().details,
+    vendors: [],
+    budget: { category: "CAT-1", businessUnit: "BU-1", product: "", region: "", engagementCode: "", salesforceCampaign: "" },
+    budgetApproverId: "10",
+    notes: "",
+  } as unknown as PurchaseRequest;
+
+  it("reopens the saved request with the declaration to be made again", () => {
+    const draft = draftFromRequest(request);
+    expect(draft.additionalApprovers.map((a) => a.email)).toEqual(["other@example.com"]);
+    expect(draft.budgetApproverId).toBe("10");
+    expect(draft.declarationAccepted).toBe(false);
+  });
+
+  it("leaves the category empty for a Marketing & Events request, which cannot be edited here", () => {
+    expect(draftFromRequest({ ...request, category: "EVENTS" }).category).toBe("");
+  });
+});
+
+describe("budgetForDisplay", () => {
+  const lookups: ProcurementLookups = {
+    budgetCategories: [{ value: "CAT-1", label: "Software" }],
+    businessUnits: [{ value: "BU-1", label: "Sales" }],
+    products: [],
+    regions: [],
+  };
+
+  it("replaces each code by its label and leaves an unlisted code as it is", () => {
+    const shown = budgetForDisplay(
+      { category: "CAT-1", businessUnit: "BU-1", product: "PRD-9", region: "", engagementCode: "ENG-1", salesforceCampaign: "Q4" },
+      lookups,
+      [{ value: "ENG-1", label: "ENG-1 - Platform" }],
+    );
+    expect(shown).toEqual({ category: "Software", businessUnit: "Sales", product: "PRD-9", region: "", engagementCode: "ENG-1 - Platform", salesforceCampaign: "Q4" });
   });
 });
 
