@@ -36,18 +36,36 @@ export function useAlerts(): UseQueryResult<SwagStoreAlertList, Error> {
   });
 }
 
+/** An alert the store confirmed. */
+export interface CreatedAlert {
+  readonly id: string;
+  /** The alert list's successful reads when the store answered. Only a later read can know of the alert. */
+  readonly listReadsAtAnswer: number;
+}
+
+/**
+ * How many times the alert list has been read successfully: a count, not a time,
+ * so two reads in the same millisecond still tell apart. Read during render; the
+ * caller's own useAlerts re-renders it when the list changes.
+ */
+export function useAlertListReads(): number {
+  const { key } = useSwagStoreBasis();
+  return useQueryClient().getQueryState(key(ALERTS_KEY))?.dataUpdateCount ?? 0;
+}
+
 /**
  * Ask to be emailed when an out-of-stock variant is back (POST /stock-alerts).
  * Asking twice is safe: the backend answers with the alert already waiting.
  */
-export function useCreateAlert(productSlug?: string): UseMutationResult<string, Error, string> {
-  const { getToken } = useSwagStoreBasis();
+export function useCreateAlert(productSlug?: string): UseMutationResult<CreatedAlert, Error, string> {
+  const { getToken, key } = useSwagStoreBasis();
+  const queryClient = useQueryClient();
   const refreshAlerts = useRefreshAlerts(productSlug);
-  return useMutation<string, Error, string>({
+  return useMutation<CreatedAlert, Error, string>({
     mutationFn: async (variantId) => {
       const created = await authedPost<{ id: string }>(swagStoreServiceUrls.stockAlerts, await getToken(), { variantId });
       if (!created?.id) throw new Error("The store didn't confirm the alert. Try again.");
-      return created.id;
+      return { id: created.id, listReadsAtAnswer: queryClient.getQueryState(key(ALERTS_KEY))?.dataUpdateCount ?? 0 };
     },
     onSuccess: refreshAlerts,
   });
