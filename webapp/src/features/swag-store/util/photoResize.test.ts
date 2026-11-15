@@ -37,12 +37,13 @@ describe("needsScaling", () => {
 });
 
 describe("outputType", () => {
-  it("prefers WebP, else keeps PNG transparency and uses JPEG for the rest", () => {
+  it("prefers WebP, else keeps PNG and WebP transparency and uses JPEG for the rest", () => {
     expect(outputType("image/jpeg", true)).toBe("image/webp");
     expect(outputType("image/png", true)).toBe("image/webp");
     expect(outputType("image/jpeg", false)).toBe("image/jpeg");
     expect(outputType("image/png", false)).toBe("image/png");
-    expect(outputType("image/webp", false)).toBe("image/jpeg");
+    // A WebP may be transparent; JPEG would paint that black.
+    expect(outputType("image/webp", false)).toBe("image/png");
   });
 });
 
@@ -113,6 +114,14 @@ describe("preparePhoto", () => {
     const out = await preparePhoto(jpeg());
     expect(canvases[canvases.length - 1].asked.map((a) => a.type)).toEqual(["image/webp", "image/jpeg"]);
     expect([out.name, out.type]).toEqual(["hoodie.jpg", "image/jpeg"]);
+  });
+
+  it("keeps a large WebP's transparency as PNG where the browser can't encode WebP", async () => {
+    const { canvases } = stubBrowser({ width: 4032, height: 3024 }, { webp: false });
+    const webp = new File([new Uint8Array(3_000_000)], "hoodie.webp", { type: "image/webp" });
+    const out = await preparePhoto(webp);
+    expect(canvases[canvases.length - 1].asked.map((a) => a.type)).toEqual(["image/webp", "image/png"]);
+    expect([out.name, out.type]).toEqual(["hoodie.png", "image/png"]);
   });
 
   it("says when a photo can't be read", async () => {
