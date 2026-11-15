@@ -18,7 +18,7 @@ import type { JSX } from "react";
 import { Alert, Box, Button, CircularProgress, Typography } from "@wso2/oxygen-ui";
 import { BellIcon } from "@wso2/oxygen-ui-icons-react";
 import { messageFor } from "../../util/swagStoreError";
-import { useAlerts, useCancelAlert, useCreateAlert } from "../api/useAlerts";
+import { useAlertListReads, useAlerts, useCancelAlert, useCreateAlert } from "../api/useAlerts";
 
 interface NotifyMeButtonProps {
   /** An out-of-stock variant of a restockable product. Sold-out items have no waiting list. */
@@ -38,9 +38,11 @@ export default function NotifyMeButton({ variantId, productSlug }: NotifyMeButto
 
   const waiting = alerts.data?.items.find((a) => a.variantId === variantId && a.status === "PENDING");
   // Until the list is read again, the alert just made stands in for it. A list
-  // read after it was made is the answer, even one without it (stopped elsewhere).
-  const listedSince = alerts.dataUpdatedAt >= create.submittedAt;
-  const justCreated = create.isSuccess && create.variables === variantId && !listedSince ? create.data : undefined;
+  // read after the store answered is the answer, even one without it (stopped
+  // elsewhere); a read from before then can't know of it.
+  const listReads = useAlertListReads();
+  const made = create.isSuccess && create.variables === variantId ? create.data : undefined;
+  const justCreated = made && listReads <= made.listReadsAtAnswer ? made.id : undefined;
   const alertId = waiting?.id ?? justCreated;
 
   if (alerts.isPending && !alertId) {
