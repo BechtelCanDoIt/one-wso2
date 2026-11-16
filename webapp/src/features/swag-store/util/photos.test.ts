@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { checkPhotoFile, MAX_PHOTO_BYTES, MAX_PHOTO_EDGE, MAX_SOURCE_BYTES, PHOTO_VIEWS, photoAlt, photoLabel } from "./photos";
+import { checkPhotoFile, MAX_PHOTO_BYTES, MAX_PHOTO_EDGE, MAX_SOURCE_BYTES, megabytes, PHOTO_VIEWS, photoAlt, photoLabel } from "./photos";
 
 describe("photo views", () => {
   it("keeps gallery order, front first", () => {
@@ -48,5 +48,12 @@ describe("checkPhotoFile", () => {
     expect(MAX_PHOTO_BYTES).toBe(5 * 1024 * 1024);
     expect(checkPhotoFile(new File([new Uint8Array(MAX_PHOTO_BYTES + 1)], "a.jpg", { type: "image/jpeg" }))).toBeNull();
     expect(checkPhotoFile(new File(["x"], "a.webp", { type: "image/webp" }))).toBeNull();
+  });
+});
+
+describe("megabytes", () => {
+  it("names a size limit the way the photo messages say it", () => {
+    expect(megabytes(MAX_PHOTO_BYTES)).toBe("5 MB");
+    expect(megabytes(MAX_SOURCE_BYTES)).toBe("25 MB");
   });
 });

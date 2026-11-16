@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { MAX_PHOTO_BYTES, MAX_PHOTO_EDGE } from "./photos";
+import { MAX_PHOTO_BYTES, MAX_PHOTO_EDGE, megabytes } from "./photos";
 
 /** The quality WebP and JPEG are encoded at when a photo is scaled down. */
 const QUALITY = 0.85;
@@ -37,7 +37,7 @@ export function fitWithin(width: number, height: number, max: number): { width: 
   return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
 }
 
-/** Whether a photo must be scaled down: over 1600 px on its longest side, or over 5 MB. */
+/** Whether a photo must be scaled down: over MAX_PHOTO_EDGE px on its longest side, or over MAX_PHOTO_BYTES. */
 export function needsScaling(size: { width: number; height: number }, bytes: number): boolean {
   return Math.max(size.width, size.height) > MAX_PHOTO_EDGE || bytes > MAX_PHOTO_BYTES;
 }
@@ -68,7 +68,7 @@ function encode(canvas: HTMLCanvasElement, type: OutputType): Promise<Blob | nul
 
 /**
  * The photo to upload: the file itself when it already fits, else a copy scaled
- * down to fit 1600 × 1600 px (shape kept, nothing cropped) and re-encoded.
+ * down to fit MAX_PHOTO_EDGE px square (shape kept, nothing cropped) and re-encoded.
  * Phone photos are turned upright first, and re-encoding drops their metadata.
  */
 export async function preparePhoto(file: File): Promise<File> {
@@ -103,7 +103,7 @@ export async function preparePhoto(file: File): Promise<File> {
       blob = await encode(final.canvas, type);
     }
     if (!blob) throw new PhotoPrepError("This photo couldn't be read. Try another file.");
-    if (blob.size > MAX_PHOTO_BYTES) throw new PhotoPrepError("This photo is still over 5 MB after scaling. Try a smaller one.");
+    if (blob.size > MAX_PHOTO_BYTES) throw new PhotoPrepError(`This photo is still over ${megabytes(MAX_PHOTO_BYTES)} after scaling. Try a smaller one.`);
     const base = file.name.replace(/\.[^.]*$/, "") || "photo";
     return new File([blob], `${base}.${EXTENSION[type]}`, { type });
   } finally {
