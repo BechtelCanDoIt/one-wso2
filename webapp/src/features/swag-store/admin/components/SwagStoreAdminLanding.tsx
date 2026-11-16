@@ -18,13 +18,8 @@ import type { JSX } from "react";
 import { Navigate } from "react-router";
 import { swagStoreAccess } from "../../api/swagStoreAccess";
 import { useSwagStoreUserInfo } from "../../api/useSwagStoreUserInfo";
-import { swagStoreAdminAllows, type SwagStoreAdminNeed } from "../api/useSwagStoreAdminGate";
-import { swagStoreAdminPaths } from "../swagStoreAdminItems";
-
-/** The admin screens in rail order, with who each is for. Each phase adds its screens here. */
-const SCREENS: readonly { readonly need: SwagStoreAdminNeed; readonly path: string }[] = [
-  { need: "ANY", path: swagStoreAdminPaths.dashboard },
-];
+import { swagStoreAdminAllows } from "../api/useSwagStoreAdminGate";
+import { SWAG_STORE_ADMIN_SCREENS, swagStoreAdminPaths } from "../swagStoreAdminItems";
 
 /**
  * `/people-ops/swag-store`: sends each person to the first admin screen they
@@ -33,6 +28,6 @@ const SCREENS: readonly { readonly need: SwagStoreAdminNeed; readonly path: stri
 export default function SwagStoreAdminLanding(): JSX.Element {
   const me = useSwagStoreUserInfo();
   const access = swagStoreAccess(me.data);
-  const first = SCREENS.find((s) => swagStoreAdminAllows(s.need, access));
+  const first = Object.values(SWAG_STORE_ADMIN_SCREENS).find((s) => swagStoreAdminAllows(s.need, access));
   return <Navigate to={first?.path ?? swagStoreAdminPaths.dashboard} replace />;
 }
