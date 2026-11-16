@@ -2544,4 +2544,26 @@ export const swagStoreServiceUrls = {
     `${swagStoreBackendUrl}/orders/${encodeURIComponent(orderNo)}/payments`,
   stockAlerts: `${swagStoreBackendUrl}/stock-alerts`,
   stockAlert: (id: string): string => `${swagStoreBackendUrl}/stock-alerts/${encodeURIComponent(id)}`,
+  /** The store team's endpoints. The backend checks the caller's store role on every one. */
+  admin: {
+    /** Counts per role: catalog for catalog managers, orders for fulfilment ops. */
+    dashboard: `${swagStoreBackendUrl}/admin/dashboard`,
+    /** POST with filters, so search text never goes into a URL. `Accept: text/csv` exports the same rows. */
+    ordersSearch: `${swagStoreBackendUrl}/admin/orders/search`,
+    order: (orderNo: string): string => `${swagStoreBackendUrl}/admin/orders/${encodeURIComponent(orderNo)}`,
+    orderNotes: (orderNo: string): string =>
+      `${swagStoreBackendUrl}/admin/orders/${encodeURIComponent(orderNo)}/notes`,
+    pickupOffices: `${swagStoreBackendUrl}/admin/pickup-offices`,
+    pickupOffice: (id: string): string => `${swagStoreBackendUrl}/admin/pickup-offices/${encodeURIComponent(id)}`,
+    products: `${swagStoreBackendUrl}/admin/products`,
+    product: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}`,
+    removalImpact: (id: string): string =>
+      `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/removal-impact`,
+    productOptions: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/options`,
+    productVariant: (id: string, variantId: string): string =>
+      `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/variants/${encodeURIComponent(variantId)}`,
+    stockMovements: (variantId: string): string =>
+      `${swagStoreBackendUrl}/admin/variants/${encodeURIComponent(variantId)}/stock-movements`,
+    categories: `${swagStoreBackendUrl}/admin/categories`,
+  },
 };

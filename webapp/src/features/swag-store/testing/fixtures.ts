@@ -18,8 +18,15 @@
 // that a test overrides only where it matters.
 
 import type {
+  SwagStoreAdminOffice,
+  SwagStoreAdminProduct,
+  SwagStoreAdminProductRow,
+  SwagStoreAdminOrder,
+  SwagStoreAdminOrderDetail,
+  SwagStoreAlert,
   SwagStoreCart,
   SwagStoreCartLine,
+  SwagStoreDashboard,
   SwagStoreMe,
   SwagStoreOffice,
   SwagStoreOrderDetail,
@@ -240,6 +247,124 @@ export function orderDetail(overrides: Partial<SwagStoreOrderDetail> = {}): Swag
     confirmedAt: "2026-11-13T04:30:02Z",
     readyAt: null,
     collectedAt: null,
+    ...overrides,
+  };
+}
+
+/** A waiting alert on the grey hoodie in S, which is out of stock. */
+export function stockAlert(overrides: Partial<SwagStoreAlert> = {}): SwagStoreAlert {
+  return {
+    id: "alert-1",
+    variantId: "v-grey-s",
+    sku: "HOODIE-GRY-S",
+    productSlug: "wso2-hoodie",
+    productName: "WSO2 Hoodie",
+    options: "Heather grey · S",
+    status: "PENDING",
+    createdAt: "2026-11-10T08:00:00Z",
+    notifiedAt: null,
+    closedAt: null,
+    ...overrides,
+  };
+}
+
+/** The dashboard for someone with both store roles. */
+export function dashboard(overrides: Partial<SwagStoreDashboard> = {}): SwagStoreDashboard {
+  return {
+    catalog: { active: 7, draft: 1, removed: 2, lowStockVariants: 3, outOfStockVariants: 1, pendingAlerts: 5 },
+    orders: {
+      pendingPayment: 1,
+      toPrepare: 4,
+      readyForPickup: 2,
+      collectedToday: 6,
+      needsAttention: [
+        {
+          ...orderSummary({ orderNo: "SS-10490", status: "FAILED", failureCode: "payment_mismatch" }),
+          userEmail: "sam@wso2.com",
+          userName: "Sam Shopper",
+          attentionReason: "payment_mismatch",
+        },
+      ],
+    },
+    ...overrides,
+  };
+}
+
+/** An order on the store team's board. */
+export function adminOrder(overrides: Partial<SwagStoreAdminOrder> = {}): SwagStoreAdminOrder {
+  return {
+    ...orderSummary(),
+    userEmail: "sam@wso2.com",
+    userName: "Sam Shopper",
+    attentionReason: null,
+    ...overrides,
+  };
+}
+
+/** A paid order as the store team opens it. */
+export function adminOrderDetail(overrides: Partial<SwagStoreAdminOrderDetail> = {}): SwagStoreAdminOrderDetail {
+  return {
+    ...orderDetail(),
+    userEmail: "sam@wso2.com",
+    userName: "Sam Shopper",
+    attentionReason: null,
+    paymentReference: "swag:ord:order-1",
+    collectedBy: null,
+    notes: [],
+    ...overrides,
+  };
+}
+
+/** A pickup office as the store team manages it. */
+export function adminOffice(overrides: Partial<SwagStoreAdminOffice> = {}): SwagStoreAdminOffice {
+  return {
+    ...office(),
+    country: "Sri Lanka",
+    hrLocations: ["Colombo"],
+    active: true,
+    sort: 1,
+    ...overrides,
+  };
+}
+
+/** A row of the admin products list. */
+export function adminProductRow(overrides: Partial<SwagStoreAdminProductRow> = {}): SwagStoreAdminProductRow {
+  return {
+    id: "p-hoodie",
+    slug: "wso2-hoodie",
+    name: "WSO2 Hoodie",
+    status: "ACTIVE",
+    price: 90,
+    image: null,
+    freeStock: 23,
+    unitsSold30d: 12,
+    ...overrides,
+  };
+}
+
+/** The hoodie as the catalog manager opens it: Size S and M, M is out of stock. */
+export function adminProduct(overrides: Partial<SwagStoreAdminProduct> = {}): SwagStoreAdminProduct {
+  return {
+    id: "p-hoodie",
+    slug: "wso2-hoodie",
+    name: "WSO2 Hoodie",
+    description: "Warm.",
+    categoryId: "c-apparel",
+    price: 90,
+    restockPolicy: "RESTOCKABLE",
+    maxPerUser: 2,
+    limitWindowDays: null,
+    status: "ACTIVE",
+    publishedAt: "2026-11-01T00:00:00Z",
+    removedAt: null,
+    removalNote: null,
+    options: [{ name: "Size", values: [{ id: "s", value: "S", swatchHex: null }, { id: "m", value: "M", swatchHex: null }] }],
+    variants: [
+      { id: "v-s", sku: "HOODIE-S", options: "S", optionValueIds: ["s"], priceDelta: 0, onHand: 10, reserved: 2, free: 8, restockEta: null, active: true },
+      { id: "v-m", sku: "HOODIE-M", options: "M", optionValueIds: ["m"], priceDelta: 5, onHand: 0, reserved: 0, free: 0, restockEta: null, active: true },
+    ],
+    images: [{ url: "https://wso2.cachefly.net/swag/hoodie.png", alt: "Front" }],
+    alternatives: [],
     ...overrides,
   };
 }
