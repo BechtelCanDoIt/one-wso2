@@ -106,11 +106,10 @@ export type PreviewFeature =
    */
   | "swagStore"
   /**
-   * Finance → Procurement, phase 1 (raise a purchase request, track it, team
-   * lead approval, Procurement assignment): its rail group, every route under
-   * `/finance/procurement`, and its backend calls. Held back until the
-   * Procurement backend exists and the phase 1 security review is signed off.
-   * See docs/ported-apps/procurement.md.
+   * Finance → Procurement, where an employee raises a purchase request and
+   * follows it: its rail group, every route under `/finance/procurement`, and
+   * its backend calls. Held back while the app is being built: submitting a
+   * request is not connected to the backend yet.
    */
   | "procurement";
 

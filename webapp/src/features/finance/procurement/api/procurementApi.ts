@@ -91,6 +91,7 @@ const NOT_CONNECTED = "isn't connected to the backend yet.";
 function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: Person): ProcurementApi {
   const get = async <T>(url: string): Promise<T> => authedGet<T>(url, await getAccessToken());
   return {
+    // A user who is not in the HR data gets an error from the team lead lookup, so the form cannot open for them.
     getMe: async () => {
       const [backendUser, lead] = await Promise.all([get<BackendUser>(urls.me), get<BackendTeamLeadResult>(urls.meTeamLead)]);
       return toMe(backendUser, lead, user);

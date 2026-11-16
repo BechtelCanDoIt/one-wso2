@@ -14,8 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Every free-text field is capped in length (the threat model asks for limits
-// on request text); the backend enforces its own.
+// Every free-text field is capped in length, which bounds what is stored and
+// rendered. The backend enforces its own limits as well.
 
 export const SHORT_MAX = 200;
 export const LONG_MAX = 4000;
