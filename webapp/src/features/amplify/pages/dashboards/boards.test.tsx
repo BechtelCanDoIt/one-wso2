@@ -92,7 +92,7 @@ const operations: DashboardOperations = {
   campaigns: [
     {
       campaignId: "c1",
-      title: "Chore Labs at KubeCon",
+      title: "Choreo Labs at KubeCon",
       categoryCode: "EVENT",
       categoryLabel: "Event",
       isPriority: true,

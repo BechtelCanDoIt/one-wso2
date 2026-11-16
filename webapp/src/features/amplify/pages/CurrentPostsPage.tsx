@@ -34,7 +34,7 @@ const STATUS_LABEL: Record<CampaignStatus, string> = {
   ARCHIVED: "Archived",
 };
 
-// Current Posts: the official Chore Labs LinkedIn posts in Amplify, for PO and
+// Current Posts: the official Choreo Labs LinkedIn posts in Amplify, for PO and
 // Marketing to update. Archived posts are left out. Only callers granted
 // CAN_CAMPAIGN reach this page (AmplifyEditorRoute); amplify-api limits
 // any-status reads and every edit to the same grant.
@@ -54,7 +54,7 @@ export default function CurrentPostsPage() {
   return (
     <AmplifyShell
       title="Current Posts"
-      subtitle="The official Chore Labs LinkedIn posts that are live in Amplify. Edit a published post on LinkedIn itself."
+      subtitle="The official Choreo Labs LinkedIn posts that are live in Amplify. Edit a published post on LinkedIn itself."
     >
       {campaigns.isPending ? (
         <Skeleton variant="rounded" height={320} sx={{ mb: 3 }} />
