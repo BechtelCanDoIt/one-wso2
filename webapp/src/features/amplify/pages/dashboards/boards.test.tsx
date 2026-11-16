@@ -92,7 +92,7 @@ const operations: DashboardOperations = {
   campaigns: [
     {
       campaignId: "c1",
-      title: "WSO2 at KubeCon",
+      title: "Chore Labs at KubeCon",
       categoryCode: "EVENT",
       categoryLabel: "Event",
       isPriority: true,
@@ -273,7 +273,7 @@ describe("PostPerformanceBoard", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Post detail")).toBeTruthy();
     expect(within(dialog).getByText("AI-native integration.")).toBeTruthy();
-    expect(dialog.querySelector("img")?.getAttribute("src")).toBe("/amplify/default-post-image.svg");
+    expect(dialog.querySelector("img")?.getAttribute("src")).toBe("https://choreolabs.com/themes/wso2theme/images/choreo/brand/choreo-labs-icon-white.png");
     expect(within(dialog).getByText("75%")).toBeTruthy();
     expect(within(dialog).getByText("Novera: Sent")).toBeTruthy();
     expect(within(dialog).getByRole("img", { name: /Reposts per day/ })).toBeTruthy();
@@ -313,6 +313,23 @@ describe("PostPerformanceBoard", () => {
     expect(within(postRow).getByText("25")).toBeTruthy();
     const categoryRow = within(screen.getByRole("table", { name: "Reposts by category by this person" })).getByText("Product").closest('[role="row"]') as HTMLElement;
     expect(within(categoryRow).getByText("25")).toBeTruthy();
+  });
+
+  it("opens the post's popup from a post title in the person popup", () => {
+    const onSelect = vi.fn();
+    const onClose = vi.fn();
+    render(
+      <PostPerformanceBoard
+        data={withPeople}
+        onSelect={onSelect}
+        onClose={onClose}
+        person={{ employeeId: "e1", displayName: "Ada Lovelace", email: "ada@example.com" }}
+      />,
+    );
+    const table = screen.getByRole("table", { name: "Posts reposted by this person" });
+    fireEvent.click(within(table).getByRole("button", { name: "Launch" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSelect).toHaveBeenCalledWith(expect.any(String));
   });
 
   it("says nobody yet when no one reposted", () => {

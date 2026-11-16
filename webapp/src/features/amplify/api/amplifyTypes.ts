@@ -26,6 +26,7 @@ export type AmplifyGrant =
   | "EMPLOYEE"
   | "CAN_CAMPAIGN"
   | "CAN_DASHBOARD"
+  | "CAN_PEOPLE_OPS"
   | "CAN_EXPORT"
   | "CAN_REVIEW_SHARES"
   | "CAN_POINT_RULES"
@@ -48,7 +49,7 @@ export interface AmplifyMe {
 }
 
 export interface AmplifyAppConfig {
-  /** WSO2's LinkedIn company page, the owner New Post sends. Empty when amplify-api has none. */
+  /** Chore Labs' LinkedIn company page, the owner New Post sends. Empty when amplify-api has none. */
   linkedinOrgUrn: string;
   /** Privacy notice link for the consent pop-up. Empty shows plain text. */
   privacyNoticeUrl: string;

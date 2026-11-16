@@ -108,7 +108,7 @@ export function buildCsp(extraAuthOrigins: readonly string[] = []): string {
     // every page.
     "script-src 'self' 'wasm-unsafe-eval' https://accounts.google.com https://apis.google.com",
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.wso2.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net https://media.licdn.com",
+    "img-src 'self' data: blob: https://*.wso2.com https://choreolabs.com https://wso2.cachefly.net https://*.asgardeo.io https://*.googleusercontent.com https://*.blob.core.windows.net https://media.licdn.com",
     "font-src 'self' data: https://wso2.cachefly.net",
     `connect-src 'self' https://*.wso2.com https://*.choreoapis.dev https://*.asgardeo.io https://*.googleapis.com https://accounts.google.com${extra}`,
     "media-src 'self' https://*.choreoapis.dev https://*.wso2.com",
