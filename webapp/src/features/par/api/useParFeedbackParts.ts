@@ -26,17 +26,18 @@ import { useParShowsPar2 } from "./useReview360";
 // 360° feedback runs all year: inside a cycle's 360° window it goes to that
 // cycle (`feedbackCycle` is the cycle); outside it, to cycle 0, held for the
 // next cycle (`held`), and only offered, never requested. When the open cycle
-// or its forms can't be looked up, `error` says so and nothing is held: feedback
-// for an open cycle must not go to the next one by mistake.
+// or its forms can't be looked up, `error` says so and there's nowhere to give
+// feedback: feedback for an open cycle must not go to the next one by mistake.
+// A failed refetch keeps the earlier answer, as the page does.
 export function useParFeedbackParts(workEmail: string | undefined, profileLoading: boolean) {
   const activeCycles = useActiveParCycle(workEmail);
   const cycle = activeCycles.data?.[0];
   const { hasLead, isLoading: leadLoading } = useParHasLead(workEmail, profileLoading);
   const { isActive, isLoading: activeLoading } = useParHasActiveCycle(workEmail, profileLoading);
   const { showsPar2, isLoading: par2Loading, error: par2Error } = useParShowsPar2(cycle?.parCycleId);
-  const error = (cycle ? null : activeCycles.error) ?? par2Error;
+  const error = (activeCycles.data ? null : activeCycles.error) ?? par2Error;
   const par2Cycle = Boolean(cycle) && isActive && showsPar2;
-  const windowOpen = par2Cycle && !isDeadlinePassed(cycle!.parThreeSixtyRatingDeadline);
+  const windowOpen = !error && par2Cycle && !isDeadlinePassed(cycle!.parThreeSixtyRatingDeadline);
   const held = !error && !windowOpen && isPreviewEnabled("par2");
   return {
     cycle: par2Cycle ? cycle : undefined,

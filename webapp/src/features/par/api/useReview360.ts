@@ -61,7 +61,8 @@ export function useParCycleForms(parCycleId: number | undefined) {
 }
 
 /** Whether the open cycle is a PAR 2.0 cycle, shown with the Active cycle / Give feedback / History tabs.
- * `error` is set when that couldn't be looked up, so `showsPar2` says nothing. */
+ * `error` is set when that couldn't be looked up, so `showsPar2` says nothing. A failed refetch keeps
+ * the earlier answer and sets no error. */
 export function useParShowsPar2(parCycleId: number | undefined): {
   showsPar2: boolean;
   isLoading: boolean;
@@ -73,7 +74,7 @@ export function useParShowsPar2(parCycleId: number | undefined): {
   return {
     showsPar2: enabled && forms.hasStructured360,
     isLoading: asked && forms.isLoading,
-    error: asked ? forms.error : null,
+    error: asked && forms.data === undefined ? forms.error : null,
   };
 }
 
