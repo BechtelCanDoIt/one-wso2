@@ -17,21 +17,21 @@
 import { useState } from "react";
 import { Autocomplete, Box, Button, TextField } from "@wso2/oxygen-ui";
 import { useReportAccounts } from "@features/my/api/useReportAccounts";
-import type { AccountStatus, AccountType, ReportFilters } from "@features/my/api/types";
+import type { BankAccount, ReportFilters } from "@features/my/api/types";
 import BankAccountsTable from "../components/BankAccountsTable";
 import {
   ACCOUNT_ID_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
+  ACCOUNT_STATUSES,
+  ACCOUNT_TYPES,
   ACCOUNT_TYPE_COLUMN,
   BANK_CODE_COLUMN,
   EFFECTIVE_MONTH_COLUMN,
   EMPLOYEE_EMAIL_COLUMN,
+  fieldColumn,
   type BankAccountsTableColumn,
 } from "../bankAccountsColumns";
-
-const ACCOUNT_TYPES: AccountType[] = ["SALARY", "CONSULTANCY", "REIMBURSEMENT"];
-const ACCOUNT_STATUSES: AccountStatus[] = ["ACTIVE", "INACTIVE", "REJECTED", "REQUESTED"];
 
 const BLANK_FILTERS: ReportFilters = { createdFrom: "", createdTo: "", accountTypesArray: [], statusArray: [] };
 
@@ -42,28 +42,24 @@ const BLANK_FILTERS: ReportFilters = { createdFrom: "", createdTo: "", accountTy
 // the field it needs.
 const COLUMNS: BankAccountsTableColumn[] = [
   ACCOUNT_ID_COLUMN,
-  { field: "netSuiteInternalId", label: "NetSuite Internal Id", value: (a) => a.netSuiteInternalId ?? "" },
-  { field: "netSuiteVendorId", label: "NetSuite Vendor Id", value: (a) => a.netSuiteVendorId ?? "" },
-  {
-    field: "netSuitePaymentFileFormat",
-    label: "NetSuite Payment File Format",
-    value: (a) => a.netSuitePaymentFileFormat ?? "",
-  },
+  fieldColumn("netSuiteInternalId", "NetSuite Internal Id"),
+  fieldColumn("netSuiteVendorId", "NetSuite Vendor Id"),
+  fieldColumn("netSuitePaymentFileFormat", "NetSuite Payment File Format"),
   // Only consultancy accounts carry a payment method, so every other
   // Account Type renders "-".
-  { field: "paymentMethod", label: "Payment Method", value: (a) => a.paymentMethod ?? "" },
+  fieldColumn("paymentMethod", "Payment Method"),
   EMPLOYEE_EMAIL_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
-  { field: "beneficiaryAddress", label: "Account Holder Address", value: (a) => a.beneficiaryAddress ?? "" },
+  fieldColumn("beneficiaryAddress", "Account Holder Address"),
   // Only consultancy accounts carry a beneficiary city, so every other
   // Account Type renders "-".
-  { field: "beneficiaryCity", label: "Account Holder City", value: (a) => a.beneficiaryCity ?? "" },
+  fieldColumn("beneficiaryCity", "Account Holder City"),
   BANK_CODE_COLUMN,
-  { field: "bankSwiftCode", label: "Bank Swift Code", value: (a) => a.bankSwiftCode ?? "" },
-  { field: "bankName", label: "Bank Name", value: (a) => a.bankName ?? "" },
-  { field: "bankLocation", label: "Bank Location", value: (a) => a.bankLocation ?? "" },
-  { field: "branchName", label: "Branch Name", value: (a) => a.branchName ?? "" },
+  fieldColumn("bankSwiftCode", "Bank Swift Code"),
+  fieldColumn("bankName", "Bank Name"),
+  fieldColumn("bankLocation", "Bank Location"),
+  fieldColumn("branchName", "Branch Name"),
   EFFECTIVE_MONTH_COLUMN,
   ACCOUNT_TYPE_COLUMN,
 ];
@@ -72,7 +68,11 @@ const COLUMNS: BankAccountsTableColumn[] = [
 // always shown. The NetSuite identifiers and the bank's own details are
 // only wanted when something is being chased down, and showing all
 // seventeen columns at once leaves every one of them too narrow to read.
-const HIDDEN_BY_DEFAULT = [
+//
+// Typed against BankAccount rather than left as plain strings: an entry
+// that matches no column hides nothing at all, and silently showing a
+// column that was meant to start off is not a failure anyone would notice.
+const HIDDEN_BY_DEFAULT: (keyof BankAccount)[] = [
   "netSuiteInternalId",
   "netSuiteVendorId",
   "netSuitePaymentFileFormat",

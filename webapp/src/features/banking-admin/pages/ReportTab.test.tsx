@@ -14,10 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { waitFor } from "@testing-library/react";
 import { captureDownloads, bytesOf } from "@/test/downloads";
 import type { BankAccount } from "@features/my/api/types";
 
@@ -63,6 +62,14 @@ function bankAccount(overrides: Partial<BankAccount> = {}): BankAccount {
 beforeEach(() => {
   accounts.data = [];
   reportAccountsSpy.mockReset();
+});
+
+// The export test below stands in for `URL.createObjectURL` and for the
+// click of every anchor in the document, and neither the runner nor the
+// global setup puts them back on its own — so every later test's clicks
+// would be captured instead of performed.
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe("ReportTab", () => {

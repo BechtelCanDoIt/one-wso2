@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useIsMutating } from "@tanstack/react-query";
 import {
   Autocomplete,
@@ -34,7 +34,7 @@ import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useBankAccounts } from "@features/my/api/useBankAccounts";
 import { useBankingConfig } from "@features/my/api/useBankingConfig";
 import { useBankingEmployees } from "@features/my/api/useBankingEmployees";
-import { useDeactivateAccount } from "@features/my/api/useDeactivateAccount";
+import { useDeactivateAccount, type DeactivateAccountPayload } from "@features/my/api/useDeactivateAccount";
 import { isReimbursementEligible } from "@features/my/api/bankingRules";
 import type { AccountType, BankAccount, BankingEmployee } from "@features/my/api/types";
 import BankAccountRequestDialog from "@features/my/banking/components/BankAccountRequestDialog";
@@ -43,12 +43,39 @@ import {
   ACCOUNT_ID_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
+  ACCOUNT_STATUSES,
   ACCOUNT_TYPE_COLUMN,
   BANK_CODE_COLUMN,
   EFFECTIVE_MONTH_COLUMN,
   EMPLOYEE_EMAIL_COLUMN,
+  fieldColumn,
   type BankAccountsTableColumn,
 } from "../bankAccountsColumns";
+
+// The mutation whose in-flight state both Deactivate and Resign watch —
+// see useDeactivateAccount, which registers the key.
+const DEACTIVATE_MUTATION_KEY = ["deactivate-account"];
+
+// Everything up to the row's own action, which is the only part that
+// depends on anything this tab holds in state. Built once: the grid tracks
+// each column's width and the Columns panel's Reset baseline against the
+// array it was handed, and rebuilds both when handed a new one — so an
+// array assembled during render would undo an admin's resize every time
+// this tab re-rendered (opening the Add Bank Account menu, a keystroke in
+// the employee search).
+const ACCOUNT_COLUMNS: BankAccountsTableColumn[] = [
+  ACCOUNT_ID_COLUMN,
+  EMPLOYEE_EMAIL_COLUMN,
+  ACCOUNT_NAME_COLUMN,
+  ACCOUNT_NUMBER_COLUMN,
+  BANK_CODE_COLUMN,
+  EFFECTIVE_MONTH_COLUMN,
+  {
+    ...fieldColumn("accountStatus", "Account Status", ACCOUNT_STATUSES),
+    render: (a) => <AccountStatusChip status={a.accountStatus} />,
+  },
+  ACCOUNT_TYPE_COLUMN,
+];
 
 // The Employee Operations tab — search any employee, act on their behalf:
 // employee search, account history, Deactivate, Resign, and Add Bank
@@ -61,7 +88,10 @@ export default function EmployeeOperationsTab() {
   const configQuery = useBankingConfig();
   const [selectedEmployee, setSelectedEmployee] = useState<BankingEmployee | null>(null);
   const accountsQuery = useBankAccounts(selectedEmployee?.workEmail);
-  const deactivateAccount = useDeactivateAccount();
+  // Just the call, which React Query keeps as the same function across
+  // renders — the result object is a new one each time, and the column
+  // definitions below have to stay put.
+  const { mutateAsync: deactivateAccount } = useDeactivateAccount();
 
   // Shared by Deactivate and Resign: ConfirmationDialog closes synchronously
   // on click without awaiting anything, so nothing else stops a second press
@@ -69,7 +99,7 @@ export default function EmployeeOperationsTab() {
   // the first — or the Resign loop's own sequence of them — is still in
   // flight. Gate on the mutation itself — see AdminTab's own use of the
   // same pattern.
-  const submitting = useIsMutating({ mutationKey: ["deactivate-account"] }) > 0;
+  const submitting = useIsMutating({ mutationKey: DEACTIVATE_MUTATION_KEY }) > 0;
 
   const [confirmation, setConfirmation] = useState<ConfirmationContent | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
@@ -80,20 +110,24 @@ export default function EmployeeOperationsTab() {
   const accounts = accountsQuery.data?.bankAccounts ?? [];
   const config = configQuery.data;
 
-  function requestDeactivate(account: BankAccount) {
-    setConfirmation({
-      title: "Confirm Deactivation",
-      text: "Are you sure you want to deactivate these account?",
-      confirmAction: () => {
-        if (!selectedEmployee) return;
-        const employeeEmail = selectedEmployee.workEmail;
-        deactivateAccount
-          .mutateAsync({ accountId: account.accountId, employeeEmail })
-          .then(() => showSuccess(`Deactivated account ${account.accountId} for ${employeeEmail}.`))
-          .catch((error: unknown) => showError(`Failed to deactivate the account. ${describeError(error)}`));
-      },
-    });
-  }
+  // Memoised only so the Actions column below can be: everything it closes
+  // over is either state or stable already.
+  const requestDeactivate = useCallback(
+    (account: BankAccount) => {
+      setConfirmation({
+        title: "Confirm Deactivation",
+        text: "Are you sure you want to deactivate these account?",
+        confirmAction: () => {
+          if (!selectedEmployee) return;
+          const employeeEmail = selectedEmployee.workEmail;
+          deactivateAccount({ accountId: account.accountId, employeeEmail })
+            .then(() => showSuccess(`Deactivated account ${account.accountId} for ${employeeEmail}.`))
+            .catch((error: unknown) => showError(`Failed to deactivate the account. ${describeError(error)}`));
+        },
+      });
+    },
+    [selectedEmployee, deactivateAccount, showSuccess, showError],
+  );
 
   function requestResign() {
     setConfirmation({
@@ -118,7 +152,7 @@ export default function EmployeeOperationsTab() {
           for (const account of accounts) {
             if (account.accountStatus === "ACTIVE") {
               try {
-                await deactivateAccount.mutateAsync({
+                await deactivateAccount({
                   accountId: account.accountId,
                   employeeEmail,
                 });
@@ -149,44 +183,23 @@ export default function EmployeeOperationsTab() {
     });
   }
 
-  const columns: BankAccountsTableColumn[] = [
-    ACCOUNT_ID_COLUMN,
-    EMPLOYEE_EMAIL_COLUMN,
-    ACCOUNT_NAME_COLUMN,
-    ACCOUNT_NUMBER_COLUMN,
-    BANK_CODE_COLUMN,
-    EFFECTIVE_MONTH_COLUMN,
-    {
-      field: "accountStatus",
-      label: "Account Status",
-      value: (a) => a.accountStatus,
-      render: (a) => <AccountStatusChip status={a.accountStatus} />,
-    },
-    ACCOUNT_TYPE_COLUMN,
-    {
-      field: "actions",
-      label: "Actions",
-      // A column of buttons: nothing to sort, filter or save, so it opts out
-      // of all three rather than exporting a row of blanks.
-      action: true,
-      value: () => "",
-      render: (a) => (
-        <Tooltip title={a.accountStatus === "INACTIVE" ? "Account already deactivated" : "Deactivate Account"}>
-          <span>
-            <Button
-              size="small"
-              color="error"
-              disabled={a.accountStatus === "INACTIVE" || submitting}
-              loading={deactivateAccount.isPending && deactivateAccount.variables?.accountId === a.accountId}
-              onClick={() => requestDeactivate(a)}
-            >
-              Deactivate
-            </Button>
-          </span>
-        </Tooltip>
-      ),
-    },
-  ];
+  const columns = useMemo<BankAccountsTableColumn[]>(
+    () => [
+      ...ACCOUNT_COLUMNS,
+      {
+        field: "actions",
+        label: "Actions",
+        // A column of buttons: nothing to sort, filter or save, so it opts out
+        // of all three rather than exporting a row of blanks.
+        action: true,
+        value: () => "",
+        render: (a, { tabIndex }) => (
+          <DeactivateCell account={a} tabIndex={tabIndex} onDeactivate={requestDeactivate} />
+        ),
+      },
+    ],
+    [requestDeactivate],
+  );
 
   return (
     <Box>
@@ -306,6 +319,52 @@ export default function EmployeeOperationsTab() {
         />
       )}
     </Box>
+  );
+}
+
+// One row's Deactivate button.
+//
+// Its own component rather than markup inside the Actions column, so that
+// column's definition doesn't close over the mutation's state and can stay
+// the same object between renders — see ACCOUNT_COLUMNS. Takes the cell's
+// `tabIndex` for the same reason every grid cell's controls do: the grid
+// moves focus between cells itself, handing exactly one of them a 0, and a
+// button that ignores it adds a Tab stop per row.
+function DeactivateCell({
+  account,
+  tabIndex,
+  onDeactivate,
+}: {
+  account: BankAccount;
+  tabIndex: -1 | 0;
+  onDeactivate: (account: BankAccount) => void;
+}) {
+  // Any deactivate in flight disables every button (see `submitting` above);
+  // only this row's own shows the spinner.
+  const anyInFlight = useIsMutating({ mutationKey: DEACTIVATE_MUTATION_KEY }) > 0;
+  const thisInFlight =
+    useIsMutating({
+      mutationKey: DEACTIVATE_MUTATION_KEY,
+      predicate: (mutation) =>
+        (mutation.state.variables as DeactivateAccountPayload | undefined)?.accountId === account.accountId,
+    }) > 0;
+  const alreadyInactive = account.accountStatus === "INACTIVE";
+
+  return (
+    <Tooltip title={alreadyInactive ? "Account already deactivated" : "Deactivate Account"}>
+      <span>
+        <Button
+          size="small"
+          color="error"
+          tabIndex={tabIndex}
+          disabled={alreadyInactive || anyInFlight}
+          loading={thisInFlight}
+          onClick={() => onDeactivate(account)}
+        >
+          Deactivate
+        </Button>
+      </span>
+    </Tooltip>
   );
 }
 

@@ -72,11 +72,20 @@ const STEP_LABELS = ["Account Holder Info", "Bank Info", "Finish"];
 export interface BankAccountRequestDialogProps {
   accountType: AccountType;
   employeeEmail: string;
-  /** The full country list the Account Holder's Country step picks from — banking app-config's own `allCountries`. */
+  /**
+   * The full country list the Account Holder's Country step picks from — banking
+   * app-config's own `allCountries`, which the backend builds from the same country map
+   * it validates both country fields against. So it doubles as the set of Bank Locations
+   * a submission can actually use, which is what keeps the unrestricted list below from
+   * offering a value that only fails at Save.
+   */
   allCountries: string[];
   /** The employee's own work location — folded into the Bank Location step's options, same as the source app. */
   employeeWorkLocation: string | undefined;
-  /** Banking app-config's `customLocationMap` — narrows Consultancy's Bank Location options. */
+  /**
+   * Banking app-config's `customLocationMap` — narrows Consultancy's Bank Location
+   * options, unless `allowAnyBankLocation` is set, which lifts the narrowing entirely.
+   */
   customLocationMap: CustomLocationMapEntry[];
   /**
    * Offers every Bank Location on file rather than the ones the employee's own work
@@ -103,7 +112,9 @@ export interface BankAccountRequestDialogProps {
 // employee's own work location — that's the source app's own behaviour for
 // every Account Type except Consultancy, whose Bank Location is narrowed to
 // the `customLocationMap` entry for the employee's work location (or just
-// that location when there is no entry), and starts pre-selected.
+// that location when there is no entry), and starts pre-selected. That
+// narrowing is lifted when `allowAnyBankLocation` is set — an Admin filing
+// on someone's behalf gets the unrestricted list for Consultancy too.
 export default function BankAccountRequestDialog({
   accountType,
   employeeEmail,
@@ -120,12 +131,16 @@ export default function BankAccountRequestDialog({
     () => (isConsultancy ? consultancyAllowedLocations(employeeWorkLocation, customLocationMap) : []),
     [isConsultancy, employeeWorkLocation, customLocationMap],
   );
-  const [values, setValues] = useState<BankAccountFormValues>(() => ({
-    ...BLANK_VALUES,
-    bankLocation: isConsultancy
+  const [values, setValues] = useState<BankAccountFormValues>(() => {
+    const initial = isConsultancy
       ? initialConsultancyBankLocation(employeeWorkLocation, consultancyLocations)
-      : "",
-  }));
+      : "";
+    // The unrestricted list carries mapped locations under the name a
+    // submission can use rather than the abbreviation the map holds, so the
+    // value it starts on has to be the same one — otherwise the Admin opens
+    // on a location that isn't among the options.
+    return { ...BLANK_VALUES, bankLocation: allowAnyBankLocation ? banksLocationKey(initial) : initial };
+  });
   const [errors, setErrors] = useState<BankAccountFormErrors>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [confirming, setConfirming] = useState(false);
@@ -138,19 +153,41 @@ export default function BankAccountRequestDialog({
 
   const bankLocations = useMemo(() => {
     if (isConsultancy && !allowAnyBankLocation) return consultancyLocations;
-    const set = new Set((banksQuery.data?.banks ?? []).map((b) => b.bankLocation));
+    const set = new Set(
+      (banksQuery.data?.banks ?? [])
+        .map((b) => b.bankLocation)
+        // A bank row's location is nullable on the backend's own record, so
+        // /banks can return one without it. A null left in here reaches the
+        // Autocomplete, whose default label reader throws on it and takes
+        // the whole step down with it.
+        .filter(Boolean),
+    );
     if (employeeWorkLocation) set.add(employeeWorkLocation);
-    // The unrestricted list stays a superset of the restricted one. A mapped
-    // location can be an abbreviation the bank records do not carry — "US"
-    // against their "United States" — and that is the value the form starts
-    // on, so leaving it out would strand an Admin who moved away from it with
-    // no way back.
-    for (const location of consultancyLocations) set.add(location);
-    // Backend order first, then the employee's own location and any mapped
-    // ones that were missing from it. Left unsorted so the banks on file keep
-    // the order the backend returned them in.
-    return Array.from(set);
-  }, [isConsultancy, allowAnyBankLocation, consultancyLocations, banksQuery.data, employeeWorkLocation]);
+    // Backend order first, then the employee's own location. Left unsorted so
+    // the banks on file keep the order the backend returned them in.
+    if (!isConsultancy) return Array.from(set);
+
+    // Consultancy from here down — the one Account Type whose Bank Location
+    // the backend checks, against the same country map `allCountries` is
+    // built from. (The other two it stores as given, so narrowing their
+    // options to that map would only take away ones it would have accepted.)
+    //
+    // The unrestricted list stays a superset of the restricted one, but under
+    // names a submission can actually use: a customLocationMap entry can be
+    // an abbreviation — "US" against the banks' "United States" — and that is
+    // the value the form would otherwise start on, only to be refused at Save
+    // after all three steps. banksLocationKey is the mapping the bank lookup
+    // already applies for exactly this reason.
+    for (const location of consultancyLocations) set.add(banksLocationKey(location));
+    return Array.from(set).filter((location) => allCountries.includes(location));
+  }, [
+    isConsultancy,
+    allowAnyBankLocation,
+    consultancyLocations,
+    banksQuery.data,
+    employeeWorkLocation,
+    allCountries,
+  ]);
 
   // The employee's own work location is missing from the Bank Location
   // options — only reachable for Consultancy, when its customLocationMap

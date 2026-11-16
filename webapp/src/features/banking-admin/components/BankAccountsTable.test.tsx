@@ -15,7 +15,7 @@
 // under the License.
 
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { BankAccount } from "@features/my/api/types";
@@ -25,6 +25,7 @@ import {
   ACCOUNT_ID_COLUMN,
   BLANK,
   EMPLOYEE_EMAIL_COLUMN,
+  fieldColumn,
   type BankAccountsTableColumn,
 } from "../bankAccountsColumns";
 
@@ -63,11 +64,7 @@ const DEACTIVATE_COLUMN: BankAccountsTableColumn = {
   render: () => <button type="button">Deactivate</button>,
 };
 
-const SWIFT_COLUMN: BankAccountsTableColumn = {
-  field: "bankSwiftCode",
-  label: "Bank Swift Code",
-  value: (a) => a.bankSwiftCode ?? "",
-};
+const SWIFT_COLUMN = fieldColumn("bankSwiftCode", "Bank Swift Code");
 
 function renderTable(props: Partial<Parameters<typeof BankAccountsTable>[0]> = {}) {
   return render(
@@ -91,6 +88,14 @@ async function saved(): Promise<{ csv: string; filename: string }> {
 }
 
 const savedCsv = async () => (await saved()).csv;
+
+// captureDownloads stands in for `URL.createObjectURL` and for the click of
+// every anchor in the document, and neither the runner nor the global setup
+// puts them back. Left in place, the first export below quietly swallows
+// every later test's clicks instead of performing them.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("BankAccountsTable toolbar", () => {
   it("offers Columns, Filters, Density and Export above the rows", () => {

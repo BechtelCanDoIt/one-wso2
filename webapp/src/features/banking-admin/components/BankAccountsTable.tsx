@@ -39,6 +39,10 @@ import { BankingGridToolbar } from "./BankingGridToolbar";
 // and Employee Operations), so the control feels consistent between them.
 const ROWS_PER_PAGE_OPTIONS = [6, 10, 25, 50];
 
+// One array rather than a fresh `[]` per render, so a caller that leaves
+// `hiddenByDefault` out hands the grid the same initial state every time.
+const NOTHING_HIDDEN: readonly string[] = [];
+
 type ChipColor = "default" | "success" | "warning" | "error";
 
 // Same colour assignments SummaryTab already uses for this same field —
@@ -60,16 +64,22 @@ export default function BankAccountsTable({
   accounts,
   columns,
   emptyMessage,
-  hiddenByDefault = [],
+  hiddenByDefault = NOTHING_HIDDEN,
 }: {
   accounts: BankAccount[];
+  /**
+   * Stable across renders, please. The grid keeps each column's width and
+   * the baseline the Columns panel's Reset restores to against the array it
+   * was given, and rebuilds both when it is handed a new one — so a caller
+   * that assembles this inline throws away the admin's own resizes.
+   */
   columns: BankAccountsTableColumn[];
   emptyMessage: string;
   /**
    * Fields the Columns panel starts with switched off. The column is still
    * there to be turned on, and an export carries whatever is on at the time.
    */
-  hiddenByDefault?: string[];
+  hiddenByDefault?: readonly string[];
 }) {
   const gridColumns = useMemo<DataGrid.GridColDef<BankAccount>[]>(
     () =>
@@ -82,10 +92,18 @@ export default function BankAccountsTable({
           minWidth: 140,
           // Sorting or filtering a column of buttons orders rows by nothing
           // and exports them as blanks, so the action column opts out of all
-          // three rather than offering controls that do nothing.
+          // three rather than offering controls that do nothing. Its header
+          // menu holds only those three, so it goes as well — and with
+          // nothing left to offer, hiding the column would only strand the
+          // row's one control behind the Columns panel.
           sortable: !column.action,
           filterable: !column.action,
           disableExport: column.action,
+          hideable: !column.action,
+          disableColumnMenu: column.action,
+          // A column with a closed set of values filters by equality rather
+          // than substring — see the column contract's own `options`.
+          ...(column.options ? { type: "singleSelect" as const, valueOptions: [...column.options] } : {}),
           // Export, sorting and filtering read this, not the rendered cell —
           // so a column that renders a chip still saves as readable text.
           valueGetter: (_value: unknown, row: BankAccount) => column.value(row),
@@ -93,17 +111,13 @@ export default function BankAccountsTable({
           // missing field is painted as a dash here and left as an empty
           // cell there.
           renderCell: render
-            ? (params: DataGrid.GridRenderCellParams<BankAccount>) => render(params.row)
+            ? (params: DataGrid.GridRenderCellParams<BankAccount>) =>
+                render(params.row, { tabIndex: params.tabIndex })
             : (params: DataGrid.GridRenderCellParams<BankAccount>) =>
                 params.value === "" || params.value == null ? BLANK : String(params.value),
         };
       }),
     [columns],
-  );
-
-  const columnVisibilityModel = useMemo(
-    () => Object.fromEntries(hiddenByDefault.map((field) => [field, false])),
-    [hiddenByDefault],
   );
 
   if (accounts.length === 0) {
@@ -120,7 +134,9 @@ export default function BankAccountsTable({
       slots={{ toolbar: BankingGridToolbar }}
       disableRowSelectionOnClick
       initialState={{
-        columns: { columnVisibilityModel },
+        // Read once, at mount — switching a column on afterwards is the
+        // admin's own choice to keep, not something to re-apply.
+        columns: { columnVisibilityModel: Object.fromEntries(hiddenByDefault.map((field) => [field, false])) },
         pagination: { paginationModel: { pageSize: ROWS_PER_PAGE_OPTIONS[0] } },
       }}
       pageSizeOptions={ROWS_PER_PAGE_OPTIONS}

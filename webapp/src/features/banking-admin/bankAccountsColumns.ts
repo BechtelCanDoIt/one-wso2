@@ -15,7 +15,7 @@
 // under the License.
 
 import type { ReactNode } from "react";
-import type { BankAccount } from "@features/my/api/types";
+import type { AccountStatus, AccountType, BankAccount } from "@features/my/api/types";
 
 // Report and Employee Operations both render the same underlying dataset
 // (BankAccount[]) — these are the columns identical between the two, shared
@@ -27,10 +27,14 @@ import type { BankAccount } from "@features/my/api/types";
 // component-only for fast refresh.
 export interface BankAccountsTableColumn {
   /**
-   * Grid column id, and the header a CSV export writes this column under —
-   * so it has to be unique within one tab's column set.
+   * Grid column id — unique within one tab's column set, and the name a
+   * caller's `hiddenByDefault` entry has to match.
+   *
+   * Not the heading an export writes: that is `label`, which the grid
+   * prefers over the id for both the screen and the file.
    */
   field: string;
+  /** The heading, on screen and at the top of this column in an export. */
   label: string;
   /**
    * The plain value behind the cell. Sorting, filtering and Export all read
@@ -39,12 +43,30 @@ export interface BankAccountsTableColumn {
    * of a blank.
    */
   value: (account: BankAccount) => string | number;
-  /** Cell content, where the column shows more than its own value. */
-  render?: (account: BankAccount) => ReactNode;
   /**
-   * A control rather than data — never sorted, filtered or exported. A
-   * button exports as an empty cell and sorts by nothing, so offering
-   * either is just a way to confuse the reader.
+   * Cell content, where the column shows more than its own value.
+   *
+   * Takes the cell's own `tabIndex` as well: the grid moves focus between
+   * cells itself and hands exactly one of them a 0, so a control that
+   * ignores this adds a Tab stop per row and breaks that.
+   */
+  render?: (account: BankAccount, cell: { tabIndex: -1 | 0 }) => ReactNode;
+  /**
+   * The closed set this column's values come from.
+   *
+   * Without one the grid filters a text column by substring, which is the
+   * wrong question to ask of a status: `contains "ACTIVE"` keeps the
+   * INACTIVE rows too, and an Export straight afterwards writes
+   * deactivated accounts into a file the admin had filtered down to the
+   * active ones. Declaring the set gets equality instead.
+   */
+  options?: readonly string[];
+  /**
+   * A control rather than data — never sorted, filtered or exported, and
+   * not something the Columns panel offers to hide. A button exports as an
+   * empty cell and sorts by nothing, so offering either is just a way to
+   * confuse the reader; and hiding the column takes away the row's only
+   * action with nothing left on screen to say where it went.
    */
   action?: boolean;
 }
@@ -59,38 +81,33 @@ export interface BankAccountsTableColumn {
  */
 export const BLANK = "-";
 
-export const ACCOUNT_ID_COLUMN: BankAccountsTableColumn = {
-  field: "accountId",
-  label: "Account ID",
-  value: (a) => a.accountId,
-};
-export const EMPLOYEE_EMAIL_COLUMN: BankAccountsTableColumn = {
-  field: "employeeEmail",
-  label: "Employee Email",
-  value: (a) => a.employeeEmail,
-};
-export const ACCOUNT_NAME_COLUMN: BankAccountsTableColumn = {
-  field: "accountName",
-  label: "Account Name",
-  value: (a) => a.accountName,
-};
-export const ACCOUNT_NUMBER_COLUMN: BankAccountsTableColumn = {
-  field: "accountNumber",
-  label: "Account Number",
-  value: (a) => a.accountNumber,
-};
-export const BANK_CODE_COLUMN: BankAccountsTableColumn = {
-  field: "bankCode",
-  label: "Bank Code",
-  value: (a) => a.bankCode ?? "",
-};
-export const EFFECTIVE_MONTH_COLUMN: BankAccountsTableColumn = {
-  field: "effectiveFrom",
-  label: "Effective Month",
-  value: (a) => a.effectiveFrom,
-};
-export const ACCOUNT_TYPE_COLUMN: BankAccountsTableColumn = {
-  field: "accountType",
-  label: "Account Type",
-  value: (a) => a.accountType,
-};
+// The two closed sets these tables carry. Shared with the Report's own
+// filter controls, which pick from the same values — one list each, so a
+// column's filter and the search above it can't offer different members.
+export const ACCOUNT_TYPES: AccountType[] = ["SALARY", "CONSULTANCY", "REIMBURSEMENT"];
+export const ACCOUNT_STATUSES: AccountStatus[] = ["ACTIVE", "INACTIVE", "REJECTED", "REQUESTED"];
+
+/**
+ * A column showing one BankAccount field as it stands, blank when it is null.
+ *
+ * `field` doubles as the grid column id, so taking it from `keyof
+ * BankAccount` keeps the id and the value it reads from drifting apart: a
+ * renamed field stops compiling here instead of quietly exporting an empty
+ * column, and a typo in a caller's `hiddenByDefault` no longer silently
+ * matches nothing.
+ */
+export function fieldColumn(
+  field: keyof BankAccount,
+  label: string,
+  options?: readonly string[],
+): BankAccountsTableColumn {
+  return { field, label, value: (account) => account[field] ?? "", options };
+}
+
+export const ACCOUNT_ID_COLUMN = fieldColumn("accountId", "Account ID");
+export const EMPLOYEE_EMAIL_COLUMN = fieldColumn("employeeEmail", "Employee Email");
+export const ACCOUNT_NAME_COLUMN = fieldColumn("accountName", "Account Name");
+export const ACCOUNT_NUMBER_COLUMN = fieldColumn("accountNumber", "Account Number");
+export const BANK_CODE_COLUMN = fieldColumn("bankCode", "Bank Code");
+export const EFFECTIVE_MONTH_COLUMN = fieldColumn("effectiveFrom", "Effective Month");
+export const ACCOUNT_TYPE_COLUMN = fieldColumn("accountType", "Account Type", ACCOUNT_TYPES);
