@@ -48,7 +48,7 @@ import SectionCard from "@features/sales/cado2/components/section-card/SectionCa
 import { useCado2Toast } from "@features/sales/cado2/components/toast/toastContext";
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
-import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
+import { visuallyHidden } from "@utils/visuallyHidden";
 import { textHint } from "./textHint";
 import LegalRichTextField from "@features/sales/cado2/components/legal-rich-text/LegalRichTextField";
 import { cleanLegalText, isEmptyLegalText, legalPlainText, sameLegalText } from "@features/sales/cado2/utils/legalRichText";
