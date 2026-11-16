@@ -205,6 +205,36 @@ describe("the product page", () => {
     expect(screen.getByText(/Paid orders are final/)).toBeInTheDocument();
   });
 
+  it("drops the pickup and final-sale notes when the chosen option is out of stock", async () => {
+    backend();
+    renderPage("/store/p/wso2-hoodie?colour=Black&size=S");
+    expect(await screen.findByText("Pick up at Colombo, about 2 working days after you pay.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Heather grey, out of stock" }));
+    expect(await screen.findByText(/Out of stock\. It should be back around/)).toBeInTheDocument();
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
+  });
+
+  it("drops the notes for a sold-out product", async () => {
+    const [only] = powerbank().variants;
+    backend({ product: powerbank({ variants: [{ ...only, availability: "SOLD_OUT" }] }) });
+    renderPage("/store/p/wso2-powerbank");
+    expect(await screen.findByText(/Sold out\. It won't be restocked/)).toBeInTheDocument();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50))); // the offices would have loaded
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
+  });
+
+  it("drops the notes before a choice when every option is out of stock", async () => {
+    const out = hoodie().variants.map((v) => ({ ...v, availability: "OUT_OF_STOCK" as const, stockLeft: null }));
+    backend({ product: hoodie({ variants: out }) });
+    renderPage();
+    expect(await screen.findByText("Choose a colour and size.")).toBeInTheDocument();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50))); // the offices would have loaded
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
+  });
+
   it("offers Notify me on an out-of-stock choice, and confirms the alert", async () => {
     backend();
     http.authedPost.mockImplementation(async () => {
