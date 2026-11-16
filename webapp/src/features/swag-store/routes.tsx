@@ -18,6 +18,9 @@ import { lazy, Suspense, type ReactNode } from "react";
 import { Route } from "react-router";
 import { Skeleton } from "@wso2/oxygen-ui";
 import SwagStoreShell from "./components/SwagStoreShell";
+import SwagStoreAdminLanding from "./admin/components/SwagStoreAdminLanding";
+import SwagStoreAdminRequires from "./admin/components/SwagStoreAdminRequires";
+import SwagStoreAdminShell from "./admin/components/SwagStoreAdminShell";
 
 // Every page loads on first use, so none of the store is downloaded until it is opened.
 const ShopPage = lazy(() => import("./shop/pages/ShopPage"));
@@ -27,6 +30,7 @@ const CheckoutPage = lazy(() => import("./shop/pages/CheckoutPage"));
 const OrdersPage = lazy(() => import("./shop/pages/OrdersPage"));
 const OrderPage = lazy(() => import("./shop/pages/OrderPage"));
 const AlertsPage = lazy(() => import("./shop/pages/AlertsPage"));
+const DashboardPage = lazy(() => import("./admin/pages/DashboardPage"));
 
 const deferred = (page: ReactNode) => (
   <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>{page}</Suspense>
@@ -46,5 +50,23 @@ export const swagStoreShopRoutes = (
     <Route path="orders" element={deferred(<OrdersPage />)} />
     <Route path="orders/:orderNo" element={deferred(<OrderPage />)} />
     <Route path="alerts" element={deferred(<AlertsPage />)} />
+  </Route>
+);
+
+/**
+ * The store team's screens under People Ops, as one fragment for App.tsx.
+ * SwagStoreShell resolves access first, as it does for the shop; inside it
+ * SwagStoreAdminShell turns away anyone without a store role, and each leaf
+ * checks its own. App.tsx mounts this only while the `swagStore` preview flag is on.
+ */
+export const swagStoreAdminRoutes = (
+  <Route element={<SwagStoreShell />}>
+    <Route path="people-ops/swag-store" element={<SwagStoreAdminShell />}>
+      <Route index element={<SwagStoreAdminLanding />} />
+      <Route
+        path="dashboard"
+        element={<SwagStoreAdminRequires screen="dashboard">{deferred(<DashboardPage />)}</SwagStoreAdminRequires>}
+      />
+    </Route>
   </Route>
 );

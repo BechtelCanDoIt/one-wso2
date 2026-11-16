@@ -90,6 +90,7 @@ import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
 import { UMT_DOCUMENTATION_ITEM_ID, openUmtDocumentation } from "@features/umt/lib/umtDocumentation";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 import { swagStorePaths } from "@features/swag-store/swagStorePaths";
+import { SWAG_STORE_ADMIN_GROUP_ID, SWAG_STORE_ADMIN_SCREENS } from "@features/swag-store/admin/swagStoreAdminItems";
 import {
   Cado2LogoIcon,
   EchoLogoIcon,
@@ -193,6 +194,20 @@ const BANKING_ADMIN_SECTION: PerspectiveSection = {
   label: "Banking",
   icon: LandmarkIcon,
   path: "/banking/admin",
+};
+
+// Swag Store's admin screens, for the store team. Not a People Ops admin
+// screen: who sees each row is the store's own roles (catalog_manager,
+// fulfilment_ops) from its GET /users/me, decided by the swag-store-admin
+// rail gate, never by the People Ops privileges from ONE_WSO2_PEOPLE_BACKEND_URL.
+// The rows come from the store's screens table, which also says who each one
+// is for.
+const SWAG_STORE_ADMIN_SECTION: PerspectiveSection = {
+  id: SWAG_STORE_ADMIN_GROUP_ID,
+  label: "Swag Store",
+  icon: ShoppingBagIcon,
+  alwaysGroup: true,
+  children: Object.values(SWAG_STORE_ADMIN_SCREENS).map(({ id, label, path }) => ({ id, label, path })),
 };
 
 export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
@@ -360,6 +375,7 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
     ],
   },
   BANKING_ADMIN_SECTION,
+  ...(isPreviewEnabled("swagStore") ? [SWAG_STORE_ADMIN_SECTION] : []),
 ];
 
 /**
