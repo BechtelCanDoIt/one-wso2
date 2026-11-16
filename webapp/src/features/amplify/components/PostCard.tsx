@@ -20,8 +20,8 @@ import type { Campaign } from "../api/amplifyTypes";
 import { useAmplifyConfig } from "../api/useAmplifyData";
 import { linkedInPostUrl } from "../util/linkedinPost";
 
-// Black card with the white Amplify pulse mark at 80% of the frame height (public/amplify).
-export const DEFAULT_POST_IMAGE = "/amplify/default-post-image.svg";
+// Choreo Labs icon (white), hosted by Choreo Labs. Shown on a black card when the post has no usable image.
+export const DEFAULT_POST_IMAGE = "https://choreolabs.com/themes/wso2theme/images/choreo/brand/choreo-labs-icon-white.png";
 
 // The post's own image, or the default when the URL is empty or fails to load.
 function PostImage({ url }: { url?: string | null }) {
@@ -36,7 +36,7 @@ function PostImage({ url }: { url?: string | null }) {
       onError={() => {
         if (url && !useDefault) setFailedUrl(url);
       }}
-      sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
+      sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover", bgcolor: useDefault ? "#000" : undefined }}
     />
   );
 }
@@ -47,7 +47,7 @@ function postDate(iso: string): string {
 }
 
 /**
- * One post: headline, "WSO2 on LinkedIn · date", image, chips, the 2–3 line
+ * One post: headline, "Choreo Labs on LinkedIn · date", image, chips, the 2–3 line
  * summary, and an action button. Same card on Celebrate, Current Posts and the
  * share dialog; only the chips and the action differ (the dialog passes none).
  */
@@ -75,7 +75,7 @@ export default function PostCard({
           {campaign.title}
         </Link>
         <Typography variant="caption" color="text.secondary">
-          WSO2 on LinkedIn · {postDate(campaign.opensAt)}
+          Choreo Labs on LinkedIn · {postDate(campaign.opensAt)}
         </Typography>
       </Box>
 

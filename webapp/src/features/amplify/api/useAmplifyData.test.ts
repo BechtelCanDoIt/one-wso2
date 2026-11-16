@@ -32,12 +32,12 @@ describe("amplifyConfigFrom", () => {
     const config = amplifyConfigFrom(
       me({
         linkedinOrgUrn: "urn:li:organization:1",
-        privacyNoticeUrl: "https://wso2.com/privacy-policy",
+        privacyNoticeUrl: "https://choreolabs.com/privacy-policy",
         campaignLinkOrigins: ["https://www.linkedin.com", "http://localhost:19091"],
       }),
     );
     expect(config.linkedinOrgUrn).toBe("urn:li:organization:1");
-    expect(config.privacyNoticeUrl).toBe("https://wso2.com/privacy-policy");
+    expect(config.privacyNoticeUrl).toBe("https://choreolabs.com/privacy-policy");
     expect(config.campaignLinkOrigins).toEqual(["https://www.linkedin.com", "http://localhost:19091"]);
   });
 

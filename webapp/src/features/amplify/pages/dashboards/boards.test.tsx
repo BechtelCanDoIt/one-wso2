@@ -92,7 +92,7 @@ const operations: DashboardOperations = {
   campaigns: [
     {
       campaignId: "c1",
-      title: "WSO2 at KubeCon",
+      title: "Choreo Labs at KubeCon",
       categoryCode: "EVENT",
       categoryLabel: "Event",
       isPriority: true,
@@ -273,7 +273,7 @@ describe("PostPerformanceBoard", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Post detail")).toBeTruthy();
     expect(within(dialog).getByText("AI-native integration.")).toBeTruthy();
-    expect(dialog.querySelector("img")?.getAttribute("src")).toBe("/amplify/default-post-image.svg");
+    expect(dialog.querySelector("img")?.getAttribute("src")).toBe("https://choreolabs.com/themes/wso2theme/images/choreo/brand/choreo-labs-icon-white.png");
     expect(within(dialog).getByText("75%")).toBeTruthy();
     expect(within(dialog).getByText("Novera: Sent")).toBeTruthy();
     expect(within(dialog).getByRole("img", { name: /Reposts per day/ })).toBeTruthy();

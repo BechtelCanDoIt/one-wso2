@@ -33,7 +33,7 @@ export const SHARE_QUEUED_MESSAGE =
   "Queued. Amplify posts your shares on LinkedIn one at a time, a few minutes apart, so this one may take a while.";
 
 /**
- * "Amplify, share this for me." A repost of WSO2's post on the employee's
+ * "Amplify, share this for me." A repost of Choreo Labs' post on the employee's
  * LinkedIn. Text in "Add your thoughts" makes it a REPOST_COMMENTARY; empty
  * stays a plain REPOST. The repost is queued; the next Amplify run publishes it.
  */
