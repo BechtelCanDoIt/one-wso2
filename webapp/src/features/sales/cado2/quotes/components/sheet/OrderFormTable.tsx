@@ -20,7 +20,7 @@ import { CircleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import { commissionRatesText, durationShort, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
-import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
+import { visuallyHidden } from "@utils/visuallyHidden";
 
 const num = { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } as const;
 

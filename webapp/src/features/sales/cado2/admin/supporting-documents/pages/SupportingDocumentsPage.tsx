@@ -49,7 +49,7 @@ import { useCado2Toast } from "@features/sales/cado2/components/toast/toastConte
 import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/LifecycleDialog";
 import { messageOf } from "@features/sales/cado2/quotes/api/errors";
 import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
-import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
+import { visuallyHidden } from "@utils/visuallyHidden";
 import { pagesLabel, sizeLabel, type SupportingDocument } from "@features/sales/cado2/quotes/api/useSupportingDocuments";
 import {
   useSupportingDocumentFile,
