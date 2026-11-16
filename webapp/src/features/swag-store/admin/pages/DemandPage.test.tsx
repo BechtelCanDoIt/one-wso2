@@ -231,6 +231,29 @@ describe("a product's drawer", () => {
     expect(within(l).getByRole("button", { name: "Save date" })).toBeEnabled();
   });
 
+  it("stays open with an unsaved edit when the board read after a save fails, until Retry catches up", async () => {
+    renderPage("/people-ops/swag-store/demand/p-hoodie");
+    const drawer = await screen.findByRole("dialog", { name: "WSO2 Hoodie" });
+    const l = within(drawer).getByRole("group", { name: "L" });
+    const date = within(l).getByLabelText("Restock date");
+    await userEvent.clear(date);
+    await userEvent.type(date, "2026-12-28");
+    http.authedPatch.mockResolvedValue(adminProduct());
+    http.authedGet.mockRejectedValue(new HttpError("/admin/demand", 503, JSON.stringify({ message: "Database is down." })));
+    const m = within(drawer).getByRole("group", { name: "M" });
+    await userEvent.type(within(m).getByLabelText("Restock date"), "2026-12-24");
+    await userEvent.click(within(m).getByRole("button", { name: "Save date" }));
+    expect(await within(drawer).findByText(/Couldn't refresh the demand board/)).toHaveTextContent("Database is down.");
+    expect(screen.getByRole("dialog", { name: "WSO2 Hoodie" })).toBe(drawer);
+    expect(date).toHaveValue("2026-12-28");
+
+    http.authedGet.mockResolvedValue({ items: [{ ...ROWS[0], restockEta: "2026-12-24T00:00:00Z" }, ROWS[1], ROWS[2]] });
+    await userEvent.click(within(drawer).getByRole("button", { name: /Retry/ }));
+    await waitFor(() => expect(within(drawer).queryByText(/Couldn't refresh the demand board/)).toBeNull());
+    expect(date).toHaveValue("2026-12-28");
+    expect(within(l).getByRole("button", { name: "Save date" })).toBeEnabled();
+  });
+
   it("holds the date while saving, so a failed save still shows its error", async () => {
     let fail: (error: unknown) => void = () => {};
     http.authedPatch.mockImplementation(() => new Promise((_, reject) => (fail = reject)));

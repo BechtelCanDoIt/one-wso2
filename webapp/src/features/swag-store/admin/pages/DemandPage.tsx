@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useId, useState, type FormEvent, type JSX } from "react";
+import { useId, useState, type FormEvent, type JSX, type ReactNode } from "react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import {
   Alert,
@@ -58,6 +58,13 @@ export default function DemandPage(): JSX.Element {
   const navigate = useNavigate();
   const demand = useAdminDemand();
   const products = groupDemand(demand.data ?? []);
+  // A later read failed, such as the one after a save. The last board read stays up, and an open
+  // drawer keeps its unsaved dates; this notice says the board may be out of date.
+  const refreshFailed = demand.isError && demand.data !== undefined && (
+    <ErrorNotice onRetry={() => void demand.refetch()} retrying={demand.isFetching} error={demand.error} sx={{ mb: 2 }}>
+      Couldn&apos;t refresh the demand board.
+    </ErrorNotice>
+  );
 
   return (
     <Box>
@@ -73,20 +80,26 @@ export default function DemandPage(): JSX.Element {
       </Typography>
       {demand.isPending ? (
         <Skeleton variant="rounded" height={220} aria-label="Loading the demand board" />
-      ) : demand.isError ? (
+      ) : demand.data === undefined ? (
         <ErrorNotice onRetry={() => void demand.refetch()} retrying={demand.isFetching} error={demand.error}>
           Couldn&apos;t load the demand board.
         </ErrorNotice>
-      ) : products.length === 0 ? (
-        <Typography color="text.secondary">Nobody is waiting for anything right now.</Typography>
       ) : (
-        <DemandTable products={products} />
+        <>
+          {refreshFailed}
+          {products.length === 0 ? (
+            <Typography color="text.secondary">Nobody is waiting for anything right now.</Typography>
+          ) : (
+            <DemandTable products={products} />
+          )}
+        </>
       )}
-      {productId && demand.isSuccess && (
+      {productId && demand.data !== undefined && (
         <DemandDrawer
           key={productId}
           productId={productId}
           product={products.find((p) => p.productId === productId)}
+          notice={refreshFailed}
           onClose={() => navigate(swagStoreAdminPaths.demand)}
         />
       )}
@@ -138,10 +151,12 @@ interface DemandDrawerProps {
   readonly productId: string;
   /** Undefined when nobody waits for the product any more. */
   readonly product: DemandProduct | undefined;
+  /** Shown above the options, such as a failed refresh of the board. */
+  readonly notice?: ReactNode;
   readonly onClose: () => void;
 }
 
-function DemandDrawer({ productId, product, onClose }: DemandDrawerProps): JSX.Element {
+function DemandDrawer({ productId, product, notice, onClose }: DemandDrawerProps): JSX.Element {
   const titleId = useId();
   return (
     <Drawer
@@ -158,6 +173,7 @@ function DemandDrawer({ productId, product, onClose }: DemandDrawerProps): JSX.E
           <XIcon size={18} />
         </IconButton>
       </Box>
+      {notice}
       {product ? (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {product.variants.map((v) => (
