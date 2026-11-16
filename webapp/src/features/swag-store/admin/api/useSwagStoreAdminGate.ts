@@ -44,12 +44,21 @@ export function swagStoreAdminCanSee(itemId: string, access: SwagStoreAccess): b
   return screen ? swagStoreAdminAllows(screen.need, access) : false;
 }
 
+/** The rail's answer for the Swag Store admin rows. */
 export interface SwagStoreAdminRailGate {
+  /**
+   * Whether a row shows. False for every row while the check is off (another
+   * perspective is open, or the store is switched off), still running, or
+   * failed. True for every row when no backend URL is configured.
+   */
   canSee: (itemId: string) => boolean;
+  /** The store's /users/me is in flight. Never true while the check is off or unconfigured. */
   isResolving: boolean;
   /** The access check itself failed; reported as "couldn't check", never as "no access". */
   isError: boolean;
+  /** Why the check failed, for the rail to show. Set only when `isError` is. */
   errorMessage: string | undefined;
+  /** Asks the store's /users/me again. */
   retry: () => void;
 }
 
@@ -81,6 +90,11 @@ export function useSwagStoreAdminRailGate(enabled: boolean): SwagStoreAdminRailG
   };
 }
 
+/**
+ * The gate as the rail's visibility answer. A failed check carries its message
+ * and a retry that asks /users/me again. Otherwise there is no error, and retry
+ * does nothing: there is nothing to recover from.
+ */
 export function swagStoreAdminVisibility(gate: SwagStoreAdminRailGate): VisibilityAnswer {
   const canSee = (id: string) => gate.canSee(id);
   return gate.isError

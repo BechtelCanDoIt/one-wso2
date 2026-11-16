@@ -58,6 +58,13 @@ describe("noteText", () => {
       detail: price,
       who: "Only Deal Desk checks this",
     });
+    // D177: a discount no group covers.
+    const uncovered = "Line 4 · Choreo ELA Component Price (annual): 6% discount, but no discount group covers this product, so no other approver checks it. Approve it, or return the quote.";
+    expect(noteText(note({ rule: "UNCOVERED_DISCOUNT", lineNumber: 4, roles: [], reasons: [uncovered] }), "DEAL_DESK")).toEqual({
+      title: "Discount no approver covers",
+      detail: uncovered,
+      who: "Only Deal Desk checks this",
+    });
     const legacy = "Line 2 · WSO2 Premium Support (2019): a support product that isn't on Admin → Support Plans (legacy support). Check it's still right for this customer.";
     expect(noteText(note({ rule: "LEGACY_SUPPORT", lineNumber: 2, roles: [], reasons: [legacy] }), "DEAL_DESK")).toEqual({
       title: "Legacy support",
