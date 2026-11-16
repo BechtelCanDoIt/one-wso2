@@ -47,7 +47,7 @@ function postDate(iso: string): string {
 }
 
 /**
- * One post: headline, "Chore Labs on LinkedIn · date", image, chips, the 2–3 line
+ * One post: headline, "Choreo Labs on LinkedIn · date", image, chips, the 2–3 line
  * summary, and an action button. Same card on Celebrate, Current Posts and the
  * share dialog; only the chips and the action differ (the dialog passes none).
  */
@@ -75,7 +75,7 @@ export default function PostCard({
           {campaign.title}
         </Link>
         <Typography variant="caption" color="text.secondary">
-          Chore Labs on LinkedIn · {postDate(campaign.opensAt)}
+          Choreo Labs on LinkedIn · {postDate(campaign.opensAt)}
         </Typography>
       </Box>
 
