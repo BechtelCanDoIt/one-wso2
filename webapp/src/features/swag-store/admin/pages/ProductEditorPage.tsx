@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState, type FormEvent, type JSX } from "react";
+import { useState, type Dispatch, type FormEvent, type JSX, type SetStateAction } from "react";
 import { Link as RouterLink, useNavigate, useParams } from "react-router";
 import {
   Alert,
@@ -41,6 +41,7 @@ import { ArrowLeftIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react
 import { HttpError } from "@api/http";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
+import { visuallyHidden } from "@utils/visuallyHidden";
 import type { SwagStoreAdminProduct, SwagStoreAdminVariant, SwagStoreProductStatus } from "../../api/swagStoreTypes";
 import TintedChip from "../../components/TintedChip";
 import { formatCivilDate, formatInstant } from "../../util/civilDate";
@@ -103,10 +104,14 @@ function Editor({ product }: { product: SwagStoreAdminProduct | undefined }): JS
   const [stockSaved, setStockSaved] = useState<string>();
   // Here, not in OptionsEditor: new options remount it, and the notice must outlive that.
   const [optionsSaved, setOptionsSaved] = useState(false);
+  // Here, not in BasicsForm, so the header can tell when the basics differ from the saved product.
+  const [form, setForm] = useState<ProductForm>(() => (product ? productFormOf(product) : EMPTY_PRODUCT_FORM));
+  const basicsUnsaved =
+    product !== undefined && JSON.stringify(productInputOf(form)) !== JSON.stringify(productInputOf(productFormOf(product)));
   return (
     <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-      <Header product={product} />
-      <BasicsForm product={product} />
+      <Header product={product} basicsUnsaved={basicsUnsaved} />
+      <BasicsForm product={product} form={form} setForm={setForm} />
       {product ? (
         <>
           <Divider />
@@ -139,7 +144,13 @@ function Editor({ product }: { product: SwagStoreAdminProduct | undefined }): JS
   );
 }
 
-function Header({ product }: { product: SwagStoreAdminProduct | undefined }): JSX.Element {
+interface HeaderProps {
+  readonly product: SwagStoreAdminProduct | undefined;
+  /** Publish and Restore act on the saved product, so they wait while the basics have unsaved changes. */
+  readonly basicsUnsaved: boolean;
+}
+
+function Header({ product, basicsUnsaved }: HeaderProps): JSX.Element {
   const navigate = useNavigate();
   const setStatus = useSetProductStatus(product?.id ?? "");
   const deleteDraft = useDeleteDraft(product?.id ?? "");
@@ -163,9 +174,18 @@ function Header({ product }: { product: SwagStoreAdminProduct | undefined }): JS
       {product && (
         <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           {product.status !== "ACTIVE" && (
-            <Button variant="contained" disabled={setStatus.isPending} onClick={() => setStatus.mutate({ status: "ACTIVE" })}>
+            <Button
+              variant="contained"
+              disabled={setStatus.isPending || basicsUnsaved}
+              onClick={() => setStatus.mutate({ status: "ACTIVE" })}
+            >
               {setStatus.isPending ? "Saving…" : product.status === "DRAFT" ? "Publish" : "Restore"}
             </Button>
+          )}
+          {product.status !== "ACTIVE" && basicsUnsaved && (
+            <Typography variant="body2" color="text.secondary" sx={{ alignSelf: "center" }}>
+              Save the basics first.
+            </Typography>
           )}
           {product.status === "ACTIVE" && (
             <Button variant="outlined" color="error" onClick={() => setRemoving(true)}>
@@ -204,14 +224,23 @@ function Header({ product }: { product: SwagStoreAdminProduct | undefined }): JS
   );
 }
 
-function BasicsForm({ product }: { product: SwagStoreAdminProduct | undefined }): JSX.Element {
+interface BasicsFormProps {
+  readonly product: SwagStoreAdminProduct | undefined;
+  readonly form: ProductForm;
+  readonly setForm: Dispatch<SetStateAction<ProductForm>>;
+}
+
+function BasicsForm({ product, form, setForm }: BasicsFormProps): JSX.Element {
   const navigate = useNavigate();
   const categories = useAdminCategories();
   const actives = useAdminProducts("ACTIVE");
   const create = useCreateProduct();
   const update = useUpdateProduct(product?.id ?? "");
   const save = product ? update : create;
-  const [form, setForm] = useState<ProductForm>(() => (product ? productFormOf(product) : EMPTY_PRODUCT_FORM));
+  // Plain state, not react-hook-form, like the store's other admin forms (offices,
+  // options, variants, stock). The checks are pure functions in util/productForm.ts
+  // that the tests call directly, and the form is one object the header compares
+  // with the saved product. A library would wrap those checks, not replace them.
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const errors = checkProductForm(form);
   const shown = (field: keyof ProductFormErrors) => (touched.has(field) ? errors[field] : undefined);
@@ -436,7 +465,7 @@ function VariantTable({ product, onStockSaved }: { product: SwagStoreAdminProduc
                 <TableCell>Restock</TableCell>
                 <TableCell>Status</TableCell>
                 <TableCell align="right">
-                  <Box component="span" sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>
+                  <Box component="span" sx={visuallyHidden}>
                     Actions
                   </Box>
                 </TableCell>
