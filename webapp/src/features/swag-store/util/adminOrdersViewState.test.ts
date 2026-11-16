@@ -18,24 +18,25 @@ import { describe, expect, it } from "vitest";
 import { adminOrdersCodec, ADMIN_ORDERS_PAGE_SIZE, DEFAULT_ADMIN_ORDERS_VIEW, orderSearchBody } from "./adminOrdersViewState";
 
 describe("adminOrdersCodec", () => {
+  const everyOrder = { status: "", office: "", page: 1 };
+
   it("reads an empty address as every order, first page", () => {
-    expect(adminOrdersCodec.parse("")).toEqual(DEFAULT_ADMIN_ORDERS_VIEW);
+    expect(adminOrdersCodec.parse("")).toStrictEqual(everyOrder);
   });
 
-  it("reads status, office, search and page, and drops what it doesn't know", () => {
-    expect(adminOrdersCodec.parse("status=READY_FOR_PICKUP&office=office-1&q=SS-10482&page=3")).toEqual({
+  it("reads status, office and page, never search text, and drops what it doesn't know", () => {
+    expect(adminOrdersCodec.parse("status=READY_FOR_PICKUP&office=office-1&q=SS-10482&page=3")).toStrictEqual({
       status: "READY_FOR_PICKUP",
       office: "office-1",
-      q: "SS-10482",
       page: 3,
     });
-    expect(adminOrdersCodec.parse("status=LOST&page=0")).toEqual(DEFAULT_ADMIN_ORDERS_VIEW);
+    expect(adminOrdersCodec.parse("status=LOST&page=0")).toStrictEqual(everyOrder);
   });
 
-  it("writes only what differs from the default, and round-trips", () => {
-    const view = { ...DEFAULT_ADMIN_ORDERS_VIEW, status: "CONFIRMED" as const, q: "sam" };
-    expect(adminOrdersCodec.serialize(view)).toBe("status=CONFIRMED&q=sam");
-    expect(adminOrdersCodec.parse(adminOrdersCodec.serialize(view))).toEqual(view);
+  it("writes only what differs from the default, never the search text, and round-trips", () => {
+    const view = { ...DEFAULT_ADMIN_ORDERS_VIEW, status: "CONFIRMED" as const, q: "sam@wso2.com" };
+    expect(adminOrdersCodec.serialize(view)).toBe("status=CONFIRMED");
+    expect(adminOrdersCodec.parse(adminOrdersCodec.serialize(view))).toStrictEqual({ ...everyOrder, status: "CONFIRMED" });
     expect(adminOrdersCodec.serialize(DEFAULT_ADMIN_ORDERS_VIEW)).toBe("");
   });
 });

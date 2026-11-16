@@ -27,8 +27,9 @@ import { isOutsideWso2 } from "../util/swagStoreError";
 const NAME = "Swag Store";
 
 /**
- * The frame every shop route renders in: resolves access once, in the order
- * docs/conventions.md sets out, before any page asks for data.
+ * The frame every shop and admin route renders in: resolves access once, in
+ * the order docs/conventions.md sets out, before any page asks for data. The
+ * admin routes add their store-role check inside it (SwagStoreAdminShell).
  *
  *   not configured -> name the key to set; nothing is asked.
  *   checking       -> hold the page; nothing is redirected while resolving.

@@ -58,44 +58,47 @@ export const swagStoreShopRoutes = (
 );
 
 /**
- * The store team's screens under People Ops, as one fragment for App.tsx. All
- * render inside SwagStoreAdminShell, and each leaf checks its own role.
- * App.tsx mounts this only while the `swagStore` preview flag is on.
+ * The store team's screens under People Ops, as one fragment for App.tsx.
+ * SwagStoreShell resolves access first, as it does for the shop; inside it
+ * SwagStoreAdminShell turns away anyone without a store role, and each leaf
+ * checks its own. App.tsx mounts this only while the `swagStore` preview flag is on.
  */
 export const swagStoreAdminRoutes = (
-  <Route path="people-ops/swag-store" element={<SwagStoreAdminShell />}>
-    <Route index element={<SwagStoreAdminLanding />} />
-    <Route
-      path="dashboard"
-      element={<SwagStoreAdminRequires need="ANY">{deferred(<DashboardPage />)}</SwagStoreAdminRequires>}
-    />
-    <Route
-      path="orders"
-      element={<SwagStoreAdminRequires need="FULFILMENT_OPS">{deferred(<AdminOrdersPage />)}</SwagStoreAdminRequires>}
-    />
-    <Route
-      path="orders/:orderNo"
-      element={<SwagStoreAdminRequires need="FULFILMENT_OPS">{deferred(<AdminOrdersPage />)}</SwagStoreAdminRequires>}
-    />
-    <Route path="products" element={<Navigate to="active" replace />} />
-    {(["active", "draft", "removed"] as const).map((tab) => (
+  <Route element={<SwagStoreShell />}>
+    <Route path="people-ops/swag-store" element={<SwagStoreAdminShell />}>
+      <Route index element={<SwagStoreAdminLanding />} />
       <Route
-        key={tab}
-        path={`products/${tab}`}
-        element={<SwagStoreAdminRequires need="CATALOG_MANAGER">{deferred(<ProductsPage />)}</SwagStoreAdminRequires>}
+        path="dashboard"
+        element={<SwagStoreAdminRequires screen="dashboard">{deferred(<DashboardPage />)}</SwagStoreAdminRequires>}
       />
-    ))}
-    <Route
-      path="products/new"
-      element={<SwagStoreAdminRequires need="CATALOG_MANAGER">{deferred(<ProductEditorPage />)}</SwagStoreAdminRequires>}
-    />
-    <Route
-      path="products/:productId"
-      element={<SwagStoreAdminRequires need="CATALOG_MANAGER">{deferred(<ProductEditorPage />)}</SwagStoreAdminRequires>}
-    />
-    <Route
-      path="settings/offices"
-      element={<SwagStoreAdminRequires need="FULFILMENT_OPS">{deferred(<OfficesPage />)}</SwagStoreAdminRequires>}
-    />
+      <Route
+        path="orders"
+        element={<SwagStoreAdminRequires screen="orders">{deferred(<AdminOrdersPage />)}</SwagStoreAdminRequires>}
+      />
+      <Route
+        path="orders/:orderNo"
+        element={<SwagStoreAdminRequires screen="orders">{deferred(<AdminOrdersPage />)}</SwagStoreAdminRequires>}
+      />
+      <Route path="products" element={<Navigate to="active" replace />} />
+      {(["active", "draft", "removed"] as const).map((tab) => (
+        <Route
+          key={tab}
+          path={`products/${tab}`}
+          element={<SwagStoreAdminRequires screen="products">{deferred(<ProductsPage />)}</SwagStoreAdminRequires>}
+        />
+      ))}
+      <Route
+        path="products/new"
+        element={<SwagStoreAdminRequires screen="products">{deferred(<ProductEditorPage />)}</SwagStoreAdminRequires>}
+      />
+      <Route
+        path="products/:productId"
+        element={<SwagStoreAdminRequires screen="products">{deferred(<ProductEditorPage />)}</SwagStoreAdminRequires>}
+      />
+      <Route
+        path="settings/offices"
+        element={<SwagStoreAdminRequires screen="settings">{deferred(<OfficesPage />)}</SwagStoreAdminRequires>}
+      />
+    </Route>
   </Route>
 );

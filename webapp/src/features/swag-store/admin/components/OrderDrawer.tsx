@@ -35,6 +35,7 @@ import type { SwagStoreAdminOrderDetail } from "../../api/swagStoreTypes";
 import OrderStatusChip from "../../components/OrderStatusChip";
 import { formatInstant } from "../../util/civilDate";
 import { formatCoins } from "../../util/coins";
+import { orderStatusLabel } from "../../util/orderStatus";
 import { errorCodeOf, messageFor } from "../../util/swagStoreError";
 import { useAdminOrder } from "../api/useAdminData";
 import { useAddOrderNote, useTransitionOrder } from "../api/useAdminMutations";
@@ -293,14 +294,6 @@ function Notes({ order }: { order: SwagStoreAdminOrderDetail }): JSX.Element {
   );
 }
 
-const STEP: Readonly<Record<string, string>> = {
-  PENDING_PAYMENT: "Payment pending",
-  CONFIRMED: "Paid",
-  READY_FOR_PICKUP: "Ready for pickup",
-  COLLECTED: "Collected",
-  FAILED: "Failed",
-};
-
 function History({ order }: { order: SwagStoreAdminOrderDetail }): JSX.Element | null {
   if (order.timeline.length === 0) return null;
   return (
@@ -312,7 +305,7 @@ function History({ order }: { order: SwagStoreAdminOrderDetail }): JSX.Element |
         {order.timeline.map((e, i) => (
           <li key={`${e.at}-${i}`}>
             <Typography variant="body2">
-              {STEP[e.to] ?? e.to} · {formatInstant(e.at)}
+              {orderStatusLabel(e.to)} · {formatInstant(e.at)}
             </Typography>
             {e.note && (
               <Typography variant="caption" color="text.secondary">

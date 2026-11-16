@@ -17,18 +17,18 @@
 import type { JSX } from "react";
 import type { ChipProps } from "@wso2/oxygen-ui";
 import type { SwagStoreOrderStatus } from "../api/swagStoreTypes";
+import { orderStatusLabel } from "../util/orderStatus";
 import TintedChip from "./TintedChip";
 
-const STATUS: Record<SwagStoreOrderStatus, { label: string; color: ChipProps["color"] }> = {
-  PENDING_PAYMENT: { label: "Payment pending", color: "warning" },
-  CONFIRMED: { label: "Confirmed", color: "info" },
-  READY_FOR_PICKUP: { label: "Ready for pickup", color: "success" },
-  COLLECTED: { label: "Collected", color: "default" },
-  FAILED: { label: "Failed", color: "error" },
+const COLOR: Record<SwagStoreOrderStatus, ChipProps["color"]> = {
+  PENDING_PAYMENT: "warning",
+  CONFIRMED: "info",
+  READY_FOR_PICKUP: "success",
+  COLLECTED: "default",
+  FAILED: "error",
 };
 
 /** Payment pending, Confirmed, Ready for pickup, Collected or Failed. */
 export default function OrderStatusChip({ status }: { status: SwagStoreOrderStatus }): JSX.Element {
-  const { label, color } = STATUS[status] ?? { label: status, color: "default" };
-  return <TintedChip color={color} label={label} />;
+  return <TintedChip color={COLOR[status] ?? "default"} label={orderStatusLabel(status)} />;
 }
