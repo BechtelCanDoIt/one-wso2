@@ -18,11 +18,12 @@ import type { JSX, ReactNode } from "react";
 import { Navigate } from "react-router";
 import { swagStoreAccess } from "../../api/swagStoreAccess";
 import { useSwagStoreUserInfo } from "../../api/useSwagStoreUserInfo";
-import { swagStoreAdminAllows, type SwagStoreAdminNeed } from "../api/useSwagStoreAdminGate";
-import { swagStoreAdminPaths } from "../swagStoreAdminItems";
+import { swagStoreAdminAllows } from "../api/useSwagStoreAdminGate";
+import { SWAG_STORE_ADMIN_SCREENS, swagStoreAdminPaths, type SwagStoreAdminScreenKey } from "../swagStoreAdminItems";
 
 interface SwagStoreAdminRequiresProps {
-  readonly need: SwagStoreAdminNeed;
+  /** The screen this route belongs to; who may use it comes from the screens table. */
+  readonly screen: SwagStoreAdminScreenKey;
   readonly children: ReactNode;
 }
 
@@ -31,9 +32,9 @@ interface SwagStoreAdminRequiresProps {
  * is sent to the admin landing, which picks a screen they can; nothing is only
  * hidden. It renders inside SwagStoreAdminShell, so the answer is already in.
  */
-export default function SwagStoreAdminRequires({ need, children }: SwagStoreAdminRequiresProps): JSX.Element {
+export default function SwagStoreAdminRequires({ screen, children }: SwagStoreAdminRequiresProps): JSX.Element {
   const me = useSwagStoreUserInfo();
-  if (!swagStoreAdminAllows(need, swagStoreAccess(me.data))) {
+  if (!swagStoreAdminAllows(SWAG_STORE_ADMIN_SCREENS[screen].need, swagStoreAccess(me.data))) {
     return <Navigate to={swagStoreAdminPaths.root} replace />;
   }
   return <>{children}</>;

@@ -16,77 +16,23 @@
 
 import type { JSX } from "react";
 import { Outlet } from "react-router";
-import { Alert, Box, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
-import { ShoppingBagIcon } from "@wso2/oxygen-ui-icons-react";
-import ErrorNotice from "@components/error-notice/ErrorNotice";
-import { NothingHere, PageTitle } from "@components/perspective-landing/PerspectiveLanding";
-import { isSwagStoreBackendConfigured } from "@config/apiConfig";
+import { Alert, Box } from "@wso2/oxygen-ui";
+import { PageTitle } from "@components/perspective-landing/PerspectiveLanding";
 import { swagStoreAccess } from "../../api/swagStoreAccess";
 import { useSwagStoreUserInfo } from "../../api/useSwagStoreUserInfo";
-import { isOutsideWso2 } from "../../util/swagStoreError";
 
 const NAME = "Swag Store";
 
 /**
- * The frame every admin route renders in. Same ladder as the shop's shell:
+ * The frame every admin route renders in. It sits inside SwagStoreShell, which
+ * has already resolved access (configured, checked, inside WSO2), so it adds
+ * only the store-role step:
  *
- *   not configured -> name the key to set; nothing is asked.
- *   checking       -> hold the page; nothing is redirected while resolving.
- *   check failed   -> an error with Retry, never presented as "no access".
- *   outside WSO2   -> the shared "Nothing here for you yet" card.
  *   no store role  -> says the screens are for the store team, and who grants access.
  *   store admin    -> the page. Each leaf checks its own role (SwagStoreAdminRequires).
  */
 export default function SwagStoreAdminShell(): JSX.Element {
   const me = useSwagStoreUserInfo();
-
-  if (!isSwagStoreBackendConfigured()) {
-    return (
-      <Box>
-        <PageTitle label={NAME} />
-        <Alert severity="info" sx={{ mt: 1.5 }}>
-          {NAME} isn&apos;t connected yet. Set <code>ONE_WSO2_SWAG_STORE_BACKEND_URL</code> in{" "}
-          <code>public/config.js</code> and reload.
-        </Alert>
-      </Box>
-    );
-  }
-
-  // isPending as well as isLoading: while the caller's identity is still
-  // resolving the query is disabled, which React Query reports as pending only.
-  if (me.isPending || me.isLoading) {
-    return (
-      <Box>
-        <PageTitle label={NAME} />
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 2 }}>
-          <CircularProgress size={16} />
-          <Typography variant="body2" color="text.secondary">
-            Checking your {NAME} access…
-          </Typography>
-        </Stack>
-      </Box>
-    );
-  }
-
-  if (me.isError && isOutsideWso2(me.error)) {
-    return (
-      <Box>
-        <PageTitle label={NAME} />
-        <NothingHere label={NAME} icon={ShoppingBagIcon} />
-      </Box>
-    );
-  }
-
-  if (me.isError) {
-    return (
-      <Box>
-        <PageTitle label={NAME} />
-        <ErrorNotice onRetry={() => void me.refetch()} error={me.error} sx={{ mt: 1.5 }}>
-          Couldn&apos;t check your {NAME} access.
-        </ErrorNotice>
-      </Box>
-    );
-  }
 
   if (!swagStoreAccess(me.data).isAdmin) {
     return (

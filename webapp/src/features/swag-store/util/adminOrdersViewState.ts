@@ -17,7 +17,7 @@
 import type { UrlViewCodec } from "@hooks/useUrlViewState";
 import type { SwagStoreOrderSearch, SwagStoreOrderStatus } from "../api/swagStoreTypes";
 
-/** What the admin orders list shows. The address holds it, so a filtered list can be linked. */
+/** What the admin orders list shows. */
 export interface AdminOrdersView {
   /** One status, or empty for every status. */
   readonly status: SwagStoreOrderStatus | "";
@@ -30,6 +30,13 @@ export interface AdminOrdersView {
 }
 
 export const DEFAULT_ADMIN_ORDERS_VIEW: AdminOrdersView = { status: "", office: "", q: "", page: 1 };
+
+/**
+ * The part of the view the address holds, so a filtered list can be linked.
+ * The search text is left out: it can be an email address, and the address
+ * ends up in browser history and in every link copied from the page.
+ */
+export type AdminOrdersAddress = Omit<AdminOrdersView, "q">;
 
 /** Orders per page of the admin list. */
 export const ADMIN_ORDERS_PAGE_SIZE = 25;
@@ -48,7 +55,7 @@ const isStatus = (value: string | null): value is SwagStoreOrderStatus =>
   STATUSES.includes(value as SwagStoreOrderStatus);
 
 /** The admin orders address codec. Anything it doesn't recognise reads as the default. */
-export const adminOrdersCodec: UrlViewCodec<AdminOrdersView> = {
+export const adminOrdersCodec: UrlViewCodec<AdminOrdersAddress> = {
   parse(search) {
     const params = new URLSearchParams(search);
     const status = params.get("status");
@@ -57,7 +64,6 @@ export const adminOrdersCodec: UrlViewCodec<AdminOrdersView> = {
     return {
       status: isStatus(status) ? status : "",
       office: OFFICE_ID.test(office) ? office : "",
-      q: (params.get("q") ?? "").trim().slice(0, 200),
       page: PAGE.test(page) ? Number(page) : 1,
     };
   },
@@ -65,7 +71,6 @@ export const adminOrdersCodec: UrlViewCodec<AdminOrdersView> = {
     const params = new URLSearchParams();
     if (view.status) params.set("status", view.status);
     if (view.office) params.set("office", view.office);
-    if (view.q) params.set("q", view.q);
     if (view.page > 1) params.set("page", String(view.page));
     return params.toString();
   },

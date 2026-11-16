@@ -91,6 +91,13 @@ describe("the alerts page", () => {
     expect(http.authedGet).toHaveBeenCalledWith("/stock-alerts", "token");
   });
 
+  it("keeps the hidden Actions heading 1px wide, so it can't widen the table", async () => {
+    http.authedGet.mockResolvedValue({ items: [stockAlert()] });
+    renderPage();
+    const heading = await screen.findByText("Actions");
+    expect(getComputedStyle(heading).width).toBe("1px");
+  });
+
   it("removes a waiting alert, and offers Remove only on waiting ones", async () => {
     http.authedGet.mockResolvedValue({ items: [stockAlert(), stockAlert({ id: "alert-2", status: "NOTIFIED" })] });
     http.authedDelete.mockResolvedValue(undefined);
