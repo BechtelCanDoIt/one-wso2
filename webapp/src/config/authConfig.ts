@@ -71,6 +71,11 @@ declare global {
       // Optional — when absent (and the `swagStore` preview flag is on) the
       // store's pages show a not-connected state and make no requests.
       ONE_WSO2_SWAG_STORE_BACKEND_URL?: string;
+      // Base URL for the Engagement App Backend (Finance → Engagement App and
+      // the Engagement App pages under Me), version segment included. Optional —
+      // when absent (and the `engagementApp` preview flag is on) its pages show
+      // a not-connected state and make no requests.
+      ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL?: string;
       // Base URL for the Pitstop backend that serves Smart Search, version
       // segment included. Optional — when absent Sales → Library shows a
       // not-connected state and makes no requests.

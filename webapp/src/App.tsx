@@ -235,6 +235,7 @@ import { adminRoutes } from "@features/security/grc/modules/admin/routes";
 import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
 import { swagStoreShopRoutes } from "@features/swag-store/routes";
+import { engagementRoutes, myEngagementRoutes } from "@features/finance/engagement-app/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
 import PartnerPendingPage from "@features/due-diligence/partners/pages/PartnerPendingPage";
 import PartnerDashboardPage from "@features/due-diligence/partners/pages/PartnerDashboardPage";
@@ -1055,6 +1056,13 @@ export default function App() {
               preview flag; Cado2Shell resolves access for every page. See
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
           {isPreviewEnabled("quickquote") && cado2Routes}
+          {/* Finance → Engagement App and its pages under Me (the legacy
+              Allocations and Travel apps), behind the `engagementApp` preview
+              flag; EngagementShell resolves access for every page. See
+              @features/finance/engagement-app/routes and
+              docs/ported-apps/engagement-app.md. */}
+          {isPreviewEnabled("engagementApp") && engagementRoutes}
+          {isPreviewEnabled("engagementApp") && myEngagementRoutes}
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />

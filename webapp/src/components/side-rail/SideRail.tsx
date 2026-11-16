@@ -98,6 +98,22 @@ const ELLIPSIS_SX = {
   },
 } as const;
 
+// MenuApp.wrapLabels: wrap to two lines instead of the ellipsis (fits the 44px row).
+// Oxygen sets nowrap on the root too, so both levels are reset.
+const WRAP_SX = {
+  whiteSpace: "normal",
+  "& .MuiListItemText-primary": {
+    display: "-webkit-box",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+    overflow: "hidden",
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
+    lineHeight: 1.25,
+  },
+} as const;
+const BADGED_WRAP_SX = { ...WRAP_SX, mr: 1 } as const;
+
 /** Size, in px, Oxygen's Sidebar.ItemIcon gives a row icon. */
 const RAIL_ICON_SIZE = 20;
 
@@ -522,7 +538,9 @@ function SectionNode({
                 {Icon || dot ? (
                   <Sidebar.ItemIcon>{railIcon(Icon, Boolean(dot), dot && (dot.reason ?? dot.label))}</Sidebar.ItemIcon>
                 ) : null}
-                <Sidebar.ItemLabel sx={badge ? BADGED_LABEL_SX : ELLIPSIS_SX}>{c.label}</Sidebar.ItemLabel>
+                <Sidebar.ItemLabel sx={c.wrapLabel ? (badge ? BADGED_WRAP_SX : WRAP_SX) : badge ? BADGED_LABEL_SX : ELLIPSIS_SX}>
+                  {c.label}
+                </Sidebar.ItemLabel>
                 {badge ? railBadgePill(badge, !c.opensInNewTab) : null}
                 {/* The launcher's mark for a tile that leaves One WSO2 (see
                     WaffleOverlay). Inside a badge only because Oxygen takes any

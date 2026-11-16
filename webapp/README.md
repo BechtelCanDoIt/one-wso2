@@ -90,6 +90,7 @@ naming the key and makes no requests.
 | Sales meetings | `ONE_WSO2_REVOPS_BACKEND_URL` |
 | CadO2 (quotes and approvals) | `ONE_WSO2_CADO2_BACKEND_URL`, `ONE_WSO2_SALESFORCE_BASE_URL` (also needs `quickquote` in `ONE_WSO2_PREVIEW_FEATURES`) |
 | Swag Store | `ONE_WSO2_SWAG_STORE_BACKEND_URL` (also needs `swagStore` in `ONE_WSO2_PREVIEW_FEATURES`) |
+| Engagement App (engagements, allocations, travel requests, invoices and payments; Me travel, passport and allocations) | `ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL` (also needs `engagementApp` in `ONE_WSO2_PREVIEW_FEATURES`; the backend runs locally on `http://localhost:8190`) |
 | Marketing Ops | `ONE_WSO2_MARKETINGOPS_BACKEND_URL`, `ONE_WSO2_MARKETINGOPS_ISAC_URL`, `ONE_WSO2_PARDOT_BASE_URL`, `ONE_WSO2_SALESFORCE_BASE_URL` |
 | Due Diligence | `ONE_WSO2_DUE_DILIGENCE_BACKEND_URL` |
 | Finance MIS | `ONE_WSO2_MIS_ARR_BACKEND_URL` |

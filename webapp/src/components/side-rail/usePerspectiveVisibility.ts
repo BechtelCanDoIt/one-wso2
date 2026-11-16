@@ -32,6 +32,10 @@ import { dueDiligenceVisibility, useDueDiligenceGate } from "@features/due-dilig
 import { securityVisibility, useSecurityGate } from "@features/security/api/useSecurityGate";
 import { salesVisibility, useSalesRailGate } from "@features/sales/api/useSalesGate";
 import { cado2Visibility, useCado2RailGate } from "@features/sales/cado2/api/useCado2RailGate";
+import {
+  engagementVisibility,
+  useEngagementRailGate,
+} from "@features/finance/engagement-app/api/useEngagementRailGate";
 import { subscriptionVisibility, useSubscriptionGate } from "@features/subscriptions/api/useSubscriptionGate";
 import { parVisibility } from "@features/par/api/parVisibility";
 import { useParCanSeeLeadPortal, useParEmployeeItemVisible } from "@features/par/api/useParData";
@@ -206,6 +210,12 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // CadO2, also under Sales: rows decided by CadO2's own /me, and only while
   // its preview flag is on -- see useCado2RailGate.
   const cado2Gate = useCado2RailGate(active.key === "sales" && isPreviewEnabled("quickquote"));
+  // Engagement App, under Finance and under Me: rows decided by its backend's
+  // own /user-info (legacy Allocations and Travel privileges), and only while
+  // its preview flag is on -- see useEngagementRailGate.
+  const engagementGate = useEngagementRailGate(
+    (active.key === "finance" || active.key === "me") && isPreviewEnabled("engagementApp"),
+  );
 
   // Subscriptions (PickMe Commute / LaaS) is the same shape of problem once
   // more, with one extra wrinkle worth naming: its backend publishes the
@@ -329,6 +339,8 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
         return salesVisibility(salesGate);
       case "cado2":
         return cado2Visibility(cado2Gate);
+      case "engagement":
+        return engagementVisibility(engagementGate);
       case "promotion":
         return promotionVisibility(promotionLeadPortalGate, promotionEmployeeGate, meProfile.isError);
       case "security":

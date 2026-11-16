@@ -100,6 +100,8 @@ export interface MenuApp {
   // on the section so a pin can still name each screen; the app's tab bar is
   // what offers them. Mutually exclusive with `alwaysGroup`.
   inTabs?: boolean;
+  // Nested rail labels wrap to two lines instead of an ellipsis.
+  wrapLabels?: boolean;
 }
 
 // Items of an app the caller is allowed to see, given their capabilities.

@@ -73,6 +73,13 @@ window.config = {
   // below. Include the version segment. For a local backend on port 8080, use
   // "/swag-store-backend" (the dev server's proxy).
   // ONE_WSO2_SWAG_STORE_BACKEND_URL: "<your-swag-store-backend-url>",
+  // Engagement App Backend — powers Finance → Engagement App (engagements,
+  // allocations, travel requests, invoices and payments, reports, visas and
+  // documents, settings) and the Engagement App pages under Me. Include the
+  // version segment. Shown only while `engagementApp` is on in
+  // ONE_WSO2_PREVIEW_FEATURES below. With the flag on and this unset, its
+  // pages say "not connected" and make no requests.
+  // ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL: "<your-engagement-app-backend-url>",
 
   // Pitstop backend that serves Smart Search — powers Sales → Library, the
   // plain-language search over Pitstop's content. Include the version segment.
@@ -230,6 +237,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, quickquote: false, nda: false, amplify: false, marketingCalendar: false, eventsLeadImport: false, swagStore: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, quickquote: false, nda: false, amplify: false, marketingCalendar: false, eventsLeadImport: false, swagStore: false, engagementApp: false },
 
 };
