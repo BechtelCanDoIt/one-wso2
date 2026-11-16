@@ -17,6 +17,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { waitFor } from "@testing-library/react";
+import { captureDownloads, bytesOf } from "@/test/downloads";
 import type { BankAccount } from "@features/my/api/types";
 
 const accounts = vi.hoisted(() => ({ data: [] as BankAccount[] }));
@@ -124,6 +126,23 @@ describe("ReportTab", () => {
     const panel = await screen.findByRole("tooltip");
     expect(within(panel).getByText("Bank Name")).toBeInTheDocument();
     expect(within(panel).getByText("NetSuite Vendor Id")).toBeInTheDocument();
+  });
+
+  // This tab carries eight nullable columns. A spreadsheet reads a leading
+  // "-" as a formula, so the grid escapes it — any one of them exporting a
+  // dash rather than nothing would reach the file as "\'-".
+  it("saves its empty fields as empty cells", async () => {
+    const user = userEvent.setup();
+    const { blobs, filenames } = captureDownloads();
+    accounts.data = [bankAccount({ beneficiaryCity: null, branchName: null, bankCode: null })];
+    render(<ReportTab />);
+
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    await user.click(await screen.findByRole("menuitem", { name: /csv/i }));
+    await waitFor(() => expect(blobs).toHaveLength(1));
+
+    expect(filenames[0]).toBe("bank-accounts.csv");
+    expect(new TextDecoder().decode(await bytesOf(blobs[0]))).not.toContain("'-");
   });
 
   it("shows a clear empty state when a filter combination matches nothing", () => {

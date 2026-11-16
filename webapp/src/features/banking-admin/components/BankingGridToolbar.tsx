@@ -37,7 +37,8 @@ export function BankingGridToolbar() {
         Filters
       </DataGrid.FilterPanelTrigger>
       <DataGrid.GridToolbarDensitySelector />
-      <DataGrid.GridToolbarExport />
+      {/* Named, or the browser saves every one of these as "untitled.csv". */}
+      <DataGrid.GridToolbarExport csvOptions={{ fileName: "bank-accounts" }} />
     </DataGrid.Toolbar>
   );
 }

@@ -18,7 +18,7 @@
 import { useMemo } from "react";
 import { Chip, DataGrid, Typography } from "@wso2/oxygen-ui";
 import type { AccountStatus, BankAccount } from "@features/my/api/types";
-import type { BankAccountsTableColumn } from "../bankAccountsColumns";
+import { BLANK, type BankAccountsTableColumn } from "../bankAccountsColumns";
 import { BankingGridToolbar } from "./BankingGridToolbar";
 
 // Report and Employee Operations both render the same underlying dataset
@@ -89,9 +89,13 @@ export default function BankAccountsTable({
           // Export, sorting and filtering read this, not the rendered cell —
           // so a column that renders a chip still saves as readable text.
           valueGetter: (_value: unknown, row: BankAccount) => column.value(row),
-          ...(render
-            ? { renderCell: (params: DataGrid.GridRenderCellParams<BankAccount>) => render(params.row) }
-            : {}),
+          // Display only, so none of this reaches the exported file: a
+          // missing field is painted as a dash here and left as an empty
+          // cell there.
+          renderCell: render
+            ? (params: DataGrid.GridRenderCellParams<BankAccount>) => render(params.row)
+            : (params: DataGrid.GridRenderCellParams<BankAccount>) =>
+                params.value === "" || params.value == null ? BLANK : String(params.value),
         };
       }),
     [columns],

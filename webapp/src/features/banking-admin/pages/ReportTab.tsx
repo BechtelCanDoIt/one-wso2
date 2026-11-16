@@ -27,7 +27,6 @@ import {
   BANK_CODE_COLUMN,
   EFFECTIVE_MONTH_COLUMN,
   EMPLOYEE_EMAIL_COLUMN,
-  BLANK,
   type BankAccountsTableColumn,
 } from "../bankAccountsColumns";
 
@@ -43,28 +42,28 @@ const BLANK_FILTERS: ReportFilters = { createdFrom: "", createdTo: "", accountTy
 // the field it needs.
 const COLUMNS: BankAccountsTableColumn[] = [
   ACCOUNT_ID_COLUMN,
-  { field: "netSuiteInternalId", label: "NetSuite Internal Id", value: (a) => a.netSuiteInternalId ?? BLANK },
-  { field: "netSuiteVendorId", label: "NetSuite Vendor Id", value: (a) => a.netSuiteVendorId ?? BLANK },
+  { field: "netSuiteInternalId", label: "NetSuite Internal Id", value: (a) => a.netSuiteInternalId ?? "" },
+  { field: "netSuiteVendorId", label: "NetSuite Vendor Id", value: (a) => a.netSuiteVendorId ?? "" },
   {
     field: "netSuitePaymentFileFormat",
     label: "NetSuite Payment File Format",
-    value: (a) => a.netSuitePaymentFileFormat ?? BLANK,
+    value: (a) => a.netSuitePaymentFileFormat ?? "",
   },
   // Only consultancy accounts carry a payment method, so every other
   // Account Type renders "-".
-  { field: "paymentMethod", label: "Payment Method", value: (a) => a.paymentMethod ?? BLANK },
+  { field: "paymentMethod", label: "Payment Method", value: (a) => a.paymentMethod ?? "" },
   EMPLOYEE_EMAIL_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
-  { field: "beneficiaryAddress", label: "Account Holder Address", value: (a) => a.beneficiaryAddress ?? BLANK },
+  { field: "beneficiaryAddress", label: "Account Holder Address", value: (a) => a.beneficiaryAddress ?? "" },
   // Only consultancy accounts carry a beneficiary city, so every other
   // Account Type renders "-".
-  { field: "beneficiaryCity", label: "Account Holder City", value: (a) => a.beneficiaryCity ?? BLANK },
+  { field: "beneficiaryCity", label: "Account Holder City", value: (a) => a.beneficiaryCity ?? "" },
   BANK_CODE_COLUMN,
-  { field: "bankSwiftCode", label: "Bank Swift Code", value: (a) => a.bankSwiftCode ?? BLANK },
-  { field: "bankName", label: "Bank Name", value: (a) => a.bankName ?? BLANK },
-  { field: "bankLocation", label: "Bank Location", value: (a) => a.bankLocation ?? BLANK },
-  { field: "branchName", label: "Branch Name", value: (a) => a.branchName ?? BLANK },
+  { field: "bankSwiftCode", label: "Bank Swift Code", value: (a) => a.bankSwiftCode ?? "" },
+  { field: "bankName", label: "Bank Name", value: (a) => a.bankName ?? "" },
+  { field: "bankLocation", label: "Bank Location", value: (a) => a.bankLocation ?? "" },
+  { field: "branchName", label: "Branch Name", value: (a) => a.branchName ?? "" },
   EFFECTIVE_MONTH_COLUMN,
   ACCOUNT_TYPE_COLUMN,
 ];

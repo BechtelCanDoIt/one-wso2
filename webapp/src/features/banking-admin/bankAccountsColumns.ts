@@ -50,8 +50,12 @@ export interface BankAccountsTableColumn {
 }
 
 /**
- * Stands in for a null. Rendered and exported alike, so a saved row reads
- * the same as the one on screen.
+ * Painted in place of a null.
+ *
+ * Display only — `value` returns "" for a missing field, never this. A CSV
+ * export escapes anything that a spreadsheet might read as a formula, and a
+ * bare "-" qualifies, so exporting it writes `"\'-"` into every blank cell.
+ * An empty cell is what a blank should look like in a file anyway.
  */
 export const BLANK = "-";
 
@@ -78,7 +82,7 @@ export const ACCOUNT_NUMBER_COLUMN: BankAccountsTableColumn = {
 export const BANK_CODE_COLUMN: BankAccountsTableColumn = {
   field: "bankCode",
   label: "Bank Code",
-  value: (a) => a.bankCode ?? BLANK,
+  value: (a) => a.bankCode ?? "",
 };
 export const EFFECTIVE_MONTH_COLUMN: BankAccountsTableColumn = {
   field: "effectiveFrom",

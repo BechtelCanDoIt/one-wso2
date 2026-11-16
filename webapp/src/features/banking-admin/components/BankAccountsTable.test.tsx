@@ -66,7 +66,7 @@ const DEACTIVATE_COLUMN: BankAccountsTableColumn = {
 const SWIFT_COLUMN: BankAccountsTableColumn = {
   field: "bankSwiftCode",
   label: "Bank Swift Code",
-  value: (a) => a.bankSwiftCode ?? BLANK,
+  value: (a) => a.bankSwiftCode ?? "",
 };
 
 function renderTable(props: Partial<Parameters<typeof BankAccountsTable>[0]> = {}) {
@@ -80,15 +80,17 @@ function renderTable(props: Partial<Parameters<typeof BankAccountsTable>[0]> = {
   );
 }
 
-/** The text of the one file the grid handed the browser. */
-async function savedCsv(): Promise<string> {
+/** The one file the grid handed the browser, and what it was called. */
+async function saved(): Promise<{ csv: string; filename: string }> {
   const user = userEvent.setup();
-  const { blobs } = captureDownloads();
+  const { blobs, filenames } = captureDownloads();
   await user.click(screen.getByRole("button", { name: /export/i }));
   await user.click(await screen.findByRole("menuitem", { name: /csv/i }));
   await waitFor(() => expect(blobs).toHaveLength(1));
-  return new TextDecoder().decode(await bytesOf(blobs[0]));
+  return { csv: new TextDecoder().decode(await bytesOf(blobs[0])), filename: filenames[0] };
 }
+
+const savedCsv = async () => (await saved()).csv;
 
 describe("BankAccountsTable toolbar", () => {
   it("offers Columns, Filters, Density and Export above the rows", () => {
@@ -123,6 +125,27 @@ describe("BankAccountsTable toolbar", () => {
     const csv = await savedCsv();
     expect(csv).not.toContain("Actions");
     expect(csv).not.toContain("Deactivate");
+  });
+});
+
+describe("BankAccountsTable saved file", () => {
+  // Left to itself the grid names every export after the document title,
+  // which in a portal of many pages is no name at all.
+  it("names the file after what is in it", async () => {
+    renderTable();
+
+    expect((await saved()).filename).toBe("bank-accounts.csv");
+  });
+
+  // A spreadsheet reads a leading "-" as the start of a formula, so the grid
+  // escapes it — a dash exported literally arrives as "\'-" in every blank
+  // cell. The dash belongs on screen, not in the file.
+  it("writes a missing field as an empty cell, not a dash", async () => {
+    renderTable({ accounts: [bankAccount({ bankSwiftCode: null })] });
+
+    const csv = await savedCsv();
+    expect(csv).not.toContain("'-");
+    expect(csv.trimEnd().endsWith(",")).toBe(true);
   });
 });
 
