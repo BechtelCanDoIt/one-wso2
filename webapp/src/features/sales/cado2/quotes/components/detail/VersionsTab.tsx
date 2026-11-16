@@ -43,7 +43,7 @@ import { formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { cado2Paths } from "@features/sales/cado2/cado2Paths";
 import StatusChip from "@features/sales/cado2/components/status-chip/StatusChip";
-import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
+import { visuallyHidden } from "@utils/visuallyHidden";
 
 const CHANGE_LABEL = { added: "Added", removed: "Removed", changed: "Changed", same: "" };
 
