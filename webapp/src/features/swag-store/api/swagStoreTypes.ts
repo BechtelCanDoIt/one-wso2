@@ -529,6 +529,22 @@ export interface SwagStoreOptionsInput {
   }[];
 }
 
+/** GET /admin/demand: one variant people are waiting for. */
+export interface SwagStoreDemandRow {
+  readonly productId: string;
+  readonly productName: string;
+  readonly variantId: string;
+  readonly sku: string;
+  /** "Black · M"; empty for a product with no options. */
+  readonly options: string;
+  readonly pendingAlerts: number;
+  /** When the first of those people asked (an instant). */
+  readonly firstAlertAt: string;
+  /** The restock date as a UTC-midnight timestamp (read with restockDate), or null when none is set. */
+  readonly restockEta: string | null;
+  readonly free: number;
+}
+
 /** PATCH /admin/products/{id}/variants/{variantId} body. */
 export interface SwagStoreVariantPatch {
   readonly sku?: string;

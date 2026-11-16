@@ -31,6 +31,9 @@ export const swagStoreAdminPaths = {
   newProduct: `${SWAG_STORE_ADMIN_PATH}/products/new`,
   product: (productId: string): string =>
     `${SWAG_STORE_ADMIN_PATH}/products/${encodeURIComponent(productId)}`,
+  demand: `${SWAG_STORE_ADMIN_PATH}/demand`,
+  demandProduct: (productId: string): string =>
+    `${SWAG_STORE_ADMIN_PATH}/demand/${encodeURIComponent(productId)}`,
 } as const;
 
 /** The People Ops rail group that holds the admin screens. */
@@ -71,6 +74,12 @@ export const SWAG_STORE_ADMIN_SCREENS = {
     id: "swag-store-admin-products",
     label: "Products",
     path: swagStoreAdminPaths.products,
+    need: "CATALOG_MANAGER",
+  },
+  demand: {
+    id: "swag-store-admin-demand",
+    label: "Demand",
+    path: swagStoreAdminPaths.demand,
     need: "CATALOG_MANAGER",
   },
   settings: {
