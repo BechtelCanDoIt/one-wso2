@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Shapes of the PAR backend's form and Leadership 360° endpoints (modules/types/forms.bal).
+// Shapes of the form and Leadership 360° endpoints on ONE_WSO2_PAR_BACKEND_URL.
 
 export type FormQuestionType = "RATING" | "TEXT" | "CHOICE";
 

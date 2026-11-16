@@ -86,6 +86,16 @@ describe("nextUp", () => {
     );
   });
 
+  it("doesn't say someone asked when you offered the feedback yourself", () => {
+    const requests: Par360ReviewRequest[] = [
+      { employeeEmail: "a@x.com", employeeName: "Ann", reviewStatus: "PENDING", isEmployeeRequested: false, isLeadRequested: false },
+    ];
+    const reviewers = [1, 2, 3].map((n) => reviewer("SHARED", n));
+    expect(nextUp(input({ rating: rating({ parEmployeeStatus: "SHARED" }), reviewers, requests })).title).not.toContain(
+      "asked for your feedback",
+    );
+  });
+
   it("counts the people waiting on you rather than naming one of several", () => {
     const requests: Par360ReviewRequest[] = ["a", "b", "c"].map((n) => ({
       employeeEmail: `${n}@x.com`,

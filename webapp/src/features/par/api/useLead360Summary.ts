@@ -35,9 +35,11 @@ export interface Lead360SummarySuggestion {
 // The AI-suggested 360° summary of an employee, for their lead to start from.
 // The backend writes it the first time it's asked for and keeps it, writing a
 // new one only once more responses have come in, so the key carries the
-// response count. Never retried: each one written counts toward a cap, even
-// when the model fails. The cached rating takes what it was written from, so
-// the panel can tell when more responses have come in since.
+// response count. Never retried, not even when the panel mounts again after a
+// failure: each one written counts toward a cap, even when the model fails.
+// The cached rating takes what it was written from, so the panel can tell when
+// more responses have come in since; an answer for fewer responses than it
+// already holds (a slower, older request) leaves it alone.
 export function useLead360SummarySuggestion(
   parCycleId: number,
   employeeEmail: string,
@@ -59,7 +61,7 @@ export function useLead360SummarySuggestion(
       );
       if (!suggestion) throw new Error("The suggestion came back empty.");
       qc.setQueryData<ParRating | null>(["par-rating", parCycleId, employeeEmail], (old) =>
-        old
+        old && suggestion.responseCount >= (old.parLead360SuggestionResponses ?? 0)
           ? {
               ...old,
               parLead360SuggestionResponses: suggestion.responseCount,
@@ -70,6 +72,7 @@ export function useLead360SummarySuggestion(
       return suggestion;
     },
     retry: false,
+    retryOnMount: false,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });

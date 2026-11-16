@@ -60,11 +60,21 @@ export function useParCycleForms(parCycleId: number | undefined) {
   return { ...query, hasStructured360: Boolean(query.data?.includes("PEER_360")) };
 }
 
-/** Whether the open cycle is a PAR 2.0 cycle, shown with the Active cycle / Give feedback / History tabs. */
-export function useParShowsPar2(parCycleId: number | undefined): { showsPar2: boolean; isLoading: boolean } {
+/** Whether the open cycle is a PAR 2.0 cycle, shown with the Active cycle / Give feedback / History tabs.
+ * `error` is set when that couldn't be looked up, so `showsPar2` says nothing. */
+export function useParShowsPar2(parCycleId: number | undefined): {
+  showsPar2: boolean;
+  isLoading: boolean;
+  error: Error | null;
+} {
   const enabled = isPreviewEnabled("par2");
   const forms = useParCycleForms(enabled ? parCycleId : undefined);
-  return { showsPar2: enabled && forms.hasStructured360, isLoading: enabled && Boolean(parCycleId) && forms.isLoading };
+  const asked = enabled && Boolean(parCycleId);
+  return {
+    showsPar2: enabled && forms.hasStructured360,
+    isLoading: asked && forms.isLoading,
+    error: asked ? forms.error : null,
+  };
 }
 
 // The caller's own feedback on one employee: their draft or what they

@@ -71,9 +71,12 @@ export function feedbackProgress(reviewers: Par360Reviewer[]) {
   return { asked, responded, declined };
 }
 
-// Requests for your feedback you haven't answered yet.
+// Requests for your feedback you haven't answered yet. Feedback you offered
+// without being asked is yours to finish, not a request.
 export function openRequests(requests: Par360ReviewRequest[]): Par360ReviewRequest[] {
-  return requests.filter((r) => r.reviewStatus === "PENDING" || r.reviewStatus === "DRAFT");
+  return requests.filter(
+    (r) => (r.reviewStatus === "PENDING" || r.reviewStatus === "DRAFT") && (r.isEmployeeRequested || r.isLeadRequested),
+  );
 }
 
 export function homeSteps({ cycle, rating, selfReviewProgress, reviewers, leadership, leadName }: HomeInput): HomeStep[] {

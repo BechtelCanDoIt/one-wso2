@@ -14,8 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Shapes of the PAR backend's structured 360° endpoints (Review360* in
-// modules/types/forms.bal).
+// Shapes of the structured 360° endpoints on ONE_WSO2_PAR_BACKEND_URL.
 import type { FormAnswers, FormTemplate } from "./leadership360Types";
 import type { Par360ReviewStatus } from "./types";
 

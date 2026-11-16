@@ -20,7 +20,7 @@ import type { Par360Review, ParLegacyHistory, ParLegacyQuestionAnswer, ParRating
 import type { FormDefinition, Leadership360Summary } from "../api/leadership360Types";
 import type { Review360Summary } from "../api/review360Types";
 import type { SelfReviewAnswers } from "../api/selfReviewTypes";
-import { decodeParComment, sanitizeParHtml } from "./parComment";
+import { decodeParComment, isEmptyHtml, sanitizeParHtml } from "./parComment";
 import { formatShortDate } from "./parDate";
 import { pdfRatingText } from "./parLabels";
 import {
@@ -62,12 +62,12 @@ export function downloadParPdf(rating: ParRating, selfComment: string, leadComme
       { content: htmlToPdfText(leadComment), styles: { textColor: [50, 50, 50], cellPadding: 6 } },
     ]);
   }
-  const lead360Summary = htmlToPdfText(decodeParComment(rating.parLead360Summary));
-  if (lead360Summary.trim()) {
+  const lead360Summary = decodeParComment(rating.parLead360Summary);
+  if (!isEmptyHtml(lead360Summary)) {
     rows.push([
       "360° Summary",
       "",
-      { content: lead360Summary, styles: { textColor: [50, 50, 50], cellPadding: 6 } },
+      { content: htmlToPdfText(lead360Summary), styles: { textColor: [50, 50, 50], cellPadding: 6 } },
     ]);
   }
 
@@ -146,7 +146,7 @@ export function downloadPar2Pdf({
     section("Lead's feedback");
     rows.push(["Lead comment", { content: htmlToPdfText(leadComment), styles: TEXT_CELL }]);
     const lead360Summary = decodeParComment(rating.parLead360Summary);
-    if (htmlToPdfText(lead360Summary).trim()) {
+    if (!isEmptyHtml(lead360Summary)) {
       rows.push(["360° summary", { content: htmlToPdfText(lead360Summary), styles: TEXT_CELL }]);
     }
   }
@@ -155,7 +155,8 @@ export function downloadPar2Pdf({
   for (const s of selfReview.definition.sections) {
     for (const q of s.questions) {
       const text = selfReview.answers[q.id] ?? "";
-      rows.push([s.title, { content: text || "-", styles: TEXT_CELL }]);
+      // A section of one question is named by its title; with more, each answer by its question.
+      rows.push([s.questions.length > 1 ? q.text : s.title, { content: text || "-", styles: TEXT_CELL }]);
     }
   }
 

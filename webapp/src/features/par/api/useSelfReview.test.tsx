@@ -21,8 +21,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { SelfReview } from "./selfReviewTypes";
 
 const authedPut = vi.fn(async () => undefined);
+const authedGet = vi.fn();
 vi.mock("@api/http", () => ({
-  authedGet: vi.fn(),
+  authedGet: (...args: unknown[]) => authedGet(...args),
   authedPut: () => authedPut(),
   authedPost: vi.fn(),
   defaultQueryRetry: false,
@@ -33,7 +34,7 @@ vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "tok
 vi.mock("@config/apiConfig", () => ({ parBackendUrl: "http://par", parServiceUrls: { parSelfReview: () => "/self-review" } }));
 vi.mock("@features/my/util/digiopsHeaders", () => ({ digiopsHeaders: () => ({}) }));
 
-const { useSaveSelfReview } = await import("./useSelfReview");
+const { useSaveSelfReview, useSelfReview } = await import("./useSelfReview");
 
 describe("useSaveSelfReview", () => {
   it("keeps the cached self-review in step with what was saved, so coming back shows the draft", async () => {
@@ -48,5 +49,26 @@ describe("useSaveSelfReview", () => {
     act(() => result.current.mutate({ impact: "Shipped it" }));
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     expect(client.getQueryData<SelfReview>(key)?.answers).toEqual({ impact: "Shipped it" });
+  });
+
+  it("doesn't let a read still in flight put older answers back over what was just saved", async () => {
+    const client = new QueryClient();
+    const key = ["par-self-review", 2, "me@wso2.com"];
+    client.setQueryData<SelfReview>(key, { answers: { impact: "Old" }, employeeStatus: "DRAFT" } as Partial<SelfReview> as SelfReview);
+    let finishRead: (review: SelfReview) => void = () => {};
+    authedGet.mockImplementationOnce(() => new Promise<SelfReview>((resolve) => (finishRead = resolve)));
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const { result } = renderHook(
+      () => ({ read: useSelfReview(2, "me@wso2.com"), save: useSaveSelfReview(2, "me@wso2.com") }),
+      { wrapper },
+    );
+    await waitFor(() => expect(authedGet).toHaveBeenCalled());
+
+    act(() => result.current.save.mutate({ impact: "New" }));
+    await waitFor(() => expect(result.current.save.isSuccess).toBe(true));
+    await act(async () => finishRead({ answers: { impact: "Old" }, employeeStatus: "DRAFT" } as Partial<SelfReview> as SelfReview));
+    expect(client.getQueryData<SelfReview>(key)?.answers).toEqual({ impact: "New" });
   });
 });

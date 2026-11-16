@@ -27,7 +27,7 @@ vi.mock("jspdf", () => ({
   },
 }));
 
-const { downloadPar2Pdf } = await import("./parPdf");
+const { downloadParPdf, downloadPar2Pdf } = await import("./parPdf");
 
 const selfReviewDefinition: FormDefinition = {
   kind: "SELF_REVIEW",
@@ -97,6 +97,44 @@ describe("downloadPar2Pdf", () => {
     expect(text).toContain("Colleagues see real ownership.");
   });
 
+  it("leaves the 360° summary out when there is none, or only an empty line", () => {
+    for (const parLead360Summary of [undefined, encodeParComment("<p><br></p>")]) {
+      downloadPar2Pdf({
+        rating: { parEmployeeEmail: "e@x.com", parLead360Summary } as ParRating,
+        leadComment: "<p>Great cycle.</p>",
+        selfReview: { definition: selfReviewDefinition, answers: { impact: "Shipped it." } },
+      });
+      expect(JSON.stringify(tables.at(-1))).not.toContain("360° summary");
+    }
+  });
+
+  it("names each answer by its question when a section has more than one", () => {
+    downloadPar2Pdf({
+      rating: { parEmployeeEmail: "e@x.com" } as ParRating,
+      leadComment: "",
+      selfReview: {
+        definition: {
+          ...selfReviewDefinition,
+          sections: [
+            {
+              id: "cycle",
+              title: "This cycle",
+              questions: [
+                { id: "achievements", type: "TEXT", text: "Achievements" },
+                { id: "challenges", type: "TEXT", text: "Challenges" },
+              ],
+            },
+          ],
+        },
+        answers: { achievements: "Shipped it.", challenges: "Hiring." },
+      },
+    });
+    const text = JSON.stringify(tables.at(-1));
+    expect(text).toContain('["Achievements",');
+    expect(text).toContain('["Challenges",');
+    expect(text).not.toContain('["This cycle",');
+  });
+
   it("has a Top 5%/20% line only for a Top 5% or Top 20%", () => {
     const head = (parSpecialRating?: string) => {
       downloadPar2Pdf({
@@ -164,5 +202,25 @@ describe("downloadPar2Pdf", () => {
 
     downloadPar2Pdf({ ...base, leadership360: { definition: leadership, summary: { ...summary, available: false } } });
     expect(JSON.stringify(tables.at(-1))).not.toContain("Leadership 360°");
+  });
+});
+
+describe("downloadParPdf", () => {
+  it("adds no 360° summary row to a cycle without one", () => {
+    for (const parLead360Summary of [undefined, encodeParComment("<p><br></p>")]) {
+      downloadParPdf({ parEmployeeEmail: "e@x.com", parLead360Summary } as ParRating, "<p>Mine.</p>", "<p>Lead's.</p>");
+      expect(JSON.stringify(tables.at(-1))).not.toContain("360° Summary");
+    }
+  });
+
+  it("adds the lead's 360° summary when there is one", () => {
+    downloadParPdf(
+      { parEmployeeEmail: "e@x.com", parLead360Summary: encodeParComment("<p>Colleagues see real ownership.</p>") } as ParRating,
+      "<p>Mine.</p>",
+      "<p>Lead's.</p>",
+    );
+    const text = JSON.stringify(tables.at(-1));
+    expect(text).toContain("360° Summary");
+    expect(text).toContain("Colleagues see real ownership.");
   });
 });

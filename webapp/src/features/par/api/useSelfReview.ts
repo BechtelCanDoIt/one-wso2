@@ -50,7 +50,9 @@ export function useSelfReview(parCycleId: number | undefined, workEmail: string 
 // Saves the employee's draft, one save at a time. What was saved goes into the
 // cached self-review, so coming back to it shows the draft, and the PAR record
 // is refreshed (the first save moves it from PENDING to DRAFT); the answers
-// aren't refetched, which would race whatever the employee has typed since.
+// aren't refetched, which would race whatever the employee has typed since. A
+// read still in flight is cancelled first, so its older answers can't land on
+// top of the saved ones.
 export function useSaveSelfReview(parCycleId: number | undefined, workEmail: string | undefined) {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
@@ -62,6 +64,7 @@ export function useSaveSelfReview(parCycleId: number | undefined, workEmail: str
       await authedPut<void>(parServiceUrls.parSelfReview(parCycleId, workEmail), accessToken, { answers }, digiopsHeaders());
     },
     onSuccess: async (_data, answers) => {
+      await qc.cancelQueries({ queryKey: ["par-self-review", parCycleId, workEmail] });
       qc.setQueryData<SelfReview | null>(["par-self-review", parCycleId, workEmail], (review) =>
         review ? { ...review, answers } : review,
       );
