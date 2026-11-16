@@ -17,7 +17,7 @@
 import { useState, type JSX } from "react";
 import { Alert, Box, Typography } from "@wso2/oxygen-ui";
 import type { SwagStorePhotoView, SwagStoreProductImage } from "../../api/swagStoreTypes";
-import { PHOTO_VIEWS } from "../../util/photos";
+import { MAX_PHOTO_EDGE, PHOTO_VIEWS } from "../../util/photos";
 import PhotoSlot from "./PhotoSlot";
 
 type Photos = readonly SwagStoreProductImage[];
@@ -56,7 +56,7 @@ export default function PhotosField({ productId, productName, images, onChange, 
         Photos
       </Typography>
       <Typography variant="body2" color="text.secondary">
-        JPEG, PNG or WebP. Large photos are scaled down to 1600 px. Square photos look best.
+        JPEG, PNG or WebP. Large photos are scaled down to {MAX_PHOTO_EDGE} px. Square photos look best.
       </Typography>
       {!productId && <Alert severity="info">Save the draft to add photos.</Alert>}
       {notConfigured && <Alert severity="warning">Photos aren&apos;t set up in this environment.</Alert>}
