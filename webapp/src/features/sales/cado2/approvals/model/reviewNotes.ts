@@ -58,6 +58,11 @@ export function noteText(n: ReviewNote, role: LensRole): NoteText {
       title = "Sales price changed";
       detail = first;
       break;
+    case "UNCOVERED_DISCOUNT":
+      // D177: "Line 4 · Choreo ELA: 6% discount, but no discount group covers this product, …"
+      title = "Discount no approver covers";
+      detail = first;
+      break;
     case "SPECIAL_TERMS":
       if (role === "DEAL_DESK") {
         // D139: the AM wrote them; Deal Desk checks them.
