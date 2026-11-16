@@ -174,6 +174,18 @@ describe("a product's drawer", () => {
     expect(save).toBeEnabled();
   });
 
+  it("opens an overdue saved date without an error, and flags it only once changed to another past date", async () => {
+    http.authedGet.mockResolvedValue({ items: [ROWS[0], demandRow({ ...ROWS[1], restockEta: "2026-11-01T00:00:00Z" })] });
+    renderPage("/people-ops/swag-store/demand/p-hoodie");
+    const l = within(await screen.findByRole("dialog", { name: "WSO2 Hoodie" })).getByRole("group", { name: "L" });
+    const date = within(l).getByLabelText("Restock date");
+    expect(date).toHaveValue("2026-11-01");
+    expect(within(l).queryByText("Pick today or a later date.")).toBeNull();
+    await userEvent.clear(date);
+    await userEvent.type(date, "2026-11-02");
+    expect(within(l).getByText("Pick today or a later date.")).toBeInTheDocument();
+  });
+
   it("says Saved. only until the date is changed again", async () => {
     http.authedPatch.mockResolvedValue(adminProduct());
     renderPage("/people-ops/swag-store/demand/p-hoodie");

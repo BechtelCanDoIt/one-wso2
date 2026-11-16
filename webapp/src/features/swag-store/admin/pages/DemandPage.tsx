@@ -187,8 +187,9 @@ function WaitingOption({ productId, row }: { productId: string; row: SwagStoreDe
   const [date, setDate] = useState(saved);
   const label = row.options || row.sku;
   const today = civilToday();
-  // Shoppers see this date, so it can't be in the past. Empty clears it.
-  const past = date !== "" && date < today;
+  // Shoppers see this date, so a new one can't be in the past. Empty clears it. A saved
+  // date that has since passed isn't flagged until it is changed: nothing is wrong yet.
+  const past = date !== "" && date !== saved && date < today;
   const canSave = date !== saved && !past && !patch.isPending;
 
   const submit = (e: FormEvent) => {
