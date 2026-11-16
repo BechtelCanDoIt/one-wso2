@@ -54,16 +54,19 @@ export const swagStoreShopRoutes = (
 );
 
 /**
- * The store team's screens under People Ops, as one fragment for App.tsx. All
- * render inside SwagStoreAdminShell, and each leaf checks its own role.
- * App.tsx mounts this only while the `swagStore` preview flag is on.
+ * The store team's screens under People Ops, as one fragment for App.tsx.
+ * SwagStoreShell resolves access first, as it does for the shop; inside it
+ * SwagStoreAdminShell turns away anyone without a store role, and each leaf
+ * checks its own. App.tsx mounts this only while the `swagStore` preview flag is on.
  */
 export const swagStoreAdminRoutes = (
-  <Route path="people-ops/swag-store" element={<SwagStoreAdminShell />}>
-    <Route index element={<SwagStoreAdminLanding />} />
-    <Route
-      path="dashboard"
-      element={<SwagStoreAdminRequires need="ANY">{deferred(<DashboardPage />)}</SwagStoreAdminRequires>}
-    />
+  <Route element={<SwagStoreShell />}>
+    <Route path="people-ops/swag-store" element={<SwagStoreAdminShell />}>
+      <Route index element={<SwagStoreAdminLanding />} />
+      <Route
+        path="dashboard"
+        element={<SwagStoreAdminRequires screen="dashboard">{deferred(<DashboardPage />)}</SwagStoreAdminRequires>}
+      />
+    </Route>
   </Route>
 );

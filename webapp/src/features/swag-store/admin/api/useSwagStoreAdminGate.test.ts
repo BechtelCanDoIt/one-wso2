@@ -17,7 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { swagStoreAccess } from "../../api/swagStoreAccess";
 import { me } from "../../testing/fixtures";
-import { SWAG_STORE_ADMIN_GROUP_ID, SWAG_STORE_ADMIN_ITEM } from "../swagStoreAdminItems";
+import { SWAG_STORE_ADMIN_GROUP_ID, SWAG_STORE_ADMIN_SCREENS } from "../swagStoreAdminItems";
 import { swagStoreAdminAllows, swagStoreAdminCanSee } from "./useSwagStoreAdminGate";
 
 const catalog = swagStoreAccess(me({ roles: ["catalog_manager"] }));
@@ -28,11 +28,7 @@ const shopper = swagStoreAccess(me());
 describe("swagStoreAdminCanSee", () => {
   it.each([
     [SWAG_STORE_ADMIN_GROUP_ID, true, true, false],
-    [SWAG_STORE_ADMIN_ITEM.dashboard, true, true, false],
-    [SWAG_STORE_ADMIN_ITEM.orders, false, true, false],
-    [SWAG_STORE_ADMIN_ITEM.products, true, false, false],
-    [SWAG_STORE_ADMIN_ITEM.demand, true, false, false],
-    [SWAG_STORE_ADMIN_ITEM.settings, false, true, false],
+    [SWAG_STORE_ADMIN_SCREENS.dashboard.id, true, true, false],
   ])("%s: catalog %s, fulfilment %s, shopper %s", (id, forCatalog, forFulfilment, forShopper) => {
     expect(swagStoreAdminCanSee(id, catalog)).toBe(forCatalog);
     expect(swagStoreAdminCanSee(id, fulfilment)).toBe(forFulfilment);
@@ -42,6 +38,14 @@ describe("swagStoreAdminCanSee", () => {
 
   it("hides an id it doesn't know from everyone", () => {
     expect(swagStoreAdminCanSee("swag-store-admin-unknown", both)).toBe(false);
+  });
+
+  it("shows each screen's row to exactly the people its screens table entry names", () => {
+    for (const screen of Object.values(SWAG_STORE_ADMIN_SCREENS)) {
+      for (const access of [catalog, fulfilment, both, shopper]) {
+        expect(swagStoreAdminCanSee(screen.id, access)).toBe(swagStoreAdminAllows(screen.need, access));
+      }
+    }
   });
 });
 
