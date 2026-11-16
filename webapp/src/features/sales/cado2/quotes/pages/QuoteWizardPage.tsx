@@ -84,6 +84,7 @@ import LegalStep from "@features/sales/cado2/quotes/components/steps/LegalStep";
 import SmallDealBanner from "@features/sales/cado2/quotes/components/SmallDealBanner";
 import ApprovalPreviewPanel from "@features/sales/cado2/approvals/components/ApprovalPreviewPanel";
 import ApprovalPreviewDialog from "@features/sales/cado2/approvals/components/ApprovalPreviewDialog";
+import DiscountMatrixDialog from "@features/sales/cado2/approvals/components/DiscountMatrixDialog";
 import { useApprovalPreview } from "@features/sales/cado2/approvals/api/useApprovalApi";
 import WizardStepper from "@features/sales/cado2/quotes/components/wizard/WizardStepper";
 import StepIntro from "@features/sales/cado2/quotes/components/wizard/StepIntro";
@@ -241,6 +242,9 @@ export default function QuoteWizardPage(): JSX.Element {
     [saved?.quote.id, saved?.version.versionNumber],
   );
   const [approvalDialog, setApprovalDialog] = useState<ReturnType<typeof approvalInput> | null>(null);
+  // The discount approval matrix with the lines as they were when opened (D176).
+  const [matrixBody, setMatrixBody] = useState<ReturnType<typeof approvalInput> | null>(null);
+  const matrixPreview = useApprovalPreview(matrixBody);
   const shown = !editable ? stored : !isDirty && stored ? stored : priced;
 
   const refused = refusal?.issues;
@@ -695,7 +699,7 @@ export default function QuoteWizardPage(): JSX.Element {
                 </Box>
                 <Box component="fieldset" disabled={!editable} sx={{ border: 0, m: 0, p: 0, minWidth: 0 }}>
                   {step === 0 ? <OverviewStep locked={saved !== null} quoteId={saved?.quote.id ?? null} /> : null}
-                  {step === 1 ? <ProductsStep preview={shown} /> : null}
+                  {step === 1 ? <ProductsStep preview={shown} onOpenMatrix={() => setMatrixBody(approvalInput(form.getValues()))} /> : null}
                   {step === 2 ? <CommercialStep /> : null}
                   {step === 3 ? <LegalStep quoteId={saved?.quote.id ?? null} /> : null}
                 </Box>
@@ -823,6 +827,13 @@ export default function QuoteWizardPage(): JSX.Element {
           </Stack>
 
           <ApprovalPreviewDialog body={approvalDialog} onClose={() => setApprovalDialog(null)} />
+          <DiscountMatrixDialog
+            open={matrixBody !== null}
+            onClose={() => setMatrixBody(null)}
+            preview={matrixPreview.data}
+            loading={matrixPreview.isFetching}
+            error={matrixPreview.error}
+          />
           {deleting && saved ? (
             <DeleteDraftDialog
               quote={saved.quote}

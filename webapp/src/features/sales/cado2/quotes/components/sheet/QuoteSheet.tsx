@@ -34,9 +34,12 @@ export default function QuoteSheet({
   sheet,
   writing,
   showJustification = true,
+  onOpenMatrix,
 }: {
   sheet: Sheet;
   writing?: LegalWriting;
+  /** Adds "Discount approval matrix" to Products (D176). */
+  onOpenMatrix?: () => void;
   /** False where the justification is being written, below the sheet (Review, D141). */
   showJustification?: boolean;
 }): JSX.Element {
@@ -44,7 +47,7 @@ export default function QuoteSheet({
     <Stack spacing={2.5} sx={{ minWidth: 0 }}>
       {/* Who it's for is in the page header (quote page and wizard), not here (C1, 2026-10-14). */}
       <DealSection sheet={sheet} />
-      <ProductsSection sheet={sheet} />
+      <ProductsSection sheet={sheet} onOpenMatrix={onOpenMatrix} />
       <DealFiguresSection sheet={sheet} />
       <ScheduleSection sheet={sheet} />
       <TermsSection sheet={sheet} specialSlot={writing?.special} />
