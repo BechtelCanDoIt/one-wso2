@@ -19,9 +19,9 @@ import type { TravelDocument, Visa } from "../api/engagementTypes";
 import { ExpiresIn, Two, Mono } from "../components/StatusChips";
 import { fmtDate, fmtRange } from "../model/format";
 
-/** Active or Expired follows the end date, as the legacy screens computed it; Inactive is stored. */
+/** Active or Expired follows the end date, as the legacy screens computed it; a stored Inactive or Expired wins. */
 export const visaStatus = (v: Visa, today: string): "Active" | "Expired" | "Inactive" =>
-  v.status === "Inactive" ? "Inactive" : v.end >= today ? "Active" : "Expired";
+  v.status !== "Active" ? v.status : v.end >= today ? "Active" : "Expired";
 export const documentStatus = (d: TravelDocument, today: string): "Active" | "Expired" | "Inactive" =>
   d.status === "Inactive" ? "Inactive" : !d.expires || d.expires >= today ? "Active" : "Expired";
 
