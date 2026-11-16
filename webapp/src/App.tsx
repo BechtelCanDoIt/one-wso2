@@ -134,6 +134,7 @@ import ScorecardPage from "@features/amplify/pages/dashboards/ScorecardBoard";
 import MasterDataRoute from "@components/route-guards/MasterDataRoute";
 import AdCampaignsAnalyticsPage from "@features/marketing-ops/ad-campaigns/pages/AdCampaignsAnalyticsPage";
 import CampaignTrackerPage from "@features/marketing-ops/ad-campaigns/pages/CampaignTrackerPage";
+import BenchmarkGradingPage from "@features/marketing-ops/ad-campaigns/pages/BenchmarkGradingPage";
 import UtmGeneratorPage from "@features/marketing-ops/utilities/pages/UtmGeneratorPage";
 import AssetNameGeneratorPage from "@features/marketing-ops/utilities/pages/AssetNameGeneratorPage";
 import UtmSettingsPage from "@features/marketing-ops/admin/pages/UtmSettingsPage";
@@ -147,6 +148,7 @@ import PostBuilderPage from "@features/marketing-ops/design-studio/pages/PostBui
 import MarketingCalendarPage from "@features/marketing-ops/marketing-calendar/pages/MarketingCalendarPage";
 import { marketingCalendarViewRoutes } from "@features/marketing-ops/marketing-calendar/routes";
 import {
+  EventsLeadImportPage,
   EventsMinePage,
   EventsReviewPage,
 } from "@features/marketing-ops/events/pages/EventsPages";
@@ -232,6 +234,7 @@ import { auditRoutes } from "@features/security/grc/modules/audit/routes";
 import { adminRoutes } from "@features/security/grc/modules/admin/routes";
 import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
+import { swagStoreShopRoutes } from "@features/swag-store/routes";
 import { procurementRoutes } from "@features/finance/procurement/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
 import PartnerPendingPage from "@features/due-diligence/partners/pages/PartnerPendingPage";
@@ -977,6 +980,13 @@ export default function App() {
             path="marketing-ops/ad-campaigns/campaign-tracker"
             element={<CampaignTrackerPage />}
           />
+          {/* Ad Campaigns → Benchmark Grading. Every campaign scored on
+              conversion and cost against WSO2's benchmarks; grading is computed
+              client-side from the backend's raw campaign lines. */}
+          <Route
+            path="marketing-ops/ad-campaigns/benchmark-grading"
+            element={<BenchmarkGradingPage />}
+          />
           {/* Utilities — open to any authorized Marketing Ops caller. */}
           <Route path="marketing-ops/utilities/utm" element={<UtmGeneratorPage />} />
           <Route
@@ -994,6 +1004,10 @@ export default function App() {
             <Route path="events" element={<EventsSettingsPage />} />
             <Route path="events-notifications" element={<EventsNotificationsPage />} />
           </Route>
+          {/* Events → Lead Import. Held back by the `eventsLeadImport` preview flag. */}
+          {isPreviewEnabled("eventsLeadImport") && (
+            <Route path="marketing-ops/events/lead-import" element={<EventsLeadImportPage />} />
+          )}
           <Route path="marketing-ops/events/mine" element={<EventsMinePage />} />
           <Route path="marketing-ops/events/review" element={<EventsReviewPage />} />
           {/* Event Platform — event agendas, speakers and swag shops, a different
@@ -1041,7 +1055,7 @@ export default function App() {
           {/* Sales → CadO2, the quote tool. Its whole route tree, behind the `cado2`
               preview flag; Cado2Shell resolves access for every page. See
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
-          {isPreviewEnabled("cado2") && cado2Routes}
+          {isPreviewEnabled("quickquote") && cado2Routes}
           {/* Finance → Procurement, behind the `procurement` preview flag. */}
           {isPreviewEnabled("procurement") && procurementRoutes}
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
@@ -1131,6 +1145,9 @@ export default function App() {
               <Route path="amplify/connect/callback" element={<LinkedInCallbackPage />} />
             </>
           )}
+          {/* Swag Store's shop, behind its preview flag like the rail entry and
+              the top-bar button. SwagStoreShell resolves access for every page. */}
+          {isPreviewEnabled("swagStore") && swagStoreShopRoutes}
           {/* Legal perspective — currently just a second entry point into Due
               Diligence, alongside Finance (see the finance/ routes below and
               DUE_DILIGENCE_APPS). */}

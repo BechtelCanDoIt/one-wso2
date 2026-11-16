@@ -72,13 +72,18 @@ export function useDashboardCampaigns(campaignId?: string) {
   );
 }
 
-/** One person's Post Performance (the person popup). Waits for an id. */
-export function useDashboardPerson(employeeId: string | undefined) {
+/**
+ * One person's Post Performance (the person popup). Waits for an id, and never asks without one. The team list
+ * sends no id for a person with no points in the period yet (or who never signed in); asking for them would call
+ * `/dashboards/people/`, which no gateway route matches (a 404 on the preflight, reported as a CORS error).
+ */
+export function useDashboardPerson(employeeId: string | null | undefined) {
+  const id = employeeId?.trim() || undefined;
   return useBoard<DashboardPersonBoard>(
     "dashboard-person",
-    `${amplifyServiceUrls.dashboardPeople}/${encodeURIComponent(employeeId ?? "")}`,
-    employeeId !== undefined,
-    employeeId ?? "",
+    id === undefined ? "" : `${amplifyServiceUrls.dashboardPeople}/${encodeURIComponent(id)}`,
+    id !== undefined,
+    id ?? "",
   );
 }
 
