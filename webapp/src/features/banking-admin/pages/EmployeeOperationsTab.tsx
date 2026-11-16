@@ -156,10 +156,20 @@ export default function EmployeeOperationsTab() {
     ACCOUNT_NUMBER_COLUMN,
     BANK_CODE_COLUMN,
     EFFECTIVE_MONTH_COLUMN,
-    { label: "Account Status", render: (a) => <AccountStatusChip status={a.accountStatus} /> },
+    {
+      field: "accountStatus",
+      label: "Account Status",
+      value: (a) => a.accountStatus,
+      render: (a) => <AccountStatusChip status={a.accountStatus} />,
+    },
     ACCOUNT_TYPE_COLUMN,
     {
+      field: "actions",
       label: "Actions",
+      // A column of buttons: nothing to sort, filter or save, so it opts out
+      // of all three rather than exporting a row of blanks.
+      action: true,
+      value: () => "",
       render: (a) => (
         <Tooltip title={a.accountStatus === "INACTIVE" ? "Account already deactivated" : "Deactivate Account"}>
           <span>

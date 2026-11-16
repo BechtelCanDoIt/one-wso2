@@ -27,6 +27,7 @@ import {
   BANK_CODE_COLUMN,
   EFFECTIVE_MONTH_COLUMN,
   EMPLOYEE_EMAIL_COLUMN,
+  BLANK,
   type BankAccountsTableColumn,
 } from "../bankAccountsColumns";
 
@@ -35,20 +36,52 @@ const ACCOUNT_STATUSES: AccountStatus[] = ["ACTIVE", "INACTIVE", "REJECTED", "RE
 
 const BLANK_FILTERS: ReportFilters = { createdFrom: "", createdTo: "", accountTypesArray: [], statusArray: [] };
 
-// Source's own reportings.tsx default-visible column set for this view, in
-// its own order.
+// The columns this tab shows by default, in its own order, with the
+// account detail the report is reconciled against carried alongside them
+// but switched off — see HIDDEN_BY_DEFAULT. Everything here is exportable,
+// so turning a column on and saving the result is how a reconciliation gets
+// the field it needs.
 const COLUMNS: BankAccountsTableColumn[] = [
   ACCOUNT_ID_COLUMN,
+  { field: "netSuiteInternalId", label: "NetSuite Internal Id", value: (a) => a.netSuiteInternalId ?? BLANK },
+  { field: "netSuiteVendorId", label: "NetSuite Vendor Id", value: (a) => a.netSuiteVendorId ?? BLANK },
+  {
+    field: "netSuitePaymentFileFormat",
+    label: "NetSuite Payment File Format",
+    value: (a) => a.netSuitePaymentFileFormat ?? BLANK,
+  },
+  // Only consultancy accounts carry a payment method, so every other
+  // Account Type renders "-".
+  { field: "paymentMethod", label: "Payment Method", value: (a) => a.paymentMethod ?? BLANK },
   EMPLOYEE_EMAIL_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
+  { field: "beneficiaryAddress", label: "Account Holder Address", value: (a) => a.beneficiaryAddress ?? BLANK },
   // Only consultancy accounts carry a beneficiary city, so every other
   // Account Type renders "-".
-  { label: "Account Holder City", render: (a) => a.beneficiaryCity ?? "-" },
+  { field: "beneficiaryCity", label: "Account Holder City", value: (a) => a.beneficiaryCity ?? BLANK },
   BANK_CODE_COLUMN,
-  { label: "Branch Name", render: (a) => a.branchName ?? "-" },
+  { field: "bankSwiftCode", label: "Bank Swift Code", value: (a) => a.bankSwiftCode ?? BLANK },
+  { field: "bankName", label: "Bank Name", value: (a) => a.bankName ?? BLANK },
+  { field: "bankLocation", label: "Bank Location", value: (a) => a.bankLocation ?? BLANK },
+  { field: "branchName", label: "Branch Name", value: (a) => a.branchName ?? BLANK },
   EFFECTIVE_MONTH_COLUMN,
   ACCOUNT_TYPE_COLUMN,
+];
+
+// Carried but switched off, so the default view stays the set this tab has
+// always shown. The NetSuite identifiers and the bank's own details are
+// only wanted when something is being chased down, and showing all
+// seventeen columns at once leaves every one of them too narrow to read.
+const HIDDEN_BY_DEFAULT = [
+  "netSuiteInternalId",
+  "netSuiteVendorId",
+  "netSuitePaymentFileFormat",
+  "paymentMethod",
+  "beneficiaryAddress",
+  "bankSwiftCode",
+  "bankName",
+  "bankLocation",
 ];
 
 // The Report tab — a filterable, all-employee bank-account table. Nothing
@@ -112,7 +145,12 @@ export default function ReportTab() {
         </Button>
       </Box>
 
-      <BankAccountsTable accounts={rows} columns={COLUMNS} emptyMessage="No bank account records found." />
+      <BankAccountsTable
+        accounts={rows}
+        columns={COLUMNS}
+        hiddenByDefault={HIDDEN_BY_DEFAULT}
+        emptyMessage="No bank account records found."
+      />
     </Box>
   );
 }

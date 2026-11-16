@@ -95,8 +95,35 @@ describe("ReportTab", () => {
       .findIndex((header) => header.textContent === "Account Holder City");
     expect(cityIndex).toBeGreaterThan(-1);
 
-    expect(within(salaryRow).getAllByRole("cell")[cityIndex]).toHaveTextContent(/^-$/);
-    expect(within(consultancyRow).getAllByRole("cell")[cityIndex]).toHaveTextContent(/^Kandy$/);
+    expect(within(salaryRow).getAllByRole("gridcell")[cityIndex]).toHaveTextContent(/^-$/);
+    expect(within(consultancyRow).getAllByRole("gridcell")[cityIndex]).toHaveTextContent(/^Kandy$/);
+  });
+
+  it("offers the grid toolbar, so a result set can be saved", () => {
+    accounts.data = [bankAccount()];
+    render(<ReportTab />);
+
+    for (const name of ["Columns", "Filters", "Density", "Export"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+  });
+
+  // The NetSuite identifiers and the bank's own details are carried for the
+  // reconciliations this report feeds, but seventeen columns at once leaves
+  // every one of them too narrow to read.
+  it("keeps the detail columns off until they are switched on", async () => {
+    const user = userEvent.setup();
+    accounts.data = [bankAccount({ bankName: "HSBC", netSuiteVendorId: "4821" })];
+    render(<ReportTab />);
+
+    const grid = screen.getByRole("grid");
+    expect(within(grid).queryByText("Bank Name")).not.toBeInTheDocument();
+    expect(within(grid).queryByText("NetSuite Vendor Id")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Columns" }));
+    const panel = await screen.findByRole("tooltip");
+    expect(within(panel).getByText("Bank Name")).toBeInTheDocument();
+    expect(within(panel).getByText("NetSuite Vendor Id")).toBeInTheDocument();
   });
 
   it("shows a clear empty state when a filter combination matches nothing", () => {

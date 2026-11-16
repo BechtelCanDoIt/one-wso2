@@ -18,31 +18,75 @@ import type { ReactNode } from "react";
 import type { BankAccount } from "@features/my/api/types";
 
 // Report and Employee Operations both render the same underlying dataset
-// (BankAccount[]) as a plain table (see BankAccountsTable) — these are the
-// columns byte-identical between the two, shared here instead of once per
-// tab. Each tab appends its own extra column(s) (Report: Branch Name;
-// Employee Operations: Account Status + Actions) in its own field order, per
-// its own default-visible set in the spec. Kept in its own plain (non-JSX)
-// module rather than alongside BankAccountsTable's component so that file
-// stays component-only for fast refresh.
+// (BankAccount[]) — these are the columns identical between the two, shared
+// here instead of once per tab. Each tab appends its own extra column(s)
+// (Report: Branch Name, plus the detail set it hides by default; Employee
+// Operations: Account Status + Actions) in its own field order, per its own
+// default-visible set in the spec. Kept in its own plain (non-JSX) module
+// rather than alongside BankAccountsTable's component so that file stays
+// component-only for fast refresh.
 export interface BankAccountsTableColumn {
+  /**
+   * Grid column id, and the header a CSV export writes this column under —
+   * so it has to be unique within one tab's column set.
+   */
+  field: string;
   label: string;
-  render: (account: BankAccount) => ReactNode;
+  /**
+   * The plain value behind the cell. Sorting, filtering and Export all read
+   * this rather than the rendered cell, so a column whose `render` returns
+   * an element still sorts sensibly and exports something readable instead
+   * of a blank.
+   */
+  value: (account: BankAccount) => string | number;
+  /** Cell content, where the column shows more than its own value. */
+  render?: (account: BankAccount) => ReactNode;
+  /**
+   * A control rather than data — never sorted, filtered or exported. A
+   * button exports as an empty cell and sorts by nothing, so offering
+   * either is just a way to confuse the reader.
+   */
+  action?: boolean;
 }
 
-export const ACCOUNT_ID_COLUMN: BankAccountsTableColumn = { label: "Account ID", render: (a) => a.accountId };
+/**
+ * Stands in for a null. Rendered and exported alike, so a saved row reads
+ * the same as the one on screen.
+ */
+export const BLANK = "-";
+
+export const ACCOUNT_ID_COLUMN: BankAccountsTableColumn = {
+  field: "accountId",
+  label: "Account ID",
+  value: (a) => a.accountId,
+};
 export const EMPLOYEE_EMAIL_COLUMN: BankAccountsTableColumn = {
+  field: "employeeEmail",
   label: "Employee Email",
-  render: (a) => a.employeeEmail,
+  value: (a) => a.employeeEmail,
 };
-export const ACCOUNT_NAME_COLUMN: BankAccountsTableColumn = { label: "Account Name", render: (a) => a.accountName };
+export const ACCOUNT_NAME_COLUMN: BankAccountsTableColumn = {
+  field: "accountName",
+  label: "Account Name",
+  value: (a) => a.accountName,
+};
 export const ACCOUNT_NUMBER_COLUMN: BankAccountsTableColumn = {
+  field: "accountNumber",
   label: "Account Number",
-  render: (a) => a.accountNumber,
+  value: (a) => a.accountNumber,
 };
-export const BANK_CODE_COLUMN: BankAccountsTableColumn = { label: "Bank Code", render: (a) => a.bankCode ?? "-" };
+export const BANK_CODE_COLUMN: BankAccountsTableColumn = {
+  field: "bankCode",
+  label: "Bank Code",
+  value: (a) => a.bankCode ?? BLANK,
+};
 export const EFFECTIVE_MONTH_COLUMN: BankAccountsTableColumn = {
+  field: "effectiveFrom",
   label: "Effective Month",
-  render: (a) => a.effectiveFrom,
+  value: (a) => a.effectiveFrom,
 };
-export const ACCOUNT_TYPE_COLUMN: BankAccountsTableColumn = { label: "Account Type", render: (a) => a.accountType };
+export const ACCOUNT_TYPE_COLUMN: BankAccountsTableColumn = {
+  field: "accountType",
+  label: "Account Type",
+  value: (a) => a.accountType,
+};
