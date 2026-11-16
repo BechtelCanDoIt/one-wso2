@@ -37,8 +37,19 @@ export function BankingGridToolbar() {
         Filters
       </DataGrid.FilterPanelTrigger>
       <DataGrid.GridToolbarDensitySelector />
-      {/* Named, or the browser saves every one of these as "untitled.csv". */}
-      <DataGrid.GridToolbarExport csvOptions={{ fileName: "bank-accounts" }} />
+      {/*
+        Both halves of this menu are named, or the browser falls back to the
+        page title — "untitled.csv" for the download, and the same again on
+        the printed page.
+
+        Printing otherwise reproduces the screen exactly, buttons and pager
+        included: a sheet headed Columns/Filters/Density/Export, footed
+        "Rows per page: 6". Neither means anything on paper.
+      */}
+      <DataGrid.GridToolbarExport
+        csvOptions={{ fileName: "bank-accounts" }}
+        printOptions={{ fileName: "bank-accounts", hideToolbar: true, hideFooter: true }}
+      />
     </DataGrid.Toolbar>
   );
 }
