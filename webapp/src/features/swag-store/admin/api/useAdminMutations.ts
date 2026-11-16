@@ -14,13 +14,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
-import { authedPatch, authedPost, authedPostText } from "@api/http";
+import { hashKey, useMutation, useQueryClient, type UseMutationResult } from "@tanstack/react-query";
+import { authedDelete, authedPatch, authedPost, authedPostText, authedPut, HttpError } from "@api/http";
 import { swagStoreServiceUrls } from "@config/apiConfig";
 import { useSwagStoreBasis } from "../../api/swagStoreBasis";
-import type { SwagStoreAdminOffice, SwagStoreOfficeInput, SwagStoreOrderPatch } from "../../api/swagStoreTypes";
+import type {
+  SwagStoreAdminOffice,
+  SwagStoreAdminProduct,
+  SwagStoreOfficeInput,
+  SwagStoreOptionsInput,
+  SwagStoreOrderPatch,
+  SwagStoreProductInput,
+  SwagStoreStockMovement,
+  SwagStoreStockResult,
+  SwagStoreVariantPatch,
+} from "../../api/swagStoreTypes";
 import { orderSearchBody, type AdminOrdersView } from "../../util/adminOrdersViewState";
 import { saveCsv } from "../../util/saveCsv";
+import { ALERTS_KEY } from "../../shop/api/useAlerts";
+import { CART_KEY, CART_SUMMARY_KEY } from "../../shop/api/useCartData";
+import { PRODUCT_KEY, PRODUCTS_KEY } from "../../shop/api/useShopData";
 import { ADMIN_KEY } from "./useAdminData";
 
 /** An admin change can move any admin count or list, so all of them are read again. */
@@ -94,5 +107,133 @@ export function useSaveOffice(): UseMutationResult<void, Error, { id?: string; o
         queryClient.invalidateQueries({ queryKey: key("offices") }),
       ]);
     },
+  });
+}
+
+/** Shop reads a product change can move: stock, status and prices, and (on removal) alerts and cart lines. */
+const SHOP_KEYS_A_PRODUCT_MOVES = [PRODUCTS_KEY, PRODUCT_KEY, "categories", ALERTS_KEY, CART_KEY, CART_SUMMARY_KEY] as const;
+
+/**
+ * After a product change, every admin and shop list is read again. The shop
+ * keys matter to someone who holds a store role and shops in the same session.
+ *
+ * @param product - The saved product. Every product endpoint answers with it, so
+ *   the editor shows it at once and its own query is not read again.
+ * @param deletedId - A product that no longer exists. Reading it again would 404
+ *   and swap the editor out before the navigation that follows the delete.
+ */
+function useProductSaved(): (product: SwagStoreAdminProduct | null, deletedId?: string) => Promise<void> {
+  const { key } = useSwagStoreBasis();
+  const queryClient = useQueryClient();
+  return async (product, deletedId) => {
+    if (product) queryClient.setQueryData(key(ADMIN_KEY, "product", product.id), product);
+    const settledId = product?.id ?? deletedId;
+    const settled = settledId ? hashKey(key(ADMIN_KEY, "product", settledId)) : undefined;
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: key(ADMIN_KEY), predicate: (q) => q.queryHash !== settled }),
+      ...SHOP_KEYS_A_PRODUCT_MOVES.map((part) => queryClient.invalidateQueries({ queryKey: key(part) })),
+    ]);
+  };
+}
+
+async function required<T>(url: string, pending: Promise<T | null>): Promise<T> {
+  const value = await pending;
+  if (!value) throw new HttpError(url, 204, "");
+  return value;
+}
+
+/** Create a draft product (POST /admin/products). Answers with the new product, id included. */
+export function useCreateProduct(): UseMutationResult<SwagStoreAdminProduct, Error, SwagStoreProductInput> {
+  const { getToken } = useSwagStoreBasis();
+  const saved = useProductSaved();
+  return useMutation<SwagStoreAdminProduct, Error, SwagStoreProductInput>({
+    mutationFn: async (input) => {
+      const url = swagStoreServiceUrls.admin.products;
+      return required(url, authedPost<SwagStoreAdminProduct>(url, await getToken(), input));
+    },
+    onSuccess: (product) => saved(product),
+  });
+}
+
+/** Save a product's basics (PATCH with ProductInput). */
+export function useUpdateProduct(productId: string): UseMutationResult<SwagStoreAdminProduct, Error, SwagStoreProductInput> {
+  const { getToken } = useSwagStoreBasis();
+  const saved = useProductSaved();
+  return useMutation<SwagStoreAdminProduct, Error, SwagStoreProductInput>({
+    mutationFn: async (input) => {
+      const url = swagStoreServiceUrls.admin.product(productId);
+      return required(url, authedPatch<SwagStoreAdminProduct>(url, await getToken(), input));
+    },
+    onSuccess: (product) => saved(product),
+  });
+}
+
+/** Publish or restore (ACTIVE), or remove from the store (REMOVED, with a note). Orders already placed are still served. */
+export function useSetProductStatus(
+  productId: string,
+): UseMutationResult<SwagStoreAdminProduct, Error, { status: "ACTIVE" | "REMOVED"; removalNote?: string }> {
+  const { getToken } = useSwagStoreBasis();
+  const saved = useProductSaved();
+  return useMutation<SwagStoreAdminProduct, Error, { status: "ACTIVE" | "REMOVED"; removalNote?: string }>({
+    mutationFn: async (change) => {
+      const url = swagStoreServiceUrls.admin.product(productId);
+      return required(url, authedPatch<SwagStoreAdminProduct>(url, await getToken(), change));
+    },
+    onSuccess: (product) => saved(product),
+  });
+}
+
+/** Delete a product that was never published (DELETE /admin/products/{id}). */
+export function useDeleteDraft(productId: string): UseMutationResult<void, Error, void> {
+  const { getToken } = useSwagStoreBasis();
+  const saved = useProductSaved();
+  return useMutation<void, Error, void>({
+    mutationFn: async () => authedDelete(swagStoreServiceUrls.admin.product(productId), await getToken()),
+    onSuccess: () => saved(null, productId),
+  });
+}
+
+/** Replace a product's options (PUT). The backend rebuilds the variants from them. */
+export function useSetOptions(productId: string): UseMutationResult<SwagStoreAdminProduct, Error, SwagStoreOptionsInput> {
+  const { getToken } = useSwagStoreBasis();
+  const saved = useProductSaved();
+  return useMutation<SwagStoreAdminProduct, Error, SwagStoreOptionsInput>({
+    mutationFn: async (input) => {
+      const url = swagStoreServiceUrls.admin.productOptions(productId);
+      return required(url, authedPut<SwagStoreAdminProduct>(url, await getToken(), input));
+    },
+    onSuccess: (product) => saved(product),
+  });
+}
+
+/** Change one variant's SKU, price change, restock date or whether it is sold. */
+export function usePatchVariant(
+  productId: string,
+): UseMutationResult<SwagStoreAdminProduct, Error, { variantId: string; patch: SwagStoreVariantPatch }> {
+  const { getToken } = useSwagStoreBasis();
+  const saved = useProductSaved();
+  return useMutation<SwagStoreAdminProduct, Error, { variantId: string; patch: SwagStoreVariantPatch }>({
+    mutationFn: async ({ variantId, patch }) => {
+      const url = swagStoreServiceUrls.admin.productVariant(productId, variantId);
+      return required(url, authedPatch<SwagStoreAdminProduct>(url, await getToken(), patch));
+    },
+    onSuccess: (product) => saved(product),
+  });
+}
+
+/** Receive, adjust or write off one variant's stock. Receiving can set off "Notify me" emails. */
+export function useStockMovement(): UseMutationResult<
+  SwagStoreStockResult,
+  Error,
+  { variantId: string; movement: SwagStoreStockMovement }
+> {
+  const { getToken } = useSwagStoreBasis();
+  const saved = useProductSaved();
+  return useMutation<SwagStoreStockResult, Error, { variantId: string; movement: SwagStoreStockMovement }>({
+    mutationFn: async ({ variantId, movement }) => {
+      const url = swagStoreServiceUrls.admin.stockMovements(variantId);
+      return required(url, authedPost<SwagStoreStockResult>(url, await getToken(), movement));
+    },
+    onSuccess: () => saved(null),
   });
 }

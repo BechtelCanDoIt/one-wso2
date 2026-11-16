@@ -59,6 +59,7 @@ describe("swagStoreAdminCanSee", () => {
     [SWAG_STORE_ADMIN_GROUP_ID, true, true, false],
     [SWAG_STORE_ADMIN_SCREENS.dashboard.id, true, true, false],
     [SWAG_STORE_ADMIN_SCREENS.orders.id, false, true, false],
+    [SWAG_STORE_ADMIN_SCREENS.products.id, true, false, false],
     [SWAG_STORE_ADMIN_SCREENS.settings.id, false, true, false],
   ])("%s: catalog %s, fulfilment %s, shopper %s", (id, forCatalog, forFulfilment, forShopper) => {
     expect(swagStoreAdminCanSee(id, catalog)).toBe(forCatalog);
