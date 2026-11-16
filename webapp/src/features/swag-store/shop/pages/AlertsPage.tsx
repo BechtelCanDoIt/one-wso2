@@ -33,6 +33,7 @@ import {
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
+import { visuallyHidden } from "@utils/visuallyHidden";
 import type { SwagStoreAlert, SwagStoreAlertStatus } from "../../api/swagStoreTypes";
 import TintedChip from "../../components/TintedChip";
 import { swagStorePaths } from "../../swagStorePaths";
@@ -123,15 +124,6 @@ export default function AlertsPage(): JSX.Element {
     </Box>
   );
 }
-
-const visuallyHidden = {
-  position: "absolute",
-  width: 1,
-  height: 1,
-  overflow: "hidden",
-  clip: "rect(0 0 0 0)",
-  whiteSpace: "nowrap",
-} as const;
 
 interface AlertRowProps {
   readonly alert: SwagStoreAlert;

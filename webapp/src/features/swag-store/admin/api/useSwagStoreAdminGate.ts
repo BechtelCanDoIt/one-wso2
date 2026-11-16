@@ -22,10 +22,7 @@ import { describeError } from "@api/errors";
 import { isSwagStoreBackendConfigured } from "@config/apiConfig";
 import { swagStoreAccess, type SwagStoreAccess } from "../../api/swagStoreAccess";
 import { useSwagStoreUserInfo } from "../../api/useSwagStoreUserInfo";
-import { SWAG_STORE_ADMIN_GROUP_ID, SWAG_STORE_ADMIN_ITEM } from "../swagStoreAdminItems";
-
-/** Who an admin screen is for. */
-export type SwagStoreAdminNeed = "CATALOG_MANAGER" | "FULFILMENT_OPS" | "ANY";
+import { SWAG_STORE_ADMIN_GROUP_ID, SWAG_STORE_ADMIN_SCREENS, type SwagStoreAdminNeed } from "../swagStoreAdminItems";
 
 /** Whether an access answer lets a person use a screen that needs `need`. */
 export function swagStoreAdminAllows(need: SwagStoreAdminNeed, access: SwagStoreAccess): boolean {
@@ -41,20 +38,10 @@ export function swagStoreAdminAllows(need: SwagStoreAdminNeed, access: SwagStore
 
 /** Which rail rows an access answer opens. The group shows when any of its rows does. */
 export function swagStoreAdminCanSee(itemId: string, access: SwagStoreAccess): boolean {
-  switch (itemId) {
-    case SWAG_STORE_ADMIN_GROUP_ID:
-    case SWAG_STORE_ADMIN_ITEM.dashboard:
-      return access.isAdmin;
-    case SWAG_STORE_ADMIN_ITEM.orders:
-    case SWAG_STORE_ADMIN_ITEM.settings:
-      return access.isFulfilmentOps;
-    case SWAG_STORE_ADMIN_ITEM.products:
-    case SWAG_STORE_ADMIN_ITEM.demand:
-      return access.isCatalogManager;
-    default:
-      // Fail closed: an admin id with no case here is hidden from everyone.
-      return false;
-  }
+  if (itemId === SWAG_STORE_ADMIN_GROUP_ID) return access.isAdmin;
+  const screen = Object.values(SWAG_STORE_ADMIN_SCREENS).find((s) => s.id === itemId);
+  // Fail closed: an admin id the screens table doesn't list is hidden from everyone.
+  return screen ? swagStoreAdminAllows(screen.need, access) : false;
 }
 
 export interface SwagStoreAdminRailGate {

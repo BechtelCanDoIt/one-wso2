@@ -53,6 +53,7 @@ import { formatCoins } from "../../util/coins";
 import { messageFor } from "../../util/swagStoreError";
 import { useAdminOffices, useAdminOrders } from "../api/useAdminData";
 import { useExportOrders } from "../api/useAdminMutations";
+import { useOrderSearchText } from "../api/useOrderSearchText";
 import OrderDrawer from "../components/OrderDrawer";
 import { swagStoreAdminPaths } from "../swagStoreAdminItems";
 
@@ -67,15 +68,22 @@ const STATUS_CHIPS: readonly { readonly value: SwagStoreOrderStatus | ""; readon
 
 /**
  * `/people-ops/swag-store/orders(/:orderNo)`: the orders board for fulfilment
- * ops. Filters live in the address; an order number in the path opens its drawer
- * over the list, and closing it keeps the filters.
+ * ops. Status, office and page live in the address; the search text stays
+ * with the tab (useOrderSearchText). An order number in the path opens its
+ * drawer over the list, and closing it keeps the filters.
  */
 export default function AdminOrdersPage(): JSX.Element {
   useDocumentTitle("Orders · Swag Store");
   const { orderNo } = useParams();
   const { search } = useLocation();
   const navigate = useNavigate();
-  const { view, setView } = useUrlViewState(adminOrdersCodec);
+  const { view: address, setView: setAddress } = useUrlViewState(adminOrdersCodec);
+  const [q, setQ] = useOrderSearchText();
+  const view: AdminOrdersView = { ...address, q };
+  const setView = (next: AdminOrdersView) => {
+    if (next.q !== q) setQ(next.q);
+    setAddress(next);
+  };
   const apply = (patch: Partial<AdminOrdersView>) => setView({ ...view, ...patch, page: 1 });
 
   return (

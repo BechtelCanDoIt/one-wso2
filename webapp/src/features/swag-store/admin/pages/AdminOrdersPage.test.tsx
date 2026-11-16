@@ -97,6 +97,7 @@ beforeEach(() => {
   window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { swagStore: true } } as Window["config"];
   Object.values(http).forEach((f) => f.mockReset());
   saved.saveCsv.mockReset();
+  window.sessionStorage.clear();
 });
 
 afterEach(() => {
@@ -120,7 +121,7 @@ describe("the admin orders list", () => {
     expect(await screen.findByRole("row", { name: /SS-10482.*kim@wso2\.com/ })).toBeInTheDocument();
   });
 
-  it("filters by status chip and by search, keeping both in the address", async () => {
+  it("filters by status chip and by search, keeping the status in the address and the search out of it", async () => {
     backend();
     renderPage();
     await screen.findByRole("row", { name: /SS-10482/ });
@@ -134,6 +135,26 @@ describe("the admin orders list", () => {
       }),
     );
     expect(screen.getByTestId("where")).toHaveTextContent("status=READY_FOR_PICKUP");
+    expect(screen.getByTestId("where")).not.toHaveTextContent("sam");
+  });
+
+  it("keeps the search for the tab, through opening an order and coming back", async () => {
+    backend();
+    const first = renderPage();
+    await screen.findByRole("row", { name: /SS-10482/ });
+    await userEvent.type(screen.getByRole("searchbox", { name: "Search orders" }), "sam@wso2.com{Enter}");
+    await waitFor(() => expect(searches().at(-1)).toMatchObject({ filters: { searchQuery: "sam@wso2.com" } }));
+    await userEvent.click(screen.getByRole("link", { name: "SS-10482" }));
+    const drawer = await openDrawer();
+    expect(screen.getByTestId("where")).not.toHaveTextContent("sam");
+    await userEvent.click(within(drawer).getByRole("button", { name: "Close" }));
+    expect(screen.getByRole("searchbox", { name: "Search orders" })).toHaveValue("sam@wso2.com");
+
+    first.unmount();
+    http.authedPost.mockClear();
+    renderPage();
+    expect(screen.getByRole("searchbox", { name: "Search orders" })).toHaveValue("sam@wso2.com");
+    await waitFor(() => expect(searches()[0]).toMatchObject({ filters: { searchQuery: "sam@wso2.com" } }));
   });
 
   it("exports the same search as CSV", async () => {
@@ -178,6 +199,15 @@ describe("the order drawer", () => {
     expect(within(drawer).getByText("Sam Shopper")).toBeInTheDocument();
     expect(within(drawer).getByText("HOODIE-BLK-M")).toBeInTheDocument();
     expect(within(drawer).getByText("swag:ord:order-1")).toBeInTheDocument();
+  });
+
+  it("names each history step the way the status chips do", async () => {
+    backend();
+    renderPage("/people-ops/swag-store/orders/SS-10482");
+    const drawer = await openDrawer();
+    expect(within(drawer).getByText(/^Payment pending · /)).toBeInTheDocument();
+    expect(within(drawer).getByText(/^Confirmed · /)).toBeInTheDocument();
+    expect(within(drawer).queryByText(/^Paid · /)).toBeNull();
   });
 
   it("marks a paid order ready for pickup, the only next step", async () => {

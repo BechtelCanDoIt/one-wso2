@@ -30,10 +30,12 @@ export const PHOTO_VIEWS: readonly SwagStorePhotoView[] = [
   "detail-4",
 ];
 
+const MB = 1024 * 1024;
+
 /** The largest photo the backend accepts. */
-export const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+export const MAX_PHOTO_BYTES = 5 * MB;
 /** The largest original the editor will try to scale down. */
-export const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
+export const MAX_SOURCE_BYTES = 25 * MB;
 /** Photos are scaled down to fit this many pixels on their longest side. */
 export const MAX_PHOTO_EDGE = 1600;
 
@@ -52,6 +54,11 @@ const LABELS: Readonly<Record<SwagStorePhotoView, string>> = {
   "detail-4": "Detail 4",
 };
 
+/** A size limit as the photo messages say it, e.g. "5 MB", so the messages follow the limits. */
+export function megabytes(bytes: number): string {
+  return `${Math.round(bytes / MB)} MB`;
+}
+
 export function photoLabel(view: SwagStorePhotoView): string {
   return LABELS[view];
 }
@@ -65,6 +72,6 @@ export function photoAlt(image: { readonly view: SwagStorePhotoView; readonly al
 export function checkPhotoFile(file: File): string | null {
   if (!PHOTO_TYPES.includes(file.type)) return "Use a JPEG, PNG or WebP photo.";
   if (file.size === 0) return "The file is empty.";
-  if (file.size > MAX_SOURCE_BYTES) return "Photos are at most 25 MB.";
+  if (file.size > MAX_SOURCE_BYTES) return `Photos are at most ${megabytes(MAX_SOURCE_BYTES)}.`;
   return null;
 }

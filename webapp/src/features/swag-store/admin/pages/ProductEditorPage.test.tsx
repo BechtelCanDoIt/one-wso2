@@ -276,6 +276,28 @@ describe("an existing product", () => {
     expect(http.authedPatch).toHaveBeenCalledWith("/admin/products/p-hoodie", "token", { status: "ACTIVE" });
   });
 
+  it("holds Publish while the basics have unsaved changes, so what goes live is what was saved", async () => {
+    const draft = adminProduct({ status: "DRAFT", publishedAt: null });
+    backend(draft);
+    http.authedPatch.mockResolvedValue({ ...draft, name: "WSO2 Hoodie!" });
+    renderPage();
+    const publish = await screen.findByRole("button", { name: "Publish" });
+    expect(publish).toBeEnabled();
+    await userEvent.type(field("Name"), "!");
+    expect(publish).toBeDisabled();
+    expect(screen.getByText("Save the basics first.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(publish).toBeEnabled());
+    expect(screen.queryByText("Save the basics first.")).toBeNull();
+  });
+
+  it("keeps the variants table's hidden Actions heading 1px wide, so it can't widen the table", async () => {
+    backend();
+    renderPage();
+    await screen.findByRole("table", { name: "Variants" });
+    expect(getComputedStyle(screen.getByText("Actions")).width).toBe("1px");
+  });
+
   it("restores a removed product, and says when and why it was removed", async () => {
     backend(adminProduct({ status: "REMOVED", removedAt: "2026-11-10T08:00:00Z", removalNote: "Supplier stopped." }));
     http.authedPatch.mockResolvedValue(adminProduct());
