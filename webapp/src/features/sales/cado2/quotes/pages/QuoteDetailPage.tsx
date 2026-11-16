@@ -47,6 +47,7 @@ import LifecycleDialog from "@features/sales/cado2/quotes/components/detail/Life
 import VersionsTab from "@features/sales/cado2/quotes/components/detail/VersionsTab";
 import HistoryTab from "@features/sales/cado2/quotes/components/detail/HistoryTab";
 import QuoteApprovals from "@features/sales/cado2/approvals/components/QuoteApprovals";
+import DiscountMatrixDialog from "@features/sales/cado2/approvals/components/DiscountMatrixDialog";
 import {
   useApprovalWorkflow,
   useDecideStep,
@@ -192,6 +193,9 @@ export default function QuoteDetailPage(): JSX.Element {
   const isDraft = shownStatus === "DRAFT";
   const workflow = useApprovalWorkflow(quoteId, shownNumber, shownStatus !== null && !isDraft);
   const approvalPreview = useStoredApprovalPreview(quoteId, shownNumber, isDraft);
+  // D176: the discount approval matrix with this version's lines on it, under the current matrix.
+  const [matrixOpen, setMatrixOpen] = useState(false);
+  const matrixPreview = useStoredApprovalPreview(quoteId, shownNumber, matrixOpen);
   const decide = useDecideStep();
   // D129: Deal Desk and Legal see the quote through their lens, with notes.
   const review = useReview(quoteId, shownNumber, shownStatus !== null && !isDraft);
@@ -538,7 +542,7 @@ export default function QuoteDetailPage(): JSX.Element {
               sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0,1fr)", lg: "minmax(0,1fr) 340px" }, gap: 3, alignItems: "start" }}
             >
               <Box component="section" aria-label="The deal" ref={setSheetEl} sx={(theme) => ({ minWidth: 0, ...(lens ? noteTint(theme) : {}) })}>
-                <QuoteSheet sheet={sheet} writing={writing} />
+                <QuoteSheet sheet={sheet} writing={writing} onOpenMatrix={() => setMatrixOpen(true)} />
               </Box>
               {/* The side column is pinned as one, so no part of it slides under
                   another; taller than the screen, it scrolls on its own (2026-10-13).
@@ -759,6 +763,13 @@ export default function QuoteDetailPage(): JSX.Element {
           at the same prices. You can change anything except the account and opportunity. This quote stays as it is.
         </LifecycleDialog>
       ) : null}
+      <DiscountMatrixDialog
+        open={matrixOpen}
+        onClose={() => setMatrixOpen(false)}
+        preview={matrixPreview.data}
+        loading={matrixPreview.isFetching}
+        error={matrixPreview.error}
+      />
       {dialog === "delete" ? (
         <DeleteDraftDialog
           quote={q}

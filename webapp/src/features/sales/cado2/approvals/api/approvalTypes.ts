@@ -111,6 +111,18 @@ export interface ApprovalPreview {
   readonly notes: readonly string[];
   /** The draft can't be evaluated yet; why. */
   readonly invalid: readonly Issue[];
+  /** The matrix the preview used, for the quote's matrix view (D176); null when the draft couldn't be evaluated. */
+  readonly matrix: ApprovalMatrix | null;
+  /** Where each line sits in `matrix`. */
+  readonly lines: readonly ApprovalLinePlacement[];
+}
+
+/** A quote line in the matrix (D176): its group (null = none covers it) and the highest approver its discount reaches. */
+export interface ApprovalLinePlacement {
+  readonly lineNumber: number;
+  readonly productName: string;
+  readonly groupCode: string | null;
+  readonly reachedRole: string | null;
 }
 
 export interface ApprovalPreviewInput {

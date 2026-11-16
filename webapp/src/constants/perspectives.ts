@@ -199,8 +199,9 @@ const BANKING_ADMIN_SECTION: PerspectiveSection = {
 // Swag Store's admin screens, for the store team. Not a People Ops admin
 // screen: who sees each row is the store's own roles (catalog_manager,
 // fulfilment_ops) from its GET /users/me, decided by the swag-store-admin
-// rail gate, never by people-app capabilities. The rows come from the store's
-// screens table, which also says who each one is for.
+// rail gate, never by the People Ops privileges from ONE_WSO2_PEOPLE_BACKEND_URL.
+// The rows come from the store's screens table, which also says who each one
+// is for.
 const SWAG_STORE_ADMIN_SECTION: PerspectiveSection = {
   id: SWAG_STORE_ADMIN_GROUP_ID,
   label: "Swag Store",
