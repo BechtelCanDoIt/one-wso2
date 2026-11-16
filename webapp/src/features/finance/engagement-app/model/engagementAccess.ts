@@ -177,7 +177,10 @@ export function engagementAccess(info: UserInfo | undefined): EngagementAccess {
   const queues = info?.workQueues;
   const allInvoices = queues ? queues.invoices.includes("all") : t.has(TRAVEL.ALL_INVOICES_PAGE);
   const allPayments = queues ? queues.perDiemPayments.includes("all") : t.has(TRAVEL.ALL_PAYMENTS_PAGE);
-  const anyQueue = queues ? queues.invoices.length > 0 || queues.perDiemPayments.length > 0 || queues.netsuiteSyncFailures : false;
+  const steps = invoiceSteps(p);
+  const anyQueue = queues
+    ? queues.invoices.length > 0 || queues.perDiemPayments.length > 0 || queues.netsuiteSyncFailures
+    : steps.po || steps.finance || steps.push || steps.pushPayments;
   const consultantReport = a.has(ALLOC.CONSULTANT_REPORT);
   const visas = t.has(TRAVEL.VIEW_VISAS);
   const documents = t.has(TRAVEL.VIEW_DOCUMENTS);

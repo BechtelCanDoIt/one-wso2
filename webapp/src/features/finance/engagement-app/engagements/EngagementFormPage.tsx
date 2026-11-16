@@ -116,6 +116,8 @@ function EngagementForm({
   const access = useEngagementAccess();
   const types = useEngagementTypes();
   const ref = useReferenceData();
+  // The form compares against what it opened with, so a refetch never shows up as an edit.
+  const [base] = useState(initial);
   const [f, setF] = useState<EngagementFormState>(initial);
   const [errors, setErrors] = useState<FormErrors>({});
   const [confirm, setConfirm] = useState<"update" | "approve" | null>(null);
@@ -138,10 +140,10 @@ function EngagementForm({
   const lineItem = opportunity?.lineItems.find((l) => l.id === (edit ? edit.e.lineItemId : f.lineItemId));
   const campaignRequired = mkt && !isEdit;
   // On edit the campaign changes while pending, or is added to an event that has none.
-  const campaignLocked = isEdit && !pendingEdit && Boolean(initial.campaignId);
-  const code = isEdit && !(pendingEdit && f.allocationType !== initial.allocationType) ? edit!.e.code : engagementCode(f, { opportunity, lineItem, allocationType: allocTypeDef });
+  const campaignLocked = isEdit && !pendingEdit && Boolean(base.campaignId);
+  const code = isEdit && !(pendingEdit && f.allocationType !== base.allocationType) ? edit!.e.code : engagementCode(f, { opportunity, lineItem, allocationType: allocTypeDef });
   const lockAfterApproval = isEdit && !pendingEdit;
-  const changes = isEdit ? changesOf(initial, f, allocTypeDef ? Number(allocTypeDef.id) : undefined) : {};
+  const changes = isEdit ? changesOf(base, f, allocTypeDef ? Number(allocTypeDef.id) : undefined) : {};
   const changed = Object.keys(changes).length > 0;
 
   const set = <K extends keyof EngagementFormState>(key: K, value: EngagementFormState[K]) => {
@@ -170,6 +172,7 @@ function EngagementForm({
       productUnit: l?.productUnit ?? prev.productUnit,
       start: paid ? (l?.start ?? "") : prev.start,
       end: paid ? (l?.end ?? "") : prev.end,
+      tentative: paid ? Boolean(l?.tentativeDates) : prev.tentative,
     }));
   };
 

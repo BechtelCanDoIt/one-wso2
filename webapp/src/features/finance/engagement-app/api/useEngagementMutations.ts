@@ -16,7 +16,7 @@
 
 // Every Engagement App write, as openapi.yaml defines it.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authedDelete, authedPatch, authedPost, authedPut } from "@api/http";
 import { engagementServiceUrls as urls } from "@config/apiConfig";
@@ -33,9 +33,21 @@ function newKey(): string {
 }
 
 /** One idempotency key per user action: the same across retries of that action, a fresh one once it succeeded (`renew`). */
-export function useIdempotencyKey(): { key: string; renew: () => void } {
+export function useIdempotencyKey(): { key: string; renew: () => void; keyFor: (scope: string) => string } {
   const [key, setKey] = useState(newKey);
-  return { key, renew: () => setKey(newKey()) };
+  // keyFor: one key per action and record set, reused on a retry of the same scope.
+  const scoped = useRef<{ scope: string; key: string } | null>(null);
+  return {
+    key,
+    renew: () => {
+      scoped.current = null;
+      setKey(newKey());
+    },
+    keyFor: (scope) => {
+      if (scoped.current?.scope !== scope) scoped.current = { scope, key: newKey() };
+      return scoped.current.key;
+    },
+  };
 }
 
 const idem = (key: string | undefined): Record<string, string> | undefined => (key ? { "Idempotency-Key": key } : undefined);

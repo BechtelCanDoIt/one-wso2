@@ -88,7 +88,16 @@ export function useInvoiceWork(rows: readonly Invoice[], { tripOpen }: { tripOpe
             else next.add(id);
             return next;
           }),
-        onToggleAll: (ids) => setSelected((s) => (ids.every((id) => s.has(id)) ? new Set() : new Set(ids))),
+        onToggleAll: (ids) =>
+          setSelected((s) => {
+            if (ids.every((id) => s.has(id))) return new Set();
+            const first = ids.map((id) => byId.get(id)).find(Boolean);
+            const stage = stageOfSelection ?? (first ? invoiceStage(first) : null);
+            return new Set(ids.filter((id) => {
+              const i = byId.get(id);
+              return i !== undefined && invoiceStage(i) === stage;
+            }));
+          }),
       }
     : undefined;
 
@@ -143,7 +152,7 @@ export function useInvoiceWork(rows: readonly Invoice[], { tripOpen }: { tripOpe
     pushKey.renew();
   };
   const act = (action: "approve" | "reject" | "push" | "resync", list: string[], reason?: string) =>
-    batch.mutateAsync({ action, ids: list, reason, idempotencyKey: action === "push" ? pushKey.key : undefined });
+    batch.mutateAsync({ action, ids: list, reason, idempotencyKey: action === "push" ? pushKey.keyFor([...list].sort().join(",")) : undefined });
 
   let dialogs: ReactNode = null;
   if (dialog?.kind === "reject") {
@@ -257,7 +266,7 @@ export function usePaymentWork(rows: readonly PerDiemPayment[]) {
       <ConfirmDialog
         title="Push Payments to NetSuite"
         text={`Push ${plural(dialog.ids.length, "per diem payment")} to NetSuite as vendor bills? Each one is looked up in NetSuite first, so nothing is pushed twice.`}
-        run={async () => report(await batch.mutateAsync({ action: "push", ids: dialog.ids, idempotencyKey: pushKey.key }), "pushed", "per diem payment")}
+        run={async () => report(await batch.mutateAsync({ action: "push", ids: dialog.ids, idempotencyKey: pushKey.keyFor([...dialog.ids].sort().join(",")) }), "pushed", "per diem payment")}
         onDone={done}
         onClose={() => setDialog(null)}
       />

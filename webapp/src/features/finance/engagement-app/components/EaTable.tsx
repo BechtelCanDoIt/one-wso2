@@ -142,8 +142,20 @@ export default function EaTable<T>({
                   key={id}
                   hover
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  tabIndex={onRowClick ? 0 : undefined}
+                  onKeyDown={
+                    onRowClick
+                      ? (ev) => {
+                          if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) {
+                            ev.preventDefault();
+                            onRowClick(row);
+                          }
+                        }
+                      : undefined
+                  }
                   sx={{
                     cursor: onRowClick ? "pointer" : undefined,
+                    "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: -2 },
                     verticalAlign: "top",
                     "& td": { fontSize: 13, py: 1.25 },
                   }}

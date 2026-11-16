@@ -73,7 +73,14 @@ export default function AllocationDialog({
       required
       label={label}
       value={f[k]}
-      onChange={(ev) => set(k, ev.target.value)}
+      onChange={(ev) => {
+        set(k, ev.target.value);
+        // The go-ahead covers only the overlaps shown; new dates are asked again under a new key.
+        if (trim.length) {
+          setTrim([]);
+          idem.renew();
+        }
+      }}
       slotProps={{ inputLabel: { shrink: true }, htmlInput: { min, max } }}
     />
   );

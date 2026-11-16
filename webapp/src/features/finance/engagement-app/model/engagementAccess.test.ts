@@ -148,3 +148,12 @@ describe("the legacy action rules", () => {
     expect(invoiceSteps(privilegesOf(user([], [32]))).po).toBe(true);
   });
 });
+
+describe("Invoices & Payments without workQueues", () => {
+  it("keeps a PO approver on the same rule as the PO tab", () => {
+    const a = engagementAccess(user([], [TRAVEL.INVOICE_PO_APPROVAL]));
+    expect(invoiceSteps(a.p).po).toBe(true);
+    expect(a.invoices).toBe(true);
+    expect(a.anyFinance).toBe(true);
+  });
+});
