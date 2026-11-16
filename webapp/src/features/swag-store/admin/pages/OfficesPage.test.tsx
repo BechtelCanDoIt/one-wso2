@@ -74,6 +74,12 @@ describe("the pickup offices page", () => {
     expect(screen.getByRole("row", { name: /Kandy.*Inactive/ })).toBeInTheDocument();
   });
 
+  it("keeps the hidden Actions heading 1px wide, so it can't widen the table", async () => {
+    renderPage();
+    await screen.findByRole("row", { name: /Colombo/ });
+    expect(getComputedStyle(screen.getByText("Actions")).width).toBe("1px");
+  });
+
   it("adds an office", async () => {
     http.authedPost.mockResolvedValue(adminOffice({ id: "office-galle", name: "Galle" }));
     renderPage();

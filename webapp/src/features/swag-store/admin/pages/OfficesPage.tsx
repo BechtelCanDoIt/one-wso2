@@ -30,6 +30,7 @@ import {
 import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
+import { visuallyHidden } from "@utils/visuallyHidden";
 import type { SwagStoreAdminOffice } from "../../api/swagStoreTypes";
 import TintedChip from "../../components/TintedChip";
 import { useAdminOffices } from "../api/useAdminData";
@@ -66,7 +67,7 @@ export default function OfficesPage(): JSX.Element {
               <TableCell>HR locations</TableCell>
               <TableCell>Status</TableCell>
               <TableCell align="right">
-                <Box component="span" sx={{ position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)" }}>
+                <Box component="span" sx={visuallyHidden}>
                   Actions
                 </Box>
               </TableCell>
