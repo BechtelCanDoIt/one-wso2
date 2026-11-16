@@ -115,11 +115,11 @@ describe("the Procurement backend adapter", () => {
     await expect(api().listMyRequests()).rejects.toThrow("boom");
   });
 
-  it("does not reach the backend when submitting yet, and refuses to resubmit a real request", async () => {
+  it("refuses to submit or resubmit, with a message, instead of showing a success that saved nothing", async () => {
     const input = { category: "NON-IT", additionalApprovers: [], budgetApproverId: "", declarationAccepted: true } as unknown as PurchaseRequestInput;
     authedGet.mockClear();
-    await api().submitRequest({ ...input, details: { description: "Chairs" }, vendors: [], budget: {}, notes: "" } as unknown as PurchaseRequestInput, []);
+    await expect(api().submitRequest(input, [])).rejects.toThrow("Submitting isn't connected to the backend yet.");
+    await expect(api().resubmitRequest("5", input, [])).rejects.toThrow("Resubmitting isn't connected to the backend yet.");
     expect(authedGet).not.toHaveBeenCalled();
-    await expect(api().resubmitRequest("5", input, [])).rejects.toThrow(/not connected to the backend yet/);
   });
 });

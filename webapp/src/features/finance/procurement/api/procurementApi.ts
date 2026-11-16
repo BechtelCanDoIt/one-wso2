@@ -80,17 +80,15 @@ const REFERENCE_TYPES = ["BUDGET_CATEGORY", "BUSINESS_UNIT", "PRODUCT", "REGION"
 /** My Requests shows one page of this many, the most the backend allows. */
 const REQUEST_PAGE_SIZE = 100;
 
+const NOT_CONNECTED = "isn't connected to the backend yet.";
+
 /**
- * Reads come from the backend. Submitting is still the sample-data double: the
- * backend saves a draft and submits it in two calls and stores different content
- * than the form collects, which is the next piece of work. Until then a submit
- * does not reach the backend, and resubmitting a real request is refused.
+ * Reads come from the backend. Submitting and resubmitting are refused with a
+ * message: the backend saves a draft and submits it in two calls and stores
+ * different content than the form collects, which is the next piece of work.
+ * Answering them from sample data instead would show a success that saved nothing.
  */
-function createHttpProcurementApi(
-  getAccessToken: () => Promise<string>,
-  user: Person,
-  submitting: ProcurementApi,
-): ProcurementApi {
+function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: Person): ProcurementApi {
   const get = async <T>(url: string): Promise<T> => authedGet<T>(url, await getAccessToken());
   return {
     getMe: async () => {
@@ -116,9 +114,11 @@ function createHttpProcurementApi(
       (await get<BackendDirectoryUser[]>(urls.directoryEmployees(query, leadsOnly))).map(toPerson),
     listMyRequests: async () => (await get<BackendRequestSummary[]>(urls.requests(REQUEST_PAGE_SIZE))).map(toSummary),
     getRequest: async (requestId) => toRequest(await get<BackendRequestDetail>(urls.request(requestId))),
-    submitRequest: (input, files) => submitting.submitRequest(input, files),
+    submitRequest: async () => {
+      throw new Error(`Submitting ${NOT_CONNECTED}`);
+    },
     resubmitRequest: async () => {
-      throw new Error("Resubmitting is not connected to the backend yet.");
+      throw new Error(`Resubmitting ${NOT_CONNECTED}`);
     },
   };
 }
@@ -130,6 +130,5 @@ function createHttpProcurementApi(
  * @param user - The signed-in user's identity, which the sample data stands in for the backend with
  */
 export function createProcurementApi(getAccessToken: () => Promise<string>, user: Person): ProcurementApi {
-  const sample = createMockProcurementApi(user);
-  return isProcurementMockActive() ? sample : createHttpProcurementApi(getAccessToken, user, sample);
+  return isProcurementMockActive() ? createMockProcurementApi(user) : createHttpProcurementApi(getAccessToken, user);
 }

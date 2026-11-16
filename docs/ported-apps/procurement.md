@@ -76,8 +76,8 @@ between them, and `api/procurementApi.ts` is the only place that builds a URL.
 **Not connected yet**
 
 - **Submitting.** The backend saves a draft (`POST /requests`) and submits it (`POST /requests/{id}/submit`), and edits a
-  rejected request with `PUT /requests/{id}`. Until that is wired, a submit is answered by the in-memory sample data and
-  never reaches the backend, and resubmitting a real request is refused.
+  rejected request with `PUT /requests/{id}`. Until that is wired, submitting and resubmitting against the backend are
+  refused with a message, rather than answered by sample data that would show a success that saved nothing.
 - **Content.** The backend stores a title, one requirement-details text, the vendor name, budget codes, IT and SaaS
   details and free-form answers. It has no field for plan, usage period, ROI, business justification, several vendors,
   notes or attachments, and the form still collects them.
