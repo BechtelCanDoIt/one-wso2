@@ -185,6 +185,13 @@ function WaitingOption({ productId, row }: { productId: string; row: SwagStoreDe
   const labelId = useId();
   const saved = restockDate(row.restockEta) ?? "";
   const [date, setDate] = useState(saved);
+  // The saved date the field started from. When a later read of the board brings a different
+  // one (another admin set it), an untouched field follows it; an unsaved edit is kept.
+  const [base, setBase] = useState(saved);
+  if (saved !== base) {
+    setBase(saved);
+    if (date === base) setDate(saved);
+  }
   const label = row.options || row.sku;
   const today = civilToday();
   // Shoppers see this date, so a new one can't be in the past. Empty clears it. A saved
@@ -218,6 +225,8 @@ function WaitingOption({ productId, row }: { productId: string; row: SwagStoreDe
           type="date"
           label="Restock date"
           value={date}
+          // Held while saving: resetting a running save would hide its result and allow a second one.
+          disabled={patch.isPending}
           onChange={(e) => {
             setDate(e.target.value);
             patch.reset();

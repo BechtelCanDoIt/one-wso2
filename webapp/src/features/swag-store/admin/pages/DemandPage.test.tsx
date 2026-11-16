@@ -198,6 +198,53 @@ describe("a product's drawer", () => {
     expect(within(m).queryByText("Saved.")).toBeNull();
   });
 
+  /** Saves M on 24 Dec; the board read that follows says L is now due on `lDue`, as if someone else set it. */
+  async function saveMWhileLMovesTo(drawer: HTMLElement, lDue: string) {
+    http.authedPatch.mockResolvedValue(adminProduct());
+    http.authedGet.mockResolvedValue({
+      items: [{ ...ROWS[0], restockEta: "2026-12-24T00:00:00Z" }, { ...ROWS[1], restockEta: `${lDue}T00:00:00Z` }, ROWS[2]],
+    });
+    const m = within(drawer).getByRole("group", { name: "M" });
+    await userEvent.type(within(m).getByLabelText("Restock date"), "2026-12-24");
+    await userEvent.click(within(m).getByRole("button", { name: "Save date" }));
+    await within(m).findByText("Saved.");
+  }
+
+  it("follows a saved date someone else changed, while the field is untouched", async () => {
+    renderPage("/people-ops/swag-store/demand/p-hoodie");
+    const drawer = await screen.findByRole("dialog", { name: "WSO2 Hoodie" });
+    const l = within(drawer).getByRole("group", { name: "L" });
+    await saveMWhileLMovesTo(drawer, "2026-12-20");
+    await waitFor(() => expect(within(l).getByLabelText("Restock date")).toHaveValue("2026-12-20"));
+    expect(within(l).getByRole("button", { name: "Save date" })).toBeDisabled();
+  });
+
+  it("keeps an unsaved edit when the saved date changes underneath it", async () => {
+    renderPage("/people-ops/swag-store/demand/p-hoodie");
+    const drawer = await screen.findByRole("dialog", { name: "WSO2 Hoodie" });
+    const l = within(drawer).getByRole("group", { name: "L" });
+    const date = within(l).getByLabelText("Restock date");
+    await userEvent.clear(date);
+    await userEvent.type(date, "2026-12-28");
+    await saveMWhileLMovesTo(drawer, "2026-12-20");
+    expect(date).toHaveValue("2026-12-28");
+    expect(within(l).getByRole("button", { name: "Save date" })).toBeEnabled();
+  });
+
+  it("holds the date while saving, so a failed save still shows its error", async () => {
+    let fail: (error: unknown) => void = () => {};
+    http.authedPatch.mockImplementation(() => new Promise((_, reject) => (fail = reject)));
+    renderPage("/people-ops/swag-store/demand/p-hoodie");
+    const m = within(await screen.findByRole("dialog", { name: "WSO2 Hoodie" })).getByRole("group", { name: "M" });
+    const date = within(m).getByLabelText("Restock date");
+    await userEvent.type(date, "2026-12-24");
+    await userEvent.click(within(m).getByRole("button", { name: "Save date" }));
+    expect(date).toBeDisabled();
+    fail(new HttpError("/admin/products/p-hoodie/variants/v-m", 503, JSON.stringify({ message: "Database is down." })));
+    expect(await within(m).findByRole("alert")).toHaveTextContent("Database is down.");
+    expect(date).toBeEnabled();
+  });
+
   it("clears a restock date", async () => {
     http.authedPatch.mockResolvedValue(adminProduct());
     renderPage("/people-ops/swag-store/demand/p-hoodie");
