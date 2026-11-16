@@ -37,7 +37,8 @@ import { engagementPaths, type ReportsTab } from "../engagementPaths";
 import { fmtRange, yearStart } from "../model/format";
 import { PAGE_SIZE, useListView } from "../model/useListView";
 import { invoiceColumns, paymentColumns } from "../invoices/invoiceColumns";
-import { FILTER_WIDE_SX, FilterBar, FilterDateRange, FilterInput, FilterSelect } from "../components/FilterFields";
+import { FilterBar, FilterDateRange, FilterInput, FilterSelect } from "../components/FilterFields";
+import { FILTER_WIDE_SX } from "../components/eaStyles";
 import type { EngagementAccess } from "../model/engagementAccess";
 
 const LABEL: Record<ReportsTab, string> = {

@@ -30,3 +30,6 @@ export const TABLE_HEAD_SX = {
     bgcolor: "background.paper",
   },
 } as const;
+
+/** Two columns of the filter grid: a field holding many values, or a pair that should not be split across rows. */
+export const FILTER_WIDE_SX = { gridColumn: { xs: "1 / -1", md: "span 2" } } as const;

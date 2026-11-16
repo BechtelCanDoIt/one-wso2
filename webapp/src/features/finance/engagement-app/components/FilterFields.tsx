@@ -16,6 +16,7 @@
 
 import type { JSX, ReactNode } from "react";
 import { Box, Button, MenuItem, Stack, TextField, Typography, type AutocompleteRenderInputParams } from "@wso2/oxygen-ui";
+import { FILTER_WIDE_SX } from "./eaStyles";
 
 type Option = string | readonly [string, string];
 
@@ -102,9 +103,6 @@ export function FilterDate({
     />
   );
 }
-
-/** Two columns of the filter grid: a field holding many values, or a pair that should not be split across rows. */
-export const FILTER_WIDE_SX = { gridColumn: { xs: "1 / -1", md: "span 2" } } as const;
 
 /** Start and End Date side by side, so the End Date never wraps onto a row of its own. */
 export function FilterDateRange({ from, to, onChange }: { from: string; to: string; onChange: (next: { from: string; to: string }) => void }): JSX.Element {
