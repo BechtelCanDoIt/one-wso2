@@ -55,32 +55,41 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
   const me = useProcurementMe();
   const lookups = useProcurementLookups();
   const resubmit = useResubmitRequest(request.id);
-  const failed = me.isError ? me : lookups.isError ? lookups : null;
-  if (failed) {
+  const retryOf = (failed: typeof me | typeof lookups) => (
+    <Button color="inherit" size="small" onClick={() => void failed.refetch()}>
+      Retry
+    </Button>
+  );
+  // Nothing to show until both have loaded once, so a failure then blocks the form.
+  const blocking = !me.data && me.isError ? me : !lookups.data && lookups.isError ? lookups : null;
+  if (blocking) {
     return (
-      <Alert
-        severity="error"
-        action={
-          <Button color="inherit" size="small" onClick={() => void failed.refetch()}>
-            Retry
-          </Button>
-        }
-      >
-        {describeError(failed.error)}
+      <Alert severity="error" action={retryOf(blocking)}>
+        {describeError(blocking.error)}
       </Alert>
     );
   }
   if (!me.data || !lookups.data) return <Skeleton variant="rounded" height={320} />;
+  // A later refresh can fail while the data is still held. The form stays mounted, so what has been typed and the
+  // step it is on are not lost; the failure is shown beside it.
+  const refreshFailed = me.isError ? me : lookups.isError ? lookups : null;
   return (
-    <RequestForm
-      initialDraft={draftFromRequest(request)}
-      me={me.data}
-      lookups={lookups.data}
-      submitLabel="Resubmit request"
-      submitting={resubmit.isPending}
-      error={resubmit.isError ? describeError(resubmit.error) : undefined}
-      onSubmit={(input, files) => resubmit.mutate({ input, files }, { onSuccess: onDone })}
-    />
+    <>
+      {refreshFailed && (
+        <Alert severity="warning" action={retryOf(refreshFailed)} sx={{ mb: 2 }}>
+          {describeError(refreshFailed.error)}
+        </Alert>
+      )}
+      <RequestForm
+        initialDraft={draftFromRequest(request)}
+        me={me.data}
+        lookups={lookups.data}
+        submitLabel="Resubmit request"
+        submitting={resubmit.isPending}
+        error={resubmit.isError ? describeError(resubmit.error) : undefined}
+        onSubmit={(input, files) => resubmit.mutate({ input, files }, { onSuccess: onDone })}
+      />
+    </>
   );
 }
 

@@ -17,7 +17,7 @@
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Link, MemoryRouter, Route, Routes } from "react-router";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { emptyBudget, emptyDetails } from "../request-form/requestFormModel";
 import type { ProcurementLookups, ProcurementMe, PurchaseRequest } from "../types";
@@ -25,22 +25,34 @@ import RequestDetailPage from "./RequestDetailPage";
 
 const query = (data: unknown = undefined) => ({ data, isPending: false, isFetching: false, isError: false, error: null as unknown, refetch: vi.fn() });
 
-const state = vi.hoisted(() => ({
-  requests: {} as Record<string, unknown>,
-  me: {} as Record<string, unknown>,
-  lookups: {} as Record<string, unknown>,
-  engagement: {} as Record<string, unknown>,
-}));
+// What the queries answer. Changing an answer tells the screens that read it, as a real query does.
+const state = vi.hoisted(() => {
+  const listeners = new Set<() => void>();
+  return {
+    requests: {} as Record<string, unknown>,
+    me: {} as Record<string, unknown>,
+    lookups: {} as Record<string, unknown>,
+    engagement: {} as Record<string, unknown>,
+    subscribe: (listener: () => void) => {
+      listeners.add(listener);
+      return () => void listeners.delete(listener);
+    },
+    notify: () => listeners.forEach((listener) => listener()),
+  };
+});
 
-vi.mock("../api/useProcurement", () => ({
-  useRequest: (id?: string) => ({ data: state.requests[id ?? ""], isPending: false, isError: false, error: null, refetch: vi.fn() }),
-  useProcurementMe: () => state.me,
-  useProcurementLookups: () => state.lookups,
-  useEngagementCodes: () => state.engagement,
-  useBudgetApprovers: () => ({ data: [], isFetching: false, isError: false, error: null }),
-  useDirectorySearch: () => ({ data: [], isFetching: false, isError: false, error: null }),
-  useResubmitRequest: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
-}));
+vi.mock("../api/useProcurement", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    useRequest: (id?: string) => ({ data: state.requests[id ?? ""], isPending: false, isError: false, error: null, refetch: vi.fn() }),
+    useProcurementMe: () => useSyncExternalStore(state.subscribe, () => state.me),
+    useProcurementLookups: () => useSyncExternalStore(state.subscribe, () => state.lookups),
+    useEngagementCodes: () => useSyncExternalStore(state.subscribe, () => state.engagement),
+    useBudgetApprovers: () => ({ data: [], isFetching: false, isError: false, error: null }),
+    useDirectorySearch: () => ({ data: [], isFetching: false, isError: false, error: null }),
+    useResubmitRequest: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
+  };
+});
 vi.mock("../components/ProcurementShell", () => ({
   default: ({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) => (
     <div>
@@ -77,15 +89,17 @@ const request = (id: string, patch: Partial<PurchaseRequest> = {}): PurchaseRequ
   ...patch,
 });
 
+const tree = (path: string) => (
+  <MemoryRouter initialEntries={[path]}>
+    <Link to="/finance/procurement/requests/2">Open the other request</Link>
+    <Routes>
+      <Route path="/finance/procurement/requests/:requestId" element={<RequestDetailPage />} />
+    </Routes>
+  </MemoryRouter>
+);
+
 function renderAt(path: string) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <Link to="/finance/procurement/requests/2">Open the other request</Link>
-      <Routes>
-        <Route path="/finance/procurement/requests/:requestId" element={<RequestDetailPage />} />
-      </Routes>
-    </MemoryRouter>,
-  );
+  return render(tree(path));
 }
 
 beforeEach(() => {
@@ -113,6 +127,37 @@ describe("RequestDetailPage", () => {
     expect(screen.getByText("Employee not found.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(failing.refetch).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the edit form, and what has been done in it, when a later refresh fails, and offers a Retry beside it", async () => {
+    const user = userEvent.setup();
+    const path = "/finance/procurement/requests/1";
+    renderAt(path);
+    await user.click(screen.getByRole("button", { name: "Edit and resubmit" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: /^Non-IT Related Procurement/ }));
+    expect(screen.getByRole("button", { name: /^Non-IT Related Procurement/ })).toHaveAttribute("aria-pressed", "true");
+
+    // A refresh fails, but the answer it held is still there.
+    const refetch = vi.fn();
+    act(() => {
+      state.me = { ...query(me), isError: true, error: new Error("Network down."), refetch };
+      state.notify();
+    });
+
+    expect(screen.getByText("Network down.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Procurement category" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Non-IT Related Procurement/ })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(refetch).toHaveBeenCalledOnce();
+
+    // And once it recovers, the form is still the same one.
+    act(() => {
+      state.me = query(me);
+      state.notify();
+    });
+    expect(screen.queryByText("Network down.")).toBeNull();
+    expect(screen.getByRole("button", { name: /^Non-IT Related Procurement/ })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("warns that budget names did not load, keeps the codes, and retries only what failed", async () => {
