@@ -35,7 +35,7 @@ export interface AmplifyLogoProps {
 }
 
 /**
- * Amplify's own logo, picked for the resolved colour scheme the way the top bar picks the WSO2
+ * Amplify's own logo, picked for the resolved colour scheme the way the top bar picks the Chore Labs
  * wordmark. Decorative (alt=""): wherever it sits, the product's name is already next to it.
  */
 export function AmplifyLogo({ size = 48 }: AmplifyLogoProps): JSX.Element {

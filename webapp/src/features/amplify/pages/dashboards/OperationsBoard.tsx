@@ -21,6 +21,7 @@ import type { DashboardCampaignRow, DashboardOperations } from "../../api/amplif
 import { useDashboardOperations } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
 import { Block, BoardState, Empty, PriorityPill, StackedBar, StatCard, StateChip } from "../../components/DashboardParts";
+import PostLink from "../../components/PostLink";
 import { useAmplifyGrant } from "../../api/useAmplifyEditorAccess";
 import { useRetryAnnouncement, useSendAnnouncement } from "../../api/useAmplifyMutations";
 import { describeAmplifyError } from "../../util/amplifyError";
@@ -199,7 +200,7 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
                 {data.campaigns.map((p) => (
                   <TableRow key={p.campaignId}>
                     <TableCell>
-                      {p.title}
+                      <PostLink campaignId={p.campaignId}>{p.title}</PostLink>
                       {p.isPriority && <PriorityPill />}
                     </TableCell>
                     <TableCell>{p.categoryLabel}</TableCell>

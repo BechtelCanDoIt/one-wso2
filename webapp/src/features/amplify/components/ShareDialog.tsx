@@ -28,7 +28,7 @@ import { describeAmplifyError } from "../util/amplifyError";
 export const COMMENTARY_MAX_LENGTH = 3000;
 
 /**
- * "Amplify, share this for me." A repost of WSO2's post on the employee's
+ * "Amplify, share this for me." A repost of Chore Labs' post on the employee's
  * LinkedIn. Text in "Add your thoughts" makes it a REPOST_COMMENTARY; empty
  * stays a plain REPOST. The repost is queued; the next Amplify run publishes it.
  */
