@@ -114,6 +114,27 @@ describe("step 2 and 3", () => {
   });
 });
 
+describe("the user and administrator counts", () => {
+  const withCounts = (userCount: string, adminCount: string): RequestDraft => {
+    const draft = completeIt();
+    return { ...draft, details: { ...draft.details, userCount, adminCount } };
+  };
+
+  it("may be left blank", () => {
+    expect(missingForStep(STEP_DETAILS, withCounts("", ""), me)).toEqual([]);
+  });
+
+  it("accept whole numbers the backend allows, zero included", () => {
+    expect(missingForStep(STEP_DETAILS, withCounts("0", "100000"), me)).toEqual([]);
+    expect(missingForStep(STEP_DETAILS, withCounts("25", "2"), me)).toEqual([]);
+  });
+
+  it.each([["-1"], ["1.5"], ["abc"], ["100001"], ["1e3x"]])("refuse %s", (bad) => {
+    expect(missingForStep(STEP_DETAILS, withCounts(bad, ""), me)).toEqual(["A whole number of users"]);
+    expect(missingForStep(STEP_DETAILS, withCounts("", bad), me)).toEqual(["A whole number of administrators"]);
+  });
+});
+
 describe("step 4, budget", () => {
   it("is optional for IT, the budget approver included", () => {
     expect(missingForStep(STEP_BUDGET, completeIt(), me)).toEqual([]);
@@ -144,7 +165,7 @@ describe("draftToInput", () => {
     const input = draftToInput({ ...completeIt(), additionalApprovers: [other], budgetApproverId: "10", declarationAccepted: true });
     expect(input.additionalApprovers).toEqual(["other@example.com"]);
     expect(input.budgetApproverId).toBe("10");
-    expect(Object.keys(input)).not.toEqual(expect.arrayContaining(["requester", "teamLead", "status", "submittedAt"]));
+    for (const key of ["requester", "teamLead", "status", "submittedAt"]) expect(input).not.toHaveProperty(key);
   });
 
   it("drops blank vendors and integrations, and integrations when there are none", () => {

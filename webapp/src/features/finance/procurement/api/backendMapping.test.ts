@@ -138,8 +138,37 @@ describe("backend mapping", () => {
       decision: "rejected",
       notes: "Get a second quote.",
       decidedAt: "2026-10-30T10:00:00Z",
+      decidedBy: "lead@example.com",
+      isOverride: false,
     });
     expect(toRequest(detail({ version: 2, decisions })).teamLeadDecision.decision).toBe("pending");
+  });
+
+  it("shows a Procurement override as the decision when it is the latest, and says who made it", () => {
+    const decisions = [
+      { version: 2, decidedBy: "lead@example.com", decision: "APPROVED" as const, isOverride: false, comment: null, justification: null, decidedOn: "2026-11-03T10:00:00Z" },
+      { version: 2, decidedBy: "admin@example.com", decision: "REJECTED" as const, isOverride: true, comment: "Over budget.", justification: "Budget exceeded", decidedOn: "2026-11-04T10:00:00Z" },
+    ];
+    expect(toRequest(detail({ decisions })).teamLeadDecision).toMatchObject({
+      decision: "rejected",
+      decidedBy: "admin@example.com",
+      isOverride: true,
+    });
+  });
+
+  it("leaves an assessment answer unanswered when the backend omits it, and reads only an explicit true or false as Yes or No", () => {
+    const saas = { adminCount: 1, adminDetails: "IT", userCount: 5, userDetails: "Team" };
+    expect(toRequest(detail({ saasDetails: saas })).details).toMatchObject({
+      sensitiveData: "",
+      externalPii: "",
+      employeePii: "",
+      integrates: "",
+    });
+    expect(toRequest(detail({ saasDetails: { ...saas, handlesSensitiveData: false, handlesExternalPii: true } })).details).toMatchObject({
+      sensitiveData: "no",
+      externalPii: "yes",
+      employeePii: "",
+    });
   });
 
   it("builds the signed-in user from the token and the backend's roles and team lead", () => {

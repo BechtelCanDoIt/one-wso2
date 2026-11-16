@@ -14,10 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// The Procurement backend's own wire shapes, as its OpenAPI file
-// (digiops-finance/apps/procurement/backend/openapi.yaml) defines them. Only the
-// parts the UI reads are listed. Nothing outside api/ should use these: the
-// mapping in backendMapping.ts turns them into the UI's own types.
+// The wire shapes of the backend behind ONE_WSO2_PROCUREMENT_BACKEND_URL, as its API
+// specification defines them. Only the parts the UI reads are listed. Nothing outside
+// api/ should use these: the mapping in backendMapping.ts turns them into the UI's own types.
 
 export type BackendCategory = "MARKETING_EVENTS" | "NON_IT" | "IT";
 

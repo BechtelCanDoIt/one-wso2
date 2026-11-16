@@ -1,12 +1,12 @@
 # Procurement — functional specification (phase 1)
 
-**Status:** in progress. The UI for raising and tracking a request is built behind the `procurement`
-preview flag. There is no backend yet; a dev build serves in-memory sample data. This document records
-the scope, the screens, and what is deliberately done differently from the prototype.
+**Status:** in progress. The UI for raising and tracking a request is built behind the `procurement` preview flag.
+Reads come from the Procurement backend, configured as `ONE_WSO2_PROCUREMENT_BACKEND_URL`; submitting and
+resubmitting are not connected yet. With no backend URL, a dev build serves in-memory sample data. This document
+records the scope, what is deliberately done differently from the prototype, and the open points.
 
-**In One WSO2:** a collapsible **Procurement** group under **Finance**, with **My Requests** and
-**New Request** under `/finance/procurement`. The backend will be configured as
-`ONE_WSO2_PROCUREMENT_BACKEND_URL`.
+**In One WSO2:** a collapsible **Procurement** group under **Finance**, with **My Requests** and **New Request**,
+shown only while the flag is on.
 
 Procurement is the first part of the spend lifecycle: purchase request → approval → purchase order →
 invoice → payment. Phase 1 ends at Procurement assignment. Quotations, budget approval, Legal, Security
@@ -29,20 +29,10 @@ differs, the threat model wins.
 | Team lead Approvals (approve, reject, notes) | not built |
 | Procurement assignment (assignee, priority, collaborators) and admin override | not built |
 
-## 2. Route map
+## 2. Access
 
-Paths are built in one place, `features/finance/procurement/procurementPaths.ts`.
-
-| Target | Screen |
-|---|---|
-| `/finance/procurement` | redirects to `/requests` |
-| `/finance/procurement/requests` | My Requests |
-| `/finance/procurement/requests/new` | New Request form |
-| `/finance/procurement/requests/:requestId` | Request detail; edit and resubmit when rejected |
-
-The rail rows come from the `PROCUREMENT_APPS` registry (`constants/procurementApps.ts`), spread into the
-Finance sections only while the flag is on. Phase 1 rows are open to every employee; the backend scopes each
-request to its requester. Approval and assignment screens will be gated at their route when they land.
+Phase 1 screens are open to every employee; the backend scopes each request to its requester. Approval and
+assignment screens will be gated at their route when they land.
 
 ## 3. Behaviour that differs from the prototype
 
@@ -58,26 +48,24 @@ request to its requester. Approval and assignment screens will be gated at their
 
 ## 4. Backend
 
-The backend is `digiops-finance/apps/procurement/backend`; its contract is that repo's `openapi.yaml`.
-The UI reads its own types (`types.ts`) and never the backend's wire shapes: `api/backendMapping.ts` converts
-between them, and `api/procurementApi.ts` is the only place that builds a URL.
+The UI reads its own types and never the backend's wire shapes, so a change in the backend's shape is felt in one
+mapping and its tests, not on a screen.
 
-**Connected (reads)**
+**Connected (reads):** the signed-in user and default team lead, the budget lists, the budget approvers and engagement
+codes, the directory search, and the requests.
 
-| Call | Use |
-|---|---|
-| `GET /me`, `GET /me/team-lead` | The signed-in user's roles, and the default team lead (their manager). There may be none, and some requesters need no approval. |
-| `GET /reference-data?type=` | Budget category, business unit, product and region lists, as code and label. |
-| `GET /budget-approvers?businessUnit=&region=` | Approvers for a business unit (code) or region (code). At least one is required. |
-| `GET /engagement-codes?businessUnit=` | Engagement codes for a business unit, asked for by the unit's **name**. |
-| `GET /directory/employees?query=&leadsOnly=true` | Additional approver search: email prefix, 3 or more characters, leads only, since only a lead can approve. |
-| `GET /requests`, `GET /requests/{id}` | My Requests (rows) and one request. |
+Contract details worth knowing:
+
+- The engagement codes are asked for by the business unit's **name**, and the budget approvers by its **code**.
+- The directory search matches the start of the email address, from 3 characters. Only a lead can be an additional
+  approver, so the search asks for leads only.
+- A signed-in user who is not in the HR data gets an error from the team lead lookup, so the New Request form cannot open for them.
 
 **Not connected yet**
 
-- **Submitting.** The backend saves a draft (`POST /requests`) and submits it (`POST /requests/{id}/submit`), and edits a
-  rejected request with `PUT /requests/{id}`. Until that is wired, submitting and resubmitting against the backend are
-  refused with a message, rather than answered by sample data that would show a success that saved nothing.
+- **Submitting.** The backend saves a draft and then submits it, and edits a rejected request in place. Until that is
+  wired, submitting and resubmitting against the backend are refused with a message, rather than answered by sample
+  data that would show a success that saved nothing.
 - **Content.** The backend stores a title, one requirement-details text, the vendor name, budget codes, IT and SaaS
   details and free-form answers. It has no field for plan, usage period, ROI, business justification, several vendors,
   notes or attachments, and the form still collects them.

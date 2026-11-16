@@ -105,7 +105,7 @@ export default function RequesterStep({
                 {...params}
                 // Focus the field only when the requester asked for it, not when it is simply there.
                 autoFocus={asked && selected.length === 0}
-                placeholder={selected.length ? "" : "Search by name or email"}
+                placeholder={selected.length ? "" : "Search by email"}
               />
             )}
           />

@@ -96,7 +96,8 @@ export function toSummary(row: BackendRequestSummary): RequestSummary {
   };
 }
 
-const yesNo = (value: boolean | undefined): YesNo => (value ? "yes" : "no");
+/** An answer the backend did not give stays unanswered; only an explicit true or false is a Yes or a No. */
+const yesNo = (value: boolean | undefined): YesNo | "" => (value === undefined ? "" : value ? "yes" : "no");
 
 /** What the backend holds of the content. The rest of what the form asks has no field there yet and stays empty. */
 function toDetails(d: BackendRequestDetail) {
@@ -125,16 +126,21 @@ function toDetails(d: BackendRequestDetail) {
   };
 }
 
-/** The decision on the version being read; an older version's decision does not count. */
+/**
+ * The latest decision on the version being read; an older version's decision does not
+ * count. It may be a Procurement override, so it says who decided.
+ */
 function toDecision(d: BackendRequestDetail): TeamLeadDecision {
   const latest = d.decisions
     .filter((x) => x.version === d.version)
     .sort((a, b) => b.decidedOn.localeCompare(a.decidedOn))[0];
-  if (!latest) return { decision: "pending", notes: "", decidedAt: null };
+  if (!latest) return { decision: "pending", notes: "", decidedAt: null, decidedBy: "", isOverride: false };
   return {
     decision: latest.decision === "APPROVED" ? "approved" : "rejected",
     notes: latest.comment ?? "",
     decidedAt: latest.decidedOn,
+    decidedBy: latest.decidedBy,
+    isOverride: latest.isOverride,
   };
 }
 

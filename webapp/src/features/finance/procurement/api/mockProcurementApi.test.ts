@@ -79,6 +79,12 @@ describe("the Procurement sample data", () => {
     expect(resubmitted.teamLeadDecision.decision).toBe("pending");
   });
 
+  it("refuses to resubmit without the declaration, and leaves the request rejected", async () => {
+    const api = createMockProcurementApi(user);
+    await expect(api.resubmitRequest("seed-2", input([], false), [])).rejects.toThrow(/declaration/);
+    expect((await api.getRequest("seed-2")).status).toBe("rejected");
+  });
+
   it("searches the directory from 3 characters, capped, and never returns the requester", async () => {
     const api = createMockProcurementApi({ ...user, id: "blake.rivers@example.com", name: "Blake Rivers", email: "blake.rivers@example.com" });
     expect(await api.searchDirectory("bl", false)).toEqual([]);
@@ -86,6 +92,13 @@ describe("the Procurement sample data", () => {
     expect(found.map((p) => p.name)).toEqual(["Drew Parker"]);
     expect((await api.searchDirectory("bla", false)).map((p) => p.email)).not.toContain("blake.rivers@example.com");
     expect(found.length).toBeLessThanOrEqual(10);
+  });
+
+  it("matches the start of the email address only, as the backend does, not a name", async () => {
+    const api = createMockProcurementApi(user);
+    expect((await api.searchDirectory("drew.parker", false)).map((p) => p.name)).toEqual(["Drew Parker"]);
+    expect(await api.searchDirectory("parker", false)).toEqual([]);
+    expect(await api.searchDirectory("Drew Parker", false)).toEqual([]);
   });
 
   it("leaves out people who are not leads when only leads are asked for", async () => {

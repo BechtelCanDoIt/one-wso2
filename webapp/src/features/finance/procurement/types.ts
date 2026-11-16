@@ -118,10 +118,15 @@ export interface PurchaseRequestInput {
   declarationAccepted: boolean;
 }
 
+/** The decision on a request's current version: the latest one, which a Procurement override can replace. */
 export interface TeamLeadDecision {
   decision: "pending" | "approved" | "rejected";
   notes: string;
   decidedAt: string | null;
+  /** Email of whoever decided, or "" while pending. */
+  decidedBy: string;
+  /** True when a Procurement admin made this decision, not an approver. */
+  isOverride: boolean;
 }
 
 /** A row of My Requests. */

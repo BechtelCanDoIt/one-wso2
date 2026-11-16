@@ -31,7 +31,7 @@ import type { PurchaseRequest } from "../types";
 function Decision({ request }: { request: PurchaseRequest }) {
   if (request.status === "draft") return <Alert severity="info">This request has not been submitted.</Alert>;
   if (request.status === "cancelled") return <Alert severity="info">This request was cancelled.</Alert>;
-  const { decision, notes, decidedAt } = request.teamLeadDecision;
+  const { decision, notes, decidedAt, decidedBy, isOverride } = request.teamLeadDecision;
   const approver = request.teamLead?.name ?? "the approvers";
   if (decision === "pending") {
     return <Alert severity="info">Waiting for {approver} to approve or reject this request.</Alert>;
@@ -39,7 +39,8 @@ function Decision({ request }: { request: PurchaseRequest }) {
   const approved = decision === "approved";
   return (
     <Alert severity={approved ? "success" : "error"}>
-      {approved ? "Approved" : "Rejected"} by {approver}
+      {approved ? "Approved" : "Rejected"} by {decidedBy || approver}
+      {isOverride ? " (Procurement review)" : ""}
       {decidedAt ? ` on ${formatDate(decidedAt)}` : ""}.
       {notes && (
         <Box component="span" sx={{ display: "block", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
@@ -54,6 +55,21 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
   const me = useProcurementMe();
   const lookups = useProcurementLookups();
   const resubmit = useResubmitRequest(request.id);
+  const failed = me.isError ? me : lookups.isError ? lookups : null;
+  if (failed) {
+    return (
+      <Alert
+        severity="error"
+        action={
+          <Button color="inherit" size="small" onClick={() => void failed.refetch()}>
+            Retry
+          </Button>
+        }
+      >
+        {describeError(failed.error)}
+      </Alert>
+    );
+  }
   if (!me.data || !lookups.data) return <Skeleton variant="rounded" height={320} />;
   return (
     <RequestForm
@@ -69,6 +85,12 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
 }
 
 export default function RequestDetailPage() {
+  const { requestId } = useParams();
+  // Keyed by the request, so the editor and its draft start over when another request is opened.
+  return <RequestDetailContent key={requestId} />;
+}
+
+function RequestDetailContent() {
   const { requestId } = useParams();
   const request = useRequest(requestId);
   const [editing, setEditing] = useState(false);
@@ -124,6 +146,26 @@ export default function RequestDetailPage() {
               <>
                 {data.status !== "rejected" && (
                   <Alert severity="info">This request is read-only in its current state.</Alert>
+                )}
+                {(lookups.isError || engagementCodes.isError) && (
+                  <Alert
+                    severity="warning"
+                    action={
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={() => {
+                          if (lookups.isError) void lookups.refetch();
+                          if (engagementCodes.isError) void engagementCodes.refetch();
+                        }}
+                      >
+                        Retry
+                      </Button>
+                    }
+                  >
+                    Some names could not be loaded, so budget values show as codes.{" "}
+                    {describeError(lookups.isError ? lookups.error : engagementCodes.error)}
+                  </Alert>
                 )}
                 <RequestSummary
                   view={{

@@ -31,6 +31,9 @@ import type {
   Vendor,
 } from "../types";
 
+/** The most users or administrators the backend accepts a count for. */
+const MAX_PEOPLE_COUNT = 100_000;
+
 /** The backend only searches the directory from this many characters. */
 export const MIN_DIRECTORY_QUERY = 3;
 
@@ -138,6 +141,13 @@ export function draftFromRequest(request: PurchaseRequest): RequestDraft {
 
 const blank = (value: string): boolean => value.trim() === "";
 
+/** A count is optional, but when given it is a whole number the backend accepts. */
+const invalidCount = (value: string): boolean => {
+  if (blank(value)) return false;
+  const n = Number(value);
+  return !Number.isInteger(n) || n < 0 || n > MAX_PEOPLE_COUNT;
+};
+
 const labelIn = (list: readonly Choice[], value: string): string => list.find((c) => c.value === value)?.label ?? value;
 
 /**
@@ -162,6 +172,8 @@ function itDetailsMissing(d: RequestDetails): string[] {
   if (blank(d.product)) missing.push("Product / solution name");
   if (blank(d.plan)) missing.push("Plan / subscription tier");
   if (blank(d.description)) missing.push("Description of the product / solution");
+  if (invalidCount(d.userCount)) missing.push("A whole number of users");
+  if (invalidCount(d.adminCount)) missing.push("A whole number of administrators");
   if (blank(d.usagePeriod)) missing.push("Expected usage period");
   if (blank(d.businessJustification)) missing.push("Business justification");
   if (!d.sensitiveData) missing.push("Sensitive data answer");

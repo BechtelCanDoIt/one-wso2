@@ -133,7 +133,7 @@ function seedRequests(requester: Person): PurchaseRequest[] {
       category: "IT",
       status: "submitted",
       teamLead: TEAM_LEAD,
-      teamLeadDecision: { decision: "pending", notes: "", decidedAt: null },
+      teamLeadDecision: { decision: "pending", notes: "", decidedAt: null, decidedBy: "", isOverride: false },
       vendors: [vendor("ZoomInfo", "https://www.zoominfo.com")],
       budget: {
         category: codeOf(L.budgetCategories, "Software & Subscriptions"),
@@ -173,6 +173,8 @@ function seedRequests(requester: Person): PurchaseRequest[] {
         decision: "rejected",
         notes: "Please get a second quote and confirm the budget line.",
         decidedAt: "2026-10-27T14:30:00.000Z",
+        decidedBy: "jordan.ellis@example.com",
+        isOverride: false,
       },
       vendors: [vendor("IWG / Spaces", "https://www.spacesworks.com")],
       budget: {
@@ -199,7 +201,13 @@ function seedRequests(requester: Person): PurchaseRequest[] {
       category: "IT",
       status: "approved",
       teamLead: TEAM_LEAD,
-      teamLeadDecision: { decision: "approved", notes: "", decidedAt: "2026-10-22T10:05:00.000Z" },
+      teamLeadDecision: {
+        decision: "approved",
+        notes: "",
+        decidedAt: "2026-10-22T10:05:00.000Z",
+        decidedBy: "jordan.ellis@example.com",
+        isOverride: false,
+      },
       vendors: [vendor("SentinelOne", "https://www.sentinelone.com")],
       budget: {
         category: codeOf(L.budgetCategories, "Software & Subscriptions"),
@@ -265,7 +273,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         (p) =>
           p.email.toLowerCase() !== user.email.toLowerCase() &&
           !(leadsOnly && NON_LEADS.has(p.email)) &&
-          (p.email.toLowerCase().startsWith(q) || p.name.toLowerCase().includes(q)),
+          p.email.toLowerCase().startsWith(q),
       ).slice(0, SEARCH_LIMIT);
     },
     listMyRequests: async () =>
@@ -287,7 +295,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         requester: user,
         teamLead: TEAM_LEAD,
         additionalApprovers: input.additionalApprovers,
-        teamLeadDecision: { decision: "pending", notes: "", decidedAt: null },
+        teamLeadDecision: { decision: "pending", notes: "", decidedAt: null, decidedBy: "", isOverride: false },
         details: input.details,
         vendors: input.vendors,
         budget: input.budget,
@@ -304,13 +312,14 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
     resubmitRequest: async (requestId, input) => {
       const existing = find(requestId);
       if (existing.status !== "rejected") throw new Error("Only a rejected request can be edited and resubmitted.");
+      if (!input.declarationAccepted) throw new Error("Confirm the declaration before submitting.");
       assertApprovers(input);
       Object.assign(existing, {
         title: titleFor(input),
         category: input.category,
         status: "submitted",
         additionalApprovers: input.additionalApprovers,
-        teamLeadDecision: { decision: "pending", notes: "", decidedAt: null },
+        teamLeadDecision: { decision: "pending", notes: "", decidedAt: null, decidedBy: "", isOverride: false },
         details: input.details,
         vendors: input.vendors,
         budget: input.budget,

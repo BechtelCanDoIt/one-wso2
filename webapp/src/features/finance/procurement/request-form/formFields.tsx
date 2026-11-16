@@ -246,6 +246,7 @@ export function SelectField({
       </FieldLabel>
       <TextField
         select
+        required={required}
         size="small"
         fullWidth
         disabled={disabled}
@@ -338,7 +339,7 @@ export function OptionField({
         onChange={(_, next) => onChange(next?.value ?? "")}
         disabled={disabled}
         noOptionsText={emptyText ?? "No options"}
-        renderInput={(params) => <TextField {...params} placeholder={prompt} />}
+        renderInput={(params) => <TextField {...params} required={required} placeholder={prompt} />}
       />
     </Box>
   );

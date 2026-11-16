@@ -1,0 +1,146 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import type { ReactNode } from "react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { Link, MemoryRouter, Route, Routes } from "react-router";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import { emptyBudget, emptyDetails } from "../request-form/requestFormModel";
+import type { ProcurementLookups, ProcurementMe, PurchaseRequest } from "../types";
+import RequestDetailPage from "./RequestDetailPage";
+
+const query = (data: unknown = undefined) => ({ data, isPending: false, isFetching: false, isError: false, error: null as unknown, refetch: vi.fn() });
+
+const state = vi.hoisted(() => ({
+  requests: {} as Record<string, unknown>,
+  me: {} as Record<string, unknown>,
+  lookups: {} as Record<string, unknown>,
+  engagement: {} as Record<string, unknown>,
+}));
+
+vi.mock("../api/useProcurement", () => ({
+  useRequest: (id?: string) => ({ data: state.requests[id ?? ""], isPending: false, isError: false, error: null, refetch: vi.fn() }),
+  useProcurementMe: () => state.me,
+  useProcurementLookups: () => state.lookups,
+  useEngagementCodes: () => state.engagement,
+  useBudgetApprovers: () => ({ data: [], isFetching: false, isError: false, error: null }),
+  useDirectorySearch: () => ({ data: [], isFetching: false, isError: false, error: null }),
+  useResubmitRequest: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
+}));
+vi.mock("../components/ProcurementShell", () => ({
+  default: ({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) => (
+    <div>
+      <h1>{title}</h1>
+      {actions}
+      {children}
+    </div>
+  ),
+}));
+
+const person = { id: "lead@example.com", name: "Team Lead", email: "lead@example.com" };
+const me: ProcurementMe = { id: "me@example.com", name: "Me Myself", email: "me@example.com", roles: [], teamLead: person, approvalExempt: false };
+const lookups: ProcurementLookups = { budgetCategories: [], businessUnits: [], products: [], regions: [] };
+
+const request = (id: string, patch: Partial<PurchaseRequest> = {}): PurchaseRequest => ({
+  id,
+  reference: `PR-2026-0000${id}`,
+  title: `Request ${id}`,
+  category: "IT",
+  status: "rejected",
+  submittedAt: "2026-11-02T08:00:00.000Z",
+  updatedAt: "2026-11-02T08:00:00.000Z",
+  requester: me,
+  teamLead: person,
+  additionalApprovers: [],
+  teamLeadDecision: { decision: "rejected", notes: "Get a second quote.", decidedAt: "2026-11-03T08:00:00.000Z", decidedBy: "lead@example.com", isOverride: false },
+  details: emptyDetails(),
+  vendors: [],
+  budget: emptyBudget(),
+  budgetApproverId: "",
+  budgetApproverName: "",
+  notes: "",
+  attachments: [],
+  ...patch,
+});
+
+function renderAt(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Link to="/finance/procurement/requests/2">Open the other request</Link>
+      <Routes>
+        <Route path="/finance/procurement/requests/:requestId" element={<RequestDetailPage />} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+beforeEach(() => {
+  state.requests = { "1": request("1"), "2": request("2") };
+  state.me = query(me);
+  state.lookups = query(lookups);
+  state.engagement = query([]);
+});
+
+describe("RequestDetailPage", () => {
+  it("says who made the decision, and when it was a Procurement review", () => {
+    state.requests = {
+      "1": request("1", { teamLeadDecision: { decision: "rejected", notes: "Over budget.", decidedAt: "2026-11-04T08:00:00.000Z", decidedBy: "admin@example.com", isOverride: true } }),
+    };
+    renderAt("/finance/procurement/requests/1");
+    expect(screen.getByText(/Rejected by admin@example.com \(Procurement review\)/)).toBeInTheDocument();
+  });
+
+  it("shows the editor's failed dependency with a Retry, instead of loading for ever", async () => {
+    const failing = { ...query(), isError: true, error: new Error("Employee not found."), refetch: vi.fn() };
+    state.me = failing;
+    const user = userEvent.setup();
+    renderAt("/finance/procurement/requests/1");
+    await user.click(screen.getByRole("button", { name: "Edit and resubmit" }));
+    expect(screen.getByText("Employee not found.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(failing.refetch).toHaveBeenCalledOnce();
+  });
+
+  it("warns that budget names did not load, keeps the codes, and retries only what failed", async () => {
+    const failing = { ...query(), isError: true, error: new Error("Lists unavailable."), refetch: vi.fn() };
+    state.lookups = failing;
+    state.engagement = query([]);
+    const user = userEvent.setup();
+    renderAt("/finance/procurement/requests/1");
+    expect(screen.getByText(/Some names could not be loaded, so budget values show as codes/)).toBeInTheDocument();
+    expect(screen.getByText(/Lists unavailable\./)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Retry" }));
+    expect(failing.refetch).toHaveBeenCalledOnce();
+  });
+
+  it("does not warn when the names loaded", () => {
+    renderAt("/finance/procurement/requests/1");
+    expect(screen.queryByText(/Some names could not be loaded/)).toBeNull();
+  });
+
+  it("starts the editor over when another request is opened, so one request's draft is never sent to the other", async () => {
+    const user = userEvent.setup();
+    renderAt("/finance/procurement/requests/1");
+    await user.click(screen.getByRole("button", { name: "Edit and resubmit" }));
+    expect(screen.getByRole("button", { name: "Cancel editing" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("link", { name: "Open the other request" }));
+    expect(screen.getByRole("heading", { name: /Request 2/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel editing" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Edit and resubmit" })).toBeInTheDocument();
+  });
+});

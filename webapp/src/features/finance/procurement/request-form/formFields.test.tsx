@@ -103,6 +103,16 @@ describe("form fields", () => {
     expect(screen.getAllByRole("option")).toHaveLength(2);
   });
 
+  it("OptionField exposes a required state on its select and on its searchable list, not only in the label", () => {
+    const { rerender } = render(<OptionField required label="Region" choices={choices("A", "B")} value="" onChange={() => {}} />);
+    expect(screen.getByRole("combobox")).toHaveAttribute("aria-required", "true");
+    const many = Array.from({ length: 12 }, (_, i) => `Option ${i + 1}`);
+    rerender(<OptionField required label="Region" choices={choices(...many)} value="" onChange={() => {}} />);
+    expect(screen.getByRole("combobox")).toBeRequired();
+    rerender(<OptionField label="Region" choices={choices(...many)} value="" onChange={() => {}} />);
+    expect(screen.getByRole("combobox")).not.toBeRequired();
+  });
+
   it("YesNoField opens its follow-up inside the row only on Yes", async () => {
     const user = userEvent.setup();
     function Host() {
