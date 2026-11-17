@@ -20,9 +20,9 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ParRating } from "./types";
 
-const authedGet = vi.fn<(url: string) => Promise<unknown>>();
+const authedPost = vi.fn<(url: string) => Promise<unknown>>();
 vi.mock("@api/http", () => ({
-  authedGet: (url: string) => authedGet(url),
+  authedPost: (url: string) => authedPost(url),
   authedPut: vi.fn(),
   defaultQueryRetry: false,
   HttpError: class extends Error {},
@@ -45,19 +45,16 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 beforeEach(() => {
   client = new QueryClient();
   client.setQueryData<ParRating>(ratingKey, { parRatingId: 7 } as ParRating);
-  authedGet.mockReset();
-  authedGet.mockResolvedValue({ summary: "Colleagues see real ownership.", responseCount: 4, suggestionsLeft: 8 });
+  authedPost.mockReset();
+  authedPost.mockResolvedValue({ summary: "Colleagues see real ownership.", responseCount: 4 });
 });
 
 describe("useLead360SummarySuggestion", () => {
   it("reads the kept suggestion and notes on the rating what it was written from", async () => {
     const { result } = renderHook(() => useLead360SummarySuggestion(2, "alex@example.com", 4, true), { wrapper });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
-    expect(authedGet).toHaveBeenCalledWith("/par-cycles/2/alex@example.com/suggestion");
-    expect(client.getQueryData<ParRating>(ratingKey)).toMatchObject({
-      parLead360SuggestionResponses: 4,
-      parLead360SuggestionsLeft: 8,
-    });
+    expect(authedPost).toHaveBeenCalledWith("/par-cycles/2/alex@example.com/suggestion");
+    expect(client.getQueryData<ParRating>(ratingKey)).toMatchObject({ parLead360SuggestionResponses: 4 });
   });
 
   it("asks only when it's wanted, and again only once more responses come in", async () => {
@@ -65,20 +62,20 @@ describe("useLead360SummarySuggestion", () => {
       ({ count, enabled }) => useLead360SummarySuggestion(2, "alex@example.com", count, enabled),
       { wrapper, initialProps: { count: 4, enabled: false } },
     );
-    expect(authedGet).not.toHaveBeenCalled();
+    expect(authedPost).not.toHaveBeenCalled();
     rerender({ count: 4, enabled: true });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
     rerender({ count: 4, enabled: false });
     rerender({ count: 4, enabled: true });
-    expect(authedGet).toHaveBeenCalledTimes(1);
+    expect(authedPost).toHaveBeenCalledTimes(1);
     rerender({ count: 5, enabled: true });
-    await waitFor(() => expect(authedGet).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(authedPost).toHaveBeenCalledTimes(2));
   });
 
-  it("doesn't retry: each one written counts toward the cap, even when it fails", async () => {
-    authedGet.mockRejectedValue(new Error("HTTP 503"));
+  it("doesn't retry after a failure: the backend decides when to try again", async () => {
+    authedPost.mockRejectedValue(new Error("HTTP 503"));
     const { result } = renderHook(() => useLead360SummarySuggestion(2, "alex@example.com", 4, true), { wrapper });
     await waitFor(() => expect(result.current.isError).toBe(true));
-    expect(authedGet).toHaveBeenCalledTimes(1);
+    expect(authedPost).toHaveBeenCalledTimes(1);
   });
 });
