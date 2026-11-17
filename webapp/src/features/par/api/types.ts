@@ -133,10 +133,8 @@ export interface ParRating {
   // The lead's summary of the employee's PAR 360° feedback, shared with their
   // comment (base64 HTML, like parLeadComment). PAR 2.0 cycles only.
   parLead360Summary?: string;
-  // How many more AI suggestions can be written for that summary in this
-  // cycle, and how many submitted 360° responses the last one was written
-  // from. Never sent to the employee.
-  parLead360SuggestionsLeft?: number;
+  // How many submitted 360° responses the last AI suggestion for that summary
+  // was written from. Never sent to the employee.
   parLead360SuggestionResponses?: number;
   parLeadStatus: ParLeadStatus;
   // Who invoked the share (a lead, or an admin sharing on a lead's behalf),

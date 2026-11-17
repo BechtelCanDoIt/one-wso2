@@ -16,27 +16,27 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
-import { authedGet, authedPut } from "@api/http";
+import { authedPost, authedPut } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { parServiceUrls } from "@config/apiConfig";
 import { digiopsHeaders } from "@features/my/util/digiopsHeaders";
 import type { ParRating } from "./types";
 
-// GET .../lead-360-summary/suggestion — the response.
+// POST .../lead-360-summary/suggestion — the response.
 export interface Lead360SummarySuggestion {
   // Plain text, one paragraph per line.
   summary: string;
   // How many submitted 360° responses it was written from.
   responseCount: number;
-  // How many more can be written for this employee in this cycle.
-  suggestionsLeft: number;
 }
 
 // The AI-suggested 360° summary of an employee, for their lead to start from.
 // The backend writes it the first time it's asked for and keeps it, writing a
 // new one only once more responses have come in, so the key carries the
-// response count. Never retried, not even when the panel mounts again after a
-// failure: each one written counts toward a cap, even when the model fails.
+// response count. A POST, since asking may write one. Never retried, not even
+// when the panel mounts again after a failure: the backend tries once for each
+// number of responses, and tries a failed one again only when another response
+// comes in or a day has passed.
 // The cached rating takes what it was written from, so the panel can tell when
 // more responses have come in since; an answer for fewer responses than it
 // already holds (a slower, older request) leaves it alone.
@@ -54,19 +54,16 @@ export function useLead360SummarySuggestion(
     enabled: enabled && isSignedIn,
     queryFn: async () => {
       const accessToken = await getAccessToken();
-      const suggestion = await authedGet<Lead360SummarySuggestion>(
+      const suggestion = await authedPost<Lead360SummarySuggestion>(
         parServiceUrls.parLead360SummarySuggestion(parCycleId, employeeEmail),
         accessToken,
+        {},
         digiopsHeaders(),
       );
       if (!suggestion) throw new Error("The suggestion came back empty.");
       qc.setQueryData<ParRating | null>(["par-rating", parCycleId, employeeEmail], (old) =>
         old && suggestion.responseCount >= (old.parLead360SuggestionResponses ?? 0)
-          ? {
-              ...old,
-              parLead360SuggestionResponses: suggestion.responseCount,
-              parLead360SuggestionsLeft: suggestion.suggestionsLeft,
-            }
+          ? { ...old, parLead360SuggestionResponses: suggestion.responseCount }
           : old,
       );
       return suggestion;
