@@ -16,39 +16,16 @@
 
 import { useState } from "react";
 import { Link as RouterLink, useParams } from "react-router";
-import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { RequestStatusChip } from "../components/ProcurementChips";
-import RequestSummary from "../components/RequestSummary";
+import DecisionNotice from "../components/DecisionNotice";
+import SavedRequestSummary from "../components/SavedRequestSummary";
 import RequestForm from "../request-form/RequestForm";
-import { budgetForDisplay, draftFromRequest } from "../request-form/requestFormModel";
-import { useEngagementCodes, useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest, useCancelRequest } from "../api/useProcurement";
-import { formatDate } from "../procurementFormat";
+import { draftFromRequest } from "../request-form/requestFormModel";
+import { useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest, useCancelRequest } from "../api/useProcurement";
 import { procurementPaths } from "../procurementPaths";
 import type { PurchaseRequest } from "../types";
-
-function Decision({ request }: { request: PurchaseRequest }) {
-  if (request.status === "draft") return <Alert severity="info">This request has not been submitted.</Alert>;
-  if (request.status === "cancelled") return <Alert severity="info">This request was cancelled.</Alert>;
-  const { decision, notes, decidedAt, decidedBy, isOverride } = request.teamLeadDecision;
-  const approver = request.teamLead?.name ?? "the approvers";
-  if (decision === "pending") {
-    return <Alert severity="info">Waiting for {approver} to approve or reject this request.</Alert>;
-  }
-  const approved = decision === "approved";
-  return (
-    <Alert severity={approved ? "success" : "error"}>
-      {approved ? "Approved" : "Rejected"} by {decidedBy || approver}
-      {isOverride ? " (Procurement review)" : ""}
-      {decidedAt ? ` on ${formatDate(decidedAt)}` : ""}.
-      {notes && (
-        <Box component="span" sx={{ display: "block", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
-          {notes}
-        </Box>
-      )}
-    </Alert>
-  );
-}
 
 function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: () => void }) {
   const me = useProcurementMe();
@@ -105,9 +82,6 @@ function RequestDetailContent() {
   const [confirmingCancel, setConfirmingCancel] = useState(false);
   const cancel = useCancelRequest(requestId ?? "");
   const data = request.data;
-  const lookups = useProcurementLookups();
-  const unitName = lookups.data?.businessUnits.find((u) => u.value === data?.budget.businessUnit)?.label ?? "";
-  const engagementCodes = useEngagementCodes(unitName);
 
   return (
     <>
@@ -172,7 +146,7 @@ function RequestDetailContent() {
         {request.isPending && !request.isError && <Skeleton variant="rounded" height={320} />}
         {data && (
           <Stack spacing={2}>
-            <Decision request={data} />
+            <DecisionNotice request={data} />
             {editing ? (
               <>
                 <Button color="inherit" variant="outlined" onClick={() => setEditing(false)} sx={{ alignSelf: "flex-start" }}>
@@ -185,40 +159,7 @@ function RequestDetailContent() {
                 {data.status !== "rejected" && (
                   <Alert severity="info">This request is read-only in its current state.</Alert>
                 )}
-                {(lookups.isError || engagementCodes.isError) && (
-                  <Alert
-                    severity="warning"
-                    action={
-                      <Button
-                        color="inherit"
-                        size="small"
-                        onClick={() => {
-                          if (lookups.isError) void lookups.refetch();
-                          if (engagementCodes.isError) void engagementCodes.refetch();
-                        }}
-                      >
-                        Retry
-                      </Button>
-                    }
-                  >
-                    Some names could not be loaded, so budget values show as codes.{" "}
-                    {describeError(lookups.isError ? lookups.error : engagementCodes.error)}
-                  </Alert>
-                )}
-                <RequestSummary
-                  view={{
-                    category: data.category,
-                    requester: data.requester,
-                    teamLead: data.teamLead,
-                    additionalApprovers: data.additionalApprovers,
-                    details: data.details,
-                    vendors: data.vendors,
-                    budget: lookups.data ? budgetForDisplay(data.budget, lookups.data, engagementCodes.data ?? []) : data.budget,
-                    budgetApprover: data.budgetApproverName,
-                    notes: data.notes,
-                    date: data.submittedAt ? { label: "Raised", iso: data.submittedAt } : undefined,
-                  }}
-                />
+                <SavedRequestSummary request={data} />
               </>
             )}
           </Stack>
