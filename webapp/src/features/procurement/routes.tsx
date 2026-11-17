@@ -24,9 +24,8 @@ import NewRequestPage from "./pages/NewRequestPage";
 import RequestDetailPage from "./pages/RequestDetailPage";
 import { PROCUREMENT_PATH, procurementPaths } from "./procurementPaths";
 
-// No role guard: phase 1 screens are open to every employee, and the backend
-// scopes each request to its requester. The approval and assignment screens
-// are gated at their route when they land.
+// No role guard: these screens are open to every employee, and the backend
+// scopes each request to its requester.
 export const procurementRoutes = (
   <Route path={PROCUREMENT_PATH.replace(/^\//, "")} element={<ProcurementGroupPage />}>
     <Route index element={<Navigate to={procurementPaths.newRequest} replace />} />

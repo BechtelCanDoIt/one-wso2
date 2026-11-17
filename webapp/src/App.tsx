@@ -236,6 +236,7 @@ import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
 import { swagStoreAdminRoutes, swagStoreShopRoutes } from "@features/swag-store/routes";
 import { procurementRoutes } from "@features/procurement/routes";
+import { procurementWorkspaceRoutes } from "@features/procurement/workspace/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
 import PartnerPendingPage from "@features/due-diligence/partners/pages/PartnerPendingPage";
 import PartnerDashboardPage from "@features/due-diligence/partners/pages/PartnerDashboardPage";
@@ -1061,6 +1062,7 @@ export default function App() {
           {isPreviewEnabled("quickquote") && cado2Routes}
           {/* Me → Procurement, behind the `procurement` preview flag. */}
           {isPreviewEnabled("procurement") && procurementRoutes}
+          {isPreviewEnabled("procurement") && procurementWorkspaceRoutes}
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />
