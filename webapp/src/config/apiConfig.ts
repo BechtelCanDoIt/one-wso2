@@ -2050,7 +2050,7 @@ export function isCado2BackendConfigured(): boolean {
 
 const encodeSegment = (value: string | number): string => encodeURIComponent(String(value));
 
-// Procurement — Finance → Procurement, purchase requests through to Procurement
+// Procurement — Me → Procurement, purchase requests through to Procurement
 // assignment. Its own backend, version segment included. Unset means "not
 // connected": its pages say so and make no requests. Gated as a whole by the
 // `procurement` preview flag as well (previewFeatures.ts).

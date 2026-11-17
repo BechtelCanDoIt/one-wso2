@@ -29,7 +29,6 @@ import {
   Typography,
 } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
-import ProcurementShell from "../components/ProcurementShell";
 import { RequestStatusChip } from "../components/ProcurementChips";
 import { useMyRequests } from "../api/useProcurement";
 import { formatDate } from "../procurementFormat";
@@ -42,15 +41,7 @@ export default function MyRequestsPage() {
   const navigate = useNavigate();
 
   return (
-    <ProcurementShell
-      title="My requests"
-      subtitle="Track and manage the purchasing requests you've submitted."
-      actions={
-        <Button variant="contained" component={RouterLink} to={procurementPaths.newRequest}>
-          New request
-        </Button>
-      }
-    >
+    <>
       {requests.isError && (
         <Alert
           severity="error"
@@ -107,6 +98,6 @@ export default function MyRequestsPage() {
           </Table>
         </TableContainer>
       )}
-    </ProcurementShell>
+    </>
   );
 }

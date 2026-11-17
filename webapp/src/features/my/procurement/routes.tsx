@@ -19,6 +19,7 @@
 
 import { Navigate, Route } from "react-router";
 import MyRequestsPage from "./pages/MyRequestsPage";
+import ProcurementGroupPage from "./pages/ProcurementGroupPage";
 import NewRequestPage from "./pages/NewRequestPage";
 import RequestDetailPage from "./pages/RequestDetailPage";
 import { PROCUREMENT_PATH, procurementPaths } from "./procurementPaths";
@@ -27,11 +28,11 @@ import { PROCUREMENT_PATH, procurementPaths } from "./procurementPaths";
 // scopes each request to its requester. The approval and assignment screens
 // are gated at their route when they land.
 export const procurementRoutes = (
-  <Route path={PROCUREMENT_PATH.replace(/^\//, "")}>
-    <Route index element={<Navigate to={procurementPaths.requests} replace />} />
+  <Route path={PROCUREMENT_PATH.replace(/^\//, "")} element={<ProcurementGroupPage />}>
+    <Route index element={<Navigate to={procurementPaths.newRequest} replace />} />
     <Route path="requests" element={<MyRequestsPage />} />
-    <Route path="requests/new" element={<NewRequestPage />} />
+    <Route path="new" element={<NewRequestPage />} />
     <Route path="requests/:requestId" element={<RequestDetailPage />} />
-    <Route path="*" element={<Navigate to={procurementPaths.requests} replace />} />
+    <Route path="*" element={<Navigate to={procurementPaths.newRequest} replace />} />
   </Route>
 );

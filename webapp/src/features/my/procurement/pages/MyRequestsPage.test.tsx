@@ -42,10 +42,10 @@ vi.mock("../components/ProcurementShell", () => ({ default: ({ children }: { chi
 
 function renderPage() {
   return render(
-    <MemoryRouter initialEntries={["/finance/procurement/requests"]}>
+    <MemoryRouter initialEntries={["/me/procurement/requests"]}>
       <Routes>
-        <Route path="/finance/procurement/requests" element={<MyRequestsPage />} />
-        <Route path="/finance/procurement/requests/:requestId" element={<h1>Detail page</h1>} />
+        <Route path="/me/procurement/requests" element={<MyRequestsPage />} />
+        <Route path="/me/procurement/requests/:requestId" element={<h1>Detail page</h1>} />
       </Routes>
     </MemoryRouter>,
   );

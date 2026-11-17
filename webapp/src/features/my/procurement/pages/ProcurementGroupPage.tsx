@@ -14,11 +14,21 @@
 // specific language governing permissions and limitations
 // under the License.
 
-/** Root of every Procurement route. Nested under `/finance/` so the Finance rail stays around it. */
-export const PROCUREMENT_PATH = "/finance/procurement";
+import { Outlet } from "react-router";
+import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTabs";
+import ProcurementShell from "../components/ProcurementShell";
+import { PROCUREMENT_PATH } from "../procurementPaths";
 
-export const procurementPaths = {
-  requests: `${PROCUREMENT_PATH}/requests`,
-  newRequest: `${PROCUREMENT_PATH}/requests/new`,
-  request: (requestId: string): string => `${PROCUREMENT_PATH}/requests/${encodeURIComponent(requestId)}`,
-} as const;
+const TABS: RoutedTabDef[] = [
+  { segment: "new", label: "New Request" },
+  { segment: "requests", label: "My Requests" },
+];
+
+export default function ProcurementGroupPage() {
+  return (
+    <ProcurementShell>
+      <RoutedTabs basePath={PROCUREMENT_PATH} tabs={TABS} ariaLabel="Procurement sections" />
+      <Outlet />
+    </ProcurementShell>
+  );
+}

@@ -111,15 +111,13 @@ describe("the Sales perspective", () => {
 // CadO2 lands behind its own flag, as a whole, inside the Sales perspective.
 describe("Procurement's rail entries", () => {
   const procurementGroupIn = (perspectives: Perspectives) =>
-    perspectives.findPerspectiveByKey("finance")?.sections?.find((s) => s.id === "sec-app-procurement");
+    perspectives.findPerspectiveByKey("me")?.sections?.find((s) => s.id === "sec-app-procurement");
 
-  it("are a Procurement group under Finance once the flag is on", async () => {
-    const group = procurementGroupIn(await load({ procurement: true }));
-    expect(group?.label).toBe("Procurement");
-    expect(group?.alwaysGroup).toBe(true);
-    expect(group?.children?.map((c) => [c.label, c.path, c.requires])).toEqual([
-      ["My Requests", "/finance/procurement/requests", undefined],
-      ["New Request", "/finance/procurement/requests/new", undefined],
+  it("are one Procurement entry under Me once the flag is on", async () => {
+    const entry = procurementGroupIn(await load({ procurement: true }));
+    expect(entry?.label).toBe("Procurement");
+    expect(entry?.children?.map((c) => [c.label, c.path, c.requires])).toEqual([
+      ["Procurement", "/me/procurement", undefined],
     ]);
   });
 

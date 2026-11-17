@@ -91,9 +91,9 @@ const request = (id: string, patch: Partial<PurchaseRequest> = {}): PurchaseRequ
 
 const tree = (path: string) => (
   <MemoryRouter initialEntries={[path]}>
-    <Link to="/finance/procurement/requests/2">Open the other request</Link>
+    <Link to="/me/procurement/requests/2">Open the other request</Link>
     <Routes>
-      <Route path="/finance/procurement/requests/:requestId" element={<RequestDetailPage />} />
+      <Route path="/me/procurement/requests/:requestId" element={<RequestDetailPage />} />
     </Routes>
   </MemoryRouter>
 );
@@ -114,7 +114,7 @@ describe("RequestDetailPage", () => {
     state.requests = {
       "1": request("1", { teamLeadDecision: { decision: "rejected", notes: "Over budget.", decidedAt: "2026-11-04T08:00:00.000Z", decidedBy: "admin@example.com", isOverride: true } }),
     };
-    renderAt("/finance/procurement/requests/1");
+    renderAt("/me/procurement/requests/1");
     expect(screen.getByText(/Rejected by admin@example.com \(Procurement review\)/)).toBeInTheDocument();
   });
 
@@ -122,7 +122,7 @@ describe("RequestDetailPage", () => {
     const failing = { ...query(), isError: true, error: new Error("Employee not found."), refetch: vi.fn() };
     state.me = failing;
     const user = userEvent.setup();
-    renderAt("/finance/procurement/requests/1");
+    renderAt("/me/procurement/requests/1");
     await user.click(screen.getByRole("button", { name: "Edit and resubmit" }));
     expect(screen.getByText("Employee not found.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
@@ -131,7 +131,7 @@ describe("RequestDetailPage", () => {
 
   it("keeps the edit form, and what has been done in it, when a later refresh fails, and offers a Retry beside it", async () => {
     const user = userEvent.setup();
-    const path = "/finance/procurement/requests/1";
+    const path = "/me/procurement/requests/1";
     renderAt(path);
     await user.click(screen.getByRole("button", { name: "Edit and resubmit" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
@@ -165,7 +165,7 @@ describe("RequestDetailPage", () => {
     state.lookups = failing;
     state.engagement = query([]);
     const user = userEvent.setup();
-    renderAt("/finance/procurement/requests/1");
+    renderAt("/me/procurement/requests/1");
     expect(screen.getByText(/Some names could not be loaded, so budget values show as codes/)).toBeInTheDocument();
     expect(screen.getByText(/Lists unavailable\./)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Retry" }));
@@ -173,13 +173,13 @@ describe("RequestDetailPage", () => {
   });
 
   it("does not warn when the names loaded", () => {
-    renderAt("/finance/procurement/requests/1");
+    renderAt("/me/procurement/requests/1");
     expect(screen.queryByText(/Some names could not be loaded/)).toBeNull();
   });
 
   it("starts the editor over when another request is opened, so one request's draft is never sent to the other", async () => {
     const user = userEvent.setup();
-    renderAt("/finance/procurement/requests/1");
+    renderAt("/me/procurement/requests/1");
     await user.click(screen.getByRole("button", { name: "Edit and resubmit" }));
     expect(screen.getByRole("button", { name: "Cancel editing" })).toBeInTheDocument();
 

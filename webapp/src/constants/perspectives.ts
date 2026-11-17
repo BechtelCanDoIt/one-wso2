@@ -522,6 +522,9 @@ const ME_SECTIONS: PerspectiveSection[] = [
   ...appsToSections(ME_PAR_APPS),
   // promotion-app's employee portal.
   ...appsToSections(ME_PROMOTION_APPS),
+  // Procurement: raising a purchase request is something any employee does.
+  // With the flag off the group doesn't exist.
+  ...(isPreviewEnabled("procurement") ? appsToSections(PROCUREMENT_APPS) : []),
 ];
 
 // Amplify — employees share official WSO2 LinkedIn posts and earn points;
@@ -784,9 +787,6 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // not something everyone has — unlike leave or claims, it is not part of
       // the set every employee needs.
       ...appsToSections(FINANCE_PERSPECTIVE_APPS),
-      // Procurement: purchase requests through to Procurement assignment.
-      // With the flag off the group doesn't exist.
-      ...(isPreviewEnabled("procurement") ? appsToSections(PROCUREMENT_APPS) : []),
       // Due Diligence — also surfaced under Legal (see the `legal` perspective
       // below). ONE registry (DUE_DILIGENCE_APPS), included in both places, so
       // the two rails can't drift. Gated on the due-diligence backend's own

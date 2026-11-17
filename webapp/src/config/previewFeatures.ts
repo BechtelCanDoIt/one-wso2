@@ -106,8 +106,8 @@ export type PreviewFeature =
    */
   | "swagStore"
   /**
-   * Finance → Procurement, where an employee raises a purchase request and
-   * follows it: its rail group, every route under `/finance/procurement`, and
+   * Me → Procurement, where an employee raises a purchase request and
+   * follows it: its rail group, every route under `/me/procurement`, and
    * its backend calls. Held back while the app is being built: submitting a
    * request is not connected to the backend yet.
    */

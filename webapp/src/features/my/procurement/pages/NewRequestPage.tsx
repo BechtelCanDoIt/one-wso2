@@ -18,7 +18,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Alert, Button, Skeleton } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
-import ProcurementShell from "../components/ProcurementShell";
 import RequestSubmitted from "../components/RequestSubmitted";
 import RequestForm from "../request-form/RequestForm";
 import { emptyDraft } from "../request-form/requestFormModel";
@@ -37,10 +36,7 @@ export default function NewRequestPage() {
   const failed = me.isError ? me : lookups.isError ? lookups : null;
 
   return (
-    <ProcurementShell
-      title="New purchase requisition (PR)"
-      subtitle="Raise a purchase request for the Procurement team."
-    >
+    <>
       {failed && (
         <Alert
           severity="error"
@@ -79,6 +75,6 @@ export default function NewRequestPage() {
           }
         />
       )}
-    </ProcurementShell>
+    </>
   );
 }

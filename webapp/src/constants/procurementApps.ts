@@ -14,19 +14,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Registry of Procurement, surfaced as a group inside the Finance perspective.
+// Registry of Procurement, surfaced as a group inside the Me perspective.
 // Phase 1 rows are things any employee does for themself, so none carries
 // `requires`: they stay open the way Credit Card's per-user rows do. The rows
 // for approving and assigning join the registry with their own gate when those
 // screens land.
 
-import { ClipboardListIcon, FilePlusIcon, ShoppingCartIcon } from "@wso2/oxygen-ui-icons-react";
+import { ShoppingCartIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
-import { procurementPaths } from "@features/finance/procurement/procurementPaths";
+import { PROCUREMENT_PATH } from "@features/my/procurement/procurementPaths";
 
 export const PROCUREMENT_ITEM = {
-  requests: "procurement-requests",
-  newRequest: "procurement-new-request",
+  home: "procurement-home",
 } as const;
 
 export const PROCUREMENT_APPS: readonly MenuApp[] = [
@@ -35,21 +34,13 @@ export const PROCUREMENT_APPS: readonly MenuApp[] = [
     name: "Procurement",
     icon: ShoppingCartIcon,
     purpose: "Raise purchase requests and follow them through approval to Procurement.",
-    alwaysGroup: true,
     items: [
       {
-        id: PROCUREMENT_ITEM.requests,
-        label: "My Requests",
-        icon: ClipboardListIcon,
-        desc: "Purchase requests you have raised, and where each one stands.",
-        path: procurementPaths.requests,
-      },
-      {
-        id: PROCUREMENT_ITEM.newRequest,
-        label: "New Request",
-        icon: FilePlusIcon,
-        desc: "Raise a purchase request for IT or Non-IT goods and services.",
-        path: procurementPaths.newRequest,
+        id: PROCUREMENT_ITEM.home,
+        label: "Procurement",
+        icon: ShoppingCartIcon,
+        desc: "Raise purchase requests and follow them through approval to Procurement.",
+        path: PROCUREMENT_PATH,
       },
     ],
   },

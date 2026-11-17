@@ -16,9 +16,8 @@
 
 import { useState } from "react";
 import { Link as RouterLink, useParams } from "react-router";
-import { Alert, Box, Button, Link, Skeleton, Stack } from "@wso2/oxygen-ui";
+import { Alert, Box, Button, Link, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
-import ProcurementShell from "../components/ProcurementShell";
 import { RequestStatusChip } from "../components/ProcurementChips";
 import RequestSummary from "../components/RequestSummary";
 import RequestForm from "../request-form/RequestForm";
@@ -113,21 +112,20 @@ function RequestDetailContent() {
       <Link component={RouterLink} to={procurementPaths.requests} underline="none" sx={{ display: "inline-block", mb: 2 }}>
         ← My requests
       </Link>
-      <ProcurementShell
-        title={data ? `${data.reference ?? "Draft"} - ${data.title}` : "Purchase request"}
-        actions={
-          data && !editing ? (
-            <Stack direction="row" spacing={2} alignItems="center">
-              <RequestStatusChip status={data.status} />
-              {data.status === "rejected" && data.category !== "EVENTS" && (
-                <Button variant="contained" onClick={() => setEditing(true)}>
-                  Edit and resubmit
-                </Button>
-              )}
-            </Stack>
-          ) : undefined
-        }
-      >
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+        <Typography variant="h5">{data ? `${data.reference ?? "Draft"} - ${data.title}` : "Purchase request"}</Typography>
+        {data && !editing && (
+          <Stack direction="row" spacing={2} alignItems="center">
+            <RequestStatusChip status={data.status} />
+            {data.status === "rejected" && data.category !== "EVENTS" && (
+              <Button variant="contained" onClick={() => setEditing(true)}>
+                Edit and resubmit
+              </Button>
+            )}
+          </Stack>
+        )}
+      </Stack>
+      <>
         {request.isError && (
           <Alert
             severity="error"
@@ -195,7 +193,7 @@ function RequestDetailContent() {
             )}
           </Stack>
         )}
-      </ProcurementShell>
+      </>
     </>
   );
 }
