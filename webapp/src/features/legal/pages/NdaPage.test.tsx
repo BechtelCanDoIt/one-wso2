@@ -394,7 +394,7 @@ describe("NdaPage records", () => {
   it("offers the NDA records tab only to those who may view them", () => {
     renderPage(recordsOn, { url: "/legal/nda?tab=records" });
     expect(screen.queryByRole("tab", { name: "NDA Records" })).not.toBeInTheDocument();
-    expect(screen.getByText("Generate WSO2's standard Mutual NDA as a PDF.")).toBeInTheDocument();
+    expect(screen.getByText("Generate Choreo Labs's standard Mutual NDA as a PDF.")).toBeInTheDocument();
     // Without the permission, ?tab=records still shows the form.
     expect(screen.getByRole("button", { name: /Download NDA PDF/ })).toBeInTheDocument();
   });
@@ -404,7 +404,7 @@ describe("NdaPage records", () => {
     renderPage({ ...recordsOn, data: { ...recordsOn.data!, canViewNdaRecords: true } });
 
     expect(screen.getByRole("tab", { name: "Generate NDA" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Generate WSO2's standard Mutual NDA as a PDF.")).toBeInTheDocument();
+    expect(screen.getByText("Generate Choreo Labs's standard Mutual NDA as a PDF.")).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "NDA Records" }));
     expect(screen.getByRole("table", { name: "Generated NDAs" })).toBeInTheDocument();
     expect(screen.getByText("View all generated NDAs.")).toBeInTheDocument();
