@@ -17,7 +17,6 @@
 import { useEffect, type JSX } from "react";
 import {
   Box,
-  ColorSchemeImage,
   ColorSchemeToggle,
   Header,
   IconButton,
@@ -26,6 +25,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { MenuIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import AppsGridIcon from "./AppsGridIcon";
+import ChoreoLabsMark from "./ChoreoLabsMark";
 import { Link as RouterLink } from "react-router";
 import { landingPath } from "@config/landingConfig";
 import PinnedTabs from "@features/pinned/components/PinnedTabs";
@@ -53,36 +53,28 @@ const IS_APPLE_PLATFORM =
 /** No "+" in either form, matching the badge's compact style. */
 const SHORTCUT_HINT = IS_APPLE_PLATFORM ? "⌘K" : "Ctrl K";
 
-// Brand lockup sizing. Constrained by https://wso2.com/about/brand, which is
-// stricter than it looks — check there before changing any of this:
+// Brand lockup: the Choreo Labs mark, then "One" in Sora 600, one size at every
+// breakpoint. The mark is as tall as the font size: its dense middle dots then
+// line up with the letters and only the thin top and bottom dots reach past
+// them. Any larger and the mark outweighs the word and crowds the 56/64px bar.
 //
-//  - "Icon should not be isolated." The pulse mark may not be used apart from
-//    the wordmark, so the full logo asset is the only option here — regardless
-//    of what any other app does. (The favicon is the one exception, because a
-//    ~16px square slot cannot hold a 2.5:1 lockup at all.)
-//  - The logo "is strictly monochrome": black on light, white on dark. Orange
-//    (#F14E23) is approved for the icon on DARK backgrounds only, so it can't be
-//    used on this header, whose background is `background.paper`.
-//  - The padding inside the SVG is not slack to be cropped out — it is the
-//    mandated clear space ("4x padding"). Leave it alone.
-//
-// Sizing: the visible letters are half the height set here (artwork occupies
-// y 163.7-490.6 of a 0-654.2 viewBox). "One" is one word of the two-word name,
-// so it has to render at the same letter height as "WSO2" beside it — these two
-// constants move together. Inter at weight 600 has a 0.7375x cap height,
-// measured in a browser:
-//
-//   title px   cap height   logo px to match
-//   18         13.27        26.5   <- Oxygen's own BrandTitle token
-//   22         16.22        32.4   <- chosen; the pair scaled up for presence
-//   24         17.70        35.4
-//
-// UNRESOLVED: the brand minimum for digital use is 180x72px, which at this
-// aspect means a 72px-tall logo. The Oxygen toolbar is 56px (xs) / 64px (sm+),
-// so no compliant-minimum logo fits. Needs a ruling from the brand owner on
-// what applies to product chrome; every value here is below that minimum.
-const BRAND_TITLE_PX = 22;
-const BRAND_LOGO_PX = 32;
+// Sora is set on the wordmark itself rather than taken from the theme, so the
+// lockup stays the same whichever theme is picked.
+const BRAND_FONT_FAMILY = "'Sora Variable', sans-serif";
+const BRAND_FONT_PX = 24;
+const BRAND_MARK_PX = 24;
+// 0.3x the mark height.
+const BRAND_GAP_PX = "7px";
+// The mark sits inline in the wordmark's line, so `vertical-align` places its
+// bottom edge relative to the baseline. Half a cap height (0.5cap, resolved on
+// Sora at the wordmark's size) less half the mark height centres the mark on
+// the "O", so the thin dots overshoot it equally above and below. Centring on
+// the x-height instead left the mark hanging low beside the capital.
+const BRAND_MARK_ALIGN = `calc(0.5cap - ${BRAND_MARK_PX / 2}px)`;
+// Clear space of half the mark height. To the left, the toggle is already
+// further away than that; to the right, the search trigger would sit one header
+// gap (8px) from "One" without it.
+const BRAND_CLEAR_SPACE = `${BRAND_MARK_PX / 2}px`;
 
 interface TopBarProps {
   collapsed: boolean;
@@ -133,7 +125,7 @@ export default function TopBar({
         collapseIcon={<MenuIcon size={20} />}
       />
 
-      <Header.Brand sx={{ flexShrink: 0 }}>
+      <Header.Brand sx={{ flexShrink: 0, mr: BRAND_CLEAR_SPACE }}>
         {/* The lockup is the way home, as it is in every other product.
             Deliberately a real link rather than an onClick, so cmd-click and
             middle-click open a new tab the way a logo is expected to.
@@ -145,12 +137,13 @@ export default function TopBar({
             has not changed it. Sending someone to Me when they have chosen a
             different home would contradict their own preference.
 
-            aria-label because the only text inside is "One" and the wordmark
-            carries alt="" — on its own that is a thin name for a link. */}
+            aria-label because the only text inside is "One" and the mark is
+            hidden from assistive tech — on its own that is a thin name for a
+            link. */}
         <Box
           component={RouterLink}
           to={landingPath()}
-          aria-label="One WSO2 home"
+          aria-label="One App home"
           sx={{
             display: "flex",
             alignItems: "center",
@@ -165,26 +158,38 @@ export default function TopBar({
             },
           }}
         >
-          {/* Overrides Oxygen's 16→18px token, paired with BRAND_LOGO_PX above:
-              "One" is one word of the name, so its size is set by the lockup
-              rather than by the app-name token. */}
-          <Header.BrandTitle sx={{ whiteSpace: "nowrap", fontSize: BRAND_TITLE_PX }}>
+          {/* The whole lockup is one line of text with the mark inline at its
+              start, which is what lets BRAND_MARK_ALIGN centre the mark on the
+              cap height. Overrides Oxygen's 16→18px app-name token, and its
+              `display: none` below sm: the lockup stays whole on mobile.
+
+              `lineHeight: 0` makes the line box exactly the mark's box, so the
+              header centres the mark itself. With the theme's 1.6 the text's
+              taller, baseline-weighted box set the height instead and the
+              lockup sat low. "One" has no descenders and its caps stay inside
+              the mark's height, so nothing renders outside it. */}
+          <Header.BrandTitle
+            sx={{
+              display: "block",
+              whiteSpace: "nowrap",
+              fontFamily: BRAND_FONT_FAMILY,
+              fontWeight: 600,
+              // Repeated at sm: Oxygen sets its token in a sm-and-up media
+              // rule, which a plain value here would lose to.
+              fontSize: { xs: BRAND_FONT_PX, sm: BRAND_FONT_PX },
+              lineHeight: 0,
+            }}
+          >
+            <Box
+              component={ChoreoLabsMark}
+              sx={{
+                height: BRAND_MARK_PX,
+                mr: BRAND_GAP_PX,
+                verticalAlign: BRAND_MARK_ALIGN,
+              }}
+            />
             One
           </Header.BrandTitle>
-          {/* Negative margin so "One" and the WSO2 logo read as one lockup rather
-              than two adjacent elements. */}
-          <Header.BrandLogo sx={{ ml: "-4px" }}>
-            {/* The full logo, monochrome per brand rules — black on light, white
-                on dark. ColorSchemeImage picks the variant from the resolved
-                colour scheme. alt="" because "One" beside it plus the wordmark
-                already read as the product name. */}
-            <ColorSchemeImage
-              src={{ light: "/wso2-logo-black.svg", dark: "/wso2-logo-white.svg" }}
-              alt=""
-              height={BRAND_LOGO_PX}
-              width="auto"
-            />
-          </Header.BrandLogo>
         </Box>
       </Header.Brand>
 

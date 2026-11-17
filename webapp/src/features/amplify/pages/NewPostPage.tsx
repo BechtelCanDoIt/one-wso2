@@ -190,7 +190,7 @@ export default function NewPostPage() {
             />
             <TextField
               label="Card summary"
-              placeholder="2-3 lines shown on the Amplify cards in One WSO2 and Google Chat"
+              placeholder="2-3 lines shown on the Amplify cards in One App and Google Chat"
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               multiline

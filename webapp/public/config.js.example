@@ -23,7 +23,7 @@ window.config = {
   // ONE_WSO2_AUTH_WELL_KNOWN_URL: "https://<idp-host>/.well-known/openid-configuration",
 
   // UI
-  ONE_WSO2_THEME: "wso2",
+  ONE_WSO2_THEME: "choreoLabs",
 
   // People backend base URL. Powers the Me profile, My Team, Org Chart and the
   // People Ops reports.

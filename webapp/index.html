@@ -2,46 +2,38 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <!-- Scheme-aware favicon: the square pulse mark on its own, in black or
-         white. A favicon slot is ~16px and square, so it takes the symbol only
-         — never the wordmark lockup, which is 2.5:1 and would render as a
-         16x6px smudge. The mark's viewBox is trimmed to its own bounds so it
-         fills the slot instead of sitting inside 25% transparent padding.
-
-         Monochrome per https://wso2.com/about/brand: black on light, white on
-         dark. A single orange mark was wrong on the light tab strip most
-         browsers show by default, since orange is approved on dark only.
+    <!-- Scheme-aware favicon: the Choreo Labs mark on its own, the compact form
+         of the header lockup, in Midnight Ink or white. A favicon slot is ~16px
+         and square, so it takes the mark without the wordmark.
 
          Dark is declared first deliberately: a browser that ignores `media` on
-         an icon link generally takes the last one, and the black mark is the
+         an icon link generally takes the last one, and the navy mark is the
          safer default against a light tab strip. -->
     <link
       rel="icon"
       type="image/svg+xml"
-      href="/favicon-white.svg"
+      href="/favicon-mark-white.svg"
       media="(prefers-color-scheme: dark)"
     />
     <link
       rel="icon"
       type="image/svg+xml"
-      href="/favicon-black.svg"
+      href="/favicon-mark-navy.svg"
       media="(prefers-color-scheme: light)"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <!-- Limit referrer leakage across origins. -->
     <meta name="referrer" content="strict-origin-when-cross-origin" />
-    <title>One WSO2</title>
+    <title>One App</title>
     <!-- Runtime config injected at deploy time. See public/config.js.example. -->
     <!-- Covers the moment before the two scripts below have downloaded, when the
-         browser would otherwise paint its default white: dark-OS users get the
-         default theme's dark background from the first frame. The CSP allows
-         inline styles; color-scheme-init.js then refines it to the saved mode
-         and theme. -->
+         browser would otherwise paint its default white: the default theme's
+         dark background, since dark is the default mode. The CSP allows inline
+         styles; color-scheme-init.js then refines it to the saved mode and
+         theme. -->
     <style>
-      @media (prefers-color-scheme: dark) {
-        html {
-          background-color: #0f172a;
-        }
+      html {
+        background-color: #050a1c;
       }
     </style>
     <script src="/config.js"></script>
