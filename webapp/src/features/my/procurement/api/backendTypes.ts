@@ -75,6 +75,30 @@ export interface BackendDecision {
 
 export interface BackendItDetails {
   softwareName: string;
+  isUrgent?: boolean;
+  urgencyJustification?: string | null;
+  installationType: "PORTABLE" | "PLUGIN" | "BROWSER_EXTENSION" | "STANDALONE" | "SAAS";
+  licenseType: "FREE_COMMERCIAL" | "PERSONAL" | "CUSTOMER" | "COMPANY";
+  softwareUrl: string;
+  pricingUrl: string;
+  termsUrl: string;
+  privacyUrl: string;
+  securityUrl: string;
+  authorizedListChecked?: boolean;
+  legitimacyConfirmed?: boolean;
+}
+
+export interface BackendVendor {
+  name: string;
+  website?: string | null;
+  contactName?: string | null;
+  contactEmail?: string | null;
+  contactPhone?: string | null;
+}
+
+export interface BackendAnswer {
+  questionKey: string;
+  answer?: string | null;
 }
 
 export interface BackendSaasDetails {
@@ -98,6 +122,13 @@ export interface BackendRequestDetail extends BackendRequestSummary {
   requesterEmail: string;
   requirementDetails: string;
   vendorName: string | null;
+  businessJustification: string | null;
+  roi: string | null;
+  additionalSpecifications: string | null;
+  salesforceCampaign: string | null;
+  notes: string | null;
+  vendors: BackendVendor[];
+  answers: BackendAnswer[];
   budgetCategoryCode: string | null;
   businessUnitCode: string | null;
   productCode: string | null;
@@ -111,4 +142,31 @@ export interface BackendRequestDetail extends BackendRequestSummary {
   saasDetails: BackendSaasDetails | null;
   decisions: BackendDecision[];
   createdOn: string;
+}
+
+/** The body of POST /requests and PUT /requests/{id}. */
+export interface BackendNewRequest {
+  category: BackendCategory;
+  requirementDetails: string;
+  businessJustification: string | null;
+  roi: string | null;
+  additionalSpecifications: string | null;
+  salesforceCampaign: string | null;
+  notes: string | null;
+  vendors: BackendVendor[];
+  budgetCategoryCode: string | null;
+  businessUnitCode: string | null;
+  productCode: string | null;
+  regionCode: string | null;
+  engagementCode: string | null;
+  budgetApproverId: number | null;
+  additionalApprovers: string[];
+  itDetails: BackendItDetails | null;
+  saasDetails: BackendSaasDetails | null;
+  answers: BackendAnswer[];
+}
+
+export interface BackendCreatedRequest {
+  id: number;
+  status: BackendStatus;
 }

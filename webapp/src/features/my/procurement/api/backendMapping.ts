@@ -25,6 +25,7 @@ import type {
   Person,
   ProcurementMe,
   PurchaseRequest,
+  PurchaseRequestInput,
   RequestCategory,
   RequestStatus,
   RequestSummary,
@@ -33,16 +34,21 @@ import type {
   YesNo,
 } from "../types";
 import type {
+  BackendAnswer,
+  BackendItDetails,
   BackendBudgetApprover,
   BackendCategory,
   BackendDirectoryUser,
   BackendEngagementOption,
+  BackendNewRequest,
   BackendReferenceItem,
   BackendRequestDetail,
   BackendRequestSummary,
+  BackendSaasDetails,
   BackendStatus,
   BackendTeamLeadResult,
   BackendUser,
+  BackendVendor,
 } from "./backendTypes";
 
 const CATEGORY: Record<BackendCategory, RequestCategory> = { IT: "IT", NON_IT: "NON-IT", MARKETING_EVENTS: "EVENTS" };
@@ -99,19 +105,59 @@ export function toSummary(row: BackendRequestSummary): RequestSummary {
 /** An answer the backend did not give stays unanswered; only an explicit true or false is a Yes or a No. */
 const yesNo = (value: boolean | undefined): YesNo | "" => (value === undefined ? "" : value ? "yes" : "no");
 
-/** What the backend holds of the content. The rest of what the form asks has no field there yet and stays empty. */
+/** The questions the backend keeps as free-form answers, because it has no field for them. */
+const ANSWER_PLAN = "plan";
+const ANSWER_USAGE_PERIOD = "usagePeriod";
+
+const answerOf = (answers: BackendAnswer[], key: string): string => answers.find((a) => a.questionKey === key)?.answer ?? "";
+
+/** A list of names or integrations the backend holds as one text. */
+const NAME_SEPARATOR = ", ";
+const toNames = (text: string): string[] => text.split(NAME_SEPARATOR).map((n) => n.trim()).filter(Boolean);
+const integrationsToText = (rows: { system: string; data: string }[]): string =>
+  rows.map((r) => (r.data ? `${r.system}: ${r.data}` : r.system)).join("\n");
+const integrationsFromText = (text: string): { system: string; data: string }[] =>
+  text
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line) => {
+      const at = line.indexOf(": ");
+      return at < 0 ? { system: line, data: "" } : { system: line.slice(0, at), data: line.slice(at + 2) };
+    });
+
+const orNull = (value: string): string | null => (value.trim() === "" ? null : value.trim());
+
 function toDetails(d: BackendRequestDetail) {
   const base = emptyDetails();
+  const it = d.itDetails;
   const saas = d.saasDetails;
   return {
     ...base,
     description: d.requirementDetails,
-    product: d.itDetails?.softwareName ?? "",
+    plan: answerOf(d.answers, ANSWER_PLAN),
+    usagePeriod: answerOf(d.answers, ANSWER_USAGE_PERIOD),
+    businessJustification: d.businessJustification ?? "",
+    roi: d.roi ?? "",
+    specifications: d.additionalSpecifications ?? "",
+    ...(it && {
+      product: it.softwareName,
+      installationType: it.installationType,
+      licenseType: it.licenseType,
+      softwareUrl: it.softwareUrl,
+      pricingUrl: it.pricingUrl,
+      termsUrl: it.termsUrl,
+      privacyUrl: it.privacyUrl,
+      securityUrl: it.securityUrl,
+      urgent: yesNo(it.isUrgent ?? false),
+      urgencyJustification: it.urgencyJustification ?? "",
+      authorizedListChecked: it.authorizedListChecked ?? false,
+      legitimacyConfirmed: it.legitimacyConfirmed ?? false,
+    }),
     ...(saas && {
       userCount: String(saas.userCount),
-      userNames: saas.userDetails ? [saas.userDetails] : [],
+      userNames: toNames(saas.userDetails),
       adminCount: String(saas.adminCount),
-      adminNames: saas.adminDetails ? [saas.adminDetails] : [],
+      adminNames: toNames(saas.adminDetails),
       sensitiveData: yesNo(saas.handlesSensitiveData),
       sensitiveDataDetail: saas.sensitiveDataDetails ?? "",
       externalPii: yesNo(saas.handlesExternalPii),
@@ -119,7 +165,7 @@ function toDetails(d: BackendRequestDetail) {
       employeePii: yesNo(saas.handlesEmployeePii),
       employeePiiDetail: saas.employeePiiDetails ?? "",
       integrates: yesNo(saas.integratesInternalSystems),
-      integrations: saas.integrationDetails ? [{ system: saas.integrationDetails, data: "" }] : base.integrations,
+      integrations: saas.integrationDetails ? integrationsFromText(saas.integrationDetails) : base.integrations,
       vendorDocs: yesNo(Boolean(saas.vendorDocsLinks)),
       vendorDocsLink: saas.vendorDocsLinks ?? "",
     }),
@@ -144,6 +190,14 @@ function toDecision(d: BackendRequestDetail): TeamLeadDecision {
   };
 }
 
+const toVendor = (v: BackendVendor): Vendor => ({
+  name: v.name,
+  website: v.website ?? "",
+  contact: v.contactName ?? "",
+  email: v.contactEmail ?? "",
+  phone: v.contactPhone ?? "",
+});
+
 export function toRequest(d: BackendRequestDetail): PurchaseRequest {
   const budget: BudgetDetails = {
     category: d.budgetCategoryCode ?? "",
@@ -151,11 +205,13 @@ export function toRequest(d: BackendRequestDetail): PurchaseRequest {
     product: d.productCode ?? "",
     region: d.regionCode ?? "",
     engagementCode: d.engagementCode ?? "",
-    salesforceCampaign: "",
+    salesforceCampaign: d.salesforceCampaign ?? "",
   };
-  const vendors: Vendor[] = d.vendorName
-    ? [{ name: d.vendorName, website: "", contact: "", email: "", phone: "" }]
-    : [];
+  const vendors: Vendor[] = d.vendors.length
+    ? d.vendors.map(toVendor)
+    : d.vendorName
+      ? [{ name: d.vendorName, website: "", contact: "", email: "", phone: "" }]
+      : [];
   return {
     ...toSummary(d),
     requester: { id: d.requesterEmail, name: d.requesterName, email: d.requesterEmail },
@@ -167,7 +223,80 @@ export function toRequest(d: BackendRequestDetail): PurchaseRequest {
     budget,
     budgetApproverId: d.budgetApproverId === null ? "" : String(d.budgetApproverId),
     budgetApproverName: d.budgetApproverName ?? "",
-    notes: "",
-    attachments: [],
+    notes: d.notes ?? "",
+  };
+}
+
+/**
+ * The body the backend saves a request from. What the backend has no field for (the plan
+ * and the usage period) goes in as answers; the title is left for the backend to make.
+ */
+export function toNewRequest(input: PurchaseRequestInput): BackendNewRequest {
+  const { details: d, budget: b } = input;
+  const isIt = input.category === "IT";
+  const saas = isIt && d.installationType === "SAAS";
+  const answers: BackendAnswer[] = isIt
+    ? [
+        { questionKey: ANSWER_PLAN, answer: orNull(d.plan) },
+        { questionKey: ANSWER_USAGE_PERIOD, answer: orNull(d.usagePeriod) },
+      ].filter((a) => a.answer !== null)
+    : [];
+  const saasDetails: BackendSaasDetails | null = saas
+    ? {
+        userCount: Number(d.userCount),
+        userDetails: d.userNames.join(NAME_SEPARATOR),
+        adminCount: Number(d.adminCount),
+        adminDetails: d.adminNames.join(NAME_SEPARATOR),
+        handlesSensitiveData: d.sensitiveData === "yes",
+        sensitiveDataDetails: d.sensitiveData === "yes" ? orNull(d.sensitiveDataDetail) : null,
+        handlesExternalPii: d.externalPii === "yes",
+        externalPiiDetails: d.externalPii === "yes" ? orNull(d.externalPiiDetail) : null,
+        handlesEmployeePii: d.employeePii === "yes",
+        employeePiiDetails: d.employeePii === "yes" ? orNull(d.employeePiiDetail) : null,
+        integratesInternalSystems: d.integrates === "yes",
+        integrationDetails: d.integrates === "yes" ? orNull(integrationsToText(d.integrations)) : null,
+        vendorDocsLinks: d.integrates === "yes" && d.vendorDocs === "yes" ? orNull(d.vendorDocsLink) : null,
+      }
+    : null;
+  return {
+    category: input.category === "IT" ? "IT" : "NON_IT",
+    requirementDetails: d.description.trim(),
+    businessJustification: orNull(d.businessJustification),
+    roi: orNull(d.roi),
+    additionalSpecifications: input.category === "NON-IT" ? orNull(d.specifications) : null,
+    salesforceCampaign: orNull(b.salesforceCampaign),
+    notes: orNull(input.notes),
+    vendors: input.vendors.map((v) => ({
+      name: v.name.trim(),
+      website: orNull(v.website),
+      contactName: orNull(v.contact),
+      contactEmail: orNull(v.email),
+      contactPhone: orNull(v.phone),
+    })),
+    budgetCategoryCode: orNull(b.category),
+    businessUnitCode: orNull(b.businessUnit),
+    productCode: orNull(b.product),
+    regionCode: orNull(b.region),
+    engagementCode: orNull(b.engagementCode),
+    budgetApproverId: input.budgetApproverId ? Number(input.budgetApproverId) : null,
+    additionalApprovers: input.additionalApprovers,
+    itDetails: isIt
+      ? {
+          softwareName: d.product.trim(),
+          isUrgent: d.urgent === "yes",
+          urgencyJustification: d.urgent === "yes" ? orNull(d.urgencyJustification) : null,
+          installationType: d.installationType as BackendItDetails["installationType"],
+          licenseType: d.licenseType as BackendItDetails["licenseType"],
+          softwareUrl: d.softwareUrl.trim(),
+          pricingUrl: d.pricingUrl.trim(),
+          termsUrl: d.termsUrl.trim(),
+          privacyUrl: d.privacyUrl.trim(),
+          securityUrl: d.securityUrl.trim(),
+          authorizedListChecked: d.authorizedListChecked,
+          legitimacyConfirmed: d.legitimacyConfirmed,
+        }
+      : null,
+    saasDetails,
+    answers,
   };
 }

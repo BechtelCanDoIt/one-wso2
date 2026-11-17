@@ -15,9 +15,10 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import type { Person } from "../types";
+import type { Person, PurchaseRequestInput } from "../types";
 import type { BackendRequestDetail } from "./backendTypes";
-import { toBudgetApprovers, toChoices, toEngagementChoices, toMe, toRequest, toSummary } from "./backendMapping";
+import { draftFromRequest, draftToInput, emptyDraft } from "../request-form/requestFormModel";
+import { toBudgetApprovers, toChoices, toEngagementChoices, toMe, toNewRequest, toRequest, toSummary } from "./backendMapping";
 
 const signedIn: Person = { id: "me@example.com", name: "Me Myself", email: "me@example.com" };
 
@@ -35,6 +36,13 @@ const detail = (patch: Partial<BackendRequestDetail> = {}): BackendRequestDetail
   requesterEmail: "me@example.com",
   requirementDetails: "Design tool for the UX team.",
   vendorName: "Figma Inc",
+  businessJustification: "Replaces two tools.",
+  roi: "Saves 10 hours a week.",
+  additionalSpecifications: null,
+  salesforceCampaign: "Q4 launch",
+  notes: "Needed by January.",
+  vendors: [],
+  answers: [{ questionKey: "plan", answer: "Enterprise" }, { questionKey: "usagePeriod", answer: "1 year" }],
   budgetCategoryCode: "CAT-1",
   businessUnitCode: "BU-2",
   productCode: null,
@@ -44,7 +52,20 @@ const detail = (patch: Partial<BackendRequestDetail> = {}): BackendRequestDetail
   budgetApproverName: "Budget Owner",
   teamLeadEmail: "lead@example.com",
   additionalApprovers: ["other@example.com"],
-  itDetails: { softwareName: "Figma" },
+  itDetails: {
+    softwareName: "Figma",
+    isUrgent: true,
+    urgencyJustification: "The old licence ends Friday.",
+    installationType: "SAAS",
+    licenseType: "COMPANY",
+    softwareUrl: "https://www.figma.com",
+    pricingUrl: "https://www.figma.com/pricing",
+    termsUrl: "https://www.figma.com/terms",
+    privacyUrl: "https://www.figma.com/privacy",
+    securityUrl: "https://www.figma.com/security",
+    authorizedListChecked: true,
+    legitimacyConfirmed: true,
+  },
   saasDetails: null,
   decisions: [],
   ...patch,
@@ -72,7 +93,7 @@ describe("backend mapping", () => {
     expect(toRequest(detail({ category: "MARKETING_EVENTS" })).category).toBe("EVENTS");
   });
 
-  it("maps a detail: codes stay codes, the team lead is named by email, and what has no field stays empty", () => {
+  it("maps a detail: codes stay codes, the team lead is named by email, and the answers fill the plan and usage period", () => {
     const r = toRequest(detail());
     expect(r).toMatchObject({
       id: "5",
@@ -84,14 +105,36 @@ describe("backend mapping", () => {
       budgetApproverId: "10",
       budgetApproverName: "Budget Owner",
       vendors: [{ name: "Figma Inc" }],
-      notes: "",
-      attachments: [],
+      notes: "Needed by January.",
     });
-    expect(r.details).toMatchObject({ description: "Design tool for the UX team.", product: "Figma", plan: "", roi: "" });
+    expect(r.budget.salesforceCampaign).toBe("Q4 launch");
+    expect(r.details).toMatchObject({
+      description: "Design tool for the UX team.",
+      product: "Figma",
+      plan: "Enterprise",
+      usagePeriod: "1 year",
+      roi: "Saves 10 hours a week.",
+      businessJustification: "Replaces two tools.",
+      installationType: "SAAS",
+      licenseType: "COMPANY",
+      softwareUrl: "https://www.figma.com",
+      urgent: "yes",
+      urgencyJustification: "The old licence ends Friday.",
+      authorizedListChecked: true,
+      legitimacyConfirmed: true,
+    });
+  });
+
+  it("reads every vendor with its contact, and falls back to the single vendor name", () => {
+    const full = toRequest(
+      detail({ vendors: [{ name: "Figma Inc", website: "https://figma.com", contactName: "Sam", contactEmail: "sam@example.com", contactPhone: "123" }] }),
+    );
+    expect(full.vendors).toEqual([{ name: "Figma Inc", website: "https://figma.com", contact: "Sam", email: "sam@example.com", phone: "123" }]);
+    expect(toRequest(detail()).vendors).toEqual([{ name: "Figma Inc", website: "", contact: "", email: "", phone: "" }]);
   });
 
   it("has no team lead, vendor or budget approver when the backend names none", () => {
-    const r = toRequest(detail({ teamLeadEmail: null, vendorName: null, budgetApproverId: null, budgetApproverName: null }));
+    const r = toRequest(detail({ teamLeadEmail: null, vendorName: null, vendors: [], budgetApproverId: null, budgetApproverName: null }));
     expect(r.teamLead).toBeNull();
     expect(r.vendors).toEqual([]);
     expect(r.budgetApproverId).toBe("");
@@ -103,7 +146,7 @@ describe("backend mapping", () => {
       detail({
         saasDetails: {
           adminCount: 2,
-          adminDetails: "IT team",
+          adminDetails: "IT team, Security",
           userCount: 40,
           userDetails: "Design team",
           handlesSensitiveData: false,
@@ -111,20 +154,22 @@ describe("backend mapping", () => {
           externalPiiDetails: "Customer names",
           handlesEmployeePii: false,
           integratesInternalSystems: true,
-          integrationDetails: "Google Workspace SSO",
+          integrationDetails: "Google Workspace: SSO login\nSalesforce",
           vendorDocsLinks: "https://docs.example.com",
         },
       }),
     ).details;
     expect(saas).toMatchObject({
       userCount: "40",
+      userNames: ["Design team"],
       adminCount: "2",
+      adminNames: ["IT team", "Security"],
       sensitiveData: "no",
       externalPii: "yes",
       externalPiiDetail: "Customer names",
       employeePii: "no",
       integrates: "yes",
-      integrations: [{ system: "Google Workspace SSO", data: "" }],
+      integrations: [{ system: "Google Workspace", data: "SSO login" }, { system: "Salesforce", data: "" }],
       vendorDocs: "yes",
       vendorDocsLink: "https://docs.example.com",
     });
@@ -188,5 +233,117 @@ describe("backend mapping", () => {
       { value: "E2", label: "E2" },
     ]);
     expect(toBudgetApprovers([{ id: 10, name: "Budget Owner" }])).toEqual([{ id: "10", name: "Budget Owner" }]);
+  });
+});
+
+describe("the request the backend is sent", () => {
+  const itInput = (): PurchaseRequestInput => {
+    const draft = emptyDraft();
+    draft.category = "IT";
+    draft.additionalApprovers = [{ id: "a@example.com", name: "A", email: "a@example.com" }];
+    draft.budgetApproverId = "10";
+    draft.budget = { ...draft.budget, businessUnit: "BU-1", salesforceCampaign: "Q4" };
+    draft.vendors = [{ name: "Figma Inc", website: "https://figma.com", contact: "", email: "", phone: "" }];
+    draft.details = {
+      ...draft.details,
+      product: "Figma",
+      plan: "Enterprise",
+      description: "Design tool",
+      usagePeriod: "1 year",
+      installationType: "SAAS",
+      licenseType: "COMPANY",
+      softwareUrl: "https://a.example.com",
+      pricingUrl: "https://b.example.com",
+      termsUrl: "https://c.example.com",
+      privacyUrl: "https://d.example.com",
+      securityUrl: "https://e.example.com",
+      urgent: "no",
+      businessJustification: "Needed",
+      authorizedListChecked: true,
+      legitimacyConfirmed: true,
+      userCount: "40",
+      userNames: ["Design team", "Product"],
+      adminCount: "2",
+      adminNames: ["IT"],
+      sensitiveData: "no",
+      externalPii: "no",
+      employeePii: "yes",
+      employeePiiDetail: "Names",
+      integrates: "yes",
+      integrations: [{ system: "Salesforce", data: "Nightly sync" }, { system: "Okta", data: "" }],
+      vendorDocs: "yes",
+      vendorDocsLink: "https://docs.example.com",
+    };
+    draft.declarationAccepted = true;
+    return draftToInput(draft);
+  };
+
+  it("sends an IT request with its software details, SaaS assessment, vendors and budget, and leaves the title to the backend", () => {
+    const body = toNewRequest(itInput());
+    expect(body).toMatchObject({
+      category: "IT",
+      requirementDetails: "Design tool",
+      businessJustification: "Needed",
+      salesforceCampaign: "Q4",
+      budgetApproverId: 10,
+      businessUnitCode: "BU-1",
+      additionalApprovers: ["a@example.com"],
+      vendors: [{ name: "Figma Inc", website: "https://figma.com", contactName: null }],
+      itDetails: { softwareName: "Figma", installationType: "SAAS", isUrgent: false, urgencyJustification: null, authorizedListChecked: true },
+      saasDetails: {
+        userCount: 40,
+        userDetails: "Design team, Product",
+        adminCount: 2,
+        handlesEmployeePii: true,
+        employeePiiDetails: "Names",
+        handlesSensitiveData: false,
+        sensitiveDataDetails: null,
+        integrationDetails: "Salesforce: Nightly sync\nOkta",
+        vendorDocsLinks: "https://docs.example.com",
+      },
+    });
+    expect(body).not.toHaveProperty("title");
+    expect(body.answers).toEqual([
+      { questionKey: "plan", answer: "Enterprise" },
+      { questionKey: "usagePeriod", answer: "1 year" },
+    ]);
+  });
+
+  it("sends no SaaS details when the software is not installed as SaaS", () => {
+    const input = itInput();
+    input.details.installationType = "PLUGIN";
+    expect(toNewRequest(input).saasDetails).toBeNull();
+  });
+
+  it("sends a Non-IT request without IT details or answers, with its specifications", () => {
+    const draft = emptyDraft();
+    draft.category = "NON-IT";
+    draft.details.description = "  40 chairs ";
+    draft.details.specifications = "Spec sheet";
+    draft.details.plan = "ignored";
+    const body = toNewRequest(draftToInput(draft));
+    expect(body).toMatchObject({ category: "NON_IT", requirementDetails: "40 chairs", additionalSpecifications: "Spec sheet", itDetails: null, saasDetails: null, answers: [], budgetApproverId: null });
+  });
+
+  it("reads back what it sent", () => {
+    const sent = toNewRequest(itInput());
+    const read = toRequest({
+      id: 1,
+      referenceNo: null,
+      title: "Figma",
+      status: "DRAFT",
+      version: 1,
+      submittedOn: null,
+      updatedOn: "2026-11-01T00:00:00Z",
+      createdOn: "2026-11-01T00:00:00Z",
+      requesterName: "Me",
+      requesterEmail: "me@example.com",
+      vendorName: null,
+      budgetApproverName: null,
+      teamLeadEmail: null,
+      decisions: [],
+      ...sent,
+    });
+    expect(draftToInput({ ...draftFromRequest(read), declarationAccepted: true })).toEqual(itInput());
   });
 });
