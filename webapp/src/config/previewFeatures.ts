@@ -104,7 +104,14 @@ export type PreviewFeature =
    * backend calls. Held back until the store's first release is ready for
    * the pilot.
    */
-  | "swagStore";
+  | "swagStore"
+  /**
+   * Finance → Procurement, where an employee raises a purchase request and
+   * follows it: its rail group, every route under `/finance/procurement`, and
+   * its backend calls. Held back while the app is being built: submitting a
+   * request is not connected to the backend yet.
+   */
+  | "procurement";
 
 /**
  * Whether a preview feature should be shown.

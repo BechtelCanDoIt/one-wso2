@@ -92,6 +92,7 @@ naming the key and makes no requests.
 | Swag Store | `ONE_WSO2_SWAG_STORE_BACKEND_URL` (also needs `swagStore` in `ONE_WSO2_PREVIEW_FEATURES`) |
 | Marketing Ops | `ONE_WSO2_MARKETINGOPS_BACKEND_URL`, `ONE_WSO2_MARKETINGOPS_ISAC_URL`, `ONE_WSO2_PARDOT_BASE_URL`, `ONE_WSO2_SALESFORCE_BASE_URL` |
 | Due Diligence | `ONE_WSO2_DUE_DILIGENCE_BACKEND_URL` |
+| Procurement | `ONE_WSO2_PROCUREMENT_BACKEND_URL` (also needs `procurement` in `ONE_WSO2_PREVIEW_FEATURES`) |
 | Finance MIS | `ONE_WSO2_MIS_ARR_BACKEND_URL` |
 | Infra Portal | `ONE_WSO2_INFRA_BACKEND_URL` |
 | Sales Library (Smart Search over Pitstop content) | `ONE_WSO2_SMART_SEARCH_BACKEND_URL` |
