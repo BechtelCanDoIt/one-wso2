@@ -64,10 +64,21 @@ export default function DecisionPanel({ requestId }: { requestId: string }) {
         fullWidth
         label="Comment (required when rejecting)"
         value={comment}
-        onChange={(e) => setComment(e.target.value)}
+        onChange={(e) => {
+          setComment(e.target.value);
+          setProblem(null);
+          decide.reset();
+        }}
         slotProps={{ htmlInput: { maxLength: Math.min(COMMENT_MAX, LONG_MAX) } }}
       />
-      <FormControlLabel control={<Checkbox checked={reviewed} onChange={(e) => setReviewed(e.target.checked)} />} label={DECLARATION} />
+      <FormControlLabel control={<Checkbox
+            checked={reviewed}
+            onChange={(e) => {
+              setReviewed(e.target.checked);
+              setProblem(null);
+              decide.reset();
+            }}
+          />} label={DECLARATION} />
       {(problem || decide.isError) && <Alert severity="error">{problem ?? describeError(decide.error)}</Alert>}
       <Stack direction="row" spacing={2} justifyContent="flex-end">
         <Button color="error" variant="outlined" disabled={decide.isPending} onClick={reject}>

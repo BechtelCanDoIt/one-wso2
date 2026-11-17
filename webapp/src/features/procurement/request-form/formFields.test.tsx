@@ -49,6 +49,13 @@ describe("form fields", () => {
     expect(screen.getByText("Jane Silva")).toBeInTheDocument();
   });
 
+  it("ChipsField tells assistive technology when it is required, and says nothing when it is not", () => {
+    const { rerender } = render(<ChipsField required label="User names" values={[]} onChange={() => {}} />);
+    expect(screen.getByLabelText(/User names/)).toHaveAttribute("aria-required", "true");
+    rerender(<ChipsField label="User names" values={[]} onChange={() => {}} />);
+    expect(screen.getByLabelText("User names")).not.toHaveAttribute("aria-required");
+  });
+
   it("SelectField shows its placeholder until something is chosen", async () => {
     const user = userEvent.setup();
     function Host() {

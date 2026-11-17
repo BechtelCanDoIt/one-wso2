@@ -192,8 +192,17 @@ export function budgetForDisplay(budget: BudgetDetails, lookups: ProcurementLook
   };
 }
 
-/** A link the backend accepts: http or https, with no spaces. */
-const validUrl = (value: string): boolean => /^https?:\/\/\S+$/.test(value.trim());
+/** A link the backend accepts: an http or https address with a host and no spaces. */
+const validUrl = (value: string): boolean => {
+  const text = value.trim();
+  if (/\s/.test(text)) return false;
+  try {
+    const url = new URL(text);
+    return (url.protocol === "http:" || url.protocol === "https:") && url.hostname !== "";
+  } catch {
+    return false;
+  }
+};
 
 const IT_LINKS = [
   ["softwareUrl", "Software link"],

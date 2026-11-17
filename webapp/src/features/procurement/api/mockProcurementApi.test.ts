@@ -42,9 +42,10 @@ describe("the Procurement sample data", () => {
 
   it("raises a request as the signed-in user, awaiting approval, with a backend-style reference", async () => {
     const api = createMockProcurementApi(user);
-    const created = await api.submitRequest(input());
+    const submitted = await api.submitRequest(input());
+    expect(submitted.reference).toMatch(/^PR-\d{4}-\d{5}$/);
+    const created = await api.getRequest(submitted.id);
     expect(created).toMatchObject({ status: "submitted", requester: user });
-    expect(created.reference).toMatch(/^PR-\d{4}-\d{5}$/);
     expect(created.teamLeadDecision.decision).toBe("pending");
     expect((await api.listMyRequests()).map((r) => r.id)).toContain(created.id);
   });
@@ -74,7 +75,8 @@ describe("the Procurement sample data", () => {
   it("edits and resubmits only a rejected request", async () => {
     const api = createMockProcurementApi(user);
     await expect(api.resubmitRequest("seed-1", input())).rejects.toThrow(/Only a rejected request/);
-    const resubmitted = await api.resubmitRequest("seed-2", input());
+    await api.resubmitRequest("seed-2", input());
+    const resubmitted = await api.getRequest("seed-2");
     expect(resubmitted.status).toBe("submitted");
     expect(resubmitted.teamLeadDecision.decision).toBe("pending");
   });
@@ -87,8 +89,10 @@ describe("the Procurement sample data", () => {
 
   it("cancels a submitted or rejected request only", async () => {
     const api = createMockProcurementApi(user);
-    expect((await api.cancelRequest("seed-1")).status).toBe("cancelled");
-    expect((await api.cancelRequest("seed-2")).status).toBe("cancelled");
+    await api.cancelRequest("seed-1");
+    await api.cancelRequest("seed-2");
+    expect((await api.getRequest("seed-1")).status).toBe("cancelled");
+    expect((await api.getRequest("seed-2")).status).toBe("cancelled");
     await expect(api.cancelRequest("seed-3")).rejects.toThrow(/Only a submitted or rejected/);
   });
 
@@ -129,8 +133,8 @@ describe("the Procurement sample data", () => {
     expect((await api.listApprovals("approved")).map((a) => a.id)).toEqual(["approval-2"]);
     await expect(api.decideRequest("approval-1", { decision: "rejected", comment: " ", disclaimerAccepted: false })).rejects.toThrow(/why/);
     await expect(api.decideRequest("approval-1", { decision: "approved", comment: "", disclaimerAccepted: false })).rejects.toThrow(/reviewed/);
-    const decided = await api.decideRequest("approval-1", { decision: "approved", comment: "", disclaimerAccepted: true });
-    expect(decided).toMatchObject({ status: "approved", teamLeadDecision: { decision: "approved", decidedBy: user.email } });
+    await api.decideRequest("approval-1", { decision: "approved", comment: "", disclaimerAccepted: true });
+    expect(await api.getRequest("approval-1")).toMatchObject({ status: "approved", teamLeadDecision: { decision: "approved", decidedBy: user.email } });
     expect(await api.listApprovals()).toEqual([]);
     await expect(api.decideRequest("approval-1", { decision: "approved", comment: "", disclaimerAccepted: true })).rejects.toThrow(/not waiting/);
   });
@@ -139,12 +143,20 @@ describe("the Procurement sample data", () => {
     const api = createMockProcurementApi(user);
     expect((await api.listTeamQueue()).map((r) => r.id).sort()).toEqual(["approval-2", "seed-3"]);
     await expect(api.assignRequest("seed-3")).rejects.toThrow(/your own request/);
-    const assigned = await api.assignRequest("approval-2");
-    expect(assigned).toMatchObject({ status: "assigned", assignee: user.email });
+    await api.assignRequest("approval-2");
+    expect(await api.getRequest("approval-2")).toMatchObject({ status: "assigned", assignee: user.email });
     expect((await api.listTeamQueue({ status: "assigned" })).map((r) => r.id)).toEqual(["approval-2"]);
-    expect((await api.setPriority("approval-2", "P1")).priority).toBe("P1");
+    await api.setPriority("approval-2", "P1");
     expect((await api.listTeamQueue({ priority: "P1" })).map((r) => r.id)).toEqual(["approval-2"]);
-    expect(await api.unassignRequest("approval-2")).toMatchObject({ status: "approved", assignee: "" });
+    await api.unassignRequest("approval-2");
+    expect(await api.getRequest("approval-2")).toMatchObject({ status: "approved", assignee: "" });
     await expect(api.unassignRequest("approval-2")).rejects.toThrow(/Only an assigned/);
+  });
+
+  it("lists the queue with the most urgent request first, and those without a priority last", async () => {
+    const api = createMockProcurementApi(user);
+    await api.setPriority("seed-3", "P2");
+    await api.setPriority("approval-2", "P1");
+    expect((await api.listTeamQueue()).map((r) => r.id)).toEqual(["approval-2", "seed-3"]);
   });
 });

@@ -21,6 +21,7 @@ import { useAssignRequest, useSetPriority, useUnassignRequest } from "../../api/
 import type { Priority, PurchaseRequest } from "../../types";
 
 const PRIORITIES: Priority[] = ["P1", "P2", "P3"];
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Where the Procurement team assigns an approved request and sets how urgent it is. */
 export default function HandlingPanel({ request, me }: { request: PurchaseRequest; me: string }) {
@@ -28,9 +29,21 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
   const unassign = useUnassignRequest(request.id);
   const setPriority = useSetPriority(request.id);
   const [email, setEmail] = useState("");
+  const [emailProblem, setEmailProblem] = useState<string | null>(null);
   const failure = [assign, unassign, setPriority].find((m) => m.isError);
-  const busy = assign.isPending || unassign.isPending || setPriority.isPending;
+  const pending = assign.isPending || unassign.isPending || setPriority.isPending;
   const mine = request.assignee.toLowerCase() === me.toLowerCase();
+  // The backend does not let the requester or an approver of a request handle it.
+  const own = [request.requester.email, request.teamLead?.email ?? "", ...request.additionalApprovers].some(
+    (person) => person.toLowerCase() === me.toLowerCase(),
+  );
+  const busy = pending || own;
+  const assignToEmail = () => {
+    const target = email.trim();
+    if (!EMAIL.test(target)) return setEmailProblem("Enter a valid email address.");
+    setEmailProblem(null);
+    assign.mutate(target, { onSuccess: () => setEmail("") });
+  };
 
   return (
     <Stack spacing={2} sx={{ p: 2.5, border: 1, borderColor: "divider", borderRadius: 1.5 }}>
@@ -54,7 +67,7 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
         ))}
       </TextField>
       <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap">
-        {!mine && (
+        {!mine && !own && (
           <Button variant="contained" disabled={busy} onClick={() => assign.mutate(undefined)}>
             {request.assignee ? "Take over" : "Assign to me"}
           </Button>
@@ -65,20 +78,22 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
           </Button>
         )}
       </Stack>
-      <Stack direction="row" spacing={2} alignItems="flex-end">
+      {own && <Alert severity="info">You raised or approve this request, so you can't handle it.</Alert>}
+      <Stack direction="row" spacing={2} alignItems="flex-start">
         <TextField
           size="small"
           type="email"
           label="Assign to someone else (email)"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          error={emailProblem !== null}
+          helperText={emailProblem}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            setEmailProblem(null);
+          }}
           sx={{ flex: 1, maxWidth: 360 }}
         />
-        <Button
-          variant="outlined"
-          disabled={busy || email.trim() === ""}
-          onClick={() => assign.mutate(email.trim(), { onSuccess: () => setEmail("") })}
-        >
+        <Button variant="outlined" disabled={busy || email.trim() === ""} onClick={assignToEmail} sx={{ mt: "1px" }}>
           Assign
         </Button>
       </Stack>

@@ -21,7 +21,7 @@ import DecisionPanel from "./DecisionPanel";
 
 const mutate = vi.hoisted(() => vi.fn());
 vi.mock("../api/useProcurement", () => ({
-  useDecideRequest: () => ({ mutate, isPending: false, isError: false, error: null }),
+  useDecideRequest: () => ({ mutate, reset: vi.fn(), isPending: false, isError: false, error: null }),
 }));
 
 beforeEach(() => mutate.mockClear());
@@ -59,5 +59,19 @@ describe("DecisionPanel", () => {
     await user.type(screen.getByLabelText(/Comment/), "Get a second quote.");
     await user.click(screen.getByRole("button", { name: "Reject" }));
     expect(mutate).toHaveBeenCalledWith({ decision: "rejected", comment: "Get a second quote.", disclaimerAccepted: false });
+  });
+
+  it("clears the message about a field once the person corrects that field", async () => {
+    const user = userEvent.setup();
+    render(<DecisionPanel requestId="1" />);
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Tick the declaration");
+    await user.click(screen.getByRole("checkbox"));
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Add why the request is rejected.");
+    await user.type(screen.getByLabelText(/Comment/), "No budget.");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

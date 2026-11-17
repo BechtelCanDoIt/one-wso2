@@ -30,7 +30,17 @@ vi.mock("../../api/useProcurement", () => {
   };
 });
 
-const request = (patch: Partial<PurchaseRequest>) => ({ id: "7", status: "approved", assignee: "", priority: null, ...patch }) as PurchaseRequest;
+const request = (patch: Partial<PurchaseRequest>) =>
+  ({
+    id: "7",
+    status: "approved",
+    assignee: "",
+    priority: null,
+    requester: { id: "alex@example.com", name: "Alex Morgan", email: "alex@example.com" },
+    teamLead: { id: "lead@example.com", name: "Lead", email: "lead@example.com" },
+    additionalApprovers: ["second@example.com"],
+    ...patch,
+  }) as PurchaseRequest;
 
 beforeEach(() => Object.values(mutations).forEach((m) => m.mockClear()));
 
@@ -67,4 +77,27 @@ describe("HandlingPanel", () => {
     await user.click(await screen.findByRole("option", { name: "P2" }));
     expect(mutations.priority).toHaveBeenCalledWith("P2");
   });
+
+  it("does not send an address that is not an email, and says so", async () => {
+    const user = userEvent.setup();
+    render(<HandlingPanel request={request({})} me="pat@example.com" />);
+    await user.type(screen.getByLabelText(/Assign to someone else/), "not-an-email");
+    await user.click(screen.getByRole("button", { name: "Assign" }));
+    expect(screen.getByText("Enter a valid email address.")).toBeInTheDocument();
+    expect(mutations.assign).not.toHaveBeenCalled();
+    await user.type(screen.getByLabelText(/Assign to someone else/), "x");
+    expect(screen.queryByText("Enter a valid email address.")).toBeNull();
+  });
+
+  it.each([["the requester", "alex@example.com"], ["the team lead", "lead@example.com"], ["an additional approver", "Second@example.com"]])(
+    "offers no handling to %s, and says why",
+    async (_who, me) => {
+      render(<HandlingPanel request={request({ status: "assigned", assignee: "sam@example.com" })} me={me} />);
+      expect(screen.getByText(/you can't handle it/)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Take over|Assign to me/ })).toBeNull();
+      expect(screen.getByRole("button", { name: "Unassign" })).toBeDisabled();
+      expect(screen.getByLabelText(/Assign to someone else/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Assign" })).toBeDisabled();
+    },
+  );
 });

@@ -141,6 +141,12 @@ export interface TeamLeadDecision {
 /** How urgent a request is for Procurement; P1 is the most urgent. */
 export type Priority = "P1" | "P2" | "P3";
 
+/** What raising a request gives back: where to find it, and its reference once it has one. */
+export interface SubmittedRequest {
+  id: string;
+  reference: string | null;
+}
+
 /** A row of the queue of requests that Procurement handles. */
 export interface QueueItem {
   id: string;

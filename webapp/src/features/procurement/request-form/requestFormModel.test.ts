@@ -135,6 +135,17 @@ describe("step 2 and 3", () => {
     ]);
   });
 
+  it("accept only an http or https link that has a host", () => {
+    const withLink = (softwareUrl: string): RequestDraft => ({ ...completeIt(), details: { ...completeIt().details, softwareUrl } });
+    const refused = ["Software link (starting with http:// or https://)"];
+    for (const good of ["https://figma.example.com", "http://localhost:3000/path?x=1#top", " https://a.example.com "]) {
+      expect(missingForStep(STEP_DETAILS, withLink(good), me), good).toEqual([]);
+    }
+    for (const bad of ["https://#fragment", "https://", "figma.example.com", "ftp://files.example.com", "https://a b.example.com", "javascript:alert(1)", ""]) {
+      expect(missingForStep(STEP_DETAILS, withLink(bad), me), bad).toEqual(refused);
+    }
+  });
+
   it("ask why a request is urgent only when it is", () => {
     const draft: RequestDraft = { ...completeIt(), details: { ...completeIt().details, urgent: "yes" } };
     expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["Why the request is urgent"]);

@@ -35,12 +35,14 @@ import type {
   QueueItem,
   RequestStatus,
   RequestSummary,
+  SubmittedRequest,
 } from "../types";
 import type {
   BackendBudgetApprover,
   BackendApprovalItem,
   BackendCreatedRequest,
   BackendProcurementItem,
+  BackendUpdatedRequest,
   BackendDirectoryUser,
   BackendEngagementOption,
   BackendReferenceItem,
@@ -80,22 +82,22 @@ export interface ProcurementApi {
   searchDirectory: (query: string, leadsOnly: boolean) => Promise<Person[]>;
   listMyRequests: () => Promise<RequestSummary[]>;
   getRequest: (requestId: string) => Promise<PurchaseRequest>;
-  submitRequest: (input: PurchaseRequestInput) => Promise<PurchaseRequest>;
+  submitRequest: (input: PurchaseRequestInput) => Promise<SubmittedRequest>;
   /** Edit a rejected request and send it back to the approvers. */
-  resubmitRequest: (requestId: string, input: PurchaseRequestInput) => Promise<PurchaseRequest>;
+  resubmitRequest: (requestId: string, input: PurchaseRequestInput) => Promise<void>;
   /** Requests that name the user as an approver; the ones waiting for a decision when no status is given. */
   listApprovals: (status?: RequestStatus) => Promise<ApprovalItem[]>;
   /** Approve or reject a request that waits for the user's decision. */
-  decideRequest: (requestId: string, decision: ApprovalDecisionInput) => Promise<PurchaseRequest>;
+  decideRequest: (requestId: string, decision: ApprovalDecisionInput) => Promise<void>;
   /** The approved and assigned requests Procurement handles, the most urgent first. */
   listTeamQueue: (filter?: { status?: RequestStatus; priority?: Priority }) => Promise<QueueItem[]>;
   /** Assign an approved request to the signed-in user, or to `email` when given. */
-  assignRequest: (requestId: string, email?: string) => Promise<PurchaseRequest>;
+  assignRequest: (requestId: string, email?: string) => Promise<void>;
   /** Take the assignee off an assigned request. */
-  unassignRequest: (requestId: string) => Promise<PurchaseRequest>;
-  setPriority: (requestId: string, priority: Priority) => Promise<PurchaseRequest>;
+  unassignRequest: (requestId: string) => Promise<void>;
+  setPriority: (requestId: string, priority: Priority) => Promise<void>;
   /** Withdraw a submitted or rejected request. */
-  cancelRequest: (requestId: string) => Promise<PurchaseRequest>;
+  cancelRequest: (requestId: string) => Promise<void>;
 }
 
 /** Whether a dev build should serve sample data in place of the missing backend. */
@@ -114,10 +116,17 @@ const REFERENCE_TYPES = ["BUDGET_CATEGORY", "BUSINESS_UNIT", "PRODUCT", "REGION"
 /** My Requests shows one page of this many, the most the backend allows. */
 const REQUEST_PAGE_SIZE = 100;
 
+const ALREADY_SUBMITTED = "This request was already submitted. Check My Requests before sending it again.";
+
 /**
  * The backend saves a request as a draft and submits it in a second call. A submit that
  * fails after the draft was saved leaves the draft behind, so the next attempt of the same
- * user saves over it instead of leaving another draft in My Requests.
+ * user saves over it instead of leaving another draft in My Requests. A draft the backend
+ * no longer accepts changes to was submitted by an earlier attempt, so it is never saved again.
+ *
+ * Writes answer from the backend's own reply and do not read the request back: a read that
+ * fails after a write has gone through must not look like the write failing. The screens
+ * refresh what they show through the queries the hooks invalidate.
  */
 function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: Person): ProcurementApi {
   const get = async <T>(url: string): Promise<T> => authedGet<T>(url, await getAccessToken());
@@ -130,9 +139,9 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
         await authedPut(urls.request(leftoverDraftId), await getAccessToken(), body);
         return leftoverDraftId;
       } catch (error) {
-        const gone = error instanceof HttpError && (error.status === 404 || error.status === 409);
-        if (!gone) throw error;
+        if (!(error instanceof HttpError) || (error.status !== 404 && error.status !== 409)) throw error;
         leftoverDraftId = null;
+        if (error.status === 409) throw new Error(ALREADY_SUBMITTED);
       }
     }
     const created = await authedPost<BackendCreatedRequest>(urls.createRequest, await getAccessToken(), body);
@@ -141,9 +150,11 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
     return leftoverDraftId;
   };
 
-  const submitSaved = async (requestId: string, declarationAccepted: boolean): Promise<PurchaseRequest> => {
-    await authedPost(urls.submitRequest(requestId), await getAccessToken(), { commitmentConfirmed: declarationAccepted });
-    return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
+  const submitSaved = async (requestId: string, declarationAccepted: boolean): Promise<SubmittedRequest> => {
+    const submitted = await authedPost<BackendUpdatedRequest>(urls.submitRequest(requestId), await getAccessToken(), {
+      commitmentConfirmed: declarationAccepted,
+    });
+    return { id: requestId, reference: submitted?.referenceNo ?? null };
   };
 
   return {
@@ -179,31 +190,26 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
     },
     resubmitRequest: async (requestId, input) => {
       await authedPut(urls.request(requestId), await getAccessToken(), toNewRequest(input));
-      return submitSaved(requestId, input.declarationAccepted);
+      await submitSaved(requestId, input.declarationAccepted);
     },
     listApprovals: async (status) =>
       (await get<BackendApprovalItem[]>(urls.approvals(REQUEST_PAGE_SIZE, status && toBackendStatus(status)))).map(toApprovalItem),
     decideRequest: async (requestId, decision) => {
       await authedPost(urls.decideRequest(requestId), await getAccessToken(), toNewDecision(decision));
-      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
     },
     listTeamQueue: async ({ status, priority } = {}) =>
       (await get<BackendProcurementItem[]>(urls.teamQueue(REQUEST_PAGE_SIZE, status && toBackendStatus(status), priority))).map(toQueueItem),
     assignRequest: async (requestId, email) => {
       await authedPost(urls.assignRequest(requestId, email), await getAccessToken(), {});
-      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
     },
     unassignRequest: async (requestId) => {
       await authedPost(urls.unassignRequest(requestId), await getAccessToken(), {});
-      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
     },
     setPriority: async (requestId, priority) => {
       await authedPut(urls.requestPriority(requestId), await getAccessToken(), { priority });
-      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
     },
     cancelRequest: async (requestId) => {
       await authedPost(urls.cancelRequest(requestId), await getAccessToken(), {});
-      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
     },
   };
 }

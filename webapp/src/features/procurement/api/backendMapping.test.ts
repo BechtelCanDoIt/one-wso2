@@ -149,7 +149,7 @@ describe("backend mapping", () => {
       detail({
         saasDetails: {
           adminCount: 2,
-          adminDetails: "IT team, Security",
+          adminDetails: "IT team\nSecurity",
           userCount: 40,
           userDetails: "Design team",
           handlesSensitiveData: false,
@@ -295,7 +295,7 @@ describe("the request the backend is sent", () => {
       itDetails: { softwareName: "Figma", installationType: "SAAS", isUrgent: false, urgencyJustification: null, authorizedListChecked: true },
       saasDetails: {
         userCount: 40,
-        userDetails: "Design team, Product",
+        userDetails: "Design team\nProduct",
         adminCount: 2,
         handlesEmployeePii: true,
         employeePiiDetails: "Names",
@@ -310,6 +310,35 @@ describe("the request the backend is sent", () => {
       { questionKey: "plan", answer: "Enterprise" },
       { questionKey: "usagePeriod", answer: "1 year" },
     ]);
+  });
+
+  it("keeps a name that holds a comma as one name when the request is read back", () => {
+    const input = itInput();
+    input.details.userNames = ["Doe, Jane", "Design team"];
+    input.details.adminNames = ["Smith, Sam"];
+    const sent = toNewRequest(input);
+    const read = toRequest({
+      id: 1,
+      referenceNo: null,
+      title: "Figma",
+      status: "DRAFT",
+      version: 1,
+      submittedOn: null,
+      updatedOn: "2026-11-01T00:00:00Z",
+      createdOn: "2026-11-01T00:00:00Z",
+      requesterName: "Me",
+      requesterEmail: "me@example.com",
+      vendorName: null,
+      budgetApproverName: null,
+      teamLeadEmail: null,
+      priority: null,
+      assigneeEmail: null,
+      collaborators: [],
+      decisions: [],
+      ...sent,
+    });
+    expect(read.details.userNames).toEqual(["Doe, Jane", "Design team"]);
+    expect(read.details.adminNames).toEqual(["Smith, Sam"]);
   });
 
   it("sends no SaaS details when the software is not installed as SaaS", () => {

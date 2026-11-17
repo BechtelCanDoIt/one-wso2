@@ -156,8 +156,8 @@ const ANSWER_USAGE_PERIOD = "usagePeriod";
 
 const answerOf = (answers: BackendAnswer[], key: string): string => answers.find((a) => a.questionKey === key)?.answer ?? "";
 
-/** A list of names or integrations the backend holds as one text. */
-const NAME_SEPARATOR = ", ";
+/** A list of names or integrations the backend holds as one text, one per line, so a name can hold a comma. */
+const NAME_SEPARATOR = "\n";
 const toNames = (text: string): string[] => text.split(NAME_SEPARATOR).map((n) => n.trim()).filter(Boolean);
 const integrationsToText = (rows: { system: string; data: string }[]): string =>
   rows.map((r) => (r.data ? `${r.system}: ${r.data}` : r.system)).join("\n");

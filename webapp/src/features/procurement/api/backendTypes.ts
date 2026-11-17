@@ -190,6 +190,13 @@ export interface BackendNewRequest {
   answers: BackendAnswer[];
 }
 
+/** What the backend answers to a submit: the reference is given with the first submission. */
+export interface BackendUpdatedRequest {
+  id: number;
+  status: BackendStatus;
+  referenceNo?: string | null;
+}
+
 export interface BackendCreatedRequest {
   id: number;
   status: BackendStatus;

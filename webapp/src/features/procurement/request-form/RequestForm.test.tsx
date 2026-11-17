@@ -177,6 +177,15 @@ describe("RequestForm, the steps after it", () => {
     expect(screen.getByText(/Data & security assessment/)).toBeInTheDocument();
   });
 
+  it("marks both IT confirmations as required", async () => {
+    const { user } = renderForm();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: /^IT Related Procurement/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByRole("checkbox", { name: /authorised software list/ })).toBeRequired();
+    expect(screen.getByRole("checkbox", { name: /vendor and the software are legitimate/ })).toBeRequired();
+  });
+
   it("offers Marketing & Events as coming soon, not as a choice", async () => {
     const { user } = renderForm();
     await user.click(screen.getByRole("button", { name: "Continue" }));

@@ -386,7 +386,7 @@ export function ChipsField({
           <TextField
             {...params}
             placeholder={values.length ? "" : placeholder}
-            slotProps={{ htmlInput: { ...params.inputProps, maxLength: SHORT_MAX } }}
+            slotProps={{ htmlInput: { ...params.inputProps, maxLength: SHORT_MAX, "aria-required": required || undefined } }}
           />
         )}
       />

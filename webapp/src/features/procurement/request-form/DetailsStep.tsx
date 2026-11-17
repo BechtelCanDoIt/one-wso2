@@ -232,10 +232,12 @@ function ItDetails({ details, onChange }: DetailsProps) {
       <SectionHeading>Confirmations</SectionHeading>
       <Stack>
         <FormControlLabel
+          required
           control={<Checkbox checked={d.authorizedListChecked} onChange={(e) => onChange({ authorizedListChecked: e.target.checked })} />}
           label="I have checked that this software is not already on the authorised software list."
         />
         <FormControlLabel
+          required
           control={<Checkbox checked={d.legitimacyConfirmed} onChange={(e) => onChange({ legitimacyConfirmed: e.target.checked })} />}
           label="I confirm that the vendor and the software are legitimate."
         />

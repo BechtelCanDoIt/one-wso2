@@ -14,8 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it } from "vitest";
-import { hasTeamRole, procurementTeamVisibility } from "./teamAccess";
+import { describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { hasTeamRole, procurementTeamVisibility, useProcurementTeamRailGate } from "./teamAccess";
+
+const me = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+vi.mock("../api/useProcurement", () => ({ useProcurementMe: () => me.current }));
+vi.mock("../api/procurementApi", () => ({ isProcurementAvailable: () => true }));
 
 describe("the Procurement team's access", () => {
   it("is for Procurement users and admins only", () => {
@@ -30,5 +35,15 @@ describe("the Procurement team's access", () => {
     expect(procurementTeamVisibility({ canSee: true, isResolving: false, error: undefined, retry }).canSee("any")).toBe(true);
     expect(procurementTeamVisibility({ canSee: false, isResolving: true, error: undefined, retry }).resolving).toBe(true);
     expect(procurementTeamVisibility({ canSee: false, isResolving: false, error: "Could not read your roles.", retry }).error).toBe("Could not read your roles.");
+  });
+
+  it("shows the row for a read that worked, and hides it while the read is out or after a refresh failed", () => {
+    const gate = () => renderHook(() => useProcurementTeamRailGate(true)).result.current;
+    me.current = { data: { roles: ["procurement_user"] }, isPending: false, isError: false, refetch: vi.fn() };
+    expect(gate().canSee).toBe(true);
+    me.current = { data: { roles: ["procurement_user"] }, isPending: false, isError: true, error: new Error("down"), refetch: vi.fn() };
+    expect(gate()).toMatchObject({ canSee: false, error: "down" });
+    me.current = { data: undefined, isPending: true, isError: false, refetch: vi.fn() };
+    expect(gate()).toMatchObject({ canSee: false, isResolving: true });
   });
 });

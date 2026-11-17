@@ -44,7 +44,7 @@ export function useProcurementTeamRailGate(enabled: boolean): ProcurementTeamRai
   const active = enabled && isProcurementAvailable();
   const me = useProcurementMe(active);
   return {
-    canSee: active && Boolean(me.data) && hasTeamRole(me.data?.roles ?? []),
+    canSee: active && !me.isError && Boolean(me.data) && hasTeamRole(me.data?.roles ?? []),
     isResolving: active && me.isPending,
     error: active && me.isError ? describeError(me.error) : undefined,
     retry: () => void me.refetch(),

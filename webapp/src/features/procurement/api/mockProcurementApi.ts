@@ -25,6 +25,7 @@ import type {
   BudgetApproverOption,
   Choice,
   Person,
+  Priority,
   ProcurementLookups,
   ProcurementMe,
   PurchaseRequest,
@@ -309,6 +310,9 @@ function approvalSeeds(approver: Person): PurchaseRequest[] {
   ];
 }
 
+/** The most urgent first; a request with no priority yet comes last. */
+const urgencyRank = (priority: Priority | null): number => (priority ? ["P1", "P2", "P3"].indexOf(priority) : 3);
+
 function titleFor(input: PurchaseRequestInput): string {
   const text = input.category === "IT" ? input.details.product : input.details.description;
   return text.trim().split("\n")[0].slice(0, 80) || "Untitled request";
@@ -383,7 +387,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         updatedAt: now,
       };
       requests.push(created);
-      return created;
+      return { id: created.id, reference: created.reference };
     },
     resubmitRequest: async (requestId, input) => {
       const existing = find(requestId);
@@ -404,7 +408,6 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         notes: input.notes,
         updatedAt: new Date().toISOString(),
       });
-      return existing;
     },
     listApprovals: async (status = "submitted") =>
       toApprove
@@ -429,11 +432,11 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         teamLeadDecision: { decision, notes: comment.trim(), decidedAt: new Date().toISOString(), decidedBy: user.email, isOverride: false },
         updatedAt: new Date().toISOString(),
       });
-      return found;
     },
     listTeamQueue: async ({ status, priority } = {}) =>
       [...requests, ...toApprove]
         .filter((r) => (r.status === "approved" || r.status === "assigned") && (!status || r.status === status) && (!priority || r.priority === priority))
+        .sort((a, b) => urgencyRank(a.priority) - urgencyRank(b.priority))
         .map(({ id, reference, title, category, status: stage, priority: urgency, assignee, requester, updatedAt }) => ({
           id,
           reference,
@@ -450,19 +453,16 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
       if (found.status !== "approved" && found.status !== "assigned") throw new Error("Only an approved request can be assigned.");
       if (found.requester.email.toLowerCase() === user.email.toLowerCase()) throw new Error("You cannot handle your own request.");
       Object.assign(found, { status: "assigned", assignee: email ?? user.email, updatedAt: new Date().toISOString() });
-      return found;
     },
     unassignRequest: async (requestId) => {
       const found = find(requestId);
       if (found.status !== "assigned") throw new Error("Only an assigned request can be unassigned.");
       Object.assign(found, { status: "approved", assignee: "", updatedAt: new Date().toISOString() });
-      return found;
     },
     setPriority: async (requestId, priority) => {
       const found = find(requestId);
       if (found.status !== "approved" && found.status !== "assigned") throw new Error("Only an approved or assigned request has a priority.");
       Object.assign(found, { priority, updatedAt: new Date().toISOString() });
-      return found;
     },
     cancelRequest: async (requestId) => {
       const existing = find(requestId);
@@ -470,7 +470,6 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         throw new Error("Only a submitted or rejected request can be cancelled.");
       }
       Object.assign(existing, { status: "cancelled", updatedAt: new Date().toISOString() });
-      return existing;
     },
   };
 }

@@ -177,13 +177,28 @@ describe("the Procurement backend adapter", () => {
     await expect(api().listMyRequests()).rejects.toThrow("boom");
   });
 
-  it("saves the request as a draft, then submits it with the declaration, and returns it as read back", async () => {
-    authedPost.mockImplementation(async (url: string) => (url === "/requests" ? { id: 7, status: "DRAFT" } : null));
+  it("saves the request as a draft, then submits it with the declaration, and answers with the reference the backend gave", async () => {
+    authedPost.mockImplementation(async (url: string) =>
+      url === "/requests" ? { id: 7, status: "DRAFT" } : { id: 7, status: "PENDING_APPROVAL", referenceNo: "PR-2026-00007" },
+    );
     const submitted = await api().submitRequest(nonItInput());
     expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests", "/requests/7/submit"]);
     expect(authedPost.mock.calls[0][2]).toMatchObject({ category: "NON_IT", requirementDetails: "40 chairs", businessJustification: "Needed", itDetails: null });
     expect(authedPost.mock.calls[1][2]).toEqual({ commitmentConfirmed: true });
-    expect(submitted).toMatchObject({ id: "7", reference: "PR-2026-00007", status: "submitted" });
+    expect(submitted).toEqual({ id: "7", reference: "PR-2026-00007" });
+    expect(asked()).toEqual([]);
+  });
+
+  it("does not leave a submitted request to be saved again when reading it back would fail", async () => {
+    authedPost.mockImplementation(async (url: string) =>
+      url === "/requests" ? { id: 7, status: "DRAFT" } : { id: 7, status: "PENDING_APPROVAL", referenceNo: "PR-2026-00007" },
+    );
+    authedGet.mockRejectedValue(new Error("read failed"));
+    const client = api();
+    await expect(client.submitRequest(nonItInput())).resolves.toEqual({ id: "7", reference: "PR-2026-00007" });
+    await client.submitRequest(nonItInput());
+    expect(authedPost.mock.calls.filter((c) => c[0] === "/requests")).toHaveLength(2);
+    expect(authedPut).not.toHaveBeenCalled();
   });
 
   it("saves over the draft a failed submit left behind, instead of leaving another one", async () => {
@@ -199,17 +214,29 @@ describe("the Procurement backend adapter", () => {
     expect(authedPut.mock.calls.map((c) => c[0])).toEqual(["/requests/7"]);
   });
 
-  it("starts a new draft when the one left behind is gone", async () => {
+  it("starts a new draft when the one left behind no longer exists", async () => {
     authedPost.mockImplementation(async (url: string) => {
       if (url === "/requests") return { id: 7, status: "DRAFT" };
       if (authedPost.mock.calls.filter((c) => c[0] === "/requests/7/submit").length === 1) throw new Error("boom");
       return null;
     });
-    authedPut.mockRejectedValue(new HttpError("/requests/7", 409, ""));
+    authedPut.mockRejectedValue(new HttpError("/requests/7", 404, ""));
     const client = api();
     await expect(client.submitRequest(nonItInput())).rejects.toThrow("boom");
     await client.submitRequest(nonItInput());
     expect(authedPost.mock.calls.filter((c) => c[0] === "/requests")).toHaveLength(2);
+  });
+
+  it("does not create another request when the one left behind was already submitted", async () => {
+    authedPost.mockImplementation(async (url: string) => {
+      if (url === "/requests") return { id: 7, status: "DRAFT" };
+      throw new Error("boom");
+    });
+    authedPut.mockRejectedValue(new HttpError("/requests/7", 409, ""));
+    const client = api();
+    await expect(client.submitRequest(nonItInput())).rejects.toThrow("boom");
+    await expect(client.submitRequest(nonItInput())).rejects.toThrow("already submitted");
+    expect(authedPost.mock.calls.filter((c) => c[0] === "/requests")).toHaveLength(1);
   });
 
   it("replaces a rejected request, then submits it again", async () => {
@@ -219,7 +246,7 @@ describe("the Procurement backend adapter", () => {
     expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/submit"]);
   });
 
-  it("cancels a request and returns it as read back", async () => {
+  it("cancels a request", async () => {
     authedPost.mockResolvedValue(null);
     await api().cancelRequest("7");
     expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/cancel"]);
@@ -231,11 +258,10 @@ describe("the Procurement backend adapter", () => {
     expect(asked()).toEqual(["/approvals?limit=100", "/approvals?limit=100&status=REJECTED"]);
   });
 
-  it("sends a decision, then reads the request back", async () => {
+  it("sends a decision", async () => {
     authedPost.mockResolvedValue(null);
     await api().decideRequest("7", { decision: "approved", comment: "", disclaimerAccepted: true });
     expect(authedPost).toHaveBeenCalledWith("/requests/7/decision", "token", { decision: "APPROVED", comment: null, disclaimerAccepted: true });
-    expect(asked()).toEqual(["/requests/7"]);
   });
 
   it("lists the Procurement queue, narrowed by stage and priority when asked", async () => {
@@ -244,7 +270,7 @@ describe("the Procurement backend adapter", () => {
     expect(asked()).toEqual(["/procurement/requests?limit=100", "/procurement/requests?limit=100&status=ASSIGNED&priority=P1"]);
   });
 
-  it("assigns to the user or to another person, unassigns and sets the priority, reading the request back each time", async () => {
+  it("assigns to the user or to another person, unassigns and sets the priority", async () => {
     authedPost.mockResolvedValue(null);
     authedPut.mockResolvedValue(null);
     await api().assignRequest("7");
@@ -253,6 +279,5 @@ describe("the Procurement backend adapter", () => {
     await api().setPriority("7", "P2");
     expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/assign", "/requests/7/assign/pat%40example.com", "/requests/7/unassign"]);
     expect(authedPut).toHaveBeenCalledWith("/requests/7/priority", "token", { priority: "P2" });
-    expect(asked().filter((u) => u === "/requests/7")).toHaveLength(4);
   });
 });
