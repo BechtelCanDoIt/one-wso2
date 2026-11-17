@@ -1470,6 +1470,16 @@ export const emailSignatureLogoUrl: string =
 // Empty means the built-in layout is used.
 export const emailSignatureTemplateUrl: string = window.config?.ONE_WSO2_EMAIL_SIGNATURE_TEMPLATE_URL?.trim() ?? "";
 
+// For one person whose signature address isn't their work email's username:
+// their work email, and the username their signature's email should use
+// (e.g. jdoe2@wso2.com and jdoe). Read from .env at build time, unlike the keys
+// above, so the values stay out of this public repo. Vite copies them into the
+// bundle, so they are still readable in the browser. Both empty means no override.
+export const emailSignatureOverrideWorkEmail: string =
+  import.meta.env.ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_WORK_EMAIL?.trim() ?? "";
+export const emailSignatureOverrideEmailUser: string =
+  import.meta.env.ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_EMAIL_USER?.trim() ?? "";
+
 // ISAC — a separate marketing application, not part of this webapp and not a
 // Marketing Ops operation. It appears at the top of the Marketing Ops rail as an
 // outbound link because that is where the people who use it look for it, not

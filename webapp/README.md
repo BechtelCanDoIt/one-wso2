@@ -35,6 +35,10 @@ registration, and the backend URL for each feature you want live (see [Configura
 `public/config.js` is git-ignored — never commit environment-specific values. At deploy time the
 host injects a fresh `config.js` per environment.
 
+A few values are read at build time from `.env` instead (also git-ignored); copy
+[`.env.example`](.env.example) to `.env` if you need them. They end up in the built JavaScript, so
+they are still readable in the browser.
+
 ### Scripts
 
 | Command | What it does |

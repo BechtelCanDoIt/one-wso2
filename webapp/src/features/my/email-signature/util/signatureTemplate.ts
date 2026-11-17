@@ -15,14 +15,15 @@
 // under the License.
 
 import DOMPurify from "dompurify";
-import { escapeHtml, isSafeUrl, type SignatureData } from "./signatureGenerator";
+import { EMAIL_USER_PATTERN, escapeHtml, isSafeUrl, type SignatureData } from "./signatureGenerator";
 
 // Renders an operator-supplied signature template (an HTML file loaded at
 // runtime) with the form's values.
 //
 // Placeholders: {{name}} {{designation}} {{workPhone}} {{personalPhone}}
 // {{medium}} {{linkedin}} {{customUrl}} {{customUrlLabel}} {{emailUser}} {{logoUrl}}.
-// {{emailUser}} is the work email before "@"; the template adds the domain.
+// {{emailUser}} is the work email before "@" (or the .env override, see
+// signatureEmailUser); the template adds the domain.
 // A section {{#key}}...{{/key}} is kept only when that value is non-empty, so a
 // row for a blank field disappears. Values are HTML-escaped, and a URL value
 // that isn't http(s) counts as empty.
@@ -47,7 +48,7 @@ function templateValues(data: SignatureData, logoUrl: string): Record<string, st
     linkedin: safe(data.linkedin),
     customUrl,
     customUrlLabel: customUrl ? data.customUrlLabel.trim() : "",
-    emailUser: /^[\w.+-]+$/.test(data.emailUser.trim()) ? data.emailUser.trim() : "",
+    emailUser: EMAIL_USER_PATTERN.test(data.emailUser.trim()) ? data.emailUser.trim() : "",
     logoUrl: safe(logoUrl),
   };
 }
