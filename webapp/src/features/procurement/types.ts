@@ -138,6 +138,42 @@ export interface TeamLeadDecision {
   isOverride: boolean;
 }
 
+/** How urgent a request is for Procurement; P1 is the most urgent. */
+export type Priority = "P1" | "P2" | "P3";
+
+/** A row of the queue of requests that Procurement handles. */
+export interface QueueItem {
+  id: string;
+  reference: string | null;
+  title: string;
+  category: RequestCategory;
+  status: RequestStatus;
+  priority: Priority | null;
+  /** Email of the person handling it, or "" when nobody is. */
+  assignee: string;
+  requester: Person;
+  updatedAt: string;
+}
+
+/** A row of Approvals: a request that names the signed-in user as an approver. */
+export interface ApprovalItem {
+  id: string;
+  reference: string | null;
+  title: string;
+  category: RequestCategory;
+  status: RequestStatus;
+  requester: Person;
+  submittedAt: string | null;
+  updatedAt: string;
+}
+
+/** What an approver decides; a rejection needs a comment and an approval needs the confirmation. */
+export interface ApprovalDecisionInput {
+  decision: "approved" | "rejected";
+  comment: string;
+  disclaimerAccepted: boolean;
+}
+
 /** A row of My Requests. */
 export interface RequestSummary {
   id: string;
@@ -162,6 +198,11 @@ export interface PurchaseRequest extends RequestSummary {
   budgetApproverId: string;
   budgetApproverName: string;
   notes: string;
+  priority: Priority | null;
+  /** Email of the Procurement person handling it, or "" when nobody is. */
+  assignee: string;
+  /** Emails of the people who may read it besides the requester and the approvers. */
+  collaborators: string[];
 }
 
 /** One entry of a pick list: what is stored, and what the person sees. */

@@ -122,4 +122,29 @@ describe("the Procurement sample data", () => {
     expect(await api.getBudgetApprovers({ businessUnit: "", region: "" })).toEqual([]);
     expect(await api.getBudgetApprovers({ businessUnit: "BU-4", region: "" })).toEqual([{ id: "10", name: "Budget Owner" }]);
   });
+
+  it("lists what waits for the user's decision, and lets them approve or reject it", async () => {
+    const api = createMockProcurementApi(user);
+    expect((await api.listApprovals()).map((a) => a.id)).toEqual(["approval-1"]);
+    expect((await api.listApprovals("approved")).map((a) => a.id)).toEqual(["approval-2"]);
+    await expect(api.decideRequest("approval-1", { decision: "rejected", comment: " ", disclaimerAccepted: false })).rejects.toThrow(/why/);
+    await expect(api.decideRequest("approval-1", { decision: "approved", comment: "", disclaimerAccepted: false })).rejects.toThrow(/reviewed/);
+    const decided = await api.decideRequest("approval-1", { decision: "approved", comment: "", disclaimerAccepted: true });
+    expect(decided).toMatchObject({ status: "approved", teamLeadDecision: { decision: "approved", decidedBy: user.email } });
+    expect(await api.listApprovals()).toEqual([]);
+    await expect(api.decideRequest("approval-1", { decision: "approved", comment: "", disclaimerAccepted: true })).rejects.toThrow(/not waiting/);
+  });
+
+  it("queues the approved requests, and lets the team assign, unassign and prioritise one that is not the user's own", async () => {
+    const api = createMockProcurementApi(user);
+    expect((await api.listTeamQueue()).map((r) => r.id).sort()).toEqual(["approval-2", "seed-3"]);
+    await expect(api.assignRequest("seed-3")).rejects.toThrow(/your own request/);
+    const assigned = await api.assignRequest("approval-2");
+    expect(assigned).toMatchObject({ status: "assigned", assignee: user.email });
+    expect((await api.listTeamQueue({ status: "assigned" })).map((r) => r.id)).toEqual(["approval-2"]);
+    expect((await api.setPriority("approval-2", "P1")).priority).toBe("P1");
+    expect((await api.listTeamQueue({ priority: "P1" })).map((r) => r.id)).toEqual(["approval-2"]);
+    expect(await api.unassignRequest("approval-2")).toMatchObject({ status: "approved", assignee: "" });
+    await expect(api.unassignRequest("approval-2")).rejects.toThrow(/Only an assigned/);
+  });
 });

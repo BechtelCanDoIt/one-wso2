@@ -46,6 +46,14 @@ const answers: Record<string, unknown> = {
   "/engagement-codes?businessUnit=Sales": [{ code: "ENG-1", name: "Platform" }],
   "/directory/employees?query=dre": [{ email: "drew.parker@example.com", name: "Drew Parker" }, { email: "intern@example.com", name: "An Intern" }],
   "/directory/employees?query=dre&leadsOnly=true": [{ email: "drew.parker@example.com", name: "Drew Parker" }],
+  "/approvals?limit=100": [
+    { id: 4, referenceNo: "PR-2026-00004", title: "Desks", category: "NON_IT", status: "PENDING_APPROVAL", version: 1, submittedOn: null, updatedOn: "2026-11-01T00:00:00Z", requesterName: "Alex Morgan", requesterEmail: "alex@example.com" },
+  ],
+  "/approvals?limit=100&status=REJECTED": [],
+  "/procurement/requests?limit=100": [
+    { id: 8, referenceNo: "PR-2026-00008", title: "Desks", category: "NON_IT", status: "APPROVED", version: 1, submittedOn: null, updatedOn: "2026-11-01T00:00:00Z", priority: null, assigneeEmail: null, requesterName: "Alex Morgan", requesterEmail: "alex@example.com" },
+  ],
+  "/procurement/requests?limit=100&status=ASSIGNED&priority=P1": [],
   "/requests?limit=100": [
     { id: 3, referenceNo: "PR-2026-00003", title: "ZoomInfo", category: "IT", status: "PENDING_APPROVAL", version: 1, submittedOn: "2026-11-01T00:00:00Z", updatedOn: "2026-11-01T00:00:00Z" },
   ],
@@ -215,5 +223,36 @@ describe("the Procurement backend adapter", () => {
     authedPost.mockResolvedValue(null);
     await api().cancelRequest("7");
     expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/cancel"]);
+  });
+
+  it("lists the requests waiting for the user's decision, or those of another status", async () => {
+    expect((await api().listApprovals()).map((a) => [a.id, a.requester.name])).toEqual([["4", "Alex Morgan"]]);
+    expect(await api().listApprovals("rejected")).toEqual([]);
+    expect(asked()).toEqual(["/approvals?limit=100", "/approvals?limit=100&status=REJECTED"]);
+  });
+
+  it("sends a decision, then reads the request back", async () => {
+    authedPost.mockResolvedValue(null);
+    await api().decideRequest("7", { decision: "approved", comment: "", disclaimerAccepted: true });
+    expect(authedPost).toHaveBeenCalledWith("/requests/7/decision", "token", { decision: "APPROVED", comment: null, disclaimerAccepted: true });
+    expect(asked()).toEqual(["/requests/7"]);
+  });
+
+  it("lists the Procurement queue, narrowed by stage and priority when asked", async () => {
+    expect((await api().listTeamQueue()).map((r) => [r.id, r.requester.name])).toEqual([["8", "Alex Morgan"]]);
+    expect(await api().listTeamQueue({ status: "assigned", priority: "P1" })).toEqual([]);
+    expect(asked()).toEqual(["/procurement/requests?limit=100", "/procurement/requests?limit=100&status=ASSIGNED&priority=P1"]);
+  });
+
+  it("assigns to the user or to another person, unassigns and sets the priority, reading the request back each time", async () => {
+    authedPost.mockResolvedValue(null);
+    authedPut.mockResolvedValue(null);
+    await api().assignRequest("7");
+    await api().assignRequest("7", "pat@example.com");
+    await api().unassignRequest("7");
+    await api().setPriority("7", "P2");
+    expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/assign", "/requests/7/assign/pat%40example.com", "/requests/7/unassign"]);
+    expect(authedPut).toHaveBeenCalledWith("/requests/7/priority", "token", { priority: "P2" });
+    expect(asked().filter((u) => u === "/requests/7")).toHaveLength(4);
   });
 });

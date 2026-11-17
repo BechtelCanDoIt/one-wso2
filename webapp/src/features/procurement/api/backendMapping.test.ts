@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
 import type { Person, PurchaseRequestInput } from "../types";
 import type { BackendRequestDetail } from "./backendTypes";
 import { draftFromRequest, draftToInput, emptyDraft } from "../request-form/requestFormModel";
-import { toBudgetApprovers, toChoices, toEngagementChoices, toMe, toNewRequest, toRequest, toSummary } from "./backendMapping";
+import { toBudgetApprovers, toChoices, toEngagementChoices, toMe, toApprovalItem, toBackendStatus, toNewDecision, toNewRequest, toQueueItem, toRequest, toSummary } from "./backendMapping";
 
 const signedIn: Person = { id: "me@example.com", name: "Me Myself", email: "me@example.com" };
 
@@ -67,6 +67,9 @@ const detail = (patch: Partial<BackendRequestDetail> = {}): BackendRequestDetail
     legitimacyConfirmed: true,
   },
   saasDetails: null,
+  priority: null,
+  assigneeEmail: null,
+  collaborators: [],
   decisions: [],
   ...patch,
 });
@@ -341,9 +344,62 @@ describe("the request the backend is sent", () => {
       vendorName: null,
       budgetApproverName: null,
       teamLeadEmail: null,
+      priority: null,
+      assigneeEmail: null,
+      collaborators: [],
       decisions: [],
       ...sent,
     });
     expect(draftToInput({ ...draftFromRequest(read), declarationAccepted: true })).toEqual(itInput());
+  });
+});
+
+describe("approvals", () => {
+  it("reads an approval row with who raised it", () => {
+    expect(
+      toApprovalItem({ id: 4, referenceNo: "PR-2026-00004", title: "T", category: "IT", status: "PENDING_APPROVAL", version: 1, submittedOn: null, updatedOn: "2026-11-01T00:00:00Z", requesterName: "Alex Morgan", requesterEmail: "alex@example.com" }),
+    ).toEqual({
+      id: "4",
+      reference: "PR-2026-00004",
+      title: "T",
+      category: "IT",
+      status: "submitted",
+      requester: { id: "alex@example.com", name: "Alex Morgan", email: "alex@example.com" },
+      submittedAt: null,
+      updatedAt: "2026-11-01T00:00:00Z",
+    });
+  });
+
+  it("names a status the way the backend does", () => {
+    expect(toBackendStatus("submitted")).toBe("PENDING_APPROVAL");
+    expect(toBackendStatus("rejected")).toBe("REJECTED");
+  });
+
+  it("sends the confirmation only with an approval, and the comment only when there is one", () => {
+    expect(toNewDecision({ decision: "approved", comment: " ", disclaimerAccepted: true })).toEqual({ decision: "APPROVED", comment: null, disclaimerAccepted: true });
+    expect(toNewDecision({ decision: "rejected", comment: "No", disclaimerAccepted: true })).toEqual({ decision: "REJECTED", comment: "No", disclaimerAccepted: false });
+  });
+});
+
+describe("the Procurement queue", () => {
+  it("reads a queue row with who raised it, its priority and who handles it", () => {
+    expect(
+      toQueueItem({ id: 8, referenceNo: "PR-2026-00008", title: "Desks", category: "NON_IT", status: "ASSIGNED", version: 1, submittedOn: null, updatedOn: "2026-11-01T00:00:00Z", priority: "P1", assigneeEmail: "pat@example.com", requesterName: "Alex Morgan", requesterEmail: "alex@example.com" }),
+    ).toEqual({
+      id: "8",
+      reference: "PR-2026-00008",
+      title: "Desks",
+      category: "NON-IT",
+      status: "assigned",
+      priority: "P1",
+      assignee: "pat@example.com",
+      requester: { id: "alex@example.com", name: "Alex Morgan", email: "alex@example.com" },
+      updatedAt: "2026-11-01T00:00:00Z",
+    });
+  });
+
+  it("reads nobody handling it, and the handling fields of a request", () => {
+    expect(toQueueItem({ id: 8, referenceNo: null, title: "T", category: "IT", status: "APPROVED", version: 1, submittedOn: null, updatedOn: "x", priority: null, assigneeEmail: null, requesterName: "A", requesterEmail: "a@example.com" })).toMatchObject({ priority: null, assignee: "" });
+    expect(toRequest(detail({ priority: "P2", assigneeEmail: "pat@example.com", collaborators: ["c@example.com"] }))).toMatchObject({ priority: "P2", assignee: "pat@example.com", collaborators: ["c@example.com"] });
   });
 });

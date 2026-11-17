@@ -21,7 +21,7 @@ import { defaultQueryRetry } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
 import { MIN_DIRECTORY_QUERY } from "../request-form/requestFormModel";
-import type { Person, PurchaseRequestInput } from "../types";
+import type { ApprovalDecisionInput, Person, Priority, PurchaseRequestInput, RequestStatus } from "../types";
 import { createProcurementApi, isProcurementAvailable } from "./procurementApi";
 
 const REFERENCE_STALE_TIME = 5 * 60 * 1000;
@@ -54,11 +54,12 @@ function useProcurementContext() {
 /** The cache is kept per user, so one account's answers are never served to another. `userId` is the signed-in email. */
 const root = (userId: string | undefined) => ["procurement", userId] as const;
 
-export function useProcurementMe() {
+/** @param active - Whether to ask at all; the rail asks only while the Procurement perspective is open */
+export function useProcurementMe(active = true) {
   const { api, userId, enabled } = useProcurementContext();
   return useQuery({
     queryKey: [...root(userId), "me"],
-    enabled,
+    enabled: enabled && active,
     staleTime: REFERENCE_STALE_TIME,
     retry: defaultQueryRetry,
     queryFn: () => api!.getMe(),
@@ -177,3 +178,60 @@ export function useCancelRequest(requestId: string) {
       ]),
   });
 }
+
+export function useApprovals(status?: RequestStatus) {
+  const { api, userId, enabled } = useProcurementContext();
+  return useQuery({
+    queryKey: [...root(userId), "approvals", status ?? "waiting"],
+    enabled,
+    retry: defaultQueryRetry,
+    queryFn: () => api!.listApprovals(status),
+  });
+}
+
+/** Approve or reject a request. Refreshes that request and the approvals. */
+export function useDecideRequest(requestId: string) {
+  const { api, userId } = useProcurementContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (decision: ApprovalDecisionInput) => api!.decideRequest(requestId, decision),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...root(userId), "request", requestId] }),
+        queryClient.invalidateQueries({ queryKey: [...root(userId), "approvals"] }),
+      ]),
+  });
+}
+
+export function useTeamQueue(filter: { status?: RequestStatus; priority?: Priority }) {
+  const { api, userId, enabled } = useProcurementContext();
+  return useQuery({
+    queryKey: [...root(userId), "team-queue", filter.status ?? "all", filter.priority ?? "all"],
+    enabled,
+    retry: defaultQueryRetry,
+    queryFn: () => api!.listTeamQueue(filter),
+  });
+}
+
+/** Run a handling action on a request, then refresh that request and the queue. */
+function useHandlingAction<V>(requestId: string, run: (api: NonNullable<ReturnType<typeof useProcurementContext>["api"]>, variables: V) => Promise<unknown>) {
+  const { api, userId } = useProcurementContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (variables: V) => run(api!, variables),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...root(userId), "request", requestId] }),
+        queryClient.invalidateQueries({ queryKey: [...root(userId), "team-queue"] }),
+      ]),
+  });
+}
+
+/** Assign to the signed-in user, or to the given email. */
+export const useAssignRequest = (requestId: string) =>
+  useHandlingAction<string | undefined>(requestId, (api, email) => api.assignRequest(requestId, email));
+
+export const useUnassignRequest = (requestId: string) => useHandlingAction<void>(requestId, (api) => api.unassignRequest(requestId));
+
+export const useSetPriority = (requestId: string) =>
+  useHandlingAction<Priority>(requestId, (api, priority) => api.setPriority(requestId, priority));

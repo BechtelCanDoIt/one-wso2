@@ -22,10 +22,13 @@ import type {
   BudgetApproverOption,
   BudgetDetails,
   Choice,
+  ApprovalDecisionInput,
+  ApprovalItem,
   Person,
   ProcurementMe,
   PurchaseRequest,
   PurchaseRequestInput,
+  QueueItem,
   RequestCategory,
   RequestStatus,
   RequestSummary,
@@ -35,6 +38,9 @@ import type {
 } from "../types";
 import type {
   BackendAnswer,
+  BackendApprovalItem,
+  BackendNewDecision,
+  BackendProcurementItem,
   BackendItDetails,
   BackendBudgetApprover,
   BackendCategory,
@@ -61,6 +67,10 @@ const STATUS: Record<BackendStatus, RequestStatus> = {
   ASSIGNED: "assigned",
   CANCELLED: "cancelled",
 };
+
+const BACKEND_STATUS = Object.fromEntries(Object.entries(STATUS).map(([backend, ui]) => [ui, backend])) as Record<RequestStatus, BackendStatus>;
+
+export const toBackendStatus = (status: RequestStatus): BackendStatus => BACKEND_STATUS[status];
 
 export const toPerson = ({ email, name }: BackendDirectoryUser): Person => ({ id: email, name, email });
 
@@ -99,6 +109,41 @@ export function toSummary(row: BackendRequestSummary): RequestSummary {
     status: STATUS[row.status],
     submittedAt: row.submittedOn,
     updatedAt: row.updatedOn,
+  };
+}
+
+export function toApprovalItem(row: BackendApprovalItem): ApprovalItem {
+  return {
+    id: String(row.id),
+    reference: row.referenceNo,
+    title: row.title,
+    category: CATEGORY[row.category],
+    status: STATUS[row.status],
+    requester: { id: row.requesterEmail, name: row.requesterName, email: row.requesterEmail },
+    submittedAt: row.submittedOn,
+    updatedAt: row.updatedOn,
+  };
+}
+
+export function toQueueItem(row: BackendProcurementItem): QueueItem {
+  return {
+    id: String(row.id),
+    reference: row.referenceNo,
+    title: row.title,
+    category: CATEGORY[row.category],
+    status: STATUS[row.status],
+    priority: row.priority,
+    assignee: row.assigneeEmail ?? "",
+    requester: { id: row.requesterEmail, name: row.requesterName, email: row.requesterEmail },
+    updatedAt: row.updatedOn,
+  };
+}
+
+export function toNewDecision(input: ApprovalDecisionInput): BackendNewDecision {
+  return {
+    decision: input.decision === "approved" ? "APPROVED" : "REJECTED",
+    comment: orNull(input.comment),
+    disclaimerAccepted: input.decision === "approved" && input.disclaimerAccepted,
   };
 }
 
@@ -224,6 +269,9 @@ export function toRequest(d: BackendRequestDetail): PurchaseRequest {
     budgetApproverId: d.budgetApproverId === null ? "" : String(d.budgetApproverId),
     budgetApproverName: d.budgetApproverName ?? "",
     notes: d.notes ?? "",
+    priority: d.priority,
+    assignee: d.assigneeEmail ?? "",
+    collaborators: d.collaborators,
   };
 }
 

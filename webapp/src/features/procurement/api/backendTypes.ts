@@ -63,6 +63,27 @@ export interface BackendRequestSummary {
   updatedOn: string;
 }
 
+export type BackendPriority = "P1" | "P2" | "P3";
+
+export interface BackendProcurementItem extends BackendRequestSummary {
+  priority: BackendPriority | null;
+  assigneeEmail: string | null;
+  requesterName: string;
+  requesterEmail: string;
+}
+
+export interface BackendApprovalItem extends BackendRequestSummary {
+  requesterName: string;
+  requesterEmail: string;
+}
+
+/** The body of POST /requests/{id}/decision. */
+export interface BackendNewDecision {
+  decision: "APPROVED" | "REJECTED";
+  comment: string | null;
+  disclaimerAccepted: boolean;
+}
+
 export interface BackendDecision {
   version: number;
   decidedBy: string;
@@ -140,6 +161,9 @@ export interface BackendRequestDetail extends BackendRequestSummary {
   additionalApprovers: string[];
   itDetails: BackendItDetails | null;
   saasDetails: BackendSaasDetails | null;
+  priority: BackendPriority | null;
+  assigneeEmail: string | null;
+  collaborators: string[];
   decisions: BackendDecision[];
   createdOn: string;
 }

@@ -75,6 +75,9 @@ const request = (id: string, patch: Partial<PurchaseRequest> = {}): PurchaseRequ
   budgetApproverId: "",
   budgetApproverName: "",
   notes: "",
+  priority: null,
+  assignee: "",
+  collaborators: [],
   ...patch,
 });
 

@@ -2077,6 +2077,15 @@ export const procurementServiceUrls = {
   directoryEmployees: (query: string, leadsOnly: boolean): string =>
     `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}${leadsOnly ? "&leadsOnly=true" : ""}`,
   requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
+  approvals: (limit: number, status?: string): string =>
+    `${procurementBackendUrl}/approvals?limit=${encodeSegment(limit)}${status ? `&status=${encodeSegment(status)}` : ""}`,
+  teamQueue: (limit: number, status?: string, priority?: string): string =>
+    `${procurementBackendUrl}/procurement/requests?limit=${encodeSegment(limit)}${status ? `&status=${encodeSegment(status)}` : ""}${priority ? `&priority=${encodeSegment(priority)}` : ""}`,
+  assignRequest: (requestId: string, email?: string): string =>
+    `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/assign${email ? `/${encodeSegment(email)}` : ""}`,
+  unassignRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/unassign`,
+  requestPriority: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/priority`,
+  decideRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/decision`,
   createRequest: `${procurementBackendUrl}/requests`,
   request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
   submitRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/submit`,

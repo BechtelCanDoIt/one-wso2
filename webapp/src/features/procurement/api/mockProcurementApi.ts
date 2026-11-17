@@ -122,7 +122,7 @@ const MIN_QUERY_LENGTH = 3;
 
 function seedRequests(requester: Person): PurchaseRequest[] {
   const L = MOCK_LOOKUPS;
-  const base = { additionalApprovers: [], notes: "", requester, budgetApproverId: "10", budgetApproverName: "Budget Owner" };
+  const base = { additionalApprovers: [], notes: "", priority: null, assignee: "", collaborators: [], requester, budgetApproverId: "10", budgetApproverName: "Budget Owner" };
   const vendor = (name: string, website: string) => ({ name, website, contact: "", email: "", phone: "" });
   return [
     {
@@ -256,6 +256,59 @@ function seedRequests(requester: Person): PurchaseRequest[] {
   ];
 }
 
+/** Requests by other people that name the signed-in user as their approver. */
+function approvalSeeds(approver: Person): PurchaseRequest[] {
+  const L = MOCK_LOOKUPS;
+  const waiting = { decision: "pending" as const, notes: "", decidedAt: null, decidedBy: "", isOverride: false };
+  const base = {
+    additionalApprovers: [],
+    notes: "",
+    priority: null,
+    assignee: "",
+    collaborators: [],
+    teamLead: approver,
+    budgetApproverId: "10",
+    budgetApproverName: "Budget Owner",
+    vendors: [{ name: "Acme Supplies", website: "https://www.acme.example.com", contact: "", email: "", phone: "" }],
+    budget: {
+      category: codeOf(L.budgetCategories, "Facilities & Office"),
+      businessUnit: codeOf(L.businessUnits, "Facilities & Admin"),
+      product: codeOf(L.products, "Not product-specific"),
+      region: codeOf(L.regions, "APAC - Sri Lanka"),
+      engagementCode: "ENG-2040",
+      salesforceCampaign: "",
+    },
+  };
+  return [
+    {
+      ...base,
+      id: "approval-1",
+      reference: "PR-2026-00011",
+      title: "Standing desks for the Colombo office",
+      category: "NON-IT",
+      status: "submitted",
+      requester: MOCK_DIRECTORY[0],
+      teamLeadDecision: waiting,
+      details: { ...emptyDetails(), description: "Twelve standing desks for the Colombo office.", businessJustification: "Replaces desks that are past repair." },
+      submittedAt: "2026-11-10T09:00:00.000Z",
+      updatedAt: "2026-11-10T09:00:00.000Z",
+    },
+    {
+      ...base,
+      id: "approval-2",
+      reference: "PR-2026-00009",
+      title: "Notion",
+      category: "NON-IT",
+      status: "approved",
+      requester: MOCK_DIRECTORY[1],
+      teamLeadDecision: { decision: "approved", notes: "", decidedAt: "2026-11-05T10:00:00.000Z", decidedBy: approver.email, isOverride: false },
+      details: { ...emptyDetails(), description: "Team wiki subscription.", businessJustification: "Replaces scattered documents." },
+      submittedAt: "2026-11-04T09:00:00.000Z",
+      updatedAt: "2026-11-05T10:00:00.000Z",
+    },
+  ];
+}
+
 function titleFor(input: PurchaseRequestInput): string {
   const text = input.category === "IT" ? input.details.product : input.details.description;
   return text.trim().split("\n")[0].slice(0, 80) || "Untitled request";
@@ -263,11 +316,12 @@ function titleFor(input: PurchaseRequestInput): string {
 
 function buildMockProcurementApi(user: Person): ProcurementApi {
   const requests: PurchaseRequest[] = seedRequests(user);
+  const toApprove: PurchaseRequest[] = approvalSeeds(user);
   let counter = requests.length;
-  const me: ProcurementMe = { ...user, roles: [], teamLead: TEAM_LEAD, approvalExempt: false };
+  const me: ProcurementMe = { ...user, roles: ["procurement_user"], teamLead: TEAM_LEAD, approvalExempt: false };
 
   const find = (requestId: string): PurchaseRequest => {
-    const found = requests.find((r) => r.id === requestId);
+    const found = [...requests, ...toApprove].find((r) => r.id === requestId);
     if (!found) throw new Error("Request not found.");
     return found;
   };
@@ -322,6 +376,9 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         budgetApproverId: input.budgetApproverId,
         budgetApproverName: approverName(input.budgetApproverId),
         notes: input.notes,
+        priority: null,
+        assignee: "",
+        collaborators: [],
         submittedAt: now,
         updatedAt: now,
       };
@@ -348,6 +405,64 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         updatedAt: new Date().toISOString(),
       });
       return existing;
+    },
+    listApprovals: async (status = "submitted") =>
+      toApprove
+        .filter((r) => r.status === status)
+        .map(({ id, reference, title, category, status: stage, requester, submittedAt, updatedAt }) => ({
+          id,
+          reference,
+          title,
+          category,
+          status: stage,
+          requester,
+          submittedAt,
+          updatedAt,
+        })),
+    decideRequest: async (requestId, { decision, comment, disclaimerAccepted }) => {
+      const found = toApprove.find((r) => r.id === requestId);
+      if (!found || found.status !== "submitted") throw new Error("This request is not waiting for your decision.");
+      if (decision === "rejected" && comment.trim() === "") throw new Error("Add why the request is rejected.");
+      if (decision === "approved" && !disclaimerAccepted) throw new Error("Confirm that you reviewed the request.");
+      Object.assign(found, {
+        status: decision,
+        teamLeadDecision: { decision, notes: comment.trim(), decidedAt: new Date().toISOString(), decidedBy: user.email, isOverride: false },
+        updatedAt: new Date().toISOString(),
+      });
+      return found;
+    },
+    listTeamQueue: async ({ status, priority } = {}) =>
+      [...requests, ...toApprove]
+        .filter((r) => (r.status === "approved" || r.status === "assigned") && (!status || r.status === status) && (!priority || r.priority === priority))
+        .map(({ id, reference, title, category, status: stage, priority: urgency, assignee, requester, updatedAt }) => ({
+          id,
+          reference,
+          title,
+          category,
+          status: stage,
+          priority: urgency,
+          assignee,
+          requester,
+          updatedAt,
+        })),
+    assignRequest: async (requestId, email) => {
+      const found = find(requestId);
+      if (found.status !== "approved" && found.status !== "assigned") throw new Error("Only an approved request can be assigned.");
+      if (found.requester.email.toLowerCase() === user.email.toLowerCase()) throw new Error("You cannot handle your own request.");
+      Object.assign(found, { status: "assigned", assignee: email ?? user.email, updatedAt: new Date().toISOString() });
+      return found;
+    },
+    unassignRequest: async (requestId) => {
+      const found = find(requestId);
+      if (found.status !== "assigned") throw new Error("Only an assigned request can be unassigned.");
+      Object.assign(found, { status: "approved", assignee: "", updatedAt: new Date().toISOString() });
+      return found;
+    },
+    setPriority: async (requestId, priority) => {
+      const found = find(requestId);
+      if (found.status !== "approved" && found.status !== "assigned") throw new Error("Only an approved or assigned request has a priority.");
+      Object.assign(found, { priority, updatedAt: new Date().toISOString() });
+      return found;
     },
     cancelRequest: async (requestId) => {
       const existing = find(requestId);

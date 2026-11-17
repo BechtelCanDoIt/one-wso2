@@ -22,18 +22,25 @@ import { authedGet, authedPost, authedPut, HttpError } from "@api/http";
 import { isProcurementBackendConfigured, procurementServiceUrls as urls } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import type {
+  ApprovalDecisionInput,
+  ApprovalItem,
   BudgetApproverOption,
   Choice,
   Person,
   ProcurementLookups,
   ProcurementMe,
   PurchaseRequest,
+  Priority,
   PurchaseRequestInput,
+  QueueItem,
+  RequestStatus,
   RequestSummary,
 } from "../types";
 import type {
   BackendBudgetApprover,
+  BackendApprovalItem,
   BackendCreatedRequest,
+  BackendProcurementItem,
   BackendDirectoryUser,
   BackendEngagementOption,
   BackendReferenceItem,
@@ -43,12 +50,16 @@ import type {
   BackendUser,
 } from "./backendTypes";
 import {
+  toApprovalItem,
+  toBackendStatus,
   toBudgetApprovers,
   toChoices,
   toEngagementChoices,
   toMe,
+  toNewDecision,
   toNewRequest,
   toPerson,
+  toQueueItem,
   toRequest,
   toSummary,
 } from "./backendMapping";
@@ -72,6 +83,17 @@ export interface ProcurementApi {
   submitRequest: (input: PurchaseRequestInput) => Promise<PurchaseRequest>;
   /** Edit a rejected request and send it back to the approvers. */
   resubmitRequest: (requestId: string, input: PurchaseRequestInput) => Promise<PurchaseRequest>;
+  /** Requests that name the user as an approver; the ones waiting for a decision when no status is given. */
+  listApprovals: (status?: RequestStatus) => Promise<ApprovalItem[]>;
+  /** Approve or reject a request that waits for the user's decision. */
+  decideRequest: (requestId: string, decision: ApprovalDecisionInput) => Promise<PurchaseRequest>;
+  /** The approved and assigned requests Procurement handles, the most urgent first. */
+  listTeamQueue: (filter?: { status?: RequestStatus; priority?: Priority }) => Promise<QueueItem[]>;
+  /** Assign an approved request to the signed-in user, or to `email` when given. */
+  assignRequest: (requestId: string, email?: string) => Promise<PurchaseRequest>;
+  /** Take the assignee off an assigned request. */
+  unassignRequest: (requestId: string) => Promise<PurchaseRequest>;
+  setPriority: (requestId: string, priority: Priority) => Promise<PurchaseRequest>;
   /** Withdraw a submitted or rejected request. */
   cancelRequest: (requestId: string) => Promise<PurchaseRequest>;
 }
@@ -158,6 +180,26 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
     resubmitRequest: async (requestId, input) => {
       await authedPut(urls.request(requestId), await getAccessToken(), toNewRequest(input));
       return submitSaved(requestId, input.declarationAccepted);
+    },
+    listApprovals: async (status) =>
+      (await get<BackendApprovalItem[]>(urls.approvals(REQUEST_PAGE_SIZE, status && toBackendStatus(status)))).map(toApprovalItem),
+    decideRequest: async (requestId, decision) => {
+      await authedPost(urls.decideRequest(requestId), await getAccessToken(), toNewDecision(decision));
+      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
+    },
+    listTeamQueue: async ({ status, priority } = {}) =>
+      (await get<BackendProcurementItem[]>(urls.teamQueue(REQUEST_PAGE_SIZE, status && toBackendStatus(status), priority))).map(toQueueItem),
+    assignRequest: async (requestId, email) => {
+      await authedPost(urls.assignRequest(requestId, email), await getAccessToken(), {});
+      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
+    },
+    unassignRequest: async (requestId) => {
+      await authedPost(urls.unassignRequest(requestId), await getAccessToken(), {});
+      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
+    },
+    setPriority: async (requestId, priority) => {
+      await authedPut(urls.requestPriority(requestId), await getAccessToken(), { priority });
+      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
     },
     cancelRequest: async (requestId) => {
       await authedPost(urls.cancelRequest(requestId), await getAccessToken(), {});
