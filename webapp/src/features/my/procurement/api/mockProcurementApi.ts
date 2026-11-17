@@ -122,7 +122,7 @@ const MIN_QUERY_LENGTH = 3;
 
 function seedRequests(requester: Person): PurchaseRequest[] {
   const L = MOCK_LOOKUPS;
-  const base = { additionalApprovers: [], notes: "", requester, attachments: [], budgetApproverId: "10", budgetApproverName: "Budget Owner" };
+  const base = { additionalApprovers: [], notes: "", requester, budgetApproverId: "10", budgetApproverName: "Budget Owner" };
   const vendor = (name: string, website: string) => ({ name, website, contact: "", email: "", phone: "" });
   return [
     {
@@ -147,6 +147,16 @@ function seedRequests(requester: Person): PurchaseRequest[] {
         ...emptyDetails(),
         product: "ZoomInfo",
         plan: "Enterprise",
+        installationType: "SAAS" as const,
+        licenseType: "COMPANY" as const,
+        softwareUrl: "https://www.zoominfo.com",
+        pricingUrl: "https://www.zoominfo.com/pricing",
+        termsUrl: "https://www.zoominfo.com/terms",
+        privacyUrl: "https://www.zoominfo.com/privacy",
+        securityUrl: "https://www.zoominfo.com/security",
+        urgent: "no" as const,
+        authorizedListChecked: true,
+        legitimacyConfirmed: true,
         description: "Contact and company data for the Sales team's prospecting.",
         usagePeriod: "1 year",
         businessJustification: "The current subscription ends next month.",
@@ -221,6 +231,16 @@ function seedRequests(requester: Person): PurchaseRequest[] {
         ...emptyDetails(),
         product: "SentinelOne",
         plan: "Complete",
+        installationType: "SAAS" as const,
+        licenseType: "COMPANY" as const,
+        softwareUrl: "https://www.sentinelone.com",
+        pricingUrl: "https://www.sentinelone.com/pricing",
+        termsUrl: "https://www.sentinelone.com/terms",
+        privacyUrl: "https://www.sentinelone.com/privacy",
+        securityUrl: "https://www.sentinelone.com/security",
+        urgent: "no" as const,
+        authorizedListChecked: true,
+        legitimacyConfirmed: true,
         description: "Endpoint protection for engineering laptops.",
         usagePeriod: "1 year",
         businessJustification: "Replaces the current endpoint tool, which reaches end of support.",
@@ -302,7 +322,6 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         budgetApproverId: input.budgetApproverId,
         budgetApproverName: approverName(input.budgetApproverId),
         notes: input.notes,
-        attachments: [],
         submittedAt: now,
         updatedAt: now,
       };
@@ -328,6 +347,14 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         notes: input.notes,
         updatedAt: new Date().toISOString(),
       });
+      return existing;
+    },
+    cancelRequest: async (requestId) => {
+      const existing = find(requestId);
+      if (existing.status !== "submitted" && existing.status !== "rejected") {
+        throw new Error("Only a submitted or rejected request can be cancelled.");
+      }
+      Object.assign(existing, { status: "cancelled", updatedAt: new Date().toISOString() });
       return existing;
     },
   };

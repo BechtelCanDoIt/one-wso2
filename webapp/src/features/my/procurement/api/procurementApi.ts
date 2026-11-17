@@ -18,7 +18,7 @@
 // Screens and hooks talk to `ProcurementApi` only; nothing else in the feature
 // builds a URL or knows a mock exists.
 
-import { authedGet } from "@api/http";
+import { authedGet, authedPost, authedPut, HttpError } from "@api/http";
 import { isProcurementBackendConfigured, procurementServiceUrls as urls } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import type {
@@ -33,6 +33,7 @@ import type {
 } from "../types";
 import type {
   BackendBudgetApprover,
+  BackendCreatedRequest,
   BackendDirectoryUser,
   BackendEngagementOption,
   BackendReferenceItem,
@@ -41,7 +42,16 @@ import type {
   BackendTeamLeadResult,
   BackendUser,
 } from "./backendTypes";
-import { toBudgetApprovers, toChoices, toEngagementChoices, toMe, toPerson, toRequest, toSummary } from "./backendMapping";
+import {
+  toBudgetApprovers,
+  toChoices,
+  toEngagementChoices,
+  toMe,
+  toNewRequest,
+  toPerson,
+  toRequest,
+  toSummary,
+} from "./backendMapping";
 import { createMockProcurementApi } from "./mockProcurementApi";
 
 export interface ProcurementApi {
@@ -59,9 +69,11 @@ export interface ProcurementApi {
   searchDirectory: (query: string, leadsOnly: boolean) => Promise<Person[]>;
   listMyRequests: () => Promise<RequestSummary[]>;
   getRequest: (requestId: string) => Promise<PurchaseRequest>;
-  submitRequest: (input: PurchaseRequestInput, files: File[]) => Promise<PurchaseRequest>;
+  submitRequest: (input: PurchaseRequestInput) => Promise<PurchaseRequest>;
   /** Edit a rejected request and send it back to the approvers. */
-  resubmitRequest: (requestId: string, input: PurchaseRequestInput, files: File[]) => Promise<PurchaseRequest>;
+  resubmitRequest: (requestId: string, input: PurchaseRequestInput) => Promise<PurchaseRequest>;
+  /** Withdraw a submitted or rejected request. */
+  cancelRequest: (requestId: string) => Promise<PurchaseRequest>;
 }
 
 /** Whether a dev build should serve sample data in place of the missing backend. */
@@ -80,16 +92,38 @@ const REFERENCE_TYPES = ["BUDGET_CATEGORY", "BUSINESS_UNIT", "PRODUCT", "REGION"
 /** My Requests shows one page of this many, the most the backend allows. */
 const REQUEST_PAGE_SIZE = 100;
 
-const NOT_CONNECTED = "isn't connected to the backend yet.";
-
 /**
- * Reads come from the backend. Submitting and resubmitting are refused with a
- * message: the backend saves a draft and submits it in two calls and stores
- * different content than the form collects, which is the next piece of work.
- * Answering them from sample data instead would show a success that saved nothing.
+ * The backend saves a request as a draft and submits it in a second call. A submit that
+ * fails after the draft was saved leaves the draft behind, so the next attempt of the same
+ * user saves over it instead of leaving another draft in My Requests.
  */
 function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: Person): ProcurementApi {
   const get = async <T>(url: string): Promise<T> => authedGet<T>(url, await getAccessToken());
+  let leftoverDraftId: string | null = null;
+
+  const saveDraft = async (input: PurchaseRequestInput): Promise<string> => {
+    const body = toNewRequest(input);
+    if (leftoverDraftId) {
+      try {
+        await authedPut(urls.request(leftoverDraftId), await getAccessToken(), body);
+        return leftoverDraftId;
+      } catch (error) {
+        const gone = error instanceof HttpError && (error.status === 404 || error.status === 409);
+        if (!gone) throw error;
+        leftoverDraftId = null;
+      }
+    }
+    const created = await authedPost<BackendCreatedRequest>(urls.createRequest, await getAccessToken(), body);
+    if (!created) throw new Error("The request could not be saved.");
+    leftoverDraftId = String(created.id);
+    return leftoverDraftId;
+  };
+
+  const submitSaved = async (requestId: string, declarationAccepted: boolean): Promise<PurchaseRequest> => {
+    await authedPost(urls.submitRequest(requestId), await getAccessToken(), { commitmentConfirmed: declarationAccepted });
+    return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
+  };
+
   return {
     // A user who is not in the HR data gets an error from the team lead lookup, so the form cannot open for them.
     getMe: async () => {
@@ -115,11 +149,19 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
       (await get<BackendDirectoryUser[]>(urls.directoryEmployees(query, leadsOnly))).map(toPerson),
     listMyRequests: async () => (await get<BackendRequestSummary[]>(urls.requests(REQUEST_PAGE_SIZE))).map(toSummary),
     getRequest: async (requestId) => toRequest(await get<BackendRequestDetail>(urls.request(requestId))),
-    submitRequest: async () => {
-      throw new Error(`Submitting ${NOT_CONNECTED}`);
+    submitRequest: async (input) => {
+      const requestId = await saveDraft(input);
+      const submitted = await submitSaved(requestId, input.declarationAccepted);
+      leftoverDraftId = null;
+      return submitted;
     },
-    resubmitRequest: async () => {
-      throw new Error(`Resubmitting ${NOT_CONNECTED}`);
+    resubmitRequest: async (requestId, input) => {
+      await authedPut(urls.request(requestId), await getAccessToken(), toNewRequest(input));
+      return submitSaved(requestId, input.declarationAccepted);
+    },
+    cancelRequest: async (requestId) => {
+      await authedPost(urls.cancelRequest(requestId), await getAccessToken(), {});
+      return toRequest(await get<BackendRequestDetail>(urls.request(requestId)));
     },
   };
 }

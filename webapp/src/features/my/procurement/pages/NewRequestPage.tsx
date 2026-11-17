@@ -70,8 +70,8 @@ export default function NewRequestPage() {
           submitLabel="Submit request"
           submitting={submit.isPending}
           error={submit.isError ? describeError(submit.error) : undefined}
-          onSubmit={(input, files) =>
-            submit.mutate({ input, files }, { onSuccess: (created) => setReference(created.reference ?? "Pending") })
+          onSubmit={(input) =>
+            submit.mutate(input, { onSuccess: (created) => setReference(created.reference ?? "Pending") })
           }
         />
       )}

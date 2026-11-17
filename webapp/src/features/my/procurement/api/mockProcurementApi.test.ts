@@ -42,7 +42,7 @@ describe("the Procurement sample data", () => {
 
   it("raises a request as the signed-in user, awaiting approval, with a backend-style reference", async () => {
     const api = createMockProcurementApi(user);
-    const created = await api.submitRequest(input(), []);
+    const created = await api.submitRequest(input());
     expect(created).toMatchObject({ status: "submitted", requester: user });
     expect(created.reference).toMatch(/^PR-\d{4}-\d{5}$/);
     expect(created.teamLeadDecision.decision).toBe("pending");
@@ -56,33 +56,40 @@ describe("the Procurement sample data", () => {
   });
 
   it("keeps one store per user across calls", async () => {
-    const created = await createMockProcurementApi(user).submitRequest(input(), []);
+    const created = await createMockProcurementApi(user).submitRequest(input());
     expect(await createMockProcurementApi(user).getRequest(created.id)).toBeDefined();
   });
 
   it("refuses the requester or the team lead as an additional approver", async () => {
     const api = createMockProcurementApi(user);
     const teamLead = MOCK_DIRECTORY[10];
-    await expect(api.submitRequest(input([user]), [])).rejects.toThrow(/cannot be you or your team lead/);
-    await expect(api.submitRequest(input([teamLead]), [])).rejects.toThrow(/cannot be you or your team lead/);
+    await expect(api.submitRequest(input([user]))).rejects.toThrow(/cannot be you or your team lead/);
+    await expect(api.submitRequest(input([teamLead]))).rejects.toThrow(/cannot be you or your team lead/);
   });
 
   it("refuses a submission without the declaration", async () => {
-    await expect(createMockProcurementApi(user).submitRequest(input([], false), [])).rejects.toThrow(/declaration/);
+    await expect(createMockProcurementApi(user).submitRequest(input([], false))).rejects.toThrow(/declaration/);
   });
 
   it("edits and resubmits only a rejected request", async () => {
     const api = createMockProcurementApi(user);
-    await expect(api.resubmitRequest("seed-1", input(), [])).rejects.toThrow(/Only a rejected request/);
-    const resubmitted = await api.resubmitRequest("seed-2", input(), []);
+    await expect(api.resubmitRequest("seed-1", input())).rejects.toThrow(/Only a rejected request/);
+    const resubmitted = await api.resubmitRequest("seed-2", input());
     expect(resubmitted.status).toBe("submitted");
     expect(resubmitted.teamLeadDecision.decision).toBe("pending");
   });
 
   it("refuses to resubmit without the declaration, and leaves the request rejected", async () => {
     const api = createMockProcurementApi(user);
-    await expect(api.resubmitRequest("seed-2", input([], false), [])).rejects.toThrow(/declaration/);
+    await expect(api.resubmitRequest("seed-2", input([], false))).rejects.toThrow(/declaration/);
     expect((await api.getRequest("seed-2")).status).toBe("rejected");
+  });
+
+  it("cancels a submitted or rejected request only", async () => {
+    const api = createMockProcurementApi(user);
+    expect((await api.cancelRequest("seed-1")).status).toBe("cancelled");
+    expect((await api.cancelRequest("seed-2")).status).toBe("cancelled");
+    await expect(api.cancelRequest("seed-3")).rejects.toThrow(/Only a submitted or rejected/);
   });
 
   it("searches the directory from 3 characters, capped, and never returns the requester", async () => {

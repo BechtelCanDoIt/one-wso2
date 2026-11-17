@@ -140,17 +140,12 @@ export function useRequest(requestId: string | undefined) {
   });
 }
 
-interface SubmitVariables {
-  input: PurchaseRequestInput;
-  files: File[];
-}
-
 /** Raise a request. Refreshes the list, the one thing a new request changes. */
 export function useSubmitRequest() {
   const { api, userId } = useProcurementContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ input, files }: SubmitVariables) => api!.submitRequest(input, files),
+    mutationFn: (input: PurchaseRequestInput) => api!.submitRequest(input),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [...root(userId), "requests"] }),
   });
 }
@@ -160,7 +155,21 @@ export function useResubmitRequest(requestId: string) {
   const { api, userId } = useProcurementContext();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ input, files }: SubmitVariables) => api!.resubmitRequest(requestId, input, files),
+    mutationFn: (input: PurchaseRequestInput) => api!.resubmitRequest(requestId, input),
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: [...root(userId), "request", requestId] }),
+        queryClient.invalidateQueries({ queryKey: [...root(userId), "requests"] }),
+      ]),
+  });
+}
+
+/** Withdraw a request. Refreshes that request and the list. */
+export function useCancelRequest(requestId: string) {
+  const { api, userId } = useProcurementContext();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => api!.cancelRequest(requestId),
     onSuccess: () =>
       Promise.all([
         queryClient.invalidateQueries({ queryKey: [...root(userId), "request", requestId] }),

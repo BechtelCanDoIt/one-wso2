@@ -15,10 +15,17 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Person, PurchaseRequestInput } from "../types";
+import { HttpError } from "@api/http";
+import { draftToInput, emptyDraft } from "../request-form/requestFormModel";
+import type { Person } from "../types";
 
-const { authedGet } = vi.hoisted(() => ({ authedGet: vi.fn() }));
-vi.mock("@api/http", async (importOriginal) => ({ ...(await importOriginal<typeof import("@api/http")>()), authedGet }));
+const { authedGet, authedPost, authedPut } = vi.hoisted(() => ({ authedGet: vi.fn(), authedPost: vi.fn(), authedPut: vi.fn() }));
+vi.mock("@api/http", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@api/http")>()),
+  authedGet,
+  authedPost,
+  authedPut,
+}));
 
 import { createProcurementApi } from "./procurementApi";
 import { resetMockProcurementApis } from "./mockProcurementApi";
@@ -44,10 +51,57 @@ const answers: Record<string, unknown> = {
   ],
 };
 
+const requestDetail = {
+  id: 7,
+  referenceNo: "PR-2026-00007",
+  title: "Chairs",
+  category: "NON_IT",
+  status: "PENDING_APPROVAL",
+  version: 1,
+  submittedOn: "2026-11-01T00:00:00Z",
+  updatedOn: "2026-11-01T00:00:00Z",
+  requesterName: "Me Myself",
+  requesterEmail: "me@example.com",
+  requirementDetails: "40 chairs",
+  vendorName: null,
+  businessJustification: "Needed",
+  roi: null,
+  additionalSpecifications: null,
+  salesforceCampaign: null,
+  notes: null,
+  vendors: [],
+  answers: [],
+  budgetCategoryCode: null,
+  businessUnitCode: null,
+  productCode: null,
+  regionCode: null,
+  engagementCode: null,
+  budgetApproverId: null,
+  budgetApproverName: null,
+  teamLeadEmail: "lead@example.com",
+  additionalApprovers: [],
+  itDetails: null,
+  saasDetails: null,
+  decisions: [],
+  createdOn: "2026-11-01T00:00:00Z",
+};
+
+const nonItInput = () => {
+  const draft = emptyDraft();
+  draft.category = "NON-IT";
+  draft.details.description = "40 chairs";
+  draft.details.businessJustification = "Needed";
+  draft.declarationAccepted = true;
+  return draftToInput(draft);
+};
+
 const asked = (): string[] => authedGet.mock.calls.map((c) => String(c[0]));
 
 beforeEach(() => {
   authedGet.mockReset();
+  authedPost.mockReset();
+  authedPut.mockReset();
+  answers["/requests/7"] = requestDetail;
   authedGet.mockImplementation(async (url: string) => {
     if (!(url in answers)) throw new Error(`unexpected request: ${url}`);
     return answers[url];
@@ -115,11 +169,51 @@ describe("the Procurement backend adapter", () => {
     await expect(api().listMyRequests()).rejects.toThrow("boom");
   });
 
-  it("refuses to submit or resubmit, with a message, instead of showing a success that saved nothing", async () => {
-    const input = { category: "NON-IT", additionalApprovers: [], budgetApproverId: "", declarationAccepted: true } as unknown as PurchaseRequestInput;
-    authedGet.mockClear();
-    await expect(api().submitRequest(input, [])).rejects.toThrow("Submitting isn't connected to the backend yet.");
-    await expect(api().resubmitRequest("5", input, [])).rejects.toThrow("Resubmitting isn't connected to the backend yet.");
-    expect(authedGet).not.toHaveBeenCalled();
+  it("saves the request as a draft, then submits it with the declaration, and returns it as read back", async () => {
+    authedPost.mockImplementation(async (url: string) => (url === "/requests" ? { id: 7, status: "DRAFT" } : null));
+    const submitted = await api().submitRequest(nonItInput());
+    expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests", "/requests/7/submit"]);
+    expect(authedPost.mock.calls[0][2]).toMatchObject({ category: "NON_IT", requirementDetails: "40 chairs", businessJustification: "Needed", itDetails: null });
+    expect(authedPost.mock.calls[1][2]).toEqual({ commitmentConfirmed: true });
+    expect(submitted).toMatchObject({ id: "7", reference: "PR-2026-00007", status: "submitted" });
+  });
+
+  it("saves over the draft a failed submit left behind, instead of leaving another one", async () => {
+    authedPost.mockImplementation(async (url: string) => {
+      if (url === "/requests") return { id: 7, status: "DRAFT" };
+      if (authedPost.mock.calls.filter((c) => c[0] === "/requests/7/submit").length === 1) throw new Error("boom");
+      return null;
+    });
+    const client = api();
+    await expect(client.submitRequest(nonItInput())).rejects.toThrow("boom");
+    await client.submitRequest(nonItInput());
+    expect(authedPost.mock.calls.filter((c) => c[0] === "/requests")).toHaveLength(1);
+    expect(authedPut.mock.calls.map((c) => c[0])).toEqual(["/requests/7"]);
+  });
+
+  it("starts a new draft when the one left behind is gone", async () => {
+    authedPost.mockImplementation(async (url: string) => {
+      if (url === "/requests") return { id: 7, status: "DRAFT" };
+      if (authedPost.mock.calls.filter((c) => c[0] === "/requests/7/submit").length === 1) throw new Error("boom");
+      return null;
+    });
+    authedPut.mockRejectedValue(new HttpError("/requests/7", 409, ""));
+    const client = api();
+    await expect(client.submitRequest(nonItInput())).rejects.toThrow("boom");
+    await client.submitRequest(nonItInput());
+    expect(authedPost.mock.calls.filter((c) => c[0] === "/requests")).toHaveLength(2);
+  });
+
+  it("replaces a rejected request, then submits it again", async () => {
+    authedPost.mockResolvedValue(null);
+    await api().resubmitRequest("7", nonItInput());
+    expect(authedPut.mock.calls.map((c) => c[0])).toEqual(["/requests/7"]);
+    expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/submit"]);
+  });
+
+  it("cancels a request and returns it as read back", async () => {
+    authedPost.mockResolvedValue(null);
+    await api().cancelRequest("7");
+    expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/cancel"]);
   });
 });
