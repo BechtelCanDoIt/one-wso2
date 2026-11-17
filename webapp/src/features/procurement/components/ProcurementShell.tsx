@@ -19,14 +19,22 @@ import { Alert, Box, Typography } from "@wso2/oxygen-ui";
 import { isProcurementAvailable } from "../api/procurementApi";
 
 // Page frame for Procurement: the title, and the "not connected" state.
-export default function ProcurementShell({ children }: { children: ReactNode }) {
+export default function ProcurementShell({
+  title = "Procurement",
+  subtitle = "Raise purchase requests and follow them through approval to Procurement.",
+  children,
+}: {
+  title?: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
   return (
     <Box>
       <Typography component="h1" variant="h5" sx={{ mb: 0.5, fontWeight: 600 }}>
-        Procurement
+        {title}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2.25, maxWidth: "70ch" }}>
-        Raise purchase requests and follow them through approval to Procurement.
+        {subtitle}
       </Typography>
       {isProcurementAvailable() ? (
         children
