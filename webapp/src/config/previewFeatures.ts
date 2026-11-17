@@ -111,7 +111,19 @@ export type PreviewFeature =
    * its backend calls. Held back while the app is being built: submitting a
    * request is not connected to the backend yet.
    */
-  | "procurement";
+  | "procurement"
+  /**
+   * Leadership 360° feedback on members of the leadership group, in Give
+   * feedback, with the results in a leader's PAR and their lead's review. Held
+   * back until the PAR backend's `/leadership-360` endpoints are deployed.
+   */
+  | "leadership360"
+  /**
+   * PAR 2.0 in a PAR 2.0 cycle: Active cycle, Give feedback and History
+   * under Me → Performance, and the 360° evidence in the Lead View. Held back
+   * until the PAR backend's structured 360 endpoints are deployed.
+   */
+  | "par2";
 
 /**
  * Whether a preview feature should be shown.
