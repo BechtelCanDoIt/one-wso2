@@ -235,7 +235,7 @@ import { adminRoutes } from "@features/security/grc/modules/admin/routes";
 import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
 import { swagStoreAdminRoutes, swagStoreShopRoutes } from "@features/swag-store/routes";
-import { procurementRoutes } from "@features/my/procurement/routes";
+import { procurementRoutes } from "@features/procurement/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
 import PartnerPendingPage from "@features/due-diligence/partners/pages/PartnerPendingPage";
 import PartnerDashboardPage from "@features/due-diligence/partners/pages/PartnerDashboardPage";

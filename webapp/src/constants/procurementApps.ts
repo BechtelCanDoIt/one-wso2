@@ -22,7 +22,7 @@
 
 import { ShoppingCartIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
-import { PROCUREMENT_PATH } from "@features/my/procurement/procurementPaths";
+import { PROCUREMENT_PATH } from "@features/procurement/procurementPaths";
 
 export const PROCUREMENT_ITEM = {
   home: "procurement-home",
