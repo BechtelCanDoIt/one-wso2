@@ -73,6 +73,12 @@ window.config = {
   // below. Include the version segment. For a local backend on port 8080, use
   // "/swag-store-backend" (the dev server's proxy).
   // ONE_WSO2_SWAG_STORE_BACKEND_URL: "<your-swag-store-backend-url>",
+  // Procurement backend — powers Finance → Procurement (raise and track
+  // purchase requests, team lead approval, Procurement assignment). Shown only
+  // while `procurement` is on in ONE_WSO2_PREVIEW_FEATURES below. With the flag
+  // on and this unset, its pages say "not connected" and make no requests
+  // (a dev build serves sample data instead).
+  // ONE_WSO2_PROCUREMENT_BACKEND_URL: "<your-procurement-backend-url>",
 
   // Pitstop backend that serves Smart Search — powers Sales → Library, the
   // plain-language search over Pitstop's content. Include the version segment.
@@ -230,6 +236,6 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, quickquote: false, nda: false, amplify: false, marketingCalendar: false, eventsLeadImport: false, swagStore: false, leadership360: false },
+  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, quickquote: false, nda: false, amplify: false, marketingCalendar: false, eventsLeadImport: false, swagStore: false, procurement: false, leadership360: false },
 
 };

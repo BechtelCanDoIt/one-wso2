@@ -2111,6 +2111,36 @@ export function isCado2BackendConfigured(): boolean {
 
 const encodeSegment = (value: string | number): string => encodeURIComponent(String(value));
 
+// Procurement — Finance → Procurement, purchase requests through to Procurement
+// assignment. Its own backend, version segment included. Unset means "not
+// connected": its pages say so and make no requests. Gated as a whole by the
+// `procurement` preview flag as well (previewFeatures.ts).
+export const procurementBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_PROCUREMENT_BACKEND_URL ?? "",
+);
+
+export function isProcurementBackendConfigured(): boolean {
+  return Boolean(procurementBackendUrl);
+}
+
+export const procurementServiceUrls = {
+  me: `${procurementBackendUrl}/me`,
+  meTeamLead: `${procurementBackendUrl}/me/team-lead`,
+  referenceData: (type: string): string => `${procurementBackendUrl}/reference-data?type=${encodeSegment(type)}`,
+  budgetApprovers: (businessUnit: string, region: string): string => {
+    const q = new URLSearchParams();
+    if (businessUnit) q.set("businessUnit", businessUnit);
+    if (region) q.set("region", region);
+    return `${procurementBackendUrl}/budget-approvers?${q.toString()}`;
+  },
+  engagementCodes: (businessUnit: string): string =>
+    `${procurementBackendUrl}/engagement-codes?businessUnit=${encodeSegment(businessUnit)}`,
+  directoryEmployees: (query: string, leadsOnly: boolean): string =>
+    `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}${leadsOnly ? "&leadsOnly=true" : ""}`,
+  requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
+  request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
+};
+
 export const cado2ServiceUrls = {
   // The caller's CadO2 roles (SALES, ADMIN) and approval roles. Decides the rail
   // and every CadO2 route; the backend re-checks each call on its own.
@@ -2591,6 +2621,10 @@ export const swagStoreServiceUrls = {
     removalImpact: (id: string): string =>
       `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/removal-impact`,
     productOptions: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/options`,
+    /** Pending stock alerts per variant, most wanted first. */
+    demand: `${swagStoreBackendUrl}/admin/demand`,
+    /** POST one photo as multipart/form-data (view + file). */
+    productImages: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/images`,
     productVariant: (id: string, variantId: string): string =>
       `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/variants/${encodeURIComponent(variantId)}`,
     stockMovements: (variantId: string): string =>

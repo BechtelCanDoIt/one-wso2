@@ -106,6 +106,13 @@ export type PreviewFeature =
    */
   | "swagStore"
   /**
+   * Finance → Procurement, where an employee raises a purchase request and
+   * follows it: its rail group, every route under `/finance/procurement`, and
+   * its backend calls. Held back while the app is being built: submitting a
+   * request is not connected to the backend yet.
+   */
+  | "procurement"
+  /**
    * Leadership 360° feedback on members of the leadership group, in Give
    * feedback, with the results in a leader's PAR and their lead's review. Held
    * back until the PAR backend's `/leadership-360` endpoints are deployed.

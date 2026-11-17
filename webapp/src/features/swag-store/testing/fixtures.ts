@@ -27,6 +27,7 @@ import type {
   SwagStoreCart,
   SwagStoreCartLine,
   SwagStoreDashboard,
+  SwagStoreDemandRow,
   SwagStoreMe,
   SwagStoreOffice,
   SwagStoreOrderDetail,
@@ -34,12 +35,22 @@ import type {
   SwagStorePlacedOrder,
   SwagStoreProductCard,
   SwagStoreProductDetail,
+  SwagStoreProductImage,
+  SwagStorePhotoView,
   SwagStoreQuote,
   SwagStoreVariant,
   SwagStoreWallet,
 } from "../api/swagStoreTypes";
 
 /** A shopper with no store role. */
+const PHOTO_PRODUCT = "0192f3a4-0000-7000-8000-0000000000d1";
+
+/** A product photo as the API sends it: a blob path and a signed URL. */
+export function photo(view: SwagStorePhotoView, overrides: Partial<SwagStoreProductImage> = {}): SwagStoreProductImage {
+  const path = `products/${PHOTO_PRODUCT}/${view}-3f9a2c1d.jpg`;
+  return { view, path, url: `https://acc.blob.core.windows.net/swag-store-assets/${path}?sig=test`, alt: "", ...overrides };
+}
+
 export function me(overrides: Partial<SwagStoreMe> = {}): SwagStoreMe {
   return {
     email: "shopper@wso2.com",
@@ -63,7 +74,7 @@ export function productCard(overrides: Partial<SwagStoreProductCard> = {}): Swag
     slug: "wso2-hoodie",
     name: "WSO2 Hoodie",
     price: 90,
-    image: "https://wso2.cachefly.net/swag/hoodie.png",
+    image: photo("front").url,
     availability: "IN_STOCK",
     status: "ACTIVE",
     ...overrides,
@@ -128,7 +139,7 @@ export function hoodie(overrides: Partial<SwagStoreProductDetail> = {}): SwagSto
         restockEta: "2026-12-12",
       }),
     ],
-    images: [{ url: "https://wso2.cachefly.net/swag/hoodie.png", alt: "Black WSO2 hoodie, front" }],
+    images: [photo("front", { alt: "Black WSO2 hoodie, front" })],
     alternatives: [],
     ...overrides,
   };
@@ -327,6 +338,22 @@ export function adminOffice(overrides: Partial<SwagStoreAdminOffice> = {}): Swag
   };
 }
 
+/** One variant on the demand board. */
+export function demandRow(overrides: Partial<SwagStoreDemandRow> = {}): SwagStoreDemandRow {
+  return {
+    productId: "p-hoodie",
+    productName: "WSO2 Hoodie",
+    variantId: "v-m",
+    sku: "HOODIE-M",
+    options: "M",
+    pendingAlerts: 3,
+    firstAlertAt: "2026-11-10T05:00:00Z",
+    restockEta: null,
+    free: 0,
+    ...overrides,
+  };
+}
+
 /** A row of the admin products list. */
 export function adminProductRow(overrides: Partial<SwagStoreAdminProductRow> = {}): SwagStoreAdminProductRow {
   return {
@@ -363,7 +390,7 @@ export function adminProduct(overrides: Partial<SwagStoreAdminProduct> = {}): Sw
       { id: "v-s", sku: "HOODIE-S", options: "S", optionValueIds: ["s"], priceDelta: 0, onHand: 10, reserved: 2, free: 8, restockEta: null, active: true },
       { id: "v-m", sku: "HOODIE-M", options: "M", optionValueIds: ["m"], priceDelta: 5, onHand: 0, reserved: 0, free: 0, restockEta: null, active: true },
     ],
-    images: [{ url: "https://wso2.cachefly.net/swag/hoodie.png", alt: "Front" }],
+    images: [photo("front", { alt: "Front" })],
     alternatives: [],
     ...overrides,
   };
