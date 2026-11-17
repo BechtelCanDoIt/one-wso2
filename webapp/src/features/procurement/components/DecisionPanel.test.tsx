@@ -20,11 +20,16 @@ import userEvent from "@testing-library/user-event";
 import DecisionPanel from "./DecisionPanel";
 
 const mutate = vi.hoisted(() => vi.fn());
+const panel = vi.hoisted(() => ({ reset: vi.fn(), pending: false }));
 vi.mock("../api/useProcurement", () => ({
-  useDecideRequest: () => ({ mutate, reset: vi.fn(), isPending: false, isError: false, error: null }),
+  useDecideRequest: () => ({ mutate, reset: panel.reset, isPending: panel.pending, isError: false, error: null }),
 }));
 
-beforeEach(() => mutate.mockClear());
+beforeEach(() => {
+  mutate.mockClear();
+  panel.reset.mockClear();
+  panel.pending = false;
+});
 
 describe("DecisionPanel", () => {
   it("will not send either decision until the declaration is ticked", async () => {
@@ -73,5 +78,14 @@ describe("DecisionPanel", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Add why the request is rejected.");
     await user.type(screen.getByLabelText(/Comment/), "No budget.");
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not reset the decision while it is being saved, so it cannot be sent twice", async () => {
+    const user = userEvent.setup();
+    panel.pending = true;
+    render(<DecisionPanel requestId="1" />);
+    await user.click(screen.getByRole("checkbox"));
+    await user.type(screen.getByLabelText(/Comment/), "x");
+    expect(panel.reset).not.toHaveBeenCalled();
   });
 });

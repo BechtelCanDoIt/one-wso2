@@ -21,12 +21,13 @@ import type { PurchaseRequest } from "../../types";
 import HandlingPanel from "./HandlingPanel";
 
 const mutations = vi.hoisted(() => ({ assign: vi.fn(), unassign: vi.fn(), priority: vi.fn() }));
+const resets = vi.hoisted(() => ({ assign: vi.fn(), unassign: vi.fn(), priority: vi.fn() }));
 vi.mock("../../api/useProcurement", () => {
-  const hook = (mutate: unknown) => () => ({ mutate, isPending: false, isError: false, error: null });
+  const hook = (mutate: unknown, reset: unknown) => () => ({ mutate, reset, isPending: false, isError: false, error: null });
   return {
-    useAssignRequest: hook(mutations.assign),
-    useUnassignRequest: hook(mutations.unassign),
-    useSetPriority: hook(mutations.priority),
+    useAssignRequest: hook(mutations.assign, resets.assign),
+    useUnassignRequest: hook(mutations.unassign, resets.unassign),
+    useSetPriority: hook(mutations.priority, resets.priority),
   };
 });
 
@@ -42,7 +43,7 @@ const request = (patch: Partial<PurchaseRequest>) =>
     ...patch,
   }) as PurchaseRequest;
 
-beforeEach(() => Object.values(mutations).forEach((m) => m.mockClear()));
+beforeEach(() => [...Object.values(mutations), ...Object.values(resets)].forEach((m) => m.mockClear()));
 
 describe("HandlingPanel", () => {
   it("offers to assign an unassigned request to the user, and not to unassign it", async () => {
@@ -100,4 +101,20 @@ describe("HandlingPanel", () => {
       expect(screen.getByRole("button", { name: "Assign" })).toBeDisabled();
     },
   );
+
+  it("clears the other actions' messages when an action starts, so an old failure cannot hide a new one", async () => {
+    const user = userEvent.setup();
+    render(<HandlingPanel request={request({})} me="pat@example.com" />);
+    await user.click(screen.getByRole("combobox", { name: "Priority" }));
+    await user.click(await screen.findByRole("option", { name: "P1" }));
+    expect(resets.assign).toHaveBeenCalled();
+    expect(resets.unassign).toHaveBeenCalled();
+    expect(resets.priority).not.toHaveBeenCalled();
+  });
+
+  it("clears an assignment failure when the address is edited", async () => {
+    render(<HandlingPanel request={request({})} me="pat@example.com" />);
+    await userEvent.setup().type(screen.getByLabelText(/Assign to someone else/), "s");
+    expect(resets.assign).toHaveBeenCalled();
+  });
 });

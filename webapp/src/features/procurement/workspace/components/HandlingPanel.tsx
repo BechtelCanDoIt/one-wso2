@@ -30,7 +30,8 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
   const setPriority = useSetPriority(request.id);
   const [email, setEmail] = useState("");
   const [emailProblem, setEmailProblem] = useState<string | null>(null);
-  const failure = [assign, unassign, setPriority].find((m) => m.isError);
+  const mutations = [assign, unassign, setPriority];
+  const failure = mutations.find((m) => m.isError);
   const pending = assign.isPending || unassign.isPending || setPriority.isPending;
   const mine = request.assignee.toLowerCase() === me.toLowerCase();
   // The backend does not let the requester or an approver of a request handle it.
@@ -38,11 +39,16 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
     (person) => person.toLowerCase() === me.toLowerCase(),
   );
   const busy = pending || own;
+  // Only the action just taken can show a failure: an earlier action's message is cleared when another starts.
+  const start = (current: (typeof mutations)[number], run: () => void) => {
+    mutations.filter((m) => m !== current).forEach((m) => m.reset());
+    run();
+  };
   const assignToEmail = () => {
     const target = email.trim();
     if (!EMAIL.test(target)) return setEmailProblem("Enter a valid email address.");
     setEmailProblem(null);
-    assign.mutate(target, { onSuccess: () => setEmail("") });
+    start(assign, () => assign.mutate(target, { onSuccess: () => setEmail("") }));
   };
 
   return (
@@ -57,7 +63,7 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
         label="Priority"
         value={request.priority ?? ""}
         disabled={busy}
-        onChange={(e) => setPriority.mutate(e.target.value as Priority)}
+        onChange={(e) => start(setPriority, () => setPriority.mutate(e.target.value as Priority))}
         sx={{ maxWidth: 200 }}
       >
         {PRIORITIES.map((p) => (
@@ -68,12 +74,12 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
       </TextField>
       <Stack direction="row" spacing={2} useFlexGap flexWrap="wrap">
         {!mine && !own && (
-          <Button variant="contained" disabled={busy} onClick={() => assign.mutate(undefined)}>
+          <Button variant="contained" disabled={busy} onClick={() => start(assign, () => assign.mutate(undefined))}>
             {request.assignee ? "Take over" : "Assign to me"}
           </Button>
         )}
         {request.status === "assigned" && (
-          <Button color="inherit" variant="outlined" disabled={busy} onClick={() => unassign.mutate()}>
+          <Button color="inherit" variant="outlined" disabled={busy} onClick={() => start(unassign, () => unassign.mutate())}>
             Unassign
           </Button>
         )}
@@ -90,6 +96,7 @@ export default function HandlingPanel({ request, me }: { request: PurchaseReques
           onChange={(e) => {
             setEmail(e.target.value);
             setEmailProblem(null);
+            if (!assign.isPending) assign.reset();
           }}
           sx={{ flex: 1, maxWidth: 360 }}
         />

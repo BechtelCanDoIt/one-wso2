@@ -67,7 +67,7 @@ export default function DecisionPanel({ requestId }: { requestId: string }) {
         onChange={(e) => {
           setComment(e.target.value);
           setProblem(null);
-          decide.reset();
+          if (!decide.isPending) decide.reset();
         }}
         slotProps={{ htmlInput: { maxLength: Math.min(COMMENT_MAX, LONG_MAX) } }}
       />
@@ -76,7 +76,7 @@ export default function DecisionPanel({ requestId }: { requestId: string }) {
             onChange={(e) => {
               setReviewed(e.target.checked);
               setProblem(null);
-              decide.reset();
+              if (!decide.isPending) decide.reset();
             }}
           />} label={DECLARATION} />
       {(problem || decide.isError) && <Alert severity="error">{problem ?? describeError(decide.error)}</Alert>}
