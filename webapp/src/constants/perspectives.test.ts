@@ -128,6 +128,23 @@ describe("Procurement's rail entries", () => {
   });
 });
 
+describe("the Procurement perspective", () => {
+  it("is a perspective of its own, with the team's queue, once the flag is on", async () => {
+    const perspective = (await load({ procurement: true })).findPerspectiveByKey("procurement");
+    expect(perspective).toMatchObject({ label: "Procurement", path: "/procurement", externallyGated: true, forwardsToFirstItem: true });
+    expect(perspective?.sections?.flatMap((s) => s.children ?? []).map((c) => [c.label, c.path])).toEqual([
+      ["Requests", "/procurement/requests"],
+      ["Approvals", "/procurement/approvals"],
+    ]);
+  });
+
+  it("is not there when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ procurement: false }, {}]) {
+      expect((await load(preview)).findPerspectiveByKey("procurement")).toBeUndefined();
+    }
+  });
+});
+
 describe("CadO2's rail entries", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? [])

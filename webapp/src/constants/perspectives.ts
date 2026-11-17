@@ -77,7 +77,7 @@ import {
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
 import { MIS_APPS } from "@constants/misApps";
-import { PROCUREMENT_APPS } from "@constants/procurementApps";
+import { PROCUREMENT_APPS, PROCUREMENT_TEAM_APPS } from "@constants/procurementApps";
 import { DOWNLOAD_STATS_APPS } from "@constants/downloadStatsApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
@@ -817,6 +817,24 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
   // `externallyGated: true` for the same reason Marketing Ops carries it:
   // `access: true` only means the perspective is built, not that everyone who
   // opens it can use what's inside — see useDueDiligenceGate.
+  // Procurement: the team that assigns and handles approved purchase requests.
+  // Everyone else raises and tracks requests under Me. `externallyGated`
+  // because who belongs to the team is the backend's own role, read from its
+  // /me -- see useProcurementTeamRailGate. Held behind the `procurement` flag.
+  ...(isPreviewEnabled("procurement")
+    ? [
+        {
+          key: "procurement",
+          label: "Procurement",
+          icon: PackageIcon,
+          access: true,
+          externallyGated: true,
+          forwardsToFirstItem: true,
+          path: "/procurement",
+          sections: appsToSections(PROCUREMENT_TEAM_APPS),
+        },
+      ]
+    : []),
   {
     key: "legal",
     label: "Legal",

@@ -20,9 +20,10 @@
 // for approving and assigning join the registry with their own gate when those
 // screens land.
 
-import { ShoppingCartIcon } from "@wso2/oxygen-ui-icons-react";
+import { CheckCheckIcon, ClipboardListIcon, ShoppingCartIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
 import { PROCUREMENT_PATH } from "@features/procurement/procurementPaths";
+import { workspacePaths } from "@features/procurement/workspace/workspacePaths";
 
 export const PROCUREMENT_ITEM = {
   home: "procurement-home",
@@ -41,6 +42,51 @@ export const PROCUREMENT_APPS: readonly MenuApp[] = [
         icon: ShoppingCartIcon,
         desc: "Raise purchase requests and follow them through approval to Procurement.",
         path: PROCUREMENT_PATH,
+      },
+    ],
+  },
+];
+
+export const PROCUREMENT_WORKSPACE_ITEM = {
+  approvals: "procurement-approvals",
+  queue: "procurement-team-queue",
+} as const;
+
+/** The rail rows only the Procurement team sees. Approvals is open to everyone, so the team's role check does not claim it. */
+export const PROCUREMENT_TEAM_ITEM_IDS: ReadonlySet<string> = new Set([PROCUREMENT_WORKSPACE_ITEM.queue]);
+
+/**
+ * The Procurement perspective: approvals for anyone a request names as an
+ * approver, then the approved requests the team assigns and handles.
+ */
+export const PROCUREMENT_TEAM_APPS: readonly MenuApp[] = [
+  {
+    key: "procurement-requests",
+    name: "Requests",
+    icon: ClipboardListIcon,
+    purpose: "Approved purchase requests, to assign and handle.",
+    items: [
+      {
+        id: PROCUREMENT_WORKSPACE_ITEM.queue,
+        label: "Requests",
+        icon: ClipboardListIcon,
+        desc: "Approved purchase requests, to assign and handle.",
+        path: workspacePaths.queue,
+      },
+    ],
+  },
+  {
+    key: "procurement-approvals",
+    name: "Approvals",
+    icon: CheckCheckIcon,
+    purpose: "Approve or reject the purchase requests that name you as an approver.",
+    items: [
+      {
+        id: PROCUREMENT_WORKSPACE_ITEM.approvals,
+        label: "Approvals",
+        icon: CheckCheckIcon,
+        desc: "Approve or reject the purchase requests that name you as an approver.",
+        path: workspacePaths.approvals,
       },
     ],
   },
