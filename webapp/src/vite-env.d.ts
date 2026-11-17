@@ -15,3 +15,14 @@
 // under the License.
 
 /// <reference types="vite/client" />
+
+// Build-time values from .env (see .env.example). Vite copies them into the
+// bundle, so they are readable by anyone who loads the app.
+interface ImportMetaEnv {
+  readonly ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_WORK_EMAIL?: string;
+  readonly ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_EMAIL_USER?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}

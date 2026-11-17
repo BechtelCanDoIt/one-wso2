@@ -19,8 +19,38 @@ import {
   EMPTY_SIGNATURE_DATA,
   generateSignatureHTML,
   hasSignatureContent,
+  signatureEmailUser,
   type SignatureData,
 } from "./signatureGenerator";
+
+describe("signatureEmailUser", () => {
+  const override = { workEmail: "jdoe2@wso2.com", emailUser: "jdoe" };
+  const none = { workEmail: "", emailUser: "" };
+
+  it("uses the override's username for that work email, ignoring case and spaces", () => {
+    expect(signatureEmailUser("jdoe2@wso2.com", override)).toBe("jdoe");
+    expect(signatureEmailUser(" JDoe2@WSO2.com ", override)).toBe("jdoe");
+    expect(signatureEmailUser("jdoe2@wso2.com", { workEmail: " JDOE2@wso2.com ", emailUser: " jdoe " })).toBe("jdoe");
+  });
+
+  it("falls back to the part before @ for everyone else", () => {
+    expect(signatureEmailUser("asmith@wso2.com", override)).toBe("asmith");
+    expect(signatureEmailUser("asmith@wso2.com", none)).toBe("asmith");
+  });
+
+  it("ignores an override with a blank or invalid username", () => {
+    expect(signatureEmailUser("jdoe2@wso2.com", { workEmail: "jdoe2@wso2.com", emailUser: "" })).toBe("jdoe2");
+    expect(signatureEmailUser("jdoe2@wso2.com", { workEmail: "jdoe2@wso2.com", emailUser: "jdoe@x.com" })).toBe(
+      "jdoe2",
+    );
+    expect(signatureEmailUser("jdoe2@wso2.com", { workEmail: "jdoe2@wso2.com", emailUser: "<b>x</b>" })).toBe("jdoe2");
+  });
+
+  it("is empty for an empty work email, even when the override's email is blank too", () => {
+    expect(signatureEmailUser("", override)).toBe("");
+    expect(signatureEmailUser("", { workEmail: "", emailUser: "jdoe" })).toBe("");
+  });
+});
 
 function data(overrides: Partial<SignatureData> = {}): SignatureData {
   return { ...EMPTY_SIGNATURE_DATA, ...overrides };

@@ -19,7 +19,7 @@ import { Box, Typography } from "@wso2/oxygen-ui";
 import { useUserInfo } from "@api/useUserInfo";
 import SignatureFieldsForm from "../components/SignatureFieldsForm";
 import SignaturePreviewCard from "../components/SignaturePreviewCard";
-import { EMPTY_SIGNATURE_DATA, type SignatureData } from "../util/signatureGenerator";
+import { EMPTY_SIGNATURE_DATA, signatureEmailUser, type SignatureData } from "../util/signatureGenerator";
 
 // Shrinks an element to a 1x1px clipped box instead of hiding it outright —
 // unlike display:none/visibility:hidden, this keeps it in the accessibility
@@ -64,8 +64,9 @@ export default function EmailSignaturePage() {
     const { firstName, lastName } = userInfo.data;
     const designation = userInfo.data.designation ?? "";
     const name = [firstName, lastName].filter(Boolean).join(" ").trim();
-    // Only the part before "@": a template supplies its own domain.
-    const emailUser = (userInfo.data.workEmail ?? "").split("@")[0].trim();
+    // Only the username: a template supplies its own domain. Usually the part
+    // before "@", unless .env overrides it for this person.
+    const emailUser = signatureEmailUser(userInfo.data.workEmail ?? "");
     if (name || designation || emailUser) {
       setData((prev) => ({
         ...prev,
