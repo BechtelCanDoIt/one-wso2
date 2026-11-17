@@ -29,6 +29,8 @@ import { swagStorePaths } from "../../swagStorePaths";
 import { formatCivilDate } from "../../util/civilDate";
 import { messageFor } from "../../util/swagStoreError";
 import {
+  canBuyFrom,
+  isBuyable,
   missingOptions,
   priceRange,
   selectedVariant,
@@ -113,6 +115,9 @@ function ActiveProduct({ product }: { product: SwagStoreProductDetail }): JSX.El
   const variant = selectedVariant(product, selection);
   const missing = missingOptions(product, selection);
   const range = priceRange(product);
+  // The pickup and final-sale notes are for someone about to buy, so they go
+  // when nothing that matches the choice so far can be bought.
+  const orderable = canBuyFrom(product, selection);
 
   const choose = (next: OptionSelection) => setSearchParams(selectionToSearch(product, next), { replace: true });
 
@@ -150,10 +155,14 @@ function ActiveProduct({ product }: { product: SwagStoreProductDetail }): JSX.El
           )}
           {product.options.length > 0 && <OptionPicker product={product} selection={selection} onChange={choose} />}
           <BuyBox product={product} variant={variant} missing={missing} hasCombination={missing.length > 0 || Boolean(variant)} />
-          <PickupLine />
-          <Typography variant="body2" color="text.secondary">
-            Before you order: Paid orders are final. There are no cancellations, returns or refunds.
-          </Typography>
+          {orderable && (
+            <>
+              <PickupLine />
+              <Typography variant="body2" color="text.secondary">
+                Before you order: Paid orders are final. There are no cancellations, returns or refunds.
+              </Typography>
+            </>
+          )}
         </Box>
       </Box>
       <AlternativesRow items={product.alternatives} />
@@ -173,7 +182,7 @@ function BuyBox({ product, variant, missing, hasCombination }: BuyBoxProps): JSX
   const [quantity, setQuantity] = useState(1);
   const add = useAddToCart();
 
-  const buyable = variant?.availability === "IN_STOCK" || variant?.availability === "LOW_STOCK";
+  const buyable = variant !== undefined && isBuyable(variant);
   const max = Math.max(
     1,
     Math.min(MAX_LINE_QUANTITY, product.maxPerUser ?? MAX_LINE_QUANTITY, variant?.stockLeft ?? MAX_LINE_QUANTITY),
