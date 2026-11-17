@@ -20,10 +20,10 @@
 //
 // The source hardcoded `#ffffff` / `#1a1a24` to opt a dialog out of
 // AcrylicOrangeTheme's translucent, blurred Paper — correct there, wrong here.
-// This app now defaults to Oxygen's WSO2Theme, whose paper is also translucent
-// (`#ffffffc5` light, `#00000026` dark) over a navy dark canvas (`#0b142b`),
-// so a literal `#1a1a24` would sit as a visibly different shade against it,
-// and a theme switch would strand both values entirely.
+// This app now defaults to Oxygen's Choreo Labs theme, whose paper is also
+// translucent (`#ffffffc5` light, `#17223ac5` dark) over a near-black navy dark
+// canvas (`#050a1c`), so a literal `#1a1a24` would sit as a visibly different
+// shade against it, and a theme switch would strand both values entirely.
 //
 // The OPT-OUT is still wanted — a dense form dialog reads as unreadably
 // transparent through glassmorphism. What changes is how it is expressed:

@@ -18,9 +18,9 @@ import { forwardRef } from "react";
 import type { LucideProps } from "@wso2/oxygen-ui-icons-react";
 
 /**
- * Lucide dropped brand icons in v1; `@wso2/oxygen-ui-icons-react` re-exports
- * Lucide and keeps a few brand marks (Facebook, GitHub, …) but not LinkedIn.
- * Keep the previous Lucide path here until Oxygen ships one.
+ * The LinkedIn mark as an outline SVG, taking the same props as the
+ * `@wso2/oxygen-ui-icons-react` icons. Hidden from assistive technology unless
+ * it is given `aria-label` or `aria-labelledby`, or an explicit `aria-hidden`.
  */
 export const LinkedinIcon = forwardRef<SVGSVGElement, LucideProps>(
   (
