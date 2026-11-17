@@ -21,22 +21,37 @@ import { useAmplifyConfig } from "../api/useAmplifyData";
 import { linkedInPostUrl } from "../util/linkedinPost";
 
 // Choreo Labs icon (white), hosted by Choreo Labs. Shown on a black card when the post has no usable image.
-export const DEFAULT_POST_IMAGE = "https://choreolabs.com/themes/wso2theme/images/choreo/brand/choreo-labs-icon-white.png";
+export const DEFAULT_POST_IMAGE = "https://one.choreolabs.com/amplify/amplify-logo-dark.png";
 
 // The post's own image, or the default when the URL is empty or fails to load.
 function PostImage({ url }: { url?: string | null }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const useDefault = !url || failedUrl === url;
+  const onError = () => {
+    if (url && !useDefault) setFailedUrl(url);
+  };
+  if (useDefault) {
+    // Logo sits at 80% of the frame, centred, so it never touches the edges.
+    return (
+      <Box sx={{ width: "100%", height: "100%", bgcolor: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Box
+          component="img"
+          src={DEFAULT_POST_IMAGE}
+          alt=""
+          loading="lazy"
+          sx={{ display: "block", maxWidth: "80%", maxHeight: "80%", objectFit: "contain" }}
+        />
+      </Box>
+    );
+  }
   return (
     <Box
       component="img"
-      src={useDefault ? DEFAULT_POST_IMAGE : url}
+      src={url ?? undefined}
       alt=""
       loading="lazy"
-      onError={() => {
-        if (url && !useDefault) setFailedUrl(url);
-      }}
-      sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover", bgcolor: useDefault ? "#000" : undefined }}
+      onError={onError}
+      sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
     />
   );
 }
