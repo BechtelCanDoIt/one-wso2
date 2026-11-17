@@ -189,7 +189,7 @@ describe("NdaPage counterparty", () => {
 
 describe("NdaPage counterparty and WSO2 company", () => {
   const allowed: Access = { isPending: false, isError: false, data: { canSearchSalesforce: true } };
-  const wso2Company = () => screen.getByRole("combobox", { name: /WSO2 Company/ });
+  const wso2Company = () => screen.getByRole("combobox", { name: /Choreo Labs Company/ });
 
   async function pickSalesforceCustomer(user: ReturnType<typeof userEvent.setup>) {
     await user.type(screen.getByRole("combobox", { name: "Customer Name" }), "Acme");
@@ -257,7 +257,7 @@ describe("downloadHint", () => {
   });
 
   it("asks for the WSO2 Company when the country has no matching entity", () => {
-    expect(downloadHint({ ...base, hasCustomer: true, hasCountry: true })).toBe("To download, choose a WSO2 Company.");
+    expect(downloadHint({ ...base, hasCustomer: true, hasCountry: true })).toBe("To download, choose a Choreo Labs Company.");
   });
 
   it("lists only the manual fields still empty", () => {
