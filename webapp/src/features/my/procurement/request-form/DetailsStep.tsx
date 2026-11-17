@@ -14,11 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Box, Button, IconButton, Stack } from "@wso2/oxygen-ui";
+import { Box, Button, Checkbox, FormControlLabel, IconButton, Stack } from "@wso2/oxygen-ui";
 import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import type { RequestDetails } from "../types";
 import { ChipsField, SectionHeading, SelectField, StepTitle, TextInput, YesNoField, YesNoList } from "./formFields";
-import { detailsLabel, USAGE_PERIODS, type RequestDraft } from "./requestFormModel";
+import { detailsLabel, INSTALLATION_TYPES, LICENSE_TYPES, USAGE_PERIODS, type RequestDraft } from "./requestFormModel";
 
 interface DetailsProps {
   details: RequestDetails;
@@ -26,6 +26,10 @@ interface DetailsProps {
 }
 
 const TWO_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } } as const;
+
+const labelsOf = (choices: readonly { value: string; label: string }[]) => Object.fromEntries(choices.map((c) => [c.value, c.label]));
+const INSTALLATION_LABELS = labelsOf(INSTALLATION_TYPES);
+const LICENSE_LABELS = labelsOf(LICENSE_TYPES);
 
 const ROI_IT = "e.g. Replaces two tools (USD 18k/yr), saves ~10 hrs/week for the Sales team; payback within 6 months";
 const ROI_NON_IT = "e.g. Cuts annual facilities cost by 15%; pays back within the year";
@@ -161,6 +165,7 @@ function Assessment({ details, onChange }: Pick<DetailsProps, "details" | "onCha
 
 function ItDetails({ details, onChange }: DetailsProps) {
   const d = details;
+  const saas = d.installationType === "SAAS";
   return (
     <Stack spacing={2.5}>
       <SectionHeading first>Product</SectionHeading>
@@ -169,24 +174,72 @@ function ItDetails({ details, onChange }: DetailsProps) {
         <TextInput required label="Plan / subscription tier" placeholder="e.g. Enterprise, Pro" value={d.plan} onChange={(plan) => onChange({ plan })} />
       </Box>
       <TextInput required multiline minRows={3} label="Description of the product / solution" placeholder="What does it do, and how will WSO2 use it?" value={d.description} onChange={(description) => onChange({ description })} />
-
-      <SectionHeading>Users</SectionHeading>
       <Box sx={TWO_COLUMNS}>
-        <Stack spacing={2.5}>
-          <TextInput type="number" label="Number of users" placeholder="e.g. 25" value={d.userCount} onChange={(userCount) => onChange({ userCount })} />
-          <ChipsField label="User names" placeholder="e.g. Jane Silva, Sales team" values={d.userNames} onChange={(userNames) => onChange({ userNames })} />
-        </Stack>
-        <Stack spacing={2.5}>
-          <TextInput type="number" label="Number of administrators" placeholder="e.g. 2" value={d.adminCount} onChange={(adminCount) => onChange({ adminCount })} />
-          <ChipsField label="Administrator names" placeholder="e.g. John Perera" values={d.adminNames} onChange={(adminNames) => onChange({ adminNames })} />
-        </Stack>
+        <SelectField
+          required
+          label="Installation type"
+          options={INSTALLATION_TYPES.map((c) => c.value)}
+          labels={INSTALLATION_LABELS}
+          value={d.installationType}
+          onChange={(installationType) => onChange({ installationType: installationType as RequestDetails["installationType"] })}
+        />
+        <SelectField
+          required
+          label="Licence type"
+          options={LICENSE_TYPES.map((c) => c.value)}
+          labels={LICENSE_LABELS}
+          value={d.licenseType}
+          onChange={(licenseType) => onChange({ licenseType: licenseType as RequestDetails["licenseType"] })}
+        />
+      </Box>
+
+      <SectionHeading>Links</SectionHeading>
+      <Box sx={TWO_COLUMNS}>
+        <TextInput required label="Software link" placeholder="https://" value={d.softwareUrl} onChange={(softwareUrl) => onChange({ softwareUrl })} />
+        <TextInput required label="Pricing link" placeholder="https://" value={d.pricingUrl} onChange={(pricingUrl) => onChange({ pricingUrl })} />
+        <TextInput required label="Terms of service link" placeholder="https://" value={d.termsUrl} onChange={(termsUrl) => onChange({ termsUrl })} />
+        <TextInput required label="Privacy policy link" placeholder="https://" value={d.privacyUrl} onChange={(privacyUrl) => onChange({ privacyUrl })} />
+        <TextInput required label="Security / compliance link" placeholder="https://" value={d.securityUrl} onChange={(securityUrl) => onChange({ securityUrl })} />
       </Box>
 
       <SectionHeading>Usage</SectionHeading>
       <SelectField required label="Expected usage period" placeholder="Select duration" options={USAGE_PERIODS} value={d.usagePeriod} onChange={(usagePeriod) => onChange({ usagePeriod })} />
+      <YesNoList>
+        <YesNoField label="Is this request urgent?" value={d.urgent} onChange={(urgent) => onChange({ urgent })}>
+          <TextInput required multiline minRows={2} label="Why is it urgent?" value={d.urgencyJustification} onChange={(urgencyJustification) => onChange({ urgencyJustification })} />
+        </YesNoField>
+      </YesNoList>
+
+      {saas && (
+        <>
+          <SectionHeading>Users</SectionHeading>
+          <Box sx={TWO_COLUMNS}>
+            <Stack spacing={2.5}>
+              <TextInput required type="number" label="Number of users" placeholder="e.g. 25" value={d.userCount} onChange={(userCount) => onChange({ userCount })} />
+              <ChipsField required label="User names" placeholder="e.g. Jane Silva, Sales team" values={d.userNames} onChange={(userNames) => onChange({ userNames })} />
+            </Stack>
+            <Stack spacing={2.5}>
+              <TextInput required type="number" label="Number of administrators" placeholder="e.g. 2" value={d.adminCount} onChange={(adminCount) => onChange({ adminCount })} />
+              <ChipsField required label="Administrator names" placeholder="e.g. John Perera" values={d.adminNames} onChange={(adminNames) => onChange({ adminNames })} />
+            </Stack>
+          </Box>
+        </>
+      )}
 
       <Justification details={d} onChange={onChange} roiPlaceholder={ROI_IT} />
-      <Assessment details={d} onChange={onChange} />
+      {saas && <Assessment details={d} onChange={onChange} />}
+
+      <SectionHeading>Confirmations</SectionHeading>
+      <Stack>
+        <FormControlLabel
+          control={<Checkbox checked={d.authorizedListChecked} onChange={(e) => onChange({ authorizedListChecked: e.target.checked })} />}
+          label="I have checked that this software is not already on the authorised software list."
+        />
+        <FormControlLabel
+          control={<Checkbox checked={d.legitimacyConfirmed} onChange={(e) => onChange({ legitimacyConfirmed: e.target.checked })} />}
+          label="I confirm that the vendor and the software are legitimate."
+        />
+      </Stack>
     </Stack>
   );
 }

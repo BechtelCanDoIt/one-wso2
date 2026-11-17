@@ -40,7 +40,7 @@ export const MIN_DIRECTORY_QUERY = 3;
 /** The most additional approvers the backend accepts on a request. */
 export const MAX_ADDITIONAL_APPROVERS = 5;
 
-/** How long the software is expected to be used. Not stored by the backend yet, so it is not a looked-up list. */
+/** How long the software is expected to be used. The backend keeps it as a free-form answer, so it is not a looked-up list. */
 export const USAGE_PERIODS = [
   "Trial / pilot (under 3 months)",
   "Monthly plan",
@@ -50,6 +50,21 @@ export const USAGE_PERIODS = [
   "Ongoing / perpetual",
   "Other",
 ] as const;
+
+export const INSTALLATION_TYPES: readonly Choice[] = [
+  { value: "SAAS", label: "SaaS (web-based, hosted by the vendor)" },
+  { value: "STANDALONE", label: "Standalone application" },
+  { value: "PLUGIN", label: "Plugin" },
+  { value: "BROWSER_EXTENSION", label: "Browser extension" },
+  { value: "PORTABLE", label: "Portable application" },
+];
+
+export const LICENSE_TYPES: readonly Choice[] = [
+  { value: "COMPANY", label: "WSO2 company licence" },
+  { value: "CUSTOMER", label: "Customer's licence" },
+  { value: "FREE_COMMERCIAL", label: "Free for commercial use" },
+  { value: "PERSONAL", label: "Personal licence" },
+];
 
 export const REQUEST_STEPS = ["Requester details", "Procurement category", "Requirement details", "Vendor & budget", "Review & submit"] as const;
 
@@ -79,10 +94,20 @@ export interface RequestDraft {
 
 export function emptyDetails(): RequestDetails {
   return {
-    itCategory: "",
     product: "",
     plan: "",
     description: "",
+    installationType: "",
+    licenseType: "",
+    softwareUrl: "",
+    pricingUrl: "",
+    termsUrl: "",
+    privacyUrl: "",
+    securityUrl: "",
+    urgent: "",
+    urgencyJustification: "",
+    authorizedListChecked: false,
+    legitimacyConfirmed: false,
     userCount: "",
     userNames: [],
     adminCount: "",
@@ -141,7 +166,7 @@ export function draftFromRequest(request: PurchaseRequest): RequestDraft {
 
 const blank = (value: string): boolean => value.trim() === "";
 
-/** A count is optional, but when given it is a whole number the backend accepts. */
+/** A count, when given, is a whole number the backend accepts. */
 const invalidCount = (value: string): boolean => {
   if (blank(value)) return false;
   const n = Number(value);
@@ -167,15 +192,41 @@ export function budgetForDisplay(budget: BudgetDetails, lookups: ProcurementLook
   };
 }
 
+/** A link the backend accepts: http or https, with no spaces. */
+const validUrl = (value: string): boolean => /^https?:\/\/\S+$/.test(value.trim());
+
+const IT_LINKS = [
+  ["softwareUrl", "Software link"],
+  ["pricingUrl", "Pricing link"],
+  ["termsUrl", "Terms link"],
+  ["privacyUrl", "Privacy link"],
+  ["securityUrl", "Security link"],
+] as const;
+
 function itDetailsMissing(d: RequestDetails): string[] {
   const missing: string[] = [];
   if (blank(d.product)) missing.push("Product / solution name");
   if (blank(d.plan)) missing.push("Plan / subscription tier");
   if (blank(d.description)) missing.push("Description of the product / solution");
-  if (invalidCount(d.userCount)) missing.push("A whole number of users");
-  if (invalidCount(d.adminCount)) missing.push("A whole number of administrators");
+  if (!d.installationType) missing.push("Installation type");
+  if (!d.licenseType) missing.push("Licence type");
+  for (const [key, label] of IT_LINKS) if (!validUrl(d[key])) missing.push(`${label} (starting with http:// or https://)`);
+  if (!d.urgent) missing.push("Urgency answer");
+  if (d.urgent === "yes" && blank(d.urgencyJustification)) missing.push("Why the request is urgent");
   if (blank(d.usagePeriod)) missing.push("Expected usage period");
   if (blank(d.businessJustification)) missing.push("Business justification");
+  if (!d.authorizedListChecked) missing.push("Authorised software list confirmation");
+  if (!d.legitimacyConfirmed) missing.push("Legitimacy confirmation");
+  if (d.installationType === "SAAS") missing.push(...saasDetailsMissing(d));
+  return missing;
+}
+
+function saasDetailsMissing(d: RequestDetails): string[] {
+  const missing: string[] = [];
+  if (blank(d.userCount) || invalidCount(d.userCount)) missing.push("A whole number of users");
+  if (d.userNames.length === 0) missing.push("User names");
+  if (blank(d.adminCount) || invalidCount(d.adminCount)) missing.push("A whole number of administrators");
+  if (d.adminNames.length === 0) missing.push("Administrator names");
   if (!d.sensitiveData) missing.push("Sensitive data answer");
   if (d.sensitiveData === "yes" && blank(d.sensitiveDataDetail)) missing.push("Sensitive data details");
   if (!d.externalPii) missing.push("External PII answer");
@@ -281,22 +332,4 @@ export function draftToInput(draft: RequestDraft): PurchaseRequestInput {
     notes: draft.notes,
     declarationAccepted: draft.declarationAccepted,
   };
-}
-
-export const ATTACHMENT_EXTENSIONS = ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "png", "jpg", "jpeg"] as const;
-export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
-export const MAX_ATTACHMENTS = 10;
-
-/**
- * Why a file cannot be attached, or null when it can. Presentation only: the
- * backend checks the file's content, size and count again.
- */
-export function attachmentProblem(file: { name: string; size: number }): string | null {
-  const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (!(ATTACHMENT_EXTENSIONS as readonly string[]).includes(extension)) {
-    return `"${file.name}" is not a supported file type (${ATTACHMENT_EXTENSIONS.join(", ")}).`;
-  }
-  if (file.size > MAX_ATTACHMENT_BYTES) return `"${file.name}" is larger than 10 MB.`;
-  if (file.size === 0) return `"${file.name}" is empty.`;
-  return null;
 }

@@ -17,7 +17,6 @@
 import { describe, expect, it } from "vitest";
 import type { Person, ProcurementLookups, ProcurementMe, PurchaseRequest } from "../types";
 import {
-  attachmentProblem,
   budgetForDisplay,
   draftFromRequest,
   draftToInput,
@@ -55,6 +54,31 @@ const completeIt = (): RequestDraft => {
       description: "Design tool",
       usagePeriod: "1 year",
       businessJustification: "Needed",
+      installationType: "PLUGIN",
+      licenseType: "COMPANY",
+      softwareUrl: "https://figma.example.com",
+      pricingUrl: "https://figma.example.com/pricing",
+      termsUrl: "https://figma.example.com/terms",
+      privacyUrl: "https://figma.example.com/privacy",
+      securityUrl: "https://figma.example.com/security",
+      urgent: "no",
+      authorizedListChecked: true,
+      legitimacyConfirmed: true,
+    },
+  };
+};
+
+const completeSaas = (): RequestDraft => {
+  const draft = completeIt();
+  return {
+    ...draft,
+    details: {
+      ...draft.details,
+      installationType: "SAAS",
+      userCount: "25",
+      userNames: ["Design team"],
+      adminCount: "2",
+      adminNames: ["IT"],
       sensitiveData: "no",
       externalPii: "no",
       employeePii: "no",
@@ -93,13 +117,37 @@ describe("step 2 and 3", () => {
     expect(missingForStep(STEP_DETAILS, emptyDraft(), me)).toEqual(["Procurement category"]);
   });
 
-  it("ask an IT request for its security assessment", () => {
-    const draft: RequestDraft = { ...completeIt(), details: { ...completeIt().details, sensitiveData: "", integrates: "" } };
+  it("ask an IT request for how it is installed, its licence, its links, urgency and both confirmations", () => {
+    const d = emptyDraft().details;
+    const draft: RequestDraft = {
+      ...completeIt(),
+      details: { ...completeIt().details, installationType: "", licenseType: "", softwareUrl: "", pricingUrl: "ftp://x", termsUrl: d.termsUrl, urgent: "", authorizedListChecked: false, legitimacyConfirmed: false },
+    };
+    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual([
+      "Installation type",
+      "Licence type",
+      "Software link (starting with http:// or https://)",
+      "Pricing link (starting with http:// or https://)",
+      "Terms link (starting with http:// or https://)",
+      "Urgency answer",
+      "Authorised software list confirmation",
+      "Legitimacy confirmation",
+    ]);
+  });
+
+  it("ask why a request is urgent only when it is", () => {
+    const draft: RequestDraft = { ...completeIt(), details: { ...completeIt().details, urgent: "yes" } };
+    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["Why the request is urgent"]);
+  });
+
+  it("ask only SaaS software for its security assessment", () => {
+    expect(missingForStep(STEP_DETAILS, completeIt(), me)).toEqual([]);
+    const draft: RequestDraft = { ...completeSaas(), details: { ...completeSaas().details, sensitiveData: "", integrates: "" } };
     expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["Sensitive data answer", "Integration answer"]);
   });
 
   it("ask for detail only after a Yes", () => {
-    const base = completeIt();
+    const base = completeSaas();
     const yes = { ...base, details: { ...base.details, sensitiveData: "yes" as const, integrates: "yes" as const } };
     expect(missingForStep(STEP_DETAILS, yes, me)).toEqual([
       "Sensitive data details",
@@ -116,12 +164,22 @@ describe("step 2 and 3", () => {
 
 describe("the user and administrator counts", () => {
   const withCounts = (userCount: string, adminCount: string): RequestDraft => {
-    const draft = completeIt();
+    const draft = completeSaas();
     return { ...draft, details: { ...draft.details, userCount, adminCount } };
   };
 
-  it("may be left blank", () => {
-    expect(missingForStep(STEP_DETAILS, withCounts("", ""), me)).toEqual([]);
+  it("are not asked unless the software is SaaS", () => {
+    const draft = completeIt();
+    expect(missingForStep(STEP_DETAILS, { ...draft, details: { ...draft.details, userCount: "abc" } }, me)).toEqual([]);
+  });
+
+  it("are required for SaaS software, with the names", () => {
+    expect(missingForStep(STEP_DETAILS, withCounts("", ""), me)).toEqual(["A whole number of users", "A whole number of administrators"]);
+    const draft = completeSaas();
+    expect(missingForStep(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: [], adminNames: [] } }, me)).toEqual([
+      "User names",
+      "Administrator names",
+    ]);
   });
 
   it("accept whole numbers the backend allows, zero included", () => {
@@ -130,8 +188,8 @@ describe("the user and administrator counts", () => {
   });
 
   it.each([["-1"], ["1.5"], ["abc"], ["100001"], ["1e3x"]])("refuse %s", (bad) => {
-    expect(missingForStep(STEP_DETAILS, withCounts(bad, ""), me)).toEqual(["A whole number of users"]);
-    expect(missingForStep(STEP_DETAILS, withCounts("", bad), me)).toEqual(["A whole number of administrators"]);
+    expect(missingForStep(STEP_DETAILS, withCounts(bad, "2"), me)).toEqual(["A whole number of users"]);
+    expect(missingForStep(STEP_DETAILS, withCounts("2", bad), me)).toEqual(["A whole number of administrators"]);
   });
 });
 
@@ -218,18 +276,5 @@ describe("budgetForDisplay", () => {
       [{ value: "ENG-1", label: "ENG-1 - Platform" }],
     );
     expect(shown).toEqual({ category: "Software", businessUnit: "Sales", product: "PRD-9", region: "", engagementCode: "ENG-1 - Platform", salesforceCampaign: "Q4" });
-  });
-});
-
-describe("attachmentProblem", () => {
-  it("accepts a document within the limit", () => {
-    expect(attachmentProblem({ name: "quote.PDF", size: 1024 })).toBeNull();
-  });
-
-  it("refuses other types, empty files and oversized files", () => {
-    expect(attachmentProblem({ name: "run.exe", size: 10 })).toMatch(/not a supported/);
-    expect(attachmentProblem({ name: "notes", size: 10 })).toMatch(/not a supported/);
-    expect(attachmentProblem({ name: "a.pdf", size: 0 })).toMatch(/empty/);
-    expect(attachmentProblem({ name: "a.pdf", size: 11 * 1024 * 1024 })).toMatch(/10 MB/);
   });
 });

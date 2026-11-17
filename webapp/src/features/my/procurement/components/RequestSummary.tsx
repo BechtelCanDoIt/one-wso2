@@ -16,14 +16,9 @@
 
 import { useState, type ReactNode } from "react";
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from "@wso2/oxygen-ui";
-import { formatBytes, formatDate } from "../procurementFormat";
+import { INSTALLATION_TYPES, LICENSE_TYPES } from "../request-form/requestFormModel";
+import { formatDate } from "../procurementFormat";
 import type { BudgetDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
-
-/** A file attached to the request, as a summary lists it. */
-export interface SummaryAttachment {
-  name: string;
-  sizeBytes: number;
-}
 
 /** Everything a summary shows, whether it comes from a draft in the form or a saved request. */
 export interface RequestView {
@@ -39,7 +34,6 @@ export interface RequestView {
   /** The budget approver's name. */
   budgetApprover: string;
   notes: string;
-  attachments: SummaryAttachment[];
   /** A date to show with the key facts, with what it is called ("Date", "Raised"). */
   date?: { label: string; iso: string };
 }
@@ -143,31 +137,53 @@ function Section({ title, onEdit, children }: { title: string; onEdit?: () => vo
   );
 }
 
+const choiceLabel = (choices: readonly { value: string; label: string }[], value: string): string =>
+  choices.find((c) => c.value === value)?.label ?? value;
+
 function ItRows({ d }: { d: RequestDetails }) {
+  const saas = d.installationType === "SAAS";
   return (
     <>
       <Row label="Product / solution name" value={d.product} />
       <Row label="Plan / subscription tier" value={d.plan} />
       <Row label="Description of the product / solution" value={d.description} />
-      <Row label="Users" value={joined(d.userCount, d.userNames.join(", "))} optional />
-      <Row label="Administrators" value={joined(d.adminCount, d.adminNames.join(", "))} optional />
+      <Row label="Installation type" value={choiceLabel(INSTALLATION_TYPES, d.installationType)} />
+      <Row label="Licence type" value={choiceLabel(LICENSE_TYPES, d.licenseType)} />
+      <Row label="Software link" value={d.softwareUrl} />
+      <Row label="Pricing link" value={d.pricingUrl} />
+      <Row label="Terms of service link" value={d.termsUrl} />
+      <Row label="Privacy policy link" value={d.privacyUrl} />
+      <Row label="Security / compliance link" value={d.securityUrl} />
       <Row label="Expected usage period" value={d.usagePeriod} />
-      <Row label="Business justification" value={d.businessJustification} />
-      <Row label="ROI" value={d.roi} optional />
-      <Row label="Stores sensitive WSO2 data" value={yesNo(d.sensitiveData)} />
-      {d.sensitiveData === "yes" && <Row label="Sensitive data" value={d.sensitiveDataDetail} />}
-      <Row label="Stores external PII" value={yesNo(d.externalPii)} />
-      {d.externalPii === "yes" && <Row label="External PII" value={d.externalPiiDetail} />}
-      <Row label="Stores employee PII" value={yesNo(d.employeePii)} />
-      {d.employeePii === "yes" && <Row label="Employee PII" value={d.employeePiiDetail} />}
-      <Row label="Integrates with WSO2 systems" value={yesNo(d.integrates)} />
-      {d.integrates === "yes" && (
+      <Row label="Urgent" value={yesNo(d.urgent)} />
+      {d.urgent === "yes" && <Row label="Why it is urgent" value={d.urgencyJustification} />}
+      {saas && (
         <>
-          <Row label="Integrations" value={d.integrations.map((i) => joined(i.system, i.data)).join("\n")} />
-          <Row label="Vendor documentation" value={yesNo(d.vendorDocs)} />
-          {d.vendorDocs === "yes" && <Row label="Documentation link(s)" value={d.vendorDocsLink} />}
+          <Row label="Users" value={joined(d.userCount, d.userNames.join(", "))} />
+          <Row label="Administrators" value={joined(d.adminCount, d.adminNames.join(", "))} />
         </>
       )}
+      <Row label="Business justification" value={d.businessJustification} />
+      <Row label="ROI" value={d.roi} optional />
+      {saas && (
+        <>
+          <Row label="Stores sensitive WSO2 data" value={yesNo(d.sensitiveData)} />
+          {d.sensitiveData === "yes" && <Row label="Sensitive data" value={d.sensitiveDataDetail} />}
+          <Row label="Stores external PII" value={yesNo(d.externalPii)} />
+          {d.externalPii === "yes" && <Row label="External PII" value={d.externalPiiDetail} />}
+          <Row label="Stores employee PII" value={yesNo(d.employeePii)} />
+          {d.employeePii === "yes" && <Row label="Employee PII" value={d.employeePiiDetail} />}
+          <Row label="Integrates with WSO2 systems" value={yesNo(d.integrates)} />
+          {d.integrates === "yes" && (
+            <>
+              <Row label="Integrations" value={d.integrations.map((i) => joined(i.system, i.data)).join("\n")} />
+              <Row label="Vendor documentation" value={yesNo(d.vendorDocs)} />
+              {d.vendorDocs === "yes" && <Row label="Documentation link(s)" value={d.vendorDocsLink} />}
+            </>
+          )}
+        </>
+      )}
+      <Row label="Confirmations" value={d.authorizedListChecked && d.legitimacyConfirmed ? "Authorised list checked; legitimacy confirmed" : ""} />
     </>
   );
 }
@@ -180,42 +196,6 @@ function NonItRows({ d }: { d: RequestDetails }) {
       <Row label="Business justification" value={d.businessJustification} />
       <Row label="ROI" value={d.roi} optional />
     </>
-  );
-}
-
-function AttachmentList({ attachments }: { attachments: SummaryAttachment[] }) {
-  return (
-    <Stack spacing={1}>
-      {attachments.map((file, index) => (
-        <Stack key={`${file.name}-${index}`} direction="row" spacing={1.5} alignItems="center">
-          <Box
-            aria-hidden="true"
-            sx={{
-              width: 34,
-              height: 34,
-              borderRadius: 1,
-              display: "grid",
-              placeItems: "center",
-              flexShrink: 0,
-              bgcolor: "action.hover",
-              fontSize: 10,
-              fontWeight: 700,
-              letterSpacing: "0.04em",
-            }}
-          >
-            {(file.name.split(".").pop() ?? "").slice(0, 4).toUpperCase()}
-          </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-              {file.name}
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {formatBytes(file.sizeBytes)}
-            </Typography>
-          </Box>
-        </Stack>
-      ))}
-    </Stack>
   );
 }
 
@@ -281,10 +261,7 @@ export default function RequestSummary({
         <Row label="Budget approver" value={view.budgetApprover} optional={budgetOptional} />
       </Section>
 
-      <Section title="Documents and notes" onEdit={edit(4)}>
-        <Row label="Attachments" optional={view.attachments.length === 0}>
-          {view.attachments.length > 0 && <AttachmentList attachments={view.attachments} />}
-        </Row>
+      <Section title="Notes" onEdit={edit(4)}>
         <Row label="Notes for Procurement" value={view.notes} optional />
       </Section>
     </Stack>

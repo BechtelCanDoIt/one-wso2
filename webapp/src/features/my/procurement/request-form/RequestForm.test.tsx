@@ -163,6 +163,20 @@ describe("RequestForm, the steps after it", () => {
     expect(screen.getByText(/Please complete: Product \/ solution name/)).toBeInTheDocument();
   });
 
+  it("asks for users, administrators and the security assessment only when the IT software is SaaS", async () => {
+    const { user } = renderForm();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: /^IT Related Procurement/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.queryByLabelText(/Number of users/)).toBeNull();
+    expect(screen.queryByText(/Data & security assessment/)).toBeNull();
+
+    await user.click(screen.getByRole("combobox", { name: /Installation type/ }));
+    await user.click(await screen.findByRole("option", { name: /^SaaS/ }));
+    expect(screen.getByLabelText(/Number of users/)).toBeInTheDocument();
+    expect(screen.getByText(/Data & security assessment/)).toBeInTheDocument();
+  });
+
   it("offers Marketing & Events as coming soon, not as a choice", async () => {
     const { user } = renderForm();
     await user.click(screen.getByRole("button", { name: "Continue" }));

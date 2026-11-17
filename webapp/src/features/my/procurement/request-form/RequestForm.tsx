@@ -73,10 +73,9 @@ export default function RequestForm({
   submitLabel: string;
   submitting: boolean;
   error?: string;
-  onSubmit: (input: PurchaseRequestInput, files: File[]) => void;
+  onSubmit: (input: PurchaseRequestInput) => void;
 }) {
   const [draft, setDraft] = useState(initialDraft);
-  const [files, setFiles] = useState<File[]>([]);
   const [step, setStep] = useState(STEP_REQUESTER);
   const [missing, setMissing] = useState<string[]>([]);
   const [declarationMissing, setDeclarationMissing] = useState(false);
@@ -115,7 +114,7 @@ export default function RequestForm({
       setStep(incomplete[0].step);
       return setMissing(incomplete[0].missing);
     }
-    onSubmit(draftToInput(draft), files);
+    onSubmit(draftToInput(draft));
   };
 
   return (
@@ -132,7 +131,7 @@ export default function RequestForm({
         {step === STEP_REQUESTER && <RequesterStep draft={draft} me={me} today={todayIso()} onChange={patch} />}
         {step === STEP_CATEGORY && <CategoryStep category={draft.category} onChange={(category) => patch({ category })} />}
         {step === STEP_DETAILS && <DetailsStep draft={draft} onChange={patchDetails} />}
-        {step === STEP_BUDGET && <BudgetStep draft={draft} lookups={lookups} files={files} onFiles={setFiles} onChange={patch} />}
+        {step === STEP_BUDGET && <BudgetStep draft={draft} lookups={lookups} onChange={patch} />}
         {step === STEP_REVIEW && (
           <Stack spacing={2}>
             <StepTitle>Review &amp; submit</StepTitle>
@@ -147,7 +146,6 @@ export default function RequestForm({
                 budget: budgetForDisplay(draft.budget, lookups, engagementCodes.data ?? []),
                 budgetApprover: budgetApprovers.data?.find((a) => a.id === draft.budgetApproverId)?.name ?? "",
                 notes: draft.notes,
-                attachments: files.map((f) => ({ name: f.name, sizeBytes: f.size })),
                 date: { label: "Date", iso: todayIso() },
               }}
               onEditStep={goTo}

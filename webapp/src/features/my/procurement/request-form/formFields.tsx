@@ -351,12 +351,14 @@ export function ChipsField({
   values,
   onChange,
   placeholder,
+  required,
   disabled,
 }: {
   label: string;
   values: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
+  required?: boolean;
   disabled?: boolean;
 }) {
   const id = useId();
@@ -366,7 +368,9 @@ export function ChipsField({
       .filter((entry, index, all) => entry !== "" && all.findIndex((e) => e.toLowerCase() === entry.toLowerCase()) === index);
   return (
     <Box sx={{ minWidth: 0 }}>
-      <FieldLabel htmlFor={id}>{label}</FieldLabel>
+      <FieldLabel htmlFor={id} required={required}>
+        {label}
+      </FieldLabel>
       <Autocomplete
         clearIcon={<SmallClearIcon />}
         id={id}

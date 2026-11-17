@@ -14,14 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState, type ChangeEvent } from "react";
 import { Alert, Box, Button, IconButton, Stack, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useBudgetApprovers, useEngagementCodes } from "../api/useProcurement";
 import type { BudgetDetails, ProcurementLookups, Vendor } from "../types";
 import { OptionField, SectionHeading, StepTitle, TextInput } from "./formFields";
-import { attachmentProblem, emptyVendor, MAX_ATTACHMENTS, type RequestDraft } from "./requestFormModel";
+import { emptyVendor, type RequestDraft } from "./requestFormModel";
 
 const TWO_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } } as const;
 const THREE_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" } } as const;
@@ -64,53 +63,14 @@ function VendorBlock({
   );
 }
 
-function Attachments({ files, onFiles }: { files: File[]; onFiles: (files: File[]) => void }) {
-  const [problem, setProblem] = useState<string | null>(null);
-  const add = (event: ChangeEvent<HTMLInputElement>) => {
-    const picked = Array.from(event.target.files ?? []);
-    event.target.value = "";
-    const bad = picked.map(attachmentProblem).find((p) => p !== null) ?? null;
-    if (bad) return setProblem(bad);
-    if (files.length + picked.length > MAX_ATTACHMENTS) return setProblem(`Attach at most ${MAX_ATTACHMENTS} files.`);
-    setProblem(null);
-    onFiles([...files, ...picked]);
-  };
-  return (
-    <Stack spacing={1.5}>
-      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-        Attach proposal, quotation, or supporting documents
-      </Typography>
-      <Button component="label" size="small" variant="outlined" sx={{ alignSelf: "flex-start" }}>
-        Choose files
-        <input hidden multiple type="file" onChange={add} />
-      </Button>
-      {problem && <Alert severity="error">{problem}</Alert>}
-      {files.map((file, index) => (
-        <Stack key={`${file.name}-${index}`} direction="row" alignItems="center" spacing={1}>
-          <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
-            {file.name}
-          </Typography>
-          <IconButton size="small" aria-label={`Remove ${file.name}`} onClick={() => onFiles(files.filter((_, i) => i !== index))}>
-            <XIcon size={14} />
-          </IconButton>
-        </Stack>
-      ))}
-    </Stack>
-  );
-}
-
-// Step 4. The proposed vendors, supporting documents, budget and who approves it.
+// Step 4. The proposed vendors, budget and who approves it.
 export default function BudgetStep({
   draft,
   lookups,
-  files,
-  onFiles,
   onChange,
 }: {
   draft: RequestDraft;
   lookups: ProcurementLookups;
-  files: File[];
-  onFiles: (files: File[]) => void;
   onChange: (patch: Partial<RequestDraft>) => void;
 }) {
   const required = draft.category === "NON-IT";
@@ -146,9 +106,6 @@ export default function BudgetStep({
       <Button size="small" startIcon={<PlusIcon size={16} />} onClick={() => onChange({ vendors: [...draft.vendors, emptyVendor()] })} sx={{ alignSelf: "flex-start" }}>
         Add another vendor
       </Button>
-
-      <SectionHeading>Documents</SectionHeading>
-      <Attachments files={files} onFiles={onFiles} />
 
       <SectionHeading>Budget details</SectionHeading>
       <Box sx={THREE_COLUMNS}>

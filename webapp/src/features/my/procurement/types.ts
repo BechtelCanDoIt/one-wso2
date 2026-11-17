@@ -32,6 +32,12 @@ export type RequestStatus = "draft" | "submitted" | "approved" | "rejected" | "a
 
 export type YesNo = "yes" | "no";
 
+/** How the software is installed, as the backend names it. */
+export type InstallationType = "PORTABLE" | "PLUGIN" | "BROWSER_EXTENSION" | "STANDALONE" | "SAAS";
+
+/** Whose licence the software is used under, as the backend names it. */
+export type LicenseType = "FREE_COMMERCIAL" | "PERSONAL" | "CUSTOMER" | "COMPANY";
+
 /** An employee. `id` is the email, which is what the backend identifies people by. */
 export interface Person {
   id: string;
@@ -63,10 +69,20 @@ export interface Vendor {
 
 /** What the requester says about a request, per category. Free text is shown as text, never HTML. */
 export interface RequestDetails {
-  itCategory: string;
   product: string;
   plan: string;
   description: string;
+  installationType: InstallationType | "";
+  licenseType: LicenseType | "";
+  softwareUrl: string;
+  pricingUrl: string;
+  termsUrl: string;
+  privacyUrl: string;
+  securityUrl: string;
+  urgent: YesNo | "";
+  urgencyJustification: string;
+  authorizedListChecked: boolean;
+  legitimacyConfirmed: boolean;
   userCount: string;
   userNames: string[];
   adminCount: string;
@@ -95,13 +111,6 @@ export interface BudgetDetails {
   region: string;
   engagementCode: string;
   salesforceCampaign: string;
-}
-
-/** Metadata of a file attached to a request; the file itself stays on the backend. */
-export interface AttachmentInfo {
-  id: string;
-  filename: string;
-  sizeBytes: number;
 }
 
 /** What the requester fills in. The requester, team lead, status and dates are set by the server, never sent. */
@@ -153,7 +162,6 @@ export interface PurchaseRequest extends RequestSummary {
   budgetApproverId: string;
   budgetApproverName: string;
   notes: string;
-  attachments: AttachmentInfo[];
 }
 
 /** One entry of a pick list: what is stored, and what the person sees. */

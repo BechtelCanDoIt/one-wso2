@@ -34,7 +34,6 @@ const view = (patch: Partial<RequestView> = {}): RequestView => ({
   additionalApprovers: [],
   budgetApprover: "Budget Owner",
   notes: "",
-  attachments: [],
   ...patch,
 });
 
@@ -46,7 +45,7 @@ describe("RequestSummary", () => {
       "Requirement details",
       "Vendors",
       "Budget",
-      "Documents and notes",
+      "Notes",
     ]);
     expect(screen.getByText("IT request")).toBeInTheDocument();
     expect(screen.getByText("Team lead: Jordan Ellis")).toBeInTheDocument();
@@ -78,14 +77,6 @@ describe("RequestSummary", () => {
     render(<RequestSummary view={view({ category: "NON-IT", details: { ...emptyDetails(), description: "Chairs", businessJustification: "Worn out" } })} />);
     expect(screen.queryByText("Engagement code")).toBeNull();
     expect(screen.getByText("Additional specifications or document links")).toBeInTheDocument();
-  });
-
-  it("lists each attachment with its size", () => {
-    render(<RequestSummary view={view({ attachments: [{ name: "quote.pdf", sizeBytes: 412 * 1024 }, { name: "plan.docx", sizeBytes: 90 }] })} />);
-    expect(screen.getByText("quote.pdf")).toBeInTheDocument();
-    expect(screen.getByText("412 KB")).toBeInTheDocument();
-    expect(screen.getByText("90 B")).toBeInTheDocument();
-    expect(screen.getByText("PDF")).toBeInTheDocument();
   });
 
   it("cuts long text with Show more, and short text is left alone", async () => {
