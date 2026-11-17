@@ -29,6 +29,8 @@ import { swagStorePaths } from "../../swagStorePaths";
 import { formatCivilDate } from "../../util/civilDate";
 import { messageFor } from "../../util/swagStoreError";
 import {
+  canBuyFrom,
+  isBuyable,
   missingOptions,
   priceRange,
   selectedVariant,
@@ -114,8 +116,8 @@ function ActiveProduct({ product }: { product: SwagStoreProductDetail }): JSX.El
   const missing = missingOptions(product, selection);
   const range = priceRange(product);
   // The pickup and final-sale notes are for someone about to buy, so they go
-  // when the chosen option, or before a choice every option, can't be bought.
-  const orderable = variant ? inStock(variant) : product.variants.some(inStock);
+  // when nothing that matches the choice so far can be bought.
+  const orderable = canBuyFrom(product, selection);
 
   const choose = (next: OptionSelection) => setSearchParams(selectionToSearch(product, next), { replace: true });
 
@@ -180,7 +182,7 @@ function BuyBox({ product, variant, missing, hasCombination }: BuyBoxProps): JSX
   const [quantity, setQuantity] = useState(1);
   const add = useAddToCart();
 
-  const buyable = variant !== undefined && inStock(variant);
+  const buyable = variant !== undefined && isBuyable(variant);
   const max = Math.max(
     1,
     Math.min(MAX_LINE_QUANTITY, product.maxPerUser ?? MAX_LINE_QUANTITY, variant?.stockLeft ?? MAX_LINE_QUANTITY),
@@ -258,11 +260,6 @@ function PickupLine(): JSX.Element | null {
         : "Pick it up at a WSO2 office. You choose the office at checkout."}
     </Typography>
   );
-}
-
-/** IN_STOCK or LOW_STOCK: there is stock to add to the cart. */
-function inStock(variant: SwagStoreVariant): boolean {
-  return variant.availability === "IN_STOCK" || variant.availability === "LOW_STOCK";
 }
 
 function restockHint(eta: string | null): string {

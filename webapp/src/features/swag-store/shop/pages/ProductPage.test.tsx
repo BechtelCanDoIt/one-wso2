@@ -225,6 +225,18 @@ describe("the product page", () => {
     expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
   });
 
+  it("drops the notes when nothing in a partial choice can be bought, and brings them back for one that can", async () => {
+    backend();
+    renderPage("/store/p/wso2-hoodie?colour=Heather%20grey");
+    expect(await screen.findByText("Choose a size.")).toBeInTheDocument();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50))); // the offices would have loaded
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Black" }));
+    expect(await screen.findByText("Pick up at Colombo, about 2 working days after you pay.")).toBeInTheDocument();
+    expect(screen.getByText(/Paid orders are final/)).toBeInTheDocument();
+  });
+
   it("drops the notes before a choice when every option is out of stock", async () => {
     const out = hoodie().variants.map((v) => ({ ...v, availability: "OUT_OF_STOCK" as const, stockLeft: null }));
     backend({ product: hoodie({ variants: out }) });
