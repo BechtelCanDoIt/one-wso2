@@ -273,7 +273,7 @@ describe("PostPerformanceBoard", () => {
     const dialog = screen.getByRole("dialog");
     expect(within(dialog).getByText("Post detail")).toBeTruthy();
     expect(within(dialog).getByText("AI-native integration.")).toBeTruthy();
-    expect(dialog.querySelector("img")?.getAttribute("src")).toBe("https://one.choreolabs.com/amplify/amplify-logo-dark.png");
+    expect(dialog.querySelector("[data-testid=default-post-image]")).toBeTruthy();
     expect(within(dialog).getByText("75%")).toBeTruthy();
     expect(within(dialog).getByText("Novera: Sent")).toBeTruthy();
     expect(within(dialog).getByRole("img", { name: /Reposts per day/ })).toBeTruthy();

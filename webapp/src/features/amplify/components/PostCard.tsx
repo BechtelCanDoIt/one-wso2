@@ -20,8 +20,30 @@ import type { Campaign } from "../api/amplifyTypes";
 import { useAmplifyConfig } from "../api/useAmplifyData";
 import { linkedInPostUrl } from "../util/linkedinPost";
 
-// Choreo Labs icon (white), hosted by Choreo Labs. Shown on a black card when the post has no usable image.
-export const DEFAULT_POST_IMAGE = "https://one.choreolabs.com/amplify/amplify-logo-dark.png";
+// Choreo Labs logo, drawn inline so there is nothing to fetch. White on the black card.
+function ChoreoLabsLogo() {
+  return (
+    <svg
+      data-testid="default-post-image"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 844.97 887.42"
+      fill="#fff"
+      aria-hidden="true"
+      focusable="false"
+      style={{ display: "block", height: "80%", width: "auto", maxWidth: "80%", aspectRatio: "844.97 / 887.42" }}
+    >
+      <ellipse cx="710.09" cy="282.87" rx="134.88" ry="60.8" />
+      <ellipse cx="629.81" cy="135.53" rx="129.85" ry="51.34" />
+      <ellipse cx="470.02" cy="24.5" rx="141.63" ry="24.5" />
+      <ellipse cx="710.09" cy="604.55" rx="134.88" ry="60.8" />
+      <ellipse cx="629.81" cy="751.87" rx="129.85" ry="51.34" />
+      <ellipse cx="470.02" cy="862.91" rx="141.63" ry="24.5" />
+      <ellipse cx="134.88" cy="430.4" rx="134.88" ry="60.8" />
+      <ellipse cx="181.78" cy="607.8" rx="110.13" ry="51.34" />
+      <ellipse cx="181.78" cy="252.45" rx="110.13" ry="51.34" />
+    </svg>
+  );
+}
 
 // The post's own image, or the default when the URL is empty or fails to load.
 function PostImage({ url }: { url?: string | null }) {
@@ -34,13 +56,7 @@ function PostImage({ url }: { url?: string | null }) {
     // Logo sits at 80% of the frame, centred, so it never touches the edges.
     return (
       <Box sx={{ width: "100%", height: "100%", bgcolor: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <Box
-          component="img"
-          src={DEFAULT_POST_IMAGE}
-          alt=""
-          loading="lazy"
-          sx={{ display: "block", maxWidth: "80%", maxHeight: "80%", objectFit: "contain" }}
-        />
+        <ChoreoLabsLogo />
       </Box>
     );
   }
