@@ -15,7 +15,7 @@
 // under the License.
 
 import { StrictMode, createRef, useState } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render } from "@testing-library/react";
 import { Quill } from "react-quill-new";
 import ParRichTextField, { type ParRichTextFieldHandle } from "./ParRichTextField";
@@ -57,6 +57,16 @@ function Held({
   );
 }
 
+// PAR 2.0's changes come with the par2 flag: these tests have it on unless they say otherwise.
+const originalConfig = window.config;
+const setPar2 = (on: boolean) => {
+  window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { par2: on } } as Window["config"];
+};
+beforeEach(() => setPar2(true));
+afterEach(() => {
+  window.config = originalConfig;
+});
+
 describe("ParRichTextField", () => {
   it("doesn't undo the saved text loading", () => {
     const { container } = render(<Held initial="<p>Saved text</p>" />);
@@ -93,6 +103,14 @@ describe("ParRichTextField", () => {
     });
     undo(quill);
     expect(quill.getText().trim()).toBe("Saved");
+  });
+
+  it("has no Undo or Redo in the toolbar without PAR 2.0", () => {
+    setPar2(false);
+    const { container } = render(<Held initial="<p>Saved</p>" />);
+    expect(container.querySelector("button.ql-undo")).toBeNull();
+    expect(container.querySelector("button.ql-redo")).toBeNull();
+    expect(container.querySelector("button.ql-bold")).not.toBeNull();
   });
 
   it("has Undo and Redo in the toolbar, each off until there's something to take or bring back", () => {

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import type { ParCycle, ParRating } from "../api/types";
 
@@ -26,11 +26,27 @@ const cycle = { parCycleConfigurations: {} } as Pick<ParCycle, "parCycleConfigur
 const shared = (parSpecialRating: string) =>
   ({ parRating: "Successful", parSpecialRating, parLeadComment: "", parEmployeeComment: "" }) as unknown as ParRating;
 
+// PAR 2.0's changes come with the par2 flag: these tests have it on unless they say otherwise.
+const originalConfig = window.config;
+const setPar2 = (on: boolean) => {
+  window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { par2: on } } as Window["config"];
+};
+beforeEach(() => setPar2(true));
+afterEach(() => {
+  window.config = originalConfig;
+});
+
 describe("ParRatingSummary", () => {
   it("shows no special-rating chip when there's no Top 5% or Top 20%", () => {
     render(<ParRatingSummary cycle={cycle} rating={shared("NOT_ASSIGNED")} />);
     expect(screen.getByText("PAR rating: Successful")).toBeInTheDocument();
     expect(screen.queryByText(/Top 5%|Top 20%|Not Assigned/)).not.toBeInTheDocument();
+  });
+
+  it("still says there's no Top 5% or Top 20% without PAR 2.0", () => {
+    setPar2(false);
+    render(<ParRatingSummary cycle={cycle} rating={shared("NOT_ASSIGNED")} />);
+    expect(screen.getByText("No Top 5%/20% Rating")).toBeInTheDocument();
   });
 
   it("shows a Top 5% or Top 20% once the lead has given one", () => {

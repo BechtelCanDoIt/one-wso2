@@ -14,10 +14,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { useState } from "react";
 import ParDateField from "./ParDateField";
+
+// PAR 2.0's changes come with the par2 flag: these tests have it on unless they say otherwise.
+const originalConfig = window.config;
+const setPar2 = (on: boolean) => {
+  window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { par2: on } } as Window["config"];
+};
+beforeEach(() => setPar2(true));
+afterEach(() => {
+  window.config = originalConfig;
+});
 
 /** A caller that holds the value, as every PAR form does. */
 function Held({ min }: { min?: string }) {
@@ -35,6 +45,16 @@ function Held({ min }: { min?: string }) {
 // one shared place that has to refuse it: the caller is told there is no date,
 // never handed the out-of-range one.
 describe("ParDateField", () => {
+  it("is today's native date field without PAR 2.0, still refusing a typed date out of range", () => {
+    setPar2(false);
+    const onChange = vi.fn();
+    render(<ParDateField value="" onChange={onChange} min="2026-01-10" ariaLabel="date" />);
+    expect(screen.getByLabelText("date")).toHaveAttribute("type", "date");
+    fireEvent.change(screen.getByLabelText("date"), { target: { value: "2026-01-01" } });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.getByText("Must be on or after 2026-01-10")).toBeInTheDocument();
+  });
+
   it("rejects a typed date before min", () => {
     const onChange = vi.fn();
     render(<ParDateField value="" onChange={onChange} min="2026-01-10" ariaLabel="date" />);

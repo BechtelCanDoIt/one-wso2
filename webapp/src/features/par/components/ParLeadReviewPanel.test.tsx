@@ -15,7 +15,7 @@
 // under the License.
 
 import { useEffect, useImperativeHandle, type ReactNode, type Ref } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { ParCycle, ParRating } from "../api/types";
 import { encodeParComment } from "../util/parComment";
@@ -230,5 +230,41 @@ describe("ParLeadReviewPanel: 360° summary", () => {
     expect(screen.getByText("Colleagues see real ownership.")).toBeInTheDocument();
     expect(suggestionAskedFor).toBe(false);
     expect(screen.queryByText("Suggested from 3 360° responses")).not.toBeInTheDocument();
+  });
+});
+
+describe("ParLeadReviewPanel: sharing before the employee has", () => {
+  const originalConfig = window.config;
+  const setPar2 = (on: boolean) => {
+    window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { par2: on } } as Window["config"];
+  };
+  afterEach(() => {
+    window.config = originalConfig;
+  });
+  const closedCycle = { ...cycle, parEmployeeDeadline: "2020-01-01" } as unknown as ParCycle;
+  const ready = {
+    parRatingId: 7,
+    parCycleId: 2,
+    parEmployeeEmail: "alex@example.com",
+    parEmployeeStatus: "DRAFT",
+    parLeadStatus: "DRAFT",
+    parIsLeadershipEmployee: false,
+    parRating: "Successful",
+    parLeadComment: encodeParComment("<p>Great cycle.</p>"),
+  } as ParRating;
+
+  it("can share once the self-review has closed, with PAR 2.0", () => {
+    setPar2(true);
+    rating = ready;
+    render(<ParLeadReviewPanel cycle={closedCycle} employeeEmail="alex@example.com" />);
+    expect(screen.getByRole("button", { name: "Share" })).toBeEnabled();
+  });
+
+  it("waits for the employee to share without PAR 2.0", () => {
+    setPar2(false);
+    rating = ready;
+    render(<ParLeadReviewPanel cycle={closedCycle} employeeEmail="alex@example.com" />);
+    expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
+    expect(screen.queryByText(/You can share once/)).not.toBeInTheDocument();
   });
 });

@@ -29,6 +29,7 @@ import {
   Typography,
   useTheme,
 } from "@wso2/oxygen-ui";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { addLinkProtocol, sanitizeParHtml, withLinkProtocol } from "../util/parComment";
 import { Delta, linkifyDelta } from "../util/parLinkify";
 
@@ -173,7 +174,8 @@ export default function ParRichTextField({
   const modules = useMemo(
     () => ({
       toolbar: {
-        container: TOOLBAR,
+        // Undo and Redo come with PAR 2.0 (par2).
+        container: isPreviewEnabled("par2") ? TOOLBAR : TOOLBAR.slice(1),
         handlers: {
           undo: () => {
             const quill = quillRef.current?.getEditor();

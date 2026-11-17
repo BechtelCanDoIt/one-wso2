@@ -17,6 +17,7 @@
 import { useMemo, type ReactNode } from "react";
 import { Box, Button, Card, Chip, Stack, Typography } from "@wso2/oxygen-ui";
 import { FileDownIcon } from "@wso2/oxygen-ui-icons-react";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import type { ParCycle, ParRating } from "../api/types";
 import { decodeParComment } from "../util/parComment";
 import { ParCommentView, ParLead360SummaryView, ParQuestionText } from "./ParContent";
@@ -60,10 +61,13 @@ export default function ParRatingSummary({
     () => new Map(employees.data?.map((e) => [e.workEmail, employeeDisplayName(e)]) ?? []),
     [employees.data],
   );
-  // Only a Top 5% or Top 20% gets a chip: NOT_ASSIGNED, the usual case, isn't
-  // worth a chip of its own.
+  // With PAR 2.0 (par2) only a Top 5% or Top 20% gets a chip: NOT_ASSIGNED,
+  // the usual case, isn't worth a chip of its own. Until then it reads
+  // "No Top 5%/20% Rating".
   const specialRating =
-    rating.parSpecialRating && rating.parSpecialRating !== "NOT_ASSIGNED" ? rating.parSpecialRating : undefined;
+    rating.parSpecialRating && (rating.parSpecialRating !== "NOT_ASSIGNED" || !isPreviewEnabled("par2"))
+      ? rating.parSpecialRating
+      : undefined;
 
   return (
     <Stack spacing={1.75}>
@@ -91,7 +95,7 @@ export default function ParRatingSummary({
                 size="small"
                 variant="outlined"
                 color={employeeChipLabel(specialRating).color}
-                label={employeeChipLabel(specialRating).label}
+                label={specialRating === "NOT_ASSIGNED" ? "No Top 5%/20% Rating" : employeeChipLabel(specialRating).label}
               />
             )}
             {rating.parRatingSharedBy && (

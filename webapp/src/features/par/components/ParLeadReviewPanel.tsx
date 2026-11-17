@@ -64,6 +64,7 @@ import { useLeadRatingUpdate } from "../api/useLeadRatingUpdate";
 import { useParEmployeeReviews } from "../api/useLeadHistory";
 import { useGoogleDrivePicker } from "../hooks/useGoogleDrivePicker";
 import { decodeParComment, encodeParComment, isEmptyHtml, paragraphsToHtml } from "../util/parComment";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { deadlineEndsEverywhereAt, isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate, formatShortDateTime } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
@@ -411,7 +412,9 @@ export default function ParLeadReviewPanel({
   const selfReviewClosesAt = deadlineEndsEverywhereAt(cycle.parEmployeeDeadline);
   const employeeShared =
     parRatingData.parEmployeeStatus === "SHARED" || parRatingData.parEmployeeStatus === "SHARED_BLOCKED";
-  const employeeReady = isAdminView || employeeShared || new Date() > selfReviewClosesAt;
+  // Sharing once the self-review has closed comes with PAR 2.0 (par2); until then, once the employee shares.
+  const employeeReady =
+    isAdminView || employeeShared || (isPreviewEnabled("par2") && new Date() > selfReviewClosesAt);
   const canSaveDraft = !readOnly && !deadlinePassed && !ratingUpdate.isPending && !saveSummary.isPending && dirty;
   const canShare =
     !readOnly &&
@@ -792,7 +795,7 @@ export default function ParLeadReviewPanel({
 
               {!readOnly && (
                 <>
-                  {!employeeReady && (
+                  {!employeeReady && isPreviewEnabled("par2") && (
                     <Alert severity="info" sx={{ py: 0.25 }}>
                       You can share once {parRatingData.parEmployeeName?.split(" ")[0] ?? "the employee"} shares their{" "}
                       {showsPar2 ? "self-review" : "PAR"}, or from {formatShortDateTime(selfReviewClosesAt)} if they
