@@ -108,8 +108,9 @@ export type PreviewFeature =
   /**
    * Me → Procurement, where an employee raises a purchase request and
    * follows it: its rail group, every route under `/me/procurement`, and
-   * its backend calls. Held back while the app is being built: submitting a
-   * request is not connected to the backend yet.
+   * its backend calls. Held back while the app is being built: attachments,
+   * Marketing & Events, approvals and the Procurement team's screens are not in
+   * yet.
    */
   | "procurement";
 

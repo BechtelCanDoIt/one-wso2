@@ -14,7 +14,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Link, MemoryRouter, Route, Routes } from "react-router";
 import { act, render, screen } from "@testing-library/react";
@@ -51,18 +50,9 @@ vi.mock("../api/useProcurement", async () => {
     useBudgetApprovers: () => ({ data: [], isFetching: false, isError: false, error: null }),
     useDirectorySearch: () => ({ data: [], isFetching: false, isError: false, error: null }),
     useResubmitRequest: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
+    useCancelRequest: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
   };
 });
-vi.mock("../components/ProcurementShell", () => ({
-  default: ({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) => (
-    <div>
-      <h1>{title}</h1>
-      {actions}
-      {children}
-    </div>
-  ),
-}));
-
 const person = { id: "lead@example.com", name: "Team Lead", email: "lead@example.com" };
 const me: ProcurementMe = { id: "me@example.com", name: "Me Myself", email: "me@example.com", roles: [], teamLead: person, approvalExempt: false };
 const lookups: ProcurementLookups = { budgetCategories: [], businessUnits: [], products: [], regions: [] };
@@ -85,7 +75,6 @@ const request = (id: string, patch: Partial<PurchaseRequest> = {}): PurchaseRequ
   budgetApproverId: "",
   budgetApproverName: "",
   notes: "",
-  attachments: [],
   ...patch,
 });
 
@@ -110,6 +99,15 @@ beforeEach(() => {
 });
 
 describe("RequestDetailPage", () => {
+  it("offers to cancel a submitted or rejected request, and no other", () => {
+    for (const [status, offered] of [["submitted", true], ["rejected", true], ["approved", false], ["cancelled", false]] as const) {
+      state.requests = { "1": request("1", { status }) };
+      const { unmount } = renderAt("/me/procurement/requests/1");
+      expect(screen.queryByRole("button", { name: "Cancel request" }) !== null).toBe(offered);
+      unmount();
+    }
+  });
+
   it("says who made the decision, and when it was a Procurement review", () => {
     state.requests = {
       "1": request("1", { teamLeadDecision: { decision: "rejected", notes: "Over budget.", decidedAt: "2026-11-04T08:00:00.000Z", decidedBy: "admin@example.com", isOverride: true } }),

@@ -16,13 +16,13 @@
 
 import { useState } from "react";
 import { Link as RouterLink, useParams } from "react-router";
-import { Alert, Box, Button, Link, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Link, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { RequestStatusChip } from "../components/ProcurementChips";
 import RequestSummary from "../components/RequestSummary";
 import RequestForm from "../request-form/RequestForm";
 import { budgetForDisplay, draftFromRequest } from "../request-form/requestFormModel";
-import { useEngagementCodes, useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest } from "../api/useProcurement";
+import { useEngagementCodes, useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest, useCancelRequest } from "../api/useProcurement";
 import { formatDate } from "../procurementFormat";
 import { procurementPaths } from "../procurementPaths";
 import type { PurchaseRequest } from "../types";
@@ -86,7 +86,7 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
         submitLabel="Resubmit request"
         submitting={resubmit.isPending}
         error={resubmit.isError ? describeError(resubmit.error) : undefined}
-        onSubmit={(input, files) => resubmit.mutate({ input, files }, { onSuccess: onDone })}
+        onSubmit={(input) => resubmit.mutate(input, { onSuccess: onDone })}
       />
     </>
   );
@@ -102,6 +102,8 @@ function RequestDetailContent() {
   const { requestId } = useParams();
   const request = useRequest(requestId);
   const [editing, setEditing] = useState(false);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
+  const cancel = useCancelRequest(requestId ?? "");
   const data = request.data;
   const lookups = useProcurementLookups();
   const unitName = lookups.data?.businessUnits.find((u) => u.value === data?.budget.businessUnit)?.label ?? "";
@@ -117,6 +119,11 @@ function RequestDetailContent() {
         {data && !editing && (
           <Stack direction="row" spacing={2} alignItems="center">
             <RequestStatusChip status={data.status} />
+            {(data.status === "submitted" || data.status === "rejected") && (
+              <Button color="inherit" variant="outlined" onClick={() => setConfirmingCancel(true)}>
+                Cancel request
+              </Button>
+            )}
             {data.status === "rejected" && data.category !== "EVENTS" && (
               <Button variant="contained" onClick={() => setEditing(true)}>
                 Edit and resubmit
@@ -126,6 +133,30 @@ function RequestDetailContent() {
         )}
       </Stack>
       <>
+        <Dialog open={confirmingCancel} onClose={() => !cancel.isPending && setConfirmingCancel(false)}>
+          <DialogTitle>Cancel this request?</DialogTitle>
+          <DialogContent>
+            <DialogContentText>The request is withdrawn and can no longer be approved or edited.</DialogContentText>
+            {cancel.isError && (
+              <Alert severity="error" sx={{ mt: 2 }}>
+                {describeError(cancel.error)}
+              </Alert>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button color="inherit" disabled={cancel.isPending} onClick={() => setConfirmingCancel(false)}>
+              Keep request
+            </Button>
+            <Button
+              color="error"
+              variant="contained"
+              disabled={cancel.isPending}
+              onClick={() => cancel.mutate(undefined, { onSuccess: () => setConfirmingCancel(false) })}
+            >
+              {cancel.isPending ? "Cancelling…" : "Cancel request"}
+            </Button>
+          </DialogActions>
+        </Dialog>
         {request.isError && (
           <Alert
             severity="error"
@@ -185,7 +216,6 @@ function RequestDetailContent() {
                     budget: lookups.data ? budgetForDisplay(data.budget, lookups.data, engagementCodes.data ?? []) : data.budget,
                     budgetApprover: data.budgetApproverName,
                     notes: data.notes,
-                    attachments: data.attachments.map((a) => ({ name: a.filename, sizeBytes: a.sizeBytes })),
                     date: data.submittedAt ? { label: "Raised", iso: data.submittedAt } : undefined,
                   }}
                 />
