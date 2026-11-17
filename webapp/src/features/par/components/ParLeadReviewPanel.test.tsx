@@ -16,8 +16,7 @@
 
 import { useEffect, useImperativeHandle, type ReactNode, type Ref } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { HttpError } from "@api/http";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { ParCycle, ParRating } from "../api/types";
 import { encodeParComment } from "../util/parComment";
 import type { ParRichTextFieldHandle } from "./ParRichTextField";
@@ -107,7 +106,7 @@ const cycle = {
 const FIELD = "Summarise the 360° feedback";
 // The summary field while a suggestion shows in it, with no placeholder.
 const EMPTY_FIELD = "summary field with a suggestion";
-const SUGGESTED = { summary: "Colleagues see real ownership.\nThey'd like earlier updates.", responseCount: 3, suggestionsLeft: 9 };
+const SUGGESTED = { summary: "Colleagues see real ownership.\nThey'd like earlier updates.", responseCount: 3 };
 
 function show(overrides: Partial<ParRating> = {}) {
   rating = {
@@ -203,24 +202,10 @@ describe("ParLeadReviewPanel: 360° summary", () => {
     expect(screen.getByText("Suggested from 3 360° responses")).toBeInTheDocument();
   });
 
-  it("offers no update once no more can be written", () => {
-    responseCount = 5;
-    show({
-      parLead360Summary: encodeParComment("<p>My own words.</p>"),
-      parLead360SuggestionResponses: 3,
-      parLead360SuggestionsLeft: 0,
-    });
-    expect(screen.queryByRole("button", { name: /suggestion/ })).not.toBeInTheDocument();
-  });
-
-  it("says so quietly when a suggestion can't be written, and not when none can be", () => {
+  it("says so quietly when a suggestion can't be written", () => {
     suggestion = { isError: true, error: new Error("HTTP 503") };
     show();
     expect(screen.getByText(/Couldn't write a suggestion just now/)).toBeInTheDocument();
-    cleanup();
-    suggestion = { isError: true, error: new HttpError("/suggestion", 429, "{}") };
-    show();
-    expect(screen.queryByText(/Couldn't write a suggestion/)).not.toBeInTheDocument();
     expect(screen.getByLabelText(FIELD)).toBeInTheDocument();
   });
 

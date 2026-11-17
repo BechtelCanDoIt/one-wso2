@@ -54,7 +54,6 @@ import {
 } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
-import { HttpError } from "@api/http";
 import {
   evidenceEnabledRating as defaultEvidenceEnabledRating,
   top5p20pEnabledRating as defaultTop5p20pEnabledRating,
@@ -239,12 +238,7 @@ export default function ParLeadReviewPanel({
     responseCount,
     suggestionPossible && (summaryEmpty || showingUpdatedSuggestion),
   );
-  // Past the cap the backend keeps the last suggestion and writes no more;
-  // 429 when none was ever kept.
-  const suggestionCapped =
-    parRatingData?.parLead360SuggestionsLeft === 0 ||
-    (suggestion.error instanceof HttpError && suggestion.error.status === 429);
-  const suggestionFailed = suggestion.isError && !suggestionCapped;
+  const suggestionFailed = suggestion.isError;
   const suggestedFrom = parRatingData?.parLead360SuggestionResponses;
   // Offered under the lead's own words: more responses have come in since the
   // last suggestion, or none was written yet. Once seen and dismissed, it's
@@ -253,7 +247,6 @@ export default function ParLeadReviewPanel({
     suggestionPossible &&
     !summaryEmpty &&
     !showingUpdatedSuggestion &&
-    !suggestionCapped &&
     (suggestedFrom === undefined || responseCount > suggestedFrom);
   const newResponses = responseCount - (suggestedFrom ?? 0);
   // Into the field as one step the field's Undo takes back, so it needs no
@@ -583,7 +576,7 @@ export default function ParLeadReviewPanel({
                       <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
                         {summaryAutoSaved
                           ? "Draft Saved"
-                          : "Couldn't write a suggestion just now. It's tried again next time you open this review."}
+                          : "Couldn't write a suggestion just now. It's tried again when another response comes in, or after a day."}
                       </Typography>
                     )}
                   </Box>
