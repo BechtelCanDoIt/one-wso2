@@ -77,6 +77,7 @@ import {
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
 import { MIS_APPS } from "@constants/misApps";
+import { PROCUREMENT_APPS } from "@constants/procurementApps";
 import { DOWNLOAD_STATS_APPS } from "@constants/downloadStatsApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
@@ -783,6 +784,9 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // not something everyone has — unlike leave or claims, it is not part of
       // the set every employee needs.
       ...appsToSections(FINANCE_PERSPECTIVE_APPS),
+      // Procurement: purchase requests through to Procurement assignment.
+      // With the flag off the group doesn't exist.
+      ...(isPreviewEnabled("procurement") ? appsToSections(PROCUREMENT_APPS) : []),
       // Due Diligence — also surfaced under Legal (see the `legal` perspective
       // below). ONE registry (DUE_DILIGENCE_APPS), included in both places, so
       // the two rails can't drift. Gated on the due-diligence backend's own

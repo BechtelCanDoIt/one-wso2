@@ -71,6 +71,10 @@ declare global {
       // Optional — when absent (and the `swagStore` preview flag is on) the
       // store's pages show a not-connected state and make no requests.
       ONE_WSO2_SWAG_STORE_BACKEND_URL?: string;
+      // Base URL for the Procurement backend, version segment included.
+      // Optional — when absent (and the `procurement` preview flag is on)
+      // Finance → Procurement shows a not-connected state and makes no requests.
+      ONE_WSO2_PROCUREMENT_BACKEND_URL?: string;
       // Base URL for the Pitstop backend that serves Smart Search, version
       // segment included. Optional — when absent Sales → Library shows a
       // not-connected state and makes no requests.
@@ -109,6 +113,16 @@ declare global {
       // "not configured" state. Leave-app has its own /user-info +
       // privileges, distinct from people-app.
       ONE_WSO2_LEAVE_BACKEND_URL?: string;
+      // GitHub OAuth for Infra Connect. Optional. Without a client ID and
+      // redirect URL, the Infra home page shows "GitHub OAuth is not configured"
+      // instead of the Connect button.
+      ONE_WSO2_GITHUB_OAUTH?: {
+        CLIENT_ID?: string;
+        AUTHORIZE_URL?: string;
+        REDIRECT_URL?: string;
+      };
+      // Deprecated; use ONE_WSO2_GITHUB_OAUTH. A nested value, even an empty one,
+      // takes precedence.
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;

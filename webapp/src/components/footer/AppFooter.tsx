@@ -38,10 +38,10 @@ export default function AppFooter() {
         color: "text.secondary",
       }}
     >
-      <span>© 2026 WSO2 LLC. All rights reserved.</span>
+      <span>© 2026 Choreo Labs LLC. All rights reserved.</span>
       <Stack direction="row" spacing={3}>
-        <FooterLink href="https://wso2.com/terms-of-use/">Terms &amp; Conditions</FooterLink>
-        <FooterLink href="https://wso2.com/privacy-policy/">Privacy Policy</FooterLink>
+        <FooterLink href="https://choreolabs.com/terms-of-use/">Terms &amp; Conditions</FooterLink>
+        <FooterLink href="https://choreolabs.com/privacy-policy">Privacy Policy</FooterLink>
       </Stack>
     </Box>
   );

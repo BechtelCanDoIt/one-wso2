@@ -14,7 +14,11 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { emailSignatureLogoUrl } from "@config/apiConfig";
+import {
+  emailSignatureLogoUrl,
+  emailSignatureOverrideEmailUser,
+  emailSignatureOverrideWorkEmail,
+} from "@config/apiConfig";
 
 // Builds the HTML table markup Gmail's rich-text signature box accepts.
 // Ported from the standalone Email Group Manager app's
@@ -76,6 +80,36 @@ export function escapeHtml(str: string): string {
  */
 export function isSafeUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
+}
+
+/** What an email username may contain. A value outside it never reaches a template. */
+export const EMAIL_USER_PATTERN = /^[\w.+-]+$/;
+
+/** One person whose signature email uses a different username than their work email. */
+export interface EmailUserOverride {
+  workEmail: string;
+  emailUser: string;
+}
+
+const EMAIL_USER_OVERRIDE: EmailUserOverride = {
+  workEmail: emailSignatureOverrideWorkEmail,
+  emailUser: emailSignatureOverrideEmailUser,
+};
+
+/**
+ * The username the signature's email uses: the override's username when this
+ * is the override's work email (matched case-insensitively), otherwise the
+ * part before "@". A template adds the domain. An override with either value
+ * blank, or a username a template would reject, is ignored.
+ */
+export function signatureEmailUser(workEmail: string, override: EmailUserOverride = EMAIL_USER_OVERRIDE): string {
+  const email = workEmail.trim();
+  const overrideUser = override.emailUser.trim();
+  const matches =
+    email !== "" &&
+    email.toLowerCase() === override.workEmail.trim().toLowerCase() &&
+    EMAIL_USER_PATTERN.test(overrideUser);
+  return matches ? overrideUser : email.split("@")[0].trim();
 }
 
 export function generateSignatureHTML(data: SignatureData, logoUrl: string = emailSignatureLogoUrl): string {

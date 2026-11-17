@@ -80,7 +80,15 @@ export function selectedVariant(product: Product, selection: OptionSelection): S
   return product.variants.find((v) => matches(v, selection));
 }
 
-const BUYABLE = new Set(["IN_STOCK", "LOW_STOCK"]);
+/** IN_STOCK or LOW_STOCK: there is stock to add to the cart. */
+export function isBuyable(variant: SwagStoreVariant): boolean {
+  return variant.availability === "IN_STOCK" || variant.availability === "LOW_STOCK";
+}
+
+/** Whether a variant matching the choice so far, complete or not, can be bought now. */
+export function canBuyFrom(product: Product, selection: OptionSelection): boolean {
+  return product.variants.some((v) => matches(v, selection) && isBuyable(v));
+}
 
 /** What choosing `valueId` for `optionName` leads to, keeping the other options' choices. */
 export function valueState(
@@ -92,7 +100,7 @@ export function valueState(
   const candidate = { ...selection, [optionName]: valueId };
   const candidates = product.variants.filter((v) => matches(v, candidate));
   if (candidates.length === 0) return "unavailable";
-  if (candidates.some((v) => BUYABLE.has(v.availability))) return "available";
+  if (candidates.some(isBuyable)) return "available";
   if (candidates.some((v) => v.availability === "OUT_OF_STOCK")) return "out_of_stock";
   return "sold_out";
 }

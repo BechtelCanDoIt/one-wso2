@@ -19,7 +19,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
-import { hoodie, office, powerbank, productCard, stockAlert } from "../../testing/fixtures";
+import { hoodie, office, photo, powerbank, productCard, stockAlert } from "../../testing/fixtures";
 
 const http = vi.hoisted(() => ({ authedGet: vi.fn(), authedPost: vi.fn(), authedDelete: vi.fn() }));
 
@@ -103,6 +103,17 @@ afterEach(() => {
 });
 
 describe("the product page", () => {
+  it("labels gallery thumbnails by view and falls back to the product name for alt text", async () => {
+    backend({ product: hoodie({ images: [photo("front"), photo("back", { alt: "Logo print" })] }) });
+    renderPage();
+    const front = await screen.findByRole("button", { name: "Show Front" });
+    expect(screen.getByRole("button", { name: "Show Back" })).toBeInTheDocument();
+    expect(front).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("img", { name: "WSO2 Hoodie, Front" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Show Back" }));
+    expect(screen.getByRole("img", { name: "Logo print" })).toBeInTheDocument();
+  });
+
   it("names the product in the h1 and the tab, with its price range and plain-text description", async () => {
     backend({ product: hoodie({ description: "<b>Warm</b> hoodie." }) });
     renderPage();
@@ -192,6 +203,48 @@ describe("the product page", () => {
     renderPage();
     expect(await screen.findByText("Pick up at Colombo, about 2 working days after you pay.")).toBeInTheDocument();
     expect(screen.getByText(/Paid orders are final/)).toBeInTheDocument();
+  });
+
+  it("drops the pickup and final-sale notes when the chosen option is out of stock", async () => {
+    backend();
+    renderPage("/store/p/wso2-hoodie?colour=Black&size=S");
+    expect(await screen.findByText("Pick up at Colombo, about 2 working days after you pay.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Heather grey, out of stock" }));
+    expect(await screen.findByText(/Out of stock\. It should be back around/)).toBeInTheDocument();
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
+  });
+
+  it("drops the notes for a sold-out product", async () => {
+    const [only] = powerbank().variants;
+    backend({ product: powerbank({ variants: [{ ...only, availability: "SOLD_OUT" }] }) });
+    renderPage("/store/p/wso2-powerbank");
+    expect(await screen.findByText(/Sold out\. It won't be restocked/)).toBeInTheDocument();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50))); // the offices would have loaded
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
+  });
+
+  it("drops the notes when nothing in a partial choice can be bought, and brings them back for one that can", async () => {
+    backend();
+    renderPage("/store/p/wso2-hoodie?colour=Heather%20grey");
+    expect(await screen.findByText("Choose a size.")).toBeInTheDocument();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50))); // the offices would have loaded
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Black" }));
+    expect(await screen.findByText("Pick up at Colombo, about 2 working days after you pay.")).toBeInTheDocument();
+    expect(screen.getByText(/Paid orders are final/)).toBeInTheDocument();
+  });
+
+  it("drops the notes before a choice when every option is out of stock", async () => {
+    const out = hoodie().variants.map((v) => ({ ...v, availability: "OUT_OF_STOCK" as const, stockLeft: null }));
+    backend({ product: hoodie({ variants: out }) });
+    renderPage();
+    expect(await screen.findByText("Choose a colour and size.")).toBeInTheDocument();
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 50))); // the offices would have loaded
+    expect(screen.queryByText(/Pick up at/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Paid orders are final/)).not.toBeInTheDocument();
   });
 
   it("offers Notify me on an out-of-stock choice, and confirms the alert", async () => {

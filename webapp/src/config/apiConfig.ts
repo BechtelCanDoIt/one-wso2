@@ -1531,6 +1531,16 @@ export const emailSignatureLogoUrl: string =
 // Empty means the built-in layout is used.
 export const emailSignatureTemplateUrl: string = window.config?.ONE_WSO2_EMAIL_SIGNATURE_TEMPLATE_URL?.trim() ?? "";
 
+// For one person whose signature address isn't their work email's username:
+// their work email, and the username their signature's email should use
+// (e.g. jdoe2@wso2.com and jdoe). Read from .env at build time, unlike the keys
+// above, so the values stay out of this public repo. Vite copies them into the
+// bundle, so they are still readable in the browser. Both empty means no override.
+export const emailSignatureOverrideWorkEmail: string =
+  import.meta.env.ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_WORK_EMAIL?.trim() ?? "";
+export const emailSignatureOverrideEmailUser: string =
+  import.meta.env.ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_EMAIL_USER?.trim() ?? "";
+
 // ISAC — a separate marketing application, not part of this webapp and not a
 // Marketing Ops operation. It appears at the top of the Marketing Ops rail as an
 // outbound link because that is where the people who use it look for it, not
@@ -1637,11 +1647,16 @@ export const infraServiceUrls = {
 
 const DEFAULT_GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 
+const githubOAuth = window.config?.ONE_WSO2_GITHUB_OAUTH;
+
 export const githubOAuthConfig = {
-  clientId: window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID ?? "",
+  clientId:
+    githubOAuth?.CLIENT_ID ?? window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID ?? "",
   authorizeUrl:
-    window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL || DEFAULT_GITHUB_AUTHORIZE_URL,
-  redirectUrl: window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL ?? "",
+    (githubOAuth?.AUTHORIZE_URL ?? window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL) ||
+    DEFAULT_GITHUB_AUTHORIZE_URL,
+  redirectUrl:
+    githubOAuth?.REDIRECT_URL ?? window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL ?? "",
   scopes: ["read:user", "user:email"] as const,
 };
 
@@ -2110,6 +2125,36 @@ export function isCado2BackendConfigured(): boolean {
 }
 
 const encodeSegment = (value: string | number): string => encodeURIComponent(String(value));
+
+// Procurement — Finance → Procurement, purchase requests through to Procurement
+// assignment. Its own backend, version segment included. Unset means "not
+// connected": its pages say so and make no requests. Gated as a whole by the
+// `procurement` preview flag as well (previewFeatures.ts).
+export const procurementBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_PROCUREMENT_BACKEND_URL ?? "",
+);
+
+export function isProcurementBackendConfigured(): boolean {
+  return Boolean(procurementBackendUrl);
+}
+
+export const procurementServiceUrls = {
+  me: `${procurementBackendUrl}/me`,
+  meTeamLead: `${procurementBackendUrl}/me/team-lead`,
+  referenceData: (type: string): string => `${procurementBackendUrl}/reference-data?type=${encodeSegment(type)}`,
+  budgetApprovers: (businessUnit: string, region: string): string => {
+    const q = new URLSearchParams();
+    if (businessUnit) q.set("businessUnit", businessUnit);
+    if (region) q.set("region", region);
+    return `${procurementBackendUrl}/budget-approvers?${q.toString()}`;
+  },
+  engagementCodes: (businessUnit: string): string =>
+    `${procurementBackendUrl}/engagement-codes?businessUnit=${encodeSegment(businessUnit)}`,
+  directoryEmployees: (query: string, leadsOnly: boolean): string =>
+    `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}${leadsOnly ? "&leadsOnly=true" : ""}`,
+  requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
+  request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
+};
 
 export const cado2ServiceUrls = {
   // The caller's CadO2 roles (SALES, ADMIN) and approval roles. Decides the rail
@@ -2591,6 +2636,10 @@ export const swagStoreServiceUrls = {
     removalImpact: (id: string): string =>
       `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/removal-impact`,
     productOptions: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/options`,
+    /** Pending stock alerts per variant, most wanted first. */
+    demand: `${swagStoreBackendUrl}/admin/demand`,
+    /** POST one photo as multipart/form-data (view + file). */
+    productImages: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/images`,
     productVariant: (id: string, variantId: string): string =>
       `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/variants/${encodeURIComponent(variantId)}`,
     stockMovements: (variantId: string): string =>

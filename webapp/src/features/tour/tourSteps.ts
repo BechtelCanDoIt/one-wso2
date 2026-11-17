@@ -67,7 +67,7 @@ export interface TourStep {
 
 export const TOUR_STEPS: readonly TourStep[] = [
   {
-    title: "Welcome to One WSO2",
+    title: "Welcome to One App",
     body: "This takes about a minute.",
   },
   {
@@ -115,7 +115,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     selector: '[data-tour="settings"]',
     title: "Choose where you start",
-    body: "Settings lets you pick which app One WSO2 opens on when you arrive.",
+    body: "Settings lets you pick where One App opens when you arrive.",
   },
   {
     title: "That's the tour",

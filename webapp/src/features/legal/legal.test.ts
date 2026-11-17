@@ -91,7 +91,7 @@ describe("ndaFileNamePart", () => {
 describe("entityForCountry", () => {
   it("maps a billing country to its WSO2 entity, by name or ISO code, ignoring case", () => {
     expect(entityForCountry("Sri Lanka")).toBe("WSO2 Lanka (Pvt) Ltd — LK");
-    expect(entityForCountry("united states")).toBe("WSO2 LLC — US");
+    expect(entityForCountry("united states")).toBe("Choreo Labs LLC — US");
     expect(entityForCountry(" GB ")).toBe("WSO2 (UK) Ltd — UK");
   });
 

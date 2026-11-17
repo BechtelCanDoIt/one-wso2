@@ -24,7 +24,6 @@ import {
   CircularProgress,
   Divider,
   FormControl,
-  IconButton,
   InputLabel,
   MenuItem,
   Select,
@@ -37,7 +36,7 @@ import {
   TextField,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ArrowLeftIcon, PlusIcon, Trash2Icon } from "@wso2/oxygen-ui-icons-react";
+import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
 import { HttpError } from "@api/http";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
@@ -58,6 +57,7 @@ import { messageFor } from "../../util/swagStoreError";
 import { useAdminCategories, useAdminProduct, useAdminProducts } from "../api/useAdminData";
 import { useCreateProduct, useDeleteDraft, useSetProductStatus, useUpdateProduct } from "../api/useAdminMutations";
 import OptionsEditor from "../components/OptionsEditor";
+import PhotosField from "../components/PhotosField";
 import RemoveProductDialog from "../components/RemoveProductDialog";
 import StockDialog from "../components/StockDialog";
 import VariantEditDialog from "../components/VariantEditDialog";
@@ -244,10 +244,13 @@ function BasicsForm({ product, form, setForm }: BasicsFormProps): JSX.Element {
   const [touched, setTouched] = useState<ReadonlySet<string>>(new Set());
   const errors = checkProductForm(form);
   const shown = (field: keyof ProductFormErrors) => (touched.has(field) ? errors[field] : undefined);
-  const canSave = Object.keys(errors).length === 0 && !save.isPending;
+  // Photos still being scaled or uploaded aren't in the form yet; saving now would leave them out.
+  const [photosBusy, setPhotosBusy] = useState<ReadonlySet<string>>(new Set());
+  const waitingForPhotos = photosBusy.size > 0;
   // What the last save left in the form, so "Saved." goes once anything changes.
   const [savedInput, setSavedInput] = useState<string | null>(null);
   const currentInput = JSON.stringify(productInputOf(form));
+  const canSave = Object.keys(errors).length === 0 && !save.isPending && !waitingForPhotos;
 
   const set = <K extends keyof ProductForm>(field: K, value: ProductForm[K]) => {
     setForm((f) => ({ ...f, [field]: value }));
@@ -263,7 +266,7 @@ function BasicsForm({ product, form, setForm }: BasicsFormProps): JSX.Element {
       update.mutate(input, {
         onSuccess: (saved) => {
           // The store fills in what was left empty (the slug), so start again from what it kept,
-          // unless the form changed while saving.
+          // unless the form changed while saving (a photo that finished uploading, say).
           const next = productFormOf(saved);
           setForm((f) => (JSON.stringify(productInputOf(f)) === sent ? next : f));
           setSavedInput(JSON.stringify(productInputOf(next)));
@@ -347,7 +350,20 @@ function BasicsForm({ product, form, setForm }: BasicsFormProps): JSX.Element {
         helperText={shown("description") ?? "Plain text."}
         slotProps={{ htmlInput: { maxLength: 2000 } }}
       />
-      <ImagesField images={form.images} error={shown("images")} onChange={(images) => set("images", images)} />
+      <PhotosField
+        productId={product?.id}
+        productName={form.name.trim() || "This product"}
+        images={form.images}
+        onChange={(update) => setForm((f) => ({ ...f, images: update(f.images) }))}
+        onBusyChange={(view, busy) =>
+          setPhotosBusy((s) => {
+            const next = new Set(s);
+            if (busy) next.add(view);
+            else next.delete(view);
+            return next;
+          })
+        }
+      />
       <FormControl size="small">
         <InputLabel id="swag-store-product-alternatives">Alternatives</InputLabel>
         <Select
@@ -378,64 +394,10 @@ function BasicsForm({ product, form, setForm }: BasicsFormProps): JSX.Element {
       )}
       <Box>
         <Button type="submit" variant="contained" disabled={!canSave} startIcon={save.isPending ? <CircularProgress size={16} color="inherit" /> : undefined}>
-          {save.isPending ? "Saving…" : product ? "Save changes" : "Create draft"}
+          {save.isPending ? "Saving…" : waitingForPhotos ? "Waiting for photos…" : product ? "Save changes" : "Create draft"}
         </Button>
       </Box>
     </Card>
-  );
-}
-
-function ImagesField({
-  images,
-  error,
-  onChange,
-}: {
-  images: ProductForm["images"];
-  error: string | undefined;
-  onChange: (images: ProductForm["images"]) => void;
-}): JSX.Element {
-  return (
-    <Box sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
-      <Typography variant="subtitle2" component="h3">
-        Images
-      </Typography>
-      <Typography variant="body2" color="text.secondary">
-        https links on the store&apos;s allowed image hosts. The first is the main photo.
-      </Typography>
-      {images.map((img, i) => (
-        <Box key={i} sx={{ display: "flex", gap: 1, alignItems: "center", flexWrap: "wrap" }}>
-          <TextField
-            size="small"
-            value={img.url}
-            placeholder="https://"
-            onChange={(e) => onChange(images.map((x, j) => (j === i ? { ...x, url: e.target.value } : x)))}
-            slotProps={{ htmlInput: { "aria-label": `Image ${i + 1} link` } }}
-            sx={{ flex: "2 1 260px" }}
-          />
-          <TextField
-            size="small"
-            value={img.alt}
-            placeholder="What it shows"
-            onChange={(e) => onChange(images.map((x, j) => (j === i ? { ...x, alt: e.target.value } : x)))}
-            slotProps={{ htmlInput: { "aria-label": `Image ${i + 1} description`, maxLength: 200 } }}
-            sx={{ flex: "1 1 180px" }}
-          />
-          <IconButton aria-label={`Remove image ${i + 1}`} onClick={() => onChange(images.filter((_, j) => j !== i))}>
-            <Trash2Icon size={16} />
-          </IconButton>
-        </Box>
-      ))}
-      {error && (
-        <Typography variant="body2" color="error">
-          {error}
-        </Typography>
-      )}
-      <Box>
-        <Button size="small" startIcon={<PlusIcon size={14} />} onClick={() => onChange([...images, { url: "", alt: "" }])}>
-          Add image
-        </Button>
-      </Box>
-    </Box>
   );
 }
 
