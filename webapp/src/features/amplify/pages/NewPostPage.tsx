@@ -40,7 +40,7 @@ import {
 const TITLE_MAX = 200;
 const SUMMARY_MAX = 2000;
 
-// New Post: PO and Marketing register an official WSO2 LinkedIn post, with a
+// New Post: PO and Marketing register an official Choreo Labs LinkedIn post, with a
 // category and a priority flag. Save queues it for the next Amplify run;
 // Save & Share Now starts a run straight away. Only callers granted
 // CAN_CAMPAIGN reach this page (AmplifyEditorRoute), and amplify-api
@@ -124,12 +124,12 @@ export default function NewPostPage() {
   return (
     <AmplifyShell
       title="New Post"
-      subtitle="Let Marketing and PO register official WSO2 LinkedIn posts, with a category and a priority flag."
+      subtitle="Let Marketing and PO register official Choreo Labs LinkedIn posts, with a category and a priority flag."
     >
       {!orgConfigured && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Amplify doesn&apos;t have a LinkedIn company page configured yet (<code>WSO2ORGANIZATIONURN</code> on
-          amplify-api), so posts can&apos;t be registered. Amplify only accepts posts from the WSO2 company page.
+          amplify-api), so posts can&apos;t be registered. Amplify only accepts posts from the Choreo Labs company page.
         </Alert>
       )}
       <Box component="form" noValidate onSubmit={onSubmit}>
@@ -171,7 +171,7 @@ export default function NewPostPage() {
                 helperText={
                   idError
                     ? "Enter the post's numeric ID (the digits after the last colon)."
-                    : "Must be a post on the WSO2 company page."
+                    : "Must be a post on the Choreo Labs company page."
                 }
                 sx={{ flex: 1, minWidth: 220 }}
                 disabled={busy}

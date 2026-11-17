@@ -33,7 +33,7 @@ import { isLinkedInProfileUrl } from "../util/linkedinProfile";
  * /amplify/connect/callback, which finishes the link and returns to `returnTo` with the post's share dialog open.
  *
  * "I don't consent" switches to a second step: the employee shares from their own LinkedIn and gives their profile
- * URL so WSO2 can track it. No link or token is created. `onDeclined` (Next after saving, or Back) closes every popup and returns to
+ * URL so Choreo Labs can track it. No link or token is created. `onDeclined` (Next after saving, or Back) closes every popup and returns to
  * Celebrate. The popup opens again on the next unlinked click.
  */
 export default function LinkLinkedInDialog({
@@ -99,10 +99,10 @@ export default function LinkLinkedInDialog({
 
   const privacyNotice = privacyNoticeUrl ? (
     <Link href={privacyNoticeUrl} target="_blank" rel="noopener noreferrer">
-      WSO2 Employee Privacy Notice
+      Choreo Labs Employee Privacy Notice
     </Link>
   ) : (
-    "WSO2 Employee Privacy Notice"
+    "Choreo Labs Employee Privacy Notice"
   );
 
   return (
@@ -126,8 +126,8 @@ export default function LinkLinkedInDialog({
         {declined ? (
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              I&apos;ll share WSO2 content directly from my LinkedIn account, without connecting my account to the
-              Amplify App. I&apos;m sharing my LinkedIn profile URL so WSO2 can track my sharing efforts.
+              I&apos;ll share Choreo Labs content directly from my LinkedIn account, without connecting my account to the
+              Amplify App. I&apos;m sharing my LinkedIn profile URL so Choreo Labs can track my sharing efforts.
             </Typography>
             <TextField
               label="LinkedIn profile URL (optional)"
@@ -159,15 +159,15 @@ export default function LinkLinkedInDialog({
           <>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
               {reconnect ? "Your LinkedIn link has expired. " : ""}
-              By using the Amplify App, I agree to connect my LinkedIn profile with WSO2 so I can share WSO2 content
+              By using the Amplify App, I agree to connect my LinkedIn profile with Choreo Labs so I can share Choreo Labs content
               with my LinkedIn connections and followers.
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-              I understand that WSO2 will use the Amplify App to track the reach and engagement of content shared
+              I understand that Choreo Labs will use the Amplify App to track the reach and engagement of content shared
               through the app.
             </Typography>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              To learn more about how WSO2 collects and uses my personal information, please read the{" "}
+              To learn more about how Choreo Labs collects and uses my personal information, please read the{" "}
               {privacyNotice}.
             </Typography>
             <Box sx={{ display: "flex", gap: 1 }}>
