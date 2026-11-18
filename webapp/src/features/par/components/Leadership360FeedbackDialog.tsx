@@ -114,6 +114,8 @@ export default function Leadership360FeedbackDialog({
   const [savedLocally, setSavedLocally] = useState(false);
   // Closing: the draft is being saved before the form closes.
   const [closing, setClosing] = useState(false);
+  // Sending: the feedback is being submitted, from the moment it's confirmed.
+  const [sending, setSending] = useState(false);
   // This browser wouldn't keep the anonymous draft.
   const [storageFailed, setStorageFailed] = useState(false);
   const [missingIds, setMissingIds] = useState<string[]>([]);
@@ -195,7 +197,7 @@ export default function Leadership360FeedbackDialog({
   // again then leaves without it.
   const close = () => {
     if (closing) return;
-    if (storageFailed || saveDraft.isError || submit.isPending) {
+    if (storageFailed || saveDraft.isError || sending) {
       onClose();
       return;
     }
@@ -220,6 +222,7 @@ export default function Leadership360FeedbackDialog({
       confirmColor: "primary",
       confirmAction: () => {
         submitting.current = true;
+        setSending(true);
         setDirty(false);
         // After any draft write in flight, so no draft lands after the feedback.
         void writes.current
@@ -235,6 +238,7 @@ export default function Leadership360FeedbackDialog({
                 },
                 onError: () => {
                   submitting.current = false;
+                  setSending(false);
                   setDirty(true);
                 },
               },
@@ -300,7 +304,7 @@ export default function Leadership360FeedbackDialog({
               }}
             >
               <Tooltip title={namedTip} arrow describeChild>
-                <ToggleButton value="named" disabled={closing}>
+                <ToggleButton value="named" disabled={closing || sending}>
                   <UserRoundIcon size={16} aria-hidden />
                   Named
                 </ToggleButton>
@@ -308,7 +312,7 @@ export default function Leadership360FeedbackDialog({
               {/* A disabled button gets no pointer events: the span carries the tooltip. */}
               <Tooltip title={anonymousTip} arrow describeChild>
                 <Box component="span" sx={{ display: "inline-flex" }}>
-                  <ToggleButton value="anonymous" disabled={namedOnly || closing}>
+                  <ToggleButton value="anonymous" disabled={namedOnly || closing || sending}>
                     <VenetianMaskIcon size={16} aria-hidden />
                     Anonymous
                   </ToggleButton>
@@ -320,8 +324,8 @@ export default function Leadership360FeedbackDialog({
       </DialogTitle>
       <DialogContent dividers sx={{ py: 2 }}>
         <Stack spacing={2}>
-          {/* Locked while closing saves, so no answer changes after the one being saved. */}
-          <Box component="fieldset" disabled={closing} sx={FIELDSET_SX}>
+          {/* Locked while closing saves or the feedback is submitted, so no answer changes after the one sent. */}
+          <Box component="fieldset" disabled={closing || sending} sx={FIELDSET_SX}>
             <Stack spacing={2}>
               {headers
                 .flatMap((s) => s.questions)
@@ -386,10 +390,10 @@ export default function Leadership360FeedbackDialog({
           <Button size="small" onClick={close} disabled={closing}>
             Close
           </Button>
-          <Button size="small" onClick={() => void save()} disabled={!dirty || saveDraft.isPending || closing}>
+          <Button size="small" onClick={() => void save()} disabled={!dirty || saveDraft.isPending || closing || sending}>
             Save draft
           </Button>
-          <Button size="small" variant="contained" onClick={trySubmit} disabled={submit.isPending || closing}>
+          <Button size="small" variant="contained" onClick={trySubmit} disabled={sending || closing}>
             Submit
           </Button>
         </DialogActions>

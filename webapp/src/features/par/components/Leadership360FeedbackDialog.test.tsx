@@ -172,6 +172,33 @@ describe("Leadership360FeedbackDialog", () => {
     );
   });
 
+  it("locks the answers once submitting is confirmed, while a draft save in flight finishes", async () => {
+    let finishDraft = () => {};
+    draftMutateAsync.mockImplementationOnce(() => new Promise<void>((resolve) => (finishDraft = resolve)));
+    renderDialog();
+    fireEvent.click(screen.getByRole("radio", { name: "They are my direct lead" }));
+    fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(draftMutateAsync).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: "Submit" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Submit" }).at(-1)!);
+
+    expect(screen.getByRole("button", { name: "5 of 5" })).toBeDisabled();
+    expect(anonymousOption()).toBeDisabled();
+    expect(submitMutate).not.toHaveBeenCalled();
+    await act(async () => finishDraft());
+    await waitFor(() =>
+      expect(submitMutate).toHaveBeenCalledWith(
+        { leaderEmail: "lead@wso2.com", answers: { relationship: "DIRECT_LEAD", integrity: 4 }, anonymous: false },
+        expect.anything(),
+      ),
+    );
+
+    // A failed submission unlocks them again.
+    act(() => submitMutate.mock.calls[0][1].onError());
+    expect(screen.getByRole("button", { name: "5 of 5" })).toBeEnabled();
+  });
+
   it("keeps an anonymous draft in this browser only", () => {
     renderDialog();
     fireEvent.click(anonymousOption());
