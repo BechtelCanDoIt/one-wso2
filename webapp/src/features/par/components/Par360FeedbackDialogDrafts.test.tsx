@@ -205,4 +205,28 @@ describe("Par360FeedbackDialog drafts", () => {
     expect(feedback).toHaveValue("Clear updates.");
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("waits on Close for an autosave in flight, then saves the answers changed back", async () => {
+    stored = draft({ relationship: "PEER", ownership: 4, feedback: "First" });
+    let finishAutosave = () => {};
+    authedPut.mockImplementationOnce(async (_url, _token, body) => {
+      await new Promise<void>((resolve) => (finishAutosave = resolve));
+      stored = { ...stored, answers: body.answers, reviewStatus: "DRAFT" };
+    });
+    renderDialog();
+    const feedback = await screen.findByRole("textbox", { name: "Written feedback" });
+    fireEvent.change(feedback, { target: { value: "Second" } });
+    await waitFor(() => expect(authedPut).toHaveBeenCalledTimes(1), { timeout: 3000 });
+    fireEvent.change(feedback, { target: { value: "First" } });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(feedback).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    await act(async () => finishAutosave());
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(authedPut).toHaveBeenCalledTimes(2);
+    expect(authedPut).toHaveBeenLastCalledWith("/review-form", "token", {
+      answers: { relationship: "PEER", ownership: 4, feedback: "First" },
+    });
+  });
 });

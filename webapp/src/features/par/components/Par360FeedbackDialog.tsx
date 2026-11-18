@@ -212,11 +212,12 @@ function FeedbackForm({
 
   // Closing saves the latest answers first: the fields lock, any autosave in flight finishes, then the
   // answers are saved and the form closes. If that fails it stays open and editable, so nothing is lost
-  // without a word; closing again then leaves without it.
+  // without a word; closing again then leaves without it. Answers that look saved still wait for an
+  // autosave in flight, which may be sending others (changed, then changed back).
   const closeSaveStarted = useRef(false);
   const close = () => {
     if (closing) return;
-    if (!editable || !dirty || submit.isPending || submit.isSuccess || closeFailed) {
+    if (!editable || (!dirty && !save.isPending) || submit.isPending || submit.isSuccess || closeFailed) {
       onClose();
       return;
     }
