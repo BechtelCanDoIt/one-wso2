@@ -719,7 +719,7 @@ export default function App() {
                 element={
                   <ParRequiresActiveCycleRoute>
                     <ParRequiresPar2CycleRoute>
-                      <ParRequiresLeadRoute>
+                      <ParRequiresLeadRoute fallback="/me/performance/give-feedback">
                         <ParActiveCycleTab />
                       </ParRequiresLeadRoute>
                     </ParRequiresPar2CycleRoute>

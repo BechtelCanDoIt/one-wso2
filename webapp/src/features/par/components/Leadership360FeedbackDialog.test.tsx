@@ -21,6 +21,8 @@ import type { Leadership360CurrentSurvey, Leadership360Draft } from "../api/lead
 const submitMutate = vi.fn();
 const draftMutate = vi.fn();
 const draftMutateAsync = vi.fn();
+// A draft save failed, as the mutation then reports.
+let draftFailed = false;
 const onClose = vi.fn();
 
 vi.mock("../api/useLeadership360", () => ({
@@ -28,7 +30,8 @@ vi.mock("../api/useLeadership360", () => ({
     mutate: draftMutate,
     mutateAsync: draftMutateAsync,
     isPending: false,
-    isError: false,
+    isError: draftFailed,
+    error: draftFailed ? new Error("HTTP 503") : null,
     isSuccess: false,
   }),
   useSubmitLeadership360Feedback: () => ({ mutate: submitMutate, isPending: false, isError: false }),
@@ -112,6 +115,7 @@ beforeEach(() => {
   draftMutate.mockReset();
   draftMutateAsync.mockReset();
   draftMutateAsync.mockResolvedValue(undefined);
+  draftFailed = false;
   onClose.mockReset();
   window.localStorage.clear();
 });
@@ -244,13 +248,36 @@ describe("Leadership360FeedbackDialog", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it("stays open and editable when the draft can't be saved on closing", async () => {
+  it("stays open and editable when the draft can't be saved on closing, and closing again leaves", async () => {
     draftMutateAsync.mockRejectedValueOnce(new Error("HTTP 503"));
     renderDialog();
     fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "5 of 5" })).toBeEnabled());
     expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByText("Couldn't save your latest changes. Close again to leave without them.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("saves a draft whose autosave failed when closing, rather than leaving without it", async () => {
+    draftMutateAsync.mockImplementationOnce(() => {
+      draftFailed = true;
+      return Promise.reject(new Error("HTTP 503"));
+    });
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(screen.getByText(/Couldn't save your draft/)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(onClose).not.toHaveBeenCalled();
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(draftMutateAsync).toHaveBeenCalledTimes(2);
+    expect(draftMutateAsync).toHaveBeenLastCalledWith({
+      leaderEmail: "lead@wso2.com",
+      answers: { integrity: 4 },
+      anonymous: false,
+    });
   });
 
   it("waits for a named save in flight before saving as anonymous, then removes the named copy", async () => {

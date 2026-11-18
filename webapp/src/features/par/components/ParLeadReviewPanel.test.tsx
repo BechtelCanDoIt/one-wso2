@@ -333,6 +333,25 @@ describe("ParLeadReviewPanel: sharing before the employee has", () => {
     }
   });
 
+  it("turns Share on when the self-review closes between showing the panel and setting its timer", () => {
+    setPar2(true);
+    rating = ready;
+    vi.useFakeTimers({ now: new Date("2026-12-02T11:59:00Z") });
+    // Rendered while it's open; by the time the timer is set, it has closed.
+    const now = vi.spyOn(Date, "now").mockReturnValue(new Date("2026-12-02T12:00:30Z").getTime());
+    try {
+      const closing = { ...cycle, parEmployeeDeadline: "2026-12-01" } as unknown as ParCycle;
+      render(<ParLeadReviewPanel cycle={closing} employeeEmail="alex@example.com" />);
+      expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
+      vi.setSystemTime(new Date("2026-12-02T12:00:30Z"));
+      act(() => vi.advanceTimersByTime(1));
+      expect(screen.getByRole("button", { name: "Share" })).toBeEnabled();
+    } finally {
+      now.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
   it("waits for the employee to share without PAR 2.0", () => {
     setPar2(false);
     rating = ready;

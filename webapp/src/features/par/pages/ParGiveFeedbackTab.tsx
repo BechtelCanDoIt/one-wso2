@@ -78,7 +78,8 @@ export default function ParGiveFeedbackTab() {
   const requests = useReviewRequests(cycle?.parCycleId, workEmail);
   const reviewers = useReviewers(parts.hasLead ? parts.cycle?.parCycleId : undefined, workEmail);
   const parLeadEmail = useParEmployeeInfo(workEmail, Boolean(parts.cycle) && parts.hasLead).data?.leadEmail;
-  const survey = useCurrentLeadership360Survey(parts.leadership);
+  // Read again on opening: the anonymous-draft clean-up below goes by it.
+  const survey = useCurrentLeadership360Survey(parts.leadership, true);
   const openSurvey = parts.leadership ? (survey.data ?? undefined) : undefined;
   const surveyId = openSurvey?.survey.surveyId;
   const mine = useMyLeadership360Feedback(surveyId);
@@ -113,10 +114,16 @@ export default function ParGiveFeedbackTab() {
     [leaders.data],
   );
 
-  // The survey taking anonymous feedback now (null: none, undefined: not known yet). Anonymous drafts kept
-  // in this browser for any other survey are removed once that's known.
-  const anonymousSurveyId =
-    survey.data === undefined ? undefined : survey.data && !survey.data.survey.held ? survey.data.survey.surveyId : null;
+  // The survey taking anonymous feedback now (null: none), once read since this opened (undefined until
+  // then). Anonymous drafts kept in this browser for any other survey are removed then. Never from a
+  // cached answer: it can be from before a survey opened, and a draft saved since (in another tab) has no
+  // other copy.
+  const surveyFresh = survey.isSuccess && survey.isFetchedAfterMount && !survey.isFetching;
+  const anonymousSurveyId = !surveyFresh
+    ? undefined
+    : survey.data && !survey.data.survey.held
+      ? survey.data.survey.surveyId
+      : null;
   useEffect(() => {
     if (!parts.leadership || anonymousSurveyId === undefined) return;
     removeClosedSurveyDrafts(anonymousSurveyId ?? undefined);

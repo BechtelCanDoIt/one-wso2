@@ -16,9 +16,10 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 
 let par2: { showsPar2: boolean; isLoading: boolean; error: Error | null };
+let lead: { hasLead: boolean; isLoading: boolean };
 
 vi.mock("@features/my/api/useMeProfile", () => ({
   useMeProfile: () => ({ data: { userInfo: { workEmail: "me@example.com" } }, isLoading: false }),
@@ -27,19 +28,26 @@ vi.mock("../api/useParData", () => ({
   useActiveParCycle: () => ({ data: [{ parCycleId: 2 }], isLoading: false }),
   useParEmployeeItemVisible: vi.fn(),
   useParHasActiveCycle: vi.fn(),
-  useParHasLead: vi.fn(),
+  useParHasLead: () => lead,
 }));
 vi.mock("../api/useReview360", () => ({ useParShowsPar2: () => par2 }));
 
-const { ParRequiresPar2CycleRoute } = await import("./ParGroupPage");
+const { ParRequiresLeadRoute, ParRequiresPar2CycleRoute } = await import("./ParGroupPage");
+
+const SELF_REVIEW = "/me/performance/cycle/self-review";
+
+function Where() {
+  return <div data-testid="where">{useLocation().pathname}</div>;
+}
 
 const show = () =>
   render(
-    <MemoryRouter initialEntries={["/me/performance/cycle/self-review"]}>
+    <MemoryRouter initialEntries={[SELF_REVIEW]}>
+      <Where />
       <Routes>
         <Route path="/me/performance" element={<div>First tab</div>} />
         <Route
-          path="/me/performance/cycle/self-review"
+          path={SELF_REVIEW}
           element={
             <ParRequiresPar2CycleRoute>
               <div>Self-review</div>
@@ -52,6 +60,7 @@ const show = () =>
 
 beforeEach(() => {
   par2 = { showsPar2: true, isLoading: false, error: null };
+  lead = { hasLead: true, isLoading: false };
 });
 
 describe("ParRequiresPar2CycleRoute", () => {
@@ -67,15 +76,44 @@ describe("ParRequiresPar2CycleRoute", () => {
     expect(screen.queryByText("Self-review")).not.toBeInTheDocument();
   });
 
-  it("shows nothing while that's looked up, or when it couldn't be", () => {
+  it("shows nothing while that's looked up, or when it couldn't be, and keeps the link", () => {
     par2 = { showsPar2: false, isLoading: true, error: null };
     const { unmount } = show();
     expect(screen.queryByText("Self-review")).not.toBeInTheDocument();
-    expect(screen.queryByText("First tab")).not.toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent(SELF_REVIEW);
     unmount();
     par2 = { showsPar2: false, isLoading: false, error: new Error("HTTP 500") };
     show();
     expect(screen.queryByText("Self-review")).not.toBeInTheDocument();
-    expect(screen.queryByText("First tab")).not.toBeInTheDocument();
+    expect(screen.getByTestId("where")).toHaveTextContent(SELF_REVIEW);
+  });
+});
+
+describe("ParRequiresLeadRoute", () => {
+  const showLeadOnly = (fallback?: string) =>
+    render(
+      <MemoryRouter initialEntries={[SELF_REVIEW]}>
+        <Where />
+        <Routes>
+          <Route path="/me/performance/*" element={null} />
+          <Route
+            path={SELF_REVIEW}
+            element={
+              <ParRequiresLeadRoute fallback={fallback}>
+                <div>Self-review</div>
+              </ParRequiresLeadRoute>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+  it("sends a leadless employee to Provide 360°, or to the fallback given", () => {
+    lead = { hasLead: false, isLoading: false };
+    const { unmount } = showLeadOnly();
+    expect(screen.getByTestId("where")).toHaveTextContent("/me/performance/provide-360");
+    unmount();
+    showLeadOnly("/me/performance/give-feedback");
+    expect(screen.getByTestId("where")).toHaveTextContent("/me/performance/give-feedback");
   });
 });

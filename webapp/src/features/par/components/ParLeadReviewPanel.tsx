@@ -362,17 +362,20 @@ export default function ParLeadReviewPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead360Summary, readOnly, saveSummary.isPending, parRatingData]);
 
-  // When the self-review has closed everywhere. The panel redraws then, so Share turns on without a reload.
+  // When the self-review has closed everywhere. If it closes while the panel is open (even between a
+  // render and this effect), the panel redraws, so Share turns on without a reload.
   const selfReviewClosesAt = deadlineEndsEverywhereAt(cycle.parEmployeeDeadline);
   const selfReviewClosesAtMs = selfReviewClosesAt.getTime();
+  const selfReviewClosed = new Date() > selfReviewClosesAt;
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
-    const wait = selfReviewClosesAtMs - Date.now();
+    if (selfReviewClosed) return;
+    const wait = Math.max(selfReviewClosesAtMs - Date.now() + 1, 0);
     // A browser timer can't wait longer than about 24 days, and no one keeps the panel open that long.
-    if (wait <= 0 || wait > 2 ** 31 - 1) return;
-    const timer = window.setTimeout(redraw, wait + 1);
+    if (wait > 2 ** 31 - 1) return;
+    const timer = window.setTimeout(redraw, wait);
     return () => window.clearTimeout(timer);
-  }, [selfReviewClosesAtMs]);
+  }, [selfReviewClosesAtMs, selfReviewClosed]);
 
   if (rating.isLoading) {
     return <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 1.5 }} />;
@@ -427,7 +430,7 @@ export default function ParLeadReviewPanel({
     parRatingData.parEmployeeStatus === "SHARED" || parRatingData.parEmployeeStatus === "SHARED_BLOCKED";
   // Sharing once the self-review has closed comes with PAR 2.0 (par2); until then, once the employee shares.
   const employeeReady =
-    isAdminView || employeeShared || (isPreviewEnabled("par2") && new Date() > selfReviewClosesAt);
+    isAdminView || employeeShared || (isPreviewEnabled("par2") && selfReviewClosed);
   const canSaveDraft = !readOnly && !deadlinePassed && !ratingUpdate.isPending && !saveSummary.isPending && dirty;
   const canShare =
     !readOnly &&

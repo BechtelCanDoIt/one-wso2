@@ -116,6 +116,8 @@ export default function Leadership360FeedbackDialog({
   const [closing, setClosing] = useState(false);
   // Sending: the feedback is being submitted, from the moment it's confirmed.
   const [sending, setSending] = useState(false);
+  // Closing couldn't save the draft; closing again, with no change since, leaves without it.
+  const [closeFailed, setCloseFailed] = useState(false);
   // This browser wouldn't keep the anonymous draft.
   const [storageFailed, setStorageFailed] = useState(false);
   const [missingIds, setMissingIds] = useState<string[]>([]);
@@ -190,15 +192,17 @@ export default function Leadership360FeedbackDialog({
     setAnswers((prev) => ({ ...prev, [questionId]: value }));
     setDirty(true);
     setMissingIds([]);
+    setCloseFailed(false);
   };
 
-  // Closing saves first: the fields lock, the draft is saved after any write in flight, then the form
-  // closes. If that fails it stays open and editable, so a draft isn't lost without a word; closing
-  // again then leaves without it. Not while the feedback is submitted: what follows it (removing the
-  // anonymous draft from this browser) only runs while the form is open.
+  // Closing saves first, even after an autosave failed: the fields lock, the draft is saved after any
+  // write in flight, then the form closes. If that fails it stays open and editable and says so, so a
+  // draft isn't lost without a word; closing again then leaves without it. Not while the feedback is
+  // submitted: what follows it (removing the anonymous draft from this browser) only runs while the
+  // form is open.
   const close = () => {
     if (closing || sending) return;
-    if (storageFailed || saveDraft.isError) {
+    if (storageFailed || closeFailed) {
       onClose();
       return;
     }
@@ -206,7 +210,10 @@ export default function Leadership360FeedbackDialog({
     const saved = dirty ? save() : writes.current.then(() => true, () => false);
     void saved.then((ok) => {
       if (ok) onClose();
-      else setClosing(false);
+      else {
+        setClosing(false);
+        setCloseFailed(true);
+      }
     });
   };
 
@@ -290,6 +297,7 @@ export default function Leadership360FeedbackDialog({
                 if (!next) return;
                 setAnonymous(next === "anonymous");
                 setDirty(true);
+                setCloseFailed(false);
               }}
               aria-label="Named or anonymous"
               sx={{
@@ -361,7 +369,12 @@ export default function Leadership360FeedbackDialog({
             </Alert>
           )}
           {submit.isError && <ErrorNotice error={submit.error}>Couldn't submit your feedback.</ErrorNotice>}
-          {saveDraft.isError && <ErrorNotice error={saveDraft.error}>Couldn't save your draft.</ErrorNotice>}
+          {saveDraft.isError && !closeFailed && (
+            <ErrorNotice error={saveDraft.error}>Couldn't save your draft.</ErrorNotice>
+          )}
+          {closeFailed && (
+            <Alert severity="error">Couldn't save your latest changes. Close again to leave without them.</Alert>
+          )}
           {storageFailed && (
             <Alert severity="error">
               This browser couldn't keep your anonymous draft, so it's lost when you close this. Submit it to keep it.

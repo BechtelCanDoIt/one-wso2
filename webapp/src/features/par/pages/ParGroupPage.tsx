@@ -184,12 +184,20 @@ export function ParGroupIndex() {
 
 /** Guards a route only a leadless employee should never reach by typing its
  * URL — Employee Feedback and Request 360° Feedback, per OngoingCycleView.tsx.
- * Hiding a tab is not access control; the route is what actually enforces it. */
-export function ParRequiresLeadRoute({ children }: { children: ReactNode }) {
+ * Hiding a tab is not access control; the route is what actually enforces it.
+ * `fallback` is where they go instead: their first tab (Give feedback in a
+ * PAR 2.0 cycle). */
+export function ParRequiresLeadRoute({
+  children,
+  fallback = "/me/performance/provide-360",
+}: {
+  children: ReactNode;
+  fallback?: string;
+}) {
   const profile = useMeProfile();
   const { hasLead, isLoading } = useParHasLead(profile.data?.userInfo.workEmail, profile.isLoading);
   if (isLoading) return null;
-  if (!hasLead) return <Navigate to="/me/performance/provide-360" replace />;
+  if (!hasLead) return <Navigate to={fallback} replace />;
   return <>{children}</>;
 }
 

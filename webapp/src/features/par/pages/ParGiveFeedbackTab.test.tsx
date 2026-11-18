@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { ParCycle, ParParticipant, Par360ReviewRequest } from "../api/types";
@@ -98,6 +98,8 @@ const hannah = leader("hannah@example.com", "Hannah");
 
 let parts: { cycle?: ParCycle; feedbackCycle?: ParCycle; held?: boolean; hasLead: boolean; leadership: boolean };
 let currentSurvey: Leadership360CurrentSurvey | null;
+// Whether the current survey was read since the tab opened, or comes from the cache.
+let surveyFresh: boolean;
 let mine: Leadership360MyFeedback;
 let requests: Par360ReviewRequest[];
 let participants: ParParticipant[];
@@ -151,7 +153,7 @@ vi.mock("../api/useLeadTeams", () => ({ useOwnReports: () => ({ emails: ownRepor
 const discardLeadershipMutate = vi.fn();
 vi.mock("../api/useLeadership360", () => ({
   useDiscardLeadership360Draft: () => ({ ...mutation(), mutate: discardLeadershipMutate }),
-  useCurrentLeadership360Survey: () => query(currentSurvey),
+  useCurrentLeadership360Survey: () => ({ ...query(currentSurvey), isSuccess: true, isFetchedAfterMount: surveyFresh }),
   useMyLeadership360Feedback: () => query(mine),
   useLeadership360Leaders: () => leaders,
 }));
@@ -179,12 +181,14 @@ vi.mock("../components/Leadership360FeedbackDialog", () => ({
 
 const { default: ParGiveFeedbackTab } = await import("./ParGiveFeedbackTab");
 
+const tab = () => (
+  <MemoryRouter initialEntries={["/me/performance/give-feedback"]}>
+    <ParGiveFeedbackTab />
+  </MemoryRouter>
+);
+
 function show() {
-  render(
-    <MemoryRouter initialEntries={["/me/performance/give-feedback"]}>
-      <ParGiveFeedbackTab />
-    </MemoryRouter>,
-  );
+  return render(tab());
 }
 
 const noFeedback = (): Leadership360MyFeedback => ({ drafts: [], named: [], anonymous: [] });
@@ -212,6 +216,7 @@ beforeEach(() => {
     { workEmail: "alex@example.com", employeeName: "Alex" },
   ];
   currentSurvey = survey;
+  surveyFresh = true;
   mine = noFeedback();
   window.localStorage.clear();
   requests = [];
@@ -256,6 +261,14 @@ describe("ParGiveFeedbackTab", () => {
     window.localStorage.setItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com", "{}");
     show();
     expect(window.localStorage.getItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com")).toBeNull();
+  });
+
+  it("removes none while it only knows the survey from the cache, which can be from before one opened", () => {
+    currentSurvey = null;
+    surveyFresh = false;
+    window.localStorage.setItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com", "{}");
+    show();
+    expect(window.localStorage.getItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com")).toBe("{}");
   });
 
   it("shows Leadership 360° feedback you gave as submitted, and opens only the named one again", async () => {
@@ -518,13 +531,19 @@ describe("Give feedback", () => {
     );
   });
 
-  it("stays open while the offer is being made, so the feedback form can open from it", async () => {
+  it("stays open while the offer is being made, then opens the feedback form from it", async () => {
     const user = userEvent.setup();
-    offerPending = true;
-    show();
+    const view = show();
     await pick(user, "Alex");
+    await user.click(screen.getByRole("button", { name: "Cross-team" }));
+    await user.click(screen.getByRole("button", { name: "Offer feedback" }));
+    offerPending = true;
+    view.rerender(tab());
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(screen.getByText(/Offer feedback for Alex's 2026 H2 PAR\?/)).toBeInTheDocument();
+    offerPending = false;
+    act(() => offerMutate.mock.calls[0][1].onSuccess());
+    expect(await screen.findByText("PAR form for Alex")).toBeInTheDocument();
   });
 
   it("doesn't list someone you've already given PAR feedback", async () => {
