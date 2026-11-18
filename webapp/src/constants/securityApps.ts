@@ -60,10 +60,12 @@ export const SECURITY_APPS: readonly MenuApp[] = [
       "Compliance audits — the control set under each audit, the evidence collected against it, and its review and validation.",
     alwaysGroup: true,
     items: [
-      // Two items only, matching the source's nav.ts. Create Audit, the audit
-      // activity log and the control drawer are all reached from inside these
-      // two rather than from the rail, so they get no entry here either.
+      // Create Audit, the audit activity log and the control drawer are all
+      // reached from inside these items rather than from the rail, so they get
+      // no entry here either. Frameworks sits between Dashboard and Audits, as
+      // in the source's nav.ts.
       { id: "security-audit-dashboard", label: "Dashboard", desc: "Audit progress at a glance — the work queue, phase breakdown and team completion.", path: "/security/audit/dashboard" },
+      { id: "security-audit-frameworks", label: "Frameworks", desc: "The compliance frameworks audits are run against — add, rename, archive or delete them.", path: "/security/audit/frameworks" },
       { id: "security-audit-audits", label: "Audits", desc: "Every audit you can see, with its controls, evidence and validation state.", path: "/security/audit/audits" },
     ],
   },
@@ -133,6 +135,7 @@ export const SECURITY_APPS: readonly MenuApp[] = [
  */
 export const SECURITY_ITEM_PRIVILEGE: Readonly<Record<string, string>> = {
   "security-audit-dashboard": "AUDIT_VIEW_AUDITS",
+  "security-audit-frameworks": "AUDIT_VIEW_AUDITS",
   "security-audit-audits": "AUDIT_VIEW_AUDITS",
   "security-risk-dashboard": "RISK_VIEW_DASHBOARD",
   "security-risk-registers": "RISK_VIEW_RISKS",
