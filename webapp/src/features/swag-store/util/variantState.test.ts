@@ -17,6 +17,8 @@
 import { describe, expect, it } from "vitest";
 import { hoodie, powerbank } from "../testing/fixtures";
 import {
+  canBuyFrom,
+  isBuyable,
   missingOptions,
   optionParamName,
   priceRange,
@@ -101,6 +103,30 @@ describe("valueState", () => {
   it("ignores the option's own current choice when judging its other values", () => {
     expect(valueState(hoodie(), { Colour: "black", Size: "m" }, "Colour", "grey")).toBe("unavailable");
     expect(valueState(hoodie(), { Colour: "black", Size: "s" }, "Colour", "grey")).toBe("out_of_stock");
+  });
+});
+
+describe("isBuyable", () => {
+  it("is true for a variant in stock or low on stock, and false otherwise", () => {
+    const [blackS, blackM, greyS] = hoodie().variants;
+    expect([blackS.availability, isBuyable(blackS)]).toEqual(["LOW_STOCK", true]);
+    expect(isBuyable(blackM)).toBe(true);
+    expect([greyS.availability, isBuyable(greyS)]).toEqual(["OUT_OF_STOCK", false]);
+    expect(isBuyable({ ...greyS, availability: "SOLD_OUT" })).toBe(false);
+  });
+});
+
+describe("canBuyFrom", () => {
+  it("looks only at the variants that match the choice so far", () => {
+    expect(canBuyFrom(hoodie(), {})).toBe(true);
+    expect(canBuyFrom(hoodie(), { Colour: "black" })).toBe(true);
+    expect(canBuyFrom(hoodie(), { Colour: "grey" })).toBe(false);
+    expect(canBuyFrom(hoodie(), { Colour: "black", Size: "s" })).toBe(true);
+    expect(canBuyFrom(hoodie(), { Colour: "grey", Size: "s" })).toBe(false);
+  });
+
+  it("is false for a combination nobody makes", () => {
+    expect(canBuyFrom(hoodie(), { Colour: "grey", Size: "m" })).toBe(false);
   });
 });
 

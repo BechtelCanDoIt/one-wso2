@@ -51,9 +51,9 @@ const renderProbe = () =>
   );
 
 describe("ThemePreferenceProvider", () => {
-  it("exposes all seven options to the picker", () => {
+  it("exposes all eight options to the picker", () => {
     renderProbe();
-    expect(screen.getByTestId("count")).toHaveTextContent("7");
+    expect(screen.getByTestId("count")).toHaveTextContent("8");
   });
 
   it("starts on the deployment default when nothing is saved", () => {
@@ -86,7 +86,7 @@ describe("ThemePreferenceProvider", () => {
     // resolver.
     localStorage.setItem(STORAGE_KEY, "retired-theme");
     renderProbe();
-    expect(screen.getByTestId("applied")).toHaveTextContent("wso2");
+    expect(screen.getByTestId("applied")).toHaveTextContent("choreoLabs");
   });
 
   it("folds a preference saved under the superseded key onto the listed one", () => {

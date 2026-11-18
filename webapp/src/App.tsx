@@ -234,8 +234,9 @@ import { auditRoutes } from "@features/security/grc/modules/audit/routes";
 import { adminRoutes } from "@features/security/grc/modules/admin/routes";
 import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
-import { swagStoreShopRoutes } from "@features/swag-store/routes";
+import { swagStoreAdminRoutes, swagStoreShopRoutes } from "@features/swag-store/routes";
 import { engagementRoutes, myEngagementRoutes } from "@features/finance/engagement-app/routes";
+import { procurementRoutes } from "@features/finance/procurement/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
 import PartnerPendingPage from "@features/due-diligence/partners/pages/PartnerPendingPage";
 import PartnerDashboardPage from "@features/due-diligence/partners/pages/PartnerDashboardPage";
@@ -575,6 +576,9 @@ export default function App() {
             <Route path={misPaths.legacyAnalysis} element={<MisAnalysisRedirect />} />
           </Route>
           <Route path="people-ops" element={<PerspectiveLanding />} />
+          {/* People Ops → Swag Store: the store team's screens. Its own shell
+              checks the store's roles; People Ops' admin privilege plays no part. */}
+          {isPreviewEnabled("swagStore") && swagStoreAdminRoutes}
           {/* People Ops → Org Chart: the company's reporting hierarchy, ported
               from the standalone org-chart app. Unlike every other People Ops
               screen, this is NOT admin-gated — it has its own access model.
@@ -1063,6 +1067,8 @@ export default function App() {
               docs/ported-apps/engagement-app.md. */}
           {isPreviewEnabled("engagementApp") && engagementRoutes}
           {isPreviewEnabled("engagementApp") && myEngagementRoutes}
+          {/* Finance → Procurement, behind the `procurement` preview flag. */}
+          {isPreviewEnabled("procurement") && procurementRoutes}
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />

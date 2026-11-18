@@ -20,7 +20,7 @@ vi.mock("../api/useAmplifyData", () => ({
   useAmplifyConfig: () => ({ linkedinOrgUrn: "urn:li:organization:1", privacyNoticeUrl: "https://example.test/privacy", campaignLinkOrigins: ["https://www.linkedin.com", "https://linkedin.com"] }),
 }));
 
-import PostCard, { DEFAULT_POST_IMAGE } from "./PostCard";
+import PostCard from "./PostCard";
 import type { Campaign } from "../api/amplifyTypes";
 
 function campaign(imageUrl?: string | null): Campaign {
@@ -39,6 +39,7 @@ function campaign(imageUrl?: string | null): Campaign {
 }
 
 const imgSrc = (c: HTMLElement) => c.querySelector("img")?.getAttribute("src");
+const hasDefault = (c: HTMLElement) => c.querySelector("[data-testid=default-post-image]") !== null;
 
 describe("PostCard image", () => {
   it("uses the post's own image", () => {
@@ -48,12 +49,12 @@ describe("PostCard image", () => {
 
   it("falls back to the default when no URL is given", () => {
     const { container } = render(<PostCard campaign={campaign(undefined)} action={null} />);
-    expect(imgSrc(container)).toBe(DEFAULT_POST_IMAGE);
+    expect(hasDefault(container)).toBe(true);
   });
 
   it("falls back to the default when the URL fails to load", () => {
     const { container } = render(<PostCard campaign={campaign("https://example.com/missing.png")} action={null} />);
     fireEvent.error(container.querySelector("img")!);
-    expect(imgSrc(container)).toBe(DEFAULT_POST_IMAGE);
+    expect(hasDefault(container)).toBe(true);
   });
 });

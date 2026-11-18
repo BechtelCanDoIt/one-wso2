@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { quickquote?: boolean; nda?: boolean } = {},
+  preview: { quickquote?: boolean; nda?: boolean; procurement?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -109,6 +109,27 @@ describe("the Sales perspective", () => {
 });
 
 // CadO2 lands behind its own flag, as a whole, inside the Sales perspective.
+describe("Procurement's rail entries", () => {
+  const procurementGroupIn = (perspectives: Perspectives) =>
+    perspectives.findPerspectiveByKey("finance")?.sections?.find((s) => s.id === "sec-app-procurement");
+
+  it("are a Procurement group under Finance once the flag is on", async () => {
+    const group = procurementGroupIn(await load({ procurement: true }));
+    expect(group?.label).toBe("Procurement");
+    expect(group?.alwaysGroup).toBe(true);
+    expect(group?.children?.map((c) => [c.label, c.path, c.requires])).toEqual([
+      ["My Requests", "/finance/procurement/requests", undefined],
+      ["New Request", "/finance/procurement/requests/new", undefined],
+    ]);
+  });
+
+  it("are gone when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ procurement: false }, {}]) {
+      expect(procurementGroupIn(await load(preview))).toBeUndefined();
+    }
+  });
+});
+
 describe("CadO2's rail entries", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? [])
@@ -388,18 +409,37 @@ describe("the Swag Store perspective", () => {
     expect(store?.sections?.[0]).toMatchObject({ id: "swag-store-shop", label: "Shop", path: "/store" });
   });
 
+  it("puts the store's admin group in People Ops only while the flag is on", async () => {
+    const off = await loadWithStore(false);
+    expect(off.findPerspectiveByKey("people")?.sections?.some((s) => s.id === "swag-store-admin")).toBe(false);
+
+    const on = await loadWithStore(true);
+    const people = on.findPerspectiveByKey("people");
+    const group = people?.sections?.find((s) => s.id === "swag-store-admin");
+    expect(group).toMatchObject({ label: "Swag Store", alwaysGroup: true });
+    expect(group?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
+      ["swag-store-admin-dashboard", "Dashboard", "/people-ops/swag-store/dashboard"],
+      ["swag-store-admin-orders", "Orders", "/people-ops/swag-store/orders"],
+      ["swag-store-admin-products", "Products", "/people-ops/swag-store/products"],
+      ["swag-store-admin-demand", "Demand", "/people-ops/swag-store/demand"],
+      ["swag-store-admin-settings", "Settings", "/people-ops/swag-store/settings/offices"],
+    ]);
+    expect(on.findPerspectiveByPath("/people-ops/swag-store/dashboard")?.key).toBe("people");
+  });
+
   it("owns every store page, so product pages keep the store rail", async () => {
     const perspectives = await loadWithStore(true);
     expect(perspectives.findPerspectiveByPath("/store/p/hoodie")?.key).toBe("store");
   });
 
-  it("lists Shop, Cart and Orders as flat rows, with checkout under Cart", async () => {
+  it("lists Shop, Cart, Orders and Alerts as flat rows, with checkout under Cart", async () => {
     const perspectives = await loadWithStore(true);
     const rows = perspectives.findPerspectiveByKey("store")?.sections ?? [];
     expect(rows.map((r) => [r.label, r.path])).toEqual([
       ["Shop", "/store"],
       ["Cart", "/store/cart"],
       ["Orders", "/store/orders"],
+      ["Alerts", "/store/alerts"],
     ]);
     expect(rows.every((r) => !r.children)).toBe(true);
     expect(perspectives.findPerspectiveByPath("/store/cart/checkout")?.key).toBe("store");

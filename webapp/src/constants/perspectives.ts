@@ -65,6 +65,7 @@ import {
   ShoppingBagIcon,
   ShoppingCartIcon,
   PackageIcon,
+  BellIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { ComponentType } from "react";
@@ -77,6 +78,7 @@ import {
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
 import { MIS_APPS } from "@constants/misApps";
+import { PROCUREMENT_APPS } from "@constants/procurementApps";
 import { DOWNLOAD_STATS_APPS } from "@constants/downloadStatsApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
@@ -90,6 +92,7 @@ import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
 import { UMT_DOCUMENTATION_ITEM_ID, openUmtDocumentation } from "@features/umt/lib/umtDocumentation";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
 import { swagStorePaths } from "@features/swag-store/swagStorePaths";
+import { SWAG_STORE_ADMIN_GROUP_ID, SWAG_STORE_ADMIN_SCREENS } from "@features/swag-store/admin/swagStoreAdminItems";
 import {
   Cado2LogoIcon,
   EchoLogoIcon,
@@ -196,6 +199,20 @@ const BANKING_ADMIN_SECTION: PerspectiveSection = {
   label: "Banking",
   icon: LandmarkIcon,
   path: "/banking/admin",
+};
+
+// Swag Store's admin screens, for the store team. Not a People Ops admin
+// screen: who sees each row is the store's own roles (catalog_manager,
+// fulfilment_ops) from its GET /users/me, decided by the swag-store-admin
+// rail gate, never by the People Ops privileges from ONE_WSO2_PEOPLE_BACKEND_URL.
+// The rows come from the store's screens table, which also says who each one
+// is for.
+const SWAG_STORE_ADMIN_SECTION: PerspectiveSection = {
+  id: SWAG_STORE_ADMIN_GROUP_ID,
+  label: "Swag Store",
+  icon: ShoppingBagIcon,
+  alwaysGroup: true,
+  children: Object.values(SWAG_STORE_ADMIN_SCREENS).map(({ id, label, path }) => ({ id, label, path })),
 };
 
 export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
@@ -363,6 +380,7 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
     ],
   },
   BANKING_ADMIN_SECTION,
+  ...(isPreviewEnabled("swagStore") ? [SWAG_STORE_ADMIN_SECTION] : []),
 ];
 
 /**
@@ -578,6 +596,7 @@ const SWAG_STORE_SHOP_SECTIONS: PerspectiveSection[] = [
   { id: "swag-store-shop", label: "Shop", icon: ShoppingBagIcon, path: swagStorePaths.shop },
   { id: "swag-store-cart", label: "Cart", icon: ShoppingCartIcon, path: swagStorePaths.cart },
   { id: "swag-store-orders", label: "Orders", icon: PackageIcon, path: swagStorePaths.orders },
+  { id: "swag-store-alerts", label: "Alerts", icon: BellIcon, path: swagStorePaths.alerts },
 ];
 
 // Knowledge's one item so far. Its own perspective (not nested under Me)
@@ -780,6 +799,9 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // preview flag. Gated on the Engagement App Backend's own privileges, not
       // `requires` — see useEngagementRailGate.
       ...(isPreviewEnabled("engagementApp") ? appsToSections(ENGAGEMENT_APPS) : []),
+      // Procurement: purchase requests through to Procurement assignment.
+      // With the flag off the group doesn't exist.
+      ...(isPreviewEnabled("procurement") ? appsToSections(PROCUREMENT_APPS) : []),
       // Due Diligence — also surfaced under Legal (see the `legal` perspective
       // below). ONE registry (DUE_DILIGENCE_APPS), included in both places, so
       // the two rails can't drift. Gated on the due-diligence backend's own

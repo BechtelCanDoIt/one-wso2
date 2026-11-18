@@ -33,7 +33,7 @@ export function amplifyProblemCode(err: unknown): string | undefined {
 const MESSAGES: Record<string, string> = {
   ROLE_NOT_PERMITTED: "You don't have access to do that.",
   CAMPAIGN_ALREADY_REGISTERED: "That post is already in Amplify.",
-  NOT_WSO2_RESOURCE: "That post isn't on the WSO2 company page.",
+  NOT_WSO2_RESOURCE: "That post isn't on the Choreo Labs company page.",
   INVALID_POST_URN: "That doesn't look like a LinkedIn post link.",
   INVALID_CAMPAIGN: "Check the post details and try again.",
   INVALID_WINDOW: "The tracking end date has to be after the post date.",

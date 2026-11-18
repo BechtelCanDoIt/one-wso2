@@ -30,6 +30,17 @@ export function formatCivilDate(value: string, locale?: string): string | undefi
   return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", timeZone: "UTC" }).format(instant);
 }
 
+/** Whether a value is a real civil date ("2026-12-12", not "2026-13-40"). */
+export function isCivilDate(value: string): boolean {
+  return formatCivilDate(value, "en") !== undefined;
+}
+
+/** Today as a civil date in the viewer's own timezone, such as "2026-11-15". */
+export function civilToday(now: Date = new Date()): string {
+  const two = (n: number) => String(n).padStart(2, "0");
+  return `${now.getFullYear()}-${two(now.getMonth() + 1)}-${two(now.getDate())}`;
+}
+
 /** An instant from the backend ("2026-11-13T04:30:00Z") in the viewer's own timezone, such as "13 Nov 2026, 10:00". */
 export function formatInstant(value: string, locale?: string): string {
   const instant = new Date(value);

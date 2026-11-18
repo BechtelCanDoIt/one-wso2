@@ -51,6 +51,12 @@ export const UMT_CHUNK_GRID_SX = {
   },
   "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": { outline: "none" },
   "& .MuiDataGrid-cell:focus-visible": { outline: "auto 1px" },
+  // Keep the row's trailing filler cell at zero width when columns overflow.
+  "& .MuiDataGrid-cellEmpty": {
+    borderRightWidth: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
 } as const;
 
 /**

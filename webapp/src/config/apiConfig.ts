@@ -270,6 +270,14 @@ export const parServiceUrls = {
   // parEmployeeStatus / parLeadStatus we use for the chip + copy).
   parRating: (parCycleId: number, workEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/par-ratings`,
+  // GET (the employee, their leads, PAR admins) and PUT (the employee's
+  // draft) a cycle's guided self-review; 404 for a cycle without one.
+  parSelfReview: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/self-review`,
+  // POST — share the saved self-review with the lead. Unsharing is the
+  // par-ratings PATCH back to DRAFT.
+  parSelfReviewShare: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/self-review/share`,
   // PATCH .../par-ratings/{parRatingId} — save a draft or submit the
   // self-review (parEmployeeStatus: DRAFT | SHARED). Backend enforces which
   // fields the caller may set for their own record — see ParRatingModify.
@@ -295,6 +303,38 @@ export const parServiceUrls = {
   // GET/PATCH .../review — the caller's own review OF `employeeWorkEmail`.
   par360Review: (parCycleId: number, employeeWorkEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(employeeWorkEmail)}/review`,
+
+  // ---- PAR 2.0 structured 360° ------------------------------------------------
+  //
+  // GET — the PAR 2.0 forms a cycle uses (SELF_REVIEW, PEER_360); empty for a
+  // cycle that keeps the single comment, rating and 360.
+  parCycleForms: (parCycleId: number) => `${parBackendUrl}/par-cycles/${parCycleId}/forms`,
+  // GET/PUT — the caller's own structured feedback ON `employeeWorkEmail`.
+  parReviewForm: (parCycleId: number, employeeWorkEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(employeeWorkEmail)}/review-form`,
+  // POST — submit it.
+  parReviewFormSubmission: (parCycleId: number, employeeWorkEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(employeeWorkEmail)}/review-form/submission`,
+  // GET — every response about an employee with names (their leads, report chain, PAR admins).
+  parReviewResponses: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-responses`,
+  // GET — the caller's own anonymised summary.
+  parReviewSummary: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-summary`,
+  // PUT — the lead's 360° summary of an employee, shared with their comment
+  // (the employee's leads and PAR admins).
+  parLead360Summary: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/lead-360-summary`,
+  // GET — the AI-suggested 360° summary for the lead to start from.
+  parLead360SummarySuggestion: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/lead-360-summary/suggestion`,
+  // GET — people to ask for 360° feedback, from the employee's calendar (the
+  // employee, their leads and PAR admins).
+  parReviewerSuggestions: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/reviewer-suggestions`,
+  // GET — a lead's members' 360° indexes and the team average.
+  parReviewIndexes: (parCycleId: number, leadEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/review-indexes?leadEmail=${encodeURIComponent(leadEmail)}`,
 
   // GET /par-cycles/{cycleId}/participants — the people IN THIS CYCLE (name +
   // email only), leadEmail omitted (par-app's OfferFeedbackView.tsx always
@@ -423,6 +463,27 @@ export const parServiceUrls = {
   // have the query-parameter route yet (see fetchLegacyCycleParticipants in useParAdmin.ts).
   legacyParHistoryCyclesParticipantsByPath: (cycleName: string, summary = false) =>
     `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants${summary ? "?summary=true" : ""}`,
+
+  // ---- Leadership 360° ------------------------------------------------------
+  //
+  // The leader a respondent writes about goes in the request body of the
+  // drafts/submissions calls, never the URL, so gateway access logs don't
+  // record who gave feedback on whom.
+  leadership360CurrentSurvey: () => `${parBackendUrl}/leadership-360/current-survey`,
+  leadership360Leaders: () => `${parBackendUrl}/leadership-360/leaders`,
+  // GET: every survey, newest first (anyone).
+  leadership360Surveys: () => `${parBackendUrl}/leadership-360/surveys`,
+  leadership360Survey: (surveyId: number) => `${parBackendUrl}/leadership-360/surveys/${surveyId}`,
+  leadership360MyFeedback: (surveyId: number) => `${parBackendUrl}/leadership-360/surveys/${surveyId}/my-feedback`,
+  leadership360Drafts: (surveyId: number) => `${parBackendUrl}/leadership-360/surveys/${surveyId}/drafts`,
+  leadership360Submissions: (surveyId: number) => `${parBackendUrl}/leadership-360/surveys/${surveyId}/submissions`,
+  // The leaders whose results the caller may see from one view: SELF (the
+  // caller themself), REPORTS (leaders reporting to the caller) or ALL
+  // (every leader, PAR admins only).
+  leadership360Results: (surveyId: number, view: "SELF" | "REPORTS" | "ALL") =>
+    `${parBackendUrl}/leadership-360/surveys/${surveyId}/results?view=${view}`,
+  leadership360Summary: (surveyId: number, view: "SELF" | "REPORTS" | "ALL", leaderEmail: string) =>
+    `${parBackendUrl}/leadership-360/surveys/${surveyId}/summary?view=${view}&leaderEmail=${encodeURIComponent(leaderEmail)}`,
 };
 
 // Leave app backend (people-ops-suite/apps/leave-app). Its own service
@@ -1470,6 +1531,16 @@ export const emailSignatureLogoUrl: string =
 // Empty means the built-in layout is used.
 export const emailSignatureTemplateUrl: string = window.config?.ONE_WSO2_EMAIL_SIGNATURE_TEMPLATE_URL?.trim() ?? "";
 
+// For one person whose signature address isn't their work email's username:
+// their work email, and the username their signature's email should use
+// (e.g. jdoe2@wso2.com and jdoe). Read from .env at build time, unlike the keys
+// above, so the values stay out of this public repo. Vite copies them into the
+// bundle, so they are still readable in the browser. Both empty means no override.
+export const emailSignatureOverrideWorkEmail: string =
+  import.meta.env.ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_WORK_EMAIL?.trim() ?? "";
+export const emailSignatureOverrideEmailUser: string =
+  import.meta.env.ONE_WSO2_EMAIL_SIGNATURE_OVERRIDE_EMAIL_USER?.trim() ?? "";
+
 // ISAC — a separate marketing application, not part of this webapp and not a
 // Marketing Ops operation. It appears at the top of the Marketing Ops rail as an
 // outbound link because that is where the people who use it look for it, not
@@ -1576,11 +1647,16 @@ export const infraServiceUrls = {
 
 const DEFAULT_GITHUB_AUTHORIZE_URL = "https://github.com/login/oauth/authorize";
 
+const githubOAuth = window.config?.ONE_WSO2_GITHUB_OAUTH;
+
 export const githubOAuthConfig = {
-  clientId: window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID ?? "",
+  clientId:
+    githubOAuth?.CLIENT_ID ?? window.config?.ONE_WSO2_GITHUB_OAUTH_CLIENT_ID ?? "",
   authorizeUrl:
-    window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL || DEFAULT_GITHUB_AUTHORIZE_URL,
-  redirectUrl: window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL ?? "",
+    (githubOAuth?.AUTHORIZE_URL ?? window.config?.ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL) ||
+    DEFAULT_GITHUB_AUTHORIZE_URL,
+  redirectUrl:
+    githubOAuth?.REDIRECT_URL ?? window.config?.ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL ?? "",
   scopes: ["read:user", "user:email"] as const,
 };
 
@@ -2049,6 +2125,36 @@ export function isCado2BackendConfigured(): boolean {
 }
 
 const encodeSegment = (value: string | number): string => encodeURIComponent(String(value));
+
+// Procurement — Finance → Procurement, purchase requests through to Procurement
+// assignment. Its own backend, version segment included. Unset means "not
+// connected": its pages say so and make no requests. Gated as a whole by the
+// `procurement` preview flag as well (previewFeatures.ts).
+export const procurementBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_PROCUREMENT_BACKEND_URL ?? "",
+);
+
+export function isProcurementBackendConfigured(): boolean {
+  return Boolean(procurementBackendUrl);
+}
+
+export const procurementServiceUrls = {
+  me: `${procurementBackendUrl}/me`,
+  meTeamLead: `${procurementBackendUrl}/me/team-lead`,
+  referenceData: (type: string): string => `${procurementBackendUrl}/reference-data?type=${encodeSegment(type)}`,
+  budgetApprovers: (businessUnit: string, region: string): string => {
+    const q = new URLSearchParams();
+    if (businessUnit) q.set("businessUnit", businessUnit);
+    if (region) q.set("region", region);
+    return `${procurementBackendUrl}/budget-approvers?${q.toString()}`;
+  },
+  engagementCodes: (businessUnit: string): string =>
+    `${procurementBackendUrl}/engagement-codes?businessUnit=${encodeSegment(businessUnit)}`,
+  directoryEmployees: (query: string, leadsOnly: boolean): string =>
+    `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}${leadsOnly ? "&leadsOnly=true" : ""}`,
+  requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
+  request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
+};
 
 export const cado2ServiceUrls = {
   // The caller's CadO2 roles (SALES, ADMIN) and approval roles. Decides the rail
@@ -2622,4 +2728,30 @@ export const swagStoreServiceUrls = {
     `${swagStoreBackendUrl}/orders/${encodeURIComponent(orderNo)}/payments`,
   stockAlerts: `${swagStoreBackendUrl}/stock-alerts`,
   stockAlert: (id: string): string => `${swagStoreBackendUrl}/stock-alerts/${encodeURIComponent(id)}`,
+  /** The store team's endpoints. The backend checks the caller's store role on every one. */
+  admin: {
+    /** Counts per role: catalog for catalog managers, orders for fulfilment ops. */
+    dashboard: `${swagStoreBackendUrl}/admin/dashboard`,
+    /** POST with filters, so search text never goes into a URL. `Accept: text/csv` exports the same rows. */
+    ordersSearch: `${swagStoreBackendUrl}/admin/orders/search`,
+    order: (orderNo: string): string => `${swagStoreBackendUrl}/admin/orders/${encodeURIComponent(orderNo)}`,
+    orderNotes: (orderNo: string): string =>
+      `${swagStoreBackendUrl}/admin/orders/${encodeURIComponent(orderNo)}/notes`,
+    pickupOffices: `${swagStoreBackendUrl}/admin/pickup-offices`,
+    pickupOffice: (id: string): string => `${swagStoreBackendUrl}/admin/pickup-offices/${encodeURIComponent(id)}`,
+    products: `${swagStoreBackendUrl}/admin/products`,
+    product: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}`,
+    removalImpact: (id: string): string =>
+      `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/removal-impact`,
+    productOptions: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/options`,
+    /** Pending stock alerts per variant, most wanted first. */
+    demand: `${swagStoreBackendUrl}/admin/demand`,
+    /** POST one photo as multipart/form-data (view + file). */
+    productImages: (id: string): string => `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/images`,
+    productVariant: (id: string, variantId: string): string =>
+      `${swagStoreBackendUrl}/admin/products/${encodeURIComponent(id)}/variants/${encodeURIComponent(variantId)}`,
+    stockMovements: (variantId: string): string =>
+      `${swagStoreBackendUrl}/admin/variants/${encodeURIComponent(variantId)}/stock-movements`,
+    categories: `${swagStoreBackendUrl}/admin/categories`,
+  },
 };
