@@ -14,16 +14,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, type JSX } from "react";
 import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type JSX,
+} from "react";
+import {
+  alpha,
   Box,
   ColorSchemeToggle,
   Header,
   IconButton,
+  InputBase,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { MenuIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { MenuIcon, SearchIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import AppsGridIcon from "./AppsGridIcon";
 import ChoreoLabsMark from "./ChoreoLabsMark";
 import { Link as RouterLink } from "react-router";
@@ -32,6 +41,11 @@ import PinnedTabs from "@features/pinned/components/PinnedTabs";
 import PinThisPageButton from "@features/pinned/components/PinThisPageButton";
 import StoreButton from "@features/swag-store/components/StoreButton";
 import { usePinnedEntries } from "@features/pinned/usePinned";
+import { useUserInfo } from "@api/useUserInfo";
+import { capabilitiesFromPrivileges } from "@constants/appMenu";
+import { isPreviewEnabled } from "@config/previewFeatures";
+import AskNoveraPalette from "@components/ask-novera/AskNoveraPalette";
+import LegacyAskNoveraPalette from "@components/ask-novera/LegacyAskNoveraPalette";
 import ThemeSelect from "./ThemeSelect";
 import UserProfileMenu from "./UserProfileMenu";
 
@@ -83,7 +97,8 @@ interface TopBarProps {
   onToggleWaffle: (anchor: HTMLElement) => void;
   /** Whether the launcher is currently showing, for aria-expanded. */
   waffleOpen: boolean;
-  onOpenAsk: () => void;
+  /** Optional legacy callback when opening Ask Novera. */
+  onOpenAsk?: () => void;
 }
 
 // The persistent top bar, on Oxygen's compound `Header`, in the order the
@@ -102,17 +117,47 @@ export default function TopBar({
 }: TopBarProps): JSX.Element {
   // Only the count matters here — the strip itself renders the entries.
   const hasPinned = usePinnedEntries().length > 0;
+  const isNoveraEnabled = isPreviewEnabled("novera");
+  const userInfo = useUserInfo();
+  const userCaps = useMemo(
+    () => capabilitiesFromPrivileges(userInfo.data?.privileges),
+    [userInfo.data?.privileges],
+  );
+  const [legacyOpen, setLegacyOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        onOpenAsk();
+        if (isNoveraEnabled) {
+          inputRef.current?.focus();
+        } else {
+          setLegacyOpen(true);
+        }
+        if (onOpenAsk) {
+          onOpenAsk();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onOpenAsk]);
+  }, [isNoveraEnabled, onOpenAsk]);
+
+  const handleSearchSubmit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    setResultsOpen(true);
+  };
+
+  const handleClear = (): void => {
+    setSearchQuery("");
+    setResultsOpen(false);
+    inputRef.current?.focus();
+  };
 
   return (
     <Header>
@@ -193,68 +238,156 @@ export default function TopBar({
         </Box>
       </Header.Brand>
 
-      {/* Palette trigger. A click target rather than a real input: the palette
-          owns the query field.
+      {/* Palette trigger:
+          - When preview flag is OFF (!isNoveraEnabled): Left-aligned directly next to Brand,
+            followed by PinnedTabs which absorbs the remaining middle space.
+          - When preview flag is ON (isNoveraEnabled): Centered in the top bar with balanced
+            flex growth on both sides. */}
+      {isNoveraEnabled && <Box sx={{ flexGrow: 1, minWidth: 0 }} />}
 
-          Fixed responsive widths rather than `flex: 1`, so the flexible slot
-          belongs to PinnedTabs instead — the pinned strip is the part that
-          benefits from spare room. It also narrows once anything is pinned,
-          since the two share that row; at `xs` it collapses to an icon. */}
-      <Box
-        role="button"
-        tabIndex={0}
-        onClick={onOpenAsk}
-        aria-label="Ask Novera"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpenAsk();
-          }
-        }}
-        sx={{
-          flexShrink: 0,
-          width: hasPinned
-            ? { xs: 40, sm: 200, md: 260, lg: 320 }
-            : { xs: 40, sm: 280, md: 400, lg: 520 },
-          display: "flex",
-          alignItems: "center",
-          justifyContent: { xs: "center", sm: "flex-start" },
-          gap: 1.25,
-          bgcolor: "action.hover",
-          border: 1,
-          borderColor: "divider",
-          borderRadius: 1.5,
-          px: { xs: 0, sm: 1.75 },
-          py: 0.75,
-          color: "text.secondary",
-          cursor: "text",
-          transition: "border-color .15s, width .15s",
-          "&:hover": { borderColor: "text.disabled" },
-          "&:focus-visible": { outline: 2, outlineStyle: "solid", outlineColor: "primary.main" },
-        }}
-      >
-        <SearchIcon size={16} style={{ flexShrink: 0 }} />
-        {/* Names Novera deliberately: it is a committed part of the product, and
-            the palette states plainly that the assistant is still coming rather
-            than implying it already answers. */}
-        <Typography variant="body2" noWrap sx={{ display: { xs: "none", sm: "block" } }}>
-          Ask Novera
-        </Typography>
+      {/* Palette trigger when novera is disabled (production default) */}
+      {!isNoveraEnabled ? (
         <Box
+          role="button"
+          tabIndex={0}
+          onClick={() => setLegacyOpen(true)}
+          aria-label="Ask Novera"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setLegacyOpen(true);
+            }
+          }}
           sx={{
-            ml: "auto",
-            display: { xs: "none", md: "block" },
-            bgcolor: "background.paper",
+            flexShrink: 0,
+            width: hasPinned
+              ? { xs: 40, sm: 200, md: 260, lg: 320 }
+              : { xs: 40, sm: 280, md: 400, lg: 520 },
+            display: "flex",
+            alignItems: "center",
+            justifyContent: { xs: "center", sm: "flex-start" },
+            gap: 1.25,
+            bgcolor: "action.hover",
             border: 1,
             borderColor: "divider",
-            borderRadius: 0.75,
-            px: 0.75,
-            flexShrink: 0,
+            borderRadius: 1.5,
+            px: { xs: 0, sm: 1.75 },
+            py: 0.75,
+            color: "text.secondary",
+            cursor: "text",
+            transition: "border-color .15s, width .15s",
+            "&:hover": { borderColor: "text.disabled" },
+            "&:focus-visible": { outline: 2, outlineStyle: "solid", outlineColor: "primary.main" },
           }}
         >
-          <Typography variant="caption">{SHORTCUT_HINT}</Typography>
+          <SearchIcon size={16} style={{ flexShrink: 0 }} />
+          <Typography variant="body2" noWrap sx={{ display: { xs: "none", sm: "block" } }}>
+            Ask Novera
+          </Typography>
+          <Box
+            sx={{
+              ml: "auto",
+              display: { xs: "none", md: "block" },
+              bgcolor: "background.paper",
+              border: 1,
+              borderColor: "divider",
+              borderRadius: 0.75,
+              px: 0.75,
+              flexShrink: 0,
+            }}
+          >
+            <Typography variant="caption">{SHORTCUT_HINT}</Typography>
+          </Box>
         </Box>
-      </Box>
+      ) : (
+        /* Centered Search Bar when novera preview is enabled */
+        <Box
+          ref={setPillEl}
+          component="form"
+          onSubmit={handleSearchSubmit}
+          onClick={() => inputRef.current?.focus()}
+          sx={{
+            cursor: "text",
+            flexShrink: 0,
+            width: hasPinned
+              ? { xs: 40, sm: 200, md: 260, lg: 320 }
+              : { xs: 40, sm: 280, md: 400, lg: 640 },
+            display: "flex",
+            alignItems: "center",
+            gap: 1.25,
+            bgcolor: "action.hover",
+            border: 1,
+            borderColor: isFocused ? "primary.main" : "divider",
+            borderRadius: 1.5,
+            px: { xs: 0, sm: 1.75 },
+            py: 0.5,
+            color: "text.secondary",
+            transition: "border-color .15s, width .15s, box-shadow .15s",
+            boxShadow: isFocused
+              ? (t) =>
+                  `0 0 0 1px ${
+                    t.vars
+                      ? `rgba(${t.vars.palette.primary.mainChannel} / ${t.palette.mode === "dark" ? 0.45 : 0.25})`
+                      : alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.45 : 0.25)
+                  }`
+              : "none",
+            "&:hover": { borderColor: isFocused ? "primary.main" : "text.disabled" },
+          }}
+        >
+          <SearchIcon size={16} style={{ flexShrink: 0 }} />
+          <InputBase
+            inputRef={inputRef}
+            placeholder="Ask Novera"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setSearchQuery("");
+                setResultsOpen(false);
+                inputRef.current?.blur();
+              }
+            }}
+            inputProps={{ "aria-label": "Ask Novera" }}
+            sx={{
+              flex: 1,
+              fontSize: 13.5,
+              color: "text.primary",
+              "& input": { p: 0 },
+            }}
+          />
+
+          {searchQuery ? (
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleClear();
+              }}
+              aria-label="Clear search"
+              sx={{ p: 0.25, color: "text.secondary" }}
+            >
+              <XIcon size={14} />
+            </IconButton>
+          ) : (
+            <Box
+              sx={{
+                ml: "auto",
+                display: { xs: "none", md: "block" },
+                bgcolor: "background.paper",
+                border: 1,
+                borderColor: "divider",
+                borderRadius: 0.75,
+                px: 0.75,
+                flexShrink: 0,
+              }}
+            >
+              <Typography variant="caption">{SHORTCUT_HINT}</Typography>
+            </Box>
+          )}
+        </Box>
+      )}
 
       {/* Takes the flexible middle slot, collapsing to a plain spacer when
           nothing is pinned. */}
@@ -287,6 +420,21 @@ export default function TopBar({
         </Box>
         <UserProfileMenu />
       </Header.Actions>
+
+      {/* Full-Screen Search Canvas Overlay (active when novera preview is enabled) */}
+      {isNoveraEnabled && resultsOpen && (
+        <AskNoveraPalette
+          anchorEl={pillEl}
+          onClose={() => setResultsOpen(false)}
+          initialQuery={searchQuery}
+          userCaps={userCaps}
+        />
+      )}
+
+      {/* Legacy "Coming soon" modal when novera preview flag is disabled/absent */}
+      {!isNoveraEnabled && legacyOpen && (
+        <LegacyAskNoveraPalette onClose={() => setLegacyOpen(false)} />
+      )}
     </Header>
   );
 }

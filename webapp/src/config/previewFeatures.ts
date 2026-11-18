@@ -123,7 +123,13 @@ export type PreviewFeature =
    * under Me → Performance, and the 360° evidence in the Lead View. Held back
    * until the PAR backend's structured 360 endpoints are deployed.
    */
-  | "par2";
+  | "par2"
+  /**
+   * TopBar → Ask Novera, the app search and navigation palette in the top bar.
+   * Held back while it is built and verified. With the flag off, the top bar
+   * renders the legacy coming soon modal.
+   */
+  | "novera";
 
 /**
  * Whether a preview feature should be shown.

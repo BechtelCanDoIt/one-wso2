@@ -238,6 +238,10 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, quickquote: false, nda: false, amplify: false, marketingCalendar: false, eventsLeadImport: false, swagStore: false, procurement: false, leadership360: false },
+  // ONE_WSO2_PREVIEW_FEATURES: {
+  //   infra: false, quickquote: false, nda: false, amplify: false,
+  //   marketingCalendar: false, eventsLeadImport: false, swagStore: false,
+  //   procurement: false, leadership360: false, novera: false
+  // },
 
 };
