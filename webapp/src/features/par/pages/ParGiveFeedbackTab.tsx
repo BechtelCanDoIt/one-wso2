@@ -43,6 +43,7 @@ import {
   useCurrentLeadership360Survey,
   useDiscardLeadership360Draft,
   useLeadership360Leaders,
+  useLeadership360Surveys,
   useMyLeadership360Feedback,
 } from "../api/useLeadership360";
 import type { Leadership360Leader } from "../api/leadership360Types";
@@ -78,8 +79,8 @@ export default function ParGiveFeedbackTab() {
   const requests = useReviewRequests(cycle?.parCycleId, workEmail);
   const reviewers = useReviewers(parts.hasLead ? parts.cycle?.parCycleId : undefined, workEmail);
   const parLeadEmail = useParEmployeeInfo(workEmail, Boolean(parts.cycle) && parts.hasLead).data?.leadEmail;
-  // Read again on opening: the anonymous-draft clean-up below goes by it.
-  const survey = useCurrentLeadership360Survey(parts.leadership, true);
+  const survey = useCurrentLeadership360Survey(parts.leadership);
+  const surveys = useLeadership360Surveys(parts.leadership);
   const openSurvey = parts.leadership ? (survey.data ?? undefined) : undefined;
   const surveyId = openSurvey?.survey.surveyId;
   const mine = useMyLeadership360Feedback(surveyId);
@@ -114,20 +115,15 @@ export default function ParGiveFeedbackTab() {
     [leaders.data],
   );
 
-  // The survey taking anonymous feedback now (null: none), once read since this opened (undefined until
-  // then). Anonymous drafts kept in this browser for any other survey are removed then. Never from a
-  // cached answer: it can be from before a survey opened, and a draft saved since (in another tab) has no
-  // other copy.
-  const surveyFresh = survey.isSuccess && survey.isFetchedAfterMount && !survey.isFetching;
-  const anonymousSurveyId = !surveyFresh
-    ? undefined
-    : survey.data && !survey.data.survey.held
-      ? survey.data.survey.surveyId
-      : null;
+  // Anonymous drafts kept in this browser for a survey that has closed are removed. Only for one listed as
+  // closed: a draft for a survey whose state isn't known (say, one opened since the list was read) stays.
+  const closedSurveyIds = useMemo(
+    () => (surveys.data ?? []).filter((s) => s.status === "CLOSED").map((s) => s.surveyId),
+    [surveys.data],
+  );
   useEffect(() => {
-    if (!parts.leadership || anonymousSurveyId === undefined) return;
-    removeClosedSurveyDrafts(anonymousSurveyId ?? undefined);
-  }, [parts.leadership, anonymousSurveyId]);
+    if (closedSurveyIds.length > 0) removeClosedSurveyDrafts(closedSurveyIds);
+  }, [closedSurveyIds]);
 
   if (parts.isLoading) {
     return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;

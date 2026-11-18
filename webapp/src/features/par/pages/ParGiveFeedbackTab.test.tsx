@@ -23,6 +23,7 @@ import type {
   Leadership360CurrentSurvey,
   Leadership360Leader,
   Leadership360MyFeedback,
+  Leadership360Survey,
 } from "../api/leadership360Types";
 
 const query = <T,>(data: T) => ({
@@ -98,8 +99,8 @@ const hannah = leader("hannah@example.com", "Hannah");
 
 let parts: { cycle?: ParCycle; feedbackCycle?: ParCycle; held?: boolean; hasLead: boolean; leadership: boolean };
 let currentSurvey: Leadership360CurrentSurvey | null;
-// Whether the current survey was read since the tab opened, or comes from the cache.
-let surveyFresh: boolean;
+// Every survey, as the survey list has them.
+let surveys: Leadership360Survey[];
 let mine: Leadership360MyFeedback;
 let requests: Par360ReviewRequest[];
 let participants: ParParticipant[];
@@ -153,7 +154,8 @@ vi.mock("../api/useLeadTeams", () => ({ useOwnReports: () => ({ emails: ownRepor
 const discardLeadershipMutate = vi.fn();
 vi.mock("../api/useLeadership360", () => ({
   useDiscardLeadership360Draft: () => ({ ...mutation(), mutate: discardLeadershipMutate }),
-  useCurrentLeadership360Survey: () => ({ ...query(currentSurvey), isSuccess: true, isFetchedAfterMount: surveyFresh }),
+  useCurrentLeadership360Survey: () => query(currentSurvey),
+  useLeadership360Surveys: () => query(surveys),
   useMyLeadership360Feedback: () => query(mine),
   useLeadership360Leaders: () => leaders,
 }));
@@ -216,7 +218,7 @@ beforeEach(() => {
     { workEmail: "alex@example.com", employeeName: "Alex" },
   ];
   currentSurvey = survey;
-  surveyFresh = true;
+  surveys = [{ ...survey.survey, surveyId: 2, status: "CLOSED" }, survey.survey];
   mine = noFeedback();
   window.localStorage.clear();
   requests = [];
@@ -256,16 +258,9 @@ describe("ParGiveFeedbackTab", () => {
     closed.forEach((key) => expect(window.localStorage.getItem(key)).toBeNull());
   });
 
-  it("removes them all once no survey is open", () => {
+  it("keeps a draft for a survey not known to have closed, such as one opened since the lists were read", () => {
     currentSurvey = null;
-    window.localStorage.setItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com", "{}");
-    show();
-    expect(window.localStorage.getItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com")).toBeNull();
-  });
-
-  it("removes none while it only knows the survey from the cache, which can be from before one opened", () => {
-    currentSurvey = null;
-    surveyFresh = false;
+    surveys = [{ ...survey.survey, surveyId: 2, status: "CLOSED" }];
     window.localStorage.setItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com", "{}");
     show();
     expect(window.localStorage.getItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com")).toBe("{}");

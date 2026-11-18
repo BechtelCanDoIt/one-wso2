@@ -298,6 +298,8 @@ export default function Leadership360FeedbackDialog({
                 setAnonymous(next === "anonymous");
                 setDirty(true);
                 setCloseFailed(false);
+                // Whether this browser keeps the draft is known again at the next save, if it's anonymous.
+                setStorageFailed(false);
               }}
               aria-label="Named or anonymous"
               sx={{

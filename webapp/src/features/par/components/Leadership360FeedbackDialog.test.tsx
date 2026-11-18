@@ -280,6 +280,30 @@ describe("Leadership360FeedbackDialog", () => {
     });
   });
 
+  it("saves the draft as named on Close after this browser couldn't keep it as anonymous", async () => {
+    const setItem = vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    try {
+      renderDialog();
+      fireEvent.click(anonymousOption());
+      fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
+      fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+      expect(screen.getByText(/This browser couldn't keep your anonymous draft/)).toBeInTheDocument();
+      fireEvent.click(named());
+      fireEvent.click(screen.getByRole("button", { name: "Close" }));
+      expect(onClose).not.toHaveBeenCalled();
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(draftMutateAsync).toHaveBeenCalledWith({
+        leaderEmail: "lead@wso2.com",
+        answers: { integrity: 4 },
+        anonymous: false,
+      });
+    } finally {
+      setItem.mockRestore();
+    }
+  });
+
   it("waits for a named save in flight before saving as anonymous, then removes the named copy", async () => {
     let finishNamed = () => {};
     draftMutateAsync.mockImplementationOnce(() => new Promise<void>((resolve) => (finishNamed = resolve)));

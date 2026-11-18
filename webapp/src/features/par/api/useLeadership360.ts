@@ -39,8 +39,7 @@ function useLeadership360Enabled() {
 
 // The survey open today. Resolves to null (not an error) when none is open —
 // the backend's 404 means "nothing to fill in right now", a normal state.
-// `fresh` reads it again whenever the caller mounts, not only once it's stale.
-export function useCurrentLeadership360Survey(enabled = true, fresh = false) {
+export function useCurrentLeadership360Survey(enabled = true) {
   const backendEnabled = useLeadership360Enabled();
   const getAccessToken = useAccessToken();
   return useQuery<Leadership360CurrentSurvey | null>({
@@ -60,7 +59,6 @@ export function useCurrentLeadership360Survey(enabled = true, fresh = false) {
       }
     },
     staleTime: 5 * 60 * 1000,
-    ...(fresh && { refetchOnMount: "always" as const }),
     retry: defaultQueryRetry,
   });
 }
