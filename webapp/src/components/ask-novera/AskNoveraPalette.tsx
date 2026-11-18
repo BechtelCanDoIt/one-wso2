@@ -30,7 +30,7 @@ import {
   SearchIcon,
   XIcon,
 } from "@wso2/oxygen-ui-icons-react";
-import ChoreoLabsMark from "@components/top-bar/ChoreoLabsMark";
+import BrandLockup from "@components/top-bar/BrandLockup";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type JSX } from "react";
 import { useNavigate } from "react-router";
 import type { Capability } from "@constants/appMenu";
@@ -38,11 +38,6 @@ import { PIN_KIND_META } from "@features/pinned/pinKinds";
 import { usePinnedEntries } from "@features/pinned/usePinned";
 import { searchDirectories } from "./directoryCatalog";
 
-const BRAND_FONT_FAMILY = "'Sora Variable', sans-serif";
-const BRAND_FONT_PX = 24;
-const BRAND_MARK_PX = 24;
-const BRAND_GAP_PX = "7px";
-const BRAND_MARK_ALIGN = `calc(0.5cap - ${BRAND_MARK_PX / 2}px)`;
 const CANVAS_COLUMN_MAX_WIDTH = 680;
 
 /**
@@ -62,10 +57,10 @@ export interface AskNoveraPaletteProps {
 /**
  * Full-screen search overlay palette for app discovery and direct route navigation.
  *
- * Implements the full-screen canvas takeover matching main branch's layout:
+ * Implements the full-screen canvas takeover layout:
  * 1. Sticky top navigation bar: symmetrically centered search bar, brand back button, and ESC exit.
- * 2. Centered content column: Best match action card with deep keyword search.
- * 3. Pinned page shortcuts when query is empty.
+ * 2. Centered content column: Best match action card with deep keyword search; pressing Enter opens the match.
+ * 3. Pinned page shortcuts when query is empty. Changes to initialQuery replace the canvas query.
  */
 export default function AskNoveraPalette({
   anchorEl,
@@ -136,18 +131,22 @@ export default function AskNoveraPalette({
       fullScreen
       open
       onClose={onClose}
-      aria-label="Ask Novera Results"
+      aria-labelledby="ask-novera-palette-title"
       transitionDuration={0}
-      PaperProps={{
-        sx: {
-          bgcolor: "background.default",
-          backgroundColor: "var(--oxygen-palette-background-default)",
-          backdropFilter: "none",
-          backgroundImage: "none",
-          color: "text.primary",
-          display: "flex",
-          flexDirection: "column",
-          overflow: "hidden",
+      // Full-screen canvas takeover: strip Oxygen's floating dialog paper styling (acrylic blur and
+      // elevation gradient) so the canvas acts as an opaque, high-performance solid page view.
+      slotProps={{
+        paper: {
+          sx: {
+            bgcolor: "background.default",
+            backgroundColor: "var(--oxygen-palette-background-default)",
+            backdropFilter: "none",
+            backgroundImage: "none",
+            color: "text.primary",
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden",
+          },
         },
       }}
     >
@@ -167,9 +166,7 @@ export default function AskNoveraPalette({
           gap: { xs: 1.5, sm: 2 },
           flexShrink: 0,
           boxShadow: (t) =>
-            t.palette.mode === "dark"
-              ? "0 1px 3px rgba(0, 0, 0, 0.4)"
-              : "0 1px 3px rgba(0, 0, 0, 0.05)",
+            `0 1px 3px ${alpha(t.palette.common.black, t.palette.mode === "dark" ? 0.4 : 0.05)}`,
         }}
       >
         {/* Left Flank: Brand lockup acts as back button */}
@@ -208,26 +205,7 @@ export default function AskNoveraPalette({
                 },
               }}
             >
-              <Header.BrandTitle
-                sx={{
-                  display: "block",
-                  whiteSpace: "nowrap",
-                  fontFamily: BRAND_FONT_FAMILY,
-                  fontWeight: 600,
-                  fontSize: { xs: BRAND_FONT_PX, sm: BRAND_FONT_PX },
-                  lineHeight: 0,
-                }}
-              >
-                <Box
-                  component={ChoreoLabsMark}
-                  sx={{
-                    height: BRAND_MARK_PX,
-                    mr: BRAND_GAP_PX,
-                    verticalAlign: BRAND_MARK_ALIGN,
-                  }}
-                />
-                One
-              </Header.BrandTitle>
+              <BrandLockup titleId="ask-novera-palette-title" />
             </Box>
           </Header.Brand>
         </Box>
@@ -241,6 +219,8 @@ export default function AskNoveraPalette({
             minWidth: 0,
           }}
         >
+          {/* Hand-built search field using InputBase to match TopBar's compact pill styling,
+              focus ring, and dynamic clear button, which Oxygen's rigid 40px SearchBar cannot accommodate. */}
           <Box
             component="form"
             onSubmit={handleCanvasSearchSubmit}

@@ -37,6 +37,17 @@ vi.mock("@config/authConfig", () => ({
   authConfig: { myAccountUrl: "https://myaccount.example.test" },
 }));
 
+vi.mock("@config/apiConfig", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@config/apiConfig")>();
+  return {
+    ...actual,
+    csmUrl: "https://csm.example.test",
+    isacUrl: "https://isac.example.test",
+    isCsmConfigured: () => true,
+    isIsacConfigured: () => true,
+  };
+});
+
 vi.mock("@features/pinned/components/PinThisPageButton", () => ({
   default: () => null,
 }));
@@ -122,7 +133,14 @@ describe("AskNoveraPalette", () => {
     renderPalette();
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveAttribute("aria-modal", "true");
+    expect(dialog).toHaveAttribute("aria-labelledby", "ask-novera-palette-title");
     expect(screen.getByPlaceholderText("Search apps by name, description, or keyword...")).toBeInTheDocument();
+  });
+
+  it("prioritizes prefix matches over substring matches when searching settings", () => {
+    renderPalette("settings");
+    expect(screen.getByText("Settings & Preferences")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open Settings" })).toBeInTheDocument();
   });
 
   it("lists pinned entries when query is empty", () => {
@@ -213,9 +231,15 @@ describe("AskNoveraPalette", () => {
     windowOpenSpy.mockRestore();
   });
 
-  it("finds Infrastructure tools via direct search", () => {
-    renderPalette("repository requests");
+  it("finds Infrastructure tools via direct search for admins", () => {
+    const adminCaps = new Set<Capability>(["employee", "admin"]);
+    renderPalette("repository requests", adminCaps);
     expect(screen.getByRole("button", { name: "Open Repository Requests" })).toBeInTheDocument();
+  });
+
+  it("suppresses Infrastructure tools for standard users lacking admin capability", () => {
+    renderPalette("repository requests");
+    expect(screen.queryByRole("button", { name: "Open Repository Requests" })).not.toBeInTheDocument();
   });
 
   it("finds Corporate Cards via direct search", () => {
@@ -243,7 +267,7 @@ describe("AskNoveraPalette", () => {
     expect(screen.getByText(/No apps found matching/)).toBeInTheDocument();
   });
 
-  it("navigates to exact routes for various apps without hitting catch-all", async () => {
+  it("navigates to the correct destination route for selected apps", async () => {
     renderPalette("promotions");
     const promoBtn = screen.getByRole("button", { name: "Open Promotions" });
     await userEvent.setup().click(promoBtn);
@@ -352,6 +376,28 @@ describe("TopBar Search Integration & Gating", () => {
 
     const user = userEvent.setup();
     await user.click(button);
+    expect(screen.getByText("Coming soon")).toBeInTheDocument();
+  });
+
+  it("focuses search input when Cmd+K or Ctrl+K is pressed with novera preview enabled", async () => {
+    renderTopBar();
+    const user = userEvent.setup();
+    const input = screen.getByPlaceholderText("Ask Novera");
+    expect(input).not.toHaveFocus();
+    await user.keyboard("{Meta>}k{/Meta}");
+    expect(input).toHaveFocus();
+  });
+
+  it("opens legacy palette when Cmd+K or Ctrl+K is pressed with novera preview disabled", async () => {
+    window.config = {
+      ...(originalConfig ?? {}),
+      ONE_WSO2_PREVIEW_FEATURES: { novera: false },
+    } as Window["config"];
+    renderTopBar();
+    const user = userEvent.setup();
+    await user.keyboard("{Meta>}k{/Meta}");
+    const dialogs = screen.getAllByRole("dialog");
+    expect(dialogs).toHaveLength(1);
     expect(screen.getByText("Coming soon")).toBeInTheDocument();
   });
 });

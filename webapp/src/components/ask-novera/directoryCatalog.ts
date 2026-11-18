@@ -59,7 +59,7 @@ import {
 } from "@wso2/oxygen-ui-icons-react";
 import type { Capability } from "@constants/appMenu";
 import { isPreviewEnabled, type PreviewFeature } from "@config/previewFeatures";
-import { csmUrl, isacUrl } from "@config/apiConfig";
+import { csmUrl, isacUrl, isCsmConfigured, isIsacConfigured } from "@config/apiConfig";
 
 /**
  * Represents a searchable app or portal entry within One App.
@@ -671,27 +671,6 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
       "gl codes",
     ],
   },
-  {
-    id: "fin-dd-partners",
-    title: "Partner Due Diligence",
-    label: "Open Partner Due Diligence",
-    hint: "Review reseller partner applications, compliance risk, and finance approvals",
-    href: "/legal/due-diligence/partners",
-    icon: ScaleIcon,
-    category: "Finance",
-    requires: ["admin"],
-    tags: ["Due Diligence", "Partners", "Resellers", "Compliance", "Finance"],
-    hasWebApp: true,
-    keywords: [
-      "due diligence",
-      "partner due diligence",
-      "reseller partners",
-      "vetting",
-      "partner finance",
-      "trade references",
-      "credit scoring",
-    ],
-  },
 
   // --- Sales & Revenue ---
   {
@@ -825,6 +804,7 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     href: "/marketing-ops/ad-campaigns/analytics",
     icon: ChartColumnIcon,
     category: "Marketing Ops",
+    requires: ["admin"],
     tags: ["Advertising", "PPC", "LinkedIn Ads", "Google Ads", "Analytics"],
     hasWebApp: true,
     keywords: [
@@ -844,6 +824,7 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     href: "/marketing-ops/events/mine",
     icon: CalendarIcon,
     category: "Marketing Ops",
+    requires: ["admin"],
     tags: ["Events", "Conferences", "Webinars", "Speakers"],
     hasWebApp: true,
     keywords: [
@@ -1009,13 +990,15 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     icon: ScaleIcon,
     category: "Legal",
     requires: ["admin"],
-    tags: ["Due Diligence", "Partners", "Resellers", "Compliance"],
+    tags: ["Due Diligence", "Partners", "Resellers", "Compliance", "Finance"],
     hasWebApp: true,
     keywords: [
       "due diligence",
       "partner due diligence",
       "reseller partners",
       "vetting",
+      "partner finance",
+      "compliance risk",
     ],
   },
   {
@@ -1188,6 +1171,7 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     href: "/infra/github/connection",
     icon: ServerIcon,
     category: "Infrastructure",
+    requires: ["admin"],
     tags: ["Infra", "GitHub", "Access", "Organization"],
     hasWebApp: true,
     keywords: [
@@ -1206,6 +1190,7 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     href: "/infra/github/repository-requests",
     icon: ServerIcon,
     category: "Infrastructure",
+    requires: ["admin"],
     tags: ["Repositories", "Infra", "GitHub", "Permissions", "Access"],
     hasWebApp: true,
     keywords: [
@@ -1366,7 +1351,7 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     title: "Customer Success Management (CSM)",
     label: "Open CSM",
     hint: "Access enterprise customer support tickets, SLA tracking, and accounts",
-    href: csmUrl || "https://csm.apps.wso2.com/",
+    href: csmUrl,
     icon: LifeBuoyIcon,
     category: "Support",
     tags: ["CSM", "Support", "Customer Success", "Tickets", "Accounts", "Helpdesk"],
@@ -1392,7 +1377,7 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     title: "Information Security Assessment Portal (ISAC)",
     label: "Open ISAC",
     hint: "Review marketing security assessments, risk questionnaires, and compliance",
-    href: isacUrl || "https://isac.apps.wso2.com/",
+    href: isacUrl,
     icon: SatelliteDishIcon,
     category: "Marketing Ops",
     tags: ["ISAC", "Marketing", "Security Assessment", "Compliance", "Risk"],
@@ -1486,6 +1471,12 @@ export function isDirectoryEntryPermitted(
   entry: DirectoryEntry,
   userCaps?: Set<Capability>,
 ): boolean {
+  if (entry.id === "csm-portal" && !isCsmConfigured()) {
+    return false;
+  }
+  if (entry.id === "mops-isac" && !isIsacConfigured()) {
+    return false;
+  }
   if (entry.previewFlag && !isPreviewEnabled(entry.previewFlag)) {
     return false;
   }
@@ -1544,12 +1535,17 @@ function scoreEntry(entry: DirectoryEntry, normalizedQuery: string, words: strin
     return 100;
   }
 
-  // 2. Title contains the full query phrase
+  // 2. Title starts with query (prefix match outscores substring match)
+  if (titleLower.startsWith(normalizedQuery)) {
+    return 90;
+  }
+
+  // 3. Title contains the full query phrase
   if (titleLower.includes(normalizedQuery)) {
     return 80;
   }
 
-  // 3. Category match
+  // 4. Category match
   if (categoryLower.includes(normalizedQuery)) {
     return 70;
   }
@@ -1625,19 +1621,4 @@ export function searchDirectories(
 
   scored.sort((a, b) => b.score - a.score);
   return scored.map((s) => s.entry);
-}
-
-/**
- * Matches the single best directory entry for a query.
- *
- * @param query The user query string
- * @param userCaps Optional caller capability set
- * @returns The best matching directory entry or null if none match
- */
-export function matchBestDirectory(
-  query: string,
-  userCaps?: Set<Capability>,
-): DirectoryEntry | null {
-  const results = searchDirectories(query, userCaps);
-  return results.length > 0 ? results[0] : null;
 }
