@@ -62,8 +62,7 @@ export const SECURITY_APPS: readonly MenuApp[] = [
     items: [
       // Create Audit, the audit activity log and the control drawer are all
       // reached from inside these items rather than from the rail, so they get
-      // no entry here either. Frameworks sits between Dashboard and Audits, as
-      // in the source's nav.ts.
+      // no entry here either.
       { id: "security-audit-dashboard", label: "Dashboard", desc: "Audit progress at a glance — the work queue, phase breakdown and team completion.", path: "/security/audit/dashboard" },
       { id: "security-audit-frameworks", label: "Frameworks", desc: "The compliance frameworks audits are run against — add, rename, archive or delete them.", path: "/security/audit/frameworks" },
       { id: "security-audit-audits", label: "Audits", desc: "Every audit you can see, with its controls, evidence and validation state.", path: "/security/audit/audits" },

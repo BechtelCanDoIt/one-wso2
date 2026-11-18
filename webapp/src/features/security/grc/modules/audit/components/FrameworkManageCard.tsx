@@ -90,7 +90,7 @@ export default function FrameworkManageCard({
           <Box sx={{ position: "absolute", top: 8, right: 8, zIndex: 1 }}>
             <IconButton
               size="small"
-              aria-label="Framework actions"
+              aria-label={`Actions for ${framework.name}`}
               onClick={(e) => setMenuAnchor(e.currentTarget)}
               sx={{ color: "text.secondary" }}
             >
@@ -166,6 +166,7 @@ export default function FrameworkManageCard({
                   <LinearProgress
                     variant="determinate"
                     value={pct}
+                    aria-label={`${auditDisplayName(a)} approval progress`}
                     sx={{
                       height: 6, borderRadius: 3, bgcolor: "#E0E0E0",
                       "[data-color-scheme='dark'] &": { bgcolor: "rgba(255,255,255,0.12)" },

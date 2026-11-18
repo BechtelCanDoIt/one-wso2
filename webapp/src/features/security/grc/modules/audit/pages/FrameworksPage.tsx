@@ -56,7 +56,12 @@ export default function FrameworksPage(): JSX.Element {
   const canManage = can(AuditPrivilege.ManageFrameworks);
 
   const { data: frameworksData, isLoading: frameworksLoading, isError: frameworksError } = useGetFrameworks("ALL");
-  const { data: auditsData, isLoading: auditsLoading } = useGetAudits();
+  const {
+    data: auditsData,
+    isLoading: auditsLoading,
+    isError: auditsError,
+    refetch: refetchAudits,
+  } = useGetAudits();
   const updateFramework = useUpdateFramework();
   const deleteFramework = useDeleteFramework();
 
@@ -79,23 +84,28 @@ export default function FrameworksPage(): JSX.Element {
   const isLoading = frameworksLoading || auditsLoading;
 
   // Archive is reversible, so no confirmation dialog — just a result snackbar.
-  const handleArchiveToggle = (framework: AuditFramework) => {
+  // mutateAsync, not mutate: per call callbacks only fire for the latest call, so
+  // archiving a second framework before the first settles would lose its result.
+  const handleArchiveToggle = async (framework: AuditFramework) => {
     const archiving = framework.status !== "ARCHIVED";
-    updateFramework.mutate(
-      { frameworkId: framework.id, fields: { status: archiving ? "ARCHIVED" : "ACTIVE" } },
-      {
-        onSuccess: () =>
-          setSnack({
-            severity: "success",
-            message: archiving ? `"${framework.name}" archived.` : `"${framework.name}" restored.`,
-          }),
-        onError: (e) => setSnack({ severity: "error", message: e.message }),
-      },
-    );
+    try {
+      await updateFramework.mutateAsync({
+        frameworkId: framework.id,
+        fields: { status: archiving ? "ARCHIVED" : "ACTIVE" },
+      });
+      setSnack({
+        severity: "success",
+        message: archiving ? `"${framework.name}" archived.` : `"${framework.name}" restored.`,
+      });
+    } catch (e) {
+      setSnack({ severity: "error", message: e instanceof Error ? e.message : "Something went wrong." });
+    }
   };
 
   const deleteTargetAudits = frameworkToDelete ? auditsOf(frameworkToDelete.id).length : 0;
+  // Without the audit list we cannot tell whether the framework is empty, so hold off.
   const deleteBlocked = deleteTargetAudits > 0;
+  const deleteUnverified = auditsError;
   const closeDelete = () => {
     setFrameworkToDelete(null);
     deleteFramework.reset();
@@ -162,6 +172,7 @@ export default function FrameworksPage(): JSX.Element {
           <Chip
             key={sf}
             label={`${STATUS_LABELS[sf]} (${countFor(sf)})`}
+            aria-pressed={statusFilter === sf}
             color={statusFilter === sf ? "primary" : "default"}
             variant={statusFilter === sf ? "filled" : "outlined"}
             onClick={() => setStatusFilter(sf)}
@@ -170,6 +181,20 @@ export default function FrameworksPage(): JSX.Element {
       </Box>
 
       {frameworksError && <Alert severity="error">Failed to load frameworks.</Alert>}
+
+      {auditsError && (
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => void refetchAudits()}>
+              Retry
+            </Button>
+          }
+        >
+          Failed to load audits, so the audit counts below may be wrong.
+        </Alert>
+      )}
 
       {isLoading && (
         <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(2, 1fr)", md: "repeat(3, 1fr)" }, gap: 2.5 }}>
@@ -217,7 +242,15 @@ export default function FrameworksPage(): JSX.Element {
       />
 
       {/* Delete confirmation — only an empty framework can go; otherwise point at Archive. */}
-      <Dialog open={Boolean(frameworkToDelete)} onClose={closeDelete} maxWidth="xs" fullWidth>
+      <Dialog
+        open={Boolean(frameworkToDelete)}
+        onClose={() => {
+          // Dismissing mid request would drop its error and allow a second submit.
+          if (!deleteFramework.isPending) closeDelete();
+        }}
+        maxWidth="xs"
+        fullWidth
+      >
         <DialogTitle>Delete framework?</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -234,6 +267,11 @@ export default function FrameworksPage(): JSX.Element {
               </>
             )}
           </DialogContentText>
+          {deleteUnverified && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              Audits could not be loaded, so this framework cannot be checked. Retry on the page, then try again.
+            </Alert>
+          )}
           {deleteFramework.isError && (
             <Alert severity="error" sx={{ mt: 2 }}>
               {deleteFramework.error.message}
@@ -248,7 +286,7 @@ export default function FrameworksPage(): JSX.Element {
             color="error"
             variant="contained"
             onClick={handleDeleteConfirm}
-            disabled={deleteBlocked || deleteFramework.isPending}
+            disabled={deleteBlocked || deleteUnverified || deleteFramework.isPending}
           >
             {deleteFramework.isPending ? "Deleting…" : "Delete"}
           </Button>

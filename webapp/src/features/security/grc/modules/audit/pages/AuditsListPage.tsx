@@ -39,6 +39,7 @@ import { Plus, Search, ShieldCheck, X } from "@wso2/oxygen-ui-icons-react";
 import { useState, type JSX } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import AuditCard from "@features/security/grc/modules/audit/components/AuditCard";
+import { useGetFrameworks } from "@features/security/grc/modules/audit/api/useGetFrameworks";
 import { useGetAudits } from "@features/security/grc/modules/audit/api/useGetAudits";
 import { useDeleteAudit } from "@features/security/grc/modules/audit/api/useDeleteAudit";
 import { useUpdateAuditStatus } from "@features/security/grc/modules/audit/api/useUpdateAuditStatus";
@@ -88,6 +89,8 @@ export default function AuditsListPage(): JSX.Element {
     isError: auditsError,
     refetch: refetchAudits,
   } = useGetAudits();
+  // The catalog, not the audit rows, says whether ?framework=<id> is a real framework.
+  const { data: frameworkCatalog, isLoading: frameworksLoading } = useGetFrameworks("ALL");
   const deleteAudit = useDeleteAudit();
   const updateAuditStatus = useUpdateAuditStatus();
   const canUpdateAudit = can(AuditPrivilege.UpdateAudit);
@@ -132,13 +135,15 @@ export default function AuditsListPage(): JSX.Element {
 
   const q = search.trim().toLowerCase();
 
-  // Frameworks that actually have audits, for the filter dropdown.
-  const frameworkOptions = [
-    ...new Map(
-      allAudits.filter((a) => a.status !== "REMOVED").map((a) => [a.framework.id, a.framework.name] as const),
-    ),
-  ].sort((a, b) => a[1].localeCompare(b[1]));
-  // An unknown id in the URL (e.g. a framework with no audits) falls back to "all".
+  // Frameworks that have audits, for the filter dropdown, plus the one named in
+  // the URL even when it has none yet, so an empty framework stays selected.
+  const optionMap = new Map(
+    allAudits.filter((a) => a.status !== "REMOVED").map((a) => [a.framework.id, a.framework.name] as const),
+  );
+  const linked = frameworkCatalog?.find((f) => String(f.id) === frameworkParam);
+  if (linked && !optionMap.has(linked.id)) optionMap.set(linked.id, linked.name);
+  const frameworkOptions = [...optionMap].sort((a, b) => a[1].localeCompare(b[1]));
+  // An id that is in neither the audits nor the catalog falls back to "all".
   const frameworkFilter = frameworkOptions.some(([id]) => String(id) === frameworkParam)
     ? frameworkParam
     : ALL_FRAMEWORKS;
@@ -159,7 +164,8 @@ export default function AuditsListPage(): JSX.Element {
     STATUS_FILTERS.map((sf) => [sf, filterByStatus(inFramework, sf).length]),
   ) as Record<StatusFilter, number>;
 
-  const activeAuditsTotal = allAudits.filter((a) => a.status === "ACTIVE").length;
+  // Scoped like the list below it, so the header matches what is on screen.
+  const activeAuditsTotal = inFramework.filter((a) => a.status === "ACTIVE").length;
   const isLoading = auditsLoading;
 
   const handleDeleteConfirm = () => {
@@ -254,6 +260,9 @@ export default function AuditsListPage(): JSX.Element {
               variant="contained"
               startIcon={<Plus size={16} />}
               sx={{ textTransform: "none" }}
+              // A framework in the URL is resolved against the catalog first, so the
+              // wizard never opens without it.
+              disabled={frameworkParam !== ALL_FRAMEWORKS && frameworksLoading}
               onClick={() =>
                 void navigate(auditPaths.create(frameworkFilter === ALL_FRAMEWORKS ? null : Number(frameworkFilter)))
               }
@@ -299,6 +308,7 @@ export default function AuditsListPage(): JSX.Element {
                   clickable
                   label={sf === "ALL" ? STATUS_FILTER_LABELS[sf] : `${STATUS_FILTER_LABELS[sf]} (${statusCounts[sf]})`}
                   onClick={() => setStatusFilter(sf)}
+                  aria-pressed={statusFilter === sf}
                   color={statusFilter === sf ? "primary" : "default"}
                   variant={statusFilter === sf ? "filled" : "outlined"}
                   sx={{ fontWeight: statusFilter === sf ? 700 : 400 }}

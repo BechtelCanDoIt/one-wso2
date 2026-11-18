@@ -33,11 +33,12 @@ interface FrameworkFormDialogProps {
 
 /** Create / rename dialog for a framework. */
 export default function FrameworkFormDialog({ open, framework, onClose, onSaved }: FrameworkFormDialogProps): JSX.Element {
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
-      {/* Keyed so the form state resets for each framework (or for create). */}
-      {open && <FrameworkForm key={framework?.id ?? "new"} framework={framework} onClose={onClose} onSaved={onSaved} />}
-    </Dialog>
+  // Keyed so the form state resets for each framework (or for create). The form
+  // owns the Dialog so it can refuse dismissal while a save is in flight.
+  return open ? (
+    <FrameworkForm key={framework?.id ?? "new"} framework={framework} onClose={onClose} onSaved={onSaved} />
+  ) : (
+    <></>
   );
 }
 
@@ -66,8 +67,15 @@ function FrameworkForm({
     }
   };
 
+  // Backdrop click and Escape would unmount the form mid save, losing the error
+  // or the success message, so they are ignored until the request settles.
+  const handleClose = () => {
+    if (mutation.isPending) return;
+    onClose();
+  };
+
   return (
-    <>
+    <Dialog open onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle>{framework ? "Edit framework" : "New framework"}</DialogTitle>
       <DialogContent sx={{ display: "flex", flexDirection: "column", gap: 2, pt: "16px !important" }}>
         <TextField
@@ -81,7 +89,8 @@ function FrameworkForm({
             if (mutation.isError) mutation.reset();
           }}
           onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave();
+            // Enter that confirms an input method candidate is not a submit.
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSave();
           }}
           slotProps={{ htmlInput: { maxLength: MAX_NAME_LENGTH } }}
           disabled={mutation.isPending}
@@ -89,13 +98,13 @@ function FrameworkForm({
         {mutation.isError && <Alert severity="error">{mutation.error.message}</Alert>}
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={mutation.isPending}>
+        <Button onClick={handleClose} disabled={mutation.isPending}>
           Cancel
         </Button>
         <Button variant="contained" onClick={handleSave} disabled={!canSave}>
           {mutation.isPending ? "Saving…" : "Save"}
         </Button>
       </DialogActions>
-    </>
+    </Dialog>
   );
 }
