@@ -94,7 +94,15 @@ export default function ParEmployeeHistoryView({
   const rating = useParRating(realCycleId, employeeEmail, isRealCycle);
   const reviews = useParEmployeeReviews(realCycleId, isRealCycle ? employeeEmail : undefined);
   // A PAR 2.0 cycle shows what the lead had while reviewing instead of the single comments.
-  const { showsPar2, isLoading: isPar2Loading } = useParShowsPar2(realCycleId);
+  const {
+    showsPar2,
+    isLoading: isPar2Loading,
+    error: par2Error,
+    retry: retryPar2,
+    retrying: retryingPar2,
+  } = useParShowsPar2(realCycleId);
+  // Without knowing whether it's a PAR 2.0 cycle, the record could show without its self-review.
+  const par2Failed = isRealCycle && par2Error !== null;
   const par2Cycle = showsPar2 ? realCycles.data?.find((c) => c.parCycleId === realCycleId) : undefined;
 
   const legacyByEmail: ParLegacyHistoryByEmail = { [employeeEmail]: legacyHistory.data ?? undefined };
@@ -124,7 +132,7 @@ export default function ParEmployeeHistoryView({
   const realCycleNotAvailable = isRealCycle && (rating.isError || (rating.isSuccess && !rating.data));
   const legacyCycleNotAvailable = isLegacyCycle && legacyHistory.isSuccess && !selectedLegacyRecord;
 
-  const showRealDetails = isRealCycle && rating.isSuccess && Boolean(rating.data) && !isPar2Loading;
+  const showRealDetails = isRealCycle && rating.isSuccess && Boolean(rating.data) && !isPar2Loading && !par2Failed;
   const showLegacyDetails = isLegacyCycle && Boolean(selectedLegacyRecord);
   const isLoadingSelection =
     (isRealCycle && (rating.isLoading || isPar2Loading)) || (isLegacyCycle && legacyHistory.isLoading);
@@ -169,6 +177,11 @@ export default function ParEmployeeHistoryView({
       )}
       {realCycleNotAvailable && (
         <ParEmptyState text="No PAR record found for the selected cycle, or it could not be loaded right now. Try again, or check back later if this seems wrong." />
+      )}
+      {par2Failed && !realCycleNotAvailable && (
+        <ErrorNotice error={par2Error} onRetry={retryPar2} retrying={retryingPar2}>
+          Couldn't load this PAR record.
+        </ErrorNotice>
       )}
 
       {showLegacyDetails && selectedLegacyRecord && (

@@ -181,7 +181,10 @@ describe("Leadership360FeedbackDialog", () => {
     expect(named()).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(anonymousOption());
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
-    expect(draftMutate).toHaveBeenCalledWith({ leaderEmail: "lead@wso2.com", answers: {}, anonymous: true });
+    expect(draftMutate).toHaveBeenCalledWith(
+      { leaderEmail: "lead@wso2.com", answers: {}, anonymous: true },
+      expect.anything(),
+    );
     expect(JSON.parse(window.localStorage.getItem(LOCAL_KEY) ?? "null")).toEqual({ integrity: 3 });
   });
 

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import {
   Alert,
   Box,
@@ -78,8 +78,10 @@ export default function Par360FeedbackDialog({
   relationship?: string;
 }) {
   const form = useReviewForm(parCycleId, employeeEmail, open);
+  // The form closes itself, saving first; Escape and the backdrop go through it too.
+  const closeForm = useRef<(() => void) | null>(null);
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth scroll="paper">
+    <Dialog open={open} onClose={() => (closeForm.current ?? onClose)()} maxWidth="md" fullWidth scroll="paper">
       <DialogTitle sx={{ pb: 0.5, fontWeight: 400, color: "text.secondary" }}>
         360° feedback for{" "}
         <Box component="span" sx={{ fontWeight: 700, color: "text.primary" }}>
@@ -111,6 +113,7 @@ export default function Par360FeedbackDialog({
           offered={offered || held}
           relationship={relationship}
           onClose={onClose}
+          closeRef={closeForm}
         />
       )}
     </Dialog>
@@ -139,6 +142,7 @@ function FeedbackForm({
   offered,
   relationship,
   onClose,
+  closeRef,
 }: {
   form: Review360Form;
   parCycleId: number;
@@ -148,6 +152,8 @@ function FeedbackForm({
   offered: boolean;
   relationship: string | undefined;
   onClose: () => void;
+  /** Set to this form's close, which saves first. */
+  closeRef: MutableRefObject<(() => void) | null>;
 }) {
   const definition = form.template.definition;
   const save = useSaveReviewForm(parCycleId, form.employeeEmail);
@@ -196,9 +202,34 @@ function FeedbackForm({
     [],
   );
 
+  // Closing saves what the autosave hasn't got to yet first, and stays open if that fails, so nothing
+  // is lost without a word. Closing again then leaves without it.
+  const [closeFailed, setCloseFailed] = useState(false);
+  const close = () => {
+    if (!editable || !dirty || submit.isPending || submit.isSuccess || closeFailed) {
+      onClose();
+      return;
+    }
+    const snapshot = JSON.stringify(toSave);
+    save.mutate(toSave, {
+      onSuccess: () => {
+        lastSaved.current = snapshot;
+        onClose();
+      },
+      onError: () => setCloseFailed(true),
+    });
+  };
+  useEffect(() => {
+    closeRef.current = close;
+    return () => {
+      closeRef.current = null;
+    };
+  });
+
   const setAnswer = (id: string, value: Answer) => {
     setAnswers((prev) => ({ ...prev, [id]: value }));
     setMissing([]);
+    setCloseFailed(false);
   };
 
   const askToSubmit = () => {
@@ -248,6 +279,9 @@ function FeedbackForm({
               onChange={setAnswer}
             />
           ))}
+          {closeFailed && (
+            <Alert severity="error">Couldn't save your latest changes. Close again to leave without them.</Alert>
+          )}
           {missingText.length > 0 && (
             <Alert severity="warning">
               Still to answer: {missingText.join(", ")}
@@ -266,7 +300,7 @@ function FeedbackForm({
                 : "Saves as you go")}
         </Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
-          <Button onClick={onClose}>{editable ? "Close" : "Done"}</Button>
+          <Button onClick={close}>{editable ? "Close" : "Done"}</Button>
           {editable && (
             <Button variant="contained" onClick={askToSubmit} disabled={submit.isPending}>
               Submit

@@ -268,6 +268,13 @@ function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: str
   if (!rating.data) {
     return <Alert severity="info">No record was found for you in this cycle.</Alert>;
   }
+  if (par2 && selfReview.isError) {
+    return (
+      <ErrorNotice error={selfReview.error} onRetry={() => selfReview.refetch()} retrying={selfReview.isFetching}>
+        Couldn't load your self-review for this cycle.
+      </ErrorNotice>
+    );
+  }
   if (selfReview.data) {
     const { definition } = selfReview.data.template;
     const summary = review360.data;

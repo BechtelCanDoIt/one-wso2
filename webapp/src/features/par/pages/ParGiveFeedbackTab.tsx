@@ -151,6 +151,8 @@ export default function ParGiveFeedbackTab() {
         : { kind: "PAR", email: item.email, name: item.name ?? item.email, offered: isVoluntary(item) },
     );
   const loading = requests.isLoading || (parts.leadership && (leaders.isLoading || mine.isLoading));
+  // Without the leadership team, a request for Leadership 360° feedback would open the PAR form.
+  const leadersFailed = parts.leadership && leaders.isError && !leaders.data;
 
   return (
     <Stack spacing={2} sx={{ maxWidth: 1100, pt: 0.5 }}>
@@ -172,7 +174,7 @@ export default function ParGiveFeedbackTab() {
             Voluntary
           </ToggleButton>
         </ToggleButtonGroup>
-        <Button variant="contained" onClick={() => setChoosing(true)}>
+        <Button variant="contained" onClick={() => setChoosing(true)} disabled={loading || leadersFailed}>
           Give feedback
         </Button>
       </Box>
@@ -182,6 +184,10 @@ export default function ParGiveFeedbackTab() {
       ) : requests.isError ? (
         <ErrorNotice error={requests.error} onRetry={() => requests.refetch()}>
           Couldn't load feedback requests.
+        </ErrorNotice>
+      ) : leadersFailed ? (
+        <ErrorNotice error={leaders.error} onRetry={() => leaders.refetch()} retrying={leaders.isFetching}>
+          Couldn't load the leadership team.
         </ErrorNotice>
       ) : (
         <Card variant="outlined" sx={{ p: 2 }}>

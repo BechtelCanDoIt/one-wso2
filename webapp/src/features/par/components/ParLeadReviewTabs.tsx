@@ -17,6 +17,7 @@
 import { useState } from "react";
 import { Avatar, Box, Breadcrumbs, Button, Chip, Divider, IconButton, Link, Stack, Tab, Tabs, Tooltip } from "@wso2/oxygen-ui";
 import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useParRating } from "../api/useParData";
 import { useParShowsPar2 } from "../api/useReview360";
@@ -112,7 +113,9 @@ export default function ParLeadReviewTabs({
                 leadStatus={rating.data?.parLeadStatus}
                 leadStatusKnown={rating.isSuccess}
                 structured={showsPar2}
-                leadership={showsPar2 && Boolean(rating.data?.parIsLeadershipEmployee)}
+                leadership={
+                  showsPar2 && isPreviewEnabled("leadership360") && Boolean(rating.data?.parIsLeadershipEmployee)
+                }
               />
             )}
         {!isAdminView && tab === 2 && <ParLeadF2fPanel cycle={cycle} employeeEmail={employeeEmail} />}

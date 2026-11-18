@@ -100,29 +100,45 @@ export default function ParSelfReviewForm({
   const toSave = answersToSave(definition, answers);
   const dirty = JSON.stringify(toSave) !== lastSaved.current;
 
+  // The autosave in flight, if any: the answers it sends, and when it's done.
+  const pendingSave = useRef<{ snapshot: string; done: Promise<void> } | null>(null);
+
   // Autosave a moment after the employee stops typing.
   useEffect(() => {
     if (!editable || !dirty || save.isPending) return;
     const timer = window.setTimeout(() => {
       const snapshot = JSON.stringify(toSave);
-      save.mutate(toSave, {
-        onSuccess: () => {
-          lastSaved.current = snapshot;
-          setSavedAt(new Date());
-        },
-        onError: (err) => showError(describeError(err)),
-      });
+      const done: Promise<void> = save
+        .mutateAsync(toSave)
+        .then(
+          () => {
+            lastSaved.current = snapshot;
+            setSavedAt(new Date());
+          },
+          (err) => showError(describeError(err)),
+        )
+        .finally(() => {
+          if (pendingSave.current?.done === done) pendingSave.current = null;
+        });
+      pendingSave.current = { snapshot, done };
     }, AUTOSAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, editable, save.isPending]);
 
-  // Leaving the page saves what the autosave hasn't got to yet.
-  const unsaved = useRef<SelfReviewAnswers | null>(null);
-  unsaved.current = editable && dirty && !share.isPending ? toSave : null;
+  // Leaving the page saves what the autosave hasn't got to yet. When a save is still in flight with
+  // other answers (changed, then changed back), it waits for that one, so the last answers are kept.
+  const leaving = useRef({ answers: toSave, editable: false });
+  useEffect(() => {
+    leaving.current = { answers: toSave, editable: editable && !share.isPending };
+  });
   useEffect(
     () => () => {
-      if (unsaved.current) save.mutate(unsaved.current);
+      const { answers: last, editable: canSave } = leaving.current;
+      const snapshot = JSON.stringify(last);
+      const pending = pendingSave.current;
+      const kept = pending ? pending.snapshot === snapshot : lastSaved.current === snapshot;
+      if (canSave && !kept) void (pending?.done ?? Promise.resolve()).then(() => save.mutate(last));
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -139,9 +155,14 @@ export default function ParSelfReviewForm({
     if (missing.length === 0) setConfirming(true);
   };
 
+  // The confirmation stays open while sharing, so no answer can change behind it and then be lost.
+  const [sharing, setSharing] = useState(false);
   const confirmShare = async () => {
+    setSharing(true);
     try {
-      if (dirty) {
+      // After any autosave in flight, so the answers shared are the last ones.
+      await pendingSave.current?.done;
+      if (JSON.stringify(toSave) !== lastSaved.current) {
         await save.mutateAsync(toSave);
         lastSaved.current = JSON.stringify(toSave);
       }
@@ -150,6 +171,8 @@ export default function ParSelfReviewForm({
       showSuccess("Your self-review has been shared with your lead.");
     } catch (err) {
       showError(describeError(err));
+    } finally {
+      setSharing(false);
     }
   };
 
@@ -356,7 +379,7 @@ export default function ParSelfReviewForm({
         ))}
       </Stack>
 
-      <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="sm" fullWidth>
+      <Dialog open={confirming} onClose={() => !sharing && setConfirming(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Share your self-review?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
@@ -364,9 +387,11 @@ export default function ParSelfReviewForm({
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirming(false)}>Cancel</Button>
-          <Button variant="contained" onClick={() => void confirmShare()} disabled={share.isPending || save.isPending}>
-            {share.isPending ? "Sharing…" : "Share"}
+          <Button onClick={() => setConfirming(false)} disabled={sharing}>
+            Cancel
+          </Button>
+          <Button variant="contained" onClick={() => void confirmShare()} disabled={sharing || save.isPending}>
+            {sharing ? "Sharing…" : "Share"}
           </Button>
         </DialogActions>
       </Dialog>

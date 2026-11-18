@@ -30,6 +30,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { PlayCircleIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useMeProfile } from "@features/my/api/useMeProfile";
@@ -61,8 +62,9 @@ export default function ParEmployeeFeedbackTab() {
   const cycle = activeCycles.data?.[0];
   const rating = useParRating(cycle?.parCycleId, workEmail);
   // A PAR 2.0 cycle has a guided self-review; any other cycle answers null
-  // and keeps the single comment below.
-  const selfReview = useSelfReview(cycle?.parCycleId, workEmail);
+  // and keeps the single comment below. Only looked up behind the par2
+  // preview flag, so today's cycles never depend on it.
+  const selfReview = useSelfReview(cycle?.parCycleId, workEmail, isPreviewEnabled("par2"));
   const save = useSaveParRating(cycle?.parCycleId, workEmail);
   const { showSuccess, showError } = useNotifications();
 

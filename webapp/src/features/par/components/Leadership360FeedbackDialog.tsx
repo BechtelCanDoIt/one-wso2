@@ -110,6 +110,8 @@ export default function Leadership360FeedbackDialog({
   const [anonymous, setAnonymous] = useState(initial.anonymous);
   const [dirty, setDirty] = useState(false);
   const [savedLocally, setSavedLocally] = useState(false);
+  // This browser wouldn't keep the anonymous draft.
+  const [storageFailed, setStorageFailed] = useState(false);
   const [missingIds, setMissingIds] = useState<string[]>([]);
   const missingCount = missingIds.length;
   const [confirmation, setConfirmation] = useState<ConfirmationContent | null>(null);
@@ -120,30 +122,57 @@ export default function Leadership360FeedbackDialog({
   latest.current = { answers, anonymous };
   // Whether the server holds a named draft that an anonymous one must replace.
   const serverDraft = useRef(Boolean(draft));
+  // Once the feedback is being submitted, no draft is saved, so none can land after it.
+  const submitting = useRef(false);
   const name = leader.employeeName;
 
-  const save = () => {
-    setDirty(false);
+  // Saves the draft, then runs `then` once it's kept. Each copy is replaced only once the other is
+  // saved, and a failed save stays unsaved, so it's tried again.
+  const save = (then?: () => void) => {
+    if (submitting.current) return;
     const { answers: current, anonymous: isAnonymous } = latest.current;
     if (isAnonymous) {
-      setSavedLocally(writeLocalDraft(workEmail, surveyId, leader.workEmail, cleanAnswers(current)));
+      const kept = writeLocalDraft(workEmail, surveyId, leader.workEmail, cleanAnswers(current));
+      setSavedLocally(kept);
+      setStorageFailed(!kept);
+      if (!kept) return;
+      setDirty(false);
       // Saving as anonymous removes the named copy from the server (and stores nothing there).
       if (serverDraft.current) {
-        serverDraft.current = false;
-        saveDraft.mutate({ leaderEmail: leader.workEmail, answers: {}, anonymous: true });
+        saveDraft.mutate(
+          { leaderEmail: leader.workEmail, answers: {}, anonymous: true },
+          {
+            onSuccess: () => {
+              serverDraft.current = false;
+              then?.();
+            },
+            onError: () => setDirty(true),
+          },
+        );
+        return;
       }
+      then?.();
       return;
     }
-    removeLocalDraft(workEmail, surveyId, leader.workEmail);
-    setSavedLocally(false);
-    serverDraft.current = true;
-    saveDraft.mutate({ leaderEmail: leader.workEmail, answers: cleanAnswers(current), anonymous: false });
+    setDirty(false);
+    saveDraft.mutate(
+      { leaderEmail: leader.workEmail, answers: cleanAnswers(current), anonymous: false },
+      {
+        onSuccess: () => {
+          serverDraft.current = true;
+          removeLocalDraft(workEmail, surveyId, leader.workEmail);
+          setSavedLocally(false);
+          then?.();
+        },
+        onError: () => setDirty(true),
+      },
+    );
   };
 
   // Autosave a few seconds after the last change, so nothing is lost.
   useEffect(() => {
     if (!dirty) return;
-    const timer = window.setTimeout(save, AUTOSAVE_DELAY_MS);
+    const timer = window.setTimeout(() => save(), AUTOSAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- save reads the latest values through the ref
   }, [dirty, answers, anonymous]);
@@ -154,9 +183,14 @@ export default function Leadership360FeedbackDialog({
     setMissingIds([]);
   };
 
+  // Closing saves first and stays open if that fails, so a draft isn't lost without a word. Closing
+  // again then leaves without it.
   const close = () => {
-    if (dirty) save();
-    onClose();
+    if (!dirty || storageFailed || saveDraft.isError || submit.isPending) {
+      onClose();
+      return;
+    }
+    save(onClose);
   };
 
   const trySubmit = () => {
@@ -170,18 +204,24 @@ export default function Leadership360FeedbackDialog({
       text: "You can't change it after you submit.",
       confirmLabel: "Submit",
       confirmColor: "primary",
-      confirmAction: () =>
+      confirmAction: () => {
+        submitting.current = true;
+        setDirty(false);
         submit.mutate(
           { leaderEmail: leader.workEmail, answers: cleanAnswers(answers), anonymous },
           {
             onSuccess: () => {
-              setDirty(false);
               if (anonymous) removeLocalDraft(workEmail, surveyId, leader.workEmail);
               onSubmitted(leader);
               onClose();
             },
+            onError: () => {
+              submitting.current = false;
+              setDirty(true);
+            },
           },
-        ),
+        );
+      },
     });
   };
 
@@ -293,6 +333,11 @@ export default function Leadership360FeedbackDialog({
           )}
           {submit.isError && <ErrorNotice error={submit.error}>Couldn't submit your feedback.</ErrorNotice>}
           {saveDraft.isError && <ErrorNotice error={saveDraft.error}>Couldn't save your draft.</ErrorNotice>}
+          {storageFailed && (
+            <Alert severity="error">
+              This browser couldn't keep your anonymous draft, so it's lost when you close this. Submit it to keep it.
+            </Alert>
+          )}
         </Stack>
       </DialogContent>
       {readOnly ? (
@@ -317,7 +362,7 @@ export default function Leadership360FeedbackDialog({
           <Button size="small" onClick={close}>
             Close
           </Button>
-          <Button size="small" onClick={save} disabled={!dirty || saveDraft.isPending}>
+          <Button size="small" onClick={() => save()} disabled={!dirty || saveDraft.isPending}>
             Save draft
           </Button>
           <Button size="small" variant="contained" onClick={trySubmit} disabled={submit.isPending}>

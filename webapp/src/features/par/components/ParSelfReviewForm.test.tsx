@@ -15,16 +15,17 @@
 // under the License.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ParCycle, ParRating } from "../api/types";
 import type { SelfReview } from "../api/selfReviewTypes";
 
 const saveMutate = vi.fn();
+const saveMutateAsync = vi.fn();
 const shareMutateAsync = vi.fn();
 const unshareMutate = vi.fn();
 
 vi.mock("../api/useSelfReview", () => ({
-  useSaveSelfReview: () => ({ mutate: saveMutate, mutateAsync: vi.fn(), isPending: false }),
+  useSaveSelfReview: () => ({ mutate: saveMutate, mutateAsync: saveMutateAsync, isPending: false }),
   useShareSelfReview: () => ({ mutateAsync: shareMutateAsync, isPending: false }),
 }));
 vi.mock("../api/useParMutations", () => ({
@@ -80,6 +81,8 @@ function show(status: string, answers = {}) {
 
 beforeEach(() => {
   saveMutate.mockReset();
+  saveMutateAsync.mockReset();
+  saveMutateAsync.mockResolvedValue(undefined);
   shareMutateAsync.mockReset();
   unshareMutate.mockReset();
 });
@@ -100,24 +103,50 @@ describe("ParSelfReviewForm", () => {
     show("DRAFT");
     fireEvent.change(screen.getByRole("textbox", { name: "Impact this cycle" }), { target: { value: "Shipped it" } });
     act(() => vi.advanceTimersByTime(1500));
-    expect(saveMutate).toHaveBeenCalledWith({ impact: "Shipped it" }, expect.anything());
+    expect(saveMutateAsync).toHaveBeenCalledWith({ impact: "Shipped it" });
   });
 
-  it("saves what the autosave hasn't got to yet when the employee leaves", () => {
+  it("saves what the autosave hasn't got to yet when the employee leaves", async () => {
     const view = show("DRAFT");
     fireEvent.change(screen.getByRole("textbox", { name: "Impact this cycle" }), { target: { value: "Shipped it" } });
     view.unmount();
-    expect(saveMutate).toHaveBeenCalledWith({ impact: "Shipped it" });
+    await waitFor(() => expect(saveMutate).toHaveBeenCalledWith({ impact: "Shipped it" }));
   });
 
-  it("shows when it last saved as a chip, with the due date", () => {
+  it("keeps the last answers when one is changed and changed back while a save is in flight", async () => {
     vi.useFakeTimers();
-    saveMutate.mockImplementationOnce((_answers, options: { onSuccess: () => void }) => options.onSuccess());
+    let finishSave = () => {};
+    saveMutateAsync.mockImplementationOnce(() => new Promise<void>((resolve) => (finishSave = resolve)));
+    const view = show("DRAFT", { impact: "First" });
+    const impact = () => screen.getByRole("textbox", { name: "Impact this cycle" });
+    fireEvent.change(impact(), { target: { value: "Second" } });
+    act(() => vi.advanceTimersByTime(1500));
+    expect(saveMutateAsync).toHaveBeenCalledWith({ impact: "Second" });
+    fireEvent.change(impact(), { target: { value: "First" } });
+    view.unmount();
+    expect(saveMutate).not.toHaveBeenCalled();
+    await act(async () => finishSave());
+    expect(saveMutate).toHaveBeenCalledWith({ impact: "First" });
+  });
+
+  it("shows when it last saved as a chip, with the due date", async () => {
+    vi.useFakeTimers();
     show("DRAFT");
     expect(screen.getByText(/^Due 31 Dec '99 · \d+ days left$/)).toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Impact this cycle" }), { target: { value: "Shipped it" } });
-    act(() => vi.advanceTimersByTime(1500));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
     expect(screen.getByText(/^Saved \d{1,2}:\d{2}/)).toBeInTheDocument();
+  });
+
+  it("keeps the share confirmation open while sharing, so no answer can change behind it", async () => {
+    shareMutateAsync.mockImplementation(() => new Promise(() => {}));
+    show("DRAFT", { impact: "Shipped it", growth: "Learnt it" });
+    fireEvent.click(screen.getByRole("button", { name: "Share with lead" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Share" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled());
+    expect(screen.getByRole("button", { name: "Sharing…" })).toBeDisabled();
   });
 
   it("says what's missing instead of sharing an incomplete review", () => {

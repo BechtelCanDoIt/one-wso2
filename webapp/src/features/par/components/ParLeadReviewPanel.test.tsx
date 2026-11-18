@@ -31,7 +31,10 @@ let suggestionAskedFor = false;
 const save = vi.fn();
 
 vi.mock("../api/useParData", () => ({ useParRating: () => ({ data: rating, isLoading: false, isError: false }) }));
-vi.mock("../api/useLeadRatingUpdate", () => ({ useLeadRatingUpdate: () => ({ mutate: vi.fn(), isPending: false }) }));
+let ratingUpdatePending = false;
+vi.mock("../api/useLeadRatingUpdate", () => ({
+  useLeadRatingUpdate: () => ({ mutate: vi.fn(), isPending: ratingUpdatePending }),
+}));
 vi.mock("../api/useLeadHistory", () => ({ useParEmployeeReviews: () => ({ isSuccess: true, data: [] }) }));
 vi.mock("../api/useSelfReview", () => ({ useSelfReview: () => ({ data: null }) }));
 vi.mock("../api/useReview360", () => ({
@@ -118,10 +121,11 @@ function show(overrides: Partial<ParRating> = {}) {
     parIsLeadershipEmployee: false,
     ...overrides,
   } as ParRating;
-  render(<ParLeadReviewPanel cycle={cycle} employeeEmail="alex@example.com" />);
+  return render(<ParLeadReviewPanel cycle={cycle} employeeEmail="alex@example.com" />);
 }
 
 beforeEach(() => {
+  ratingUpdatePending = false;
   responseCount = 3;
   suggestion = { data: SUGGESTED };
   suggestionAskedFor = false;
@@ -213,6 +217,15 @@ describe("ParLeadReviewPanel: 360° summary", () => {
     show({ parRating: "Successful", parLeadComment: encodeParComment("<p>Great cycle.</p>") });
     fireEvent.click(screen.getByRole("button", { name: "Share" }));
     expect(screen.getByText(/The suggestion in grey is only included if you insert it/)).toBeInTheDocument();
+  });
+
+  it("keeps the share confirmation open while sharing, so nothing can be edited behind it", () => {
+    const view = show({ parRating: "Successful", parLeadComment: encodeParComment("<p>Great cycle.</p>") });
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    ratingUpdatePending = true;
+    view.rerender(<ParLeadReviewPanel cycle={cycle} employeeEmail="alex@example.com" />);
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Sharing…" })).toBeDisabled();
   });
 
   it("isn't there for a member of the leadership team", () => {

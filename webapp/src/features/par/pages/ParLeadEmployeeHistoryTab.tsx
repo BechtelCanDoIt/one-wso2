@@ -275,7 +275,13 @@ export default function ParLeadEmployeeHistoryTab() {
   // reuses this cache (same query key as useParRating).
   const ratingFanOut = useParRatingFanOut(realCycleId, (employees.data ?? []).map((e) => e.workEmail));
   // A PAR 2.0 cycle shows what the lead had while reviewing instead of the single comments.
-  const { showsPar2, isLoading: isPar2Loading } = useParShowsPar2(realCycleId);
+  const {
+    showsPar2,
+    isLoading: isPar2Loading,
+    error: par2Error,
+    retry: retryPar2,
+    retrying: retryingPar2,
+  } = useParShowsPar2(realCycleId);
   const par2Cycle = showsPar2 ? realCycles.data?.find((c) => c.parCycleId === realCycleId) : undefined;
 
   if (profile.isLoading) {
@@ -348,10 +354,14 @@ export default function ParLeadEmployeeHistoryTab() {
 
   // "No record" wording stays deliberately vague: the backend can't tell "no
   // rating exists for this cycle" apart from a genuine fetch error here.
+  // Without knowing whether it's a PAR 2.0 cycle, the record could show without its self-review.
+  const par2Failed = isRealCycle && Boolean(selectedEmployeeEmail) && par2Error !== null;
+  // A PAR 2.0 record doesn't show the regular 360° reviews, so it doesn't wait for them.
+  const reviewsNeeded = !showsPar2 && !isPar2Loading && !par2Failed;
   const realCycleNotAvailable =
     isRealCycle &&
     Boolean(selectedEmployeeEmail) &&
-    (rating.isError || reviews.isError || (rating.isSuccess && (!rating.data || !isOwnRecord)));
+    (rating.isError || (reviewsNeeded && reviews.isError) || (rating.isSuccess && (!rating.data || !isOwnRecord)));
   const legacyCycleNotAvailable =
     isLegacyCycle && Boolean(selectedEmployeeEmail) && !legacyIsLoadingForSelected && !selectedLegacyRecord;
 
@@ -364,11 +374,12 @@ export default function ParLeadEmployeeHistoryTab() {
     rating.isSuccess &&
     Boolean(rating.data) &&
     isOwnRecord &&
-    reviews.isSuccess &&
-    !isPar2Loading;
+    (showsPar2 || reviews.isSuccess) &&
+    !isPar2Loading &&
+    !par2Failed;
 
   const isLoadingSelection =
-    (isRealCycle && Boolean(selectedEmployeeEmail) && (rating.isLoading || reviews.isLoading || isPar2Loading)) ||
+    (isRealCycle && Boolean(selectedEmployeeEmail) && (rating.isLoading || (reviewsNeeded && reviews.isLoading) || isPar2Loading)) ||
     (isLegacyCycle && Boolean(selectedEmployeeEmail) && legacyIsLoadingForSelected);
 
   return (
@@ -493,6 +504,11 @@ export default function ParLeadEmployeeHistoryTab() {
       )}
       {realCycleNotAvailable && (
         <ParEmptyState text="No PAR record found for the selected cycle, or it could not be loaded right now. Try again, or check back later if this seems wrong." />
+      )}
+      {par2Failed && !realCycleNotAvailable && (
+        <ErrorNotice error={par2Error} onRetry={retryPar2} retrying={retryingPar2}>
+          Couldn't load this PAR record.
+        </ErrorNotice>
       )}
 
       {/* No legacy record detail here: a lead never receives a report's

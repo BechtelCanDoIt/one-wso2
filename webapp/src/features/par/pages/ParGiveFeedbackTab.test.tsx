@@ -34,6 +34,14 @@ const query = <T,>(data: T) => ({
   refetch: vi.fn(),
 });
 const mutation = () => ({ mutate: vi.fn(), reset: vi.fn(), isPending: false, isError: false, error: null });
+let leaders: {
+  data?: Leadership360Leader[];
+  isLoading: boolean;
+  isError: boolean;
+  isFetching: boolean;
+  error: Error | null;
+  refetch: () => void;
+};
 
 const cycle = {
   parCycleId: 7,
@@ -144,7 +152,7 @@ vi.mock("../api/useLeadership360", () => ({
   useDiscardLeadership360Draft: () => ({ ...mutation(), mutate: discardLeadershipMutate }),
   useCurrentLeadership360Survey: () => query(currentSurvey),
   useMyLeadership360Feedback: () => query(mine),
-  useLeadership360Leaders: () => query([elena, hannah]),
+  useLeadership360Leaders: () => leaders,
 }));
 
 vi.mock("../components/Par360FeedbackDialog", () => ({
@@ -195,6 +203,7 @@ const rowNames = () =>
     .map((r) => r.name);
 
 beforeEach(() => {
+  leaders = query([elena, hannah]);
   parts = { cycle, hasLead: true, leadership: true };
   ownReports = new Set();
   participants = [
@@ -526,5 +535,20 @@ describe("Give feedback", () => {
     expect(elenaOption).toHaveTextContent("Leadership 360° · Submitted");
     await user.click(elenaOption);
     expect(screen.getByText("Leadership form for Elena (named only)")).toBeInTheDocument();
+  });
+});
+
+describe("ParGiveFeedbackTab: the leadership team", () => {
+  it("waits for it before Give feedback, so a leader isn't taken for anyone else", () => {
+    leaders = { ...query(undefined), isLoading: true };
+    show();
+    expect(screen.getByRole("button", { name: "Give feedback" })).toBeDisabled();
+  });
+
+  it("says when it couldn't be loaded, instead of listing requests as PAR feedback", () => {
+    leaders = { ...query(undefined), isError: true, error: new Error("HTTP 500") };
+    show();
+    expect(screen.getByText(/Couldn't load the leadership team/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Give feedback" })).toBeDisabled();
   });
 });

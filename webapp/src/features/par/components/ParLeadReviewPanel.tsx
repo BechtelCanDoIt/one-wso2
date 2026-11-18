@@ -115,7 +115,7 @@ export default function ParLeadReviewPanel({
   const reviews = useParEmployeeReviews(cycle.parCycleId, employeeEmail);
   // A PAR 2.0 cycle's guided self-review (null for a cycle that keeps the
   // single comment). Its answers arrive empty until the employee shares.
-  const selfReview = useSelfReview(cycle.parCycleId, employeeEmail);
+  const selfReview = useSelfReview(cycle.parCycleId, employeeEmail, isPreviewEnabled("par2"));
   // A PAR 2.0 cycle puts the evidence (self-review, 360° summary) beside the
   // assessment, with the 360° guidance under the rating.
   const { showsPar2 } = useParShowsPar2(cycle.parCycleId);
@@ -258,6 +258,8 @@ export default function ParLeadReviewPanel({
     setShowingUpdatedSuggestion(false);
   };
   const greySuggestionShown = summaryEmpty && Boolean(suggestion.data || suggestion.isLoading);
+
+  const sharing = ratingUpdate.isPending || saveSummary.isPending;
 
   const submit = (
     status: "DRAFT" | "SHARED",
@@ -884,7 +886,8 @@ export default function ParLeadReviewPanel({
         </Grid>
       )}
 
-      <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="md" fullWidth>
+      {/* Stays open while sharing, so nothing can be edited behind it and then lost once it's shared. */}
+      <Dialog open={confirming} onClose={() => !sharing && setConfirming(false)} maxWidth="md" fullWidth>
         <DialogTitle>Share Lead's Feedback?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
@@ -897,13 +900,15 @@ export default function ParLeadReviewPanel({
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirming(false)}>Cancel</Button>
+          <Button onClick={() => setConfirming(false)} disabled={sharing}>
+            Cancel
+          </Button>
           <Button
             variant="contained"
-            disabled={ratingUpdate.isPending || saveSummary.isPending}
+            disabled={sharing}
             onClick={() => submit("SHARED", { onSuccess: () => setConfirming(false) })}
           >
-            {ratingUpdate.isPending || saveSummary.isPending ? "Sharing…" : "Share"}
+            {sharing ? "Sharing…" : "Share"}
           </Button>
         </DialogActions>
       </Dialog>
