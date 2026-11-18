@@ -16,7 +16,7 @@
 
 import { useEffect, useImperativeHandle, type ReactNode, type Ref } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ParCycle, ParRating } from "../api/types";
 import { encodeParComment } from "../util/parComment";
 import type { ParRichTextFieldHandle } from "./ParRichTextField";
@@ -29,14 +29,17 @@ let responseCount = 3;
 let suggestion: { data?: unknown; isLoading?: boolean; isError?: boolean; error?: Error } = {};
 let suggestionAskedFor = false;
 const save = vi.fn();
+let summarySavePending = false;
 
 vi.mock("../api/useParData", () => ({ useParRating: () => ({ data: rating, isLoading: false, isError: false }) }));
 let ratingUpdatePending = false;
+const ratingMutate = vi.fn();
 vi.mock("../api/useLeadRatingUpdate", () => ({
-  useLeadRatingUpdate: () => ({ mutate: vi.fn(), isPending: ratingUpdatePending }),
+  useLeadRatingUpdate: () => ({ mutate: ratingMutate, isPending: ratingUpdatePending }),
 }));
 vi.mock("../api/useLeadHistory", () => ({ useParEmployeeReviews: () => ({ isSuccess: true, data: [] }) }));
-vi.mock("../api/useSelfReview", () => ({ useSelfReview: () => ({ data: null }) }));
+let selfReviewLookup: { data?: null; isError?: boolean; error?: Error; refetch?: () => void } = { data: null };
+vi.mock("../api/useSelfReview", () => ({ useSelfReview: () => selfReviewLookup }));
 vi.mock("../api/useReview360", () => ({
   useParShowsPar2: () => ({ showsPar2: true }),
   useReviewResponses: () => ({ data: { responseCount } }),
@@ -52,7 +55,7 @@ vi.mock("../api/useLead360Summary", () => ({
     }, [enabled, written]);
     return enabled ? suggestion : {};
   },
-  useSaveLead360Summary: () => ({ mutate: save, mutateAsync: save, isPending: false }),
+  useSaveLead360Summary: () => ({ mutate: save, mutateAsync: save, isPending: summarySavePending }),
 }));
 vi.mock("../hooks/useGoogleDrivePicker", () => ({
   useGoogleDrivePicker: () => ({ openPicker: vi.fn(), isLoading: false, error: null }),
@@ -126,10 +129,23 @@ function show(overrides: Partial<ParRating> = {}) {
 
 beforeEach(() => {
   ratingUpdatePending = false;
+  summarySavePending = false;
+  ratingMutate.mockReset();
+  selfReviewLookup = { data: null };
   responseCount = 3;
   suggestion = { data: SUGGESTED };
   suggestionAskedFor = false;
   save.mockReset();
+});
+
+describe("ParLeadReviewPanel: the employee's self-review", () => {
+  it("says when it couldn't be loaded, with Retry, rather than that it wasn't shared", () => {
+    selfReviewLookup = { isError: true, error: new Error("HTTP 500"), refetch: vi.fn() };
+    show();
+    expect(screen.getByText(/Couldn't load the employee's self-review/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Retry/i })).toBeInTheDocument();
+    expect(screen.queryByText("The employee hasn't shared their self-review yet")).not.toBeInTheDocument();
+  });
 });
 
 describe("ParLeadReviewPanel: 360° summary", () => {
@@ -226,6 +242,34 @@ describe("ParLeadReviewPanel: 360° summary", () => {
     view.rerender(<ParLeadReviewPanel cycle={cycle} employeeEmail="alex@example.com" />);
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Sharing…" })).toBeDisabled();
+  });
+
+  it("saves the latest summary before sharing, and the confirmation can't be dismissed meanwhile", async () => {
+    suggestion = {};
+    let finishSave = () => {};
+    save.mockImplementation(() => new Promise<void>((resolve) => (finishSave = resolve)));
+    const view = show({ parRating: "Successful", parLeadComment: encodeParComment("<p>Great cycle.</p>") });
+    fireEvent.change(screen.getByLabelText(FIELD), { target: { value: "<p>Clear ownership.</p>" } });
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Share" }));
+    expect(save).toHaveBeenCalledWith(encodeParComment("<p>Clear ownership.</p>"));
+
+    summarySavePending = true;
+    view.rerender(<ParLeadReviewPanel cycle={cycle} employeeEmail="alex@example.com" />);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    const backdrop = document.querySelector(".MuiBackdrop-root")!;
+    fireEvent.mouseDown(backdrop);
+    fireEvent.click(backdrop);
+    expect(screen.getByText("Share Lead's Feedback?")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    expect(ratingMutate).not.toHaveBeenCalled();
+
+    summarySavePending = false;
+    await act(async () => finishSave());
+    expect(ratingMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ payload: expect.objectContaining({ parLeadStatus: "SHARED" }) }),
+      expect.anything(),
+    );
   });
 
   it("isn't there for a member of the leadership team", () => {

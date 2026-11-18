@@ -147,6 +147,44 @@ describe("ParSelfReviewForm", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Share" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled());
     expect(screen.getByRole("button", { name: "Sharing…" })).toBeDisabled();
+    // Escape doesn't close it, and the answers behind it are locked.
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.getByText("Share your self-review?")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Impact this cycle", hidden: true })).toBeDisabled();
+  });
+
+  it("shares the latest answers: saved first, after an autosave still in flight", async () => {
+    vi.useFakeTimers();
+    let finishAutosave = () => {};
+    saveMutateAsync.mockImplementationOnce(() => new Promise<void>((resolve) => (finishAutosave = resolve)));
+    shareMutateAsync.mockResolvedValue(undefined);
+    show("DRAFT", { impact: "First", growth: "Learnt it" });
+    const impact = () => screen.getByRole("textbox", { name: "Impact this cycle" });
+    fireEvent.change(impact(), { target: { value: "Second" } });
+    act(() => vi.advanceTimersByTime(1500));
+    fireEvent.change(impact(), { target: { value: "Third" } });
+    fireEvent.click(screen.getByRole("button", { name: "Share with lead" }));
+    fireEvent.click(screen.getByRole("button", { name: "Share" }));
+    await act(async () => {});
+    expect(saveMutateAsync).toHaveBeenCalledTimes(1);
+    expect(shareMutateAsync).not.toHaveBeenCalled();
+    await act(async () => finishAutosave());
+    expect(saveMutateAsync).toHaveBeenLastCalledWith({ impact: "Third", growth: "Learnt it" });
+    expect(shareMutateAsync).toHaveBeenCalled();
+    expect(saveMutateAsync.mock.invocationCallOrder.at(-1)!).toBeLessThan(shareMutateAsync.mock.invocationCallOrder[0]);
+  });
+
+  it("saves again on leaving when the autosave in flight fails", async () => {
+    vi.useFakeTimers();
+    let failAutosave: (err: Error) => void = () => {};
+    saveMutateAsync.mockImplementationOnce(() => new Promise<void>((_resolve, reject) => (failAutosave = reject)));
+    const view = show("DRAFT", { impact: "First" });
+    fireEvent.change(screen.getByRole("textbox", { name: "Impact this cycle" }), { target: { value: "Second" } });
+    act(() => vi.advanceTimersByTime(1500));
+    view.unmount();
+    expect(saveMutate).not.toHaveBeenCalled();
+    await act(async () => failAutosave(new Error("HTTP 503")));
+    expect(saveMutate).toHaveBeenCalledWith({ impact: "Second" });
   });
 
   it("says what's missing instead of sharing an incomplete review", () => {

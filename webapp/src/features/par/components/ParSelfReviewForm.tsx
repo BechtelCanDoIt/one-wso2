@@ -126,8 +126,9 @@ export default function ParSelfReviewForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answers, editable, save.isPending]);
 
-  // Leaving the page saves what the autosave hasn't got to yet. When a save is still in flight with
-  // other answers (changed, then changed back), it waits for that one, so the last answers are kept.
+  // Leaving the page saves what the autosave hasn't got to yet. A save still in flight is waited for
+  // first, then the last answers are saved unless that one kept them (it may have sent other answers,
+  // changed and changed back, or failed), so the last answers are the ones kept.
   const leaving = useRef({ answers: toSave, editable: false });
   useEffect(() => {
     leaving.current = { answers: toSave, editable: editable && !share.isPending };
@@ -135,10 +136,14 @@ export default function ParSelfReviewForm({
   useEffect(
     () => () => {
       const { answers: last, editable: canSave } = leaving.current;
+      if (!canSave) return;
       const snapshot = JSON.stringify(last);
+      const saveIfNotKept = () => {
+        if (lastSaved.current !== snapshot) save.mutate(last);
+      };
       const pending = pendingSave.current;
-      const kept = pending ? pending.snapshot === snapshot : lastSaved.current === snapshot;
-      if (canSave && !kept) void (pending?.done ?? Promise.resolve()).then(() => save.mutate(last));
+      if (pending) void pending.done.then(saveIfNotKept);
+      else saveIfNotKept();
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
@@ -367,6 +372,7 @@ export default function ParSelfReviewForm({
                 placeholder={q.placeholder}
                 value={answers[q.id] ?? ""}
                 onChange={(e) => setAnswer(q.id, e.target.value)}
+                disabled={sharing}
                 slotProps={{
                   htmlInput: {
                     maxLength: q.maxLength,

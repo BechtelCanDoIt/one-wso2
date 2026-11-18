@@ -45,6 +45,8 @@ import { ratingLabels } from "../util/review360Form";
 import { scaleTintSx } from "../util/scaleTint";
 
 const AUTOSAVE_DELAY_MS = 1200;
+// A plain wrapper whose `disabled` locks every field inside.
+const FIELDSET_SX = { border: 0, p: 0, m: 0, minWidth: 0 };
 
 type Answer = FormAnswers[string];
 
@@ -168,6 +170,9 @@ function FeedbackForm({
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
+  // Closing: the answers are being saved before the form closes.
+  const [closing, setClosing] = useState(false);
+  const [closeFailed, setCloseFailed] = useState(false);
 
   const submitted = form.reviewStatus === "SHARED";
   const deadlinePassed = isDeadlinePassed(deadline);
@@ -176,7 +181,7 @@ function FeedbackForm({
   const dirty = JSON.stringify(toSave) !== lastSaved.current;
 
   useEffect(() => {
-    if (!editable || !dirty || save.isPending || confirming) return;
+    if (!editable || !dirty || save.isPending || confirming || closing) return;
     const timer = window.setTimeout(() => {
       const snapshot = JSON.stringify(toSave);
       save.mutate(toSave, {
@@ -189,36 +194,55 @@ function FeedbackForm({
     }, AUTOSAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [answers, editable, save.isPending, confirming]);
+  }, [answers, editable, save.isPending, confirming, closing]);
 
-  // Closing saves what the autosave hasn't got to yet; once submitted there's nothing left to save.
+  // Unmounting otherwise (the dialog closed from outside) still saves what the autosave hasn't got to
+  // yet; once submitted there's nothing left to save.
   const unsaved = useRef<FormAnswers | null>(null);
-  unsaved.current = editable && dirty && !submit.isPending && !submit.isSuccess ? toSave : null;
+  useEffect(() => {
+    unsaved.current = editable && !submit.isPending && !submit.isSuccess ? toSave : null;
+  });
   useEffect(
     () => () => {
-      if (unsaved.current) save.mutate(unsaved.current);
+      if (unsaved.current && JSON.stringify(unsaved.current) !== lastSaved.current) save.mutate(unsaved.current);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
 
-  // Closing saves what the autosave hasn't got to yet first, and stays open if that fails, so nothing
-  // is lost without a word. Closing again then leaves without it.
-  const [closeFailed, setCloseFailed] = useState(false);
+  // Closing saves the latest answers first: the fields lock, any autosave in flight finishes, then the
+  // answers are saved and the form closes. If that fails it stays open and editable, so nothing is lost
+  // without a word; closing again then leaves without it.
+  const closeSaveStarted = useRef(false);
   const close = () => {
+    if (closing) return;
     if (!editable || !dirty || submit.isPending || submit.isSuccess || closeFailed) {
       onClose();
       return;
     }
+    closeSaveStarted.current = false;
+    setClosing(true);
+  };
+  useEffect(() => {
+    if (!closing || save.isPending || closeSaveStarted.current) return;
+    closeSaveStarted.current = true;
     const snapshot = JSON.stringify(toSave);
-    save.mutate(toSave, {
-      onSuccess: () => {
+    if (snapshot === lastSaved.current) {
+      onClose();
+      return;
+    }
+    save.mutateAsync(toSave).then(
+      () => {
         lastSaved.current = snapshot;
         onClose();
       },
-      onError: () => setCloseFailed(true),
-    });
-  };
+      () => {
+        setClosing(false);
+        setCloseFailed(true);
+      },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closing, save.isPending]);
   useEffect(() => {
     closeRef.current = close;
     return () => {
@@ -268,17 +292,22 @@ function FeedbackForm({
               {held && " It counts toward their next PAR cycle."}
             </Typography>
           )}
-          {sections.map((section) => (
-            <SectionFields
-              key={section.id}
-              section={section}
-              definition={definition}
-              answers={answers}
-              readOnly={!editable}
-              missing={missing}
-              onChange={setAnswer}
-            />
-          ))}
+          {/* Locked while closing saves, so no answer changes after the one being saved. */}
+          <Box component="fieldset" disabled={closing} sx={FIELDSET_SX}>
+            <Stack spacing={2}>
+              {sections.map((section) => (
+                <SectionFields
+                  key={section.id}
+                  section={section}
+                  definition={definition}
+                  answers={answers}
+                  readOnly={!editable}
+                  missing={missing}
+                  onChange={setAnswer}
+                />
+              ))}
+            </Stack>
+          </Box>
           {closeFailed && (
             <Alert severity="error">Couldn't save your latest changes. Close again to leave without them.</Alert>
           )}
@@ -300,9 +329,11 @@ function FeedbackForm({
                 : "Saves as you go")}
         </Typography>
         <Box sx={{ display: "flex", gap: 1 }}>
-          <Button onClick={close}>{editable ? "Close" : "Done"}</Button>
+          <Button onClick={close} disabled={closing}>
+            {editable ? "Close" : "Done"}
+          </Button>
           {editable && (
-            <Button variant="contained" onClick={askToSubmit} disabled={submit.isPending}>
+            <Button variant="contained" onClick={askToSubmit} disabled={submit.isPending || closing}>
               Submit
             </Button>
           )}

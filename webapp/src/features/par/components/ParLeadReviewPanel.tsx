@@ -434,7 +434,14 @@ export default function ParLeadReviewPanel({
       fileCount: driveFiles.length,
     });
 
-  const selfReviewContent = selfReview.data ? (
+  // A failed lookup says so rather than reading as "not shared"; a 404 is none (the single comment).
+  const selfReviewContent = selfReview.isLoading ? (
+    <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1.5 }} />
+  ) : selfReview.isError ? (
+    <ErrorNotice error={selfReview.error} onRetry={() => selfReview.refetch()} retrying={selfReview.isFetching}>
+      Couldn't load the employee's self-review.
+    </ErrorNotice>
+  ) : selfReview.data ? (
     Object.keys(selfReview.data.answers).length > 0 ? (
       <ParSelfReviewView definition={selfReview.data.template.definition} answers={selfReview.data.answers} framed={false} />
     ) : (

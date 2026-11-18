@@ -15,14 +15,22 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Leadership360CurrentSurvey, Leadership360Draft } from "../api/leadership360Types";
 
 const submitMutate = vi.fn();
 const draftMutate = vi.fn();
+const draftMutateAsync = vi.fn();
+const onClose = vi.fn();
 
 vi.mock("../api/useLeadership360", () => ({
-  useSaveLeadership360Draft: () => ({ mutate: draftMutate, isPending: false, isError: false, isSuccess: false }),
+  useSaveLeadership360Draft: () => ({
+    mutate: draftMutate,
+    mutateAsync: draftMutateAsync,
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+  }),
   useSubmitLeadership360Feedback: () => ({ mutate: submitMutate, isPending: false, isError: false }),
 }));
 
@@ -87,7 +95,7 @@ function renderDialog(
   render(
     <Leadership360FeedbackDialog
       open
-      onClose={() => {}}
+      onClose={onClose}
       survey={survey}
       leader={leader}
       workEmail="me@wso2.com"
@@ -102,6 +110,9 @@ const LOCAL_KEY = "par-l360-anonymous-draft:me@wso2.com:7:lead@wso2.com";
 beforeEach(() => {
   submitMutate.mockReset();
   draftMutate.mockReset();
+  draftMutateAsync.mockReset();
+  draftMutateAsync.mockResolvedValue(undefined);
+  onClose.mockReset();
   window.localStorage.clear();
 });
 
@@ -144,7 +155,7 @@ describe("Leadership360FeedbackDialog", () => {
     expect(submitMutate).not.toHaveBeenCalled();
   });
 
-  it("asks for confirmation, then submits only the answers given, with the name", () => {
+  it("asks for confirmation, then submits only the answers given, with the name", async () => {
     renderDialog();
     fireEvent.click(screen.getByRole("radio", { name: "They are my direct lead" }));
     fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
@@ -153,9 +164,11 @@ describe("Leadership360FeedbackDialog", () => {
     expect(screen.getByText("Submit named feedback on Ada Lead?")).toBeInTheDocument();
     expect(screen.getByText("You can't change it after you submit.")).toBeInTheDocument();
     fireEvent.click(screen.getAllByRole("button", { name: "Submit" }).at(-1)!);
-    expect(submitMutate).toHaveBeenCalledWith(
-      { leaderEmail: "lead@wso2.com", answers: { relationship: "DIRECT_LEAD", integrity: 4 }, anonymous: false },
-      expect.anything(),
+    await waitFor(() =>
+      expect(submitMutate).toHaveBeenCalledWith(
+        { leaderEmail: "lead@wso2.com", answers: { relationship: "DIRECT_LEAD", integrity: 4 }, anonymous: false },
+        expect.anything(),
+      ),
     );
   });
 
@@ -176,16 +189,56 @@ describe("Leadership360FeedbackDialog", () => {
     expect(anonymousOption()).toHaveAttribute("aria-pressed", "true");
   });
 
-  it("opens a named draft as named, and removes it from the server when switched to anonymous", () => {
+  it("opens a named draft as named, and removes it from the server when switched to anonymous", async () => {
     renderDialog({ draft: { leaderEmail: "lead@wso2.com", answers: { integrity: 3 }, anonymous: false } });
     expect(named()).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(anonymousOption());
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
-    expect(draftMutate).toHaveBeenCalledWith(
-      { leaderEmail: "lead@wso2.com", answers: {}, anonymous: true },
-      expect.anything(),
-    );
     expect(JSON.parse(window.localStorage.getItem(LOCAL_KEY) ?? "null")).toEqual({ integrity: 3 });
+    await waitFor(() =>
+      expect(draftMutateAsync).toHaveBeenCalledWith({ leaderEmail: "lead@wso2.com", answers: {}, anonymous: true }),
+    );
+  });
+
+  it("locks the form while closing saves, and closes once the draft is saved", async () => {
+    let finish = () => {};
+    draftMutateAsync.mockImplementationOnce(() => new Promise<void>((resolve) => (finish = resolve)));
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(draftMutateAsync).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "5 of 5" })).toBeDisabled();
+    expect(anonymousOption()).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => finish());
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("stays open and editable when the draft can't be saved on closing", async () => {
+    draftMutateAsync.mockRejectedValueOnce(new Error("HTTP 503"));
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "5 of 5" })).toBeEnabled());
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("waits for a named save in flight before saving as anonymous, then removes the named copy", async () => {
+    let finishNamed = () => {};
+    draftMutateAsync.mockImplementationOnce(() => new Promise<void>((resolve) => (finishNamed = resolve)));
+    renderDialog();
+    fireEvent.click(screen.getByRole("button", { name: "4 of 5" }));
+    fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
+    await waitFor(() => expect(draftMutateAsync).toHaveBeenCalledTimes(1));
+    fireEvent.click(anonymousOption());
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(draftMutateAsync).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => finishNamed());
+    await waitFor(() =>
+      expect(draftMutateAsync).toHaveBeenLastCalledWith({ leaderEmail: "lead@wso2.com", answers: {}, anonymous: true }),
+    );
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
   });
 
   it("outside a cycle's 360° window, takes named feedback only, for the next cycle", async () => {

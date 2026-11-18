@@ -55,6 +55,8 @@ import { scaleTintSx } from "../util/scaleTint";
 import { PICKED_FILLED_SX } from "../util/toggleSx";
 
 const AUTOSAVE_DELAY_MS = 5000;
+// A plain wrapper whose `disabled` locks every field inside.
+const FIELDSET_SX = { border: 0, p: 0, m: 0, minWidth: 0 };
 const DEFAULT_TEXT_MAX_LENGTH = 5000;
 const RATING_WIDTH = 44;
 
@@ -110,6 +112,8 @@ export default function Leadership360FeedbackDialog({
   const [anonymous, setAnonymous] = useState(initial.anonymous);
   const [dirty, setDirty] = useState(false);
   const [savedLocally, setSavedLocally] = useState(false);
+  // Closing: the draft is being saved before the form closes.
+  const [closing, setClosing] = useState(false);
   // This browser wouldn't keep the anonymous draft.
   const [storageFailed, setStorageFailed] = useState(false);
   const [missingIds, setMissingIds] = useState<string[]>([]);
@@ -126,53 +130,56 @@ export default function Leadership360FeedbackDialog({
   const submitting = useRef(false);
   const name = leader.employeeName;
 
-  // Saves the draft, then runs `then` once it's kept. Each copy is replaced only once the other is
-  // saved, and a failed save stays unsaved, so it's tried again.
-  const save = (then?: () => void) => {
-    if (submitting.current) return;
+  // Draft writes go to the server one at a time, in order, so an earlier one never lands after a later one.
+  const writes = useRef<Promise<unknown>>(Promise.resolve());
+  const write = (input: Parameters<typeof saveDraft.mutateAsync>[0]) => {
+    const next = writes.current.catch(() => undefined).then(() => saveDraft.mutateAsync(input));
+    writes.current = next;
+    return next;
+  };
+
+  // Saves the draft; true once it's kept. Each copy is replaced only once the other is saved, and a
+  // failed save stays unsaved, so it's tried again.
+  const save = async (): Promise<boolean> => {
+    if (submitting.current) return false;
     const { answers: current, anonymous: isAnonymous } = latest.current;
     if (isAnonymous) {
       const kept = writeLocalDraft(workEmail, surveyId, leader.workEmail, cleanAnswers(current));
       setSavedLocally(kept);
       setStorageFailed(!kept);
-      if (!kept) return;
+      if (!kept) return false;
       setDirty(false);
-      // Saving as anonymous removes the named copy from the server (and stores nothing there).
-      if (serverDraft.current) {
-        saveDraft.mutate(
-          { leaderEmail: leader.workEmail, answers: {}, anonymous: true },
-          {
-            onSuccess: () => {
-              serverDraft.current = false;
-              then?.();
-            },
-            onError: () => setDirty(true),
-          },
-        );
-        return;
+      try {
+        // A named save still in flight may yet store a copy on the server, so wait for it first.
+        await writes.current.catch(() => undefined);
+        // Saving as anonymous removes the named copy from the server (and stores nothing there).
+        if (serverDraft.current) {
+          await write({ leaderEmail: leader.workEmail, answers: {}, anonymous: true });
+          serverDraft.current = false;
+        }
+        return true;
+      } catch {
+        setDirty(true);
+        return false;
       }
-      then?.();
-      return;
     }
     setDirty(false);
-    saveDraft.mutate(
-      { leaderEmail: leader.workEmail, answers: cleanAnswers(current), anonymous: false },
-      {
-        onSuccess: () => {
-          serverDraft.current = true;
-          removeLocalDraft(workEmail, surveyId, leader.workEmail);
-          setSavedLocally(false);
-          then?.();
-        },
-        onError: () => setDirty(true),
-      },
-    );
+    try {
+      await write({ leaderEmail: leader.workEmail, answers: cleanAnswers(current), anonymous: false });
+      serverDraft.current = true;
+      removeLocalDraft(workEmail, surveyId, leader.workEmail);
+      setSavedLocally(false);
+      return true;
+    } catch {
+      setDirty(true);
+      return false;
+    }
   };
 
   // Autosave a few seconds after the last change, so nothing is lost.
   useEffect(() => {
     if (!dirty) return;
-    const timer = window.setTimeout(() => save(), AUTOSAVE_DELAY_MS);
+    const timer = window.setTimeout(() => void save(), AUTOSAVE_DELAY_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- save reads the latest values through the ref
   }, [dirty, answers, anonymous]);
@@ -183,14 +190,21 @@ export default function Leadership360FeedbackDialog({
     setMissingIds([]);
   };
 
-  // Closing saves first and stays open if that fails, so a draft isn't lost without a word. Closing
+  // Closing saves first: the fields lock, the draft is saved after any write in flight, then the form
+  // closes. If that fails it stays open and editable, so a draft isn't lost without a word; closing
   // again then leaves without it.
   const close = () => {
-    if (!dirty || storageFailed || saveDraft.isError || submit.isPending) {
+    if (closing) return;
+    if (storageFailed || saveDraft.isError || submit.isPending) {
       onClose();
       return;
     }
-    save(onClose);
+    setClosing(true);
+    const saved = dirty ? save() : writes.current.then(() => true, () => false);
+    void saved.then((ok) => {
+      if (ok) onClose();
+      else setClosing(false);
+    });
   };
 
   const trySubmit = () => {
@@ -207,20 +221,25 @@ export default function Leadership360FeedbackDialog({
       confirmAction: () => {
         submitting.current = true;
         setDirty(false);
-        submit.mutate(
-          { leaderEmail: leader.workEmail, answers: cleanAnswers(answers), anonymous },
-          {
-            onSuccess: () => {
-              if (anonymous) removeLocalDraft(workEmail, surveyId, leader.workEmail);
-              onSubmitted(leader);
-              onClose();
-            },
-            onError: () => {
-              submitting.current = false;
-              setDirty(true);
-            },
-          },
-        );
+        // After any draft write in flight, so no draft lands after the feedback.
+        void writes.current
+          .catch(() => undefined)
+          .then(() =>
+            submit.mutate(
+              { leaderEmail: leader.workEmail, answers: cleanAnswers(answers), anonymous },
+              {
+                onSuccess: () => {
+                  if (anonymous) removeLocalDraft(workEmail, surveyId, leader.workEmail);
+                  onSubmitted(leader);
+                  onClose();
+                },
+                onError: () => {
+                  submitting.current = false;
+                  setDirty(true);
+                },
+              },
+            ),
+          );
       },
     });
   };
@@ -281,7 +300,7 @@ export default function Leadership360FeedbackDialog({
               }}
             >
               <Tooltip title={namedTip} arrow describeChild>
-                <ToggleButton value="named">
+                <ToggleButton value="named" disabled={closing}>
                   <UserRoundIcon size={16} aria-hidden />
                   Named
                 </ToggleButton>
@@ -289,7 +308,7 @@ export default function Leadership360FeedbackDialog({
               {/* A disabled button gets no pointer events: the span carries the tooltip. */}
               <Tooltip title={anonymousTip} arrow describeChild>
                 <Box component="span" sx={{ display: "inline-flex" }}>
-                  <ToggleButton value="anonymous" disabled={namedOnly}>
+                  <ToggleButton value="anonymous" disabled={namedOnly || closing}>
                     <VenetianMaskIcon size={16} aria-hidden />
                     Anonymous
                   </ToggleButton>
@@ -301,29 +320,34 @@ export default function Leadership360FeedbackDialog({
       </DialogTitle>
       <DialogContent dividers sx={{ py: 2 }}>
         <Stack spacing={2}>
-          {headers
-            .flatMap((s) => s.questions)
-            .map((q) => (
-              <RelationshipField
-                key={q.id}
-                question={q}
-                value={answers[q.id]}
-                missing={missingIds.includes(q.id)}
-                readOnly={readOnly}
-                onChange={(value) => setAnswer(q.id, value)}
-              />
-            ))}
-          {sections.map((section) => (
-            <SectionFields
-              key={section.id}
-              section={section}
-              definition={definition}
-              answers={answers}
-              missing={missingIds}
-              readOnly={readOnly}
-              onChange={setAnswer}
-            />
-          ))}
+          {/* Locked while closing saves, so no answer changes after the one being saved. */}
+          <Box component="fieldset" disabled={closing} sx={FIELDSET_SX}>
+            <Stack spacing={2}>
+              {headers
+                .flatMap((s) => s.questions)
+                .map((q) => (
+                  <RelationshipField
+                    key={q.id}
+                    question={q}
+                    value={answers[q.id]}
+                    missing={missingIds.includes(q.id)}
+                    readOnly={readOnly}
+                    onChange={(value) => setAnswer(q.id, value)}
+                  />
+                ))}
+              {sections.map((section) => (
+                <SectionFields
+                  key={section.id}
+                  section={section}
+                  definition={definition}
+                  answers={answers}
+                  missing={missingIds}
+                  readOnly={readOnly}
+                  onChange={setAnswer}
+                />
+              ))}
+            </Stack>
+          </Box>
           {missingCount > 0 && (
             <Alert severity="warning">
               {missingCount === 1
@@ -359,13 +383,13 @@ export default function Leadership360FeedbackDialog({
                     ? "Draft saved"
                     : ""}
           </Typography>
-          <Button size="small" onClick={close}>
+          <Button size="small" onClick={close} disabled={closing}>
             Close
           </Button>
-          <Button size="small" onClick={() => save()} disabled={!dirty || saveDraft.isPending}>
+          <Button size="small" onClick={() => void save()} disabled={!dirty || saveDraft.isPending || closing}>
             Save draft
           </Button>
-          <Button size="small" variant="contained" onClick={trySubmit} disabled={submit.isPending}>
+          <Button size="small" variant="contained" onClick={trySubmit} disabled={submit.isPending || closing}>
             Submit
           </Button>
         </DialogActions>

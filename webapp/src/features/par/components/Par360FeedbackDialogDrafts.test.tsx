@@ -15,12 +15,13 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Review360Form } from "../api/review360Types";
 
 // The draft as the backend holds it: a GET returns it, a PUT replaces its answers.
 let stored: Review360Form;
+const onClose = vi.fn();
 const authedGet = vi.fn(async () => structuredClone(stored));
 const authedPut = vi.fn(async (_url: string, _token: string, body: { answers: Review360Form["answers"] }) => {
   stored = { ...stored, answers: body.answers, reviewStatus: "DRAFT" };
@@ -115,7 +116,7 @@ function renderDialog() {
     <QueryClientProvider client={client}>
       <Par360FeedbackDialog
         open={open}
-        onClose={() => {}}
+        onClose={onClose}
         parCycleId={2}
         employeeEmail="alex@wso2.com"
         employeeName="Alex Morgan"
@@ -131,6 +132,7 @@ const ownership = (label: string) =>
   within(screen.getByRole("group", { name: "Ownership (required)" })).getByRole("button", { name: label });
 
 beforeEach(() => {
+  onClose.mockReset();
   stored = draft({});
   authedGet.mockClear();
   authedPut.mockClear();
@@ -167,5 +169,40 @@ describe("Par360FeedbackDialog drafts", () => {
 
     dialog.reopen();
     expect(await screen.findByRole("textbox", { name: "Written feedback" })).toHaveValue("Clear updates.");
+  });
+
+  it("locks the form while Close saves the latest answers, then closes", async () => {
+    stored = draft({ relationship: "PEER", ownership: 4 });
+    let finish = () => {};
+    authedPut.mockImplementationOnce(async (_url, _token, body) => {
+      await new Promise<void>((resolve) => (finish = resolve));
+      stored = { ...stored, answers: body.answers, reviewStatus: "DRAFT" };
+    });
+    renderDialog();
+    const feedback = await screen.findByRole("textbox", { name: "Written feedback" });
+    fireEvent.change(feedback, { target: { value: "Clear updates." } });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() =>
+      expect(authedPut).toHaveBeenCalledWith("/review-form", "token", {
+        answers: { relationship: "PEER", ownership: 4, feedback: "Clear updates." },
+      }),
+    );
+    expect(feedback).toBeDisabled();
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => finish());
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it("stays open and editable when Close can't save, and says so", async () => {
+    stored = draft({ relationship: "PEER", ownership: 4 });
+    authedPut.mockRejectedValueOnce(new Error("HTTP 503"));
+    renderDialog();
+    const feedback = await screen.findByRole("textbox", { name: "Written feedback" });
+    fireEvent.change(feedback, { target: { value: "Clear updates." } });
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(await screen.findByText(/Couldn't save your latest changes/)).toBeInTheDocument();
+    expect(feedback).toBeEnabled();
+    expect(feedback).toHaveValue("Clear updates.");
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

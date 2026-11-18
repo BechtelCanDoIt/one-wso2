@@ -15,8 +15,23 @@
 // under the License.
 
 import { useState } from "react";
-import { Avatar, Box, Breadcrumbs, Button, Chip, Divider, IconButton, Link, Stack, Tab, Tabs, Tooltip } from "@wso2/oxygen-ui";
+import {
+  Avatar,
+  Box,
+  Breadcrumbs,
+  Button,
+  Chip,
+  Divider,
+  IconButton,
+  Link,
+  Skeleton,
+  Stack,
+  Tab,
+  Tabs,
+  Tooltip,
+} from "@wso2/oxygen-ui";
 import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useParRating } from "../api/useParData";
@@ -43,12 +58,22 @@ export default function ParLeadReviewTabs({
   isAdminView?: boolean;
 }) {
   const rating = useParRating(cycle.parCycleId, employeeEmail);
-  const { showsPar2 } = useParShowsPar2(cycle.parCycleId);
+  const par2 = useParShowsPar2(cycle.parCycleId);
+  const { showsPar2 } = par2;
   const thumbnails = useLeaveEmployees();
   const [tab, setTab] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const employeeName = rating.data?.parEmployeeName ?? employeeEmail;
+  // The review and the 360° tab differ in a PAR 2.0 cycle, so neither shows until that's known.
+  const par2Unknown = par2.isLoading || par2.error !== null;
+  const par2Notice = par2.error ? (
+    <ErrorNotice error={par2.error} onRetry={par2.retry} retrying={par2.retrying}>
+      Couldn't load this PAR record.
+    </ErrorNotice>
+  ) : (
+    <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />
+  );
   const thumbnail = thumbnails.data?.find((e) => e.workEmail === employeeEmail)?.employeeThumbnail;
   // The employee's own org path, not the list tab's drill-down trail.
   const orgPath = [rating.data?.parBusinessUnit, rating.data?.parDepartment, rating.data?.parTeam, rating.data?.parSubTeam]
@@ -103,10 +128,18 @@ export default function ParLeadReviewTabs({
       </Box>
 
       <Box sx={{ p: "10px 10px 0px 10px" }}>
-        {tab === 0 && <ParLeadReviewPanel cycle={cycle} employeeEmail={employeeEmail} isAdminView={isAdminView} />}
+        {tab === 0 &&
+          (par2Unknown ? (
+            par2Notice
+          ) : (
+            <ParLeadReviewPanel cycle={cycle} employeeEmail={employeeEmail} isAdminView={isAdminView} />
+          ))}
         {isAdminView
           ? tab === 1 && <ParUpdateStatusPanel cycle={cycle} employeeEmail={employeeEmail} />
-          : tab === 1 && (
+          : tab === 1 &&
+            (par2Unknown ? (
+              par2Notice
+            ) : (
               <ParLead360ReviewsTab
                 cycle={cycle}
                 employeeEmail={employeeEmail}
@@ -117,7 +150,7 @@ export default function ParLeadReviewTabs({
                   showsPar2 && isPreviewEnabled("leadership360") && Boolean(rating.data?.parIsLeadershipEmployee)
                 }
               />
-            )}
+            ))}
         {!isAdminView && tab === 2 && <ParLeadF2fPanel cycle={cycle} employeeEmail={employeeEmail} />}
       </Box>
 
