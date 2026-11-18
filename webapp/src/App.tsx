@@ -83,6 +83,7 @@ import ParGroupPage, {
   ParGroupIndex,
   ParRequiresActiveCycleRoute,
   ParRequiresLeadRoute,
+  ParRequiresPar2CycleRoute,
   ParRequiresSomethingToShowRoute,
 } from "@features/par/pages/ParGroupPage";
 import ParActiveCycleTab, { ParActiveCycleIndex } from "@features/par/pages/ParActiveCycleTab";
@@ -717,9 +718,11 @@ export default function App() {
                 path="cycle"
                 element={
                   <ParRequiresActiveCycleRoute>
-                    <ParRequiresLeadRoute>
-                      <ParActiveCycleTab />
-                    </ParRequiresLeadRoute>
+                    <ParRequiresPar2CycleRoute>
+                      <ParRequiresLeadRoute>
+                        <ParActiveCycleTab />
+                      </ParRequiresLeadRoute>
+                    </ParRequiresPar2CycleRoute>
                   </ParRequiresActiveCycleRoute>
                 }
               >

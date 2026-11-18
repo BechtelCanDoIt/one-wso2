@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 import {
   Box,
@@ -51,7 +51,7 @@ import Par360GiveFeedbackDialog, { type FeedbackStart } from "../components/Par3
 import Leadership360FeedbackDialog from "../components/Leadership360FeedbackDialog";
 import ParEmptyState from "../components/ParEmptyState";
 import { PersonRow, StatusChip } from "../components/Par360PeopleRows";
-import { localDraftLeaders, removeLocalDraft } from "../util/leadership360LocalDraft";
+import { localDraftLeaders, removeClosedSurveyDrafts, removeLocalDraft } from "../util/leadership360LocalDraft";
 import { formatShortDate } from "../util/parDate";
 import { isDeadlinePassed } from "../util/parDeadline";
 import { feedbackSource, giveFeedbackItems, isVoluntary, isWaiting, type GiveFeedbackItem } from "../util/par360Feedback";
@@ -112,6 +112,15 @@ export default function ParGiveFeedbackTab() {
     () => new Map((leaders.data ?? []).map((l) => [l.workEmail.toLowerCase(), l])),
     [leaders.data],
   );
+
+  // The survey taking anonymous feedback now (null: none, undefined: not known yet). Anonymous drafts kept
+  // in this browser for any other survey are removed once that's known.
+  const anonymousSurveyId =
+    survey.data === undefined ? undefined : survey.data && !survey.data.survey.held ? survey.data.survey.surveyId : null;
+  useEffect(() => {
+    if (!parts.leadership || anonymousSurveyId === undefined) return;
+    removeClosedSurveyDrafts(anonymousSurveyId ?? undefined);
+  }, [parts.leadership, anonymousSurveyId]);
 
   if (parts.isLoading) {
     return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;

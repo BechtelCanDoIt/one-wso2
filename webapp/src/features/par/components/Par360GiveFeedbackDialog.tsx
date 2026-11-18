@@ -136,7 +136,8 @@ export default function Par360GiveFeedbackDialog({
   };
 
   return (
-    <Dialog open onClose={onClose} maxWidth="sm" fullWidth>
+    // Stays open while an offer is being made: the feedback form opens from here once it's made.
+    <Dialog open onClose={() => !offer.isPending && onClose()} maxWidth="sm" fullWidth>
       <DialogTitle>Give feedback</DialogTitle>
       <DialogContent>
         {confirming && person ? (

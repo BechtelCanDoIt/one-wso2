@@ -69,9 +69,9 @@ export default function Leadership360ResultsCard({
           ? "Updates as feedback comes in, once 3 or more people have submitted."
           : "Results from a survey that has closed."}
         {view === "REPORTS" &&
-          " As their manager you also see named responses in full; anonymous ones only count toward the averages."}
+          " As their manager you also see named responses in full; anonymous ones are shown without a name."}
         {view === "ALL" &&
-          " As People Ops you also see named responses in full; anonymous ones only count toward the averages."}
+          " As People Ops you also see named responses in full; anonymous ones are shown without a name."}
       </Typography>
       {entry.available ? (
         <Box sx={{ mt: 1 }}>

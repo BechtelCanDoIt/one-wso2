@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -362,6 +362,18 @@ export default function ParLeadReviewPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead360Summary, readOnly, saveSummary.isPending, parRatingData]);
 
+  // When the self-review has closed everywhere. The panel redraws then, so Share turns on without a reload.
+  const selfReviewClosesAt = deadlineEndsEverywhereAt(cycle.parEmployeeDeadline);
+  const selfReviewClosesAtMs = selfReviewClosesAt.getTime();
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    const wait = selfReviewClosesAtMs - Date.now();
+    // A browser timer can't wait longer than about 24 days, and no one keeps the panel open that long.
+    if (wait <= 0 || wait > 2 ** 31 - 1) return;
+    const timer = window.setTimeout(redraw, wait + 1);
+    return () => window.clearTimeout(timer);
+  }, [selfReviewClosesAtMs]);
+
   if (rating.isLoading) {
     return <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 1.5 }} />;
   }
@@ -411,7 +423,6 @@ export default function ParLeadReviewPanel({
   // the backend requires, for the employee: until they share their own side,
   // or until the self-review deadline has ended everywhere and they no longer
   // can. An admin can share regardless of where the employee's side is.
-  const selfReviewClosesAt = deadlineEndsEverywhereAt(cycle.parEmployeeDeadline);
   const employeeShared =
     parRatingData.parEmployeeStatus === "SHARED" || parRatingData.parEmployeeStatus === "SHARED_BLOCKED";
   // Sharing once the self-review has closed comes with PAR 2.0 (par2); until then, once the employee shares.

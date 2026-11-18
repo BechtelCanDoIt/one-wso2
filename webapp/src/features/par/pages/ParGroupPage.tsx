@@ -193,6 +193,18 @@ export function ParRequiresLeadRoute({ children }: { children: ReactNode }) {
   return <>{children}</>;
 }
 
+/** Guards Active cycle, which is for a cycle with the PAR 2.0 forms: reached by
+ * URL in any other cycle, it opens the group's first tab instead. When that
+ * can't be looked up, ParGroupPage says so in place of every tab. */
+export function ParRequiresPar2CycleRoute({ children }: { children: ReactNode }) {
+  const profile = useMeProfile();
+  const activeCycles = useActiveParCycle(profile.data?.userInfo.workEmail);
+  const { showsPar2, isLoading, error } = useParShowsPar2(activeCycles.data?.[0]?.parCycleId);
+  if (profile.isLoading || activeCycles.isLoading || isLoading || error) return null;
+  if (!showsPar2) return <Navigate to="/me/performance" replace />;
+  return <>{children}</>;
+}
+
 /** Guards every tab but History from being reached by URL once there's no
  * OPEN cycle — Employee Feedback, Request/Provide 360°, and F2F all act on
  * an in-progress cycle, so none of them has anything to show without one.

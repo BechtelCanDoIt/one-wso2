@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
 import type { ParCycle, ParParticipant, Par360ReviewRequest } from "../api/types";
@@ -102,6 +102,7 @@ let mine: Leadership360MyFeedback;
 let requests: Par360ReviewRequest[];
 let participants: ParParticipant[];
 const offerMutate = vi.fn();
+let offerPending = false;
 const declineMutate = vi.fn();
 
 vi.mock("@features/my/api/useMeProfile", () => ({
@@ -132,7 +133,7 @@ vi.mock("../api/usePar360", () => ({
   useReviewers: () => query([]),
   useSubmitReview: () => ({ ...mutation(), mutate: declineMutate }),
   useParticipants: () => query(participants),
-  useOfferToReview: () => ({ ...mutation(), mutate: offerMutate }),
+  useOfferToReview: () => ({ ...mutation(), mutate: offerMutate, isPending: offerPending }),
 }));
 
 vi.mock("../api/useParData", () => ({
@@ -215,6 +216,7 @@ beforeEach(() => {
   window.localStorage.clear();
   requests = [];
   offerMutate.mockReset();
+  offerPending = false;
   discardMutate.mockReset();
   declineMutate.mockReset();
   discardLeadershipMutate.mockReset();
@@ -235,6 +237,25 @@ describe("ParGiveFeedbackTab", () => {
     expect(screen.getByText("Submitted")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "View" })).toBeInTheDocument();
     expect(rowNames().at(-1)).toBe("Sam");
+  });
+
+  it("removes anonymous drafts kept in this browser for a survey that has closed, whoever wrote them", () => {
+    const open = "par-l360-anonymous-draft:me@example.com:3:elena@example.com";
+    const closed = [
+      "par-l360-anonymous-draft:me@example.com:2:elena@example.com",
+      "par-l360-anonymous-draft:someone@example.com:2:hannah@example.com",
+    ];
+    [open, ...closed].forEach((key) => window.localStorage.setItem(key, "{}"));
+    show();
+    expect(window.localStorage.getItem(open)).toBe("{}");
+    closed.forEach((key) => expect(window.localStorage.getItem(key)).toBeNull());
+  });
+
+  it("removes them all once no survey is open", () => {
+    currentSurvey = null;
+    window.localStorage.setItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com", "{}");
+    show();
+    expect(window.localStorage.getItem("par-l360-anonymous-draft:me@example.com:3:elena@example.com")).toBeNull();
   });
 
   it("shows Leadership 360° feedback you gave as submitted, and opens only the named one again", async () => {
@@ -495,6 +516,15 @@ describe("Give feedback", () => {
       { employeeEmail: "alex@example.com", relationship: "CROSS_TEAM" },
       expect.anything(),
     );
+  });
+
+  it("stays open while the offer is being made, so the feedback form can open from it", async () => {
+    const user = userEvent.setup();
+    offerPending = true;
+    show();
+    await pick(user, "Alex");
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.getByText(/Offer feedback for Alex's 2026 H2 PAR\?/)).toBeInTheDocument();
   });
 
   it("doesn't list someone you've already given PAR feedback", async () => {

@@ -172,7 +172,7 @@ describe("Leadership360FeedbackDialog", () => {
     );
   });
 
-  it("locks the answers once submitting is confirmed, while a draft save in flight finishes", async () => {
+  it("locks the answers and stays open once submitting is confirmed, while a draft save in flight finishes", async () => {
     let finishDraft = () => {};
     draftMutateAsync.mockImplementationOnce(() => new Promise<void>((resolve) => (finishDraft = resolve)));
     renderDialog();
@@ -185,6 +185,9 @@ describe("Leadership360FeedbackDialog", () => {
 
     expect(screen.getByRole("button", { name: "5 of 5" })).toBeDisabled();
     expect(anonymousOption()).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Close" })).toBeDisabled();
+    fireEvent.keyDown(screen.getAllByRole("dialog")[0], { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
     expect(submitMutate).not.toHaveBeenCalled();
     await act(async () => finishDraft());
     await waitFor(() =>

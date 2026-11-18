@@ -63,6 +63,9 @@ export interface ParRichTextFieldHandle {
   replaceContents: (html: string) => void;
 }
 
+// Quill's history module (its stack in particular) and keyboard.bindings below aren't public API: written
+// against Quill 2.0.3, and ParRichTextField.test.tsx covers Undo, Redo and Tab, so an upgrade that changes
+// them fails there.
 type QuillHistory = {
   clear: () => void;
   cutoff: () => void;

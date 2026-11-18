@@ -194,10 +194,11 @@ export default function Leadership360FeedbackDialog({
 
   // Closing saves first: the fields lock, the draft is saved after any write in flight, then the form
   // closes. If that fails it stays open and editable, so a draft isn't lost without a word; closing
-  // again then leaves without it.
+  // again then leaves without it. Not while the feedback is submitted: what follows it (removing the
+  // anonymous draft from this browser) only runs while the form is open.
   const close = () => {
-    if (closing) return;
-    if (storageFailed || saveDraft.isError || sending) {
+    if (closing || sending) return;
+    if (storageFailed || saveDraft.isError) {
       onClose();
       return;
     }
@@ -387,7 +388,7 @@ export default function Leadership360FeedbackDialog({
                     ? "Draft saved"
                     : ""}
           </Typography>
-          <Button size="small" onClick={close} disabled={closing}>
+          <Button size="small" onClick={close} disabled={closing || sending}>
             Close
           </Button>
           <Button size="small" onClick={() => void save()} disabled={!dirty || saveDraft.isPending || closing || sending}>

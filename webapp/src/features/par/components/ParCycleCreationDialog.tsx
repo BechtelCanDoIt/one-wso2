@@ -135,8 +135,8 @@ export default function ParCycleCreationDialog({
     form.parLeadDeadline > form.parEmployeeDeadline &&
     form.parSpecialRatingDeadline &&
     form.parF2FDeadline &&
-    employeeQuestion.trim() &&
-    reviewQuestion.trim() &&
+    // A PAR 2.0 cycle's forms replace the two questions, which aren't shown.
+    (par2Forms || (employeeQuestion.trim() && reviewQuestion.trim())) &&
     ratings.length > 0 &&
     reviewRatings.length > 0;
 
