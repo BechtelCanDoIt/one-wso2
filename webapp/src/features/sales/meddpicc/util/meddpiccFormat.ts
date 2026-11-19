@@ -118,3 +118,10 @@ export function formatSalesforceDate(value: string | null): string {
   if (!match) return value;
   return `${match[3]}/${match[2]}/${match[1]}`;
 }
+
+/** Confidence as a word: the number means little to an AM, the band does. */
+export function confidenceWord(confidence: number): "high" | "medium" | "low" {
+  if (confidence >= 0.8) return "high";
+  if (confidence >= 0.6) return "medium";
+  return "low";
+}

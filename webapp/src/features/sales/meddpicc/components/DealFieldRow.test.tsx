@@ -32,6 +32,9 @@ function renderRow(overrides: Parameters<typeof field>[0]) {
         onEdit={() => {}}
         onUndo={() => {}}
         onRoleMatch={() => {}}
+        onNewContact={() => {}}
+        onExplain={() => {}}
+        accountName="Brightwater Pumps Limited"
       />
     </MemoryRouter>,
   );
@@ -39,28 +42,35 @@ function renderRow(overrides: Parameters<typeof field>[0]) {
 
 const heard = { value: "Ingrid Solberg", rationale: null, confidence: 0.86, evidence: [], pending: false };
 
-describe("DealFieldRow's comparison box", () => {
-  it("says an approved suggestion matches Salesforce when Salesforce has the field", () => {
+describe("DealFieldRow's decision line", () => {
+  // Only when Salesforce holds the same value: an approved suggestion stays "not pending"
+  // after Salesforce is changed, so not pending alone says nothing about agreement.
+  it("says the calls agree with an approved suggestion Salesforce still holds", () => {
     renderRow({ salesforceValue: "Ingrid Solberg", proposal: heard, state: "FILLED" });
-    expect(screen.getByText("In Salesforce")).toBeInTheDocument();
-    expect(screen.getByText(/matches Salesforce/)).toBeInTheDocument();
+    expect(screen.getByText("Salesforce:")).toBeInTheDocument();
+    expect(screen.getByText("· the calls agree")).toBeInTheDocument();
   });
 
-  it("doesn't say matches Salesforce once Salesforce holds something else", () => {
+  it("says what the calls heard once Salesforce holds something else", () => {
     renderRow({ salesforceValue: "Lars Haugen", proposal: heard, state: "FILLED" });
-    expect(screen.getByText("In Salesforce")).toBeInTheDocument();
-    expect(screen.queryByText(/matches Salesforce/)).not.toBeInTheDocument();
+    expect(screen.getByText("Lars Haugen")).toBeInTheDocument();
+    expect(screen.queryByText("· the calls agree")).not.toBeInTheDocument();
+    expect(screen.getByText("· the calls heard Ingrid Solberg")).toBeInTheDocument();
   });
 
-  it("never says matches Salesforce for a field not in Salesforce yet", () => {
+  it("keeps a field not in Salesforce yet in Echo, with nothing to compare", () => {
     renderRow({ notInSalesforce: true, proposal: heard, state: "FILLED" });
     expect(screen.queryByText("In Salesforce")).not.toBeInTheDocument();
-    expect(screen.queryByText(/matches Salesforce/)).not.toBeInTheDocument();
+    expect(screen.getByText("Kept in Echo:")).toBeInTheDocument();
+    expect(screen.getByText("· the calls agree")).toBeInTheDocument();
   });
 
-  it("shows a pending suggestion as AI suggests, with where it was heard", () => {
+  it("leads a pending suggestion with Salesforce beside what the calls heard, marked as Echo's", () => {
     renderRow({});
-    expect(screen.getByText("AI suggests")).toBeInTheDocument();
+    expect(screen.getByText("In Salesforce")).toBeInTheDocument();
+    expect(screen.getByText("Heard on calls")).toBeInTheDocument();
+    expect(screen.getByText("Echo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Where .* came from$/ })).toBeInTheDocument();
     expect(screen.queryByText(/matches Salesforce/)).not.toBeInTheDocument();
   });
 });

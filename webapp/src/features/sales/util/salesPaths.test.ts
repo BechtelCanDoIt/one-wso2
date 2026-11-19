@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { dealPath, meetingPath } from "./salesPaths";
+import { dealPath, meetingPath, startSecondOf } from "./salesPaths";
 
 describe("meetingPath", () => {
   it("opens on Summary by default, and on a tab, or a MEDDPICC Letter, when asked", () => {
@@ -24,6 +24,22 @@ describe("meetingPath", () => {
     expect(meetingPath(42, { tab: "transcript" })).toBe("/sales/meetings/42?tab=transcript");
     expect(meetingPath(42, { tab: "meddpicc" })).toBe("/sales/meetings/42?tab=meddpicc");
     expect(meetingPath(42, { tab: "meddpicc", letter: "DC" })).toBe("/sales/meetings/42?tab=meddpicc&letter=DC");
+  });
+
+  it("points at a second of the recording, in whole seconds, and never at a nonsense one", () => {
+    expect(meetingPath(42, { tab: "transcript", at: 760.4 })).toBe("/sales/meetings/42?tab=transcript&t=760");
+    expect(meetingPath(42, { at: 0 })).toBe("/sales/meetings/42?t=0");
+    expect(meetingPath(42, { at: -1 })).toBe("/sales/meetings/42");
+    expect(meetingPath(42, { at: Number.NaN })).toBe("/sales/meetings/42");
+  });
+});
+
+describe("startSecondOf", () => {
+  it("reads the second a URL names, and nothing from anything else", () => {
+    expect(startSecondOf(new URLSearchParams("tab=transcript&t=760"))).toBe(760);
+    expect(startSecondOf(new URLSearchParams("t=12:40"))).toBeNull();
+    expect(startSecondOf(new URLSearchParams("t=-5"))).toBeNull();
+    expect(startSecondOf(new URLSearchParams(""))).toBeNull();
   });
 });
 
