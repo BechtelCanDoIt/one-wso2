@@ -146,7 +146,7 @@ export default function Par360GiveFeedbackDialog({
           <Stack spacing={2} sx={{ pt: 0.5 }}>
             <Typography variant="body2" color="text.secondary">
               For a member of the leadership team it's Leadership 360° feedback,{" "}
-              {held ? "with your name until a PAR cycle opens" : "and you can stay anonymous"}. For anyone else it's PAR
+              {held ? "with your name, counting toward their next PAR cycle" : "and you can stay anonymous"}. For anyone else it's PAR
               360° feedback, which their lead reads with your name. People already in your list aren't shown here:
               respond to them or continue there.
             </Typography>
