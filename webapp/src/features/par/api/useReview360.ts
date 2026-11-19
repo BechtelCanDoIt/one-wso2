@@ -25,8 +25,8 @@ import type { FormAnswers } from "./leadership360Types";
 import type {
   ParCycleFormKind,
   Review360Form,
+  Review360Count,
   Review360Responses,
-  Review360Summary,
   Review360TeamIndexes,
 } from "./review360Types";
 
@@ -166,11 +166,12 @@ export function useReviewResponses(parCycleId: number | undefined, workEmail: st
   );
 }
 
-// The employee's own anonymised summary.
-export function useReviewSummary(parCycleId: number | undefined, workEmail: string | undefined, enabled = true) {
-  return useGet<Review360Summary>(
-    ["par-review-summary", parCycleId, workEmail],
-    parCycleId && workEmail ? parServiceUrls.parReviewSummary(parCycleId, workEmail) : undefined,
+
+// How many 360° responses the employee has received, offered ones too.
+export function useReviewCount(parCycleId: number | undefined, workEmail: string | undefined, enabled = true) {
+  return useGet<Review360Count>(
+    ["par-review-count", parCycleId, workEmail],
+    parCycleId && workEmail ? parServiceUrls.parReviewCount(parCycleId, workEmail) : undefined,
     enabled,
   );
 }

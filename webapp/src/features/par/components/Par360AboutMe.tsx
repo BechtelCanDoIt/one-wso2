@@ -15,39 +15,36 @@
 // under the License.
 
 import { useState, type ReactNode } from "react";
-import { Alert, Box, Card, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Skeleton, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useParEmployeeInfo, useParRating } from "../api/useParData";
 import { useRequestReviewers, useReviewers } from "../api/usePar360";
-import { useReviewSummary } from "../api/useReview360";
+import { useReviewCount } from "../api/useReview360";
+import { cycleSurvey, useLeadership360Results, useLeadership360Surveys } from "../api/useLeadership360";
 import { MIN_360_RESPONSES } from "../api/review360Types";
 import type { ParCycle } from "../api/types";
 import { Par360RequestPicker } from "./Par360RequestDialog";
-import Par360SummaryView from "./Par360SummaryView";
-import ParEmptyState from "./ParEmptyState";
-import { PersonRow, StatusChip } from "./Par360PeopleRows";
 import { isDeadlinePassed } from "../util/parDeadline";
 import { feedbackProgress } from "../util/parHome";
-import ParDueChip from "./ParDueChip";
 
-// Your own PAR 360° feedback in a PAR 2.0 cycle: your anonymised summary
-// (averages only), shown only once your lead shares your PAR, and everyone
-// asked for feedback on you, by you or your lead, without saying who asked
-// (who submitted, never what they wrote). While feedback can still be asked
-// for, the calendar suggestions and the people search are always open above
-// that list. Feedback offered unasked goes to
-// your lead alone. `afterSummary` goes between
-// the two (a leader's Leadership 360° results, when there are any). A member of
-// the leadership team has no PAR 360° summary: the people they ask answer in
-// Leadership 360°, which can be anonymous, so only declines show.
+// Your own 360° feedback in a PAR 2.0 cycle: everyone asked for feedback on you,
+// by you or your lead, without saying who asked (who submitted, never what they
+// wrote), and how many have come in against the 3 needed, feedback offered
+// unasked too (only the number: who offered it isn't shown). While feedback can still
+// be asked for, the calendar suggestions and the people search are always open
+// above that list. Feedback offered unasked goes to your lead alone. A member sees
+// no 360° scores: their lead's 360° summary comes with the lead's review. A member
+// of the leadership team gets Leadership 360°, which can be anonymous: their list
+// shows a named answer as Submitted but leaves an anonymous one at Requested, and
+// `beforeRequests` holds their Leadership 360° results.
 export default function Par360AboutMe({
   cycle,
   workEmail,
-  afterSummary,
+  beforeRequests,
 }: {
   cycle: ParCycle;
   workEmail: string;
-  afterSummary?: ReactNode;
+  beforeRequests?: ReactNode;
 }) {
   const leadEmail = useParEmployeeInfo(workEmail).data?.leadEmail ?? undefined;
   const rating = useParRating(cycle.parCycleId, workEmail);
@@ -55,101 +52,178 @@ export default function Par360AboutMe({
   const requestReviewers = useRequestReviewers(cycle.parCycleId, workEmail);
   const leadShared = rating.data?.parLeadStatus === "SHARED";
   const leader = Boolean(rating.data?.parIsLeadershipEmployee);
-  const summary = useReviewSummary(cycle.parCycleId, workEmail, leadShared && !leader);
+  // A leader's count is the responses to the cycle's Leadership 360° survey; anyone can give it unasked.
+  const surveys = useLeadership360Surveys(leader);
+  const leadershipResults = useLeadership360Results(
+    leader ? cycleSurvey(surveys.data, cycle.parCycleId)?.surveyId : undefined,
+    "SELF",
+  );
+  // A member's count includes feedback offered unasked, which their list leaves out.
+  const count = useReviewCount(cycle.parCycleId, workEmail, Boolean(rating.data) && !leader);
   // A new picker, empty, once a request goes through.
   const [requestsSent, setRequestsSent] = useState(0);
 
   const list = reviewers.data ?? [];
-  const { asked, responded, declined } = feedbackProgress(list);
+  const { responded } = feedbackProgress(list);
+  const received = leader
+    ? (leadershipResults.data?.[0]?.responseCount ?? 0)
+    : (count.data?.received ?? responded);
   const deadlinePassed = isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
   const blocked = deadlinePassed || leadShared;
 
   return (
     <Stack spacing={2}>
-      {/* Nothing to show before the lead shares the PAR, so no placeholder either. */}
-      {leadShared && !leader && (
-        <Card variant="outlined" sx={{ p: 2 }}>
-          <Typography sx={{ fontWeight: 600 }}>Your PAR 360° results</Typography>
-          {summary.isLoading ? (
-            <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 1, mt: 1 }} />
-          ) : summary.data?.available ? (
-            <Box sx={{ mt: 1.5 }}>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Averages from everyone who submitted, without names. Written feedback goes to your lead.
-              </Typography>
-              <Par360SummaryView
-                definition={summary.data.template.definition}
-                index={summary.data.index}
-                questionAverages={summary.data.questionAverages}
-              />
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-              {summary.data?.reason ?? "There's no summary for this cycle."}
-            </Typography>
-          )}
-        </Card>
-      )}
-      {afterSummary}
+      {beforeRequests}
 
-      <Card variant="outlined" sx={{ p: 2 }}>
-        <Box sx={{ display: "flex", alignItems: "center", columnGap: 1.5, rowGap: 0.5, flexWrap: "wrap" }}>
-          <Typography sx={{ fontWeight: 600 }}>Feedback requests</Typography>
-          <Typography variant="body2" color="text.secondary">
-            {leader
-              ? asked === 0
-                ? "Request Leadership 360° feedback from people who work closely with you. Anyone can also give it unrequested."
-                : `${asked} requested${declined ? `, ${declined} declined` : ""}. They can answer anonymously, so you don't see who submitted.`
-              : asked === 0
-                ? `Request feedback from at least ${MIN_360_RESPONSES} people who worked closely with you this cycle.`
-                : `${responded} of ${asked} submitted${declined ? `, ${declined} declined` : ""}.`}
-          </Typography>
-          {!deadlinePassed && !leadShared && (
-            <ParDueChip due={cycle.parThreeSixtyRatingDeadline} />
+      <Box sx={{ display: "flex", alignItems: "baseline", columnGap: 1.5, rowGap: 0.5, flexWrap: "wrap" }}>
+        <Typography sx={{ fontWeight: 600 }}>Feedback requests</Typography>
+        <Typography variant="body2" color="text.secondary">
+          {received < MIN_360_RESPONSES && (
+            <>
+              You need at least <Count n={MIN_360_RESPONSES} /> feedback.{" "}
+            </>
           )}
-        </Box>
-        {leadShared && (
-          <Alert severity="info" sx={{ mt: 1.5 }}>
-            Your lead has shared your PAR, so no more feedback can be requested.
-          </Alert>
-        )}
-        {!blocked && (
-          <Box sx={{ mt: 2 }}>
-            <Par360RequestPicker
-              key={requestsSent}
-              open
-              selfEmail={workEmail}
-              leadEmail={leadEmail}
-              existingEmails={list.map((r) => r.reviewerEmail)}
-              onSubmit={(reviewerEmails) =>
-                requestReviewers.mutate({ reviewerEmails }, { onSuccess: () => setRequestsSent((n) => n + 1) })
-              }
-              isSubmitting={requestReviewers.isPending}
-              error={requestReviewers.error ?? undefined}
-              parCycleId={cycle.parCycleId}
-            />
-          </Box>
-        )}
-        <Box sx={{ mt: 2 }}>
-          {reviewers.isLoading ? (
-            <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1 }} />
-          ) : reviewers.isError ? (
-            <ErrorNotice error={reviewers.error} onRetry={() => reviewers.refetch()} retrying={reviewers.isFetching}>
-              Couldn't load your reviewers.
-            </ErrorNotice>
-          ) : list.length === 0 ? (
-            <ParEmptyState text="You haven't requested feedback from anyone yet" />
+          {received > 0 ? (
+            <>
+              <Count n={received} /> received.
+            </>
           ) : (
-            <Stack divider={<Box sx={{ borderTop: 1, borderColor: "divider" }} />}>
-              {list.map((r) => (
-                <PersonRow key={r.reviewerEmail} name={r.reviewerName} email={r.reviewerEmail}>
-                  <StatusChip status={r.reviewStatus} leadership={leader} />
-                </PersonRow>
-              ))}
-            </Stack>
+            "None yet."
           )}
+        </Typography>
+      </Box>
+      {!blocked && (
+        <Box>
+          <Par360RequestPicker
+            key={requestsSent}
+            open
+            activeCycle
+            selfEmail={workEmail}
+            leadEmail={leadEmail}
+            existingEmails={list.map((r) => r.reviewerEmail)}
+            onSubmit={(reviewerEmails) =>
+              requestReviewers.mutate({ reviewerEmails }, { onSuccess: () => setRequestsSent((n) => n + 1) })
+            }
+            isSubmitting={requestReviewers.isPending}
+            error={requestReviewers.error ?? undefined}
+            parCycleId={cycle.parCycleId}
+          />
         </Box>
-      </Card>
+      )}
+      {reviewers.isLoading ? (
+        <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1 }} />
+      ) : reviewers.isError ? (
+        <ErrorNotice error={reviewers.error} onRetry={() => reviewers.refetch()} retrying={reviewers.isFetching}>
+          Couldn't load your reviewers.
+        </ErrorNotice>
+      ) : (
+        // Nothing when no one is asked yet: the count above says so.
+        list.length > 0 && (
+          <Stack component="ul" spacing={1} sx={{ m: 0, p: 0, listStyle: "none" }}>
+            {list.map((r) => (
+              <RequestRow key={r.reviewerEmail} name={r.reviewerName ?? r.reviewerEmail}>
+                {/* The employee doesn't see drafts: a started one is still Requested. For a leader, only
+                    a named answer is Submitted: an anonymous one leaves the request at Requested. */}
+                <StatePill
+                  state={r.reviewStatus === "REJECTED" ? "declined" : r.reviewStatus === "SHARED" ? "submitted" : "requested"}
+                />
+              </RequestRow>
+            ))}
+          </Stack>
+        )
+      )}
     </Stack>
+  );
+}
+
+// Someone asked for feedback: their initials, their name and where their feedback stands.
+function RequestRow({ name, children }: { name: string; children: ReactNode }) {
+  const initials = name
+    .split(/\s+/)
+    .map((w) => w.charAt(0))
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  return (
+    <Box
+      component="li"
+      sx={{
+        display: "flex",
+        alignItems: "center",
+        gap: 1.25,
+        py: 1,
+        pl: 1,
+        pr: 1.5,
+        border: 1,
+        borderColor: "divider",
+        borderRadius: "10px",
+      }}
+    >
+      <Box
+        aria-hidden
+        sx={(theme) => ({
+          width: 28,
+          height: 28,
+          borderRadius: "50%",
+          flexShrink: 0,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: 11.5,
+          fontWeight: 700,
+          color: palette(theme).primary.main,
+          bgcolor: soft(palette(theme).primary.main),
+        })}
+      >
+        {initials}
+      </Box>
+      <Typography variant="body2" sx={{ flex: 1, minWidth: 0 }} noWrap>
+        {name}
+      </Typography>
+      {children}
+    </Box>
+  );
+}
+
+// Where a request stands, as a soft pill: Requested, Submitted or Declined.
+function StatePill({ state }: { state: "requested" | "submitted" | "declined" }) {
+  const label = { requested: "Requested", submitted: "Submitted", declined: "Declined" }[state];
+  return (
+    <Box
+      component="span"
+      sx={(theme) => {
+        const colour = {
+          requested: palette(theme).info.main,
+          submitted: palette(theme).success.main,
+          declined: palette(theme).error.main,
+        }[state];
+        return {
+          flexShrink: 0,
+          px: 1.25,
+          py: 0.25,
+          borderRadius: 999,
+          fontSize: 12.5,
+          fontWeight: 600,
+          whiteSpace: "nowrap",
+          color: colour,
+          bgcolor: soft(colour),
+        };
+      }}
+    >
+      {label}
+    </Box>
+  );
+}
+
+// theme.palette holds the light scheme only; theme.vars follows the light/dark switch.
+const palette = (theme: Theme) => (theme.vars ?? theme).palette;
+const soft = (colour: string) => `color-mix(in srgb, ${colour} 14%, transparent)`;
+
+// A number in the count line: the same text, a little darker and bolder, so it reads at a glance.
+function Count({ n }: { n: number }) {
+  return (
+    <Box component="b" sx={{ color: "text.primary", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>
+      {n}
+    </Box>
   );
 }

@@ -31,7 +31,6 @@ vi.mock("../api/useParData", () => ({
 vi.mock("../api/useSelfReview", () => ({
   useSelfReview: () => ({ data: { template: { definition: { sections: [] } }, answers: {} } }),
 }));
-vi.mock("../api/useReview360", () => ({ useReviewSummary: () => ({ data: undefined }) }));
 vi.mock("../api/useLeadership360", () => ({ useCycleLeadership360ForPdf: () => undefined }));
 vi.mock("@features/leave/api/useLeaveData", () => ({ useLeaveEmployees: () => ({ data: [] }) }));
 vi.mock("../util/parPdf", () => ({ downloadPar2Pdf: (...args: unknown[]) => downloadPar2Pdf(...args) }));
@@ -44,17 +43,19 @@ beforeEach(() => {
 });
 
 describe("ParCycleLeadReview", () => {
-  it("says the lead's review shows here once they share it", () => {
+  it("says it's available once the lead shares their review", () => {
     render(<ParCycleLeadReview />);
-    expect(screen.getByText("Your lead's review shows here once they share it.")).toBeInTheDocument();
+    expect(screen.getByText("Available once your lead shares their review.")).toBeInTheDocument();
     expect(screen.queryByText("Lead's feedback")).not.toBeInTheDocument();
   });
 
-  it("shows the lead's feedback once shared, with the PAR's PDF", () => {
+  it("shows the rating, then the lead's feedback, once shared, with the PAR's PDF", () => {
     rating = { ...rating, parLeadStatus: "SHARED", parRating: "Successful", parLeadComment: "PHA+R29vZDwvcD4=" };
     render(<ParCycleLeadReview />);
-    expect(screen.getByText("Lead's feedback")).toBeInTheDocument();
-    expect(screen.getByText(/PAR rating: /)).toBeInTheDocument();
+    expect(screen.getByText("Rating")).toBeInTheDocument();
+    expect(screen.getByText("Successful")).toBeInTheDocument();
+    expect(screen.getByText("Your lead's feedback")).toBeInTheDocument();
+    expect(screen.getByText("Good")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
     expect(downloadPar2Pdf).toHaveBeenCalledTimes(1);
   });

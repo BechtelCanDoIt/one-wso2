@@ -60,15 +60,10 @@ export interface Review360Responses {
   responses: Review360Response[];
 }
 
-// GET .../review-summary — the employee's own anonymised summary: averages only, never comments
-// or counts. The averages include feedback offered unasked, whose reviewers the employee's list
-// leaves out, so a count could show that someone not on it responded.
-export interface Review360Summary {
-  template: FormTemplate;
-  available: boolean;
-  reason?: string;
-  index?: number;
-  questionAverages: SummaryAverage[];
+// GET .../review-count — how many 360° responses the employee has received: everyone who submitted,
+// asked or offered. Only the number: who gave feedback unasked isn't told to them.
+export interface Review360Count {
+  received: number;
 }
 
 export interface Review360Index {

@@ -28,8 +28,7 @@ const BASE = "/me/performance/cycle";
 const STEPS: HomeStepKey[] = ["self-review", "360", "lead-review", "f2f"];
 
 // Me → Performance → Active cycle (PAR 2.0): everything about your own PAR in
-// the open cycle. The phase tracker on top is the way around: each step opens
-// its part below, the lead review once the lead has shared it.
+// the open cycle. The steps are tabs, and the open step's part is their panel.
 export default function ParActiveCycleTab() {
   const { pathname } = useLocation();
   const profile = useMeProfile();
@@ -39,8 +38,13 @@ export default function ParActiveCycleTab() {
 
   return (
     <Stack spacing={2}>
-      {cycle && workEmail && <ParCycleTracker cycle={cycle} workEmail={workEmail} selected={selected} />}
-      <Outlet />
+      {cycle && workEmail ? (
+        <ParCycleTracker cycle={cycle} workEmail={workEmail} selected={selected}>
+          <Outlet />
+        </ParCycleTracker>
+      ) : (
+        <Outlet />
+      )}
     </Stack>
   );
 }

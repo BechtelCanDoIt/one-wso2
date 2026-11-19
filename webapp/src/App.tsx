@@ -755,7 +755,7 @@ export default function App() {
                   path="f2f"
                   element={
                     <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
-                      <ParF2fTab />
+                      <ParF2fTab activeCycle />
                     </Suspense>
                   }
                 />

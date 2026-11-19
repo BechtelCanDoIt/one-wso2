@@ -51,7 +51,9 @@ import { describeError } from "@api/errors";
 // PAR 2.0 cycle also suggests people from the employee's calendar, above the
 // field, 8 at a time with Suggest more for the rest; adding one adds them like
 // any other pick. Without `onCancel` it has no Cancel and doesn't take focus:
-// the 360° tab shows it all the time.
+// the 360° tab shows it all the time. `activeCycle` is Active cycle's look: the
+// suggestions in the main colour, a "Search people" field without a From:
+// label, and Request under it on the left.
 
 /** Calendar suggestions shown at first, and added by each Suggest more. */
 const SUGGESTIONS_PER_ROUND = 8;
@@ -74,6 +76,7 @@ export function Par360RequestPicker({
   error,
   parCycleId,
   subjectName,
+  activeCycle = false,
 }: {
   /** Gates `useLeaveEmployees` the same way the Dialog's own `open` did. */
   open: boolean;
@@ -95,6 +98,8 @@ export function Par360RequestPicker({
   parCycleId?: number;
   /** The employee the feedback is about, when it isn't the caller. */
   subjectName?: string;
+  /** Active cycle's look (the employee's own 360° step). */
+  activeCycle?: boolean;
 }) {
   const directory = useLeaveEmployees(open && parCycleId === undefined);
   const participants = useParticipants(parCycleId, open && parCycleId !== undefined);
@@ -184,6 +189,11 @@ export function Par360RequestPicker({
                 label={s.employeeName}
                 aria-label={`Add ${s.employeeName}`}
                 onClick={() => setSelected((prev) => [...prev, s.workEmail])}
+                sx={
+                  activeCycle
+                    ? { borderStyle: "dashed", borderColor: "primary.main", color: "primary.main", "& .MuiChip-icon": { color: "primary.main" } }
+                    : undefined
+                }
               />
             ))}
             {moreSuggested && (
@@ -194,7 +204,7 @@ export function Par360RequestPicker({
           </Box>
         </Box>
       )}
-      <Typography sx={{ pb: 2 }}>From:</Typography>
+      {!activeCycle && <Typography sx={{ pb: 2 }}>From:</Typography>}
       <Autocomplete
           multiple
           size="small"
@@ -271,7 +281,9 @@ export function Par360RequestPicker({
           renderInput={(params) => (
             <TextField
               {...params}
-              label="Search by email or paste comma-separated emails"
+              {...(activeCycle
+                ? { placeholder: selected.length === 0 ? "Search people" : undefined, slotProps: { htmlInput: { ...params.inputProps, "aria-label": "Search people" } } }
+                : { label: "Search by email or paste comma-separated emails" })}
               autoFocus={onCancel !== undefined}
               onPaste={handlePaste}
               onKeyDown={handleKeyDown}
@@ -279,10 +291,11 @@ export function Par360RequestPicker({
           )}
       />
       {error !== undefined && <Alert severity="error" sx={{ mt: 2 }}>{describeError(error)}</Alert>}
-      <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, mt: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: activeCycle ? "flex-start" : "flex-end", gap: 1.5, mt: activeCycle ? 1.5 : 2 }}>
         {onCancel && <Button onClick={handleCancel}>Cancel</Button>}
         <Button
           variant="contained"
+          size={activeCycle ? "small" : "medium"}
           disabled={selected.length === 0 || isSubmitting}
           onClick={() => onSubmit(selected)}
         >

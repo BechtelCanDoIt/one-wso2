@@ -25,7 +25,9 @@ import { useActiveParCycle, useParRating } from "../api/useParData";
 import { useSaveParRating } from "../api/useParMutations";
 import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
+import { MessagesSquareIcon } from "@wso2/oxygen-ui-icons-react";
 import ParDateField from "../components/ParDateField";
+import ParStepNote from "../components/ParStepNote";
 
 function todayDateOnly(): string {
   const d = new Date();
@@ -36,8 +38,10 @@ function todayDateOnly(): string {
 // (isEmployeeView=true — the lead-facing render of the same component
 // belongs with the Lead Portal work, not here). Only shown to employees
 // who have a lead (OngoingCycleView.tsx's leadless branch has no F2F tab
-// at all) — see ParGroupPage.tsx.
-export default function ParF2fTab() {
+// at all) — see ParGroupPage.tsx. In Active cycle (`activeCycle`, PAR 2.0) the
+// panel's heading carries the date and, once it has passed, says so: the page
+// shows only the completed date and Mark as completed, or that it's done.
+export default function ParF2fTab({ activeCycle = false }: { activeCycle?: boolean }) {
   const profile = useMeProfile();
   const workEmail = profile.data?.userInfo.workEmail;
   const activeCycles = useActiveParCycle(workEmail);
@@ -90,6 +94,20 @@ export default function ParF2fTab() {
   const completed = status === "COMPLETED";
   const showForm = !completed && !deadlinePassed;
 
+  if (activeCycle) {
+    if (completed) {
+      return (
+        <Alert severity="success">
+          F2F completed{parRating.parF2fDate ? ` on ${formatShortDate(parRating.parF2fDate)}` : ""}
+        </Alert>
+      );
+    }
+    if (deadlinePassed) return null;
+    if (!leadShared) {
+      return <ParStepNote icon={MessagesSquareIcon}>Available once your lead shares their review.</ParStepNote>;
+    }
+  }
+
   const handleMarkCompleted = () => {
     if (!completedDate) {
       setDateTouched(true);
@@ -109,24 +127,25 @@ export default function ParF2fTab() {
       <Stack spacing={1.75} sx={{ maxWidth: 1100 }}>
         {/* F2fPanel.tsx's five alerts — independent conditions, not an
             if/else chain, so more than one can show at once (e.g. SCHEDULED
-            and not-yet-lead-shared both render together). Matches source. */}
-        {!deadlinePassed && status === "SCHEDULED" && (
+            and not-yet-lead-shared both render together). Matches source.
+            Not in Active cycle, whose panel heading says it. */}
+        {!activeCycle && !deadlinePassed && status === "SCHEDULED" && (
           <Alert severity="success">F2F meeting is scheduled</Alert>
         )}
-        {deadlinePassed && !completed && (
+        {!activeCycle && deadlinePassed && !completed && (
           <Alert severity="error">
             The deadline for updating the F2F has passed on {formatShortDate(cycle.parF2FDeadline)}.
           </Alert>
         )}
-        {!deadlinePassed && !completed && (
+        {!activeCycle && !deadlinePassed && !completed && (
           <Alert severity="info">
             Please complete your F2F meeting before the deadline: {formatShortDate(cycle.parF2FDeadline)}.
           </Alert>
         )}
-        {!leadShared && !deadlinePassed && (
+        {!activeCycle && !leadShared && !deadlinePassed && (
           <Alert severity="info">Lead's feedback must be completed to update F2F status</Alert>
         )}
-        {completed && parRating.parF2fDate && (
+        {!activeCycle && completed && parRating.parF2fDate && (
           <Alert severity="success">F2F completed on {formatShortDate(parRating.parF2fDate)}</Alert>
         )}
 

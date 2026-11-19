@@ -318,9 +318,9 @@ export const parServiceUrls = {
   // GET — every response about an employee with names (their leads, report chain, PAR admins).
   parReviewResponses: (parCycleId: number, workEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-responses`,
-  // GET — the caller's own anonymised summary.
-  parReviewSummary: (parCycleId: number, workEmail: string) =>
-    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-summary`,
+  // GET — how many 360° responses the caller has received (asked or offered), only the number.
+  parReviewCount: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-count`,
   // PUT — the lead's 360° summary of an employee, shared with their comment
   // (the employee's leads and PAR admins).
   parLead360Summary: (parCycleId: number, workEmail: string) =>

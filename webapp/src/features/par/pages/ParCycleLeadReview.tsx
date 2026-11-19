@@ -14,20 +14,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Alert, Skeleton, Stack } from "@wso2/oxygen-ui";
+import { useMemo } from "react";
+import { Alert, Box, Button, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
+import { FileDownIcon, FileTextIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { useActiveParCycle, useParRating } from "../api/useParData";
+import type { ParRating } from "../api/types";
 import { useSelfReview } from "../api/useSelfReview";
-import { useReviewSummary } from "../api/useReview360";
 import { useCycleLeadership360ForPdf } from "../api/useLeadership360";
-import { ParLeadFeedbackCard } from "../components/ParRatingSummary";
+import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
+import { ParAutoAssignedChip } from "../components/ParChips";
+import { ParCommentView, ParLead360SummaryView } from "../components/ParContent";
+import ParStepNote from "../components/ParStepNote";
 import { decodeParComment } from "../util/parComment";
+import { employeeChipLabel } from "../util/parLabels";
 import { downloadPar2Pdf } from "../util/parPdf";
 
-// Active cycle → Lead review: the lead's review of your PAR once they share it, with the finished PAR's
-// PDF. Your self-review stays on its own page, and your 360° summary on the 360° page.
+// Active cycle → Lead review: the lead's review of your PAR once they share it (the rating, and their
+// feedback with their 360° summary), and the finished PAR's PDF. Your self-review stays on its own page.
 export default function ParCycleLeadReview() {
   const profile = useMeProfile();
   const workEmail = profile.data?.userInfo.workEmail;
@@ -36,9 +42,8 @@ export default function ParCycleLeadReview() {
   const rating = useParRating(cycle?.parCycleId, workEmail);
   // Until the lead shares, the backend leaves their comment and rating out.
   const leadShared = Boolean(rating.data?.parLeadComment || rating.data?.parRating);
-  // The PDF carries the self-review, the anonymised 360° summary and a leader's Leadership 360° results.
+  // The PDF carries the self-review and a leader's Leadership 360° results.
   const selfReview = useSelfReview(cycle?.parCycleId, workEmail, leadShared);
-  const review360 = useReviewSummary(cycle?.parCycleId, workEmail, leadShared);
   const leadership360 = useCycleLeadership360ForPdf(
     cycle?.parCycleId ?? 0,
     workEmail,
@@ -66,27 +71,88 @@ export default function ParCycleLeadReview() {
     return <Alert severity="info">There's no PAR cycle open for you right now.</Alert>;
   }
   if (!leadShared) {
-    return <Alert severity="info">Your lead's review shows here once they share it.</Alert>;
+    return <ParStepNote icon={FileTextIcon}>Available once your lead shares their review.</ParStepNote>;
   }
   const parRating = rating.data;
   const review = selfReview.data;
   return (
+    <SharedReview
+      rating={parRating}
+      onDownloadPdf={
+        review
+          ? () =>
+              downloadPar2Pdf({
+                rating: parRating,
+                leadComment: decodeParComment(parRating.parLeadComment),
+                selfReview: { definition: review.template.definition, answers: review.answers },
+                leadership360,
+              })
+          : undefined
+      }
+    />
+  );
+}
+
+// The shared review: the rating (and a Top 5% or Top 20%) in a shaded box, the lead's feedback with
+// their 360° summary in a box of its own, then the PDF.
+function SharedReview({ rating, onDownloadPdf }: { rating: ParRating; onDownloadPdf?: () => void }) {
+  const employees = useLeaveEmployees();
+  const leadName = useMemo(() => {
+    const lead = employees.data?.find((e) => e.workEmail.toLowerCase() === rating.parLeadEmail?.toLowerCase());
+    return lead?.firstName;
+  }, [employees.data, rating.parLeadEmail]);
+  const specialRating =
+    rating.parSpecialRating && rating.parSpecialRating !== "NOT_ASSIGNED" ? rating.parSpecialRating : undefined;
+  return (
     <Stack spacing={1.75} sx={{ maxWidth: 1100 }}>
-      <ParLeadFeedbackCard
-        rating={parRating}
-        onDownloadPdf={
-          review
-            ? () =>
-                downloadPar2Pdf({
-                  rating: parRating,
-                  leadComment: decodeParComment(parRating.parLeadComment),
-                  selfReview: { definition: review.template.definition, answers: review.answers },
-                  review360: review360.data ?? undefined,
-                  leadership360,
-                })
-            : undefined
-        }
-      />
+      {(rating.parRating || specialRating) && (
+        <Box
+          sx={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "flex-end",
+            columnGap: 4,
+            rowGap: 1,
+            px: 2.25,
+            py: 2,
+            borderRadius: "12px",
+            bgcolor: "action.hover",
+          }}
+        >
+          {rating.parRating && <RatingItem label="Rating" value={employeeChipLabel(rating.parRating).label} />}
+          {specialRating && <RatingItem label="Top 5%/20%" value={employeeChipLabel(specialRating).label} />}
+          {rating.parRatingUpdatedBy === "SYSTEM" && <ParAutoAssignedChip />}
+        </Box>
+      )}
+      <Box sx={{ border: 1, borderColor: "divider", borderRadius: "10px", px: 2, py: 1.75 }}>
+        <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+          {leadName ? `${leadName}'s feedback` : "Your lead's feedback"}
+        </Typography>
+        <ParCommentView html={decodeParComment(rating.parLeadComment)} />
+        <ParLead360SummaryView summary={rating.parLead360Summary} />
+      </Box>
+      {onDownloadPdf && (
+        <Box>
+          <Button variant="outlined" startIcon={<FileDownIcon size={14} />} onClick={onDownloadPdf}>
+            Download PDF
+          </Button>
+        </Box>
+      )}
     </Stack>
+  );
+}
+
+function RatingItem({ label, value }: { label: string; value: string }) {
+  return (
+    <Box>
+      <Typography
+        variant="caption"
+        component="div"
+        sx={{ color: "text.secondary", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase" }}
+      >
+        {label}
+      </Typography>
+      <Typography sx={{ fontSize: 17, fontWeight: 700 }}>{value}</Typography>
+    </Box>
   );
 }

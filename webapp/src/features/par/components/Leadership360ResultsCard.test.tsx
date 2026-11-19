@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import type { Leadership360ResultsEntry, Leadership360Survey } from "../api/leadership360Types";
 
 const query = <T,>(data: T) => ({ data, isLoading: false, isError: false, refetch: vi.fn() });
@@ -76,6 +76,14 @@ describe("Leadership360ResultsCard", () => {
     expect(screen.queryByText(/Results of survey/)).not.toBeInTheDocument();
   });
 
+  it("below 3, gives the leader's manager the count too, not the results", () => {
+    const bea = { ...ada, workEmail: "bea@example.com", employeeName: "Bea" };
+    results = [{ leader: bea, responseCount: 2, available: false }];
+    render(<Leadership360ResultsCard view="REPORTS" leaderEmail="bea@example.com" parCycleId={9} />);
+    expect(screen.getByText("2 responses so far; results show from 3.")).toBeInTheDocument();
+    expect(screen.queryByText(/Results of survey/)).not.toBeInTheDocument();
+  });
+
   it("shows a closed cycle's survey as final results (History)", () => {
     surveys = [survey(5, "OPEN", 9), survey(2, "CLOSED", 4)];
     results = [{ leader: ada, responseCount: 6, available: true }];
@@ -95,6 +103,22 @@ describe("Leadership360ResultsCard", () => {
     expect(screen.getByText(/As People Ops you also see named responses in full/)).toBeInTheDocument();
     expect(screen.getByText("Results of survey 5 (ALL)")).toBeInTheDocument();
     expect(asked.every((a) => a.view === "ALL")).toBe(true);
+  });
+
+  it("compact, is one line: View results opens them in a dialog", () => {
+    results = [{ leader: ada, responseCount: 4, available: true }];
+    render(<Leadership360ResultsCard view="SELF" parCycleId={9} compact />);
+    expect(screen.getByText("Your Leadership 360° results")).toBeInTheDocument();
+    expect(screen.queryByText("Survey 5")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Results of survey/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "View results" }));
+    expect(screen.getByRole("dialog", { name: "Your Leadership 360° results" })).toHaveTextContent("Results of survey 5 (SELF)");
+  });
+
+  it("compact, shows nothing until the results can be seen", () => {
+    results = [{ leader: ada, responseCount: 2, available: false }];
+    const { container } = render(<Leadership360ResultsCard view="SELF" parCycleId={9} compact />);
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("shows nothing for someone outside the leadership team", () => {

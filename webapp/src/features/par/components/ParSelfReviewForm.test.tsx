@@ -134,10 +134,10 @@ describe("ParSelfReviewForm", () => {
     expect(saveMutate).toHaveBeenCalledWith({ impact: "First" });
   });
 
-  it("shows when it last saved as a chip, with the due date", async () => {
+  it("shows when it last saved as a chip; the due date is the panel's, not the form's", async () => {
     vi.useFakeTimers();
     show("DRAFT");
-    expect(screen.getByText(/^Due 31 Dec '99 · \d+ days left$/)).toBeInTheDocument();
+    expect(screen.queryByText(/^Due /)).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("textbox", { name: "Impact this cycle" }), { target: { value: "Shipped it" } });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1500);
@@ -199,7 +199,7 @@ describe("ParSelfReviewForm", () => {
     expect(screen.queryByText("Share your self-review?")).not.toBeInTheDocument();
   });
 
-  it("shows a draft past its deadline for reading, and only the self-review once the lead shares", () => {
+  it("shows nothing for a draft past its deadline: the step is Incomplete, and the panel says why", () => {
     render(
       <ParSelfReviewForm
         cycle={{ ...cycle, parEmployeeDeadline: "2000-01-01" }}
@@ -209,9 +209,8 @@ describe("ParSelfReviewForm", () => {
         leadEmail="lead@wso2.com"
       />,
     );
-    expect(screen.getByText(/Your draft wasn't shared, so your lead doesn't see it\./)).toBeInTheDocument();
-    expect(screen.getByText("Shipped it")).toBeInTheDocument();
-    expect(screen.queryByText("Lead's feedback")).not.toBeInTheDocument();
+    expect(screen.queryByText("Shipped it")).not.toBeInTheDocument();
+    expect(screen.queryByText(/deadline/)).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
@@ -223,9 +222,10 @@ describe("ParSelfReviewForm", () => {
     expect(screen.getByRole("button", { name: "Unshare" })).toBeInTheDocument();
   });
 
-  it("says a locked review is with the lead, without saying the lead has started", () => {
+  it("shows a locked review without Unshare, and without saying the lead has started", () => {
     show("SHARED_BLOCKED", { impact: "Shipped it", growth: "Learned it" });
-    expect(screen.getByText("Your self-review is with your lead.")).toBeInTheDocument();
+    expect(screen.getByText("Shipped it")).toBeInTheDocument();
+    expect(screen.queryByText(/lead/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Unshare" })).not.toBeInTheDocument();
   });
 });

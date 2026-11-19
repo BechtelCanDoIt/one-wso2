@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { Par360Reviewer, ParCycle, ParRating } from "../api/types";
@@ -27,12 +27,8 @@ let rating: Partial<ParRating>;
 let reviewers: Partial<Par360Reviewer>[];
 
 vi.mock("../api/useParData", () => ({ useParRating: () => query(rating) }));
-vi.mock("../api/usePar360", () => ({
-  useReviewers: () => query(reviewers),
-  useReviewRequests: () => query([]),
-  useParticipants: () => query([{ workEmail: "hannah@example.com", employeeName: "Hannah" }]),
-}));
-vi.mock("../api/useSelfReview", () => ({ useSelfReview: () => query(undefined) }));
+vi.mock("../api/usePar360", () => ({ useReviewers: () => query(reviewers) }));
+vi.mock("../api/useReview360", () => ({ useReviewCount: () => query(undefined) }));
 vi.mock("../api/useLeadership360", () => ({
   cycleSurvey: () => undefined,
   useLeadership360Surveys: () => query([]),
@@ -42,6 +38,7 @@ vi.mock("../api/useLeadership360", () => ({
 const { default: ParCycleTracker } = await import("./ParCycleTracker");
 
 const FUTURE = "2999-12-31";
+const PAST = "2000-01-01";
 const cycle = {
   parCycleId: 2,
   parEmployeeDeadline: FUTURE,
@@ -54,10 +51,12 @@ function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>;
 }
 
-function show(selected: HomeStepKey = "self-review") {
+function show(selected: HomeStepKey = "self-review", forCycle: ParCycle = cycle) {
   render(
     <MemoryRouter initialEntries={[`/me/performance/cycle/${selected}`]}>
-      <ParCycleTracker cycle={cycle} workEmail="me@example.com" selected={selected} />
+      <ParCycleTracker cycle={forCycle} workEmail="me@example.com" selected={selected}>
+        <div>The step's page</div>
+      </ParCycleTracker>
       <Routes>
         <Route path="*" element={<Where />} />
       </Routes>
@@ -68,77 +67,59 @@ function show(selected: HomeStepKey = "self-review") {
 const step = (label: string) => screen.getByText(label).closest("li")!;
 
 beforeEach(() => {
-  rating = {
-    parEmployeeStatus: "DRAFT",
-    parLeadStatus: "PENDING",
-    parF2fStatus: "PENDING",
-    parLeadEmail: "hannah@example.com",
-  };
+  rating = { parEmployeeStatus: "DRAFT", parLeadStatus: "PENDING", parF2fStatus: "PENDING" };
   reviewers = [];
 });
 
 describe("ParCycleTracker", () => {
-  it("names the lead on the steps that are theirs, and when the face-to-face opens, with no dates on the steps", () => {
+  it("shows each step's number, name and state, and nothing else", () => {
     show();
-    expect(step("Lead review")).toHaveTextContent("Hannah reviews after you share");
-    expect(step("Lead review")).not.toHaveTextContent("Expected by");
-    expect(step("Face-to-face")).toHaveTextContent("Opens after Hannah shares");
-    expect(step("Face-to-face")).not.toHaveTextContent("Due");
+    expect(step("Self-review")).toHaveTextContent(/^1Self-reviewIn progress$/);
+    expect(step("360° feedback")).toHaveTextContent(/^2360° feedbackNot started$/);
+    expect(step("Lead review")).toHaveTextContent(/^3Lead reviewNot available yet$/);
+    expect(step("Face-to-face")).toHaveTextContent(/^4Face-to-faceNot available yet$/);
   });
 
-  it("says in one line what happens next in the open step, its date and the days left", () => {
+  it("puts the open step's page in the panel, under its heading and its date with the days left", () => {
     show();
-    expect(screen.getByText("Hannah sees it once you share it.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Write your self-review" })).toBeInTheDocument();
     expect(screen.getByText("Due 31 Dec '99")).toBeInTheDocument();
     expect(screen.getByText(/days left/)).toBeInTheDocument();
-    cleanup();
-    show("360");
-    expect(screen.getByText(/Ask at least 3 people/)).toBeInTheDocument();
-    expect(screen.queryByText("Hannah sees it once you share it.")).not.toBeInTheDocument();
+    expect(screen.getByText("The step's page")).toBeInTheDocument();
   });
 
-  it("gives someone else's deadline as a date only, and none once it's done", () => {
+  it("gives the lead's date as Expected by, without days left", () => {
     show("lead-review");
-    expect(screen.getByText("Nothing to do here until you share your self-review.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Lead review" })).toBeInTheDocument();
     expect(screen.getByText("Expected by 31 Dec '99")).toBeInTheDocument();
     expect(screen.queryByText(/days left/)).not.toBeInTheDocument();
-    cleanup();
-    rating = { ...rating, parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" };
-    show("lead-review");
-    expect(screen.getByText("Your rating and feedback are here, with your PAR's PDF.")).toBeInTheDocument();
-    expect(screen.queryByText(/Expected by/)).not.toBeInTheDocument();
   });
 
-  it("outlines the open step, and the whole box of a step opens its part", async () => {
+  it("says when an Incomplete step's deadline passed, with no date on the right", () => {
+    show("self-review", { ...cycle, parEmployeeDeadline: PAST });
+    expect(step("Self-review")).toHaveTextContent("Incomplete");
+    expect(screen.getByRole("heading", { name: "Self-review not shared" })).toBeInTheDocument();
+    expect(screen.getByText("The self-review deadline passed on 1 Jan '00.")).toBeInTheDocument();
+    expect(screen.queryByText(/^Due /)).not.toBeInTheDocument();
+  });
+
+  it("opens every step, the ones with nothing to do yet too", async () => {
     const user = userEvent.setup();
     show();
     expect(step("Self-review").querySelector("[aria-current='page']")).not.toBeNull();
-    await user.click(step("360° feedback").querySelector("button")!);
-    expect(screen.getByTestId("where")).toHaveTextContent("/me/performance/cycle/360");
+    await user.click(step("Lead review").querySelector("button")!);
+    expect(screen.getByTestId("where")).toHaveTextContent("/me/performance/cycle/lead-review");
+    await user.click(step("Face-to-face").querySelector("button")!);
+    expect(screen.getByTestId("where")).toHaveTextContent("/me/performance/cycle/f2f");
   });
 
-  it("says the minimum is met while more 360° feedback can still come in", () => {
+  it("says 360° feedback is Done at 3 submitted", () => {
     reviewers = ["SHARED", "SHARED", "SHARED", "PENDING"].map((reviewStatus, n) => ({
       reviewerEmail: `r${n}@example.com`,
       reviewStatus: reviewStatus as Par360Reviewer["reviewStatus"],
       isEmployeeRequested: true,
     }));
     show();
-    expect(step("360° feedback")).toHaveTextContent("Minimum met");
-  });
-
-  it("greys out the lead review and opens it only once the lead has shared it", async () => {
-    const user = userEvent.setup();
-    show();
-    expect(step("Lead review").querySelector("button")).toBeNull();
-    expect(step("Lead review").firstElementChild).toHaveStyle({ opacity: "0.5" });
-    expect(step("Face-to-face").firstElementChild).not.toHaveStyle({ opacity: "0.5" });
-    cleanup();
-    rating = { ...rating, parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" };
-    show();
-    expect(step("Lead review")).toHaveTextContent("Shared with you");
-    expect(step("Lead review").firstElementChild).not.toHaveStyle({ opacity: "0.5" });
-    await user.click(step("Lead review").querySelector("button")!);
-    expect(screen.getByTestId("where")).toHaveTextContent("/me/performance/cycle/lead-review");
+    expect(step("360° feedback")).toHaveTextContent("Done");
   });
 });
