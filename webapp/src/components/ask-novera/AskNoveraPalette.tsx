@@ -31,6 +31,7 @@ import {
   XIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import BrandLockup from "@components/top-bar/BrandLockup";
+import { visuallyHidden } from "@utils/visuallyHidden";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type JSX } from "react";
 import { useNavigate } from "react-router";
 import type { Capability } from "@constants/appMenu";
@@ -86,10 +87,17 @@ export default function AskNoveraPalette({
     canvasInputRef.current?.focus();
   }, []);
 
-  // Restore focus to anchor element on close
+  // Restore focus to anchor element on close (or mobile trigger if desktop search was hidden on resize)
   useEffect(() => {
     return () => {
-      anchorEl?.focus();
+      const input = anchorEl?.querySelector<HTMLElement>("input");
+      if (input && input.getClientRects().length > 0) {
+        input.focus();
+      } else if (anchorEl && anchorEl.getClientRects().length > 0) {
+        anchorEl.focus();
+      } else {
+        document.querySelector<HTMLElement>('button[aria-label="Ask Novera"]')?.focus();
+      }
     };
   }, [anchorEl]);
 
@@ -150,6 +158,11 @@ export default function AskNoveraPalette({
         },
       }}
     >
+      {/* Visually hidden heading giving the search dialog an accessible name */}
+      <Typography id="ask-novera-palette-title" sx={visuallyHidden}>
+        Ask Novera app search
+      </Typography>
+
       {/* Sticky Top Bar: Symmetric flanks with perfectly centered search bar */}
       <Box
         sx={{
@@ -205,7 +218,7 @@ export default function AskNoveraPalette({
                 },
               }}
             >
-              <BrandLockup titleId="ask-novera-palette-title" />
+              <BrandLockup />
             </Box>
           </Header.Brand>
         </Box>

@@ -1535,24 +1535,38 @@ function scoreEntry(entry: DirectoryEntry, normalizedQuery: string, words: strin
     return 100;
   }
 
-  // 2. Title starts with query (prefix match outscores substring match)
+  // 2. Exact keyword alias match (explicit curated aliases take precedence over title prefixes)
+  for (const kw of entry.keywords) {
+    if (kw === normalizedQuery) {
+      return 92;
+    }
+  }
+
+  // 3. Title starts with query (prefix match outscores substring match)
   if (titleLower.startsWith(normalizedQuery)) {
     return 90;
   }
 
-  // 3. Title contains the full query phrase
+  // 4. Title contains the full query phrase
   if (titleLower.includes(normalizedQuery)) {
     return 80;
   }
 
-  // 4. Category match
-  if (categoryLower.includes(normalizedQuery)) {
-    return 70;
-  }
-
   let bestScore = 0;
 
-  // 4. Tag matches
+  // 5. Keyword phrase contained in query
+  for (const kw of entry.keywords) {
+    if (kw.includes(" ") && normalizedQuery.includes(kw)) {
+      bestScore = Math.max(bestScore, 75);
+    }
+  }
+
+  // 6. Category match
+  if (categoryLower.includes(normalizedQuery)) {
+    bestScore = Math.max(bestScore, 70);
+  }
+
+  // 7. Tag matches
   for (const tag of entry.tags) {
     const tagLower = tag.toLowerCase();
     if (tagLower === normalizedQuery) {
@@ -1562,13 +1576,9 @@ function scoreEntry(entry: DirectoryEntry, normalizedQuery: string, words: strin
     }
   }
 
-  // 5. Keyword matches
+  // 8. Keyword partial and fuzzy matches
   for (const kw of entry.keywords) {
-    if (kw === normalizedQuery) {
-      bestScore = Math.max(bestScore, 50);
-    } else if (kw.includes(" ") && normalizedQuery.includes(kw)) {
-      bestScore = Math.max(bestScore, 45);
-    } else if (words.includes(kw)) {
+    if (words.includes(kw)) {
       bestScore = Math.max(bestScore, 40);
     } else if (kw.startsWith(normalizedQuery) && normalizedQuery.length >= 3) {
       bestScore = Math.max(bestScore, 38);
@@ -1581,7 +1591,7 @@ function scoreEntry(entry: DirectoryEntry, normalizedQuery: string, words: strin
     }
   }
 
-  // 6. Description / hint match
+  // 9. Description / hint match
   if (entry.hint.toLowerCase().includes(normalizedQuery)) {
     bestScore = Math.max(bestScore, 20);
   }

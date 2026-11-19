@@ -131,7 +131,7 @@ function renderTopBar() {
 describe("AskNoveraPalette", () => {
   it("presents as a modal dialog with search input", () => {
     renderPalette();
-    const dialog = screen.getByRole("dialog");
+    const dialog = screen.getByRole("dialog", { name: "Ask Novera app search" });
     expect(dialog).toHaveAttribute("aria-modal", "true");
     expect(dialog).toHaveAttribute("aria-labelledby", "ask-novera-palette-title");
     expect(screen.getByPlaceholderText("Search apps by name, description, or keyword...")).toBeInTheDocument();
@@ -244,6 +244,18 @@ describe("AskNoveraPalette", () => {
 
   it("finds Corporate Cards via direct search", () => {
     renderPalette("corporate cards");
+    expect(screen.getByRole("button", { name: "Open Corporate Cards" })).toBeInTheDocument();
+  });
+
+  it("prioritizes exact keyword partner finance for Partner Due Diligence over loose Finance tag", () => {
+    const adminCaps = new Set<Capability>(["employee", "admin"]);
+    renderPalette("partner finance", adminCaps);
+    expect(screen.getByRole("button", { name: "Open Partner Due Diligence" })).toBeInTheDocument();
+  });
+
+  it("prioritizes Corporate Credit Cards over Credit Card Approvals when searching credit card", () => {
+    const leadCaps = new Set<Capability>(["employee", "lead"]);
+    renderPalette("credit card", leadCaps);
     expect(screen.getByRole("button", { name: "Open Corporate Cards" })).toBeInTheDocument();
   });
 
@@ -384,7 +396,16 @@ describe("TopBar Search Integration & Gating", () => {
     const user = userEvent.setup();
     const input = screen.getByPlaceholderText("Ask Novera");
     expect(input).not.toHaveFocus();
+
+    // Verify Cmd+K modifier (macOS)
     await user.keyboard("{Meta>}k{/Meta}");
+    expect(input).toHaveFocus();
+
+    input.blur();
+    expect(input).not.toHaveFocus();
+
+    // Verify Ctrl+K modifier (Windows/Linux)
+    await user.keyboard("{Control>}k{/Control}");
     expect(input).toHaveFocus();
   });
 
@@ -395,7 +416,9 @@ describe("TopBar Search Integration & Gating", () => {
     } as Window["config"];
     renderTopBar();
     const user = userEvent.setup();
-    await user.keyboard("{Meta>}k{/Meta}");
+
+    // Verify Ctrl+K modifier opens the legacy modal
+    await user.keyboard("{Control>}k{/Control}");
     const dialogs = screen.getAllByRole("dialog");
     expect(dialogs).toHaveLength(1);
     expect(screen.getByText("Coming soon")).toBeInTheDocument();
