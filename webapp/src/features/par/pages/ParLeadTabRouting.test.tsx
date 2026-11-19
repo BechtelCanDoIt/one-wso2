@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { ReactNode } from "react";
 
@@ -49,8 +49,14 @@ const profile = { data: { userInfo: { workEmail: "someone@wso2.com" } }, isLoadi
 vi.mock("@features/my/api/useMeProfile", () => ({ useMeProfile: () => profile }));
 
 vi.mock("../components/ParShell", () => ({
-  default: ({ children }: { children: ReactNode }) => <>{children}</>,
+  default: ({ actions, children }: { actions?: ReactNode; children: ReactNode }) => (
+    <>
+      {actions}
+      {children}
+    </>
+  ),
 }));
+vi.mock("../components/ParLeadQuotas", () => ({ default: () => <div>Quota groups</div> }));
 
 const { default: ParLeadGroupPage, ParLeadGroupIndex, ParRequiresTeamLeadRoute } = await import(
   "./ParLeadGroupPage"
@@ -125,6 +131,14 @@ describe("a team lead", () => {
       "/people-ops/performance/lead/direct-reports",
     );
   });
+
+  it("opens the Top 5%/20% quotas from the header, not from a tab", async () => {
+    show();
+    expect(await screen.findByRole("tab", { name: "Direct Reports" })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Top 5%\/20%/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Top 5%/20% quotas" }));
+    expect(screen.getByRole("dialog", { name: "Top 5%/20% quotas" })).toHaveTextContent("Quota groups");
+  });
 });
 
 describe("someone who isn't a team lead and has no reports either", () => {
@@ -172,6 +186,7 @@ describe("a lead with reports but no active cycle", () => {
     await screen.findByTestId("tab-body");
     expect(screen.queryByRole("tab", { name: "Direct Reports" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("tab")).toHaveLength(1);
+    expect(screen.queryByRole("button", { name: "Top 5%/20% quotas" })).not.toBeInTheDocument();
   });
 
   it("is redirected to Employee History when deep-linking straight to a cycle-scoped tab", async () => {

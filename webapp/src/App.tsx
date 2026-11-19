@@ -101,7 +101,6 @@ const ParLeadDirectReportsTab = lazy(() => import("@features/par/pages/ParLeadDi
 const ParLeadAdditionalReportsTab = lazy(() => import("@features/par/pages/ParLeadAdditionalReportsTab"));
 const ParLeadReportChainTab = lazy(() => import("@features/par/pages/ParLeadReportChainTab"));
 const ParLeadEmployeeHistoryTab = lazy(() => import("@features/par/pages/ParLeadEmployeeHistoryTab"));
-const ParLeadAllocationTab = lazy(() => import("@features/par/pages/ParLeadAllocationTab"));
 const ParAdminOngoingTab = lazy(() => import("@features/par/pages/ParAdminOngoingTab"));
 const ParAdminHistoryTab = lazy(() => import("@features/par/pages/ParAdminHistoryTab"));
 const ParAdminGlobalConfigTab = lazy(() => import("@features/par/pages/ParAdminGlobalConfigTab"));
@@ -767,7 +766,7 @@ export default function App() {
             )}
           </Route>
           {/* People Ops → PAR → Lead Portal: par-app's LeadPortal.tsx, ported
-              one tab at a time — all five tabs are now live. Reviewing and
+              one tab at a time — all its tabs are now live. Reviewing and
               rating your reports' PAR is People-Ops-team work, unlike the
               employee half (now under Me).
               Gated on ParRequiresTeamLeadRoute (par-app's own Role.TEAM_LEAD
@@ -810,14 +809,6 @@ export default function App() {
               element={
                 <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
                   <ParLeadEmployeeHistoryTab />
-                </Suspense>
-              }
-            />
-            <Route
-              path="allocation"
-              element={
-                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
-                  <ParLeadAllocationTab />
                 </Suspense>
               }
             />

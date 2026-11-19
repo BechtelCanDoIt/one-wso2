@@ -23,7 +23,7 @@ import type { ParCycle } from "../api/types";
 
 // Quota Allocations tab — org-wide quota groups (no leadEmail filter).
 // A thin wrapper over ParAllocationGroupsList, same as
-// ParLeadAllocationTab.tsx — only the data source differs.
+// ParLeadQuotas.tsx — only the data source differs.
 export default function ParOrgQuotaAllocationsTab({ cycle }: { cycle: ParCycle }) {
   const allocations = useParAdminQuotaGroups(cycle.parCycleId);
 

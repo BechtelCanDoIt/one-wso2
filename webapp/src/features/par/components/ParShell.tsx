@@ -28,10 +28,13 @@ import { isParBackendConfigured } from "../api/useParData";
 export default function ParShell({
   title,
   subtitle,
+  actions,
   children,
 }: {
   title: string;
   subtitle?: string;
+  /** The page's own actions, at the end of the subtitle's line (below it when there isn't room). */
+  actions?: ReactNode;
   children: ReactNode;
 }) {
   const configured = isParBackendConfigured();
@@ -40,10 +43,25 @@ export default function ParShell({
       <Typography component="h1" variant="h5" sx={{ mb: 0.5, fontWeight: 600 }}>
         {title}
       </Typography>
-      {subtitle && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.25 }}>
-          {subtitle}
-        </Typography>
+      {(subtitle || actions) && (
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
+            columnGap: 2,
+            rowGap: 1,
+            mb: 2.25,
+          }}
+        >
+          {subtitle && (
+            <Typography variant="body2" color="text.secondary">
+              {subtitle}
+            </Typography>
+          )}
+          {configured && actions}
+        </Box>
       )}
 
       {configured ? (

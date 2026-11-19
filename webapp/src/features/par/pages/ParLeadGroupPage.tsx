@@ -21,6 +21,7 @@ import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTab
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import ParShell from "../components/ParShell";
+import ParLeadQuotasButton from "../components/ParLeadQuotasButton";
 import { useParCanSeeLeadPortal, useParIsTeamLead } from "../api/useParData";
 
 const BASE_PATH = "/people-ops/performance/lead";
@@ -29,19 +30,13 @@ const BASE_PATH = "/people-ops/performance/lead";
 // than its literal ALL-CAPS label strings — same normalization ParGroupPage
 // already applies to the Employee Portal's tabs. Only tabs with a real route
 // in App.tsx are listed here — ported one at a time, same as the Employee
-// Portal — so the bar never links to a screen that isn't built yet.
-//
-// "Top 5%/20% Allocation" carries the slash source's own tab bar omits
-// (LeadPortal.tsx's literal label is "TOP 5%20% ALLOCATION") — every other
-// occurrence in this feature (the cycle stepper, the roster column, the
-// review panel, the PDF export) uses the slash, and a live nav label read
-// daily is a weak place to preserve that one inconsistency.
+// Portal — so the bar never links to a screen that isn't built yet. The Top
+// 5%/20% quotas aren't a tab: a button in the header opens them.
 const TABS: RoutedTabDef[] = [
   { segment: "direct-reports", label: "Direct Reports" },
   { segment: "additional-reports", label: "Additional Reports" },
   { segment: "report-chain", label: "Report Chain" },
   { segment: "employee-history", label: "Employee History" },
-  { segment: "allocation", label: "Top 5%/20% Allocation" },
 ];
 
 // No active cycle: every tab but Employee History acts on cycle data that
@@ -79,6 +74,8 @@ export default function ParLeadGroupPage() {
     <ParShell
       title="Lead View"
       subtitle="Review and rate your reports' PAR, manage their 360° feedback and F2F and see their record from past cycles."
+      // Quotas exist only in an active cycle, like every tab but Employee History.
+      actions={employeeInfo.isTeamLead && <ParLeadQuotasButton />}
     >
       <RoutedTabs
         basePath={BASE_PATH}

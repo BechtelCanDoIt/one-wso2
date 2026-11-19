@@ -138,6 +138,40 @@ beforeEach(() => {
   save.mockReset();
 });
 
+describe("ParLeadReviewPanel: Top 5%/20%", () => {
+  const STATEMENT = "The Top 5% / 20% rating decision was discussed and finalized with the functional lead.";
+  // The select in the Top 5%/20% row (it carries no accessible name of its own).
+  const specialRatingSelect = () => within(screen.getByText("Top 5%/20%").parentElement!).getByRole("combobox");
+  const pick = (label: string) => {
+    fireEvent.mouseDown(specialRatingSelect());
+    fireEvent.click(screen.getByRole("option", { name: label }));
+  };
+
+  it("asks to confirm a Top 5% or Top 20% pick instead of a tick, and keeps the old pick on Cancel", () => {
+    show({ parRating: "Successful" });
+    expect(screen.queryByRole("checkbox", { name: /discussed and finalized/ })).not.toBeInTheDocument();
+    const select = specialRatingSelect();
+    expect(select).not.toHaveAttribute("aria-disabled", "true");
+
+    pick("Top 5%");
+    expect(screen.getByText(STATEMENT)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText(STATEMENT)).not.toBeInTheDocument();
+    expect(select).toHaveTextContent("N/A");
+
+    pick("Top 20%");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(select).toHaveTextContent("Top 20%");
+  });
+
+  it("doesn't ask when N/A is picked", () => {
+    show({ parRating: "Successful", parSpecialRating: "TOP5P" });
+    pick("N/A");
+    expect(screen.queryByText(STATEMENT)).not.toBeInTheDocument();
+    expect(specialRatingSelect()).toHaveTextContent("N/A");
+  });
+});
+
 describe("ParLeadReviewPanel: the employee's self-review", () => {
   it("says when it couldn't be loaded, with Retry, rather than that it wasn't shared", () => {
     selfReviewLookup = { isError: true, error: new Error("HTTP 500"), refetch: vi.fn() };

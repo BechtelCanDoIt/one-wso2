@@ -53,6 +53,7 @@ import {
   PencilIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import ConfirmationDialog from "@components/confirmation-dialog/ConfirmationDialog";
 import { describeError } from "@api/errors";
 import {
   evidenceEnabledRating as defaultEvidenceEnabledRating,
@@ -142,7 +143,8 @@ export default function ParLeadReviewPanel({
   const [adminComment, setAdminComment] = useState("");
   const [parRatingValue, setParRatingValue] = useState("");
   const [specialRating, setSpecialRating] = useState<SpecialRatingUi>("NONE");
-  const [specialRatingConfirmed, setSpecialRatingConfirmed] = useState(false);
+  // A Top 5%/20% pick waiting for the lead to confirm it was agreed with the functional lead.
+  const [specialRatingToConfirm, setSpecialRatingToConfirm] = useState<SpecialRatingUi | null>(null);
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [evidenceConfirmed, setEvidenceConfirmed] = useState(false);
   const [seededForId, setSeededForId] = useState<number | undefined>(undefined);
@@ -168,10 +170,6 @@ export default function ParLeadReviewPanel({
     setAdminComment(decodeParComment(parRatingData.parAdminComment));
     setParRatingValue(parRatingData.parRating && parRatingData.parRating !== "NOT_ASSIGNED" ? parRatingData.parRating : "");
     setSpecialRating(toSpecialRatingUi(parRatingData.parSpecialRating));
-    setSpecialRatingConfirmed(
-      parRatingData.parRating === top5p20pEnabledRating &&
-        toSpecialRatingUi(parRatingData.parSpecialRating) !== "NONE",
-    );
     setDriveFiles(parseSavedUrls(parRatingData.parPerformanceNoticeAck ?? ""));
     // The checkbox itself is never saved, only its effect (the attached
     // files), so it always starts unchecked.
@@ -181,7 +179,6 @@ export default function ParLeadReviewPanel({
   useEffect(() => {
     if (parRatingValue !== top5p20pEnabledRating) {
       setSpecialRating("NONE");
-      setSpecialRatingConfirmed(false);
     }
     if (parRatingValue !== evidenceEnabledRating) {
       setDriveFiles([]);
@@ -698,10 +695,12 @@ export default function ParLeadReviewPanel({
                       <ComplexSelect
                         fullWidth
                         value={specialRating}
-                        onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
-                        disabled={
-                          !specialRatingConfirmed || ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false
-                        }
+                        onChange={(e) => {
+                          const picked = e.target.value as SpecialRatingUi;
+                          if (picked === "NONE") setSpecialRating(picked);
+                          else setSpecialRatingToConfirm(picked);
+                        }}
+                        disabled={ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false}
                         aria-labelledby="lead-review-special-rating-label"
                       >
                         {(Object.keys(SPECIAL_RATING_LABELS) as SpecialRatingUi[]).map((value) => (
@@ -712,20 +711,6 @@ export default function ParLeadReviewPanel({
                       </ComplexSelect>
                     )}
                   </Box>
-                )}
-
-                {!readOnly && parRatingValue === top5p20pEnabledRating && (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialRatingConfirmed}
-                        onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
-                        disabled={ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false}
-                      />
-                    }
-                    label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"
-                    sx={{ "& .MuiFormControlLabel-label": { fontSize: "0.8rem" } }}
-                  />
                 )}
 
                 {!readOnly && parRatingValue === evidenceEnabledRating && (
@@ -959,6 +944,18 @@ export default function ParLeadReviewPanel({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmationDialog
+        content={
+          specialRatingToConfirm && {
+            title: `Give a ${SPECIAL_RATING_LABELS[specialRatingToConfirm]} rating?`,
+            text: "The Top 5% / 20% rating decision was discussed and finalized with the functional lead.",
+            confirmColor: "primary",
+            confirmAction: () => setSpecialRating(specialRatingToConfirm),
+          }
+        }
+        onClose={() => setSpecialRatingToConfirm(null)}
+      />
     </Grid>
   );
 }
