@@ -46,6 +46,15 @@ vi.mock("../api/useSalesData", () => ({
 vi.mock("../meddpicc/api/useCallMeddpicc", () => ({
   useCallMeddpicc: () => ({ configured: state.echoConfigured, opportunityId: "006X", insight: { markers: [] } }),
 }));
+vi.mock("../meddpicc/api/useMeddpiccMutations", () => ({
+  useReanalyseMeeting: () => ({ mutateAsync: vi.fn(), isPending: false }),
+}));
+vi.mock("../api/useSalesGate", () => ({
+  useSalesGate: () => ({ isResolved: true, isAdmin: false, workEmail: null }),
+}));
+vi.mock("@context/notifications/NotificationsContext", () => ({
+  useNotifications: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
+}));
 vi.mock("../components/RecordingPlayer", () => ({
   default: ({ recordingId, startAt }: { recordingId?: number; startAt?: number }) => (
     <div>player {recordingId ?? "default"}{startAt ? ` at ${startAt}` : ""}</div>
