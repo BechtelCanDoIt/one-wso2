@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useAsgardeo } from "@asgardeo/react";
 import { authedGet, defaultQueryRetry } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
@@ -37,13 +37,10 @@ export function useReportAccounts(filters: ReportFilters | undefined) {
       const accessToken = await getAccessToken();
       return authedGet<BankAccountsResponse>(bankingServiceUrls.reportAccounts(filters!), accessToken);
     },
-    // Every Search is a new query key, so without this `data` goes back to
-    // undefined while the request is in flight: the table empties, its grid
-    // unmounts, and the columns the admin switched on for a reconciliation
-    // come back switched off — along with their filter, sort, density and
-    // page size. Holding the previous result keeps the grid mounted until
-    // the new one lands.
-    placeholderData: keepPreviousData,
+    // Deliberately no `keepPreviousData`: the grid stays mounted through an
+    // empty result on its own now, and holding the previous Search's rows
+    // meant Export wrote them to the file while the filters on screen
+    // described the Search still loading.
     retry: defaultQueryRetry,
   });
 }

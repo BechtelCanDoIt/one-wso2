@@ -34,7 +34,12 @@ import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useBankAccounts } from "@features/my/api/useBankAccounts";
 import { useBankingConfig } from "@features/my/api/useBankingConfig";
 import { useBankingEmployees } from "@features/my/api/useBankingEmployees";
-import { useDeactivateAccount, type DeactivateAccountPayload } from "@features/my/api/useDeactivateAccount";
+import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
+import {
+  DEACTIVATE_MUTATION_KEY,
+  useDeactivateAccount,
+  type DeactivateAccountPayload,
+} from "@features/my/api/useDeactivateAccount";
 import { isReimbursementEligible } from "@features/my/api/bankingRules";
 import type { AccountType, BankAccount, BankingEmployee } from "@features/my/api/types";
 import BankAccountRequestDialog from "@features/my/banking/components/BankAccountRequestDialog";
@@ -54,8 +59,6 @@ import {
 
 // The mutation whose in-flight state both Deactivate and Resign watch —
 // see useDeactivateAccount, which registers the key.
-const DEACTIVATE_MUTATION_KEY = ["deactivate-account"];
-
 // Everything up to the row's own action, which is the only part that
 // depends on anything this tab holds in state. Built once: the grid tracks
 // each column's width and the Columns panel's Reset baseline against the
@@ -84,6 +87,7 @@ const ACCOUNT_COLUMNS: BankAccountsTableColumn[] = [
 // BankAccountRequestDialog) — just pointed at the selected employee instead
 // of the caller.
 export default function EmployeeOperationsTab() {
+  const signedInEmail = useAsgardeoUser().email;
   const employeesQuery = useBankingEmployees();
   const configQuery = useBankingConfig();
   const [selectedEmployee, setSelectedEmployee] = useState<BankingEmployee | null>(null);
@@ -182,6 +186,12 @@ export default function EmployeeOperationsTab() {
       },
     });
   }
+
+  // Case-insensitive, matching how the backend decides the same thing: an
+  // address on a token need not be cased the way the directory spells it.
+  const filingForSomeoneElse =
+    selectedEmployee != null &&
+    selectedEmployee.workEmail.trim().toLowerCase() !== (signedInEmail ?? "").trim().toLowerCase();
 
   const columns = useMemo<BankAccountsTableColumn[]>(
     () => [
@@ -289,15 +299,12 @@ export default function EmployeeOperationsTab() {
             </Menu>
           </Stack>
 
-          {accountsQuery.isLoading ? (
-            <Typography color="text.secondary">Loading accounts…</Typography>
-          ) : (
-            <BankAccountsTable
-              accounts={accounts}
-              columns={columns}
-              emptyMessage="No bank accounts found for this employee."
-            />
-          )}
+          <BankAccountsTable
+            accounts={accounts}
+            columns={columns}
+            loading={accountsQuery.isLoading}
+            emptyMessage="No bank accounts found for this employee."
+          />
         </Box>
       )}
 
@@ -310,7 +317,12 @@ export default function EmployeeOperationsTab() {
           allCountries={config?.allCountries ?? []}
           employeeWorkLocation={selectedEmployee.location}
           customLocationMap={config?.customLocationMap ?? []}
-          allowAnyBankLocation
+          // Only when filing for somebody else. A consultancy account you
+          // file for yourself is held to your own locations by the backend
+          // whoever you are, so offering an admin who picked themselves the
+          // unrestricted list would walk them through all three steps and
+          // refuse the lot at Save.
+          allowAnyBankLocation={filingForSomeoneElse}
           onClose={() => setAddAccountType(null)}
           onSuccess={() => {
             setAddAccountType(null);

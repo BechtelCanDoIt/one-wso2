@@ -47,7 +47,9 @@ export function BankingGridToolbar() {
         "Rows per page: 6". Neither means anything on paper.
       */}
       <DataGrid.GridToolbarExport
-        csvOptions={{ fileName: "bank-accounts" }}
+        // With no byte-order mark Excel reads the file as ANSI, which garbles
+        // any account holder name or address outside ASCII.
+        csvOptions={{ fileName: "bank-accounts", utf8WithBom: true }}
         printOptions={{ fileName: "bank-accounts", hideToolbar: true, hideFooter: true }}
       />
     </DataGrid.Toolbar>

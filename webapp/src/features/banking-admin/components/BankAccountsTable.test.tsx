@@ -106,11 +106,15 @@ describe("BankAccountsTable toolbar", () => {
     }
   });
 
-  it("still shows the empty message instead of an empty grid", () => {
+  // Shown through the grid's own overlay rather than in place of the grid.
+  // Unmounting it on an empty result was what threw away the admin's
+  // columns, filters, sort and page size between one Search and the next.
+  it("shows the empty message without unmounting the grid", () => {
     renderTable({ accounts: [] });
 
     expect(screen.getByText("No bank account records found.")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Export" })).not.toBeInTheDocument();
+    expect(screen.getByRole("grid")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Columns" })).toBeInTheDocument();
   });
 
   it("saves the columns on screen, by their own headings", async () => {

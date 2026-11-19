@@ -62,12 +62,17 @@ const COLUMNS: BankAccountsTableColumn[] = [
   fieldColumn("branchName", "Branch Name"),
   EFFECTIVE_MONTH_COLUMN,
   ACCOUNT_TYPE_COLUMN,
+  // A Search can select several statuses at once, or none, and the rows
+  // that come back are then indistinguishable in the file — a deactivated
+  // account reads exactly like a live one. Closed set, so its filter
+  // matches exactly: "contains ACTIVE" would keep the INACTIVE rows too.
+  fieldColumn("accountStatus", "Account Status", ACCOUNT_STATUSES),
 ];
 
 // Carried but switched off, so the default view stays the set this tab has
 // always shown. The NetSuite identifiers and the bank's own details are
 // only wanted when something is being chased down, and showing all
-// seventeen columns at once leaves every one of them too narrow to read.
+// eighteen columns at once leaves every one of them too narrow to read.
 //
 // Typed against BankAccount rather than left as plain strings: an entry
 // that matches no column hides nothing at all, and silently showing a
@@ -81,6 +86,7 @@ const HIDDEN_BY_DEFAULT: (keyof BankAccount)[] = [
   "bankSwiftCode",
   "bankName",
   "bankLocation",
+  "accountStatus",
 ];
 
 // The Report tab — a filterable, all-employee bank-account table. Nothing
@@ -145,6 +151,7 @@ export default function ReportTab() {
       </Box>
 
       <BankAccountsTable
+        loading={accountsQuery.isFetching}
         accounts={rows}
         columns={COLUMNS}
         hiddenByDefault={HIDDEN_BY_DEFAULT}

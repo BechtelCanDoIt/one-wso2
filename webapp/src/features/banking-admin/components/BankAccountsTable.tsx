@@ -16,7 +16,7 @@
 
 
 import { useMemo } from "react";
-import { Chip, DataGrid, Typography } from "@wso2/oxygen-ui";
+import { Chip, DataGrid, Stack, Typography } from "@wso2/oxygen-ui";
 import type { AccountStatus, BankAccount } from "@features/my/api/types";
 import { BLANK, type BankAccountsTableColumn } from "../bankAccountsColumns";
 import { BankingGridToolbar } from "./BankingGridToolbar";
@@ -65,6 +65,7 @@ export default function BankAccountsTable({
   columns,
   emptyMessage,
   hiddenByDefault = NOTHING_HIDDEN,
+  loading = false,
 }: {
   accounts: BankAccount[];
   /**
@@ -80,6 +81,12 @@ export default function BankAccountsTable({
    * there to be turned on, and an export carries whatever is on at the time.
    */
   hiddenByDefault?: readonly string[];
+  /**
+   * A request for these rows is in flight. Shown as the grid's own loading
+   * overlay, which keeps the empty message from reading as "nothing found"
+   * while the answer is still on its way.
+   */
+  loading?: boolean;
 }) {
   const gridColumns = useMemo<DataGrid.GridColDef<BankAccount>[]>(
     () =>
@@ -120,9 +127,23 @@ export default function BankAccountsTable({
     [columns],
   );
 
-  if (accounts.length === 0) {
-    return <Typography color="text.secondary">{emptyMessage}</Typography>;
-  }
+  // Rendered through the grid's own overlay rather than in place of the
+  // grid. Returning early here unmounted it on every empty result — a
+  // Search that matched nothing, a failed one, and each time Employee
+  // Operations switched employee — and the grid rebuilds its column
+  // visibility, filters, sort, density and page size when it mounts, so
+  // the admin's own view was thrown away each time.
+  const noRowsOverlay = useMemo(
+    () =>
+      function NoAccounts() {
+        return (
+          <Stack height="100%" alignItems="center" justifyContent="center">
+            <Typography color="text.secondary">{emptyMessage}</Typography>
+          </Stack>
+        );
+      },
+    [emptyMessage],
+  );
 
   return (
     <DataGrid.DataGrid
@@ -131,7 +152,8 @@ export default function BankAccountsTable({
       getRowId={(row) => row.accountId}
       autoHeight
       showToolbar
-      slots={{ toolbar: BankingGridToolbar }}
+      loading={loading}
+      slots={{ toolbar: BankingGridToolbar, noRowsOverlay }}
       disableRowSelectionOnClick
       initialState={{
         // Read once, at mount — switching a column on afterwards is the

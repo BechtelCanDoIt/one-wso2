@@ -172,14 +172,22 @@ export default function BankAccountRequestDialog({
     // built from. (The other two it stores as given, so narrowing their
     // options to that map would only take away ones it would have accepted.)
     //
-    // The unrestricted list stays a superset of the restricted one, but under
-    // names a submission can actually use: a customLocationMap entry can be
-    // an abbreviation — "US" against the banks' "United States" — and that is
-    // the value the form would otherwise start on, only to be refused at Save
-    // after all three steps. banksLocationKey is the mapping the bank lookup
-    // already applies for exactly this reason.
-    for (const location of consultancyLocations) set.add(banksLocationKey(location));
-    return Array.from(set).filter((location) => allCountries.includes(location));
+    // A bank's own location is free text, so one spelled in a way the country
+    // map doesn't carry can only be refused at Save — drop those here.
+    const options = Array.from(set).filter((location) => allCountries.includes(location));
+
+    // The configured locations go in after that filter rather than before it.
+    // banksLocationKey spells out "US" and nothing else, so an entry written
+    // as any other code ("GB", "IN") would be filtered straight out — leaving
+    // the unrestricted list smaller than the restricted one it is meant to
+    // contain, and the value this form starts on missing from its own
+    // options. Resolving the rest needs the country-code map, which only the
+    // backend holds.
+    for (const location of consultancyLocations) {
+      const option = banksLocationKey(location);
+      if (!options.includes(option)) options.push(option);
+    }
+    return options;
   }, [
     isConsultancy,
     allowAnyBankLocation,
