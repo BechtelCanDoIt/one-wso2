@@ -28,6 +28,7 @@ import { useMeProfile } from "../api/useMeProfile";
 import PromotionHistoryDialog from "./PromotionHistoryDialog";
 import PerformanceStages from "./PerformanceStages";
 import BankAccountsCard from "./BankAccountsCard";
+import UpcomingCard from "@features/finance/engagement-app/me/UpcomingCard";
 
 // Three cards surfacing adjacent people-ops-suite services inside the
 // profile: Vehicles, Time off, Performance & growth. Vehicles is live
@@ -111,6 +112,10 @@ export default function ConnectedServices() {
         <BankAccountsCard ownerEmail={ownerEmail} />
 
         <VehiclesCard ownerEmail={ownerEmail} />
+
+        {/* Engagement App: upcoming allocations and trips. Draws nothing when
+            there are none, or while the feature is off or not connected. */}
+        <UpcomingCard />
       </Box>
 
       <PromotionHistoryDialog

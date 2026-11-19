@@ -239,6 +239,7 @@ import { adminRoutes } from "@features/security/grc/modules/admin/routes";
 import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
 import { swagStoreAdminRoutes, swagStoreShopRoutes } from "@features/swag-store/routes";
+import { engagementRoutes, myEngagementRoutes } from "@features/finance/engagement-app/routes";
 import { procurementRoutes } from "@features/procurement/routes";
 import { procurementWorkspaceRoutes } from "@features/procurement/workspace/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
@@ -1121,6 +1122,13 @@ export default function App() {
               preview flag; Cado2Shell resolves access for every page. See
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
           {isPreviewEnabled("quickquote") && cado2Routes}
+          {/* Finance → Engagement App and its pages under Me (the legacy
+              Allocations and Travel apps), behind the `engagementApp` preview
+              flag; EngagementShell resolves access for every page. See
+              @features/finance/engagement-app/routes and
+              docs/ported-apps/engagement-app.md. */}
+          {isPreviewEnabled("engagementApp") && engagementRoutes}
+          {isPreviewEnabled("engagementApp") && myEngagementRoutes}
           {/* Me → Procurement, behind the `procurement` preview flag. */}
           {isPreviewEnabled("procurement") && procurementRoutes}
           {isPreviewEnabled("procurement") && procurementWorkspaceRoutes}

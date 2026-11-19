@@ -1,0 +1,270 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+// Every Engagement App read, one hook per screen's data.
+
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { authedGet } from "@api/http";
+import { httpRetry } from "@api/errors";
+import { engagementServiceUrls as urls, type EngagementQueryParams } from "@config/apiConfig";
+import { foldIdentityError } from "@hooks/useAsgardeoSub";
+import { useEngagementBasis } from "./engagementBasis";
+import * as M from "./engagementMappers";
+import type * as V from "./engagementTypes";
+import type * as W from "./engagementWire";
+
+const MINUTE = 60 * 1000;
+
+/** One GET against the Engagement App Backend, keyed by `parts`, mapped by `select`. */
+function useEngagementGet<TWire, TView>(
+  parts: readonly unknown[],
+  url: string,
+  select: (wire: TWire) => TView,
+  { enabled = true, staleTime = 0, keepPrevious = false }: { enabled?: boolean; staleTime?: number; keepPrevious?: boolean } = {},
+): UseQueryResult<TView, Error> {
+  const { getToken, ready, key, sub, subState, retryIdentity } = useEngagementBasis();
+  const query = useQuery<TWire, Error, TView>({
+    queryKey: key(...parts),
+    queryFn: async () => authedGet<TWire>(url, await getToken()),
+    select,
+    enabled: ready && enabled,
+    staleTime,
+    retry: httpRetry,
+    // Keep the previous rows while the next page loads, but never another subject's rows (key[1] is the subject).
+    placeholderData: keepPrevious ? (previous, previousQuery) => (previousQuery?.queryKey[1] === sub ? previous : undefined) : undefined,
+  });
+  return foldIdentityError(query, subState, retryIdentity);
+}
+
+const items =
+  <TW, TV>(map: (x: TW) => TV) =>
+  (w: W.WItems<TW>): readonly TV[] =>
+    w.items.map(map);
+const pageOf =
+  <TW, TV>(map: (x: TW) => TV) =>
+  (w: W.WPage<TW>): V.Page<TV> =>
+    M.page(w, map);
+
+// ---------------------------------------------------------------- reference
+
+export const useReferenceData = () =>
+  useEngagementGet(["reference-data"], urls.referenceData, M.referenceData, { staleTime: 30 * MINUTE });
+
+/** Engagement types with their active allocation types: part of the reference data. */
+export function useEngagementTypes(): UseQueryResult<readonly V.EngagementTypeDef[], Error> {
+  return useEngagementGet(["reference-data"], urls.referenceData, (w: W.WReferenceData) => M.referenceData(w).engagementTypes, {
+    staleTime: 30 * MINUTE,
+  });
+}
+
+export const useOrgStructure = (enabled = true) =>
+  useEngagementGet(["org-structure"], urls.orgStructure, M.orgStructure, { enabled, staleTime: 30 * MINUTE });
+
+export const useCampaigns = (search: string, enabled = true) =>
+  useEngagementGet(["campaigns", search], urls.campaigns(search), items(M.campaignOf), {
+    enabled,
+    staleTime: 5 * MINUTE,
+    keepPrevious: true,
+  });
+
+/** The Salesforce account search-as-you-type: asks from two letters. */
+export const useAccounts = (search: string) =>
+  useEngagementGet(["accounts", search], urls.accounts(search), items(M.account), {
+    enabled: search.trim().length >= 2,
+    staleTime: 5 * MINUTE,
+    keepPrevious: true,
+  });
+
+export const useOpportunities = (accountId: string | undefined, engagementTypeId?: number) =>
+  useEngagementGet(["opportunities", accountId, engagementTypeId], urls.accountOpportunities(accountId ?? "", engagementTypeId), items(M.opportunity), {
+    enabled: Boolean(accountId),
+    staleTime: 5 * MINUTE,
+  });
+
+/** Employees by name or email, from two letters. */
+export const useEmployees = (search: string, enabled = true, limit = 20) =>
+  useEngagementGet(["employees", search, limit], urls.employees(search, limit), items(M.employee), {
+    enabled: enabled && search.trim().length >= 2,
+    staleTime: 5 * MINUTE,
+    keepPrevious: true,
+  });
+
+// ---------------------------------------------------------------- dashboard
+
+export const useDashboard = () => useEngagementGet(["dashboard"], urls.dashboard, M.dashboard);
+
+export const useAllocationsToday = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["dashboard", "allocations-today", params], urls.allocationsToday(params), M.allocationsToday, { enabled, keepPrevious: true });
+
+// ---------------------------------------------------------------- engagements
+
+export const useApprovals = (segment: "internal" | "events", params: EngagementQueryParams = {}, enabled = true) =>
+  useEngagementGet(["approvals", segment, params], urls.approvals({ segment, ...params }), pageOf(M.engagementSummary), { enabled, keepPrevious: true });
+
+export const useEngagements = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["engagements", "list", params], urls.engagements(params), pageOf(M.engagementSummary), {
+    enabled,
+    keepPrevious: true,
+  });
+
+export const useEngagementFacets = (segment: string, enabled = true) =>
+  useEngagementGet(
+    ["engagements", "facets", segment],
+    urls.engagementFacets(segment),
+    (w: { accounts: string[]; allocationTypes: string[]; countries: string[] }) => w,
+    { enabled, staleTime: 5 * MINUTE },
+  );
+
+export const useEngagement = (id: string | undefined) =>
+  useEngagementGet(["engagements", "one", id], urls.engagement(id ?? ""), M.engagementDetail, { enabled: Boolean(id) });
+
+// ---------------------------------------------------------------- allocations
+
+export const useAllocations = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["allocations", params], urls.allocations(params), pageOf((a: W.WAllocationWithEngagement) => M.allocation(a)), {
+    enabled,
+    keepPrevious: true,
+  });
+
+/** The Allocate page's timeline: people by email, or by business unit / department / team. */
+export const useAllocationTimeline = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["allocations", "timeline", params], urls.allocationTimeline(params), (w: { people: W.WTimelineRow[] }) => w.people.map(M.timelinePerson), {
+    enabled,
+    keepPrevious: true,
+  });
+
+/** Team Allocations: a team's people and their default (and engagement) allocations. */
+export const useTeamAllocations = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["team-allocations", params], urls.teamAllocations(params), (w: { people: W.WTimelineRow[] }) => w.people.map(M.timelinePerson), {
+    enabled,
+    keepPrevious: true,
+  });
+
+// ---------------------------------------------------------------- travel
+
+export const useTravelRequests = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["travel-requests", "list", params], urls.travelRequests(params), pageOf(M.travelSummary), {
+    enabled,
+    keepPrevious: true,
+  });
+
+export const useTravelRequest = (jobNumber: string | undefined) =>
+  useEngagementGet(["travel-requests", "one", jobNumber], urls.travelRequest(jobNumber ?? ""), M.travelDetail, { enabled: Boolean(jobNumber) });
+
+export const useVisaOptions = (jobNumber: string, enabled = true) =>
+  useEngagementGet(
+    ["travel-requests", "visa-options", jobNumber],
+    urls.visaOptions(jobNumber),
+    (w: W.WItems<{ value: string; label: string }>): readonly V.VisaOption[] => w.items.map((o) => ({ id: o.value, label: o.label })),
+    { enabled },
+  );
+
+export const useTripPerDiems = (jobNumber: string, enabled = true) =>
+  useEngagementGet(["travel-requests", "per-diems", jobNumber], urls.perDiems(jobNumber), items(M.perDiem), { enabled });
+
+export const useTripInvoices = (jobNumber: string, enabled = true) =>
+  useEngagementGet(["travel-requests", "invoices", jobNumber], urls.tripInvoices(jobNumber), (w: W.WPage<W.WInvoice>) => w.items.map(M.invoice), {
+    enabled,
+  });
+
+export const useTripCards = (jobNumber: string, enabled = true) =>
+  useEngagementGet(["travel-requests", "travel-cards", jobNumber], urls.travelCards(jobNumber), items(M.travelCard), { enabled });
+
+export const useTripPayments = (jobNumber: string, enabled = true) =>
+  useEngagementGet(["travel-requests", "payments", jobNumber], urls.tripPayments(jobNumber), M.tripPayments, { enabled });
+
+// ---------------------------------------------------------------- invoices and payments
+
+export const useInvoices = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["invoices", params], urls.invoices(params), pageOf(M.invoice), { enabled, keepPrevious: true });
+
+export const usePerDiemPayments = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["per-diem-payments", params], urls.perDiemPayments(params), pageOf(M.payment), {
+    enabled,
+    keepPrevious: true,
+  });
+
+export const useSyncFailures = (params: EngagementQueryParams = {}, enabled = true) =>
+  useEngagementGet(["ns-sync-failures", params], urls.netSuiteSyncFailures(params), pageOf(M.syncFailure), { enabled, keepPrevious: true });
+
+// ---------------------------------------------------------------- reports
+
+export const useConsultantReport = (params: EngagementQueryParams, enabled: boolean) =>
+  useEngagementGet(["reports", "consultant-allocations", params], urls.report("consultant-allocations", params), items(M.consultantRow), {
+    enabled,
+  });
+
+export const useInvoiceReport = (params: EngagementQueryParams, enabled: boolean) =>
+  useEngagementGet(["reports", "invoices", params], urls.report("invoices", params), (w: W.WPage<W.WInvoice>) => w.items.map(M.invoice), { enabled });
+
+export const usePaymentReport = (params: EngagementQueryParams, enabled: boolean) =>
+  useEngagementGet(["reports", "per-diem-payments", params], urls.report("per-diem-payments", params), (w: W.WPage<W.WPerDiemPayment>) => w.items.map(M.payment), {
+    enabled,
+  });
+
+// ---------------------------------------------------------------- visas and documents
+
+export const useVisas = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["visas", params], urls.visas(params), pageOf(M.visa), { enabled, keepPrevious: true });
+
+export const useTravelDocuments = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["travel-documents", params], urls.travelDocuments(params), pageOf(M.travelDocument), { enabled, keepPrevious: true });
+
+/** One travel document with its full number, to prefill Edit Travel Document. */
+export const useTravelDocument = (id: string | undefined, enabled = true) =>
+  useEngagementGet(["travel-documents", "one", id], urls.travelDocument(id ?? ""), M.travelDocument, { enabled: enabled && Boolean(id) });
+
+/** A traveller's passports for the visa form; the person's own with `email` undefined. */
+export const usePassports = (email: string | undefined, own: boolean, enabled = true) =>
+  useEngagementGet(
+    ["passports", own ? "me" : email],
+    own ? urls.myPassports : urls.travellerPassports(email ?? ""),
+    (w: W.WPage<W.WTravelDocument>) => w.items.map(M.travelDocument),
+    { enabled: enabled && (own || Boolean(email)) },
+  );
+
+// ---------------------------------------------------------------- settings
+
+export const useAllocationTypes = (enabled = true) =>
+  useEngagementGet(["settings", "allocation-types"], urls.allocationTypes(), items(M.allocationType), { enabled });
+
+export const useRoleSettings = (app: "allocations" | "travel", enabled = true) =>
+  useEngagementGet(["settings", "roles", app], urls.roleSettings(app), M.roleSettings, { enabled });
+
+
+// ---------------------------------------------------------------- me
+
+export const useMyTravelRequests = (enabled = true) =>
+  useEngagementGet(["me", "travel-requests"], urls.myTravelRequests({ limit: 500 }), (w: W.WPage<W.WTravelRequestSummary>) => w.items.map(M.travelSummary), {
+    enabled,
+  });
+
+export const useMyVisas = (enabled = true) =>
+  useEngagementGet(["me", "visas"], urls.myVisas(), (w: W.WPage<W.WVisa>) => w.items.map(M.visa), { enabled });
+
+export const useMyTravelDocuments = (enabled = true) =>
+  useEngagementGet(["me", "travel-documents"], urls.myTravelDocuments, (w: W.WPage<W.WTravelDocument>) => w.items.map(M.travelDocument), {
+    enabled,
+  });
+
+export const useMyAllocations = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["me", "allocations", params], urls.myAllocations(params), pageOf((a: W.WAllocationWithEngagement) => M.allocation(a)), {
+    enabled,
+    keepPrevious: true,
+  });
+
+export const useMyOverview = (enabled = true) =>
+  useEngagementGet(["me", "overview"], urls.myOverview, M.myOverview, { enabled, staleTime: 5 * MINUTE });
