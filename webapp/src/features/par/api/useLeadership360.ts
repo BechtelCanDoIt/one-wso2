@@ -246,7 +246,7 @@ export function useCycleLeadership360ForPdf(parCycleId: number, workEmail: strin
   // Each lookup waits for the one before, so the PDF is ready only once none is loading; `data` stays
   // undefined when there are no results to include.
   const lookups = [surveys, results, summary, withTemplate];
-  const failedLookup = lookups.find((q) => q.isError);
+  const failedLookup = lookups.find((q) => q.isError && q.data === undefined);
   return {
     data:
       survey && summary.data?.available && withTemplate.data

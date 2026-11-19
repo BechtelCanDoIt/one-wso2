@@ -55,9 +55,10 @@ export function useHomeInput(
     (leader && (surveys.isLoading || leadershipResults.isLoading));
   if (!rating.data) return { isLoading: rating.isLoading };
 
-  // The 360° step is decided by how many responded: a count that failed isn't none.
+  // The 360° step is decided by how many responded: a count that failed isn't none. One still loaded
+  // from before a failed refetch is used as it is.
   const countQueries = counting ? [count] : leader ? [surveys, leadershipResults] : [];
-  const failedQuery = countQueries.find((q) => q.isError);
+  const failedQuery = countQueries.find((q) => q.isError && q.data === undefined);
   const failed = failedQuery && {
     error: failedQuery.error,
     retry: () => void failedQuery.refetch(),

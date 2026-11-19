@@ -113,4 +113,11 @@ describe("useHomeInput", () => {
     expect(result.current.failed).toBeUndefined();
     expect(result.current.input?.leadership).toEqual({ responseCount: 0 });
   });
+
+  it("uses a count still loaded from before a failed refetch", () => {
+    count = { ...failing(), data: { received: 3 } };
+    const { result } = renderHook(() => useHomeInput(cycle, "me@example.com"));
+    expect(result.current.failed).toBeUndefined();
+    expect(result.current.input?.received).toBe(3);
+  });
 });

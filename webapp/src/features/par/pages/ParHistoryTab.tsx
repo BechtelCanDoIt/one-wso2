@@ -238,7 +238,7 @@ function HistoryTable({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => voi
   );
 }
 
-function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
+export function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
   const rating = useParRating(cycle.parCycleId, workEmail);
   // A PAR 2.0 cycle has a guided self-review (nil for any other cycle) and, for a leader, Leadership
   // 360° results. A member's 360° scores are never shown to them. Only looked up behind the par2 preview flag.
@@ -278,9 +278,10 @@ function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: str
           cycle={cycle}
           rating={rating.data}
           selfReview={<ParSelfReviewView definition={definition} answers={selfReview.data.answers} />}
-          // Offered once a leader's Leadership 360° lookup is done, so the PDF doesn't go without it.
+          // Offered once a leader's Leadership 360° lookup is done, so the PDF doesn't go without it; a
+          // failed one is offered again below.
           onDownloadPdf={
-            leadership360.isLoading
+            leadership360.isLoading || leadership360.failed
               ? undefined
               : () =>
                   downloadPar2Pdf({
@@ -291,6 +292,15 @@ function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: str
                   })
           }
         />
+        {leadership360.failed && (
+          <ErrorNotice
+            error={leadership360.failed.error}
+            onRetry={leadership360.failed.retry}
+            retrying={leadership360.failed.retrying}
+          >
+            Couldn't load your Leadership 360° results for the PDF.
+          </ErrorNotice>
+        )}
         {isPreviewEnabled("leadership360") && <Leadership360ResultsCard view="SELF" parCycleId={cycle.parCycleId} />}
       </Stack>
     );

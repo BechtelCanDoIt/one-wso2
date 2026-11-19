@@ -23,9 +23,14 @@ let rating: { parLeadStatus: string; parIsLeadershipEmployee: boolean } = {
   parIsLeadershipEmployee: false,
 };
 const requestReviewers = { mutate: vi.fn(), isPending: false, error: null };
+let ratingFails = false;
+const retryRating = vi.fn();
 vi.mock("../api/useParData", () => ({
   useParEmployeeInfo: () => ({ data: { leadEmail: "hannah@example.com" } }),
-  useParRating: () => ({ data: rating }),
+  useParRating: () =>
+    ratingFails
+      ? { data: undefined, isError: true, error: new Error("Unavailable"), isFetching: false, refetch: retryRating }
+      : { data: rating },
 }));
 type Reviewer = { reviewerEmail: string; reviewerName: string; reviewStatus: string };
 let reviewers: Reviewer[] = [];
@@ -88,6 +93,8 @@ beforeEach(() => {
   receivedCount = 1;
   countState = {};
   retryCount.mockReset();
+  ratingFails = false;
+  retryRating.mockReset();
   window.config = originalConfig;
   requestReviewers.mutate.mockReset();
 });
@@ -205,5 +212,14 @@ describe("Par360AboutMe", () => {
     expect(screen.queryByText(/None yet/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(retryCount).toHaveBeenCalled();
+  });
+
+  it("says when the PAR record couldn't be loaded, rather than None yet, since no count can be chosen", () => {
+    ratingFails = true;
+    render(<Par360AboutMe cycle={cycle(OPEN)} workEmail="ravi@example.com" />);
+    expect(screen.getByText(/Couldn't load how much feedback you've received/)).toBeInTheDocument();
+    expect(screen.queryByText(/None yet/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retryRating).toHaveBeenCalled();
   });
 });

@@ -71,8 +71,10 @@ export default function Par360AboutMe({
     rating.isLoading ||
     (counting && count.isLoading) ||
     (leader && (surveys.isLoading || leadershipResults.isLoading));
-  const countQueries = counting ? [count] : leader ? [surveys, leadershipResults] : [];
-  const countFailed = countQueries.find((q) => q.isError);
+  // Without the PAR record there's no telling which count applies. One still loaded from before a
+  // failed refetch is used as it is.
+  const countQueries = !rating.data ? [rating] : counting ? [count] : leader ? [surveys, leadershipResults] : [];
+  const countFailed = countQueries.find((q) => q.isError && q.data === undefined);
   const received = leader ? (leadershipResults.data?.[0]?.responseCount ?? 0) : (count.data?.received ?? 0);
   const deadlinePassed = isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
   const blocked = deadlinePassed || leadShared;

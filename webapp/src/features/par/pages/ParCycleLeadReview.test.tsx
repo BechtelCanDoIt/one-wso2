@@ -22,6 +22,7 @@ let rating: Partial<ParRating>;
 const downloadPar2Pdf = vi.fn();
 let profileFails = false;
 let selfReviewFails = false;
+let selfReviewRefetchFailed = false;
 const retrySelfReview = vi.fn();
 let leadership360: { data?: unknown; isLoading: boolean; failed?: { error: unknown; retry: () => void; retrying: boolean } };
 
@@ -39,7 +40,7 @@ vi.mock("../api/useSelfReview", () => ({
   useSelfReview: () =>
     selfReviewFails
       ? { data: undefined, isError: true, error: new Error("Unavailable"), isFetching: false, refetch: retrySelfReview }
-      : { data: { template: { definition: { sections: [] } }, answers: {} }, isError: false },
+      : { data: { template: { definition: { sections: [] } }, answers: {} }, isError: selfReviewRefetchFailed },
 }));
 vi.mock("../api/useLeadership360", () => ({ useCycleLeadership360ForPdf: () => leadership360 }));
 vi.mock("@features/leave/api/useLeaveData", () => ({ useLeaveEmployees: () => ({ data: [] }) }));
@@ -54,6 +55,7 @@ beforeEach(() => {
   downloadPar2Pdf.mockReset();
   profileFails = false;
   selfReviewFails = false;
+  selfReviewRefetchFailed = false;
   retrySelfReview.mockReset();
   leadership360 = { data: undefined, isLoading: false };
 });
@@ -106,5 +108,13 @@ describe("ParCycleLeadReview", () => {
     leadership360 = { isLoading: false, failed: { error: new Error("Unavailable"), retry: vi.fn(), retrying: false } };
     render(<ParCycleLeadReview />);
     expect(screen.getByText(/Couldn't load your Leadership 360° results for the PDF/)).toBeInTheDocument();
+  });
+
+  it("keeps Download PDF when a refetch fails with the self-review still loaded", () => {
+    rating = { ...rating, ...SHARED };
+    selfReviewRefetchFailed = true;
+    render(<ParCycleLeadReview />);
+    expect(screen.getByRole("button", { name: "Download PDF" })).toBeEnabled();
+    expect(screen.queryByText(/Couldn't load your self-review/)).not.toBeInTheDocument();
   });
 });

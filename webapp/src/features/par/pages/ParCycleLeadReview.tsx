@@ -83,14 +83,16 @@ export default function ParCycleLeadReview() {
   const parRating = rating.data;
   const review = selfReview.data;
   // What the PDF needs that couldn't be loaded is offered again, rather than the PDF going without it.
-  const pdfFailed: PdfFailure | undefined = selfReview.isError
-    ? {
-        what: "your self-review",
-        error: selfReview.error,
-        retry: () => void selfReview.refetch(),
-        retrying: selfReview.isFetching,
-      }
-    : leadership360.failed && { what: "your Leadership 360° results", ...leadership360.failed };
+  // A self-review still loaded from before a failed refetch is used as it is.
+  const pdfFailed: PdfFailure | undefined =
+    selfReview.isError && !review
+      ? {
+          what: "your self-review",
+          error: selfReview.error,
+          retry: () => void selfReview.refetch(),
+          retrying: selfReview.isFetching,
+        }
+      : leadership360.failed && { what: "your Leadership 360° results", ...leadership360.failed };
   return (
     <SharedReview
       rating={parRating}

@@ -548,7 +548,7 @@ export default function ParLeadReviewPanel({
                       <ParCommentView html={savedLead360Summary} />
                     </Box>
                   )
-                ) : responses.isLoading ? null : responses.isError ? (
+                ) : responses.isLoading ? null : responses.isError && !responses.data ? (
                   // Without the count, nothing says whether there's a summary to write.
                   <ErrorNotice error={responses.error} onRetry={() => responses.refetch()} retrying={responses.isFetching}>
                     Couldn't load the 360° responses.
