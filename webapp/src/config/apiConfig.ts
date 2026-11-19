@@ -395,23 +395,6 @@ export const parServiceUrls = {
   parLegacyHistory: (employeeEmail: string) =>
     `${parBackendUrl}/legacy-par-history/${encodeURIComponent(employeeEmail)}`,
 
-  // ---- F2F scheduling ---------------------------------------------------------
-  //
-  // Flat top-level paths on the same par-app backend, not nested under
-  // /par-cycles — service.bal's own resource layout.
-
-  // GET .../calendar/busy-times?date=YYYY-MM-DD — the invoker's and their
-  // lead's busy periods for that day (server resolves the lead; nothing
-  // about them is passed from here). Raw Google Calendar freebusy shape.
-  calendarBusyTimes: (date: string) =>
-    `${parBackendUrl}/calendar/busy-times?date=${encodeURIComponent(date)}`,
-  // POST .../calendar/schedule-f2f (ScheduleF2fRequest) — creates the Google
-  // Calendar event (with a Meet link Google generates) and emails both
-  // attendees the invite. Returns bare 201 with no body: the app never
-  // shows the Meet link itself, only a "meeting scheduled" confirmation —
-  // see ParScheduleF2fDialog.tsx.
-  calendarScheduleF2f: () => `${parBackendUrl}/calendar/schedule-f2f`,
-
   // ---- Admin Portal -------------------------------------------------------------
   //
   // Admin-gated server-side already (invokerDetails.isAdmin) — same backend

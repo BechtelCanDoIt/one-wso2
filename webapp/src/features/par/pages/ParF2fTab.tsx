@@ -25,7 +25,6 @@ import { useActiveParCycle, useParRating } from "../api/useParData";
 import { useSaveParRating } from "../api/useParMutations";
 import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
-import ParScheduleF2fDialog from "../components/ParScheduleF2fDialog";
 import ParDateField from "../components/ParDateField";
 
 function todayDateOnly(): string {
@@ -49,7 +48,6 @@ export default function ParF2fTab() {
 
   const [completedDate, setCompletedDate] = useState("");
   const [dateTouched, setDateTouched] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   if (activeCycles.isLoading || profile.isLoading) {
     return <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
@@ -156,11 +154,6 @@ export default function ParF2fTab() {
             </Box>
 
             <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
-              {status === "PENDING" && (
-                <Button variant="outlined" disabled={!leadShared} onClick={() => setScheduleOpen(true)}>
-                  Schedule Google Meet
-                </Button>
-              )}
               <Button
                 variant="contained"
                 disabled={!leadShared || save.isPending}
@@ -172,14 +165,6 @@ export default function ParF2fTab() {
           </>
         )}
       </Stack>
-
-      <ParScheduleF2fDialog
-        open={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
-        parCycleId={cycle.parCycleId}
-        parRatingId={parRating.parRatingId}
-        workEmail={workEmail}
-      />
     </Box>
   );
 }

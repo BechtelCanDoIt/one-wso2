@@ -446,40 +446,6 @@ export interface ParSpecialRatingAllocation {
   parTop20Quota: number;
 }
 
-// ---- F2F scheduling ----------------------------------------------------------
-//
-// Mirrors the backend's raw Google Calendar freebusy shape (gcalendar:
-// FreeBusyResponse) and its own ScheduleMeetingRequest.
-
-export interface ParCalendarBusySlot {
-  start: string;
-  end: string;
-}
-
-export interface ParCalendarBusy {
-  busy: ParCalendarBusySlot[];
-}
-
-// GET .../calendar/busy-times?date=YYYY-MM-DD.
-export interface ParFreeBusyResponse {
-  calendars: Record<string, ParCalendarBusy>;
-  kind: string;
-  timeMax: string;
-  timeMin: string;
-}
-
-// Body for POST .../calendar/schedule-f2f. The response is a bare 201 with
-// no payload (the backend returns `http:CREATED` and nothing else) — there
-// is no meetLink to read back from this call.
-export interface ParScheduleF2fRequest {
-  parRatingId: number;
-  title: string;
-  description: string;
-  startTime: string;
-  endTime: string;
-  date: string;
-}
-
 // ---- Admin Portal ----------------------------------------------------------
 //
 // Admin org-wide views reuse ParTeamSummary/ParParticipant above — same
