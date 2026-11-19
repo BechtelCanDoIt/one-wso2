@@ -102,8 +102,8 @@ export default function SalesMeetingsPage() {
 
   return (
     <SalesShell
-      title="Meetings"
-      subtitle="Recorded sales meetings, with their recordings, transcripts and notes."
+      title="Calls"
+      subtitle="Recorded sales calls, with their recordings, transcripts and notes."
       configured={configured}
       configKey="ONE_WSO2_REVOPS_BACKEND_URL"
       forbidden={forbidden}

@@ -69,13 +69,25 @@ describe("CallMeddpiccTab's Analyse again", () => {
     expect(screen.getByRole("button", { name: "Analyse again" })).toBeEnabled();
   });
 
-  it("waits while an analysis is running or was just asked for", () => {
-    const { unmount } = renderTab(callWith(coverageOf("RUNNING")), { allowed: true, inFlight: false, request: () => {} });
+  it("waits while a request is in flight, and is not offered while an analysis runs", () => {
+    const { unmount } = renderTab(callWith(coverageOf("DONE")), { allowed: true, inFlight: true, request: () => {} });
     expect(screen.getByRole("button", { name: "Analyse again" })).toBeDisabled();
     unmount();
 
-    renderTab(callWith(coverageOf("DONE")), { allowed: true, inFlight: true, request: () => {} });
-    expect(screen.getByRole("button", { name: "Analyse again" })).toBeDisabled();
+    for (const status of ["PENDING", "RUNNING"] as const) {
+      const { unmount: done } = renderTab(callWith(coverageOf(status)), { allowed: true, inFlight: false, request: () => {} });
+      expect(screen.queryByRole("button", { name: "Analyse again" })).not.toBeInTheDocument();
+      done();
+    }
+  });
+
+  // Nothing to analyse again: no transcript, an empty one, or no answer about the call yet.
+  it("is not offered for a call with nothing to analyse", () => {
+    for (const coverage of [coverageOf("NONE"), coverageOf("EMPTY"), undefined]) {
+      const { unmount } = renderTab(callWith(coverage), { allowed: true, inFlight: false, request: () => {} });
+      expect(screen.queryByRole("button", { name: "Analyse again" })).not.toBeInTheDocument();
+      unmount();
+    }
   });
 
   it("is left out for anyone else, and when nobody can ask", () => {

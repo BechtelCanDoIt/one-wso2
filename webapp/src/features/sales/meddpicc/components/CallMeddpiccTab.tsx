@@ -78,19 +78,23 @@ export default function CallMeddpiccTab({
   }
 
   // Here rather than in the calls table, which lists the recordings alone: the analysis is
-  // asked for where it is read. Not while one is already running.
+  // asked for where it is read. Only once an analysis has finished or failed: a call with
+  // no transcript, or an empty one, has nothing to analyse again, and one still running is
+  // not asked twice.
   const analysing = coverage?.status === "PENDING" || coverage?.status === "RUNNING";
-  const analyseAgain = reanalysis?.allowed ? (
-    <Button
-      size="small"
-      variant="outlined"
-      startIcon={reanalysis.inFlight ? <CircularProgress size={14} color="inherit" /> : <RefreshCwIcon size={14} />}
-      disabled={reanalysis.inFlight || analysing}
-      onClick={reanalysis.request}
-    >
-      Analyse again
-    </Button>
-  ) : null;
+  const retriable = coverage?.status === "DONE" || coverage?.status === "FAILED";
+  const analyseAgain =
+    reanalysis?.allowed && retriable ? (
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={reanalysis.inFlight ? <CircularProgress size={14} color="inherit" /> : <RefreshCwIcon size={14} />}
+        disabled={reanalysis.inFlight}
+        onClick={reanalysis.request}
+      >
+        Analyse again
+      </Button>
+    ) : null;
 
   if (!coverage || coverage.status !== "DONE") {
     return (
