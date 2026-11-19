@@ -2126,7 +2126,7 @@ export function isCado2BackendConfigured(): boolean {
 
 const encodeSegment = (value: string | number): string => encodeURIComponent(String(value));
 
-// Procurement — Finance → Procurement, purchase requests through to Procurement
+// Procurement — Me → Procurement, purchase requests through to Procurement
 // assignment. Its own backend, version segment included. Unset means "not
 // connected": its pages say so and make no requests. Gated as a whole by the
 // `procurement` preview flag as well (previewFeatures.ts).
@@ -2153,7 +2153,19 @@ export const procurementServiceUrls = {
   directoryEmployees: (query: string, leadsOnly: boolean): string =>
     `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}${leadsOnly ? "&leadsOnly=true" : ""}`,
   requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
+  approvals: (limit: number, status?: string): string =>
+    `${procurementBackendUrl}/approvals?limit=${encodeSegment(limit)}${status ? `&status=${encodeSegment(status)}` : ""}`,
+  teamQueue: (limit: number, status?: string, priority?: string): string =>
+    `${procurementBackendUrl}/procurement/requests?limit=${encodeSegment(limit)}${status ? `&status=${encodeSegment(status)}` : ""}${priority ? `&priority=${encodeSegment(priority)}` : ""}`,
+  assignRequest: (requestId: string, email?: string): string =>
+    `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/assign${email ? `/${encodeSegment(email)}` : ""}`,
+  unassignRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/unassign`,
+  requestPriority: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/priority`,
+  decideRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/decision`,
+  createRequest: `${procurementBackendUrl}/requests`,
   request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
+  submitRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/submit`,
+  cancelRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/cancel`,
 };
 
 export const cado2ServiceUrls = {

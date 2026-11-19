@@ -77,7 +77,7 @@ import {
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
 import { MIS_APPS } from "@constants/misApps";
-import { PROCUREMENT_APPS } from "@constants/procurementApps";
+import { PROCUREMENT_APPS, PROCUREMENT_TEAM_APPS } from "@constants/procurementApps";
 import { DOWNLOAD_STATS_APPS } from "@constants/downloadStatsApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
@@ -522,6 +522,9 @@ const ME_SECTIONS: PerspectiveSection[] = [
   ...appsToSections(ME_PAR_APPS),
   // promotion-app's employee portal.
   ...appsToSections(ME_PROMOTION_APPS),
+  // Procurement: raising a purchase request is something any employee does.
+  // With the flag off the group doesn't exist.
+  ...(isPreviewEnabled("procurement") ? appsToSections(PROCUREMENT_APPS) : []),
 ];
 
 // Amplify — employees share official WSO2 LinkedIn posts and earn points;
@@ -784,9 +787,6 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // not something everyone has — unlike leave or claims, it is not part of
       // the set every employee needs.
       ...appsToSections(FINANCE_PERSPECTIVE_APPS),
-      // Procurement: purchase requests through to Procurement assignment.
-      // With the flag off the group doesn't exist.
-      ...(isPreviewEnabled("procurement") ? appsToSections(PROCUREMENT_APPS) : []),
       // Due Diligence — also surfaced under Legal (see the `legal` perspective
       // below). ONE registry (DUE_DILIGENCE_APPS), included in both places, so
       // the two rails can't drift. Gated on the due-diligence backend's own
@@ -817,6 +817,24 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
   // `externallyGated: true` for the same reason Marketing Ops carries it:
   // `access: true` only means the perspective is built, not that everyone who
   // opens it can use what's inside — see useDueDiligenceGate.
+  // Procurement: the team that assigns and handles approved purchase requests.
+  // Everyone else raises and tracks requests under Me. `externallyGated`
+  // because who belongs to the team is the backend's own role, read from its
+  // /me -- see useProcurementTeamRailGate. Held behind the `procurement` flag.
+  ...(isPreviewEnabled("procurement")
+    ? [
+        {
+          key: "procurement",
+          label: "Procurement",
+          icon: PackageIcon,
+          access: true,
+          externallyGated: true,
+          forwardsToFirstItem: true,
+          path: "/procurement",
+          sections: appsToSections(PROCUREMENT_TEAM_APPS),
+        },
+      ]
+    : []),
   {
     key: "legal",
     label: "Legal",
