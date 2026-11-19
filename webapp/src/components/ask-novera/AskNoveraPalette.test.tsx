@@ -305,9 +305,10 @@ describe("AskNoveraPalette", () => {
     expect(screen.getByRole("button", { name: "Open Employee Directory" })).toBeInTheDocument();
   });
 
-  it("shows clean empty state when query matches no apps", () => {
+  it("shows clean empty state with polite status announcement when query matches no apps", () => {
     renderPalette("nonexistentxyzquery");
     expect(screen.getByText(/No apps found matching/)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(/No apps found matching/);
   });
 
   it("navigates to banking administration for admins", async () => {

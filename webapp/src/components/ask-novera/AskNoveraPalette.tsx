@@ -509,13 +509,15 @@ export default function AskNoveraPalette({
           )}
 
           {/* Empty Search State */}
-          {canvasQuery.trim() && !primaryApp && (
-            <Box sx={{ py: 6, textAlign: "center", color: "text.secondary" }}>
-              <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                No apps found matching &ldquo;{canvasQuery}&rdquo;
-              </Typography>
-            </Box>
-          )}
+          <Box role="status" aria-live="polite">
+            {canvasQuery.trim() && !primaryApp ? (
+              <Box sx={{ py: 6, textAlign: "center", color: "text.secondary" }}>
+                <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                  No apps found matching &ldquo;{canvasQuery}&rdquo;
+                </Typography>
+              </Box>
+            ) : null}
+          </Box>
         </Box>
       </Box>
     </Dialog>
