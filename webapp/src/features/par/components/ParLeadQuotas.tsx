@@ -19,13 +19,12 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { useActiveParCycle } from "../api/useParData";
 import { useParSpecialRatingAllocations } from "../api/useSpecialRatingAllocation";
-import ParAllocationGroupsList from "./ParAllocationGroupsList";
 import ParEmptyState from "./ParEmptyState";
+import ParLeadQuotaGroups from "./ParLeadQuotaGroups";
 
-// The lead's Top 5%/20% quotas, opened from the Lead View header (the admin
-// view, which omits leadEmail to see every quota group, is
-// ParOrgQuotaAllocationsTab.tsx instead — both share ParAllocationGroupsList,
-// differing only in which hook fetches `rows`).
+// The lead's Top 5%/20% quotas, opened from the Lead View header: each quota
+// and its teams (the admin view, which omits leadEmail to see every quota
+// group, is ParOrgQuotaAllocationsTab.tsx instead, with ParAllocationGroupsList).
 export default function ParLeadQuotas() {
   const profile = useMeProfile();
   const workEmail = profile.data?.userInfo.workEmail;
@@ -71,5 +70,5 @@ export default function ParLeadQuotas() {
     );
   }
 
-  return <ParAllocationGroupsList rows={rows} />;
+  return <ParLeadQuotaGroups rows={rows} />;
 }

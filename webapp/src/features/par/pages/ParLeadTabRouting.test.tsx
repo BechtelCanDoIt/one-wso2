@@ -136,7 +136,7 @@ describe("a team lead", () => {
     show();
     expect(await screen.findByRole("tab", { name: "Direct Reports" })).toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Top 5%\/20%/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Top 5%/20% quotas" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Quotas" }));
     expect(screen.getByRole("dialog", { name: "Top 5%/20% quotas" })).toHaveTextContent("Quota groups");
   });
 });
@@ -186,7 +186,7 @@ describe("a lead with reports but no active cycle", () => {
     await screen.findByTestId("tab-body");
     expect(screen.queryByRole("tab", { name: "Direct Reports" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("tab")).toHaveLength(1);
-    expect(screen.queryByRole("button", { name: "Top 5%/20% quotas" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "View Quotas" })).not.toBeInTheDocument();
   });
 
   it("is redirected to Employee History when deep-linking straight to a cycle-scoped tab", async () => {

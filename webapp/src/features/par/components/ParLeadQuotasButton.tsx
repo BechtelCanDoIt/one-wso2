@@ -31,9 +31,9 @@ export default function ParLeadQuotasButton() {
         onClick={() => setOpen(true)}
         sx={{ whiteSpace: "nowrap", flexShrink: 0 }}
       >
-        Top 5%/20% quotas
+        View Quotas
       </Button>
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth scroll="paper">
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth scroll="paper">
         <DialogTitle>Top 5%/20% quotas</DialogTitle>
         <DialogContent>{open && <ParLeadQuotas />}</DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

@@ -25,7 +25,7 @@ describe("ParLeadQuotasButton", () => {
   it("opens the quotas in a dialog, loading them only once opened", () => {
     render(<ParLeadQuotasButton />);
     expect(screen.queryByText("Quota groups")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Top 5%/20% quotas" }));
+    fireEvent.click(screen.getByRole("button", { name: "View Quotas" }));
     expect(screen.getByRole("dialog", { name: "Top 5%/20% quotas" })).toHaveTextContent("Quota groups");
   });
 });
