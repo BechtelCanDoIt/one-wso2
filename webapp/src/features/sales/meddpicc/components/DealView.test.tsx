@@ -332,12 +332,18 @@ describe("DealView", { timeout: 20000 }, () => {
   });
 
   // The score and flags themselves are covered in DealScore.test and DealFlags.test.
-  it("has a deal score card, a dash with no score, and no attention box with no flags", async () => {
+  it("has a deal score card with Salesforce's score, and no attention box with no flags", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     expect(screen.getByText("Opportunity score")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Opportunity score 78.9, Strong" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
+  });
+
+  it("shows a dash on the score card where Salesforce has none", async () => {
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+    expect(screen.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
   });
 
   it("re-reads the deal from Salesforce on Refresh, and shows what came back", async () => {

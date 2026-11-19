@@ -243,6 +243,7 @@ export function createFixtures(): MockFixtures {
     summary: {
       opportunityId: "006MOCK0000MERI",
       name: "Meridian Bank – integration platform",
+      dealScore: 78.9,
       accountId: "001MOCK0000MERI",
       accountName: "Meridian Bank Group",
       salesRegion: "EU",
@@ -307,6 +308,7 @@ export function createFixtures(): MockFixtures {
     summary: {
       opportunityId: "006MOCK0000NORD",
       name: "Nordlys Energi – identity expansion",
+      dealScore: 42.1,
       accountId: "001MOCK0000NORD",
       accountName: "Nordlys Energi AS",
       salesRegion: "EU",
