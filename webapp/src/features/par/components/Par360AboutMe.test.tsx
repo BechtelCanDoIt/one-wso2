@@ -29,7 +29,7 @@ vi.mock("../api/useParData", () => ({
 }));
 vi.mock("../api/usePar360", () => ({
   useReviewers: () => ({
-    data: [{ reviewerEmail: "alex@example.com", reviewerName: "Alex Morgan", reviewStatus: "SHARED", relationship: "PEER" }],
+    data: [{ reviewerEmail: "alex@example.com", reviewerName: "Alex Morgan", reviewStatus: "SHARED" }],
     isLoading: false,
     isError: false,
   }),
@@ -84,22 +84,17 @@ describe("Par360AboutMe", () => {
     requestReviewers.mutate.mockImplementation((_vars, { onSuccess }) => onSuccess());
     render(<Par360AboutMe cycle={cycle(OPEN)} workEmail="ravi@example.com" />);
     fireEvent.click(screen.getByRole("button", { name: "Add Maya Fernando" }));
-    fireEvent.click(screen.getByRole("button", { name: "Peer" }));
     fireEvent.click(screen.getByRole("button", { name: "Request" }));
-    expect(requestReviewers.mutate).toHaveBeenCalledWith(
-      { reviewerEmails: ["maya@example.com"], relationships: { "maya@example.com": "PEER" } },
-      expect.anything(),
-    );
-    expect(screen.queryByText("How does each person work with you?")).not.toBeInTheDocument();
+    expect(requestReviewers.mutate).toHaveBeenCalledWith({ reviewerEmails: ["maya@example.com"] }, expect.anything());
+    expect(screen.queryByText("maya@example.com")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Request" })).toBeDisabled();
   });
 
   it("keeps what was picked when the request fails", () => {
     render(<Par360AboutMe cycle={cycle(OPEN)} workEmail="ravi@example.com" />);
     fireEvent.click(screen.getByRole("button", { name: "Add Maya Fernando" }));
-    fireEvent.click(screen.getByRole("button", { name: "Peer" }));
     fireEvent.click(screen.getByRole("button", { name: "Request" }));
-    expect(screen.getByText("How does each person work with you?")).toBeInTheDocument();
+    expect(screen.getByText("maya@example.com")).toBeInTheDocument();
   });
 
   it("has no picker once the lead has shared the PAR", () => {

@@ -20,7 +20,6 @@ import {
   AccordionSummary,
   Box,
   Card,
-  Chip,
   Skeleton,
   Stack,
   Typography,
@@ -129,10 +128,6 @@ export function ParLead360Guidance({ parCycleId, employeeEmail }: { parCycleId: 
 }
 
 function ResponseAccordion({ response, definition }: { response: Review360Response; definition: FormDefinition }) {
-  const relationship = definition.sections
-    .flatMap((s) => s.questions)
-    .find((q) => q.type === "CHOICE")
-    ?.options?.find((o) => o.value === response.answers.relationship)?.label;
   const ratings = ratedQuestions(definition).map((q) => response.answers[q.id]).filter((v): v is number => typeof v === "number");
   const average = ratings.length ? ratings.reduce((a, b) => a + b, 0) / ratings.length : undefined;
   return (
@@ -147,7 +142,6 @@ function ResponseAccordion({ response, definition }: { response: Review360Respon
               {response.reviewerEmail}
             </Typography>
           </Box>
-          {relationship && <Chip size="small" variant="outlined" label={relationship} />}
           <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 28, textAlign: "right" }}>
             {formatIndex(average)}
           </Typography>

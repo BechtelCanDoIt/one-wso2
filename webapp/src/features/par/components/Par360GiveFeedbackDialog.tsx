@@ -26,15 +26,11 @@ import {
   DialogTitle,
   Stack,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { useOfferToReview, useParticipants } from "../api/usePar360";
 import { useOwnReports } from "../api/useLeadTeams";
-import { REVIEW_360_RELATIONSHIPS } from "../api/review360Types";
-import { PICKED_FILLED_SX } from "../util/toggleSx";
 import type { ParCycle } from "../api/types";
 import type { Leadership360CurrentSurvey, Leadership360Leader } from "../api/leadership360Types";
 import {
@@ -46,16 +42,15 @@ import {
 import { isDeadlinePassed } from "../util/parDeadline";
 
 export type FeedbackStart =
-  // `offered`: nobody asked you; `relationship`: how you said you work with them, offering it.
-  | { kind: "PAR"; email: string; name: string; offered?: boolean; relationship?: string }
+  // `offered`: nobody asked you.
+  | { kind: "PAR"; email: string; name: string; offered?: boolean }
   | { kind: "LEADERSHIP"; leader: Leadership360Leader };
 
 // Give feedback: the person first, from everyone in the cycle and the
 // leadership team, except a lead's own reports, whose feedback goes in the
 // lead's review. Who they are decides the form: Leadership 360° for a member
 // of the leadership team, PAR feedback for anyone else. PAR feedback nobody
-// asked for is an offer, confirmed first, since it adds you to their reviewers;
-// you say there how you work with them, as someone asking would.
+// asked for is an offer, confirmed first, since it adds you to their reviewers.
 export default function Par360GiveFeedbackDialog({
   onClose,
   workEmail,
@@ -84,7 +79,6 @@ export default function Par360GiveFeedbackDialog({
 }) {
   const [person, setPerson] = useState<PickerPerson | null>(null);
   const [confirming, setConfirming] = useState(false);
-  const [relationship, setRelationship] = useState<string | null>(null);
   const participants = useParticipants(cycle.parCycleId);
   const offer = useOfferToReview(cycle.parCycleId, workEmail);
   const ownReports = useOwnReports(workEmail, cycle.parCycleId, held);
@@ -128,7 +122,6 @@ export default function Par360GiveFeedbackDialog({
   const choose = (p: PickerPerson | null) => {
     offer.reset();
     setPerson(p);
-    setRelationship(null);
     if (!p) return;
     const leader = leaderByEmail.get(p.email.toLowerCase());
     if (leader) onStart({ kind: "LEADERSHIP", leader });
@@ -147,27 +140,6 @@ export default function Par360GiveFeedbackDialog({
                 ? `Offer feedback for ${person.name}? They didn't ask you. It counts toward their next PAR cycle, and their lead reads your answers with your name.`
                 : `Offer feedback for ${person.name}'s ${cycle.parCycleName} PAR? They didn't ask you. Their lead reads your answers with your name.`}
             </Typography>
-            <Box>
-              <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.75 }}>
-                How do you work with {person.name}?
-              </Typography>
-              <ToggleButtonGroup
-                exclusive
-                size="small"
-                value={relationship}
-                onChange={(_e, v: string | null) => {
-                  if (v) setRelationship(v);
-                }}
-                aria-label={`How you work with ${person.name}`}
-                sx={PICKED_FILLED_SX}
-              >
-                {REVIEW_360_RELATIONSHIPS.map((r) => (
-                  <ToggleButton key={r.value} value={r.value} sx={{ textTransform: "none", px: 2 }}>
-                    {r.label}
-                  </ToggleButton>
-                ))}
-              </ToggleButtonGroup>
-            </Box>
             {offer.isError && <Alert severity="error">{describeError(offer.error)}</Alert>}
           </Stack>
         ) : (
@@ -233,14 +205,13 @@ export default function Par360GiveFeedbackDialog({
             </Button>
             <Button
               variant="contained"
-              disabled={offer.isPending || !relationship}
-              onClick={() => {
-                if (!relationship) return;
+              disabled={offer.isPending}
+              onClick={() =>
                 offer.mutate(
-                  { employeeEmail: person.email, relationship },
-                  { onSuccess: () => onStart({ kind: "PAR", email: person.email, name: person.name, offered: true, relationship }) },
-                );
-              }}
+                  { employeeEmail: person.email },
+                  { onSuccess: () => onStart({ kind: "PAR", email: person.email, name: person.name, offered: true }) },
+                )
+              }
             >
               {offer.isPending ? "Offering…" : "Offer feedback"}
             </Button>

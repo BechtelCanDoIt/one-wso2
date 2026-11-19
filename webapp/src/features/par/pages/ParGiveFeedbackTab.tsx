@@ -277,7 +277,6 @@ export default function ParGiveFeedbackTab() {
           deadline={cycle.parThreeSixtyRatingDeadline}
           held={held}
           offered={giving?.kind === "PAR" ? Boolean(giving.offered) : isVoluntary(viewing!)}
-          relationship={giving?.kind === "PAR" ? giving.relationship : undefined}
         />
       )}
       {viewing?.kind === "LEADERSHIP" && viewing.given?.anonymous === false && openSurvey && (

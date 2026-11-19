@@ -42,7 +42,6 @@ import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { employeeDisplayName } from "@features/leave/util/employeeName";
 import { useReviewers, useRequestReviewers } from "../api/usePar360";
 import { useParEmployeeReviews } from "../api/useLeadHistory";
-import { relationshipLabel } from "../api/review360Types";
 import Par360RequestDialog from "./Par360RequestDialog";
 import Leadership360ResultsCard from "./Leadership360ResultsCard";
 import ParEmptyState from "./ParEmptyState";
@@ -178,7 +177,7 @@ export default function ParLead360ReviewsTab({
                         {nameByEmail.get(reviewer.reviewerEmail) || reviewer.reviewerName || reviewer.reviewerEmail}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {[relationshipLabel(reviewer.relationship), reviewer.reviewerEmail].filter(Boolean).join(" · ")}
+                        {reviewer.reviewerEmail}
                       </Typography>
                     </Box>
                   </Box>
@@ -232,13 +231,12 @@ export default function ParLead360ReviewsTab({
         selfEmail={employeeEmail}
         leadEmail={leadEmail}
         existingEmails={(reviewers.data ?? []).map((r) => r.reviewerEmail)}
-        onSubmit={(reviewerEmails, relationships) =>
-          requestReviewers.mutate({ reviewerEmails, relationships }, { onSuccess: () => setRequestDialogOpen(false) })
+        onSubmit={(reviewerEmails) =>
+          requestReviewers.mutate({ reviewerEmails }, { onSuccess: () => setRequestDialogOpen(false) })
         }
         isSubmitting={requestReviewers.isPending}
         error={requestReviewers.error ?? undefined}
         parCycleId={structured ? cycle.parCycleId : undefined}
-        askRelationship={structured && !leadership}
         subjectName={nameByEmail.get(employeeEmail) ?? "them"}
       />
 

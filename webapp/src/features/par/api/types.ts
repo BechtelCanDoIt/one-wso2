@@ -185,16 +185,11 @@ export interface Par360Reviewer {
   isEmployeeRequested: boolean;
   // PAR 2.0 cycles only.
   reviewerName?: string;
-  // How they work with the employee, as whoever asked said (PAR 2.0 cycles only).
-  relationship?: string;
 }
 
 // Body for POST .../employees/{email}/reviewers.
 export interface Par360ReviewRequestCreate {
   reviewerEmails: string[];
-  // How each reviewer works with the employee, by email. Required in PAR 2.0 cycles, except for a
-  // member of the leadership team.
-  relationships?: Record<string, string>;
 }
 
 // One request FOR you to review someone else. GET .../employees/{email}/review-requests

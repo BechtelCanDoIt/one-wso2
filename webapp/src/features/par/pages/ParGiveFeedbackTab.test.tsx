@@ -507,7 +507,7 @@ describe("Give feedback", () => {
     expect(screen.queryByRole("button", { name: "Discard" })).not.toBeInTheDocument();
   });
 
-  it("confirms before offering PAR feedback nobody asked for, with how you work with them, and Back returns to the list", async () => {
+  it("confirms before offering PAR feedback nobody asked for, and Back returns to the list", async () => {
     const user = userEvent.setup();
     show();
     await pick(user, "Alex");
@@ -517,20 +517,15 @@ describe("Give feedback", () => {
     expect(offerMutate).not.toHaveBeenCalled();
     await user.type(screen.getByRole("combobox", { name: "Who is it for?" }), "Alex");
     await user.click(screen.getByRole("option", { name: /Alex/ }));
-    expect(screen.getByRole("button", { name: "Offer feedback" })).toBeDisabled();
-    await user.click(screen.getByRole("button", { name: "Cross-team" }));
+    expect(screen.queryByRole("button", { name: "Cross-team" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Offer feedback" }));
-    expect(offerMutate).toHaveBeenCalledWith(
-      { employeeEmail: "alex@example.com", relationship: "CROSS_TEAM" },
-      expect.anything(),
-    );
+    expect(offerMutate).toHaveBeenCalledWith({ employeeEmail: "alex@example.com" }, expect.anything());
   });
 
   it("stays open while the offer is being made, then opens the feedback form from it", async () => {
     const user = userEvent.setup();
     const view = show();
     await pick(user, "Alex");
-    await user.click(screen.getByRole("button", { name: "Cross-team" }));
     await user.click(screen.getByRole("button", { name: "Offer feedback" }));
     offerPending = true;
     view.rerender(tab());

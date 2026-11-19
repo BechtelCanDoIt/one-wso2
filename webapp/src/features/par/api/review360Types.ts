@@ -23,17 +23,6 @@ export type ParCycleFormKind = "SELF_REVIEW" | "PEER_360";
 // Responses an employee needs before they see their summary.
 export const MIN_360_RESPONSES = 3;
 
-// How a reviewer works with the employee, picked by whoever asks for the feedback (the 360° form's
-// relationship question, answered on the request).
-export const REVIEW_360_RELATIONSHIPS = [
-  { value: "PEER", label: "Peer" },
-  { value: "CROSS_TEAM", label: "Cross-team" },
-] as const;
-
-export function relationshipLabel(value: string | null | undefined): string | undefined {
-  return REVIEW_360_RELATIONSHIPS.find((r) => r.value === value)?.label;
-}
-
 // GET .../review-form — the caller's own feedback on one employee.
 export interface Review360Form {
   template: FormTemplate;
@@ -41,8 +30,6 @@ export interface Review360Form {
   employeeName?: string | null;
   answers: FormAnswers;
   reviewStatus: Par360ReviewStatus;
-  // Answers given when the feedback was asked for (the relationship), not asked again.
-  requestAnswers?: FormAnswers;
 }
 
 // A behaviour's average. The employee's own summary gives no counts.

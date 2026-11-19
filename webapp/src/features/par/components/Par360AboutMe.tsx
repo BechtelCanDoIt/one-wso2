@@ -20,7 +20,7 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useParEmployeeInfo, useParRating } from "../api/useParData";
 import { useRequestReviewers, useReviewers } from "../api/usePar360";
 import { useReviewSummary } from "../api/useReview360";
-import { MIN_360_RESPONSES, relationshipLabel } from "../api/review360Types";
+import { MIN_360_RESPONSES } from "../api/review360Types";
 import type { ParCycle } from "../api/types";
 import { Par360RequestPicker } from "./Par360RequestDialog";
 import Par360SummaryView from "./Par360SummaryView";
@@ -121,16 +121,12 @@ export default function Par360AboutMe({
               selfEmail={workEmail}
               leadEmail={leadEmail}
               existingEmails={list.map((r) => r.reviewerEmail)}
-              onSubmit={(reviewerEmails, relationships) =>
-                requestReviewers.mutate(
-                  { reviewerEmails, relationships },
-                  { onSuccess: () => setRequestsSent((n) => n + 1) },
-                )
+              onSubmit={(reviewerEmails) =>
+                requestReviewers.mutate({ reviewerEmails }, { onSuccess: () => setRequestsSent((n) => n + 1) })
               }
               isSubmitting={requestReviewers.isPending}
               error={requestReviewers.error ?? undefined}
               parCycleId={cycle.parCycleId}
-              askRelationship={!leader}
             />
           </Box>
         )}
@@ -146,7 +142,7 @@ export default function Par360AboutMe({
           ) : (
             <Stack divider={<Box sx={{ borderTop: 1, borderColor: "divider" }} />}>
               {list.map((r) => (
-                <PersonRow key={r.reviewerEmail} name={r.reviewerName} email={r.reviewerEmail} note={relationshipLabel(r.relationship)}>
+                <PersonRow key={r.reviewerEmail} name={r.reviewerName} email={r.reviewerEmail}>
                   <StatusChip status={r.reviewStatus} leadership={leader} />
                 </PersonRow>
               ))}
