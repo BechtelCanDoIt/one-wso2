@@ -124,18 +124,19 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(screen.queryByRole("button", { name: "Kestrel Telecom – API Manager expansion" })).not.toBeInTheDocument();
   });
 
-  it("opens on All opportunities, and My opportunities narrows to your own", async () => {
+  it("opens on All, and Mine narrows to your own", async () => {
     const user = userEvent.setup();
     const spy = vi.spyOn(mockMeddpiccClient, "deals");
     renderPage();
     await screen.findByRole("button", { name: "Brightwater – API Manager first sale" });
 
-    expect(screen.getByRole("radio", { name: "All opportunities" })).toBeChecked();
+    const scope = within(screen.getByRole("group", { name: "Whose opportunities to show" }));
+    expect(scope.getByRole("button", { name: "All" })).toHaveAttribute("aria-pressed", "true");
     expect(spy).toHaveBeenLastCalledWith(expect.objectContaining({ mine: false }));
     expect(screen.getByRole("button", { name: "Asterra Health – FHIR gateway" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Owner" })).not.toHaveAttribute("aria-disabled");
 
-    await user.click(screen.getByRole("radio", { name: "My opportunities" }));
+    await user.click(scope.getByRole("button", { name: "Mine" }));
 
     await waitFor(() =>
       expect(screen.queryByRole("button", { name: "Asterra Health – FHIR gateway" })).not.toBeInTheDocument(),
