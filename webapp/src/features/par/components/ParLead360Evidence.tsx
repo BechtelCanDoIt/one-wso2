@@ -29,18 +29,26 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { FormDefinition } from "../api/leadership360Types";
 import type { Review360Response, Review360Responses } from "../api/review360Types";
 import { useReviewResponses } from "../api/useReview360";
+import { MIN_360_RESPONSES } from "../api/review360Types";
+import { hasEndedEverywhere } from "../util/parDeadline";
 import { formatIndex, indexComparison, ratedQuestions, ratingLabels, textQuestions } from "../util/review360Form";
 import Par360SummaryView from "./Par360SummaryView";
+
+// Once the 360° deadline has ended everywhere, no more feedback can come in, so fewer than 3 is final.
+const tooFewAtDeadline = `Fewer than ${MIN_360_RESPONSES} people submitted by the 360° deadline, so there's no 360° feedback this cycle.`;
 
 // The lead's 360° evidence for one employee in a PAR 2.0 cycle: the summary
 // with the team average for context, then every response with its reviewer.
 export default function ParLead360Evidence({
   parCycleId,
   employeeEmail,
+  threeSixtyDeadline,
   framed = true,
 }: {
   parCycleId: number;
   employeeEmail: string;
+  /** The cycle's 360° deadline. */
+  threeSixtyDeadline: string;
   /** False inside a card that already frames it. */
   framed?: boolean;
 }) {
@@ -60,9 +68,18 @@ export default function ParLead360Evidence({
     <Stack spacing={2}>
       <Box component={framed ? Card : "div"} {...(framed ? { variant: "outlined", sx: { p: 2 } } : {})}>
         {framed && <Typography sx={{ fontWeight: 600, mb: 1.5 }}>PAR 360° results</Typography>}
-        {data.responseCount === 0 ? (
+        {data.responseCount < MIN_360_RESPONSES && hasEndedEverywhere(threeSixtyDeadline) ? (
+          <Typography variant="body2" color="text.secondary">
+            {tooFewAtDeadline}
+          </Typography>
+        ) : data.responseCount === 0 ? (
           <Typography variant="body2" color="text.secondary">
             No one has submitted yet.
+          </Typography>
+        ) : data.responseCount < MIN_360_RESPONSES ? (
+          // Nothing of the feedback until enough responses: not the responses, the index or the averages.
+          <Typography variant="body2" color="text.secondary">
+            The 360° feedback shows after {MIN_360_RESPONSES} or more submissions.
           </Typography>
         ) : (
           <>
@@ -77,7 +94,7 @@ export default function ParLead360Evidence({
           </>
         )}
       </Box>
-      {data.responses.length > 0 && (
+      {data.responseCount >= MIN_360_RESPONSES && data.responses.length > 0 && (
         <Box>
           <Typography sx={{ fontWeight: 600, mb: 1 }}>Responses</Typography>
           {data.responses.map((r) => (
@@ -113,14 +130,31 @@ export function Par360GuidanceText({ data, sx }: { data: Review360Responses; sx?
   );
 }
 
-/** Compact 360° evidence beside the rating: the guidance line, or why there's none yet. */
-export function ParLead360Guidance({ parCycleId, employeeEmail }: { parCycleId: number; employeeEmail: string }) {
+/** Compact 360° evidence beside the rating: the guidance line, or why there's none yet. Nothing once
+ * the 360° deadline has passed with too few. */
+export function ParLead360Guidance({
+  parCycleId,
+  employeeEmail,
+  threeSixtyDeadline,
+}: {
+  parCycleId: number;
+  employeeEmail: string;
+  threeSixtyDeadline: string;
+}) {
   const responses = useReviewResponses(parCycleId, employeeEmail);
   if (!responses.data) return null;
+  if (responses.data.responseCount < MIN_360_RESPONSES && hasEndedEverywhere(threeSixtyDeadline)) return null;
   if (responses.data.responseCount === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
         No 360° responses yet.
+      </Typography>
+    );
+  }
+  if (responses.data.responseCount < MIN_360_RESPONSES) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        The 360° index shows after {MIN_360_RESPONSES} or more submissions.
       </Typography>
     );
   }

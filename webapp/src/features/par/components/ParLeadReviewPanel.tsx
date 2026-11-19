@@ -66,7 +66,7 @@ import { useParEmployeeReviews } from "../api/useLeadHistory";
 import { useGoogleDrivePicker } from "../hooks/useGoogleDrivePicker";
 import { decodeParComment, encodeParComment, isEmptyHtml, paragraphsToHtml } from "../util/parComment";
 import { isPreviewEnabled } from "@config/previewFeatures";
-import { deadlineEndsEverywhereAt, isDeadlinePassed } from "../util/parDeadline";
+import { deadlineEndsEverywhereAt, hasEndedEverywhere, isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate, formatShortDateTime } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
@@ -548,6 +548,19 @@ export default function ParLeadReviewPanel({
                       <ParCommentView html={savedLead360Summary} />
                     </Box>
                   )
+                ) : responses.isLoading ? null : responseCount < MIN_360_RESPONSES && !savedLead360Summary ? (
+                  // A summary, like the index, only from enough responses: the employee sees it. Once the
+                  // 360° deadline has passed everywhere no more can come in, so there's no row at all.
+                  hasEndedEverywhere(cycle.parThreeSixtyRatingDeadline) ? null : (
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                        360° summary
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Available after {MIN_360_RESPONSES} or more submissions ({responseCount} so far).
+                      </Typography>
+                    </Box>
+                  )
                 ) : (
                   <Box>
                     <Typography variant="subtitle2" sx={{ mb: 1 }}>
@@ -664,7 +677,11 @@ export default function ParLeadReviewPanel({
                 </Box>
 
                 {showsPar2 && !isLeadership && (
-                  <ParLead360Guidance parCycleId={cycle.parCycleId} employeeEmail={employeeEmail} />
+                  <ParLead360Guidance
+                    parCycleId={cycle.parCycleId}
+                    employeeEmail={employeeEmail}
+                    threeSixtyDeadline={cycle.parThreeSixtyRatingDeadline}
+                  />
                 )}
 
                 {parRatingValue === top5p20pEnabledRating && (
@@ -849,7 +866,12 @@ export default function ParLeadReviewPanel({
                   fallback={<ParEmptyState text="No Leadership 360° results for this cycle yet" />}
                 />
               ) : (
-                <ParLead360Evidence parCycleId={cycle.parCycleId} employeeEmail={employeeEmail} framed={false} />
+                <ParLead360Evidence
+                  parCycleId={cycle.parCycleId}
+                  employeeEmail={employeeEmail}
+                  threeSixtyDeadline={cycle.parThreeSixtyRatingDeadline}
+                  framed={false}
+                />
               )}
             </CardContent>
           </Card>

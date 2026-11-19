@@ -34,7 +34,7 @@ vi.mock("./Leadership360ResultsCard", () => ({
 
 const { default: ParLeadHistoryPar2Record } = await import("./ParLeadHistoryPar2Record");
 
-const cycle = { parCycleId: 1 };
+const cycle = { parCycleId: 1, parThreeSixtyRatingDeadline: "2026-06-05" };
 const template = {
   formTemplateId: 2,
   formKind: "SELF_REVIEW",

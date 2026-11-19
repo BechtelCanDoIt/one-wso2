@@ -107,6 +107,7 @@ const cycle = {
   parCycleEndDate: "2999-12-31",
   parLeadDeadline: "2999-12-31",
   parEmployeeDeadline: "2999-12-01",
+  parThreeSixtyRatingDeadline: "2999-12-01",
   parCycleConfigurations: { parRatings: ["Successful"] },
 } as unknown as ParCycle;
 const FIELD = "Summarise the 360° feedback";
@@ -133,6 +134,7 @@ beforeEach(() => {
   ratingMutate.mockReset();
   selfReviewLookup = { data: null };
   responseCount = 3;
+  cycle.parThreeSixtyRatingDeadline = "2999-12-01";
   suggestion = { data: SUGGESTED };
   suggestionAskedFor = false;
   save.mockReset();
@@ -209,11 +211,21 @@ describe("ParLeadReviewPanel: 360° summary", () => {
     expect(screen.queryByText("Colleagues see real ownership.")).not.toBeInTheDocument();
   });
 
-  it("needs 3 submitted responses before there's a suggestion", () => {
+  it("needs 3 submitted responses before there's a summary to write, or a suggestion", () => {
     responseCount = 2;
     show();
     expect(suggestionAskedFor).toBe(false);
-    expect(screen.getByLabelText(FIELD)).toBeInTheDocument();
+    expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
+    expect(screen.getByText("Available after 3 or more submissions (2 so far).")).toBeInTheDocument();
+  });
+
+  it("has no summary row once the 360° deadline has passed everywhere with fewer than 3", () => {
+    responseCount = 2;
+    cycle.parThreeSixtyRatingDeadline = "2020-01-01";
+    show();
+    expect(screen.queryByText("360° summary")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Available after 3/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
   });
 
   it("leaves the lead's own words alone when no responses came in since the last suggestion", () => {

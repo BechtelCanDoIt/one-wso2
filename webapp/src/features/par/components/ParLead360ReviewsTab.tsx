@@ -117,7 +117,11 @@ export default function ParLead360ReviewsTab({
     <Box sx={{ pt: 0.5 }}>
       {structured && !leadership && (
         <Box sx={{ mb: 3 }}>
-          <ParLead360Evidence parCycleId={cycle.parCycleId} employeeEmail={employeeEmail} />
+          <ParLead360Evidence
+            parCycleId={cycle.parCycleId}
+            employeeEmail={employeeEmail}
+            threeSixtyDeadline={cycle.parThreeSixtyRatingDeadline}
+          />
         </Box>
       )}
       {leadership && isPreviewEnabled("leadership360") && (
