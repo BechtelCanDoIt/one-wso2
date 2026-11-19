@@ -548,7 +548,12 @@ export default function ParLeadReviewPanel({
                       <ParCommentView html={savedLead360Summary} />
                     </Box>
                   )
-                ) : responses.isLoading ? null : responseCount < MIN_360_RESPONSES && !savedLead360Summary ? (
+                ) : responses.isLoading ? null : responses.isError ? (
+                  // Without the count, nothing says whether there's a summary to write.
+                  <ErrorNotice error={responses.error} onRetry={() => responses.refetch()} retrying={responses.isFetching}>
+                    Couldn't load the 360° responses.
+                  </ErrorNotice>
+                ) : responseCount < MIN_360_RESPONSES && !savedLead360Summary ? (
                   // A summary, like the index, only from enough responses: the employee sees it. Once the
                   // 360° deadline has passed everywhere no more can come in, so there's no row at all.
                   hasEndedEverywhere(cycle.parThreeSixtyRatingDeadline) ? null : (

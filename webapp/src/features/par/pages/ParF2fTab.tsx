@@ -125,10 +125,10 @@ export default function ParF2fTab({ activeCycle = false }: { activeCycle?: boole
   return (
     <Box sx={{ pt: 0.5 }}>
       <Stack spacing={1.75} sx={{ maxWidth: 1100 }}>
-        {/* F2fPanel.tsx's five alerts — independent conditions, not an
-            if/else chain, so more than one can show at once (e.g. SCHEDULED
-            and not-yet-lead-shared both render together). Matches source.
-            Not in Active cycle, whose panel heading says it. */}
+        {/* Five alerts on independent conditions, not an if/else chain, so
+            more than one can show at once (e.g. SCHEDULED and
+            not-yet-lead-shared both render together). Not in Active cycle,
+            whose panel heading says it. */}
         {!activeCycle && !deadlinePassed && status === "SCHEDULED" && (
           <Alert severity="success">F2F meeting is scheduled</Alert>
         )}

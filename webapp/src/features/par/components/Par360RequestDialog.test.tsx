@@ -86,8 +86,8 @@ describe("Par360RequestPicker", () => {
     renderPicker(onSubmit);
     add("alex@example.com");
     add("sam@example.com");
-    const samChip = screen.getAllByText("sam@example.com")[0].closest(".MuiChip-root")!;
-    fireEvent.click(samChip.querySelector(".MuiChip-deleteIcon")!);
+    // A chip removes on Backspace, as from the keyboard.
+    fireEvent.keyUp(screen.getByRole("button", { name: "sam@example.com" }), { key: "Backspace" });
     fireEvent.click(screen.getByRole("button", { name: "Request" }));
     expect(onSubmit).toHaveBeenCalledWith(["alex@example.com"]);
   });

@@ -53,6 +53,13 @@ export default function ParCycleLeadReview() {
   if (profile.isLoading || activeCycles.isLoading || rating.isLoading) {
     return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
   }
+  if (profile.isError) {
+    return (
+      <ErrorNotice error={profile.error} onRetry={() => profile.refetch()} retrying={profile.isFetching}>
+        Couldn't load your profile.
+      </ErrorNotice>
+    );
+  }
   if (activeCycles.isError) {
     return (
       <ErrorNotice error={activeCycles.error} onRetry={() => activeCycles.refetch()} retrying={activeCycles.isFetching}>
@@ -75,9 +82,21 @@ export default function ParCycleLeadReview() {
   }
   const parRating = rating.data;
   const review = selfReview.data;
+  // What the PDF needs that couldn't be loaded is offered again, rather than the PDF going without it.
+  const pdfFailed: PdfFailure | undefined = selfReview.isError
+    ? {
+        what: "your self-review",
+        error: selfReview.error,
+        retry: () => void selfReview.refetch(),
+        retrying: selfReview.isFetching,
+      }
+    : leadership360.failed && { what: "your Leadership 360° results", ...leadership360.failed };
   return (
     <SharedReview
       rating={parRating}
+      pdfFailed={pdfFailed}
+      // A leader's PDF waits for their Leadership 360° lookup to settle.
+      pdfPending={leadership360.isLoading}
       onDownloadPdf={
         review
           ? () =>
@@ -85,7 +104,7 @@ export default function ParCycleLeadReview() {
                 rating: parRating,
                 leadComment: decodeParComment(parRating.parLeadComment),
                 selfReview: { definition: review.template.definition, answers: review.answers },
-                leadership360,
+                leadership360: leadership360.data,
               })
           : undefined
       }
@@ -93,9 +112,27 @@ export default function ParCycleLeadReview() {
   );
 }
 
+interface PdfFailure {
+  /** What couldn't be loaded, in the reader's terms. */
+  what: string;
+  error: unknown;
+  retry: () => void;
+  retrying: boolean;
+}
+
 // The shared review: the rating (and a Top 5% or Top 20%) in a shaded box, the lead's feedback with
 // their 360° summary in a box of its own, then the PDF.
-function SharedReview({ rating, onDownloadPdf }: { rating: ParRating; onDownloadPdf?: () => void }) {
+function SharedReview({
+  rating,
+  onDownloadPdf,
+  pdfPending = false,
+  pdfFailed,
+}: {
+  rating: ParRating;
+  onDownloadPdf?: () => void;
+  pdfPending?: boolean;
+  pdfFailed?: PdfFailure;
+}) {
   const employees = useLeaveEmployees();
   const leadName = useMemo(() => {
     const lead = employees.data?.find((e) => e.workEmail.toLowerCase() === rating.parLeadEmail?.toLowerCase());
@@ -131,12 +168,23 @@ function SharedReview({ rating, onDownloadPdf }: { rating: ParRating; onDownload
         <ParCommentView html={decodeParComment(rating.parLeadComment)} />
         <ParLead360SummaryView summary={rating.parLead360Summary} />
       </Box>
-      {onDownloadPdf && (
-        <Box>
-          <Button variant="outlined" startIcon={<FileDownIcon size={14} />} onClick={onDownloadPdf}>
-            Download PDF
-          </Button>
-        </Box>
+      {pdfFailed ? (
+        <ErrorNotice error={pdfFailed.error} onRetry={pdfFailed.retry} retrying={pdfFailed.retrying}>
+          Couldn't load {pdfFailed.what} for the PDF.
+        </ErrorNotice>
+      ) : (
+        onDownloadPdf && (
+          <Box>
+            <Button
+              variant="outlined"
+              startIcon={<FileDownIcon size={14} />}
+              onClick={onDownloadPdf}
+              disabled={pdfPending}
+            >
+              Download PDF
+            </Button>
+          </Box>
+        )
       )}
     </Stack>
   );

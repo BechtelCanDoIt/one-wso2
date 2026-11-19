@@ -16,8 +16,9 @@
 
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { Box, ButtonBase, Card, Chip, Skeleton, Typography, type Theme } from "@wso2/oxygen-ui";
+import { Box, ButtonBase, Card, Chip, Skeleton, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import { CalendarIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { ParCycle } from "../api/types";
 import { formatShortDate } from "../util/parDate";
 import { daysLeft, daysLeftLabel } from "../util/parDeadline";
@@ -68,11 +69,22 @@ export default function ParCycleTracker({
   children?: ReactNode;
 }) {
   const navigate = useNavigate();
-  const { input, isLoading } = useHomeInput(cycle, workEmail);
+  const { input, isLoading, failed } = useHomeInput(cycle, workEmail);
 
   if (!input && isLoading) return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
   // Without the PAR record there's nothing to track; the page says why.
   if (!input) return <>{children}</>;
+  // Without how many responded the steps can't be told, so none are shown; the step's own page still works.
+  if (failed) {
+    return (
+      <Stack spacing={2} sx={{ maxWidth: 1100 }}>
+        <ErrorNotice error={failed.error} onRetry={failed.retry} retrying={failed.retrying}>
+          Couldn't load your PAR cycle's progress.
+        </ErrorNotice>
+        {children}
+      </Stack>
+    );
+  }
 
   const steps = homeSteps(input);
   const open = selected ?? landingStep(input);

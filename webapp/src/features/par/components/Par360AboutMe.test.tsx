@@ -43,8 +43,16 @@ vi.mock("../api/usePar360", () => ({
     isError: false,
   }),
 }));
+let countState: { isLoading?: boolean; isError?: boolean } = {};
+const retryCount = vi.fn();
 vi.mock("../api/useReview360", () => ({
-  useReviewCount: () => ({ data: receivedCount === undefined ? undefined : { received: receivedCount } }),
+  useReviewCount: () => ({
+    data: receivedCount === undefined || countState.isLoading || countState.isError ? undefined : { received: receivedCount },
+    error: countState.isError ? new Error("Unavailable") : null,
+    isFetching: false,
+    refetch: retryCount,
+    ...countState,
+  }),
 }));
 vi.mock("../api/useLeadership360", () => ({
   cycleSurvey: () => ({ surveyId: 9 }),
@@ -62,6 +70,11 @@ vi.mock("@features/leave/api/useLeaveData", () => ({
 
 const { default: Par360AboutMe } = await import("./Par360AboutMe");
 
+const originalConfig = window.config;
+const leadership360 = () => {
+  window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { leadership360: true } } as Window["config"];
+};
+
 const cycle = (deadline: string) => ({ parCycleId: 2, parThreeSixtyRatingDeadline: deadline }) as ParCycle;
 const OPEN = "2999-12-31";
 
@@ -73,6 +86,9 @@ beforeEach(() => {
   reviewers = [alex];
   leadershipResponses = 0;
   receivedCount = 1;
+  countState = {};
+  retryCount.mockReset();
+  window.config = originalConfig;
   requestReviewers.mutate.mockReset();
 });
 
@@ -154,6 +170,7 @@ describe("Par360AboutMe", () => {
   });
 
   it("counts a leader's Leadership 360° responses, not who submitted", () => {
+    leadership360();
     rating = { parLeadStatus: "PENDING", parIsLeadershipEmployee: true };
     reviewers = [{ ...alex, reviewStatus: "PENDING" }];
     leadershipResponses = 2;
@@ -166,5 +183,27 @@ describe("Par360AboutMe", () => {
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(screen.queryByText(/Suggested from/)).not.toBeInTheDocument();
     expect(screen.getByText("Alex Morgan")).toBeInTheDocument();
+  });
+
+  it("counts a leader's PAR 360° feedback like anyone's while Leadership 360° is off", () => {
+    rating = { parLeadStatus: "PENDING", parIsLeadershipEmployee: true };
+    leadershipResponses = 2;
+    render(<Par360AboutMe cycle={cycle(OPEN)} workEmail="ravi@example.com" />);
+    expect(count()).toHaveTextContent("You need at least 3 feedback. 1 received.");
+  });
+
+  it("shows no total while the count loads", () => {
+    countState = { isLoading: true };
+    render(<Par360AboutMe cycle={cycle(OPEN)} workEmail="ravi@example.com" />);
+    expect(count()).toHaveTextContent(/^Feedback requests$/);
+  });
+
+  it("says when the count couldn't be loaded, with Retry, rather than None yet", () => {
+    countState = { isError: true };
+    render(<Par360AboutMe cycle={cycle(OPEN)} workEmail="ravi@example.com" />);
+    expect(screen.getByText(/Couldn't load how much feedback you've received/)).toBeInTheDocument();
+    expect(screen.queryByText(/None yet/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retryCount).toHaveBeenCalled();
   });
 });

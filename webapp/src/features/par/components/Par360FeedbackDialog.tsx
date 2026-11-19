@@ -266,7 +266,7 @@ function FeedbackForm({
             <Typography variant="body2" color="text.secondary">
               {offered
                 ? `${employeeName}'s lead sees your feedback with your name.`
-                : `${employeeName} sees only anonymised scores; their lead sees your feedback with your name.`}
+                : `${employeeName} doesn't see your answers; their lead sees them with your name.`}
               {held && " It counts toward their next PAR cycle."}
             </Typography>
           )}

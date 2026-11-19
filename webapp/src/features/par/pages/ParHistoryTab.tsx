@@ -278,13 +278,17 @@ function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: str
           cycle={cycle}
           rating={rating.data}
           selfReview={<ParSelfReviewView definition={definition} answers={selfReview.data.answers} />}
-          onDownloadPdf={() =>
-            downloadPar2Pdf({
-              rating: rating.data!,
-              leadComment: decodeParComment(rating.data!.parLeadComment),
-              selfReview: { definition, answers: selfReview.data!.answers },
-              leadership360,
-            })
+          // Offered once a leader's Leadership 360° lookup is done, so the PDF doesn't go without it.
+          onDownloadPdf={
+            leadership360.isLoading
+              ? undefined
+              : () =>
+                  downloadPar2Pdf({
+                    rating: rating.data!,
+                    leadComment: decodeParComment(rating.data!.parLeadComment),
+                    selfReview: { definition, answers: selfReview.data!.answers },
+                    leadership360: leadership360.data,
+                  })
           }
         />
         {isPreviewEnabled("leadership360") && <Leadership360ResultsCard view="SELF" parCycleId={cycle.parCycleId} />}

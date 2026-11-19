@@ -23,6 +23,8 @@ import type { ParRichTextFieldHandle } from "./ParRichTextField";
 
 let rating: ParRating;
 let responseCount = 3;
+let responsesFail = false;
+const retryResponses = vi.fn();
 // What the suggestion query holds once it's asked for, and whether the last
 // render asked for it. (The render that seeds the saved summary starts with an
 // empty one, but React discards it before any query could fetch.)
@@ -42,7 +44,10 @@ let selfReviewLookup: { data?: null; isError?: boolean; error?: Error; refetch?:
 vi.mock("../api/useSelfReview", () => ({ useSelfReview: () => selfReviewLookup }));
 vi.mock("../api/useReview360", () => ({
   useParShowsPar2: () => ({ showsPar2: true }),
-  useReviewResponses: () => ({ data: { responseCount } }),
+  useReviewResponses: () =>
+    responsesFail
+      ? { data: undefined, isError: true, error: new Error("Unavailable"), isFetching: false, refetch: retryResponses }
+      : { data: { responseCount } },
 }));
 vi.mock("../api/useLead360Summary", () => ({
   useLead360SummarySuggestion: (_cycle: number, _email: string, _count: number, enabled: boolean) => {
@@ -134,6 +139,8 @@ beforeEach(() => {
   ratingMutate.mockReset();
   selfReviewLookup = { data: null };
   responseCount = 3;
+  responsesFail = false;
+  retryResponses.mockReset();
   cycle.parThreeSixtyRatingDeadline = "2999-12-01";
   suggestion = { data: SUGGESTED };
   suggestionAskedFor = false;
@@ -217,6 +224,16 @@ describe("ParLeadReviewPanel: 360° summary", () => {
     expect(suggestionAskedFor).toBe(false);
     expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
     expect(screen.getByText("Available after 3 or more submissions (2 so far).")).toBeInTheDocument();
+  });
+
+  it("says when the 360° responses couldn't be loaded, with Retry, rather than how many there are", () => {
+    responsesFail = true;
+    show();
+    expect(screen.getByText(/Couldn't load the 360° responses/)).toBeInTheDocument();
+    expect(screen.queryByText(/Available after 3/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retryResponses).toHaveBeenCalled();
   });
 
   it("has no summary row once the 360° deadline has passed everywhere with fewer than 3", () => {

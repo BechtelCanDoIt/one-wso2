@@ -100,7 +100,7 @@ describe("Par360FeedbackDialog", () => {
   it("says in one line who sees what", () => {
     renderDialog();
     expect(
-      screen.getByText("Alex Morgan sees only anonymised scores; their lead sees your feedback with your name."),
+      screen.getByText("Alex Morgan doesn't see your answers; their lead sees them with your name."),
     ).toBeInTheDocument();
   });
 

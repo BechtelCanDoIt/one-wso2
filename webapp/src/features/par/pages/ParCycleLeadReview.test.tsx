@@ -20,26 +20,42 @@ import type { ParRating } from "../api/types";
 
 let rating: Partial<ParRating>;
 const downloadPar2Pdf = vi.fn();
+let profileFails = false;
+let selfReviewFails = false;
+const retrySelfReview = vi.fn();
+let leadership360: { data?: unknown; isLoading: boolean; failed?: { error: unknown; retry: () => void; retrying: boolean } };
 
 vi.mock("@features/my/api/useMeProfile", () => ({
-  useMeProfile: () => ({ data: { userInfo: { workEmail: "me@example.com" } }, isLoading: false }),
+  useMeProfile: () =>
+    profileFails
+      ? { data: undefined, isLoading: false, isError: true, error: new Error("Unavailable"), refetch: vi.fn() }
+      : { data: { userInfo: { workEmail: "me@example.com" } }, isLoading: false, isError: false },
 }));
 vi.mock("../api/useParData", () => ({
   useActiveParCycle: () => ({ data: [{ parCycleId: 2 }], isLoading: false, isError: false }),
   useParRating: () => ({ data: rating, isLoading: false, isError: false }),
 }));
 vi.mock("../api/useSelfReview", () => ({
-  useSelfReview: () => ({ data: { template: { definition: { sections: [] } }, answers: {} } }),
+  useSelfReview: () =>
+    selfReviewFails
+      ? { data: undefined, isError: true, error: new Error("Unavailable"), isFetching: false, refetch: retrySelfReview }
+      : { data: { template: { definition: { sections: [] } }, answers: {} }, isError: false },
 }));
-vi.mock("../api/useLeadership360", () => ({ useCycleLeadership360ForPdf: () => undefined }));
+vi.mock("../api/useLeadership360", () => ({ useCycleLeadership360ForPdf: () => leadership360 }));
 vi.mock("@features/leave/api/useLeaveData", () => ({ useLeaveEmployees: () => ({ data: [] }) }));
 vi.mock("../util/parPdf", () => ({ downloadPar2Pdf: (...args: unknown[]) => downloadPar2Pdf(...args) }));
 
 const { default: ParCycleLeadReview } = await import("./ParCycleLeadReview");
 
+const SHARED: Partial<ParRating> = { parLeadStatus: "SHARED", parRating: "Successful", parLeadComment: "PHA+R29vZDwvcD4=" };
+
 beforeEach(() => {
   rating = { parRatingId: 9, parEmployeeStatus: "SHARED", parLeadStatus: "DRAFT" };
   downloadPar2Pdf.mockReset();
+  profileFails = false;
+  selfReviewFails = false;
+  retrySelfReview.mockReset();
+  leadership360 = { data: undefined, isLoading: false };
 });
 
 describe("ParCycleLeadReview", () => {
@@ -58,5 +74,37 @@ describe("ParCycleLeadReview", () => {
     expect(screen.getByText("Good")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Download PDF" }));
     expect(downloadPar2Pdf).toHaveBeenCalledTimes(1);
+  });
+
+  it("says when the profile couldn't be loaded, rather than that no cycle is open", () => {
+    profileFails = true;
+    render(<ParCycleLeadReview />);
+    expect(screen.getByText(/Couldn't load your profile/)).toBeInTheDocument();
+    expect(screen.queryByText(/no PAR cycle open/)).not.toBeInTheDocument();
+  });
+
+  it("keeps Download PDF off until a leader's Leadership 360° lookup is done", () => {
+    rating = { ...rating, ...SHARED };
+    leadership360 = { data: undefined, isLoading: true };
+    render(<ParCycleLeadReview />);
+    expect(screen.getByRole("button", { name: "Download PDF" })).toBeDisabled();
+  });
+
+  it("offers the self-review again when it couldn't be loaded for the PDF, keeping the feedback", () => {
+    rating = { ...rating, ...SHARED };
+    selfReviewFails = true;
+    render(<ParCycleLeadReview />);
+    expect(screen.getByText("Good")).toBeInTheDocument();
+    expect(screen.getByText(/Couldn't load your self-review for the PDF/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Download PDF" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retrySelfReview).toHaveBeenCalled();
+  });
+
+  it("says when a leader's Leadership 360° results couldn't be loaded for the PDF", () => {
+    rating = { ...rating, ...SHARED };
+    leadership360 = { isLoading: false, failed: { error: new Error("Unavailable"), retry: vi.fn(), retrying: false } };
+    render(<ParCycleLeadReview />);
+    expect(screen.getByText(/Couldn't load your Leadership 360° results for the PDF/)).toBeInTheDocument();
   });
 });

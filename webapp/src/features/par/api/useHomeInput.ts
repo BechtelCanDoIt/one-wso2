@@ -22,8 +22,19 @@ import { cycleSurvey, useLeadership360Results, useLeadership360Surveys } from ".
 import type { ParCycle } from "./types";
 import type { HomeInput } from "../util/parHome";
 
-/** Everything the tracker works from, loaded; `isLoading` until whatever decides the steps is in. */
-export function useHomeInput(cycle: ParCycle, workEmail: string): { input?: HomeInput; isLoading: boolean } {
+/** A count the steps depend on that couldn't be loaded, with a way to try again. */
+export interface HomeInputFailure {
+  error: unknown;
+  retry: () => void;
+  retrying: boolean;
+}
+
+/** Everything the tracker works from, loaded; `isLoading` until whatever decides the steps is in, and
+ * `failed` when how many responded couldn't be loaded, rather than reading it as none. */
+export function useHomeInput(
+  cycle: ParCycle,
+  workEmail: string,
+): { input?: HomeInput; isLoading: boolean; failed?: HomeInputFailure } {
   const rating = useParRating(cycle.parCycleId, workEmail);
   const reviewers = useReviewers(cycle.parCycleId, workEmail);
   // A leader's 360° feedback is Leadership 360°: what counts is how many responded to the cycle's survey.
@@ -34,10 +45,24 @@ export function useHomeInput(cycle: ParCycle, workEmail: string): { input?: Home
     "SELF",
   );
   // A member's received count includes feedback offered unasked, which their list of reviewers leaves out.
-  const count = useReviewCount(cycle.parCycleId, workEmail, Boolean(rating.data) && !leader);
+  const counting = Boolean(rating.data) && !leader;
+  const count = useReviewCount(cycle.parCycleId, workEmail, counting);
 
-  const isLoading = rating.isLoading || reviewers.isLoading || (leader && (surveys.isLoading || leadershipResults.isLoading));
+  const isLoading =
+    rating.isLoading ||
+    reviewers.isLoading ||
+    (counting && count.isLoading) ||
+    (leader && (surveys.isLoading || leadershipResults.isLoading));
   if (!rating.data) return { isLoading: rating.isLoading };
+
+  // The 360° step is decided by how many responded: a count that failed isn't none.
+  const countQueries = counting ? [count] : leader ? [surveys, leadershipResults] : [];
+  const failedQuery = countQueries.find((q) => q.isError);
+  const failed = failedQuery && {
+    error: failedQuery.error,
+    retry: () => void failedQuery.refetch(),
+    retrying: failedQuery.isFetching,
+  };
 
   const input: HomeInput = {
     cycle,
@@ -46,5 +71,5 @@ export function useHomeInput(cycle: ParCycle, workEmail: string): { input?: Home
     received: count.data?.received,
     leadership: leader ? { responseCount: leadershipResults.data?.[0]?.responseCount ?? 0 } : undefined,
   };
-  return { input, isLoading };
+  return { input, isLoading, failed };
 }

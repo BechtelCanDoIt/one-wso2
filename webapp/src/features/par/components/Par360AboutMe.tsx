@@ -17,6 +17,7 @@
 import { useState, type ReactNode } from "react";
 import { Box, Skeleton, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { useParEmployeeInfo, useParRating } from "../api/useParData";
 import { useRequestReviewers, useReviewers } from "../api/usePar360";
 import { useReviewCount } from "../api/useReview360";
@@ -25,7 +26,6 @@ import { MIN_360_RESPONSES } from "../api/review360Types";
 import type { ParCycle } from "../api/types";
 import { Par360RequestPicker } from "./Par360RequestDialog";
 import { isDeadlinePassed } from "../util/parDeadline";
-import { feedbackProgress } from "../util/parHome";
 
 // Your own 360° feedback in a PAR 2.0 cycle: everyone asked for feedback on you,
 // by you or your lead, without saying who asked (who submitted, never what they
@@ -51,7 +51,8 @@ export default function Par360AboutMe({
   const reviewers = useReviewers(cycle.parCycleId, workEmail);
   const requestReviewers = useRequestReviewers(cycle.parCycleId, workEmail);
   const leadShared = rating.data?.parLeadStatus === "SHARED";
-  const leader = Boolean(rating.data?.parIsLeadershipEmployee);
+  // As the tracker counts: Leadership 360° only with its preview on.
+  const leader = Boolean(rating.data?.parIsLeadershipEmployee) && isPreviewEnabled("leadership360");
   // A leader's count is the responses to the cycle's Leadership 360° survey; anyone can give it unasked.
   const surveys = useLeadership360Surveys(leader);
   const leadershipResults = useLeadership360Results(
@@ -59,15 +60,20 @@ export default function Par360AboutMe({
     "SELF",
   );
   // A member's count includes feedback offered unasked, which their list leaves out.
-  const count = useReviewCount(cycle.parCycleId, workEmail, Boolean(rating.data) && !leader);
+  const counting = Boolean(rating.data) && !leader;
+  const count = useReviewCount(cycle.parCycleId, workEmail, counting);
   // A new picker, empty, once a request goes through.
   const [requestsSent, setRequestsSent] = useState(0);
 
   const list = reviewers.data ?? [];
-  const { responded } = feedbackProgress(list);
-  const received = leader
-    ? (leadershipResults.data?.[0]?.responseCount ?? 0)
-    : (count.data?.received ?? responded);
+  // A count still loading, or that failed, isn't none: no total shows until it's in.
+  const countLoading =
+    rating.isLoading ||
+    (counting && count.isLoading) ||
+    (leader && (surveys.isLoading || leadershipResults.isLoading));
+  const countQueries = counting ? [count] : leader ? [surveys, leadershipResults] : [];
+  const countFailed = countQueries.find((q) => q.isError);
+  const received = leader ? (leadershipResults.data?.[0]?.responseCount ?? 0) : (count.data?.received ?? 0);
   const deadlinePassed = isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
   const blocked = deadlinePassed || leadShared;
 
@@ -77,21 +83,28 @@ export default function Par360AboutMe({
 
       <Box sx={{ display: "flex", alignItems: "baseline", columnGap: 1.5, rowGap: 0.5, flexWrap: "wrap" }}>
         <Typography sx={{ fontWeight: 600 }}>Feedback requests</Typography>
-        <Typography variant="body2" color="text.secondary">
-          {received < MIN_360_RESPONSES && (
-            <>
-              You need at least <Count n={MIN_360_RESPONSES} /> feedback.{" "}
-            </>
-          )}
-          {received > 0 ? (
-            <>
-              <Count n={received} /> received.
-            </>
-          ) : (
-            "None yet."
-          )}
-        </Typography>
+        {!countLoading && !countFailed && (
+          <Typography variant="body2" color="text.secondary">
+            {received < MIN_360_RESPONSES && (
+              <>
+                You need at least <Count n={MIN_360_RESPONSES} /> feedback.{" "}
+              </>
+            )}
+            {received > 0 ? (
+              <>
+                <Count n={received} /> received.
+              </>
+            ) : (
+              "None yet."
+            )}
+          </Typography>
+        )}
       </Box>
+      {countFailed && (
+        <ErrorNotice error={countFailed.error} onRetry={() => countFailed.refetch()} retrying={countFailed.isFetching}>
+          Couldn't load how much feedback you've received.
+        </ErrorNotice>
+      )}
       {!blocked && (
         <Box>
           <Par360RequestPicker

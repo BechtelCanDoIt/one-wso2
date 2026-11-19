@@ -25,10 +25,17 @@ const query = <T,>(data: T) => ({ data, isLoading: false, isError: false, refetc
 
 let rating: Partial<ParRating>;
 let reviewers: Partial<Par360Reviewer>[];
+let countFails = false;
+const retryCount = vi.fn();
 
 vi.mock("../api/useParData", () => ({ useParRating: () => query(rating) }));
 vi.mock("../api/usePar360", () => ({ useReviewers: () => query(reviewers) }));
-vi.mock("../api/useReview360", () => ({ useReviewCount: () => query(undefined) }));
+vi.mock("../api/useReview360", () => ({
+  useReviewCount: () =>
+    countFails
+      ? { data: undefined, isLoading: false, isError: true, error: new Error("Unavailable"), isFetching: false, refetch: retryCount }
+      : query(undefined),
+}));
 vi.mock("../api/useLeadership360", () => ({
   cycleSurvey: () => undefined,
   useLeadership360Surveys: () => query([]),
@@ -69,6 +76,8 @@ const step = (label: string) => screen.getByText(label).closest("li")!;
 beforeEach(() => {
   rating = { parEmployeeStatus: "DRAFT", parLeadStatus: "PENDING", parF2fStatus: "PENDING" };
   reviewers = [];
+  countFails = false;
+  retryCount.mockReset();
 });
 
 describe("ParCycleTracker", () => {
@@ -121,5 +130,15 @@ describe("ParCycleTracker", () => {
     }));
     show();
     expect(step("360° feedback")).toHaveTextContent("Done");
+  });
+
+  it("says when how many responded couldn't be loaded, with Retry, and still shows the step's page", async () => {
+    countFails = true;
+    show();
+    expect(screen.getByText(/Couldn't load your PAR cycle's progress/)).toBeInTheDocument();
+    expect(screen.getByText("The step's page")).toBeInTheDocument();
+    expect(screen.queryByText("360° feedback")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retryCount).toHaveBeenCalled();
   });
 });

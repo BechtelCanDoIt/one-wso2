@@ -58,7 +58,8 @@ export function ParActiveCycleIndex() {
 }
 
 function Landing({ cycle, workEmail }: { cycle: ParCycle; workEmail: string }) {
-  const { input, isLoading } = useHomeInput(cycle, workEmail);
+  const { input, isLoading, failed } = useHomeInput(cycle, workEmail);
   if (isLoading) return null;
-  return <Navigate to={`${BASE}/${input ? landingStep(input) : "self-review"}`} replace />;
+  // Without how many responded, no step is chosen from it: the self-review, where the tracker says why.
+  return <Navigate to={`${BASE}/${input && !failed ? landingStep(input) : "self-review"}`} replace />;
 }
