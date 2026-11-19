@@ -247,16 +247,15 @@ export default function UmtAddManualFilesSection({
         setFormError(errors[0] ?? "Bundle info fields are required for plugin JAR changes.");
         return;
       }
-      // One bundles.info file can hold several entries, so only an entry that
-      // matches on every field is a duplicate.
+      // One bundles.info file can hold entries for several bundles, and a
+      // bundle is identified by its JAR name and version, so only an entry for
+      // the same bundle in the same file is a duplicate.
       if (
         bundlesInfoChanges.some(
           (row) =>
             row.bundlesInfoPath === bundlesInfoPath.trim() &&
             row.jarName === jarName.trim() &&
-            row.jarVersion === jarVersion.trim() &&
-            row.relativeJarPath === relativeJarPath.trim() &&
-            row.entryType === entryType,
+            row.jarVersion === jarVersion.trim(),
         )
       ) {
         setFormError("This Bundle Info has already been added.");

@@ -252,4 +252,35 @@ describe("bundle info for a plugin JAR", () => {
       expect.objectContaining({ bundlesInfoPath, jarName: "foo" }),
     ]);
   });
+
+  it("refuses a second entry for the same JAR in the same bundles.info", async () => {
+    const { onFilesChange, onBundlesInfoChanged } = await addPluginJar("1.0.0", [
+      {
+        bundlesInfoPath,
+        jarName: "foo",
+        jarVersion: "1.0.0",
+        relativeJarPath: "../plugins/foo_1.0.0.jar",
+        entryType: "remove",
+      },
+    ]);
+
+    expect(await screen.findByText("This Bundle Info has already been added.")).toBeInTheDocument();
+    expect(onFilesChange).not.toHaveBeenCalled();
+    expect(onBundlesInfoChanged).not.toHaveBeenCalled();
+  });
+
+  it("refuses an entry for a listed JAR under a different relative JAR path", async () => {
+    const { onBundlesInfoChanged } = await addPluginJar("1.0.0", [
+      {
+        bundlesInfoPath,
+        jarName: "foo",
+        jarVersion: "1.0.0",
+        relativeJarPath: "../plugins/foo-1.0.0.jar",
+        entryType: "add",
+      },
+    ]);
+
+    expect(await screen.findByText("This Bundle Info has already been added.")).toBeInTheDocument();
+    expect(onBundlesInfoChanged).not.toHaveBeenCalled();
+  });
 });
