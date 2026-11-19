@@ -58,7 +58,9 @@ export function threadActivity(activity: readonly DealActivity[]): ActivityItem[
   for (const entry of activity) {
     if (entry.type !== "EMAIL") continue;
     const key = threadSubject(entry.title).toLowerCase();
-    bySubject.set(key, [...(bySubject.get(key) ?? []), entry]);
+    const group = bySubject.get(key);
+    if (group) group.push(entry);
+    else bySubject.set(key, [entry]);
   }
   const placed = new Set<string>();
   const items: ActivityItem[] = [];

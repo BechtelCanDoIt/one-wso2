@@ -663,8 +663,9 @@ export const UMT_ITEM_IDS: ReadonlySet<string> = new Set([
 //
 // One row per Opportunity with its MEDDPICC state, beside the calls it came from. A row of
 // its own rather than one of Echo's screens: Echo is the recordings, and a deal is worked
-// from here. Served by the MEDDPICC backend rather than meet-app, but gated like Calls: it
-// is the same sales team, and meet-app's answer is the one the rail already has.
+// from here. Served by the MEDDPICC backend (ONE_WSO2_ECHO_BACKEND_URL) rather than the
+// calls' (ONE_WSO2_REVOPS_BACKEND_URL), but gated like Calls: it is the same sales team,
+// and the rail already has ONE_WSO2_REVOPS_BACKEND_URL's answer.
 const SALES_OPPORTUNITIES_ROW: PerspectiveSection = {
   id: "sales-deals",
   label: "Opportunities",

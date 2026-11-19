@@ -17,10 +17,9 @@
 import { ToggleButton, ToggleButtonGroup } from "@wso2/oxygen-ui";
 
 /**
- * Which of a list's scopes to show, as one segmented control (CadO2's RegionSwitch is the
- * precedent): the choice reads at a glance and is as tall as the filters beside it, where
- * a row of radios with their labels took the width of two filters and pushed the rest of
- * the bar onto a second line.
+ * Which of a list's scopes to show, as one segmented control. Controlled: `value` is the
+ * chosen option and `onChange` is called with a new choice; choosing the one already
+ * chosen changes nothing.
  */
 export default function ScopeSwitch<T extends string>({
   value,

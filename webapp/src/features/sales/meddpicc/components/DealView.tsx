@@ -778,7 +778,7 @@ export default function DealView({
               <Stack component="ul" spacing={0.75} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
                 {threadActivity(shownActivity).map((item) =>
                   item.kind === "thread" ? (
-                    <ActivityThreadRow key={`thread-${item.latest.id}`} thread={item} now={now} />
+                    <ActivityThreadRow key={`thread-${item.subject.toLowerCase()}`} thread={item} now={now} />
                   ) : (
                     <ActivityRow
                       key={`${item.entry.type}-${item.entry.id}`}
