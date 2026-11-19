@@ -19,12 +19,15 @@
 import { useState, type JSX } from "react";
 import { Alert, Box, Button, MenuItem, TextField, Typography } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
+import { authedGet } from "@api/http";
 import { engagementServiceUrls } from "@config/apiConfig";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { localIsoDate } from "@utils/localDate";
 import type { EmployeeOption, TravelDocument, Visa } from "../api/engagementTypes";
 import { useEngagementBasis } from "../api/engagementBasis";
 import { engagementFile } from "../api/engagementHttp";
+import * as M from "../api/engagementMappers";
+import type * as W from "../api/engagementWire";
 import { usePassports, useReferenceData, useTravelDocument } from "../api/useEngagementApi";
 import { useIdempotencyKey, useSaveTravelDocument } from "../api/useEngagementMutations";
 import EaDialog, { ConfirmDialog } from "../components/EaDialog";
@@ -37,6 +40,14 @@ import RecordDrawer from "../components/RecordDrawer";
 import { DOCUMENT_TYPES, ENTRY_TYPES, VISA_TYPES } from "../model/statuses";
 
 const MAX_BYTES = 5 * 1024 * 1024;
+
+/**
+ * The Travel Team's add dialogs: the traveller's records for one country, asked of the server. The table
+ * behind the dialog holds one filtered page only, so an existing Active record may not be in it.
+ */
+async function travellerRecords<TW, TV>(url: string, token: string, map: (w: TW) => TV): Promise<readonly TV[]> {
+  return (await authedGet<W.WPage<TW>>(url, token)).items.map(map);
+}
 const IMAGE_TYPES = ["image/jpeg", "image/png"];
 
 /** Opens the record's image or PDF in a new tab; anything else is refused. */
@@ -196,6 +207,7 @@ export function VisaDialog({ own, visa, existing, onClose }: { own: boolean; vis
   const passports = (passportsQuery.data ?? []).filter((d) => d.status !== "Inactive");
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   const ownerEmail = own ? undefined : owner?.email;
+  const { getToken } = useEngagementBasis();
 
   if (confirm) {
     return (
@@ -233,13 +245,21 @@ export function VisaDialog({ own, visa, existing, onClose }: { own: boolean; vis
       confirmLabel="Continue"
       error={error}
       onClose={onClose}
-      onConfirm={() => {
+      onConfirm={async () => {
         const inactive = f.status === "Inactive";
         const complete = (own || owner) && f.country && f.visaType && f.entryType && f.start && f.end && f.issued && f.passport && (file || visa?.hasFile);
         if (!inactive && !complete) return setError("Some fields need attention.");
         if (f.start > f.end) return setError("Please check the dates again");
         setError(undefined);
-        const clash = existing.some((x) => x.status === "Active" && x.country === f.country && x.id !== visa?.id && (own || x.owner?.email === owner?.email));
+        let pool = existing;
+        if (!visa && !own && owner) {
+          try {
+            pool = await travellerRecords(engagementServiceUrls.visas({ traveller: owner.email, country: f.country, limit: 500 }), await getToken(), M.visa);
+          } catch (e) {
+            return setError(e);
+          }
+        }
+        const clash = pool.some((x) => x.status === "Active" && x.country === f.country && x.id !== visa?.id && (own || x.owner?.email === owner?.email));
         setConfirm(
           visa
             ? inactive
@@ -330,6 +350,7 @@ export function DocumentDialog({
   const [confirm, setConfirm] = useState<string | null>(null);
   const set = (k: keyof typeof f) => (v: string) => setF((x) => ({ ...x, [k]: v }));
   const other = f.type === "Other ID Document";
+  const { getToken } = useEngagementBasis();
 
   if (confirm) {
     return (
@@ -365,13 +386,25 @@ export function DocumentDialog({
       confirmLabel="Continue"
       error={error}
       onClose={onClose}
-      onConfirm={() => {
+      onConfirm={async () => {
         // On edit the masked number stands unless a new one is typed.
         const number = f.number || (doc ? "unchanged" : "");
         if (!(own || owner) || !f.country || (!other && !f.expires) || !(file || doc?.hasFile) || !number || !f.type) return setError("Some fields need attention.");
         if (!other && f.issued && f.expires && f.issued > f.expires) return setError("Please check the dates again");
         setError(undefined);
-        const clash = existing.some((x) => x.status === "Active" && x.type === f.type && x.country === f.country && x.id !== doc?.id && (own || x.owner?.email === owner?.email));
+        let pool = existing;
+        if (!doc && !own && owner) {
+          try {
+            pool = await travellerRecords(
+              engagementServiceUrls.travelDocuments({ traveller: owner.email, country: f.country, documentType: f.type, limit: 500 }),
+              await getToken(),
+              M.travelDocument,
+            );
+          } catch (e) {
+            return setError(e);
+          }
+        }
+        const clash = pool.some((x) => x.status === "Active" && x.type === f.type && x.country === f.country && x.id !== doc?.id && (own || x.owner?.email === owner?.email));
         setConfirm(
           doc
             ? f.status === "Inactive"

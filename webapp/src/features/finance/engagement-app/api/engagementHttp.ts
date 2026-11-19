@@ -58,8 +58,12 @@ export async function engagementUpload<T>(
   // No Content-Type: the browser sets multipart/form-data with its boundary.
   const headers: Record<string, string> = idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {};
   const res = await fetchWithReauth(url, { method, body: form, headers }, accessToken);
-  const text = await res.text().catch(() => "");
-  if (!res.ok) throw new HttpError(url, res.status, text);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new HttpError(url, res.status, body);
+  }
+  // A 2xx whose body can't be read is not a success: the server may have saved it, so the error must surface.
+  const text = await res.text();
   if (!text) return null;
   try {
     return JSON.parse(text) as T;

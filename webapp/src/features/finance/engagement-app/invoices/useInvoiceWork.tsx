@@ -66,8 +66,11 @@ export function useInvoiceWork(rows: readonly Invoice[], { tripOpen }: { tripOpe
   };
   const any = steps.po || steps.finance || steps.push;
   const byId = new Map(rows.map((i) => [i.id, i]));
-  const selectedStage = [...selected].map((id) => byId.get(id)).find(Boolean);
-  const stageOfSelection = selectedStage ? invoiceStage(selectedStage) : null;
+  // A refresh can move a selected invoice to another step or out of the user's reach, so only the selected rows
+  // that are still actionable count, and only those at the first one's step.
+  const live = [...selected].map((id) => byId.get(id)).filter((i): i is Invoice => i !== undefined && tripOpen !== false && actsOn(invoiceStage(i), i));
+  const stageOfSelection = live.length ? invoiceStage(live[0]) : null;
+  const selectedIds = live.filter((i) => invoiceStage(i) === stageOfSelection).map((i) => i.id);
 
   const canSelect = (i: Invoice): true | string => {
     if (tripOpen === false) return "The travel request is not In Progress or Extended";
@@ -136,13 +139,12 @@ export function useInvoiceWork(rows: readonly Invoice[], { tripOpen }: { tripOpe
     return null;
   };
 
-  const ids = [...selected].filter((id) => byId.has(id));
-  const bulk: ReactNode = ids.length ? (
+  const bulk: ReactNode = selectedIds.length ? (
     <>
       <Typography variant="body2" color="text.secondary">
-        {ids.length} selected
+        {selectedIds.length} selected
       </Typography>
-      {bulkFor(ids, stageOfSelection)}
+      {bulkFor(selectedIds, stageOfSelection)}
     </>
   ) : null;
 

@@ -99,7 +99,7 @@ export function EditEngagementPage({ pending: pendingMode = false }: { pending?:
     ? e.requestStatus === "Pending Approval" && canEditPending(p, e.typeId)
     : e.requestStatus !== "Pending Approval" && e.requestStatus !== "Cancelled" && canEditEngagement(p, e.typeId);
   if (!allowed) return <Navigate to={engagementPaths.engagement(id)} replace />;
-  return <EngagementForm key={`${e.id}-${e.start}-${e.end}`} kind={isCustomerForm(e.typeId) ? "customer" : "internal"} initial={formOf(e)} edit={{ e, pending: pendingMode }} />;
+  return <EngagementForm key={e.id} kind={isCustomerForm(e.typeId) ? "customer" : "internal"} initial={formOf(e)} edit={{ e, pending: pendingMode }} />;
 }
 
 function EngagementForm({
@@ -117,8 +117,15 @@ function EngagementForm({
   const types = useEngagementTypes();
   const ref = useReferenceData();
   // The form compares against what it opened with, so a refetch never shows up as an edit.
-  const [base] = useState(initial);
+  const [base, setBase] = useState(initial);
   const [f, setF] = useState<EngagementFormState>(initial);
+  // Fetch New Dates changes only the dates: take them into the form and its baseline, keeping every other unsaved edit.
+  const [dates, setDates] = useState({ start: initial.start, end: initial.end });
+  if (initial.start !== dates.start || initial.end !== dates.end) {
+    setDates({ start: initial.start, end: initial.end });
+    setBase((b) => ({ ...b, start: initial.start, end: initial.end }));
+    setF((x) => ({ ...x, start: initial.start, end: initial.end }));
+  }
   const [errors, setErrors] = useState<FormErrors>({});
   const [confirm, setConfirm] = useState<"update" | "approve" | null>(null);
   const [failure, setFailure] = useState<unknown>();

@@ -16,7 +16,7 @@
 
 // Every Engagement App read, one hook per screen's data.
 
-import { keepPreviousData, useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { engagementServiceUrls as urls, type EngagementQueryParams } from "@config/apiConfig";
@@ -35,7 +35,7 @@ function useEngagementGet<TWire, TView>(
   select: (wire: TWire) => TView,
   { enabled = true, staleTime = 0, keepPrevious = false }: { enabled?: boolean; staleTime?: number; keepPrevious?: boolean } = {},
 ): UseQueryResult<TView, Error> {
-  const { getToken, ready, key, subState, retryIdentity } = useEngagementBasis();
+  const { getToken, ready, key, sub, subState, retryIdentity } = useEngagementBasis();
   const query = useQuery<TWire, Error, TView>({
     queryKey: key(...parts),
     queryFn: async () => authedGet<TWire>(url, await getToken()),
@@ -43,7 +43,8 @@ function useEngagementGet<TWire, TView>(
     enabled: ready && enabled,
     staleTime,
     retry: httpRetry,
-    placeholderData: keepPrevious ? keepPreviousData : undefined,
+    // Keep the previous rows while the next page loads, but never another subject's rows (key[1] is the subject).
+    placeholderData: keepPrevious ? (previous, previousQuery) => (previousQuery?.queryKey[1] === sub ? previous : undefined) : undefined,
   });
   return foldIdentityError(query, subState, retryIdentity);
 }
