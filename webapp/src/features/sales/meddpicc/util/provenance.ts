@@ -31,18 +31,20 @@ export interface QuoteGroup {
 
 /** The quotes by where they were said, the newest source first. */
 export function groupBySource(evidence: readonly EvidenceQuote[]): QuoteGroup[] {
-  const groups: QuoteGroup[] = [];
+  // Keyed by source, in the order first met, so the newest source stays first.
+  const groups = new Map<string, QuoteGroup>();
   for (const quote of newestFirst(evidence)) {
     const source = sourceOf(quote);
-    let group = groups.find((g) => g.source.type === source.type && g.source.id === source.id);
+    const key = `${source.type}:${source.id}`;
+    let group = groups.get(key);
     if (!group) {
       group = { source, quotes: [] };
-      groups.push(group);
+      groups.set(key, group);
     }
     group.quotes.push(quote);
   }
-  for (const group of groups) group.quotes.sort((a, b) => a.offsetSeconds - b.offsetSeconds);
-  return groups;
+  for (const group of groups.values()) group.quotes.sort((a, b) => a.offsetSeconds - b.offsetSeconds);
+  return [...groups.values()];
 }
 
 /** The deal's analysed calls that the field's evidence came from, and the ones that did not mention it. */
@@ -98,8 +100,13 @@ export function explainProposal(field: DealField, detail: DealDetail): string[] 
     facts.push("Salesforce has nothing for this field, so the suggestion would fill it.");
   } else if (proposal.pending) {
     facts.push(`It differs from what Salesforce has (${formatFieldValue(field.salesforceValue)}), so it waits for your approval.`);
-  } else {
+  } else if (formatFieldValue(proposal.value) === formatFieldValue(field.salesforceValue)) {
     facts.push("It matches what Salesforce has, so there is nothing to approve.");
+  } else {
+    // Settled, then Salesforce changed: as on the card, not pending alone does not mean they agree.
+    facts.push(
+      `Salesforce now holds ${formatFieldValue(field.salesforceValue)}, changed since this was settled; the calls heard ${formatFieldValue(proposal.value)}, and there is nothing to approve.`,
+    );
   }
 
   if (field.kind === "role" && isRoleProposal(proposal.value)) {

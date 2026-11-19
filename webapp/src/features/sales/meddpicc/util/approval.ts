@@ -24,7 +24,7 @@
 // role Proposal with neither a contact match, a new Contact nor a clear.
 
 import type { ApproveRequest, DealField, FieldValue, NewContact, RoleProposalValue } from "../types";
-import { formatFieldValue, isRoleProposal } from "./meddpiccFormat";
+import { isRoleProposal } from "./meddpiccFormat";
 
 /** The AM's unsaved answers on the deal page. */
 export interface ApprovalDraft {
@@ -196,9 +196,4 @@ export function describeApproval(summary: ApprovalSummary): string {
 function listOf(items: readonly string[]): string {
   if (items.length <= 1) return items.join("");
   return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
-}
-
-/** A proposal's value for the summary of an edit: what the AM is about to replace it with. */
-export function describeValue(value: FieldValue | RoleProposalValue | undefined): string {
-  return formatFieldValue(value);
 }

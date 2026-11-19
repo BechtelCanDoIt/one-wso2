@@ -75,6 +75,16 @@ describe("explainProposal", () => {
       proposal: { value: "Ingrid Solberg", rationale: null, confidence: 0.9, evidence: [email], pending: false },
     });
     expect(explainProposal(agrees, detail())).toContain("It matches what Salesforce has, so there is nothing to approve.");
+
+    // Settled, then Salesforce changed: not pending, yet the two no longer match.
+    const movedOn = field({
+      salesforceValue: "Lars Haugen",
+      proposal: { value: "Ingrid Solberg", rationale: null, confidence: 0.9, evidence: [email], pending: false },
+    });
+    expect(explainProposal(movedOn, detail())).toContain(
+      "Salesforce now holds Lars Haugen, changed since this was settled; the calls heard Ingrid Solberg, and there is nothing to approve.",
+    );
+    expect(explainProposal(movedOn, detail())).not.toContain("It matches what Salesforce has, so there is nothing to approve.");
   });
 
   it("explains a role's match, or why there is none", () => {
