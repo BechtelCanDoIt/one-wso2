@@ -120,6 +120,9 @@ function EngagementForm({
   // The form compares against what it opened with, so a refetch never shows up as an edit.
   const [base, setBase] = useState(initial);
   const [f, setF] = useState<EngagementFormState>(initial);
+  // The picked account's own Sales Sub Region: it locks the field on customer create. An account without
+  // one leaves the field open, so the user can still complete the engagement (the backend then saves theirs).
+  const [accountSubRegion, setAccountSubRegion] = useState("");
   // Fetch New Dates changes only the dates: take them into the form and its baseline, keeping every other unsaved edit.
   const [dates, setDates] = useState({ start: initial.start, end: initial.end });
   if (initial.start !== dates.start || initial.end !== dates.end) {
@@ -142,6 +145,8 @@ function EngagementForm({
   const cust = kind === "customer";
   const paid = t !== 0 && isPaidType(t);
   const fundingRequired = t !== 0 && needsFundingFields(t, cust, paid, isEdit);
+  // Customer create: locked to the picked account's sub region, open only when that account has none.
+  const subRegionLocked = cust ? (isEdit ? !pendingEdit : !f.accountId || Boolean(accountSubRegion)) : isEdit && !pendingEdit;
   const mkt = t === 5;
   const typeDef = types.data?.find((x) => x.id === t);
   const allocTypeDef = typeDef?.allocationTypes.find((a) => a.name === f.allocationType);
@@ -295,7 +300,15 @@ function EngagementForm({
               value={t ? String(t) : ""}
               options={typeOptions}
               error={errors.typeId}
-              onChange={(v) => setF({ ...newForm(Number(v) as EngagementTypeId), accountId: f.accountId, accountName: f.accountName })}
+              onChange={(v) =>
+                setF({
+                  ...newForm(Number(v) as EngagementTypeId),
+                  accountId: f.accountId,
+                  accountName: f.accountName,
+                  // The sub region goes with the retained account (customer create locks it to the account's).
+                  ...(cust ? { subRegion: f.subRegion } : {}),
+                })
+              }
             />
           )}
           <span />
@@ -309,7 +322,8 @@ function EngagementForm({
                     <AccountSearchField
                       value={f.accountId ? { id: f.accountId, name: f.accountName } : null}
                       error={errors.accountId}
-                      onPick={(a) =>
+                      onPick={(a) => {
+                        setAccountSubRegion(a?.subRegion ?? "");
                         setF((prev) => ({
                           ...prev,
                           accountId: a?.id ?? "",
@@ -317,11 +331,11 @@ function EngagementForm({
                           opportunityId: "",
                           lineItemId: "",
                           country: a?.country ?? prev.country,
-                          // The sub region is locked to the account's, so it goes with the account.
+                          // The sub region goes with the account: a new account never keeps the previous one's.
                           subRegion: a?.subRegion ?? "",
                           address: a?.address ?? "",
-                        }))
-                      }
+                        }));
+                      }}
                     />
                   )}
                   {isEdit ? (
@@ -465,8 +479,8 @@ function EngagementForm({
                     value={f.subRegion}
                     error={errors.subRegion}
                     options={ref.data?.subRegions ?? []}
-                    disabled={cust ? !pendingEdit : isEdit && !pendingEdit}
-                    lock={cust ? !pendingEdit : isEdit && !pendingEdit}
+                    disabled={subRegionLocked}
+                    lock={subRegionLocked}
                     onChange={(v) => set("subRegion", v)}
                   />
                   <span />
