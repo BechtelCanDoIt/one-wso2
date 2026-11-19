@@ -316,6 +316,28 @@ export interface ApproveRequest {
   edits: Record<string, FieldValue>;
   /** Role fieldKey -> contactId. */
   roleMatches: Record<string, string>;
+  /**
+   * Role fieldKey -> a Contact to create on the Opportunity's Account for that role, when
+   * the person heard is not a Contact yet and the AM has checked the details. Created
+   * before anything else is written; a refused create leaves the deal untouched. Sent
+   * only when there is one: a backend older than this refuses unknown keys.
+   */
+  newContacts?: Record<string, NewContact>;
+}
+
+/** A Contact Approve all creates. The backend needs a last name and an email. */
+export interface NewContact {
+  firstName: string | null;
+  lastName: string;
+  email: string;
+  title: string | null;
+}
+
+/** A Contact Approve all created for a role field. */
+export interface CreatedContact {
+  fieldKey: string;
+  contactId: string;
+  name: string;
 }
 
 export interface ApproveResult {
@@ -323,6 +345,8 @@ export interface ApproveResult {
   written: string[];
   /** For example notInSalesforce, unchanged. */
   skipped: { fieldKey: string; reason: string }[];
+  /** The Contacts created for newContacts, in gates.json order. Absent from an older backend. */
+  createdContacts?: CreatedContact[];
   /** A Salesforce 422; nothing partial is hidden. */
   error: { message: string; fields?: string[] } | null;
   deal: DealDetail;
@@ -379,6 +403,10 @@ export interface GateFieldDefinition {
   conversational: boolean;
   sfField?: string;
   role?: string;
+  /** Other Salesforce role names read as this role. */
+  roleAliases?: string[];
+  /** The Opportunity's primary contact: the Contact flagged primary, with no role name. */
+  primary?: boolean;
   options?: string[];
   optional?: boolean;
   notInSalesforce?: boolean;

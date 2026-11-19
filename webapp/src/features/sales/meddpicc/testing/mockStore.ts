@@ -300,10 +300,16 @@ function approve(deal: MockDeal, request: ApproveRequest): ApproveResult {
 
   const edits = request.edits ?? {};
   const matches = request.roleMatches ?? {};
+  const fresh = request.newContacts ?? {};
   const edited = (key: string) => Object.prototype.hasOwnProperty.call(edits, key);
 
   const unmatched = FIELDS.filter(
-    (def) => def.kind === "role" && isPending(deal, def) && !matches[def.key] && !(edited(def.key) && edits[def.key] === null),
+    (def) =>
+      def.kind === "role" &&
+      isPending(deal, def) &&
+      !matches[def.key] &&
+      !fresh[def.key] &&
+      !(edited(def.key) && edits[def.key] === null),
   );
   if (unmatched.length > 0) {
     fail(path, 400, { message: `Match or clear every proposed contact role: ${unmatched.map((d) => d.label).join(", ")}.` });
@@ -311,6 +317,7 @@ function approve(deal: MockDeal, request: ApproveRequest): ApproveResult {
 
   const written: string[] = [];
   const skipped: ApproveResult["skipped"] = [];
+  const createdContacts: NonNullable<ApproveResult["createdContacts"]> = [];
 
   for (const def of FIELDS) {
     const pending = isPending(deal, def);
@@ -321,6 +328,19 @@ function approve(deal: MockDeal, request: ApproveRequest): ApproveResult {
     if (def.kind === "role") {
       if (edited(def.key) && edits[def.key] === null) {
         skipped.push({ fieldKey: def.key, reason: "not known" });
+        continue;
+      }
+      // A Contact the AM asked for: created on the Account (here: made up), then given the role.
+      const toCreate = fresh[def.key];
+      if (toCreate) {
+        if (!toCreate.lastName.trim() || !toCreate.email.trim()) {
+          fail(path, 400, { message: `a new contact for ${def.key} needs a last name and an email` });
+        }
+        const contactId = `003NEW${String(createdContacts.length + 1).padStart(4, "0")}`;
+        const name = [toCreate.firstName, toCreate.lastName].filter(Boolean).join(" ");
+        deal.salesforce[def.key] = { contactId, name } satisfies RoleHolder;
+        written.push(def.key);
+        createdContacts.push({ fieldKey: def.key, contactId, name });
         continue;
       }
       const contactId = matches[def.key];
@@ -353,7 +373,7 @@ function approve(deal: MockDeal, request: ApproveRequest): ApproveResult {
   }
 
   deal.lastApproval = { by: "you", at: new Date().toISOString() };
-  return { written, skipped, error: null, deal: detail(deal) };
+  return { written, skipped, createdContacts, error: null, deal: detail(deal) };
 }
 
 function moveStage(deal: MockDeal, toStage: string): { stage: string } {

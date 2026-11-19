@@ -34,83 +34,23 @@ import {
   CircleCheckIcon,
   CircleIcon,
   ExternalLinkIcon,
+  FileSearchIcon,
+  PanelRightOpenIcon,
   PencilIcon,
-  SparklesIcon,
   Undo2Icon,
 } from "@wso2/oxygen-ui-icons-react";
-import type { DealField, EvidenceSourceType, FieldValue } from "../types";
-import type { ApprovalDraft } from "../util/approval";
-import { formatFieldValue, isEmptyValue, isRoleProposal, letterLabel } from "../util/meddpiccFormat";
-import { describeEvidenceSources, hasCustomerEvidence } from "../util/evidenceSource";
-import EvidenceList from "./EvidenceList";
+import type { DealField, EvidenceQuote, EvidenceSourceType, FieldValue, NewContact } from "../types";
+import { newContactFromProposal, newContactProblem, type ApprovalDraft } from "../util/approval";
+import { formatFieldValue, isEmptyValue, isRoleProposal } from "../util/meddpiccFormat";
+import { hasCustomerEvidence, leadQuote, newestFirst, sourceOf } from "../util/evidenceSource";
+import { groupBySource } from "../util/provenance";
+import EchoMarker, { EchoIcon } from "./EchoMarker";
+import EvidenceItem from "./EvidenceItem";
 import FieldEditor from "./FieldEditor";
+import NewContactForm from "./NewContactForm";
 
 const NOT_KNOWN = "__not_known__";
-
-/**
- * What Salesforce has against what the AI heard, as two rows of one box: the reader sees
- * both values side by side, the suggestion tinted while it waits for review, and under
- * it where it was heard and how sure the AI is.
- */
-function ProposalCompare({
-  salesforceValue,
-  proposedValue,
-  pending,
-  confidence,
-  from,
-}: {
-  /** Absent when the field isn't in Salesforce yet. */
-  salesforceValue?: string;
-  proposedValue: string;
-  pending: boolean;
-  confidence: number;
-  from: string;
-}) {
-  const row = { display: "grid", gridTemplateColumns: { xs: "1fr", sm: "120px 1fr" }, columnGap: 1.5, rowGap: 0.25, px: 1.25, py: 0.75 };
-  return (
-    <Box
-      sx={{ border: 1, borderColor: pending ? "warning.light" : "divider", borderRadius: "10px", overflow: "hidden" }}
-      aria-label="Salesforce and the AI's suggestion"
-    >
-      {salesforceValue !== undefined && (
-        <Box sx={{ ...row, borderBottom: 1, borderColor: "divider" }}>
-          <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, pt: "2px" }}>
-            In Salesforce
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
-            {salesforceValue}
-          </Typography>
-        </Box>
-      )}
-      <Box
-        sx={(theme) => ({
-          ...row,
-          bgcolor: pending ? alpha(theme.palette.warning.main, 0.08) : "transparent",
-        })}
-      >
-        <Typography
-          variant="caption"
-          sx={{ fontWeight: 600, pt: "2px", color: pending ? "warning.dark" : "text.secondary", display: "inline-flex", alignItems: "center", gap: 0.5 }}
-        >
-          <SparklesIcon size={12} aria-hidden />
-          {pending ? "AI suggests" : "AI heard"}
-        </Typography>
-        <Box sx={{ minWidth: 0 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600, whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
-            {proposedValue}
-          </Typography>
-          <Typography variant="caption" color="text.secondary" component="div">
-            {from && `From ${from} · `}
-            {Math.round(confidence * 100)}% confident
-            {/* Only when Salesforce has the field and holds the same value: an approved suggestion
-                stays "not pending" after Salesforce is changed, so not pending alone says nothing. */}
-            {!pending && salesforceValue !== undefined && salesforceValue === proposedValue && " · matches Salesforce"}
-          </Typography>
-        </Box>
-      </Box>
-    </Box>
-  );
-}
+const CREATE = "__create__";
 
 function StateIcon({ field }: { field: DealField }) {
   if (field.state === "FILLED") {
@@ -122,8 +62,8 @@ function StateIcon({ field }: { field: DealField }) {
   }
   if (field.state === "SUGGESTED") {
     return (
-      <Box component="span" sx={{ color: "warning.main", display: "inline-flex" }} aria-label="AI suggestion">
-        <SparklesIcon size={16} />
+      <Box component="span" sx={{ color: "warning.main", display: "inline-flex" }} aria-label="Echo suggestion">
+        <EchoIcon size={16} />
       </Box>
     );
   }
@@ -135,21 +75,77 @@ function StateIcon({ field }: { field: DealField }) {
 }
 
 /**
+ * The two values side by side, for a suggestion that differs from Salesforce: what is
+ * there now, and what the calls say. One look answers "what would change?".
+ */
+export function Compare({
+  before,
+  after,
+  afterLabel,
+  confidence,
+}: {
+  /** Salesforce's value; null when the field is empty there. */
+  before: string | null;
+  after: string;
+  afterLabel: string;
+  confidence: number;
+}) {
+  return (
+    <Box
+      sx={{
+        display: "grid",
+        gridTemplateColumns: { xs: "1fr", sm: "minmax(0, 1fr) minmax(0, 1fr)" },
+        gap: { xs: 0.75, sm: 2 },
+      }}
+    >
+      {before !== null && (
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="overline" sx={{ display: "block", lineHeight: 1.6, color: "text.secondary" }}>
+            In Salesforce
+          </Typography>
+          <Typography variant="body2" sx={{ whiteSpace: "pre-line", overflowWrap: "anywhere", color: "text.secondary" }}>
+            {before}
+          </Typography>
+        </Box>
+      )}
+      <Box sx={{ minWidth: 0 }}>
+        <Stack direction="row" spacing={0.75} sx={{ alignItems: "center" }}>
+          <Typography variant="overline" sx={{ lineHeight: 1.6, color: "text.secondary" }}>
+            {afterLabel}
+          </Typography>
+          <EchoMarker confidence={confidence} />
+        </Stack>
+        <Typography variant="body2" sx={{ fontWeight: 700, whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
+          {after}
+        </Typography>
+      </Box>
+    </Box>
+  );
+}
+
+/**
  * One Gate field on the deal page: what Salesforce has, what the AI proposes
  * and why, and the AM's control over it.
  *
- * There is no per-field approve. A correct Proposal needs no action at all —
- * Approve all takes it as it is — so the only per-field control is Edit, which
- * can also clear.
+ * A field waiting for a decision leads with the decision: the Salesforce value
+ * beside the suggested one, and the single best quote behind it. The rationale,
+ * the confidence and every quote are one click away, in the provenance panel
+ * ("Where this came from"), so the card stays a decision and not a dossier. There is no
+ * per-field approve. A correct Proposal needs no action at all — Approve all
+ * takes it as it is — so the only per-field control is Edit, which can also
+ * clear; a role has the contact picker, which can also create the contact.
  */
 export default function DealFieldRow({
   field,
   draft,
   readOnly,
   salesforceUrl,
+  accountName,
   onEdit,
   onUndo,
   onRoleMatch,
+  onNewContact,
+  onExplain,
   sourceFilter = null,
   variant = "full",
   askNext,
@@ -159,10 +155,16 @@ export default function DealFieldRow({
   draft: ApprovalDraft;
   readOnly: boolean;
   salesforceUrl: string;
+  /** The Opportunity's Account, named when a contact is about to be created on it. */
+  accountName: string;
   onEdit: (key: string, value: FieldValue) => void;
   onUndo: (key: string) => void;
   /** A Contact id, or null for "not known — leave the role unset". */
   onRoleMatch: (key: string, contactId: string | null) => void;
+  /** The Contact to create for the role, or null to drop that answer. */
+  onNewContact: (key: string, contact: NewContact | null) => void;
+  /** Open the full account of where the field's suggestion came from. */
+  onExplain: (field: DealField) => void;
   /** Show evidence from one source only; null shows all. */
   sourceFilter?: EvidenceSourceType | null;
   /**
@@ -182,6 +184,7 @@ export default function DealFieldRow({
   const sfEmpty = isEmptyValue(field.salesforceValue);
   const salesforceOnly = !field.conversational;
   const rolePending = field.kind === "role" && Boolean(proposal?.pending) && isRoleProposal(proposal?.value);
+  const newContact = draft.newContacts?.[field.key];
 
   if (variant === "compact" && !editing && !edited) {
     const value = !field.applicable
@@ -239,6 +242,64 @@ export default function DealFieldRow({
     );
   }
 
+  // The quotes, newest first and from the chosen source; the best one leads, the rest wait in the panel.
+  const evidence: EvidenceQuote[] = proposal
+    ? newestFirst(proposal.evidence).filter((q) => !sourceFilter || sourceOf(q).type === sourceFilter)
+    : [];
+  const lead = leadQuote(evidence);
+  // Only when Salesforce holds the same value: an approved suggestion stays "not pending"
+  // after Salesforce is changed, so not pending alone says nothing about agreement.
+  const callsAgree = Boolean(
+    proposal && (field.notInSalesforce || formatFieldValue(proposal.value) === formatFieldValue(field.salesforceValue)),
+  );
+  // "3 quotes, 2 sources": what the full account holds, on the control that opens it.
+  const sourceCount = proposal ? groupBySource(proposal.evidence).length : 0;
+  const quoteCount = proposal?.evidence.length ?? 0;
+  const provenanceCounts = `${quoteCount} ${quoteCount === 1 ? "quote" : "quotes"} · ${sourceCount} ${sourceCount === 1 ? "source" : "sources"}`;
+  // Drawn as a button, in the suggestion's own tint, and not as a line of text under the
+  // quote: it is the way to check the suggestion before approving it, and a link in body
+  // colour read as part of the quote and was walked past.
+  const explain = (
+    <Button
+      size="small"
+      variant="outlined"
+      onClick={() => onExplain(field)}
+      startIcon={<FileSearchIcon size={14} />}
+      endIcon={<PanelRightOpenIcon size={14} />}
+      aria-label={`Where ${field.label} came from`}
+      sx={(theme) => ({
+        mt: 1.25,
+        px: 1.25,
+        textTransform: "none",
+        fontWeight: 600,
+        borderRadius: 999,
+        color: "warning.dark",
+        borderColor: alpha(theme.palette.warning.main, 0.5),
+        bgcolor: alpha(theme.palette.warning.main, 0.08),
+        "&:hover": { bgcolor: alpha(theme.palette.warning.main, 0.16), borderColor: "warning.main" },
+      })}
+    >
+      Where this came from
+      {quoteCount > 0 && (
+        <Box
+          component="span"
+          sx={{
+            ml: 1,
+            px: 0.75,
+            borderRadius: 999,
+            bgcolor: "background.paper",
+            fontSize: "0.7rem",
+            fontWeight: 600,
+            color: "text.secondary",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {provenanceCounts}
+        </Box>
+      )}
+    </Button>
+  );
+
   return (
     <Box
       sx={{
@@ -248,38 +309,24 @@ export default function DealFieldRow({
         opacity: field.applicable ? 1 : 0.6,
       }}
     >
-      {/* Title line: state, label, the Letters it feeds, and its tags. */}
+      {/* Title line: state, label, and only the tags that change what the AM does. */}
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5 }}>
         <StateIcon field={field} />
         <Typography variant="body2" sx={{ fontWeight: 600 }}>
           {field.label}
         </Typography>
-        {field.letters.map((letter) => (
-          <Chip
-            key={letter}
-            label={letterLabel(letter)}
-            size="small"
-            variant="outlined"
-            sx={{ height: 18, fontSize: "0.65rem" }}
-          />
-        ))}
         {field.optional && (
           <Typography variant="caption" color="text.secondary">
             optional
           </Typography>
         )}
-        {field.notInSalesforce && (
-          <Chip label="Not in Salesforce yet" size="small" color="default" sx={{ height: 18, fontSize: "0.65rem" }} />
-        )}
         {gateTag && <Chip label={gateTag} size="small" variant="outlined" sx={{ height: 18, fontSize: "0.65rem" }} />}
         {field.attest && (
-          <Chip
-            label="You confirm"
-            size="small"
-            variant="outlined"
-            title="Only the account manager confirms this. The AI never proposes Yes on it."
-            sx={{ height: 18, fontSize: "0.65rem", fontWeight: 600 }}
-          />
+          <Tooltip title="Only the account manager confirms this. The AI never proposes Yes on it." arrow>
+            <Typography variant="caption" sx={{ color: "text.secondary", fontWeight: 600, cursor: "default" }}>
+              You confirm
+            </Typography>
+          </Tooltip>
         )}
       </Stack>
 
@@ -328,14 +375,14 @@ export default function DealFieldRow({
           </Link>
         )}
 
-        {proposal && (
-          <Box sx={{ mt: salesforceOnly ? 1 : 0 }}>
-            <ProposalCompare
-              salesforceValue={field.notInSalesforce ? undefined : formatFieldValue(field.salesforceValue)}
-              proposedValue={formatFieldValue(proposal.value)}
-              pending={proposal.pending}
+        {proposal && proposal.pending && (
+          <Box sx={{ mt: 0.5 }}>
+            {/* The decision: what is there, and what the calls say instead. */}
+            <Compare
+              before={field.notInSalesforce ? null : sfEmpty ? "Empty" : formatFieldValue(field.salesforceValue)}
+              after={formatFieldValue(proposal.value)}
+              afterLabel={field.notInSalesforce ? "Heard on calls · kept in Echo" : "Heard on calls"}
               confidence={proposal.confidence}
-              from={describeEvidenceSources(proposal.evidence)}
             />
 
             {/* An attest field backed only by WSO2's words, or by words nobody could
@@ -347,68 +394,103 @@ export default function DealFieldRow({
               </Typography>
             )}
 
-            {proposal.rationale && (
-              <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
-                <Box component="span" sx={{ fontWeight: 600 }}>
-                  Why:
-                </Box>{" "}
-                {proposal.rationale}
-              </Typography>
+            {/* One quote on the card; the panel has the rest. */}
+            {lead ? (
+              <Box sx={{ mt: 1 }}>
+                <EvidenceItem quote={lead} />
+              </Box>
+            ) : (
+              evidence.length === 0 &&
+              sourceFilter && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.75 }}>
+                  No evidence from this source.
+                </Typography>
+              )
             )}
-
-            <Box sx={{ mt: 1.25 }}>
-              <EvidenceList evidence={proposal.evidence} sourceFilter={sourceFilter} limit={2} />
-            </Box>
+            {explain}
           </Box>
+        )}
+
+        {/* The calls agree with Salesforce: one quiet line says so. */}
+        {proposal && !proposal.pending && (
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.5, mt: 0.5 }}>
+            <Typography variant="body2" sx={{ whiteSpace: "pre-line", overflowWrap: "anywhere" }}>
+              <Box component="span" sx={{ color: "text.secondary" }}>
+                {field.notInSalesforce ? "Kept in Echo: " : "Salesforce: "}
+              </Box>
+              <Box component="span" sx={{ fontWeight: 600 }}>
+                {formatFieldValue(field.notInSalesforce ? proposal.value : field.salesforceValue)}
+              </Box>
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {callsAgree ? "· the calls agree" : `· the calls heard ${formatFieldValue(proposal.value)}`}
+            </Typography>
+            <Box sx={{ width: "100%" }}>{explain}</Box>
+          </Stack>
         )}
 
         {/* The contact picker, for a role Proposal waiting on a match. */}
         {rolePending && isRoleProposal(proposal?.value) && (
-          <FormControl size="small" fullWidth sx={{ mt: 1.5 }} disabled={readOnly}>
-            {/* Shrunk and notched for good: with displayEmpty the box shows "Pick a
-                contact" while nothing is chosen, and a resting label would sit on it. */}
-            <InputLabel id={`meddpicc-role-${field.key}`} shrink>
-              Matching contact
-            </InputLabel>
-            <Select
-              labelId={`meddpicc-role-${field.key}`}
-              label="Matching contact"
-              notched
-              value={
-                edited && editValue === null ? NOT_KNOWN : (draft.roleMatches[field.key] ?? "")
-              }
-              onChange={(event) => {
-                const value = event.target.value as string;
-                onRoleMatch(field.key, value === NOT_KNOWN ? null : value);
-              }}
-              displayEmpty
-              renderValue={(value) => {
-                if (value === NOT_KNOWN) return "Not known — leave unset";
-                const candidate = (isRoleProposal(proposal?.value) ? proposal.value.candidates : []).find(
-                  (c) => c.contactId === value,
-                );
-                return candidate ? candidate.name : <em>Pick a contact</em>;
-              }}
-            >
-              {proposal.value.candidates.map((candidate) => (
-                <MenuItem key={candidate.contactId} value={candidate.contactId}>
-                  <Box>
-                    <Typography variant="body2">
-                      {candidate.name}
-                      {candidate.contactId === (proposal.value as { suggestedContactId: string | null }).suggestedContactId &&
-                        " · suggested"}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {[candidate.title, candidate.email, `match ${Math.round(candidate.score * 100)}%`]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-              <MenuItem value={NOT_KNOWN}>Not known — leave unset</MenuItem>
-            </Select>
-          </FormControl>
+          <>
+            <FormControl size="small" fullWidth sx={{ mt: 1.5 }} disabled={readOnly}>
+              {/* Shrunk and notched for good: with displayEmpty the box shows "Pick a
+                  contact" while nothing is chosen, and a resting label would sit on it. */}
+              <InputLabel id={`meddpicc-role-${field.key}`} shrink>
+                Matching contact
+              </InputLabel>
+              <Select
+                labelId={`meddpicc-role-${field.key}`}
+                label="Matching contact"
+                notched
+                value={
+                  edited && editValue === null ? NOT_KNOWN : newContact ? CREATE : (draft.roleMatches[field.key] ?? "")
+                }
+                onChange={(event) => {
+                  const value = event.target.value as string;
+                  if (value === CREATE) {
+                    onNewContact(field.key, newContactFromProposal(proposal.value as Parameters<typeof newContactFromProposal>[0]));
+                    return;
+                  }
+                  onRoleMatch(field.key, value === NOT_KNOWN ? null : value);
+                }}
+                displayEmpty
+                renderValue={(value) => {
+                  if (value === NOT_KNOWN) return "Not known — leave unset";
+                  if (value === CREATE) return "Not in Salesforce yet — create a contact";
+                  const candidate = (isRoleProposal(proposal?.value) ? proposal.value.candidates : []).find(
+                    (c) => c.contactId === value,
+                  );
+                  return candidate ? candidate.name : <em>Pick a contact</em>;
+                }}
+              >
+                {proposal.value.candidates.map((candidate) => (
+                  <MenuItem key={candidate.contactId} value={candidate.contactId}>
+                    <Box>
+                      <Typography variant="body2">
+                        {candidate.name}
+                        {candidate.contactId === (proposal.value as { suggestedContactId: string | null }).suggestedContactId &&
+                          " · suggested"}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {[candidate.title, candidate.email].filter(Boolean).join(" · ")}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+                <MenuItem value={CREATE}>Not in Salesforce yet — create a contact</MenuItem>
+                <MenuItem value={NOT_KNOWN}>Not known — leave unset</MenuItem>
+              </Select>
+            </FormControl>
+            {newContact && (
+              <NewContactForm
+                contact={newContact}
+                accountName={accountName}
+                problem={newContactProblem(newContact)}
+                readOnly={readOnly}
+                onChange={(contact) => onNewContact(field.key, contact)}
+              />
+            )}
+          </>
         )}
 
         {/* The AM's own value, once they have edited. */}

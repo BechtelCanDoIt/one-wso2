@@ -47,7 +47,9 @@ vi.mock("../meddpicc/api/useCallMeddpicc", () => ({
   useCallMeddpicc: () => ({ configured: state.echoConfigured, opportunityId: "006X", insight: { markers: [] } }),
 }));
 vi.mock("../components/RecordingPlayer", () => ({
-  default: ({ recordingId }: { recordingId?: number }) => <div>player {recordingId ?? "default"}</div>,
+  default: ({ recordingId, startAt }: { recordingId?: number; startAt?: number }) => (
+    <div>player {recordingId ?? "default"}{startAt ? ` at ${startAt}` : ""}</div>
+  ),
 }));
 vi.mock("../components/SpeakerTimeline", () => ({ default: () => <div>timeline</div> }));
 vi.mock("../components/SmartNotesPanel", () => ({
@@ -99,6 +101,29 @@ describe("MeetingDetailPage tabs", () => {
     renderAt("/sales/meetings/7?tab=meddpicc&letter=E");
     expect(screen.getByRole("tab", { name: "MEDDPICC" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("meddpicc pane, letter E")).toBeInTheDocument();
+  });
+
+  // A quote on a deal links here: the transcript, with the recording at the second it was said.
+  it("opens the recording at the second the URL names", () => {
+    renderAt("/sales/meetings/7?tab=transcript&t=760");
+    expect(screen.getByRole("tab", { name: "Transcript" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("player default at 760")).toBeInTheDocument();
+  });
+
+  // Recorded in two parts: the second it names falls in the second part, timed from that part's start.
+  it("opens the part the second falls in, for a call recorded in parts", () => {
+    state.recordings = [
+      { id: 11, startTime: "2026-09-24 07:30:00", endTime: "2026-09-24 07:40:00", state: "ATTACHED" },
+      { id: 12, startTime: "2026-09-24 07:45:00", endTime: "2026-09-24 08:30:00", state: "ATTACHED" },
+    ];
+    renderAt("/sales/meetings/7?tab=transcript&t=1200");
+    expect(screen.getByRole("tab", { name: /^Part 2/ })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("player 12 at 300")).toBeInTheDocument();
+  });
+
+  it("ignores a second it cannot read", () => {
+    renderAt("/sales/meetings/7?t=12:40");
+    expect(screen.getByText("player default")).toBeInTheDocument();
   });
 
   it("writes a tab chosen from the bar back to the URL, without the Letter", async () => {

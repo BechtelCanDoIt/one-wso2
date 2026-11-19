@@ -45,8 +45,9 @@ const RecordingPlayer = forwardRef<RecordingPlayerHandle, {
   recordingId?: number;
   /**
    * Seconds to start playing from once this recording loads. Set when a transcript line
-   * from another recording was clicked: the page switches to that recording, and the new
-   * element can only be seeked once it has read the file's metadata.
+   * from another recording was clicked (the page switches to that recording, and the new
+   * element can only be seeked once it has read the file's metadata), and when the URL
+   * names a moment (?t=): a quote on a deal opens the call at the second it was said.
    */
   startAt?: number;
   /** Called as playback proceeds, so a transcript can mark the current line. */
@@ -179,9 +180,16 @@ const RecordingPlayer = forwardRef<RecordingPlayerHandle, {
           // rather than from the error handler, so it applies to whichever load actually
           // happened instead of the one that handler expected.
           if (resumeAtRef.current > 0) {
-            video.currentTime = resumeAtRef.current;
+            const at = resumeAtRef.current;
             resumeAtRef.current = 0;
-            void video.play();
+            video.currentTime = at;
+            // Told directly rather than left to the timeupdate event: the transcript marks
+            // its line from this, and should do so even where the browser refuses to play.
+            onTimeUpdate?.(at);
+            // Allowed to fail. A browser may refuse to start sound in a tab nobody has
+            // clicked in, which a link from a deal opens; the recording then waits at the
+            // position, a press of play away.
+            video.play()?.catch(() => {});
           }
         }}
         // Clears the retry latch only once the replacement is genuinely playing. The rule

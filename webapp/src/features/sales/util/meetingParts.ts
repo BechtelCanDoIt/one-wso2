@@ -71,6 +71,33 @@ export function placeLine(
 }
 
 /**
+ * Where a second counted from the call's start falls: the recording playing then, and the
+ * position in it. A quote's offset counts from the call's start, which is where the first
+ * recording starts. Untimed parts, or none, put it on the first (or default) recording at
+ * that second, as placeLine does for lines. Null when the moment fell between timed parts,
+ * while nothing was recording.
+ */
+export function placeSecond(
+  seconds: number,
+  recordings: readonly MeetingPart[],
+  defaultRecordingId: number,
+): LinePlace | null {
+  if (!partsAreTimed(recordings)) {
+    return { recordingId: recordings[0]?.id ?? defaultRecordingId, offsetSeconds: seconds };
+  }
+  const first = parseUtc(recordings[0].startTime) as Date;
+  const moment = new Date(first.getTime() + seconds * 1000);
+  for (const recording of recordings) {
+    const start = parseUtc(recording.startTime) as Date;
+    const end = parseUtc(recording.endTime);
+    if (moment >= start && (end === null || moment <= end)) {
+      return { recordingId: recording.id, offsetSeconds: (moment.getTime() - start.getTime()) / 1000 };
+    }
+  }
+  return null;
+}
+
+/**
  * A part's label: "Part 2 · 10:30" when the call has several, by its start in the viewer's
  * own zone, or just "Part 2" when Meet no longer has its time. `noun` names the kind, e.g.
  * "Transcript 2".
