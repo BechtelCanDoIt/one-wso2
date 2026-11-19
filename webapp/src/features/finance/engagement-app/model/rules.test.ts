@@ -81,6 +81,8 @@ describe("Create Engagement: the legacy checks", () => {
     nature: "Off-site",
     address: "Colombo\nSri Lanka",
     businessUnit: "Corporate",
+    productUnit: "Corporate",
+    subRegion: "Sri Lanka",
     start: "2026-11-10",
     end: "2026-11-12",
     ...f,
@@ -88,6 +90,14 @@ describe("Create Engagement: the legacy checks", () => {
 
   it("passes a complete internal engagement, line breaks and all", () => {
     expect(validateForm(filled({}), { edit: false, campaignRequired: false })).toEqual({});
+  });
+
+  it("needs the product unit and sales sub region the backend saves as the funding source", () => {
+    const x = validateForm(filled({ productUnit: "", subRegion: "" }), { edit: false, campaignRequired: false });
+    expect(x.productUnit).toBe("Select the product unit.");
+    expect(x.subRegion).toBe("Select the sales sub region.");
+    // Editing keeps what the engagement already has; only a create asks.
+    expect(validateForm(filled({ productUnit: "", subRegion: "" }), { edit: true, campaignRequired: false }).productUnit).toBeUndefined();
   });
 
   it("needs a campaign for a new marketing event", () => {

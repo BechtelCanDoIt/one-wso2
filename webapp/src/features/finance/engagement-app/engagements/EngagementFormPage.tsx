@@ -33,6 +33,7 @@ import {
   changesOf,
   engagementCode,
   formOf,
+  needsFundingFields,
   inputOf,
   isCustomerForm,
   newForm,
@@ -140,6 +141,7 @@ function EngagementForm({
   const t = f.typeId;
   const cust = kind === "customer";
   const paid = t !== 0 && isPaidType(t);
+  const fundingRequired = t !== 0 && needsFundingFields(t, cust, paid, isEdit);
   const mkt = t === 5;
   const typeDef = types.data?.find((x) => x.id === t);
   const allocTypeDef = typeDef?.allocationTypes.find((a) => a.name === f.allocationType);
@@ -315,7 +317,8 @@ function EngagementForm({
                           opportunityId: "",
                           lineItemId: "",
                           country: a?.country ?? prev.country,
-                          subRegion: a?.subRegion ?? prev.subRegion,
+                          // The sub region is locked to the account's, so it goes with the account.
+                          subRegion: a?.subRegion ?? "",
                           address: a?.address ?? "",
                         }))
                       }
@@ -438,7 +441,7 @@ function EngagementForm({
                 <>
                   <SelectField
                     label="Business Unit"
-                    required={t === 1}
+                    required={t === 1 || fundingRequired}
                     value={f.businessUnit}
                     options={ref.data?.businessUnits ?? []}
                     disabled={cust && paid && !isEdit}
@@ -448,7 +451,9 @@ function EngagementForm({
                   />
                   <SelectField
                     label="Product Unit"
+                    required={fundingRequired}
                     value={f.productUnit}
+                    error={errors.productUnit}
                     options={productUnits(cust ? "customer" : "internal")}
                     disabled={cust && paid && !isEdit}
                     lock={cust && paid && !isEdit}
@@ -456,7 +461,9 @@ function EngagementForm({
                   />
                   <SelectField
                     label="Sales Sub Region"
+                    required={fundingRequired}
                     value={f.subRegion}
+                    error={errors.subRegion}
                     options={ref.data?.subRegions ?? []}
                     disabled={cust ? !pendingEdit : isEdit && !pendingEdit}
                     lock={cust ? !pendingEdit : isEdit && !pendingEdit}
