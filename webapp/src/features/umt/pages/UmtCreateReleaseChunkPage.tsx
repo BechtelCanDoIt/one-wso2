@@ -436,6 +436,9 @@ function UmtCreateReleaseChunkForm() {
             keepNonExistentRowsSelected
             disableRowSelectionExcludeModel
             rowSelectionModel={gridSelectionModel}
+            // Locked while Create checks the selection, so it cannot change
+            // under the check.
+            isRowSelectable={() => !busy}
             onRowSelectionModelChange={(model) => setSelectedIds([...model.ids].map(Number))}
           />
         </Box>
