@@ -15,12 +15,12 @@
 // under the License.
 
 import { useState } from "react";
-import { Avatar, Box, DataGrid, IconButton, InputAdornment, Skeleton, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { EyeIcon, HistoryIcon, PencilIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { Avatar, Box, DataGrid, IconButton, Skeleton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { EyeIcon, HistoryIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useParAdminParticipants, useParAllRatings } from "../api/useParAdmin";
-import { ParGridToolbar } from "./parGridToolbar";
+import { ParGridSearch, ParGridToolbar } from "./parGridToolbar";
 import ParEmptyState from "./ParEmptyState";
 import ParLeadHistoryModal from "./ParLeadHistoryModal";
 import type { ParCycle, ParParticipant } from "../api/types";
@@ -125,23 +125,6 @@ export default function ParOrgEmployeeViewTab({
 
   return (
     <Stack spacing={1.5}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <TextField
-          size="small"
-          placeholder="Search Employee"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Box>
       <DataGrid.DataGrid
         rows={filteredRows}
         columns={columns}
@@ -150,6 +133,9 @@ export default function ParOrgEmployeeViewTab({
         disableRowSelectionOnClick
         showToolbar
         slots={{ toolbar: ParGridToolbar }}
+        slotProps={{
+          toolbar: { children: <ParGridSearch placeholder="Search Employee" value={searchText} onChange={setSearchText} /> },
+        }}
         sx={{ border: "none" }}
         initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
         pageSizeOptions={[10, 20, 25]}

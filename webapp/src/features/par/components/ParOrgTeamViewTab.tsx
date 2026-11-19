@@ -15,11 +15,11 @@
 // under the License.
 
 import { useState } from "react";
-import { Box, Chip, DataGrid, IconButton, InputAdornment, Skeleton, Stack, TextField, Tooltip } from "@wso2/oxygen-ui";
-import { ArrowRightIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { Chip, DataGrid, IconButton, Skeleton, Stack, Tooltip } from "@wso2/oxygen-ui";
+import { ArrowRightIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useParAdminTeams } from "../api/useParAdmin";
-import { ParGridToolbar } from "./parGridToolbar";
+import { ParGridSearch, ParGridToolbar } from "./parGridToolbar";
 import ParEmptyState from "./ParEmptyState";
 import type { ParCycle, ParTeamSummary } from "../api/types";
 
@@ -103,23 +103,6 @@ export default function ParOrgTeamViewTab({
 
   return (
     <Stack spacing={1.5}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <TextField
-          size="small"
-          placeholder="Search Team"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Box>
       <DataGrid.DataGrid
         rows={filteredRows}
         columns={columns}
@@ -129,6 +112,9 @@ export default function ParOrgTeamViewTab({
         onRowClick={(params) => onSelectTeam(params.row)}
         showToolbar
         slots={{ toolbar: ParGridToolbar }}
+        slotProps={{
+          toolbar: { children: <ParGridSearch placeholder="Search Team" value={searchText} onChange={setSearchText} /> },
+        }}
         sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
         initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
         pageSizeOptions={[10, 20, 25]}

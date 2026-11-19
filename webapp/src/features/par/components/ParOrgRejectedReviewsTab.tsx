@@ -25,20 +25,18 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  InputAdornment,
   Skeleton,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { RotateCcwIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { RotateCcwIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useParAdminParticipants, useParRejectedReviews } from "../api/useParAdmin";
 import { useRestoreRejectedReview } from "../api/useParMutations";
-import { ParGridToolbar } from "./parGridToolbar";
+import { ParGridSearch, ParGridToolbar } from "./parGridToolbar";
 import ParEmptyState from "./ParEmptyState";
 import type { ParCycle, ParRejectedReview } from "../api/types";
 
@@ -141,23 +139,6 @@ export default function ParOrgRejectedReviewsTab({ cycle }: { cycle: ParCycle })
 
   return (
     <Stack spacing={1.5}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <TextField
-          size="small"
-          placeholder="Search Reviews"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Box>
       <DataGrid.DataGrid
         rows={filteredRows}
         columns={columns}
@@ -166,6 +147,9 @@ export default function ParOrgRejectedReviewsTab({ cycle }: { cycle: ParCycle })
         disableRowSelectionOnClick
         showToolbar
         slots={{ toolbar: ParGridToolbar }}
+        slotProps={{
+          toolbar: { children: <ParGridSearch placeholder="Search Reviews" value={searchText} onChange={setSearchText} /> },
+        }}
         sx={{ border: "none" }}
         initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
         pageSizeOptions={[10, 20, 25]}

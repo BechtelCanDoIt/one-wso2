@@ -28,7 +28,6 @@ import {
   DialogTitle,
   Divider,
   FormControlLabel,
-  Grid,
   IconButton,
   InputAdornment,
   Link,
@@ -64,7 +63,8 @@ interface BreadcrumbEntry {
 // ReportChainView.tsx. Starts at the caller's own direct reports; each row
 // whose isEmployeeALead is "True" gets a "View Subordinates" action that
 // drills into THAT person's own direct reports, one level at a time, with a
-// breadcrumb trail back up. The backend allows this as long as the
+// breadcrumb trail back up once a lead's team is open (none at the top: it
+// would only link to itself). The backend allows this as long as the
 // requested email is somewhere in the caller's own reporting chain.
 export default function ParLeadReportChainTab() {
   const profile = useMeProfile();
@@ -275,71 +275,66 @@ export default function ParLeadReportChainTab() {
 
   return (
     <Stack spacing={2}>
-      <Breadcrumbs separator={<ChevronRightIcon size={14} />}>
-        <Link
-          component="button"
-          underline={history.length === 0 ? "none" : "hover"}
-          color={history.length === 0 ? "text.primary" : "primary"}
-          onClick={() => navigateTo(-1)}
-        >
-          Direct Reports
-        </Link>
-        {history.map((entry, index) => (
-          <Link
-            key={entry.email}
-            component="button"
-            underline={index === history.length - 1 ? "none" : "hover"}
-            color={index === history.length - 1 ? "text.primary" : "primary"}
-            onClick={() => navigateTo(index)}
-          >
-            {entry.name}
-          </Link>
-        ))}
-      </Breadcrumbs>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" />
+          <Typography component="span" variant="caption" color="text.secondary">
+            ({formatShortDate(cycle.parCycleStartDate)} - {formatShortDate(cycle.parCycleEndDate)})
+          </Typography>
+        </Box>
+        <Tooltip title="Open Cycle Dates" arrow>
+          <IconButton onClick={() => setCycleDatesOpen(true)} aria-label="cycle dates">
+            <CalendarIcon size={18} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
 
-      <Grid container spacing={2} sx={{ alignItems: "center" }}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" />
-            <Typography component="span" variant="caption" color="text.secondary">
-              ({formatShortDate(cycle.parCycleStartDate)} - {formatShortDate(cycle.parCycleEndDate)})
-            </Typography>
+      <Card variant="outlined" sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ mb: 1.5 }}>
+          {/* Where you are, once a lead's team is open; the top level has no trail (it would only link to itself). */}
+          <Box sx={{ minWidth: 0 }}>
+            {history.length > 0 && (
+              <Breadcrumbs separator={<ChevronRightIcon size={14} />}>
+                <Link component="button" underline="hover" onClick={() => navigateTo(-1)}>
+                  Direct Reports
+                </Link>
+                {history.map((entry, index) =>
+                  // The team that's open is where the trail ends, not a link back to itself.
+                  index === history.length - 1 ? (
+                    <Typography key={entry.email} component="span" color="text.primary" aria-current="page">
+                      {entry.name}
+                    </Typography>
+                  ) : (
+                    <Link key={entry.email} component="button" underline="hover" onClick={() => navigateTo(index)}>
+                      {entry.name}
+                    </Link>
+                  ),
+                )}
+              </Breadcrumbs>
+            )}
           </Box>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <TextField
-            fullWidth
-            size="small"
-            placeholder="Search employees..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            slotProps={{
-              input: {
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon size={16} />
-                  </InputAdornment>
-                ),
-              },
-            }}
-          />
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
-            <Tooltip title="Open Cycle Dates" arrow>
-              <IconButton onClick={() => setCycleDatesOpen(true)} aria-label="cycle dates">
-                <CalendarIcon size={18} />
-              </IconButton>
-            </Tooltip>
+          <Stack direction="row" spacing={1.5} alignItems="center">
             <FormControlLabel
               control={<Switch checked={showLeadsOnly} onChange={(e) => setShowLeadsOnly(e.target.checked)} />}
               label="Show Leads Only"
             />
-          </Box>
-        </Grid>
-      </Grid>
-
-      <Card variant="outlined" sx={{ p: 2 }}>
+            <TextField
+              size="small"
+              placeholder="Search employees..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon size={16} />
+                    </InputAdornment>
+                  ),
+                },
+              }}
+            />
+          </Stack>
+        </Stack>
         {reports.isError ? (
           <ErrorNotice error={reports.error} onRetry={() => reports.refetch()} retrying={reports.isFetching}>
             Couldn't load this report chain level.
