@@ -19,6 +19,7 @@ import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import type { Par360Reviewer, ParCycle, ParRating } from "../api/types";
+import type { HomeStepKey } from "../util/parHome";
 
 const query = <T,>(data: T) => ({ data, isLoading: false, isError: false, refetch: vi.fn() });
 
@@ -53,10 +54,10 @@ function Where() {
   return <div data-testid="where">{useLocation().pathname}</div>;
 }
 
-function show() {
+function show(selected: HomeStepKey = "self-review") {
   render(
-    <MemoryRouter initialEntries={["/me/performance/cycle/self-review"]}>
-      <ParCycleTracker cycle={cycle} workEmail="me@example.com" selected="self-review" />
+    <MemoryRouter initialEntries={[`/me/performance/cycle/${selected}`]}>
+      <ParCycleTracker cycle={cycle} workEmail="me@example.com" selected={selected} />
       <Routes>
         <Route path="*" element={<Where />} />
       </Routes>
@@ -77,11 +78,35 @@ beforeEach(() => {
 });
 
 describe("ParCycleTracker", () => {
-  it("names the lead on the steps that are theirs, and when the face-to-face opens", () => {
+  it("names the lead on the steps that are theirs, and when the face-to-face opens, with no dates on the steps", () => {
     show();
     expect(step("Lead review")).toHaveTextContent("Hannah reviews after you share");
-    expect(step("Lead review")).toHaveTextContent("Expected by 31 Dec '99");
+    expect(step("Lead review")).not.toHaveTextContent("Expected by");
     expect(step("Face-to-face")).toHaveTextContent("Opens after Hannah shares");
+    expect(step("Face-to-face")).not.toHaveTextContent("Due");
+  });
+
+  it("says in one line what happens next in the open step, its date and the days left", () => {
+    show();
+    expect(screen.getByText("Hannah sees it once you share it.")).toBeInTheDocument();
+    expect(screen.getByText("Due 31 Dec '99")).toBeInTheDocument();
+    expect(screen.getByText(/days left/)).toBeInTheDocument();
+    cleanup();
+    show("360");
+    expect(screen.getByText(/Ask at least 3 people/)).toBeInTheDocument();
+    expect(screen.queryByText("Hannah sees it once you share it.")).not.toBeInTheDocument();
+  });
+
+  it("gives someone else's deadline as a date only, and none once it's done", () => {
+    show("lead-review");
+    expect(screen.getByText("Nothing to do here until you share your self-review.")).toBeInTheDocument();
+    expect(screen.getByText("Expected by 31 Dec '99")).toBeInTheDocument();
+    expect(screen.queryByText(/days left/)).not.toBeInTheDocument();
+    cleanup();
+    rating = { ...rating, parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" };
+    show("lead-review");
+    expect(screen.getByText("Your rating and feedback are here, with your PAR's PDF.")).toBeInTheDocument();
+    expect(screen.queryByText(/Expected by/)).not.toBeInTheDocument();
   });
 
   it("outlines the open step, and the whole box of a step opens its part", async () => {
@@ -102,13 +127,18 @@ describe("ParCycleTracker", () => {
     expect(step("360° feedback")).toHaveTextContent("Minimum met");
   });
 
-  it("has nothing to open for the lead review, even once shared: it shows on the self-review page", () => {
+  it("greys out the lead review and opens it only once the lead has shared it", async () => {
+    const user = userEvent.setup();
     show();
     expect(step("Lead review").querySelector("button")).toBeNull();
+    expect(step("Lead review").firstElementChild).toHaveStyle({ opacity: "0.5" });
+    expect(step("Face-to-face").firstElementChild).not.toHaveStyle({ opacity: "0.5" });
     cleanup();
     rating = { ...rating, parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" };
     show();
     expect(step("Lead review")).toHaveTextContent("Shared with you");
-    expect(step("Lead review").querySelector("button")).toBeNull();
+    expect(step("Lead review").firstElementChild).not.toHaveStyle({ opacity: "0.5" });
+    await user.click(step("Lead review").querySelector("button")!);
+    expect(screen.getByTestId("where")).toHaveTextContent("/me/performance/cycle/lead-review");
   });
 });

@@ -31,14 +31,9 @@ vi.mock("../api/useSelfReview", () => ({
 vi.mock("../api/useParMutations", () => ({
   useSaveParRating: () => ({ mutate: unshareMutate, isPending: false }),
 }));
-vi.mock("../api/useReview360", () => ({
-  useReviewSummary: () => ({ data: undefined }),
-}));
-vi.mock("../api/useLeadership360", () => ({ useCycleLeadership360ForPdf: () => undefined }));
 vi.mock("@context/notifications/NotificationsContext", () => ({
   useNotifications: () => ({ showSuccess: vi.fn(), showError: vi.fn() }),
 }));
-vi.mock("./ParRatingSummary", () => ({ default: () => <div>Lead's feedback</div> }));
 
 const { default: ParSelfReviewForm } = await import("./ParSelfReviewForm");
 
@@ -89,13 +84,23 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("ParSelfReviewForm", () => {
-  it("opens on Start, then shows the two sections", () => {
+  it("saves an empty draft on Start, so it counts as started, then shows the two sections", () => {
+    saveMutate.mockImplementation((_answers, options) => options.onSuccess());
     show("PENDING");
     fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    expect(saveMutate).toHaveBeenCalledWith({}, expect.anything());
     for (const title of ["Impact this cycle", "Growth & learning"]) {
       expect(screen.getByText(title)).toBeInTheDocument();
     }
     expect(screen.getByText("0 of 2 sections")).toBeInTheDocument();
+  });
+
+  it("stays on Start when starting can't be saved", () => {
+    saveMutate.mockImplementation((_answers, options) => options.onError(new Error("HTTP 503")));
+    show("PENDING");
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+    expect(screen.queryByText("0 of 2 sections")).not.toBeInTheDocument();
   });
 
   it("autosaves what the employee writes, without blank answers", () => {
@@ -194,7 +199,7 @@ describe("ParSelfReviewForm", () => {
     expect(screen.queryByText("Share your self-review?")).not.toBeInTheDocument();
   });
 
-  it("shows a draft past its deadline for reading, with the lead's review once they share", () => {
+  it("shows a draft past its deadline for reading, and only the self-review once the lead shares", () => {
     render(
       <ParSelfReviewForm
         cycle={{ ...cycle, parEmployeeDeadline: "2000-01-01" }}
@@ -205,7 +210,8 @@ describe("ParSelfReviewForm", () => {
       />,
     );
     expect(screen.getByText(/Your draft wasn't shared, so your lead doesn't see it\./)).toBeInTheDocument();
-    expect(screen.getByText("Lead's feedback")).toBeInTheDocument();
+    expect(screen.getByText("Shipped it")).toBeInTheDocument();
+    expect(screen.queryByText("Lead's feedback")).not.toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
   });
 
@@ -215,5 +221,11 @@ describe("ParSelfReviewForm", () => {
     expect(screen.getByText("Learned it")).toBeInTheDocument();
     expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Unshare" })).toBeInTheDocument();
+  });
+
+  it("says a locked review is with the lead, without saying the lead has started", () => {
+    show("SHARED_BLOCKED", { impact: "Shipped it", growth: "Learned it" });
+    expect(screen.getByText("Your self-review is with your lead.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unshare" })).not.toBeInTheDocument();
   });
 });

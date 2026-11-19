@@ -106,6 +106,7 @@ const ParAdminHistoryTab = lazy(() => import("@features/par/pages/ParAdminHistor
 const ParAdminGlobalConfigTab = lazy(() => import("@features/par/pages/ParAdminGlobalConfigTab"));
 const ParGiveFeedbackTab = lazy(() => import("@features/par/pages/ParGiveFeedbackTab"));
 const ParCycleFeedbackSection = lazy(() => import("@features/par/pages/ParCycleFeedbackSection"));
+const ParCycleLeadReview = lazy(() => import("@features/par/pages/ParCycleLeadReview"));
 import EmailGroupsPage from "@features/my/email-groups/pages/EmailGroupsPage";
 import EmailSignaturePage from "@features/my/email-signature/pages/EmailSignaturePage";
 import BankingRoute from "@features/my/banking/components/BankingRoute";
@@ -726,7 +727,6 @@ export default function App() {
                 }
               >
                 <Route index element={<ParActiveCycleIndex />} />
-                {/* The lead's review shows here too, once the lead shares. */}
                 <Route
                   path="self-review"
                   element={
@@ -740,6 +740,14 @@ export default function App() {
                   element={
                     <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
                       <ParCycleFeedbackSection />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="lead-review"
+                  element={
+                    <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                      <ParCycleLeadReview />
                     </Suspense>
                   }
                 />

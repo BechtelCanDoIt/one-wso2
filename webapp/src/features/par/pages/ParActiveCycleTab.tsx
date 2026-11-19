@@ -18,17 +18,18 @@ import { Stack } from "@wso2/oxygen-ui";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { useActiveParCycle } from "../api/useParData";
 import ParCycleTracker from "../components/ParCycleTracker";
-import type { HomeStepKey } from "../util/parHome";
+import { useHomeInput } from "../api/useHomeInput";
+import { landingStep, type HomeStepKey } from "../util/parHome";
+import type { ParCycle } from "../api/types";
 
 const BASE = "/me/performance/cycle";
 
-// The steps that open a part below; the lead review shows on the self-review page.
-const STEPS: HomeStepKey[] = ["self-review", "360", "f2f"];
+// The steps that open a part below.
+const STEPS: HomeStepKey[] = ["self-review", "360", "lead-review", "f2f"];
 
 // Me → Performance → Active cycle (PAR 2.0): everything about your own PAR in
 // the open cycle. The phase tracker on top is the way around: each step opens
-// its part below, except the lead review (the lead's review shows on the
-// self-review page once the lead shares).
+// its part below, the lead review once the lead has shared it.
 export default function ParActiveCycleTab() {
   const { pathname } = useLocation();
   const profile = useMeProfile();
@@ -44,7 +45,16 @@ export default function ParActiveCycleTab() {
   );
 }
 
-/** The tab's own URL opens the self-review. */
+/** The tab's own URL opens the step that needs you, once what decides it has loaded (see landingStep). */
 export function ParActiveCycleIndex() {
-  return <Navigate to={`${BASE}/self-review`} replace />;
+  const profile = useMeProfile();
+  const workEmail = profile.data?.userInfo.workEmail;
+  const cycle = useActiveParCycle(workEmail).data?.[0];
+  return cycle && workEmail ? <Landing cycle={cycle} workEmail={workEmail} /> : null;
+}
+
+function Landing({ cycle, workEmail }: { cycle: ParCycle; workEmail: string }) {
+  const { input, isLoading } = useHomeInput(cycle, workEmail);
+  if (isLoading) return null;
+  return <Navigate to={`${BASE}/${input ? landingStep(input) : "self-review"}`} replace />;
 }

@@ -19,6 +19,7 @@ import { useNavigate } from "react-router";
 import { Box, ButtonBase, Card, Chip, Skeleton, Tooltip, Typography, type Theme } from "@wso2/oxygen-ui";
 import {
   ArrowRightIcon,
+  CalendarIcon,
   CheckIcon,
   CircleCheckIcon,
   CircleMinusIcon,
@@ -26,28 +27,32 @@ import {
   LockIcon,
   PencilIcon,
 } from "@wso2/oxygen-ui-icons-react";
-import { isPreviewEnabled } from "@config/previewFeatures";
-import { useParRating } from "../api/useParData";
-import { useParticipants, useReviewers, useReviewRequests } from "../api/usePar360";
-import { useSelfReview } from "../api/useSelfReview";
-import { cycleSurvey, useLeadership360Results, useLeadership360Surveys } from "../api/useLeadership360";
 import type { ParCycle } from "../api/types";
 import { formatShortDate } from "../util/parDate";
-import { isSectionAnswered } from "../util/selfReviewForm";
-import { homeSteps, nextUp, type HomeStep, type HomeStepKey, type NextUp } from "../util/parHome";
-import ParDueChip from "./ParDueChip";
+import { daysLeft, daysLeftLabel } from "../util/parDeadline";
+import { useHomeInput } from "../api/useHomeInput";
+import {
+  CLOSED_NOTE,
+  homeSteps,
+  landingStep,
+  stepBanner,
+  type HomeStep,
+  type HomeStepKey,
+  type StepBanner,
+} from "../util/parHome";
 
-// Where each step opens in Active cycle. The lead review only shows where it stands: once the lead
-// shares, their review is on the self-review page.
-const STEP_SEGMENT: Partial<Record<HomeStepKey, string>> = {
+// Where each step opens in Active cycle. The lead review opens once the lead has shared it.
+const STEP_SEGMENT: Record<HomeStepKey, string> = {
   "self-review": "cycle/self-review",
   "360": "cycle/360",
+  "lead-review": "cycle/lead-review",
   f2f: "cycle/f2f",
 };
 
-// PAR 2.0, at the top of Active cycle: where you are in the cycle and the one thing to do next.
-// The steps are how you move around Active cycle: each opens its part below (all but the lead
-// review), and the one open is outlined.
+// PAR 2.0, at the top of Active cycle: where you are in the cycle, as steps that are how you move
+// around it. Each step opens its part below (the lead review once it's shared). The open step is a
+// folder tab joined to the banner under it, which says what that step needs and by when: the steps
+// themselves carry no dates.
 export default function ParCycleTracker({
   cycle,
   workEmail,
@@ -59,73 +64,65 @@ export default function ParCycleTracker({
   selected?: HomeStepKey;
 }) {
   const navigate = useNavigate();
-  const rating = useParRating(cycle.parCycleId, workEmail);
-  const selfReview = useSelfReview(cycle.parCycleId, workEmail);
-  const reviewers = useReviewers(cycle.parCycleId, workEmail);
-  const requests = useReviewRequests(cycle.parCycleId, workEmail);
-  // The lead's name for the steps that wait on them: the cycle's people include them.
-  const participants = useParticipants(cycle.parCycleId);
-  // A leader's 360° feedback is Leadership 360°: what counts is how many responded to the cycle's survey.
-  const leader = Boolean(rating.data?.parIsLeadershipEmployee) && isPreviewEnabled("leadership360");
-  const surveys = useLeadership360Surveys(leader);
-  const leadershipResults = useLeadership360Results(
-    leader ? cycleSurvey(surveys.data, cycle.parCycleId)?.surveyId : undefined,
-    "SELF",
-  );
+  const { input, isLoading } = useHomeInput(cycle, workEmail);
 
-  if (rating.isLoading) return <Skeleton variant="rectangular" height={132} sx={{ borderRadius: 1.5 }} />;
+  if (!input && isLoading) return <Skeleton variant="rectangular" height={170} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
   // Without the PAR record there's nothing to track; the page says why.
-  if (!rating.data) return null;
+  if (!input) return null;
 
-  const definition = selfReview.data?.template.definition;
-  const selfReviewProgress = definition && {
-    answered: definition.sections.filter((s) => isSectionAnswered(s, selfReview.data!.answers)).length,
-    total: definition.sections.length,
-  };
-  const input = {
-    cycle,
-    rating: rating.data,
-    selfReviewProgress,
-    reviewers: reviewers.data ?? [],
-    requests: requests.data ?? [],
-    leadership: leader ? { responseCount: leadershipResults.data?.[0]?.responseCount ?? 0 } : undefined,
-    // First name only: the steps are narrow.
-    leadName: participants.data
-      ?.find((p) => p.workEmail.toLowerCase() === rating.data!.parLeadEmail?.toLowerCase())
-      ?.employeeName.split(" ")[0],
-  };
   const steps = homeSteps(input);
-  const next = nextUp(input);
+  const open = selected ?? landingStep(input);
+  const openIndex = steps.findIndex((s) => s.key === open);
   const go = (segment: string) => navigate(`/me/performance/${segment}`);
 
   return (
-    <Card variant="outlined" sx={{ p: 1.5 }}>
+    <Card variant="outlined" sx={{ p: 1.5, maxWidth: 1100 }}>
       <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" sx={{ mb: 1.5, fontWeight: 600 }} />
       <Box
         component="ol"
         aria-label="Your PAR cycle"
-        sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(4, 1fr)" }, gap: 1, m: 0, p: 0 }}
-      >
-        {steps.map((step, i) => {
-          const segment = STEP_SEGMENT[step.key];
-          return (
-            <TrackerStep
-              key={step.key}
-              step={step}
-              number={i + 1}
-              selected={step.key === selected}
-              onOpen={segment ? () => go(segment) : undefined}
-            />
-          );
+        sx={(theme) => ({
+          display: "grid",
+          gridTemplateColumns: "1fr",
+          gap: 1,
+          m: 0,
+          mb: 1,
+          p: 0,
+          [theme.breakpoints.up("sm")]: {
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap: 0.5,
+            // The open tab runs over the banner's top edge.
+            mb: "-1px",
+            position: "relative",
+            zIndex: 1,
+          },
         })}
+      >
+        {steps.map((step, i) => (
+          <TrackerStep
+            key={step.key}
+            step={step}
+            number={i + 1}
+            selected={step.key === open}
+            onOpen={step.key !== "lead-review" || step.status === "done" ? () => go(STEP_SEGMENT[step.key]) : undefined}
+          />
+        ))}
       </Box>
-      <NextCard next={next} />
+      <StepPanel banner={stepBanner(input, open)} openIndex={openIndex} stepCount={steps.length} />
     </Card>
   );
 }
 
-// One step: an outlined box, the same size as the others and clickable all over. Without
-// `onOpen` it only shows where it stands.
+// The open tab and the banner share one surface, a shade off the page, and one edge. theme.palette holds the
+// light scheme only; theme.vars follows the light/dark switch.
+const palette = (theme: Theme) => (theme.vars ?? theme).palette;
+const panelBg = (theme: Theme) =>
+  `color-mix(in srgb, ${palette(theme).text.primary} 5%, ${palette(theme).background.default})`;
+const panelEdge = (theme: Theme) => `color-mix(in srgb, ${palette(theme).text.primary} 14%, transparent)`;
+
+// One step: the number, its name and whose move it is, and where it stands. Clickable all over;
+// without `onOpen` it can't be opened yet, so it's greyed out. The open one is a folder tab with a
+// line in the main colour along its top (on a phone, where the steps stack, an outlined box).
 function TrackerStep({
   step,
   number,
@@ -137,85 +134,65 @@ function TrackerStep({
   selected: boolean;
   onOpen?: () => void;
 }) {
-  const done = step.state === "done";
-  const current = step.state === "current";
   const green = step.status === "done" || step.status === "enough";
   const yours = step.status === "todo";
-  const box = {
+  const box = (theme: Theme) => ({
     flex: 1,
     display: "flex",
-    gap: 1.25,
-    alignItems: "flex-start",
+    flexDirection: "column" as const,
+    alignItems: "stretch",
     justifyContent: "flex-start",
-    textAlign: "left",
-    p: 1.25,
+    gap: 0.5,
+    textAlign: "left" as const,
+    px: 1.5,
+    pt: 1.5,
+    pb: 1.25,
     border: 1,
-    borderColor: selected ? "primary.main" : "divider",
-    borderRadius: 1.5,
-    // A second pixel of outline for the open step, without moving its content.
-    boxShadow: (theme: Theme) => (selected ? `inset 0 0 0 1px ${theme.palette.primary.main}` : "none"),
-  } as const;
+    borderColor: selected ? panelEdge(theme) : "transparent",
+    borderRadius: "14px",
+    bgcolor: selected ? panelBg(theme) : "transparent",
+    boxShadow: selected ? `inset 0 3px 0 ${palette(theme).primary.main}` : "none",
+    [theme.breakpoints.up("sm")]: {
+      borderRadius: "14px 14px 0 0",
+      borderBottomColor: selected ? panelBg(theme) : "transparent",
+    },
+  });
   const content: ReactNode = (
     <>
-      <Box
-        aria-hidden
-        sx={{
-          width: 28,
-          height: 28,
-          flexShrink: 0,
-          borderRadius: "50%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 13,
-          fontWeight: 700,
-          // The number follows whose move it is: orange only when it's the employee's.
-          bgcolor: green ? "success.main" : yours ? "primary.main" : "action.selected",
-          color: green || yours ? "common.white" : "text.secondary",
-        }}
-      >
-        {number}
-      </Box>
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        {/* The chip goes under the name when the step is too narrow for both. */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, width: "100%" }}>
         <Box
+          aria-hidden
           sx={{
+            width: 22,
+            height: 22,
+            flexShrink: 0,
+            borderRadius: "50%",
             display: "flex",
-            flexWrap: "wrap",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            columnGap: 1,
-            rowGap: 0.5,
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 12,
+            fontWeight: 700,
+            // The number follows whose move it is: orange only when it's the employee's.
+            bgcolor: green ? "success.main" : yours ? "primary.main" : "action.selected",
+            color: green || yours ? "common.white" : "text.secondary",
           }}
         >
-          <Typography
-            variant="body2"
-            component="div"
-            sx={{ fontWeight: current ? 700 : 600, color: done || current ? "text.primary" : "text.secondary" }}
-          >
-            {step.label}
-          </Typography>
-          <StepStatusChip step={step} />
+          {number}
         </Box>
-        {step.detail && (
-          <Typography variant="caption" color="text.secondary" component="div">
-            {step.detail}
-          </Typography>
-        )}
-        {step.due &&
-          !done &&
-          // The employee's own deadline says how long is left; someone else's is just a date.
-          (step.dueLabel ? (
-            <Chip
-              size="small"
-              variant="outlined"
-              label={`${step.dueLabel} ${formatShortDate(step.due)}`}
-              sx={{ mt: 0.5, height: 20, fontSize: 11 }}
-            />
-          ) : (
-            <ParDueChip due={step.due} sx={{ mt: 0.5, height: 20, fontSize: 11 }} />
-          ))}
+        <Typography
+          variant="body2"
+          component="div"
+          sx={{ flex: 1, minWidth: 0, fontWeight: 600, color: selected ? "text.primary" : "text.secondary" }}
+        >
+          {step.label}
+        </Typography>
+        <StepStatusChip step={step} />
       </Box>
+      {step.detail && (
+        <Typography variant="caption" color="text.secondary" component="div" sx={{ pl: "30px" }}>
+          {step.detail}
+        </Typography>
+      )}
     </>
   );
   return (
@@ -223,26 +200,22 @@ function TrackerStep({
       {onOpen ? (
         <ButtonBase
           onClick={onOpen}
-          aria-current={selected ? "page" : current ? "step" : undefined}
-          sx={{ ...box, "&:hover": { bgcolor: "action.hover" } }}
+          aria-current={selected ? "page" : step.state === "current" ? "step" : undefined}
+          sx={(theme) => ({ ...box(theme), ...(!selected && { "&:hover": { bgcolor: "action.hover" } }) })}
         >
           {content}
         </ButtonBase>
       ) : (
-        <Box aria-current={current ? "step" : undefined} sx={box}>
+        <Box
+          aria-current={step.state === "current" ? "step" : undefined}
+          sx={(theme) => ({ ...box(theme), ...(!selected && { opacity: 0.5, cursor: "not-allowed" }) })}
+        >
           {content}
         </Box>
       )}
     </Box>
   );
 }
-
-// Why a step closed. The lead review never does: its deadline is the lead's.
-const CLOSED_NOTE: Partial<Record<HomeStepKey, string>> = {
-  "self-review": "The deadline passed before it was shared, so it's locked.",
-  "360": "The 360° window closed without enough feedback for results.",
-  f2f: "The deadline passed before it was marked done, so it's locked.",
-};
 
 // Whose move the step is, with a colour and icon each: yours in the main colour, done in green,
 // someone else's or not open yet in grey. All outlined, so the colour stays in the border.
@@ -282,43 +255,63 @@ function StepStatusChip({ step }: { step: HomeStep }) {
   }
 }
 
-// The one thing to do next, set apart under the steps: tinted in the main colour when it's the
-// employee's move, grey while it's someone else's, green when everything's done. A thing to do
-// with a deadline says how long is left, amber in the last three days.
-// No button: the steps above open each part.
-function NextCard({ next }: { next: NextUp }) {
-  const tint = next.tone === "todo" ? "primary.main" : next.tone === "done" ? "success.main" : "text.secondary";
-  const Icon = next.tone === "todo" ? ArrowRightIcon : next.tone === "done" ? CircleCheckIcon : ClockIcon;
+const BANNER_ICON = {
+  todo: ArrowRightIcon,
+  waiting: ClockIcon,
+  done: CircleCheckIcon,
+  closed: CircleMinusIcon,
+  locked: LockIcon,
+} as const;
+
+// The one-line banner under the steps: what happens next in the open step and, on the right, by when.
+// The employee's own deadlines say how many days are left, amber in the last three; someone else's is
+// just a date.
+function StepPanel({ banner, openIndex, stepCount }: { banner: StepBanner; openIndex: number; stepCount: number }) {
+  const tint = banner.tone === "todo" ? "primary.main" : banner.tone === "done" ? "success.main" : "text.secondary";
+  const Icon = BANNER_ICON[banner.tone];
+  const days = banner.due ? daysLeft(banner.due) : NaN;
+  const showDays = banner.tone === "todo" && !Number.isNaN(days) && days >= 0;
   return (
     <Box
-      sx={{
-        mt: 1.5,
+      sx={(theme) => ({
+        border: 1,
+        borderColor: panelEdge(theme),
+        bgcolor: panelBg(theme),
+        borderRadius: "14px",
+        px: 2,
+        py: 1.25,
         display: "flex",
         alignItems: "center",
-        gap: 1.5,
-        px: 1.5,
-        py: 1.25,
-        borderRadius: 1.5,
-        borderLeft: 3,
-        borderColor: tint,
-        bgcolor: (theme: Theme) =>
-          next.tone === "waiting"
-            ? theme.palette.action.hover
-            : `color-mix(in srgb, ${next.tone === "todo" ? theme.palette.primary.main : theme.palette.success.main} 8%, transparent)`,
-      }}
+        flexWrap: "wrap",
+        columnGap: 1.5,
+        rowGap: 1,
+        // Square under the first or last tab, so the tab runs straight into the banner.
+        [theme.breakpoints.up("sm")]: {
+          borderTopLeftRadius: openIndex === 0 ? 0 : "14px",
+          borderTopRightRadius: openIndex === stepCount - 1 ? 0 : "14px",
+        },
+      })}
     >
       <Box aria-hidden sx={{ color: tint, display: "flex", flexShrink: 0 }}>
-        <Icon size={18} />
+        <Icon size={16} />
       </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          {next.title}
-        </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {next.body}
-        </Typography>
-      </Box>
-      {next.tone === "todo" && next.due && <ParDueChip due={next.due} daysOnly sx={{ flexShrink: 0 }} />}
+      <Typography variant="body2" sx={{ flex: "1 1 320px", minWidth: 0 }}>
+        {banner.text}
+      </Typography>
+      {banner.due && (
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexShrink: 0, color: "text.secondary" }}>
+          <CalendarIcon size={16} aria-hidden />
+          <Typography variant="body2">
+            {banner.dueLabel ?? "Due"} {formatShortDate(banner.due)}
+            {showDays && (
+              <Box component="span" sx={{ fontWeight: 600, color: days <= 3 ? "warning.main" : "primary.main" }}>
+                {" · "}
+                {daysLeftLabel(days)}
+              </Box>
+            )}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }
