@@ -14,19 +14,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Registry of Procurement, surfaced as a group inside the Finance perspective.
+// Registry of Procurement, surfaced as a group inside the Me perspective.
 // Phase 1 rows are things any employee does for themself, so none carries
 // `requires`: they stay open the way Credit Card's per-user rows do. The rows
 // for approving and assigning join the registry with their own gate when those
 // screens land.
 
-import { ClipboardListIcon, FilePlusIcon, ShoppingCartIcon } from "@wso2/oxygen-ui-icons-react";
+import { CheckCheckIcon, ClipboardListIcon, ShoppingCartIcon } from "@wso2/oxygen-ui-icons-react";
 import type { MenuApp } from "@constants/appMenu";
-import { procurementPaths } from "@features/finance/procurement/procurementPaths";
+import { PROCUREMENT_PATH } from "@features/procurement/procurementPaths";
+import { workspacePaths } from "@features/procurement/workspace/workspacePaths";
 
 export const PROCUREMENT_ITEM = {
-  requests: "procurement-requests",
-  newRequest: "procurement-new-request",
+  home: "procurement-home",
 } as const;
 
 export const PROCUREMENT_APPS: readonly MenuApp[] = [
@@ -35,21 +35,58 @@ export const PROCUREMENT_APPS: readonly MenuApp[] = [
     name: "Procurement",
     icon: ShoppingCartIcon,
     purpose: "Raise purchase requests and follow them through approval to Procurement.",
-    alwaysGroup: true,
     items: [
       {
-        id: PROCUREMENT_ITEM.requests,
-        label: "My Requests",
-        icon: ClipboardListIcon,
-        desc: "Purchase requests you have raised, and where each one stands.",
-        path: procurementPaths.requests,
+        id: PROCUREMENT_ITEM.home,
+        label: "Procurement",
+        icon: ShoppingCartIcon,
+        desc: "Raise purchase requests and follow them through approval to Procurement.",
+        path: PROCUREMENT_PATH,
       },
+    ],
+  },
+];
+
+export const PROCUREMENT_WORKSPACE_ITEM = {
+  approvals: "procurement-approvals",
+  queue: "procurement-team-queue",
+} as const;
+
+/** The rail rows only the Procurement team sees. Approvals is open to everyone, so the team's role check does not claim it. */
+export const PROCUREMENT_TEAM_ITEM_IDS: ReadonlySet<string> = new Set([PROCUREMENT_WORKSPACE_ITEM.queue]);
+
+/**
+ * The Procurement perspective: approvals for anyone a request names as an
+ * approver, then the approved requests the team assigns and handles.
+ */
+export const PROCUREMENT_TEAM_APPS: readonly MenuApp[] = [
+  {
+    key: "procurement-requests",
+    name: "Requests",
+    icon: ClipboardListIcon,
+    purpose: "Approved purchase requests, to assign and handle.",
+    items: [
       {
-        id: PROCUREMENT_ITEM.newRequest,
-        label: "New Request",
-        icon: FilePlusIcon,
-        desc: "Raise a purchase request for IT or Non-IT goods and services.",
-        path: procurementPaths.newRequest,
+        id: PROCUREMENT_WORKSPACE_ITEM.queue,
+        label: "Requests",
+        icon: ClipboardListIcon,
+        desc: "Approved purchase requests, to assign and handle.",
+        path: workspacePaths.queue,
+      },
+    ],
+  },
+  {
+    key: "procurement-approvals",
+    name: "Approvals",
+    icon: CheckCheckIcon,
+    purpose: "Approve or reject the purchase requests that name you as an approver.",
+    items: [
+      {
+        id: PROCUREMENT_WORKSPACE_ITEM.approvals,
+        label: "Approvals",
+        icon: CheckCheckIcon,
+        desc: "Approve or reject the purchase requests that name you as an approver.",
+        path: workspacePaths.approvals,
       },
     ],
   },

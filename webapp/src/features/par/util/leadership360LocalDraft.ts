@@ -60,6 +60,22 @@ export function removeLocalDraft(workEmail: string, surveyId: number, leaderEmai
   }
 }
 
+/** Removes every anonymous draft in this browser, whoever wrote it, for a survey that has closed: it takes no
+ * more feedback, so its drafts are only left-over answers. A survey's closing is final; drafts for any survey
+ * not known to be closed stay. */
+export function removeClosedSurveyDrafts(closedSurveyIds: number[]): void {
+  try {
+    const closed: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(`${PREFIX}:`) && closedSurveyIds.includes(Number(key.split(":")[2]))) closed.push(key);
+    }
+    closed.forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Nothing kept, nothing to remove.
+  }
+}
+
 /** The leaders this person has an anonymous draft for in a survey (lower-case emails). */
 export function localDraftLeaders(workEmail: string, surveyId: number): string[] {
   const prefix = `${PREFIX}:${workEmail.toLowerCase()}:${surveyId}:`;

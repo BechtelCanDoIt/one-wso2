@@ -67,6 +67,8 @@ export function useParShowsPar2(parCycleId: number | undefined): {
   showsPar2: boolean;
   isLoading: boolean;
   error: Error | null;
+  retry: () => void;
+  retrying: boolean;
 } {
   const enabled = isPreviewEnabled("par2");
   const forms = useParCycleForms(enabled ? parCycleId : undefined);
@@ -75,6 +77,8 @@ export function useParShowsPar2(parCycleId: number | undefined): {
     showsPar2: enabled && forms.hasStructured360,
     isLoading: asked && forms.isLoading,
     error: asked && forms.data === undefined ? forms.error : null,
+    retry: () => void forms.refetch(),
+    retrying: forms.isFetching,
   };
 }
 

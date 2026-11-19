@@ -14,9 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { captureDownloads, bytesOf } from "@/test/downloads";
 import type { BankAccount } from "@features/my/api/types";
 
 const accounts = vi.hoisted(() => ({ data: [] as BankAccount[] }));
@@ -63,6 +64,14 @@ beforeEach(() => {
   reportAccountsSpy.mockReset();
 });
 
+// The export test below stands in for `URL.createObjectURL` and for the
+// click of every anchor in the document, and neither the runner nor the
+// global setup puts them back on its own — so every later test's clicks
+// would be captured instead of performed.
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
 describe("ReportTab", () => {
   it("renders the default-visible columns and rows", () => {
     accounts.data = [bankAccount({ employeeEmail: "jane@wso2.com", branchName: "Colombo" })];
@@ -95,8 +104,52 @@ describe("ReportTab", () => {
       .findIndex((header) => header.textContent === "Account Holder City");
     expect(cityIndex).toBeGreaterThan(-1);
 
-    expect(within(salaryRow).getAllByRole("cell")[cityIndex]).toHaveTextContent(/^-$/);
-    expect(within(consultancyRow).getAllByRole("cell")[cityIndex]).toHaveTextContent(/^Kandy$/);
+    expect(within(salaryRow).getAllByRole("gridcell")[cityIndex]).toHaveTextContent(/^-$/);
+    expect(within(consultancyRow).getAllByRole("gridcell")[cityIndex]).toHaveTextContent(/^Kandy$/);
+  });
+
+  it("offers the grid toolbar, so a result set can be saved", () => {
+    accounts.data = [bankAccount()];
+    render(<ReportTab />);
+
+    for (const name of ["Columns", "Filters", "Density", "Export"]) {
+      expect(screen.getByRole("button", { name })).toBeInTheDocument();
+    }
+  });
+
+  // The NetSuite identifiers and the bank's own details are carried for the
+  // reconciliations this report feeds, but seventeen columns at once leaves
+  // every one of them too narrow to read.
+  it("keeps the detail columns off until they are switched on", async () => {
+    const user = userEvent.setup();
+    accounts.data = [bankAccount({ bankName: "HSBC", netSuiteVendorId: "4821" })];
+    render(<ReportTab />);
+
+    const grid = screen.getByRole("grid");
+    expect(within(grid).queryByText("Bank Name")).not.toBeInTheDocument();
+    expect(within(grid).queryByText("NetSuite Vendor Id")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Columns" }));
+    const panel = await screen.findByRole("tooltip");
+    expect(within(panel).getByText("Bank Name")).toBeInTheDocument();
+    expect(within(panel).getByText("NetSuite Vendor Id")).toBeInTheDocument();
+  });
+
+  // This tab carries eight nullable columns. A spreadsheet reads a leading
+  // "-" as a formula, so the grid escapes it — any one of them exporting a
+  // dash rather than nothing would reach the file as "\'-".
+  it("saves its empty fields as empty cells", async () => {
+    const user = userEvent.setup();
+    const { blobs, filenames } = captureDownloads();
+    accounts.data = [bankAccount({ beneficiaryCity: null, branchName: null, bankCode: null })];
+    render(<ReportTab />);
+
+    await user.click(screen.getByRole("button", { name: "Export" }));
+    await user.click(await screen.findByRole("menuitem", { name: /csv/i }));
+    await waitFor(() => expect(blobs).toHaveLength(1));
+
+    expect(filenames[0]).toBe("bank-accounts.csv");
+    expect(new TextDecoder().decode(await bytesOf(blobs[0]))).not.toContain("'-");
   });
 
   it("shows a clear empty state when a filter combination matches nothing", () => {

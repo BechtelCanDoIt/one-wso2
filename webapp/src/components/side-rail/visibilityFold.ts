@@ -41,6 +41,7 @@ import {
   UMT_ITEM_IDS,
   type PerspectiveSection,
 } from "@constants/perspectives";
+import { PROCUREMENT_TEAM_ITEM_IDS } from "@constants/procurementApps";
 import { SECURITY_ITEM_IDS } from "@constants/securityApps";
 import { CADO2_ITEM_IDS } from "@constants/cado2Apps";
 import { ENGAGEMENT_ITEM_IDS } from "@constants/engagementApps";
@@ -101,7 +102,8 @@ export type AdapterName =
   | "subscriptions"
   | "engineering"
   | "amplify"
-  | "swag-store-admin";
+  | "swag-store-admin"
+  | "procurement";
 
 const ADAPTER_NAMES: readonly AdapterName[] = [
   "par",
@@ -123,6 +125,7 @@ const ADAPTER_NAMES: readonly AdapterName[] = [
   "engineering",
   "amplify",
   "swag-store-admin",
+  "procurement",
 ];
 
 /** Which sections this adapter answers. A perspective claim answers every section of that perspective. */
@@ -225,6 +228,8 @@ export function claimOf(name: AdapterName): SectionClaim {
       return { kind: "sections", ids: new Set([...AMPLIFY_EDITOR_ITEM_IDS, ...AMPLIFY_DASHBOARD_ITEM_IDS]) };
     case "swag-store-admin":
       return { kind: "sections", ids: SWAG_STORE_ADMIN_ITEM_IDS };
+    case "procurement":
+      return { kind: "sections", ids: PROCUREMENT_TEAM_ITEM_IDS };
     default: {
       const neverName: never = name;
       return neverName;
@@ -269,6 +274,7 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   // The store's admin rows exist only while its preview flag is on. Asking its
   // /users/me when they are absent would hold People Ops on a backend with nothing to show.
   if (perspectiveKey === "people" && isPreviewEnabled("swagStore")) names.push("swag-store-admin");
+  if (perspectiveKey === "procurement") names.push("procurement");
   names.push("subscriptions");
   return names;
 }

@@ -37,6 +37,7 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { useLeaveEmployees } from "@features/leave/api/useLeaveData";
 import { useParRating } from "../api/useParData";
+import { useParShowsPar2 } from "../api/useReview360";
 import {
   useAllClosedParCycles,
   useParEmployeeReviews,
@@ -55,8 +56,9 @@ import type { MergedCycleOption } from "../util/parEmployeeHistory";
 import { formatLegacyCycleName } from "../util/parLegacyHistory";
 import { decodeParComment } from "../util/parComment";
 import ParEmptyState from "../components/ParEmptyState";
-import { ParCommentView } from "../components/ParContent";
+import { ParCommentView, ParLead360SummaryView } from "../components/ParContent";
 import ParHistoryReviewSection from "../components/ParHistoryReviewSection";
+import ParLeadHistoryPar2Record from "../components/ParLeadHistoryPar2Record";
 import ParStatusChip from "../components/ParStatusChip";
 import type { ParEmployee } from "../api/types";
 import type { ParLegacyHistoryByEmail, ParRatingByEmail } from "../api/useLeadHistory";
@@ -272,6 +274,15 @@ export default function ParLeadEmployeeHistoryTab() {
   // Powers the "all employees" table; picking one employee afterwards
   // reuses this cache (same query key as useParRating).
   const ratingFanOut = useParRatingFanOut(realCycleId, (employees.data ?? []).map((e) => e.workEmail));
+  // A PAR 2.0 cycle shows what the lead had while reviewing instead of the single comments.
+  const {
+    showsPar2,
+    isLoading: isPar2Loading,
+    error: par2Error,
+    retry: retryPar2,
+    retrying: retryingPar2,
+  } = useParShowsPar2(realCycleId);
+  const par2Cycle = showsPar2 ? realCycles.data?.find((c) => c.parCycleId === realCycleId) : undefined;
 
   if (profile.isLoading) {
     return <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 1.5 }} />;
@@ -343,10 +354,14 @@ export default function ParLeadEmployeeHistoryTab() {
 
   // "No record" wording stays deliberately vague: the backend can't tell "no
   // rating exists for this cycle" apart from a genuine fetch error here.
+  // Without knowing whether it's a PAR 2.0 cycle, the record could show without its self-review.
+  const par2Failed = isRealCycle && Boolean(selectedEmployeeEmail) && par2Error !== null;
+  // A PAR 2.0 record doesn't show the regular 360° reviews, so it doesn't wait for them.
+  const reviewsNeeded = !showsPar2 && !isPar2Loading && !par2Failed;
   const realCycleNotAvailable =
     isRealCycle &&
     Boolean(selectedEmployeeEmail) &&
-    (rating.isError || reviews.isError || (rating.isSuccess && (!rating.data || !isOwnRecord)));
+    (rating.isError || (reviewsNeeded && reviews.isError) || (rating.isSuccess && (!rating.data || !isOwnRecord)));
   const legacyCycleNotAvailable =
     isLegacyCycle && Boolean(selectedEmployeeEmail) && !legacyIsLoadingForSelected && !selectedLegacyRecord;
 
@@ -354,10 +369,17 @@ export default function ParLeadEmployeeHistoryTab() {
   // — otherwise the details section and the loading skeleton can render at
   // once if the rating resolves first.
   const showRealDetails =
-    isRealCycle && Boolean(selectedEmployeeEmail) && rating.isSuccess && Boolean(rating.data) && isOwnRecord && reviews.isSuccess;
+    isRealCycle &&
+    Boolean(selectedEmployeeEmail) &&
+    rating.isSuccess &&
+    Boolean(rating.data) &&
+    isOwnRecord &&
+    (showsPar2 || reviews.isSuccess) &&
+    !isPar2Loading &&
+    !par2Failed;
 
   const isLoadingSelection =
-    (isRealCycle && Boolean(selectedEmployeeEmail) && (rating.isLoading || reviews.isLoading)) ||
+    (isRealCycle && Boolean(selectedEmployeeEmail) && (rating.isLoading || (reviewsNeeded && reviews.isLoading) || isPar2Loading)) ||
     (isLegacyCycle && Boolean(selectedEmployeeEmail) && legacyIsLoadingForSelected);
 
   return (
@@ -483,6 +505,11 @@ export default function ParLeadEmployeeHistoryTab() {
       {realCycleNotAvailable && (
         <ParEmptyState text="No PAR record found for the selected cycle, or it could not be loaded right now. Try again, or check back later if this seems wrong." />
       )}
+      {par2Failed && !realCycleNotAvailable && (
+        <ErrorNotice error={par2Error} onRetry={retryPar2} retrying={retryingPar2}>
+          Couldn't load this PAR record.
+        </ErrorNotice>
+      )}
 
       {/* No legacy record detail here: a lead never receives a report's
           legacy history (see legacyFanOut above), so there is nothing to show.
@@ -528,22 +555,29 @@ export default function ParLeadEmployeeHistoryTab() {
             </Grid>
           </Card>
 
-          <Accordion variant="outlined" disabled={!rating.data.parEmployeeComment?.trim()}>
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee's Feedback</AccordionSummary>
-            <AccordionDetails>
-              <Divider sx={{ my: 1 }} />
-              <ParCommentView html={decodeParComment(rating.data.parEmployeeComment)} />
-            </AccordionDetails>
-          </Accordion>
-          <Accordion variant="outlined" disabled={!rating.data.parLeadComment?.trim()}>
-            <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Lead's Feedback</AccordionSummary>
-            <AccordionDetails>
-              <Divider sx={{ my: 1 }} />
-              <ParCommentView html={decodeParComment(rating.data.parLeadComment)} />
-            </AccordionDetails>
-          </Accordion>
+          {par2Cycle && selectedEmployeeEmail ? (
+            <ParLeadHistoryPar2Record cycle={par2Cycle} rating={rating.data} employeeEmail={selectedEmployeeEmail} />
+          ) : (
+            <>
+              <Accordion variant="outlined" disabled={!rating.data.parEmployeeComment?.trim()}>
+                <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Employee's Feedback</AccordionSummary>
+                <AccordionDetails>
+                  <Divider sx={{ my: 1 }} />
+                  <ParCommentView html={decodeParComment(rating.data.parEmployeeComment)} />
+                </AccordionDetails>
+              </Accordion>
+              <Accordion variant="outlined" disabled={!rating.data.parLeadComment?.trim()}>
+                <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>Lead's Feedback</AccordionSummary>
+                <AccordionDetails>
+                  <Divider sx={{ my: 1 }} />
+                  <ParCommentView html={decodeParComment(rating.data.parLeadComment)} />
+                  <ParLead360SummaryView summary={rating.data.parLead360Summary} />
+                </AccordionDetails>
+              </Accordion>
 
-          <ParHistoryReviewSection reviews={reviews.data ?? []} />
+              <ParHistoryReviewSection reviews={reviews.data ?? []} />
+            </>
+          )}
         </Stack>
       )}
     </Stack>

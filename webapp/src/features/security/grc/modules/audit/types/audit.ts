@@ -105,6 +105,33 @@ export interface Audit {
   updatedAt: string;
 }
 
+// The three groups that hold a control in turn: the owning team (Internal),
+// Compliance (GRC) and the external auditor (EY).
+export type DeadlineHandler = "OWNER" | "COMPLIANCE" | "AUDITOR";
+
+// INITIAL is a group's first turn; REVISION is its shorter turn after a rejection.
+export type DeadlineCycleType = "INITIAL" | "REVISION";
+
+// The stretch of a control's life a deadline belongs to. Design controls only
+// have EVIDENCE; OE controls go through POPULATION and then OE_EVIDENCE, each
+// with its own allowed days.
+export type DeadlinePhase = "EVIDENCE" | "POPULATION" | "OE_EVIDENCE";
+
+// One late day for one group. `date` is "YYYY-MM-DD".
+export interface DelayLogEntry {
+  phase?: DeadlinePhase;
+  handledBy: DeadlineHandler;
+  date: string;
+}
+
+// What each group was first expected to do in one phase. A phase appears once it has started.
+export interface PhasePlan {
+  phase: DeadlinePhase;
+  plannedOwnerDate?: string | null;
+  plannedComplianceDate?: string | null;
+  plannedAuditorDate?: string | null;
+}
+
 export interface PopulationSample {
   id: number;
   reference: string;
@@ -150,6 +177,26 @@ export interface AuditControl {
   statusOverridden?: boolean;
   overriddenBy?: string | null;
   overriddenAt?: string | null;
+  // Workflow-aware deadlines. All absent/null for a control that is not tracked
+  // (controls that predate the feature) — render a dash, never fail.
+  deadlineTracked?: boolean;
+  /** Group holding the control now; null once it is complete. */
+  currentHandler?: DeadlineHandler | null;
+  /** "YYYY-MM-DD" — the current holder's deadline. */
+  currentDueDate?: string | null;
+  plannedOwnerDate?: string | null;
+  plannedComplianceDate?: string | null;
+  plannedAuditorDate?: string | null;
+  /** Phase of the current holder's stage; an OE control moves from POPULATION to OE_EVIDENCE. */
+  currentPhase?: DeadlinePhase | null;
+  /** Plan of every phase started. The three planned dates above are those of the first phase. */
+  phasePlans?: PhasePlan[];
+  /** Someone held the control past their own deadline (the delay log is not empty). */
+  delayed?: boolean | null;
+  /** Finished after, or still open past, dueDate (the ultimate deadline). Null when unknown. */
+  ultimateDelayed?: boolean | null;
+  /** Org-wide GRC viewers only; omitted for everyone else. Never assume it exists. */
+  delayLog?: DelayLogEntry[];
 }
 
 export interface AuditListResponse {
@@ -160,6 +207,33 @@ export interface AuditListResponse {
 export interface ControlListResponse {
   items: AuditControl[];
   total: number;
+}
+
+export interface DeadlineDayRow {
+  /** Absent means EVIDENCE (Design). */
+  phase?: DeadlinePhase;
+  cycleType: DeadlineCycleType;
+  handledBy: DeadlineHandler;
+  allowedDays: number;
+  isDefault: boolean;
+}
+
+/** What applying changed days to the open stages did (or, for a preview, would do). */
+export interface DeadlineRecalcSummary {
+  /** Open stages, one per control, whose deadline moved. */
+  stagesUpdated: number;
+  /** Of those, how many were within their deadline before and are past the new one. */
+  newlyOverdue: number;
+}
+
+export interface DeadlineDaysResponse {
+  auditId: number;
+  phase: "EVIDENCE";
+  days: DeadlineDayRow[];
+  /** Present when the request asked to apply the change to open stages, or to preview it. */
+  recalculated?: DeadlineRecalcSummary;
+  /** True when nothing was saved. */
+  dryRun?: boolean;
 }
 
 // ── Request types (sent to backend) ──────────────────────────────────────────
@@ -225,4 +299,12 @@ export interface UpdateControlRequest {
   clearAuditor?: boolean;
   /** OE controls only; omit/null to leave population details unchanged. */
   population?: PopulationDetails | null;
+}
+
+export interface UpdateDeadlineDaysRequest {
+  days: { phase: DeadlinePhase; cycleType: DeadlineCycleType; handledBy: DeadlineHandler; allowedDays: number }[];
+  /** Also move the deadline of open stages the changed values govern. */
+  applyToOpenStages?: boolean;
+  /** Only work out what applyToOpenStages would do; saves nothing. */
+  dryRun?: boolean;
 }

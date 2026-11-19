@@ -37,6 +37,10 @@ export function useReportAccounts(filters: ReportFilters | undefined) {
       const accessToken = await getAccessToken();
       return authedGet<BankAccountsResponse>(bankingServiceUrls.reportAccounts(filters!), accessToken);
     },
+    // Deliberately no `keepPreviousData`: the grid stays mounted through an
+    // empty result on its own now, and holding the previous Search's rows
+    // meant Export wrote them to the file while the filters on screen
+    // described the Search still loading.
     retry: defaultQueryRetry,
   });
 }

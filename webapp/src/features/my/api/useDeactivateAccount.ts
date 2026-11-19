@@ -19,6 +19,11 @@ import { authedPost } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { bankingServiceUrls } from "@config/apiConfig";
 
+// Shared with every caller that counts this mutation's in-flight calls, so
+// the key the mutation registers under and the key they match on cannot
+// drift apart — they would stop seeing each other silently.
+export const DEACTIVATE_MUTATION_KEY = ["deactivate-account"] as const;
+
 export interface DeactivateAccountPayload {
   accountId: number;
   /** Not sent — only used to invalidate that employee's own accounts query. */
@@ -37,7 +42,7 @@ export function useDeactivateAccount() {
     // tell whether a Deactivate (or a Resign loop's own deactivate calls) is
     // still in flight, to keep Deactivate/Resign from being fired again on a
     // different account while one is running.
-    mutationKey: ["deactivate-account"],
+    mutationKey: [...DEACTIVATE_MUTATION_KEY],
     mutationFn: async ({ accountId }) =>
       authedPost<{ message: string }>(bankingServiceUrls.deactivateAccount(accountId), await getAccessToken(), null),
     onSuccess: async (_, { employeeEmail }) => {
