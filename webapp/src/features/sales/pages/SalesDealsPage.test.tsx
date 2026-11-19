@@ -104,6 +104,10 @@ describe("SalesDealsPage", { timeout: 20000 }, () => {
     expect(screen.queryByRole("columnheader", { name: "Stage" })).not.toBeInTheDocument();
     // Salesforce's deal score has its own column (DealScore.test covers the badge).
     expect(screen.getByRole("columnheader", { name: "Score" })).toBeInTheDocument();
+    // MEDDPICC beside the name, the journey after it, the score last.
+    expect(screen.getAllByRole("columnheader").map((h) => h.textContent)).toEqual(["Opportunity", "MEDDPICC", "Journey", "Score"]);
+    // Under the journey only the activity and when it last moved: the stage and close date are beside the name.
+    expect(screen.queryByText(/days to close/)).not.toBeInTheDocument();
     expect(row.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
 
     for (const name of [

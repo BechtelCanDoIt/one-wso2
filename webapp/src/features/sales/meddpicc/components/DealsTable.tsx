@@ -27,14 +27,17 @@ import { DealFlagMarker } from "./DealFlags";
 import { useNow } from "../../util/useNow";
 
 /**
- * Four columns. The stage, amount, close date and any flags ride under the opportunity's
- * name, and the count to review under the circles, so the deal's journey gets the width.
+ * Four columns, MEDDPICC first after the name: it is what the list is for. The stage,
+ * amount, close date and any flags ride under the opportunity's name, and the count to
+ * review under the circles. The journey takes the width that is left, saying only the
+ * activity and when it last moved under its track, since the stage and close date are
+ * already beside the name; the Salesforce score sits last.
  */
 const COLUMNS = [
   { key: "deal", label: "Opportunity", width: 300 },
-  { key: "score", label: "Score", width: 120 },
-  { key: "activity", label: "Journey", width: "auto" },
   { key: "meddpicc", label: "MEDDPICC", width: 250 },
+  { key: "activity", label: "Journey", width: "auto" },
+  { key: "score", label: "Score", width: 100 },
 ] as const;
 
 /**
@@ -143,20 +146,6 @@ export default function DealsTable({
                       </Box>
                     </ListingTable.Cell>
                     <ListingTable.Cell>
-                      <DealScore score={deal.dealScore} />
-                    </ListingTable.Cell>
-                    <ListingTable.Cell>
-                      <DealJourney
-                        marks={timelineOf(deal)}
-                        journey={journeyOf(deal)}
-                        sources={rowSourcesOf(deal)}
-                        closeDate={deal.closeDate}
-                        stageOrder={stageOrder}
-                        now={now}
-                        onOpenCall={onOpenCall}
-                      />
-                    </ListingTable.Cell>
-                    <ListingTable.Cell>
                       <MeddpiccCircles
                         variant="dealState"
                         values={deal.dealState}
@@ -175,6 +164,21 @@ export default function DealsTable({
                           {deal.pendingCount} to review
                         </Typography>
                       )}
+                    </ListingTable.Cell>
+                    <ListingTable.Cell>
+                      <DealJourney
+                        marks={timelineOf(deal)}
+                        journey={journeyOf(deal)}
+                        sources={rowSourcesOf(deal)}
+                        closeDate={deal.closeDate}
+                        stageOrder={stageOrder}
+                        now={now}
+                        onOpenCall={onOpenCall}
+                        caption="activity"
+                      />
+                    </ListingTable.Cell>
+                    <ListingTable.Cell>
+                      <DealScore score={deal.dealScore} />
                     </ListingTable.Cell>
                   </ListingTable.Row>
                 ))}
