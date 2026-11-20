@@ -61,12 +61,12 @@ export function KindChip({ kind }: { kind: FeedbackKind }) {
 
 /** Where a 360° feedback request stands, in the words used everywhere: Requested, Draft,
  * Submitted, Declined. Drafts show only to those allowed to see them (the backend sends the employee
- * PENDING instead). For a leader's reviewers (`leadership`) only a decline shows: they answer in
- * Leadership 360°, which can be anonymous. */
+ * PENDING instead). For a leader's reviewers (`leadership`) a named answer is Submitted, but an
+ * anonymous one leaves the request at Requested, and no draft shows. */
 export function StatusChip({ status, leadership = false }: { status: Par360ReviewStatus; leadership?: boolean }) {
   if (status === "REJECTED") return <Chip size="small" label="Declined" />;
-  if (leadership) return <Chip size="small" variant="outlined" label="Requested" />;
   if (status === "SHARED") return <Chip size="small" color="success" label="Submitted" />;
+  if (leadership) return <Chip size="small" variant="outlined" label="Requested" />;
   if (status === "DRAFT") return <Chip size="small" variant="outlined" label="Draft" />;
   return <Chip size="small" variant="outlined" label="Requested" />;
 }

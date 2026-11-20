@@ -17,7 +17,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ReactNode } from "react";
 import { act, renderHook, waitFor } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, onlineManager } from "@tanstack/react-query";
 import { readLocalDraft, writeLocalDraft } from "../util/leadership360LocalDraft";
 
 const authedPut = vi.fn<(url: string, token: string, body: unknown) => Promise<void>>(async () => undefined);
@@ -32,11 +32,14 @@ vi.mock("@asgardeo/react", () => ({ useAsgardeo: () => ({ isSignedIn: true }) })
 vi.mock("@hooks/useAccessToken", () => ({ useAccessToken: () => async () => "token" }));
 vi.mock("@config/apiConfig", () => ({
   parBackendUrl: "http://par",
-  parServiceUrls: { leadership360Drafts: (surveyId: number) => `/surveys/${surveyId}/drafts` },
+  parServiceUrls: {
+    leadership360Drafts: (surveyId: number) => `/surveys/${surveyId}/drafts`,
+    leadership360Surveys: () => "/surveys",
+  },
 }));
 vi.mock("@features/my/util/digiopsHeaders", () => ({ digiopsHeaders: () => ({}) }));
 
-const { useDiscardLeadership360Draft } = await import("./useLeadership360");
+const { useCycleLeadership360ForPdf, useDiscardLeadership360Draft } = await import("./useLeadership360");
 
 describe("useDiscardLeadership360Draft", () => {
   it("deletes both copies: the named draft on the server and an anonymous one in this browser", async () => {
@@ -54,5 +57,27 @@ describe("useDiscardLeadership360Draft", () => {
       anonymous: true,
     });
     expect(readLocalDraft("me@wso2.com", 3, "elena@wso2.com")).toBeNull();
+  });
+});
+
+describe("useCycleLeadership360ForPdf", () => {
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={new QueryClient()}>{children}</QueryClientProvider>
+  );
+
+  it("stays loading while a lookup is paused offline, so the PDF waits for the results", () => {
+    onlineManager.setOnline(false);
+    try {
+      const { result } = renderHook(() => useCycleLeadership360ForPdf(2, "me@wso2.com", true), { wrapper });
+      expect(result.current.isLoading).toBe(true);
+      expect(result.current.data).toBeUndefined();
+    } finally {
+      onlineManager.setOnline(true);
+    }
+  });
+
+  it("isn't loading when there's nothing to look up", () => {
+    const { result } = renderHook(() => useCycleLeadership360ForPdf(2, "me@wso2.com", false), { wrapper });
+    expect(result.current.isLoading).toBe(false);
   });
 });

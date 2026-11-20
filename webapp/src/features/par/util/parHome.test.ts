@@ -14,10 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { daysLeft, daysLeftLabel, deadlineEndsEverywhereAt } from "./parDeadline";
 import { describe, expect, it } from "vitest";
-import type { ParCycle, ParRating, Par360Reviewer, Par360ReviewRequest } from "../api/types";
-import { homeSteps, nextUp, type HomeInput } from "./parHome";
+import type { ParCycle, ParRating, Par360Reviewer } from "../api/types";
+import { homeSteps, landingStep, stepHeader, type HomeInput, type HomeStepKey } from "./parHome";
 
 const FUTURE = "2999-12-31";
 const PAST = "2000-01-01";
@@ -45,220 +44,163 @@ const reviewer = (reviewStatus: Par360Reviewer["reviewStatus"], n: number): Par3
   isEmployeeRequested: true,
   isLeadRequested: false,
 });
+const asked = (n: number, submitted = 0) =>
+  Array.from({ length: n }, (_, i) => reviewer(i < submitted ? "SHARED" : "PENDING", i));
 
-const input = (over: Partial<HomeInput> = {}): HomeInput => ({
-  cycle,
-  rating: rating(),
-  reviewers: [],
-  requests: [],
-  ...over,
-});
-
-describe("nextUp", () => {
-  it("starts with the self-review, then the draft", () => {
-    expect(nextUp(input()).title).toBe("Start your self-review");
-    const draft = nextUp(input({ rating: rating({ parEmployeeStatus: "DRAFT" }), selfReviewProgress: { answered: 2, total: 4 } }));
-    expect(draft.title).toBe("Finish and share your self-review");
-    expect(draft.body).toContain("2 of 4");
-  });
-
-  it("asks for 360° feedback until three people are asked", () => {
-    const shared = rating({ parEmployeeStatus: "SHARED" });
-    expect(nextUp(input({ rating: shared, reviewers: [reviewer("PENDING", 1), reviewer("REJECTED", 2)] })).title).toBe(
-      "Request 360° feedback",
-    );
-    const asked = [1, 2, 3].map((n) => reviewer("PENDING", n));
-    expect(nextUp(input({ rating: shared, reviewers: asked })).title).toBe("Your lead is reviewing");
-    expect(nextUp(input({ rating: shared, reviewers: asked, leadName: "Hannah" }))).toMatchObject({
-      title: "Hannah is reviewing",
-      body: "Nothing for you to do right now. You'll get an email when Hannah shares your PAR.",
-    });
-  });
-
-  it("puts feedback others are waiting on before waiting for the lead", () => {
-    const requests: Par360ReviewRequest[] = [
-      { employeeEmail: "a@x.com", employeeName: "Ann", reviewStatus: "PENDING", isEmployeeRequested: true, isLeadRequested: false },
-      { employeeEmail: "b@x.com", reviewStatus: "SHARED", isEmployeeRequested: true, isLeadRequested: false },
-    ];
-    const reviewers = [1, 2, 3].map((n) => reviewer("SHARED", n));
-    expect(nextUp(input({ rating: rating({ parEmployeeStatus: "SHARED" }), reviewers, requests })).title).toBe(
-      "Ann asked for your feedback",
-    );
-  });
-
-  it("doesn't say someone asked when you offered the feedback yourself", () => {
-    const requests: Par360ReviewRequest[] = [
-      { employeeEmail: "a@x.com", employeeName: "Ann", reviewStatus: "PENDING", isEmployeeRequested: false, isLeadRequested: false },
-    ];
-    const reviewers = [1, 2, 3].map((n) => reviewer("SHARED", n));
-    expect(nextUp(input({ rating: rating({ parEmployeeStatus: "SHARED" }), reviewers, requests })).title).not.toContain(
-      "asked for your feedback",
-    );
-  });
-
-  it("counts the people waiting on you rather than naming one of several", () => {
-    const requests: Par360ReviewRequest[] = ["a", "b", "c"].map((n) => ({
-      employeeEmail: `${n}@x.com`,
-      employeeName: n.toUpperCase(),
-      reviewStatus: "PENDING",
-      isEmployeeRequested: true,
-      isLeadRequested: false,
-    }));
-    const reviewers = [1, 2, 3].map((n) => reviewer("SHARED", n));
-    expect(nextUp(input({ rating: rating({ parEmployeeStatus: "SHARED" }), reviewers, requests })).title).toBe(
-      "3 people asked for your feedback",
-    );
-  });
-
-  it("puts your own F2F before others' requests once the lead has shared", () => {
-    const requests: Par360ReviewRequest[] = [
-      { employeeEmail: "a@x.com", employeeName: "Ann", reviewStatus: "DRAFT", isEmployeeRequested: true, isLeadRequested: false },
-    ];
-    const leadShared = rating({ parEmployeeStatus: "SHARED_BLOCKED", parLeadStatus: "SHARED" });
-    expect(nextUp(input({ rating: leadShared, requests })).title).toBe("Book your face-to-face");
-    expect(nextUp(input({ rating: { ...leadShared, parF2fStatus: "COMPLETED" }, requests })).title).toBe("Ann asked for your feedback");
-  });
-
-  it("moves to the F2F once the lead shares, then to the finished PAR", () => {
-    const leadShared = rating({ parEmployeeStatus: "SHARED_BLOCKED", parLeadStatus: "SHARED" });
-    expect(nextUp(input({ rating: leadShared })).title).toBe("Book your face-to-face");
-    expect(nextUp(input({ rating: { ...leadShared, parF2fStatus: "SCHEDULED" } })).title).toBe("Your face-to-face is booked");
-    expect(nextUp(input({ rating: { ...leadShared, parF2fStatus: "COMPLETED" } })).title).toBe("Your PAR is complete");
-  });
-
-  it("doesn't ask for a self-review after its deadline", () => {
-    expect(nextUp(input({ cycle: { ...cycle, parEmployeeDeadline: PAST } })).title).not.toContain("self-review");
-  });
-
-  it("doesn't ask to book the F2F after its deadline", () => {
-    const leadShared = rating({ parEmployeeStatus: "SHARED_BLOCKED", parLeadStatus: "SHARED" });
-    const next = nextUp(input({ cycle: { ...cycle, parF2FDeadline: PAST }, rating: leadShared }));
-    expect(next.title).toBe("Your PAR is complete");
-  });
-});
-
-describe("how the next step reads", () => {
-  it("is something to do with its deadline, someone else's move, or all done", () => {
-    expect(nextUp(input())).toMatchObject({ tone: "todo", due: cycle.parEmployeeDeadline });
-    const reviewing = rating({ parEmployeeStatus: "SHARED" });
-    const three = [reviewer("PENDING", 1), reviewer("PENDING", 2), reviewer("PENDING", 3)];
-    expect(nextUp(input({ rating: reviewing, reviewers: three }))).toMatchObject({ tone: "waiting" });
-    expect(nextUp(input({ rating: reviewing, reviewers: three })).due).toBeUndefined();
-    const complete = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED", parF2fStatus: "COMPLETED" });
-    expect(nextUp(input({ rating: complete }))).toMatchObject({ tone: "done" });
-  });
-
-  it("ends a deadline everywhere at the end of its day at UTC-12, as the backend does", () => {
-    expect(deadlineEndsEverywhereAt("2026-11-10").toISOString()).toBe("2026-11-11T11:59:59.000Z");
-  });
-
-  it("says how many days are left", () => {
-    const today = new Date(2026, 10, 4);
-    expect(daysLeftLabel(daysLeft("2026-11-10", today))).toBe("6 days left");
-    expect(daysLeftLabel(daysLeft("2026-11-05", today))).toBe("1 day left");
-    expect(daysLeftLabel(daysLeft("2026-11-04", today))).toBe("Due today");
-  });
-});
+const input = (over: Partial<HomeInput> = {}): HomeInput => ({ cycle, rating: rating(), reviewers: [], ...over });
+const state = (i: HomeInput, key: HomeStepKey) => homeSteps(i).find((s) => s.key === key)!.state;
 
 describe("homeSteps", () => {
-  it("marks the first unfinished step current and counts responses", () => {
-    const steps = homeSteps(
-      input({ rating: rating({ parEmployeeStatus: "SHARED" }), reviewers: [reviewer("SHARED", 1), reviewer("PENDING", 2)] }),
+  it("names the four steps in order", () => {
+    expect(homeSteps(input()).map((s) => s.label)).toEqual(["Self-review", "360° feedback", "Lead review", "Face-to-face"]);
+  });
+
+  it("self-review: Not started, In progress as a draft, Done once shared, Incomplete if the deadline passes first", () => {
+    expect(state(input(), "self-review")).toBe("not-started");
+    expect(state(input({ rating: rating({ parEmployeeStatus: "DRAFT" }) }), "self-review")).toBe("in-progress");
+    expect(state(input({ rating: rating({ parEmployeeStatus: "SHARED" }) }), "self-review")).toBe("done");
+    expect(state(input({ rating: rating({ parEmployeeStatus: "SHARED_BLOCKED" }) }), "self-review")).toBe("done");
+    const missed = { cycle: { ...cycle, parEmployeeDeadline: PAST } };
+    expect(state(input({ ...missed, rating: rating({ parEmployeeStatus: "DRAFT" }) }), "self-review")).toBe("incomplete");
+    expect(state(input(missed), "self-review")).toBe("incomplete");
+    // Shared in time, it stays Done after the deadline.
+    expect(state(input({ ...missed, rating: rating({ parEmployeeStatus: "SHARED" }) }), "self-review")).toBe("done");
+  });
+
+  it("360°: Not started until someone is asked, In progress until 3 have submitted, then Done", () => {
+    expect(state(input(), "360")).toBe("not-started");
+    expect(state(input({ reviewers: asked(2) }), "360")).toBe("in-progress");
+    expect(state(input({ reviewers: asked(4, 2) }), "360")).toBe("in-progress");
+    expect(state(input({ reviewers: asked(4, 3) }), "360")).toBe("done");
+    // Declined requests aren't asked any more.
+    expect(state(input({ reviewers: [reviewer("REJECTED", 1)] }), "360")).toBe("not-started");
+  });
+
+  it("360°: counts feedback offered unasked, which the list of people asked leaves out", () => {
+    expect(state(input({ reviewers: asked(2, 1), received: 3 }), "360")).toBe("done");
+    expect(state(input({ reviewers: [], received: 1 }), "360")).toBe("in-progress");
+    // Until the count is in, the list's own submissions count.
+    expect(state(input({ reviewers: asked(3, 3) }), "360")).toBe("done");
+  });
+
+  it("360°: Incomplete when the deadline passes, or the lead shares, with fewer than 3", () => {
+    const passed = { cycle: { ...cycle, parThreeSixtyRatingDeadline: PAST } };
+    expect(state(input({ ...passed, reviewers: asked(3, 2) }), "360")).toBe("incomplete");
+    expect(state(input({ ...passed, reviewers: asked(3, 3) }), "360")).toBe("done");
+    expect(state(input({ rating: rating({ parLeadStatus: "SHARED" }), reviewers: asked(3, 2) }), "360")).toBe("incomplete");
+  });
+
+  it("360° for the leadership team counts their Leadership 360° responses until the 360° deadline", () => {
+    const leader = (n: number, over: Partial<HomeInput> = {}) => input({ leadership: { responseCount: n }, ...over });
+    expect(state(leader(0), "360")).toBe("not-started");
+    expect(state(leader(2), "360")).toBe("in-progress");
+    expect(state(leader(3), "360")).toBe("done");
+    expect(state(leader(2, { cycle: { ...cycle, parThreeSixtyRatingDeadline: PAST } }), "360")).toBe("incomplete");
+    // Their lead sharing early doesn't stop Leadership 360°.
+    expect(state(leader(2, { rating: rating({ parLeadStatus: "SHARED" }) }), "360")).toBe("in-progress");
+  });
+
+  it("lead review: Not available yet until the lead shares, then Done; never Incomplete", () => {
+    expect(state(input({ rating: rating({ parEmployeeStatus: "SHARED" }) }), "lead-review")).toBe("not-available");
+    expect(state(input({ cycle: { ...cycle, parLeadDeadline: PAST } }), "lead-review")).toBe("not-available");
+    expect(state(input({ rating: rating({ parLeadStatus: "SHARED" }) }), "lead-review")).toBe("done");
+  });
+
+  it("face-to-face: Not available yet until the lead shares, then Not started, Done, or Incomplete past its deadline", () => {
+    expect(state(input(), "f2f")).toBe("not-available");
+    expect(state(input({ rating: rating({ parLeadStatus: "SHARED" }) }), "f2f")).toBe("not-started");
+    expect(state(input({ rating: rating({ parLeadStatus: "SHARED", parF2fStatus: "SCHEDULED" }) }), "f2f")).toBe("not-started");
+    expect(state(input({ rating: rating({ parLeadStatus: "SHARED", parF2fStatus: "COMPLETED" }) }), "f2f")).toBe("done");
+    const passed = { cycle: { ...cycle, parF2FDeadline: PAST } };
+    expect(state(input({ ...passed, rating: rating({ parLeadStatus: "SHARED" }) }), "f2f")).toBe("incomplete");
+  });
+});
+
+describe("stepHeader", () => {
+  it("self-review: its due date while it's yours, nothing once shared, the deadline line when Incomplete", () => {
+    expect(stepHeader(input(), "self-review")).toEqual({
+      title: "Self-review",
+      due: { label: "Due", date: FUTURE, countdown: true },
+    });
+    expect(stepHeader(input({ rating: rating({ parEmployeeStatus: "DRAFT" }) }), "self-review").title).toBe(
+      "Write your self-review",
     );
-    expect(steps.map((s) => s.state)).toEqual(["done", "current", "upcoming", "upcoming"]);
-    expect(steps[1].detail).toBe("1 of 2 submitted");
+    expect(stepHeader(input({ rating: rating({ parEmployeeStatus: "SHARED" }) }), "self-review")).toEqual({
+      title: "Self-review shared",
+    });
+    expect(stepHeader(input({ cycle: { ...cycle, parEmployeeDeadline: PAST } }), "self-review")).toEqual({
+      title: "Self-review not shared",
+      line: "The self-review deadline passed on 1 Jan '00.",
+    });
   });
 
-  it("counts 360° as done with three responses, without waiting for everyone", () => {
-    const reviewers = [reviewer("SHARED", 1), reviewer("SHARED", 2), reviewer("SHARED", 3), reviewer("PENDING", 4)];
-    const steps = homeSteps(input({ reviewers }));
-    expect(steps[0].state).toBe("current");
-    expect(steps[1].state).toBe("done");
+  it("360°: Due while there's asking to do, Open until once 3 are asked, and why it's Incomplete", () => {
+    expect(stepHeader(input(), "360")).toEqual({
+      title: "Request 360° feedback",
+      due: { label: "Due", date: FUTURE, countdown: true },
+    });
+    expect(stepHeader(input({ reviewers: asked(3) }), "360").due?.label).toBe("Open until");
+    expect(stepHeader(input({ reviewers: asked(3, 3) }), "360")).toEqual({
+      title: "360° feedback",
+      due: { label: "Open until", date: FUTURE, countdown: false },
+    });
+    expect(
+      stepHeader(input({ cycle: { ...cycle, parThreeSixtyRatingDeadline: PAST }, reviewers: asked(3, 1) }), "360"),
+    ).toEqual({ title: "360° feedback incomplete", line: "The 360° deadline passed on 1 Jan '00." });
+    expect(stepHeader(input({ rating: rating({ parLeadStatus: "SHARED" }), reviewers: asked(3, 1) }), "360")).toEqual({
+      title: "360° feedback incomplete",
+      line: "Your lead shared your PAR before the 360° deadline.",
+    });
+  });
+
+  it("360° for the leadership team is Leadership 360° feedback", () => {
+    expect(stepHeader(input({ leadership: { responseCount: 0 } }), "360").title).toBe("Request Leadership 360° feedback");
+    expect(stepHeader(input({ leadership: { responseCount: 1 } }), "360").due?.label).toBe("Open until");
+  });
+
+  it("360° for the leadership team asks for nothing once the lead has shared, and stays open until the deadline", () => {
+    expect(
+      stepHeader(input({ leadership: { responseCount: 0 }, rating: rating({ parLeadStatus: "SHARED" }) }), "360"),
+    ).toEqual({ title: "Leadership 360° feedback", due: { label: "Open until", date: FUTURE, countdown: false } });
+  });
+
+  it("lead review and face-to-face: the lead's date as Expected by, the face-to-face's with days left once it's yours", () => {
+    expect(stepHeader(input(), "lead-review")).toEqual({
+      title: "Lead review",
+      due: { label: "Expected by", date: FUTURE, countdown: false },
+    });
+    expect(stepHeader(input({ rating: rating({ parLeadStatus: "SHARED" }) }), "lead-review")).toEqual({
+      title: "Your lead review",
+    });
+    expect(stepHeader(input(), "f2f").due).toEqual({ label: "Due", date: FUTURE, countdown: false });
+    expect(stepHeader(input({ rating: rating({ parLeadStatus: "SHARED" }) }), "f2f").due?.countdown).toBe(true);
+    expect(
+      stepHeader(input({ cycle: { ...cycle, parF2FDeadline: PAST }, rating: rating({ parLeadStatus: "SHARED" }) }), "f2f"),
+    ).toEqual({ title: "Face-to-face not marked done", line: "The face-to-face deadline passed on 1 Jan '00." });
   });
 });
 
-describe("whose move each step is", () => {
-  it("is yours until you share, then waits on your lead, and the F2F opens once they share", () => {
-    const steps = homeSteps(input());
-    expect(steps.map((s) => s.status)).toEqual(["todo", "todo", "waiting", "locked"]);
-    expect(steps[2].waitingOn).toBe("your lead");
-    const leadShared = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" });
-    // No 360° feedback was asked for, so that step closed without any.
-    expect(homeSteps(input({ rating: leadShared })).map((s) => s.status)).toEqual(["done", "closed", "done", "todo"]);
-    const f2fDone = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED", parF2fStatus: "COMPLETED" });
-    expect(homeSteps(input({ rating: f2fDone }))[3].status).toBe("done");
+describe("landingStep", () => {
+  it("opens the self-review while it's yours to share", () => {
+    expect(landingStep(input())).toBe("self-review");
+    expect(landingStep(input({ rating: rating({ parEmployeeStatus: "DRAFT" }) }))).toBe("self-review");
   });
 
-  it("says enough while more 360° answers can still come in, done once everyone answered", () => {
-    const three = [reviewer("SHARED", 1), reviewer("SHARED", 2), reviewer("SHARED", 3)];
-    expect(homeSteps(input({ reviewers: [...three, reviewer("PENDING", 4)] }))[1].status).toBe("enough");
-    expect(homeSteps(input({ reviewers: three }))[1].status).toBe("done");
-    const closed = { ...cycle, parThreeSixtyRatingDeadline: PAST };
-    expect(homeSteps(input({ cycle: closed, reviewers: [...three, reviewer("PENDING", 4)] }))[1].status).toBe("done");
+  it("opens 360° feedback once the self-review is shared and fewer than 3 were asked", () => {
+    expect(landingStep(input({ rating: rating({ parEmployeeStatus: "SHARED" }), reviewers: asked(2) }))).toBe("360");
   });
 
-  it("says whose the lead review and face-to-face are as the cycle moves on", () => {
-    const shared = homeSteps(input({ rating: rating({ parEmployeeStatus: "SHARED" }), leadName: "Hannah" }));
-    expect(shared[2].detail).toBe("With Hannah");
-    expect(shared[3].detail).toBe("Opens after Hannah shares");
-    const leadShared = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" });
-    const after = homeSteps(input({ rating: leadShared, leadName: "Hannah" }));
-    expect(after[2].detail).toBe("Shared with you");
-    expect(after[3].detail).toBe("You book it with Hannah");
-    expect(homeSteps(input({ rating: leadShared }))[3].detail).toBe("You book it with your lead");
+  it("opens the lead's review once they've shared it", () => {
+    const shared = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" });
+    expect(landingStep(input({ rating: shared }))).toBe("lead-review");
+    // Even when the self-review missed its deadline and the lead shared without it.
+    const missed = rating({ parEmployeeStatus: "DRAFT", parLeadStatus: "SHARED" });
+    expect(landingStep(input({ cycle: { ...cycle, parEmployeeDeadline: PAST }, rating: missed }))).toBe("lead-review");
   });
 
-  it("says closed when the 360° window closed without enough feedback", () => {
-    const leadShared = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED" });
-    expect(homeSteps(input({ rating: leadShared }))[1]).toMatchObject({ status: "closed", detail: "None requested" });
-    const three = [reviewer("SHARED", 1), reviewer("SHARED", 2), reviewer("SHARED", 3)];
-    expect(homeSteps(input({ rating: leadShared, reviewers: three }))[1].status).toBe("done");
-  });
-
-  it("closes your own steps whose deadline passed before they were finished", () => {
-    const passed = { ...cycle, parEmployeeDeadline: PAST, parF2FDeadline: PAST };
-    const draft = homeSteps(input({ cycle: passed, rating: rating({ parEmployeeStatus: "DRAFT" }) }));
-    expect(draft[0]).toMatchObject({ status: "closed", state: "done", detail: "Not shared by the deadline" });
-    expect(draft[1].state).toBe("current");
-    // The lead can review without it now.
-    expect(draft[2].detail).toBe("With your lead");
-    const booked = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED", parF2fStatus: "SCHEDULED" });
-    expect(homeSteps(input({ cycle: passed, rating: booked }))[3]).toMatchObject({
-      status: "closed",
-      detail: "Not marked done by the deadline",
-    });
-    const finished = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED", parF2fStatus: "COMPLETED" });
-    expect(homeSteps(input({ cycle: passed, rating: finished })).map((s) => s.status)).toEqual([
-      "done",
-      "closed",
-      "done",
-      "done",
-    ]);
-  });
-
-  it("waits on reviewers once enough people are asked", () => {
-    const asked = [reviewer("PENDING", 1), reviewer("PENDING", 2), reviewer("SHARED", 3)];
-    const steps = homeSteps(input({ reviewers: asked }));
-    expect(steps[1].status).toBe("waiting");
-    expect(steps[1].waitingOn).toBe("reviewers");
-    expect(homeSteps(input({ reviewers: asked.slice(0, 2) }))[1].status).toBe("todo");
-  });
-});
-
-describe("a member of the leadership team", () => {
-  it("counts Leadership 360° responses for the 360° step, not who they asked", () => {
-    const shared = rating({ parEmployeeStatus: "SHARED" });
-    const asked = [reviewer("PENDING", 1), reviewer("PENDING", 2), reviewer("PENDING", 3)];
-    expect(homeSteps(input({ rating: shared, reviewers: asked, leadership: { responseCount: 2 } }))[1]).toMatchObject({
-      state: "current",
-      label: "360° feedback",
-      detail: "Leadership 360°: 2 submitted",
-    });
-    expect(homeSteps(input({ rating: shared, leadership: { responseCount: 3 } }))[1].state).toBe("done");
-  });
-
-  it("is asked to ask for Leadership 360° feedback", () => {
-    const next = nextUp(input({ rating: rating({ parEmployeeStatus: "SHARED" }), leadership: { responseCount: 0 } }));
-    expect(next.title).toBe("Request Leadership 360° feedback");
+  it("opens the self-review while the lead reviews and 360° feedback needs nothing from you, never the face-to-face", () => {
+    expect(landingStep(input({ rating: rating({ parEmployeeStatus: "SHARED" }), reviewers: asked(3) }))).toBe("self-review");
+    const f2fOpen = rating({ parEmployeeStatus: "SHARED", parLeadStatus: "SHARED", parF2fStatus: "PENDING" });
+    expect(landingStep(input({ rating: f2fOpen }))).not.toBe("f2f");
   });
 });

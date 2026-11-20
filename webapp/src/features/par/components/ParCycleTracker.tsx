@@ -16,116 +16,132 @@
 
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { Box, ButtonBase, Card, Chip, Skeleton, Tooltip, Typography, type Theme } from "@wso2/oxygen-ui";
-import {
-  ArrowRightIcon,
-  CheckIcon,
-  CircleCheckIcon,
-  CircleMinusIcon,
-  ClockIcon,
-  LockIcon,
-  PencilIcon,
-} from "@wso2/oxygen-ui-icons-react";
-import { isPreviewEnabled } from "@config/previewFeatures";
-import { useParRating } from "../api/useParData";
-import { useParticipants, useReviewers, useReviewRequests } from "../api/usePar360";
-import { useSelfReview } from "../api/useSelfReview";
-import { cycleSurvey, useLeadership360Results, useLeadership360Surveys } from "../api/useLeadership360";
+import { Box, ButtonBase, Card, Chip, Skeleton, Typography, type Theme } from "@wso2/oxygen-ui";
+import { CalendarIcon } from "@wso2/oxygen-ui-icons-react";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { ParCycle } from "../api/types";
 import { formatShortDate } from "../util/parDate";
-import { isSectionAnswered } from "../util/selfReviewForm";
-import { homeSteps, nextUp, type HomeStep, type HomeStepKey, type NextUp } from "../util/parHome";
-import ParDueChip from "./ParDueChip";
+import { daysLeft, daysLeftLabel } from "../util/parDeadline";
+import { useHomeInput } from "../api/useHomeInput";
+import {
+  STEP_STATE_LABEL,
+  homeSteps,
+  landingStep,
+  stepHeader,
+  type HomeStep,
+  type HomeStepKey,
+  type StepHeader,
+  type StepState,
+} from "../util/parHome";
 
-// Where each step opens in Active cycle. The lead review only shows where it stands: once the lead
-// shares, their review is on the self-review page.
-const STEP_SEGMENT: Partial<Record<HomeStepKey, string>> = {
+// Where each step opens in Active cycle.
+const STEP_SEGMENT: Record<HomeStepKey, string> = {
   "self-review": "cycle/self-review",
   "360": "cycle/360",
+  "lead-review": "cycle/lead-review",
   f2f: "cycle/f2f",
 };
 
-// PAR 2.0, at the top of Active cycle: where you are in the cycle and the one thing to do next.
-// The steps are how you move around Active cycle: each opens its part below (all but the lead
-// review), and the one open is outlined.
+// The state word's colour; the step's number and name look the same in every state.
+const STATE_COLOR: Record<StepState, string> = {
+  "not-started": "primary.main",
+  "in-progress": "info.main",
+  "not-available": "text.secondary",
+  done: "success.main",
+  incomplete: "error.main",
+};
+
+// PAR 2.0, Active cycle: the four steps as tabs, each with its state, and under them the open step's
+// panel, which `children` fills. The panel starts with the step's heading and, on its right, its date;
+// an Incomplete step has one line under the heading instead of a date. Every tab opens: a step with
+// nothing to do yet says so in its panel.
 export default function ParCycleTracker({
   cycle,
   workEmail,
   selected,
+  children,
 }: {
   cycle: ParCycle;
   workEmail: string;
-  /** The step whose part is open below. */
+  /** The step whose panel is open. */
   selected?: HomeStepKey;
+  /** The open step's page. */
+  children?: ReactNode;
 }) {
   const navigate = useNavigate();
-  const rating = useParRating(cycle.parCycleId, workEmail);
-  const selfReview = useSelfReview(cycle.parCycleId, workEmail);
-  const reviewers = useReviewers(cycle.parCycleId, workEmail);
-  const requests = useReviewRequests(cycle.parCycleId, workEmail);
-  // The lead's name for the steps that wait on them: the cycle's people include them.
-  const participants = useParticipants(cycle.parCycleId);
-  // A leader's 360° feedback is Leadership 360°: what counts is how many responded to the cycle's survey.
-  const leader = Boolean(rating.data?.parIsLeadershipEmployee) && isPreviewEnabled("leadership360");
-  const surveys = useLeadership360Surveys(leader);
-  const leadershipResults = useLeadership360Results(
-    leader ? cycleSurvey(surveys.data, cycle.parCycleId)?.surveyId : undefined,
-    "SELF",
-  );
+  const { input, isLoading, failed } = useHomeInput(cycle, workEmail);
 
-  if (rating.isLoading) return <Skeleton variant="rectangular" height={132} sx={{ borderRadius: 1.5 }} />;
+  if (!input && isLoading) return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
   // Without the PAR record there's nothing to track; the page says why.
-  if (!rating.data) return null;
+  if (!input) return <>{children}</>;
 
-  const definition = selfReview.data?.template.definition;
-  const selfReviewProgress = definition && {
-    answered: definition.sections.filter((s) => isSectionAnswered(s, selfReview.data!.answers)).length,
-    total: definition.sections.length,
-  };
-  const input = {
-    cycle,
-    rating: rating.data,
-    selfReviewProgress,
-    reviewers: reviewers.data ?? [],
-    requests: requests.data ?? [],
-    leadership: leader ? { responseCount: leadershipResults.data?.[0]?.responseCount ?? 0 } : undefined,
-    // First name only: the steps are narrow.
-    leadName: participants.data
-      ?.find((p) => p.workEmail.toLowerCase() === rating.data!.parLeadEmail?.toLowerCase())
-      ?.employeeName.split(" ")[0],
-  };
-  const steps = homeSteps(input);
-  const next = nextUp(input);
-  const go = (segment: string) => navigate(`/me/performance/${segment}`);
+  // The steps wait for how many responded: until it's in, the rail and heading are placeholders, and if it
+  // couldn't be loaded, the rail says so. The step's page stays in the same place throughout, so what's picked or
+  // typed in it survives the count arriving or a retry.
+  const ready = !isLoading && !failed;
+  const steps = ready ? homeSteps(input) : [];
+  const open = selected ?? landingStep(input);
 
   return (
-    <Card variant="outlined" sx={{ p: 1.5 }}>
-      <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" sx={{ mb: 1.5, fontWeight: 600 }} />
-      <Box
-        component="ol"
-        aria-label="Your PAR cycle"
-        sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "repeat(4, 1fr)" }, gap: 1, m: 0, p: 0 }}
-      >
-        {steps.map((step, i) => {
-          const segment = STEP_SEGMENT[step.key];
-          return (
-            <TrackerStep
-              key={step.key}
-              step={step}
-              number={i + 1}
-              selected={step.key === selected}
-              onOpen={segment ? () => go(segment) : undefined}
-            />
-          );
-        })}
+    <Card variant="outlined" sx={{ maxWidth: 1100 }}>
+      <Box sx={(theme) => ({ bgcolor: railBg(theme), px: 1.5, pt: 1.5, pb: ready ? 0 : 1.5 })}>
+        <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" sx={{ mb: 1.5, fontWeight: 600 }} />
+        {failed ? (
+          <ErrorNotice error={failed.error} onRetry={failed.retry} retrying={failed.retrying}>
+            Couldn't load your PAR cycle's progress.
+          </ErrorNotice>
+        ) : !ready ? (
+          <Skeleton variant="rectangular" height={64} sx={{ borderRadius: 1.5 }} />
+        ) : (
+          <Box
+            component="ol"
+            aria-label="Your PAR cycle"
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(150px, 1fr))",
+              gap: 0.5,
+              m: 0,
+              p: 0,
+              // On a phone the tabs scroll sideways in one row.
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": { display: "none" },
+            }}
+          >
+            {steps.map((step, i) => (
+              <TrackerStep
+                key={step.key}
+                step={step}
+                number={i + 1}
+                selected={step.key === open}
+                onOpen={() => navigate(`/me/performance/${STEP_SEGMENT[step.key]}`)}
+              />
+            ))}
+          </Box>
+        )}
       </Box>
-      <NextCard next={next} />
+      {/* The panel has the open tab's layers, the rail's shade and then the paper colour, so the two are one
+          colour even where the theme's surfaces are see-through. */}
+      <Box sx={(theme) => ({ bgcolor: railBg(theme), borderTop: 1, borderColor: line(theme) })}>
+        <Box sx={{ bgcolor: "background.paper", px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, pb: 3 }}>
+          {ready && <PanelHeader header={stepHeader(input, open)} />}
+          {children}
+        </Box>
+      </Box>
     </Card>
   );
 }
 
-// One step: an outlined box, the same size as the others and clickable all over. Without
-// `onOpen` it only shows where it stands.
+// The tab rail is a shade off the card, and the open tab and its panel are the card itself. theme.palette
+// holds the light scheme only; theme.vars follows the light/dark switch.
+const palette = (theme: Theme) => (theme.vars ?? theme).palette;
+const railBg = (theme: Theme) => `color-mix(in srgb, ${palette(theme).text.primary} 5%, ${palette(theme).background.paper})`;
+// The line under the tabs, and round the open one: as strong as the mock's, whatever the theme's divider (a faint
+// 7% in Choreo Labs).
+const line = (theme: Theme) => `color-mix(in srgb, ${palette(theme).text.primary} 20%, transparent)`;
+
+// One tab: the step's number and name, and under the name its state, after a dot in its colour. The
+// open one has the panel's colour, edges, and a line in the main colour along its top.
 function TrackerStep({
   step,
   number,
@@ -135,190 +151,135 @@ function TrackerStep({
   step: HomeStep;
   number: number;
   selected: boolean;
-  onOpen?: () => void;
+  onOpen: () => void;
 }) {
-  const done = step.state === "done";
-  const current = step.state === "current";
-  const green = step.status === "done" || step.status === "enough";
-  const yours = step.status === "todo";
-  const box = {
-    flex: 1,
-    display: "flex",
-    gap: 1.25,
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    textAlign: "left",
-    p: 1.25,
-    border: 1,
-    borderColor: selected ? "primary.main" : "divider",
-    borderRadius: 1.5,
-    // A second pixel of outline for the open step, without moving its content.
-    boxShadow: (theme: Theme) => (selected ? `inset 0 0 0 1px ${theme.palette.primary.main}` : "none"),
-  } as const;
-  const content: ReactNode = (
-    <>
-      <Box
-        aria-hidden
-        sx={{
-          width: 28,
-          height: 28,
-          flexShrink: 0,
-          borderRadius: "50%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          fontSize: 13,
-          fontWeight: 700,
-          // The number follows whose move it is: orange only when it's the employee's.
-          bgcolor: green ? "success.main" : yours ? "primary.main" : "action.selected",
-          color: green || yours ? "common.white" : "text.secondary",
-        }}
-      >
-        {number}
-      </Box>
-      <Box sx={{ minWidth: 0, flex: 1 }}>
-        {/* The chip goes under the name when the step is too narrow for both. */}
-        <Box
-          sx={{
-            display: "flex",
-            flexWrap: "wrap",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            columnGap: 1,
-            rowGap: 0.5,
-          }}
-        >
-          <Typography
-            variant="body2"
-            component="div"
-            sx={{ fontWeight: current ? 700 : 600, color: done || current ? "text.primary" : "text.secondary" }}
-          >
-            {step.label}
-          </Typography>
-          <StepStatusChip step={step} />
-        </Box>
-        {step.detail && (
-          <Typography variant="caption" color="text.secondary" component="div">
-            {step.detail}
-          </Typography>
-        )}
-        {step.due &&
-          !done &&
-          // The employee's own deadline says how long is left; someone else's is just a date.
-          (step.dueLabel ? (
-            <Chip
-              size="small"
-              variant="outlined"
-              label={`${step.dueLabel} ${formatShortDate(step.due)}`}
-              sx={{ mt: 0.5, height: 20, fontSize: 11 }}
-            />
-          ) : (
-            <ParDueChip due={step.due} sx={{ mt: 0.5, height: 20, fontSize: 11 }} />
-          ))}
-      </Box>
-    </>
-  );
   return (
     <Box component="li" sx={{ listStyle: "none", display: "flex" }}>
-      {onOpen ? (
-        <ButtonBase
-          onClick={onOpen}
-          aria-current={selected ? "page" : current ? "step" : undefined}
-          sx={{ ...box, "&:hover": { bgcolor: "action.hover" } }}
+      <ButtonBase
+        onClick={onOpen}
+        aria-current={selected ? "page" : undefined}
+        sx={(theme) => ({
+          flex: 1,
+          display: "grid",
+          gridTemplateColumns: "auto minmax(0, 1fr)",
+          columnGap: 1.25,
+          alignItems: "center",
+          justifyContent: "stretch",
+          textAlign: "left",
+          px: 1.5,
+          pt: 1.5,
+          pb: 1.25,
+          borderRadius: "12px 12px 0 0",
+          border: 1,
+          // The line under the tabs runs under the open one too, as in the mock.
+          borderBottom: 0,
+          borderColor: selected ? line(theme) : "transparent",
+          bgcolor: selected ? "background.paper" : "transparent",
+          boxShadow: selected ? `inset 0 3px 0 ${palette(theme).primary.main}` : "none",
+          ...(!selected && { "&:hover": { bgcolor: "action.hover" } }),
+        })}
+      >
+        <Box
+          aria-hidden
+          sx={{
+            gridRow: "1 / span 2",
+            width: 26,
+            height: 26,
+            borderRadius: "50%",
+            border: "1.5px solid",
+            borderColor: "text.disabled",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 13,
+            fontWeight: 600,
+            color: "text.primary",
+          }}
         >
-          {content}
-        </ButtonBase>
-      ) : (
-        <Box aria-current={current ? "step" : undefined} sx={box}>
-          {content}
+          {number}
         </Box>
-      )}
+        <Typography variant="body2" component="div" sx={{ fontWeight: 600 }}>
+          {step.label}
+        </Typography>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 0.75 }}>
+          {/* A dot in the state's colour before the state word. */}
+          <Box
+            aria-hidden
+            sx={{
+              width: 7,
+              height: 7,
+              borderRadius: "50%",
+              flexShrink: 0,
+              bgcolor: step.state === "not-available" ? "text.disabled" : STATE_COLOR[step.state],
+            }}
+          />
+          <Typography
+            variant="caption"
+            component="div"
+            sx={{ fontWeight: step.state === "not-available" ? 500 : 600, color: STATE_COLOR[step.state] }}
+          >
+            {STEP_STATE_LABEL[step.state]}
+          </Typography>
+        </Box>
+      </ButtonBase>
     </Box>
   );
 }
 
-// Why a step closed. The lead review never does: its deadline is the lead's.
-const CLOSED_NOTE: Partial<Record<HomeStepKey, string>> = {
-  "self-review": "The deadline passed before it was shared, so it's locked.",
-  "360": "The 360° window closed without enough feedback for results.",
-  f2f: "The deadline passed before it was marked done, so it's locked.",
-};
-
-// Whose move the step is, with a colour and icon each: yours in the main colour, done in green,
-// someone else's or not open yet in grey. All outlined, so the colour stays in the border.
-function StepStatusChip({ step }: { step: HomeStep }) {
-  const sx = { height: 20, fontSize: 11, flexShrink: 0, "& .MuiChip-icon": { ml: 0.75, mr: -0.25 } } as const;
-  switch (step.status) {
-    case "done":
-      return <Chip size="small" color="success" variant="outlined" icon={<CheckIcon size={12} />} label="Done" sx={sx} />;
-    case "enough":
-      return (
-        <Tooltip title={step.due ? `Enough for results. More can still come in until ${formatShortDate(step.due)}.` : ""}>
-          <Chip size="small" color="success" variant="outlined" icon={<CheckIcon size={12} />} label="Minimum met" sx={sx} />
-        </Tooltip>
-      );
-    case "todo":
-      return <Chip size="small" color="primary" variant="outlined" icon={<PencilIcon size={12} />} label="To do" sx={sx} />;
-    case "waiting":
-      return (
-        <Tooltip title={step.waitingOn ? `Waiting on ${step.waitingOn}` : ""}>
-          <Chip size="small" variant="outlined" icon={<ClockIcon size={12} />} label="Waiting" sx={sx} />
-        </Tooltip>
-      );
-    case "closed":
-      return (
-        <Tooltip title={CLOSED_NOTE[step.key] ?? ""}>
-          <Chip
-            size="small"
-            variant="outlined"
-            icon={<CircleMinusIcon size={12} />}
-            label="Closed"
-            sx={{ ...sx, color: "text.secondary" }}
-          />
-        </Tooltip>
-      );
-    case "locked":
-      return <Chip size="small" variant="outlined" icon={<LockIcon size={12} />} label="Not yet" sx={{ ...sx, color: "text.secondary" }} />;
-  }
-}
-
-// The one thing to do next, set apart under the steps: tinted in the main colour when it's the
-// employee's move, grey while it's someone else's, green when everything's done. A thing to do
-// with a deadline says how long is left, amber in the last three days.
-// No button: the steps above open each part.
-function NextCard({ next }: { next: NextUp }) {
-  const tint = next.tone === "todo" ? "primary.main" : next.tone === "done" ? "success.main" : "text.secondary";
-  const Icon = next.tone === "todo" ? ArrowRightIcon : next.tone === "done" ? CircleCheckIcon : ClockIcon;
+// The top of the open step's panel: its heading and, on the right, its date with the days left while
+// it's the employee's to do; or, for an Incomplete step, one line under the heading.
+function PanelHeader({ header }: { header: StepHeader }) {
+  const days = header.due ? daysLeft(header.due.date) : NaN;
+  const showDays = Boolean(header.due?.countdown) && !Number.isNaN(days) && days >= 0;
   return (
     <Box
       sx={{
-        mt: 1.5,
         display: "flex",
-        alignItems: "center",
-        gap: 1.5,
-        px: 1.5,
-        py: 1.25,
-        borderRadius: 1.5,
-        borderLeft: 3,
-        borderColor: tint,
-        bgcolor: (theme: Theme) =>
-          next.tone === "waiting"
-            ? theme.palette.action.hover
-            : `color-mix(in srgb, ${next.tone === "todo" ? theme.palette.primary.main : theme.palette.success.main} 8%, transparent)`,
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+        flexWrap: "wrap",
+        columnGap: 3,
+        rowGap: 1,
+        mb: 2.5,
       }}
     >
-      <Box aria-hidden sx={{ color: tint, display: "flex", flexShrink: 0 }}>
-        <Icon size={18} />
-      </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography variant="body2" sx={{ fontWeight: 700 }}>
-          {next.title}
+      <Box sx={{ flex: "1 1 320px", minWidth: 0 }}>
+        <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
+          {header.title}
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          {next.body}
-        </Typography>
+        {header.line && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+            {header.line}
+          </Typography>
+        )}
       </Box>
-      {next.tone === "todo" && next.due && <ParDueChip due={next.due} daysOnly sx={{ flexShrink: 0 }} />}
+      {header.due && (
+        <Box
+          sx={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 1,
+            flexShrink: 0,
+            px: 1.5,
+            py: 0.75,
+            border: 1,
+            borderColor: "divider",
+            borderRadius: 999,
+            color: "text.secondary",
+          }}
+        >
+          <CalendarIcon size={16} aria-hidden />
+          <Typography variant="body2">
+            {header.due.label} {formatShortDate(header.due.date)}
+            {showDays && (
+              <Box component="span" sx={{ fontWeight: 600, color: days <= 3 ? "warning.main" : "primary.main" }}>
+                {" · "}
+                {daysLeftLabel(days)}
+              </Box>
+            )}
+          </Typography>
+        </Box>
+      )}
     </Box>
   );
 }

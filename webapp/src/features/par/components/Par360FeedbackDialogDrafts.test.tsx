@@ -51,7 +51,6 @@ const draft = (answers: Review360Form["answers"]): Review360Form => ({
   employeeEmail: "alex@wso2.com",
   answers,
   reviewStatus: "PENDING",
-  requestAnswers: { relationship: "PEER" },
   template: {
     formTemplateId: 5,
     formKind: "PEER_360",
@@ -70,23 +69,6 @@ const draft = (answers: Review360Form["answers"]): Review360Form => ({
         },
       },
       sections: [
-        {
-          id: "relationship",
-          title: "How you work together",
-          questions: [
-            {
-              id: "relationship",
-              type: "CHOICE",
-              text: "How do you work with them?",
-              required: true,
-              askedOnRequest: true,
-              options: [
-                { value: "PEER", label: "Peer" },
-                { value: "CROSS_TEAM", label: "Cross-team" },
-              ],
-            },
-          ],
-        },
         {
           id: "behaviours",
           title: "Behaviours",
@@ -154,7 +136,7 @@ describe("Par360FeedbackDialog drafts", () => {
   });
 
   it("saves a change made just before closing", async () => {
-    stored = draft({ relationship: "PEER", ownership: 4 });
+    stored = draft({ ownership: 4 });
     const dialog = renderDialog();
     fireEvent.change(await screen.findByRole("textbox", { name: "Written feedback" }), {
       target: { value: "Clear updates." },
@@ -162,7 +144,7 @@ describe("Par360FeedbackDialog drafts", () => {
     dialog.close();
     await waitFor(() =>
       expect(authedPut).toHaveBeenCalledWith("/review-form", "token", {
-        answers: { relationship: "PEER", ownership: 4, feedback: "Clear updates." },
+        answers: { ownership: 4, feedback: "Clear updates." },
       }),
     );
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -172,7 +154,7 @@ describe("Par360FeedbackDialog drafts", () => {
   });
 
   it("locks the form while Close saves the latest answers, then closes", async () => {
-    stored = draft({ relationship: "PEER", ownership: 4 });
+    stored = draft({ ownership: 4 });
     let finish = () => {};
     authedPut.mockImplementationOnce(async (_url, _token, body) => {
       await new Promise<void>((resolve) => (finish = resolve));
@@ -184,7 +166,7 @@ describe("Par360FeedbackDialog drafts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() =>
       expect(authedPut).toHaveBeenCalledWith("/review-form", "token", {
-        answers: { relationship: "PEER", ownership: 4, feedback: "Clear updates." },
+        answers: { ownership: 4, feedback: "Clear updates." },
       }),
     );
     expect(feedback).toBeDisabled();
@@ -194,7 +176,7 @@ describe("Par360FeedbackDialog drafts", () => {
   });
 
   it("stays open and editable when Close can't save, and says so", async () => {
-    stored = draft({ relationship: "PEER", ownership: 4 });
+    stored = draft({ ownership: 4 });
     authedPut.mockRejectedValueOnce(new Error("HTTP 503"));
     renderDialog();
     const feedback = await screen.findByRole("textbox", { name: "Written feedback" });
@@ -207,7 +189,7 @@ describe("Par360FeedbackDialog drafts", () => {
   });
 
   it("waits on Close for an autosave in flight, then saves the answers changed back", async () => {
-    stored = draft({ relationship: "PEER", ownership: 4, feedback: "First" });
+    stored = draft({ ownership: 4, feedback: "First" });
     let finishAutosave = () => {};
     authedPut.mockImplementationOnce(async (_url, _token, body) => {
       await new Promise<void>((resolve) => (finishAutosave = resolve));
@@ -226,7 +208,7 @@ describe("Par360FeedbackDialog drafts", () => {
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(authedPut).toHaveBeenCalledTimes(2);
     expect(authedPut).toHaveBeenLastCalledWith("/review-form", "token", {
-      answers: { relationship: "PEER", ownership: 4, feedback: "First" },
+      answers: { ownership: 4, feedback: "First" },
     });
   });
 });

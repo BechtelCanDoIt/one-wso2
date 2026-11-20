@@ -31,22 +31,13 @@ import {
 } from "@wso2/oxygen-ui";
 import { CircleCheckIcon, PlayCircleIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
-import { isPreviewEnabled } from "@config/previewFeatures";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import type { ParCycle, ParRating } from "../api/types";
 import type { SelfReview, SelfReviewAnswers } from "../api/selfReviewTypes";
 import { useSaveParRating } from "../api/useParMutations";
 import { useSaveSelfReview, useShareSelfReview } from "../api/useSelfReview";
-import { useReviewSummary } from "../api/useReview360";
-import { useCycleLeadership360ForPdf } from "../api/useLeadership360";
-import { decodeParComment } from "../util/parComment";
-import { downloadPar2Pdf } from "../util/parPdf";
-import { formatShortDate } from "../util/parDate";
 import { isDeadlinePassed } from "../util/parDeadline";
 import { answersToSave, isSectionAnswered, shareBlockers } from "../util/selfReviewForm";
-import ParRatingSummary from "./ParRatingSummary";
-import ParSelfReviewView from "./ParSelfReviewView";
-import ParDueChip from "./ParDueChip";
 
 const AUTOSAVE_DELAY_MS = 1200;
 
@@ -87,15 +78,6 @@ export default function ParSelfReviewForm({
   const editable = !shared && !deadlinePassed && (started || status === "DRAFT");
   // Same rule as the single comment: unshare until the lead shares their side.
   const canUnshare = status === "SHARED" && rating.parLeadStatus !== "SHARED" && !deadlinePassed;
-  const leadShared = Boolean(rating.parLeadComment || rating.parRating);
-  // The finished PAR's PDF carries the anonymised 360° summary when there is one.
-  const review360 = useReviewSummary(cycle.parCycleId, workEmail, leadShared);
-  // A leader's Leadership 360° results go in the PDF too, as of today while the survey is open.
-  const leadership360 = useCycleLeadership360ForPdf(
-    cycle.parCycleId,
-    workEmail,
-    leadShared && isPreviewEnabled("leadership360"),
-  );
 
   const toSave = answersToSave(definition, answers);
   const dirty = JSON.stringify(toSave) !== lastSaved.current;
@@ -154,6 +136,16 @@ export default function ParSelfReviewForm({
     setBlockers([]);
   };
 
+  // Starting saves an empty draft, so the self-review counts as started and a reload keeps the form.
+  const start = () =>
+    save.mutate(toSave, {
+      onSuccess: () => {
+        lastSaved.current = JSON.stringify(toSave);
+        setStarted(true);
+      },
+      onError: (err) => showError(describeError(err)),
+    });
+
   const askToShare = () => {
     const missing = shareBlockers(definition, answers);
     setBlockers(missing);
@@ -183,47 +175,42 @@ export default function ParSelfReviewForm({
 
   const answered = definition.sections.filter((s) => isSectionAnswered(s, answers)).length;
 
-  // Past the deadline, an unshared draft is only for reading too, and the lead's review shows here
-  // once they share (they can without it then).
-  if (shared || deadlinePassed) {
-    const view = <ParSelfReviewView definition={definition} answers={selfReview.answers} />;
+  // Past the deadline an unshared self-review shows nothing: the step is Incomplete, and the panel's heading
+  // says when the deadline passed. A shared one is for reading, with Unshare while that's still possible.
+  // The lead's review has its own page.
+  if (!shared && deadlinePassed) return null;
+  if (shared) {
     return (
-      <Stack spacing={1.75} sx={{ maxWidth: 1100 }}>
-        {status === "SHARED" && <Alert severity="success">Your self-review has been shared with your lead.</Alert>}
-        {status === "SHARED_BLOCKED" && (
-          <Alert severity={rating.parLeadStatus === "SHARED" ? "success" : "info"}>
-            {rating.parLeadStatus === "SHARED"
-              ? "Your lead has shared their review."
-              : "Your self-review is locked in while your lead completes theirs."}
-          </Alert>
-        )}
-        {!shared && (
-          <Alert severity="error">
-            The deadline for your self-review passed on {formatShortDate(cycle.parEmployeeDeadline)}.
-            {status === "DRAFT" && " Your draft wasn't shared, so your lead doesn't see it."}
-          </Alert>
-        )}
-        {leadShared ? (
-          <ParRatingSummary
-            cycle={cycle}
-            rating={rating}
-            selfReview={view}
-            onDownloadPdf={() =>
-              downloadPar2Pdf({
-                rating,
-                leadComment: decodeParComment(rating.parLeadComment),
-                selfReview: { definition, answers: selfReview.answers },
-                review360: review360.data ?? undefined,
-                leadership360,
-              })
-            }
-          />
-        ) : (
-          view
-        )}
+      <Stack spacing={1.5} sx={{ maxWidth: 1100 }}>
+        {/* Each section in a box of its own, with its answer. */}
+        {definition.sections.map((section) => (
+          <Box key={section.id} sx={{ border: 1, borderColor: "divider", borderRadius: "10px", px: 2, py: 1.75 }}>
+            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+              {section.title}
+            </Typography>
+            {section.questions.map((q) => {
+              const text = (selfReview.answers[q.id] ?? "").trim();
+              return (
+                <Box key={q.id}>
+                  {section.questions.length > 1 && (
+                    <Typography variant="caption" color="text.secondary" component="div">
+                      {q.text}
+                    </Typography>
+                  )}
+                  <Typography
+                    variant="body2"
+                    sx={{ whiteSpace: "pre-wrap", ...(!text && { color: "text.disabled", fontStyle: "italic" }) }}
+                  >
+                    {text || "Not answered"}
+                  </Typography>
+                </Box>
+              );
+            })}
+          </Box>
+        ))}
         {canUnshare && (
-          <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button color="error" variant="outlined" onClick={() => setUnsharing(true)}>
+          <Box sx={{ pt: 1 }}>
+            <Button variant="outlined" onClick={() => setUnsharing(true)}>
               Unshare
             </Button>
           </Box>
@@ -284,10 +271,10 @@ export default function ParSelfReviewForm({
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3, maxWidth: 520, mx: "auto" }}>
           {definition.sections.length === 1 ? "One short section" : `${definition.sections.length} short sections`}:{" "}
-          {definition.sections.map((s) => s.title.toLowerCase()).join(", ")}. Everything saves as you write. Share it with your lead by {formatShortDate(cycle.parEmployeeDeadline)}.
+          {definition.sections.map((s) => s.title.toLowerCase()).join(", ")}. Everything saves as you write.
         </Typography>
-        <Button variant="contained" size="large" onClick={() => setStarted(true)}>
-          Start
+        <Button variant="contained" size="large" onClick={start} disabled={save.isPending}>
+          {save.isPending ? "Starting…" : "Start"}
         </Button>
       </Card>
     );
@@ -306,9 +293,6 @@ export default function ParSelfReviewForm({
       >
         <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
           <Chip size="small" label={`${answered} of ${definition.sections.length} sections`} />
-          {!deadlinePassed && (
-            <ParDueChip due={cycle.parEmployeeDeadline} />
-          )}
           {save.isPending ? (
             <Chip size="small" variant="outlined" label="Saving…" />
           ) : (
@@ -330,39 +314,19 @@ export default function ParSelfReviewForm({
 
       {blockers.length > 0 && <Alert severity="warning">Before you share: {blockers.join("; ")}.</Alert>}
 
-      <Stack spacing={2}>
-        {definition.sections.map((section, i) => (
-          <Card key={section.id} variant="outlined" sx={{ p: 2 }}>
-            <Box sx={{ display: "flex", gap: 1.5, mb: 1.5 }}>
-              <Box
-                sx={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: "50%",
-                  flexShrink: 0,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  bgcolor: isSectionAnswered(section, answers) ? "primary.main" : "action.selected",
-                  color: isSectionAnswered(section, answers) ? "primary.contrastText" : "text.secondary",
-                }}
-              >
-                {i + 1}
-              </Box>
-              <Box>
-                <Typography sx={{ fontWeight: 600 }}>
-                  {section.title}
-                  {section.questions.some((q) => q.required) ? "" : " (optional)"}
-                </Typography>
-                {section.hint && (
-                  <Typography variant="body2" color="text.secondary">
-                    {section.hint}
-                  </Typography>
-                )}
-              </Box>
-            </Box>
+      {/* Each section: its name, its hint and the field. */}
+      <Stack spacing={2.5}>
+        {definition.sections.map((section) => (
+          <Box key={section.id}>
+            <Typography sx={{ fontWeight: 600, mb: section.hint ? 0.25 : 1 }}>
+              {section.title}
+              {section.questions.some((q) => q.required) ? "" : " (optional)"}
+            </Typography>
+            {section.hint && (
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                {section.hint}
+              </Typography>
+            )}
             {section.questions.map((q) => (
               <TextField
                 key={q.id}
@@ -381,7 +345,7 @@ export default function ParSelfReviewForm({
                 }}
               />
             ))}
-          </Card>
+          </Box>
         ))}
       </Stack>
 

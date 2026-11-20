@@ -329,7 +329,7 @@ describe("Leadership360FeedbackDialog", () => {
     expect(screen.getByText("Director · Counts toward the next PAR cycle")).toBeInTheDocument();
     fireEvent.mouseOver(anonymousOption().parentElement!);
     expect(
-      await screen.findByText("Anonymous feedback can only be given while a PAR cycle is open."),
+      await screen.findByText("Anonymous feedback can only be given while a PAR cycle is taking 360° feedback."),
     ).toBeInTheDocument();
   });
 

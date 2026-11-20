@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { ParCycleConfigurations } from "../api/types";
+
 /** Default ratings a leadership employee may be given — "Successful" or
  * "Step Up", never NI or anything else in the cycle's configured parRatings
  * list. Used as the fallback when a cycle hasn't configured its own
@@ -24,6 +26,26 @@
  * ParRating.parIsLeadershipEmployee — read that field directly rather than
  * re-deriving it from org-chart fields like subTeam. */
 export const LEADERSHIP_ALLOWED_RATINGS = ["Successful", "Step Up"];
+
+/** The rating a PAR gets when its employee doesn't share their self-review by
+ * the deadline, as the backend gives it: the cycle's missedDeadlineRating
+ * ("Needs Improvements" when unset), or for the leadership team its
+ * leadershipMissedDeadlineRating ("Step Up" when unset). Undefined when the
+ * cycle can't give it (not one of its ratings, or not one the leadership team
+ * may get): the backend then leaves that PAR to its lead. */
+export function missedDeadlineRatingFor(
+  configurations: ParCycleConfigurations | undefined,
+  isLeadership: boolean,
+): string | undefined {
+  const parRatings = configurations?.parRatings ?? [];
+  if (isLeadership) {
+    const rating = configurations?.leadershipMissedDeadlineRating ?? "Step Up";
+    const allowed = configurations?.leadershipAllowedRatings ?? LEADERSHIP_ALLOWED_RATINGS;
+    return parRatings.includes(rating) && allowed.includes(rating) ? rating : undefined;
+  }
+  const rating = configurations?.missedDeadlineRating ?? "Needs Improvements";
+  return parRatings.includes(rating) ? rating : undefined;
+}
 
 /** Ratings reserved for leadership employees specifically -- the reverse of
  * LEADERSHIP_ALLOWED_RATINGS above. A non-leadership employee must never be

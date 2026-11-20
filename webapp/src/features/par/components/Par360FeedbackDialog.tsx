@@ -51,10 +51,8 @@ const FIELDSET_SX = { border: 0, p: 0, m: 0, minWidth: 0 };
 type Answer = FormAnswers[string];
 
 // Structured 360° feedback on one colleague in a PAR 2.0 cycle: five
-// behaviours, then optional written feedback. How you work together comes from
-// the request or the offer; the form asks it only when that wasn't given yet (a
-// held draft moved into the cycle). Drafts save as you go; once submitted it
-// can't change. Read-only for feedback already given.
+// behaviours, then optional written feedback. Drafts save as you go; once
+// submitted it can't change. Read-only for feedback already given.
 export default function Par360FeedbackDialog({
   open,
   onClose,
@@ -64,7 +62,6 @@ export default function Par360FeedbackDialog({
   deadline,
   held = false,
   offered = false,
-  relationship,
 }: {
   open: boolean;
   onClose: () => void;
@@ -76,8 +73,6 @@ export default function Par360FeedbackDialog({
   held?: boolean;
   /** Nobody asked you for it. */
   offered?: boolean;
-  /** How you said you work with them, offering feedback the form doesn't have yet (held feedback). */
-  relationship?: string;
 }) {
   const form = useReviewForm(parCycleId, employeeEmail, open);
   // The form closes itself, saving first; Escape and the backdrop go through it too.
@@ -113,26 +108,12 @@ export default function Par360FeedbackDialog({
           deadline={deadline}
           held={held}
           offered={offered || held}
-          relationship={relationship}
           onClose={onClose}
           closeRef={closeForm}
         />
       )}
     </Dialog>
   );
-}
-
-/** Answers given when the feedback was asked for (or offered), which the form doesn't ask again. */
-function givenAnswers(form: Review360Form, relationship: string | undefined): FormAnswers {
-  const asked = form.template.definition.sections.flatMap((s) => s.questions).find((q) => q.askedOnRequest);
-  return { ...(asked && relationship ? { [asked.id]: relationship } : {}), ...form.requestAnswers };
-}
-
-/** The sections and questions left to show once `given` ones are taken out. */
-function withoutGiven(definition: FormDefinition, given: FormAnswers): FormSection[] {
-  return definition.sections
-    .map((s) => ({ ...s, questions: s.questions.filter((q) => given[q.id] === undefined) }))
-    .filter((s) => s.questions.length > 0);
 }
 
 function FeedbackForm({
@@ -142,7 +123,6 @@ function FeedbackForm({
   deadline,
   held,
   offered,
-  relationship,
   onClose,
   closeRef,
 }: {
@@ -152,7 +132,6 @@ function FeedbackForm({
   deadline: string;
   held: boolean;
   offered: boolean;
-  relationship: string | undefined;
   onClose: () => void;
   /** Set to this form's close, which saves first. */
   closeRef: MutableRefObject<(() => void) | null>;
@@ -162,11 +141,9 @@ function FeedbackForm({
   const submit = useSubmitReviewForm(parCycleId, form.employeeEmail);
   const { showSuccess, showError } = useNotifications();
 
-  // Given answers go with every save, but don't count as a change: opening the form starts no draft.
-  const [given] = useState(() => givenAnswers(form, relationship));
-  const sections = withoutGiven(definition, given);
-  const [answers, setAnswers] = useState<FormAnswers>(() => ({ ...form.answers, ...given }));
-  const lastSaved = useRef(JSON.stringify(cleanAnswers({ ...form.answers, ...given })));
+  const sections = definition.sections;
+  const [answers, setAnswers] = useState<FormAnswers>(form.answers);
+  const lastSaved = useRef(JSON.stringify(cleanAnswers(form.answers)));
   const [savedAt, setSavedAt] = useState<Date | null>(null);
   const [missing, setMissing] = useState<string[]>([]);
   const [confirming, setConfirming] = useState(false);
@@ -289,7 +266,7 @@ function FeedbackForm({
             <Typography variant="body2" color="text.secondary">
               {offered
                 ? `${employeeName}'s lead sees your feedback with your name.`
-                : `${employeeName} sees only anonymised scores; their lead sees your feedback with your name.`}
+                : `${employeeName} doesn't see your answers; their lead sees them with your name.`}
               {held && " It counts toward their next PAR cycle."}
             </Typography>
           )}

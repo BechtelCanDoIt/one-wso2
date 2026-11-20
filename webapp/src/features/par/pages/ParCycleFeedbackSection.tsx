@@ -21,9 +21,9 @@ import { useActiveParCycle } from "../api/useParData";
 import Par360AboutMe from "../components/Par360AboutMe";
 import Leadership360ResultsCard from "../components/Leadership360ResultsCard";
 
-// Active cycle → 360° feedback: your summary once your lead shares your PAR,
-// and — for leaders — this cycle's Leadership 360° results (live once 3
-// people have responded); then asking for feedback and who responded.
+// Active cycle → 360° feedback: for leaders, a line with this cycle's
+// Leadership 360° results (View results, once 3 people have responded); then
+// asking for feedback and who responded.
 export default function ParCycleFeedbackSection() {
   const profile = useMeProfile();
   const workEmail = profile.data?.userInfo.workEmail;
@@ -49,7 +49,7 @@ export default function ParCycleFeedbackSection() {
       <Par360AboutMe
         cycle={cycle}
         workEmail={workEmail}
-        afterSummary={leadership && <Leadership360ResultsCard view="SELF" parCycleId={cycle.parCycleId} />}
+        beforeRequests={leadership && <Leadership360ResultsCard view="SELF" parCycleId={cycle.parCycleId} compact />}
       />
     </Stack>
   );

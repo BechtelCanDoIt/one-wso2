@@ -14,7 +14,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { DataGrid, Tooltip } from "@wso2/oxygen-ui";
+import type { ReactNode } from "react";
+import { Box, DataGrid, InputAdornment, TextField, Tooltip } from "@wso2/oxygen-ui";
+import { SearchIcon } from "@wso2/oxygen-ui-icons-react";
 
 // Same reasoning as Finance's ccGridToolbar.tsx (ToolbarNoExport): Export is
 // withheld on grids showing live, in-progress PAR status for named
@@ -23,10 +25,13 @@ import { DataGrid, Tooltip } from "@wso2/oxygen-ui";
 // quick filter either: callers already have their own search box. Uses the
 // Panel Trigger API (ColumnsPanelTrigger/FilterPanelTrigger) rather than
 // GridToolbarColumnsButton/GridToolbarFilterButton, which are deprecated in
-// this DataGrid version.
-export function ParGridToolbar() {
+// this DataGrid version. A grid's own search box goes in as `children`, at the start of the same
+// row, so search and the buttons share one line: `slotProps={{ toolbar: { children: <ParGridSearch … /> } }}`.
+export function ParGridToolbar({ children }: { children?: ReactNode }) {
   return (
     <DataGrid.Toolbar>
+      {children}
+      <Box sx={{ flex: 1 }} />
       <Tooltip title="Columns">
         <DataGrid.ColumnsPanelTrigger render={<DataGrid.ToolbarButton aria-label="Columns" />}>
           <DataGrid.GridColumnIcon fontSize="small" />
@@ -60,5 +65,35 @@ export function ParGridToolbarWithExport() {
       <DataGrid.GridToolbarDensitySelector />
       <DataGrid.GridToolbarExport />
     </DataGrid.Toolbar>
+  );
+}
+
+/** A grid's own search box, for the start of its toolbar row (see ParGridToolbar). */
+export function ParGridSearch({
+  placeholder,
+  value,
+  onChange,
+}: {
+  placeholder: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <TextField
+      size="small"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon size={16} />
+            </InputAdornment>
+          ),
+        },
+        htmlInput: { "aria-label": placeholder },
+      }}
+    />
   );
 }

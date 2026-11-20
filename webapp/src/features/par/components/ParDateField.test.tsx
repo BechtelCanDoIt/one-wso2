@@ -40,10 +40,9 @@ function Held({ min }: { min?: string }) {
   );
 }
 
-// A typed date can fall outside min/max, and neither ParF2fTab nor
-// ParScheduleF2fDialog's backend re-validates the range. ParDateField is the
-// one shared place that has to refuse it: the caller is told there is no date,
-// never handed the out-of-range one.
+// A typed date can fall outside min/max, and ParF2fTab doesn't re-validate the
+// range. ParDateField is the one shared place that has to refuse it: the caller
+// is told there is no date, never handed the out-of-range one.
 describe("ParDateField", () => {
   it("is today's native date field without PAR 2.0, still refusing a typed date out of range", () => {
     setPar2(false);

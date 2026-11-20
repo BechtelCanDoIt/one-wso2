@@ -40,25 +40,8 @@ const selfReviewDefinition: FormDefinition = {
   ],
 };
 
-const peer360: FormDefinition = {
-  kind: "PEER_360",
-  version: 1,
-  title: "360° feedback",
-  scales: { frequency: { min: 1, max: 5 } },
-  sections: [
-    {
-      id: "b",
-      title: "Behaviours",
-      questions: [
-        { id: "ownership", type: "RATING", text: "Ownership", scale: "frequency" },
-        { id: "feedback", type: "TEXT", text: "Written feedback" },
-      ],
-    },
-  ],
-};
-
 describe("downloadPar2Pdf", () => {
-  it("writes the self-review and the anonymised PAR 360° averages, without comments or counts", () => {
+  it("writes the self-review and no 360° scores: a member never sees theirs", () => {
     downloadPar2Pdf({
       rating: { parEmployeeEmail: "e@x.com", parRating: "Successful" } as ParRating,
       leadComment: "<p>Great cycle.</p>",
@@ -66,21 +49,12 @@ describe("downloadPar2Pdf", () => {
         definition: selfReviewDefinition,
         answers: { impact: "Shipped it.", growth: "Learned to plan." },
       },
-      review360: {
-        template: { formTemplateId: 3, formKind: "PEER_360", formVersion: 1, definition: peer360 },
-        available: true,
-        index: 4.13,
-        questionAverages: [{ questionId: "ownership", average: 4.13 }],
-      },
     });
     const text = JSON.stringify(tables.at(-1));
     expect(text).toContain("Shipped it.");
     expect(text).toContain("Learned to plan.");
-    expect(text).toContain('"PAR 360° results"');
-    expect(text).toContain('"4.1"');
-    expect(text).not.toContain("responses");
-    expect(text).not.toContain("ratings");
-    expect(text).not.toContain("Written feedback");
+    expect(text).not.toContain("PAR 360° results");
+    expect(text).not.toContain("360° index");
   });
 
   it("adds the lead's 360° summary to the lead's feedback", () => {
@@ -148,20 +122,6 @@ describe("downloadPar2Pdf", () => {
     expect(head(undefined)).not.toContain("Top 5%/20%");
     expect(head("TOP5P")).toContain("Top 5%/20% Rating: TOP5P");
     expect(head("NOT_ASSIGNED")).toContain("PAR Rating: Successful");
-  });
-
-  it("leaves the PAR 360° results out until the employee may see them", () => {
-    downloadPar2Pdf({
-      rating: { parEmployeeEmail: "e@x.com" } as ParRating,
-      leadComment: "",
-      selfReview: { definition: selfReviewDefinition, answers: { impact: "Shipped it." } },
-      review360: {
-        template: { formTemplateId: 3, formKind: "PEER_360", formVersion: 1, definition: peer360 },
-        available: false,
-        questionAverages: [],
-      },
-    });
-    expect(JSON.stringify(tables.at(-1))).not.toContain("360°");
   });
 
   it("adds a leader's Leadership 360° results, as of a date while the survey is open", () => {

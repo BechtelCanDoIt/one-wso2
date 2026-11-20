@@ -181,21 +181,17 @@ export function useParticipants(parCycleId: number | undefined, enabled = true) 
 // POST yourself as a reviewer onto SOMEONE ELSE's list — same endpoint
 // useRequestReviewers uses, aimed at another employee's record instead of
 // your own, so it invalidates the request list that now appears for you.
-// In a PAR 2.0 cycle you also say how you work with them (`relationship`).
 export function useOfferToReview(parCycleId: number | undefined, reviewerEmail: string | undefined) {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
-  return useMutation<void, Error, { employeeEmail: string; relationship?: string }>({
-    mutationFn: async ({ employeeEmail, relationship }) => {
+  return useMutation<void, Error, { employeeEmail: string }>({
+    mutationFn: async ({ employeeEmail }) => {
       if (parCycleId === undefined || !reviewerEmail) throw new Error("Missing cycle or reviewer email");
       const accessToken = await getAccessToken();
       await authedPost<void>(
         parServiceUrls.par360Reviewers(parCycleId, employeeEmail),
         accessToken,
-        {
-          reviewerEmails: [reviewerEmail],
-          ...(relationship ? { relationships: { [reviewerEmail]: relationship } } : {}),
-        } satisfies Par360ReviewRequestCreate,
+        { reviewerEmails: [reviewerEmail] } satisfies Par360ReviewRequestCreate,
         digiopsHeaders(),
       );
     },

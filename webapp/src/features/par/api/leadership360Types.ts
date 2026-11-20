@@ -46,8 +46,6 @@ export interface FormQuestion {
   placeholder?: string;
   // Reported only in aggregate, never per response.
   aggregateOnly?: boolean;
-  // Answered by whoever asks for the feedback, not the respondent (360° feedback).
-  askedOnRequest?: boolean;
 }
 
 export interface FormSection {

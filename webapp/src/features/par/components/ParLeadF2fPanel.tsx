@@ -24,7 +24,6 @@ import { useParRating } from "../api/useParData";
 import { useSaveParRating } from "../api/useParMutations";
 import { isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate } from "../util/parDate";
-import ParScheduleF2fDialog from "./ParScheduleF2fDialog";
 import ParDateField from "./ParDateField";
 import type { ParCycle } from "../api/types";
 
@@ -34,8 +33,7 @@ function todayDateOnly(): string {
 }
 
 // par-app's F2fPanel.tsx, isEmployeeView=false: same alerts and date form as
-// ParF2fTab.tsx's employee view, but "Schedule Google Meet" stays
-// permanently disabled — only the employee can trigger that flow.
+// ParF2fTab.tsx's employee view.
 export default function ParLeadF2fPanel({ cycle, employeeEmail }: { cycle: ParCycle; employeeEmail: string }) {
   const rating = useParRating(cycle.parCycleId, employeeEmail);
   const save = useSaveParRating(cycle.parCycleId, employeeEmail);
@@ -43,7 +41,6 @@ export default function ParLeadF2fPanel({ cycle, employeeEmail }: { cycle: ParCy
 
   const [completedDate, setCompletedDate] = useState("");
   const [dateTouched, setDateTouched] = useState(false);
-  const [scheduleOpen, setScheduleOpen] = useState(false);
 
   if (rating.isLoading) {
     return <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
@@ -122,11 +119,6 @@ export default function ParLeadF2fPanel({ cycle, employeeEmail }: { cycle: ParCy
             </Box>
 
             <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
-              {status === "PENDING" && (
-                <Button variant="outlined" disabled>
-                  Schedule Google Meet
-                </Button>
-              )}
               <Button variant="contained" disabled={!leadShared || save.isPending} onClick={handleMarkCompleted}>
                 {save.isPending ? "Saving…" : "Mark as completed"}
               </Button>
@@ -134,14 +126,6 @@ export default function ParLeadF2fPanel({ cycle, employeeEmail }: { cycle: ParCy
           </>
         )}
       </Stack>
-
-      <ParScheduleF2fDialog
-        open={scheduleOpen}
-        onClose={() => setScheduleOpen(false)}
-        parCycleId={cycle.parCycleId}
-        parRatingId={parRating.parRatingId}
-        workEmail={employeeEmail}
-      />
     </Box>
   );
 }

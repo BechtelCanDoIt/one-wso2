@@ -258,7 +258,7 @@ export default function Leadership360FeedbackDialog({
 
   const namedTip = `${name} and their lead see your response with your name.`;
   const anonymousTip = held
-    ? "Anonymous feedback can only be given while a PAR cycle is open."
+    ? "Anonymous feedback can only be given while a PAR cycle is taking 360° feedback."
     : anonymousGiven
       ? `You gave anonymous feedback on ${name} in this cycle. You can still give named feedback.`
       : "Your name is not stored with this response.";

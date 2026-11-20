@@ -14,8 +14,19 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { ReactNode } from "react";
-import { Box, Card, Typography, type SxProps, type Theme } from "@wso2/oxygen-ui";
+import { useState, type ReactNode } from "react";
+import {
+  Box,
+  Button,
+  Card,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Typography,
+  type SxProps,
+  type Theme,
+} from "@wso2/oxygen-ui";
 import { cycleSurvey, useLeadership360Results, useLeadership360Surveys } from "../api/useLeadership360";
 import { Leadership360Results } from "./Leadership360Results";
 
@@ -25,12 +36,14 @@ import { Leadership360Results } from "./Leadership360Results";
 // REPORTS, which adds named responses), or anyone's for People Ops (view ALL,
 // which also adds named responses). Renders `fallback` when there's
 // nothing to show: the person isn't in the leadership team, or the cycle has
-// no survey.
+// no survey. `compact` (the leader's own, in Active cycle) is one line with View
+// results, which opens them in a dialog, and only once they can be seen.
 export default function Leadership360ResultsCard({
   view,
   leaderEmail,
   parCycleId,
   fallback = null,
+  compact = false,
   sx,
 }: {
   view: "SELF" | "REPORTS" | "ALL";
@@ -39,8 +52,10 @@ export default function Leadership360ResultsCard({
   /** The PAR cycle whose survey to show. */
   parCycleId: number;
   fallback?: ReactNode;
+  compact?: boolean;
   sx?: SxProps<Theme>;
 }) {
+  const [open, setOpen] = useState(false);
   const surveys = useLeadership360Surveys();
   const survey = cycleSurvey(surveys.data, parCycleId);
   const results = useLeadership360Results(survey?.surveyId, view);
@@ -51,15 +66,40 @@ export default function Leadership360ResultsCard({
       ? results.data?.[0]
       : results.data?.find((r) => r.leader.workEmail.toLowerCase() === leaderEmail?.toLowerCase());
   if (!entry || !survey) return <>{fallback}</>;
+  const title = view === "SELF" ? "Your Leadership 360° results" : "Leadership 360° results";
+  if (compact) {
+    if (!entry.available) return <>{fallback}</>;
+    return (
+      <Card
+        variant="outlined"
+        sx={[
+          { p: 2, display: "flex", alignItems: "center", justifyContent: "space-between", columnGap: 2, rowGap: 1, flexWrap: "wrap" },
+          ...(Array.isArray(sx) ? sx : [sx]),
+        ]}
+      >
+        <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
+        <Button variant="outlined" size="small" onClick={() => setOpen(true)}>
+          View results
+        </Button>
+        <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth scroll="paper">
+          <DialogTitle>{title}</DialogTitle>
+          <DialogContent>
+            {open && <Leadership360Results surveyId={survey.surveyId} view={view} leaderEmail={entry.leader.workEmail} />}
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setOpen(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+      </Card>
+    );
+  }
   const live = survey.status === "OPEN";
   const responses = `${entry.responseCount} ${entry.responseCount === 1 ? "response" : "responses"}`;
 
   return (
     <Card variant="outlined" sx={[{ p: 2 }, ...(Array.isArray(sx) ? sx : [sx])]}>
       <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
-        <Typography sx={{ fontWeight: 600 }}>
-          {view === "SELF" ? "Your Leadership 360° results" : "Leadership 360° results"}
-        </Typography>
+        <Typography sx={{ fontWeight: 600 }}>{title}</Typography>
         <Typography variant="body2" color="text.secondary">
           {survey.surveyName}
         </Typography>

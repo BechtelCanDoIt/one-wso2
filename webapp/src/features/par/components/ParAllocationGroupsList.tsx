@@ -16,7 +16,23 @@
 
 import { useState } from "react";
 import type { ReactNode } from "react";
-import { Alert, Box, Card, Chip, InputAdornment, Stack, Table, TableBody, TableCell, TableRow, TextField, Typography, alpha, useTheme } from "@wso2/oxygen-ui";
+import {
+  Alert,
+  Box,
+  Card,
+  Chip,
+  InputAdornment,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
+  alpha,
+  useTheme,
+} from "@wso2/oxygen-ui";
 import { SearchIcon } from "@wso2/oxygen-ui-icons-react";
 import { groupSpecialRatingAllocations, type ParSpecialRatingAllocationGroup } from "../util/parSpecialRatingAllocation";
 import type { ParSpecialRatingAllocation } from "../api/types";
@@ -77,6 +93,15 @@ function AllocationGroupCard({ group, searchQuery }: { group: ParSpecialRatingAl
           </Alert>
         )}
         <Table size="small">
+          <TableHead>
+            <TableRow>
+              {["Business unit", "Department", "Team"].map((heading, i) => (
+                <TableCell key={heading} sx={{ width: i === 0 ? "30%" : "35%", fontWeight: 600, color: "text.secondary" }}>
+                  {heading}
+                </TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
           <TableBody>
             {group.departments.map((dept, index) => (
               <TableRow
@@ -110,7 +135,7 @@ function AllocationGroupCard({ group, searchQuery }: { group: ParSpecialRatingAl
   );
 }
 
-// Shared by ParLeadAllocationTab.tsx (lead-scoped rows) and
+// Shared by ParLeadQuotas.tsx (lead-scoped rows) and
 // ParOrgQuotaAllocationsTab.tsx (org-wide) — they differ only in which hook
 // fetches `rows`; the rendering below is identical either way.
 export default function ParAllocationGroupsList({ rows }: { rows: ParSpecialRatingAllocation[] }) {

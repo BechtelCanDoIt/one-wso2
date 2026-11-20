@@ -53,60 +53,9 @@ export default function ParRatingSummary({
   const leadShared = Boolean(rating.parLeadComment || rating.parRating);
   const leadComment = decodeParComment(rating.parLeadComment);
 
-  // "Shared by" is an email address on the wire — resolve it to the lead's
-  // name the same way ParLead360ReviewsTab.tsx does, rather than showing the
-  // raw address.
-  const employees = useLeaveEmployees();
-  const nameByEmail = useMemo(
-    () => new Map(employees.data?.map((e) => [e.workEmail, employeeDisplayName(e)]) ?? []),
-    [employees.data],
-  );
-  // With PAR 2.0 (par2) only a Top 5% or Top 20% gets a chip: NOT_ASSIGNED,
-  // the usual case, isn't worth a chip of its own. Until then it reads
-  // "No Top 5%/20% Rating".
-  const specialRating =
-    rating.parSpecialRating && (rating.parSpecialRating !== "NOT_ASSIGNED" || !isPreviewEnabled("par2"))
-      ? rating.parSpecialRating
-      : undefined;
-
   return (
     <Stack spacing={1.75}>
-      {leadShared && (
-        <Card variant="outlined" sx={{ p: 2 }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
-            <Typography sx={{ fontWeight: 600 }}>Lead's feedback</Typography>
-            {selfReview && onDownloadPdf && (
-              <Button size="small" variant="outlined" startIcon={<FileDownIcon size={14} />} onClick={onDownloadPdf}>
-                Download PDF
-              </Button>
-            )}
-          </Box>
-          <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: "wrap" }}>
-            {rating.parRating && (
-              <Chip
-                size="small"
-                variant="outlined"
-                color={employeeChipLabel(rating.parRating).color}
-                label={`PAR rating: ${employeeChipLabel(rating.parRating).label}`}
-              />
-            )}
-            {specialRating && (
-              <Chip
-                size="small"
-                variant="outlined"
-                color={employeeChipLabel(specialRating).color}
-                label={specialRating === "NOT_ASSIGNED" ? "No Top 5%/20% Rating" : employeeChipLabel(specialRating).label}
-              />
-            )}
-            {rating.parRatingSharedBy && (
-              <Chip size="small" variant="outlined" label={`Shared by ${nameByEmail.get(rating.parRatingSharedBy) ?? rating.parRatingSharedBy}`} />
-            )}
-            {rating.parRatingUpdatedBy === "SYSTEM" && <ParAutoAssignedChip />}
-          </Stack>
-          <ParCommentView html={leadComment} />
-          <ParLead360SummaryView summary={rating.parLead360Summary} />
-        </Card>
-      )}
+      {leadShared && <ParLeadFeedbackCard rating={rating} onDownloadPdf={selfReview ? onDownloadPdf : undefined} />}
 
       {selfReview ?? (
         <Card variant="outlined" sx={{ p: 2 }}>
@@ -129,5 +78,62 @@ export default function ParRatingSummary({
         </Card>
       )}
     </Stack>
+  );
+}
+
+/** The lead's shared feedback: rating, Top 5%/20%, who shared it, their comment and 360° summary. */
+export function ParLeadFeedbackCard({ rating, onDownloadPdf }: { rating: ParRating; onDownloadPdf?: () => void }) {
+  const leadComment = decodeParComment(rating.parLeadComment);
+  // "Shared by" is an email address on the wire — resolve it to the lead's
+  // name the same way ParLead360ReviewsTab.tsx does, rather than showing the
+  // raw address.
+  const employees = useLeaveEmployees();
+  const nameByEmail = useMemo(
+    () => new Map(employees.data?.map((e) => [e.workEmail, employeeDisplayName(e)]) ?? []),
+    [employees.data],
+  );
+  // With PAR 2.0 (par2) only a Top 5% or Top 20% gets a chip: NOT_ASSIGNED,
+  // the usual case, isn't worth a chip of its own. Until then it reads
+  // "No Top 5%/20% Rating".
+  const specialRating =
+    rating.parSpecialRating && (rating.parSpecialRating !== "NOT_ASSIGNED" || !isPreviewEnabled("par2"))
+      ? rating.parSpecialRating
+      : undefined;
+
+  return (
+    <Card variant="outlined" sx={{ p: 2 }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 1 }}>
+        <Typography sx={{ fontWeight: 600 }}>Lead's feedback</Typography>
+        {onDownloadPdf && (
+          <Button size="small" variant="outlined" startIcon={<FileDownIcon size={14} />} onClick={onDownloadPdf}>
+            Download PDF
+          </Button>
+        )}
+      </Box>
+      <Stack direction="row" spacing={1} sx={{ mb: 1.5, flexWrap: "wrap" }}>
+        {rating.parRating && (
+          <Chip
+            size="small"
+            variant="outlined"
+            color={employeeChipLabel(rating.parRating).color}
+            label={`PAR rating: ${employeeChipLabel(rating.parRating).label}`}
+          />
+        )}
+        {specialRating && (
+          <Chip
+            size="small"
+            variant="outlined"
+            color={employeeChipLabel(specialRating).color}
+            label={specialRating === "NOT_ASSIGNED" ? "No Top 5%/20% Rating" : employeeChipLabel(specialRating).label}
+          />
+        )}
+        {rating.parRatingSharedBy && (
+          <Chip size="small" variant="outlined" label={`Shared by ${nameByEmail.get(rating.parRatingSharedBy) ?? rating.parRatingSharedBy}`} />
+        )}
+        {rating.parRatingUpdatedBy === "SYSTEM" && <ParAutoAssignedChip />}
+      </Stack>
+      <ParCommentView html={leadComment} />
+      <ParLead360SummaryView summary={rating.parLead360Summary} />
+    </Card>
   );
 }

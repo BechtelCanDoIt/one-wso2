@@ -23,17 +23,6 @@ export type ParCycleFormKind = "SELF_REVIEW" | "PEER_360";
 // Responses an employee needs before they see their summary.
 export const MIN_360_RESPONSES = 3;
 
-// How a reviewer works with the employee, picked by whoever asks for the feedback (the 360° form's
-// relationship question, answered on the request).
-export const REVIEW_360_RELATIONSHIPS = [
-  { value: "PEER", label: "Peer" },
-  { value: "CROSS_TEAM", label: "Cross-team" },
-] as const;
-
-export function relationshipLabel(value: string | null | undefined): string | undefined {
-  return REVIEW_360_RELATIONSHIPS.find((r) => r.value === value)?.label;
-}
-
 // GET .../review-form — the caller's own feedback on one employee.
 export interface Review360Form {
   template: FormTemplate;
@@ -41,8 +30,6 @@ export interface Review360Form {
   employeeName?: string | null;
   answers: FormAnswers;
   reviewStatus: Par360ReviewStatus;
-  // Answers given when the feedback was asked for (the relationship), not asked again.
-  requestAnswers?: FormAnswers;
 }
 
 // A behaviour's average. The employee's own summary gives no counts.
@@ -73,15 +60,10 @@ export interface Review360Responses {
   responses: Review360Response[];
 }
 
-// GET .../review-summary — the employee's own anonymised summary: averages only, never comments
-// or counts. The averages include feedback offered unasked, whose reviewers the employee's list
-// leaves out, so a count could show that someone not on it responded.
-export interface Review360Summary {
-  template: FormTemplate;
-  available: boolean;
-  reason?: string;
-  index?: number;
-  questionAverages: SummaryAverage[];
+// GET .../review-count — how many 360° responses the employee has received: everyone who submitted,
+// asked or offered. Only the number: who gave feedback unasked isn't told to them.
+export interface Review360Count {
+  received: number;
 }
 
 export interface Review360Index {

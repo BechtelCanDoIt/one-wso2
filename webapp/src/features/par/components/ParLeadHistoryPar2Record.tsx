@@ -36,7 +36,7 @@ export default function ParLeadHistoryPar2Record({
   employeeEmail,
   asAdmin = false,
 }: {
-  cycle: Pick<ParCycle, "parCycleId">;
+  cycle: Pick<ParCycle, "parCycleId" | "parThreeSixtyRatingDeadline">;
   rating: ParRating;
   employeeEmail: string;
   asAdmin?: boolean;
@@ -78,7 +78,11 @@ export default function ParLeadHistoryPar2Record({
           }
         />
       ) : (
-        <ParLead360Evidence parCycleId={cycle.parCycleId} employeeEmail={employeeEmail} />
+        <ParLead360Evidence
+          parCycleId={cycle.parCycleId}
+          employeeEmail={employeeEmail}
+          threeSixtyDeadline={cycle.parThreeSixtyRatingDeadline}
+        />
       )}
     </Stack>
   );

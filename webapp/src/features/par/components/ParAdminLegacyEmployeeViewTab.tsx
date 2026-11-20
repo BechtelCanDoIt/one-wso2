@@ -15,11 +15,11 @@
 // under the License.
 
 import { useMemo } from "react";
-import { Avatar, Box, DataGrid, IconButton, InputAdornment, Stack, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
-import { EyeIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { Avatar, Box, DataGrid, IconButton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { EyeIcon } from "@wso2/oxygen-ui-icons-react";
 import { isLegacyEmployeeParDone, isLegacyLeadFeedbackDone, legacyEmployeeName, legacyOverallRating, rankSearchMatches } from "../util/parAdminHistory";
 import ParStatusChip from "./ParStatusChip";
-import { ParGridToolbar } from "./parGridToolbar";
+import { ParGridSearch, ParGridToolbar } from "./parGridToolbar";
 import type { ParLegacyHistory } from "../api/types";
 
 // Same chip as the team roster, so both legacy grids label it alike.
@@ -150,23 +150,6 @@ export default function ParAdminLegacyEmployeeViewTab({
 
   return (
     <Stack spacing={1.5}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <TextField
-          size="small"
-          placeholder="Search Employee"
-          value={searchText}
-          onChange={(e) => onSearchTextChange(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Box>
       <DataGrid.DataGrid
         rows={filteredRows}
         columns={columns}
@@ -176,6 +159,9 @@ export default function ParAdminLegacyEmployeeViewTab({
         onRowClick={(params) => onOpenRecord(params.row)}
         showToolbar
         slots={{ toolbar: ParGridToolbar }}
+        slotProps={{
+          toolbar: { children: <ParGridSearch placeholder="Search Employee" value={searchText} onChange={onSearchTextChange} /> },
+        }}
         sx={{ border: "none", "& .MuiDataGrid-row": { cursor: "pointer" } }}
         // The parent never mounts this tab for an empty cycle, so the only
         // empty grid here is a search that matched nobody.

@@ -38,7 +38,7 @@ vi.mock("../api/useReviewerSuggestions", () => ({ useReviewerSuggestions: () => 
 const { Par360RequestPicker } = await import("./Par360RequestDialog");
 
 function renderPicker(
-  onSubmit: (emails: string[], relationships?: Record<string, string>) => void,
+  onSubmit: (emails: string[]) => void,
   { existingEmails = [] as string[], subjectName = undefined as string | undefined, alwaysShown = false } = {},
 ) {
   return render(
@@ -52,7 +52,6 @@ function renderPicker(
       isSubmitting={false}
       error={undefined}
       parCycleId={2}
-      askRelationship
       subjectName={subjectName}
     />,
   );
@@ -70,37 +69,30 @@ function add(email: string) {
 }
 
 describe("Par360RequestPicker", () => {
-  it("asks Peer or Cross-team for each person before requesting", () => {
+  it("requests the people picked, without asking how they work with you", () => {
     const onSubmit = vi.fn();
     renderPicker(onSubmit);
-    add("alex@example.com");
-    add("sam@example.com");
-    expect(screen.getByText("How does each person work with you?")).toBeInTheDocument();
     const request = screen.getByRole("button", { name: "Request" });
     expect(request).toBeDisabled();
-
-    fireEvent.click(screen.getAllByRole("button", { name: "Peer" })[0]);
-    expect(request).toBeDisabled();
-    fireEvent.click(screen.getAllByRole("button", { name: "Cross-team" })[1]);
+    add("alex@example.com");
+    add("sam@example.com");
+    expect(screen.queryByRole("button", { name: "Peer" })).not.toBeInTheDocument();
     fireEvent.click(request);
-    expect(onSubmit).toHaveBeenCalledWith(["alex@example.com", "sam@example.com"], {
-      "alex@example.com": "PEER",
-      "sam@example.com": "CROSS_TEAM",
-    });
+    expect(onSubmit).toHaveBeenCalledWith(["alex@example.com", "sam@example.com"]);
   });
 
-  it("drops a person removed from the list", () => {
+  it("drops a person removed from the field", () => {
     const onSubmit = vi.fn();
     renderPicker(onSubmit);
     add("alex@example.com");
     add("sam@example.com");
-    fireEvent.click(screen.getByRole("button", { name: "Remove Sam Lee" }));
-    fireEvent.click(screen.getByRole("button", { name: "Peer" }));
+    // A chip removes on Backspace, as from the keyboard.
+    fireEvent.keyUp(screen.getByRole("button", { name: "sam@example.com" }), { key: "Backspace" });
     fireEvent.click(screen.getByRole("button", { name: "Request" }));
-    expect(onSubmit).toHaveBeenCalledWith(["alex@example.com"], { "alex@example.com": "PEER" });
+    expect(onSubmit).toHaveBeenCalledWith(["alex@example.com"]);
   });
 
-  it("suggests people from the calendar by name only, adding them with Peer or Cross-team still to choose", () => {
+  it("suggests people from the calendar by name only, adding them like any other pick", () => {
     suggestions = {
       meetingsSince: "2026-08-13",
       suggestions: [
@@ -119,11 +111,8 @@ describe("Par360RequestPicker", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add Maya Fernando" }));
     expect(screen.queryByRole("button", { name: "Add Maya Fernando" })).not.toBeInTheDocument();
-    const request = screen.getByRole("button", { name: "Request" });
-    expect(request).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Cross-team" }));
-    fireEvent.click(request);
-    expect(onSubmit).toHaveBeenCalledWith(["maya@example.com"], { "maya@example.com": "CROSS_TEAM" });
+    fireEvent.click(screen.getByRole("button", { name: "Request" }));
+    expect(onSubmit).toHaveBeenCalledWith(["maya@example.com"]);
   });
 
   it("says whose calendar for a lead", () => {

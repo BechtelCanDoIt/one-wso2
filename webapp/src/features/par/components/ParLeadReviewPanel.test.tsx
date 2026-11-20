@@ -23,6 +23,8 @@ import type { ParRichTextFieldHandle } from "./ParRichTextField";
 
 let rating: ParRating;
 let responseCount = 3;
+let responsesFail = false;
+const retryResponses = vi.fn();
 // What the suggestion query holds once it's asked for, and whether the last
 // render asked for it. (The render that seeds the saved summary starts with an
 // empty one, but React discards it before any query could fetch.)
@@ -42,7 +44,10 @@ let selfReviewLookup: { data?: null; isError?: boolean; error?: Error; refetch?:
 vi.mock("../api/useSelfReview", () => ({ useSelfReview: () => selfReviewLookup }));
 vi.mock("../api/useReview360", () => ({
   useParShowsPar2: () => ({ showsPar2: true }),
-  useReviewResponses: () => ({ data: { responseCount } }),
+  useReviewResponses: () =>
+    responsesFail
+      ? { data: undefined, isError: true, error: new Error("Unavailable"), isFetching: false, refetch: retryResponses }
+      : { data: { responseCount } },
 }));
 vi.mock("../api/useLead360Summary", () => ({
   useLead360SummarySuggestion: (_cycle: number, _email: string, _count: number, enabled: boolean) => {
@@ -72,6 +77,7 @@ vi.mock("./ParRichTextField", () => ({
     placeholder,
     suggestion,
     onAcceptSuggestion,
+    disabled,
     ref,
   }: {
     value: string;
@@ -79,6 +85,7 @@ vi.mock("./ParRichTextField", () => ({
     placeholder: string;
     suggestion?: ReactNode;
     onAcceptSuggestion?: () => void;
+    disabled?: boolean;
     ref?: Ref<ParRichTextFieldHandle>;
   }) {
     useImperativeHandle(ref, () => ({ replaceContents: (html: string) => onChange(html) }));
@@ -86,6 +93,7 @@ vi.mock("./ParRichTextField", () => ({
       <div>
         <textarea
           aria-label={placeholder || EMPTY_FIELD}
+          disabled={disabled}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -107,6 +115,7 @@ const cycle = {
   parCycleEndDate: "2999-12-31",
   parLeadDeadline: "2999-12-31",
   parEmployeeDeadline: "2999-12-01",
+  parThreeSixtyRatingDeadline: "2999-12-01",
   parCycleConfigurations: { parRatings: ["Successful"] },
 } as unknown as ParCycle;
 const FIELD = "Summarise the 360° feedback";
@@ -133,9 +142,46 @@ beforeEach(() => {
   ratingMutate.mockReset();
   selfReviewLookup = { data: null };
   responseCount = 3;
+  responsesFail = false;
+  retryResponses.mockReset();
+  cycle.parThreeSixtyRatingDeadline = "2999-12-01";
   suggestion = { data: SUGGESTED };
   suggestionAskedFor = false;
   save.mockReset();
+});
+
+describe("ParLeadReviewPanel: Top 5%/20%", () => {
+  const STATEMENT = "The Top 5% / 20% rating decision was discussed and finalized with the functional lead.";
+  // The select in the Top 5%/20% row (it carries no accessible name of its own).
+  const specialRatingSelect = () => within(screen.getByText("Top 5%/20%").parentElement!).getByRole("combobox");
+  const pick = (label: string) => {
+    fireEvent.mouseDown(specialRatingSelect());
+    fireEvent.click(screen.getByRole("option", { name: label }));
+  };
+
+  it("asks to confirm a Top 5% or Top 20% pick instead of a tick, and keeps the old pick on Cancel", () => {
+    show({ parRating: "Successful" });
+    expect(screen.queryByRole("checkbox", { name: /discussed and finalized/ })).not.toBeInTheDocument();
+    const select = specialRatingSelect();
+    expect(select).not.toHaveAttribute("aria-disabled", "true");
+
+    pick("Top 5%");
+    expect(screen.getByText(STATEMENT)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText(STATEMENT)).not.toBeInTheDocument();
+    expect(select).toHaveTextContent("N/A");
+
+    pick("Top 20%");
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(select).toHaveTextContent("Top 20%");
+  });
+
+  it("doesn't ask when N/A is picked", () => {
+    show({ parRating: "Successful", parSpecialRating: "TOP5P" });
+    pick("N/A");
+    expect(screen.queryByText(STATEMENT)).not.toBeInTheDocument();
+    expect(specialRatingSelect()).toHaveTextContent("N/A");
+  });
 });
 
 describe("ParLeadReviewPanel: the employee's self-review", () => {
@@ -175,11 +221,31 @@ describe("ParLeadReviewPanel: 360° summary", () => {
     expect(screen.queryByText("Colleagues see real ownership.")).not.toBeInTheDocument();
   });
 
-  it("needs 3 submitted responses before there's a suggestion", () => {
+  it("needs 3 submitted responses before there's a summary to write, or a suggestion", () => {
     responseCount = 2;
     show();
     expect(suggestionAskedFor).toBe(false);
-    expect(screen.getByLabelText(FIELD)).toBeInTheDocument();
+    expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
+    expect(screen.getByText("Available after 3 or more submissions (2 so far).")).toBeInTheDocument();
+  });
+
+  it("says when the 360° responses couldn't be loaded, with Retry, rather than how many there are", () => {
+    responsesFail = true;
+    show();
+    expect(screen.getByText(/Couldn't load the 360° responses/)).toBeInTheDocument();
+    expect(screen.queryByText(/Available after 3/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retryResponses).toHaveBeenCalled();
+  });
+
+  it("has no summary row once the 360° deadline has passed everywhere with fewer than 3", () => {
+    responseCount = 2;
+    cycle.parThreeSixtyRatingDeadline = "2020-01-01";
+    show();
+    expect(screen.queryByText("360° summary")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Available after 3/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(FIELD)).not.toBeInTheDocument();
   });
 
   it("leaves the lead's own words alone when no responses came in since the last suggestion", () => {
@@ -298,6 +364,8 @@ describe("ParLeadReviewPanel: sharing before the employee has", () => {
   afterEach(() => {
     window.config = originalConfig;
   });
+  // A cycle that can't give the missed-deadline rating (Needs Improvements isn't one of its ratings): the
+  // backend leaves such a PAR to its lead, who can share it once the self-review has closed.
   const closedCycle = { ...cycle, parEmployeeDeadline: "2020-01-01" } as unknown as ParCycle;
   const ready = {
     parRatingId: 7,
@@ -310,14 +378,14 @@ describe("ParLeadReviewPanel: sharing before the employee has", () => {
     parLeadComment: encodeParComment("<p>Great cycle.</p>"),
   } as ParRating;
 
-  it("can share once the self-review has closed, with PAR 2.0", () => {
+  it("can share once the self-review has closed, with PAR 2.0, in a cycle with no missed-deadline rating", () => {
     setPar2(true);
     rating = ready;
     render(<ParLeadReviewPanel cycle={closedCycle} employeeEmail="alex@example.com" />);
     expect(screen.getByRole("button", { name: "Share" })).toBeEnabled();
   });
 
-  it("turns Share on when the self-review closes while the panel is open, with PAR 2.0", () => {
+  it("turns Share on when the self-review closes while the panel is open, in a cycle with no missed-deadline rating", () => {
     setPar2(true);
     rating = ready;
     // The self-review closes everywhere at 23:59:59 at UTC-12 on its deadline: 2026-12-02 11:59:59 UTC.
@@ -358,5 +426,78 @@ describe("ParLeadReviewPanel: sharing before the employee has", () => {
     render(<ParLeadReviewPanel cycle={closedCycle} employeeEmail="alex@example.com" />);
     expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
     expect(screen.queryByText(/You can share once/)).not.toBeInTheDocument();
+  });
+});
+
+describe("ParLeadReviewPanel: a PAR not shared by its deadline", () => {
+  const originalConfig = window.config;
+  afterEach(() => {
+    window.config = originalConfig;
+  });
+  const missedCycle = {
+    ...cycle,
+    parEmployeeDeadline: "2020-01-01",
+    parCycleConfigurations: { parRatings: ["Successful", "Needs Improvements", "Step Up"] },
+  } as unknown as ParCycle;
+  const missed = {
+    parRatingId: 7,
+    parCycleId: 2,
+    parEmployeeEmail: "alex@example.com",
+    parEmployeeName: "Alex Morgan",
+    parEmployeeStatus: "PENDING",
+    parLeadStatus: "DRAFT",
+    parIsLeadershipEmployee: false,
+    parRating: "Successful",
+  } as ParRating;
+
+  it.each(["PENDING", "DRAFT"] as const)(
+    "shows the missed-deadline rating, fixed, and that the lead has nothing to submit (self-review %s)",
+    (parEmployeeStatus) => {
+      rating = { ...missed, parEmployeeStatus };
+      render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" />);
+      expect(screen.queryByText("Successful")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Rating auto-assigned and locked")).toBeInTheDocument();
+      expect(
+        screen.getByText(/Alex didn't share their self-review by the deadline, so their rating is Needs Improvements/),
+      ).toHaveTextContent("There's nothing for you to submit.");
+      expect(screen.queryByRole("button", { name: /Share|Save draft/i })).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Enter your comment here")).toBeDisabled();
+      expect(screen.getByLabelText(FIELD)).toBeDisabled();
+      expect(suggestionAskedFor).toBe(false);
+    },
+  );
+
+  it("isn't fixed once the employee has shared", () => {
+    rating = { ...missed, parEmployeeStatus: "SHARED" };
+    render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" />);
+    expect(screen.getByText("Successful")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rating auto-assigned and locked")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Enter your comment here")).toBeEnabled();
+  });
+
+  it("gives the leadership team Step Up", () => {
+    rating = { ...missed, parIsLeadershipEmployee: true };
+    render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" />);
+    expect(screen.getByText(/so their rating is Step Up\. There's nothing for you to submit\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Share|Save draft/i })).not.toBeInTheDocument();
+  });
+
+  it("isn't fixed for People Ops", () => {
+    rating = missed;
+    render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" isAdminView />);
+    expect(screen.getByText("Successful")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rating auto-assigned and locked")).not.toBeInTheDocument();
+  });
+
+  it("tells the lead, before the deadline, the rating the PAR gets if it isn't shared, with PAR 2.0", () => {
+    window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { par2: true } } as Window["config"];
+    rating = missed;
+    const openCycle = { ...missedCycle, parEmployeeDeadline: "2999-12-01" } as unknown as ParCycle;
+    render(<ParLeadReviewPanel cycle={openCycle} employeeEmail="alex@example.com" />);
+    expect(
+      screen.getByText(/You can share once Alex shares their self-review\. If they don't by .+, their rating will be Needs Improvements\./),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
   });
 });

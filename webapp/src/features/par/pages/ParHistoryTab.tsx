@@ -19,7 +19,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   Skeleton,
   Stack,
@@ -40,11 +39,9 @@ import { deriveLegacyCycleDates, formatLegacyCycleName, legacyCycleLabel } from 
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { useClosedParCycles, useParRating } from "../api/useParData";
 import { useSelfReview } from "../api/useSelfReview";
-import { useReviewSummary } from "../api/useReview360";
 import { useCycleLeadership360ForPdf } from "../api/useLeadership360";
 import ParRatingSummary from "../components/ParRatingSummary";
 import ParSelfReviewView from "../components/ParSelfReviewView";
-import Par360SummaryView from "../components/Par360SummaryView";
 import { decodeParComment } from "../util/parComment";
 import { downloadPar2Pdf } from "../util/parPdf";
 import ParLegacyRecordDetail from "../components/ParLegacyRecordDetail";
@@ -241,14 +238,12 @@ function HistoryTable({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => voi
   );
 }
 
-function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
+export function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
   const rating = useParRating(cycle.parCycleId, workEmail);
-  // A PAR 2.0 cycle has a guided self-review (nil for any other cycle), a 360° summary and
-  // Leadership 360° results. Only looked up behind the par2 preview flag.
+  // A PAR 2.0 cycle has a guided self-review (nil for any other cycle) and, for a leader, Leadership
+  // 360° results. A member's 360° scores are never shown to them. Only looked up behind the par2 preview flag.
   const par2 = isPreviewEnabled("par2");
   const selfReview = useSelfReview(cycle.parCycleId, workEmail, par2);
-  const leadShared = Boolean(rating.data?.parLeadComment || rating.data?.parRating);
-  const review360 = useReviewSummary(cycle.parCycleId, workEmail, par2 && Boolean(selfReview.data) && leadShared);
   const leadership360 = useCycleLeadership360ForPdf(
     cycle.parCycleId,
     workEmail,
@@ -277,32 +272,34 @@ function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: str
   }
   if (selfReview.data) {
     const { definition } = selfReview.data.template;
-    const summary = review360.data;
     return (
       <Stack spacing={1.75}>
         <ParRatingSummary
           cycle={cycle}
           rating={rating.data}
           selfReview={<ParSelfReviewView definition={definition} answers={selfReview.data.answers} />}
-          onDownloadPdf={() =>
-            downloadPar2Pdf({
-              rating: rating.data!,
-              leadComment: decodeParComment(rating.data!.parLeadComment),
-              selfReview: { definition, answers: selfReview.data!.answers },
-              review360: summary ?? undefined,
-              leadership360,
-            })
+          // Offered once a leader's Leadership 360° lookup is done, so the PDF doesn't go without it; a
+          // failed one is offered again below.
+          onDownloadPdf={
+            leadership360.isLoading || leadership360.failed
+              ? undefined
+              : () =>
+                  downloadPar2Pdf({
+                    rating: rating.data!,
+                    leadComment: decodeParComment(rating.data!.parLeadComment),
+                    selfReview: { definition, answers: selfReview.data!.answers },
+                    leadership360: leadership360.data,
+                  })
           }
         />
-        {summary?.available && (
-          <Card variant="outlined" sx={{ p: 2 }}>
-            <Typography sx={{ fontWeight: 600, mb: 1.5 }}>Your PAR 360° results</Typography>
-            <Par360SummaryView
-              definition={summary.template.definition}
-              index={summary.index}
-              questionAverages={summary.questionAverages}
-            />
-          </Card>
+        {leadership360.failed && (
+          <ErrorNotice
+            error={leadership360.failed.error}
+            onRetry={leadership360.failed.retry}
+            retrying={leadership360.failed.retrying}
+          >
+            Couldn't load your Leadership 360° results for the PDF.
+          </ErrorNotice>
         )}
         {isPreviewEnabled("leadership360") && <Leadership360ResultsCard view="SELF" parCycleId={cycle.parCycleId} />}
       </Stack>

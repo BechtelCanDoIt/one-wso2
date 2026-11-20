@@ -325,7 +325,7 @@ export default function ParCycleCreationDialog({
                 />
                 {par2Forms && isPreviewEnabled("leadership360") && (
                   <Typography variant="body2" color="text.secondary">
-                    Leadership 360° runs with this cycle, from when you open it until you close it.
+                    Leadership 360° runs with this cycle, from when you open it until its 360° deadline.
                   </Typography>
                 )}
               </Grid>

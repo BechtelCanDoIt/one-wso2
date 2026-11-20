@@ -101,12 +101,12 @@ const ParLeadDirectReportsTab = lazy(() => import("@features/par/pages/ParLeadDi
 const ParLeadAdditionalReportsTab = lazy(() => import("@features/par/pages/ParLeadAdditionalReportsTab"));
 const ParLeadReportChainTab = lazy(() => import("@features/par/pages/ParLeadReportChainTab"));
 const ParLeadEmployeeHistoryTab = lazy(() => import("@features/par/pages/ParLeadEmployeeHistoryTab"));
-const ParLeadAllocationTab = lazy(() => import("@features/par/pages/ParLeadAllocationTab"));
 const ParAdminOngoingTab = lazy(() => import("@features/par/pages/ParAdminOngoingTab"));
 const ParAdminHistoryTab = lazy(() => import("@features/par/pages/ParAdminHistoryTab"));
 const ParAdminGlobalConfigTab = lazy(() => import("@features/par/pages/ParAdminGlobalConfigTab"));
 const ParGiveFeedbackTab = lazy(() => import("@features/par/pages/ParGiveFeedbackTab"));
 const ParCycleFeedbackSection = lazy(() => import("@features/par/pages/ParCycleFeedbackSection"));
+const ParCycleLeadReview = lazy(() => import("@features/par/pages/ParCycleLeadReview"));
 import EmailGroupsPage from "@features/my/email-groups/pages/EmailGroupsPage";
 import EmailSignaturePage from "@features/my/email-signature/pages/EmailSignaturePage";
 import BankingRoute from "@features/my/banking/components/BankingRoute";
@@ -729,7 +729,6 @@ export default function App() {
                 }
               >
                 <Route index element={<ParActiveCycleIndex />} />
-                {/* The lead's review shows here too, once the lead shares. */}
                 <Route
                   path="self-review"
                   element={
@@ -747,10 +746,18 @@ export default function App() {
                   }
                 />
                 <Route
+                  path="lead-review"
+                  element={
+                    <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                      <ParCycleLeadReview />
+                    </Suspense>
+                  }
+                />
+                <Route
                   path="f2f"
                   element={
                     <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
-                      <ParF2fTab />
+                      <ParF2fTab activeCycle />
                     </Suspense>
                   }
                 />
@@ -769,7 +776,7 @@ export default function App() {
             )}
           </Route>
           {/* People Ops → PAR → Lead Portal: par-app's LeadPortal.tsx, ported
-              one tab at a time — all five tabs are now live. Reviewing and
+              one tab at a time — all its tabs are now live. Reviewing and
               rating your reports' PAR is People-Ops-team work, unlike the
               employee half (now under Me).
               Gated on ParRequiresTeamLeadRoute (par-app's own Role.TEAM_LEAD
@@ -812,14 +819,6 @@ export default function App() {
               element={
                 <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
                   <ParLeadEmployeeHistoryTab />
-                </Suspense>
-              }
-            />
-            <Route
-              path="allocation"
-              element={
-                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
-                  <ParLeadAllocationTab />
                 </Suspense>
               }
             />
