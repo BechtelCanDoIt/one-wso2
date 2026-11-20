@@ -16,7 +16,7 @@
 
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { Box, ButtonBase, Card, Chip, Skeleton, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
+import { Box, ButtonBase, Card, Chip, Skeleton, Typography, type Theme } from "@wso2/oxygen-ui";
 import { CalendarIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { ParCycle } from "../api/types";
@@ -74,56 +74,57 @@ export default function ParCycleTracker({
   if (!input && isLoading) return <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
   // Without the PAR record there's nothing to track; the page says why.
   if (!input) return <>{children}</>;
-  // Without how many responded the steps can't be told, so none are shown; the step's own page still works.
-  if (failed) {
-    return (
-      <Stack spacing={2} sx={{ maxWidth: 1100 }}>
-        <ErrorNotice error={failed.error} onRetry={failed.retry} retrying={failed.retrying}>
-          Couldn't load your PAR cycle's progress.
-        </ErrorNotice>
-        {children}
-      </Stack>
-    );
-  }
 
-  const steps = homeSteps(input);
+  // The steps wait for how many responded: until it's in, the rail and heading are placeholders, and if it
+  // couldn't be loaded, the rail says so. The step's page stays in the same place throughout, so what's picked or
+  // typed in it survives the count arriving or a retry.
+  const ready = !isLoading && !failed;
+  const steps = ready ? homeSteps(input) : [];
   const open = selected ?? landingStep(input);
 
   return (
     <Card variant="outlined" sx={{ maxWidth: 1100 }}>
-      <Box sx={(theme) => ({ bgcolor: railBg(theme), px: 1.5, pt: 1.5 })}>
+      <Box sx={(theme) => ({ bgcolor: railBg(theme), px: 1.5, pt: 1.5, pb: ready ? 0 : 1.5 })}>
         <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" sx={{ mb: 1.5, fontWeight: 600 }} />
-        <Box
-          component="ol"
-          aria-label="Your PAR cycle"
-          sx={{
-            display: "grid",
-            gridTemplateColumns: "repeat(4, minmax(150px, 1fr))",
-            gap: 0.5,
-            m: 0,
-            p: 0,
-            // On a phone the tabs scroll sideways in one row.
-            overflowX: "auto",
-            scrollbarWidth: "none",
-            "&::-webkit-scrollbar": { display: "none" },
-          }}
-        >
-          {steps.map((step, i) => (
-            <TrackerStep
-              key={step.key}
-              step={step}
-              number={i + 1}
-              selected={step.key === open}
-              onOpen={() => navigate(`/me/performance/${STEP_SEGMENT[step.key]}`)}
-            />
-          ))}
-        </Box>
+        {failed ? (
+          <ErrorNotice error={failed.error} onRetry={failed.retry} retrying={failed.retrying}>
+            Couldn't load your PAR cycle's progress.
+          </ErrorNotice>
+        ) : !ready ? (
+          <Skeleton variant="rectangular" height={64} sx={{ borderRadius: 1.5 }} />
+        ) : (
+          <Box
+            component="ol"
+            aria-label="Your PAR cycle"
+            sx={{
+              display: "grid",
+              gridTemplateColumns: "repeat(4, minmax(150px, 1fr))",
+              gap: 0.5,
+              m: 0,
+              p: 0,
+              // On a phone the tabs scroll sideways in one row.
+              overflowX: "auto",
+              scrollbarWidth: "none",
+              "&::-webkit-scrollbar": { display: "none" },
+            }}
+          >
+            {steps.map((step, i) => (
+              <TrackerStep
+                key={step.key}
+                step={step}
+                number={i + 1}
+                selected={step.key === open}
+                onOpen={() => navigate(`/me/performance/${STEP_SEGMENT[step.key]}`)}
+              />
+            ))}
+          </Box>
+        )}
       </Box>
       {/* The panel has the open tab's layers, the rail's shade and then the paper colour, so the two are one
           colour even where the theme's surfaces are see-through. */}
       <Box sx={(theme) => ({ bgcolor: railBg(theme), borderTop: 1, borderColor: line(theme) })}>
         <Box sx={{ bgcolor: "background.paper", px: { xs: 2, sm: 3 }, pt: { xs: 2, sm: 2.5 }, pb: 3 }}>
-          <PanelHeader header={stepHeader(input, open)} />
+          {ready && <PanelHeader header={stepHeader(input, open)} />}
           {children}
         </Box>
       </Box>

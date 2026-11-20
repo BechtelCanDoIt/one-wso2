@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { useState } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -26,6 +27,7 @@ const query = <T,>(data: T) => ({ data, isLoading: false, isError: false, refetc
 let rating: Partial<ParRating>;
 let reviewers: Partial<Par360Reviewer>[];
 let countFails = false;
+let countLoading = false;
 const retryCount = vi.fn();
 
 vi.mock("../api/useParData", () => ({ useParRating: () => query(rating) }));
@@ -34,7 +36,9 @@ vi.mock("../api/useReview360", () => ({
   useReviewCount: () =>
     countFails
       ? { data: undefined, isLoading: false, isError: true, error: new Error("Unavailable"), isFetching: false, refetch: retryCount }
-      : query(undefined),
+      : countLoading
+        ? { data: undefined, isLoading: true, isError: false, refetch: vi.fn() }
+        : query(undefined),
 }));
 vi.mock("../api/useLeadership360", () => ({
   cycleSurvey: () => undefined,
@@ -77,6 +81,7 @@ beforeEach(() => {
   rating = { parEmployeeStatus: "DRAFT", parLeadStatus: "PENDING", parF2fStatus: "PENDING" };
   reviewers = [];
   countFails = false;
+  countLoading = false;
   retryCount.mockReset();
 });
 
@@ -140,5 +145,34 @@ describe("ParCycleTracker", () => {
     expect(screen.queryByText("360° feedback")).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(retryCount).toHaveBeenCalled();
+  });
+
+  it("shows the step's page, but no steps or heading, until how many responded is in", () => {
+    countLoading = true;
+    show();
+    expect(screen.getByText("The step's page")).toBeInTheDocument();
+    expect(screen.queryByText("360° feedback")).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+  });
+
+  it("keeps what was picked on the step's page when the count loads after a retry", async () => {
+    function Picker() {
+      const [picked, setPicked] = useState("");
+      return <button onClick={() => setPicked("Maya")}>{picked || "Pick someone"}</button>;
+    }
+    const tree = () => (
+      <MemoryRouter initialEntries={["/me/performance/cycle/360"]}>
+        <ParCycleTracker cycle={cycle} workEmail="me@example.com" selected="360">
+          <Picker />
+        </ParCycleTracker>
+      </MemoryRouter>
+    );
+    countFails = true;
+    const view = render(tree());
+    await userEvent.click(screen.getByRole("button", { name: "Pick someone" }));
+    countFails = false;
+    view.rerender(tree());
+    expect(screen.getByText("360° feedback")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Maya" })).toBeInTheDocument();
   });
 });
