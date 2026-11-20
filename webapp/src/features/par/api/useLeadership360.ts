@@ -244,7 +244,8 @@ export function useCycleLeadership360ForPdf(parCycleId: number, workEmail: strin
   const summary = useLeadership360Summary(available ? survey?.surveyId : undefined, "SELF", workEmail);
   const withTemplate = useLeadership360SurveyWithTemplate(available ? survey?.surveyId : undefined);
   // Each lookup waits for the one before, so the PDF is ready only once none is loading; `data` stays
-  // undefined when there are no results to include.
+  // undefined when there are no results to include. A lookup paused while offline is still loading (React
+  // Query's isLoading says it isn't), and one that's off, because there's nothing to look up, isn't.
   const lookups = [surveys, results, summary, withTemplate];
   const failedLookup = lookups.find((q) => q.isError && q.data === undefined);
   return {
@@ -256,7 +257,7 @@ export function useCycleLeadership360ForPdf(parCycleId: number, workEmail: strin
             asOf: survey.status === "OPEN" ? new Date().toLocaleDateString("en-CA") : undefined,
           }
         : undefined,
-    isLoading: lookups.some((q) => q.isLoading),
+    isLoading: lookups.some((q) => q.isPending && q.fetchStatus !== "idle"),
     failed: failedLookup && {
       error: failedLookup.error,
       retry: () => void failedLookup.refetch(),
