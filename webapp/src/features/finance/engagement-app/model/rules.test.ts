@@ -15,6 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
+import { isPaidType } from "./engagementAccess";
 import { defaultEnd, validateAllocation, validateTeamAllocation, type AllocationFormState } from "./allocationForm";
 import { changesOf, engagementCode, newForm, validateForm, type EngagementFormState } from "./engagementForm";
 import { addDays, expiresIn, fmtRange, money } from "./format";
@@ -90,6 +91,16 @@ describe("Create Engagement: the legacy checks", () => {
 
   it("passes a complete internal engagement, line breaks and all", () => {
     expect(validateForm(filled({}), { edit: false, campaignRequired: false })).toEqual({});
+  });
+
+  it("needs a sales sub region on a paid customer create only when the account has none", () => {
+    const paidType = 7;
+    expect(isPaidType(paidType)).toBe(true);
+    const paid = filled({ typeId: paidType, accountId: "001ABC", opportunityId: "006XYZ", lineItemId: "00kLINE", contact: "Jordan / +1 555", subRegion: "" });
+    expect(validateForm(paid, { edit: false, campaignRequired: false, accountHasSubRegion: false }).subRegion).toBe("Select the sales sub region.");
+    expect(validateForm(paid, { edit: false, campaignRequired: false, accountHasSubRegion: true }).subRegion).toBeUndefined();
+    expect(validateForm({ ...paid, subRegion: "NA - EAST" }, { edit: false, campaignRequired: false, accountHasSubRegion: false }).subRegion).toBeUndefined();
+    expect(validateForm(paid, { edit: true, campaignRequired: false, accountHasSubRegion: false }).subRegion).toBeUndefined();
   });
 
   it("needs the product unit and sales sub region the backend saves as the funding source", () => {

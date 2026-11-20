@@ -141,12 +141,19 @@ export function engagementCode(
 
 export type FormErrors = Partial<Record<keyof EngagementFormState | "funding", string>>;
 
-/** The legacy checks, in the legacy order. Empty when the form may be sent. */
 /** Whether the form's Business Unit, Product Unit and Sales Sub Region are required (see validateForm). */
 export const needsFundingFields = (typeId: number, cust: boolean, paid: boolean, edit: boolean): boolean =>
   typeId !== 5 && !(cust && paid) && !edit;
 
-export function validateForm(f: EngagementFormState, { edit, campaignRequired }: { edit: boolean; campaignRequired: boolean }): FormErrors {
+/**
+ * The legacy checks, in the legacy order. Empty when the form may be sent.
+ * `accountHasSubRegion` is false when the picked Salesforce account has no Sales Sub Region: a paid customer
+ * create then needs the form's (the backend takes the account's, else the form's).
+ */
+export function validateForm(
+  f: EngagementFormState,
+  { edit, campaignRequired, accountHasSubRegion = true }: { edit: boolean; campaignRequired: boolean; accountHasSubRegion?: boolean },
+): FormErrors {
   const x: FormErrors = {};
   if (!f.typeId) {
     x.typeId = "Select the engagement type.";
@@ -169,6 +176,7 @@ export function validateForm(f: EngagementFormState, { edit, campaignRequired }:
   if ((fundingFromForm || f.typeId === 1) && !f.businessUnit) x.businessUnit = "Select the business unit.";
   if (fundingFromForm && !f.productUnit) x.productUnit = "Select the product unit.";
   if (fundingFromForm && !f.subRegion) x.subRegion = "Select the sales sub region.";
+  if (cust && paid && !edit && f.accountId && !accountHasSubRegion && !f.subRegion) x.subRegion = "Select the sales sub region.";
   if (!paid && !f.start) x.start = "Add the start date.";
   if (!paid && !f.end) x.end = "Add the end date.";
   if (!paid && f.start && f.end && f.end < f.start) x.end = "The end date is before the start date.";

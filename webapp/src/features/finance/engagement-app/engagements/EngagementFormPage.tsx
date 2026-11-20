@@ -33,9 +33,9 @@ import {
   changesOf,
   engagementCode,
   formOf,
-  needsFundingFields,
   inputOf,
   isCustomerForm,
+  needsFundingFields,
   newForm,
   validateForm,
   type EngagementFormState,
@@ -145,6 +145,8 @@ function EngagementForm({
   const cust = kind === "customer";
   const paid = t !== 0 && isPaidType(t);
   const fundingRequired = t !== 0 && needsFundingFields(t, cust, paid, isEdit);
+  // A paid customer create takes the account's sub region; an account without one needs the form's.
+  const subRegionRequired = fundingRequired || (cust && paid && !isEdit && Boolean(f.accountId) && !accountSubRegion);
   // Customer create: locked to the picked account's sub region, open only when that account has none.
   const subRegionLocked = cust ? (isEdit ? !pendingEdit : !f.accountId || Boolean(accountSubRegion)) : isEdit && !pendingEdit;
   const mkt = t === 5;
@@ -191,7 +193,7 @@ function EngagementForm({
   };
 
   const submit = () => {
-    const x = validateForm(f, { edit: isEdit, campaignRequired });
+    const x = validateForm(f, { edit: isEdit, campaignRequired, accountHasSubRegion: !f.accountId || Boolean(accountSubRegion) });
     setErrors(x);
     if (Object.values(x).some(Boolean)) return;
     setFailure(undefined);
@@ -324,6 +326,8 @@ function EngagementForm({
                       error={errors.accountId}
                       onPick={(a) => {
                         setAccountSubRegion(a?.subRegion ?? "");
+                        // The account fills or clears the locked fields, so their old errors no longer apply.
+                        setErrors((prev) => ({ ...prev, accountId: undefined, subRegion: undefined }));
                         setF((prev) => ({
                           ...prev,
                           accountId: a?.id ?? "",
@@ -475,7 +479,7 @@ function EngagementForm({
                   />
                   <SelectField
                     label="Sales Sub Region"
-                    required={fundingRequired}
+                    required={subRegionRequired}
                     value={f.subRegion}
                     error={errors.subRegion}
                     options={ref.data?.subRegions ?? []}

@@ -164,7 +164,7 @@ export function HBars({ rows, format = n0, percent = false, max = 8 }: { rows: r
           <Typography sx={{ fontSize: 13, fontWeight: 600, fontVariantNumeric: "tabular-nums", textAlign: "right", minWidth: 56 }}>
             {format(r.count)}
             {percent ? (
-              <Typography component="span" sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 400, ml: 0.75 }}>
+              <Typography component="span" sx={{ fontSize: 11.5, color: "text.secondary", fontWeight: 400, ml: 0.375 }}>
                 {/* A real space, not only the margin, so copy-paste and screen readers read "14 88%", not "1488%". */}
                 {" "}
                 {Math.round((r.count / total) * 100)}%
