@@ -15,7 +15,8 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { isEvidenceMissing, ratingOptions } from "./parLeadership";
+import type { ParCycleConfigurations } from "../api/types";
+import { isEvidenceMissing, missedDeadlineRatingFor, ratingOptions } from "./parLeadership";
 
 const RATINGS = ["Needs Improvement", "Successful", "Step Up"];
 const LEADERSHIP_ALLOWED = ["Successful", "Step Up"];
@@ -73,5 +74,26 @@ describe("isEvidenceMissing", () => {
 
   it("needs no evidence for other ratings", () => {
     expect(isEvidenceMissing({ ...base, rating: "Successful" })).toBe(false);
+  });
+});
+
+describe("missedDeadlineRatingFor", () => {
+  const configurations = (overrides: Partial<ParCycleConfigurations> = {}) =>
+    ({ parRatings: ["Successful", "Needs Improvements", "Step Up"], ...overrides }) as ParCycleConfigurations;
+
+  it("is Needs Improvements, and Step Up for the leadership team, unless the cycle sets others", () => {
+    expect(missedDeadlineRatingFor(configurations(), false)).toBe("Needs Improvements");
+    expect(missedDeadlineRatingFor(configurations(), true)).toBe("Step Up");
+    expect(missedDeadlineRatingFor(configurations({ missedDeadlineRating: "Successful" }), false)).toBe("Successful");
+    expect(missedDeadlineRatingFor(configurations({ leadershipMissedDeadlineRating: "Successful" }), true)).toBe(
+      "Successful",
+    );
+  });
+
+  it("is none when the cycle can't give it", () => {
+    expect(missedDeadlineRatingFor(configurations({ parRatings: ["Successful", "Step Up"] }), false)).toBeUndefined();
+    expect(missedDeadlineRatingFor(configurations({ parRatings: ["Successful"] }), true)).toBeUndefined();
+    expect(missedDeadlineRatingFor(configurations({ leadershipAllowedRatings: ["Successful"] }), true)).toBeUndefined();
+    expect(missedDeadlineRatingFor(undefined, false)).toBeUndefined();
   });
 });

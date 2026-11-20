@@ -317,9 +317,20 @@ export default function ParRichTextField({
         "& .ql-editor.ql-blank::before": { color: palette.text.primary, opacity: 0.6 },
         "& .ql-snow .ql-tooltip": { display: "none" },
         "& .ql-snow a": { color: palette.primary.main },
+        // Disabled: no toolbar, greyed text, so it plainly can't be edited.
+        ...(disabled && {
+          "& .ql-toolbar.ql-snow": { display: "none" },
+          "& .ql-editor": { color: palette.text.disabled, cursor: "not-allowed" },
+        }),
       }}
     >
-      <Box sx={{ border: `1px solid ${palette.divider}`, borderRadius: 1 }}>
+      <Box
+        sx={{
+          border: `1px solid ${palette.divider}`,
+          borderRadius: 1,
+          ...(disabled && { bgcolor: palette.action.disabledBackground }),
+        }}
+      >
         <ReactQuill
           ref={quillRef}
           theme="snow"

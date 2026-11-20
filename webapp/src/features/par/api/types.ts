@@ -66,6 +66,8 @@ export interface ParCycleConfigurations {
   // Which entry in parRatings is auto-assigned to an employee/lead who
   // misses their PAR deadline, set per cycle.
   missedDeadlineRating?: string;
+  // The same for the leadership team (Step Up when the cycle doesn't set it).
+  leadershipMissedDeadlineRating?: string;
   // Which entries in parRatings a leadership employee may be given, set per
   // cycle. Falls back to LEADERSHIP_ALLOWED_RATINGS (util/parLeadership.ts)
   // when the cycle hasn't configured it.

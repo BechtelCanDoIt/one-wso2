@@ -70,7 +70,12 @@ import { deadlineEndsEverywhereAt, hasEndedEverywhere, isDeadlinePassed } from "
 import { formatShortDate, formatShortDateTime } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
-import { LEADERSHIP_ALLOWED_RATINGS, isEvidenceMissing, ratingOptions } from "../util/parLeadership";
+import {
+  LEADERSHIP_ALLOWED_RATINGS,
+  isEvidenceMissing,
+  missedDeadlineRatingFor,
+  ratingOptions,
+} from "../util/parLeadership";
 import ParRichTextField, { type ParRichTextFieldHandle } from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
 import { ParAutoAssignedChip } from "./ParChips";
@@ -158,9 +163,27 @@ export default function ParLeadReviewPanel({
   const autoSaveTokenRef = useRef(0);
 
   const parRatingData = rating.data;
-  // The backend refuses a non-admin change to a rating the system
+  // When the self-review has closed everywhere: nobody can still share theirs.
+  const selfReviewClosesAt = deadlineEndsEverywhereAt(cycle.parEmployeeDeadline);
+  const selfReviewClosesAtMs = selfReviewClosesAt.getTime();
+  const selfReviewClosed = new Date() > selfReviewClosesAt;
+  // A PAR the employee didn't share by then gets the cycle's missed-deadline
+  // rating (the leadership team's own for them), and the lead has nothing to
+  // submit: the backend refuses the lead's saves and shares. People Ops can
+  // still change it.
+  const missedDeadlineRating = missedDeadlineRatingFor(
+    cycle.parCycleConfigurations,
+    Boolean(parRatingData?.parIsLeadershipEmployee),
+  );
+  const selfReviewMissed =
+    !isAdminView &&
+    selfReviewClosed &&
+    (parRatingData?.parEmployeeStatus === "PENDING" || parRatingData?.parEmployeeStatus === "DRAFT") &&
+    missedDeadlineRating !== undefined;
+  // The backend also refuses a non-admin change to a rating the system
   // auto-assigned after a missed deadline; an admin can still correct it.
-  const ratingLocked = !isAdminView && parRatingData?.parRatingUpdatedBy === "SYSTEM";
+  const ratingLocked = !isAdminView && (parRatingData?.parRatingUpdatedBy === "SYSTEM" || selfReviewMissed);
+  const shownRating = selfReviewMissed ? missedDeadlineRating : parRatingValue;
 
   // Seed once per record, so a background refetch doesn't overwrite mid-typing.
   if (parRatingData && parRatingData.parRatingId !== seededForId) {
@@ -177,14 +200,14 @@ export default function ParLeadReviewPanel({
   }
 
   useEffect(() => {
-    if (parRatingValue !== top5p20pEnabledRating) {
+    if (shownRating !== top5p20pEnabledRating) {
       setSpecialRating("NONE");
     }
-    if (parRatingValue !== evidenceEnabledRating) {
+    if (shownRating !== evidenceEnabledRating) {
       setDriveFiles([]);
       setEvidenceConfirmed(false);
     }
-  }, [parRatingValue, top5p20pEnabledRating, evidenceEnabledRating]);
+  }, [shownRating, top5p20pEnabledRating, evidenceEnabledRating]);
 
   const { openPicker, isLoading: isPickerLoading, error: pickerError } = useGoogleDrivePicker();
 
@@ -229,7 +252,8 @@ export default function ParLeadReviewPanel({
   // Not for a shared PAR, whose summary can't change.
   const responseCount = responses.data?.responseCount ?? 0;
   const summaryEmpty = isEmptyHtml(lead360Summary);
-  const suggestionPossible = summaryShown && !readOnly && !shared && responseCount >= MIN_360_RESPONSES;
+  const suggestionPossible =
+    summaryShown && !readOnly && !shared && !selfReviewMissed && responseCount >= MIN_360_RESPONSES;
   const suggestion = useLead360SummarySuggestion(
     cycle.parCycleId,
     employeeEmail,
@@ -359,11 +383,8 @@ export default function ParLeadReviewPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lead360Summary, readOnly, saveSummary.isPending, parRatingData]);
 
-  // When the self-review has closed everywhere. If it closes while the panel is open (even between a
-  // render and this effect), the panel redraws, so Share turns on without a reload.
-  const selfReviewClosesAt = deadlineEndsEverywhereAt(cycle.parEmployeeDeadline);
-  const selfReviewClosesAtMs = selfReviewClosesAt.getTime();
-  const selfReviewClosed = new Date() > selfReviewClosesAt;
+  // If the self-review closes while the panel is open (even between a render and this effect), the panel
+  // redraws, so it shows what the lead can do now without a reload.
   const [, redraw] = useReducer((n: number) => n + 1, 0);
   useEffect(() => {
     if (selfReviewClosed) return;
@@ -403,6 +424,12 @@ export default function ParLeadReviewPanel({
     <Alert severity={shared ? "success" : "info"}>
       {shared ? "Lead's feedback is shared with the employee" : "Lead's feedback is not shared with the employee"}
     </Alert>
+  ) : selfReviewMissed ? (
+    <Alert severity="warning">
+      {parRatingData.parEmployeeName?.split(" ")[0] ?? "The employee"} didn't share their{" "}
+      {showsPar2 ? "self-review" : "PAR"} by the deadline, so their rating is {missedDeadlineRating}. There's
+      nothing for you to submit.
+    </Alert>
   ) : parRatingData.parLeadStatus === "DRAFT" ? (
     <Alert severity="warning">
       You have saved your PAR as a draft.{" "}
@@ -435,10 +462,10 @@ export default function ParLeadReviewPanel({
     !ratingUpdate.isPending &&
     !saveSummary.isPending &&
     employeeReady &&
-    Boolean(parRatingValue) &&
+    Boolean(shownRating) &&
     !isEmptyHtml(leadComment) &&
     !isEvidenceMissing({
-      rating: parRatingValue,
+      rating: shownRating,
       evidenceEnabledRating,
       ratingLocked,
       evidenceConfirmed,
@@ -528,7 +555,12 @@ export default function ParLeadReviewPanel({
                     />
                   )
                 ) : (
-                  <ParRichTextField value={leadComment} onChange={setLeadComment} placeholder="Enter your comment here" />
+                  <ParRichTextField
+                    value={leadComment}
+                    onChange={setLeadComment}
+                    placeholder="Enter your comment here"
+                    disabled={selfReviewMissed}
+                  />
                 )}
                 {autoSaved && (
                   <Typography variant="caption" color="text.secondary" sx={{ position: "absolute", bottom: -20, left: 0 }}>
@@ -577,6 +609,7 @@ export default function ParLeadReviewPanel({
                       onChange={setLead360Summary}
                       placeholder={greySuggestionShown ? "" : "Summarise the 360° feedback"}
                       minHeight="10rem"
+                      disabled={selfReviewMissed}
                       suggestion={
                         greySuggestionShown && (
                           <ParLead360Suggestion suggestion={suggestion.data} onInsert={takeSuggestion} />
@@ -637,7 +670,13 @@ export default function ParLeadReviewPanel({
                   >
                     Rating
                     {!readOnly && ratingLocked && (
-                      <Tooltip title="This rating was automatically assigned after the PAR deadline was missed and can no longer be changed.">
+                      <Tooltip
+                        title={
+                          selfReviewMissed
+                            ? `This PAR wasn't shared by its deadline, so its rating is ${missedDeadlineRating}.`
+                            : "This rating was automatically assigned after the PAR deadline was missed and can no longer be changed."
+                        }
+                      >
                         <Box
                           component="span"
                           tabIndex={0}
@@ -663,7 +702,7 @@ export default function ParLeadReviewPanel({
                   ) : (
                     <ComplexSelect
                       fullWidth
-                      value={parRatingValue}
+                      value={shownRating}
                       onChange={(e) => setParRatingValue(e.target.value as string)}
                       disabled={ratingUpdate.isPending || ratingLocked}
                       aria-labelledby="lead-review-rating-label"
@@ -671,7 +710,7 @@ export default function ParLeadReviewPanel({
                       {ratingOptions(cycle.parCycleConfigurations?.parRatings ?? [], {
                         isLeadership,
                         leadershipAllowedRatings,
-                        currentRating: parRatingValue,
+                        currentRating: shownRating,
                       }).map((r) => (
                           <ComplexSelect.MenuItem key={r} value={r}>
                             {r}
@@ -689,7 +728,7 @@ export default function ParLeadReviewPanel({
                   />
                 )}
 
-                {parRatingValue === top5p20pEnabledRating && (
+                {shownRating === top5p20pEnabledRating && (
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <Typography
                       id="lead-review-special-rating-label"
@@ -735,7 +774,7 @@ export default function ParLeadReviewPanel({
                   </Box>
                 )}
 
-                {!readOnly && parRatingValue === evidenceEnabledRating && (
+                {!readOnly && !selfReviewMissed && shownRating === evidenceEnabledRating && (
                   <Box>
                     <FormControlLabel
                       control={
@@ -823,13 +862,15 @@ export default function ParLeadReviewPanel({
                 )}
               </Stack>
 
-              {!readOnly && (
+              {!readOnly && !selfReviewMissed && (
                 <>
                   {!employeeReady && isPreviewEnabled("par2") && (
                     <Alert severity="info" sx={{ py: 0.25 }}>
                       You can share once {parRatingData.parEmployeeName?.split(" ")[0] ?? "the employee"} shares their{" "}
-                      {showsPar2 ? "self-review" : "PAR"}, or from {formatShortDateTime(selfReviewClosesAt)} if they
-                      don't.
+                      {showsPar2 ? "self-review" : "PAR"}
+                      {missedDeadlineRating
+                        ? `. If they don't by ${formatShortDateTime(selfReviewClosesAt)}, their rating will be ${missedDeadlineRating}.`
+                        : `, or from ${formatShortDateTime(selfReviewClosesAt)} if they don't.`}
                     </Alert>
                   )}
                   <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, pt: 1, borderTop: 1, borderColor: "divider" }}>

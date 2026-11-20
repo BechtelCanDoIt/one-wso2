@@ -361,6 +361,8 @@ describe("ParLeadReviewPanel: sharing before the employee has", () => {
   afterEach(() => {
     window.config = originalConfig;
   });
+  // A cycle that can't give the missed-deadline rating (Needs Improvements isn't one of its ratings): the
+  // backend leaves such a PAR to its lead, who can share it once the self-review has closed.
   const closedCycle = { ...cycle, parEmployeeDeadline: "2020-01-01" } as unknown as ParCycle;
   const ready = {
     parRatingId: 7,
@@ -373,14 +375,14 @@ describe("ParLeadReviewPanel: sharing before the employee has", () => {
     parLeadComment: encodeParComment("<p>Great cycle.</p>"),
   } as ParRating;
 
-  it("can share once the self-review has closed, with PAR 2.0", () => {
+  it("can share once the self-review has closed, with PAR 2.0, in a cycle with no missed-deadline rating", () => {
     setPar2(true);
     rating = ready;
     render(<ParLeadReviewPanel cycle={closedCycle} employeeEmail="alex@example.com" />);
     expect(screen.getByRole("button", { name: "Share" })).toBeEnabled();
   });
 
-  it("turns Share on when the self-review closes while the panel is open, with PAR 2.0", () => {
+  it("turns Share on when the self-review closes while the panel is open, in a cycle with no missed-deadline rating", () => {
     setPar2(true);
     rating = ready;
     // The self-review closes everywhere at 23:59:59 at UTC-12 on its deadline: 2026-12-02 11:59:59 UTC.
@@ -421,5 +423,64 @@ describe("ParLeadReviewPanel: sharing before the employee has", () => {
     render(<ParLeadReviewPanel cycle={closedCycle} employeeEmail="alex@example.com" />);
     expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
     expect(screen.queryByText(/You can share once/)).not.toBeInTheDocument();
+  });
+});
+
+describe("ParLeadReviewPanel: a PAR not shared by its deadline", () => {
+  const originalConfig = window.config;
+  afterEach(() => {
+    window.config = originalConfig;
+  });
+  const missedCycle = {
+    ...cycle,
+    parEmployeeDeadline: "2020-01-01",
+    parCycleConfigurations: { parRatings: ["Successful", "Needs Improvements", "Step Up"] },
+  } as unknown as ParCycle;
+  const missed = {
+    parRatingId: 7,
+    parCycleId: 2,
+    parEmployeeEmail: "alex@example.com",
+    parEmployeeName: "Alex Morgan",
+    parEmployeeStatus: "PENDING",
+    parLeadStatus: "DRAFT",
+    parIsLeadershipEmployee: false,
+    parRating: "Successful",
+  } as ParRating;
+
+  it("shows the missed-deadline rating, fixed, and that the lead has nothing to submit", () => {
+    rating = missed;
+    render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" />);
+    expect(screen.queryByText("Successful")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Rating auto-assigned and locked")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Alex didn't share their self-review by the deadline, so their rating is Needs Improvements/),
+    ).toHaveTextContent("There's nothing for you to submit.");
+    expect(screen.queryByRole("button", { name: /Share|Save draft/i })).not.toBeInTheDocument();
+    expect(suggestionAskedFor).toBe(false);
+  });
+
+  it("gives the leadership team Step Up", () => {
+    rating = { ...missed, parIsLeadershipEmployee: true };
+    render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" />);
+    expect(screen.getByText(/so their rating is Step Up\. There's nothing for you to submit\./)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Share|Save draft/i })).not.toBeInTheDocument();
+  });
+
+  it("isn't fixed for People Ops", () => {
+    rating = missed;
+    render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" isAdminView />);
+    expect(screen.getByText("Successful")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rating auto-assigned and locked")).not.toBeInTheDocument();
+  });
+
+  it("tells the lead, before the deadline, the rating the PAR gets if it isn't shared, with PAR 2.0", () => {
+    window.config = { ...(originalConfig ?? {}), ONE_WSO2_PREVIEW_FEATURES: { par2: true } } as Window["config"];
+    rating = missed;
+    const openCycle = { ...missedCycle, parEmployeeDeadline: "2999-12-01" } as unknown as ParCycle;
+    render(<ParLeadReviewPanel cycle={openCycle} employeeEmail="alex@example.com" />);
+    expect(
+      screen.getByText(/You can share once Alex shares their self-review\. If they don't by .+, their rating will be Needs Improvements\./),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).toBeDisabled();
   });
 });
