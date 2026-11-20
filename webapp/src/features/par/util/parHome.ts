@@ -157,6 +157,9 @@ export function stepHeader(input: HomeInput, key: HomeStepKey): StepHeader {
         // More can still come in until the window closes.
         return f.closed360 ? { title: name } : { title: name, due: { label: "Open until", date: deadline, countdown: false } };
       }
+      // Once the lead has shared, no one can be asked any more, but a leader's Leadership 360° feedback still
+      // comes in until the deadline.
+      if (leadership && f.leadShared) return { title: name, due: { label: "Open until", date: deadline, countdown: false } };
       // Asking is the employee's part (at least 3 for a member); after that, the window is open until the deadline.
       const asking = state === "not-started" || (!leadership && f.asked < MIN_360_RESPONSES);
       return { title: `Request ${name}`, due: { label: asking ? "Due" : "Open until", date: deadline, countdown: true } };

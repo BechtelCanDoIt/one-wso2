@@ -158,6 +158,12 @@ describe("stepHeader", () => {
     expect(stepHeader(input({ leadership: { responseCount: 1 } }), "360").due?.label).toBe("Open until");
   });
 
+  it("360° for the leadership team asks for nothing once the lead has shared, and stays open until the deadline", () => {
+    expect(
+      stepHeader(input({ leadership: { responseCount: 0 }, rating: rating({ parLeadStatus: "SHARED" }) }), "360"),
+    ).toEqual({ title: "Leadership 360° feedback", due: { label: "Open until", date: FUTURE, countdown: false } });
+  });
+
   it("lead review and face-to-face: the lead's date as Expected by, the face-to-face's with days left once it's yours", () => {
     expect(stepHeader(input(), "lead-review")).toEqual({
       title: "Lead review",
