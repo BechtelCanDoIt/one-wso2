@@ -36,7 +36,8 @@ import { periodLabel, periodOptions } from "@features/legal/recordPeriods";
 
 const PAGE_SIZE = 25;
 
-// Entity keys are "WSO2 (UK) Ltd — UK"; shown as on the NDA page's dropdown.
+// Entity keys are "Choreo Labs (UK) Ltd — UK"; shown as on the NDA page's dropdown.
+// Records made before an entity was renamed keep the name they were made with.
 function entityLabel(key: string): string {
   return key.replace(/ \u2014 (\w+)$/, " ($1)");
 }

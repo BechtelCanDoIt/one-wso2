@@ -218,7 +218,7 @@ describe("NdaPage counterparty and WSO2 company", () => {
 
     await user.type(screen.getByRole("combobox", { name: /Country/ }), "United Kingdom");
     await user.click(await screen.findByRole("option", { name: "United Kingdom" }));
-    expect(wso2Company()).toHaveValue("WSO2 (UK) Ltd (UK)");
+    expect(wso2Company()).toHaveValue("Choreo Labs (UK) Ltd (UK)");
 
     // Back to the Salesforce customer, back to its entity.
     await user.click(screen.getByRole("button", { name: "Salesforce customer" }));
@@ -238,7 +238,7 @@ describe("NdaPage counterparty and WSO2 company", () => {
     expect(rendered.props).toMatchObject({
       customerName: "Example Vendor Ltd",
       customerAddress: "1 Example Road, London, United Kingdom",
-      wso2Company: "WSO2 (UK) Ltd \u2014 UK",
+      wso2Company: "Choreo Labs (UK) Ltd \u2014 UK",
     });
   });
 });
@@ -296,7 +296,7 @@ describe("NdaPage records", () => {
     await waitFor(() => expect(rendered.props).not.toBeNull());
     expect(recording.mutateAsync).toHaveBeenCalledWith({
       template: "Mutual NDA \u2014 Standard",
-      wso2Entity: "WSO2 (UK) Ltd \u2014 UK",
+      wso2Entity: "Choreo Labs (UK) Ltd \u2014 UK",
       counterpartyName: "Example Vendor Ltd",
       counterpartyAddress: "1 Example Road, London, United Kingdom",
       counterpartyCountry: "United Kingdom",
