@@ -74,7 +74,8 @@ export default function ParLeadGroupPage() {
     <ParShell
       title="Lead View"
       subtitle="Review and rate your reports' PAR, manage their 360° feedback and F2F and see their record from past cycles."
-      // Quotas exist only in an active cycle, like every tab but Employee History.
+      // Only in an active cycle, like every tab but Employee History: isTeamLead is false without one (see
+      // ParEmployeeInfo).
       actions={employeeInfo.isTeamLead && <ParLeadQuotasButton />}
     >
       <RoutedTabs
