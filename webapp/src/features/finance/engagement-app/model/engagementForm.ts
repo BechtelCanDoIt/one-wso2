@@ -23,6 +23,7 @@ import type {
   FundingSource,
   Opportunity,
   OpportunityLineItem,
+  SalesforceAccount,
 } from "../api/engagementTypes";
 import type { EngagementInput } from "../api/useEngagementMutations";
 import { isPaidType } from "./engagementAccess";
@@ -141,8 +142,52 @@ export function engagementCode(
 
 export type FormErrors = Partial<Record<keyof EngagementFormState | "funding", string>>;
 
-/** The legacy checks, in the legacy order. Empty when the form may be sent. */
-export function validateForm(f: EngagementFormState, { edit, campaignRequired }: { edit: boolean; campaignRequired: boolean }): FormErrors {
+/**
+ * Whether creating needs Business Unit, Product Unit and Sales Sub Region from the form: customer (not paid)
+ * and internal engagements save one funding source from these three. Marketing events have their own funding
+ * sources, paid customer types take them from the line item, and an edit keeps what the engagement has.
+ */
+export function needsFundingFields(typeId: EngagementTypeId | 0, edit: boolean): boolean {
+  if (typeId === 0 || typeId === 5 || edit) return false;
+  return !(isCustomerForm(typeId) && isPaidType(typeId));
+}
+
+/**
+ * The form after picking (or clearing) the Salesforce account: the account fields follow it, the opportunity
+ * and line item reset, and the locked Sales Sub Region is the account's (a new account never keeps the
+ * previous one's).
+ */
+export function withAccount(prev: EngagementFormState, a: SalesforceAccount | null): EngagementFormState {
+  return {
+    ...prev,
+    accountId: a?.id ?? "",
+    accountName: a?.name ?? "",
+    opportunityId: "",
+    lineItemId: "",
+    country: a?.country ?? prev.country,
+    subRegion: a?.subRegion ?? "",
+    address: a?.address ?? "",
+  };
+}
+
+/**
+ * Whether Sales Sub Region is locked. Customer create: locked to the picked account's sub region, open only
+ * when that account has none. Customer edit and other edits: open only while the engagement is pending.
+ */
+export function subRegionLocked(o: { cust: boolean; edit: boolean; pendingEdit: boolean; accountId: string; accountSubRegion: string }): boolean {
+  if (o.cust) return o.edit ? !o.pendingEdit : !o.accountId || Boolean(o.accountSubRegion);
+  return o.edit && !o.pendingEdit;
+}
+
+/**
+ * The legacy checks, in the legacy order. Empty when the form may be sent.
+ * `accountHasSubRegion` is false when the picked Salesforce account has no Sales Sub Region: a paid customer
+ * create then needs one on the form, since it takes the account's sub region when there is one.
+ */
+export function validateForm(
+  f: EngagementFormState,
+  { edit, campaignRequired, accountHasSubRegion = true }: { edit: boolean; campaignRequired: boolean; accountHasSubRegion?: boolean },
+): FormErrors {
   const x: FormErrors = {};
   if (!f.typeId) {
     x.typeId = "Select the engagement type.";
@@ -159,7 +204,12 @@ export function validateForm(f: EngagementFormState, { edit, campaignRequired }:
   if (!f.nature) x.nature = "Select the location.";
   if (!f.country) x.country = "Select the country.";
   if (!f.address.trim()) x.address = "Add the address.";
-  if (f.typeId === 1 && !f.businessUnit) x.businessUnit = "Select the business unit.";
+  // Customer (not paid) and internal engagements need all three funding fields on create.
+  const fundingFromForm = needsFundingFields(f.typeId, edit);
+  if ((fundingFromForm || f.typeId === 1) && !f.businessUnit) x.businessUnit = "Select the business unit.";
+  if (fundingFromForm && !f.productUnit) x.productUnit = "Select the product unit.";
+  if (fundingFromForm && !f.subRegion) x.subRegion = "Select the sales sub region.";
+  if (cust && paid && !edit && f.accountId && !accountHasSubRegion && !f.subRegion) x.subRegion = "Select the sales sub region.";
   if (!paid && !f.start) x.start = "Add the start date.";
   if (!paid && !f.end) x.end = "Add the end date.";
   if (!paid && f.start && f.end && f.end < f.start) x.end = "The end date is before the start date.";
