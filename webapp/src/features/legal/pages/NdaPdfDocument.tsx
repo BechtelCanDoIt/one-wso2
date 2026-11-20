@@ -27,7 +27,7 @@ Font.registerHyphenationCallback((word) => [word]);
 // Text follows WSO2's official regional Mutual NDA templates.
 
 export interface NdaEntityConfig {
-  /** Full legal entity name, e.g. "WSO2 (UK) Ltd." */
+  /** Full legal entity name, e.g. "Choreo Labs (UK) Ltd." */
   entityFull: string;
   /** Incorporation / address description that follows the entity name in para 1. */
   entityDescription: string;
@@ -75,14 +75,14 @@ export const NDA_ENTITY_CONFIGS: Record<string, NdaEntityConfig> = {
     countries: ["IN", "India"],
   },
 
-  "WSO2 (UK) Ltd — UK": {
-    entityFull: "WSO2 (UK) Ltd.",
+  "Choreo Labs (UK) Ltd — UK": {
+    entityFull: "Choreo Labs (UK) Ltd.",
     entityDescription:
       "a company incorporated under the laws of England having its principal place of business at Appledram Barns, Birdham Road, Chichester, West Sussex, PO20 7EQ",
     jurisdictionPhrase: "UK and/or overseas",
     governingLaw:
       'This Agreement shall be governed by English law. In the event of a dispute between the parties hereto, arising out of or in connection with or with respect to this Agreement or any breach thereof, such dispute shall be determined and settled by arbitration in London, United Kingdom, in accordance with the rules of the International Chamber of Commerce ("ICC"). The award rendered by the arbitrator shall be final and binding on the parties thereto, and judgment may be entered in any court of competent jurisdiction. Nothing in the above provision shall prevent either party from applying to a court of competent jurisdiction for equitable or injunctive relief.',
-    signatureLabel: "WSO2 (UK) Ltd.",
+    signatureLabel: "Choreo Labs (UK) Ltd.",
     countries: ["GB", "UK", "United Kingdom", "Great Britain", "England", "Scotland", "Wales", "Northern Ireland"],
   },
 
@@ -119,25 +119,25 @@ export const NDA_ENTITY_CONFIGS: Record<string, NdaEntityConfig> = {
     countries: ["KE", "Kenya"],
   },
 
-  "WSO2 SG Pte Ltd — SG": {
-    entityFull: "WSO2 SG Pte Ltd",
+  "Choreo Labs SG Pte Ltd — SG": {
+    entityFull: "Choreo Labs SG Pte Ltd",
     entityDescription:
       "a Limited Liability Company in Singapore having its principal place of business at 160 Robinson Road, #14-04 Singapore Business Federation Center, Singapore 068914",
     jurisdictionPhrase: "Singapore and/or overseas",
     governingLaw:
       'This Agreement shall be governed by the laws of Singapore excluding its conflicts of laws principles. In the event of a dispute between the parties hereto, arising out of or in connection with or with respect to this Agreement or any breach thereof, such dispute shall be determined and settled by arbitration in Singapore, in accordance with the rules of the Singapore International Arbitration Centre ("SIAC"). The award rendered by the arbitrator shall be final and binding on the parties thereto, and judgment may be entered in any court of competent jurisdiction. Nothing in the above provision shall prevent either party from applying to a court of competent jurisdiction for equitable or injunctive relief.',
-    signatureLabel: "WSO2 SG Pte Ltd",
+    signatureLabel: "Choreo Labs SG Pte Ltd",
     countries: ["SG", "Singapore"],
   },
 
-  "WSO2 South Africa Pty Ltd — ZA": {
-    entityFull: "WSO2 South Africa Pty Limited",
+  "Choreo Labs South Africa Pty Ltd — ZA": {
+    entityFull: "Choreo Labs South Africa Pty Limited",
     entityDescription:
       "a company incorporated in accordance with the laws of the Republic of South Africa, with its registered address at 5 Mareshah 9 Deane Crescent, Northmead, Benoni, Gauteng, 1501",
     jurisdictionPhrase: "South Africa and/or overseas",
     governingLaw:
       "This Agreement shall be governed by and construed in accordance with the laws of the Republic of South Africa and the Parties hereby submit to the non-exclusive jurisdiction of the High Court of South Africa (Gauteng Local Division, Johannesburg), to settle any disputes in connection with the Agreement.",
-    signatureLabel: "WSO2 South Africa Pty Limited",
+    signatureLabel: "Choreo Labs South Africa Pty Limited",
     countries: ["ZA", "South Africa"],
   },
 
