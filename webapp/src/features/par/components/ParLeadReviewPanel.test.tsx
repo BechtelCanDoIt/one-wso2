@@ -77,6 +77,7 @@ vi.mock("./ParRichTextField", () => ({
     placeholder,
     suggestion,
     onAcceptSuggestion,
+    disabled,
     ref,
   }: {
     value: string;
@@ -84,6 +85,7 @@ vi.mock("./ParRichTextField", () => ({
     placeholder: string;
     suggestion?: ReactNode;
     onAcceptSuggestion?: () => void;
+    disabled?: boolean;
     ref?: Ref<ParRichTextFieldHandle>;
   }) {
     useImperativeHandle(ref, () => ({ replaceContents: (html: string) => onChange(html) }));
@@ -91,6 +93,7 @@ vi.mock("./ParRichTextField", () => ({
       <div>
         <textarea
           aria-label={placeholder || EMPTY_FIELD}
+          disabled={disabled}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           onKeyDown={(e) => {
@@ -447,16 +450,30 @@ describe("ParLeadReviewPanel: a PAR not shared by its deadline", () => {
     parRating: "Successful",
   } as ParRating;
 
-  it("shows the missed-deadline rating, fixed, and that the lead has nothing to submit", () => {
-    rating = missed;
+  it.each(["PENDING", "DRAFT"] as const)(
+    "shows the missed-deadline rating, fixed, and that the lead has nothing to submit (self-review %s)",
+    (parEmployeeStatus) => {
+      rating = { ...missed, parEmployeeStatus };
+      render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" />);
+      expect(screen.queryByText("Successful")).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Rating auto-assigned and locked")).toBeInTheDocument();
+      expect(
+        screen.getByText(/Alex didn't share their self-review by the deadline, so their rating is Needs Improvements/),
+      ).toHaveTextContent("There's nothing for you to submit.");
+      expect(screen.queryByRole("button", { name: /Share|Save draft/i })).not.toBeInTheDocument();
+      expect(screen.getByLabelText("Enter your comment here")).toBeDisabled();
+      expect(screen.getByLabelText(FIELD)).toBeDisabled();
+      expect(suggestionAskedFor).toBe(false);
+    },
+  );
+
+  it("isn't fixed once the employee has shared", () => {
+    rating = { ...missed, parEmployeeStatus: "SHARED" };
     render(<ParLeadReviewPanel cycle={missedCycle} employeeEmail="alex@example.com" />);
-    expect(screen.queryByText("Successful")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Rating auto-assigned and locked")).toBeInTheDocument();
-    expect(
-      screen.getByText(/Alex didn't share their self-review by the deadline, so their rating is Needs Improvements/),
-    ).toHaveTextContent("There's nothing for you to submit.");
-    expect(screen.queryByRole("button", { name: /Share|Save draft/i })).not.toBeInTheDocument();
-    expect(suggestionAskedFor).toBe(false);
+    expect(screen.getByText("Successful")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Rating auto-assigned and locked")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Share" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Enter your comment here")).toBeEnabled();
   });
 
   it("gives the leadership team Step Up", () => {

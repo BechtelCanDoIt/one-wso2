@@ -761,7 +761,9 @@ export default function ParLeadReviewPanel({
                           if (picked === "NONE") setSpecialRating(picked);
                           else setSpecialRatingToConfirm(picked);
                         }}
-                        disabled={ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false}
+                        disabled={
+                          ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false || selfReviewMissed
+                        }
                         aria-labelledby="lead-review-special-rating-label"
                       >
                         {(Object.keys(SPECIAL_RATING_LABELS) as SpecialRatingUi[]).map((value) => (
