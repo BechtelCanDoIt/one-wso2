@@ -411,7 +411,7 @@ export default function AuditsListPage(): JSX.Element {
                   ? "No audits yet."
                   : `No ${STATUS_FILTER_LABELS[statusFilter].toLowerCase()} audits.`}
               </Typography>
-              {statusFilter !== "ALL" && allAudits.some((a) => a.status !== "REMOVED") && (
+              {statusFilter !== "ALL" && inFramework.some((a) => a.status !== "REMOVED") && (
                 <Button
                   variant="outlined"
                   size="small"
