@@ -17,7 +17,16 @@
 import { describe, expect, it } from "vitest";
 import { isPaidType } from "./engagementAccess";
 import { defaultEnd, validateAllocation, validateTeamAllocation, type AllocationFormState } from "./allocationForm";
-import { changesOf, engagementCode, newForm, validateForm, type EngagementFormState } from "./engagementForm";
+import {
+  changesOf,
+  engagementCode,
+  needsFundingFields,
+  newForm,
+  subRegionLocked,
+  validateForm,
+  withAccount,
+  type EngagementFormState,
+} from "./engagementForm";
 import { addDays, expiresIn, fmtRange, money } from "./format";
 import { perDiemDays, perDiemTotal } from "./perDiem";
 import { financeApproval, invoiceStage, nextAllocationStatuses, nextTravelStatuses, poApproval } from "./statuses";
@@ -91,6 +100,42 @@ describe("Create Engagement: the legacy checks", () => {
 
   it("passes a complete internal engagement, line breaks and all", () => {
     expect(validateForm(filled({}), { edit: false, campaignRequired: false })).toEqual({});
+  });
+
+  it("asks for the funding fields only where the form supplies the funding source", () => {
+    expect(needsFundingFields(1, false)).toBe(true); // internal
+    expect(needsFundingFields(3, false)).toBe(true); // customer, not paid
+    expect(needsFundingFields(7, false)).toBe(false); // paid customer: from the line item
+    expect(needsFundingFields(5, false)).toBe(false); // marketing event: its own funding sources
+    expect(needsFundingFields(1, true)).toBe(false); // edit keeps what the engagement has
+    expect(needsFundingFields(0, false)).toBe(false); // no type yet
+    const event = filled({ typeId: 5, campaignId: "7015g00000ApD26AAF", productUnit: "", subRegion: "",
+      funding: [{ region: "APAC", subRegion: "", businessUnit: "IAM", productUnit: "", percentage: "100" }] });
+    const x = validateForm(event, { edit: false, campaignRequired: true });
+    expect(x.productUnit).toBeUndefined();
+    expect(x.subRegion).toBeUndefined();
+  });
+
+  it("takes the account's fields on pick and drops the previous account's sub region", () => {
+    const before = filled({ accountId: "001OLD", accountName: "Old", opportunityId: "006OLD", lineItemId: "00kOLD", subRegion: "APAC - SOUTH", country: "Sri Lanka" });
+    const picked = withAccount(before, { id: "001NEW", name: "Acme Corp", country: "United States of America", subRegion: "NA - EAST", address: "1 Main St" });
+    expect(picked).toMatchObject({ accountId: "001NEW", accountName: "Acme Corp", opportunityId: "", lineItemId: "", country: "United States of America", subRegion: "NA - EAST", address: "1 Main St" });
+    const noRegion = withAccount(before, { id: "001NR", name: "Example Ltd" });
+    expect(noRegion.subRegion).toBe("");
+    expect(noRegion.country).toBe("Sri Lanka"); // kept when the account has none
+    const cleared = withAccount(picked, null);
+    expect(cleared).toMatchObject({ accountId: "", accountName: "", subRegion: "", address: "" });
+  });
+
+  it("locks the sales sub region to the account on customer create, open when the account has none", () => {
+    const base = { cust: true, edit: false, pendingEdit: false, accountId: "001ABC", accountSubRegion: "NA - EAST" };
+    expect(subRegionLocked(base)).toBe(true);
+    expect(subRegionLocked({ ...base, accountSubRegion: "" })).toBe(false);
+    expect(subRegionLocked({ ...base, accountId: "", accountSubRegion: "" })).toBe(true); // no account picked yet
+    expect(subRegionLocked({ ...base, edit: true })).toBe(true);
+    expect(subRegionLocked({ ...base, edit: true, pendingEdit: true })).toBe(false);
+    expect(subRegionLocked({ ...base, cust: false })).toBe(false); // internal create
+    expect(subRegionLocked({ ...base, cust: false, edit: true })).toBe(true);
   });
 
   it("needs a sales sub region on a paid customer create only when the account has none", () => {

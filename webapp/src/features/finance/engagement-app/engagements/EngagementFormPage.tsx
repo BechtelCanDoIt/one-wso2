@@ -37,7 +37,9 @@ import {
   isCustomerForm,
   needsFundingFields,
   newForm,
+  subRegionLocked,
   validateForm,
+  withAccount,
   type EngagementFormState,
   type FormErrors,
 } from "../model/engagementForm";
@@ -120,8 +122,8 @@ function EngagementForm({
   // The form compares against what it opened with, so a refetch never shows up as an edit.
   const [base, setBase] = useState(initial);
   const [f, setF] = useState<EngagementFormState>(initial);
-  // The picked account's own Sales Sub Region: it locks the field on customer create. An account without
-  // one leaves the field open, so the user can still complete the engagement (the backend then saves theirs).
+  // The picked account's own Sales Sub Region: it locks the field on customer create; an account without one
+  // leaves the field open for the user to fill (see subRegionLocked).
   const [accountSubRegion, setAccountSubRegion] = useState("");
   // Fetch New Dates changes only the dates: take them into the form and its baseline, keeping every other unsaved edit.
   const [dates, setDates] = useState({ start: initial.start, end: initial.end });
@@ -144,11 +146,10 @@ function EngagementForm({
   const t = f.typeId;
   const cust = kind === "customer";
   const paid = t !== 0 && isPaidType(t);
-  const fundingRequired = t !== 0 && needsFundingFields(t, cust, paid, isEdit);
+  const fundingRequired = needsFundingFields(t, isEdit);
   // A paid customer create takes the account's sub region; an account without one needs the form's.
   const subRegionRequired = fundingRequired || (cust && paid && !isEdit && Boolean(f.accountId) && !accountSubRegion);
-  // Customer create: locked to the picked account's sub region, open only when that account has none.
-  const subRegionLocked = cust ? (isEdit ? !pendingEdit : !f.accountId || Boolean(accountSubRegion)) : isEdit && !pendingEdit;
+  const sublocked = subRegionLocked({ cust, edit: isEdit, pendingEdit, accountId: f.accountId, accountSubRegion });
   const mkt = t === 5;
   const typeDef = types.data?.find((x) => x.id === t);
   const allocTypeDef = typeDef?.allocationTypes.find((a) => a.name === f.allocationType);
@@ -328,17 +329,7 @@ function EngagementForm({
                         setAccountSubRegion(a?.subRegion ?? "");
                         // The account fills or clears the locked fields, so their old errors no longer apply.
                         setErrors((prev) => ({ ...prev, accountId: undefined, subRegion: undefined }));
-                        setF((prev) => ({
-                          ...prev,
-                          accountId: a?.id ?? "",
-                          accountName: a?.name ?? "",
-                          opportunityId: "",
-                          lineItemId: "",
-                          country: a?.country ?? prev.country,
-                          // The sub region goes with the account: a new account never keeps the previous one's.
-                          subRegion: a?.subRegion ?? "",
-                          address: a?.address ?? "",
-                        }));
+                        setF((prev) => withAccount(prev, a));
                       }}
                     />
                   )}
@@ -483,8 +474,8 @@ function EngagementForm({
                     value={f.subRegion}
                     error={errors.subRegion}
                     options={ref.data?.subRegions ?? []}
-                    disabled={subRegionLocked}
-                    lock={subRegionLocked}
+                    disabled={sublocked}
+                    lock={sublocked}
                     onChange={(v) => set("subRegion", v)}
                   />
                   <span />
