@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { extractDriveId, inferMimeType, parseSavedUrls } from "./parDriveFile";
+import { extractDriveId, inferMimeType, isOpenableUrl, parseSavedUrls } from "./parDriveFile";
 
 describe("inferMimeType", () => {
   it.each([
@@ -25,6 +25,20 @@ describe("inferMimeType", () => {
     ["https://drive.google.com/file/d/abc123/view", "application/vnd.google-apps.file"],
   ])("%s -> %s", (url, expected) => {
     expect(inferMimeType(url)).toBe(expected);
+  });
+});
+
+describe("isOpenableUrl", () => {
+  it.each([
+    ["https://drive.google.com/file/d/abc123/view", true],
+    ["  https://docs.google.com/document/d/abc123/edit  ", true],
+    ["http://drive.google.com/file/d/abc123/view", false],
+    ["javascript:alert(1)", false],
+    ["JavaScript:alert(1)", false],
+    ["data:text/html,<script>alert(1)</script>", false],
+    ["not a url", false],
+  ])("%s -> %s", (url, expected) => {
+    expect(isOpenableUrl(url)).toBe(expected);
   });
 });
 

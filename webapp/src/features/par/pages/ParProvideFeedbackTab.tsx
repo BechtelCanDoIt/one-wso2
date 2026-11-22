@@ -94,7 +94,7 @@ export default function ParProvideFeedbackTab() {
   const question = cycle.parCycleConfigurations?.threeSixtyReviewQuestion || "";
   const ratings = cycle.parCycleConfigurations?.threeSixtyReviewRatings ?? [];
   const allRequests = requests.data ?? [];
-  const isVoluntary = (r: Par360ReviewRequest) => !r.isEmployeeRequested && !r.isLeadRequested;
+  const isVoluntary = (r: Par360ReviewRequest) => !r.isRequested;
   const filtered = allRequests.filter((r) => (filter === "voluntary" ? isVoluntary(r) : !isVoluntary(r)));
   const deadlinePassed = isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
 

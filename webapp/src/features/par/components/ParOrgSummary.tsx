@@ -115,9 +115,15 @@ export default function ParOrgSummary({
   const totals = calculateTeamsCompletionTotals(teams.data ?? []);
 
   const handleCloseCycle = () => {
+    // Closing can't be undone, so say how many PARs would close unshared; the backend doesn't refuse it.
+    const unshared = totals.totalEmployees - totals.totalLeadReviewComplete;
     setCloseConfirm({
       title: "Close ongoing PAR cycle?",
-      text: "This means members of your organization can't do changes to the current PAR anymore.",
+      text:
+        (unshared > 0
+          ? `${unshared} of ${totals.totalEmployees} PARs aren't shared by their lead yet. `
+          : "") +
+        "Once closed, members of your organization can't change this cycle's PARs, and it can't be reopened.",
       confirmLabel: "Proceed",
       confirmAction: () => {
         closeCycle.mutate("CLOSED", {
@@ -187,6 +193,8 @@ export default function ParOrgSummary({
                 color="error"
                 startIcon={<XCircleIcon size={16} />}
                 onClick={handleCloseCycle}
+                // The warning counts the unshared PARs, so wait for the counts.
+                disabled={teams.isLoading}
               >
                 Close Cycle
               </Button>

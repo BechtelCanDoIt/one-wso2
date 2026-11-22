@@ -45,7 +45,7 @@ import { Delta, linkifyDelta } from "../util/parLinkify";
 // characters differently (an apostrophe), and Quill would replace its whole
 // contents on every keystroke, each time a fresh step to undo.
 const TOOLBAR = [["undo", "redo"], ["bold", "italic", "underline"], [{ list: "ordered" }, { list: "bullet" }], [{ indent: "-1" }, { indent: "+1" }], ["link"], ["clean"]];
-const FORMATS = ["bold", "italic", "underline", "list", "bullet", "indent", "link"];
+const FORMATS = ["bold", "italic", "underline", "list", "indent", "link"];
 
 // Quill has no undo or redo icon: arrows drawn like its own, so they take the
 // theme's colours.

@@ -228,9 +228,7 @@ export default function ParGiveFeedbackTab() {
                     key={`${item.kind}-${item.email}-${i}`}
                     name={item.name}
                     email={item.email}
-                    note={[feedbackSource(item), leaderByEmail.get(item.email.toLowerCase())?.jobRole]
-                      .filter(Boolean)
-                      .join(" · ")}
+                    note={feedbackSource(item)}
                     kind={item.kind}
                   >
                     <ItemActions

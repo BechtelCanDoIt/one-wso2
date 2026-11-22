@@ -52,6 +52,7 @@ import { cycleSurvey, useLeadership360Results, useLeadership360Surveys } from ".
 import { formatIndex } from "../util/review360Form";
 import { calculateCycleActiveStep } from "../util/parCycleActiveStep";
 import { resolveGridSelectedIds } from "../util/parGridSelection";
+import { isDeadlinePassed } from "../util/parDeadline";
 import ParCycleDatesStepper from "./ParCycleDatesStepper";
 import ParStatusChip from "./ParStatusChip";
 import ParCompletionKpiTile from "./ParCompletionKpiTile";
@@ -374,7 +375,13 @@ export default function ParLeadTeamRoster({
       display: "flex",
       align: "center",
       headerAlign: "center",
-      renderCell: (params) => <ParStatusChip content={params.row.parLeadStatus} />,
+      // Not shared after the lead deadline: still possible until the cycle closes, but late.
+      renderCell: (params) =>
+        params.row.parLeadStatus !== "SHARED" && isDeadlinePassed(cycle.parLeadDeadline) ? (
+          <Chip size="small" variant="outlined" color="error" label="Overdue" />
+        ) : (
+          <ParStatusChip content={params.row.parLeadStatus} />
+        ),
     },
     {
       field: "parRating",

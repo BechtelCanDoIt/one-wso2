@@ -69,7 +69,7 @@ import { isPreviewEnabled } from "@config/previewFeatures";
 import { deadlineEndsEverywhereAt, hasEndedEverywhere, isDeadlinePassed } from "../util/parDeadline";
 import { formatShortDate, formatShortDateTime } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
-import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
+import { isOpenableUrl, parseSavedUrls, type DriveFile } from "../util/parDriveFile";
 import {
   LEADERSHIP_ALLOWED_RATINGS,
   isEvidenceMissing,
@@ -231,7 +231,13 @@ export default function ParLeadReviewPanel({
   const deadlineDate = isAdminView ? cycle.parCycleEndDate : cycle.parLeadDeadline;
   const deadlinePassed = isDeadlinePassed(deadlineDate);
   const shared = parRatingData?.parLeadStatus === "SHARED";
-  const readOnly = isAdminView ? !adminForceEdit : shared || deadlinePassed;
+  // A lead can still save and share after the lead deadline, until the cycle closes; it's shown as late.
+  // People Ops' edits stop at the cycle's end date.
+  const editingClosed = isAdminView ? deadlinePassed : cycle.parCycleStatus === "CLOSED";
+  const leadLate = !isAdminView && !shared && deadlinePassed;
+  const specialRatingClosed =
+    !isAdminView && Boolean(cycle.parSpecialRatingDeadline) && isDeadlinePassed(cycle.parSpecialRatingDeadline!);
+  const readOnly = isAdminView ? !adminForceEdit : shared || editingClosed;
   const savedLeadComment = decodeParComment(parRatingData?.parLeadComment);
   const savedAdminComment = decodeParComment(parRatingData?.parAdminComment);
 
@@ -317,7 +323,11 @@ export default function ParLeadReviewPanel({
                 ...(parRatingValue && !ratingLocked ? { parRating: parRatingValue } : {}),
                 // The backend's wire vocabulary is TOP5P/TOP20P/NOT_ASSIGNED;
                 // "NONE" is only this component's UI sentinel and 400s if sent.
-                parSpecialRating: specialRating === "NONE" ? "NOT_ASSIGNED" : specialRating,
+                // Sent only when changed: after the Top 5%/20% deadline the backend refuses any
+                // value, so sending the unchanged one blocked Save draft and Share.
+                ...(specialRating !== toSpecialRatingUi(parRatingData.parSpecialRating)
+                  ? { parSpecialRating: specialRating === "NONE" ? "NOT_ASSIGNED" : specialRating }
+                  : {}),
                 // Omitted entirely rather than sent as "" when there's no
                 // evidence — the backend requires a non-empty string whenever
                 // this field is present, so an empty string 400s.
@@ -455,10 +465,10 @@ export default function ParLeadReviewPanel({
   // Sharing once the self-review has closed comes with PAR 2.0 (par2); until then, once the employee shares.
   const employeeReady =
     isAdminView || employeeShared || (isPreviewEnabled("par2") && selfReviewClosed);
-  const canSaveDraft = !readOnly && !deadlinePassed && !ratingUpdate.isPending && !saveSummary.isPending && dirty;
+  const canSaveDraft = !readOnly && !editingClosed && !ratingUpdate.isPending && !saveSummary.isPending && dirty;
   const canShare =
     !readOnly &&
-    !deadlinePassed &&
+    !editingClosed &&
     !ratingUpdate.isPending &&
     !saveSummary.isPending &&
     employeeReady &&
@@ -497,10 +507,14 @@ export default function ParLeadReviewPanel({
         <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
           <Box flex={1}>
             {statusAlert}
-            {deadlinePassed && !shared && (
+            {isAdminView && deadlinePassed && !shared && (
               <Alert severity="error" sx={{ mt: 1.5 }}>
-                {isAdminView ? "The cycle ended on" : "Lead's feedback deadline is passed on"}:{" "}
-                {formatShortDate(deadlineDate)}.
+                The cycle ended on: {formatShortDate(deadlineDate)}.
+              </Alert>
+            )}
+            {leadLate && (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                The lead review deadline passed on {formatShortDate(deadlineDate)}. You can still share, but it's late.
               </Alert>
             )}
           </Box>
@@ -705,6 +719,8 @@ export default function ParLeadReviewPanel({
                       value={shownRating}
                       onChange={(e) => setParRatingValue(e.target.value as string)}
                       disabled={ratingUpdate.isPending || ratingLocked}
+                      // MUI names the combobox from labelId; aria-labelledby alone didn't reach it.
+                      labelId="lead-review-rating-label"
                       aria-labelledby="lead-review-rating-label"
                     >
                       {ratingOptions(cycle.parCycleConfigurations?.parRatings ?? [], {
@@ -762,8 +778,12 @@ export default function ParLeadReviewPanel({
                           else setSpecialRatingToConfirm(picked);
                         }}
                         disabled={
-                          ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false || selfReviewMissed
+                          ratingUpdate.isPending ||
+                          parRatingData.parSpecialRatingEligibility === false ||
+                          selfReviewMissed ||
+                          specialRatingClosed
                         }
+                        labelId="lead-review-special-rating-label"
                         aria-labelledby="lead-review-special-rating-label"
                       >
                         {(Object.keys(SPECIAL_RATING_LABELS) as SpecialRatingUi[]).map((value) => (
@@ -772,6 +792,11 @@ export default function ParLeadReviewPanel({
                           </ComplexSelect.MenuItem>
                         ))}
                       </ComplexSelect>
+                    )}
+                    {!readOnly && specialRatingClosed && (
+                      <Typography variant="caption" color="text.secondary">
+                        The Top 5%/20% deadline passed on {formatShortDate(cycle.parSpecialRatingDeadline!)}
+                      </Typography>
                     )}
                   </Box>
                 )}
@@ -838,18 +863,24 @@ export default function ParLeadReviewPanel({
                       {parRatingData.parPerformanceNoticeAck
                         .split(/\r?\n/)
                         .filter((line) => line.trim() !== "")
-                        .map((line) => (
-                          <Link
-                            key={line}
-                            component="button"
-                            variant="body2"
-                            onClick={() => window.open(line.trim(), "_blank", "noopener,noreferrer")}
-                            sx={{ display: "flex", alignItems: "center", gap: 1, textAlign: "left" }}
-                          >
-                            <ExternalLinkIcon size={14} />
-                            {line}
-                          </Link>
-                        ))}
+                        .map((line) =>
+                          isOpenableUrl(line) ? (
+                            <Link
+                              key={line}
+                              component="button"
+                              variant="body2"
+                              onClick={() => window.open(line.trim(), "_blank", "noopener,noreferrer")}
+                              sx={{ display: "flex", alignItems: "center", gap: 1, textAlign: "left" }}
+                            >
+                              <ExternalLinkIcon size={14} />
+                              {line}
+                            </Link>
+                          ) : (
+                            <Typography key={line} variant="body2" sx={{ wordBreak: "break-all" }}>
+                              {line}
+                            </Typography>
+                          ),
+                        )}
                     </Stack>
                   </Box>
                 )}
