@@ -46,11 +46,9 @@ export function PersonRow({
           </Typography>
           {kind && <KindChip kind={kind} />}
         </Box>
-        {note && (
-          <Typography variant="caption" color="text.secondary" noWrap component="div">
-            {note}
-          </Typography>
-        )}
+        <Typography variant="caption" color="text.secondary" noWrap component="div">
+          {note ? `${note} · ${email}` : email}
+        </Typography>
       </Box>
       {children}
     </Box>

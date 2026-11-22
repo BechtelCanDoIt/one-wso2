@@ -193,8 +193,9 @@ export default function ParOrgSummary({
                 color="error"
                 startIcon={<XCircleIcon size={16} />}
                 onClick={handleCloseCycle}
-                // The warning counts the unshared PARs, so wait for the counts.
-                disabled={teams.isLoading}
+                // The warning counts the unshared PARs, so only once the counts have loaded (Retry restores it
+                // after a failed load).
+                disabled={!teams.isSuccess}
               >
                 Close Cycle
               </Button>

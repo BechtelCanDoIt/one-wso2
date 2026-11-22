@@ -30,9 +30,9 @@ describe("inferMimeType", () => {
 
 describe("isOpenableUrl", () => {
   it.each([
-    ["https://drive.google.com/file/d/abc123/view", true],
-    ["  https://docs.google.com/document/d/abc123/edit  ", true],
-    ["http://drive.google.com/file/d/abc123/view", false],
+    ["https://example.com/files/abc123/view", true],
+    ["  https://example.com/documents/abc123/edit  ", true],
+    ["http://example.com/files/abc123/view", false],
     ["javascript:alert(1)", false],
     ["JavaScript:alert(1)", false],
     ["data:text/html,<script>alert(1)</script>", false],
