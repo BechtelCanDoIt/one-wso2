@@ -34,6 +34,7 @@ import { isPreviewEnabled } from "@config/previewFeatures";
 import ParDateField from "./ParDateField";
 import ParRatingSettingsFields from "./ParRatingSettingsFields";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useParGlobalConfig } from "../api/useParAdmin";
 import { useCreateParCycle } from "../api/useParMutations";
 import type { ParCycleCreate } from "../api/types";
@@ -328,7 +329,7 @@ export default function ParCycleCreationDialog({
                     </Typography>
                   </Grid>
                 )}
-                {ratingsSeeded && (
+                {ratingsSeeded ? (
                   <Grid size={12} sx={{ mt: 1 }}>
                     <ParRatingSettingsFields
                       value={ratingSettings}
@@ -336,6 +337,18 @@ export default function ParCycleCreationDialog({
                       suggestions={globalConfig.data ? allRatings(ratingSettingsFrom(globalConfig.data)) : []}
                     />
                   </Grid>
+                ) : (
+                  globalConfig.isError && (
+                    <Grid size={12}>
+                      <ErrorNotice
+                        error={globalConfig.error}
+                        onRetry={() => globalConfig.refetch()}
+                        retrying={globalConfig.isFetching}
+                      >
+                        Couldn't load the global PAR configurations.
+                      </ErrorNotice>
+                    </Grid>
+                  )
                 )}
               </>
             ) : (

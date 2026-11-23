@@ -19,16 +19,24 @@ import type { ParCycleConfigurations } from "../api/types";
 /** The ratings People Ops set for a new cycle or as the global configurations,
  * and the rules that depend on them. A rule is "" until one is picked. */
 export interface RatingSettings {
+  /** The ratings anyone outside the leadership group can be given. */
   employeeRatings: string[];
+  /** The ratings the leadership group can be given. */
   leadershipAllowedRatings: string[];
+  /** The rating that unlocks Top 5%/20%: an employee rating. */
   top5p20pEnabledRating: string;
+  /** The rating that needs evidence before it's shared: any rating. */
   evidenceEnabledRating: string;
+  /** The rating given for a missed deadline: an employee rating. */
   missedDeadlineRating: string;
+  /** The same for the leadership group: one of theirs. */
   leadershipMissedDeadlineRating: string;
 }
 
+/** A rule's field in RatingSettings. */
 export type RatingRule = "top5p20pEnabledRating" | "evidenceEnabledRating" | "missedDeadlineRating" | "leadershipMissedDeadlineRating";
 
+/** Every rule, in the order they're shown. */
 export const RATING_RULES: RatingRule[] = [
   "top5p20pEnabledRating",
   "evidenceEnabledRating",
@@ -93,6 +101,7 @@ export function withRatingList(
 export function ratingSettingsProblem(settings: RatingSettings): string | null {
   if (settings.employeeRatings.length === 0) return "Add at least one employee rating.";
   if (settings.leadershipAllowedRatings.length === 0) return "Add at least one rating for the leadership group.";
-  if (RATING_RULES.some((rule) => !settings[rule])) return "Pick a rating for each rule.";
+  const choices = ruleChoices(settings);
+  if (RATING_RULES.some((rule) => !choices[rule].includes(settings[rule]))) return "Pick a rating for each rule.";
   return null;
 }

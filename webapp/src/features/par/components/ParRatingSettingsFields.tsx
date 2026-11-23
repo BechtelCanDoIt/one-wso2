@@ -32,7 +32,8 @@ const RULE_LABELS: Record<RatingRule, string> = {
 
 // The ratings for employees and for the leadership group, and the rules that
 // depend on them, for Create PAR Cycle and Configurations. A rule only offers
-// ratings it can be, and is cleared when its rating leaves the list.
+// ratings it can be, and is cleared when its rating leaves the list; one that
+// arrives as something else shows blank, to be picked.
 export default function ParRatingSettingsFields({
   value,
   onChange,
@@ -83,8 +84,8 @@ export default function ParRatingSettingsFields({
             fullWidth
             required
             disabled={disabled}
-            error={!value[rule]}
-            value={value[rule]}
+            error={!choices[rule].includes(value[rule])}
+            value={choices[rule].includes(value[rule]) ? value[rule] : ""}
             onChange={(e) => onChange({ ...value, [rule]: e.target.value as string })}
           >
             {choices[rule].map((rating) => (

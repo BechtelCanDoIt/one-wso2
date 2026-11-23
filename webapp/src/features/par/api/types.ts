@@ -45,7 +45,7 @@ export type ParF2fStatus = "PENDING" | "SCHEDULED" | "COMPLETED";
 export type ParEmployeeAcceptanceStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 
 // A cycle's configurations, or the global ones new cycles start from. Mirrors
-// par-app backend's ParCycleConfigurations. The two questions and the 360
+// the PAR backend's ParCycleConfigurations. The two questions and the 360
 // rating list are only for cycles without the PAR 2.0 forms.
 export interface ParCycleConfigurations {
   employeeParQuestion: string;

@@ -76,6 +76,21 @@ describe("ratingRulesFor", () => {
       leadershipMissedDeadlineRating: "Step Up",
     });
   });
+
+  it("takes the lists and rules a cycle carries with par2 off", () => {
+    setPar2(false);
+    expect(ratingRulesFor(sent)).toMatchObject({
+      employeeRatings: ["Great", "Needs Improvements"],
+      leadershipAllowedRatings: ["Great", "Outstanding"],
+      top5p20pEnabledRating: "Great",
+      leadershipMissedDeadlineRating: "Outstanding",
+    });
+    // "Outstanding" is only the leadership group's, whatever the old rules say.
+    expect(ratingOptions(ratingRulesFor(sent), { isLeadership: false, currentRating: "" })).toEqual([
+      "Great",
+      "Needs Improvements",
+    ]);
+  });
 });
 
 describe("ratingOptions", () => {

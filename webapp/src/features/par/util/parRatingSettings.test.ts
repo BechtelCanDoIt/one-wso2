@@ -77,4 +77,12 @@ describe("ratingSettingsProblem", () => {
       "Add at least one rating for the leadership group.",
     );
   });
+
+  it("needs each rule to be one of its choices", () => {
+    expect(ratingSettingsProblem({ ...DEFAULTS, top5p20pEnabledRating: "Step Up" })).toBe("Pick a rating for each rule.");
+    expect(ratingSettingsProblem({ ...DEFAULTS, leadershipMissedDeadlineRating: "Needs Improvements" })).toBe(
+      "Pick a rating for each rule.",
+    );
+    expect(ratingSettingsProblem({ ...DEFAULTS, evidenceEnabledRating: "Step Up" })).toBeNull();
+  });
 });

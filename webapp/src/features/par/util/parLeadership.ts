@@ -48,11 +48,11 @@ export interface RatingRules {
 }
 
 /** A cycle's rating rules. Where `par2` is on, the backend sends every one
- * with the cycle and they're taken as they are. Elsewhere the backend sends
- * only the list, so the deploy's config.js ratings and the rules from before
- * a cycle carried its own fill the rest: Step Up only for the leadership
- * team, who could be given Successful and Step Up, and Needs Improvements
- * (Step Up for the leadership team) for a missed deadline. */
+ * with the cycle and they're taken as they are. Elsewhere the backend may
+ * send only the list, so the deploy's config.js ratings and the rules from
+ * before a cycle carried its own fill what it leaves out: Step Up only for
+ * the leadership team, who could be given Successful and Step Up, and Needs
+ * Improvements (Step Up for the leadership team) for a missed deadline. */
 export function ratingRulesFor(configurations: ParCycleConfigurations | undefined): RatingRules {
   const parRatings = configurations?.parRatings ?? [];
   if (isPreviewEnabled("par2")) {
@@ -68,7 +68,7 @@ export function ratingRulesFor(configurations: ParCycleConfigurations | undefine
   }
   return {
     parRatings,
-    employeeRatings: parRatings.filter((r) => r !== OLD_LEADERSHIP_ONLY_RATING),
+    employeeRatings: configurations?.employeeRatings ?? parRatings.filter((r) => r !== OLD_LEADERSHIP_ONLY_RATING),
     leadershipAllowedRatings: configurations?.leadershipAllowedRatings ?? OLD_LEADERSHIP_RATINGS,
     top5p20pEnabledRating: configurations?.top5p20pEnabledRating ?? deployTop5p20pRating,
     evidenceEnabledRating: configurations?.evidenceEnabledRating ?? deployEvidenceRating,

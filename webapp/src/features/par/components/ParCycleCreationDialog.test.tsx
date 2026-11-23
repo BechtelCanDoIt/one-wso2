@@ -31,9 +31,11 @@ const globalConfig: ParCycleConfigurations = {
   leadershipMissedDeadlineRating: "Step Up",
 };
 const mutate = vi.fn();
+const loaded = { isSuccess: true, data: globalConfig };
+let configQuery: Record<string, unknown> = loaded;
 
 vi.mock("../api/useParAdmin", () => ({
-  useParGlobalConfig: () => ({ isSuccess: true, data: globalConfig }),
+  useParGlobalConfig: () => configQuery,
 }));
 vi.mock("../api/useParMutations", () => ({
   useCreateParCycle: () => ({ mutate, isPending: false, isError: false, error: null }),
@@ -53,6 +55,7 @@ const setPar2 = (on: boolean) => {
 };
 afterEach(() => {
   window.config = originalConfig;
+  configQuery = loaded;
   mutate.mockReset();
 });
 
@@ -109,6 +112,20 @@ describe("ParCycleCreationDialog", () => {
       .closest(".MuiChip-root") as HTMLElement;
     fireEvent.click(within(stepUp).getByTestId("CancelIcon"));
     expect(screen.getByRole("button", { name: "Start Cycle" })).toBeDisabled();
+  });
+
+  it("says when the configurations can't load, offers a retry, and can't start, with par2 on", () => {
+    setPar2(true);
+    const refetch = vi.fn();
+    configQuery = { isSuccess: false, isError: true, error: new Error("Network down"), refetch, isFetching: false };
+    render(<ParCycleCreationDialog open onClose={vi.fn()} />);
+    fillNameAndDates();
+    expect(screen.getByText(/Couldn't load the global PAR configurations\./)).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Employees" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start Cycle" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(refetch).toHaveBeenCalled();
   });
 
   it("keeps the questions and both rating lists, with par2 off", () => {
