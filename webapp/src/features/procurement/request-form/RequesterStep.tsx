@@ -102,7 +102,7 @@ export default function RequesterStep({
                 {...params}
                 label="Additional approvers"
                 required={needsApprover}
-                slotProps={{ ...params.slotProps, inputLabel: { ...params.slotProps?.inputLabel, shrink: true } }}
+                InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
                 // Focus the field only when the requester asked for it, not when it is simply there.
                 autoFocus={asked && selected.length === 0}
                 placeholder={selected.length ? "" : "Search by email"}

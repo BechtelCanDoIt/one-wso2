@@ -102,6 +102,44 @@ export interface BackendItDetails {
   installationType: "PORTABLE" | "PLUGIN" | "BROWSER_EXTENSION" | "STANDALONE" | "SAAS";
 }
 
+export interface BackendEventCost {
+  category: "SPONSORSHIP_FEE" | "BOOTH_BUILD_AND_DESIGN" | "TRAVEL_AND_ACCOMMODATION" | "SWAG" | "PRINT_AND_BANNERS" | "PAYMENT_TO_PARTNER" | "OTHER";
+  description?: string | null;
+  amount: number;
+}
+
+export interface BackendEventDetails {
+  eventType: "INDUSTRY_EVENT_SPONSORSHIP" | "WSO2CON" | "WSO2_SUMMIT" | "OXYGENATE" | "ROUNDTABLE_LUNCH_AND_LEARN" | "OTHER_MARKETING_EVENT";
+  isShortlisted?: boolean;
+  shortlistLineId?: string | null;
+  eventName: string;
+  startDate: string;
+  endDate: string;
+  audience: string;
+  packageName?: string | null;
+  packageInclusions?: BackendPackageInclusion[];
+  prospectusUrl?: string | null;
+  partnerInvestmentPercent?: number;
+  targetAccountCount?: number | null;
+  keyAccounts?: string | null;
+  newPipelineAmount?: number | null;
+  roiCalculatorUrl?: string | null;
+  attendedBefore?: boolean | null;
+  previousCost?: number | null;
+  previousPipeline?: number | null;
+  brandGoal?: string | null;
+  costs?: BackendEventCost[];
+}
+
+export type BackendPackageInclusion =
+  | "BOOTH_SPACE"
+  | "DELEGATE_PASSES"
+  | "SPEAKING_SLOT"
+  | "LEAD_SCANNING"
+  | "LOGO_PLACEMENT"
+  | "ATTENDEE_LIST"
+  | "SPONSORED_SESSION";
+
 export interface BackendVendor {
   name: string;
   website?: string | null;
@@ -155,6 +193,7 @@ export interface BackendRequestDetail extends BackendRequestSummary {
   additionalApprovers: string[];
   itDetails: BackendItDetails | null;
   saasDetails: BackendSaasDetails | null;
+  eventDetails: BackendEventDetails | null;
   priority: BackendPriority | null;
   assigneeEmail: string | null;
   collaborators: string[];
@@ -181,6 +220,7 @@ export interface BackendNewRequest {
   additionalApprovers: string[];
   itDetails: BackendItDetails | null;
   saasDetails: BackendSaasDetails | null;
+  eventDetails: BackendEventDetails | null;
   answers: BackendAnswer[];
 }
 

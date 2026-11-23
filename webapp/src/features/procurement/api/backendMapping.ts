@@ -17,11 +17,14 @@
 // Turns the backend's wire shapes into the UI's own types, so a change in the
 // backend's shape is felt here and in its tests, not on a screen.
 
-import { emptyDetails } from "../request-form/requestFormModel";
+import { emptyDetails, emptyEvent } from "../request-form/requestFormModel";
 import type {
   BudgetApproverOption,
   BudgetDetails,
   Choice,
+  EventDetails,
+  EventType,
+  PackageInclusion,
   ApprovalDecisionInput,
   ApprovalItem,
   Person,
@@ -44,6 +47,7 @@ import type {
   BackendBudgetApprover,
   BackendCategory,
   BackendDirectoryUser,
+  BackendEventDetails,
   BackendEngagementOption,
   BackendNewRequest,
   BackendReferenceItem,
@@ -220,6 +224,86 @@ function toDecision(d: BackendRequestDetail): TeamLeadDecision {
   };
 }
 
+/** An amount, as the form holds it: text, blank when the backend has none. */
+const amountText = (value: number | null | undefined): string => (value === null || value === undefined ? "" : String(value));
+
+function toEvent(e: BackendEventDetails | null): EventDetails {
+  const base = emptyEvent();
+  if (!e) return base;
+  const costs = { ...base.costs };
+  const otherCosts: EventDetails["otherCosts"] = [];
+  for (const cost of e.costs ?? []) {
+    if (cost.category === "OTHER") {
+      otherCosts.push({ description: cost.description ?? "", amount: String(cost.amount) });
+    } else {
+      costs[cost.category] = String((Number(costs[cost.category] || 0) * 100 + cost.amount * 100) / 100);
+    }
+  }
+  return {
+    ...base,
+    eventType: e.eventType as EventType,
+    shortlisted: yesNo(e.isShortlisted ?? false),
+    shortlistLineId: e.shortlistLineId ?? "",
+    name: e.eventName,
+    startDate: e.startDate,
+    endDate: e.endDate,
+    audience: e.audience,
+    packageName: e.packageName ?? "",
+    packageInclusions: (e.packageInclusions ?? []) as PackageInclusion[],
+    prospectusUrl: e.prospectusUrl ?? "",
+    costs,
+    otherCosts: otherCosts.length ? otherCosts : base.otherCosts,
+    partnerInvestmentPercent: e.partnerInvestmentPercent ? String(e.partnerInvestmentPercent) : "",
+    targetAccounts: amountText(e.targetAccountCount),
+    keyAccounts: e.keyAccounts ?? "",
+    newPipeline: amountText(e.newPipelineAmount),
+    roiCalculatorUrl: e.roiCalculatorUrl ?? "",
+    attendedBefore: e.attendedBefore === null || e.attendedBefore === undefined ? "" : yesNo(e.attendedBefore),
+    previousCost: amountText(e.previousCost),
+    previousPipeline: amountText(e.previousPipeline),
+    brandGoal: e.brandGoal ?? "",
+  };
+}
+
+/** What the backend is sent for an event: only what the questionnaire asks for this type of event, and for a shortlisted one. */
+function toBackendEvent(input: PurchaseRequestInput): BackendEventDetails | null {
+  if (input.category !== "EVENTS") return null;
+  const e = input.event;
+  const industry = e.eventType === "INDUSTRY_EVENT_SPONSORSHIP";
+  const shortlisted = e.shortlisted === "yes";
+  const asked = industry && !shortlisted;
+  const amount = (value: string): number | null => (value.trim() === "" ? null : Number(value));
+  return {
+    eventType: e.eventType as BackendEventDetails["eventType"],
+    isShortlisted: shortlisted,
+    shortlistLineId: shortlisted ? orNull(e.shortlistLineId) : null,
+    eventName: e.name.trim(),
+    startDate: e.startDate,
+    endDate: e.endDate,
+    audience: e.audience.trim(),
+    packageName: industry ? orNull(e.packageName) : null,
+    packageInclusions: industry ? e.packageInclusions : [],
+    prospectusUrl: industry ? orNull(e.prospectusUrl) : null,
+    partnerInvestmentPercent: e.partnerInvestmentPercent.trim() === "" ? 0 : Number(e.partnerInvestmentPercent),
+    targetAccountCount: shortlisted ? null : amount(e.targetAccounts),
+    keyAccounts: shortlisted ? null : orNull(e.keyAccounts),
+    newPipelineAmount: shortlisted ? null : amount(e.newPipeline),
+    roiCalculatorUrl: shortlisted ? null : orNull(e.roiCalculatorUrl),
+    attendedBefore: asked && e.attendedBefore !== "" ? e.attendedBefore === "yes" : null,
+    previousCost: asked && e.attendedBefore === "yes" ? amount(e.previousCost) : null,
+    previousPipeline: asked && e.attendedBefore === "yes" ? amount(e.previousPipeline) : null,
+    brandGoal: shortlisted ? null : orNull(e.brandGoal),
+    costs: [
+      ...(Object.entries(e.costs) as [keyof EventDetails["costs"], string][])
+        .filter(([, value]) => value.trim() !== "" && Number(value) > 0)
+        .map(([category, value]) => ({ category, amount: Number(value) })),
+      ...e.otherCosts
+        .filter((c) => c.amount.trim() !== "" && Number(c.amount) > 0)
+        .map((c) => ({ category: "OTHER" as const, description: orNull(c.description), amount: Number(c.amount) })),
+    ],
+  };
+}
+
 const toVendor = (v: BackendVendor): Vendor => ({
   name: v.name,
   website: v.website ?? "",
@@ -249,6 +333,7 @@ export function toRequest(d: BackendRequestDetail): PurchaseRequest {
     additionalApprovers: d.additionalApprovers,
     teamLeadDecision: toDecision(d),
     details: toDetails(d),
+    event: toEvent(d.eventDetails),
     vendors,
     budget,
     budgetApproverId: d.budgetApproverId === null ? "" : String(d.budgetApproverId),
@@ -282,11 +367,12 @@ export function toNewRequest(input: PurchaseRequestInput): BackendNewRequest {
         vendorDocsLinks: d.integrates === "yes" && d.vendorDocs === "yes" ? orNull(d.vendorDocsLink) : null,
       }
     : null;
+  const isEvent = input.category === "EVENTS";
   return {
-    category: input.category === "IT" ? "IT" : "NON_IT",
-    requirementDetails: d.description.trim(),
-    businessJustification: orNull(d.businessJustification),
-    roi: orNull(d.roi),
+    category: input.category === "IT" ? "IT" : input.category === "EVENTS" ? "MARKETING_EVENTS" : "NON_IT",
+    requirementDetails: isEvent ? input.event.name.trim() : d.description.trim(),
+    businessJustification: isEvent ? null : orNull(d.businessJustification),
+    roi: isEvent ? null : orNull(d.roi),
     additionalSpecifications: input.category === "NON-IT" ? orNull(d.specifications) : null,
     salesforceCampaign: orNull(b.salesforceCampaign),
     notes: orNull(input.notes),
@@ -314,6 +400,7 @@ export function toNewRequest(input: PurchaseRequestInput): BackendNewRequest {
         }
       : null,
     saasDetails,
+    eventDetails: toBackendEvent(input),
     answers: [],
   };
 }

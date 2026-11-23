@@ -15,11 +15,11 @@
 // under the License.
 
 import { describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Person, ProcurementLookups, ProcurementMe } from "../types";
 import RequestForm from "./RequestForm";
-import { emptyDraft, type RequestDraft } from "./requestFormModel";
+import { emptyDraft, emptyEvent, type RequestDraft } from "./requestFormModel";
 
 const { directorySearch } = vi.hoisted(() => ({ directorySearch: vi.fn() }));
 
@@ -180,11 +180,79 @@ describe("RequestForm, the steps after it", () => {
     expect(screen.getByRole("textbox", { name: /requirement to use this software/ })).toBeRequired();
   });
 
-  it("offers Marketing & Events as coming soon, not as a choice", async () => {
+  it("offers Marketing & Events as a choice that asks the event questions", async () => {
     const { user } = renderForm();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText("Coming soon")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Marketing/ })).toBeNull();
+    expect(screen.queryByText("Coming soon")).toBeNull();
+    await user.click(screen.getByRole("button", { name: /Marketing/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(screen.getByRole("heading", { name: "Event details" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: /Event type/ })).toBeRequired();
+    expect(screen.getByText("What is the total investment?")).toBeInTheDocument();
+    expect(screen.queryByText("What is the sponsorship package, and what does it include?")).toBeNull();
+  });
+
+  it("asks only an industry event sponsorship for its package and whether it was attended before", async () => {
+    const draft = { ...emptyDraft(), category: "EVENTS" as const, event: { ...emptyEvent(), eventType: "WSO2CON" as const } };
+    const { user } = renderForm(me, draft);
+    for (let i = 0; i < 2; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
+    expect(screen.queryByRole("textbox", { name: /Package name/ })).toBeNull();
+    expect(screen.queryByRole("group", { name: /Previous attendance/ })).toBeNull();
+  });
+
+  it("asks a shortlisted industry event neither for its pipeline nor for earlier attendance", async () => {
+    const draft = { ...emptyDraft(), category: "EVENTS" as const, event: { ...emptyEvent(), eventType: "INDUSTRY_EVENT_SPONSORSHIP" as const } };
+    const { user } = renderForm(me, draft);
+    for (let i = 0; i < 2; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
+    expect(screen.getByRole("group", { name: /Previous attendance/ })).toBeInTheDocument();
+    await user.click(within(screen.getByRole("group", { name: /EVENT_SHORTLIST/ })).getByRole("button", { name: "Yes" }));
+    expect(screen.queryByRole("group", { name: /Previous attendance/ })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: /Completed ROI calculator/ })).toBeNull();
+  });
+
+  it("lets the other costs be several lines, and shows the partner and WSO2 shares", async () => {
+    const draft = { ...emptyDraft(), category: "EVENTS" as const, event: { ...emptyEvent(), eventType: "WSO2CON" as const } };
+    const { user } = renderForm(me, draft);
+    for (let i = 0; i < 2; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
+    await user.type(screen.getByRole("spinbutton", { name: "Payment to partner" }), "1000");
+    await user.type(screen.getByRole("textbox", { name: "What it is for" }), "Stickers");
+    await user.type(screen.getByRole("spinbutton", { name: "Amount" }), "200");
+    await user.click(screen.getByRole("button", { name: "Add another cost" }));
+    expect(screen.getAllByRole("textbox", { name: "What it is for" })).toHaveLength(2);
+    expect(screen.getByText("Total investment: $1,200.00")).toBeInTheDocument();
+    await user.type(screen.getByRole("spinbutton", { name: /Partner's share/ }), "25");
+    expect(screen.getByText(/WSO2 investment: 75%/)).toBeInTheDocument();
+  });
+
+  it("adds the costs up", async () => {
+    const draft = { ...emptyDraft(), category: "EVENTS" as const, event: { ...emptyEvent(), eventType: "WSO2CON" as const } };
+    const { user } = renderForm(me, draft);
+    for (let i = 0; i < 2; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
+    await user.type(screen.getByRole("spinbutton", { name: "Sponsorship fee" }), "1000");
+    await user.type(screen.getByRole("spinbutton", { name: /^SWAG/ }), "500");
+    expect(screen.getByText("Total investment: $1,500.00")).toBeInTheDocument();
+  });
+
+  it("asks for the budget without vendors on the next step", async () => {
+    const draft = {
+      ...emptyDraft(),
+      category: "EVENTS" as const,
+      event: {
+        ...emptyEvent(),
+        eventType: "WSO2CON" as const,
+        shortlisted: "yes" as const,
+        shortlistLineId: "L-42",
+        name: "WSO2CON",
+        startDate: "2027-03-01",
+        endDate: "2027-03-03",
+        audience: "Customers",
+        costs: { ...emptyEvent().costs, SWAG: "100" },
+      },
+    };
+    const { user } = renderForm(me, draft);
+    for (let i = 0; i < 3; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
+    expect(screen.getByRole("heading", { name: "Budget" })).toBeInTheDocument();
+    expect(screen.queryByText("Proposed vendor")).toBeNull();
   });
 
   it("asks for the engagement code and budget approver only after a business unit, and clears them when it changes", async () => {

@@ -20,7 +20,7 @@ import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useBudgetApprovers, useEngagementCodes } from "../api/useProcurement";
 import type { BudgetDetails, ProcurementLookups, Vendor } from "../types";
 import { OptionField, SectionHeading, StepTitle, TextInput } from "./formFields";
-import { emptyVendor, type RequestDraft } from "./requestFormModel";
+import { budgetLabel, emptyVendor, type RequestDraft } from "./requestFormModel";
 
 const TWO_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } } as const;
 const THREE_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" } } as const;
@@ -73,7 +73,8 @@ export default function BudgetStep({
   lookups: ProcurementLookups;
   onChange: (patch: Partial<RequestDraft>) => void;
 }) {
-  const required = draft.category === "NON-IT";
+  const required = draft.category === "NON-IT" || draft.category === "EVENTS";
+  const isEvent = draft.category === "EVENTS";
   const b = draft.budget;
   // The engagement codes are asked for by the unit's name; the approvers by its code.
   const unitName = lookups.businessUnits.find((u) => u.value === b.businessUnit)?.label ?? "";
@@ -89,32 +90,36 @@ export default function BudgetStep({
 
   return (
     <Stack spacing={2.5} sx={{ py: 1 }}>
-      <StepTitle>Vendor &amp; budget</StepTitle>
+      <StepTitle>{budgetLabel(draft.category)}</StepTitle>
 
-      <SectionHeading first>Vendors</SectionHeading>
-      {draft.vendors.map((vendor, index) => (
-        <VendorBlock
-          key={index}
-          vendor={vendor}
-          index={index}
-          total={draft.vendors.length}
-          removable={draft.vendors.length > 1}
-          onChange={(patch) => setVendor(index, patch)}
-          onRemove={() => onChange({ vendors: draft.vendors.filter((_, i) => i !== index) })}
-        />
-      ))}
-      <Button size="small" startIcon={<PlusIcon size={16} />} onClick={() => onChange({ vendors: [...draft.vendors, emptyVendor()] })} sx={{ alignSelf: "flex-start" }}>
-        Add another vendor
-      </Button>
+      {!isEvent && (
+        <>
+          <SectionHeading first>Vendors</SectionHeading>
+          {draft.vendors.map((vendor, index) => (
+            <VendorBlock
+              key={index}
+              vendor={vendor}
+              index={index}
+              total={draft.vendors.length}
+              removable={draft.vendors.length > 1}
+              onChange={(patch) => setVendor(index, patch)}
+              onRemove={() => onChange({ vendors: draft.vendors.filter((_, i) => i !== index) })}
+            />
+          ))}
+          <Button size="small" startIcon={<PlusIcon size={16} />} onClick={() => onChange({ vendors: [...draft.vendors, emptyVendor()] })} sx={{ alignSelf: "flex-start" }}>
+            Add another vendor
+          </Button>
+        </>
+      )}
 
-      <SectionHeading>Budget details</SectionHeading>
+      <SectionHeading first={isEvent}>{isEvent ? "What are the budget details?" : "Budget details"}</SectionHeading>
       <Box sx={THREE_COLUMNS}>
         <OptionField label="Budget category" required={required} choices={lookups.budgetCategories} value={b.category} onChange={(category) => setBudget({ category })} />
         <OptionField label="Business unit" required={required} choices={lookups.businessUnits} value={b.businessUnit} onChange={changeUnit} />
         <OptionField label="Product" required={required} choices={lookups.products} value={b.product} onChange={(product) => setBudget({ product })} />
         <OptionField label="Region" required={required} choices={lookups.regions} value={b.region} onChange={changeRegion} />
         <OptionField
-          label="Engagement code"
+          label={isEvent ? "Engagement code / Budget owner" : "Engagement code"}
           required={required}
           choices={codes.data ?? []}
           value={b.engagementCode}
@@ -127,28 +132,32 @@ export default function BudgetStep({
       </Box>
       {codes.isError && <Alert severity="error">{describeError(codes.error)}</Alert>}
 
-      <SectionHeading>Budget approval</SectionHeading>
-      <OptionField
-        label="Budget approver"
-        required={required}
-        choices={approverChoices}
-        value={draft.budgetApproverId}
-        onChange={(budgetApproverId) => onChange({ budgetApproverId })}
-        disabled={!b.businessUnit && !b.region}
-        placeholder={!b.businessUnit && !b.region ? "Select a business unit or region first" : approvers.isFetching ? "Loading…" : undefined}
-        emptyText="No budget approver covers this business unit or region"
-      />
-      {approvers.isError && <Alert severity="error">{describeError(approvers.error)}</Alert>}
+      {!isEvent && (
+        <>
+          <SectionHeading>Budget approval</SectionHeading>
+          <OptionField
+            label="Budget approver"
+            required={required}
+            choices={approverChoices}
+            value={draft.budgetApproverId}
+            onChange={(budgetApproverId) => onChange({ budgetApproverId })}
+            disabled={!b.businessUnit && !b.region}
+            placeholder={!b.businessUnit && !b.region ? "Select a business unit or region first" : approvers.isFetching ? "Loading…" : undefined}
+            emptyText="No budget approver covers this business unit or region"
+          />
+          {approvers.isError && <Alert severity="error">{describeError(approvers.error)}</Alert>}
 
-      <SectionHeading>Notes</SectionHeading>
-      <TextInput
-        multiline
-        minRows={3}
-        label="Notes for the Procurement team"
-        placeholder="Anything else Procurement should know: deadlines, existing quotes, contract references…"
-        value={draft.notes}
-        onChange={(notes) => onChange({ notes })}
-      />
+          <SectionHeading>Notes</SectionHeading>
+          <TextInput
+            multiline
+            minRows={3}
+            label="Notes for the Procurement team"
+            placeholder="Anything else Procurement should know: deadlines, existing quotes, contract references…"
+            value={draft.notes}
+            onChange={(notes) => onChange({ notes })}
+          />
+        </>
+      )}
     </Stack>
   );
 }

@@ -98,7 +98,7 @@ function RequestDetailContent() {
                 Cancel request
               </Button>
             )}
-            {data.status === "rejected" && data.category !== "EVENTS" && (
+            {data.status === "rejected" && (
               <Button variant="contained" onClick={() => setEditing(true)}>
                 Edit and resubmit
               </Button>

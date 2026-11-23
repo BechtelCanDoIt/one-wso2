@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Link, MemoryRouter, Route, Routes } from "react-router";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { emptyBudget, emptyDetails } from "../request-form/requestFormModel";
+import { emptyBudget, emptyDetails, emptyEvent } from "../request-form/requestFormModel";
 import type { ProcurementLookups, ProcurementMe, PurchaseRequest } from "../types";
 import RequestDetailPage from "./RequestDetailPage";
 
@@ -70,6 +70,7 @@ const request = (id: string, patch: Partial<PurchaseRequest> = {}): PurchaseRequ
   additionalApprovers: [],
   teamLeadDecision: { decision: "rejected", notes: "Get a second quote.", decidedAt: "2026-11-03T08:00:00.000Z", decidedBy: "lead@example.com", isOverride: false },
   details: emptyDetails(),
+  event: emptyEvent(),
   vendors: [],
   budget: emptyBudget(),
   budgetApproverId: "",

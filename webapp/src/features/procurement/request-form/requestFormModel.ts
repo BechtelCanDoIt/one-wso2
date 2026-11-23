@@ -21,6 +21,9 @@
 import type {
   BudgetDetails,
   Choice,
+  EventCostCategory,
+  EventDetails,
+  PackageInclusion,
   Person,
   ProcurementCategory,
   ProcurementLookups,
@@ -59,11 +62,53 @@ export const INSTALLATION_TYPES: readonly Choice[] = [
   { value: "PORTABLE", label: "Portable application" },
 ];
 
+export const EVENT_TYPES: readonly Choice[] = [
+  { value: "INDUSTRY_EVENT_SPONSORSHIP", label: "Industry event sponsorship" },
+  { value: "WSO2CON", label: "WSO2CON" },
+  { value: "WSO2_SUMMIT", label: "WSO2 Summit" },
+  { value: "OXYGENATE", label: "Oxygenate" },
+  { value: "ROUNDTABLE_LUNCH_AND_LEARN", label: "Roundtable & Lunch & Learn" },
+  { value: "OTHER_MARKETING_EVENT", label: "Other marketing events" },
+];
+
+export const PACKAGE_INCLUSIONS: readonly { value: PackageInclusion; label: string }[] = [
+  { value: "BOOTH_SPACE", label: "Booth space" },
+  { value: "DELEGATE_PASSES", label: "Delegate passes" },
+  { value: "SPEAKING_SLOT", label: "Speaking slot" },
+  { value: "LEAD_SCANNING", label: "Lead scanning" },
+  { value: "LOGO_PLACEMENT", label: "Logo placement" },
+  { value: "ATTENDEE_LIST", label: "Attendee list" },
+  { value: "SPONSORED_SESSION", label: "Sponsored session" },
+];
+
+export const EVENT_COSTS: readonly { value: EventCostCategory; label: string }[] = [
+  { value: "SPONSORSHIP_FEE", label: "Sponsorship fee" },
+  { value: "BOOTH_BUILD_AND_DESIGN", label: "Booth build and design" },
+  { value: "TRAVEL_AND_ACCOMMODATION", label: "Travel and accommodation (estimate)" },
+  { value: "SWAG", label: "SWAG" },
+  { value: "PRINT_AND_BANNERS", label: "Print and banners" },
+  { value: "PAYMENT_TO_PARTNER", label: "Payment to partner" },
+];
+
+/** How many times its total investment an event has to return as new pipeline. */
+export const REQUIRED_PIPELINE_MULTIPLE = 4;
+
 export const REQUEST_STEPS = ["Requester details", "Procurement category", "Requirement details", "Vendor & budget", "Review & submit"] as const;
 
 /** The requirement step's title, which names the category once one is chosen. */
 export function detailsLabel(category: RequestDraft["category"]): string {
-  return category === "IT" ? "IT requirement details" : category === "NON-IT" ? "Non-IT requirement details" : "Requirement details";
+  return category === "IT"
+    ? "IT requirement details"
+    : category === "NON-IT"
+      ? "Non-IT requirement details"
+      : category === "EVENTS"
+        ? "Event details"
+        : "Requirement details";
+}
+
+/** The budget step's title: an event has no vendors to ask for. */
+export function budgetLabel(category: RequestDraft["category"]): string {
+  return category === "EVENTS" ? "Budget" : "Vendor & budget";
 }
 
 export const STEP_REQUESTER = 1;
@@ -77,6 +122,7 @@ export interface RequestDraft {
   /** People who may approve besides the team lead, which the backend chooses. */
   additionalApprovers: Person[];
   details: RequestDetails;
+  event: EventDetails;
   vendors: Vendor[];
   budget: BudgetDetails;
   /** The chosen budget approver's id, or "" when none. */
@@ -114,6 +160,32 @@ export function emptyDetails(): RequestDetails {
   };
 }
 
+export function emptyEvent(): EventDetails {
+  return {
+    eventType: "",
+    shortlisted: "",
+    shortlistLineId: "",
+    name: "",
+    startDate: "",
+    endDate: "",
+    audience: "",
+    packageName: "",
+    packageInclusions: [],
+    prospectusUrl: "",
+    costs: { SPONSORSHIP_FEE: "", BOOTH_BUILD_AND_DESIGN: "", TRAVEL_AND_ACCOMMODATION: "", SWAG: "", PRINT_AND_BANNERS: "", PAYMENT_TO_PARTNER: "" },
+    otherCosts: [{ description: "", amount: "" }],
+    partnerInvestmentPercent: "",
+    targetAccounts: "",
+    keyAccounts: "",
+    newPipeline: "",
+    roiCalculatorUrl: "",
+    attendedBefore: "",
+    previousCost: "",
+    previousPipeline: "",
+    brandGoal: "",
+  };
+}
+
 export function emptyVendor(): Vendor {
   return { name: "", website: "", contact: "", email: "", phone: "" };
 }
@@ -127,6 +199,7 @@ export function emptyDraft(): RequestDraft {
     category: "",
     additionalApprovers: [],
     details: emptyDetails(),
+    event: emptyEvent(),
     vendors: [emptyVendor()],
     budget: emptyBudget(),
     budgetApproverId: "",
@@ -138,9 +211,15 @@ export function emptyDraft(): RequestDraft {
 /** A rejected request, reopened for editing. The declaration must be made again on resubmit. */
 export function draftFromRequest(request: PurchaseRequest): RequestDraft {
   return {
-    category: request.category === "EVENTS" ? "" : request.category,
+    category: request.category,
     additionalApprovers: request.additionalApprovers.map((email) => ({ id: email, name: email, email })),
     details: { ...request.details },
+    event: {
+      ...request.event,
+      costs: { ...request.event.costs },
+      otherCosts: request.event.otherCosts.length ? request.event.otherCosts.map((c) => ({ ...c })) : [{ description: "", amount: "" }],
+      packageInclusions: [...request.event.packageInclusions],
+    },
     vendors: request.vendors.length ? request.vendors.map((v) => ({ ...v })) : [emptyVendor()],
     budget: { ...request.budget },
     budgetApproverId: request.budgetApproverId,
@@ -212,6 +291,79 @@ function saasDetailsMissing(d: RequestDetails): string[] {
   return missing;
 }
 
+const parseAmount = (value: string): number => (blank(value) ? NaN : Number(value));
+
+/** An amount is not negative and has at most two decimals. */
+const invalidAmount = (value: string): boolean => {
+  if (blank(value)) return false;
+  const n = Number(value);
+  return !Number.isFinite(n) || n < 0 || Math.round(n * 100) / 100 !== n;
+};
+
+const invalidLink = (value: string): boolean => {
+  if (blank(value)) return false;
+  try {
+    return !["http:", "https:"].includes(new URL(value.trim()).protocol);
+  } catch {
+    return true;
+  }
+};
+
+/** The event's total investment: its cost lines added up, a blank or invalid line counting as nothing. */
+export function totalInvestment(costs: EventDetails["costs"], otherCosts: EventDetails["otherCosts"]): number {
+  const amounts = [...Object.values(costs), ...otherCosts.map((c) => c.amount)];
+  const cents = amounts.reduce((sum, value) => sum + (Number.isFinite(parseAmount(value)) ? Math.round(parseAmount(value) * 100) : 0), 0);
+  return cents / 100;
+}
+
+/** A share, when given, is a whole number from 0 to 100. */
+const invalidPercent = (value: string): boolean => {
+  if (blank(value)) return false;
+  const n = Number(value);
+  return !Number.isInteger(n) || n < 0 || n > 100;
+};
+
+function eventDetailsMissing(e: EventDetails): string[] {
+  const missing: string[] = [];
+  if (!e.eventType) missing.push("Event type");
+  if (!e.shortlisted) missing.push("Whether the event is on the shortlist");
+  if (e.shortlisted === "yes" && blank(e.shortlistLineId)) missing.push("Shortlist Line ID");
+  if (blank(e.name)) missing.push("Event name");
+  if (blank(e.startDate) || blank(e.endDate)) missing.push("Event dates");
+  else if (e.endDate < e.startDate) missing.push("An end date on or after the start date");
+  if (blank(e.audience)) missing.push("Main audience");
+  const industry = e.eventType === "INDUSTRY_EVENT_SPONSORSHIP";
+  if (industry) {
+    if (blank(e.packageName)) missing.push("Sponsorship package name");
+    if (invalidLink(e.prospectusUrl)) missing.push("A valid prospectus link");
+  }
+  if (Object.values(e.costs).some(invalidAmount) || e.otherCosts.some((c) => invalidAmount(c.amount))) {
+    missing.push("Costs that are not negative, with at most two decimals");
+  }
+  if (e.otherCosts.some((c) => !blank(c.amount) && blank(c.description))) missing.push("A description for each other cost");
+  if (invalidPercent(e.partnerInvestmentPercent)) missing.push("A partner investment share from 0 to 100");
+  const total = totalInvestment(e.costs, e.otherCosts);
+  if (total <= 0) missing.push("At least one cost");
+  if (e.shortlisted === "yes") return missing;
+  if (industry) {
+    if (!e.attendedBefore) missing.push("Whether the event was attended before");
+    if (e.attendedBefore === "yes") {
+      if (blank(e.previousCost) || invalidAmount(e.previousCost)) missing.push("What the earlier attendance cost");
+      if (blank(e.previousPipeline) || invalidAmount(e.previousPipeline)) missing.push("The pipeline the earlier attendance created");
+    }
+  }
+  const accounts = parseAmount(e.targetAccounts);
+  if (blank(e.targetAccounts) || !Number.isInteger(accounts) || accounts < 0) missing.push("A whole number of target accounts");
+  else if (accounts > 0 && blank(e.keyAccounts)) missing.push("Key target accounts");
+  const pipeline = parseAmount(e.newPipeline);
+  if (blank(e.newPipeline) || invalidAmount(e.newPipeline)) missing.push("New pipeline amount");
+  if (blank(e.roiCalculatorUrl) || invalidLink(e.roiCalculatorUrl)) missing.push("A valid ROI calculator link");
+  if (Number.isFinite(pipeline) && total > 0 && pipeline < total * REQUIRED_PIPELINE_MULTIPLE) {
+    missing.push(`New pipeline of at least ${REQUIRED_PIPELINE_MULTIPLE}x the total investment`);
+  }
+  return missing;
+}
+
 function nonItDetailsMissing(d: RequestDetails): string[] {
   const missing: string[] = [];
   if (blank(d.description)) missing.push("Details of goods / services");
@@ -221,14 +373,14 @@ function nonItDetailsMissing(d: RequestDetails): string[] {
 
 function budgetMissing(draft: RequestDraft): string[] {
   const missing: string[] = [];
-  if (draft.category === "NON-IT") {
+  if (draft.category === "NON-IT" || draft.category === "EVENTS") {
     const b = draft.budget;
     if (blank(b.category)) missing.push("Budget category");
     if (blank(b.businessUnit)) missing.push("Business unit");
     if (blank(b.product)) missing.push("Product");
     if (blank(b.region)) missing.push("Region");
     if (blank(b.engagementCode)) missing.push("Engagement code");
-    if (blank(draft.budgetApproverId)) missing.push("Budget approver");
+    if (draft.category === "NON-IT" && blank(draft.budgetApproverId)) missing.push("Budget approver");
   }
   return missing;
 }
@@ -257,7 +409,9 @@ export function missingForStep(step: number, draft: RequestDraft, me: Procuremen
         ? itDetailsMissing(draft.details)
         : draft.category === "NON-IT"
           ? nonItDetailsMissing(draft.details)
-          : ["Procurement category"];
+          : draft.category === "EVENTS"
+            ? eventDetailsMissing(draft.event)
+            : ["Procurement category"];
     case STEP_BUDGET:
       return budgetMissing(draft);
     default:
@@ -296,10 +450,11 @@ export function draftToInput(draft: RequestDraft): PurchaseRequestInput {
       adminNames: cleanList(d.adminNames),
       integrations: d.integrates === "yes" ? d.integrations.filter((i) => !blank(i.system)) : [],
     },
-    vendors: draft.vendors.filter((v) => !blank(v.name)),
+    event: draft.event,
+    vendors: draft.category === "EVENTS" ? [] : draft.vendors.filter((v) => !blank(v.name)),
     budget: draft.budget,
-    budgetApproverId: draft.budgetApproverId,
-    notes: draft.notes,
+    budgetApproverId: draft.category === "EVENTS" ? "" : draft.budgetApproverId,
+    notes: draft.category === "EVENTS" && draft.event.shortlisted === "yes" ? "" : draft.notes,
     declarationAccepted: draft.declarationAccepted,
   };
 }

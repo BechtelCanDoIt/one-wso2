@@ -55,6 +55,7 @@ export default function SavedRequestSummary({ request }: { request: PurchaseRequ
           teamLead: request.teamLead,
           additionalApprovers: request.additionalApprovers,
           details: request.details,
+          event: request.event,
           vendors: request.vendors,
           budget: lookups.data ? budgetForDisplay(request.budget, lookups.data, engagementCodes.data ?? []) : request.budget,
           budgetApprover: request.budgetApproverName,

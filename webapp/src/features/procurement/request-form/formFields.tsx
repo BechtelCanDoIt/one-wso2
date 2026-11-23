@@ -76,6 +76,7 @@ export function TextInput({
   required,
   placeholder,
   type = "text",
+  min = 1,
   multiline,
   minRows,
   disabled,
@@ -85,7 +86,9 @@ export function TextInput({
   onChange?: (value: string) => void;
   required?: boolean;
   placeholder?: string;
-  type?: "text" | "email" | "number";
+  type?: "text" | "email" | "number" | "date";
+  /** The smallest number a number field takes. */
+  min?: number;
   multiline?: boolean;
   minRows?: number;
   disabled?: boolean;
@@ -106,7 +109,7 @@ export function TextInput({
         onChange={(e) => onChange?.(e.target.value)}
         slotProps={{
           inputLabel: { shrink: true },
-          htmlInput: { maxLength: multiline ? LONG_MAX : SHORT_MAX, ...(type === "number" ? { min: 1 } : {}) },
+          htmlInput: { maxLength: multiline ? LONG_MAX : SHORT_MAX, ...(type === "number" ? { min } : {}) },
         }}
       />
     </Box>
@@ -338,7 +341,7 @@ export function OptionField({
             label={label}
             required={required}
             placeholder={prompt}
-            slotProps={{ ...params.slotProps, inputLabel: { ...params.slotProps?.inputLabel, shrink: true } }}
+            InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
           />
         )}
       />
@@ -386,11 +389,8 @@ export function ChipsField({
             label={label}
             required={required}
             placeholder={values.length ? "" : placeholder}
-            slotProps={{
-              ...params.slotProps,
-              inputLabel: { ...params.slotProps?.inputLabel, shrink: true },
-              htmlInput: { ...params.inputProps, maxLength: SHORT_MAX, "aria-required": required || undefined },
-            }}
+            InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+            inputProps={{ ...params.inputProps, maxLength: SHORT_MAX, "aria-required": required || undefined }}
           />
         )}
       />

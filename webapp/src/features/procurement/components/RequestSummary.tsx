@@ -16,9 +16,9 @@
 
 import { useState, type ReactNode } from "react";
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from "@wso2/oxygen-ui";
-import { INSTALLATION_TYPES } from "../request-form/requestFormModel";
+import { EVENT_COSTS, EVENT_TYPES, INSTALLATION_TYPES, PACKAGE_INCLUSIONS, totalInvestment } from "../request-form/requestFormModel";
 import { formatDate } from "../procurementFormat";
-import type { BudgetDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
+import type { BudgetDetails, EventDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
 
 /** Everything a summary shows, whether it comes from a draft in the form or a saved request. */
 export interface RequestView {
@@ -28,6 +28,7 @@ export interface RequestView {
   /** Emails of the people who may approve besides the team lead. */
   additionalApprovers: string[];
   details: RequestDetails;
+  event: EventDetails;
   vendors: Vendor[];
   /** Each value is what a person reads (a label), not a code. */
   budget: BudgetDetails;
@@ -183,6 +184,60 @@ function NonItRows({ d }: { d: RequestDetails }) {
   );
 }
 
+const usd = (amount: number): string => amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
+const amountOf = (value: string): string => (value.trim() === "" ? "" : usd(Number(value)));
+
+function EventRows({ e }: { e: EventDetails }) {
+  const industry = e.eventType === "INDUSTRY_EVENT_SPONSORSHIP";
+  const shortlisted = e.shortlisted === "yes";
+  return (
+    <>
+      <Row label="Event type" value={choiceLabel(EVENT_TYPES, e.eventType)} />
+      <Row label="On the EVENT_SHORTLIST" value={shortlisted ? joined("Yes", `Line ID ${e.shortlistLineId}`) : yesNo(e.shortlisted)} />
+      <Row label="Event name" value={e.name} />
+      <Row label="Dates" value={e.startDate && e.endDate ? `${formatDate(e.startDate)} to ${formatDate(e.endDate)}` : ""} />
+      <Row label="Main audience" value={e.audience} />
+      {industry && (
+        <>
+          <Row label="Sponsorship package" value={e.packageName} />
+          <Row label="Package includes" value={e.packageInclusions.map((i) => choiceLabel(PACKAGE_INCLUSIONS, i)).join(", ")} optional />
+          <Row label="Prospectus or contract" value={e.prospectusUrl} optional />
+        </>
+      )}
+      {EVENT_COSTS.filter(({ value }) => e.costs[value].trim() !== "").map(({ value, label }) => (
+        <Row key={value} label={label} value={amountOf(e.costs[value])} />
+      ))}
+      {e.otherCosts
+        .filter((c) => c.amount.trim() !== "")
+        .map((c, index) => (
+          <Row key={index} label={c.description.trim() ? `Other cost: ${c.description.trim()}` : "Other cost"} value={amountOf(c.amount)} />
+        ))}
+      <Row label="Total investment" value={usd(totalInvestment(e.costs, e.otherCosts))} />
+      <Row label="Partner investment" value={e.partnerInvestmentPercent.trim() ? `${e.partnerInvestmentPercent.trim()}%` : "0%"} optional />
+      {!shortlisted && (
+        <>
+          <Row label="Target accounts attending" value={e.targetAccounts} />
+          <Row label="Key accounts" value={e.keyAccounts} optional />
+          <Row label="New pipeline" value={amountOf(e.newPipeline)} />
+          <Row label="ROI calculator" value={e.roiCalculatorUrl} />
+        </>
+      )}
+      {industry && !shortlisted && (
+        <>
+          <Row label="Attended before" value={yesNo(e.attendedBefore)} />
+          {e.attendedBefore === "yes" && (
+            <>
+              <Row label="Earlier attendance cost" value={amountOf(e.previousCost)} />
+              <Row label="Earlier pipeline" value={amountOf(e.previousPipeline)} />
+            </>
+          )}
+        </>
+      )}
+      {!shortlisted && <Row label="Brand goal" value={e.brandGoal} optional />}
+    </>
+  );
+}
+
 /**
  * Read-only layout of a request. Its cards follow the form's steps, so a
  * reviewer finds each answer where it was given.
@@ -198,8 +253,8 @@ export default function RequestSummary({
 }) {
   const edit = (step: number) => (onEditStep ? () => onEditStep(step) : undefined);
   const { budget: b } = view;
-  // Budget details are required for Non-IT only; for IT a blank one was skipped on purpose.
-  const budgetOptional = view.category !== "NON-IT";
+  // Budget details are required for Non-IT and Events; for IT a blank one was skipped on purpose.
+  const budgetOptional = view.category === "IT";
   return (
     <Stack spacing={2}>
       <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
@@ -219,33 +274,36 @@ export default function RequestSummary({
         <Row label="Procurement category" value={view.category ? CATEGORY_LABEL[view.category] : ""} />
         {view.category === "IT" && <ItRows d={view.details} />}
         {view.category === "NON-IT" && <NonItRows d={view.details} />}
+        {view.category === "EVENTS" && <EventRows e={view.event} />}
       </Section>
 
-      <Section title="Vendors" onEdit={edit(4)}>
-        {view.vendors.length === 0 ? (
-          <Row label="Proposed vendor" optional />
-        ) : (
-          view.vendors.map((v, index) => (
-            <Row
-              key={index}
-              label={view.vendors.length > 1 ? `Proposed vendor ${index + 1}` : "Proposed vendor"}
-              value={[joined(v.name, v.website), joined(v.contact, v.email, v.phone)].filter(Boolean).join("\n")}
-            />
-          ))
-        )}
-      </Section>
+      {view.category !== "EVENTS" && (
+        <Section title="Vendors" onEdit={edit(4)}>
+          {view.vendors.length === 0 ? (
+            <Row label="Proposed vendor" optional />
+          ) : (
+            view.vendors.map((v, index) => (
+              <Row
+                key={index}
+                label={view.vendors.length > 1 ? `Proposed vendor ${index + 1}` : "Proposed vendor"}
+                value={[joined(v.name, v.website), joined(v.contact, v.email, v.phone)].filter(Boolean).join("\n")}
+              />
+            ))
+          )}
+        </Section>
+      )}
 
       <Section title="Budget" onEdit={edit(4)}>
         <Row label="Budget category" value={b.category} optional={budgetOptional} />
         <Row label="Business unit" value={b.businessUnit} optional={budgetOptional} />
         <Row label="Product" value={b.product} optional={budgetOptional} />
         <Row label="Region" value={b.region} optional={budgetOptional} />
-        <Row label="Engagement code" value={b.engagementCode} optional={budgetOptional} />
+        <Row label={view.category === "EVENTS" ? "Engagement code / Budget owner" : "Engagement code"} value={b.engagementCode} optional={budgetOptional} />
         <Row label="Salesforce campaign" value={b.salesforceCampaign} optional />
-        <Row label="Budget approver" value={view.budgetApprover} optional={budgetOptional} />
+        {view.category !== "EVENTS" && <Row label="Budget approver" value={view.budgetApprover} optional={budgetOptional} />}
       </Section>
 
-      <Section title="Notes" onEdit={edit(4)}>
+      <Section title="Notes" onEdit={edit(view.category === "EVENTS" ? 3 : 4)}>
         <Row label="Notes for Procurement" value={view.notes} optional />
       </Section>
     </Stack>

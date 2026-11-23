@@ -31,7 +31,7 @@ import type {
   PurchaseRequest,
   PurchaseRequestInput,
 } from "../types";
-import { emptyDetails } from "../request-form/requestFormModel";
+import { emptyDetails, emptyEvent } from "../request-form/requestFormModel";
 import type { ProcurementApi } from "./procurementApi";
 
 const person = (name: string, email: string): Person => ({ id: email, name, email });
@@ -123,7 +123,7 @@ const MIN_QUERY_LENGTH = 3;
 
 function seedRequests(requester: Person): PurchaseRequest[] {
   const L = MOCK_LOOKUPS;
-  const base = { additionalApprovers: [], notes: "", priority: null, assignee: "", collaborators: [], requester, budgetApproverId: "10", budgetApproverName: "Budget Owner" };
+  const base = { event: emptyEvent(), additionalApprovers: [], notes: "", priority: null, assignee: "", collaborators: [], requester, budgetApproverId: "10", budgetApproverName: "Budget Owner" };
   const vendor = (name: string, website: string) => ({ name, website, contact: "", email: "", phone: "" });
   return [
     {
@@ -248,6 +248,7 @@ function approvalSeeds(approver: Person): PurchaseRequest[] {
   const L = MOCK_LOOKUPS;
   const waiting = { decision: "pending" as const, notes: "", decidedAt: null, decidedBy: "", isOverride: false };
   const base = {
+    event: emptyEvent(),
     additionalApprovers: [],
     notes: "",
     priority: null,
@@ -300,7 +301,7 @@ function approvalSeeds(approver: Person): PurchaseRequest[] {
 const urgencyRank = (priority: Priority | null): number => (priority ? ["P1", "P2", "P3"].indexOf(priority) : 3);
 
 function titleFor(input: PurchaseRequestInput): string {
-  const text = input.category === "IT" ? input.details.product : input.details.description;
+  const text = input.category === "IT" ? input.details.product : input.category === "EVENTS" ? input.event.name : input.details.description;
   return text.trim().split("\n")[0].slice(0, 80) || "Untitled request";
 }
 
@@ -361,6 +362,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         additionalApprovers: input.additionalApprovers,
         teamLeadDecision: { decision: "pending", notes: "", decidedAt: null, decidedBy: "", isOverride: false },
         details: input.details,
+        event: input.event,
         vendors: input.vendors,
         budget: input.budget,
         budgetApproverId: input.budgetApproverId,
@@ -387,6 +389,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         additionalApprovers: input.additionalApprovers,
         teamLeadDecision: { decision: "pending", notes: "", decidedAt: null, decidedBy: "", isOverride: false },
         details: input.details,
+        event: input.event,
         vendors: input.vendors,
         budget: input.budget,
         budgetApproverId: input.budgetApproverId,

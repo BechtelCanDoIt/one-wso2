@@ -21,6 +21,7 @@ import {
   draftFromRequest,
   draftToInput,
   emptyDraft,
+  emptyEvent,
   incompleteSteps,
   missingForStep,
   STEP_BUDGET,
@@ -209,6 +210,7 @@ describe("draftFromRequest", () => {
     category: "IT",
     additionalApprovers: ["other@example.com"],
     details: completeIt().details,
+    event: emptyEvent(),
     vendors: [],
     budget: { category: "CAT-1", businessUnit: "BU-1", product: "", region: "", engagementCode: "", salesforceCampaign: "" },
     budgetApproverId: "10",
@@ -222,8 +224,119 @@ describe("draftFromRequest", () => {
     expect(draft.declarationAccepted).toBe(false);
   });
 
-  it("leaves the category empty for a Marketing & Events request, which cannot be edited here", () => {
-    expect(draftFromRequest({ ...request, category: "EVENTS" }).category).toBe("");
+  it("reopens a Marketing & Events request with its event", () => {
+    const event = { ...emptyEvent(), name: "KubeCon" };
+    const draft = draftFromRequest({ ...request, category: "EVENTS", event });
+    expect(draft.category).toBe("EVENTS");
+    expect(draft.event.name).toBe("KubeCon");
+  });
+});
+
+describe("a Marketing & Events request", () => {
+  const completeEvent = (): RequestDraft => {
+    const draft = emptyDraft();
+    return {
+      ...draft,
+      category: "EVENTS",
+      budget: { category: "CAT-1", businessUnit: "BU-1", product: "PRD-1", region: "REG-1", engagementCode: "ENG-1", salesforceCampaign: "" },
+      budgetApproverId: "10",
+      event: {
+        ...emptyEvent(),
+        eventType: "INDUSTRY_EVENT_SPONSORSHIP",
+        shortlisted: "no",
+        name: "KubeCon",
+        startDate: "2027-03-01",
+        endDate: "2027-03-03",
+        audience: "Platform engineers",
+        packageName: "Gold sponsor",
+        attendedBefore: "no",
+        costs: { ...emptyEvent().costs, SPONSORSHIP_FEE: "60000", SWAG: "500.50" },
+        targetAccounts: "10",
+        keyAccounts: "Acme, Globex",
+        newPipeline: "500000",
+        roiCalculatorUrl: "https://example.com/roi",
+      },
+    };
+  };
+  const missing = (draft: RequestDraft) => missingForStep(STEP_DETAILS, draft, me);
+
+  it("is complete with the event, its costs and pipeline", () => {
+    expect(missing(completeEvent())).toEqual([]);
+    expect(missingForStep(STEP_BUDGET, completeEvent(), me)).toEqual([]);
+  });
+
+  it("needs the budget details but no budget approver, and sends none", () => {
+    expect(missingForStep(STEP_BUDGET, { ...completeEvent(), budget: emptyDraft().budget }, me)).toContain("Budget category");
+    expect(missingForStep(STEP_BUDGET, { ...completeEvent(), budgetApproverId: "" }, me)).toEqual([]);
+    expect(draftToInput(completeEvent()).budgetApproverId).toBe("");
+  });
+
+  it("does not ask a shortlisted event for its earlier attendance, even an industry sponsorship", () => {
+    const draft = completeEvent();
+    const shortlisted = { ...draft.event, shortlisted: "yes" as const, shortlistLineId: "L-42", attendedBefore: "" as const };
+    expect(missing({ ...draft, event: shortlisted })).toEqual([]);
+    expect(missing({ ...draft, event: { ...shortlisted, eventType: "WSO2CON" } })).toEqual([]);
+  });
+
+  it("takes several other costs, which need a description, and a partner share from 0 to 100", () => {
+    const draft = completeEvent();
+    const costs = { ...emptyEvent().costs };
+    const withEvent = (patch: Partial<typeof draft.event>): RequestDraft => ({ ...draft, event: { ...draft.event, costs, ...patch } });
+    expect(missing(withEvent({ otherCosts: [{ description: "Stickers", amount: "100" }, { description: "Lanyards", amount: "50" }], partnerInvestmentPercent: "20", newPipeline: "599" }))).toContain(
+      "New pipeline of at least 4x the total investment",
+    );
+    expect(missing(withEvent({ otherCosts: [{ description: " ", amount: "100" }] }))).toContain("A description for each other cost");
+    expect(missing(withEvent({ otherCosts: [{ description: "Stickers", amount: "-5" }] }))).toContain("Costs that are not negative, with at most two decimals");
+    for (const bad of ["101", "-1", "12.5"]) {
+      expect(missing(withEvent({ partnerInvestmentPercent: bad })), bad).toContain("A partner investment share from 0 to 100");
+    }
+    expect(missing({ ...draft, event: { ...draft.event, partnerInvestmentPercent: "0" } })).not.toContain("A partner investment share from 0 to 100");
+  });
+
+  it("asks for the package and earlier attendance only for an industry event sponsorship", () => {
+    const draft = completeEvent();
+    expect(missing({ ...draft, event: { ...draft.event, packageName: "", attendedBefore: "" } })).toEqual([
+      "Sponsorship package name",
+      "Whether the event was attended before",
+    ]);
+    expect(missing({ ...draft, event: { ...draft.event, eventType: "WSO2CON", packageName: "", attendedBefore: "" } })).toEqual([]);
+    expect(missing({ ...draft, event: { ...draft.event, attendedBefore: "yes" } })).toEqual([
+      "What the earlier attendance cost",
+      "The pipeline the earlier attendance created",
+    ]);
+  });
+
+  it("skips target accounts, pipeline and the ROI link for a shortlisted event, which needs its Line ID", () => {
+    const draft = completeEvent();
+    const shortlisted = { ...draft.event, shortlisted: "yes" as const, targetAccounts: "", newPipeline: "", roiCalculatorUrl: "" };
+    expect(missing({ ...draft, event: shortlisted })).toEqual(["Shortlist Line ID"]);
+    expect(missing({ ...draft, event: { ...shortlisted, shortlistLineId: "L-42" } })).toEqual([]);
+  });
+
+  it("needs a cost, key accounts when there are target accounts, and links that are http or https", () => {
+    const draft = completeEvent();
+    expect(missing({ ...draft, event: { ...draft.event, costs: emptyEvent().costs } })).toContain("At least one cost");
+    expect(missing({ ...draft, event: { ...draft.event, keyAccounts: "" } })).toContain("Key target accounts");
+    expect(missing({ ...draft, event: { ...draft.event, targetAccounts: "0", keyAccounts: "" } })).toEqual([]);
+    expect(missing({ ...draft, event: { ...draft.event, roiCalculatorUrl: "ftp://example.com/roi" } })).toContain("A valid ROI calculator link");
+  });
+
+  it("needs new pipeline of at least four times the total investment", () => {
+    const draft = completeEvent();
+    expect(missing({ ...draft, event: { ...draft.event, newPipeline: "242001" } })).toContain("New pipeline of at least 4x the total investment");
+    expect(missing({ ...draft, event: { ...draft.event, newPipeline: "242002" } })).toEqual([]);
+  });
+
+  it("needs an end date on or after the start date", () => {
+    const draft = completeEvent();
+    expect(missing({ ...draft, event: { ...draft.event, endDate: "2027-02-01" } })).toContain("An end date on or after the start date");
+  });
+
+  it("sends the event and no vendors", () => {
+    const input = draftToInput({ ...completeEvent(), vendors: [{ name: "Acme", website: "", contact: "", email: "", phone: "" }] });
+    expect(input.category).toBe("EVENTS");
+    expect(input.vendors).toEqual([]);
+    expect(input.event.name).toBe("KubeCon");
   });
 });
 

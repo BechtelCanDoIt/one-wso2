@@ -33,10 +33,13 @@ const CATEGORIES: { value: ProcurementCategory; title: string; description: stri
     description: "Facilities, insurance, office goods, consumables, and general professional services.",
     icon: <Building2Icon size={24} />,
   },
+  {
+    value: "EVENTS",
+    title: "Marketing & Events Procurement",
+    description: "Conferences, sponsorships, venues, AV production, and vendor services for WSO2 events and campaigns.",
+    icon: <MegaphoneIcon size={24} />,
+  },
 ];
-
-const MARKETING_DESCRIPTION =
-  "Conferences, sponsorships, venues, AV production, and vendor services for WSO2 events and campaigns.";
 
 function CategoryCard({
   icon,
@@ -134,7 +137,6 @@ export default function CategoryStep({
             onSelect={() => onChange(c.value)}
           />
         ))}
-        <CategoryCard disabled icon={<MegaphoneIcon size={24} />} title="Marketing & Events Procurement" description={MARKETING_DESCRIPTION} />
       </Box>
     </Stack>
   );

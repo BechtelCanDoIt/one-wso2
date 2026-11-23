@@ -18,10 +18,9 @@
 // backend's own wire shapes live in api/backendTypes.ts; api/backendMapping.ts
 // converts between the two.
 
-export type ProcurementCategory = "IT" | "NON-IT";
+export type ProcurementCategory = "IT" | "NON-IT" | "EVENTS";
 
-/** A category a request can have when it is read back; Marketing & Events cannot be raised here yet. */
-export type RequestCategory = ProcurementCategory | "EVENTS";
+export type RequestCategory = ProcurementCategory;
 
 /**
  * Where a request stands. `draft` is saved but not sent; `submitted` waits on
@@ -92,6 +91,66 @@ export interface RequestDetails {
   vendorDocsLink: string;
 }
 
+/** What kind of event a Marketing & Events request is for, as the backend names it. */
+export type EventType =
+  | "INDUSTRY_EVENT_SPONSORSHIP"
+  | "WSO2CON"
+  | "WSO2_SUMMIT"
+  | "OXYGENATE"
+  | "ROUNDTABLE_LUNCH_AND_LEARN"
+  | "OTHER_MARKETING_EVENT";
+
+/** What a sponsorship package includes, as the backend names it. */
+export type PackageInclusion =
+  | "BOOTH_SPACE"
+  | "DELEGATE_PASSES"
+  | "SPEAKING_SLOT"
+  | "LEAD_SCANNING"
+  | "LOGO_PLACEMENT"
+  | "ATTENDEE_LIST"
+  | "SPONSORED_SESSION";
+
+/** The fixed lines of an event's total investment, as the backend names them. The other costs are lines that the requester names. */
+export type EventCostCategory =
+  | "SPONSORSHIP_FEE"
+  | "BOOTH_BUILD_AND_DESIGN"
+  | "TRAVEL_AND_ACCOMMODATION"
+  | "SWAG"
+  | "PRINT_AND_BANNERS"
+  | "PAYMENT_TO_PARTNER";
+
+/** One of the other costs of an event, which the requester describes. */
+export interface OtherCost {
+  description: string;
+  amount: string;
+}
+
+/** What the requester says about the event of a Marketing & Events request. Amounts are kept as typed. */
+export interface EventDetails {
+  eventType: EventType | "";
+  shortlisted: YesNo | "";
+  shortlistLineId: string;
+  name: string;
+  startDate: string;
+  endDate: string;
+  audience: string;
+  packageName: string;
+  packageInclusions: PackageInclusion[];
+  prospectusUrl: string;
+  costs: Record<EventCostCategory, string>;
+  otherCosts: OtherCost[];
+  /** The share of the investment that the partner pays, from 0 to 100; blank is 0. */
+  partnerInvestmentPercent: string;
+  targetAccounts: string;
+  keyAccounts: string;
+  newPipeline: string;
+  roiCalculatorUrl: string;
+  attendedBefore: YesNo | "";
+  previousCost: string;
+  previousPipeline: string;
+  brandGoal: string;
+}
+
 /** The budget details of a request. Each list value is the code the backend knows it by. */
 export interface BudgetDetails {
   category: string;
@@ -108,6 +167,7 @@ export interface PurchaseRequestInput {
   /** Emails of the people who may approve besides the team lead; at most 5. */
   additionalApprovers: string[];
   details: RequestDetails;
+  event: EventDetails;
   vendors: Vendor[];
   budget: BudgetDetails;
   /** The chosen budget approver's id, or "" when none. */
@@ -188,6 +248,7 @@ export interface PurchaseRequest extends RequestSummary {
   additionalApprovers: string[];
   teamLeadDecision: TeamLeadDecision;
   details: RequestDetails;
+  event: EventDetails;
   vendors: Vendor[];
   budget: BudgetDetails;
   budgetApproverId: string;

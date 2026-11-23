@@ -18,7 +18,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { Person } from "../types";
-import { emptyBudget, emptyDetails, emptyVendor } from "../request-form/requestFormModel";
+import { emptyBudget, emptyDetails, emptyEvent, emptyVendor } from "../request-form/requestFormModel";
 import RequestSummary, { type RequestView } from "./RequestSummary";
 
 const requester: Person = { id: "u-1", name: "Emery Quinn", email: "emery.quinn@example.com" };
@@ -29,6 +29,7 @@ const view = (patch: Partial<RequestView> = {}): RequestView => ({
   requester,
   teamLead: lead,
   details: { ...emptyDetails(), product: "ZoomInfo", plan: "Enterprise", description: "Data", usagePeriod: "1 year", businessJustification: "Needed", sensitiveData: "no", externalPii: "no", employeePii: "no", integrates: "no" },
+  event: emptyEvent(),
   vendors: [{ ...emptyVendor(), name: "ZoomInfo" }],
   budget: emptyBudget(),
   additionalApprovers: [],
@@ -99,5 +100,30 @@ describe("RequestSummary", () => {
     await user.click(screen.getByRole("button", { name: "Edit Budget" }));
     expect(onEditStep.mock.calls).toEqual([[1], [4]]);
     expect(within(screen.getByRole("button", { name: "Edit Requirement details" })).getByText("Edit")).toBeInTheDocument();
+  });
+
+  it("shows an event with its costs and total, and no vendors card", () => {
+    const event = {
+      ...emptyEvent(),
+      eventType: "INDUSTRY_EVENT_SPONSORSHIP" as const,
+      shortlisted: "no" as const,
+      name: "KubeCon",
+      startDate: "2027-03-01",
+      endDate: "2027-03-03",
+      audience: "Platform engineers",
+      packageName: "Gold sponsor",
+      packageInclusions: ["BOOTH_SPACE" as const, "SPEAKING_SLOT" as const],
+      attendedBefore: "no" as const,
+      costs: { ...emptyEvent().costs, SPONSORSHIP_FEE: "60000", SWAG: "500" },
+      targetAccounts: "10",
+      keyAccounts: "Acme",
+      newPipeline: "500000",
+      roiCalculatorUrl: "https://example.com/roi",
+    };
+    render(<RequestSummary view={view({ category: "EVENTS", event, vendors: [] })} />);
+    expect(screen.getByText("Industry event sponsorship")).toBeInTheDocument();
+    expect(screen.getByText("Booth space, Speaking slot")).toBeInTheDocument();
+    expect(screen.getByText("$60,500.00")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Vendors" })).toBeNull();
   });
 });
