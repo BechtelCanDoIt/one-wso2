@@ -241,11 +241,10 @@ export const googleOAuthClientId: string =
 export const googlePickerApiKey: string =
   window.config?.ONE_WSO2_PAR_GOOGLE_PICKER_API_KEY ?? "";
 
-// par-app's own admin-configurable rating names that trigger the Top 5%/20%
-// checkbox and the evidence-attachment requirement — real config, not
-// hardcoded constants, since Admin Portal → Configurations lets an admin
-// freely rename or remove entries from the org-wide parRatings list, and a
-// hardcoded trigger name would silently stop matching if that happened.
+// The ratings that unlock Top 5%/20% and need evidence, for deployments
+// where `par2` is off: there the cycle doesn't carry its own rating rules
+// (see ratingRulesFor in features/par/util/parLeadership.ts). They go with
+// the flag.
 export const top5p20pEnabledRating: string =
   window.config?.ONE_WSO2_PAR_TOP5P20P_ENABLED_RATING ?? "Successful";
 export const evidenceEnabledRating: string =
@@ -442,10 +441,6 @@ export const parServiceUrls = {
   // with a 307 redirect instead of passing on.
   legacyParHistoryCyclesParticipants: (cycleName: string, summary = false) =>
     `${parBackendUrl}/legacy-par-history-cycles/participants?cycleName=${encodeURIComponent(cycleName)}${summary ? "&summary=true" : ""}`,
-  // The older path form of the same request, for a backend that doesn't
-  // have the query-parameter route yet (see fetchLegacyCycleParticipants in useParAdmin.ts).
-  legacyParHistoryCyclesParticipantsByPath: (cycleName: string, summary = false) =>
-    `${parBackendUrl}/legacy-par-history-cycles/${encodeURIComponent(cycleName)}/participants${summary ? "?summary=true" : ""}`,
 
   // ---- Leadership 360° ------------------------------------------------------
   //

@@ -66,7 +66,7 @@ export default function ParLeadQuotas() {
   const rows = allocations.data ?? [];
   if (rows.length === 0) {
     return (
-      <ParEmptyState text="No special rating allocations found. Please ensure you have the necessary permissions to view this data." />
+      <ParEmptyState text="No Top 5%/20% quota is allocated to you in this cycle." />
     );
   }
 
