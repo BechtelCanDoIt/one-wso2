@@ -90,14 +90,10 @@ export function TextInput({
   minRows?: number;
   disabled?: boolean;
 }) {
-  const id = useId();
   return (
     <Box sx={{ minWidth: 0 }}>
-      <FieldLabel htmlFor={id} required={required}>
-        {label}
-      </FieldLabel>
       <TextField
-        id={id}
+        label={label}
         size="small"
         fullWidth
         required={required}
@@ -108,7 +104,10 @@ export function TextInput({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
-        slotProps={{ htmlInput: { maxLength: multiline ? LONG_MAX : SHORT_MAX, ...(type === "number" ? { min: 1 } : {}) } }}
+        slotProps={{
+          inputLabel: { shrink: true },
+          htmlInput: { maxLength: multiline ? LONG_MAX : SHORT_MAX, ...(type === "number" ? { min: 1 } : {}) },
+        }}
       />
     </Box>
   );
@@ -235,17 +234,14 @@ export function SelectField({
   labels?: Readonly<Record<string, string>>;
   disabled?: boolean;
 }) {
-  const labelId = useId();
   const textOf = (v: string): string => labels?.[v] ?? v;
   // A saved value that is no longer in the list stays selectable, so editing a request never blanks it.
   const items = value && !options.includes(value) ? [...options, value] : options;
   return (
     <Box sx={{ minWidth: 0 }}>
-      <FieldLabel id={labelId} required={required}>
-        {label}
-      </FieldLabel>
       <TextField
         select
+        label={label}
         required={required}
         size="small"
         fullWidth
@@ -253,9 +249,9 @@ export function SelectField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         slotProps={{
+          inputLabel: { shrink: true },
           select: {
             displayEmpty: true,
-            SelectDisplayProps: { "aria-labelledby": labelId },
             renderValue: (selected) =>
               selected ? (
                 textOf(String(selected))
@@ -324,9 +320,6 @@ export function OptionField({
   }
   return (
     <Box sx={{ minWidth: 0 }}>
-      <FieldLabel htmlFor={id} required={required}>
-        {label}
-      </FieldLabel>
       <Autocomplete
         id={id}
         forcePopupIcon
@@ -339,7 +332,15 @@ export function OptionField({
         onChange={(_, next) => onChange(next?.value ?? "")}
         disabled={disabled}
         noOptionsText={emptyText ?? "No options"}
-        renderInput={(params) => <TextField {...params} required={required} placeholder={prompt} />}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label={label}
+            required={required}
+            placeholder={prompt}
+            slotProps={{ ...params.slotProps, inputLabel: { ...params.slotProps?.inputLabel, shrink: true } }}
+          />
+        )}
       />
     </Box>
   );
@@ -368,9 +369,6 @@ export function ChipsField({
       .filter((entry, index, all) => entry !== "" && all.findIndex((e) => e.toLowerCase() === entry.toLowerCase()) === index);
   return (
     <Box sx={{ minWidth: 0 }}>
-      <FieldLabel htmlFor={id} required={required}>
-        {label}
-      </FieldLabel>
       <Autocomplete
         clearIcon={<SmallClearIcon />}
         id={id}
@@ -385,8 +383,14 @@ export function ChipsField({
         renderInput={(params) => (
           <TextField
             {...params}
+            label={label}
+            required={required}
             placeholder={values.length ? "" : placeholder}
-            slotProps={{ htmlInput: { ...params.inputProps, maxLength: SHORT_MAX, "aria-required": required || undefined } }}
+            slotProps={{
+              ...params.slotProps,
+              inputLabel: { ...params.slotProps?.inputLabel, shrink: true },
+              htmlInput: { ...params.inputProps, maxLength: SHORT_MAX, "aria-required": required || undefined },
+            }}
           />
         )}
       />

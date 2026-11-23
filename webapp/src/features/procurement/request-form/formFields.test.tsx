@@ -101,7 +101,7 @@ describe("form fields", () => {
     await user.click(screen.getByRole("button", { name: "Open" }));
     expect(screen.queryByRole("option", { name: /none/i })).toBeNull();
     await user.click(screen.getByRole("button", { name: "Clear" }));
-    expect(screen.getByLabelText("Region")).toHaveValue("");
+    expect(screen.getByRole("combobox", { name: "Region" })).toHaveValue("");
     unmount();
 
     render(<OptionField required label="Budget category" choices={choices("A", "B")} value="" onChange={() => {}} />);

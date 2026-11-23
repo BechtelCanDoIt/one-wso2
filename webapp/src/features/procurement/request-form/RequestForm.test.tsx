@@ -73,7 +73,7 @@ const nonIt = (): RequestDraft => {
 describe("RequestForm, the requester step", () => {
   it("shows the backend's team lead read-only and the sign-in identity locked", () => {
     renderForm();
-    expect(screen.getByLabelText("WSO2 email")).toBeDisabled();
+    expect(screen.getByLabelText("Member email")).toBeDisabled();
     expect(screen.getByLabelText("Your full name")).toHaveValue("Req Uester");
     const teamLead = screen.getByLabelText(/Team lead \(for approval\)/);
     expect(teamLead).toBeDisabled();
