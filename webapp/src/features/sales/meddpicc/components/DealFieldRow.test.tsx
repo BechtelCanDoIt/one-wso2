@@ -24,7 +24,7 @@ import DealFieldRow from "./DealFieldRow";
 
 function renderRow(
   overrides: Parameters<typeof field>[0],
-  props: Partial<Pick<Parameters<typeof DealFieldRow>[0], "readOnly" | "onReject">> = {},
+  props: Partial<Pick<Parameters<typeof DealFieldRow>[0], "readOnly" | "onReject" | "variant">> = {},
 ) {
   render(
     <MemoryRouter>
@@ -33,6 +33,7 @@ function renderRow(
         draft={EMPTY_DRAFT}
         readOnly={props.readOnly ?? false}
         onReject={props.onReject}
+        variant={props.variant}
         salesforceUrl="https://sf/006D"
         onEdit={() => {}}
         onUndo={() => {}}
@@ -113,6 +114,11 @@ describe("DealFieldRow's merge caveat", () => {
   it("says it on a suggestion that is no longer pending too", () => {
     renderRow({ salesforceValue: "Ingrid Solberg", proposal: { ...heard, mergeStatus: "FALLBACK" }, state: "FILLED" });
     expect(screen.getByText("From the latest call only — couldn't combine calls")).toBeInTheDocument();
+  });
+
+  it("says it on a compact row of a value kept in Echo", () => {
+    renderRow({ notInSalesforce: true, proposal: { ...heard, mergeStatus: "FALLBACK" }, state: "FILLED" }, { variant: "compact" });
+    expect(screen.getByText(/from the latest call only\)$/)).toBeInTheDocument();
   });
 
   it("says nothing for a combined value", () => {

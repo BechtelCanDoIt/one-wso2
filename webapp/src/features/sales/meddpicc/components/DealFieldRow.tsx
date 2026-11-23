@@ -213,7 +213,9 @@ export default function DealFieldRow({
       ? "Not needed for this opportunity"
       : field.notInSalesforce
         ? proposal
-          ? `${formatFieldValue(proposal.value)} (kept in Echo, not in Salesforce yet)`
+          ? `${formatFieldValue(proposal.value)} (kept in Echo, not in Salesforce yet${
+              proposal.mergeStatus === "FALLBACK" ? " · from the latest call only" : ""
+            })`
           : "Not in Salesforce yet"
         : sfEmpty
           ? field.optional

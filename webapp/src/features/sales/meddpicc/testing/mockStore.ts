@@ -336,7 +336,9 @@ function approve(deal: MockDeal, request: ApproveRequest): ApproveResult {
     const pending = isPending(deal, def);
     if (!pending && !edited(def.key)) continue;
     const proposal = deal.proposals[def.key];
-    if (proposal) proposal.status = "APPROVED";
+    // Only a suggestion still waiting is approved, as the backend does: approving the AM's own
+    // edit of a field must not bring back a suggestion the AM rejected.
+    if (proposal?.status === "PROPOSED") proposal.status = "APPROVED";
 
     if (def.kind === "role") {
       if (edited(def.key) && edits[def.key] === null) {
