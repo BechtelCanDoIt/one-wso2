@@ -37,7 +37,7 @@ const CATEGORIES: { value: ProcurementCategory; title: string; description: stri
   {
     value: "EVENTS",
     title: "Marketing & Events Procurement",
-    description: "Conferences, sponsorships, venues, AV production, and vendor services for WSO2 events and campaigns.",
+    description: "Conferences, sponsorships, venues, AV production, and vendor services for Choreo Labs events and campaigns.",
     icon: <MegaphoneIcon size={28} />,
   },
 ];

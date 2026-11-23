@@ -226,7 +226,7 @@ describe("RequestForm, the steps after it", () => {
     expect(screen.queryByRole("textbox", { name: /Completed ROI calculator/ })).toBeNull();
   });
 
-  it("lets the other costs be several lines, and shows the partner and WSO2 shares", async () => {
+  it("lets the other costs be several lines, and shows the partner and Choreo Labs shares", async () => {
     const draft = { ...emptyDraft(), category: "EVENTS" as const, event: { ...emptyEvent(), eventType: "WSO2CON" as const } };
     const { user } = renderForm(me, draft);
     for (let i = 0; i < 2; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
@@ -237,7 +237,7 @@ describe("RequestForm, the steps after it", () => {
     expect(screen.getAllByRole("textbox", { name: "What it is for" })).toHaveLength(2);
     expect(screen.getByText("Total investment: $1,200.00")).toBeInTheDocument();
     await user.type(screen.getByRole("spinbutton", { name: /Partner's share/ }), "25");
-    expect(screen.getByText(/WSO2 investment: 75%/)).toBeInTheDocument();
+    expect(screen.getByText(/Choreo Labs investment: 75%/)).toBeInTheDocument();
   });
 
   it("adds the costs up", async () => {

@@ -172,7 +172,7 @@ function ItDetails({ details, onChange }: DetailsProps) {
         <TextInput required label="Product / solution name" name="product" placeholder="e.g. Salesforce, GitHub Enterprise" value={d.product} onChange={(product) => onChange({ product })} />
         <TextInput required label="Plan / subscription tier" name="plan" maxLength={100} placeholder="e.g. Enterprise, Pro" value={d.plan} onChange={(plan) => onChange({ plan })} />
       </Box>
-      <TextInput required multiline minRows={3} label="Description of the product / solution" name="description" placeholder="What does it do, and how will WSO2 use it?" value={d.description} onChange={(description) => onChange({ description })} />
+      <TextInput required multiline minRows={3} label="Description of the product / solution" name="description" placeholder="What does it do, and how will Choreo Labs use it?" value={d.description} onChange={(description) => onChange({ description })} />
       <TextInput required multiline minRows={3} label="What is the requirement to use this software" name="softwareRequirement" value={d.softwareRequirement} onChange={(softwareRequirement) => onChange({ softwareRequirement })} />
       <SelectField
         required

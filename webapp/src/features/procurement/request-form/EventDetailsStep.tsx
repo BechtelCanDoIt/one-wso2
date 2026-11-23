@@ -149,7 +149,7 @@ export default function EventDetailsStep({
         />
         {Number.isInteger(partnerShare) && partnerShare >= 0 && partnerShare <= 100 && (
           <Typography variant="body2" aria-live="polite">
-            WSO2 investment: {100 - partnerShare}% · Partner investment: {partnerShare}%
+            Choreo Labs investment: {100 - partnerShare}% · Partner investment: {partnerShare}%
           </Typography>
         )}
 
