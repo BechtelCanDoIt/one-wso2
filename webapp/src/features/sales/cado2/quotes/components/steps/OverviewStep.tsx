@@ -456,7 +456,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
           ) : null}
 
           {/* The currency moved to Products & Pricing, next to the price book. */}
-          <Section title="WSO2 Legal Entity" icon={<LandmarkIcon size={18} />}>
+          <Section title="Choreo Labs Legal Entity" icon={<LandmarkIcon size={18} />}>
             {legalEntities.error ? (
               <ErrorNotice
                 error={legalEntities.error}
@@ -471,7 +471,7 @@ export default function OverviewStep({ locked, quoteId = null }: OverviewStepPro
               name="legalEntityId"
               control={control}
               render={({ field }) => (
-                <TextField {...field} select label="WSO2 legal entity" size="small" fullWidth required sx={{ maxWidth: 480 }}>
+                <TextField {...field} select label="Choreo Labs legal entity" size="small" fullWidth required sx={{ maxWidth: 480 }}>
                   {(legalEntities.data ?? []).map((le) => (
                     <MenuItem key={le.id} value={String(le.id)}>
                       {le.name} ({le.country})

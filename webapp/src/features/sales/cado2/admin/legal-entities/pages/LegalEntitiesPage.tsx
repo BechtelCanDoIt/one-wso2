@@ -146,7 +146,7 @@ export default function LegalEntitiesPage(): JSX.Element {
         <EmptyState
           icon={<LandmarkIcon size={28} />}
           title="No legal entities yet"
-          body="Add the WSO2 companies quotes are issued from. A quote needs one before it can be submitted."
+          body="Add the Choreo Labs companies quotes are issued from. A quote needs one before it can be submitted."
           action={
             <Button variant="contained" startIcon={<PlusIcon size={16} />} onClick={() => openDrawer(null)}>
               Add the first entity

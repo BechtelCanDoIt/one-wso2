@@ -128,7 +128,7 @@ export function compareVersions(a: DraftResponse, b: DraftResponse): CompareRow[
   add("Overview", "Deal type", text(va.dealType), text(vb.dealType));
   add("Overview", "Partner", text(va.partner?.name), text(vb.partner?.name));
   add("Overview", "Renewal", va.isRenewal ? "Yes" : "No", vb.isRenewal ? "Yes" : "No");
-  add("Overview", "WSO2 legal entity", text(va.legalEntity?.name), text(vb.legalEntity?.name));
+  add("Overview", "Choreo Labs legal entity", text(va.legalEntity?.name), text(vb.legalEntity?.name));
   add("Overview", "Currency", text(va.currencyIsoCode), text(vb.currencyIsoCode));
   add("Overview", "Start date", formatDate(va.subscriptionStartDate), formatDate(vb.subscriptionStartDate));
   const termText = (v: typeof va) =>

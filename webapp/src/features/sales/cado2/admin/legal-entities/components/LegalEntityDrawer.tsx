@@ -136,7 +136,7 @@ export default function LegalEntityDrawer({
               {isEdit ? `Edit ${entity.code}` : "Add legal entity"}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              A WSO2 company quotes can be issued from
+              A Choreo Labs company quotes can be issued from
             </Typography>
           </Box>
           <IconButton aria-label="Close" onClick={onClose} disabled={saving} size="small">
