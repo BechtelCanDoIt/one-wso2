@@ -47,6 +47,8 @@ export default function ParOrgRejectedReviewsTab({ cycle }: { cycle: ParCycle })
   const rejectedReviews = useParRejectedReviews(cycle.parCycleId);
   const participants = useParAdminParticipants(cycle.parCycleId);
   const restore = useRestoreRejectedReview(cycle.parCycleId);
+  // Only the open cycle's declined reviews can be restored; History shows a closed one's as they ended.
+  const canRestore = cycle.parCycleStatus === "OPEN";
   const { showSuccess, showError } = useNotifications();
 
   const [searchText, setSearchText] = useState("");
@@ -141,7 +143,7 @@ export default function ParOrgRejectedReviewsTab({ cycle }: { cycle: ParCycle })
     <Stack spacing={1.5}>
       <DataGrid.DataGrid
         rows={filteredRows}
-        columns={columns}
+        columns={canRestore ? columns : columns.filter((column) => column.field !== "actions")}
         getRowId={(row) => row.employeeEmail + row.reviewerEmail}
         rowHeight={56}
         disableRowSelectionOnClick

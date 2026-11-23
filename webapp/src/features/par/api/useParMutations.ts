@@ -174,7 +174,8 @@ export function useSyncEmployee(parCycleId: number | undefined) {
 export function useUpdateParGlobalConfig() {
   const getAccessToken = useAccessToken();
   const qc = useQueryClient();
-  return useMutation<void, Error, ParCycleConfigurations>({
+  // Anything left out keeps its saved value.
+  return useMutation<void, Error, Partial<ParCycleConfigurations>>({
     mutationFn: async (payload) => {
       const accessToken = await getAccessToken();
       await authedPut<void>(parServiceUrls.parGlobalConfig(), accessToken, payload, digiopsHeaders());

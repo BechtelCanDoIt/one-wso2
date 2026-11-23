@@ -44,34 +44,29 @@ export type ParLeadStatus = "PENDING" | "DRAFT" | "SHARED";
 export type ParF2fStatus = "PENDING" | "SCHEDULED" | "COMPLETED";
 export type ParEmployeeAcceptanceStatus = "PENDING" | "ACCEPTED" | "REJECTED";
 
-// The admin-configured question/rating-scale text for a cycle. Mirrors
-// par-app backend's ParCycleConfigurations — only the employee-facing
-// question is rendered today; the 360 question and the rating scales are
-// unused until those screens land.
+// A cycle's configurations, or the global ones new cycles start from. Mirrors
+// par-app backend's ParCycleConfigurations. The two questions and the 360
+// rating list are only for cycles without the PAR 2.0 forms.
 export interface ParCycleConfigurations {
   employeeParQuestion: string;
   threeSixtyReviewQuestion: string;
   parRatings: string[];
   threeSixtyReviewRatings: string[];
-  // Not on the wire yet — the backend's ParCycleConfigurations is a closed
-  // record with no such fields, so these are always undefined today. Typed
-  // ahead of a planned backend change so ParLeadReviewPanel.tsx's fallback
-  // chain (cycle config → apiConfig.ts's window.config value → hardcoded
-  // default) picks them up automatically once the backend ships them,
-  // with no frontend change needed at that point. Never send these back on
-  // a PUT until the backend actually accepts them — a closed record 400s on
-  // an unrecognized field.
-  top5p20pEnabledRating?: string;
-  evidenceEnabledRating?: string;
-  // Which entry in parRatings is auto-assigned to an employee/lead who
-  // misses their PAR deadline, set per cycle.
-  missedDeadlineRating?: string;
-  // The same for the leadership team (Step Up when the cycle doesn't set it).
-  leadershipMissedDeadlineRating?: string;
-  // Which entries in parRatings a leadership employee may be given, set per
-  // cycle. Falls back to LEADERSHIP_ALLOWED_RATINGS (util/parLeadership.ts)
-  // when the cycle hasn't configured it.
+  // The rating lists and the rules that depend on them. The backend sends
+  // every one with each cycle and the global configurations; one from before
+  // it did may leave them out (see ratingRulesFor in util/parLeadership.ts).
+  // The ratings anyone outside the leadership team can be given.
+  employeeRatings?: string[];
+  // The ratings the leadership team can be given.
   leadershipAllowedRatings?: string[];
+  // The rating that unlocks Top 5%/20% (an employee rating).
+  top5p20pEnabledRating?: string;
+  // The rating that needs evidence before it's shared.
+  evidenceEnabledRating?: string;
+  // The rating given for a missed deadline (an employee rating).
+  missedDeadlineRating?: string;
+  // The same for the leadership team (a leadership team rating).
+  leadershipMissedDeadlineRating?: string;
 }
 
 export interface ParCycle {
@@ -459,7 +454,8 @@ export interface ParCycleCreate {
   parF2FDeadline: string;
   parEmployeeDeadline: string;
   parLeadDeadline: string;
-  parCycleConfigurations: ParCycleConfigurations;
+  // Anything left out is taken from the global configurations.
+  parCycleConfigurations: Partial<ParCycleConfigurations>;
   // PAR 2.0: the cycle uses the guided self-review and structured 360° forms.
   par2Forms?: boolean;
 }

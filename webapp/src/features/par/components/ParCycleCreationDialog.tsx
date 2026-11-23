@@ -18,7 +18,6 @@ import { useState } from "react";
 import {
   Alert,
   Autocomplete,
-  Box,
   Button,
   Chip,
   Dialog,
@@ -26,19 +25,24 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  FormControlLabel,
   Grid,
-  Switch,
   TextField,
   Typography,
 } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import ParDateField from "./ParDateField";
+import ParRatingSettingsFields from "./ParRatingSettingsFields";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
 import { useParGlobalConfig } from "../api/useParAdmin";
 import { useCreateParCycle } from "../api/useParMutations";
 import type { ParCycleCreate } from "../api/types";
+import {
+  allRatings,
+  ratingSettingsFrom,
+  ratingSettingsProblem,
+  type RatingSettings,
+} from "../util/parRatingSettings";
 
 function todayDateOnly(): string {
   const d = new Date();
@@ -71,8 +75,12 @@ const EMPTY_FORM = {
 // submit-time check for the lead-after-employee rule (that one depends on
 // another field's value, so min/max alone can't express it).
 //
-// parEvaluationStartDate is always today and read-only, but still goes out on
-// the wire since ParCycleCreate requires it.
+// parEvaluationStartDate is always today, but still goes out on the wire since
+// ParCycleCreate requires it.
+//
+// Where `par2` is on, every cycle is a PAR 2.0 cycle: People Ops set its
+// ratings and their rules, and the two questions and the 360° rating list
+// (cycles without the PAR 2.0 forms) aren't asked.
 export default function ParCycleCreationDialog({
   open,
   onClose,
@@ -90,9 +98,9 @@ export default function ParCycleCreationDialog({
   const [reviewRatings, setReviewRatings] = useState<string[]>([]);
   const [employeeQuestion, setEmployeeQuestion] = useState("");
   const [reviewQuestion, setReviewQuestion] = useState("");
+  const [ratingSettings, setRatingSettings] = useState<RatingSettings>(ratingSettingsFrom(undefined));
   const [ratingsSeeded, setRatingsSeeded] = useState(false);
-  // PAR 2.0: the guided self-review and structured 360° replace the two single questions.
-  const [par2Forms, setPar2Forms] = useState(isPreviewEnabled("par2"));
+  const par2 = isPreviewEnabled("par2");
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
 
   // globalConfig only resolves once the dialog is open and the request
@@ -104,6 +112,7 @@ export default function ParCycleCreationDialog({
     setReviewRatings(globalConfig.data.threeSixtyReviewRatings);
     setEmployeeQuestion(globalConfig.data.employeeParQuestion);
     setReviewQuestion(globalConfig.data.threeSixtyReviewQuestion);
+    setRatingSettings(ratingSettingsFrom(globalConfig.data));
   }
 
   const today = todayDateOnly();
@@ -116,8 +125,8 @@ export default function ParCycleCreationDialog({
     setReviewRatings([]);
     setEmployeeQuestion("");
     setReviewQuestion("");
+    setRatingSettings(ratingSettingsFrom(undefined));
     setRatingsSeeded(false);
-    setPar2Forms(isPreviewEnabled("par2"));
     onClose(created);
   };
 
@@ -135,10 +144,9 @@ export default function ParCycleCreationDialog({
     form.parLeadDeadline > form.parEmployeeDeadline &&
     form.parSpecialRatingDeadline &&
     form.parF2FDeadline &&
-    // A PAR 2.0 cycle's forms replace the two questions, which aren't shown.
-    (par2Forms || (employeeQuestion.trim() && reviewQuestion.trim())) &&
-    ratings.length > 0 &&
-    reviewRatings.length > 0;
+    (par2
+      ? ratingsSeeded && ratingSettingsProblem(ratingSettings) === null
+      : employeeQuestion.trim() && reviewQuestion.trim() && ratings.length > 0 && reviewRatings.length > 0);
 
   const buildPayload = (): ParCycleCreate => ({
     parCycleName: form.parCycleName.trim(),
@@ -151,13 +159,15 @@ export default function ParCycleCreationDialog({
     parLeadDeadline: form.parLeadDeadline,
     parSpecialRatingDeadline: form.parSpecialRatingDeadline,
     parF2FDeadline: form.parF2FDeadline,
-    parCycleConfigurations: {
-      employeeParQuestion: employeeQuestion.trim(),
-      threeSixtyReviewQuestion: reviewQuestion.trim(),
-      parRatings: ratings,
-      threeSixtyReviewRatings: reviewRatings,
-    },
-    ...(par2Forms ? { par2Forms: true } : {}),
+    parCycleConfigurations: par2
+      ? ratingSettings
+      : {
+          employeeParQuestion: employeeQuestion.trim(),
+          threeSixtyReviewQuestion: reviewQuestion.trim(),
+          parRatings: ratings,
+          threeSixtyReviewRatings: reviewRatings,
+        },
+    ...(par2 ? { par2Forms: true } : {}),
   });
 
   const handleSubmit = () => {
@@ -231,9 +241,6 @@ export default function ParCycleCreationDialog({
                 }
                 onChange={set("parCycleEndDate")}
               />
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <ParDateField label="PAR creation date" fullWidth ariaLabel="PAR creation date" value={evalStart} disabled onChange={() => {}} />
             </Grid>
             <Grid size={{ xs: 12, sm: 6 }}>
               <ParDateField
@@ -312,26 +319,32 @@ export default function ParCycleCreationDialog({
               />
             </Grid>
 
-            <Grid size={12}>
-              <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                Cycle configuration
-              </Typography>
-            </Grid>
-            {isPreviewEnabled("par2") && (
-              <Grid size={12}>
-                <FormControlLabel
-                  control={<Switch checked={par2Forms} onChange={(e) => setPar2Forms(e.target.checked)} />}
-                  label="Use PAR 2.0 forms: the guided self-review and structured 360° feedback"
-                />
-                {par2Forms && isPreviewEnabled("leadership360") && (
-                  <Typography variant="body2" color="text.secondary">
-                    Leadership 360° runs with this cycle, from when you open it until its 360° deadline.
-                  </Typography>
-                )}
-              </Grid>
-            )}
-            {!par2Forms && (
+            {par2 ? (
               <>
+                {isPreviewEnabled("leadership360") && (
+                  <Grid size={12}>
+                    <Typography variant="body2" color="text.secondary">
+                      Leadership 360° runs with this cycle, from when you open it until its 360° deadline.
+                    </Typography>
+                  </Grid>
+                )}
+                {ratingsSeeded && (
+                  <Grid size={12} sx={{ mt: 1 }}>
+                    <ParRatingSettingsFields
+                      value={ratingSettings}
+                      onChange={setRatingSettings}
+                      suggestions={globalConfig.data ? allRatings(ratingSettingsFrom(globalConfig.data)) : []}
+                    />
+                  </Grid>
+                )}
+              </>
+            ) : (
+              <>
+                <Grid size={12}>
+                  <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                    Cycle configuration
+                  </Typography>
+                </Grid>
                 <Grid size={12}>
                   <TextField
                     label="Employee PAR question"
@@ -356,24 +369,14 @@ export default function ParCycleCreationDialog({
                     onChange={(e) => setReviewQuestion(e.target.value)}
                   />
                 </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  {ratingsField("PAR ratings", ratings, setRatings, "PAR ratings")}
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6 }}>
+                  {ratingsField("360° feedback ratings", reviewRatings, setReviewRatings, "360 feedback ratings")}
+                </Grid>
               </>
             )}
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Box sx={{ mb: 0.5 }}>
-                <Typography variant="body2" color="text.secondary">
-                  PAR ratings
-                </Typography>
-              </Box>
-              {ratingsField("PAR ratings", ratings, setRatings, "PAR ratings")}
-            </Grid>
-            <Grid size={{ xs: 12, sm: 6 }}>
-              <Box sx={{ mb: 0.5 }}>
-                <Typography variant="body2" color="text.secondary">
-                  360° feedback ratings
-                </Typography>
-              </Box>
-              {ratingsField("360° feedback ratings", reviewRatings, setReviewRatings, "360 feedback ratings")}
-            </Grid>
 
             {createCycle.isError && (
               <Grid size={12}>

@@ -437,7 +437,15 @@ describe("ParLeadReviewPanel: a PAR not shared by its deadline", () => {
   const missedCycle = {
     ...cycle,
     parEmployeeDeadline: "2020-01-01",
-    parCycleConfigurations: { parRatings: ["Successful", "Needs Improvements", "Step Up"] },
+    parCycleConfigurations: {
+      parRatings: ["Successful", "Needs Improvements", "Step Up"],
+      employeeRatings: ["Successful", "Needs Improvements"],
+      leadershipAllowedRatings: ["Successful", "Step Up"],
+      top5p20pEnabledRating: "Successful",
+      evidenceEnabledRating: "Needs Improvements",
+      missedDeadlineRating: "Needs Improvements",
+      leadershipMissedDeadlineRating: "Step Up",
+    },
   } as unknown as ParCycle;
   const missed = {
     parRatingId: 7,
