@@ -36,29 +36,6 @@ import type { Choice, YesNo } from "../types";
 import { useFieldError } from "./fieldErrors";
 import { LONG_MAX, SHORT_MAX } from "./fieldLimits";
 
-export function FieldLabel({
-  children,
-  required,
-  htmlFor,
-  id,
-}: {
-  children: ReactNode;
-  required?: boolean;
-  htmlFor?: string;
-  id?: string;
-}) {
-  return (
-    <Typography component="label" htmlFor={htmlFor} id={id} variant="body2" sx={{ display: "block", fontWeight: 500, mb: 0.75 }}>
-      {children}
-      {required && (
-        <Box component="span" aria-hidden="true" sx={{ ml: 0.4 }}>
-          *
-        </Box>
-      )}
-    </Typography>
-  );
-}
-
 /** A small uppercase heading that starts a group of related fields. */
 export function SectionHeading({ children, first }: { children: ReactNode; first?: boolean }) {
   return (
@@ -85,6 +62,7 @@ export function TextInput({
   disabled,
 }: {
   label: string;
+  /** Tells the field apart in the step's messages; its label when not given. */
   name?: string;
   value: string;
   onChange?: (value: string) => void;
@@ -164,6 +142,7 @@ export function YesNoField({
   children,
 }: {
   label: string;
+  /** Tells the field apart in the step's messages; its label when not given. */
   name?: string;
   value: YesNo | "";
   onChange: (value: YesNo) => void;
@@ -250,6 +229,7 @@ export function SelectField({
   disabled,
 }: {
   label: string;
+  /** Tells the field apart in the step's messages; its label when not given. */
   name?: string;
   options: readonly string[];
   value: string;
@@ -321,6 +301,7 @@ export function OptionField({
   name = label,
 }: {
   label: string;
+  /** Tells the field apart in the step's messages; its label when not given. */
   name?: string;
   choices: readonly Choice[];
   value: string;
@@ -372,7 +353,7 @@ export function OptionField({
             helperText={error}
             required={required}
             placeholder={prompt}
-            InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+            slotProps={{ inputLabel: { ...params.InputLabelProps, shrink: true } }}
           />
         )}
       />
@@ -391,6 +372,7 @@ export function ChipsField({
   disabled,
 }: {
   label: string;
+  /** Tells the field apart in the step's messages; its label when not given. */
   name?: string;
   values: string[];
   onChange: (values: string[]) => void;
@@ -425,8 +407,10 @@ export function ChipsField({
             helperText={error}
             required={required}
             placeholder={values.length ? "" : placeholder}
-            InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
-            inputProps={{ ...params.inputProps, maxLength: SHORT_MAX, "aria-required": required || undefined }}
+            slotProps={{
+              inputLabel: { ...params.InputLabelProps, shrink: true },
+              htmlInput: { ...params.inputProps, maxLength: SHORT_MAX, "aria-required": required || undefined },
+            }}
           />
         )}
       />

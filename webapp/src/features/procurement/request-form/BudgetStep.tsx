@@ -58,7 +58,7 @@ function VendorBlock({
       <Box sx={THREE_COLUMNS}>
         <TextInput label="Contact name" maxLength={150} value={vendor.contact} onChange={(contact) => onChange({ contact })} />
         <TextInput type="email" label="Contact email" name={`vendorEmail.${index}`} maxLength={254} value={vendor.email} onChange={(email) => onChange({ email })} />
-        <TextInput type="tel" label="Contact number" name={`vendorPhone.${index}`} maxLength={50} value={vendor.phone} onChange={(phone) => onChange({ phone })} />
+        <TextInput type="tel" label="Contact number" maxLength={50} value={vendor.phone} onChange={(phone) => onChange({ phone })} />
       </Box>
     </Stack>
   );

@@ -17,10 +17,10 @@
 
 import { createContext, useContext } from "react";
 
-/** The message to show under each field of the step, by the field's name. Empty until the person tries to move on. */
+/** Messages to show under fields, keyed by field name. */
 export const FieldErrorsContext = createContext<Readonly<Record<string, string>>>({});
 
-/** The message for a field, if the step has one for it. A field is known by its `name`, or by its label when it has none. */
+/** The message for the field with this name, if any. */
 export function useFieldError(name: string): string | undefined {
   return useContext(FieldErrorsContext)[name];
 }

@@ -216,14 +216,14 @@ describe("vendors", () => {
 });
 
 describe("vendor contact numbers", () => {
-  const withPhone = (phone: string): RequestDraft => ({
-    ...completeIt(),
-    vendors: [{ name: "Acme", website: "", contact: "", email: "", phone }],
-  });
-
-  it("take the shape My > Personal Info takes, and may be left out", () => {
-    for (const ok of ["", "+94 71 345 6789", "011 (234) 5678", "0112345678"]) expect(fields(STEP_BUDGET, withPhone(ok), me), ok).toEqual([]);
-    for (const bad of ["call me", "12345", "+94-abc", "94.71.345"]) expect(fields(STEP_BUDGET, withPhone(bad), me), bad).toEqual(["vendorPhone.0"]);
+  it("are not checked for a format, as the backend only limits their length", () => {
+    const withPhone = (phone: string): RequestDraft => ({
+      ...completeIt(),
+      vendors: [{ name: "Acme", website: "", contact: "", email: "", phone }],
+    });
+    for (const phone of ["", "+94 71 345 6789", "(011) 234-5678", "0112345678 ext 5", "call reception"]) {
+      expect(fields(STEP_BUDGET, withPhone(phone), me), phone).toEqual([]);
+    }
   });
 });
 

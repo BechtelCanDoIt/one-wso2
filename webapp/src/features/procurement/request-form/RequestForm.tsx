@@ -153,49 +153,56 @@ export default function RequestForm({
       </Stepper>
 
       <FieldErrorsContext.Provider value={errors}>
-      <Box ref={body}>
-        {step === STEP_REQUESTER && <RequesterStep draft={draft} me={me} today={todayIso()} onChange={patch} />}
-        {step === STEP_CATEGORY && <CategoryStep
-            category={draft.category}
-            onChange={(category) => patch({ category, declarationAccepted: draft.declarationAccepted && sharesDeclaration(draft.category, category) })}
-          />}
-        {step === STEP_DETAILS &&
-          (draft.category === "EVENTS" ? <EventDetailsStep
-              event={draft.event}
-              notes={draft.notes}
-              attachments={draft.attachments}
-              onChange={patchEvent}
-              onNotesChange={(notes) => patch({ notes })}
-              onAttachmentsChange={(attachments) => patch({ attachments })}
-            /> : <DetailsStep draft={draft} onChange={patchDetails} />)}
-        {step === STEP_BUDGET && <BudgetStep draft={draft} lookups={lookups} onChange={patch} />}
-        {step === STEP_REVIEW && (
-          <Stack spacing={2}>
-            <StepTitle>Review &amp; submit</StepTitle>
-            <RequestSummary
-              view={{
-                category: draft.category,
-                requester: me,
-                teamLead: me.teamLead,
-                additionalApprovers: draft.additionalApprovers.map((a) => a.email),
-                details: draft.details,
-                event: draft.event,
-                vendors: draft.category === "EVENTS" ? [] : draft.vendors,
-                budget: budgetForDisplay(draft.budget, lookups, engagementCodes.data ?? []),
-                budgetApprover: draft.category === "EVENTS" ? "" : budgetApprovers.data?.find((a) => a.id === draft.budgetApproverId)?.name ?? "",
-                notes: submittedNotes(draft),
-                attachments: [
-                  ...draft.attachments.saved.map((a) => ({ key: `saved-${a.id}`, name: a.name, sizeBytes: a.sizeBytes })),
-                  ...draft.attachments.files.map((f, index) => ({ key: `new-${index}`, name: f.name, sizeBytes: f.size })),
-                ],
-                date: { label: "Date", iso: todayIso() },
-              }}
-              onEditStep={goTo}
+        <Box ref={body}>
+          {step === STEP_REQUESTER && <RequesterStep draft={draft} me={me} today={todayIso()} onChange={patch} />}
+          {step === STEP_CATEGORY && (
+            <CategoryStep
+              category={draft.category}
+              onChange={(category) =>
+                patch({ category, declarationAccepted: draft.declarationAccepted && sharesDeclaration(draft.category, category) })
+              }
             />
-          </Stack>
-        )}
-      </Box>
-
+          )}
+          {step === STEP_DETAILS &&
+            (draft.category === "EVENTS" ? (
+              <EventDetailsStep
+                event={draft.event}
+                notes={draft.notes}
+                attachments={draft.attachments}
+                onChange={patchEvent}
+                onNotesChange={(notes) => patch({ notes })}
+                onAttachmentsChange={(attachments) => patch({ attachments })}
+              />
+            ) : (
+              <DetailsStep draft={draft} onChange={patchDetails} />
+            ))}
+          {step === STEP_BUDGET && <BudgetStep draft={draft} lookups={lookups} onChange={patch} />}
+          {step === STEP_REVIEW && (
+            <Stack spacing={2}>
+              <StepTitle>Review &amp; submit</StepTitle>
+              <RequestSummary
+                view={{
+                  category: draft.category,
+                  requester: me,
+                  teamLead: me.teamLead,
+                  additionalApprovers: draft.additionalApprovers.map((a) => a.email),
+                  details: draft.details,
+                  event: draft.event,
+                  vendors: draft.category === "EVENTS" ? [] : draft.vendors,
+                  budget: budgetForDisplay(draft.budget, lookups, engagementCodes.data ?? []),
+                  budgetApprover: draft.category === "EVENTS" ? "" : budgetApprovers.data?.find((a) => a.id === draft.budgetApproverId)?.name ?? "",
+                  notes: submittedNotes(draft),
+                  attachments: [
+                    ...draft.attachments.saved.map((a) => ({ key: `saved-${a.id}`, name: a.name, sizeBytes: a.sizeBytes })),
+                    ...draft.attachments.files.map((f, index) => ({ key: `new-${index}`, name: f.name, sizeBytes: f.size })),
+                  ],
+                  date: { label: "Date", iso: todayIso() },
+                }}
+                onEditStep={goTo}
+              />
+            </Stack>
+          )}
+        </Box>
       </FieldErrorsContext.Provider>
 
       {problems.length > 0 && (

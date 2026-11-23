@@ -33,7 +33,7 @@ import type {
   PurchaseRequest,
   PurchaseRequestInput,
   QueueItem,
-  RequestCategory,
+  ProcurementCategory,
   RequestStatus,
   RequestSummary,
   TeamLeadDecision,
@@ -62,7 +62,7 @@ import type {
   BackendVendor,
 } from "./backendTypes";
 
-const CATEGORY: Record<BackendCategory, RequestCategory> = { IT: "IT", NON_IT: "NON-IT", MARKETING_EVENTS: "EVENTS" };
+const CATEGORY: Record<BackendCategory, ProcurementCategory> = { IT: "IT", NON_IT: "NON-IT", MARKETING_EVENTS: "EVENTS" };
 
 const STATUS: Record<BackendStatus, RequestStatus> = {
   DRAFT: "draft",
@@ -105,6 +105,7 @@ export function toMe(user: BackendUser, lead: BackendTeamLeadResult, signedIn: P
   };
 }
 
+/** A file attached to a request, as the UI holds it. */
 export const toAttachment = (a: BackendAttachment): Attachment => ({
   id: String(a.id),
   name: a.fileName,
@@ -239,6 +240,7 @@ function toDecision(d: BackendRequestDetail): TeamLeadDecision {
 /** An amount, as the form holds it: text, blank when the backend has none. */
 const amountText = (value: number | null | undefined): string => (value === null || value === undefined ? "" : String(value));
 
+/** The event the backend holds, as the form's event: amounts as text, and the lines of one cost added up. */
 function toEvent(e: BackendEventDetails | null): EventDetails {
   const base = emptyEvent();
   if (!e) return base;
@@ -278,6 +280,7 @@ function toEvent(e: BackendEventDetails | null): EventDetails {
 }
 
 /** What the backend is sent for an event: only what the questionnaire asks for this type of event, and for a shortlisted one. */
+/** The event the backend is sent: only for a Marketing & Events request, and only what its type and shortlist status are asked for. */
 function toBackendEvent(input: PurchaseRequestInput): BackendEventDetails | null {
   if (input.category !== "EVENTS") return null;
   const e = input.event;

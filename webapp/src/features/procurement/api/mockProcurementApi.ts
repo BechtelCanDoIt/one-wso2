@@ -338,6 +338,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
     ],
   ]);
   let attachmentCounter = 1;
+  /** Makes the request's sample files match the requester's choice, as the backend's calls would. */
   const syncAttachments = (requestId: string, { removed, files }: AttachmentsDraft): void => {
     const kept = (attached.get(requestId) ?? []).filter((a) => !removed.includes(a.meta.id));
     for (const file of files) {

@@ -47,7 +47,7 @@ export default function AttachmentsField({
       if (problem) refused.push(problem);
       else next = { ...next, files: [...next.files, file] };
     }
-    setProblems(refused);
+    setProblems([...new Set(refused)]);
     onChange(next);
     if (input.current) input.current.value = "";
   };

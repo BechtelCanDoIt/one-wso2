@@ -37,7 +37,7 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
       Retry
     </Button>
   );
-  // Nothing to show until both have loaded once, so a failure then blocks the form.
+  // Nothing to show until each has loaded once, so a failure then blocks the form.
   const blocking = !me.data && me.isError ? me : !lookups.data && lookups.isError ? lookups : !attachments.data && attachments.isError ? attachments : null;
   if (blocking) {
     return (

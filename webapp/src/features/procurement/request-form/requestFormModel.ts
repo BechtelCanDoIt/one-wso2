@@ -50,9 +50,6 @@ export const MAX_VENDORS = 10;
 const MAX_EMAIL_LENGTH = 254;
 const EMAIL_SHAPE = /^[a-z0-9._%+-]+@[a-z0-9.-]+$/i;
 
-/** The phone number shape My > Personal Info accepts: a leading + or digit, then digits, spaces, hyphens and brackets, six characters at least. */
-const PHONE_SHAPE = /^[+\d][\d\s\-()]{5,}$/;
-
 /** The most users or administrators the backend accepts a count for. */
 const MAX_PEOPLE_COUNT = 100_000;
 
@@ -180,6 +177,7 @@ export function emptyDetails(): RequestDetails {
   };
 }
 
+/** The event of a request that has none yet: nothing chosen, nothing typed. */
 export function emptyEvent(): EventDetails {
   return {
     eventType: "",
@@ -291,11 +289,13 @@ const REQUIRED = "Required";
 const PICK = "Select an option";
 const WHOLE_NUMBER = "Enter a whole number";
 const NAMES_TOO_LONG = `Keep the names to ${MAX_NAMES_LENGTH} characters in total`;
+/** How long the names are together, written one per line as the backend keeps them. */
 const namesLength = (names: string[]): number => names.map((n) => n.trim()).filter(Boolean).join("\n").length;
 const LINK = "Enter a link starting with http:// or https://";
 const LINKS = "Enter links starting with http:// or https://, separated by commas";
 const AMOUNT = "Enter an amount of 0 or more, with at most two decimals";
 
+/** What an IT request still needs in its requirement details and, for SaaS, its assessment. */
 function itDetailsProblems(d: RequestDetails): Problem[] {
   const problems: Problem[] = [];
   const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
@@ -310,6 +310,7 @@ function itDetailsProblems(d: RequestDetails): Problem[] {
   return problems;
 }
 
+/** What the users, administrators and the data and security questions of an IT request still need. */
 function saasDetailsProblems(d: RequestDetails): Problem[] {
   const problems: Problem[] = [];
   const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
@@ -334,6 +335,7 @@ function saasDetailsProblems(d: RequestDetails): Problem[] {
   return problems;
 }
 
+/** An amount as a number, or NaN when it is blank or not a number. */
 const parseAmount = (value: string): number => (blank(value) ? NaN : Number(value));
 
 /** An amount is not negative and has at most two decimals. */
@@ -346,6 +348,7 @@ const invalidAmount = (value: string): boolean => {
 /** The links in a text that holds several, separated by commas or spaces. */
 export const splitLinks = (value: string): string[] => value.split(/[\s,]+/).filter(Boolean);
 
+/** Whether a text that is not blank is anything but one http or https link without spaces. */
 const invalidLink = (value: string): boolean => {
   if (blank(value)) return false;
   const text = value.trim();
@@ -371,6 +374,7 @@ const invalidPercent = (value: string): boolean => {
   return !Number.isInteger(n) || n < 0 || n > 100;
 };
 
+/** What the event of a Marketing & Events request still needs, by the backend's rules for its type and shortlist status. */
 function eventDetailsProblems(e: EventDetails): Problem[] {
   const problems: Problem[] = [];
   const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
@@ -415,6 +419,7 @@ function eventDetailsProblems(e: EventDetails): Problem[] {
   return problems;
 }
 
+/** What a Non-IT request still needs in its requirement details. */
 function nonItDetailsProblems(d: RequestDetails): Problem[] {
   const problems: Problem[] = [];
   if (blank(d.description)) problems.push({ field: "description", message: REQUIRED });
@@ -422,6 +427,7 @@ function nonItDetailsProblems(d: RequestDetails): Problem[] {
   return problems;
 }
 
+/** What the budget details and approver of a Non-IT or Marketing & Events request still need, and what is wrong with the vendors. */
 function budgetProblems(draft: RequestDraft): Problem[] {
   const problems: Problem[] = [];
   if (draft.category === "NON-IT" || draft.category === "EVENTS") {
@@ -439,9 +445,6 @@ function budgetProblems(draft: RequestDraft): Problem[] {
       const given = [v.website, v.contact, v.email, v.phone].some((value) => !blank(value));
       if (blank(v.name) && given) problems.push({ field: `vendorName.${index}`, message: "Add the vendor's name" });
       if (invalidLink(v.website)) problems.push({ field: `vendorWebsite.${index}`, message: LINK });
-      if (!blank(v.phone) && !PHONE_SHAPE.test(v.phone.trim())) {
-        problems.push({ field: `vendorPhone.${index}`, message: "Enter a valid phone number" });
-      }
       if (!blank(v.email) && (v.email.trim().length > MAX_EMAIL_LENGTH || !EMAIL_SHAPE.test(v.email.trim()))) {
         problems.push({ field: `vendorEmail.${index}`, message: "Enter a valid email address" });
       }

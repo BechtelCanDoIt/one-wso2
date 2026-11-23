@@ -20,7 +20,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import type { Attachment, AttachmentsDraft } from "../types";
 import AttachmentsField from "./AttachmentsField";
-import { attachmentProblem, emptyAttachments, MAX_ATTACHMENT_BYTES } from "./attachmentRules";
+import { attachmentProblem, canDownload, emptyAttachments, MAX_ATTACHMENT_BYTES, scanNote } from "./attachmentRules";
 
 const pdf = (name: string, size = 10) => new File([new Uint8Array(size)], name, { type: "application/pdf" });
 const saved = (id: string, name: string): Attachment => ({ id, name, contentType: "application/pdf", sizeBytes: 2048, scanStatus: "clean", uploadedBy: "me@example.com", uploadedAt: "2026-11-02T00:00:00Z" });
@@ -40,6 +40,22 @@ describe("attachmentProblem", () => {
     const draft: AttachmentsDraft = { saved: [saved("1", "a.pdf")], removed: [], files: Array.from({ length: 9 }, (_, i) => pdf(`f${i}.pdf`)) };
     expect(attachmentProblem(pdf("one-more.pdf"), draft)).toBe("A request can have at most 10 files.");
     expect(attachmentProblem(pdf("one-more.pdf"), { ...draft, files: draft.files.slice(1) })).toBeNull();
+  });
+});
+
+describe("downloading a saved file", () => {
+  const withScan = (scanStatus: Attachment["scanStatus"]): Attachment => ({ ...saved("1", "a.pdf"), scanStatus });
+
+  it("is possible only once the scan has found the file clean", () => {
+    expect(canDownload(withScan("clean"))).toBe(true);
+    for (const status of ["pending", "failed", "infected"] as const) expect(canDownload(withScan(status)), status).toBe(false);
+  });
+
+  it("says why a file cannot be downloaded yet, and says nothing about a clean one", () => {
+    expect(scanNote(withScan("clean"))).toBeUndefined();
+    expect(scanNote(withScan("pending"))).toMatch(/Being scanned/);
+    expect(scanNote(withScan("failed"))).toMatch(/did not finish/);
+    expect(scanNote(withScan("infected"))).toMatch(/Blocked/);
   });
 });
 
@@ -77,6 +93,17 @@ describe("AttachmentsField", () => {
     expect(screen.getByRole("alert")).toHaveTextContent('"run.exe" is not a type that can be attached.');
     expect(screen.getByText("quote.pdf")).toBeInTheDocument();
     expect(onChange.mock.lastCall?.[0].files.map((f: File) => f.name)).toEqual(["quote.pdf"]);
+  });
+
+  it("says once that the limit is reached, however many files over it were chosen", async () => {
+    const user = userEvent.setup();
+    const nine: AttachmentsDraft = { saved: [], removed: [], files: Array.from({ length: 9 }, (_, i) => pdf(`f${i}.pdf`)) };
+    render(<Harness initial={nine} />);
+    await user.upload(screen.getByLabelText("Quotes", { selector: "input" }), [pdf("a.pdf"), pdf("b.pdf"), pdf("c.pdf")]);
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("A request can have at most 10 files.");
+    expect(screen.getByText("a.pdf")).toBeInTheDocument();
+    expect(screen.queryByText("b.pdf")).toBeNull();
   });
 
   it("marks a saved file to be removed on submit, instead of forgetting it", async () => {

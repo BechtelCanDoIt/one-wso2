@@ -42,6 +42,7 @@ const CATEGORIES: { value: ProcurementCategory; title: string; description: stri
   },
 ];
 
+/** One category to choose, as a radio in the category group. Only the focusable card is in the tab order. */
 function CategoryCard({
   icon,
   title,

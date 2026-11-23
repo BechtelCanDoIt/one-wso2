@@ -161,6 +161,7 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
   /** What this session has uploaded to each request, by the file chosen: the id the backend gave it. */
   const uploaded = new Map<string, Map<File, string>>();
 
+  /** Removes a file from a request; a file the backend no longer has counts as removed. */
   const removeAttachment = async (requestId: string, attachmentId: string): Promise<void> => {
     try {
       await authedDelete(urls.attachment(requestId, attachmentId), await getAccessToken());

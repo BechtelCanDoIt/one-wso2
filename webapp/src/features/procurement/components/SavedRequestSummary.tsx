@@ -17,7 +17,7 @@
 import { Alert, Button, Stack } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { budgetForDisplay } from "../request-form/requestFormModel";
-import { canDownload } from "../request-form/attachmentRules";
+import { canDownload, scanNote } from "../request-form/attachmentRules";
 import { useAttachments, useDownloadAttachment, useEngagementCodes, useProcurementLookups } from "../api/useProcurement";
 import type { PurchaseRequest } from "../types";
 import RequestSummary, { type AttachmentRow } from "./RequestSummary";
@@ -33,7 +33,7 @@ export default function SavedRequestSummary({ request }: { request: PurchaseRequ
     key: a.id,
     name: a.name,
     sizeBytes: a.sizeBytes,
-    note: a.scanStatus === "infected" ? "Blocked: the scan found a problem" : a.scanStatus === "pending" ? "Being scanned" : undefined,
+    note: scanNote(a),
     onDownload: canDownload(a) ? () => download.mutate(a) : undefined,
     downloading: download.isPending && download.variables?.id === a.id,
   }));

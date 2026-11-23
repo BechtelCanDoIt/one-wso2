@@ -19,27 +19,33 @@ import { Box, Button, Card, CardContent, Chip, Link, Stack, Typography } from "@
 import { EVENT_COSTS, EVENT_TYPES, INSTALLATION_TYPES, PACKAGE_INCLUSIONS, splitLinks, totalInvestment } from "../request-form/requestFormModel";
 import { formatSize } from "../request-form/attachmentRules";
 import { formatCalendarDate, formatDate } from "../procurementFormat";
-import type { BudgetDetails, EventDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
+import type { BudgetDetails, EventDetails, Person, ProcurementCategory, RequestDetails, Vendor, YesNo } from "../types";
 
 /** A file on a request, as the summary lists it. A row with `onDownload` offers a Download button. */
 export interface AttachmentRow {
+  /** Tells the row apart from the others in the list. */
   key: string;
+  /** The file's name. */
   name: string;
+  /** The file's size in bytes. */
   sizeBytes: number;
   /** What the malware scan says, when it is worth saying. */
   note?: string;
+  /** Saves the file; the row has no Download button without it. */
   onDownload?: () => void;
+  /** Whether this file is being downloaded now. */
   downloading?: boolean;
 }
 
 /** Everything a summary shows, whether it comes from a draft in the form or a saved request. */
 export interface RequestView {
-  category: RequestCategory | "";
+  category: ProcurementCategory | "";
   requester: Person;
   teamLead: Person | null;
   /** Emails of the people who may approve besides the team lead. */
   additionalApprovers: string[];
   details: RequestDetails;
+  /** The event of a Marketing & Events request; empty for any other category. */
   event: EventDetails;
   vendors: Vendor[];
   /** Each value is what a person reads (a label), not a code. */
@@ -47,18 +53,19 @@ export interface RequestView {
   /** The budget approver's name. */
   budgetApprover: string;
   notes: string;
+  /** The files on the request, when it has any. */
   attachments?: AttachmentRow[];
   /** A date to show with the key facts, with what it is called ("Date", "Raised"). */
   date?: { label: string; iso: string };
 }
 
-const CATEGORY_LABEL: Record<RequestCategory, string> = {
+const CATEGORY_LABEL: Record<ProcurementCategory, string> = {
   IT: "IT Related Procurement",
   "NON-IT": "Non-IT Related Procurement",
   EVENTS: "Marketing & Events Procurement",
 };
 
-const CATEGORY_SHORT: Record<RequestCategory, string> = {
+const CATEGORY_SHORT: Record<ProcurementCategory, string> = {
   IT: "IT request",
   "NON-IT": "Non-IT request",
   EVENTS: "Marketing & Events request",
@@ -223,6 +230,7 @@ function NonItRows({ d }: { d: RequestDetails }) {
 const usd = (amount: number): string => amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
 const amountOf = (value: string): string => (value.trim() === "" ? "" : usd(Number(value)));
 
+/** The rows of a Marketing & Events request: the event, its costs and what it should return. */
 function EventRows({ e }: { e: EventDetails }) {
   const industry = e.eventType === "INDUSTRY_EVENT_SPONSORSHIP";
   const shortlisted = e.shortlisted === "yes";

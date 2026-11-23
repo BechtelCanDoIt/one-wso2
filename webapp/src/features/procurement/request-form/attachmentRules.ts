@@ -20,20 +20,30 @@
 
 import type { Attachment, AttachmentsDraft } from "../types";
 
+/** The largest file the backend takes, in bytes. */
 export const MAX_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+
+/** The most files the backend keeps on a request. */
 export const MAX_ATTACHMENTS = 10;
 
 const EXTENSIONS = ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "png", "jpg", "jpeg"] as const;
 
+/** The extensions of the file picker's `accept`. */
 export const ATTACHMENT_ACCEPT = EXTENSIONS.map((e) => `.${e}`).join(",");
 
-export const ATTACHMENT_RULES = "PDF, Word, Excel, PowerPoint, PNG or JPEG, up to 10 MB each, at most 10 files.";
+/** The largest file, in megabytes. */
+const MAX_ATTACHMENT_MB = MAX_ATTACHMENT_BYTES / (1024 * 1024);
 
+/** What the picker tells the person about the files it takes. */
+export const ATTACHMENT_RULES = `PDF, Word, Excel, PowerPoint, PNG or JPEG, up to ${MAX_ATTACHMENT_MB} MB each, at most ${MAX_ATTACHMENTS} files.`;
+
+/** A request's files before anything is saved, removed or chosen. */
 export const emptyAttachments = (): AttachmentsDraft => ({ saved: [], removed: [], files: [] });
 
 /** How many files the request would have if the draft were sent now. */
 export const attachmentCount = (a: AttachmentsDraft): number => a.saved.length + a.files.length;
 
+/** A size in bytes as a person reads it, for example "2 KB" or "1.5 MB". */
 export function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
@@ -45,10 +55,24 @@ export function attachmentProblem(file: File, current: AttachmentsDraft): string
   const extension = file.name.split(".").pop()?.toLowerCase() ?? "";
   if (!(EXTENSIONS as readonly string[]).includes(extension)) return `"${file.name}" is not a type that can be attached.`;
   if (file.size === 0) return `"${file.name}" is empty.`;
-  if (file.size > MAX_ATTACHMENT_BYTES) return `"${file.name}" is larger than 10 MB.`;
+  if (file.size > MAX_ATTACHMENT_BYTES) return `"${file.name}" is larger than ${MAX_ATTACHMENT_MB} MB.`;
   if (attachmentCount(current) >= MAX_ATTACHMENTS) return `A request can have at most ${MAX_ATTACHMENTS} files.`;
   return null;
 }
 
-/** Whether a saved attachment may be downloaded; a file the scan found infected may not. */
-export const canDownload = (a: Attachment): boolean => a.scanStatus !== "infected";
+/** Whether a saved attachment may be downloaded: only once the malware scan has found it clean. */
+export const canDownload = (a: Attachment): boolean => a.scanStatus === "clean";
+
+/** Why a saved attachment cannot be downloaded yet, or undefined when it can be. */
+export function scanNote(a: Attachment): string | undefined {
+  switch (a.scanStatus) {
+    case "pending":
+      return "Being scanned. It can be downloaded once the scan is clean.";
+    case "failed":
+      return "The scan did not finish, so it cannot be downloaded.";
+    case "infected":
+      return "Blocked: the scan found a problem.";
+    case "clean":
+      return undefined;
+  }
+}

@@ -28,7 +28,12 @@ const EVENT_TYPE_LABELS = Object.fromEntries(EVENT_TYPES.map((c) => [c.value, c.
 
 const usd = (amount: number): string => amount.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
-// Step 3 of a Marketing & Events request, one section per question of the questionnaire.
+/**
+ * Step 3 of a Marketing & Events request, one section per question of the questionnaire.
+ *
+ * @param notes - The notes for Procurement, asked here with the brand goal
+ * @param attachments - The files on the request; the prospectus file is chosen here
+ */
 export default function EventDetailsStep({
   event: e,
   notes,

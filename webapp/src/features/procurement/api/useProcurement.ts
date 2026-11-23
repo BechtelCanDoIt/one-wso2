@@ -20,8 +20,8 @@ import { useAsgardeo } from "@asgardeo/react";
 import { defaultQueryRetry } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
+import { saveBlob } from "@utils/saveFile";
 import { MIN_DIRECTORY_QUERY } from "../request-form/requestFormModel";
-import { saveBlob } from "../components/saveBlob";
 import type { ApprovalDecisionInput, Attachment, Person, Priority, PurchaseRequestInput, RequestStatus } from "../types";
 import { createProcurementApi, isProcurementAvailable } from "./procurementApi";
 

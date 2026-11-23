@@ -106,7 +106,7 @@ export default function RequesterStep({
                 error={Boolean(approversError)}
                 helperText={approversError}
                 required={needsApprover}
-                InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
+                slotProps={{ inputLabel: { ...params.InputLabelProps, shrink: true } }}
                 // Focus the field only when the requester asked for it, not when it is simply there.
                 autoFocus={asked && selected.length === 0}
                 placeholder={selected.length ? "" : "Search by email"}
