@@ -100,7 +100,7 @@ export default function EventDetailsStep({
                 ))}
               </Box>
             </Box>
-            <TextInput label="Organiser's prospectus or contract (link)" name="prospectusUrl" value={e.prospectusUrl} onChange={(prospectusUrl) => onChange({ prospectusUrl })} />
+            <TextInput type="url" label="Organiser's prospectus or contract (link)" name="prospectusUrl" value={e.prospectusUrl} onChange={(prospectusUrl) => onChange({ prospectusUrl })} />
           </>
         )}
 
@@ -162,7 +162,7 @@ export default function EventDetailsStep({
             <SectionHeading>{industry ? "How much new pipeline will the event create? Have we attended this event before?" : "How much new pipeline will the event create?"}</SectionHeading>
             <Box sx={TWO_COLUMNS}>
               <TextInput required type="number" min={0} label="New pipeline" name="newPipeline" value={e.newPipeline} onChange={(newPipeline) => onChange({ newPipeline })} />
-              <TextInput required label="Completed ROI calculator (link)" name="roiCalculatorUrl" value={e.roiCalculatorUrl} onChange={(roiCalculatorUrl) => onChange({ roiCalculatorUrl })} />
+              <TextInput required type="url" label="Completed ROI calculator (link)" name="roiCalculatorUrl" value={e.roiCalculatorUrl} onChange={(roiCalculatorUrl) => onChange({ roiCalculatorUrl })} />
             </Box>
           </>
         )}

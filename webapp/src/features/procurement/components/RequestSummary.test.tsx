@@ -126,4 +126,15 @@ describe("RequestSummary", () => {
     expect(screen.getByText("$60,500.00")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Vendors" })).toBeNull();
   });
+
+  it("shows links as links that open in a new tab, and anything else as plain text", () => {
+    const details = { ...view().details, integrates: "yes" as const, vendorDocs: "yes" as const, vendorDocsLink: "https://example.com/docs, not-a-link" };
+    render(<RequestSummary view={view({ details, vendors: [{ ...emptyVendor(), name: "Acme", website: "https://www.acme.example.com" }] })} />);
+    const docs = screen.getByRole("link", { name: "https://example.com/docs" });
+    expect(docs).toHaveAttribute("href", "https://example.com/docs");
+    expect(docs).toHaveAttribute("target", "_blank");
+    expect(docs).toHaveAttribute("rel", expect.stringContaining("noopener"));
+    expect(screen.getByRole("link", { name: "https://www.acme.example.com" })).toBeInTheDocument();
+    expect(screen.getByText("not-a-link")).not.toHaveAttribute("href");
+  });
 });

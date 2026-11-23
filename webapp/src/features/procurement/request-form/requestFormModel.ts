@@ -269,6 +269,7 @@ const REQUIRED = "Required";
 const PICK = "Select an option";
 const WHOLE_NUMBER = "Enter a whole number";
 const LINK = "Enter a link starting with http:// or https://";
+const LINKS = "Enter links starting with http:// or https://, separated by commas";
 const AMOUNT = "Enter an amount of 0 or more, with at most two decimals";
 
 function itDetailsProblems(d: RequestDetails): Problem[] {
@@ -303,7 +304,7 @@ function saasDetailsProblems(d: RequestDetails): Problem[] {
   if (d.integrates === "yes") {
     need("integrationSystem", !d.integrations.some((i) => !blank(i.system)));
     need("vendorDocs", !d.vendorDocs, PICK);
-    need("vendorDocsLink", d.vendorDocs === "yes" && blank(d.vendorDocsLink));
+    need("vendorDocsLink", d.vendorDocs === "yes" && (blank(d.vendorDocsLink) || splitLinks(d.vendorDocsLink).some(invalidLink)), blank(d.vendorDocsLink) ? REQUIRED : LINKS);
   }
   return problems;
 }
@@ -316,6 +317,9 @@ const invalidAmount = (value: string): boolean => {
   const n = Number(value);
   return !Number.isFinite(n) || n < 0 || Math.round(n * 100) / 100 !== n;
 };
+
+/** The links in a text that holds several, separated by commas or spaces. */
+export const splitLinks = (value: string): string[] => value.split(/[\s,]+/).filter(Boolean);
 
 const invalidLink = (value: string): boolean => {
   if (blank(value)) return false;
@@ -402,6 +406,11 @@ function budgetProblems(draft: RequestDraft): Problem[] {
     need("region", blank(b.region));
     need("engagementCode", blank(b.engagementCode));
     need("budgetApprover", draft.category === "NON-IT" && blank(draft.budgetApproverId));
+  }
+  if (draft.category !== "EVENTS") {
+    draft.vendors.forEach((v, index) => {
+      if (invalidLink(v.website)) problems.push({ field: `vendorWebsite.${index}`, message: LINK });
+    });
   }
   return problems;
 }

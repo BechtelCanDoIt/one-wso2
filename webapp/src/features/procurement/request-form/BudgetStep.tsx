@@ -52,7 +52,7 @@ function VendorBlock({
       </Stack>
       <Box sx={TWO_COLUMNS}>
         <TextInput label="Vendor name (if known)" value={vendor.name} onChange={(name) => onChange({ name })} />
-        <TextInput label="Vendor website" placeholder="e.g. https://www.supplier.com" value={vendor.website} onChange={(website) => onChange({ website })} />
+        <TextInput type="url" label="Vendor website" name={`vendorWebsite.${index}`} placeholder="e.g. https://www.supplier.com" value={vendor.website} onChange={(website) => onChange({ website })} />
       </Box>
       <Box sx={THREE_COLUMNS}>
         <TextInput label="Contact name" value={vendor.contact} onChange={(contact) => onChange({ contact })} />

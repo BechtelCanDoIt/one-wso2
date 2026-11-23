@@ -162,6 +162,27 @@ describe("step 4, budget", () => {
   });
 });
 
+describe("links", () => {
+  const withDocs = (vendorDocsLink: string): RequestDraft => {
+    const draft = completeIt();
+    return { ...draft, details: { ...draft.details, integrates: "yes", integrations: [{ system: "Salesforce", data: "" }], vendorDocs: "yes", vendorDocsLink } };
+  };
+
+  it("take several documentation links, separated by commas or spaces, each starting with http or https", () => {
+    expect(fields(STEP_DETAILS, withDocs("https://example.com/a, http://example.com/b https://example.com/c"), me)).toEqual([]);
+    expect(fields(STEP_DETAILS, withDocs("https://example.com/a, example.com/b"), me)).toEqual(["vendorDocsLink"]);
+    expect(fields(STEP_DETAILS, withDocs("ftp://example.com/a"), me)).toEqual(["vendorDocsLink"]);
+  });
+
+  it("need a vendor website, when given, that starts with http or https", () => {
+    const draft = completeIt();
+    const withSite = (website: string): RequestDraft => ({ ...draft, vendors: [{ name: "Acme", website, contact: "", email: "", phone: "" }] });
+    expect(fields(STEP_BUDGET, withSite(""), me)).toEqual([]);
+    expect(fields(STEP_BUDGET, withSite("https://www.acme.example.com"), me)).toEqual([]);
+    expect(fields(STEP_BUDGET, withSite("www.acme.example.com"), me)).toEqual(["vendorWebsite.0"]);
+  });
+});
+
 describe("incompleteSteps", () => {
   it("is empty for a finished request and lists steps in order otherwise", () => {
     expect(incompleteSteps(completeIt(), me)).toEqual([]);

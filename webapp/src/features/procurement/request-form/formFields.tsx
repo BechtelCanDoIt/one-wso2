@@ -89,7 +89,7 @@ export function TextInput({
   onChange?: (value: string) => void;
   required?: boolean;
   placeholder?: string;
-  type?: "text" | "email" | "number" | "date";
+  type?: "text" | "email" | "number" | "date" | "url";
   /** The smallest number a number field takes. */
   min?: number;
   multiline?: boolean;

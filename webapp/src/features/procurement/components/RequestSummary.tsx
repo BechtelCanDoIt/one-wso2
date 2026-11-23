@@ -15,8 +15,8 @@
 // under the License.
 
 import { useState, type ReactNode } from "react";
-import { Box, Button, Card, CardContent, Chip, Stack, Typography } from "@wso2/oxygen-ui";
-import { EVENT_COSTS, EVENT_TYPES, INSTALLATION_TYPES, PACKAGE_INCLUSIONS, totalInvestment } from "../request-form/requestFormModel";
+import { Box, Button, Card, CardContent, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
+import { EVENT_COSTS, EVENT_TYPES, INSTALLATION_TYPES, PACKAGE_INCLUSIONS, splitLinks, totalInvestment } from "../request-form/requestFormModel";
 import { formatDate } from "../procurementFormat";
 import type { BudgetDetails, EventDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
 
@@ -80,6 +80,27 @@ function ClampedText({ text }: { text: string }) {
         </Button>
       )}
     </>
+  );
+}
+
+const isWebLink = (text: string): boolean => /^https?:\/\/\S+$/.test(text);
+
+/** Links in a text that holds one or several. A link opens in a new tab; anything that is not an http(s) link stays as plain text. */
+function LinkList({ text }: { text: string }) {
+  return (
+    <Stack spacing={0.25}>
+      {splitLinks(text).map((link, index) =>
+        isWebLink(link) ? (
+          <Link key={index} href={link} target="_blank" rel="noopener noreferrer" variant="body2" sx={{ overflowWrap: "anywhere" }}>
+            {link}
+          </Link>
+        ) : (
+          <Typography key={index} variant="body2" sx={{ overflowWrap: "anywhere" }}>
+            {link}
+          </Typography>
+        ),
+      )}
+    </Stack>
   );
 }
 
@@ -166,7 +187,9 @@ function ItRows({ d }: { d: RequestDetails }) {
         <>
           <Row label="Integrations" value={d.integrations.map((i) => joined(i.system, i.data)).join("\n")} />
           <Row label="Vendor documentation" value={yesNo(d.vendorDocs)} />
-          {d.vendorDocs === "yes" && <Row label="Documentation link(s)" value={d.vendorDocsLink} />}
+          {d.vendorDocs === "yes" && (
+            <Row label="Documentation link(s)">{d.vendorDocsLink.trim() !== "" && <LinkList text={d.vendorDocsLink} />}</Row>
+          )}
         </>
       )}
     </>
@@ -201,7 +224,9 @@ function EventRows({ e }: { e: EventDetails }) {
         <>
           <Row label="Sponsorship package" value={e.packageName} />
           <Row label="Package includes" value={e.packageInclusions.map((i) => choiceLabel(PACKAGE_INCLUSIONS, i)).join(", ")} optional />
-          <Row label="Prospectus or contract" value={e.prospectusUrl} optional />
+          <Row label="Prospectus or contract" value={e.prospectusUrl} optional>
+            {e.prospectusUrl.trim() !== "" && <LinkList text={e.prospectusUrl} />}
+          </Row>
         </>
       )}
       {EVENT_COSTS.filter(({ value }) => e.costs[value].trim() !== "").map(({ value, label }) => (
@@ -219,7 +244,9 @@ function EventRows({ e }: { e: EventDetails }) {
           <Row label="Target accounts attending" value={e.targetAccounts} />
           <Row label="Key accounts" value={e.keyAccounts} optional />
           <Row label="New pipeline" value={amountOf(e.newPipeline)} />
-          <Row label="ROI calculator" value={e.roiCalculatorUrl} />
+          <Row label="ROI calculator" value={e.roiCalculatorUrl}>
+            {e.roiCalculatorUrl.trim() !== "" && <LinkList text={e.roiCalculatorUrl} />}
+          </Row>
         </>
       )}
       {industry && !shortlisted && (
@@ -283,11 +310,17 @@ export default function RequestSummary({
             <Row label="Proposed vendor" optional />
           ) : (
             view.vendors.map((v, index) => (
-              <Row
-                key={index}
-                label={view.vendors.length > 1 ? `Proposed vendor ${index + 1}` : "Proposed vendor"}
-                value={[joined(v.name, v.website), joined(v.contact, v.email, v.phone)].filter(Boolean).join("\n")}
-              />
+              <Row key={index} label={view.vendors.length > 1 ? `Proposed vendor ${index + 1}` : "Proposed vendor"}>
+                <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                  {v.name}
+                </Typography>
+                {v.website.trim() !== "" && <LinkList text={v.website} />}
+                {joined(v.contact, v.email, v.phone) !== "" && (
+                  <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
+                    {joined(v.contact, v.email, v.phone)}
+                  </Typography>
+                )}
+              </Row>
             ))
           )}
         </Section>
