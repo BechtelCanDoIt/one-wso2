@@ -235,15 +235,26 @@ describe("AskNoveraPalette", () => {
     expect(screen.getByRole("button", { name: "Open Repository Requests" })).toBeInTheDocument();
   });
 
-  it("suppresses administrative Infrastructure tools for standard users lacking admin capability", () => {
+  // Domain admin consoles are gated by their own backends, not People App admin,
+  // so search shows them to everyone and the target page decides access.
+  it("finds domain-gated admin consoles for standard employees", () => {
     renderPalette("github settings");
-    expect(screen.queryByRole("button", { name: "Open GitHub Settings" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open GitHub Settings" })).toBeInTheDocument();
   });
 
-  it("finds administrative Infrastructure tools for admins", () => {
-    const adminCaps = new Set<Capability>(["employee", "admin"]);
-    renderPalette("github settings", adminCaps);
-    expect(screen.getByRole("button", { name: "Open GitHub Settings" })).toBeInTheDocument();
+  it("finds finance approval tools for standard employees", () => {
+    renderPalette("claim approval");
+    expect(screen.getByRole("button", { name: "Open Claim Approvals" })).toBeInTheDocument();
+  });
+
+  it("keeps People App admin reports hidden from standard employees", () => {
+    renderPalette("resignations");
+    expect(screen.queryByRole("button", { name: "Open Resignations Report" })).not.toBeInTheDocument();
+  });
+
+  it("finds Marketing Ops tools via direct search for standard employees", () => {
+    renderPalette("ad campaigns");
+    expect(screen.getByRole("button", { name: "Open Campaign Analytics" })).toBeInTheDocument();
   });
 
   it("finds Corporate Cards via direct search", () => {
