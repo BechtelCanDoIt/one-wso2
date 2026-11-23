@@ -249,6 +249,21 @@ describe("RequestForm, the steps after it", () => {
     expect(screen.getByText("Total investment: $1,500.00")).toBeInTheDocument();
   });
 
+  it("offers to attach files on the budget step of a Non-IT request, and the prospectus file for an industry event", async () => {
+    const first = renderForm(me, { ...nonIt(), budget: { category: "CAT-1", businessUnit: "BU-1", product: "PRD-1", region: "REG-1", engagementCode: "ENG-1", salesforceCampaign: "" }, budgetApproverId: "10" });
+    for (let i = 0; i < 3; i += 1) await first.user.click(screen.getByRole("button", { name: /Continue/ }));
+    expect(screen.getByText("Attachments")).toBeInTheDocument();
+    expect(screen.getByText(/PDF, Word, Excel, PowerPoint, PNG or JPEG, up to 10 MB each, at most 10 files\./)).toBeInTheDocument();
+  });
+
+  it("asks for the prospectus as a file as well as a link, for an industry event sponsorship", async () => {
+    const draft = { ...emptyDraft(), category: "EVENTS" as const, event: { ...emptyEvent(), eventType: "INDUSTRY_EVENT_SPONSORSHIP" as const } };
+    const { user } = renderForm(me, draft);
+    for (let i = 0; i < 2; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
+    expect(screen.getByRole("textbox", { name: /prospectus or contract \(link\)/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add files" })).toBeInTheDocument();
+  });
+
   it("asks for the budget without vendors on the next step", async () => {
     const draft = {
       ...emptyDraft(),

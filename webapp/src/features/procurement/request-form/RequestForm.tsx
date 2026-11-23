@@ -155,7 +155,14 @@ export default function RequestForm({
         {step === STEP_REQUESTER && <RequesterStep draft={draft} me={me} today={todayIso()} onChange={patch} />}
         {step === STEP_CATEGORY && <CategoryStep category={draft.category} onChange={(category) => patch({ category })} />}
         {step === STEP_DETAILS &&
-          (draft.category === "EVENTS" ? <EventDetailsStep event={draft.event} notes={draft.notes} onChange={patchEvent} onNotesChange={(notes) => patch({ notes })} /> : <DetailsStep draft={draft} onChange={patchDetails} />)}
+          (draft.category === "EVENTS" ? <EventDetailsStep
+              event={draft.event}
+              notes={draft.notes}
+              attachments={draft.attachments}
+              onChange={patchEvent}
+              onNotesChange={(notes) => patch({ notes })}
+              onAttachmentsChange={(attachments) => patch({ attachments })}
+            /> : <DetailsStep draft={draft} onChange={patchDetails} />)}
         {step === STEP_BUDGET && <BudgetStep draft={draft} lookups={lookups} onChange={patch} />}
         {step === STEP_REVIEW && (
           <Stack spacing={2}>
@@ -172,6 +179,10 @@ export default function RequestForm({
                 budget: budgetForDisplay(draft.budget, lookups, engagementCodes.data ?? []),
                 budgetApprover: draft.category === "EVENTS" ? "" : budgetApprovers.data?.find((a) => a.id === draft.budgetApproverId)?.name ?? "",
                 notes: draft.notes,
+                attachments: [
+                  ...draft.attachments.saved.map((a) => ({ key: `saved-${a.id}`, name: a.name, sizeBytes: a.sizeBytes })),
+                  ...draft.attachments.files.map((f, index) => ({ key: `new-${index}`, name: f.name, sizeBytes: f.size })),
+                ],
                 date: { label: "Date", iso: todayIso() },
               }}
               onEditStep={goTo}

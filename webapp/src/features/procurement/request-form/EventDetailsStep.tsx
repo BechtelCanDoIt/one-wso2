@@ -16,7 +16,8 @@
 
 import { Box, Button, Checkbox, FormControlLabel, IconButton, Stack, Typography } from "@wso2/oxygen-ui";
 import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
-import type { EventDetails, PackageInclusion } from "../types";
+import type { AttachmentsDraft, EventDetails, PackageInclusion } from "../types";
+import AttachmentsField from "./AttachmentsField";
 import { SectionHeading, SelectField, StepTitle, TextInput, YesNoField, YesNoList } from "./formFields";
 import { EVENT_COSTS, EVENT_TYPES, PACKAGE_INCLUSIONS, totalInvestment } from "./requestFormModel";
 
@@ -31,13 +32,17 @@ const usd = (amount: number): string => amount.toLocaleString("en-US", { style: 
 export default function EventDetailsStep({
   event: e,
   notes,
+  attachments,
   onChange,
   onNotesChange,
+  onAttachmentsChange,
 }: {
   event: EventDetails;
   notes: string;
+  attachments: AttachmentsDraft;
   onChange: (patch: Partial<EventDetails>) => void;
   onNotesChange: (notes: string) => void;
+  onAttachmentsChange: (attachments: AttachmentsDraft) => void;
 }) {
   const industry = e.eventType === "INDUSTRY_EVENT_SPONSORSHIP";
   const shortlisted = e.shortlisted === "yes";
@@ -101,6 +106,7 @@ export default function EventDetailsStep({
               </Box>
             </Box>
             <TextInput type="url" label="Organiser's prospectus or contract (link)" name="prospectusUrl" value={e.prospectusUrl} onChange={(prospectusUrl) => onChange({ prospectusUrl })} />
+            <AttachmentsField label="Organiser's prospectus or contract (file)" value={attachments} onChange={onAttachmentsChange} />
           </>
         )}
 

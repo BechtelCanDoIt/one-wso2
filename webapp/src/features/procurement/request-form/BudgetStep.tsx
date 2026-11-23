@@ -19,6 +19,7 @@ import { describeError } from "@api/errors";
 import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useBudgetApprovers, useEngagementCodes } from "../api/useProcurement";
 import type { BudgetDetails, ProcurementLookups, Vendor } from "../types";
+import AttachmentsField from "./AttachmentsField";
 import { OptionField, SectionHeading, StepTitle, TextInput } from "./formFields";
 import { budgetLabel, emptyVendor, MAX_VENDORS, type RequestDraft } from "./requestFormModel";
 
@@ -156,6 +157,9 @@ export default function BudgetStep({
             value={draft.notes}
             onChange={(notes) => onChange({ notes })}
           />
+
+          <SectionHeading>Attachments</SectionHeading>
+          <AttachmentsField label="Quotes, specifications or other documents" value={draft.attachments} onChange={(attachments) => onChange({ attachments })} />
         </>
       )}
     </Stack>
