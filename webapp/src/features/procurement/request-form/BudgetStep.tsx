@@ -20,7 +20,7 @@ import { PlusIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import { useBudgetApprovers, useEngagementCodes } from "../api/useProcurement";
 import type { BudgetDetails, ProcurementLookups, Vendor } from "../types";
 import { OptionField, SectionHeading, StepTitle, TextInput } from "./formFields";
-import { budgetLabel, emptyVendor, type RequestDraft } from "./requestFormModel";
+import { budgetLabel, emptyVendor, MAX_VENDORS, type RequestDraft } from "./requestFormModel";
 
 const TWO_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } } as const;
 const THREE_COLUMNS = { display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" } } as const;
@@ -51,13 +51,13 @@ function VendorBlock({
         )}
       </Stack>
       <Box sx={TWO_COLUMNS}>
-        <TextInput label="Vendor name (if known)" value={vendor.name} onChange={(name) => onChange({ name })} />
+        <TextInput label="Vendor name (if known)" name={`vendorName.${index}`} value={vendor.name} onChange={(name) => onChange({ name })} />
         <TextInput type="url" label="Vendor website" name={`vendorWebsite.${index}`} placeholder="e.g. https://www.supplier.com" value={vendor.website} onChange={(website) => onChange({ website })} />
       </Box>
       <Box sx={THREE_COLUMNS}>
-        <TextInput label="Contact name" value={vendor.contact} onChange={(contact) => onChange({ contact })} />
-        <TextInput type="email" label="Contact email" value={vendor.email} onChange={(email) => onChange({ email })} />
-        <TextInput label="Contact number" value={vendor.phone} onChange={(phone) => onChange({ phone })} />
+        <TextInput label="Contact name" maxLength={150} value={vendor.contact} onChange={(contact) => onChange({ contact })} />
+        <TextInput type="email" label="Contact email" name={`vendorEmail.${index}`} maxLength={254} value={vendor.email} onChange={(email) => onChange({ email })} />
+        <TextInput type="tel" label="Contact number" name={`vendorPhone.${index}`} maxLength={50} value={vendor.phone} onChange={(phone) => onChange({ phone })} />
       </Box>
     </Stack>
   );
@@ -106,7 +106,7 @@ export default function BudgetStep({
               onRemove={() => onChange({ vendors: draft.vendors.filter((_, i) => i !== index) })}
             />
           ))}
-          <Button size="small" startIcon={<PlusIcon size={16} />} onClick={() => onChange({ vendors: [...draft.vendors, emptyVendor()] })} sx={{ alignSelf: "flex-start" }}>
+          <Button size="small" startIcon={<PlusIcon size={16} />} disabled={draft.vendors.length >= MAX_VENDORS} onClick={() => onChange({ vendors: [...draft.vendors, emptyVendor()] })} sx={{ alignSelf: "flex-start" }}>
             Add another vendor
           </Button>
         </>

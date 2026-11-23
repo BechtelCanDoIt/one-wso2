@@ -70,7 +70,7 @@ export default function EventDetailsStep({
         <SectionHeading>Is this event already approved on the EVENT_SHORTLIST? If yes, what is its Line ID?</SectionHeading>
         <YesNoList>
           <YesNoField label="Already approved on the EVENT_SHORTLIST" name="shortlisted" value={e.shortlisted} onChange={(shortlisted) => onChange({ shortlisted })}>
-            <TextInput required label="Line ID" name="shortlistLineId" value={e.shortlistLineId} onChange={(shortlistLineId) => onChange({ shortlistLineId })} />
+            <TextInput required label="Line ID" name="shortlistLineId" maxLength={100} value={e.shortlistLineId} onChange={(shortlistLineId) => onChange({ shortlistLineId })} />
           </YesNoField>
         </YesNoList>
 
@@ -117,7 +117,7 @@ export default function EventDetailsStep({
           <Stack spacing={1.5}>
             {e.otherCosts.map((line, index) => (
               <Box key={index} sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr auto" }, alignItems: "start" }}>
-                <TextInput label="What it is for" name={`otherCost.${index}.description`} value={line.description} onChange={(description) => setOtherCost(index, { description })} />
+                <TextInput label="What it is for" name={`otherCost.${index}.description`} maxLength={300} value={line.description} onChange={(description) => setOtherCost(index, { description })} />
                 <TextInput type="number" min={0} label="Amount" name={`otherCost.${index}.amount`} value={line.amount} onChange={(amount) => setOtherCost(index, { amount })} />
                 <IconButton size="small" aria-label={`Remove other cost ${index + 1}`} onClick={() => removeOtherCost(index)} sx={{ mt: 1 }}>
                   <XIcon size={16} />
@@ -184,6 +184,7 @@ export default function EventDetailsStep({
               multiline
               minRows={2}
               label="Brand goal"
+              maxLength={1000}
               placeholder="Why it matters for this event, and what success looks like in one sentence"
               value={e.brandGoal}
               onChange={(brandGoal) => onChange({ brandGoal })}

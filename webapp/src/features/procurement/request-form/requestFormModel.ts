@@ -34,6 +34,22 @@ import type {
   Vendor,
 } from "../types";
 
+/** The most amount the backend's database holds. */
+const MAX_AMOUNT = 999_999_999_999.99;
+
+/** The most the backend keeps of the user or administrator names together. */
+const MAX_NAMES_LENGTH = 1000;
+
+/** The most vendors the backend accepts on a request. */
+export const MAX_VENDORS = 10;
+
+/** The most the backend accepts of an email address, and the shape it accepts. */
+const MAX_EMAIL_LENGTH = 254;
+const EMAIL_SHAPE = /^[a-z0-9._%+-]+@[a-z0-9.-]+$/i;
+
+/** The phone number shape My > Personal Info accepts: a leading + or digit, then digits, spaces, hyphens and brackets, six characters at least. */
+const PHONE_SHAPE = /^[+\d][\d\s\-()]{5,}$/;
+
 /** The most users or administrators the backend accepts a count for. */
 const MAX_PEOPLE_COUNT = 100_000;
 
@@ -268,6 +284,8 @@ export interface Problem {
 const REQUIRED = "Required";
 const PICK = "Select an option";
 const WHOLE_NUMBER = "Enter a whole number";
+const NAMES_TOO_LONG = `Keep the names to ${MAX_NAMES_LENGTH} characters in total`;
+const namesLength = (names: string[]): number => names.map((n) => n.trim()).filter(Boolean).join("\n").length;
 const LINK = "Enter a link starting with http:// or https://";
 const LINKS = "Enter links starting with http:// or https://, separated by commas";
 const AMOUNT = "Enter an amount of 0 or more, with at most two decimals";
@@ -291,9 +309,9 @@ function saasDetailsProblems(d: RequestDetails): Problem[] {
   const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
   need("externalInteraction", !d.externalInteraction, PICK);
   need("userCount", blank(d.userCount) || invalidCount(d.userCount), WHOLE_NUMBER);
-  need("userNames", d.userNames.length === 0, "Add at least one name");
+  need("userNames", d.userNames.length === 0 || namesLength(d.userNames) > MAX_NAMES_LENGTH, d.userNames.length === 0 ? "Add at least one name" : NAMES_TOO_LONG);
   need("adminCount", blank(d.adminCount) || invalidCount(d.adminCount), WHOLE_NUMBER);
-  need("adminNames", d.adminNames.length === 0, "Add at least one name");
+  need("adminNames", d.adminNames.length === 0 || namesLength(d.adminNames) > MAX_NAMES_LENGTH, d.adminNames.length === 0 ? "Add at least one name" : NAMES_TOO_LONG);
   need("sensitiveData", !d.sensitiveData, PICK);
   need("sensitiveDataDetail", d.sensitiveData === "yes" && blank(d.sensitiveDataDetail));
   need("externalPii", !d.externalPii, PICK);
@@ -315,7 +333,7 @@ const parseAmount = (value: string): number => (blank(value) ? NaN : Number(valu
 const invalidAmount = (value: string): boolean => {
   if (blank(value)) return false;
   const n = Number(value);
-  return !Number.isFinite(n) || n < 0 || Math.round(n * 100) / 100 !== n;
+  return !Number.isFinite(n) || n < 0 || n > MAX_AMOUNT || Math.round(n * 100) / 100 !== n;
 };
 
 /** The links in a text that holds several, separated by commas or spaces. */
@@ -377,7 +395,7 @@ function eventDetailsProblems(e: EventDetails): Problem[] {
     }
   }
   const accounts = parseAmount(e.targetAccounts);
-  need("targetAccounts", blank(e.targetAccounts) || !Number.isInteger(accounts) || accounts < 0, WHOLE_NUMBER);
+  need("targetAccounts", blank(e.targetAccounts) || !Number.isInteger(accounts) || accounts < 0 || accounts > MAX_PEOPLE_COUNT, WHOLE_NUMBER);
   need("keyAccounts", accounts > 0 && blank(e.keyAccounts));
   const pipeline = parseAmount(e.newPipeline);
   need("newPipeline", blank(e.newPipeline) || invalidAmount(e.newPipeline), blank(e.newPipeline) ? REQUIRED : AMOUNT);
@@ -409,7 +427,15 @@ function budgetProblems(draft: RequestDraft): Problem[] {
   }
   if (draft.category !== "EVENTS") {
     draft.vendors.forEach((v, index) => {
+      const given = [v.website, v.contact, v.email, v.phone].some((value) => !blank(value));
+      if (blank(v.name) && given) problems.push({ field: `vendorName.${index}`, message: "Add the vendor's name" });
       if (invalidLink(v.website)) problems.push({ field: `vendorWebsite.${index}`, message: LINK });
+      if (!blank(v.phone) && !PHONE_SHAPE.test(v.phone.trim())) {
+        problems.push({ field: `vendorPhone.${index}`, message: "Enter a valid phone number" });
+      }
+      if (!blank(v.email) && (v.email.trim().length > MAX_EMAIL_LENGTH || !EMAIL_SHAPE.test(v.email.trim()))) {
+        problems.push({ field: `vendorEmail.${index}`, message: "Enter a valid email address" });
+      }
     });
   }
   return problems;

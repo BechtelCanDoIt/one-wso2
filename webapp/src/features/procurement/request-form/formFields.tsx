@@ -79,6 +79,7 @@ export function TextInput({
   placeholder,
   type = "text",
   min = 1,
+  maxLength,
   multiline,
   minRows,
   disabled,
@@ -89,9 +90,11 @@ export function TextInput({
   onChange?: (value: string) => void;
   required?: boolean;
   placeholder?: string;
-  type?: "text" | "email" | "number" | "date" | "url";
+  type?: "text" | "email" | "number" | "date" | "url" | "tel";
   /** The smallest number a number field takes. */
   min?: number;
+  /** The most characters it takes, when the backend allows fewer than the usual cap. */
+  maxLength?: number;
   multiline?: boolean;
   minRows?: number;
   disabled?: boolean;
@@ -115,7 +118,7 @@ export function TextInput({
         onChange={(e) => onChange?.(e.target.value)}
         slotProps={{
           inputLabel: { shrink: true },
-          htmlInput: { maxLength: multiline ? LONG_MAX : SHORT_MAX, ...(type === "number" ? { min } : {}) },
+          htmlInput: { maxLength: maxLength ?? (multiline ? LONG_MAX : SHORT_MAX), ...(type === "number" ? { min } : {}) },
         }}
       />
     </Box>

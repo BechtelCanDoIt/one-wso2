@@ -183,6 +183,48 @@ describe("links", () => {
   });
 });
 
+describe("vendors", () => {
+  const withVendor = (patch: Partial<RequestDraft["vendors"][number]>): RequestDraft => ({
+    ...completeIt(),
+    vendors: [{ name: "Acme", website: "", contact: "", email: "", phone: "", ...patch }],
+  });
+
+  it("need a name once anything else about the vendor is given", () => {
+    expect(fields(STEP_BUDGET, withVendor({ name: "", email: "sales@acme.example.com" }), me)).toEqual(["vendorName.0"]);
+    expect(fields(STEP_BUDGET, withVendor({ name: " ", contact: "Jo" }), me)).toEqual(["vendorName.0"]);
+    expect(fields(STEP_BUDGET, withVendor({ name: "" }), me)).toEqual([]);
+  });
+
+  it("need a contact email the backend accepts", () => {
+    expect(fields(STEP_BUDGET, withVendor({ email: "sales@acme.example.com" }), me)).toEqual([]);
+    for (const bad of ["sales", "sales@", "@acme.com", "a b@acme.com", `${"a".repeat(250)}@acme.com`]) {
+      expect(fields(STEP_BUDGET, withVendor({ email: bad }), me), bad).toEqual(["vendorEmail.0"]);
+    }
+  });
+});
+
+describe("vendor contact numbers", () => {
+  const withPhone = (phone: string): RequestDraft => ({
+    ...completeIt(),
+    vendors: [{ name: "Acme", website: "", contact: "", email: "", phone }],
+  });
+
+  it("take the shape My > Personal Info takes, and may be left out", () => {
+    for (const ok of ["", "+94 71 345 6789", "011 (234) 5678", "0112345678"]) expect(fields(STEP_BUDGET, withPhone(ok), me), ok).toEqual([]);
+    for (const bad of ["call me", "12345", "+94-abc", "94.71.345"]) expect(fields(STEP_BUDGET, withPhone(bad), me), bad).toEqual(["vendorPhone.0"]);
+  });
+});
+
+describe("limits the backend keeps", () => {
+  it("allows the user and administrator names 1000 characters in total, one per line", () => {
+    const draft = completeIt();
+    const names = (n: number) => Array.from({ length: n }, (_, i) => `${"x".repeat(98)}${String(i).padStart(2, "0")}`);
+    expect(fields(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: names(9) } }, me)).toEqual([]);
+    expect(fields(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: names(10) } }, me)).toEqual(["userNames"]);
+    expect(fields(STEP_DETAILS, { ...draft, details: { ...draft.details, adminNames: names(10) } }, me)).toEqual(["adminNames"]);
+  });
+});
+
 describe("incompleteSteps", () => {
   it("is empty for a finished request and lists steps in order otherwise", () => {
     expect(incompleteSteps(completeIt(), me)).toEqual([]);
@@ -330,6 +372,13 @@ describe("a Marketing & Events request", () => {
   it("needs an end date on or after the start date", () => {
     const draft = completeEvent();
     expect(missing({ ...draft, event: { ...draft.event, endDate: "2027-02-01" } })).toContain("endDate");
+  });
+
+  it("keeps target accounts and amounts within what the backend holds", () => {
+    const draft = completeEvent();
+    expect(missing({ ...draft, event: { ...draft.event, targetAccounts: "100001" } })).toContain("targetAccounts");
+    expect(missing({ ...draft, event: { ...draft.event, targetAccounts: "100000" } })).not.toContain("targetAccounts");
+    expect(missing({ ...draft, event: { ...draft.event, costs: { ...draft.event.costs, SWAG: "1000000000000" } } })).toContain("cost.SWAG");
   });
 
   it("sends the event and no vendors", () => {
