@@ -114,12 +114,12 @@ export default function BudgetStep({
 
       <SectionHeading first={isEvent}>{isEvent ? "What are the budget details?" : "Budget details"}</SectionHeading>
       <Box sx={THREE_COLUMNS}>
-        <OptionField label="Budget category" required={required} choices={lookups.budgetCategories} value={b.category} onChange={(category) => setBudget({ category })} />
-        <OptionField label="Business unit" required={required} choices={lookups.businessUnits} value={b.businessUnit} onChange={changeUnit} />
-        <OptionField label="Product" required={required} choices={lookups.products} value={b.product} onChange={(product) => setBudget({ product })} />
-        <OptionField label="Region" required={required} choices={lookups.regions} value={b.region} onChange={changeRegion} />
+        <OptionField label="Budget category" name="budgetCategory" required={required} choices={lookups.budgetCategories} value={b.category} onChange={(category) => setBudget({ category })} />
+        <OptionField label="Business unit" name="businessUnit" required={required} choices={lookups.businessUnits} value={b.businessUnit} onChange={changeUnit} />
+        <OptionField label="Product" name="budgetProduct" required={required} choices={lookups.products} value={b.product} onChange={(product) => setBudget({ product })} />
+        <OptionField label="Region" name="region" required={required} choices={lookups.regions} value={b.region} onChange={changeRegion} />
         <OptionField
-          label={isEvent ? "Engagement code / Budget owner" : "Engagement code"}
+          label={isEvent ? "Engagement code / Budget owner" : "Engagement code"} name="engagementCode"
           required={required}
           choices={codes.data ?? []}
           value={b.engagementCode}
@@ -136,7 +136,7 @@ export default function BudgetStep({
         <>
           <SectionHeading>Budget approval</SectionHeading>
           <OptionField
-            label="Budget approver"
+            label="Budget approver" name="budgetApprover"
             required={required}
             choices={approverChoices}
             value={draft.budgetApproverId}

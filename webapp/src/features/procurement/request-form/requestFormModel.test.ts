@@ -23,7 +23,7 @@ import {
   emptyDraft,
   emptyEvent,
   incompleteSteps,
-  missingForStep,
+  problemsForStep,
   STEP_BUDGET,
   STEP_CATEGORY,
   STEP_DETAILS,
@@ -42,6 +42,8 @@ const me: ProcurementMe = {
   approvalExempt: false,
 };
 const noManager: ProcurementMe = { ...me, teamLead: null };
+
+const fields = (step: number, draft: RequestDraft, user: ProcurementMe = me): string[] => problemsForStep(step, draft, user).map((p) => p.field);
 
 const completeIt = (): RequestDraft => {
   const draft = emptyDraft();
@@ -72,32 +74,32 @@ const completeIt = (): RequestDraft => {
 
 describe("step 1, who approves", () => {
   it("is settled by a manager on record, with no additional approver needed", () => {
-    expect(missingForStep(STEP_REQUESTER, emptyDraft(), me)).toEqual([]);
+    expect(fields(STEP_REQUESTER, emptyDraft(), me)).toEqual([]);
   });
 
   it("needs an additional approver when there is no manager, who then becomes the team lead", () => {
-    expect(missingForStep(STEP_REQUESTER, emptyDraft(), noManager)).toEqual(["a team lead or an additional approver"]);
-    expect(missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [other] }, noManager)).toEqual([]);
+    expect(fields(STEP_REQUESTER, emptyDraft(), noManager)).toEqual(["additionalApprovers"]);
+    expect(fields(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [other] }, noManager)).toEqual([]);
   });
 
   it("needs nobody for a requester whose requests need no approval", () => {
-    expect(missingForStep(STEP_REQUESTER, emptyDraft(), { ...noManager, approvalExempt: true })).toEqual([]);
+    expect(fields(STEP_REQUESTER, emptyDraft(), { ...noManager, approvalExempt: true })).toEqual([]);
   });
 
   it("refuses the requester or the team lead as an additional approver, by id or by email in any case", () => {
-    const refused = ["additional approvers other than yourself and your team lead"];
-    expect(missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [me] }, me)).toEqual(refused);
-    expect(missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [lead] }, me)).toEqual(refused);
+    const refused = ["additionalApprovers"];
+    expect(fields(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [me] }, me)).toEqual(refused);
+    expect(fields(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [lead] }, me)).toEqual(refused);
     expect(
-      missingForStep(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [{ ...lead, id: "x", email: "LEAD@example.com" }] }, me),
+      fields(STEP_REQUESTER, { ...emptyDraft(), additionalApprovers: [{ ...lead, id: "x", email: "LEAD@example.com" }] }, me),
     ).toEqual(refused);
   });
 });
 
 describe("step 2 and 3", () => {
   it("need a category before anything else is asked", () => {
-    expect(missingForStep(STEP_CATEGORY, emptyDraft(), me)).toEqual(["Procurement category"]);
-    expect(missingForStep(STEP_DETAILS, emptyDraft(), me)).toEqual(["Procurement category"]);
+    expect(fields(STEP_CATEGORY, emptyDraft(), me)).toEqual(["category"]);
+    expect(fields(STEP_DETAILS, emptyDraft(), me)).toEqual(["category"]);
   });
 
   it("ask an IT request for its requirement, how it is installed and the usage period", () => {
@@ -105,32 +107,24 @@ describe("step 2 and 3", () => {
       ...completeIt(),
       details: { ...completeIt().details, softwareRequirement: " ", installationType: "", usagePeriod: "" },
     };
-    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual([
-      "Requirement to use this software",
-      "Installation type",
-      "Expected usage period",
-    ]);
+    expect(fields(STEP_DETAILS, draft, me)).toEqual(["softwareRequirement", "installationType", "usagePeriod"]);
   });
 
   it("ask every IT request for the external interaction and the security assessment", () => {
-    expect(missingForStep(STEP_DETAILS, completeIt(), me)).toEqual([]);
+    expect(fields(STEP_DETAILS, completeIt(), me)).toEqual([]);
     const draft: RequestDraft = { ...completeIt(), details: { ...completeIt().details, externalInteraction: "", sensitiveData: "", integrates: "" } };
-    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["External interaction answer", "Sensitive data answer", "Integration answer"]);
+    expect(fields(STEP_DETAILS, draft, me)).toEqual(["externalInteraction", "sensitiveData", "integrates"]);
   });
 
   it("ask for detail only after a Yes", () => {
     const base = completeIt();
     const yes = { ...base, details: { ...base.details, sensitiveData: "yes" as const, integrates: "yes" as const } };
-    expect(missingForStep(STEP_DETAILS, yes, me)).toEqual([
-      "Sensitive data details",
-      "Integration systems",
-      "Vendor documentation answer",
-    ]);
+    expect(fields(STEP_DETAILS, yes, me)).toEqual(["sensitiveDataDetail", "integrationSystem", "vendorDocs"]);
   });
 
   it("ask a Non-IT request only for what and why", () => {
     const draft: RequestDraft = { ...emptyDraft(), category: "NON-IT" };
-    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["Details of goods / services", "Business justification"]);
+    expect(fields(STEP_DETAILS, draft, me)).toEqual(["description", "businessJustification"]);
   });
 });
 
@@ -141,40 +135,30 @@ describe("the user and administrator counts", () => {
   };
 
   it("are required, with the names", () => {
-    expect(missingForStep(STEP_DETAILS, withCounts("", ""), me)).toEqual(["A whole number of users", "A whole number of administrators"]);
+    expect(fields(STEP_DETAILS, withCounts("", ""), me)).toEqual(["userCount", "adminCount"]);
     const draft = completeIt();
-    expect(missingForStep(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: [], adminNames: [] } }, me)).toEqual([
-      "User names",
-      "Administrator names",
-    ]);
+    expect(fields(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: [], adminNames: [] } }, me)).toEqual(["userNames", "adminNames"]);
   });
 
   it("accept whole numbers the backend allows, zero included", () => {
-    expect(missingForStep(STEP_DETAILS, withCounts("0", "100000"), me)).toEqual([]);
-    expect(missingForStep(STEP_DETAILS, withCounts("25", "2"), me)).toEqual([]);
+    expect(fields(STEP_DETAILS, withCounts("0", "100000"), me)).toEqual([]);
+    expect(fields(STEP_DETAILS, withCounts("25", "2"), me)).toEqual([]);
   });
 
   it.each([["-1"], ["1.5"], ["abc"], ["100001"], ["1e3x"]])("refuse %s", (bad) => {
-    expect(missingForStep(STEP_DETAILS, withCounts(bad, "2"), me)).toEqual(["A whole number of users"]);
-    expect(missingForStep(STEP_DETAILS, withCounts("2", bad), me)).toEqual(["A whole number of administrators"]);
+    expect(fields(STEP_DETAILS, withCounts(bad, "2"), me)).toEqual(["userCount"]);
+    expect(fields(STEP_DETAILS, withCounts("2", bad), me)).toEqual(["adminCount"]);
   });
 });
 
 describe("step 4, budget", () => {
   it("is optional for IT, the budget approver included", () => {
-    expect(missingForStep(STEP_BUDGET, completeIt(), me)).toEqual([]);
+    expect(fields(STEP_BUDGET, completeIt(), me)).toEqual([]);
   });
 
   it("is required for Non-IT, with a budget approver", () => {
     const draft: RequestDraft = { ...emptyDraft(), category: "NON-IT" };
-    expect(missingForStep(STEP_BUDGET, draft, me)).toEqual([
-      "Budget category",
-      "Business unit",
-      "Product",
-      "Region",
-      "Engagement code",
-      "Budget approver",
-    ]);
+    expect(fields(STEP_BUDGET, draft, me)).toEqual(["budgetCategory", "businessUnit", "budgetProduct", "region", "engagementCode", "budgetApprover"]);
   });
 });
 
@@ -258,16 +242,17 @@ describe("a Marketing & Events request", () => {
       },
     };
   };
-  const missing = (draft: RequestDraft) => missingForStep(STEP_DETAILS, draft, me);
+  const missing = (draft: RequestDraft) => fields(STEP_DETAILS, draft, me);
+  const messageOf = (draft: RequestDraft, field: string) => problemsForStep(STEP_DETAILS, draft, me).find((p) => p.field === field)?.message;
 
   it("is complete with the event, its costs and pipeline", () => {
     expect(missing(completeEvent())).toEqual([]);
-    expect(missingForStep(STEP_BUDGET, completeEvent(), me)).toEqual([]);
+    expect(fields(STEP_BUDGET, completeEvent(), me)).toEqual([]);
   });
 
   it("needs the budget details but no budget approver, and sends none", () => {
-    expect(missingForStep(STEP_BUDGET, { ...completeEvent(), budget: emptyDraft().budget }, me)).toContain("Budget category");
-    expect(missingForStep(STEP_BUDGET, { ...completeEvent(), budgetApproverId: "" }, me)).toEqual([]);
+    expect(fields(STEP_BUDGET, { ...completeEvent(), budget: emptyDraft().budget }, me)).toContain("budgetCategory");
+    expect(fields(STEP_BUDGET, { ...completeEvent(), budgetApproverId: "" }, me)).toEqual([]);
     expect(draftToInput(completeEvent()).budgetApproverId).toBe("");
   });
 
@@ -283,53 +268,47 @@ describe("a Marketing & Events request", () => {
     const costs = { ...emptyEvent().costs };
     const withEvent = (patch: Partial<typeof draft.event>): RequestDraft => ({ ...draft, event: { ...draft.event, costs, ...patch } });
     expect(missing(withEvent({ otherCosts: [{ description: "Stickers", amount: "100" }, { description: "Lanyards", amount: "50" }], partnerInvestmentPercent: "20", newPipeline: "599" }))).toContain(
-      "New pipeline of at least 4x the total investment",
+      "newPipeline",
     );
-    expect(missing(withEvent({ otherCosts: [{ description: " ", amount: "100" }] }))).toContain("A description for each other cost");
-    expect(missing(withEvent({ otherCosts: [{ description: "Stickers", amount: "-5" }] }))).toContain("Costs that are not negative, with at most two decimals");
+    expect(missing(withEvent({ otherCosts: [{ description: " ", amount: "100" }] }))).toContain("otherCost.0.description");
+    expect(missing(withEvent({ otherCosts: [{ description: "Stickers", amount: "-5" }] }))).toContain("otherCost.0.amount");
     for (const bad of ["101", "-1", "12.5"]) {
-      expect(missing(withEvent({ partnerInvestmentPercent: bad })), bad).toContain("A partner investment share from 0 to 100");
+      expect(missing(withEvent({ partnerInvestmentPercent: bad })), bad).toContain("partnerPercent");
     }
-    expect(missing({ ...draft, event: { ...draft.event, partnerInvestmentPercent: "0" } })).not.toContain("A partner investment share from 0 to 100");
+    expect(missing({ ...draft, event: { ...draft.event, partnerInvestmentPercent: "0" } })).not.toContain("partnerPercent");
   });
 
   it("asks for the package and earlier attendance only for an industry event sponsorship", () => {
     const draft = completeEvent();
-    expect(missing({ ...draft, event: { ...draft.event, packageName: "", attendedBefore: "" } })).toEqual([
-      "Sponsorship package name",
-      "Whether the event was attended before",
-    ]);
+    expect(missing({ ...draft, event: { ...draft.event, packageName: "", attendedBefore: "" } })).toEqual(["packageName", "attendedBefore"]);
     expect(missing({ ...draft, event: { ...draft.event, eventType: "WSO2CON", packageName: "", attendedBefore: "" } })).toEqual([]);
-    expect(missing({ ...draft, event: { ...draft.event, attendedBefore: "yes" } })).toEqual([
-      "What the earlier attendance cost",
-      "The pipeline the earlier attendance created",
-    ]);
+    expect(missing({ ...draft, event: { ...draft.event, attendedBefore: "yes" } })).toEqual(["previousCost", "previousPipeline"]);
   });
 
   it("skips target accounts, pipeline and the ROI link for a shortlisted event, which needs its Line ID", () => {
     const draft = completeEvent();
     const shortlisted = { ...draft.event, shortlisted: "yes" as const, targetAccounts: "", newPipeline: "", roiCalculatorUrl: "" };
-    expect(missing({ ...draft, event: shortlisted })).toEqual(["Shortlist Line ID"]);
+    expect(missing({ ...draft, event: shortlisted })).toEqual(["shortlistLineId"]);
     expect(missing({ ...draft, event: { ...shortlisted, shortlistLineId: "L-42" } })).toEqual([]);
   });
 
   it("needs a cost, key accounts when there are target accounts, and links that are http or https", () => {
     const draft = completeEvent();
-    expect(missing({ ...draft, event: { ...draft.event, costs: emptyEvent().costs } })).toContain("At least one cost");
-    expect(missing({ ...draft, event: { ...draft.event, keyAccounts: "" } })).toContain("Key target accounts");
+    expect(missing({ ...draft, event: { ...draft.event, costs: emptyEvent().costs } })).toContain("cost.SPONSORSHIP_FEE");
+    expect(missing({ ...draft, event: { ...draft.event, keyAccounts: "" } })).toContain("keyAccounts");
     expect(missing({ ...draft, event: { ...draft.event, targetAccounts: "0", keyAccounts: "" } })).toEqual([]);
-    expect(missing({ ...draft, event: { ...draft.event, roiCalculatorUrl: "ftp://example.com/roi" } })).toContain("A valid ROI calculator link");
+    expect(missing({ ...draft, event: { ...draft.event, roiCalculatorUrl: "ftp://example.com/roi" } })).toContain("roiCalculatorUrl");
   });
 
   it("needs new pipeline of at least four times the total investment", () => {
     const draft = completeEvent();
-    expect(missing({ ...draft, event: { ...draft.event, newPipeline: "242001" } })).toContain("New pipeline of at least 4x the total investment");
+    expect(messageOf({ ...draft, event: { ...draft.event, newPipeline: "242001" } }, "newPipeline")).toBe("Must be at least 4x the total investment");
     expect(missing({ ...draft, event: { ...draft.event, newPipeline: "242002" } })).toEqual([]);
   });
 
   it("needs an end date on or after the start date", () => {
     const draft = completeEvent();
-    expect(missing({ ...draft, event: { ...draft.event, endDate: "2027-02-01" } })).toContain("An end date on or after the start date");
+    expect(missing({ ...draft, event: { ...draft.event, endDate: "2027-02-01" } })).toContain("endDate");
   });
 
   it("sends the event and no vendors", () => {

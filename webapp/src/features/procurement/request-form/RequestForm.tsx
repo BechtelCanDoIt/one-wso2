@@ -14,12 +14,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Alert, alpha, Box, Button, Checkbox, FormControlLabel, Step, StepButton, Stepper, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import type { EventDetails, ProcurementLookups, ProcurementMe, PurchaseRequestInput, RequestDetails } from "../types";
 import { useBudgetApprovers, useEngagementCodes } from "../api/useProcurement";
 import RequestSummary from "../components/RequestSummary";
 import BudgetStep from "./BudgetStep";
+import { FieldErrorsContext } from "./fieldErrors";
 import { StepTitle } from "./formFields";
 import CategoryStep from "./CategoryStep";
 import DetailsStep from "./DetailsStep";
@@ -31,7 +32,7 @@ import {
   detailsLabel,
   draftToInput,
   incompleteSteps,
-  missingForStep,
+  problemsForStep,
   REQUEST_STEPS,
   STEP_BUDGET,
   STEP_CATEGORY,
@@ -81,7 +82,10 @@ export default function RequestForm({
 }) {
   const [draft, setDraft] = useState(initialDraft);
   const [step, setStep] = useState(STEP_REQUESTER);
-  const [missing, setMissing] = useState<string[]>([]);
+  const [showErrors, setShowErrors] = useState(false);
+  // Bumped each time a step refuses to move on, so the page looks at the first field that needs attention.
+  const [attempts, setAttempts] = useState(0);
+  const body = useRef<HTMLDivElement>(null);
   const [declarationMissing, setDeclarationMissing] = useState(false);
 
   // The review shows labels and names, which the budget step's lists hold; the same questions share their cached answers.
@@ -95,31 +99,42 @@ export default function RequestForm({
   const patchEvent = (next: Partial<EventDetails>) =>
     setDraft((current) => ({ ...current, event: { ...current.event, ...next } }));
   const goTo = (target: number) => {
-    setMissing([]);
+    setShowErrors(false);
     setStep(target);
   };
+  const refuse = (target: number) => {
+    setStep(target);
+    setShowErrors(true);
+    setAttempts((n) => n + 1);
+  };
+  // What the open step still needs, shown only once the person has tried to move on; it clears field by field as they fix it.
+  const problems = showErrors && step < STEP_REVIEW ? problemsForStep(step, draft, me) : [];
+  const errors = Object.fromEntries(problems.map((p) => [p.field, p.message]));
+
+  useEffect(() => {
+    if (attempts === 0) return;
+    const first = body.current?.querySelector<HTMLElement>('[data-field-error="true"]');
+    first?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+    first?.querySelector<HTMLElement>("input, textarea, [role='combobox'], button")?.focus({ preventScroll: true });
+  }, [attempts]);
 
   // Any earlier step can be revisited; a later one only once every step before it is complete.
   const jumpTo = (target: number) => {
     if (target <= step) return goTo(target);
     const blocking = incompleteSteps(draft, me).find((s) => s.step < target);
-    if (blocking) return void (setStep(blocking.step), setMissing(blocking.missing));
+    if (blocking) return refuse(blocking.step);
     goTo(target);
   };
 
   const next = () => {
-    const stillMissing = missingForStep(step, draft, me);
-    if (stillMissing.length > 0) return setMissing(stillMissing);
+    if (problemsForStep(step, draft, me).length > 0) return refuse(step);
     goTo(step + 1);
   };
 
   const submit = () => {
     if (!draft.declarationAccepted) return setDeclarationMissing(true);
     const incomplete = incompleteSteps(draft, me);
-    if (incomplete.length > 0) {
-      setStep(incomplete[0].step);
-      return setMissing(incomplete[0].missing);
-    }
+    if (incomplete.length > 0) return refuse(incomplete[0].step);
     onSubmit(draftToInput(draft));
   };
 
@@ -135,7 +150,8 @@ export default function RequestForm({
         ))}
       </Stepper>
 
-      <Box>
+      <FieldErrorsContext.Provider value={errors}>
+      <Box ref={body}>
         {step === STEP_REQUESTER && <RequesterStep draft={draft} me={me} today={todayIso()} onChange={patch} />}
         {step === STEP_CATEGORY && <CategoryStep category={draft.category} onChange={(category) => patch({ category })} />}
         {step === STEP_DETAILS &&
@@ -164,7 +180,11 @@ export default function RequestForm({
         )}
       </Box>
 
-      {missing.length > 0 && <Alert severity="warning">Please complete: {missing.join(", ")}.</Alert>}
+      </FieldErrorsContext.Provider>
+
+      {problems.length > 0 && (
+        <Alert severity="warning">{`Complete the ${problems.length} highlighted ${problems.length === 1 ? "field" : "fields"} to continue.`}</Alert>
+      )}
       {error && <Alert severity="error">{error}</Alert>}
 
       {step === STEP_REVIEW ? (

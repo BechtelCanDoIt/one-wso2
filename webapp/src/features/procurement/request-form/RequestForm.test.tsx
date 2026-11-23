@@ -130,7 +130,8 @@ describe("RequestForm, the requester step", () => {
   it("needs an additional approver when there is no manager, and accepts one picked from the directory", async () => {
     const { user } = renderForm({ ...me, teamLead: null });
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText(/Please complete: a team lead or an additional approver/)).toBeInTheDocument();
+    expect(screen.getByText("Add a team lead or an additional approver")).toBeInTheDocument();
+    expect(screen.getByText("Complete the 1 highlighted field to continue.")).toBeInTheDocument();
 
     await user.type(screen.getByLabelText(/Additional approvers/), "oth");
     await user.click(await screen.findByRole("option", { name: "Other Approver (other@example.com)" }));
@@ -153,14 +154,29 @@ describe("RequestForm, the steps after it", () => {
     const { user } = renderForm();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText(/Please complete: Procurement category/)).toBeInTheDocument();
+    expect(screen.getByText("Choose a category")).toBeInTheDocument();
+    expect(screen.getByText("Complete the 1 highlighted field to continue.")).toBeInTheDocument();
 
     await user.click(screen.getByRole("radio", { name: /^IT Related Procurement/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByRole("heading", { name: "IT requirement details" })).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    expect(screen.getByText(/Please complete: Product \/ solution name/)).toBeInTheDocument();
+    expect(screen.getByText(/Complete the \d+ highlighted fields to continue\./)).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: /Product \/ solution name/ })).toBeInvalid();
+    expect(screen.getAllByText("Required").length).toBeGreaterThan(0);
+  });
+
+  it("clears a field's message, and counts the rest, as it is filled in", async () => {
+    const { user } = renderForm();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("radio", { name: /^IT Related Procurement/ }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    const before = Number(screen.getByText(/Complete the \d+ highlighted fields/).textContent?.match(/\d+/)?.[0]);
+    await user.type(screen.getByRole("textbox", { name: /Product \/ solution name/ }), "Figma");
+    expect(screen.getByRole("textbox", { name: /Product \/ solution name/ })).toBeValid();
+    expect(screen.getByText(`Complete the ${before - 1} highlighted ${before - 1 === 1 ? "field" : "fields"} to continue.`)).toBeInTheDocument();
   });
 
   it("asks every IT request for users, administrators and the security assessment", async () => {

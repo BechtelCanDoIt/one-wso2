@@ -256,39 +256,56 @@ export function budgetForDisplay(budget: BudgetDetails, lookups: ProcurementLook
   };
 }
 
-function itDetailsMissing(d: RequestDetails): string[] {
-  const missing: string[] = [];
-  if (blank(d.product)) missing.push("Product / solution name");
-  if (blank(d.plan)) missing.push("Plan / subscription tier");
-  if (blank(d.description)) missing.push("Description of the product / solution");
-  if (blank(d.softwareRequirement)) missing.push("Requirement to use this software");
-  if (!d.installationType) missing.push("Installation type");
-  if (blank(d.usagePeriod)) missing.push("Expected usage period");
-  if (blank(d.businessJustification)) missing.push("Business justification");
-  missing.push(...saasDetailsMissing(d));
-  return missing;
+/**
+ * What is wrong with one field. `field` is the name the field is given in the
+ * form (its `name` prop), so the form can show `message` under it.
+ */
+export interface Problem {
+  field: string;
+  message: string;
 }
 
-function saasDetailsMissing(d: RequestDetails): string[] {
-  const missing: string[] = [];
-  if (!d.externalInteraction) missing.push("External interaction answer");
-  if (blank(d.userCount) || invalidCount(d.userCount)) missing.push("A whole number of users");
-  if (d.userNames.length === 0) missing.push("User names");
-  if (blank(d.adminCount) || invalidCount(d.adminCount)) missing.push("A whole number of administrators");
-  if (d.adminNames.length === 0) missing.push("Administrator names");
-  if (!d.sensitiveData) missing.push("Sensitive data answer");
-  if (d.sensitiveData === "yes" && blank(d.sensitiveDataDetail)) missing.push("Sensitive data details");
-  if (!d.externalPii) missing.push("External PII answer");
-  if (d.externalPii === "yes" && blank(d.externalPiiDetail)) missing.push("External PII details");
-  if (!d.employeePii) missing.push("Employee PII answer");
-  if (d.employeePii === "yes" && blank(d.employeePiiDetail)) missing.push("Employee PII details");
-  if (!d.integrates) missing.push("Integration answer");
+const REQUIRED = "Required";
+const PICK = "Select an option";
+const WHOLE_NUMBER = "Enter a whole number";
+const LINK = "Enter a link starting with http:// or https://";
+const AMOUNT = "Enter an amount of 0 or more, with at most two decimals";
+
+function itDetailsProblems(d: RequestDetails): Problem[] {
+  const problems: Problem[] = [];
+  const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
+  need("product", blank(d.product));
+  need("plan", blank(d.plan));
+  need("description", blank(d.description));
+  need("softwareRequirement", blank(d.softwareRequirement));
+  need("installationType", !d.installationType, PICK);
+  need("usagePeriod", blank(d.usagePeriod), PICK);
+  need("businessJustification", blank(d.businessJustification));
+  problems.push(...saasDetailsProblems(d));
+  return problems;
+}
+
+function saasDetailsProblems(d: RequestDetails): Problem[] {
+  const problems: Problem[] = [];
+  const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
+  need("externalInteraction", !d.externalInteraction, PICK);
+  need("userCount", blank(d.userCount) || invalidCount(d.userCount), WHOLE_NUMBER);
+  need("userNames", d.userNames.length === 0, "Add at least one name");
+  need("adminCount", blank(d.adminCount) || invalidCount(d.adminCount), WHOLE_NUMBER);
+  need("adminNames", d.adminNames.length === 0, "Add at least one name");
+  need("sensitiveData", !d.sensitiveData, PICK);
+  need("sensitiveDataDetail", d.sensitiveData === "yes" && blank(d.sensitiveDataDetail));
+  need("externalPii", !d.externalPii, PICK);
+  need("externalPiiDetail", d.externalPii === "yes" && blank(d.externalPiiDetail));
+  need("employeePii", !d.employeePii, PICK);
+  need("employeePiiDetail", d.employeePii === "yes" && blank(d.employeePiiDetail));
+  need("integrates", !d.integrates, PICK);
   if (d.integrates === "yes") {
-    if (!d.integrations.some((i) => !blank(i.system))) missing.push("Integration systems");
-    if (!d.vendorDocs) missing.push("Vendor documentation answer");
-    if (d.vendorDocs === "yes" && blank(d.vendorDocsLink)) missing.push("Documentation link");
+    need("integrationSystem", !d.integrations.some((i) => !blank(i.system)));
+    need("vendorDocs", !d.vendorDocs, PICK);
+    need("vendorDocsLink", d.vendorDocs === "yes" && blank(d.vendorDocsLink));
   }
-  return missing;
+  return problems;
 }
 
 const parseAmount = (value: string): number => (blank(value) ? NaN : Number(value));
@@ -323,107 +340,111 @@ const invalidPercent = (value: string): boolean => {
   return !Number.isInteger(n) || n < 0 || n > 100;
 };
 
-function eventDetailsMissing(e: EventDetails): string[] {
-  const missing: string[] = [];
-  if (!e.eventType) missing.push("Event type");
-  if (!e.shortlisted) missing.push("Whether the event is on the shortlist");
-  if (e.shortlisted === "yes" && blank(e.shortlistLineId)) missing.push("Shortlist Line ID");
-  if (blank(e.name)) missing.push("Event name");
-  if (blank(e.startDate) || blank(e.endDate)) missing.push("Event dates");
-  else if (e.endDate < e.startDate) missing.push("An end date on or after the start date");
-  if (blank(e.audience)) missing.push("Main audience");
+function eventDetailsProblems(e: EventDetails): Problem[] {
+  const problems: Problem[] = [];
+  const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
+  need("eventType", !e.eventType, PICK);
+  need("shortlisted", !e.shortlisted, PICK);
+  need("shortlistLineId", e.shortlisted === "yes" && blank(e.shortlistLineId));
+  need("eventName", blank(e.name));
+  need("startDate", blank(e.startDate));
+  need("endDate", blank(e.endDate));
+  if (!blank(e.startDate) && !blank(e.endDate)) need("endDate", e.endDate < e.startDate, "End date must be on or after the start date");
+  need("audience", blank(e.audience));
   const industry = e.eventType === "INDUSTRY_EVENT_SPONSORSHIP";
   if (industry) {
-    if (blank(e.packageName)) missing.push("Sponsorship package name");
-    if (invalidLink(e.prospectusUrl)) missing.push("A valid prospectus link");
+    need("packageName", blank(e.packageName));
+    need("prospectusUrl", invalidLink(e.prospectusUrl), LINK);
   }
-  if (Object.values(e.costs).some(invalidAmount) || e.otherCosts.some((c) => invalidAmount(c.amount))) {
-    missing.push("Costs that are not negative, with at most two decimals");
-  }
-  if (e.otherCosts.some((c) => !blank(c.amount) && blank(c.description))) missing.push("A description for each other cost");
-  if (invalidPercent(e.partnerInvestmentPercent)) missing.push("A partner investment share from 0 to 100");
+  for (const [category, value] of Object.entries(e.costs)) need(`cost.${category}`, invalidAmount(value), AMOUNT);
+  e.otherCosts.forEach((line, index) => {
+    need(`otherCost.${index}.amount`, invalidAmount(line.amount), AMOUNT);
+    need(`otherCost.${index}.description`, !blank(line.amount) && blank(line.description));
+  });
+  need("partnerPercent", invalidPercent(e.partnerInvestmentPercent), "Enter a whole number from 0 to 100");
   const total = totalInvestment(e.costs, e.otherCosts);
-  if (total <= 0) missing.push("At least one cost");
-  if (e.shortlisted === "yes") return missing;
+  need("cost.SPONSORSHIP_FEE", total <= 0 && !problems.some((p) => p.field.startsWith("cost.") || p.field.startsWith("otherCost.")), "Add at least one cost");
+  if (e.shortlisted === "yes") return problems;
   if (industry) {
-    if (!e.attendedBefore) missing.push("Whether the event was attended before");
+    need("attendedBefore", !e.attendedBefore, PICK);
     if (e.attendedBefore === "yes") {
-      if (blank(e.previousCost) || invalidAmount(e.previousCost)) missing.push("What the earlier attendance cost");
-      if (blank(e.previousPipeline) || invalidAmount(e.previousPipeline)) missing.push("The pipeline the earlier attendance created");
+      need("previousCost", blank(e.previousCost) || invalidAmount(e.previousCost), blank(e.previousCost) ? REQUIRED : AMOUNT);
+      need("previousPipeline", blank(e.previousPipeline) || invalidAmount(e.previousPipeline), blank(e.previousPipeline) ? REQUIRED : AMOUNT);
     }
   }
   const accounts = parseAmount(e.targetAccounts);
-  if (blank(e.targetAccounts) || !Number.isInteger(accounts) || accounts < 0) missing.push("A whole number of target accounts");
-  else if (accounts > 0 && blank(e.keyAccounts)) missing.push("Key target accounts");
+  need("targetAccounts", blank(e.targetAccounts) || !Number.isInteger(accounts) || accounts < 0, WHOLE_NUMBER);
+  need("keyAccounts", accounts > 0 && blank(e.keyAccounts));
   const pipeline = parseAmount(e.newPipeline);
-  if (blank(e.newPipeline) || invalidAmount(e.newPipeline)) missing.push("New pipeline amount");
-  if (blank(e.roiCalculatorUrl) || invalidLink(e.roiCalculatorUrl)) missing.push("A valid ROI calculator link");
-  if (Number.isFinite(pipeline) && total > 0 && pipeline < total * REQUIRED_PIPELINE_MULTIPLE) {
-    missing.push(`New pipeline of at least ${REQUIRED_PIPELINE_MULTIPLE}x the total investment`);
+  need("newPipeline", blank(e.newPipeline) || invalidAmount(e.newPipeline), blank(e.newPipeline) ? REQUIRED : AMOUNT);
+  need("roiCalculatorUrl", blank(e.roiCalculatorUrl) || invalidLink(e.roiCalculatorUrl), blank(e.roiCalculatorUrl) ? REQUIRED : LINK);
+  if (Number.isFinite(pipeline) && total > 0 && pipeline < total * REQUIRED_PIPELINE_MULTIPLE && !invalidAmount(e.newPipeline)) {
+    need("newPipeline", true, `Must be at least ${REQUIRED_PIPELINE_MULTIPLE}x the total investment`);
   }
-  return missing;
+  return problems;
 }
 
-function nonItDetailsMissing(d: RequestDetails): string[] {
-  const missing: string[] = [];
-  if (blank(d.description)) missing.push("Details of goods / services");
-  if (blank(d.businessJustification)) missing.push("Business justification");
-  return missing;
+function nonItDetailsProblems(d: RequestDetails): Problem[] {
+  const problems: Problem[] = [];
+  if (blank(d.description)) problems.push({ field: "description", message: REQUIRED });
+  if (blank(d.businessJustification)) problems.push({ field: "businessJustification", message: REQUIRED });
+  return problems;
 }
 
-function budgetMissing(draft: RequestDraft): string[] {
-  const missing: string[] = [];
+function budgetProblems(draft: RequestDraft): Problem[] {
+  const problems: Problem[] = [];
   if (draft.category === "NON-IT" || draft.category === "EVENTS") {
     const b = draft.budget;
-    if (blank(b.category)) missing.push("Budget category");
-    if (blank(b.businessUnit)) missing.push("Business unit");
-    if (blank(b.product)) missing.push("Product");
-    if (blank(b.region)) missing.push("Region");
-    if (blank(b.engagementCode)) missing.push("Engagement code");
-    if (draft.category === "NON-IT" && blank(draft.budgetApproverId)) missing.push("Budget approver");
+    const need = (field: string, missing: boolean) => missing && problems.push({ field, message: PICK });
+    need("budgetCategory", blank(b.category));
+    need("businessUnit", blank(b.businessUnit));
+    need("budgetProduct", blank(b.product));
+    need("region", blank(b.region));
+    need("engagementCode", blank(b.engagementCode));
+    need("budgetApprover", draft.category === "NON-IT" && blank(draft.budgetApproverId));
   }
-  return missing;
+  return problems;
 }
 
 /**
- * What a step still needs, as the labels the person sees. Empty means the step is complete.
+ * What a step still needs, one problem per field. Empty means the step is complete.
  *
  * @param me - The signed-in user, who may not approve their own request
  */
-export function missingForStep(step: number, draft: RequestDraft, me: ProcurementMe): string[] {
+export function problemsForStep(step: number, draft: RequestDraft, me: ProcurementMe): Problem[] {
   switch (step) {
     case STEP_REQUESTER: {
       // With no manager on record, the first additional approver becomes the team lead.
       if (!me.teamLead && !me.approvalExempt && draft.additionalApprovers.length === 0) {
-        return ["a team lead or an additional approver"];
+        return [{ field: "additionalApprovers", message: "Add a team lead or an additional approver" }];
       }
       const notAllowed = draft.additionalApprovers.some(
         (a) => isSamePerson(a, me) || (me.teamLead !== null && isSamePerson(a, me.teamLead)),
       );
-      return notAllowed ? ["additional approvers other than yourself and your team lead"] : [];
+      return notAllowed ? [{ field: "additionalApprovers", message: "Remove yourself and your team lead from the approvers" }] : [];
     }
     case STEP_CATEGORY:
-      return draft.category ? [] : ["Procurement category"];
+      return draft.category ? [] : [{ field: "category", message: "Choose a category" }];
     case STEP_DETAILS:
       return draft.category === "IT"
-        ? itDetailsMissing(draft.details)
+        ? itDetailsProblems(draft.details)
         : draft.category === "NON-IT"
-          ? nonItDetailsMissing(draft.details)
+          ? nonItDetailsProblems(draft.details)
           : draft.category === "EVENTS"
-            ? eventDetailsMissing(draft.event)
-            : ["Procurement category"];
+            ? eventDetailsProblems(draft.event)
+            : [{ field: "category", message: "Choose a category" }];
     case STEP_BUDGET:
-      return budgetMissing(draft);
+      return budgetProblems(draft);
     default:
       return [];
   }
 }
 
 /** Every step before review, in order, with what each is missing; steps that are complete are left out. */
-export function incompleteSteps(draft: RequestDraft, me: ProcurementMe): { step: number; missing: string[] }[] {
+export function incompleteSteps(draft: RequestDraft, me: ProcurementMe): { step: number; problems: Problem[] }[] {
   return [STEP_REQUESTER, STEP_CATEGORY, STEP_DETAILS, STEP_BUDGET]
-    .map((step) => ({ step, missing: missingForStep(step, draft, me) }))
-    .filter((s) => s.missing.length > 0);
+    .map((step) => ({ step, problems: problemsForStep(step, draft, me) }))
+    .filter((s) => s.problems.length > 0);
 }
 
 export function isSamePerson(a: Person, b: Person): boolean {

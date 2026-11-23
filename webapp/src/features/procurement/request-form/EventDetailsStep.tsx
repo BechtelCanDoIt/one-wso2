@@ -60,7 +60,7 @@ export default function EventDetailsStep({
         <SectionHeading first>What type of event is this?</SectionHeading>
         <SelectField
           required
-          label="Event type"
+          label="Event type" name="eventType"
           options={EVENT_TYPES.map((c) => c.value)}
           labels={EVENT_TYPE_LABELS}
           value={e.eventType}
@@ -69,23 +69,23 @@ export default function EventDetailsStep({
 
         <SectionHeading>Is this event already approved on the EVENT_SHORTLIST? If yes, what is its Line ID?</SectionHeading>
         <YesNoList>
-          <YesNoField label="Already approved on the EVENT_SHORTLIST" value={e.shortlisted} onChange={(shortlisted) => onChange({ shortlisted })}>
-            <TextInput required label="Line ID" value={e.shortlistLineId} onChange={(shortlistLineId) => onChange({ shortlistLineId })} />
+          <YesNoField label="Already approved on the EVENT_SHORTLIST" name="shortlisted" value={e.shortlisted} onChange={(shortlisted) => onChange({ shortlisted })}>
+            <TextInput required label="Line ID" name="shortlistLineId" value={e.shortlistLineId} onChange={(shortlistLineId) => onChange({ shortlistLineId })} />
           </YesNoField>
         </YesNoList>
 
         <SectionHeading>What is the event name, its start and end dates, and its main audience?</SectionHeading>
-        <TextInput required label="Event name" value={e.name} onChange={(name) => onChange({ name })} />
+        <TextInput required label="Event name" name="eventName" value={e.name} onChange={(name) => onChange({ name })} />
         <Box sx={TWO_COLUMNS}>
-          <TextInput required type="date" label="Start date" value={e.startDate} onChange={(startDate) => onChange({ startDate })} />
-          <TextInput required type="date" label="End date" value={e.endDate} onChange={(endDate) => onChange({ endDate })} />
+          <TextInput required type="date" label="Start date" name="startDate" value={e.startDate} onChange={(startDate) => onChange({ startDate })} />
+          <TextInput required type="date" label="End date" name="endDate" value={e.endDate} onChange={(endDate) => onChange({ endDate })} />
         </Box>
-        <TextInput required multiline minRows={2} label="Main audience" value={e.audience} onChange={(audience) => onChange({ audience })} />
+        <TextInput required multiline minRows={2} label="Main audience" name="audience" value={e.audience} onChange={(audience) => onChange({ audience })} />
 
         {industry && (
           <>
             <SectionHeading>What is the sponsorship package, and what does it include?</SectionHeading>
-            <TextInput required label="Package name" placeholder="e.g. Gold sponsor, 6x3m booth" value={e.packageName} onChange={(packageName) => onChange({ packageName })} />
+            <TextInput required label="Package name" name="packageName" placeholder="e.g. Gold sponsor, 6x3m booth" value={e.packageName} onChange={(packageName) => onChange({ packageName })} />
             <Box role="group" aria-label="Includes">
               <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5 }}>
                 Includes
@@ -100,14 +100,14 @@ export default function EventDetailsStep({
                 ))}
               </Box>
             </Box>
-            <TextInput label="Organiser's prospectus or contract (link)" value={e.prospectusUrl} onChange={(prospectusUrl) => onChange({ prospectusUrl })} />
+            <TextInput label="Organiser's prospectus or contract (link)" name="prospectusUrl" value={e.prospectusUrl} onChange={(prospectusUrl) => onChange({ prospectusUrl })} />
           </>
         )}
 
         <SectionHeading>What is the total investment?</SectionHeading>
         <Box sx={THREE_COLUMNS}>
           {EVENT_COSTS.map(({ value, label }) => (
-            <TextInput key={value} type="number" min={0} label={label} value={e.costs[value]} onChange={(amount) => setCost(value, amount)} />
+            <TextInput key={value} type="number" min={0} label={label} name={`cost.${value}`} value={e.costs[value]} onChange={(amount) => setCost(value, amount)} />
           ))}
         </Box>
         <Box role="group" aria-label="Other costs">
@@ -117,8 +117,8 @@ export default function EventDetailsStep({
           <Stack spacing={1.5}>
             {e.otherCosts.map((line, index) => (
               <Box key={index} sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "2fr 1fr auto" }, alignItems: "start" }}>
-                <TextInput label="What it is for" value={line.description} onChange={(description) => setOtherCost(index, { description })} />
-                <TextInput type="number" min={0} label="Amount" value={line.amount} onChange={(amount) => setOtherCost(index, { amount })} />
+                <TextInput label="What it is for" name={`otherCost.${index}.description`} value={line.description} onChange={(description) => setOtherCost(index, { description })} />
+                <TextInput type="number" min={0} label="Amount" name={`otherCost.${index}.amount`} value={line.amount} onChange={(amount) => setOtherCost(index, { amount })} />
                 <IconButton size="small" aria-label={`Remove other cost ${index + 1}`} onClick={() => removeOtherCost(index)} sx={{ mt: 1 }}>
                   <XIcon size={16} />
                 </IconButton>
@@ -136,6 +136,7 @@ export default function EventDetailsStep({
           type="number"
           min={0}
           label="Partner's share of the investment (%)"
+          name="partnerPercent"
           placeholder="0"
           value={e.partnerInvestmentPercent}
           onChange={(partnerInvestmentPercent) => onChange({ partnerInvestmentPercent })}
@@ -150,8 +151,8 @@ export default function EventDetailsStep({
           <>
             <SectionHeading>How many of our target accounts (or the BU's ICP) will attend, and who are the key ones?</SectionHeading>
             <Box sx={TWO_COLUMNS}>
-              <TextInput required type="number" min={0} label="Number of target accounts" value={e.targetAccounts} onChange={(targetAccounts) => onChange({ targetAccounts })} />
-              <TextInput required={Number(e.targetAccounts) > 0} multiline minRows={2} label="Company names" value={e.keyAccounts} onChange={(keyAccounts) => onChange({ keyAccounts })} />
+              <TextInput required type="number" min={0} label="Number of target accounts" name="targetAccounts" value={e.targetAccounts} onChange={(targetAccounts) => onChange({ targetAccounts })} />
+              <TextInput required={Number(e.targetAccounts) > 0} multiline minRows={2} label="Company names" name="keyAccounts" value={e.keyAccounts} onChange={(keyAccounts) => onChange({ keyAccounts })} />
             </Box>
           </>
         )}
@@ -160,17 +161,17 @@ export default function EventDetailsStep({
           <>
             <SectionHeading>{industry ? "How much new pipeline will the event create? Have we attended this event before?" : "How much new pipeline will the event create?"}</SectionHeading>
             <Box sx={TWO_COLUMNS}>
-              <TextInput required type="number" min={0} label="New pipeline" value={e.newPipeline} onChange={(newPipeline) => onChange({ newPipeline })} />
-              <TextInput required label="Completed ROI calculator (link)" value={e.roiCalculatorUrl} onChange={(roiCalculatorUrl) => onChange({ roiCalculatorUrl })} />
+              <TextInput required type="number" min={0} label="New pipeline" name="newPipeline" value={e.newPipeline} onChange={(newPipeline) => onChange({ newPipeline })} />
+              <TextInput required label="Completed ROI calculator (link)" name="roiCalculatorUrl" value={e.roiCalculatorUrl} onChange={(roiCalculatorUrl) => onChange({ roiCalculatorUrl })} />
             </Box>
           </>
         )}
         {askAttendance && (
           <YesNoList>
-            <YesNoField label="Previous attendance" value={e.attendedBefore} onChange={(attendedBefore) => onChange({ attendedBefore })}>
+            <YesNoField label="Previous attendance" name="attendedBefore" value={e.attendedBefore} onChange={(attendedBefore) => onChange({ attendedBefore })}>
               <Box sx={TWO_COLUMNS}>
-                <TextInput required type="number" min={0} label="What it cost" value={e.previousCost} onChange={(previousCost) => onChange({ previousCost })} />
-                <TextInput required type="number" min={0} label="How much pipeline it created (from Salesforce)" value={e.previousPipeline} onChange={(previousPipeline) => onChange({ previousPipeline })} />
+                <TextInput required type="number" min={0} label="What it cost" name="previousCost" value={e.previousCost} onChange={(previousCost) => onChange({ previousCost })} />
+                <TextInput required type="number" min={0} label="How much pipeline it created (from Salesforce)" name="previousPipeline" value={e.previousPipeline} onChange={(previousPipeline) => onChange({ previousPipeline })} />
               </Box>
             </YesNoField>
           </YesNoList>

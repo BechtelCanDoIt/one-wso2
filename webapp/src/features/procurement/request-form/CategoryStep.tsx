@@ -18,6 +18,7 @@ import type { ReactNode } from "react";
 import { alpha, Box, ButtonBase, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import { Building2Icon, LaptopIcon, MegaphoneIcon } from "@wso2/oxygen-ui-icons-react";
 import type { ProcurementCategory } from "../types";
+import { useFieldError } from "./fieldErrors";
 import { StepTitle } from "./formFields";
 
 const CATEGORIES: { value: ProcurementCategory; title: string; description: string; icon: ReactNode }[] = [
@@ -127,8 +128,9 @@ export default function CategoryStep({
   category: ProcurementCategory | "";
   onChange: (category: ProcurementCategory) => void;
 }) {
+  const error = useFieldError("category");
   return (
-    <Stack spacing={3.5} sx={{ py: 1 }}>
+    <Stack spacing={3.5} sx={{ py: 1 }} data-field-error={error ? "true" : undefined}>
       <StepTitle>Procurement category</StepTitle>
       <Box role="radiogroup" aria-label="Procurement category" sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" } }}>
         {CATEGORIES.map((c) => (
@@ -142,6 +144,11 @@ export default function CategoryStep({
           />
         ))}
       </Box>
+      {error && (
+        <Typography role="alert" variant="body2" color="error">
+          {error}
+        </Typography>
+      )}
     </Stack>
   );
 }

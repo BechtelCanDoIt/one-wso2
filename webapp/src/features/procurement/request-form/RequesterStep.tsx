@@ -20,6 +20,7 @@ import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import { describeError } from "@api/errors";
 import { useDirectorySearch } from "../api/useProcurement";
 import type { Person, ProcurementMe } from "../types";
+import { useFieldError } from "./fieldErrors";
 import { SmallClearIcon, StepTitle, TextInput } from "./formFields";
 import { isSamePerson, MAX_ADDITIONAL_APPROVERS, MIN_DIRECTORY_QUERY, type RequestDraft } from "./requestFormModel";
 
@@ -40,6 +41,7 @@ export default function RequesterStep({
   onChange: (patch: Partial<RequestDraft>) => void;
 }) {
   const approversId = useId();
+  const approversError = useFieldError("additionalApprovers");
   const [asked, setAsked] = useState(false);
   const [open, setOpen] = useState(false);
   // What the directory is asked about: only what was typed, never the label of a picked person.
@@ -72,7 +74,7 @@ export default function RequesterStep({
         placeholder="No team lead found"
       />
       {showApprovers ? (
-        <Box>
+        <Box data-field-error={approversError ? "true" : undefined}>
           <Autocomplete
             id={approversId}
             // The list opens only once there is something to search for, so clicking the empty box shows nothing.
@@ -101,6 +103,8 @@ export default function RequesterStep({
               <TextField
                 {...params}
                 label="Additional approvers"
+                error={Boolean(approversError)}
+                helperText={approversError}
                 required={needsApprover}
                 InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
                 // Focus the field only when the requester asked for it, not when it is simply there.

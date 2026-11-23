@@ -33,6 +33,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { XIcon } from "@wso2/oxygen-ui-icons-react";
 import type { Choice, YesNo } from "../types";
+import { useFieldError } from "./fieldErrors";
 import { LONG_MAX, SHORT_MAX } from "./fieldLimits";
 
 export function FieldLabel({
@@ -71,6 +72,7 @@ export function SectionHeading({ children, first }: { children: ReactNode; first
 
 export function TextInput({
   label,
+  name = label,
   value,
   onChange,
   required,
@@ -82,6 +84,7 @@ export function TextInput({
   disabled,
 }: {
   label: string;
+  name?: string;
   value: string;
   onChange?: (value: string) => void;
   required?: boolean;
@@ -93,10 +96,13 @@ export function TextInput({
   minRows?: number;
   disabled?: boolean;
 }) {
+  const error = useFieldError(name);
   return (
-    <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }} data-field-error={error ? "true" : undefined}>
       <TextField
         label={label}
+        error={Boolean(error)}
+        helperText={error}
         size="small"
         fullWidth
         required={required}
@@ -147,6 +153,7 @@ export function YesNoList({ children }: { children: ReactNode }) {
  */
 export function YesNoField({
   label,
+  name = label,
   value,
   onChange,
   disabled,
@@ -154,14 +161,16 @@ export function YesNoField({
   children,
 }: {
   label: string;
+  name?: string;
   value: YesNo | "";
   onChange: (value: YesNo) => void;
   disabled?: boolean;
   bare?: boolean;
   children?: ReactNode;
 }) {
+  const error = useFieldError(name);
   return (
-    <Box sx={{ px: bare ? 0 : 2.25, py: bare ? 0 : 1.75 }}>
+    <Box sx={{ px: bare ? 0 : 2.25, py: bare ? 0 : 1.75 }} data-field-error={error ? "true" : undefined}>
       <Box
         sx={{
           display: "flex",
@@ -198,6 +207,11 @@ export function YesNoField({
           <ToggleButton value="no">No</ToggleButton>
         </ToggleButtonGroup>
       </Box>
+      {error && (
+        <Typography role="alert" variant="caption" color="error" sx={{ display: "block", mt: 0.75 }}>
+          {error}
+        </Typography>
+      )}
       {value === "yes" && children && (
         <Stack
           spacing={2.5}
@@ -220,6 +234,7 @@ const SELECT_MAX = 10;
  */
 export function SelectField({
   label,
+  name = label,
   options,
   value,
   onChange,
@@ -229,6 +244,7 @@ export function SelectField({
   disabled,
 }: {
   label: string;
+  name?: string;
   options: readonly string[];
   value: string;
   onChange: (value: string) => void;
@@ -237,14 +253,17 @@ export function SelectField({
   labels?: Readonly<Record<string, string>>;
   disabled?: boolean;
 }) {
+  const error = useFieldError(name);
   const textOf = (v: string): string => labels?.[v] ?? v;
   // A saved value that is no longer in the list stays selectable, so editing a request never blanks it.
   const items = value && !options.includes(value) ? [...options, value] : options;
   return (
-    <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }} data-field-error={error ? "true" : undefined}>
       <TextField
         select
         label={label}
+        error={Boolean(error)}
+        helperText={error}
         required={required}
         size="small"
         fullWidth
@@ -293,8 +312,10 @@ export function OptionField({
   placeholder,
   emptyText,
   disabled,
+  name = label,
 }: {
   label: string;
+  name?: string;
   choices: readonly Choice[];
   value: string;
   onChange: (value: string) => void;
@@ -304,6 +325,7 @@ export function OptionField({
   disabled?: boolean;
 }) {
   const id = useId();
+  const error = useFieldError(name);
   // A saved value that is no longer in the list stays selectable, so editing a request never blanks it.
   const items: Choice[] = value && !choices.some((c) => c.value === value) ? [...choices, { value, label: value }] : [...choices];
   const prompt = items.length === 0 && emptyText ? emptyText : (placeholder ?? "Select");
@@ -312,6 +334,7 @@ export function OptionField({
       <SelectField
         required
         label={label}
+        name={name}
         options={items.map((c) => c.value)}
         labels={Object.fromEntries(items.map((c) => [c.value, c.label]))}
         value={value}
@@ -322,7 +345,7 @@ export function OptionField({
     );
   }
   return (
-    <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }} data-field-error={error ? "true" : undefined}>
       <Autocomplete
         id={id}
         forcePopupIcon
@@ -339,6 +362,8 @@ export function OptionField({
           <TextField
             {...params}
             label={label}
+            error={Boolean(error)}
+            helperText={error}
             required={required}
             placeholder={prompt}
             InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
@@ -352,6 +377,7 @@ export function OptionField({
 /** Several short entries in one field: type one and press Enter to add it as a chip. */
 export function ChipsField({
   label,
+  name = label,
   values,
   onChange,
   placeholder,
@@ -359,6 +385,7 @@ export function ChipsField({
   disabled,
 }: {
   label: string;
+  name?: string;
   values: string[];
   onChange: (values: string[]) => void;
   placeholder?: string;
@@ -366,12 +393,13 @@ export function ChipsField({
   disabled?: boolean;
 }) {
   const id = useId();
+  const error = useFieldError(name);
   const clean = (entries: string[]): string[] =>
     entries
       .map((entry) => entry.trim())
       .filter((entry, index, all) => entry !== "" && all.findIndex((e) => e.toLowerCase() === entry.toLowerCase()) === index);
   return (
-    <Box sx={{ minWidth: 0 }}>
+    <Box sx={{ minWidth: 0 }} data-field-error={error ? "true" : undefined}>
       <Autocomplete
         clearIcon={<SmallClearIcon />}
         id={id}
@@ -387,6 +415,8 @@ export function ChipsField({
           <TextField
             {...params}
             label={label}
+            error={Boolean(error)}
+            helperText={error}
             required={required}
             placeholder={values.length ? "" : placeholder}
             InputLabelProps={{ ...params.InputLabelProps, shrink: true }}
