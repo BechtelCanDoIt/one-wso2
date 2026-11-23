@@ -87,7 +87,6 @@ beforeEach(() => {
   window.config = {
     ...(originalConfig ?? {}),
     ONE_WSO2_PREVIEW_FEATURES: {
-      novera: true,
       amplify: true,
       nda: true,
       swagStore: true,
@@ -268,7 +267,6 @@ describe("AskNoveraPalette", () => {
     window.config = {
       ...(originalConfig ?? {}),
       ONE_WSO2_PREVIEW_FEATURES: {
-        novera: true,
         amplify: false,
         swagStore: false,
         nda: false,
@@ -349,8 +347,8 @@ describe("LegacyAskNoveraPalette", () => {
   });
 });
 
-describe("TopBar Search Integration & Gating", () => {
-  it("renders centered search bar when novera preview is enabled", () => {
+describe("TopBar Search Integration", () => {
+  it("renders centered search bar in TopBar", () => {
     renderTopBar();
     expect(screen.getByPlaceholderText("Ask Novera")).toBeInTheDocument();
   });
@@ -376,23 +374,7 @@ describe("TopBar Search Integration & Gating", () => {
     expect(input).toHaveValue("");
   });
 
-  it("renders legacy coming soon button when novera preview is disabled (production default)", async () => {
-    window.config = {
-      ...(originalConfig ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { novera: false },
-    } as Window["config"];
-
-    renderTopBar();
-    const button = screen.getByRole("button", { name: "Ask Novera" });
-    expect(button).toBeInTheDocument();
-    expect(screen.queryByPlaceholderText("Ask Novera")).not.toBeInTheDocument();
-
-    const user = userEvent.setup();
-    await user.click(button);
-    expect(screen.getByText("Coming soon")).toBeInTheDocument();
-  });
-
-  it("focuses search input when Cmd+K or Ctrl+K is pressed with novera preview enabled", async () => {
+  it("focuses search input when Cmd+K or Ctrl+K is pressed", async () => {
     renderTopBar();
     const user = userEvent.setup();
     const input = screen.getByPlaceholderText("Ask Novera");
@@ -408,20 +390,5 @@ describe("TopBar Search Integration & Gating", () => {
     // Verify Ctrl+K modifier (Windows/Linux)
     await user.keyboard("{Control>}k{/Control}");
     expect(input).toHaveFocus();
-  });
-
-  it("opens legacy palette when Cmd+K or Ctrl+K is pressed with novera preview disabled", async () => {
-    window.config = {
-      ...(originalConfig ?? {}),
-      ONE_WSO2_PREVIEW_FEATURES: { novera: false },
-    } as Window["config"];
-    renderTopBar();
-    const user = userEvent.setup();
-
-    // Verify Ctrl+K modifier opens the legacy modal
-    await user.keyboard("{Control>}k{/Control}");
-    const dialogs = screen.getAllByRole("dialog");
-    expect(dialogs).toHaveLength(1);
-    expect(screen.getByText("Coming soon")).toBeInTheDocument();
   });
 });

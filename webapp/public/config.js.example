@@ -241,7 +241,7 @@ window.config = {
   // ONE_WSO2_PREVIEW_FEATURES: {
   //   infra: false, quickquote: false, nda: false, amplify: false,
   //   marketingCalendar: false, eventsLeadImport: false, swagStore: false,
-  //   procurement: false, leadership360: false, novera: false
+  //   procurement: false, leadership360: false
   // },
 
 };
