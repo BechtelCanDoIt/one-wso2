@@ -130,7 +130,7 @@ export default function PartnerCommissionCard({
           </Stack>
         )}
         <Typography variant="body2" color="text.secondary">
-          {summary}The partner keeps this share of every line; WSO2 invoices the rest.
+          {summary}The partner keeps this share of every line; Choreo Labs invoices the rest.
         </Typography>
         {/* Only a multi-year quote can have a rate per year. */}
         {yearCount > 1 || perYear ? (

@@ -217,7 +217,7 @@ describe("QuoteWizardPage — review and submit", () => {
 
     const next = screen.getByRole("button", { name: "Next: Products & Pricing →" });
     expect(next).toBeDisabled();
-    expect(screen.getByText("To continue: Choose the WSO2 legal entity")).toBeInTheDocument();
+    expect(screen.getByText("To continue: Choose the Choreo Labs legal entity")).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: "Quote steps" })).getByRole("button", { name: "Review" })).toBeDisabled();
   });
 
@@ -519,7 +519,7 @@ describe("QuoteWizardPage — new quote", () => {
     expect(screen.getByRole("combobox", { name: /Account/ })).toBeInTheDocument();
     // Only the account search at first: everything else waits for the account and the deal.
     expect(screen.queryByRole("radiogroup", { name: "Opportunity" })).toBeNull();
-    for (const section of ["Renewal", "WSO2 Legal Entity", "Start date"]) {
+    for (const section of ["Renewal", "Choreo Labs Legal Entity", "Start date"]) {
       expect(screen.queryByRole("region", { name: section })).toBeNull();
     }
   });

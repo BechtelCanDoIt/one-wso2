@@ -19,7 +19,7 @@ export const STEP_HINTS = ["Customer & opportunity", "Products, term & figures",
 
 /** What each wizard step is for, shown in its intro. */
 export const STEP_HINTS_LONG = [
-  "Who the quote is for and which WSO2 entity issues it.",
+  "Who the quote is for and which Choreo Labs entity issues it.",
   "The products, priced from the opportunity's price book, then how long the subscription runs.",
   "Billing, payment terms, and who is billed and receives it, with their contacts.",
   "The order form's legal sections as they will print: the terms for the products, Legal's notices, and any special terms.",

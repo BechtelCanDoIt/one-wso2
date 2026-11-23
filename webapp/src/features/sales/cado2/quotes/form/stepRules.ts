@@ -63,7 +63,7 @@ export function stepChecks(
       need(overview, v.previousOpportunityIds.length > 0, "previousOpportunityIds", "Choose the previous opportunities this renewal replaces");
     }
   }
-  need(overview, Boolean(v.legalEntityId), "legalEntityId", "Choose the WSO2 legal entity");
+  need(overview, Boolean(v.legalEntityId), "legalEntityId", "Choose the Choreo Labs legal entity");
 
   const products: StepCheck[] = [];
   // The start date comes first on Products & Pricing (D73).

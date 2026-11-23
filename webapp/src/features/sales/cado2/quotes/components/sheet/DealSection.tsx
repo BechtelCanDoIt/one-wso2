@@ -51,7 +51,7 @@ export default function DealSection({ sheet }: { sheet: QuoteSheet }): JSX.Eleme
         ) : null}
         <Fact label="Sales region" value={sheet.salesRegion || "Not set in Salesforce"} />
         <Fact label="Sub-region" value={sheet.subRegion || "Not set"} />
-        <Fact label="WSO2 legal entity" value={sheet.legalEntity?.name} hint={sheet.legalEntity?.address} />
+        <Fact label="Choreo Labs legal entity" value={sheet.legalEntity?.name} hint={sheet.legalEntity?.address} />
         <Fact noteTarget="term startDate" label={term.label} value={term.value} hint={term.hint} />
         <Fact label="Currency" value={sheet.currency} />
         {sheet.pricebookName ? (

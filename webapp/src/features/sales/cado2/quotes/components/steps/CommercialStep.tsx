@@ -117,7 +117,7 @@ export default function CommercialStep(): JSX.Element {
           loading={contacts.isFetching}
           loadError={contacts.error}
           onRetry={() => void contacts.refetch()}
-          helperText="Receives WSO2 security bulletins"
+          helperText="Receives Choreo Labs security bulletins"
         />
         {/* D165: where legal notices go; without one, the security contact. */}
         <ContactPicker

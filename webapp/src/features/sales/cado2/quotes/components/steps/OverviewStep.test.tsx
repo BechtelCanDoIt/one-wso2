@@ -127,7 +127,7 @@ const deal = {
   recordTypeName: "Renewal", isRenewal: true,
 };
 // The start date is on Products & Pricing now (D73).
-const REST = ["Renewal", "WSO2 Legal Entity", "Primary Quote"];
+const REST = ["Renewal", "Choreo Labs Legal Entity", "Primary Quote"];
 
 describe("OverviewStep — Salesforce first (2026-09-28)", () => {
   it("shows only the account search before anything is chosen", () => {
@@ -226,7 +226,7 @@ describe("OverviewStep — Salesforce first (2026-09-28)", () => {
     render(<Harness values={{ ...deal, dealType: null, isRenewal: false, dealKind: "FIRST_SALE" }} />);
     expect(await screen.findByText(/doesn't say whether this is direct or partner-led/, {}, { timeout: 3000 })).toBeInTheDocument();
     // Not a renewal: no Renewal section.
-    expect(await screen.findByRole("region", { name: "WSO2 Legal Entity" }, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Choreo Labs Legal Entity" }, { timeout: 3000 })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Start date" })).toBeNull(); // on Products & Pricing (D73)
     expect(screen.queryByRole("region", { name: "Renewal" })).toBeNull();
   });
