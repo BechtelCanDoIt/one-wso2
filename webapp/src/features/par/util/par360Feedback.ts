@@ -168,7 +168,7 @@ export function giveFeedbackItems({
 
   const items: GiveFeedbackItem[] = requests.flatMap((r) => {
     if (leaderEmails.has(r.employeeEmail.toLowerCase())) return leadershipItems(r.employeeEmail, r.employeeName, r);
-    const offered = !r.isEmployeeRequested && !r.isLeadRequested;
+    const offered = !r.isRequested;
     const state = PAR_ITEM_STATE[parFeedbackState(r, parDeadlinePassed)];
     return {
       email: r.employeeEmail,
@@ -224,17 +224,14 @@ export function pickableForNewFeedback(email: string, items: GiveFeedbackItem[])
   );
 }
 
-/** Where a Give feedback row came from, shown under the name: who asked you, or Voluntary when nobody
- * did (an offer, or Leadership 360° feedback you chose to give). */
+/** Where a Give feedback row came from, shown under the name: Requested when someone asked you (never who:
+ * the employee or their lead), or Voluntary when nobody did (an offer, or Leadership 360° feedback you chose
+ * to give). */
 export function feedbackSource(item: GiveFeedbackItem): string {
-  const r = item.request;
-  if (!r || isVoluntary(item)) return "Voluntary";
-  const firstName = (item.name ?? item.email).split(/[\s@]/)[0];
-  if (r.isEmployeeRequested && r.isLeadRequested) return `Requested by ${firstName} and their lead`;
-  return r.isEmployeeRequested ? `Requested by ${firstName}` : "Requested by their lead";
+  return isVoluntary(item) ? "Voluntary" : "Requested";
 }
 
 /** Nobody asked you: a PAR 360° offer, or Leadership 360° feedback you chose to give. */
 export function isVoluntary(item: GiveFeedbackItem): boolean {
-  return !item.request || (!item.request.isEmployeeRequested && !item.request.isLeadRequested);
+  return !item.request || !item.request.isRequested;
 }

@@ -22,7 +22,7 @@ describe("employeeChipLabel", () => {
     ["TOP5P", "Top 5%", "warning"],
     ["TOP20P", "Top 20%", "warning"],
     ["Successful", "Successful", "success"],
-    ["Needs Improvements", "Need Improvements", "error"],
+    ["Needs Improvements", "Needs Improvements", "error"],
     ["Needs Improvement", "Needs Improvement", "error"],
     ["Below Expectations", "Below Expectations", "error"],
     ["NOT_ASSIGNED", "Not Assigned", "default"],

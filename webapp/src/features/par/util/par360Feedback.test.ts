@@ -29,8 +29,7 @@ import {
 const request = (reviewStatus: Par360ReviewStatus): Par360ReviewRequest => ({
   employeeEmail: "ravi@example.com",
   reviewStatus,
-  isEmployeeRequested: true,
-  isLeadRequested: false,
+  isRequested: true,
 });
 
 describe("parFeedbackState", () => {
@@ -121,7 +120,7 @@ describe("giveFeedbackItems", () => {
   });
 
   it("keeps an unanswered offer as your draft", () => {
-    const [item] = items([{ ...request("PENDING"), isEmployeeRequested: false }]);
+    const [item] = items([{ ...request("PENDING"), isRequested: false }]);
     expect(item).toMatchObject({ state: "draft", offered: true });
   });
 
@@ -136,16 +135,11 @@ describe("giveFeedbackItems", () => {
     expect(pickableForNewFeedback("sam@example.com", list)).toBe(true);
   });
 
-  it("says who asked, or Voluntary when nobody did", () => {
-    const asked = (employee: boolean, lead: boolean) =>
-      feedbackSource({
-        ...items([{ ...request("PENDING"), isEmployeeRequested: employee, isLeadRequested: lead }])[0],
-        name: "Ravi Kumar (demo)",
-      });
-    expect(asked(true, false)).toBe("Requested by Ravi");
-    expect(asked(false, true)).toBe("Requested by their lead");
-    expect(asked(true, true)).toBe("Requested by Ravi and their lead");
-    expect(asked(false, false)).toBe("Voluntary");
+  it("says Requested, never who asked, or Voluntary when nobody did", () => {
+    const asked = (isRequested: boolean) =>
+      feedbackSource({ ...items([{ ...request("PENDING"), isRequested }])[0], name: "Ravi Kumar (demo)" });
+    expect(asked(true)).toBe("Requested");
+    expect(asked(false)).toBe("Voluntary");
     const unasked = items([], mine({ named: [{ leaderEmail: "hannah@example.com", submittedOn: "2026-11-02", answers: {} }] }))[0];
     expect(feedbackSource(unasked)).toBe("Voluntary");
   });

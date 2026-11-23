@@ -14,6 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { SIGNING_OUT_EVENT } from "@constants/appEvents";
 import type { FormAnswers } from "../api/leadership360Types";
 
 // Anonymous Leadership 360° drafts never go to the server: a server draft has to
@@ -74,6 +75,26 @@ export function removeClosedSurveyDrafts(closedSurveyIds: number[]): void {
   } catch {
     // Nothing kept, nothing to remove.
   }
+}
+
+/** Removes every anonymous draft in this browser, whoever wrote it. */
+export function removeAllLocalDrafts(): void {
+  try {
+    const drafts: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const key = window.localStorage.key(i);
+      if (key?.startsWith(`${PREFIX}:`)) drafts.push(key);
+    }
+    drafts.forEach((key) => window.localStorage.removeItem(key));
+  } catch {
+    // Nothing kept, nothing to remove.
+  }
+}
+
+// A deliberate sign-out removes them, so the next person on this browser doesn't find anyone's unsent anonymous
+// answers. Registered at module load, as pinnedStore.ts does: this module loads with the app, through ParGroupPage.
+if (typeof window !== "undefined") {
+  window.addEventListener(SIGNING_OUT_EVENT, removeAllLocalDrafts);
 }
 
 /** The leaders this person has an anonymous draft for in a survey (lower-case emails). */

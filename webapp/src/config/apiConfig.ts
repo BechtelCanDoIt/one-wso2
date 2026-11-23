@@ -249,7 +249,7 @@ export const googlePickerApiKey: string =
 export const top5p20pEnabledRating: string =
   window.config?.ONE_WSO2_PAR_TOP5P20P_ENABLED_RATING ?? "Successful";
 export const evidenceEnabledRating: string =
-  window.config?.ONE_WSO2_PAR_EVIDENCE_ENABLED_RATING ?? "Needs Improvement";
+  window.config?.ONE_WSO2_PAR_EVIDENCE_ENABLED_RATING ?? "Needs Improvements";
 
 export const parServiceUrls = {
   // GET /employees/{workEmail} — par-app's OWN employee record, distinct
@@ -325,7 +325,7 @@ export const parServiceUrls = {
   // (the employee's leads and PAR admins).
   parLead360Summary: (parCycleId: number, workEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/lead-360-summary`,
-  // GET — the AI-suggested 360° summary for the lead to start from.
+  // POST (asking may write one) — the AI-suggested 360° summary for the lead to start from.
   parLead360SummarySuggestion: (parCycleId: number, workEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/lead-360-summary/suggestion`,
   // GET — people to ask for 360° feedback, from the employee's calendar (the

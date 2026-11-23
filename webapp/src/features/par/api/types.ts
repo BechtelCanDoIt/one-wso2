@@ -200,8 +200,8 @@ export interface Par360ReviewRequestCreate {
 export interface Par360ReviewRequest {
   employeeEmail: string;
   reviewStatus: Par360ReviewStatus;
-  isEmployeeRequested: boolean;
-  isLeadRequested: boolean;
+  // Asked (by the employee or their lead; the reviewer isn't told which), rather than offered.
+  isRequested: boolean;
   // PAR 2.0 cycles only.
   employeeName?: string;
 }
