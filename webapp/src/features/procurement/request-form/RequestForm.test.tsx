@@ -155,7 +155,7 @@ describe("RequestForm, the steps after it", () => {
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByText(/Please complete: Procurement category/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /^IT Related Procurement/ }));
+    await user.click(screen.getByRole("radio", { name: /^IT Related Procurement/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByRole("heading", { name: "IT requirement details" })).toBeInTheDocument();
 
@@ -166,7 +166,7 @@ describe("RequestForm, the steps after it", () => {
   it("asks every IT request for users, administrators and the security assessment", async () => {
     const { user } = renderForm();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(screen.getByRole("button", { name: /^IT Related Procurement/ }));
+    await user.click(screen.getByRole("radio", { name: /^IT Related Procurement/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByLabelText(/Number of users/)).toBeInTheDocument();
     expect(screen.getByText(/Data & security assessment/)).toBeInTheDocument();
@@ -175,7 +175,7 @@ describe("RequestForm, the steps after it", () => {
   it("marks the IT requirement as required", async () => {
     const { user } = renderForm();
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(screen.getByRole("button", { name: /^IT Related Procurement/ }));
+    await user.click(screen.getByRole("radio", { name: /^IT Related Procurement/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByRole("textbox", { name: /requirement to use this software/ })).toBeRequired();
   });
@@ -184,7 +184,7 @@ describe("RequestForm, the steps after it", () => {
     const { user } = renderForm();
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.queryByText("Coming soon")).toBeNull();
-    await user.click(screen.getByRole("button", { name: /Marketing/ }));
+    await user.click(screen.getByRole("radio", { name: /Marketing/ }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
     expect(screen.getByRole("heading", { name: "Event details" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: /Event type/ })).toBeRequired();

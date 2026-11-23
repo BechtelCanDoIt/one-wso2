@@ -137,8 +137,8 @@ describe("RequestDetailPage", () => {
     renderAt(path);
     await user.click(screen.getByRole("button", { name: "Edit and resubmit" }));
     await user.click(screen.getByRole("button", { name: "Continue" }));
-    await user.click(screen.getByRole("button", { name: /^Non-IT Related Procurement/ }));
-    expect(screen.getByRole("button", { name: /^Non-IT Related Procurement/ })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("radio", { name: /^Non-IT Related Procurement/ }));
+    expect(screen.getByRole("radio", { name: /^Non-IT Related Procurement/ })).toBeChecked();
 
     // A refresh fails, but the answer it held is still there.
     const refetch = vi.fn();
@@ -149,7 +149,7 @@ describe("RequestDetailPage", () => {
 
     expect(screen.getByText("Network down.")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Procurement category" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^Non-IT Related Procurement/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: /^Non-IT Related Procurement/ })).toBeChecked();
     await user.click(screen.getByRole("button", { name: "Retry" }));
     expect(refetch).toHaveBeenCalledOnce();
 
@@ -159,7 +159,7 @@ describe("RequestDetailPage", () => {
       state.notify();
     });
     expect(screen.queryByText("Network down.")).toBeNull();
-    expect(screen.getByRole("button", { name: /^Non-IT Related Procurement/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("radio", { name: /^Non-IT Related Procurement/ })).toBeChecked();
   });
 
   it("warns that budget names did not load, keeps the codes, and retries only what failed", async () => {
