@@ -226,6 +226,7 @@ export interface WDashboard {
     travelInvoices: number;
     perDiems: number;
     creditCardExpenses?: number | null;
+    expenseClaims?: number | null;
     lastMonth?: number;
     currentMonth?: number;
     byMonth: WSeriesPoint[];
@@ -462,7 +463,7 @@ export interface WTravelRequestDetail extends WTravelRequestSummary {
   engagementType?: string | null;
   address?: string | null;
   fundingSources?: WFundingSource[] | null;
-  tabs: { perDiems?: boolean; invoices?: boolean; travelCards?: boolean; payments?: boolean };
+  tabs: { perDiems?: boolean; invoices?: boolean; travelCards?: boolean; payments?: boolean; expenses?: boolean };
 }
 
 export interface WPerDiem {
@@ -508,6 +509,35 @@ export interface WInvoice {
   addedOn?: string;
   addedBy?: string | null;
   actions?: { approvePo?: boolean; approve?: boolean; reject?: boolean; push?: boolean; resync?: boolean };
+}
+
+export interface WCardExpense {
+  id: number;
+  date?: string | null;
+  expenseType?: string | null;
+  reference?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  employeeEmail?: string | null;
+  status?: string | null;
+}
+
+export interface WExpenseClaim {
+  id: number;
+  claimNumber?: string | null;
+  date?: string | null;
+  expenseType?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  reimbursementAmount?: number | null;
+  reimbursementCurrency?: string | null;
+  employeeEmail?: string | null;
+  status?: string | null;
+}
+
+export interface WTripExpenses {
+  cardExpenses?: WCardExpense[] | null;
+  expenseClaims?: WExpenseClaim[] | null;
 }
 
 export interface WTravelCard {

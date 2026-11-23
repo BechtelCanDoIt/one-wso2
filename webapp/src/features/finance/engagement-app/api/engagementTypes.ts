@@ -282,7 +282,7 @@ export interface TravelRequest extends TravelRequestSummary {
   /** View Funding Sources (Travel privilege 35). */
   readonly funding?: readonly FundingSource[];
   /** Which tabs the caller may open. */
-  readonly tabs: { readonly perDiems: boolean; readonly invoices: boolean; readonly travelCards: boolean; readonly payments: boolean };
+  readonly tabs: { readonly perDiems: boolean; readonly invoices: boolean; readonly travelCards: boolean; readonly payments: boolean; readonly expenses: boolean };
 }
 
 export interface PerDiem {
@@ -325,6 +325,37 @@ export interface Invoice extends NetSuiteState {
   readonly addedBy?: string;
   readonly campaign?: Campaign;
   readonly actions?: { readonly approvePo?: boolean; readonly approve?: boolean; readonly reject?: boolean; readonly push?: boolean; readonly resync?: boolean };
+}
+
+/** A credit card transaction tagged with the travel (Credit Card Expenses). */
+export interface CardExpense {
+  readonly id: string;
+  readonly date?: string;
+  readonly expenseType?: string;
+  readonly reference?: string;
+  readonly amount?: number;
+  readonly currency?: string;
+  readonly employee?: string;
+  readonly status: string;
+}
+
+/** An expense claim line tagged with the travel (Expense Claims). */
+export interface ExpenseClaim {
+  readonly id: string;
+  readonly claimNumber?: string;
+  readonly date?: string;
+  readonly expenseType?: string;
+  readonly amount?: number;
+  readonly currency?: string;
+  readonly reimbursementAmount?: number;
+  readonly reimbursementCurrency?: string;
+  readonly employee?: string;
+  readonly status: string;
+}
+
+export interface TripExpenses {
+  readonly cardExpenses: readonly CardExpense[];
+  readonly expenseClaims: readonly ExpenseClaim[];
 }
 
 export interface TravelCard {
@@ -609,9 +640,10 @@ export interface Dashboard {
     readonly perDiems: number;
     /** Only for the travel finance roles. */
     readonly creditCards?: number;
+    readonly expenseClaims?: number;
     readonly lastMonth?: number;
     readonly currentMonth?: number;
-    readonly byMonth: readonly { readonly month: string; readonly invoices: number; readonly perDiems: number; readonly creditCards?: number }[];
+    readonly byMonth: readonly { readonly month: string; readonly invoices: number; readonly perDiems: number; readonly creditCards?: number; readonly expenseClaims?: number }[];
     readonly byType: readonly CountRow[];
   };
   /** The travel agent's own dashboard; present instead of the sections above. */

@@ -183,6 +183,9 @@ export const useTripInvoices = (jobNumber: string, enabled = true) =>
 export const useTripCards = (jobNumber: string, enabled = true) =>
   useEngagementGet(["travel-requests", "travel-cards", jobNumber], urls.travelCards(jobNumber), items(M.travelCard), { enabled });
 
+export const useTripExpenses = (jobNumber: string, enabled = true) =>
+  useEngagementGet(["travel-requests", "expenses", jobNumber], urls.tripExpenses(jobNumber), M.tripExpenses, { enabled });
+
 export const useTripPayments = (jobNumber: string, enabled = true) =>
   useEngagementGet(["travel-requests", "payments", jobNumber], urls.tripPayments(jobNumber), M.tripPayments, { enabled });
 
