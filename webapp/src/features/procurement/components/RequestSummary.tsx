@@ -17,8 +17,20 @@
 import { useState, type ReactNode } from "react";
 import { Box, Button, Card, CardContent, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
 import { EVENT_COSTS, EVENT_TYPES, INSTALLATION_TYPES, PACKAGE_INCLUSIONS, splitLinks, totalInvestment } from "../request-form/requestFormModel";
+import { formatSize } from "../request-form/attachmentRules";
 import { formatDate } from "../procurementFormat";
 import type { BudgetDetails, EventDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
+
+/** A file on a request, as the summary lists it. A row with `onDownload` offers a Download button. */
+export interface AttachmentRow {
+  key: string;
+  name: string;
+  sizeBytes: number;
+  /** What the malware scan says, when it is worth saying. */
+  note?: string;
+  onDownload?: () => void;
+  downloading?: boolean;
+}
 
 /** Everything a summary shows, whether it comes from a draft in the form or a saved request. */
 export interface RequestView {
@@ -35,6 +47,7 @@ export interface RequestView {
   /** The budget approver's name. */
   budgetApprover: string;
   notes: string;
+  attachments?: AttachmentRow[];
   /** A date to show with the key facts, with what it is called ("Date", "Raised"). */
   date?: { label: string; iso: string };
 }
@@ -339,6 +352,30 @@ export default function RequestSummary({
       <Section title="Notes" onEdit={edit(view.category === "EVENTS" ? 3 : 4)}>
         <Row label="Notes for Procurement" value={view.notes} optional />
       </Section>
+
+      {view.attachments && view.attachments.length > 0 && (
+        <Section title="Attachments" onEdit={edit(view.category === "EVENTS" ? 3 : 4)}>
+          {view.attachments.map((a) => (
+            <Row key={a.key} label={a.name}>
+              <Stack direction="row" spacing={1.5} alignItems="center" useFlexGap flexWrap="wrap">
+                <Typography variant="body2" color="text.secondary">
+                  {formatSize(a.sizeBytes)}
+                </Typography>
+                {a.note && (
+                  <Typography variant="body2" color="text.secondary">
+                    {a.note}
+                  </Typography>
+                )}
+                {a.onDownload && (
+                  <Button size="small" disabled={a.downloading} onClick={a.onDownload} aria-label={`Download ${a.name}`}>
+                    {a.downloading ? "Downloading…" : "Download"}
+                  </Button>
+                )}
+              </Stack>
+            </Row>
+          ))}
+        </Section>
+      )}
     </Stack>
   );
 }

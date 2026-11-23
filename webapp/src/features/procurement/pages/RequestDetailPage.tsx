@@ -23,21 +23,22 @@ import DecisionNotice from "../components/DecisionNotice";
 import SavedRequestSummary from "../components/SavedRequestSummary";
 import RequestForm from "../request-form/RequestForm";
 import { draftFromRequest } from "../request-form/requestFormModel";
-import { useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest, useCancelRequest } from "../api/useProcurement";
+import { useAttachments, useProcurementLookups, useProcurementMe, useRequest, useResubmitRequest, useCancelRequest } from "../api/useProcurement";
 import { procurementPaths } from "../procurementPaths";
 import type { PurchaseRequest } from "../types";
 
 function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: () => void }) {
   const me = useProcurementMe();
   const lookups = useProcurementLookups();
+  const attachments = useAttachments(request.id);
   const resubmit = useResubmitRequest(request.id);
-  const retryOf = (failed: typeof me | typeof lookups) => (
+  const retryOf = (failed: typeof me | typeof lookups | typeof attachments) => (
     <Button color="inherit" size="small" onClick={() => void failed.refetch()}>
       Retry
     </Button>
   );
   // Nothing to show until both have loaded once, so a failure then blocks the form.
-  const blocking = !me.data && me.isError ? me : !lookups.data && lookups.isError ? lookups : null;
+  const blocking = !me.data && me.isError ? me : !lookups.data && lookups.isError ? lookups : !attachments.data && attachments.isError ? attachments : null;
   if (blocking) {
     return (
       <Alert severity="error" action={retryOf(blocking)}>
@@ -45,7 +46,7 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
       </Alert>
     );
   }
-  if (!me.data || !lookups.data) return <Skeleton variant="rounded" height={320} />;
+  if (!me.data || !lookups.data || !attachments.data) return <Skeleton variant="rounded" height={320} />;
   // A later refresh can fail while the data is still held. The form stays mounted, so what has been typed and the
   // step it is on are not lost; the failure is shown beside it.
   const refreshFailed = me.isError ? me : lookups.isError ? lookups : null;
@@ -57,7 +58,7 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
         </Alert>
       )}
       <RequestForm
-        initialDraft={draftFromRequest(request)}
+        initialDraft={draftFromRequest(request, attachments.data)}
         me={me.data}
         lookups={lookups.data}
         submitLabel="Resubmit request"

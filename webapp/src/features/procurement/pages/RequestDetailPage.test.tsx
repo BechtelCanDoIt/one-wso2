@@ -51,6 +51,8 @@ vi.mock("../api/useProcurement", async () => {
     useDirectorySearch: () => ({ data: [], isFetching: false, isError: false, error: null }),
     useResubmitRequest: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
     useCancelRequest: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn() }),
+    useAttachments: () => ({ data: [], isError: false, error: null, refetch: vi.fn() }),
+    useDownloadAttachment: () => ({ isPending: false, isError: false, error: null, mutate: vi.fn(), variables: undefined }),
   };
 });
 const person = { id: "lead@example.com", name: "Team Lead", email: "lead@example.com" };

@@ -137,4 +137,29 @@ describe("RequestSummary", () => {
     expect(screen.getByRole("link", { name: "https://www.acme.example.com" })).toBeInTheDocument();
     expect(screen.getByText("not-a-link")).not.toHaveAttribute("href");
   });
+
+  it("lists the attachments with a Download only for those that can be downloaded", async () => {
+    const user = userEvent.setup();
+    const onDownload = vi.fn();
+    render(
+      <RequestSummary
+        view={view({
+          attachments: [
+            { key: "1", name: "quote.pdf", sizeBytes: 2048, onDownload },
+            { key: "2", name: "scan.pdf", sizeBytes: 100, note: "Blocked: the scan found a problem" },
+          ],
+        })}
+      />,
+    );
+    expect(screen.getByRole("heading", { name: "Attachments" })).toBeInTheDocument();
+    expect(screen.getByText("Blocked: the scan found a problem")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Download/ })).toHaveLength(1);
+    await user.click(screen.getByRole("button", { name: "Download quote.pdf" }));
+    expect(onDownload).toHaveBeenCalledOnce();
+  });
+
+  it("has no Attachments card when there are none", () => {
+    render(<RequestSummary view={view({ attachments: [] })} />);
+    expect(screen.queryByRole("heading", { name: "Attachments" })).toBeNull();
+  });
 });

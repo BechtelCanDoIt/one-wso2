@@ -17,17 +17,41 @@
 import { Alert, Button, Stack } from "@wso2/oxygen-ui";
 import { describeError } from "@api/errors";
 import { budgetForDisplay } from "../request-form/requestFormModel";
-import { useEngagementCodes, useProcurementLookups } from "../api/useProcurement";
+import { canDownload } from "../request-form/attachmentRules";
+import { useAttachments, useDownloadAttachment, useEngagementCodes, useProcurementLookups } from "../api/useProcurement";
 import type { PurchaseRequest } from "../types";
-import RequestSummary from "./RequestSummary";
+import RequestSummary, { type AttachmentRow } from "./RequestSummary";
 
 /** A saved request as the summary cards, with budget codes shown as the names the lists give them. */
 export default function SavedRequestSummary({ request }: { request: PurchaseRequest }) {
   const lookups = useProcurementLookups();
   const unitName = lookups.data?.businessUnits.find((u) => u.value === request.budget.businessUnit)?.label ?? "";
   const engagementCodes = useEngagementCodes(unitName);
+  const attachments = useAttachments(request.id);
+  const download = useDownloadAttachment(request.id);
+  const rows: AttachmentRow[] = (attachments.data ?? []).map((a) => ({
+    key: a.id,
+    name: a.name,
+    sizeBytes: a.sizeBytes,
+    note: a.scanStatus === "infected" ? "Blocked: the scan found a problem" : a.scanStatus === "pending" ? "Being scanned" : undefined,
+    onDownload: canDownload(a) ? () => download.mutate(a) : undefined,
+    downloading: download.isPending && download.variables?.id === a.id,
+  }));
   return (
     <Stack spacing={2}>
+      {attachments.isError && (
+        <Alert
+          severity="warning"
+          action={
+            <Button color="inherit" size="small" onClick={() => void attachments.refetch()}>
+              Retry
+            </Button>
+          }
+        >
+          The attachments could not be loaded. {describeError(attachments.error)}
+        </Alert>
+      )}
+      {download.isError && <Alert severity="error">The file could not be downloaded. {describeError(download.error)}</Alert>}
       {(lookups.isError || engagementCodes.isError) && (
         <Alert
           severity="warning"
@@ -60,6 +84,7 @@ export default function SavedRequestSummary({ request }: { request: PurchaseRequ
           budget: lookups.data ? budgetForDisplay(request.budget, lookups.data, engagementCodes.data ?? []) : request.budget,
           budgetApprover: request.budgetApproverName,
           notes: request.notes,
+          attachments: rows,
           date: request.submittedAt ? { label: "Raised", iso: request.submittedAt } : undefined,
         }}
       />
