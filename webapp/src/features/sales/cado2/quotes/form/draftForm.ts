@@ -887,6 +887,25 @@ export function toDraftInput(v: DraftFormValues, expectedUpdatedAt?: string): Dr
 }
 
 /**
+ * The live-pricing request with one line as the Add/Edit Product dialog has
+ * it, so the dialog can show its volume discount ceiling while it's typed
+ * (D169): the line at `index` replaced, or a new one put where saving it
+ * would (insertIndex). `at` is where the line is in the request. Null until
+ * the quote can be priced (toPreviewBody).
+ */
+export function previewWithLine(
+  v: DraftFormValues,
+  line: LineValue,
+  index: number | null,
+): { body: object; at: number } | null {
+  const at = index ?? insertIndex(v.lines, line.yearNumber);
+  const lines =
+    index === null ? [...v.lines.slice(0, at), line, ...v.lines.slice(at)] : v.lines.map((l, i) => (i === index ? line : l));
+  const body = toPreviewBody({ ...v, lines });
+  return body ? { body, at } : null;
+}
+
+/**
  * The live-pricing request, or null until there is enough to price: a start
  * date, a currency, at least one line, a year, a billing frequency, and every
  * line's dates within its year.
