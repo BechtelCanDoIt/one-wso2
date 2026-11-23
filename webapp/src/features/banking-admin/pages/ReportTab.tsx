@@ -17,38 +17,76 @@
 import { useState } from "react";
 import { Autocomplete, Box, Button, TextField } from "@wso2/oxygen-ui";
 import { useReportAccounts } from "@features/my/api/useReportAccounts";
-import type { AccountStatus, AccountType, ReportFilters } from "@features/my/api/types";
+import type { BankAccount, ReportFilters } from "@features/my/api/types";
 import BankAccountsTable from "../components/BankAccountsTable";
 import {
   ACCOUNT_ID_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
+  ACCOUNT_STATUSES,
+  ACCOUNT_TYPES,
   ACCOUNT_TYPE_COLUMN,
   BANK_CODE_COLUMN,
   EFFECTIVE_MONTH_COLUMN,
   EMPLOYEE_EMAIL_COLUMN,
+  fieldColumn,
   type BankAccountsTableColumn,
 } from "../bankAccountsColumns";
 
-const ACCOUNT_TYPES: AccountType[] = ["SALARY", "CONSULTANCY", "REIMBURSEMENT"];
-const ACCOUNT_STATUSES: AccountStatus[] = ["ACTIVE", "INACTIVE", "REJECTED", "REQUESTED"];
-
 const BLANK_FILTERS: ReportFilters = { createdFrom: "", createdTo: "", accountTypesArray: [], statusArray: [] };
 
-// Source's own reportings.tsx default-visible column set for this view, in
-// its own order.
+// The columns this tab shows by default, in its own order, with the
+// account detail the report is reconciled against carried alongside them
+// but switched off — see HIDDEN_BY_DEFAULT. Everything here is exportable,
+// so turning a column on and saving the result is how a reconciliation gets
+// the field it needs.
 const COLUMNS: BankAccountsTableColumn[] = [
   ACCOUNT_ID_COLUMN,
+  fieldColumn("netSuiteInternalId", "NetSuite Internal Id"),
+  fieldColumn("netSuiteVendorId", "NetSuite Vendor Id"),
+  fieldColumn("netSuitePaymentFileFormat", "NetSuite Payment File Format"),
+  // Only consultancy accounts carry a payment method, so every other
+  // Account Type renders "-".
+  fieldColumn("paymentMethod", "Payment Method"),
   EMPLOYEE_EMAIL_COLUMN,
   ACCOUNT_NAME_COLUMN,
   ACCOUNT_NUMBER_COLUMN,
+  fieldColumn("beneficiaryAddress", "Account Holder Address"),
   // Only consultancy accounts carry a beneficiary city, so every other
   // Account Type renders "-".
-  { label: "Account Holder City", render: (a) => a.beneficiaryCity ?? "-" },
+  fieldColumn("beneficiaryCity", "Account Holder City"),
   BANK_CODE_COLUMN,
-  { label: "Branch Name", render: (a) => a.branchName ?? "-" },
+  fieldColumn("bankSwiftCode", "Bank Swift Code"),
+  fieldColumn("bankName", "Bank Name"),
+  fieldColumn("bankLocation", "Bank Location"),
+  fieldColumn("branchName", "Branch Name"),
   EFFECTIVE_MONTH_COLUMN,
   ACCOUNT_TYPE_COLUMN,
+  // A Search can select several statuses at once, or none, and the rows
+  // that come back are then indistinguishable in the file — a deactivated
+  // account reads exactly like a live one. Closed set, so its filter
+  // matches exactly: "contains ACTIVE" would keep the INACTIVE rows too.
+  fieldColumn("accountStatus", "Account Status", ACCOUNT_STATUSES),
+];
+
+// Carried but switched off, so the default view stays the set this tab has
+// always shown. The NetSuite identifiers and the bank's own details are
+// only wanted when something is being chased down, and showing all
+// eighteen columns at once leaves every one of them too narrow to read.
+//
+// Typed against BankAccount rather than left as plain strings: an entry
+// that matches no column hides nothing at all, and silently showing a
+// column that was meant to start off is not a failure anyone would notice.
+const HIDDEN_BY_DEFAULT: (keyof BankAccount)[] = [
+  "netSuiteInternalId",
+  "netSuiteVendorId",
+  "netSuitePaymentFileFormat",
+  "paymentMethod",
+  "beneficiaryAddress",
+  "bankSwiftCode",
+  "bankName",
+  "bankLocation",
+  "accountStatus",
 ];
 
 // The Report tab — a filterable, all-employee bank-account table. Nothing
@@ -112,7 +150,13 @@ export default function ReportTab() {
         </Button>
       </Box>
 
-      <BankAccountsTable accounts={rows} columns={COLUMNS} emptyMessage="No bank account records found." />
+      <BankAccountsTable
+        loading={accountsQuery.isFetching}
+        accounts={rows}
+        columns={COLUMNS}
+        hiddenByDefault={HIDDEN_BY_DEFAULT}
+        emptyMessage="No bank account records found."
+      />
     </Box>
   );
 }

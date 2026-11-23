@@ -39,14 +39,14 @@ import {
 import SalesShell from "../components/SalesShell";
 import RecordingPlayer, { type RecordingPlayerHandle } from "../components/RecordingPlayer";
 import TranscriptPanel, { type TranscriptSection } from "../components/TranscriptPanel";
-import { attachedParts, partLabel, placeLine, type LinePlace } from "../util/meetingParts";
+import { attachedParts, partLabel, placeLine, placeSecond, type LinePlace } from "../util/meetingParts";
 import SmartNotesPanel from "../components/SmartNotesPanel";
 import SpeakerTimeline from "../components/SpeakerTimeline";
 import { describeError, isForbidden } from "../util/salesError";
 import { useCallMeddpicc } from "../meddpicc/api/useCallMeddpicc";
 import CallMeddpiccStrip from "../meddpicc/components/CallMeddpiccStrip";
 import CallMeddpiccTab from "../meddpicc/components/CallMeddpiccTab";
-import { dealPath, MEETING_TABS, type MeetingTab } from "../util/salesPaths";
+import { dealPath, MEETING_TABS, startSecondOf, type MeetingTab } from "../util/salesPaths";
 import { LETTER_KEYS } from "../meddpicc/util/meddpiccFormat";
 import type { LetterKey } from "../meddpicc/types";
 import { formatDateTime, splitParticipants } from "../util/salesTime";
@@ -106,12 +106,25 @@ export default function MeetingDetailPage() {
     setStartAt(0);
   }
   const { data: meeting, isLoading, error } = useMeeting(validId ? meetingId : null);
+  // The tab, the Letter and the moment to open at all live in the URL; read below.
+  const [searchParams, setSearchParams] = useSearchParams();
 
   // Every part that can be opened, in the order they happened.
   const recordings = useMemo(() => attachedParts(meeting?.recordings), [meeting]);
   const transcripts = useMemo(() => attachedParts(meeting?.transcripts), [meeting]);
   const notes = useMemo(() => attachedParts(meeting?.smartNotes), [meeting]);
-  const selected = recordings.find((r) => r.id === chosenRecordingId) ?? recordings[0] ?? null;
+  // A quote on a deal links here with ?t=, the second it was said counted from the call's
+  // start: the recording that moment falls in opens there, until a part is picked by hand.
+  const openingSecond = startSecondOf(searchParams);
+  const opening = useMemo(
+    () => (openingSecond === null ? null : placeSecond(openingSecond, recordings, DEFAULT_RECORDING, meeting?.recordings)),
+    [openingSecond, recordings, meeting?.recordings],
+  );
+  const selected =
+    recordings.find((r) => r.id === (chosenRecordingId ?? opening?.recordingId)) ?? recordings[0] ?? null;
+  // Where the player starts: the moment the URL asked for, or where a transcript line from
+  // another part sent it (playRecording). The player reads it once, when it mounts.
+  const playerStartAt = chosenRecordingId === null && opening ? opening.offsetSeconds : startAt;
   // The recording transcript lines are placed on and highlighted against. A meeting listed
   // without recording parts (a meet-app from before parts, or no recording at all) still has
   // one default recording, so its lines stay clickable and seek the player, as before parts.
@@ -178,7 +191,6 @@ export default function MeetingDetailPage() {
   // so Back still leaves the meeting instead of stepping through its tabs.
   // Summary is the default: someone opening a call wants to know what it was about
   // before they want to read it word for word.
-  const [searchParams, setSearchParams] = useSearchParams();
   const requestedTab = searchParams.get("tab");
   const asked: MeetingTab = (MEETING_TABS as readonly string[]).includes(requestedTab ?? "")
     ? (requestedTab as MeetingTab)
@@ -194,6 +206,10 @@ export default function MeetingDetailPage() {
     const params = new URLSearchParams();
     if (next !== "summary") params.set("tab", next);
     if (next === "meddpicc" && letter) params.set("letter", letter);
+    // The moment stays: the link still says where the recording is, and the player keeps
+    // the part it opened.
+    const t = searchParams.get("t");
+    if (t !== null) params.set("t", t);
     setSearchParams(params, { replace: true });
   };
   const navigate = useNavigate();
@@ -407,7 +423,7 @@ export default function MeetingDetailPage() {
                 ref={playerRef}
                 meetingId={meeting.meetingId}
                 recordingId={selected?.id}
-                startAt={startAt}
+                startAt={playerStartAt}
                 onTimeUpdate={setCurrentTime}
                 onDurationChange={setDuration}
               />

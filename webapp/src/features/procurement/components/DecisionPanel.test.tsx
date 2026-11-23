@@ -1,0 +1,91 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
+import DecisionPanel from "./DecisionPanel";
+
+const mutate = vi.hoisted(() => vi.fn());
+const panel = vi.hoisted(() => ({ reset: vi.fn(), pending: false }));
+vi.mock("../api/useProcurement", () => ({
+  useDecideRequest: () => ({ mutate, reset: panel.reset, isPending: panel.pending, isError: false, error: null }),
+}));
+
+beforeEach(() => {
+  mutate.mockClear();
+  panel.reset.mockClear();
+  panel.pending = false;
+});
+
+describe("DecisionPanel", () => {
+  it("will not send either decision until the declaration is ticked", async () => {
+    const user = userEvent.setup();
+    render(<DecisionPanel requestId="1" />);
+    await user.type(screen.getByLabelText(/Comment/), "Get a second quote.");
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Tick the declaration to send your decision.");
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("will not approve until the review is confirmed", async () => {
+    const user = userEvent.setup();
+    render(<DecisionPanel requestId="1" />);
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Tick the declaration to send your decision.");
+    expect(mutate).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Approve" }));
+    expect(mutate).toHaveBeenCalledWith({ decision: "approved", comment: "", disclaimerAccepted: true });
+  });
+
+  it("will not reject without a reason, and sends it with the rejection", async () => {
+    const user = userEvent.setup();
+    render(<DecisionPanel requestId="1" />);
+    await user.click(screen.getByRole("checkbox"));
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Add why the request is rejected.");
+    expect(mutate).not.toHaveBeenCalled();
+
+    await user.type(screen.getByLabelText(/Comment/), "Get a second quote.");
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(mutate).toHaveBeenCalledWith({ decision: "rejected", comment: "Get a second quote.", disclaimerAccepted: false });
+  });
+
+  it("clears the message about a field once the person corrects that field", async () => {
+    const user = userEvent.setup();
+    render(<DecisionPanel requestId="1" />);
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Tick the declaration");
+    await user.click(screen.getByRole("checkbox"));
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Reject" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Add why the request is rejected.");
+    await user.type(screen.getByLabelText(/Comment/), "No budget.");
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not reset the decision while it is being saved, so it cannot be sent twice", async () => {
+    const user = userEvent.setup();
+    panel.pending = true;
+    render(<DecisionPanel requestId="1" />);
+    await user.click(screen.getByRole("checkbox"));
+    await user.type(screen.getByLabelText(/Comment/), "x");
+    expect(panel.reset).not.toHaveBeenCalled();
+  });
+});

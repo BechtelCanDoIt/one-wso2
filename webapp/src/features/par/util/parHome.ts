@@ -14,55 +14,63 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// The Active cycle tracker: where the employee is in the cycle, and the one thing to do next.
-import type { ParCycle, ParRating, Par360Reviewer, Par360ReviewRequest } from "../api/types";
+// The Active cycle tabs: each step's state, and what the open step's panel says at its top.
+import type { ParCycle, ParRating, Par360Reviewer } from "../api/types";
 import { MIN_360_RESPONSES } from "../api/review360Types";
+import { formatShortDate } from "./parDate";
 import { isDeadlinePassed } from "./parDeadline";
 
 export type HomeStepKey = "self-review" | "360" | "lead-review" | "f2f";
-export type HomeStepState = "done" | "current" | "upcoming";
-/** Whose move a step is: the employee's, someone else's, nobody's yet (it opens later), or done.
- * "enough" is 360° feedback with enough answers for results while more can still come in;
- * "closed", a step whose deadline passed before it was finished (for 360° feedback, without
- * enough answers). */
-export type HomeStepStatus = "todo" | "waiting" | "locked" | "enough" | "done" | "closed";
+
+/** A step's state: the one word its tab shows. */
+export type StepState = "not-started" | "in-progress" | "not-available" | "done" | "incomplete";
+
+export const STEP_STATE_LABEL: Record<StepState, string> = {
+  "not-started": "Not started",
+  "in-progress": "In progress",
+  "not-available": "Not available yet",
+  done: "Done",
+  incomplete: "Incomplete",
+};
 
 export interface HomeStep {
   key: HomeStepKey;
   label: string;
-  state: HomeStepState;
-  status: HomeStepStatus;
-  /** Who a waiting step waits on. */
-  waitingOn?: string;
-  detail: string;
-  due?: string;
-  /** What the date chip says before the date: the employee's own deadlines are "Due"; someone
-   * else's, "Expected by". */
-  dueLabel?: string;
+  state: StepState;
 }
 
-export interface NextUp {
+/** The date on the right of the open step's heading. */
+export interface StepDue {
+  label: "Due" | "Open until" | "Expected by";
+  date: string;
+  /** Days left show only for the employee's own deadline while the step is theirs to do. */
+  countdown: boolean;
+}
+
+/** The top of the open step's panel: its heading, the date on its right, and the one line an Incomplete step has. */
+export interface StepHeader {
   title: string;
-  body: string;
-  /** Something for the employee to do, nothing for now (someone else's move), or all done. */
-  tone: "todo" | "waiting" | "done";
-  /** When the thing to do is due, if it has a deadline. */
-  due?: string;
+  due?: StepDue;
+  line?: string;
 }
 
 export interface HomeInput {
   cycle: ParCycle;
   rating: ParRating;
-  // Sections of the self-review answered so far, and how many there are.
-  selfReviewProgress?: { answered: number; total: number };
   reviewers: Par360Reviewer[];
-  requests: Par360ReviewRequest[];
+  /** A member's 360° responses received, offered ones too; while unknown, those from people asked. */
+  received?: number;
   /** A member of the leadership team: their 360° feedback is Leadership 360°, and only how many
    * responded is known, not who. */
   leadership?: { responseCount: number };
-  /** The lead's name, when known. */
-  leadName?: string;
 }
+
+const STEPS: { key: HomeStepKey; label: string }[] = [
+  { key: "self-review", label: "Self-review" },
+  { key: "360", label: "360° feedback" },
+  { key: "lead-review", label: "Lead review" },
+  { key: "f2f", label: "Face-to-face" },
+];
 
 export function feedbackProgress(reviewers: Par360Reviewer[]) {
   const asked = reviewers.filter((r) => r.reviewStatus !== "REJECTED" && r.reviewStatus !== "SANITIZED").length;
@@ -71,213 +79,110 @@ export function feedbackProgress(reviewers: Par360Reviewer[]) {
   return { asked, responded, declined };
 }
 
-// Requests for your feedback you haven't answered yet. Feedback you offered
-// without being asked is yours to finish, not a request.
-export function openRequests(requests: Par360ReviewRequest[]): Par360ReviewRequest[] {
-  return requests.filter(
-    (r) => (r.reviewStatus === "PENDING" || r.reviewStatus === "DRAFT") && (r.isEmployeeRequested || r.isLeadRequested),
-  );
-}
-
-export function homeSteps({ cycle, rating, selfReviewProgress, reviewers, leadership, leadName }: HomeInput): HomeStep[] {
-  const lead = leadName ?? "your lead";
-  const Lead = leadName ?? "Your lead";
+function facts({ cycle, rating, reviewers, received, leadership }: HomeInput) {
   const selfShared = rating.parEmployeeStatus === "SHARED" || rating.parEmployeeStatus === "SHARED_BLOCKED";
   const leadShared = rating.parLeadStatus === "SHARED";
   const f2fDone = rating.parF2fStatus === "COMPLETED";
-  // Nothing is submitted for the employee at a deadline: their own steps lock, so a missed one closes.
-  const selfMissed = !selfShared && isDeadlinePassed(cycle.parEmployeeDeadline);
-  const f2fMissed = !f2fDone && isDeadlinePassed(cycle.parF2FDeadline);
-  const { asked, responded: parResponded } = feedbackProgress(reviewers);
-  const responded = leadership ? leadership.responseCount : parResponded;
-  const feedbackDone = responded >= MIN_360_RESPONSES || leadShared || isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
-
-  const steps: Omit<HomeStep, "state" | "status" | "waitingOn">[] = [
-    {
-      key: "self-review",
-      label: "Self-review",
-      detail: selfShared
-        ? "Shared with your lead"
-        : selfMissed
-          ? "Not shared by the deadline"
-          : rating.parEmployeeStatus === "DRAFT"
-          ? selfReviewProgress
-            ? `${selfReviewProgress.answered} of ${selfReviewProgress.total} sections`
-            : "Draft saved"
-          : "Not started",
-      due: cycle.parEmployeeDeadline,
-    },
-    {
-      key: "360",
-      label: "360° feedback",
-      detail: leadership
-        ? `Leadership 360°: ${responded > 0 ? `${responded} submitted` : "none yet"}`
-        : asked === 0
-          ? feedbackDone
-            ? "None requested"
-            : "None requested yet"
-          : `${responded} of ${asked} submitted`,
-      due: cycle.parThreeSixtyRatingDeadline,
-    },
-    {
-      key: "lead-review",
-      label: "Lead review",
-      detail: leadShared
-        ? "Shared with you"
-        : rating.parLeadStatus === "DRAFT"
-          ? `${Lead} is writing it`
-          : selfShared || selfMissed
-            ? `With ${lead}`
-            : `${Lead} reviews after you share`,
-      due: cycle.parLeadDeadline,
-      dueLabel: "Expected by",
-    },
-    {
-      key: "f2f",
-      label: "Face-to-face",
-      detail: f2fDone
-        ? "Done"
-        : f2fMissed
-          ? "Not marked done by the deadline"
-          : rating.parF2fStatus === "SCHEDULED"
-          ? "Booked"
-          : leadShared
-            ? `You book it with ${lead}`
-            : `Opens after ${lead} shares`,
-      due: cycle.parF2FDeadline,
-    },
-  ];
-  const done: Record<HomeStepKey, boolean> = {
-    "self-review": selfShared || selfMissed,
-    "360": feedbackDone,
-    "lead-review": leadShared,
-    f2f: f2fDone || f2fMissed,
+  const { asked, responded } = feedbackProgress(reviewers);
+  const deadline360Passed = isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
+  // Sharing the PAR stops requests for a member's PAR 360° feedback; a leader's Leadership 360° still
+  // counts until the 360° deadline.
+  const closedEarly = !leadership && leadShared && !deadline360Passed;
+  return {
+    selfShared,
+    // Nothing is submitted for the employee at a deadline: their own steps lock, so a missed one is Incomplete.
+    selfMissed: !selfShared && isDeadlinePassed(cycle.parEmployeeDeadline),
+    leadShared,
+    f2fDone,
+    f2fMissed: !f2fDone && isDeadlinePassed(cycle.parF2FDeadline),
+    asked,
+    received: leadership ? leadership.responseCount : (received ?? responded),
+    closedEarly,
+    closed360: deadline360Passed || closedEarly,
   };
-  // Asking enough people is the employee's part; after that, 360° feedback waits on them. With
-  // enough answers it's "enough" while more can still come in (a leader's always can), "done"
-  // once everyone asked has answered or the window has closed.
-  const feedbackOpen = !leadShared && !isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
-  const moreToCome = leadership !== undefined || parResponded < asked;
-  const status: Record<HomeStepKey, HomeStepStatus> = {
-    "self-review": selfShared ? "done" : selfMissed ? "closed" : "todo",
-    "360": feedbackDone
-      ? responded < MIN_360_RESPONSES
-        ? "closed"
-        : feedbackOpen && moreToCome
-          ? "enough"
-          : "done"
-      : asked >= MIN_360_RESPONSES
-        ? "waiting"
-        : "todo",
-    "lead-review": leadShared ? "done" : "waiting",
-    // The employee books the F2F, once the lead has shared.
-    f2f: f2fDone ? "done" : f2fMissed ? "closed" : leadShared ? "todo" : "locked",
-  };
-  const waitingOn: Partial<Record<HomeStepKey, string>> = { "360": "reviewers", "lead-review": lead };
-  const current = steps.find((s) => !done[s.key])?.key;
-  return steps.map((s) => ({
-    ...s,
-    state: done[s.key] ? "done" : s.key === current ? "current" : "upcoming",
-    status: status[s.key],
-    ...(status[s.key] === "waiting" ? { waitingOn: waitingOn[s.key] } : {}),
-  }));
 }
 
-// One next action, in the order the cycle needs them. Waiting on someone else
-// is said plainly rather than inventing something to do.
-export function nextUp({
-  cycle,
-  rating,
-  selfReviewProgress,
-  reviewers,
-  requests,
-  leadership,
-  leadName,
-}: HomeInput): NextUp {
-  const selfShared = rating.parEmployeeStatus === "SHARED" || rating.parEmployeeStatus === "SHARED_BLOCKED";
-  const leadShared = rating.parLeadStatus === "SHARED";
-  const { asked } = feedbackProgress(reviewers);
-  const feedbackOpen = !leadShared && !isDeadlinePassed(cycle.parThreeSixtyRatingDeadline);
-
-  if (!selfShared && !isDeadlinePassed(cycle.parEmployeeDeadline)) {
-    return rating.parEmployeeStatus === "DRAFT"
-      ? {
-          title: "Finish and share your self-review",
-          body: selfReviewProgress
-            ? `${selfReviewProgress.answered} of ${selfReviewProgress.total} sections done. Your lead sees it once you share.`
-            : "Your draft is saved. Your lead sees it once you share.",
-          tone: "todo",
-          due: cycle.parEmployeeDeadline,
-        }
-      : {
-          title: "Start your self-review",
-          body: "A few short sections on your impact and how you've grown. It saves as you type.",
-          tone: "todo",
-          due: cycle.parEmployeeDeadline,
-        };
-  }
-  if (leadership && feedbackOpen && asked < MIN_360_RESPONSES && leadership.responseCount < MIN_360_RESPONSES) {
-    return {
-      title: "Request Leadership 360° feedback",
-      body: "Request it from people who work closely with you. They can answer named or anonymously, and anyone can give it unrequested.",
-      tone: "todo",
-      due: cycle.parThreeSixtyRatingDeadline,
-    };
-  }
-  if (!leadership && feedbackOpen && asked < MIN_360_RESPONSES) {
-    return {
-      title: "Request 360° feedback",
-      body: `Request it from at least ${MIN_360_RESPONSES} people who worked closely with you this cycle (${asked} so far).`,
-      tone: "todo",
-      due: cycle.parThreeSixtyRatingDeadline,
-    };
-  }
-  const waiting = openRequests(requests);
-  const giveFeedback: NextUp | undefined =
-    waiting.length > 0 && !isDeadlinePassed(cycle.parThreeSixtyRatingDeadline)
-      ? {
-          title:
-            waiting.length > 1
-              ? `${waiting.length} people asked for your feedback`
-              : `${waiting[0].employeeName ?? waiting[0].employeeEmail} asked for your feedback`,
-          body:
-            waiting.length > 1
-              ? "They asked for your 360° feedback, in Give feedback. About five minutes each."
-              : "They asked for your 360° feedback, in Give feedback. It takes about five minutes.",
-          tone: "todo",
-          due: cycle.parThreeSixtyRatingDeadline,
-        }
-      : undefined;
-  // While the lead reviews, feedback others are waiting on is the thing to do.
-  if (!leadShared) {
-    return (
-      giveFeedback ?? {
-        title: `${leadName ?? "Your lead"} is reviewing`,
-        body: `Nothing for you to do right now. You'll get an email when ${leadName ?? "your lead"} shares your PAR.`,
-        tone: "waiting",
-      }
-    );
-  }
-  // Once the lead has shared, your own F2F comes first, until its deadline.
-  if (rating.parF2fStatus !== "COMPLETED" && !isDeadlinePassed(cycle.parF2FDeadline)) {
-    return rating.parF2fStatus === "SCHEDULED"
-      ? {
-          title: "Your face-to-face is booked",
-          body: "Talk through your PAR with your lead, then mark the F2F as done.",
-          tone: "todo",
-          due: cycle.parF2FDeadline,
-        }
-      : {
-          title: "Book your face-to-face",
-          body: "Your lead has shared your PAR. Find a time to talk it through.",
-          tone: "todo",
-          due: cycle.parF2FDeadline,
-        };
-  }
-  if (giveFeedback) return giveFeedback;
-  return {
-    title: "Your PAR is complete",
-    body: "Download the final PAR, with your lead's feedback and your 360° results, for your records.",
-    tone: "done",
+export function homeSteps(input: HomeInput): HomeStep[] {
+  const f = facts(input);
+  const state: Record<HomeStepKey, StepState> = {
+    "self-review": f.selfShared
+      ? "done"
+      : f.selfMissed
+        ? "incomplete"
+        : input.rating.parEmployeeStatus === "DRAFT"
+          ? "in-progress"
+          : "not-started",
+    "360":
+      f.received >= MIN_360_RESPONSES
+        ? "done"
+        : f.closed360
+          ? "incomplete"
+          : f.asked > 0 || f.received > 0
+            ? "in-progress"
+            : "not-started",
+    "lead-review": f.leadShared ? "done" : "not-available",
+    // Either of them marks it done, once the lead has shared.
+    f2f: f.f2fDone ? "done" : f.f2fMissed ? "incomplete" : f.leadShared ? "not-started" : "not-available",
   };
+  return STEPS.map((s) => ({ ...s, state: state[s.key] }));
+}
+
+export function stepHeader(input: HomeInput, key: HomeStepKey): StepHeader {
+  const { cycle, leadership } = input;
+  const f = facts(input);
+  const state = homeSteps(input).find((s) => s.key === key)!.state;
+  const passed = (what: string, deadline: string) => `The ${what} deadline passed on ${formatShortDate(deadline)}.`;
+
+  switch (key) {
+    case "self-review":
+      if (state === "done") return { title: "Self-review shared" };
+      if (state === "incomplete") {
+        return { title: "Self-review not shared", line: passed("self-review", cycle.parEmployeeDeadline) };
+      }
+      return {
+        title: state === "in-progress" ? "Write your self-review" : "Self-review",
+        due: { label: "Due", date: cycle.parEmployeeDeadline, countdown: true },
+      };
+    case "360": {
+      const name = leadership ? "Leadership 360° feedback" : "360° feedback";
+      const deadline = cycle.parThreeSixtyRatingDeadline;
+      if (state === "incomplete") {
+        return {
+          title: `${name} incomplete`,
+          // The backend keeps no date for when the lead shared.
+          line: f.closedEarly ? "Your lead shared your PAR before the 360° deadline." : passed("360°", deadline),
+        };
+      }
+      if (state === "done") {
+        // More can still come in until the window closes.
+        return f.closed360 ? { title: name } : { title: name, due: { label: "Open until", date: deadline, countdown: false } };
+      }
+      // Once the lead has shared, no one can be asked any more, but a leader's Leadership 360° feedback still
+      // comes in until the deadline.
+      if (leadership && f.leadShared) return { title: name, due: { label: "Open until", date: deadline, countdown: false } };
+      // Asking is the employee's part (at least 3 for a member); after that, the window is open until the deadline.
+      const asking = state === "not-started" || (!leadership && f.asked < MIN_360_RESPONSES);
+      return { title: `Request ${name}`, due: { label: asking ? "Due" : "Open until", date: deadline, countdown: true } };
+    }
+    case "lead-review":
+      return state === "done"
+        ? { title: "Your lead review" }
+        : { title: "Lead review", due: { label: "Expected by", date: cycle.parLeadDeadline, countdown: false } };
+    case "f2f":
+      if (state === "done") return { title: "Face-to-face" };
+      if (state === "incomplete") return { title: "Face-to-face not marked done", line: passed("face-to-face", cycle.parF2FDeadline) };
+      return { title: "Face-to-face", due: { label: "Due", date: cycle.parF2FDeadline, countdown: state === "not-started" } };
+  }
+}
+
+// The step Active cycle opens on: the self-review while it's yours to share, the lead's review once
+// they've shared it, else 360° feedback while there's asking to do, else the self-review. Never the
+// face-to-face.
+export function landingStep(input: HomeInput): HomeStepKey {
+  const state = Object.fromEntries(homeSteps(input).map((s) => [s.key, s.state])) as Record<HomeStepKey, StepState>;
+  const open = (s: StepState) => s === "not-started" || s === "in-progress";
+  if (open(state["self-review"])) return "self-review";
+  if (state["lead-review"] === "done") return "lead-review";
+  if (open(state["360"]) && facts(input).asked < MIN_360_RESPONSES) return "360";
+  return "self-review";
 }

@@ -68,6 +68,15 @@ export function hasCustomerEvidence(evidence: readonly EvidenceQuote[]): boolean
   return evidence.some((quote) => roleOf(quote) === "CUSTOMER");
 }
 
+/**
+ * The one quote to lead with: the newest in the customer's own words, or, when nobody
+ * on the customer's side is quoted, the newest there is. Undefined for no evidence.
+ */
+export function leadQuote(evidence: readonly EvidenceQuote[]): EvidenceQuote | undefined {
+  const sorted = newestFirst(evidence);
+  return sorted.find((quote) => roleOf(quote) === "CUSTOMER") ?? sorted[0];
+}
+
 /** The deal's timeline, from the backend or, without it, from the deal's calls. */
 export function activityOf(detail: DealDetail): DealActivity[] {
   if (detail.activity) return detail.activity;

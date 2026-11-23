@@ -42,6 +42,11 @@ export function deadlineEndsEverywhereAt(deadline: string): Date {
   return new Date(`${deadline}T23:59:59-12:00`);
 }
 
+/** Whether a `YYYY-MM-DD` deadline has ended in every timezone, so nothing more can come in by it. */
+export function hasEndedEverywhere(deadline: string): boolean {
+  return new Date() > deadlineEndsEverywhereAt(deadline);
+}
+
 /** Whole days from today to a `YYYY-MM-DD` deadline, in the browser's timezone: 0 on the day
  * itself, negative once it has passed. */
 export function daysLeft(deadline: string, today = new Date()): number {

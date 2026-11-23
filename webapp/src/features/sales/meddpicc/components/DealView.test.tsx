@@ -266,6 +266,60 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toBeInTheDocument();
   });
 
+  it("creates the contact for a person the deal doesn't have yet, once the AM has checked the details", async () => {
+    const user = userEvent.setup();
+    const approve = vi.spyOn(mockMeddpiccClient, "approve");
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    await user.click(screen.getByRole("button", { name: /^Economic Buyer:/ }));
+
+    await user.click(screen.getByRole("combobox", { name: "Matching contact" }));
+    await user.click(await screen.findByRole("option", { name: "Not in Salesforce yet — create a contact" }));
+
+    // The form starts from what was heard, and Approve all waits for the email.
+    const form = screen.getByRole("group", { name: "New contact" });
+    expect(within(form).getByRole("textbox", { name: /First name/ })).toHaveValue("Grace");
+    expect(within(form).getByRole("textbox", { name: /Last name/ })).toHaveValue("Lim");
+    expect(approveButton()).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Finish the new contact for economic buyer: an email is needed.");
+
+    await user.type(within(form).getByRole("textbox", { name: /Email/ }), "grace.lim@meridian.example");
+    expect(approveButton()).toBeEnabled();
+    expect(screen.getByText(/creates Grace Lim as economic buyer/)).toBeInTheDocument();
+
+    await user.click(approveButton());
+
+    await waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+    expect(approve.mock.calls[0]?.[1].newContacts).toEqual({
+      economicBuyer: { firstName: "Grace", lastName: "Lim", email: "grace.lim@meridian.example", title: "CFO" },
+    });
+    await waitFor(() => expect(showSuccess).toHaveBeenCalledWith(expect.stringContaining("Created in Salesforce: Grace Lim.")));
+    expect(screen.queryByRole("group", { name: "New contact" })).not.toBeInTheDocument();
+  });
+
+  it("opens the full account of a suggestion beside the page, and closes it", async () => {
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("button", { name: "Where Decision process came from" }));
+
+    const panel = screen.getByRole("dialog", { name: "Where this came from" });
+    expect(within(panel).getByText("Decision process")).toBeInTheDocument();
+    expect(within(panel).getByText("Both calls mention an RFP; the deep dive adds a two-week POC before it.")).toBeInTheDocument();
+    expect(within(panel).getByText("Backed by 2 quotes from 2 calls, shown below word for word.")).toBeInTheDocument();
+    const quotes = within(panel).getByRole("region", { name: "Every quote (2)" });
+    // Each quote opens its recording at the moment it was said, in a new tab.
+    const moments = within(quotes).getAllByRole("link", { name: /^Open the recording at \d+:\d\d, in a new tab$/ });
+    expect(moments).toHaveLength(2);
+    expect(moments[0]).toHaveAttribute("target", "_blank");
+    expect(moments[0]).toHaveAttribute("href", expect.stringMatching(/^\/sales\/meetings\/\d+\?tab=transcript&t=\d+$/));
+    expect(within(panel).getByRole("region", { name: "Calls on this deal" })).toHaveTextContent("mentioned it");
+
+    await user.click(within(panel).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Where this came from" })).not.toBeInTheDocument());
+  });
+
   it("leads with the deal's facts, its Letters in Salesforce and what is waiting for review", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   Alert,
   Box,
@@ -101,6 +101,24 @@ export default function TranscriptPanel({
   const noTimedTranscript = sections.every(
     (section) => section.error instanceof HttpError && section.error.status === 404,
   );
+  // The line being spoken is kept inside the list's visible part: when it leaves it, by
+  // playback reaching the bottom edge or by a seek to somewhere else entirely (a quote on a
+  // deal opens the recording at the second it was said), the list moves to centre it.
+  // Only the list's own scroll is moved. scrollIntoView would also pull the page about,
+  // on every line, under someone reading something else.
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const activeRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    const list = listRef.current;
+    const line = activeRef.current;
+    if (!list || !line) return;
+    const above = line.offsetTop < list.scrollTop;
+    const below = line.offsetTop + line.offsetHeight > list.scrollTop + list.clientHeight;
+    if (above || below) list.scrollTop = line.offsetTop - (list.clientHeight - line.offsetHeight) / 2;
+    // On the query too: a search that matches nothing replaces the list, and clearing it
+    // gives a fresh one back at the top, with the line being spoken unchanged.
+  }, [activeKey, query]);
+
   // 404 means this meeting has no TIMED transcript — it predates the resource name being
   // stored, so only the Drive document exists. Said plainly rather than as an error,
   // because nothing is broken.
@@ -162,7 +180,8 @@ export default function TranscriptPanel({
           Nothing matches “{query}”.
         </Typography>
       ) : (
-        <Box sx={{ maxHeight: "60vh", overflowY: "auto", pr: 1 }}>
+        // Positioned, so a line's offsetTop is measured from this list and not the page.
+        <Box ref={listRef} sx={{ maxHeight: "60vh", overflowY: "auto", pr: 1, position: "relative" }}>
           {filtered.map((section, s) => (
             <Box key={s}>
               {section.label && (
@@ -176,6 +195,7 @@ export default function TranscriptPanel({
                 section={section}
                 sectionIndex={s}
                 activeKey={query ? null : activeKey}
+                activeRef={activeRef}
                 onSeek={onSeek}
               />
             </Box>
@@ -191,11 +211,14 @@ function SectionBody({
   section,
   sectionIndex,
   activeKey,
+  activeRef,
   onSeek,
 }: {
   section: TranscriptSection;
   sectionIndex: number;
   activeKey: string | null;
+  /** Set on the line being spoken, so the list can keep it in view. */
+  activeRef: RefObject<HTMLButtonElement | null>;
   onSeek: (place: LinePlace) => void;
 }) {
   if (section.isLoading) {
@@ -217,6 +240,8 @@ function SectionBody({
     return (
       <Box
         key={`${line.startTime}-${i}`}
+        ref={isActive ? activeRef : undefined}
+        aria-current={isActive ? "true" : undefined}
         onClick={place ? () => onSeek(place) : undefined}
         // A button, not a div with a click: this is an action, and it has to be
         // reachable and operable from the keyboard like any other. Disabled when the

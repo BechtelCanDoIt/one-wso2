@@ -83,8 +83,10 @@ import ParGroupPage, {
   ParGroupIndex,
   ParRequiresActiveCycleRoute,
   ParRequiresLeadRoute,
+  ParRequiresPar2CycleRoute,
   ParRequiresSomethingToShowRoute,
 } from "@features/par/pages/ParGroupPage";
+import ParActiveCycleTab, { ParActiveCycleIndex } from "@features/par/pages/ParActiveCycleTab";
 import ParLeadGroupPage, { ParLeadGroupIndex, ParRequiresTeamLeadRoute } from "@features/par/pages/ParLeadGroupPage";
 import ParAdminGroupPage, { ParAdminGroupIndex, ParRequiresAdminRoute } from "@features/par/pages/ParAdminGroupPage";
 // Lazy on purpose, same reasoning as the leave report tabs below —
@@ -99,10 +101,12 @@ const ParLeadDirectReportsTab = lazy(() => import("@features/par/pages/ParLeadDi
 const ParLeadAdditionalReportsTab = lazy(() => import("@features/par/pages/ParLeadAdditionalReportsTab"));
 const ParLeadReportChainTab = lazy(() => import("@features/par/pages/ParLeadReportChainTab"));
 const ParLeadEmployeeHistoryTab = lazy(() => import("@features/par/pages/ParLeadEmployeeHistoryTab"));
-const ParLeadAllocationTab = lazy(() => import("@features/par/pages/ParLeadAllocationTab"));
 const ParAdminOngoingTab = lazy(() => import("@features/par/pages/ParAdminOngoingTab"));
 const ParAdminHistoryTab = lazy(() => import("@features/par/pages/ParAdminHistoryTab"));
 const ParAdminGlobalConfigTab = lazy(() => import("@features/par/pages/ParAdminGlobalConfigTab"));
+const ParGiveFeedbackTab = lazy(() => import("@features/par/pages/ParGiveFeedbackTab"));
+const ParCycleFeedbackSection = lazy(() => import("@features/par/pages/ParCycleFeedbackSection"));
+const ParCycleLeadReview = lazy(() => import("@features/par/pages/ParCycleLeadReview"));
 import EmailGroupsPage from "@features/my/email-groups/pages/EmailGroupsPage";
 import EmailSignaturePage from "@features/my/email-signature/pages/EmailSignaturePage";
 import BankingRoute from "@features/my/banking/components/BankingRoute";
@@ -235,7 +239,9 @@ import { adminRoutes } from "@features/security/grc/modules/admin/routes";
 import { evidenceRoutes } from "@features/security/evidence-portal/routes";
 import { cado2Routes } from "@features/sales/cado2/routes";
 import { swagStoreAdminRoutes, swagStoreShopRoutes } from "@features/swag-store/routes";
-import { procurementRoutes } from "@features/finance/procurement/routes";
+import { engagementRoutes, myEngagementRoutes } from "@features/finance/engagement-app/routes";
+import { procurementRoutes } from "@features/procurement/routes";
+import { procurementWorkspaceRoutes } from "@features/procurement/workspace/routes";
 import PartnersListPage from "@features/due-diligence/partners/pages/PartnersListPage";
 import PartnerPendingPage from "@features/due-diligence/partners/pages/PartnerPendingPage";
 import PartnerDashboardPage from "@features/due-diligence/partners/pages/PartnerDashboardPage";
@@ -645,8 +651,9 @@ export default function App() {
                 employee entirely in the source (OngoingCycleView.tsx), not
                 merely disabled — ParRequiresLeadRoute enforces that at the
                 route, the same way the tab bar itself is filtered.
-                ParRequiresActiveCycleRoute wraps every tab but History:
-                none of them has anything to act on once the cycle closes. */}
+                ParRequiresActiveCycleRoute wraps every tab but History and
+                Give feedback: none of them has anything to act on once the
+                cycle closes. */}
             <Route
               path="employee-feedback"
               element={
@@ -704,9 +711,72 @@ export default function App() {
                 </Suspense>
               }
             />
+            {/* PAR 2.0 cycles: Active cycle (your own PAR, one tracker step at
+                a time) and Give feedback (PAR and Leadership 360° feedback for
+                others). ParGroupPage shows their tabs only for a cycle with
+                the structured 360° form; Give feedback is there all year. */}
+            {isPreviewEnabled("par2") && (
+              <Route
+                path="cycle"
+                element={
+                  <ParRequiresActiveCycleRoute>
+                    <ParRequiresPar2CycleRoute>
+                      <ParRequiresLeadRoute fallback="/me/performance/give-feedback">
+                        <ParActiveCycleTab />
+                      </ParRequiresLeadRoute>
+                    </ParRequiresPar2CycleRoute>
+                  </ParRequiresActiveCycleRoute>
+                }
+              >
+                <Route index element={<ParActiveCycleIndex />} />
+                <Route
+                  path="self-review"
+                  element={
+                    <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                      <ParEmployeeFeedbackTab />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="360"
+                  element={
+                    <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                      <ParCycleFeedbackSection />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="lead-review"
+                  element={
+                    <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                      <ParCycleLeadReview />
+                    </Suspense>
+                  }
+                />
+                <Route
+                  path="f2f"
+                  element={
+                    <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                      <ParF2fTab activeCycle />
+                    </Suspense>
+                  }
+                />
+              </Route>
+            )}
+            {isPreviewEnabled("par2") && (
+              <Route
+                path="give-feedback"
+                element={
+                  // Not behind ParRequiresActiveCycleRoute: 360° feedback runs all year.
+                  <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
+                    <ParGiveFeedbackTab />
+                  </Suspense>
+                }
+              />
+            )}
           </Route>
           {/* People Ops → PAR → Lead Portal: par-app's LeadPortal.tsx, ported
-              one tab at a time — all five tabs are now live. Reviewing and
+              one tab at a time — all its tabs are now live. Reviewing and
               rating your reports' PAR is People-Ops-team work, unlike the
               employee half (now under Me).
               Gated on ParRequiresTeamLeadRoute (par-app's own Role.TEAM_LEAD
@@ -749,14 +819,6 @@ export default function App() {
               element={
                 <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
                   <ParLeadEmployeeHistoryTab />
-                </Suspense>
-              }
-            />
-            <Route
-              path="allocation"
-              element={
-                <Suspense fallback={<Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5 }} />}>
-                  <ParLeadAllocationTab />
                 </Suspense>
               }
             />
@@ -1059,8 +1121,16 @@ export default function App() {
               preview flag; Cado2Shell resolves access for every page. See
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
           {isPreviewEnabled("quickquote") && cado2Routes}
-          {/* Finance → Procurement, behind the `procurement` preview flag. */}
+          {/* Finance → Engagement App and its pages under Me (the legacy
+              Allocations and Travel apps), behind the `engagementApp` preview
+              flag; EngagementShell resolves access for every page. See
+              @features/finance/engagement-app/routes and
+              docs/ported-apps/engagement-app.md. */}
+          {isPreviewEnabled("engagementApp") && engagementRoutes}
+          {isPreviewEnabled("engagementApp") && myEngagementRoutes}
+          {/* Me → Procurement, behind the `procurement` preview flag. */}
           {isPreviewEnabled("procurement") && procurementRoutes}
+          {isPreviewEnabled("procurement") && procurementWorkspaceRoutes}
           {/* Deals — MEDDPICC per Opportunity, from the MEDDPICC backend (shows a
               not-connected state when ONE_WSO2_ECHO_BACKEND_URL is unset). */}
           <Route path="sales/deals" element={<SalesDealsPage />} />

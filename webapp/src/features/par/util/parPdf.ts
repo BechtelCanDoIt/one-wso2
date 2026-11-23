@@ -18,7 +18,6 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import type { Par360Review, ParLegacyHistory, ParLegacyQuestionAnswer, ParRating } from "../api/types";
 import type { FormDefinition, Leadership360Summary } from "../api/leadership360Types";
-import type { Review360Summary } from "../api/review360Types";
 import type { SelfReviewAnswers } from "../api/selfReviewTypes";
 import { decodeParComment, isEmptyHtml, sanitizeParHtml } from "./parComment";
 import { formatShortDate } from "./parDate";
@@ -121,21 +120,19 @@ export interface Leadership360PdfSection {
   asOf?: string;
 }
 
-// The finished PAR of a PAR 2.0 cycle: the lead's feedback, the guided
-// self-review section by section, (when the employee may see it) the 360°
-// summary — averages only, never comments or names — and, for a leader, their
-// Leadership 360° results as they see them on screen.
+// The finished PAR of a PAR 2.0 cycle: the lead's feedback with their 360°
+// summary, the guided self-review section by section and, for a leader, their
+// Leadership 360° results as they see them on screen. A member's 360° scores
+// are never in it.
 export function downloadPar2Pdf({
   rating,
   leadComment,
   selfReview,
-  review360,
   leadership360,
 }: {
   rating: ParRating;
   leadComment: string;
   selfReview: { definition: FormDefinition; answers: SelfReviewAnswers };
-  review360?: Review360Summary;
   leadership360?: Leadership360PdfSection;
 }): void {
   const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
@@ -157,18 +154,6 @@ export function downloadPar2Pdf({
       const text = selfReview.answers[q.id] ?? "";
       // A section of one question is named by its title; with more, each answer by its question.
       rows.push([s.questions.length > 1 ? q.text : s.title, { content: text || "-", styles: TEXT_CELL }]);
-    }
-  }
-
-  if (review360?.available) {
-    const definition = review360.template.definition;
-    const questions = definition.sections.flatMap((s) => s.questions);
-    section("PAR 360° results");
-    rows.push(["360° index", { content: review360.index?.toFixed(1) ?? "-", styles: TEXT_CELL }]);
-    // In the form's order, not the order the averages arrive in.
-    for (const q of questions.filter((x) => x.type === "RATING")) {
-      const a = review360.questionAverages.find((x) => x.questionId === q.id);
-      if (a) rows.push([q.text, { content: a.average.toFixed(1), styles: TEXT_CELL }]);
     }
   }
 

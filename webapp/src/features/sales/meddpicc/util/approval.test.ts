@@ -18,9 +18,13 @@ import { describe, expect, it } from "vitest";
 import type { DealField, FieldProposal, RoleProposalValue } from "../types";
 import {
   EMPTY_DRAFT,
+  approvalSummary,
   buildApproveRequest,
+  describeApproval,
   hasSomethingToApprove,
   initialRoleMatches,
+  newContactFromProposal,
+  newContactProblem,
   unmatchedRoles,
 } from "./approval";
 
@@ -136,5 +140,68 @@ describe("buildApproveRequest", () => {
     expect(hasSomethingToApprove([paperProcess], EMPTY_DRAFT)).toBe(false);
     expect(hasSomethingToApprove([paperProcess], { edits: { paperProcess: null }, roleMatches: {} })).toBe(true);
     expect(hasSomethingToApprove([decisionProcess], EMPTY_DRAFT)).toBe(true);
+  });
+});
+
+describe("new contacts", () => {
+  const fields = [economicBuyer, champion, decisionProcess, paperProcess, mapDoc];
+  const grace = { firstName: "Grace", lastName: "Lim", email: "grace@meridian.example", title: "CFO" };
+
+  it("counts a role with a new contact as matched", () => {
+    const draft = { edits: {}, roleMatches: initialRoleMatches(fields), newContacts: { economicBuyer: grace } };
+    expect(unmatchedRoles(fields, draft)).toEqual([]);
+  });
+
+  it("sends the new contact, trimmed, instead of a match, and only when there is one", () => {
+    const request = buildApproveRequest(fields, {
+      edits: {},
+      roleMatches: { ...initialRoleMatches(fields), economicBuyer: "003B" },
+      newContacts: { economicBuyer: { ...grace, firstName: " Grace ", title: "" } },
+    });
+    expect(request).toEqual({
+      edits: {},
+      roleMatches: { champion: "003A" },
+      newContacts: { economicBuyer: { firstName: "Grace", lastName: "Lim", email: "grace@meridian.example", title: null } },
+    });
+    // An older backend refuses unknown keys, so the key is only there when it carries something.
+    expect(buildApproveRequest(fields, { edits: {}, roleMatches: initialRoleMatches(fields), newContacts: {} })).not.toHaveProperty("newContacts");
+  });
+
+  it("starts the form from the person heard: the last word as the last name, the title as heard, no email", () => {
+    expect(newContactFromProposal(roleProposal(null))).toEqual({ firstName: "Grace", lastName: "Lim", email: "", title: "CFO" });
+    expect(newContactFromProposal({ ...roleProposal(null), name: "Madonna", title: null })).toEqual({
+      firstName: null,
+      lastName: "Madonna",
+      email: "",
+      title: null,
+    });
+  });
+
+  it("says what stops a contact being created", () => {
+    expect(newContactProblem(grace)).toBeNull();
+    expect(newContactProblem({ ...grace, lastName: " " })).toBe("a last name is needed");
+    expect(newContactProblem({ ...grace, email: "" })).toBe("an email is needed");
+    expect(newContactProblem({ ...grace, email: "grace at meridian" })).toBe("the email doesn't look right");
+  });
+
+  it("says what Approve all is about to do, in one sentence", () => {
+    const labelled = [
+      field({ key: "economicBuyer", label: "Economic buyer", kind: "role", proposal: pending(roleProposal(null)) }),
+      field({ key: "champion", label: "Champion", kind: "role", proposal: pending(roleProposal("003A")) }),
+      field({ key: "decisionProcess", label: "Decision process", kind: "multiPicklist", proposal: pending(["RFP"]) }),
+      field({ key: "paperProcess", label: "Paper process", kind: "multiPicklist", salesforceValue: ["PO Required"] }),
+      field({ key: "priceConfirmed", label: "Price confirmed", kind: "picklist", notInSalesforce: true, proposal: pending("Yes") }),
+      field({ key: "mapDocLink", label: "MAP doc", kind: "url", conversational: false }),
+    ];
+    const draft = { edits: { paperProcess: null }, roleMatches: initialRoleMatches(labelled), newContacts: { economicBuyer: grace } };
+    expect(approvalSummary(labelled, draft)).toEqual({
+      write: ["Champion", "Decision process", "Paper process"],
+      keep: ["Price confirmed"],
+      create: ["Grace Lim as economic buyer"],
+    });
+    expect(describeApproval(approvalSummary(labelled, draft))).toBe(
+      "Approve all writes Champion, Decision process and Paper process to Salesforce, and creates Grace Lim as economic buyer, and keeps Price confirmed in Echo (not Salesforce fields yet).",
+    );
+    expect(describeApproval(approvalSummary([paperProcess], EMPTY_DRAFT))).toBe("");
   });
 });

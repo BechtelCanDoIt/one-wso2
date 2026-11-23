@@ -1171,7 +1171,6 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     href: "/infra/github/connection",
     icon: ServerIcon,
     category: "Infrastructure",
-    requires: ["admin"],
     tags: ["Infra", "GitHub", "Access", "Organization"],
     hasWebApp: true,
     keywords: [
@@ -1190,7 +1189,6 @@ export const DIRECTORY_CATALOG: readonly DirectoryEntry[] = [
     href: "/infra/github/repository-requests",
     icon: ServerIcon,
     category: "Infrastructure",
-    requires: ["admin"],
     tags: ["Repositories", "Infra", "GitHub", "Permissions", "Access"],
     hasWebApp: true,
     keywords: [

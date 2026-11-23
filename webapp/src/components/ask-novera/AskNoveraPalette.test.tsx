@@ -230,15 +230,20 @@ describe("AskNoveraPalette", () => {
     windowOpenSpy.mockRestore();
   });
 
-  it("finds Infrastructure tools via direct search for admins", () => {
-    const adminCaps = new Set<Capability>(["employee", "admin"]);
-    renderPalette("repository requests", adminCaps);
+  it("finds Infrastructure tools via direct search for standard employees", () => {
+    renderPalette("repository requests");
     expect(screen.getByRole("button", { name: "Open Repository Requests" })).toBeInTheDocument();
   });
 
-  it("suppresses Infrastructure tools for standard users lacking admin capability", () => {
-    renderPalette("repository requests");
-    expect(screen.queryByRole("button", { name: "Open Repository Requests" })).not.toBeInTheDocument();
+  it("suppresses administrative Infrastructure tools for standard users lacking admin capability", () => {
+    renderPalette("github settings");
+    expect(screen.queryByRole("button", { name: "Open GitHub Settings" })).not.toBeInTheDocument();
+  });
+
+  it("finds administrative Infrastructure tools for admins", () => {
+    const adminCaps = new Set<Capability>(["employee", "admin"]);
+    renderPalette("github settings", adminCaps);
+    expect(screen.getByRole("button", { name: "Open GitHub Settings" })).toBeInTheDocument();
   });
 
   it("finds Corporate Cards via direct search", () => {
@@ -390,5 +395,19 @@ describe("TopBar Search Integration", () => {
     // Verify Ctrl+K modifier (Windows/Linux)
     await user.keyboard("{Control>}k{/Control}");
     expect(input).toHaveFocus();
+  });
+
+  it("opens the overlay canvas when Cmd+K is pressed in a narrow (xs) layout", async () => {
+    const originalWidth = window.innerWidth;
+    window.innerWidth = 500;
+    try {
+      renderTopBar();
+      const user = userEvent.setup();
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      await user.keyboard("{Meta>}k{/Meta}");
+      expect(screen.getByRole("dialog", { name: "Ask Novera app search" })).toBeInTheDocument();
+    } finally {
+      window.innerWidth = originalWidth;
+    }
   });
 });

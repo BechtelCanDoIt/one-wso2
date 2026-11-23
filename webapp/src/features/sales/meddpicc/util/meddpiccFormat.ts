@@ -97,6 +97,22 @@ export function formatFieldValue(value: FieldValue | RoleProposalValue | undefin
 }
 
 /**
+ * Whether a suggestion and what Salesforce holds are the same. A role is the same person
+ * by Contact, not by wording: Salesforce holds the Contact's name alone, while the calls
+ * add the title heard, and two Contacts can share a name. Without a Contact to go by, the
+ * name decides. Anything else is the same when it reads the same.
+ */
+export function sameValue(proposed: FieldValue | RoleProposalValue | undefined, held: FieldValue): boolean {
+  if (isRoleProposal(proposed)) {
+    if (!isRoleHolder(held)) return false;
+    return proposed.suggestedContactId !== null
+      ? proposed.suggestedContactId === held.contactId
+      : proposed.name === held.name;
+  }
+  return formatFieldValue(proposed) === formatFieldValue(held);
+}
+
+/**
  * `120,000 USD`. The currency is shown as its code rather than a symbol: the
  * list mixes currencies, and "$" does not say which dollar.
  */
@@ -117,4 +133,11 @@ export function formatSalesforceDate(value: string | null): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
   if (!match) return value;
   return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/** Confidence as a word: the number means little to an AM, the band does. */
+export function confidenceWord(confidence: number): "high" | "medium" | "low" {
+  if (confidence >= 0.8) return "high";
+  if (confidence >= 0.6) return "medium";
+  return "low";
 }

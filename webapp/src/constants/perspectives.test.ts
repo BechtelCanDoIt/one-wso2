@@ -111,21 +111,36 @@ describe("the Sales perspective", () => {
 // CadO2 lands behind its own flag, as a whole, inside the Sales perspective.
 describe("Procurement's rail entries", () => {
   const procurementGroupIn = (perspectives: Perspectives) =>
-    perspectives.findPerspectiveByKey("finance")?.sections?.find((s) => s.id === "sec-app-procurement");
+    perspectives.findPerspectiveByKey("me")?.sections?.find((s) => s.id === "sec-app-procurement");
 
-  it("are a Procurement group under Finance once the flag is on", async () => {
-    const group = procurementGroupIn(await load({ procurement: true }));
-    expect(group?.label).toBe("Procurement");
-    expect(group?.alwaysGroup).toBe(true);
-    expect(group?.children?.map((c) => [c.label, c.path, c.requires])).toEqual([
-      ["My Requests", "/finance/procurement/requests", undefined],
-      ["New Request", "/finance/procurement/requests/new", undefined],
+  it("are one Procurement entry under Me once the flag is on", async () => {
+    const entry = procurementGroupIn(await load({ procurement: true }));
+    expect(entry?.label).toBe("Procurement");
+    expect(entry?.children?.map((c) => [c.label, c.path, c.requires])).toEqual([
+      ["Procurement", "/me/procurement", undefined],
     ]);
   });
 
   it("are gone when the flag is off, or never mentioned", async () => {
     for (const preview of [{ procurement: false }, {}]) {
       expect(procurementGroupIn(await load(preview))).toBeUndefined();
+    }
+  });
+});
+
+describe("the Procurement perspective", () => {
+  it("is a perspective of its own, with the team's queue, once the flag is on", async () => {
+    const perspective = (await load({ procurement: true })).findPerspectiveByKey("procurement");
+    expect(perspective).toMatchObject({ label: "Procurement", path: "/procurement", externallyGated: true, forwardsToFirstItem: true });
+    expect(perspective?.sections?.flatMap((s) => s.children ?? []).map((c) => [c.label, c.path])).toEqual([
+      ["Requests", "/procurement/requests"],
+      ["Approvals", "/procurement/approvals"],
+    ]);
+  });
+
+  it("is not there when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ procurement: false }, {}]) {
+      expect((await load(preview)).findPerspectiveByKey("procurement")).toBeUndefined();
     }
   });
 });

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useReducer, useRef, useState } from "react";
 import {
   Accordion,
   AccordionDetails,
@@ -38,11 +38,22 @@ import {
   Link,
   Skeleton,
   Stack,
+  Tab,
+  Tabs,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { ChevronDownIcon, CircleAlertIcon, ExternalLinkIcon, FileDownIcon, Google, InfoIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
+import {
+  ChevronDownIcon,
+  CircleAlertIcon,
+  ExternalLinkIcon,
+  FileDownIcon,
+  Google,
+  InfoIcon,
+  PencilIcon,
+} from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import ConfirmationDialog from "@components/confirmation-dialog/ConfirmationDialog";
 import { describeError } from "@api/errors";
 import {
   evidenceEnabledRating as defaultEvidenceEnabledRating,
@@ -53,19 +64,33 @@ import { useParRating } from "../api/useParData";
 import { useLeadRatingUpdate } from "../api/useLeadRatingUpdate";
 import { useParEmployeeReviews } from "../api/useLeadHistory";
 import { useGoogleDrivePicker } from "../hooks/useGoogleDrivePicker";
-import { decodeParComment, encodeParComment, isEmptyHtml } from "../util/parComment";
-import { isDeadlinePassed } from "../util/parDeadline";
-import { formatShortDate } from "../util/parDate";
+import { decodeParComment, encodeParComment, isEmptyHtml, paragraphsToHtml } from "../util/parComment";
+import { isPreviewEnabled } from "@config/previewFeatures";
+import { deadlineEndsEverywhereAt, hasEndedEverywhere, isDeadlinePassed } from "../util/parDeadline";
+import { formatShortDate, formatShortDateTime } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
-import { parseSavedUrls, type DriveFile } from "../util/parDriveFile";
-import { LEADERSHIP_ALLOWED_RATINGS, isEvidenceMissing, ratingOptions } from "../util/parLeadership";
-import ParRichTextField from "./ParRichTextField";
+import { isOpenableUrl, parseSavedUrls, type DriveFile } from "../util/parDriveFile";
+import {
+  LEADERSHIP_ALLOWED_RATINGS,
+  isEvidenceMissing,
+  missedDeadlineRatingFor,
+  ratingOptions,
+} from "../util/parLeadership";
+import ParRichTextField, { type ParRichTextFieldHandle } from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
 import { ParAutoAssignedChip } from "./ParChips";
 import ParDriveFileChip from "./ParDriveFileChip";
 import ParEmptyState from "./ParEmptyState";
+import Leadership360ResultsCard from "./Leadership360ResultsCard";
+import ParSelfReviewView from "./ParSelfReviewView";
 import ParHistoryReviewSection from "./ParHistoryReviewSection";
 import type { ParCycle } from "../api/types";
+import { useSelfReview } from "../api/useSelfReview";
+import { useParShowsPar2, useReviewResponses } from "../api/useReview360";
+import { useLead360SummarySuggestion, useSaveLead360Summary } from "../api/useLead360Summary";
+import { MIN_360_RESPONSES } from "../api/review360Types";
+import ParLead360Evidence, { ParLead360Guidance } from "./ParLead360Evidence";
+import ParLead360Suggestion from "./ParLead360Suggestion";
 
 type SpecialRatingUi = "NONE" | "TOP5P" | "TOP20P";
 
@@ -94,6 +119,13 @@ export default function ParLeadReviewPanel({
   const rating = useParRating(cycle.parCycleId, employeeEmail);
   const ratingUpdate = useLeadRatingUpdate(cycle.parCycleId);
   const reviews = useParEmployeeReviews(cycle.parCycleId, employeeEmail);
+  // A PAR 2.0 cycle's guided self-review (null for a cycle that keeps the
+  // single comment). Its answers arrive empty until the employee shares.
+  const selfReview = useSelfReview(cycle.parCycleId, employeeEmail, isPreviewEnabled("par2"));
+  // A PAR 2.0 cycle puts the evidence (self-review, 360° summary) beside the
+  // assessment, with the 360° guidance under the rating.
+  const { showsPar2 } = useParShowsPar2(cycle.parCycleId);
+  const [evidenceTab, setEvidenceTab] = useState(0);
   const { showSuccess, showError } = useNotifications();
 
   // Cycle-scoped value first (not on the wire yet — always undefined until
@@ -104,10 +136,20 @@ export default function ParLeadReviewPanel({
   const leadershipAllowedRatings = cycle.parCycleConfigurations?.leadershipAllowedRatings ?? LEADERSHIP_ALLOWED_RATINGS;
 
   const [leadComment, setLeadComment] = useState("");
+  // The lead's 360° summary (PAR 2.0, not the leadership team): shared with
+  // the comment, saved on its own. While it's empty, an AI suggestion shows in
+  // grey for the lead to insert.
+  const [lead360Summary, setLead360Summary] = useState("");
+  // The suggestion written from newer responses, shown under the lead's own
+  // words when they ask for it.
+  const [showingUpdatedSuggestion, setShowingUpdatedSuggestion] = useState(false);
+  const summaryField = useRef<ParRichTextFieldHandle>(null);
+  const [summaryAutoSaved, setSummaryAutoSaved] = useState(false);
   const [adminComment, setAdminComment] = useState("");
   const [parRatingValue, setParRatingValue] = useState("");
   const [specialRating, setSpecialRating] = useState<SpecialRatingUi>("NONE");
-  const [specialRatingConfirmed, setSpecialRatingConfirmed] = useState(false);
+  // A Top 5%/20% pick waiting for the lead to confirm it was agreed with the functional lead.
+  const [specialRatingToConfirm, setSpecialRatingToConfirm] = useState<SpecialRatingUi | null>(null);
   const [driveFiles, setDriveFiles] = useState<DriveFile[]>([]);
   const [evidenceConfirmed, setEvidenceConfirmed] = useState(false);
   const [seededForId, setSeededForId] = useState<number | undefined>(undefined);
@@ -121,21 +163,36 @@ export default function ParLeadReviewPanel({
   const autoSaveTokenRef = useRef(0);
 
   const parRatingData = rating.data;
-  // The backend refuses a non-admin change to a rating the system
+  // When the self-review has closed everywhere: nobody can still share theirs.
+  const selfReviewClosesAt = deadlineEndsEverywhereAt(cycle.parEmployeeDeadline);
+  const selfReviewClosesAtMs = selfReviewClosesAt.getTime();
+  const selfReviewClosed = new Date() > selfReviewClosesAt;
+  // A PAR the employee didn't share by then gets the cycle's missed-deadline
+  // rating (the leadership team's own for them), and the lead has nothing to
+  // submit: the backend refuses the lead's saves and shares. People Ops can
+  // still change it.
+  const missedDeadlineRating = missedDeadlineRatingFor(
+    cycle.parCycleConfigurations,
+    Boolean(parRatingData?.parIsLeadershipEmployee),
+  );
+  const selfReviewMissed =
+    !isAdminView &&
+    selfReviewClosed &&
+    (parRatingData?.parEmployeeStatus === "PENDING" || parRatingData?.parEmployeeStatus === "DRAFT") &&
+    missedDeadlineRating !== undefined;
+  // The backend also refuses a non-admin change to a rating the system
   // auto-assigned after a missed deadline; an admin can still correct it.
-  const ratingLocked = !isAdminView && parRatingData?.parRatingUpdatedBy === "SYSTEM";
+  const ratingLocked = !isAdminView && (parRatingData?.parRatingUpdatedBy === "SYSTEM" || selfReviewMissed);
+  const shownRating = selfReviewMissed ? missedDeadlineRating : parRatingValue;
 
   // Seed once per record, so a background refetch doesn't overwrite mid-typing.
   if (parRatingData && parRatingData.parRatingId !== seededForId) {
     setSeededForId(parRatingData.parRatingId);
     setLeadComment(decodeParComment(parRatingData.parLeadComment));
+    setLead360Summary(decodeParComment(parRatingData.parLead360Summary));
     setAdminComment(decodeParComment(parRatingData.parAdminComment));
     setParRatingValue(parRatingData.parRating && parRatingData.parRating !== "NOT_ASSIGNED" ? parRatingData.parRating : "");
     setSpecialRating(toSpecialRatingUi(parRatingData.parSpecialRating));
-    setSpecialRatingConfirmed(
-      parRatingData.parRating === top5p20pEnabledRating &&
-        toSpecialRatingUi(parRatingData.parSpecialRating) !== "NONE",
-    );
     setDriveFiles(parseSavedUrls(parRatingData.parPerformanceNoticeAck ?? ""));
     // The checkbox itself is never saved, only its effect (the attached
     // files), so it always starts unchecked.
@@ -143,15 +200,14 @@ export default function ParLeadReviewPanel({
   }
 
   useEffect(() => {
-    if (parRatingValue !== top5p20pEnabledRating) {
+    if (shownRating !== top5p20pEnabledRating) {
       setSpecialRating("NONE");
-      setSpecialRatingConfirmed(false);
     }
-    if (parRatingValue !== evidenceEnabledRating) {
+    if (shownRating !== evidenceEnabledRating) {
       setDriveFiles([]);
       setEvidenceConfirmed(false);
     }
-  }, [parRatingValue, top5p20pEnabledRating, evidenceEnabledRating]);
+  }, [shownRating, top5p20pEnabledRating, evidenceEnabledRating]);
 
   const { openPicker, isLoading: isPickerLoading, error: pickerError } = useGoogleDrivePicker();
 
@@ -175,11 +231,77 @@ export default function ParLeadReviewPanel({
   const deadlineDate = isAdminView ? cycle.parCycleEndDate : cycle.parLeadDeadline;
   const deadlinePassed = isDeadlinePassed(deadlineDate);
   const shared = parRatingData?.parLeadStatus === "SHARED";
-  const readOnly = isAdminView ? !adminForceEdit : shared || deadlinePassed;
+  // A lead can still save and share after the lead deadline, until the cycle closes; it's shown as late.
+  // People Ops' edits stop at the cycle's end date.
+  const editingClosed = isAdminView ? deadlinePassed : cycle.parCycleStatus === "CLOSED";
+  const leadLate = !isAdminView && !shared && deadlinePassed;
+  const specialRatingClosed =
+    !isAdminView && Boolean(cycle.parSpecialRatingDeadline) && isDeadlinePassed(cycle.parSpecialRatingDeadline!);
+  const readOnly = isAdminView ? !adminForceEdit : shared || editingClosed;
   const savedLeadComment = decodeParComment(parRatingData?.parLeadComment);
   const savedAdminComment = decodeParComment(parRatingData?.parAdminComment);
 
+  const summaryShown = showsPar2 && Boolean(parRatingData) && !parRatingData?.parIsLeadershipEmployee;
+  const responses = useReviewResponses(cycle.parCycleId, employeeEmail, summaryShown && !readOnly);
+  const saveSummary = useSaveLead360Summary(cycle.parCycleId, employeeEmail);
+  const savedLead360Summary = decodeParComment(parRatingData?.parLead360Summary);
+  const summaryToSave = isEmptyHtml(lead360Summary) ? "" : lead360Summary;
+  const summaryDirty = summaryShown && !readOnly && summaryToSave.trim() !== savedLead360Summary.trim();
+  // Saved before the rest of the lead's feedback, so sharing right after an
+  // edit doesn't leave the summary behind (once shared it can't change).
+  const saveSummaryIfChanged = () =>
+    summaryDirty ? saveSummary.mutateAsync(summaryToSave ? encodeParComment(summaryToSave) : "") : Promise.resolve();
+
+  // The suggestion: in grey while the summary is empty, or under the lead's
+  // own words once they ask for the one written from newer responses. The
+  // backend keeps it, so it's written again only when more responses come in.
+  // Not for a shared PAR, whose summary can't change.
+  const responseCount = responses.data?.responseCount ?? 0;
+  const summaryEmpty = isEmptyHtml(lead360Summary);
+  const suggestionPossible =
+    summaryShown && !readOnly && !shared && !selfReviewMissed && responseCount >= MIN_360_RESPONSES;
+  const suggestion = useLead360SummarySuggestion(
+    cycle.parCycleId,
+    employeeEmail,
+    responseCount,
+    suggestionPossible && (summaryEmpty || showingUpdatedSuggestion),
+  );
+  const suggestionFailed = suggestion.isError;
+  const suggestedFrom = parRatingData?.parLead360SuggestionResponses;
+  // Offered under the lead's own words: more responses have come in since the
+  // last suggestion, or none was written yet. Once seen and dismissed, it's
+  // offered again only when more come in.
+  const updateOffered =
+    suggestionPossible &&
+    !summaryEmpty &&
+    !showingUpdatedSuggestion &&
+    (suggestedFrom === undefined || responseCount > suggestedFrom);
+  const newResponses = responseCount - (suggestedFrom ?? 0);
+  // Into the field as one step the field's Undo takes back, so it needs no
+  // confirming, even when it replaces the lead's own words.
+  const takeSuggestion = () => {
+    if (!suggestion.data) return;
+    summaryField.current?.replaceContents(paragraphsToHtml(suggestion.data.summary));
+    setShowingUpdatedSuggestion(false);
+  };
+  const greySuggestionShown = summaryEmpty && Boolean(suggestion.data || suggestion.isLoading);
+
+  const sharing = ratingUpdate.isPending || saveSummary.isPending;
+
   const submit = (
+    status: "DRAFT" | "SHARED",
+    opts?: { silent?: boolean; onSuccess?: () => void; commentOnly?: boolean },
+  ) => {
+    if (!parRatingData) return;
+    saveSummaryIfChanged().then(
+      () => sendRatingUpdate(status, opts),
+      (err) => {
+        if (!opts?.silent) showError(describeError(err));
+      },
+    );
+  };
+
+  const sendRatingUpdate = (
     status: "DRAFT" | "SHARED",
     opts?: { silent?: boolean; onSuccess?: () => void; commentOnly?: boolean },
   ) => {
@@ -201,7 +323,11 @@ export default function ParLeadReviewPanel({
                 ...(parRatingValue && !ratingLocked ? { parRating: parRatingValue } : {}),
                 // The backend's wire vocabulary is TOP5P/TOP20P/NOT_ASSIGNED;
                 // "NONE" is only this component's UI sentinel and 400s if sent.
-                parSpecialRating: specialRating === "NONE" ? "NOT_ASSIGNED" : specialRating,
+                // Sent only when changed: after the Top 5%/20% deadline the backend refuses any
+                // value, so sending the unchanged one blocked Save draft and Share.
+                ...(specialRating !== toSpecialRatingUi(parRatingData.parSpecialRating)
+                  ? { parSpecialRating: specialRating === "NONE" ? "NOT_ASSIGNED" : specialRating }
+                  : {}),
                 // Omitted entirely rather than sent as "" when there's no
                 // evidence — the backend requires a non-empty string whenever
                 // this field is present, so an empty string 400s.
@@ -252,6 +378,33 @@ export default function ParLeadReviewPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leadComment, readOnly, ratingUpdate.isPending, parRatingData]);
 
+  // The 360° summary autosaves on its own, like the comment.
+  useEffect(() => {
+    if (!parRatingData || readOnly || isAdminView || !summaryDirty || saveSummary.isPending) return;
+    const timer = window.setTimeout(() => {
+      saveSummary.mutate(summaryToSave ? encodeParComment(summaryToSave) : "", {
+        onSuccess: () => {
+          setSummaryAutoSaved(true);
+          window.setTimeout(() => setSummaryAutoSaved(false), 2000);
+        },
+      });
+    }, 5000);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lead360Summary, readOnly, saveSummary.isPending, parRatingData]);
+
+  // If the self-review closes while the panel is open (even between a render and this effect), the panel
+  // redraws, so it shows what the lead can do now without a reload.
+  const [, redraw] = useReducer((n: number) => n + 1, 0);
+  useEffect(() => {
+    if (selfReviewClosed) return;
+    const wait = Math.max(selfReviewClosesAtMs - Date.now() + 1, 0);
+    // A browser timer can't wait longer than about 24 days, and no one keeps the panel open that long.
+    if (wait > 2 ** 31 - 1) return;
+    const timer = window.setTimeout(redraw, wait);
+    return () => window.clearTimeout(timer);
+  }, [selfReviewClosesAtMs, selfReviewClosed]);
+
   if (rating.isLoading) {
     return <Skeleton variant="rectangular" height={360} sx={{ borderRadius: 1.5 }} />;
   }
@@ -270,6 +423,7 @@ export default function ParLeadReviewPanel({
   const isLeadership = parRatingData.parIsLeadershipEmployee;
 
   const dirty =
+    summaryDirty ||
     leadComment.trim() !== savedLeadComment.trim() ||
     (isAdminView && adminComment.trim() !== savedAdminComment.trim()) ||
     (parRatingValue !== (parRatingData.parRating ?? "") && parRatingValue !== "") ||
@@ -279,6 +433,12 @@ export default function ParLeadReviewPanel({
   const statusAlert = readOnly ? (
     <Alert severity={shared ? "success" : "info"}>
       {shared ? "Lead's feedback is shared with the employee" : "Lead's feedback is not shared with the employee"}
+    </Alert>
+  ) : selfReviewMissed ? (
+    <Alert severity="warning">
+      {parRatingData.parEmployeeName?.split(" ")[0] ?? "The employee"} didn't share their{" "}
+      {showsPar2 ? "self-review" : "PAR"} by the deadline, so their rating is {missedDeadlineRating}. There's
+      nothing for you to submit.
     </Alert>
   ) : parRatingData.parLeadStatus === "DRAFT" ? (
     <Alert severity="warning">
@@ -295,41 +455,66 @@ export default function ParLeadReviewPanel({
     </Alert>
   );
 
-  // Save Draft only enables once something has actually changed; Share
-  // additionally waits for the employee to have at least started their own
-  // side (parEmployeeStatus !== PENDING), for a rating to be picked and for
-  // the comment to be non-empty. The backend doesn't enforce either, so this
-  // is the only place that does.
-  // In admin mode, the "employee hasn't started yet" gate on Share is
-  // removed — an admin can force a rating through regardless of where the
-  // employee's own side is.
-  const employeeHasStarted = isAdminView || parRatingData.parEmployeeStatus !== "PENDING";
-  const canSaveDraft = !readOnly && !deadlinePassed && !ratingUpdate.isPending && dirty;
+  // Save Draft only enables once something has actually changed. Share also
+  // waits for a rating to be picked and the comment to be non-empty, and, as
+  // the backend requires, for the employee: until they share their own side,
+  // or until the self-review deadline has ended everywhere and they no longer
+  // can. An admin can share regardless of where the employee's side is.
+  const employeeShared =
+    parRatingData.parEmployeeStatus === "SHARED" || parRatingData.parEmployeeStatus === "SHARED_BLOCKED";
+  // Sharing once the self-review has closed comes with PAR 2.0 (par2); until then, once the employee shares.
+  const employeeReady =
+    isAdminView || employeeShared || (isPreviewEnabled("par2") && selfReviewClosed);
+  const canSaveDraft = !readOnly && !editingClosed && !ratingUpdate.isPending && !saveSummary.isPending && dirty;
   const canShare =
     !readOnly &&
-    !deadlinePassed &&
+    !editingClosed &&
     !ratingUpdate.isPending &&
-    employeeHasStarted &&
-    Boolean(parRatingValue) &&
+    !saveSummary.isPending &&
+    employeeReady &&
+    Boolean(shownRating) &&
     !isEmptyHtml(leadComment) &&
     !isEvidenceMissing({
-      rating: parRatingValue,
+      rating: shownRating,
       evidenceEnabledRating,
       ratingLocked,
       evidenceConfirmed,
       fileCount: driveFiles.length,
     });
 
+  // A failed lookup says so rather than reading as "not shared"; a 404 is none (the single comment).
+  const selfReviewContent = selfReview.isLoading ? (
+    <Skeleton variant="rectangular" height={120} sx={{ borderRadius: 1.5 }} />
+  ) : selfReview.isError ? (
+    <ErrorNotice error={selfReview.error} onRetry={() => selfReview.refetch()} retrying={selfReview.isFetching}>
+      Couldn't load the employee's self-review.
+    </ErrorNotice>
+  ) : selfReview.data ? (
+    Object.keys(selfReview.data.answers).length > 0 ? (
+      <ParSelfReviewView definition={selfReview.data.template.definition} answers={selfReview.data.answers} framed={false} />
+    ) : (
+      <ParEmptyState text="The employee hasn't shared their self-review yet" />
+    )
+  ) : employeeComment ? (
+    <ParCommentView html={employeeComment} />
+  ) : (
+    <ParEmptyState text="Employee's Feedback hasn't been shared" />
+  );
+
   return (
     <Grid container spacing={2}>
-      <Grid size={12}>
+      <Grid size={12} sx={showsPar2 ? { order: 0 } : undefined}>
         <Box display="flex" alignItems="center" justifyContent="space-between" gap={2}>
           <Box flex={1}>
             {statusAlert}
-            {deadlinePassed && !shared && (
+            {isAdminView && deadlinePassed && !shared && (
               <Alert severity="error" sx={{ mt: 1.5 }}>
-                {isAdminView ? "The cycle ended on" : "Lead's feedback deadline is passed on"}:{" "}
-                {formatShortDate(deadlineDate)}.
+                The cycle ended on: {formatShortDate(deadlineDate)}.
+              </Alert>
+            )}
+            {leadLate && (
+              <Alert severity="error" sx={{ mt: 1.5 }}>
+                The lead review deadline passed on {formatShortDate(deadlineDate)}. You can still share, but it's late.
               </Alert>
             )}
           </Box>
@@ -354,20 +539,18 @@ export default function ParLeadReviewPanel({
         </Box>
       </Grid>
 
-      <Grid size={12}>
-        <Card variant="outlined" sx={{ height: "100%" }}>
-          <CardHeader title={<Typography variant="h6">Employee's Feedback</Typography>} />
-          <CardContent>
-            {employeeComment ? (
-              <ParCommentView html={employeeComment} />
-            ) : (
-              <ParEmptyState text="Employee's Feedback hasn't been shared" />
-            )}
-          </CardContent>
-        </Card>
-      </Grid>
+      {!showsPar2 && (
+        <Grid size={12}>
+          <Card variant="outlined" sx={{ height: "100%" }}>
+            <CardHeader
+              title={<Typography variant="h6">{selfReview.data ? "Employee's Self-review" : "Employee's Feedback"}</Typography>}
+            />
+            <CardContent>{selfReviewContent}</CardContent>
+          </Card>
+        </Grid>
+      )}
 
-      <Grid size={12}>
+      <Grid size={showsPar2 ? { xs: 12, md: 7 } : 12} sx={showsPar2 ? { order: { xs: 2, md: 1 } } : undefined}>
         <Card variant="outlined" sx={{ height: "100%" }}>
           <CardHeader title={<Typography variant="h6">Lead's Feedback</Typography>} />
           <CardContent>
@@ -386,7 +569,12 @@ export default function ParLeadReviewPanel({
                     />
                   )
                 ) : (
-                  <ParRichTextField value={leadComment} onChange={setLeadComment} placeholder="Enter your comment here" />
+                  <ParRichTextField
+                    value={leadComment}
+                    onChange={setLeadComment}
+                    placeholder="Enter your comment here"
+                    disabled={selfReviewMissed}
+                  />
                 )}
                 {autoSaved && (
                   <Typography variant="caption" color="text.secondary" sx={{ position: "absolute", bottom: -20, left: 0 }}>
@@ -394,6 +582,93 @@ export default function ParLeadReviewPanel({
                   </Typography>
                 )}
               </Box>
+
+              {summaryShown &&
+                (readOnly ? (
+                  shared &&
+                  savedLead360Summary && (
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                        360° summary
+                      </Typography>
+                      <ParCommentView html={savedLead360Summary} />
+                    </Box>
+                  )
+                ) : responses.isLoading ? null : responses.isError && !responses.data ? (
+                  // Without the count, nothing says whether there's a summary to write.
+                  <ErrorNotice error={responses.error} onRetry={() => responses.refetch()} retrying={responses.isFetching}>
+                    Couldn't load the 360° responses.
+                  </ErrorNotice>
+                ) : responseCount < MIN_360_RESPONSES && !savedLead360Summary ? (
+                  // A summary, like the index, only from enough responses: the employee sees it. Once the
+                  // 360° deadline has passed everywhere no more can come in, so there's no row at all.
+                  hasEndedEverywhere(cycle.parThreeSixtyRatingDeadline) ? null : (
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                        360° summary
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Available after {MIN_360_RESPONSES} or more submissions ({responseCount} so far).
+                      </Typography>
+                    </Box>
+                  )
+                ) : (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                      360° summary
+                    </Typography>
+                    <ParRichTextField
+                      ref={summaryField}
+                      value={lead360Summary}
+                      onChange={setLead360Summary}
+                      placeholder={greySuggestionShown ? "" : "Summarise the 360° feedback"}
+                      minHeight="10rem"
+                      disabled={selfReviewMissed}
+                      suggestion={
+                        greySuggestionShown && (
+                          <ParLead360Suggestion suggestion={suggestion.data} onInsert={takeSuggestion} />
+                        )
+                      }
+                      onAcceptSuggestion={summaryEmpty && suggestion.data ? takeSuggestion : undefined}
+                    />
+                    {updateOffered && (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mt: 0.5, flexWrap: "wrap" }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {suggestedFrom === undefined
+                            ? "There's a suggested summary from the 360° feedback."
+                            : `${newResponses} new 360° ${newResponses === 1 ? "response" : "responses"} since the last suggestion.`}
+                        </Typography>
+                        <Button size="small" onClick={() => setShowingUpdatedSuggestion(true)}>
+                          {suggestedFrom === undefined ? "Show suggestion" : "Show updated suggestion"}
+                        </Button>
+                      </Box>
+                    )}
+                    {showingUpdatedSuggestion && !summaryEmpty && (suggestion.data || suggestion.isLoading) && (
+                      <Box sx={{ mt: 1, p: 1.5, border: 1, borderColor: "divider", borderStyle: "dashed", borderRadius: 1 }}>
+                        <ParLead360Suggestion
+                          suggestion={suggestion.data}
+                          actions={
+                            <>
+                              <Button size="small" onClick={() => setShowingUpdatedSuggestion(false)}>
+                                Dismiss
+                              </Button>
+                              <Button size="small" variant="outlined" onClick={takeSuggestion}>
+                                Replace
+                              </Button>
+                            </>
+                          }
+                        />
+                      </Box>
+                    )}
+                    {(summaryAutoSaved || suggestionFailed) && (
+                      <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                        {summaryAutoSaved
+                          ? "Draft Saved"
+                          : "Couldn't write a suggestion just now. It's tried again when another response comes in, or after a day."}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
 
               {/* Rating + special-rating + who-shared, grouped in one shaded
                   block rather than loose rows — these three are all "the
@@ -409,7 +684,13 @@ export default function ParLeadReviewPanel({
                   >
                     Rating
                     {!readOnly && ratingLocked && (
-                      <Tooltip title="This rating was automatically assigned after the PAR deadline was missed and can no longer be changed.">
+                      <Tooltip
+                        title={
+                          selfReviewMissed
+                            ? `This PAR wasn't shared by its deadline, so its rating is ${missedDeadlineRating}.`
+                            : "This rating was automatically assigned after the PAR deadline was missed and can no longer be changed."
+                        }
+                      >
                         <Box
                           component="span"
                           tabIndex={0}
@@ -435,15 +716,17 @@ export default function ParLeadReviewPanel({
                   ) : (
                     <ComplexSelect
                       fullWidth
-                      value={parRatingValue}
+                      value={shownRating}
                       onChange={(e) => setParRatingValue(e.target.value as string)}
                       disabled={ratingUpdate.isPending || ratingLocked}
+                      // MUI names the combobox from labelId; aria-labelledby alone didn't reach it.
+                      labelId="lead-review-rating-label"
                       aria-labelledby="lead-review-rating-label"
                     >
                       {ratingOptions(cycle.parCycleConfigurations?.parRatings ?? [], {
                         isLeadership,
                         leadershipAllowedRatings,
-                        currentRating: parRatingValue,
+                        currentRating: shownRating,
                       }).map((r) => (
                           <ComplexSelect.MenuItem key={r} value={r}>
                             {r}
@@ -453,7 +736,15 @@ export default function ParLeadReviewPanel({
                   )}
                 </Box>
 
-                {parRatingValue === top5p20pEnabledRating && (
+                {showsPar2 && !isLeadership && (
+                  <ParLead360Guidance
+                    parCycleId={cycle.parCycleId}
+                    employeeEmail={employeeEmail}
+                    threeSixtyDeadline={cycle.parThreeSixtyRatingDeadline}
+                  />
+                )}
+
+                {shownRating === top5p20pEnabledRating && (
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
                     <Typography
                       id="lead-review-special-rating-label"
@@ -481,10 +772,18 @@ export default function ParLeadReviewPanel({
                       <ComplexSelect
                         fullWidth
                         value={specialRating}
-                        onChange={(e) => setSpecialRating(e.target.value as typeof specialRating)}
+                        onChange={(e) => {
+                          const picked = e.target.value as SpecialRatingUi;
+                          if (picked === "NONE") setSpecialRating(picked);
+                          else setSpecialRatingToConfirm(picked);
+                        }}
                         disabled={
-                          !specialRatingConfirmed || ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false
+                          ratingUpdate.isPending ||
+                          parRatingData.parSpecialRatingEligibility === false ||
+                          selfReviewMissed ||
+                          specialRatingClosed
                         }
+                        labelId="lead-review-special-rating-label"
                         aria-labelledby="lead-review-special-rating-label"
                       >
                         {(Object.keys(SPECIAL_RATING_LABELS) as SpecialRatingUi[]).map((value) => (
@@ -494,24 +793,15 @@ export default function ParLeadReviewPanel({
                         ))}
                       </ComplexSelect>
                     )}
+                    {!readOnly && specialRatingClosed && (
+                      <Typography variant="caption" color="text.secondary">
+                        The Top 5%/20% deadline passed on {formatShortDate(cycle.parSpecialRatingDeadline!)}
+                      </Typography>
+                    )}
                   </Box>
                 )}
 
-                {!readOnly && parRatingValue === top5p20pEnabledRating && (
-                  <FormControlLabel
-                    control={
-                      <Checkbox
-                        checked={specialRatingConfirmed}
-                        onChange={(e) => setSpecialRatingConfirmed(e.target.checked)}
-                        disabled={ratingUpdate.isPending || parRatingData.parSpecialRatingEligibility === false}
-                      />
-                    }
-                    label="The Top 5% / 20% rating decision was discussed and finalized with the functional lead"
-                    sx={{ "& .MuiFormControlLabel-label": { fontSize: "0.8rem" } }}
-                  />
-                )}
-
-                {!readOnly && parRatingValue === evidenceEnabledRating && (
+                {!readOnly && !selfReviewMissed && shownRating === evidenceEnabledRating && (
                   <Box>
                     <FormControlLabel
                       control={
@@ -573,18 +863,24 @@ export default function ParLeadReviewPanel({
                       {parRatingData.parPerformanceNoticeAck
                         .split(/\r?\n/)
                         .filter((line) => line.trim() !== "")
-                        .map((line) => (
-                          <Link
-                            key={line}
-                            component="button"
-                            variant="body2"
-                            onClick={() => window.open(line.trim(), "_blank", "noopener,noreferrer")}
-                            sx={{ display: "flex", alignItems: "center", gap: 1, textAlign: "left" }}
-                          >
-                            <ExternalLinkIcon size={14} />
-                            {line}
-                          </Link>
-                        ))}
+                        .map((line) =>
+                          isOpenableUrl(line) ? (
+                            <Link
+                              key={line}
+                              component="button"
+                              variant="body2"
+                              onClick={() => window.open(line.trim(), "_blank", "noopener,noreferrer")}
+                              sx={{ display: "flex", alignItems: "center", gap: 1, textAlign: "left" }}
+                            >
+                              <ExternalLinkIcon size={14} />
+                              {line}
+                            </Link>
+                          ) : (
+                            <Typography key={line} variant="body2" sx={{ wordBreak: "break-all" }}>
+                              {line}
+                            </Typography>
+                          ),
+                        )}
                     </Stack>
                   </Box>
                 )}
@@ -599,11 +895,15 @@ export default function ParLeadReviewPanel({
                 )}
               </Stack>
 
-              {!readOnly && (
+              {!readOnly && !selfReviewMissed && (
                 <>
-                  {!employeeHasStarted && (
-                    <Alert severity="warning" sx={{ py: 0.25 }}>
-                      Sharing is disabled until the employee's own PAR is started.
+                  {!employeeReady && isPreviewEnabled("par2") && (
+                    <Alert severity="info" sx={{ py: 0.25 }}>
+                      You can share once {parRatingData.parEmployeeName?.split(" ")[0] ?? "the employee"} shares their{" "}
+                      {showsPar2 ? "self-review" : "PAR"}
+                      {missedDeadlineRating
+                        ? `. If they don't by ${formatShortDateTime(selfReviewClosesAt)}, their rating will be ${missedDeadlineRating}.`
+                        : `, or from ${formatShortDateTime(selfReviewClosesAt)} if they don't.`}
                     </Alert>
                   )}
                   <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, pt: 1, borderTop: 1, borderColor: "divider" }}>
@@ -621,8 +921,44 @@ export default function ParLeadReviewPanel({
         </Card>
       </Grid>
 
+      {showsPar2 && (
+        <Grid size={{ xs: 12, md: 5 }} sx={{ order: { xs: 1, md: 2 } }}>
+          <Card variant="outlined">
+            <Tabs
+              value={evidenceTab}
+              onChange={(_e, value) => setEvidenceTab(value)}
+              aria-label="Evidence"
+              sx={{ px: 1, borderBottom: 1, borderColor: "divider" }}
+            >
+              <Tab label="Self-review" />
+              {/* A leader's 360° feedback is Leadership 360°. */}
+              <Tab label={isLeadership ? "Leadership 360°" : "PAR 360°"} />
+            </Tabs>
+            <CardContent>
+              {evidenceTab === 0 ? (
+                selfReviewContent
+              ) : isLeadership ? (
+                <Leadership360ResultsCard
+                  view={isAdminView ? "ALL" : "REPORTS"}
+                  leaderEmail={employeeEmail}
+                  parCycleId={cycle.parCycleId}
+                  fallback={<ParEmptyState text="No Leadership 360° results for this cycle yet" />}
+                />
+              ) : (
+                <ParLead360Evidence
+                  parCycleId={cycle.parCycleId}
+                  employeeEmail={employeeEmail}
+                  threeSixtyDeadline={cycle.parThreeSixtyRatingDeadline}
+                  framed={false}
+                />
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      )}
+
       {isAdminView && (
-        <Grid size={12}>
+        <Grid size={12} sx={showsPar2 ? { order: 3 } : undefined}>
           <Accordion variant="outlined" defaultExpanded={Boolean(savedAdminComment)}>
             <AccordionSummary expandIcon={<ChevronDownIcon size={18} />}>
               <Typography variant="h6">Admin Comment</Typography>
@@ -642,7 +978,8 @@ export default function ParLeadReviewPanel({
         </Grid>
       )}
 
-      {!(reviews.isSuccess && reviews.data.length === 0) && (
+      {/* A PAR 2.0 cycle shows its 360° responses in the evidence column. */}
+      {!showsPar2 && !(reviews.isSuccess && reviews.data.length === 0) && (
         <Grid size={12}>
           {reviews.isLoading ? (
             <Skeleton variant="rectangular" height={72} sx={{ borderRadius: 1.5 }} />
@@ -656,21 +993,29 @@ export default function ParLeadReviewPanel({
         </Grid>
       )}
 
-      <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="md" fullWidth>
+      {/* Stays open while sharing, so nothing can be edited behind it and then lost once it's shared. */}
+      <Dialog open={confirming} onClose={() => !sharing && setConfirming(false)} maxWidth="md" fullWidth>
         <DialogTitle>Share Lead's Feedback?</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="text.secondary">
             This action will share your review with the employee. You can't undo this action.
           </Typography>
+          {summaryShown && summaryEmpty && suggestion.data && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              The 360° summary is empty, so none is shared. The suggestion in grey is only included if you insert it.
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirming(false)}>Cancel</Button>
+          <Button onClick={() => setConfirming(false)} disabled={sharing}>
+            Cancel
+          </Button>
           <Button
             variant="contained"
-            disabled={ratingUpdate.isPending}
+            disabled={sharing}
             onClick={() => submit("SHARED", { onSuccess: () => setConfirming(false) })}
           >
-            {ratingUpdate.isPending ? "Sharing…" : "Share"}
+            {sharing ? "Sharing…" : "Share"}
           </Button>
         </DialogActions>
       </Dialog>
@@ -700,6 +1045,18 @@ export default function ParLeadReviewPanel({
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmationDialog
+        content={
+          specialRatingToConfirm && {
+            title: `Give a ${SPECIAL_RATING_LABELS[specialRatingToConfirm]} rating?`,
+            text: "The Top 5% / 20% rating decision was discussed and finalized with the functional lead.",
+            confirmColor: "primary",
+            confirmAction: () => setSpecialRating(specialRatingToConfirm),
+          }
+        }
+        onClose={() => setSpecialRatingToConfirm(null)}
+      />
     </Grid>
   );
 }

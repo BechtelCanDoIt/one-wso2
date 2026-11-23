@@ -66,6 +66,8 @@ export interface ParCycleConfigurations {
   // Which entry in parRatings is auto-assigned to an employee/lead who
   // misses their PAR deadline, set per cycle.
   missedDeadlineRating?: string;
+  // The same for the leadership team (Step Up when the cycle doesn't set it).
+  leadershipMissedDeadlineRating?: string;
   // Which entries in parRatings a leadership employee may be given, set per
   // cycle. Falls back to LEADERSHIP_ALLOWED_RATINGS (util/parLeadership.ts)
   // when the cycle hasn't configured it.
@@ -185,16 +187,11 @@ export interface Par360Reviewer {
   isEmployeeRequested: boolean;
   // PAR 2.0 cycles only.
   reviewerName?: string;
-  // How they work with the employee, as whoever asked said (PAR 2.0 cycles only).
-  relationship?: string;
 }
 
 // Body for POST .../employees/{email}/reviewers.
 export interface Par360ReviewRequestCreate {
   reviewerEmails: string[];
-  // How each reviewer works with the employee, by email. Required in PAR 2.0 cycles, except for a
-  // member of the leadership team.
-  relationships?: Record<string, string>;
 }
 
 // One request FOR you to review someone else. GET .../employees/{email}/review-requests
@@ -203,8 +200,8 @@ export interface Par360ReviewRequestCreate {
 export interface Par360ReviewRequest {
   employeeEmail: string;
   reviewStatus: Par360ReviewStatus;
-  isEmployeeRequested: boolean;
-  isLeadRequested: boolean;
+  // Asked (by the employee or their lead; the reviewer isn't told which), rather than offered.
+  isRequested: boolean;
   // PAR 2.0 cycles only.
   employeeName?: string;
 }
@@ -444,40 +441,6 @@ export interface ParSpecialRatingAllocation {
   parSpecialQuotaName: string;
   parTop5Quota: number;
   parTop20Quota: number;
-}
-
-// ---- F2F scheduling ----------------------------------------------------------
-//
-// Mirrors the backend's raw Google Calendar freebusy shape (gcalendar:
-// FreeBusyResponse) and its own ScheduleMeetingRequest.
-
-export interface ParCalendarBusySlot {
-  start: string;
-  end: string;
-}
-
-export interface ParCalendarBusy {
-  busy: ParCalendarBusySlot[];
-}
-
-// GET .../calendar/busy-times?date=YYYY-MM-DD.
-export interface ParFreeBusyResponse {
-  calendars: Record<string, ParCalendarBusy>;
-  kind: string;
-  timeMax: string;
-  timeMin: string;
-}
-
-// Body for POST .../calendar/schedule-f2f. The response is a bare 201 with
-// no payload (the backend returns `http:CREATED` and nothing else) — there
-// is no meetLink to read back from this call.
-export interface ParScheduleF2fRequest {
-  parRatingId: number;
-  title: string;
-  description: string;
-  startTime: string;
-  endTime: string;
-  date: string;
 }
 
 // ---- Admin Portal ----------------------------------------------------------

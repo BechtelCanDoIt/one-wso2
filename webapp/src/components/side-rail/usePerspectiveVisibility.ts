@@ -32,6 +32,11 @@ import { dueDiligenceVisibility, useDueDiligenceGate } from "@features/due-dilig
 import { securityVisibility, useSecurityGate } from "@features/security/api/useSecurityGate";
 import { salesVisibility, useSalesRailGate } from "@features/sales/api/useSalesGate";
 import { cado2Visibility, useCado2RailGate } from "@features/sales/cado2/api/useCado2RailGate";
+import { procurementTeamVisibility, useProcurementTeamRailGate } from "@features/procurement/workspace/teamAccess";
+import {
+  engagementVisibility,
+  useEngagementRailGate,
+} from "@features/finance/engagement-app/api/useEngagementRailGate";
 import {
   swagStoreAdminVisibility,
   useSwagStoreAdminRailGate,
@@ -210,9 +215,17 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   // CadO2, also under Sales: rows decided by CadO2's own /me, and only while
   // its preview flag is on -- see useCado2RailGate.
   const cado2Gate = useCado2RailGate(active.key === "sales" && isPreviewEnabled("quickquote"));
+  // Engagement App, under Finance and under Me: rows decided by its backend's
+  // own /user-info (legacy Allocations and Travel privileges), and only while
+  // its preview flag is on -- see useEngagementRailGate.
+  const engagementGate = useEngagementRailGate(
+    (active.key === "finance" || active.key === "me") && isPreviewEnabled("engagementApp"),
+  );
   // The Swag Store admin rows sit in People Ops only while the store's flag is
   // on; its /users/me is asked only then -- see useSwagStoreAdminGate.
   const swagStoreAdminGate = useSwagStoreAdminRailGate(active.key === "people" && isPreviewEnabled("swagStore"));
+  // The Procurement team's row is decided by the procurement backend's roles -- see useProcurementTeamRailGate.
+  const procurementTeamGate = useProcurementTeamRailGate(active.key === "procurement");
 
   // Subscriptions (PickMe Commute / LaaS) is the same shape of problem once
   // more, with one extra wrinkle worth naming: its backend publishes the
@@ -336,8 +349,12 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
         return salesVisibility(salesGate);
       case "cado2":
         return cado2Visibility(cado2Gate);
+      case "engagement":
+        return engagementVisibility(engagementGate);
       case "swag-store-admin":
         return swagStoreAdminVisibility(swagStoreAdminGate);
+      case "procurement":
+        return procurementTeamVisibility(procurementTeamGate);
       case "promotion":
         return promotionVisibility(promotionLeadPortalGate, promotionEmployeeGate, meProfile.isError);
       case "security":

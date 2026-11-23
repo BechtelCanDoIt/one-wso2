@@ -31,6 +31,7 @@ import {
   InputBase,
   Tooltip,
   Typography,
+  useTheme,
 } from "@wso2/oxygen-ui";
 import { MenuIcon, SearchIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import AppsGridIcon from "./AppsGridIcon";
@@ -94,6 +95,7 @@ export default function TopBar({
     () => capabilitiesFromPrivileges(userInfo.data?.privileges),
     [userInfo.data?.privileges],
   );
+  const theme = useTheme();
   const [searchQuery, setSearchQuery] = useState("");
   const [resultsOpen, setResultsOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -104,12 +106,21 @@ export default function TopBar({
     const handler = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        inputRef.current?.focus();
+        const input = inputRef.current;
+        const isHidden =
+          window.innerWidth < theme.breakpoints.values.sm ||
+          !input ||
+          (typeof input.checkVisibility === "function" && !input.checkVisibility());
+        if (isHidden) {
+          setResultsOpen(true);
+        } else {
+          input.focus();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, []);
+  }, [theme.breakpoints.values.sm]);
 
   const handleSearchSubmit = (e: FormEvent<HTMLFormElement>): void => {
     e.preventDefault();

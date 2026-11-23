@@ -106,10 +106,23 @@ export type PreviewFeature =
    */
   | "swagStore"
   /**
-   * Finance → Procurement, where an employee raises a purchase request and
-   * follows it: its rail group, every route under `/finance/procurement`, and
-   * its backend calls. Held back while the app is being built: submitting a
-   * request is not connected to the backend yet.
+   * Engagement App, the legacy Allocations and Travel apps merged into One
+   * WSO2: the Finance → Engagement App group, the Engagement App group under
+   * Me, the card it adds to the Me overview, every route under
+   * `/finance/engagement-app` plus `/me/travel-requests`,
+   * `/me/passport-visas` and `/me/allocations`, and its backend calls.
+   * Held back until go-live (18 Nov 2026). The backend's own `/user-info`
+   * privileges still decide who sees what once this is on. See
+   * docs/ported-apps/engagement-app.md.
+   */
+  | "engagementApp"
+  /**
+   * Procurement: Me → Procurement, where an employee raises a purchase request
+   * and follows it and approves requests that name them, and the Procurement
+   * perspective, where the team assigns and handles approved ones. Its rail
+   * entries, every route under `/me/procurement` and `/procurement`, and its
+   * backend calls. Held back while the app is being built: attachments,
+   * Marketing & Events and the rest of the team's screens are not in yet.
    */
   | "procurement"
   /**

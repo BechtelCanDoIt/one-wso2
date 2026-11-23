@@ -249,7 +249,7 @@ export const googlePickerApiKey: string =
 export const top5p20pEnabledRating: string =
   window.config?.ONE_WSO2_PAR_TOP5P20P_ENABLED_RATING ?? "Successful";
 export const evidenceEnabledRating: string =
-  window.config?.ONE_WSO2_PAR_EVIDENCE_ENABLED_RATING ?? "Needs Improvement";
+  window.config?.ONE_WSO2_PAR_EVIDENCE_ENABLED_RATING ?? "Needs Improvements";
 
 export const parServiceUrls = {
   // GET /employees/{workEmail} — par-app's OWN employee record, distinct
@@ -318,14 +318,14 @@ export const parServiceUrls = {
   // GET — every response about an employee with names (their leads, report chain, PAR admins).
   parReviewResponses: (parCycleId: number, workEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-responses`,
-  // GET — the caller's own anonymised summary.
-  parReviewSummary: (parCycleId: number, workEmail: string) =>
-    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-summary`,
+  // GET — how many 360° responses the caller has received (asked or offered), only the number.
+  parReviewCount: (parCycleId: number, workEmail: string) =>
+    `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/review-count`,
   // PUT — the lead's 360° summary of an employee, shared with their comment
   // (the employee's leads and PAR admins).
   parLead360Summary: (parCycleId: number, workEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/lead-360-summary`,
-  // GET — the AI-suggested 360° summary for the lead to start from.
+  // POST (asking may write one) — the AI-suggested 360° summary for the lead to start from.
   parLead360SummarySuggestion: (parCycleId: number, workEmail: string) =>
     `${parBackendUrl}/par-cycles/${parCycleId}/employees/${encodeURIComponent(workEmail)}/lead-360-summary/suggestion`,
   // GET — people to ask for 360° feedback, from the employee's calendar (the
@@ -394,23 +394,6 @@ export const parServiceUrls = {
   // employee (self-view); a lead viewing a report's history gets it intact.
   parLegacyHistory: (employeeEmail: string) =>
     `${parBackendUrl}/legacy-par-history/${encodeURIComponent(employeeEmail)}`,
-
-  // ---- F2F scheduling ---------------------------------------------------------
-  //
-  // Flat top-level paths on the same par-app backend, not nested under
-  // /par-cycles — service.bal's own resource layout.
-
-  // GET .../calendar/busy-times?date=YYYY-MM-DD — the invoker's and their
-  // lead's busy periods for that day (server resolves the lead; nothing
-  // about them is passed from here). Raw Google Calendar freebusy shape.
-  calendarBusyTimes: (date: string) =>
-    `${parBackendUrl}/calendar/busy-times?date=${encodeURIComponent(date)}`,
-  // POST .../calendar/schedule-f2f (ScheduleF2fRequest) — creates the Google
-  // Calendar event (with a Meet link Google generates) and emails both
-  // attendees the invite. Returns bare 201 with no body: the app never
-  // shows the Meet link itself, only a "meeting scheduled" confirmation —
-  // see ParScheduleF2fDialog.tsx.
-  calendarScheduleF2f: () => `${parBackendUrl}/calendar/schedule-f2f`,
 
   // ---- Admin Portal -------------------------------------------------------------
   //
@@ -2126,7 +2109,7 @@ export function isCado2BackendConfigured(): boolean {
 
 const encodeSegment = (value: string | number): string => encodeURIComponent(String(value));
 
-// Procurement — Finance → Procurement, purchase requests through to Procurement
+// Procurement — Me → Procurement, purchase requests through to Procurement
 // assignment. Its own backend, version segment included. Unset means "not
 // connected": its pages say so and make no requests. Gated as a whole by the
 // `procurement` preview flag as well (previewFeatures.ts).
@@ -2153,7 +2136,19 @@ export const procurementServiceUrls = {
   directoryEmployees: (query: string, leadsOnly: boolean): string =>
     `${procurementBackendUrl}/directory/employees?query=${encodeSegment(query)}${leadsOnly ? "&leadsOnly=true" : ""}`,
   requests: (limit: number): string => `${procurementBackendUrl}/requests?limit=${encodeSegment(limit)}`,
+  approvals: (limit: number, status?: string): string =>
+    `${procurementBackendUrl}/approvals?limit=${encodeSegment(limit)}${status ? `&status=${encodeSegment(status)}` : ""}`,
+  teamQueue: (limit: number, status?: string, priority?: string): string =>
+    `${procurementBackendUrl}/procurement/requests?limit=${encodeSegment(limit)}${status ? `&status=${encodeSegment(status)}` : ""}${priority ? `&priority=${encodeSegment(priority)}` : ""}`,
+  assignRequest: (requestId: string, email?: string): string =>
+    `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/assign${email ? `/${encodeSegment(email)}` : ""}`,
+  unassignRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/unassign`,
+  requestPriority: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/priority`,
+  decideRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/decision`,
+  createRequest: `${procurementBackendUrl}/requests`,
   request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
+  submitRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/submit`,
+  cancelRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/cancel`,
 };
 
 export const cado2ServiceUrls = {
@@ -2344,6 +2339,114 @@ export const cado2ServiceUrls = {
       offset: String(offset),
     }).toString()}`,
 };
+
+// ---------------------------------------------------------------------------
+// Engagement App — the legacy Allocations and Travel apps merged into One WSO2
+// (Finance → Engagement App, and its pages under Me). Its own Go backend, the
+// Engagement App Backend, configured with the version segment included. Unset
+// means "not connected": the pages say so and make no requests. Gated as a
+// whole by the `engagementApp` preview flag as well (previewFeatures.ts).
+//
+// Paths are finance-tools apps/engagement-app/backend/openapi.yaml (0.2.0).
+export const engagementAppBackendUrl: string = stripTrailingSlashes(
+  window.config?.ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL ?? "",
+);
+
+export function isEngagementAppBackendConfigured(): boolean {
+  return Boolean(engagementAppBackendUrl);
+}
+
+export type EngagementQueryParams = Record<string, string | number | boolean | readonly (string | number)[] | undefined>;
+
+/**
+ * A query string from the set entries of `params`, with its leading "?", or "".
+ * Multi-value filters are repeated parameters (`?status=New&status=Updated`),
+ * as the spec asks.
+ */
+function engagementQuery(params: EngagementQueryParams): string {
+  const q = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === "") continue;
+    if (Array.isArray(value)) {
+      for (const v of value) if (v !== "") q.append(key, String(v));
+    } else {
+      q.set(key, String(value));
+    }
+  }
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
+const ea = (path: string, params?: EngagementQueryParams): string =>
+  `${engagementAppBackendUrl}${path}${params ? engagementQuery(params) : ""}`;
+
+export const engagementServiceUrls = {
+  // The caller's privilege ids per legacy app, the agent's agency and the work
+  // queues. Decides the rail and every route; the backend re-checks each call.
+  userInfo: ea("/user-info"),
+  referenceData: ea("/reference-data"),
+  orgStructure: ea("/org-structure"),
+  accounts: (search: string): string => ea("/accounts", { search, limit: 8 }),
+  accountOpportunities: (accountId: string, engagementTypeId?: number): string =>
+    ea(`/accounts/${encodeSegment(accountId)}/opportunities`, { engagementTypeId }),
+  campaigns: (search: string): string => ea("/campaigns", { search, limit: 20 }),
+  employees: (search: string, limit = 20): string => ea("/employees", { search, limit }),
+  dashboard: ea("/dashboard"),
+  allocationsToday: (params: EngagementQueryParams): string => ea("/dashboard/allocations-today", params),
+  myOverview: ea("/me/overview"),
+  myAllocations: (params: EngagementQueryParams = {}): string => ea("/me/allocations", params),
+  myTravelRequests: (params: EngagementQueryParams = {}): string => ea("/me/travel-requests", params),
+  myVisas: (params: EngagementQueryParams = {}): string => ea("/me/visas", params),
+  myTravelDocuments: ea("/me/travel-documents"),
+  myPassports: ea("/me/passports"),
+  engagements: (params: EngagementQueryParams = {}): string => ea("/engagements", params),
+  engagementFacets: (segment: string): string => ea("/engagements/facets", { segment }),
+  engagement: (id: string): string => ea(`/engagements/${encodeSegment(id)}`),
+  engagementRequestStatus: (id: string): string => ea(`/engagements/${encodeSegment(id)}/request-status`),
+  engagementStatus: (id: string): string => ea(`/engagements/${encodeSegment(id)}/engagement-status`),
+  engagementApprove: (id: string): string => ea(`/engagements/${encodeSegment(id)}/approve`),
+  engagementAllocations: (id: string): string => ea(`/engagements/${encodeSegment(id)}/allocations`),
+  allocationTimeline: (params: EngagementQueryParams): string => ea("/allocation-timeline", params),
+  approvals: (params: EngagementQueryParams): string => ea("/approvals", params),
+  allocations: (params: EngagementQueryParams = {}): string => ea("/allocations", params),
+  allocationStatus: (id: string): string => ea(`/allocations/${encodeSegment(id)}/status`),
+  teamAllocations: (params?: EngagementQueryParams): string => ea("/team-allocations", params),
+  teamAllocation: (id: string): string => ea(`/team-allocations/${encodeSegment(id)}`),
+  teamAllocationsBulkValidate: ea("/team-allocations/bulk/validate"),
+  teamAllocationsBulk: ea("/team-allocations/bulk"),
+  travelRequests: (params: EngagementQueryParams = {}): string => ea("/travel-requests", params),
+  travelRequest: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}`),
+  visaOptions: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/visa-options`),
+  perDiems: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/per-diems`),
+  perDiem: (job: string, id: string): string => ea(`/travel-requests/${encodeSegment(job)}/per-diems/${encodeSegment(id)}`),
+  tripInvoices: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/invoices`),
+  travelCards: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/travel-cards`),
+  tripPayments: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/per-diem-payments`),
+  invoices: (params: EngagementQueryParams = {}): string => ea("/invoices", params),
+  invoicesApprove: ea("/invoices/approve"),
+  invoicesReject: ea("/invoices/reject"),
+  invoicesPush: ea("/invoices/push"),
+  invoicesResync: ea("/invoices/resync"),
+  perDiemPayments: (params: EngagementQueryParams = {}): string => ea("/per-diem-payments", params),
+  perDiemPayment: (id: string): string => ea(`/per-diem-payments/${encodeSegment(id)}`),
+  paymentsPush: ea("/per-diem-payments/push"),
+  paymentsResync: ea("/per-diem-payments/resync"),
+  netSuiteSyncFailures: (params: EngagementQueryParams = {}): string => ea("/netsuite-sync-failures", params),
+  report: (report: "consultant-allocations" | "invoices" | "per-diem-payments", params: EngagementQueryParams = {}): string =>
+    ea(`/reports/${report}`, params),
+  visas: (params: EngagementQueryParams = {}): string => ea("/visas", params),
+  visa: (id: string): string => ea(`/visas/${encodeSegment(id)}`),
+  visaImage: (id: string): string => ea(`/visas/${encodeSegment(id)}/image`),
+  travelDocuments: (params: EngagementQueryParams = {}): string => ea("/travel-documents", params),
+  travelDocument: (id: string): string => ea(`/travel-documents/${encodeSegment(id)}`),
+  travelDocumentImage: (id: string): string => ea(`/travel-documents/${encodeSegment(id)}/image`),
+  travellerPassports: (email: string): string => ea(`/travellers/${encodeSegment(email)}/passports`),
+  roleSettings: (app: "allocations" | "travel"): string => ea(`/role-settings/${encodeSegment(app)}`),
+  rolePrivileges: (app: "allocations" | "travel", roleId: string): string =>
+    ea(`/role-settings/${encodeSegment(app)}/roles/${encodeSegment(roleId)}/privileges`),
+  allocationTypes: (params?: EngagementQueryParams): string => ea("/settings/allocation-types", params),
+  allocationType: (id: string): string => ea(`/settings/allocation-types/${encodeSegment(id)}`),
+} as const;
 
 export const salesBackendUrl: string = window.config?.ONE_WSO2_REVOPS_BACKEND_URL ?? "";
 

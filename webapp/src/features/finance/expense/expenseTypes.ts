@@ -42,6 +42,8 @@ export interface ExpenseEmployee {
   lastName: string | null;
   workEmail: string;
   employeeThumbnail: string | null;
+  /** "Active", "Marked leaver" or "Left". */
+  employeeStatus: string | null;
 }
 
 export interface ExpenseAppData {
@@ -237,6 +239,12 @@ export interface ExpenseReportEmployeeItem {
   totalValue: number;
 }
 
+/** An employee the report offers for the Employee filter. */
+export interface ExpenseReportEmployeeOption {
+  employeeEmail: string;
+  employeeName: string;
+}
+
 export interface ExpenseClaimsReport {
   reportingCurrency: string;
   current: ExpenseReportTotals;
@@ -252,6 +260,7 @@ export interface ExpenseClaimsReport {
   monthlyBreakdown: ExpenseReportMonthlyItem[];
   employeeBreakdown: ExpenseReportEmployeeItem[];
   availableSalesRegions: string[];
+  availableEmployees: ExpenseReportEmployeeOption[];
 }
 
 /** GET /claims-report query params. `status` is one value per request, not
@@ -262,8 +271,11 @@ export interface ExpenseClaimsReportFilter {
   endDate: string;
   status?: string;
   businessEntity?: string;
-  expenseTypeId?: number;
+  /** Every expense type ID the selected category name maps to. Sent as a
+   *  repeated `expenseTypeIds=` key. */
+  expenseTypeIds?: number[];
   salesRegion?: string;
+  employeeEmail?: string;
 }
 
 export const EXPENSE_DASHBOARD_PERIODS = [

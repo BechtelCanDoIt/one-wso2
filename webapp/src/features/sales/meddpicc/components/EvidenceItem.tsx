@@ -43,7 +43,9 @@ const SOURCE_NAME: Record<EvidenceSourceType, string> = { CALL: "Call", EMAIL: "
  * the customer, not the customer's position, and must never read as if they were.
  *
  * `onSeek` plays a call quote in the recording on screen, so it is only passed for quotes
- * from `currentMeetingId`. Any other call links to its meeting page.
+ * from `currentMeetingId`. Any other call's quote opens that call's recording at the second
+ * it was said, in a new tab, so the page the reader is on, and anything they have changed
+ * on it, stays put.
  */
 export default function EvidenceItem({
   quote,
@@ -95,6 +97,21 @@ export default function EvidenceItem({
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, verticalAlign: "baseline" }}
         >
           <PlayIcon size={12} /> {formatOffset(quote.offsetSeconds)}
+        </Link>
+      ) : quote.meetingId ? (
+        <Link
+          key="at"
+          component={RouterLink}
+          to={meetingPath(quote.meetingId, { tab: "transcript", at: quote.offsetSeconds })}
+          target="_blank"
+          rel="noopener noreferrer"
+          variant="caption"
+          underline="hover"
+          aria-label={`Open the recording at ${formatOffset(quote.offsetSeconds)}, in a new tab`}
+          title="Opens the recording at this moment, in a new tab"
+          sx={{ display: "inline-flex", alignItems: "center", gap: 0.25, verticalAlign: "baseline" }}
+        >
+          <PlayIcon size={12} /> {formatOffset(quote.offsetSeconds)} <ExternalLinkIcon size={11} />
         </Link>
       ) : (
         <span key="at">at {formatOffset(quote.offsetSeconds)}</span>

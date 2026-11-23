@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { MeetingPart, TranscriptLine } from "../api/salesTypes";
-import { attachedParts, partLabel, partsAreTimed, placeLine } from "./meetingParts";
+import { attachedParts, partLabel, partsAreTimed, placeLine, placeSecond } from "./meetingParts";
 
 const part = (id: number, startTime: string | null, endTime: string | null = null): MeetingPart => ({
   id,
@@ -79,5 +79,29 @@ describe("partLabel", () => {
     expect(partLabel(part(9, null), 1)).toBe("Part 2");
     expect(partLabel(first, 0)).toMatch(/^Part 1 · \d{2}:\d{2}$/);
     expect(partLabel(part(9, null), 0, "Transcript")).toBe("Transcript 1");
+  });
+});
+
+describe("placeSecond", () => {
+  // A quote's offset counts from the call's start, where the first recording starts.
+  it("puts a second from the call's start on the recording playing then, timed from its start", () => {
+    expect(placeSecond(300, [first, second], 1)).toEqual({ recordingId: 1, offsetSeconds: 300 });
+    expect(placeSecond(35 * 60, [first, second], 1)).toEqual({ recordingId: 2, offsetSeconds: 300 });
+  });
+
+  it("returns null for a moment while nothing was recording", () => {
+    expect(placeSecond(25 * 60, [first, second], 1)).toBeNull();
+  });
+
+  it("counts from the call's first recording even when that one cannot be opened", () => {
+    // The first part failed to attach, so only the second can be played: 35 minutes into
+    // the call is still 5 minutes into the second part.
+    const failed: MeetingPart = { ...first, state: "FAILED" };
+    expect(placeSecond(35 * 60, [second], 1, [failed, second])).toEqual({ recordingId: 2, offsetSeconds: 300 });
+  });
+
+  it("keeps the second as it is on untimed parts, or on the default recording with none", () => {
+    expect(placeSecond(760, [part(1, null), part(2, null)], -1)).toEqual({ recordingId: 1, offsetSeconds: 760 });
+    expect(placeSecond(760, [], -1)).toEqual({ recordingId: -1, offsetSeconds: 760 });
   });
 });

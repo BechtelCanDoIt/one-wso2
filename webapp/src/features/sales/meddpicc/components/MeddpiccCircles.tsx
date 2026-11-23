@@ -16,7 +16,7 @@
 
 import type { MouseEvent } from "react";
 import { Box, ButtonBase, Stack, Tooltip, Typography, alpha } from "@wso2/oxygen-ui";
-import { SparklesIcon } from "@wso2/oxygen-ui-icons-react";
+import { EchoIcon } from "./EchoMarker";
 import { formatOffset } from "../../api/salesTypes";
 import type { CoverageLevel, DealLetterState, EvidenceQuote, LetterKey } from "../types";
 import { COVERAGE_LABELS, DEAL_STATE_LABELS, LETTERS } from "../util/meddpiccFormat";
@@ -130,7 +130,7 @@ export default function MeddpiccCircles(props: MeddpiccCirclesProps) {
                   borderRadius: "50%",
                 }}
               >
-                <SparklesIcon size={size === "small" ? 10 : 12} />
+                <EchoIcon size={size === "small" ? 10 : 12} />
               </Box>
             )}
           </Box>

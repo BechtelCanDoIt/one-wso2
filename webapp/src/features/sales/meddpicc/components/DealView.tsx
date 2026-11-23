@@ -58,6 +58,7 @@ import type {
   EvidenceSourceType,
   FieldValue,
   LetterKey,
+  NewContact,
   TimelineMark,
 } from "../types";
 import { activityOf, describeSources, journeyOf, kindOf, sourcesOf } from "../util/evidenceSource";
@@ -72,14 +73,19 @@ import DealChat, { type ChatEntry } from "./DealChat";
 import { meetingPath, type DealTab } from "../../util/salesPaths";
 import {
   EMPTY_DRAFT,
+  approvalSummary,
   buildApproveRequest,
+  describeApproval,
   hasSomethingToApprove,
   initialRoleMatches,
+  newContactProblem,
+  pendingRoleFields,
   unmatchedRoles,
   type ApprovalDraft,
 } from "../util/approval";
 import { formatAmount, formatSalesforceDate, letterLabel } from "../util/meddpiccFormat";
 import DealFieldRow from "./DealFieldRow";
+import ProvenanceDrawer from "./ProvenanceDrawer";
 import MeddpiccCircles from "./MeddpiccCircles";
 import StageChip from "./StageChip";
 
@@ -95,6 +101,11 @@ import StageChip from "./StageChip";
  * stage path; and Activity, the deal's journey from start to close, its activity and the
  * products discussed. The page keeps the tab in the URL. Above them, the deal's facts.
  */
+
+/** `record` without the given keys. */
+function without<T>(record: Record<string, T>, keys: ReadonlySet<string>): Record<string, T> {
+  return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.has(key)));
+}
 
 export default function DealView({
   detail,
@@ -131,6 +142,10 @@ export default function DealView({
   // render time rather than copied in, so a refetched deal with a new
   // suggestion is honoured without an effect to resync it.
   const [roleChoices, setRoleChoices] = useState<Record<string, string>>({});
+  // The Contacts the AM asked Approve all to create, by role field.
+  const [newContacts, setNewContacts] = useState<Record<string, NewContact>>({});
+  // The field whose suggestion is being explained in the side panel; null when it is closed.
+  const [explained, setExplained] = useState<DealField | null>(null);
   const [approveResult, setApproveResult] = useState<ApproveResult | null>(null);
   const [approveError, setApproveError] = useState<string | null>(null);
   const [moveFailure, setMoveFailure] = useState<MoveStageFailure | null>(null);
@@ -139,6 +154,7 @@ export default function DealView({
   const draft: ApprovalDraft = {
     edits,
     roleMatches: { ...initialRoleMatches(fields), ...roleChoices },
+    newContacts,
   };
   const unmatched = unmatchedRoles(fields, draft);
   const somethingToApprove = hasSomethingToApprove(fields, draft);
@@ -153,7 +169,28 @@ export default function DealView({
       delete next[key];
       return next;
     });
+  const dropNewContact = (key: string) =>
+    setNewContacts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  // "Create a contact" is the AM's whole answer for the role: it replaces a match or a clear.
+  const setNewContact = (key: string, contact: NewContact | null) => {
+    if (contact === null) {
+      dropNewContact(key);
+      return;
+    }
+    undoEdit(key);
+    setRoleChoices((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setNewContacts((prev) => ({ ...prev, [key]: contact }));
+  };
   const matchRole = (key: string, contactId: string | null) => {
+    dropNewContact(key);
     if (contactId === null) {
       // "Not known": a clear, and no match alongside it.
       setEdit(key, null);
@@ -171,17 +208,27 @@ export default function DealView({
   const approveAll = async () => {
     setApproveError(null);
     setApproveResult(null);
+    const request = buildApproveRequest(fields, draft);
     try {
-      const result = await approve.mutateAsync(buildApproveRequest(fields, draft));
+      const result = await approve.mutateAsync(request);
       setApproveResult(result);
       if (!result.error) {
-        setEdits({});
-        setRoleChoices({});
-        showSuccess(
-          result.written.length
-            ? `Written to Salesforce: ${result.written.map(labelOf).join(", ")}.`
-            : "Approved. Nothing needed writing to Salesforce.",
-        );
+        // Only what this request carried is cleared: an answer given while it was in
+        // flight was not sent, and stays for the next Approve all.
+        const sent = new Set([
+          ...Object.keys(request.edits),
+          ...Object.keys(request.roleMatches),
+          ...Object.keys(request.newContacts ?? {}),
+        ]);
+        setEdits((prev) => without(prev, sent));
+        setRoleChoices((prev) => without(prev, sent));
+        setNewContacts((prev) => without(prev, sent));
+        const created = result.createdContacts ?? [];
+        const said = [
+          result.written.length ? `Written to Salesforce: ${result.written.map(labelOf).join(", ")}.` : "",
+          created.length ? `Created in Salesforce: ${created.map((c) => c.name).join(", ")}.` : "",
+        ].filter(Boolean);
+        showSuccess(said.length ? said.join(" ") : "Approved. Nothing needed writing to Salesforce.");
       }
     } catch (error: unknown) {
       setApproveError(describeError(error));
@@ -217,13 +264,25 @@ export default function DealView({
   const askNextByField = new Map(detail.askNext.map((item) => [item.fieldKey, item.question]));
   const scopeName = letter ? letterLabel(letter) : gate;
 
+  // A new contact the AM has not finished: Approve all waits for it. Only for a role still
+  // waiting: a draft for one settled meanwhile is not sent, so it must not block the rest.
+  const pendingRoles = new Set(pendingRoleFields(fields).map((field) => field.key));
+  const contactProblem = Object.entries(newContacts)
+    .filter(([key]) => pendingRoles.has(key))
+    .map(([key, contact]) => ({ key, problem: newContactProblem(contact) }))
+    .find((entry) => entry.problem !== null);
+
   const approveHint = readOnly
     ? "Only the Opportunity owner can approve."
     : unmatched.length > 0
       ? `Pick the matching contact for ${unmatched.map((f) => f.label.toLowerCase()).join(", ")}, or mark it not known.`
-      : !somethingToApprove
-        ? "Nothing is waiting for approval."
-        : null;
+      : contactProblem
+        ? `Finish the new contact for ${labelOf(contactProblem.key).toLowerCase()}: ${contactProblem.problem}.`
+        : !somethingToApprove
+          ? "Nothing is waiting for approval."
+          : null;
+  // What the button is about to do, in one sentence, before anything reaches Salesforce.
+  const summaryText = describeApproval(approvalSummary(fields, draft));
 
   // Whether the action card is needed: something to approve (or a role still to match),
   // a stage to move to, or a result or failure from the last attempt to show.
@@ -248,6 +307,9 @@ export default function DealView({
       onEdit={setEdit}
       onUndo={undoEdit}
       onRoleMatch={matchRole}
+      onNewContact={setNewContact}
+      onExplain={setExplained}
+      accountName={deal.accountName}
       sourceFilter={sourceFilter}
       variant={variant}
       askNext={variant === "full" ? askNextByField.get(field.key) : undefined}
@@ -579,7 +641,7 @@ export default function DealView({
                     ) : (
                       <Typography variant="body2">
                         {somethingToApprove
-                          ? "Approve all writes your reviewed answers to Salesforce."
+                          ? summaryText || "Approve all writes your reviewed answers to Salesforce."
                           : `This stage is complete. Move the opportunity on when you're ready.`}
                       </Typography>
                     )}
@@ -639,7 +701,7 @@ export default function DealView({
               title="Needs your review"
               tone="warning"
               count={sections.review.length}
-              description="Heard on calls and proposed by the AI. Approve all writes them to Salesforce; edit one first if it isn't right."
+              description="What the calls say, next to what Salesforce has. Approve all writes the suggestions; edit one first if it isn't right."
               hideWhenEmpty
             >
               {sections.review.map((field) => renderField(field))}
@@ -726,6 +788,14 @@ export default function DealView({
       ) : (
         <DealChat opportunityId={deal.opportunityId} entries={chat} onChange={setChat} />
       )}
+
+      {/* The full account of a suggestion, beside the page; the field is read fresh from the deal. */}
+      <ProvenanceDrawer
+        field={explained ? (fields.find((f) => f.key === explained.key) ?? explained) : null}
+        detail={detail}
+        open={explained !== null}
+        onClose={() => setExplained(null)}
+      />
     </>
   );
 }

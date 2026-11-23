@@ -1,0 +1,79 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import type { JSX, ReactNode } from "react";
+import { Link as RouterLink } from "react-router";
+import { Box, Link, Stack, Typography } from "@wso2/oxygen-ui";
+import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
+import { useDocumentTitle } from "@hooks/useDocumentTitle";
+
+/** The frame every Engagement App screen draws: the title with its status chips, one or two plain sentences under it, and the screen's actions on the right of the title block (FinanceShell's look, with the Claims page's actions placement). */
+export default function EaPage({
+  title,
+  documentTitle,
+  subtitle,
+  chips,
+  actions,
+  back,
+  children,
+}: {
+  readonly title: ReactNode;
+  /** The browser tab's title, when `title` is not plain text. */
+  readonly documentTitle?: string;
+  readonly subtitle?: ReactNode;
+  readonly chips?: ReactNode;
+  readonly actions?: ReactNode;
+  readonly back?: { readonly to: string; readonly label: string };
+  readonly children: ReactNode;
+}): JSX.Element {
+  useDocumentTitle(documentTitle ?? (typeof title === "string" ? title : undefined));
+  return (
+    <Box sx={{ minWidth: 0 }}>
+      {back ? (
+        <Link
+          component={RouterLink}
+          to={back.to}
+          variant="body2"
+          underline="none"
+          sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mb: 1, fontWeight: 600 }}
+        >
+          <ArrowLeftIcon size={14} /> {back.label}
+        </Link>
+      ) : null}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2.25, flexWrap: { xs: "wrap", md: "nowrap" } }}>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.75 }}>
+            <Typography component="h1" variant="h5">
+              {title}
+            </Typography>
+            {chips}
+          </Stack>
+          {subtitle ? (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, maxWidth: "95ch" }}>
+              {subtitle}
+            </Typography>
+          ) : null}
+        </Box>
+        {actions ? (
+          <Stack direction="row" spacing={1} sx={{ flexShrink: 0, alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
+            {actions}
+          </Stack>
+        ) : null}
+      </Box>
+      {children}
+    </Box>
+  );
+}

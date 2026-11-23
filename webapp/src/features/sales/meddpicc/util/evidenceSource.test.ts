@@ -21,6 +21,7 @@ import {
   describeEvidenceSources,
   describeSources,
   hasCustomerEvidence,
+  leadQuote,
   newestFirst,
   roleOf,
   sourceOf,
@@ -107,5 +108,20 @@ describe("describeEvidenceSources", () => {
       ]),
     ).toBe("2 calls · 1 email · 1 note");
     expect(describeEvidenceSources([])).toBe("");
+  });
+});
+
+describe("leadQuote", () => {
+  const at = (id: string, occurredAt: string) => ({ type: "EMAIL" as const, id, title: `Re: ${id}`, occurredAt, url: null });
+
+  it("leads with the newest customer quote, or the newest of any when nobody on the customer's side is quoted", () => {
+    const customerOld = email({ source: at("a", "2026-10-01T09:00:00Z") });
+    const customerNew = email({ source: at("b", "2026-10-03T09:00:00Z") });
+    const wso2Newest = email({ authorRole: "WSO2", source: at("c", "2026-10-05T09:00:00Z") });
+    const unknown = email({ authorRole: "UNKNOWN", source: at("d", "2026-10-04T09:00:00Z") });
+
+    expect(leadQuote([customerOld, wso2Newest, customerNew])).toBe(customerNew);
+    expect(leadQuote([unknown, wso2Newest])).toBe(wso2Newest);
+    expect(leadQuote([])).toBeUndefined();
   });
 });

@@ -16,12 +16,12 @@
 
 import { useEffect, useRef } from "react";
 import { alpha, Box, Button, Chip, Divider, Skeleton, Stack, Typography } from "@wso2/oxygen-ui";
-import { SparklesIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import type { CallMeddpicc } from "../api/useCallMeddpicc";
 import type { LetterKey } from "../types";
 import { groupEvidence, lettersInWords, type CallProposal } from "../util/callInsight";
 import { COVERAGE_LABELS, LETTER_KEYS, formatFieldValue, letterLabel } from "../util/meddpiccFormat";
+import { EchoIcon } from "./EchoMarker";
 import EvidenceItem from "./EvidenceItem";
 
 /**
@@ -206,7 +206,7 @@ function Suggestion({ proposal }: { proposal: CallProposal }) {
       })}
     >
       <Box component="span" sx={{ color: proposal.pending ? "warning.dark" : "text.secondary", display: "inline-flex", mt: "3px" }} aria-hidden>
-        <SparklesIcon size={14} />
+        <EchoIcon size={14} />
       </Box>
       <Box sx={{ minWidth: 0, flex: 1 }}>
         <Stack direction="row" spacing={0.75} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 0.25 }}>
