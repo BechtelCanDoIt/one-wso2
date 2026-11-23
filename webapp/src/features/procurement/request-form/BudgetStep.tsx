@@ -157,7 +157,11 @@ export default function BudgetStep({
             value={draft.notes}
             onChange={(notes) => onChange({ notes })}
           />
+        </>
+      )}
 
+      {(!isEvent || draft.event.eventType !== "INDUSTRY_EVENT_SPONSORSHIP") && (
+        <>
           <SectionHeading>Attachments</SectionHeading>
           <AttachmentsField label="Quotes, specifications or other documents" value={draft.attachments} onChange={(attachments) => onChange({ attachments })} />
         </>

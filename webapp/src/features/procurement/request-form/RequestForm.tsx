@@ -39,6 +39,8 @@ import {
   STEP_DETAILS,
   STEP_REQUESTER,
   STEP_REVIEW,
+  sharesDeclaration,
+  submittedNotes,
   type RequestDraft,
 } from "./requestFormModel";
 
@@ -153,7 +155,10 @@ export default function RequestForm({
       <FieldErrorsContext.Provider value={errors}>
       <Box ref={body}>
         {step === STEP_REQUESTER && <RequesterStep draft={draft} me={me} today={todayIso()} onChange={patch} />}
-        {step === STEP_CATEGORY && <CategoryStep category={draft.category} onChange={(category) => patch({ category })} />}
+        {step === STEP_CATEGORY && <CategoryStep
+            category={draft.category}
+            onChange={(category) => patch({ category, declarationAccepted: draft.declarationAccepted && sharesDeclaration(draft.category, category) })}
+          />}
         {step === STEP_DETAILS &&
           (draft.category === "EVENTS" ? <EventDetailsStep
               event={draft.event}
@@ -178,7 +183,7 @@ export default function RequestForm({
                 vendors: draft.category === "EVENTS" ? [] : draft.vendors,
                 budget: budgetForDisplay(draft.budget, lookups, engagementCodes.data ?? []),
                 budgetApprover: draft.category === "EVENTS" ? "" : budgetApprovers.data?.find((a) => a.id === draft.budgetApproverId)?.name ?? "",
-                notes: draft.notes,
+                notes: submittedNotes(draft),
                 attachments: [
                   ...draft.attachments.saved.map((a) => ({ key: `saved-${a.id}`, name: a.name, sizeBytes: a.sizeBytes })),
                   ...draft.attachments.files.map((f, index) => ({ key: `new-${index}`, name: f.name, sizeBytes: f.size })),

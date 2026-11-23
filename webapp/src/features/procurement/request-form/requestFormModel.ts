@@ -347,8 +347,10 @@ export const splitLinks = (value: string): string[] => value.split(/[\s,]+/).fil
 
 const invalidLink = (value: string): boolean => {
   if (blank(value)) return false;
+  const text = value.trim();
+  if (/\s/.test(text)) return true;
   try {
-    return !["http:", "https:"].includes(new URL(value.trim()).protocol);
+    return !["http:", "https:"].includes(new URL(text).protocol);
   } catch {
     return true;
   }
@@ -494,6 +496,14 @@ export function isSamePerson(a: Person, b: Person): boolean {
 
 const cleanList = (values: string[]): string[] => values.map((v) => v.trim()).filter(Boolean);
 
+/** Whether two categories are submitted under the same declaration: Marketing & Events has its own. */
+export const sharesDeclaration = (from: RequestDraft["category"], to: RequestDraft["category"]): boolean =>
+  (from === "EVENTS") === (to === "EVENTS");
+
+/** The notes a request is sent with: a shortlisted event is not asked for any, so none it held are kept. */
+export const submittedNotes = (draft: RequestDraft): string =>
+  draft.category === "EVENTS" && draft.event.shortlisted === "yes" ? "" : draft.notes;
+
 /**
  * The request the backend is sent. The requester, status and dates are not in
  * it: the server takes them from the token and its own clock.
@@ -516,7 +526,7 @@ export function draftToInput(draft: RequestDraft): PurchaseRequestInput {
     vendors: draft.category === "EVENTS" ? [] : draft.vendors.filter((v) => !blank(v.name)),
     budget: draft.budget,
     budgetApproverId: draft.category === "EVENTS" ? "" : draft.budgetApproverId,
-    notes: draft.category === "EVENTS" && draft.event.shortlisted === "yes" ? "" : draft.notes,
+    notes: submittedNotes(draft),
     attachments: draft.attachments,
     declarationAccepted: draft.declarationAccepted,
   };

@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { ReactNode } from "react";
+import { useRef, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { alpha, Box, ButtonBase, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import { Building2Icon, LaptopIcon, MegaphoneIcon } from "@wso2/oxygen-ui-icons-react";
 import type { ProcurementCategory } from "../types";
@@ -47,19 +47,28 @@ function CategoryCard({
   title,
   description,
   selected,
+  tabIndex,
+  buttonRef,
   onSelect,
+  onKeyDown,
 }: {
   icon: ReactNode;
   title: string;
   description: string;
   selected: boolean;
+  tabIndex: number;
+  buttonRef: Ref<HTMLButtonElement>;
   onSelect: () => void;
+  onKeyDown: (event: KeyboardEvent<HTMLElement>) => void;
 }) {
   return (
     <ButtonBase
+      ref={buttonRef}
       role="radio"
       aria-checked={selected}
+      tabIndex={tabIndex}
       onClick={onSelect}
+      onKeyDown={onKeyDown}
       sx={{
         position: "relative",
         display: "flex",
@@ -76,6 +85,7 @@ function CategoryCard({
         bgcolor: (theme: Theme) => (selected ? alpha(theme.palette.primary.main, 0.06) : "transparent"),
         transition: "border-color 0.15s, background-color 0.15s",
         "&:hover": { borderColor: selected ? "primary.main" : "text.secondary" },
+        "&.Mui-focusVisible": { outline: 2, outlineStyle: "solid", outlineColor: "primary.main", outlineOffset: 2 },
       }}
     >
       <Box
@@ -129,13 +139,32 @@ export default function CategoryStep({
   onChange: (category: ProcurementCategory) => void;
 }) {
   const error = useFieldError("category");
+  const cards = useRef<(HTMLButtonElement | null)[]>([]);
+  // Only one card is a tab stop, as in any radio group: the chosen one, or the first while none is chosen.
+  const stop = Math.max(0, CATEGORIES.findIndex((c) => c.value === category));
+  const move = (from: number, step: number) => {
+    const next = (from + step + CATEGORIES.length) % CATEGORIES.length;
+    onChange(CATEGORIES[next].value);
+    cards.current[next]?.focus();
+  };
+  const arrowKeys = (index: number) => (event: KeyboardEvent<HTMLElement>) => {
+    const step = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+    if (step === 0) return;
+    event.preventDefault();
+    move(index, step);
+  };
   return (
     <Stack spacing={3.5} sx={{ py: 1 }} data-field-error={error ? "true" : undefined}>
       <StepTitle>Procurement category</StepTitle>
       <Box role="radiogroup" aria-label="Procurement category" sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" } }}>
-        {CATEGORIES.map((c) => (
+        {CATEGORIES.map((c, index) => (
           <CategoryCard
             key={c.value}
+            tabIndex={index === stop ? 0 : -1}
+            buttonRef={(element) => {
+              cards.current[index] = element;
+            }}
+            onKeyDown={arrowKeys(index)}
             icon={c.icon}
             title={c.title}
             description={c.description}

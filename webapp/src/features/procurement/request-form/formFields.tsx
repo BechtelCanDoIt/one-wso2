@@ -172,6 +172,7 @@ export function YesNoField({
   children?: ReactNode;
 }) {
   const error = useFieldError(name);
+  const errorId = useId();
   return (
     <Box sx={{ px: bare ? 0 : 2.25, py: bare ? 0 : 1.75 }} data-field-error={error ? "true" : undefined}>
       <Box
@@ -196,6 +197,8 @@ export function YesNoField({
           value={value || null}
           onChange={(_, next: YesNo | null) => next && onChange(next)}
           aria-label={label}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
           sx={{
             flexShrink: 0,
             "& .MuiToggleButton-root": { textTransform: "none", fontWeight: 500, minWidth: 76, px: 2 },
@@ -211,7 +214,7 @@ export function YesNoField({
         </ToggleButtonGroup>
       </Box>
       {error && (
-        <Typography role="alert" variant="caption" color="error" sx={{ display: "block", mt: 0.75 }}>
+        <Typography id={errorId} role="alert" variant="caption" color="error" sx={{ display: "block", mt: 0.75 }}>
           {error}
         </Typography>
       )}

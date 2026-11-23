@@ -264,6 +264,30 @@ describe("RequestForm, the steps after it", () => {
     expect(screen.getByRole("button", { name: "Add files" })).toBeInTheDocument();
   });
 
+  it("moves between the category cards with the arrow keys, wrapping round, and keeps one card as the tab stop", async () => {
+    const { user } = renderForm();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    const cards = screen.getAllByRole("radio");
+    const stops = () => cards.map((c) => c.getAttribute("tabindex"));
+    expect(stops()).toEqual(["0", "-1", "-1"]);
+    await user.click(cards[0]);
+    await user.keyboard("{ArrowRight}");
+    expect(cards[1]).toBeChecked();
+    expect(cards[1]).toHaveFocus();
+    expect(stops()).toEqual(["-1", "0", "-1"]);
+    await user.keyboard("{ArrowLeft}{ArrowLeft}");
+    expect(cards[2]).toBeChecked();
+  });
+
+  it("marks a Yes/No question whose answer is missing as invalid and ties it to its message", async () => {
+    const { user } = renderForm(me, { ...emptyDraft(), category: "IT" });
+    for (let i = 0; i < 3; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
+    const question = screen.getByRole("group", { name: /interact with this platform/ });
+    expect(question).toHaveAttribute("aria-invalid", "true");
+    const message = document.getElementById(question.getAttribute("aria-describedby") ?? "");
+    expect(message).toHaveTextContent("Select an option");
+  });
+
   it("asks for the budget without vendors on the next step", async () => {
     const draft = {
       ...emptyDraft(),
@@ -283,6 +307,7 @@ describe("RequestForm, the steps after it", () => {
     const { user } = renderForm(me, draft);
     for (let i = 0; i < 3; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));
     expect(screen.getByRole("heading", { name: "Budget" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add files" })).toBeInTheDocument();
     expect(screen.queryByText("Proposed vendor")).toBeNull();
   });
 

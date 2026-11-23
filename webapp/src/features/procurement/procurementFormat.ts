@@ -16,3 +16,12 @@
 
 export const formatDate = (iso: string): string =>
   new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+
+/**
+ * A calendar date written as `YYYY-MM-DD`, shown as that same day wherever the viewer is. It is
+ * not read as midnight UTC, which would show the day before to anyone west of UTC.
+ */
+export const formatCalendarDate = (date: string): string => {
+  const [year, month, day] = date.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+};

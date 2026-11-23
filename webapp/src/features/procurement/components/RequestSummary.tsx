@@ -18,7 +18,7 @@ import { useState, type ReactNode } from "react";
 import { Box, Button, Card, CardContent, Chip, Link, Stack, Typography } from "@wso2/oxygen-ui";
 import { EVENT_COSTS, EVENT_TYPES, INSTALLATION_TYPES, PACKAGE_INCLUSIONS, splitLinks, totalInvestment } from "../request-form/requestFormModel";
 import { formatSize } from "../request-form/attachmentRules";
-import { formatDate } from "../procurementFormat";
+import { formatCalendarDate, formatDate } from "../procurementFormat";
 import type { BudgetDetails, EventDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
 
 /** A file on a request, as the summary lists it. A row with `onDownload` offers a Download button. */
@@ -231,7 +231,7 @@ function EventRows({ e }: { e: EventDetails }) {
       <Row label="Event type" value={choiceLabel(EVENT_TYPES, e.eventType)} />
       <Row label="On the EVENT_SHORTLIST" value={shortlisted ? joined("Yes", `Line ID ${e.shortlistLineId}`) : yesNo(e.shortlisted)} />
       <Row label="Event name" value={e.name} />
-      <Row label="Dates" value={e.startDate && e.endDate ? `${formatDate(e.startDate)} to ${formatDate(e.endDate)}` : ""} />
+      <Row label="Dates" value={e.startDate && e.endDate ? `${formatCalendarDate(e.startDate)} to ${formatCalendarDate(e.endDate)}` : ""} />
       <Row label="Main audience" value={e.audience} />
       {industry && (
         <>

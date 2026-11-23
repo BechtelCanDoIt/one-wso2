@@ -289,17 +289,42 @@ describe("the Procurement backend adapter", () => {
       expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests"]);
     });
 
-    it("does not upload again a file the request already holds, so a retry does not attach it twice", async () => {
+    it("does not upload again a file this session already uploaded, so a retry does not attach it twice", async () => {
       authedPost.mockResolvedValue({ id: 7, status: "DRAFT" });
-      fetchWithReauth.mockResolvedValueOnce(new Response(null, { status: 201 })).mockResolvedValueOnce(new Response("", { status: 503 }));
+      fetchWithReauth
+        .mockResolvedValueOnce(new Response(JSON.stringify({ id: 1 }), { status: 201 }))
+        .mockResolvedValueOnce(new Response("", { status: 503 }));
       const input = withFiles([file("a.pdf"), file("b.pdf")]);
       const adapter = api();
       await expect(adapter.submitRequest(input)).rejects.toThrow('"b.pdf" could not be attached.');
-      answers["/requests/7/attachments"] = [{ id: 1, fileName: "a.pdf", contentType: "application/pdf", sizeBytes: 3, scanStatus: "CLEAN", uploadedBy: "me@example.com", uploadedOn: "2026-11-02T00:00:00Z" }];
       fetchWithReauth.mockReset();
-      fetchWithReauth.mockResolvedValue(new Response(null, { status: 201 }));
+      fetchWithReauth.mockResolvedValue(new Response(JSON.stringify({ id: 2 }), { status: 201 }));
       authedPost.mockImplementation(async (url: string) => (url === "/requests/7/submit" ? { id: 7, status: "PENDING_APPROVAL" } : null));
       await adapter.submitRequest(input);
+      expect(uploaded()).toEqual(["b.pdf"]);
+    });
+
+    it("uploads two different files that have the same name and size", async () => {
+      authedPost.mockResolvedValue({ id: 7, status: "DRAFT" });
+      fetchWithReauth.mockImplementation(async () => new Response(JSON.stringify({ id: 1 }), { status: 201 }));
+      await api().submitRequest(withFiles([new File(["aaa"], "quote.pdf"), new File(["bbb"], "quote.pdf")]));
+      expect(uploaded()).toEqual(["quote.pdf", "quote.pdf"]);
+    });
+
+    it("removes a file an earlier attempt uploaded when the requester drops it before trying again", async () => {
+      authedPost.mockResolvedValue({ id: 7, status: "DRAFT" });
+      authedDelete.mockResolvedValue(undefined);
+      fetchWithReauth
+        .mockResolvedValueOnce(new Response(JSON.stringify({ id: 11 }), { status: 201 }))
+        .mockResolvedValueOnce(new Response("", { status: 503 }));
+      const [a, b] = [file("a.pdf"), file("b.pdf")];
+      const adapter = api();
+      await expect(adapter.submitRequest(withFiles([a, b]))).rejects.toThrow('"b.pdf" could not be attached.');
+      fetchWithReauth.mockReset();
+      fetchWithReauth.mockResolvedValue(new Response(JSON.stringify({ id: 12 }), { status: 201 }));
+      authedPost.mockImplementation(async (url: string) => (url === "/requests/7/submit" ? { id: 7, status: "PENDING_APPROVAL" } : null));
+      await adapter.submitRequest(withFiles([b]));
+      expect(authedDelete.mock.calls.map((c) => c[0])).toEqual(["/requests/7/attachments/11"]);
       expect(uploaded()).toEqual(["b.pdf"]);
     });
 

@@ -49,7 +49,7 @@ function ResubmitForm({ request, onDone }: { request: PurchaseRequest; onDone: (
   if (!me.data || !lookups.data || !attachments.data) return <Skeleton variant="rounded" height={320} />;
   // A later refresh can fail while the data is still held. The form stays mounted, so what has been typed and the
   // step it is on are not lost; the failure is shown beside it.
-  const refreshFailed = me.isError ? me : lookups.isError ? lookups : null;
+  const refreshFailed = me.isError ? me : lookups.isError ? lookups : attachments.isError ? attachments : null;
   return (
     <>
       {refreshFailed && (

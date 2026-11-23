@@ -24,6 +24,8 @@ import {
   emptyEvent,
   incompleteSteps,
   problemsForStep,
+  sharesDeclaration,
+  submittedNotes,
   STEP_BUDGET,
   STEP_CATEGORY,
   STEP_DETAILS,
@@ -174,6 +176,11 @@ describe("links", () => {
     expect(fields(STEP_DETAILS, withDocs("ftp://example.com/a"), me)).toEqual(["vendorDocsLink"]);
   });
 
+  it("are refused when a vendor website contains a space, which a browser would quietly encode", () => {
+    const site = "https://acme.example.com/a b";
+    expect(fields(STEP_BUDGET, { ...completeIt(), vendors: [{ name: "Acme", website: site, contact: "", email: "", phone: "" }] }, me)).toEqual(["vendorWebsite.0"]);
+  });
+
   it("need a vendor website, when given, that starts with http or https", () => {
     const draft = completeIt();
     const withSite = (website: string): RequestDraft => ({ ...draft, vendors: [{ name: "Acme", website, contact: "", email: "", phone: "" }] });
@@ -222,6 +229,23 @@ describe("limits the backend keeps", () => {
     expect(fields(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: names(9) } }, me)).toEqual([]);
     expect(fields(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: names(10) } }, me)).toEqual(["userNames"]);
     expect(fields(STEP_DETAILS, { ...draft, details: { ...draft.details, adminNames: names(10) } }, me)).toEqual(["adminNames"]);
+  });
+});
+
+describe("what a draft keeps when its category changes", () => {
+  it("shares a declaration between IT and Non-IT, but not with Marketing & Events", () => {
+    expect(sharesDeclaration("IT", "NON-IT")).toBe(true);
+    expect(sharesDeclaration("", "IT")).toBe(true);
+    expect(sharesDeclaration("EVENTS", "EVENTS")).toBe(true);
+    expect(sharesDeclaration("IT", "EVENTS")).toBe(false);
+    expect(sharesDeclaration("EVENTS", "NON-IT")).toBe(false);
+  });
+
+  it("sends no notes for a shortlisted event, and shows the same", () => {
+    const draft = { ...emptyDraft(), category: "EVENTS" as const, notes: "Ring first" };
+    expect(submittedNotes(draft)).toBe("Ring first");
+    expect(submittedNotes({ ...draft, event: { ...draft.event, shortlisted: "yes" } })).toBe("");
+    expect(submittedNotes({ ...draft, category: "IT", event: { ...draft.event, shortlisted: "yes" } })).toBe("Ring first");
   });
 });
 
@@ -367,6 +391,12 @@ describe("a Marketing & Events request", () => {
     const draft = completeEvent();
     expect(messageOf({ ...draft, event: { ...draft.event, newPipeline: "242001" } }, "newPipeline")).toBe("Must be at least 4x the total investment");
     expect(missing({ ...draft, event: { ...draft.event, newPipeline: "242002" } })).toEqual([]);
+  });
+
+  it("refuses event links that contain a space", () => {
+    const draft = completeEvent();
+    expect(missing({ ...draft, event: { ...draft.event, roiCalculatorUrl: "https://example.com/a b" } })).toEqual(["roiCalculatorUrl"]);
+    expect(missing({ ...draft, event: { ...draft.event, prospectusUrl: "https://example.com/a b" } })).toEqual(["prospectusUrl"]);
   });
 
   it("needs an end date on or after the start date", () => {

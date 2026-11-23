@@ -158,23 +158,34 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
     return leftoverDraftId;
   };
 
+  /** What this session has uploaded to each request, by the file chosen: the id the backend gave it. */
+  const uploaded = new Map<string, Map<File, string>>();
+
+  const removeAttachment = async (requestId: string, attachmentId: string): Promise<void> => {
+    try {
+      await authedDelete(urls.attachment(requestId, attachmentId), await getAccessToken());
+    } catch (error) {
+      if (!(error instanceof HttpError) || error.status !== 404) throw error;
+    }
+  };
+
   /**
-   * Removes what the requester took off the request and uploads what they added, one file at a time.
-   * A file the request already holds with the same name and size is not uploaded again, so a retry
-   * after a failure part-way does not attach it twice.
+   * Makes the request's files match the requester's choice: removes what they took off, removes what an
+   * earlier attempt uploaded and they have since dropped, and uploads what is new, one file at a time.
+   * A file this session already uploaded is not uploaded again, so a retry after a failure part-way does
+   * not attach it twice, and two different files with the same name and size are never taken for one.
    */
   const syncAttachments = async (requestId: string, { removed, files }: PurchaseRequestInput["attachments"]): Promise<void> => {
-    for (const id of removed) {
-      try {
-        await authedDelete(urls.attachment(requestId, id), await getAccessToken());
-      } catch (error) {
-        if (!(error instanceof HttpError) || error.status !== 404) throw error;
-      }
+    for (const id of removed) await removeAttachment(requestId, id);
+    const done = uploaded.get(requestId) ?? new Map<File, string>();
+    uploaded.set(requestId, done);
+    for (const [file, id] of done) {
+      if (files.includes(file)) continue;
+      if (id) await removeAttachment(requestId, id);
+      done.delete(file);
     }
-    if (files.length === 0) return;
-    const held = (await get<BackendAttachment[]>(urls.attachments(requestId))).map(toAttachment);
     for (const file of files) {
-      if (held.some((a) => a.name === file.name && a.sizeBytes === file.size)) continue;
+      if (done.has(file)) continue;
       const body = new FormData();
       body.append("file", file, file.name);
       const url = urls.attachments(requestId);
@@ -183,6 +194,8 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
         const message = describeError(new HttpError(url, res.status, await res.text().catch(() => "")));
         throw new Error(`"${file.name}" could not be attached. ${message}`);
       }
+      const created = (await res.json().catch(() => null)) as Pick<BackendAttachment, "id"> | null;
+      done.set(file, created ? String(created.id) : "");
     }
   };
 
@@ -223,12 +236,14 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
       await syncAttachments(requestId, input.attachments);
       const submitted = await submitSaved(requestId, input.declarationAccepted);
       leftoverDraftId = null;
+      uploaded.delete(requestId);
       return submitted;
     },
     resubmitRequest: async (requestId, input) => {
       await authedPut(urls.request(requestId), await getAccessToken(), toNewRequest(input));
       await syncAttachments(requestId, input.attachments);
       await submitSaved(requestId, input.declarationAccepted);
+      uploaded.delete(requestId);
     },
     listApprovals: async (status) =>
       (await get<BackendApprovalItem[]>(urls.approvals(REQUEST_PAGE_SIZE, status && toBackendStatus(status)))).map(toApprovalItem),
