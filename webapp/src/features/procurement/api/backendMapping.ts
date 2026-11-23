@@ -19,6 +19,7 @@
 
 import { emptyDetails, emptyEvent } from "../request-form/requestFormModel";
 import type {
+  Attachment,
   BudgetApproverOption,
   BudgetDetails,
   Choice,
@@ -41,6 +42,7 @@ import type {
 } from "../types";
 import type {
   BackendApprovalItem,
+  BackendAttachment,
   BackendNewDecision,
   BackendProcurementItem,
   BackendItDetails,
@@ -102,6 +104,16 @@ export function toMe(user: BackendUser, lead: BackendTeamLeadResult, signedIn: P
     approvalExempt: lead.approvalExempt,
   };
 }
+
+export const toAttachment = (a: BackendAttachment): Attachment => ({
+  id: String(a.id),
+  name: a.fileName,
+  contentType: a.contentType,
+  sizeBytes: a.sizeBytes,
+  scanStatus: a.scanStatus.toLowerCase() as Attachment["scanStatus"],
+  uploadedBy: a.uploadedBy,
+  uploadedAt: a.uploadedOn,
+});
 
 export function toSummary(row: BackendRequestSummary): RequestSummary {
   return {

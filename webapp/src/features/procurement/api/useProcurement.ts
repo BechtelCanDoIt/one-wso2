@@ -21,7 +21,8 @@ import { defaultQueryRetry } from "@api/http";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
 import { MIN_DIRECTORY_QUERY } from "../request-form/requestFormModel";
-import type { ApprovalDecisionInput, Person, Priority, PurchaseRequestInput, RequestStatus } from "../types";
+import { saveBlob } from "../components/saveBlob";
+import type { ApprovalDecisionInput, Attachment, Person, Priority, PurchaseRequestInput, RequestStatus } from "../types";
 import { createProcurementApi, isProcurementAvailable } from "./procurementApi";
 
 const REFERENCE_STALE_TIME = 5 * 60 * 1000;
@@ -138,6 +139,25 @@ export function useRequest(requestId: string | undefined) {
     enabled: enabled && Boolean(requestId),
     retry: defaultQueryRetry,
     queryFn: () => api!.getRequest(requestId!),
+  });
+}
+
+/** The files saved on a request. */
+export function useAttachments(requestId: string | undefined) {
+  const { api, userId, enabled } = useProcurementContext();
+  return useQuery({
+    queryKey: [...root(userId), "request", requestId, "attachments"],
+    enabled: enabled && Boolean(requestId),
+    retry: defaultQueryRetry,
+    queryFn: () => api!.listAttachments(requestId!),
+  });
+}
+
+/** Save one of a request's files to the person's computer. */
+export function useDownloadAttachment(requestId: string) {
+  const { api } = useProcurementContext();
+  return useMutation({
+    mutationFn: async (attachment: Attachment) => saveBlob(await api!.downloadAttachment(requestId, attachment.id), attachment.name),
   });
 }
 

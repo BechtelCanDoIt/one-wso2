@@ -2144,6 +2144,9 @@ export const procurementServiceUrls = {
   request: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}`,
   submitRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/submit`,
   cancelRequest: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/cancel`,
+  attachments: (requestId: string): string => `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/attachments`,
+  attachment: (requestId: string, attachmentId: string): string =>
+    `${procurementBackendUrl}/requests/${encodeSegment(requestId)}/attachments/${encodeSegment(attachmentId)}`,
 };
 
 export const cado2ServiceUrls = {

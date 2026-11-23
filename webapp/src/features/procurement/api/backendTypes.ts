@@ -140,6 +140,16 @@ export type BackendPackageInclusion =
   | "ATTENDEE_LIST"
   | "SPONSORED_SESSION";
 
+export interface BackendAttachment {
+  id: number;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  scanStatus: "FAILED" | "INFECTED" | "CLEAN" | "PENDING";
+  uploadedBy: string;
+  uploadedOn: string;
+}
+
 export interface BackendVendor {
   name: string;
   website?: string | null;

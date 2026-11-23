@@ -19,12 +19,20 @@ import { HttpError } from "@api/http";
 import { draftToInput, emptyDraft } from "../request-form/requestFormModel";
 import type { Person } from "../types";
 
-const { authedGet, authedPost, authedPut } = vi.hoisted(() => ({ authedGet: vi.fn(), authedPost: vi.fn(), authedPut: vi.fn() }));
+const { authedGet, authedPost, authedPut, authedDelete, fetchWithReauth } = vi.hoisted(() => ({
+  authedGet: vi.fn(),
+  authedPost: vi.fn(),
+  authedPut: vi.fn(),
+  authedDelete: vi.fn(),
+  fetchWithReauth: vi.fn(),
+}));
 vi.mock("@api/http", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@api/http")>()),
   authedGet,
   authedPost,
   authedPut,
+  authedDelete,
+  fetchWithReauth,
 }));
 
 import { createProcurementApi } from "./procurementApi";
@@ -109,7 +117,11 @@ beforeEach(() => {
   authedGet.mockReset();
   authedPost.mockReset();
   authedPut.mockReset();
+  authedDelete.mockReset();
+  fetchWithReauth.mockReset();
+  fetchWithReauth.mockImplementation(async () => new Response(null, { status: 201 }));
   answers["/requests/7"] = requestDetail;
+  answers["/requests/7/attachments"] = [];
   authedGet.mockImplementation(async (url: string) => {
     if (!(url in answers)) throw new Error(`unexpected request: ${url}`);
     return answers[url];
@@ -244,6 +256,77 @@ describe("the Procurement backend adapter", () => {
     await api().resubmitRequest("7", nonItInput());
     expect(authedPut.mock.calls.map((c) => c[0])).toEqual(["/requests/7"]);
     expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/submit"]);
+  });
+
+  describe("attachments", () => {
+    const file = (name: string, size = 3) => new File([new Uint8Array(size)], name, { type: "application/pdf" });
+    const withFiles = (files: File[], removed: string[] = []) => {
+      const input = nonItInput();
+      input.attachments = { saved: [], removed, files };
+      return input;
+    };
+    const uploaded = (): string[] => fetchWithReauth.mock.calls.map((c) => ((c[1] as RequestInit).body as FormData).get("file")).map((f) => (f as File).name);
+
+    it("uploads the files after saving the draft and before submitting it", async () => {
+      const order: string[] = [];
+      authedPost.mockImplementation(async (url: string) => {
+        order.push(url);
+        return url === "/requests" ? { id: 7, status: "DRAFT" } : { id: 7, status: "PENDING_APPROVAL", referenceNo: "PR-2026-00007" };
+      });
+      fetchWithReauth.mockImplementation(async (url: string) => {
+        order.push(`upload ${url}`);
+        return new Response(null, { status: 201 });
+      });
+      await api().submitRequest(withFiles([file("quote.pdf"), file("spec.pdf")]));
+      expect(order).toEqual(["/requests", "upload /requests/7/attachments", "upload /requests/7/attachments", "/requests/7/submit"]);
+      expect(uploaded()).toEqual(["quote.pdf", "spec.pdf"]);
+    });
+
+    it("does not submit when a file is refused, and says which one and why", async () => {
+      authedPost.mockResolvedValue({ id: 7, status: "DRAFT" });
+      fetchWithReauth.mockResolvedValue(new Response(JSON.stringify({ message: "The file type is not allowed." }), { status: 400 }));
+      await expect(api().submitRequest(withFiles([file("quote.pdf")]))).rejects.toThrow('"quote.pdf" could not be attached. The file type is not allowed.');
+      expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests"]);
+    });
+
+    it("does not upload again a file the request already holds, so a retry does not attach it twice", async () => {
+      authedPost.mockResolvedValue({ id: 7, status: "DRAFT" });
+      fetchWithReauth.mockResolvedValueOnce(new Response(null, { status: 201 })).mockResolvedValueOnce(new Response("", { status: 503 }));
+      const input = withFiles([file("a.pdf"), file("b.pdf")]);
+      const adapter = api();
+      await expect(adapter.submitRequest(input)).rejects.toThrow('"b.pdf" could not be attached.');
+      answers["/requests/7/attachments"] = [{ id: 1, fileName: "a.pdf", contentType: "application/pdf", sizeBytes: 3, scanStatus: "CLEAN", uploadedBy: "me@example.com", uploadedOn: "2026-11-02T00:00:00Z" }];
+      fetchWithReauth.mockReset();
+      fetchWithReauth.mockResolvedValue(new Response(null, { status: 201 }));
+      authedPost.mockImplementation(async (url: string) => (url === "/requests/7/submit" ? { id: 7, status: "PENDING_APPROVAL" } : null));
+      await adapter.submitRequest(input);
+      expect(uploaded()).toEqual(["b.pdf"]);
+    });
+
+    it("takes off what the requester removed, then uploads what they added, when a rejected request is resubmitted", async () => {
+      authedPost.mockResolvedValue(null);
+      authedDelete.mockResolvedValue(undefined);
+      await api().resubmitRequest("7", withFiles([file("new.pdf")], ["4", "5"]));
+      expect(authedDelete.mock.calls.map((c) => c[0])).toEqual(["/requests/7/attachments/4", "/requests/7/attachments/5"]);
+      expect(uploaded()).toEqual(["new.pdf"]);
+      expect(authedPost.mock.calls.map((c) => c[0])).toEqual(["/requests/7/submit"]);
+    });
+
+    it("ignores a removed file the backend no longer has", async () => {
+      authedPost.mockResolvedValue(null);
+      authedDelete.mockRejectedValue(new HttpError("/requests/7/attachments/4", 404, ""));
+      await expect(api().resubmitRequest("7", withFiles([], ["4"]))).resolves.toBeUndefined();
+    });
+
+    it("lists a request's files with their scan result, and downloads one as bytes", async () => {
+      answers["/requests/7/attachments"] = [{ id: 1, fileName: "a.pdf", contentType: "application/pdf", sizeBytes: 3, scanStatus: "INFECTED", uploadedBy: "me@example.com", uploadedOn: "2026-11-02T00:00:00Z" }];
+      expect(await api().listAttachments("7")).toEqual([
+        { id: "1", name: "a.pdf", contentType: "application/pdf", sizeBytes: 3, scanStatus: "infected", uploadedBy: "me@example.com", uploadedAt: "2026-11-02T00:00:00Z" },
+      ]);
+      fetchWithReauth.mockResolvedValue(new Response("bytes"));
+      expect((await api().downloadAttachment("7", "1")).size).toBe(5);
+      expect(fetchWithReauth.mock.calls[0][0]).toBe("/requests/7/attachments/1");
+    });
   });
 
   it("cancels a request", async () => {

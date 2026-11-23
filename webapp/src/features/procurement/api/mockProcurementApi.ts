@@ -22,6 +22,8 @@
 // only a rejected request is edited.
 
 import type {
+  Attachment,
+  AttachmentsDraft,
   BudgetApproverOption,
   Choice,
   Person,
@@ -324,6 +326,38 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
     }
   };
 
+  const attached = new Map<string, { meta: Attachment; blob: Blob }[]>([
+    [
+      "seed-2",
+      [
+        {
+          meta: { id: "a-1", name: "Colombo-space-quote.pdf", contentType: "application/pdf", sizeBytes: 182_000, scanStatus: "clean", uploadedBy: user.email, uploadedAt: "2026-11-03T08:00:00.000Z" },
+          blob: new Blob(["Sample quote"], { type: "application/pdf" }),
+        },
+      ],
+    ],
+  ]);
+  let attachmentCounter = 1;
+  const syncAttachments = (requestId: string, { removed, files }: AttachmentsDraft): void => {
+    const kept = (attached.get(requestId) ?? []).filter((a) => !removed.includes(a.meta.id));
+    for (const file of files) {
+      attachmentCounter += 1;
+      kept.push({
+        meta: {
+          id: `a-${attachmentCounter}`,
+          name: file.name,
+          contentType: file.type || "application/octet-stream",
+          sizeBytes: file.size,
+          scanStatus: "clean",
+          uploadedBy: user.email,
+          uploadedAt: new Date().toISOString(),
+        },
+        blob: file,
+      });
+    }
+    attached.set(requestId, kept);
+  };
+
   const approverName = (id: string): string => MOCK_BUDGET_APPROVERS.find((a) => a.id === id)?.name ?? "";
 
   return {
@@ -375,6 +409,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         updatedAt: now,
       };
       requests.push(created);
+      syncAttachments(created.id, input.attachments);
       return { id: created.id, reference: created.reference };
     },
     resubmitRequest: async (requestId, input) => {
@@ -397,6 +432,7 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         notes: input.notes,
         updatedAt: new Date().toISOString(),
       });
+      syncAttachments(requestId, input.attachments);
     },
     listApprovals: async (status = "submitted") =>
       toApprove
@@ -459,6 +495,15 @@ function buildMockProcurementApi(user: Person): ProcurementApi {
         throw new Error("Only a submitted or rejected request can be cancelled.");
       }
       Object.assign(existing, { status: "cancelled", updatedAt: new Date().toISOString() });
+    },
+    listAttachments: async (requestId) => {
+      find(requestId);
+      return (attached.get(requestId) ?? []).map((a) => a.meta);
+    },
+    downloadAttachment: async (requestId, attachmentId) => {
+      const found = (attached.get(requestId) ?? []).find((a) => a.meta.id === attachmentId);
+      if (!found) throw new Error("Attachment not found.");
+      return found.blob;
     },
   };
 }

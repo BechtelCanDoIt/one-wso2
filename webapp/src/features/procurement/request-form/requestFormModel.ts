@@ -18,7 +18,10 @@
 // missing what, and how a draft becomes the request the backend is sent. All
 // pure: the screens only render it.
 
+import { emptyAttachments } from "./attachmentRules";
 import type {
+  Attachment,
+  AttachmentsDraft,
   BudgetDetails,
   Choice,
   EventCostCategory,
@@ -144,6 +147,7 @@ export interface RequestDraft {
   /** The chosen budget approver's id, or "" when none. */
   budgetApproverId: string;
   notes: string;
+  attachments: AttachmentsDraft;
   declarationAccepted: boolean;
 }
 
@@ -220,12 +224,13 @@ export function emptyDraft(): RequestDraft {
     budget: emptyBudget(),
     budgetApproverId: "",
     notes: "",
+    attachments: emptyAttachments(),
     declarationAccepted: false,
   };
 }
 
 /** A rejected request, reopened for editing. The declaration must be made again on resubmit. */
-export function draftFromRequest(request: PurchaseRequest): RequestDraft {
+export function draftFromRequest(request: PurchaseRequest, attachments: readonly Attachment[] = []): RequestDraft {
   return {
     category: request.category,
     additionalApprovers: request.additionalApprovers.map((email) => ({ id: email, name: email, email })),
@@ -240,6 +245,7 @@ export function draftFromRequest(request: PurchaseRequest): RequestDraft {
     budget: { ...request.budget },
     budgetApproverId: request.budgetApproverId,
     notes: request.notes,
+    attachments: { saved: [...attachments], removed: [], files: [] },
     declarationAccepted: false,
   };
 }
@@ -511,6 +517,7 @@ export function draftToInput(draft: RequestDraft): PurchaseRequestInput {
     budget: draft.budget,
     budgetApproverId: draft.category === "EVENTS" ? "" : draft.budgetApproverId,
     notes: draft.category === "EVENTS" && draft.event.shortlisted === "yes" ? "" : draft.notes,
+    attachments: draft.attachments,
     declarationAccepted: draft.declarationAccepted,
   };
 }

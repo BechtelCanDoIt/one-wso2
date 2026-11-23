@@ -161,6 +161,28 @@ export interface BudgetDetails {
   salesforceCampaign: string;
 }
 
+/** Where an attachment stands in the malware scan. */
+export type ScanStatus = "pending" | "clean" | "infected" | "failed";
+
+/** A file saved on a request. */
+export interface Attachment {
+  id: string;
+  name: string;
+  contentType: string;
+  sizeBytes: number;
+  scanStatus: ScanStatus;
+  /** Email of whoever attached it. */
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
+/** What the form holds about a request's files: those already saved, those to remove on submit, and those still to upload. */
+export interface AttachmentsDraft {
+  saved: Attachment[];
+  removed: string[];
+  files: File[];
+}
+
 /** What the requester fills in. The requester, team lead, status and dates are set by the server, never sent. */
 export interface PurchaseRequestInput {
   category: ProcurementCategory;
@@ -173,6 +195,7 @@ export interface PurchaseRequestInput {
   /** The chosen budget approver's id, or "" when none. */
   budgetApproverId: string;
   notes: string;
+  attachments: AttachmentsDraft;
   declarationAccepted: boolean;
 }
 
