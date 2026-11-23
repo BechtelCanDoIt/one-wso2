@@ -539,6 +539,26 @@ describe("a Marketing & Events request", () => {
     expect(request.event.partnerInvestmentPercent).toBe("30");
   });
 
+  it("adds up several lines of one cost without leaving a fraction of a cent", () => {
+    const request = toRequest(
+      detail({
+        category: "MARKETING_EVENTS",
+        eventDetails: {
+          eventType: "WSO2CON",
+          eventName: "Con",
+          startDate: "2027-05-01",
+          endDate: "2027-05-02",
+          audience: "Customers",
+          costs: [
+            { category: "SWAG", amount: 0.07 },
+            { category: "SWAG", amount: 0.14 },
+          ],
+        },
+      }),
+    );
+    expect(request.event.costs.SWAG).toBe("0.21");
+  });
+
   it("is an empty event when the request has none", () => {
     expect(toRequest(detail()).event).toEqual(emptyEvent());
   });

@@ -181,7 +181,7 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
     uploaded.set(requestId, done);
     for (const [file, id] of done) {
       if (files.includes(file)) continue;
-      if (id) await removeAttachment(requestId, id);
+      await removeAttachment(requestId, id);
       done.delete(file);
     }
     for (const file of files) {
@@ -194,8 +194,9 @@ function createHttpProcurementApi(getAccessToken: () => Promise<string>, user: P
         const message = describeError(new HttpError(url, res.status, await res.text().catch(() => "")));
         throw new Error(`"${file.name}" could not be attached. ${message}`);
       }
-      const created = (await res.json().catch(() => null)) as Pick<BackendAttachment, "id"> | null;
-      done.set(file, created ? String(created.id) : "");
+      const created = (await res.json().catch(() => null)) as Partial<Pick<BackendAttachment, "id">> | null;
+      if (typeof created?.id !== "number") throw new Error(`"${file.name}" could not be attached. The answer to the upload was not understood.`);
+      done.set(file, String(created.id));
     }
   };
 

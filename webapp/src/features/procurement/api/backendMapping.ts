@@ -248,7 +248,7 @@ function toEvent(e: BackendEventDetails | null): EventDetails {
     if (cost.category === "OTHER") {
       otherCosts.push({ description: cost.description ?? "", amount: String(cost.amount) });
     } else {
-      costs[cost.category] = String((Number(costs[cost.category] || 0) * 100 + cost.amount * 100) / 100);
+      costs[cost.category] = String(Math.round(Number(costs[cost.category] || 0) * 100 + cost.amount * 100) / 100);
     }
   }
   return {

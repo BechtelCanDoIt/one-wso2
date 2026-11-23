@@ -354,7 +354,7 @@ export default function RequestSummary({
       </Section>
 
       {view.attachments && view.attachments.length > 0 && (
-        <Section title="Attachments" onEdit={edit(view.category === "EVENTS" ? 3 : 4)}>
+        <Section title="Attachments" onEdit={edit(view.category === "EVENTS" && view.event.eventType === "INDUSTRY_EVENT_SPONSORSHIP" ? 3 : 4)}>
           {view.attachments.map((a) => (
             <Row key={a.key} label={a.name}>
               <Stack direction="row" spacing={1.5} alignItems="center" useFlexGap flexWrap="wrap">

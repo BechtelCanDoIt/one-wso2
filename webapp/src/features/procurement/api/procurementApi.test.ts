@@ -119,7 +119,7 @@ beforeEach(() => {
   authedPut.mockReset();
   authedDelete.mockReset();
   fetchWithReauth.mockReset();
-  fetchWithReauth.mockImplementation(async () => new Response(null, { status: 201 }));
+  fetchWithReauth.mockImplementation(async () => new Response(JSON.stringify({ id: 1 }), { status: 201 }));
   answers["/requests/7"] = requestDetail;
   answers["/requests/7/attachments"] = [];
   authedGet.mockImplementation(async (url: string) => {
@@ -275,7 +275,7 @@ describe("the Procurement backend adapter", () => {
       });
       fetchWithReauth.mockImplementation(async (url: string) => {
         order.push(`upload ${url}`);
-        return new Response(null, { status: 201 });
+        return new Response(JSON.stringify({ id: order.length }), { status: 201 });
       });
       await api().submitRequest(withFiles([file("quote.pdf"), file("spec.pdf")]));
       expect(order).toEqual(["/requests", "upload /requests/7/attachments", "upload /requests/7/attachments", "/requests/7/submit"]);
@@ -309,6 +309,15 @@ describe("the Procurement backend adapter", () => {
       fetchWithReauth.mockImplementation(async () => new Response(JSON.stringify({ id: 1 }), { status: 201 }));
       await api().submitRequest(withFiles([new File(["aaa"], "quote.pdf"), new File(["bbb"], "quote.pdf")]));
       expect(uploaded()).toEqual(["quote.pdf", "quote.pdf"]);
+    });
+
+    it("treats an upload whose answer has no id as failed, so no file is ever tracked without an id to delete it by", async () => {
+      authedPost.mockResolvedValue({ id: 7, status: "DRAFT" });
+      for (const answer of [null, JSON.stringify({}), JSON.stringify({ id: "x" })]) {
+        fetchWithReauth.mockResolvedValue(new Response(answer, { status: 201 }));
+        await expect(api().submitRequest(withFiles([file("quote.pdf")]))).rejects.toThrow('"quote.pdf" could not be attached.');
+      }
+      expect(authedPost.mock.calls.map((c) => c[0]).filter((u) => u.endsWith("/submit"))).toEqual([]);
     });
 
     it("removes a file an earlier attempt uploaded when the requester drops it before trying again", async () => {

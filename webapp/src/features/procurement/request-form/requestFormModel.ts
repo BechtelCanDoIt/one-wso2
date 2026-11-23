@@ -328,7 +328,8 @@ function saasDetailsProblems(d: RequestDetails): Problem[] {
   if (d.integrates === "yes") {
     need("integrationSystem", !d.integrations.some((i) => !blank(i.system)));
     need("vendorDocs", !d.vendorDocs, PICK);
-    need("vendorDocsLink", d.vendorDocs === "yes" && (blank(d.vendorDocsLink) || splitLinks(d.vendorDocsLink).some(invalidLink)), blank(d.vendorDocsLink) ? REQUIRED : LINKS);
+    const links = splitLinks(d.vendorDocsLink);
+    need("vendorDocsLink", d.vendorDocs === "yes" && (links.length === 0 || links.some(invalidLink)), links.length === 0 ? REQUIRED : LINKS);
   }
   return problems;
 }

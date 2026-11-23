@@ -279,6 +279,17 @@ describe("RequestForm, the steps after it", () => {
     expect(cards[2]).toBeChecked();
   });
 
+  it("marks the category group as required, and invalid with its message once none is chosen", async () => {
+    const { user } = renderForm();
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    const group = screen.getByRole("radiogroup", { name: "Procurement category" });
+    expect(group).toHaveAttribute("aria-required", "true");
+    expect(group).not.toHaveAttribute("aria-invalid");
+    await user.click(screen.getByRole("button", { name: "Continue" }));
+    expect(group).toHaveAttribute("aria-invalid", "true");
+    expect(document.getElementById(group.getAttribute("aria-describedby") ?? "")).toHaveTextContent("Choose a category");
+  });
+
   it("marks a Yes/No question whose answer is missing as invalid and ties it to its message", async () => {
     const { user } = renderForm(me, { ...emptyDraft(), category: "IT" });
     for (let i = 0; i < 3; i += 1) await user.click(screen.getByRole("button", { name: /Continue/ }));

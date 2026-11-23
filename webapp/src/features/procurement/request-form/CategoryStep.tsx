@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useRef, type KeyboardEvent, type ReactNode, type Ref } from "react";
+import { useId, useRef, type KeyboardEvent, type ReactNode, type Ref } from "react";
 import { alpha, Box, ButtonBase, Stack, Typography, type Theme } from "@wso2/oxygen-ui";
 import { Building2Icon, LaptopIcon, MegaphoneIcon } from "@wso2/oxygen-ui-icons-react";
 import type { ProcurementCategory } from "../types";
@@ -139,6 +139,7 @@ export default function CategoryStep({
   onChange: (category: ProcurementCategory) => void;
 }) {
   const error = useFieldError("category");
+  const errorId = useId();
   const cards = useRef<(HTMLButtonElement | null)[]>([]);
   // Only one card is a tab stop, as in any radio group: the chosen one, or the first while none is chosen.
   const stop = Math.max(0, CATEGORIES.findIndex((c) => c.value === category));
@@ -156,7 +157,13 @@ export default function CategoryStep({
   return (
     <Stack spacing={3.5} sx={{ py: 1 }} data-field-error={error ? "true" : undefined}>
       <StepTitle>Procurement category</StepTitle>
-      <Box role="radiogroup" aria-label="Procurement category" sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" } }}>
+      <Box
+        role="radiogroup"
+        aria-label="Procurement category"
+        aria-required="true"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? errorId : undefined}
+        sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "repeat(3, 1fr)" } }}>
         {CATEGORIES.map((c, index) => (
           <CategoryCard
             key={c.value}
@@ -174,7 +181,7 @@ export default function CategoryStep({
         ))}
       </Box>
       {error && (
-        <Typography role="alert" variant="body2" color="error">
+        <Typography id={errorId} role="alert" variant="body2" color="error">
           {error}
         </Typography>
       )}

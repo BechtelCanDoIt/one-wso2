@@ -170,6 +170,11 @@ describe("links", () => {
     return { ...draft, details: { ...draft.details, integrates: "yes", integrations: [{ system: "Salesforce", data: "" }], vendorDocs: "yes", vendorDocsLink } };
   };
 
+  it("need at least one documentation link, so a text of only commas and spaces is refused", () => {
+    for (const bad of [",", " , ,", ",,,", "  "]) expect(fields(STEP_DETAILS, withDocs(bad), me), bad).toEqual(["vendorDocsLink"]);
+    expect(fields(STEP_DETAILS, withDocs("https://example.com/a,"), me)).toEqual([]);
+  });
+
   it("take several documentation links, separated by commas or spaces, each starting with http or https", () => {
     expect(fields(STEP_DETAILS, withDocs("https://example.com/a, http://example.com/b https://example.com/c"), me)).toEqual([]);
     expect(fields(STEP_DETAILS, withDocs("https://example.com/a, example.com/b"), me)).toEqual(["vendorDocsLink"]);

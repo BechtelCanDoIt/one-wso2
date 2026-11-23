@@ -158,6 +158,20 @@ describe("RequestSummary", () => {
     expect(onDownload).toHaveBeenCalledOnce();
   });
 
+  it("opens the step that holds the attachments: the event step for an industry sponsorship, the budget step for other requests", async () => {
+    const user = userEvent.setup();
+    const onEditStep = vi.fn();
+    const attachments = [{ key: "1", name: "quote.pdf", sizeBytes: 10 }];
+    const event = { ...emptyEvent(), eventType: "INDUSTRY_EVENT_SPONSORSHIP" as const };
+    const { rerender } = render(<RequestSummary view={view({ category: "EVENTS", event, attachments })} onEditStep={onEditStep} />);
+    await user.click(screen.getByRole("button", { name: "Edit Attachments" }));
+    rerender(<RequestSummary view={view({ category: "EVENTS", event: { ...event, eventType: "WSO2CON" }, attachments })} onEditStep={onEditStep} />);
+    await user.click(screen.getByRole("button", { name: "Edit Attachments" }));
+    rerender(<RequestSummary view={view({ attachments })} onEditStep={onEditStep} />);
+    await user.click(screen.getByRole("button", { name: "Edit Attachments" }));
+    expect(onEditStep.mock.calls).toEqual([[3], [4], [4]]);
+  });
+
   it("has no Attachments card when there are none", () => {
     render(<RequestSummary view={view({ attachments: [] })} />);
     expect(screen.queryByRole("heading", { name: "Attachments" })).toBeNull();
