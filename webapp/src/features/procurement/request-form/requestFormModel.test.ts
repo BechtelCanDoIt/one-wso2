@@ -52,33 +52,15 @@ const completeIt = (): RequestDraft => {
       product: "Figma",
       plan: "Org",
       description: "Design tool",
+      softwareRequirement: "Design and prototyping for the product team",
       usagePeriod: "1 year",
       businessJustification: "Needed",
       installationType: "PLUGIN",
-      licenseType: "COMPANY",
-      softwareUrl: "https://figma.example.com",
-      pricingUrl: "https://figma.example.com/pricing",
-      termsUrl: "https://figma.example.com/terms",
-      privacyUrl: "https://figma.example.com/privacy",
-      securityUrl: "https://figma.example.com/security",
-      urgent: "no",
-      authorizedListChecked: true,
-      legitimacyConfirmed: true,
-    },
-  };
-};
-
-const completeSaas = (): RequestDraft => {
-  const draft = completeIt();
-  return {
-    ...draft,
-    details: {
-      ...draft.details,
-      installationType: "SAAS",
       userCount: "25",
       userNames: ["Design team"],
       adminCount: "2",
       adminNames: ["IT"],
+      externalInteraction: "no",
       sensitiveData: "no",
       externalPii: "no",
       employeePii: "no",
@@ -117,48 +99,26 @@ describe("step 2 and 3", () => {
     expect(missingForStep(STEP_DETAILS, emptyDraft(), me)).toEqual(["Procurement category"]);
   });
 
-  it("ask an IT request for how it is installed, its licence, its links, urgency and both confirmations", () => {
-    const d = emptyDraft().details;
+  it("ask an IT request for its requirement, how it is installed and the usage period", () => {
     const draft: RequestDraft = {
       ...completeIt(),
-      details: { ...completeIt().details, installationType: "", licenseType: "", softwareUrl: "", pricingUrl: "ftp://x", termsUrl: d.termsUrl, urgent: "", authorizedListChecked: false, legitimacyConfirmed: false },
+      details: { ...completeIt().details, softwareRequirement: " ", installationType: "", usagePeriod: "" },
     };
     expect(missingForStep(STEP_DETAILS, draft, me)).toEqual([
+      "Requirement to use this software",
       "Installation type",
-      "Licence type",
-      "Software link (starting with http:// or https://)",
-      "Pricing link (starting with http:// or https://)",
-      "Terms link (starting with http:// or https://)",
-      "Urgency answer",
-      "Authorised software list confirmation",
-      "Legitimacy confirmation",
+      "Expected usage period",
     ]);
   });
 
-  it("accept only an http or https link that has a host", () => {
-    const withLink = (softwareUrl: string): RequestDraft => ({ ...completeIt(), details: { ...completeIt().details, softwareUrl } });
-    const refused = ["Software link (starting with http:// or https://)"];
-    for (const good of ["https://figma.example.com", "http://localhost:3000/path?x=1#top", " https://a.example.com "]) {
-      expect(missingForStep(STEP_DETAILS, withLink(good), me), good).toEqual([]);
-    }
-    for (const bad of ["https://#fragment", "https://", "figma.example.com", "ftp://files.example.com", "https://a b.example.com", "javascript:alert(1)", ""]) {
-      expect(missingForStep(STEP_DETAILS, withLink(bad), me), bad).toEqual(refused);
-    }
-  });
-
-  it("ask why a request is urgent only when it is", () => {
-    const draft: RequestDraft = { ...completeIt(), details: { ...completeIt().details, urgent: "yes" } };
-    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["Why the request is urgent"]);
-  });
-
-  it("ask only SaaS software for its security assessment", () => {
+  it("ask every IT request for the external interaction and the security assessment", () => {
     expect(missingForStep(STEP_DETAILS, completeIt(), me)).toEqual([]);
-    const draft: RequestDraft = { ...completeSaas(), details: { ...completeSaas().details, sensitiveData: "", integrates: "" } };
-    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["Sensitive data answer", "Integration answer"]);
+    const draft: RequestDraft = { ...completeIt(), details: { ...completeIt().details, externalInteraction: "", sensitiveData: "", integrates: "" } };
+    expect(missingForStep(STEP_DETAILS, draft, me)).toEqual(["External interaction answer", "Sensitive data answer", "Integration answer"]);
   });
 
   it("ask for detail only after a Yes", () => {
-    const base = completeSaas();
+    const base = completeIt();
     const yes = { ...base, details: { ...base.details, sensitiveData: "yes" as const, integrates: "yes" as const } };
     expect(missingForStep(STEP_DETAILS, yes, me)).toEqual([
       "Sensitive data details",
@@ -175,18 +135,13 @@ describe("step 2 and 3", () => {
 
 describe("the user and administrator counts", () => {
   const withCounts = (userCount: string, adminCount: string): RequestDraft => {
-    const draft = completeSaas();
+    const draft = completeIt();
     return { ...draft, details: { ...draft.details, userCount, adminCount } };
   };
 
-  it("are not asked unless the software is SaaS", () => {
-    const draft = completeIt();
-    expect(missingForStep(STEP_DETAILS, { ...draft, details: { ...draft.details, userCount: "abc" } }, me)).toEqual([]);
-  });
-
-  it("are required for SaaS software, with the names", () => {
+  it("are required, with the names", () => {
     expect(missingForStep(STEP_DETAILS, withCounts("", ""), me)).toEqual(["A whole number of users", "A whole number of administrators"]);
-    const draft = completeSaas();
+    const draft = completeIt();
     expect(missingForStep(STEP_DETAILS, { ...draft, details: { ...draft.details, userNames: [], adminNames: [] } }, me)).toEqual([
       "User names",
       "Administrator names",

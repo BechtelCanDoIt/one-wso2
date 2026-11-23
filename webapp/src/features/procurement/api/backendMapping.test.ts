@@ -42,7 +42,7 @@ const detail = (patch: Partial<BackendRequestDetail> = {}): BackendRequestDetail
   salesforceCampaign: "Q4 launch",
   notes: "Needed by January.",
   vendors: [],
-  answers: [{ questionKey: "plan", answer: "Enterprise" }, { questionKey: "usagePeriod", answer: "1 year" }],
+  answers: [],
   budgetCategoryCode: "CAT-1",
   businessUnitCode: "BU-2",
   productCode: null,
@@ -54,17 +54,10 @@ const detail = (patch: Partial<BackendRequestDetail> = {}): BackendRequestDetail
   additionalApprovers: ["other@example.com"],
   itDetails: {
     softwareName: "Figma",
-    isUrgent: true,
-    urgencyJustification: "The old licence ends Friday.",
+    planName: "Enterprise",
+    softwareRequirement: "Design and prototyping for the UX team",
+    usagePeriod: "1 year",
     installationType: "SAAS",
-    licenseType: "COMPANY",
-    softwareUrl: "https://www.figma.com",
-    pricingUrl: "https://www.figma.com/pricing",
-    termsUrl: "https://www.figma.com/terms",
-    privacyUrl: "https://www.figma.com/privacy",
-    securityUrl: "https://www.figma.com/security",
-    authorizedListChecked: true,
-    legitimacyConfirmed: true,
   },
   saasDetails: null,
   priority: null,
@@ -96,7 +89,7 @@ describe("backend mapping", () => {
     expect(toRequest(detail({ category: "MARKETING_EVENTS" })).category).toBe("EVENTS");
   });
 
-  it("maps a detail: codes stay codes, the team lead is named by email, and the answers fill the plan and usage period", () => {
+  it("maps a detail: codes stay codes, the team lead is named by email, and the IT details fill the plan, requirement and usage period", () => {
     const r = toRequest(detail());
     expect(r).toMatchObject({
       id: "5",
@@ -115,16 +108,11 @@ describe("backend mapping", () => {
       description: "Design tool for the UX team.",
       product: "Figma",
       plan: "Enterprise",
+      softwareRequirement: "Design and prototyping for the UX team",
       usagePeriod: "1 year",
       roi: "Saves 10 hours a week.",
       businessJustification: "Replaces two tools.",
       installationType: "SAAS",
-      licenseType: "COMPANY",
-      softwareUrl: "https://www.figma.com",
-      urgent: "yes",
-      urgencyJustification: "The old licence ends Friday.",
-      authorizedListChecked: true,
-      legitimacyConfirmed: true,
     });
   });
 
@@ -152,6 +140,7 @@ describe("backend mapping", () => {
           adminDetails: "IT team\nSecurity",
           userCount: 40,
           userDetails: "Design team",
+          externalInteraction: true,
           handlesSensitiveData: false,
           handlesExternalPii: true,
           externalPiiDetails: "Customer names",
@@ -252,18 +241,11 @@ describe("the request the backend is sent", () => {
       product: "Figma",
       plan: "Enterprise",
       description: "Design tool",
+      softwareRequirement: "Design and prototyping for the product team",
       usagePeriod: "1 year",
       installationType: "SAAS",
-      licenseType: "COMPANY",
-      softwareUrl: "https://a.example.com",
-      pricingUrl: "https://b.example.com",
-      termsUrl: "https://c.example.com",
-      privacyUrl: "https://d.example.com",
-      securityUrl: "https://e.example.com",
-      urgent: "no",
       businessJustification: "Needed",
-      authorizedListChecked: true,
-      legitimacyConfirmed: true,
+      externalInteraction: "yes",
       userCount: "40",
       userNames: ["Design team", "Product"],
       adminCount: "2",
@@ -292,8 +274,15 @@ describe("the request the backend is sent", () => {
       businessUnitCode: "BU-1",
       additionalApprovers: ["a@example.com"],
       vendors: [{ name: "Figma Inc", website: "https://figma.com", contactName: null }],
-      itDetails: { softwareName: "Figma", installationType: "SAAS", isUrgent: false, urgencyJustification: null, authorizedListChecked: true },
+      itDetails: {
+        softwareName: "Figma",
+        planName: "Enterprise",
+        softwareRequirement: "Design and prototyping for the product team",
+        usagePeriod: "1 year",
+        installationType: "SAAS",
+      },
       saasDetails: {
+        externalInteraction: true,
         userCount: 40,
         userDetails: "Design team\nProduct",
         adminCount: 2,
@@ -306,10 +295,7 @@ describe("the request the backend is sent", () => {
       },
     });
     expect(body).not.toHaveProperty("title");
-    expect(body.answers).toEqual([
-      { questionKey: "plan", answer: "Enterprise" },
-      { questionKey: "usagePeriod", answer: "1 year" },
-    ]);
+    expect(body.answers).toEqual([]);
   });
 
   it("keeps a name that holds a comma as one name when the request is read back", () => {
@@ -339,12 +325,6 @@ describe("the request the backend is sent", () => {
     });
     expect(read.details.userNames).toEqual(["Doe, Jane", "Design team"]);
     expect(read.details.adminNames).toEqual(["Smith, Sam"]);
-  });
-
-  it("sends no SaaS details when the software is not installed as SaaS", () => {
-    const input = itInput();
-    input.details.installationType = "PLUGIN";
-    expect(toNewRequest(input).saasDetails).toBeNull();
   });
 
   it("sends a Non-IT request without IT details or answers, with its specifications", () => {

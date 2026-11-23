@@ -35,9 +35,6 @@ export type YesNo = "yes" | "no";
 /** How the software is installed, as the backend names it. */
 export type InstallationType = "PORTABLE" | "PLUGIN" | "BROWSER_EXTENSION" | "STANDALONE" | "SAAS";
 
-/** Whose licence the software is used under, as the backend names it. */
-export type LicenseType = "FREE_COMMERCIAL" | "PERSONAL" | "CUSTOMER" | "COMPANY";
-
 /** An employee. `id` is the email, which is what the backend identifies people by. */
 export interface Person {
   id: string;
@@ -72,22 +69,14 @@ export interface RequestDetails {
   product: string;
   plan: string;
   description: string;
+  softwareRequirement: string;
   installationType: InstallationType | "";
-  licenseType: LicenseType | "";
-  softwareUrl: string;
-  pricingUrl: string;
-  termsUrl: string;
-  privacyUrl: string;
-  securityUrl: string;
-  urgent: YesNo | "";
-  urgencyJustification: string;
-  authorizedListChecked: boolean;
-  legitimacyConfirmed: boolean;
   userCount: string;
   userNames: string[];
   adminCount: string;
   adminNames: string[];
   usagePeriod: string;
+  externalInteraction: YesNo | "";
   businessJustification: string;
   roi: string;
   specifications: string;

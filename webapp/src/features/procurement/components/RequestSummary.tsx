@@ -16,7 +16,7 @@
 
 import { useState, type ReactNode } from "react";
 import { Box, Button, Card, CardContent, Chip, Stack, Typography } from "@wso2/oxygen-ui";
-import { INSTALLATION_TYPES, LICENSE_TYPES } from "../request-form/requestFormModel";
+import { INSTALLATION_TYPES } from "../request-form/requestFormModel";
 import { formatDate } from "../procurementFormat";
 import type { BudgetDetails, Person, RequestCategory, RequestDetails, Vendor, YesNo } from "../types";
 
@@ -141,49 +141,33 @@ const choiceLabel = (choices: readonly { value: string; label: string }[], value
   choices.find((c) => c.value === value)?.label ?? value;
 
 function ItRows({ d }: { d: RequestDetails }) {
-  const saas = d.installationType === "SAAS";
   return (
     <>
       <Row label="Product / solution name" value={d.product} />
       <Row label="Plan / subscription tier" value={d.plan} />
       <Row label="Description of the product / solution" value={d.description} />
+      <Row label="Requirement to use this software" value={d.softwareRequirement} />
       <Row label="Installation type" value={choiceLabel(INSTALLATION_TYPES, d.installationType)} />
-      <Row label="Licence type" value={choiceLabel(LICENSE_TYPES, d.licenseType)} />
-      <Row label="Software link" value={d.softwareUrl} />
-      <Row label="Pricing link" value={d.pricingUrl} />
-      <Row label="Terms of service link" value={d.termsUrl} />
-      <Row label="Privacy policy link" value={d.privacyUrl} />
-      <Row label="Security / compliance link" value={d.securityUrl} />
       <Row label="Expected usage period" value={d.usagePeriod} />
-      <Row label="Urgent" value={yesNo(d.urgent)} />
-      {d.urgent === "yes" && <Row label="Why it is urgent" value={d.urgencyJustification} />}
-      {saas && (
-        <>
-          <Row label="Users" value={joined(d.userCount, d.userNames.join(", "))} />
-          <Row label="Administrators" value={joined(d.adminCount, d.adminNames.join(", "))} />
-        </>
-      )}
+      <Row label="Users" value={joined(d.userCount, d.userNames.join(", "))} />
+      <Row label="Administrators" value={joined(d.adminCount, d.adminNames.join(", "))} />
+      <Row label="External parties interact with it" value={yesNo(d.externalInteraction)} />
       <Row label="Business justification" value={d.businessJustification} />
       <Row label="ROI" value={d.roi} optional />
-      {saas && (
+      <Row label="Stores sensitive Choreo Labs data" value={yesNo(d.sensitiveData)} />
+      {d.sensitiveData === "yes" && <Row label="Sensitive data" value={d.sensitiveDataDetail} />}
+      <Row label="Stores external PII" value={yesNo(d.externalPii)} />
+      {d.externalPii === "yes" && <Row label="External PII" value={d.externalPiiDetail} />}
+      <Row label="Stores employee PII" value={yesNo(d.employeePii)} />
+      {d.employeePii === "yes" && <Row label="Employee PII" value={d.employeePiiDetail} />}
+      <Row label="Integrates with Choreo Labs systems" value={yesNo(d.integrates)} />
+      {d.integrates === "yes" && (
         <>
-          <Row label="Stores sensitive WSO2 data" value={yesNo(d.sensitiveData)} />
-          {d.sensitiveData === "yes" && <Row label="Sensitive data" value={d.sensitiveDataDetail} />}
-          <Row label="Stores external PII" value={yesNo(d.externalPii)} />
-          {d.externalPii === "yes" && <Row label="External PII" value={d.externalPiiDetail} />}
-          <Row label="Stores employee PII" value={yesNo(d.employeePii)} />
-          {d.employeePii === "yes" && <Row label="Employee PII" value={d.employeePiiDetail} />}
-          <Row label="Integrates with WSO2 systems" value={yesNo(d.integrates)} />
-          {d.integrates === "yes" && (
-            <>
-              <Row label="Integrations" value={d.integrations.map((i) => joined(i.system, i.data)).join("\n")} />
-              <Row label="Vendor documentation" value={yesNo(d.vendorDocs)} />
-              {d.vendorDocs === "yes" && <Row label="Documentation link(s)" value={d.vendorDocsLink} />}
-            </>
-          )}
+          <Row label="Integrations" value={d.integrations.map((i) => joined(i.system, i.data)).join("\n")} />
+          <Row label="Vendor documentation" value={yesNo(d.vendorDocs)} />
+          {d.vendorDocs === "yes" && <Row label="Documentation link(s)" value={d.vendorDocsLink} />}
         </>
       )}
-      <Row label="Confirmations" value={d.authorizedListChecked && d.legitimacyConfirmed ? "Authorised list checked; legitimacy confirmed" : ""} />
     </>
   );
 }

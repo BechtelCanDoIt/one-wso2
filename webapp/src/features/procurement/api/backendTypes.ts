@@ -96,17 +96,10 @@ export interface BackendDecision {
 
 export interface BackendItDetails {
   softwareName: string;
-  isUrgent?: boolean;
-  urgencyJustification?: string | null;
+  planName: string;
+  softwareRequirement: string;
+  usagePeriod: string;
   installationType: "PORTABLE" | "PLUGIN" | "BROWSER_EXTENSION" | "STANDALONE" | "SAAS";
-  licenseType: "FREE_COMMERCIAL" | "PERSONAL" | "CUSTOMER" | "COMPANY";
-  softwareUrl: string;
-  pricingUrl: string;
-  termsUrl: string;
-  privacyUrl: string;
-  securityUrl: string;
-  authorizedListChecked?: boolean;
-  legitimacyConfirmed?: boolean;
 }
 
 export interface BackendVendor {
@@ -127,6 +120,7 @@ export interface BackendSaasDetails {
   adminDetails: string;
   userCount: number;
   userDetails: string;
+  externalInteraction?: boolean;
   handlesSensitiveData?: boolean;
   sensitiveDataDetails?: string | null;
   handlesExternalPii?: boolean;

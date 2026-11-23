@@ -37,7 +37,6 @@ import type {
   YesNo,
 } from "../types";
 import type {
-  BackendAnswer,
   BackendApprovalItem,
   BackendNewDecision,
   BackendProcurementItem,
@@ -150,12 +149,6 @@ export function toNewDecision(input: ApprovalDecisionInput): BackendNewDecision 
 /** An answer the backend did not give stays unanswered; only an explicit true or false is a Yes or a No. */
 const yesNo = (value: boolean | undefined): YesNo | "" => (value === undefined ? "" : value ? "yes" : "no");
 
-/** The questions the backend keeps as free-form answers, because it has no field for them. */
-const ANSWER_PLAN = "plan";
-const ANSWER_USAGE_PERIOD = "usagePeriod";
-
-const answerOf = (answers: BackendAnswer[], key: string): string => answers.find((a) => a.questionKey === key)?.answer ?? "";
-
 /** A list of names or integrations the backend holds as one text, one per line, so a name can hold a comma. */
 const NAME_SEPARATOR = "\n";
 const toNames = (text: string): string[] => text.split(NAME_SEPARATOR).map((n) => n.trim()).filter(Boolean);
@@ -179,27 +172,19 @@ function toDetails(d: BackendRequestDetail) {
   return {
     ...base,
     description: d.requirementDetails,
-    plan: answerOf(d.answers, ANSWER_PLAN),
-    usagePeriod: answerOf(d.answers, ANSWER_USAGE_PERIOD),
     businessJustification: d.businessJustification ?? "",
     roi: d.roi ?? "",
     specifications: d.additionalSpecifications ?? "",
     ...(it && {
       product: it.softwareName,
+      plan: it.planName,
+      softwareRequirement: it.softwareRequirement,
+      usagePeriod: it.usagePeriod,
       installationType: it.installationType,
-      licenseType: it.licenseType,
-      softwareUrl: it.softwareUrl,
-      pricingUrl: it.pricingUrl,
-      termsUrl: it.termsUrl,
-      privacyUrl: it.privacyUrl,
-      securityUrl: it.securityUrl,
-      urgent: yesNo(it.isUrgent ?? false),
-      urgencyJustification: it.urgencyJustification ?? "",
-      authorizedListChecked: it.authorizedListChecked ?? false,
-      legitimacyConfirmed: it.legitimacyConfirmed ?? false,
     }),
     ...(saas && {
       userCount: String(saas.userCount),
+      externalInteraction: yesNo(saas.externalInteraction),
       userNames: toNames(saas.userDetails),
       adminCount: String(saas.adminCount),
       adminNames: toNames(saas.adminDetails),
@@ -275,26 +260,17 @@ export function toRequest(d: BackendRequestDetail): PurchaseRequest {
   };
 }
 
-/**
- * The body the backend saves a request from. What the backend has no field for (the plan
- * and the usage period) goes in as answers; the title is left for the backend to make.
- */
+/** The body the backend saves a request from. The title is left for the backend to make. */
 export function toNewRequest(input: PurchaseRequestInput): BackendNewRequest {
   const { details: d, budget: b } = input;
   const isIt = input.category === "IT";
-  const saas = isIt && d.installationType === "SAAS";
-  const answers: BackendAnswer[] = isIt
-    ? [
-        { questionKey: ANSWER_PLAN, answer: orNull(d.plan) },
-        { questionKey: ANSWER_USAGE_PERIOD, answer: orNull(d.usagePeriod) },
-      ].filter((a) => a.answer !== null)
-    : [];
-  const saasDetails: BackendSaasDetails | null = saas
+  const saasDetails: BackendSaasDetails | null = isIt
     ? {
         userCount: Number(d.userCount),
         userDetails: d.userNames.join(NAME_SEPARATOR),
         adminCount: Number(d.adminCount),
         adminDetails: d.adminNames.join(NAME_SEPARATOR),
+        externalInteraction: d.externalInteraction === "yes",
         handlesSensitiveData: d.sensitiveData === "yes",
         sensitiveDataDetails: d.sensitiveData === "yes" ? orNull(d.sensitiveDataDetail) : null,
         handlesExternalPii: d.externalPii === "yes",
@@ -331,20 +307,13 @@ export function toNewRequest(input: PurchaseRequestInput): BackendNewRequest {
     itDetails: isIt
       ? {
           softwareName: d.product.trim(),
-          isUrgent: d.urgent === "yes",
-          urgencyJustification: d.urgent === "yes" ? orNull(d.urgencyJustification) : null,
+          planName: d.plan.trim(),
+          softwareRequirement: d.softwareRequirement.trim(),
+          usagePeriod: d.usagePeriod.trim(),
           installationType: d.installationType as BackendItDetails["installationType"],
-          licenseType: d.licenseType as BackendItDetails["licenseType"],
-          softwareUrl: d.softwareUrl.trim(),
-          pricingUrl: d.pricingUrl.trim(),
-          termsUrl: d.termsUrl.trim(),
-          privacyUrl: d.privacyUrl.trim(),
-          securityUrl: d.securityUrl.trim(),
-          authorizedListChecked: d.authorizedListChecked,
-          legitimacyConfirmed: d.legitimacyConfirmed,
         }
       : null,
     saasDetails,
-    answers,
+    answers: [],
   };
 }

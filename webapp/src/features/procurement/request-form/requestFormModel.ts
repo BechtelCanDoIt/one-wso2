@@ -40,7 +40,7 @@ export const MIN_DIRECTORY_QUERY = 3;
 /** The most additional approvers the backend accepts on a request. */
 export const MAX_ADDITIONAL_APPROVERS = 5;
 
-/** How long the software is expected to be used. The backend keeps it as a free-form answer, so it is not a looked-up list. */
+/** How long the software is expected to be used. The backend keeps it as free text, so it is not a looked-up list. */
 export const USAGE_PERIODS = [
   "Trial / pilot (under 3 months)",
   "Monthly plan",
@@ -52,18 +52,11 @@ export const USAGE_PERIODS = [
 ] as const;
 
 export const INSTALLATION_TYPES: readonly Choice[] = [
-  { value: "SAAS", label: "SaaS (web-based, hosted by the vendor)" },
-  { value: "STANDALONE", label: "Standalone application" },
-  { value: "PLUGIN", label: "Plugin" },
-  { value: "BROWSER_EXTENSION", label: "Browser extension" },
+  { value: "SAAS", label: "SaaS or Online" },
+  { value: "STANDALONE", label: "Standalone" },
+  { value: "BROWSER_EXTENSION", label: "Web browser extension" },
+  { value: "PLUGIN", label: "Software plugin" },
   { value: "PORTABLE", label: "Portable application" },
-];
-
-export const LICENSE_TYPES: readonly Choice[] = [
-  { value: "COMPANY", label: "WSO2 company licence" },
-  { value: "CUSTOMER", label: "Customer's licence" },
-  { value: "FREE_COMMERCIAL", label: "Free for commercial use" },
-  { value: "PERSONAL", label: "Personal licence" },
 ];
 
 export const REQUEST_STEPS = ["Requester details", "Procurement category", "Requirement details", "Vendor & budget", "Review & submit"] as const;
@@ -97,22 +90,14 @@ export function emptyDetails(): RequestDetails {
     product: "",
     plan: "",
     description: "",
+    softwareRequirement: "",
     installationType: "",
-    licenseType: "",
-    softwareUrl: "",
-    pricingUrl: "",
-    termsUrl: "",
-    privacyUrl: "",
-    securityUrl: "",
-    urgent: "",
-    urgencyJustification: "",
-    authorizedListChecked: false,
-    legitimacyConfirmed: false,
     userCount: "",
     userNames: [],
     adminCount: "",
     adminNames: [],
     usagePeriod: "",
+    externalInteraction: "",
     businessJustification: "",
     roi: "",
     specifications: "",
@@ -192,46 +177,22 @@ export function budgetForDisplay(budget: BudgetDetails, lookups: ProcurementLook
   };
 }
 
-/** A link the backend accepts: an http or https address with a host and no spaces. */
-const validUrl = (value: string): boolean => {
-  const text = value.trim();
-  if (/\s/.test(text)) return false;
-  try {
-    const url = new URL(text);
-    return (url.protocol === "http:" || url.protocol === "https:") && url.hostname !== "";
-  } catch {
-    return false;
-  }
-};
-
-const IT_LINKS = [
-  ["softwareUrl", "Software link"],
-  ["pricingUrl", "Pricing link"],
-  ["termsUrl", "Terms link"],
-  ["privacyUrl", "Privacy link"],
-  ["securityUrl", "Security link"],
-] as const;
-
 function itDetailsMissing(d: RequestDetails): string[] {
   const missing: string[] = [];
   if (blank(d.product)) missing.push("Product / solution name");
   if (blank(d.plan)) missing.push("Plan / subscription tier");
   if (blank(d.description)) missing.push("Description of the product / solution");
+  if (blank(d.softwareRequirement)) missing.push("Requirement to use this software");
   if (!d.installationType) missing.push("Installation type");
-  if (!d.licenseType) missing.push("Licence type");
-  for (const [key, label] of IT_LINKS) if (!validUrl(d[key])) missing.push(`${label} (starting with http:// or https://)`);
-  if (!d.urgent) missing.push("Urgency answer");
-  if (d.urgent === "yes" && blank(d.urgencyJustification)) missing.push("Why the request is urgent");
   if (blank(d.usagePeriod)) missing.push("Expected usage period");
   if (blank(d.businessJustification)) missing.push("Business justification");
-  if (!d.authorizedListChecked) missing.push("Authorised software list confirmation");
-  if (!d.legitimacyConfirmed) missing.push("Legitimacy confirmation");
-  if (d.installationType === "SAAS") missing.push(...saasDetailsMissing(d));
+  missing.push(...saasDetailsMissing(d));
   return missing;
 }
 
 function saasDetailsMissing(d: RequestDetails): string[] {
   const missing: string[] = [];
+  if (!d.externalInteraction) missing.push("External interaction answer");
   if (blank(d.userCount) || invalidCount(d.userCount)) missing.push("A whole number of users");
   if (d.userNames.length === 0) missing.push("User names");
   if (blank(d.adminCount) || invalidCount(d.adminCount)) missing.push("A whole number of administrators");
