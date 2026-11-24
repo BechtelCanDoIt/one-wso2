@@ -40,6 +40,7 @@ export function useEngagementUserInfo(enabled = true): UseQueryResult<UserInfo, 
     // The backend decides every call; a 403 re-asks (useRefreshAccessOnForbidden); a fresh answer replaces this one.
     initialData: () => readSessionCache<UserInfo>(CACHE, sub),
     initialDataUpdatedAt: 0,
+    refetchOnMount: (query) => query.state.dataUpdatedAt === 0,
     enabled: ready && enabled,
     // The backend caches the role tables for a minute; asking more often buys nothing.
     staleTime: 5 * 60 * 1000,

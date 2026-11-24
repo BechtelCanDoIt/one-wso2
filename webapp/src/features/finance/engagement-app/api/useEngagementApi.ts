@@ -64,6 +64,8 @@ function useEngagementGet<TWire, TView>(
     staleTime,
     initialData: persist ? () => readSessionCache<TWire>(persist.name, sub) : undefined,
     initialDataUpdatedAt: 0,
+    // The app's client does not refetch on mount by default, but a copy from a reload (never fetched, so updated at 0) must be asked again.
+    refetchOnMount: persist ? (query) => query.state.dataUpdatedAt === 0 : undefined,
     retry: httpRetry,
     // Keep the previous result (its total, for the pager) while the next page loads, the table showing a skeleton meanwhile; never another subject's rows (key[1] is the subject).
     placeholderData: keepPrevious ? (previous, previousQuery) => (previousQuery?.queryKey[1] === sub ? previous : undefined) : undefined,
