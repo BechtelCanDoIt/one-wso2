@@ -58,7 +58,7 @@ export default function MyAllocationsPage(): JSX.Element {
   ];
   return (
     <EaPage title="Allocations" subtitle="Where you are allocated, and when. Allocation managers set these; the status follows the clearance process.">
-      <AllocationsFocus />
+      <AllocationsFocus canOpen={(id) => (allocations.data?.items ?? []).some((a) => a.engagement.id === id && a.engagement.canOpen)} />
       <ListCard>
         <ListToolbar
           search={list.search}

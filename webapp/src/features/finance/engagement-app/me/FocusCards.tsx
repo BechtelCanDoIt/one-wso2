@@ -15,27 +15,48 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Box } from "@wso2/oxygen-ui";
+import type { ReactNode } from "react";
+import { Box, Card, Typography } from "@wso2/oxygen-ui";
 import { localIsoDate } from "@utils/localDate";
 import type { TravelRequestSummary } from "../api/engagementTypes";
 import { useMyOverview } from "../api/useEngagementApi";
 import { AllocationStatusChip, Mono, TravelStatusChip } from "../components/StatusChips";
-import { DateRow, Mini } from "../dashboard/dashboardParts";
-import { myAllocationLink, myEngagementPaths } from "../engagementPaths";
+import { DateRow } from "../dashboard/dashboardParts";
+import { myEngagementPaths } from "../engagementPaths";
 import { fmtRange, place } from "../model/format";
 
 const MAX = 3;
 
-/** The current and next allocations (at most three), above the Allocations list; nothing when there are none. */
-export function AllocationsFocus(): JSX.Element | null {
+/** A heading, then one small card per item side by side (wrapping on narrow screens). */
+function Strip({ title, children }: { title: string; children: ReactNode[] }): JSX.Element {
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography component="h2" sx={{ fontSize: 14.5, fontWeight: 600, mb: 1 }}>
+        {title}
+      </Typography>
+      <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
+        {children.map((c, i) => (
+          <Card key={i} variant="outlined" sx={{ px: 1.75, py: 0.25, minWidth: 0 }}>
+            {c}
+          </Card>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+/**
+ * The current and next allocations (at most three), above the Allocations list; nothing when there are none. A row
+ * opens its engagement when the overview or the list (`canOpen`) says the person may open it, and is plain otherwise.
+ */
+export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) => boolean }): JSX.Element | null {
   const overview = useMyOverview();
   const allocations = overview.data?.allocations ?? [];
   if (!allocations.length) return null;
   const today = localIsoDate();
   const current = allocations.filter((a) => a.current ?? (a.start <= today && today <= a.end)).length;
   return (
-    <Box sx={{ mb: 2 }}>
-      <Mini title={current === 0 ? "Upcoming" : current === allocations.length ? "Current" : "Current and Upcoming"}>
+    <Strip title={current === 0 ? "Upcoming" : current === allocations.length ? "Current" : "Current and Upcoming"}>
         {allocations.slice(0, MAX).map((a) => (
           <DateRow
             key={a.id}
@@ -43,11 +64,10 @@ export function AllocationsFocus(): JSX.Element | null {
             title={a.title || a.engagementId}
             lines={[fmtRange(a.start, a.end)]}
             right={a.status ? <AllocationStatusChip status={a.status} /> : undefined}
-            to={myAllocationLink(a)}
+            to={a.canOpen || canOpen(a.engagementId) ? myEngagementPaths.allocation(a.engagementId) : undefined}
           />
         ))}
-      </Mini>
-    </Box>
+    </Strip>
   );
 }
 
@@ -61,8 +81,7 @@ export function TravelsFocus({ trips }: { trips: readonly TravelRequestSummary[]
   if (!focus.length) return null;
   const ongoing = focus.filter((t) => t.start <= today).length;
   return (
-    <Box sx={{ mb: 2 }}>
-      <Mini title={ongoing === 0 ? "Upcoming" : ongoing === focus.length ? "Under Way" : "Under Way and Upcoming"}>
+    <Strip title={ongoing === 0 ? "Upcoming" : ongoing === focus.length ? "Under Way" : "Under Way and Upcoming"}>
         {focus.map((t) => (
           <DateRow
             key={t.jobNumber}
@@ -78,7 +97,6 @@ export function TravelsFocus({ trips }: { trips: readonly TravelRequestSummary[]
             to={myEngagementPaths.travelRequest(t.jobNumber)}
           />
         ))}
-      </Mini>
-    </Box>
+    </Strip>
   );
 }
