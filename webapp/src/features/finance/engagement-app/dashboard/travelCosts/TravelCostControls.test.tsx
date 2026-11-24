@@ -13,8 +13,9 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { FilterKey } from "./costView";
 import type { CostCtx } from "../widgets/types";
 import { readCostView } from "./costView";
 import TravelCostControls from "./TravelCostControls";
@@ -56,5 +57,43 @@ describe("TravelCostControls view toggle", () => {
     const set = controls({ tcView: "tables" });
     fireEvent.click(screen.getByRole("button", { name: "Charts" }));
     expect(set).toHaveBeenCalledWith({ tcView: undefined });
+  });
+});
+
+describe("TravelCostControls drill feedback", () => {
+  const rect = (top: number, bottom: number) => ({ top, bottom, left: 0, right: 0, width: 0, height: bottom - top, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+  const scroll = vi.fn();
+  beforeEach(() => {
+    vi.useFakeTimers();
+    scroll.mockClear();
+    Element.prototype.scrollIntoView = scroll;
+  });
+  afterEach(() => vi.useRealTimers());
+
+  function shown(rectOfChips: DOMRect, drill?: { id: number; key: FilterKey; value: string }) {
+    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue(rectOfChips);
+    const cost = { view: readCostView({ tcSource: "invoice" }, "2026-11-24"), set: vi.fn(), drill: vi.fn(), params: {}, query: { data: undefined }, exportCsv: vi.fn(), lastDrill: drill } as unknown as CostCtx;
+    const ui = (c: CostCtx) => <TravelCostControls cost={c} today="2026-11-24" canDownloadTransactions={false} />;
+    const r = render(ui(cost));
+    return { r, again: (d: { id: number; key: FilterKey; value: string }) => r.rerender(ui({ ...cost, lastDrill: d })) };
+  }
+
+  it("says what a click filtered by, highlights that chip for a moment and scrolls to it when it is off-screen", () => {
+    const { again } = shown(rect(-300, -270));
+    expect(screen.getByRole("status").textContent).toBe("");
+    again({ id: 1, key: "tcSource", value: "invoice" });
+    expect(screen.getByRole("status").textContent).toMatch(/^Filtered by Source: /);
+    expect(scroll).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+    const chip = screen.getByText(/^Source:/).closest(".MuiChip-root") as HTMLElement;
+    expect(chip.getAttribute("data-highlighted")).toBe("true");
+    act(() => void vi.advanceTimersByTime(1600));
+    expect(chip.getAttribute("data-highlighted")).toBeNull();
+  });
+
+  it("does not scroll when the chips are already in view", () => {
+    const { again } = shown(rect(100, 130));
+    again({ id: 1, key: "tcSource", value: "invoice" });
+    expect(scroll).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toMatch(/Filtered by Source/);
   });
 });

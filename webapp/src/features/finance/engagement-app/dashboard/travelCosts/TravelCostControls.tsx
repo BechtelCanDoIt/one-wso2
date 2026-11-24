@@ -1,5 +1,5 @@
 
-import { useState, type JSX } from "react";
+import { useEffect, useRef, useState, type JSX } from "react";
 import { Alert, Badge, Box, Button, Card, Chip, FormControlLabel, Menu, MenuItem, Stack, Switch, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ChartColumnIcon, DownloadIcon, FilterIcon, TableIcon } from "@wso2/oxygen-ui-icons-react";
 import { FilterDate, FilterSelect } from "../../components/FilterFields";
@@ -12,6 +12,8 @@ import CostFilterDialog from "./CostFilterDialog";
 import { describeFilter, FILTER_LABEL } from "./filterOptions";
 import { FILTER_KEYS, filterCount, type FilterKey } from "./costView";
 import { RANGE_PRESETS, rangeFor, rangeProblem, recentYears, type RangePreset } from "./dateRanges";
+
+const VISUALLY_HIDDEN = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /** The view toggle's buttons: icons, each with its name as tooltip and label. */
 const VIEW_MODES = [
@@ -55,6 +57,29 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
   };
 
   const active = FILTER_KEYS.filter((k) => view.filters[k]?.length);
+  // A click on a chart bar sets a filter somewhere else on the page: show where it went.
+  const chips = useRef<HTMLDivElement | null>(null);
+  const [flash, setFlash] = useState<FilterKey>();
+  const [said, setSaid] = useState("");
+  const drill = cost.lastDrill;
+  useEffect(() => {
+    if (!drill) return;
+    const values = view.filters[drill.key];
+    setSaid(`Filtered by ${FILTER_LABEL[drill.key]}: ${describeFilter(drill.key, values?.length ? values : [drill.value], data?.facets)}`);
+    setFlash(drill.key);
+    const el = chips.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > window.innerHeight) {
+        const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+        el.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+      }
+    }
+    const t = setTimeout(() => setFlash(undefined), 1500);
+    return () => clearTimeout(t);
+    // Only a new click: the filters it set are read as they stand then.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drill?.id]);
   const skipped = data ? notConvertedText(data.notConverted) : "";
   return (
     <Card variant="outlined" component="section" aria-label="Travel Costs controls" sx={{ p: 2, minWidth: 0 }}>
@@ -120,10 +145,18 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
           {problem}
         </Typography>
       ) : null}
+      <Box component="span" role="status" sx={VISUALLY_HIDDEN}>
+        {said}
+      </Box>
       {active.length ? (
-        <Stack direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: "wrap", rowGap: 0.75 }}>
+        <Stack ref={chips} direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: "wrap", rowGap: 0.75 }}>
           {active.map((k: FilterKey) => (
-            <Chip key={k} size="small" label={`${FILTER_LABEL[k]}: ${describeFilter(k, view.filters[k] ?? [], data?.facets)}`} onDelete={() => set({ [k]: undefined })} />
+            <Chip
+              key={k}
+              size="small"
+              data-highlighted={k === flash ? "true" : undefined}
+              sx={k === flash ? { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1, backgroundColor: "action.selected", transition: "outline-color 300ms, background-color 300ms" } : { transition: "outline-color 300ms, background-color 300ms" }}
+              label={`${FILTER_LABEL[k]}: ${describeFilter(k, view.filters[k] ?? [], data?.facets)}`} onDelete={() => set({ [k]: undefined })} />
           ))}
         </Stack>
       ) : null}

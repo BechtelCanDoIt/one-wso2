@@ -56,6 +56,8 @@ export interface CostCtx {
   readonly view: CostView;
   readonly set: (patch: CostViewPatch) => void;
   readonly drill: (key: FilterKey, value: string) => void;
+  /** The latest click on a bar or row that set a filter (`id` counts them), so the controls can show where it went. */
+  readonly lastDrill?: { readonly id: number; readonly key: FilterKey; readonly value: string };
   /** The filter and range parameters of this view. */
   readonly params: EngagementQueryParams;
   readonly query: UseQueryResult<TravelCosts, Error>;

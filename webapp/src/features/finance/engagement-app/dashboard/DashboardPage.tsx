@@ -38,7 +38,8 @@ import { useCostCsv } from "./travelCosts/useCostCsv";
 import { useTravelCostView } from "./travelCosts/useTravelCostView";
 import ManageWidgetsDialog from "./widgets/ManageWidgetsDialog";
 import { sectionOfWidget, WIDGET_IDS, widgetById } from "./widgets/registry";
-import type { DashboardSectionKey, SectionState, WidgetCtx, WidgetDef } from "./widgets/types";
+import type { FilterKey } from "./travelCosts/costView";
+import type { CostCtx, DashboardSectionKey, SectionState, WidgetCtx, WidgetDef } from "./widgets/types";
 import WidgetGrid from "./widgets/WidgetGrid";
 import { Rows } from "./widgets/WidgetSkeletons";
 import { mergeDashboards, sectionGroups, widgetState } from "./widgets/widgetState";
@@ -83,6 +84,15 @@ export default function DashboardPage(): JSX.Element {
   const freshDate = base?.date || undefined;
   const businessDate = freshDate || today;
   const costView = useTravelCostView(freshDate);
+  const [lastDrill, setLastDrill] = useState<CostCtx["lastDrill"]>();
+  const { drill } = costView;
+  const drillAndShow = useCallback(
+    (key: FilterKey, value: string) => {
+      drill(key, value);
+      setLastDrill((p) => ({ id: (p?.id ?? 0) + 1, key, value }));
+    },
+    [drill],
+  );
 
   // What the backend lets this person see (the last known list while the fresh one is on its way).
   const serverList = base?.widgets;
@@ -159,7 +169,7 @@ export default function DashboardPage(): JSX.Element {
     },
     retrying: groupQueries.some((q) => q.isFetching),
     allocationsToday: { businessUnit: bu, date, query: allocationsToday, change: (next) => list.setFilters({ ...list.filters, ...next }) },
-    cost: { view: costView.view, set: costView.set, drill: costView.drill, params, query: costQuery, ready: Boolean(freshDate), exportCsv },
+    cost: { view: costView.view, set: costView.set, drill: drillAndShow, lastDrill, params, query: costQuery, ready: Boolean(freshDate), exportCsv },
   };
   // A widget whose data the backend left out of a loaded section is not drawn.
   const shownDefs = defs.filter((d) => widgetState(d, ctx).kind !== "absent");
