@@ -179,6 +179,11 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
               sx={k === flash ? FLASH_SX : { transition: "background-color 300ms" }}
               label={`${FILTER_LABEL[k]}: ${describeFilter(k, view.filters[k] ?? [], data?.facets)}`} onDelete={() => set({ [k]: undefined })} />
           ))}
+          {active.length > 1 ? (
+            <Button size="small" variant="text" onClick={() => set(Object.fromEntries(active.map((k) => [k, undefined])))} sx={{ minWidth: 0, py: 0, px: 1 }}>
+              Clear All
+            </Button>
+          ) : null}
         </Stack>
       ) : null}
       {data ? (

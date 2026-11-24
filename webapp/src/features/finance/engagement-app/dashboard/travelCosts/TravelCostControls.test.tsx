@@ -103,3 +103,21 @@ describe("TravelCostControls drill feedback", () => {
     expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
   });
 });
+
+describe("TravelCostControls clear all", () => {
+  const render2 = (filters: Record<string, string>) => {
+    const set = vi.fn();
+    const cost = { view: readCostView(filters, "2026-11-24"), set, drill: vi.fn(), params: {}, query: { data: undefined }, exportCsv: vi.fn() } as unknown as CostCtx;
+    render(<TravelCostControls cost={cost} today="2026-11-24" canDownloadTransactions={false} />);
+    return set;
+  };
+  it("clears every filter at once when two or more are on", () => {
+    const set = render2({ tcSource: "invoice", tcCountry: "LK" });
+    fireEvent.click(screen.getByRole("button", { name: "Clear All" }));
+    expect(set).toHaveBeenCalledWith({ tcSource: undefined, tcCountry: undefined });
+  });
+  it("is not shown for a single filter, whose chip clears it", () => {
+    render2({ tcSource: "invoice" });
+    expect(screen.queryByRole("button", { name: "Clear All" })).toBeNull();
+  });
+});
