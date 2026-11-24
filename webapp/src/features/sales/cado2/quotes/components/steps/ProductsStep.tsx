@@ -20,6 +20,11 @@ import {
   Alert,
   Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Menu,
   MenuItem,
   Stack,
@@ -28,6 +33,8 @@ import {
   Tooltip,
   Typography,
   IconButton,
+  ListItemIcon,
+  ListItemText,
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
@@ -35,6 +42,7 @@ import {
   ChevronDownIcon,
   ChevronsDownUpIcon,
   ChevronsUpDownIcon,
+  CloudDownloadIcon,
   CopyIcon,
   HistoryIcon,
   PackageIcon,
@@ -51,10 +59,12 @@ import { useCollapsedYears } from "@features/sales/cado2/quotes/components/sheet
 import { hasYearlySchedule, orderForm, sheetFromForm } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import type { PricingPreview } from "@features/sales/cado2/quotes/api/quoteTypes";
 import {
+  useOpportunityImport,
   usePricingFormulas,
   useProductsByIds,
   useQuoteSettings,
 } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { importedLine, type LinePrefill } from "@features/sales/cado2/quotes/form/opportunityImport";
 import {
   lineFromProduct,
   supportCheckOn,
@@ -83,6 +93,7 @@ import AddLineDialog from "@features/sales/cado2/quotes/components/AddLineDialog
 import TermCard from "@features/sales/cado2/quotes/components/TermCard";
 import LastYearEnd from "@features/sales/cado2/quotes/components/LastYearEnd";
 import PreviousProductsDialog from "@features/sales/cado2/quotes/components/PreviousProductsDialog";
+import ImportOpportunityDialog from "@features/sales/cado2/quotes/components/ImportOpportunityDialog";
 import PartnerCommissionCard from "@features/sales/cado2/quotes/components/PartnerCommissionCard";
 import PricingSetupCard from "@features/sales/cado2/quotes/components/PricingSetupCard";
 import { useFieldIssue } from "@features/sales/cado2/quotes/components/fieldIssues";
@@ -195,8 +206,51 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
     : [];
   const supportProducts = useProductsByIds(supportIds, currency, values.defaultPricebookId);
   const formulas = usePricingFormulas();
+
+  // D178: a renewal opportunity's own products in Salesforce, imported into
+  // Year 1, ready ones as they are, others changed in Add product first. Read
+  // here too, so the button can say why there's nothing to import.
+  const [importing, setImporting] = useState(false);
+  const [changing, setChanging] = useState<{ prefill: LinePrefill; salesforceLineId: string } | null>(null);
+  const [changed, setChanged] = useState<ReadonlySet<string>>(new Set());
+  const importable = useOpportunityImport(values.opportunityId || null, currency, values.defaultPricebookId, isRenewal && ready);
+  const importBlocked = !ready
+    ? "Set the quote's price book first."
+    : importable.isPending
+      ? "Reading the opportunity in Salesforce…"
+      : importable.data && importable.data.lines.length === 0
+        ? "This opportunity has no products in Salesforce."
+        : "";
+  const yearOne = years[0] ?? { number: 1, start: "", end: "" };
+  const importLines = (prefills: readonly LinePrefill[]) => {
+    const lines = prefills.flatMap((p) => {
+      const f = formulas.data?.find((x) => x.productId === p.product.id && x.status === "ACTIVE");
+      const uom = f ? unitOfMeasureFor(f.unitOfMeasure, p.product.pricebookEntries[0]?.unitPrice ?? "") : (p.product.unitOfMeasure ?? "");
+      return importedLine(p, yearOne, uom) ?? [];
+    });
+    if (lines.length > 0) insert(insertIndex(getValues("lines"), yearOne.number), lines);
+  };
   const supportIssues = supportProblems(values.lines, plans);
   const [premiumMenu, setPremiumMenu] = useState<{ anchor: HTMLElement; year: number } | null>(null);
+  // The Products card's less used views (2026-11-24): grouped under "More"
+  // when there are two, so Import from opportunity stands out on a renewal.
+  const [moreMenu, setMoreMenu] = useState<HTMLElement | null>(null);
+  const views: { label: string; icon: JSX.Element; onClick: () => void; disabled?: boolean; detail?: string }[] = [
+    // D159: the products on the opportunities this renewal replaces.
+    ...(isRenewal
+      ? [
+          {
+            label: "Previous year's products",
+            icon: <HistoryIcon size={14} />,
+            onClick: () => setViewingPrevious(true),
+            disabled: previousIds.length === 0,
+            detail: previousIds.length === 0 ? "Choose the opportunities this renewal replaces in Overview to see their products." : undefined,
+          },
+        ]
+      : []),
+    // D176: who approves which discount, with these lines on it.
+    ...(onOpenMatrix ? [{ label: "Discount approval matrix", icon: <TableIcon size={14} />, onClick: onOpenMatrix }] : []),
+  ];
   // A support product as a line in a year: quantity 1, priced from the book
   // (its formula, if any; the unit of measure its version's with %LIST_PRICE%
   // filled in, else Salesforce's, D158).
@@ -254,6 +308,16 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
       setValue("partnerCommissionByYear", after.byYear, { shouldDirty: true });
       if (after.single !== null) setValue("partnerCommissionPercent", after.single, { shouldDirty: true });
     }
+  };
+  // A year's products cleared in one go, after asking (2026-11-24); the
+  // year stays. Only the draft on screen changes, as removing them one by one.
+  // The year is kept while the dialog closes, so its text doesn't flicker.
+  const [clearing, setClearing] = useState<{ year: number; open: boolean }>({ year: 1, open: false });
+  const clearingCount = values.lines.filter((l) => l.yearNumber === clearing.year).length;
+  const closeClearing = () => setClearing((c) => ({ ...c, open: false }));
+  const clearYear = () => {
+    remove(getValues("lines").flatMap((l, i) => (l.yearNumber === clearing.year ? [i] : [])));
+    closeClearing();
   };
   const changeLastEnd = (end: string) => setValue("lastYearEndDate", setLastYearEnd(getValues(), end), { shouldDirty: true });
 
@@ -318,6 +382,13 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
               </Button>
             </span>
           </Tooltip>
+        )}
+        {/* Any year can be cleared; one left empty is filled or deleted before
+            going on (D179, the step's rules). */}
+        {empty ? null : (
+          <Button size="small" aria-label={`Clear Year ${n}'s products`} onClick={() => setClearing({ year: n, open: true })}>
+            Clear
+          </Button>
         )}
         {deletable ? (
           <Tooltip
@@ -415,31 +486,52 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
         aside={
           isRenewal || years.length > 1 || onOpenMatrix ? (
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {/* D176: who approves which discount, with these lines on it. */}
-              {onOpenMatrix ? (
-                <Button size="small" startIcon={<TableIcon size={14} />} onClick={onOpenMatrix}>
-                  Discount approval matrix
-                </Button>
-              ) : null}
-              {/* D159: the products on the opportunities this renewal replaces. */}
+              {/* D178: the renewal opportunity's own products, imported: the
+                  card's main action on a renewal (2026-11-24). */}
               {isRenewal ? (
-                <Tooltip title={previousIds.length === 0 ? "Choose the opportunities this renewal replaces in Overview to see their products." : ""}>
+                <Tooltip title={importBlocked}>
                   <span>
                     <Button
                       size="small"
-                      variant="outlined"
-                      startIcon={<HistoryIcon size={14} />}
-                      disabled={previousIds.length === 0}
-                      onClick={() => setViewingPrevious(true)}
+                      variant="contained"
+                      startIcon={<CloudDownloadIcon size={14} />}
+                      disabled={Boolean(importBlocked)}
+                      onClick={() => {
+                        setChanged(new Set());
+                        setImporting(true);
+                      }}
                     >
-                      Previous year&apos;s products
+                      Import from opportunity
                     </Button>
                   </span>
                 </Tooltip>
               ) : null}
+              {views.length > 1 ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  endIcon={<ChevronDownIcon size={14} />}
+                  aria-haspopup="menu"
+                  aria-expanded={moreMenu !== null}
+                  onClick={(e) => setMoreMenu(e.currentTarget)}
+                >
+                  More
+                </Button>
+              ) : (
+                views.map((v) => (
+                  <Tooltip key={v.label} title={v.detail ?? ""}>
+                    <span>
+                      <Button size="small" startIcon={v.icon} disabled={v.disabled} onClick={v.onClick}>
+                        {v.label}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                ))
+              )}
               {years.length > 1 ? (
                 <Button
                   size="small"
+                  variant="outlined"
                   startIcon={anyFolded ? <ChevronsUpDownIcon size={14} /> : <ChevronsDownUpIcon size={14} />}
                   onClick={() => fold.toggleAll(years.map((y) => y.number))}
                 >
@@ -611,6 +703,78 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
           </MenuItem>
         ))}
       </Menu>
+      <Menu
+        anchorEl={moreMenu}
+        open={moreMenu !== null}
+        onClose={() => setMoreMenu(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        {views.map((v) => (
+          <MenuItem
+            key={v.label}
+            disabled={v.disabled}
+            onClick={() => {
+              setMoreMenu(null);
+              v.onClick();
+            }}
+          >
+            <ListItemIcon sx={{ color: "inherit" }}>{v.icon}</ListItemIcon>
+            <ListItemText primary={v.label} secondary={v.detail} slotProps={{ secondary: { variant: "caption", sx: { whiteSpace: "normal", maxWidth: 280 } } }} />
+          </MenuItem>
+        ))}
+      </Menu>
+      {isRenewal && ready ? (
+        <ImportOpportunityDialog
+          open={importing}
+          opportunityId={values.opportunityId}
+          currency={currency}
+          pricebookId={values.defaultPricebookId}
+          year={yearOne}
+          changed={changed}
+          onQuote={
+            new Set(
+              values.lines
+                .filter((l) => l.yearNumber === yearOne.number)
+                .flatMap((l) => [l.productId ?? "", l.pricebookEntryId].filter(Boolean)),
+            )
+          }
+          onAdd={importLines}
+          onChange={(prefill, salesforceLineId) => setChanging({ prefill, salesforceLineId })}
+          onClose={() => setImporting(false)}
+        />
+      ) : null}
+      {changing && values.defaultPricebookId ? (
+        <AddLineDialog
+          key={`import-${changing.salesforceLineId}`}
+          open
+          line={null}
+          prefill={changing.prefill}
+          currency={currency}
+          pricebook={{ id: values.defaultPricebookId, name: values.defaultPricebookName }}
+          year={yearOne.start ? (yearOne as ContractYear) : null}
+          onSave={(line) => {
+            insert(insertIndex(getValues("lines"), line.yearNumber), line);
+            setChanged((c) => new Set(c).add(changing.salesforceLineId));
+            setChanging(null);
+          }}
+          onClose={() => setChanging(null)}
+        />
+      ) : null}
+      <Dialog open={clearing.open} onClose={closeClearing} maxWidth="xs" fullWidth>
+        <DialogTitle>Clear Year {clearing.year}?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            This removes Year {clearing.year}&apos;s {clearingCount} {clearingCount === 1 ? "product" : "products"}. The year itself stays.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeClearing}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={clearYear}>
+            Clear products
+          </Button>
+        </DialogActions>
+      </Dialog>
       <PreviousProductsDialog
         open={viewingPrevious}
         opportunityIds={previousIds}

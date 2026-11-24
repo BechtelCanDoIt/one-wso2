@@ -154,6 +154,29 @@ export interface OpportunityLines {
   readonly lines: readonly OpportunityLineView[];
 }
 
+/**
+ * How a renewal opportunity's line can be imported (D178): as it is; after
+ * changing it in the Add product dialog; or not at all (it can't be quoted).
+ */
+export type ImportStatus = "READY" | "CHANGE" | "CANNOT";
+
+/** A renewal opportunity's line, sorted for import into the quote (D178). */
+export interface ImportLine extends OpportunityLineView {
+  readonly status: ImportStatus;
+  /** Short, e.g. "Quantity 2.5"; null when READY. */
+  readonly reason: string | null;
+  /** Its product in the quote's price book, as the product search gives it; null when it isn't there. */
+  readonly product: Product | null;
+}
+
+/** A renewal opportunity's own product lines as they are in Salesforce now (D178). */
+export interface OpportunityImport {
+  readonly opportunityName: string | null;
+  /** The opportunity's currency, which the lines are priced in. */
+  readonly currency: string | null;
+  readonly lines: readonly ImportLine[];
+}
+
 /** A contact on the opportunity, with its roles there, e.g. "Economic Buyer" (D124). */
 export interface Contact {
   readonly id: string;
