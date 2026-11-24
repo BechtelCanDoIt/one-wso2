@@ -44,7 +44,7 @@ import { AssignDialog, InvoiceDialog, PaymentDialog, PerDiemDialog, UpdateTravel
 
 const TABS: readonly TravelTab[] = ["info", "per-diems", "invoices", "payments", "card-expenses", "expense-claims"];
 
-/** One travel request: the traveller, the engagement and the trip, then the Travel app's sections as tabs — Travel Information, Per Diems, Travel Invoices and Per Diem Payments, then Credit Card Expenses and Expense Claims. Travel Cards are not shown. */
+/** One travel request: the traveller, the engagement and the trip, then its detail and expense tabs — Travel Information, Per Diems, Travel Invoices, Per Diem Payments, Credit Card Expenses and Expense Claims. */
 export default function TravelRequestPage({ area = "finance" }: { area?: "finance" | "me" }): JSX.Element {
   const { job = "", tab = "info" } = useParams();
   const trip = useTravelRequest(job);
