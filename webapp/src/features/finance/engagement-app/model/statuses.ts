@@ -26,7 +26,8 @@ import type {
   TravelStatus,
 } from "../api/engagementTypes";
 
-export type ChipTone = "success" | "error" | "warning" | "info" | "default";
+/** A status colour: the theme's success / error / warning, or a fixed in-progress blue (info) or extended violet. */
+export type ChipTone = "success" | "error" | "warning" | "info" | "violet" | "default";
 
 const EXPENSE_TONE: Readonly<Record<string, ChipTone>> = {
   New: "default",
@@ -104,7 +105,7 @@ const TRAVEL_TONE: Record<TravelStatus, ChipTone> = {
   New: "warning",
   "In Progress": "info",
   "On Hold": "default",
-  Extended: "info",
+  Extended: "violet",
   Completed: "success",
   Cancelled: "default",
 };

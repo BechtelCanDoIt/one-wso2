@@ -39,38 +39,47 @@ import {
 } from "../model/statuses";
 import { expiresIn } from "../model/format";
 
-// "In progress" blue, the same in every theme: some themes (Choreo Labs) make `info` neutral (ink in light, white in
-// dark), which leaves an in-progress status looking like plain text. Both shades pass WCAG AA on their background.
-const INFO_BLUE = { light: "#1D4ED8", dark: "#60A5FA" } as const;
+// Fixed colours, the same in every theme: in-progress blue (some themes, like Choreo Labs, make `info` neutral, ink in
+// light and white in dark, which leaves a status looking like plain text) and violet for an extended trip. Each shade
+// passes WCAG AA on its background.
+const FIXED = {
+  info: { light: "#1D4ED8", dark: "#60A5FA" },
+  violet: { light: "#6D28D9", dark: "#A78BFA" },
+} as const;
 
 /** An outlined status chip with a light fill of its own colour, so it reads as a badge rather than text. */
-export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.Element => (
-  <Chip
-    label={label}
-    color={tone === "info" ? "default" : tone}
-    size="small"
-    variant="outlined"
-    sx={(t) => ({
-      height: 20,
-      fontSize: 10.5,
-      fontWeight: 600,
-      borderWidth: 1.5,
-      bgcolor: tone === "default" || tone === "info" ? t.vars?.palette.action.selected : `color-mix(in srgb, ${t.vars?.palette[tone].main} 14%, transparent)`,
-      ...(tone === "info"
-        ? {
-            color: INFO_BLUE.light,
-            borderColor: INFO_BLUE.light,
-            bgcolor: `color-mix(in srgb, ${INFO_BLUE.light} 10%, transparent)`,
-            ...t.applyStyles("dark", {
-              color: INFO_BLUE.dark,
-              borderColor: INFO_BLUE.dark,
-              bgcolor: `color-mix(in srgb, ${INFO_BLUE.dark} 14%, transparent)`,
-            }),
-          }
-        : {}),
-    })}
-  />
-);
+export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.Element => {
+  const fixed = tone === "info" || tone === "violet" ? FIXED[tone] : undefined;
+  const themed = tone === "success" || tone === "error" || tone === "warning" ? tone : undefined;
+  return (
+    <Chip
+      label={label}
+      color={themed ?? "default"}
+      size="small"
+      variant="outlined"
+      sx={(t) => ({
+        height: 20,
+        fontSize: 10.5,
+        fontWeight: 600,
+        borderWidth: 1.5,
+        bgcolor: themed ? `color-mix(in srgb, ${t.vars?.palette[themed].main} 14%, transparent)` : t.vars?.palette.action.selected,
+        ...(fixed
+          ? {
+              color: fixed.light,
+              borderColor: fixed.light,
+              bgcolor: `color-mix(in srgb, ${fixed.light} 10%, transparent)`,
+              ...t.applyStyles("dark", {
+                color: fixed.dark,
+                borderColor: fixed.dark,
+                bgcolor: `color-mix(in srgb, ${fixed.dark} 14%, transparent)`,
+              }),
+            }
+          : {}),
+      })}
+    />
+  );
+};
+
 export const RequestStatusChip = ({ status }: { status: RequestStatus }) => <Status label={status} tone={requestTone(status)} />;
 export const EngagementStatusChip = ({ status }: { status: EngagementStatus }) => (
   <Status label={status} tone={engagementTone(status)} />
