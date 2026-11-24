@@ -163,17 +163,25 @@ function TravelCost({ d }: { d: Dashboard }): JSX.Element {
   const c = d.travelCost!;
   const share = (n: number) => `${Math.round((n / (c.total || 1)) * 100)}% of the total`;
   const cards = c.creditCards !== undefined;
-  const months = c.byMonth.map((m) => ({ month: fmtMonth(m.month), invoices: m.invoices, perDiems: m.perDiems, ...(cards ? { creditCards: m.creditCards ?? 0 } : {}) }));
+  const claims = c.expenseClaims !== undefined;
+  const months = c.byMonth.map((m) => ({
+    month: fmtMonth(m.month),
+    invoices: m.invoices,
+    perDiems: m.perDiems,
+    ...(cards ? { creditCards: m.creditCards ?? 0 } : {}),
+    ...(claims ? { expenseClaims: m.expenseClaims ?? 0 } : {}),
+  }));
   return (
     <Section
       title="Travel Cost"
-      sub={`${cards ? "Travel invoices, per diem payments and credit card expenses" : "Travel invoices and per diem payments"} in USD at month-end rates, over the last 12 months.`}
+      sub={`${cards ? (claims ? "Travel invoices, per diem payments, credit card expenses and expense claims" : "Travel invoices, per diem payments and credit card expenses") : "Travel invoices and per diem payments"} in USD at month-end rates, over the last 12 months.`}
     >
       <KpiRow>
         <Kpi label="Travel Cost, 12 Months" value={usdShort(c.total)} />
         <Kpi label="Travel Invoices" value={usdShort(c.invoices)} note={share(c.invoices)} />
         <Kpi label="Per Diems" value={usdShort(c.perDiems)} note={share(c.perDiems)} />
         {cards ? <Kpi label="Credit Card Expenses" value={usdShort(c.creditCards ?? 0)} note={share(c.creditCards ?? 0)} /> : null}
+        {claims ? <Kpi label="Expense Claims" value={usdShort(c.expenseClaims ?? 0)} note={share(c.expenseClaims ?? 0)} /> : null}
       </KpiRow>
       <Grid wide>
         <Mini title="Travel Cost by Month">
@@ -183,6 +191,7 @@ function TravelCost({ d }: { d: Dashboard }): JSX.Element {
               { key: "invoices", name: "Travel Invoices" },
               { key: "perDiems", name: "Per Diems" },
               ...(cards ? [{ key: "creditCards", name: "Credit Card Expenses" }] : []),
+              ...(claims ? [{ key: "expenseClaims", name: "Expense Claims" }] : []),
             ]}
           />
         </Mini>

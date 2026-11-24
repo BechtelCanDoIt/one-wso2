@@ -341,6 +341,7 @@ export function travelDetail(t: W.WTravelRequestDetail): V.TravelRequest {
       invoices: Boolean(t.tabs.invoices),
       travelCards: Boolean(t.tabs.travelCards),
       payments: Boolean(t.tabs.payments),
+      expenses: Boolean(t.tabs.expenses),
     },
   };
 }
@@ -386,6 +387,37 @@ export const invoice = (i: W.WInvoice): V.Invoice => ({
   addedBy: opt(i.addedBy),
   campaign: campaign(i.campaign),
   actions: i.actions,
+});
+
+/** Expense Claims status codes (expense_app). */
+const CLAIM_STATUS: Record<string, string> = { "0": "Pending Approval", "1": "Rejected", "2": "Lead Approved", "3": "Approved" };
+/** Credit card transaction statuses (expense_app), as words. */
+const CARD_STATUS: Record<string, string> = { new: "New", pending_lead: "Pending Lead", pending_finance: "Pending Finance", submitted: "Submitted" };
+const num = (n: number | null | undefined): number | undefined => (n === null || n === undefined ? undefined : n);
+
+export const tripExpenses = (w: W.WTripExpenses): V.TripExpenses => ({
+  cardExpenses: (w.cardExpenses ?? []).map((c) => ({
+    id: String(c.id),
+    date: opt(c.date),
+    expenseType: opt(c.expenseType),
+    reference: opt(c.reference),
+    amount: num(c.amount),
+    currency: opt(c.currency),
+    employee: opt(c.employeeEmail),
+    status: CARD_STATUS[s(c.status)] ?? (s(c.status) || "—"),
+  })),
+  expenseClaims: (w.expenseClaims ?? []).map((c) => ({
+    id: String(c.id),
+    claimNumber: opt(c.claimNumber),
+    date: opt(c.date),
+    expenseType: opt(c.expenseType),
+    amount: num(c.amount),
+    currency: opt(c.currency),
+    reimbursementAmount: num(c.reimbursementAmount),
+    reimbursementCurrency: opt(c.reimbursementCurrency),
+    employee: opt(c.employeeEmail),
+    status: CLAIM_STATUS[s(c.status)] ?? (s(c.status) || "—"),
+  })),
 });
 
 export const travelCard = (c: W.WTravelCard): V.TravelCard => ({
@@ -562,6 +594,7 @@ export function dashboard(d: W.WDashboard): V.Dashboard {
           invoices: tc.travelInvoices,
           perDiems: tc.perDiems,
           creditCards: tc.creditCardExpenses ?? undefined,
+          expenseClaims: tc.expenseClaims ?? undefined,
           lastMonth: tc.lastMonth,
           currentMonth: tc.currentMonth,
           byMonth: tc.byMonth.map((m) => ({
@@ -569,6 +602,7 @@ export function dashboard(d: W.WDashboard): V.Dashboard {
             invoices: m.values["Travel Invoices"] ?? 0,
             perDiems: m.values["Per Diems"] ?? 0,
             creditCards: m.values["Credit Card Expenses"],
+            expenseClaims: m.values["Expense Claims"],
           })),
           byType: tc.byType.map(bucket),
         }

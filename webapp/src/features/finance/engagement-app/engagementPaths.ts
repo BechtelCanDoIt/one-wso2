@@ -23,7 +23,7 @@ export type EngagementTab = "allocations" | "details";
 export type ApprovalSegment = "internal" | "marketing";
 export type AllocationsSegment = "engagement" | "team";
 export type TravelSegment = "new" | "in-progress" | "completed" | "all";
-export type TravelTab = "info" | "per-diems" | "invoices" | "travel-cards" | "payments";
+export type TravelTab = "info" | "per-diems" | "invoices" | "payments" | "card-expenses" | "expense-claims";
 export type InvoicesTab =
   | "po"
   | "finance"
