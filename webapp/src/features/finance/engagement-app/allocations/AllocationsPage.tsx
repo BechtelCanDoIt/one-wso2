@@ -131,7 +131,7 @@ function EngagementAllocations(): JSX.Element {
           columns={columns}
           rows={allocations.data?.items ?? []}
           rowKey={(a) => a.id}
-          loading={allocations.isPending}
+          loading={allocations.isPending || allocations.isPlaceholderData}
           onRowClick={(a) => navigate(engagementPaths.engagement(a.engagement.id))}
           menu={(a) =>
             (a.canChangeStatus ?? canEditAllocationStatus(p, a.engagement.typeId)) && !/Cancelled/.test(a.status) ? [{ label: "Update Allocation Status", onClick: () => setStatusOf(a) }] : []

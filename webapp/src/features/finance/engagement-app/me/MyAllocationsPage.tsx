@@ -75,7 +75,7 @@ export default function MyAllocationsPage(): JSX.Element {
             columns={columns}
             rows={allocations.data?.items ?? []}
             rowKey={(a) => a.id}
-            loading={allocations.isPending}
+            loading={allocations.isPending || allocations.isPlaceholderData}
             onRowClick={(a) => (a.engagement.canOpen ? navigate(myEngagementPaths.allocation(a.engagement.id)) : undefined)}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: allocations.data?.total ?? 0, onPage: list.setPage }}
             empty={

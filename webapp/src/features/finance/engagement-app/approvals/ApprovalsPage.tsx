@@ -107,7 +107,7 @@ export default function ApprovalsPage({ segment }: { segment: ApprovalSegment })
             columns={columns}
             rows={rows}
             rowKey={(e) => e.id}
-            loading={query.isPending}
+            loading={query.isPending || query.isPlaceholderData}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: query.data?.total ?? 0, onPage: list.setPage }}
             onRowClick={(e) => navigate(engagementPaths.engagement(e.id))}
             primaryAction={(e) => {

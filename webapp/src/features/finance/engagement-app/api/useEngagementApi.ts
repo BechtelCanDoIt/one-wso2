@@ -43,7 +43,7 @@ function useEngagementGet<TWire, TView>(
     enabled: ready && enabled,
     staleTime,
     retry: httpRetry,
-    // Keep the previous rows while the next page loads, but never another subject's rows (key[1] is the subject).
+    // Keep the previous result (its total, for the pager) while the next page loads, the table showing a skeleton meanwhile; never another subject's rows (key[1] is the subject).
     placeholderData: keepPrevious ? (previous, previousQuery) => (previousQuery?.queryKey[1] === sub ? previous : undefined) : undefined,
   });
   return foldIdentityError(query, subState, retryIdentity);

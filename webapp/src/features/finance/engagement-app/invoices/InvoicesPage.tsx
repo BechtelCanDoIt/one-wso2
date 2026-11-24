@@ -141,7 +141,7 @@ function InvoiceQueue({ queue }: { queue: "po" | "finance" | "push" }): JSX.Elem
           columns={invoiceColumns({ traveller: true, approvals: false, added: true })}
           rows={rows}
           rowKey={(i) => i.id}
-          loading={invoices.isPending}
+          loading={invoices.isPending || invoices.isPlaceholderData}
           selection={work.selection}
           onRowClick={setOpen}
           pagination={{ page: list.page, pageSize: PAGE_SIZE, total: invoices.data?.total ?? 0, onPage: list.setPage }}
@@ -194,7 +194,7 @@ function AllInvoices(): JSX.Element {
           columns={invoiceColumns()}
           rows={rows}
           rowKey={(i) => i.id}
-          loading={invoices.isPending}
+          loading={invoices.isPending || invoices.isPlaceholderData}
           selection={work.selection}
           onRowClick={setOpen}
           pagination={{ page: list.page, pageSize: PAGE_SIZE, total: invoices.data?.total ?? 0, onPage: list.setPage }}
@@ -253,7 +253,7 @@ function PaymentsList({ queue }: { queue: boolean }): JSX.Element {
           columns={paymentColumns({ ns: !queue })}
           rows={rows}
           rowKey={(x) => x.id}
-          loading={payments.isPending}
+          loading={payments.isPending || payments.isPlaceholderData}
           selection={work.selection}
           onRowClick={setOpen}
           pagination={{ page: list.page, pageSize: PAGE_SIZE, total: payments.data?.total ?? 0, onPage: list.setPage }}
@@ -325,7 +325,7 @@ function SyncFailures(): JSX.Element {
           columns={columns}
           rows={rows}
           rowKey={keyOf}
-          loading={failures.isPending}
+          loading={failures.isPending || failures.isPlaceholderData}
           selection={{
             selected,
             canSelect: () => true,

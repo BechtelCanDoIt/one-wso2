@@ -199,7 +199,7 @@ function TravelReport({ kind }: { kind: "invoices" | "per-diem-payments" }): JSX
           columns={invoiceColumns({ approvals: false, status: true, added: true })}
           rows={(invoices.data ?? []) as readonly Invoice[]}
           rowKey={(i) => i.id}
-          loading={invoices.isPending}
+          loading={invoices.isPending || invoices.isPlaceholderData}
           empty={<Empty title="No Invoices in This Range" body="Change the dates and search again." />}
         />
       ) : (
@@ -208,7 +208,7 @@ function TravelReport({ kind }: { kind: "invoices" | "per-diem-payments" }): JSX
           columns={paymentColumns()}
           rows={(payments.data ?? []) as readonly PerDiemPayment[]}
           rowKey={(x) => x.id}
-          loading={payments.isPending}
+          loading={payments.isPending || payments.isPlaceholderData}
           empty={<Empty title="No Per Diem Payments in This Range" body="Change the dates and search again." />}
         />
       )}
@@ -340,7 +340,7 @@ function ConsultantReport(): JSX.Element {
           rows={rows.slice(list.page * PAGE_SIZE, (list.page + 1) * PAGE_SIZE)}
           pagination={{ page: list.page, pageSize: PAGE_SIZE, total: rows.length, onPage: list.setPage }}
           rowKey={(r) => `${r.email}|${r.engagementCode}|${r.allocationTypeName}|${r.dailyHourly}|${r.engagementTypeName}`}
-          loading={report.isPending}
+          loading={report.isPending || report.isPlaceholderData}
           empty={<Empty title="No Allocations in This Period" body="Change the dates or filters and search again." />}
         />
       )}

@@ -120,7 +120,7 @@ export default function TravelRequestsPage({ segment }: { segment: TravelSegment
             columns={columns}
             rows={trips.data?.items ?? []}
             rowKey={(t) => t.jobNumber}
-            loading={trips.isPending}
+            loading={trips.isPending || trips.isPlaceholderData}
             onRowClick={open}
             primaryAction={primary}
             menu={menu}

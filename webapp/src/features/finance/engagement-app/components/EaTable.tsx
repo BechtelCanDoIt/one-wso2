@@ -116,8 +116,8 @@ export default function EaTable<T>({
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading && rows.length === 0
-              ? [0, 1, 2].map((i) => (
+            {loading
+              ? Array.from({ length: Math.min(Math.max(rows.length, 3), 10) }, (_, i) => (
                   <TableRow key={`s${i}`}>
                     <TableCell colSpan={colCount}>
                       <Skeleton variant="text" height={28} />
@@ -132,7 +132,7 @@ export default function EaTable<T>({
                 </TableCell>
               </TableRow>
             ) : null}
-            {rows.map((row) => {
+            {(loading ? [] : rows).map((row) => {
               const id = rowKey(row);
               const action = primaryAction?.(row);
               const items = menu?.(row) ?? [];

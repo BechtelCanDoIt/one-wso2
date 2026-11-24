@@ -65,7 +65,7 @@ export default function MyTravelRequestsPage(): JSX.Element {
             columns={travelColumns({ traveller: false })}
             rows={rows}
             rowKey={(t) => t.jobNumber}
-            loading={trips.isPending}
+            loading={trips.isPending || trips.isPlaceholderData}
             onRowClick={(t) => navigate(myEngagementPaths.travelRequest(t.jobNumber))}
             empty={
               all.length ? (

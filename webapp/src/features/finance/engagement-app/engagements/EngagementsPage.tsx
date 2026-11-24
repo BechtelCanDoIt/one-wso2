@@ -166,7 +166,7 @@ export default function EngagementsPage({ segment }: { segment: EngagementSegmen
             columns={columns}
             rows={engagements.data?.items ?? []}
             rowKey={(e) => e.id}
-            loading={engagements.isPending}
+            loading={engagements.isPending || engagements.isPlaceholderData}
             onRowClick={(e) => navigate(engagementPaths.engagement(e.id))}
             primaryAction={(e) => actionsFor(e).primary}
             menu={(e) => actionsFor(e).menu}
