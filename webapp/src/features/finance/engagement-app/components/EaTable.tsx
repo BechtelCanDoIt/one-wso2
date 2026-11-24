@@ -158,7 +158,7 @@ export default function EaTable<T>({
               return (
                 <TableRow
                   key={id}
-                  hover
+                  hover={Boolean(open)}
                   onClick={open ? () => open(row) : undefined}
                   tabIndex={open ? 0 : undefined}
                   onKeyDown={

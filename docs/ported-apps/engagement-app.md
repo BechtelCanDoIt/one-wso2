@@ -24,7 +24,7 @@ UI never merges them (`model/engagementAccess.ts`).
 
 | Persona (Asgardeo group) | Gets |
 |---|---|
-| Every employee (`wso2-employees`) | Dashboard (Allocations 1); Me: Allocations, Travels (Travel 49/36), Passport & Visas (Travel 20/23) |
+| Every employee (`wso2-employees`) | Me only: a plain employee has no Finance screen and is sent to Me. The Dashboard (Allocations 1) opens only for someone with another Finance screen. Me: Allocations, Travels (Travel 49/36), Passport & Visas (Travel 20/23) |
 | Account Manager, Customer / Internal / Marketing Event Managers | Engagements (create, edit, status), Allocations, Allocate per type |
 | Pre-Sale / Post-Sale Engagement Managers | Allocate on their types (33 / 32), with the Allocate page's reads (6, 16 or 21), as in production |
 | Internal Engagement / Marketing Event Approvers | Approvals (26 / 29; approve needs 28 and a PATCH privilege, as the legacy page checks) |
@@ -45,7 +45,7 @@ Paths are built in `features/finance/engagement-app/engagementPaths.ts`; no comp
 | Rail item | Id | Target | Access |
 |---|---|---|---|
 | Engagement App (Finance group) | `sec-app-engagement-app` | — | any Finance row |
-| Dashboard | `finance-ea-dashboard` | `/dashboard` | Allocations 1, or a travel agent |
+| Dashboard | `finance-ea-dashboard` | `/dashboard` | Allocations 1 and at least one other Finance screen, or a travel agent |
 | Approvals | `finance-ea-approvals` | `/approvals` | Allocations 26 / 29 |
 | Engagements | `finance-ea-engagements` | `/engagements` | Allocations 2, 3, 9, 11, 12, 13, 19 |
 | Allocations | `finance-ea-allocations` | `/allocations` | Allocations 9, 19, 21 |
@@ -90,6 +90,7 @@ flag is on. Both groups use `alwaysGroup: true`.
 | `/me/travel-requests/:job/:tab` | the person's own travel request (same page, Me rail, read-only actions) |
 | `/me/passport-visas/documents`, `/visas` | Passport & Visas |
 | `/me/allocations` | Allocations (Me; read-only, new in-app view) |
+| `/me/allocations/:id/:tab` | the person's engagement under Me (same page, Me rail, read-only, no actions) |
 
 ### 2.4 Routing rules
 

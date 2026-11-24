@@ -57,12 +57,15 @@ export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.
       color={themed ?? "default"}
       size="small"
       variant="outlined"
-      sx={(t) => ({
+      sx={(t) => {
+        // `vars` is absent on a theme without CSS variables.
+        const pal = (t.vars ?? t).palette;
+        return {
         height: 20,
         fontSize: 10.5,
         fontWeight: 600,
         borderWidth: 1.5,
-        bgcolor: themed ? `color-mix(in srgb, ${t.vars?.palette[themed].main} 14%, transparent)` : t.vars?.palette.action.selected,
+        bgcolor: themed ? `color-mix(in srgb, ${pal[themed].main} 14%, transparent)` : pal.action.selected,
         ...(fixed
           ? {
               color: fixed.light,
@@ -75,7 +78,8 @@ export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.
               }),
             }
           : {}),
-      })}
+        };
+      }}
     />
   );
 };

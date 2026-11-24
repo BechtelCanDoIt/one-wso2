@@ -147,7 +147,7 @@ describe("Engagement App routing", () => {
 
   it("sends a plain employee from Finance to their own pages under Me", () => {
     open("/finance/engagement-app/dashboard");
-    expect(where()).toBe("/me/travel-requests");
+    expect(where()).toBe("/me/allocations");
   });
 
   it("lands an approver without the Dashboard on Approvals, on its first tab", async () => {
@@ -159,7 +159,7 @@ describe("Engagement App routing", () => {
 
   it("refuses Settings to an employee at its URL, not just in the rail", () => {
     open("/finance/engagement-app/settings/allocation-types");
-    expect(where()).toBe("/me/travel-requests");
+    expect(where()).toBe("/me/allocations");
   });
 
   it("opens Settings on a tab its privilege allows", async () => {
