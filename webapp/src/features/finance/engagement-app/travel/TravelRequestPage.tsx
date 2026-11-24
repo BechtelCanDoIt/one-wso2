@@ -21,8 +21,8 @@ import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTabs";
 import { HttpError } from "@api/http";
 import { useNotifications } from "@context/notifications/NotificationsContext";
-import type { CardExpense, ExpenseClaim, Invoice, PerDiem, PerDiemPayment, TravelCard, TravelRequest, TripExpenses, TripPayments } from "../api/engagementTypes";
-import { useTravelRequest, useTripCards, useTripExpenses, useTripInvoices, useTripPayments, useTripPerDiems } from "../api/useEngagementApi";
+import type { CardExpense, ExpenseClaim, Invoice, PerDiem, PerDiemPayment, TravelRequest, TripExpenses, TripPayments } from "../api/engagementTypes";
+import { useTravelRequest, useTripExpenses, useTripInvoices, useTripPayments, useTripPerDiems } from "../api/useEngagementApi";
 import { useDeletePerDiem } from "../api/useEngagementMutations";
 import { useEngagementAccess } from "../api/useEngagementUserInfo";
 import { ConfirmDialog } from "../components/EaDialog";
@@ -40,11 +40,11 @@ import { InvoiceDrawer, PaymentDrawer } from "../invoices/RecordDrawer";
 import { useInvoiceWork, usePaymentWork } from "../invoices/useInvoiceWork";
 import { TABLE_HEAD_SX } from "../components/eaStyles";
 import { Kpi } from "../dashboard/dashboardParts";
-import { AssignDialog, InvoiceDialog, PaymentDialog, PerDiemDialog, TravelCardDialog, UpdateTravelDialog } from "./travelDialogs";
+import { AssignDialog, InvoiceDialog, PaymentDialog, PerDiemDialog, UpdateTravelDialog } from "./travelDialogs";
 
-const TABS: readonly TravelTab[] = ["info", "per-diems", "invoices", "travel-cards", "payments", "card-expenses", "expense-claims"];
+const TABS: readonly TravelTab[] = ["info", "per-diems", "invoices", "payments", "card-expenses", "expense-claims"];
 
-/** One travel request: the traveller, the engagement and the trip, then the Travel app's sections as tabs — Travel Information, Per Diems, Travel Invoices, Travel Cards and Per Diem Payments. */
+/** One travel request: the traveller, the engagement and the trip, then the Travel app's sections as tabs — Travel Information, Per Diems, Travel Invoices and Per Diem Payments, then Credit Card Expenses and Expense Claims. Travel Cards are not shown. */
 export default function TravelRequestPage({ area = "finance" }: { area?: "finance" | "me" }): JSX.Element {
   const { job = "", tab = "info" } = useParams();
   const trip = useTravelRequest(job);
@@ -78,7 +78,6 @@ export default function TravelRequestPage({ area = "finance" }: { area?: "financ
 interface TripSections {
   readonly perDiems?: readonly PerDiem[];
   readonly invoices?: readonly Invoice[];
-  readonly travelCards?: readonly TravelCard[];
   readonly payments?: TripPayments;
   readonly expenses?: TripExpenses;
 }
@@ -88,11 +87,10 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
   const [dialog, setDialog] = useState<"assign" | "update" | null>(null);
   const perDiems = useTripPerDiems(t.jobNumber, t.tabs.perDiems);
   const invoices = useTripInvoices(t.jobNumber, t.tabs.invoices);
-  const cards = useTripCards(t.jobNumber, t.tabs.travelCards);
   const payments = useTripPayments(t.jobNumber, t.tabs.payments);
   const expenses = useTripExpenses(t.jobNumber, t.tabs.expenses);
-  const sections: TripSections = { perDiems: perDiems.data, invoices: invoices.data, travelCards: cards.data, payments: payments.data, expenses: expenses.data };
-  const sectionQuery = { "per-diems": perDiems, invoices, "travel-cards": cards, payments, "card-expenses": expenses, "expense-claims": expenses, info: undefined }[tab];
+  const sections: TripSections = { perDiems: perDiems.data, invoices: invoices.data, payments: payments.data, expenses: expenses.data };
+  const sectionQuery = { "per-diems": perDiems, invoices, payments, "card-expenses": expenses, "expense-claims": expenses, info: undefined }[tab];
   const has = (id: number) => p.t.has(id);
   const a = t.actions;
   const canEdit = area === "finance" && (a ? Boolean(a.update) : has(TRAVEL.EDIT_STATUS) || has(TRAVEL.EDIT_AGENT) || has(TRAVEL.EDIT_VISA));
@@ -102,7 +100,6 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
     { segment: "info", label: "Travel Information" },
     ...(t.tabs.perDiems ? [{ segment: "per-diems", label: "Per Diems", badge: count(perDiems.data?.length) }] : []),
     ...(t.tabs.invoices ? [{ segment: "invoices", label: "Travel Invoices", badge: count(invoices.data?.length) }] : []),
-    ...(t.tabs.travelCards ? [{ segment: "travel-cards", label: "Travel Cards", badge: count(cards.data?.length) }] : []),
     ...(t.tabs.payments ? [{ segment: "payments", label: "Per Diem Payments", badge: count(payments.data?.items.length) }] : []),
     ...(t.tabs.expenses
       ? [
@@ -172,8 +169,6 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
           <PerDiemsTab t={t} s={sections} />
         ) : tab === "invoices" ? (
           <InvoicesTab t={t} s={sections} area={area} />
-        ) : tab === "travel-cards" ? (
-          <CardsTab t={t} s={sections} />
         ) : tab === "card-expenses" ? (
           <CardExpensesTab rows={sections.expenses?.cardExpenses ?? []} />
         ) : tab === "expense-claims" ? (
@@ -381,51 +376,6 @@ function ExpenseClaimsTab({ rows }: { rows: readonly ExpenseClaim[] }): JSX.Elem
       rowKey={(c) => c.id}
       empty={<Empty title="No Expense Claims" body="Expense claims tagged with this travel's job number appear here." />}
     />
-  );
-}
-
-function CardsTab({ t, s }: { t: TravelRequest; s: TripSections }): JSX.Element {
-  const { p } = useEngagementAccess();
-  const [adding, setAdding] = useState(false);
-  const rows = s.travelCards ?? [];
-  const paying = (s.payments?.items ?? []).length > 0;
-  const allowed = isOpenTrip(t.status) && !paying;
-  const add = p.t.has(TRAVEL.ADD_TRAVEL_CARDS) ? (
-    <AddButton
-      label="Add Travel Card"
-      allowed={allowed}
-      why={paying ? "The finance team has started processing the payments. Adding travel cards is not permitted at this time." : "Travel cards can be added once the request is In Progress."}
-      onClick={() => setAdding(true)}
-    />
-  ) : null;
-  return (
-    <>
-      {rows.length && add ? <TabBar>{add}</TabBar> : null}
-      <EaTable
-        ariaLabel="Travel cards"
-        columns={[
-          { key: "c", label: "Travel Card Currency", render: (c: TravelCard) => c.currency },
-          { key: "a", label: "Travel Card Amount", align: "right", render: (c: TravelCard) => money(c.amount, c.currency) },
-          { key: "d", label: "Added", render: (c: TravelCard) => <Two main={fmtDate(c.addedDate)} sub={c.addedBy} /> },
-        ]}
-        rows={rows}
-        rowKey={(c) => c.id}
-        empty={
-          <Empty
-            title="No Travel Cards"
-            body={
-              allowed
-                ? "Prepaid currency cards from the travel agent are recorded here."
-                : paying
-                  ? "Travel cards can't be added once per diem payments have started."
-                  : "Travel cards can be added once the request is In Progress."
-            }
-            action={allowed ? add : undefined}
-          />
-        }
-      />
-      {adding ? <TravelCardDialog trip={t} onClose={() => setAdding(false)} /> : null}
-    </>
   );
 }
 
