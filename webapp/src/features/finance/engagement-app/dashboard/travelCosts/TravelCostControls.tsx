@@ -133,6 +133,11 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
           Some figures are missing. {data.failedSources.map((s) => COST_SOURCE_LABEL[s]).join(" and ")} could not be read, so they are left out of every total.
         </Alert>
       ) : null}
+      {data?.comparisonFailedSources.length || data?.comparisonTruncated ? (
+        <Alert severity="info" sx={{ mt: 1.5 }}>
+          Last year's figures are incomplete{data.comparisonFailedSources.length ? `, ${data.comparisonFailedSources.map((s) => COST_SOURCE_LABEL[s]).join(" and ")} could not be read for that period` : ""}, so no change against last year is shown.
+        </Alert>
+      ) : null}
       {data?.truncated ? (
         <Alert severity="warning" sx={{ mt: 1.5 }}>
           This range has more lines than the dashboard can total. Choose a shorter period.

@@ -140,6 +140,8 @@ export function travelCosts(w: DW.WTravelCosts): D.TravelCosts {
     possibleDuplicates: w.possibleDuplicates ?? 0,
     failedSources: (w.failedSources ?? []).map(costSource),
     truncated: Boolean(w.truncated),
+    comparisonFailedSources: (w.comparisonFailedSources ?? []).map(costSource),
+    comparisonTruncated: Boolean(w.comparisonTruncated),
     facets: {
       countries: w.facets?.countries ?? [],
       travelAgents: w.facets?.travelAgents ?? [],

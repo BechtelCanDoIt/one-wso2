@@ -139,6 +139,9 @@ export interface TravelCosts {
   readonly failedSources: readonly CostSource[];
   /** A source hit the 20,000-line cap. */
   readonly truncated: boolean;
+  /** Sources that could not be read for last year. When any is listed, or last year was cut at the cap, no change against it is given. */
+  readonly comparisonFailedSources: readonly CostSource[];
+  readonly comparisonTruncated: boolean;
   readonly facets: {
     readonly countries: readonly string[];
     readonly travelAgents: readonly { readonly id: number; readonly name: string }[];

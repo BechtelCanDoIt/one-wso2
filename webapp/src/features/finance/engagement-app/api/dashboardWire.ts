@@ -127,6 +127,8 @@ export interface WTravelCosts {
   possibleDuplicates?: number;
   failedSources?: string[] | null;
   truncated?: boolean;
+  comparisonFailedSources?: string[] | null;
+  comparisonTruncated?: boolean;
   facets?: { countries?: string[]; travelAgents?: { id: number; name: string }[]; customers?: string[]; costTypes?: string[] } | null;
 }
 

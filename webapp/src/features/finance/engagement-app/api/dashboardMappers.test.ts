@@ -66,6 +66,9 @@ describe("travelCosts", () => {
     expect(t.kpis.total).toEqual({ value: 10, previous: 8, changePercent: 25, thin: false });
     expect(t.kpis.unlinkedSpend).toMatchObject({ previous: undefined, changePercent: undefined, thin: true });
     expect(travelCosts({ ...costs, compare: null }).compare).toBeUndefined();
+    const incomplete = travelCosts({ ...costs, comparisonFailedSources: ["card"], comparisonTruncated: true });
+    expect(incomplete).toMatchObject({ comparisonFailedSources: ["card"], comparisonTruncated: true });
+    expect(t).toMatchObject({ comparisonFailedSources: [], comparisonTruncated: false });
   });
 
   it("fills what the backend leaves out with empty lists and false", () => {
