@@ -55,7 +55,7 @@ import type {
   BackendReferenceItem,
   BackendRequestDetail,
   BackendRequestSummary,
-  BackendSaasDetails,
+  BackendItAssessment,
   BackendStatus,
   BackendTeamLeadResult,
   BackendUser,
@@ -185,7 +185,7 @@ const orNull = (value: string): string | null => (value.trim() === "" ? null : v
 function toDetails(d: BackendRequestDetail) {
   const base = emptyDetails();
   const it = d.itDetails;
-  const saas = d.saasDetails;
+  const assessment = d.itAssessment;
   return {
     ...base,
     description: d.requirementDetails,
@@ -199,22 +199,22 @@ function toDetails(d: BackendRequestDetail) {
       usagePeriod: it.usagePeriod,
       installationType: it.installationType,
     }),
-    ...(saas && {
-      userCount: String(saas.userCount),
-      externalInteraction: yesNo(saas.externalInteraction),
-      userNames: toNames(saas.userDetails),
-      adminCount: String(saas.adminCount),
-      adminNames: toNames(saas.adminDetails),
-      sensitiveData: yesNo(saas.handlesSensitiveData),
-      sensitiveDataDetail: saas.sensitiveDataDetails ?? "",
-      externalPii: yesNo(saas.handlesExternalPii),
-      externalPiiDetail: saas.externalPiiDetails ?? "",
-      employeePii: yesNo(saas.handlesEmployeePii),
-      employeePiiDetail: saas.employeePiiDetails ?? "",
-      integrates: yesNo(saas.integratesInternalSystems),
-      integrations: saas.integrationDetails ? integrationsFromText(saas.integrationDetails) : base.integrations,
-      vendorDocs: yesNo(Boolean(saas.vendorDocsLinks)),
-      vendorDocsLink: saas.vendorDocsLinks ?? "",
+    ...(assessment && {
+      userCount: String(assessment.userCount),
+      externalInteraction: yesNo(assessment.externalInteraction),
+      userNames: toNames(assessment.userDetails),
+      adminCount: String(assessment.adminCount),
+      adminNames: toNames(assessment.adminDetails),
+      sensitiveData: yesNo(assessment.handlesSensitiveData),
+      sensitiveDataDetail: assessment.sensitiveDataDetails ?? "",
+      externalPii: yesNo(assessment.handlesExternalPii),
+      externalPiiDetail: assessment.externalPiiDetails ?? "",
+      employeePii: yesNo(assessment.handlesEmployeePii),
+      employeePiiDetail: assessment.employeePiiDetails ?? "",
+      integrates: yesNo(assessment.integratesInternalSystems),
+      integrations: assessment.integrationDetails ? integrationsFromText(assessment.integrationDetails) : base.integrations,
+      vendorDocs: yesNo(Boolean(assessment.vendorDocsLinks)),
+      vendorDocsLink: assessment.vendorDocsLinks ?? "",
     }),
   };
 }
@@ -363,7 +363,7 @@ export function toRequest(d: BackendRequestDetail): PurchaseRequest {
 export function toNewRequest(input: PurchaseRequestInput): BackendNewRequest {
   const { details: d, budget: b } = input;
   const isIt = input.category === "IT";
-  const saasDetails: BackendSaasDetails | null = isIt
+  const itAssessment: BackendItAssessment | null = isIt
     ? {
         userCount: Number(d.userCount),
         userDetails: d.userNames.join(NAME_SEPARATOR),
@@ -413,7 +413,7 @@ export function toNewRequest(input: PurchaseRequestInput): BackendNewRequest {
           installationType: d.installationType as BackendItDetails["installationType"],
         }
       : null,
-    saasDetails,
+    itAssessment,
     eventDetails: toBackendEvent(input),
     answers: [],
   };

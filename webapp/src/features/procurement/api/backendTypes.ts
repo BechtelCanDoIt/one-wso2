@@ -203,7 +203,8 @@ export interface BackendAnswer {
   answer?: string | null;
 }
 
-export interface BackendSaasDetails {
+/** The users and the data and security assessment of the software an IT request asks for. */
+export interface BackendItAssessment {
   adminCount: number;
   adminDetails: string;
   userCount: number;
@@ -243,7 +244,7 @@ export interface BackendRequestDetail extends BackendRequestSummary {
   teamLeadEmail: string | null;
   additionalApprovers: string[];
   itDetails: BackendItDetails | null;
-  saasDetails: BackendSaasDetails | null;
+  itAssessment: BackendItAssessment | null;
   /** The event of a Marketing & Events request. */
   eventDetails: BackendEventDetails | null;
   priority: BackendPriority | null;
@@ -271,7 +272,7 @@ export interface BackendNewRequest {
   budgetApproverId: number | null;
   additionalApprovers: string[];
   itDetails: BackendItDetails | null;
-  saasDetails: BackendSaasDetails | null;
+  itAssessment: BackendItAssessment | null;
   /** The event of a Marketing & Events request; none for any other category. */
   eventDetails: BackendEventDetails | null;
   answers: BackendAnswer[];

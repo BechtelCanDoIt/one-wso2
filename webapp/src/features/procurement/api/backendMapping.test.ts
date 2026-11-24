@@ -60,7 +60,7 @@ const detail = (patch: Partial<BackendRequestDetail> = {}): BackendRequestDetail
     usagePeriod: "1 year",
     installationType: "SAAS",
   },
-  saasDetails: null,
+  itAssessment: null,
   priority: null,
   assigneeEmail: null,
   collaborators: [],
@@ -132,11 +132,11 @@ describe("backend mapping", () => {
     expect(r.budgetApproverId).toBe("");
   });
 
-  it("reads the SaaS answers into the assessment, and nothing when there are none", () => {
+  it("reads the IT assessment answers into the form, and nothing when there are none", () => {
     expect(toRequest(detail()).details.sensitiveData).toBe("");
-    const saas = toRequest(
+    const assessment = toRequest(
       detail({
-        saasDetails: {
+        itAssessment: {
           adminCount: 2,
           adminDetails: "IT team\nSecurity",
           userCount: 40,
@@ -152,7 +152,7 @@ describe("backend mapping", () => {
         },
       }),
     ).details;
-    expect(saas).toMatchObject({
+    expect(assessment).toMatchObject({
       userCount: "40",
       userNames: ["Design team"],
       adminCount: "2",
@@ -195,14 +195,14 @@ describe("backend mapping", () => {
   });
 
   it("leaves an assessment answer unanswered when the backend omits it, and reads only an explicit true or false as Yes or No", () => {
-    const saas = { adminCount: 1, adminDetails: "IT", userCount: 5, userDetails: "Team" };
-    expect(toRequest(detail({ saasDetails: saas })).details).toMatchObject({
+    const assessment = { adminCount: 1, adminDetails: "IT", userCount: 5, userDetails: "Team" };
+    expect(toRequest(detail({ itAssessment: assessment })).details).toMatchObject({
       sensitiveData: "",
       externalPii: "",
       employeePii: "",
       integrates: "",
     });
-    expect(toRequest(detail({ saasDetails: { ...saas, handlesSensitiveData: false, handlesExternalPii: true } })).details).toMatchObject({
+    expect(toRequest(detail({ itAssessment: { ...assessment, handlesSensitiveData: false, handlesExternalPii: true } })).details).toMatchObject({
       sensitiveData: "no",
       externalPii: "yes",
       employeePii: "",
@@ -264,7 +264,7 @@ describe("the request the backend is sent", () => {
     return draftToInput(draft);
   };
 
-  it("sends an IT request with its software details, SaaS assessment, vendors and budget, and leaves the title to the backend", () => {
+  it("sends an IT request with its software details, IT assessment, vendors and budget, and leaves the title to the backend", () => {
     const body = toNewRequest(itInput());
     expect(body).toMatchObject({
       category: "IT",
@@ -282,7 +282,7 @@ describe("the request the backend is sent", () => {
         usagePeriod: "1 year",
         installationType: "SAAS",
       },
-      saasDetails: {
+      itAssessment: {
         externalInteraction: true,
         userCount: 40,
         userDetails: "Design team\nProduct",
@@ -335,7 +335,7 @@ describe("the request the backend is sent", () => {
     draft.details.specifications = "Spec sheet";
     draft.details.plan = "ignored";
     const body = toNewRequest(draftToInput(draft));
-    expect(body).toMatchObject({ category: "NON_IT", requirementDetails: "40 chairs", additionalSpecifications: "Spec sheet", itDetails: null, saasDetails: null, answers: [], budgetApproverId: null });
+    expect(body).toMatchObject({ category: "NON_IT", requirementDetails: "40 chairs", additionalSpecifications: "Spec sheet", itDetails: null, itAssessment: null, answers: [], budgetApproverId: null });
   });
 
   it("reads back what it sent", () => {

@@ -97,7 +97,7 @@ const requestDetail = {
   teamLeadEmail: "lead@example.com",
   additionalApprovers: [],
   itDetails: null,
-  saasDetails: null,
+  itAssessment: null,
   decisions: [],
   createdOn: "2026-11-01T00:00:00Z",
 };
