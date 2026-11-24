@@ -67,6 +67,7 @@ export interface RequestDetails {
   product: string;
   plan: string;
   description: string;
+  /** What the requester needs the software for. */
   softwareRequirement: string;
   installationType: InstallationType | "";
   userCount: string;
@@ -74,6 +75,7 @@ export interface RequestDetails {
   adminCount: string;
   adminNames: string[];
   usagePeriod: string;
+  /** Whether customers, partners or other outside parties are expected to interact with the platform. */
   externalInteraction: YesNo | "";
   businessJustification: string;
   roi: string;

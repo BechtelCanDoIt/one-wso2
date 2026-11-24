@@ -37,7 +37,7 @@ import type {
   Vendor,
 } from "../types";
 
-/** The most amount the backend's database holds. */
+/** The largest amount the backend's database holds. */
 const MAX_AMOUNT = 999_999_999_999.99;
 
 /** The most the backend keeps of the user or administrator names together. */
@@ -46,8 +46,10 @@ const MAX_NAMES_LENGTH = 1000;
 /** The most vendors the backend accepts on a request. */
 export const MAX_VENDORS = 10;
 
-/** The most the backend accepts of an email address, and the shape it accepts. */
+/** The most characters the backend accepts in an email address. */
 const MAX_EMAIL_LENGTH = 254;
+
+/** The shape the backend accepts for an email address. */
 const EMAIL_SHAPE = /^[a-z0-9._%+-]+@[a-z0-9.-]+$/i;
 
 /** The most users or administrators the backend accepts a count for. */
@@ -78,6 +80,7 @@ export const INSTALLATION_TYPES: readonly Choice[] = [
   { value: "PORTABLE", label: "Portable application" },
 ];
 
+/** The kinds of event a Marketing & Events request can be for, with the names a person reads. */
 export const EVENT_TYPES: readonly Choice[] = [
   { value: "INDUSTRY_EVENT_SPONSORSHIP", label: "Industry event sponsorship" },
   { value: "WSO2CON", label: "WSO2CON" },
@@ -87,6 +90,7 @@ export const EVENT_TYPES: readonly Choice[] = [
   { value: "OTHER_MARKETING_EVENT", label: "Other marketing events" },
 ];
 
+/** What a sponsorship package can include, with the names a person reads. */
 export const PACKAGE_INCLUSIONS: readonly { value: PackageInclusion; label: string }[] = [
   { value: "BOOTH_SPACE", label: "Booth space" },
   { value: "DELEGATE_PASSES", label: "Delegate passes" },
@@ -97,6 +101,7 @@ export const PACKAGE_INCLUSIONS: readonly { value: PackageInclusion; label: stri
   { value: "SPONSORED_SESSION", label: "Sponsored session" },
 ];
 
+/** The fixed lines of an event's total investment, with the names a person reads. */
 export const EVENT_COSTS: readonly { value: EventCostCategory; label: string }[] = [
   { value: "SPONSORSHIP_FEE", label: "Sponsorship fee" },
   { value: "BOOTH_BUILD_AND_DESIGN", label: "Booth build and design" },
@@ -138,12 +143,14 @@ export interface RequestDraft {
   /** People who may approve besides the team lead, which the backend chooses. */
   additionalApprovers: Person[];
   details: RequestDetails;
+  /** The event of a Marketing & Events request; empty for any other category. */
   event: EventDetails;
   vendors: Vendor[];
   budget: BudgetDetails;
   /** The chosen budget approver's id, or "" when none. */
   budgetApproverId: string;
   notes: string;
+  /** The files the request holds, those to take off it, and those to upload. */
   attachments: AttachmentsDraft;
   declarationAccepted: boolean;
 }
@@ -227,7 +234,12 @@ export function emptyDraft(): RequestDraft {
   };
 }
 
-/** A rejected request, reopened for editing. The declaration must be made again on resubmit. */
+/**
+ * A rejected request, reopened for editing. The declaration must be made again on resubmit.
+ *
+ * @param request - The request to reopen
+ * @param attachments - The files the request already holds; kept unless the requester removes them
+ */
 export function draftFromRequest(request: PurchaseRequest, attachments: readonly Attachment[] = []): RequestDraft {
   return {
     category: request.category,
@@ -295,7 +307,7 @@ const LINK = "Enter a link starting with http:// or https://";
 const LINKS = "Enter links starting with http:// or https://, separated by commas";
 const AMOUNT = "Enter an amount of 0 or more, with at most two decimals";
 
-/** What an IT request still needs in its requirement details and, for SaaS, its assessment. */
+/** What an IT request still needs in its requirement details and its assessment. */
 function itDetailsProblems(d: RequestDetails): Problem[] {
   const problems: Problem[] = [];
   const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
@@ -306,12 +318,12 @@ function itDetailsProblems(d: RequestDetails): Problem[] {
   need("installationType", !d.installationType, PICK);
   need("usagePeriod", blank(d.usagePeriod), PICK);
   need("businessJustification", blank(d.businessJustification));
-  problems.push(...saasDetailsProblems(d));
+  problems.push(...itAssessmentProblems(d));
   return problems;
 }
 
 /** What the users, administrators and the data and security questions of an IT request still need. */
-function saasDetailsProblems(d: RequestDetails): Problem[] {
+function itAssessmentProblems(d: RequestDetails): Problem[] {
   const problems: Problem[] = [];
   const need = (field: string, missing: boolean, message = REQUIRED) => missing && problems.push({ field, message });
   need("externalInteraction", !d.externalInteraction, PICK);
@@ -526,7 +538,7 @@ export function draftToInput(draft: RequestDraft): PurchaseRequestInput {
       adminNames: cleanList(d.adminNames),
       integrations: d.integrates === "yes" ? d.integrations.filter((i) => !blank(i.system)) : [],
     },
-    event: draft.event,
+    event: draft.category === "EVENTS" ? draft.event : emptyEvent(),
     vendors: draft.category === "EVENTS" ? [] : draft.vendors.filter((v) => !blank(v.name)),
     budget: draft.budget,
     budgetApproverId: draft.category === "EVENTS" ? "" : draft.budgetApproverId,

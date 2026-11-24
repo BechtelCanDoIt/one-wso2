@@ -301,6 +301,8 @@ export default function RequestSummary({
 }) {
   const edit = (step: number) => (onEditStep ? () => onEditStep(step) : undefined);
   const { budget: b } = view;
+  // A vendor with no name is an empty entry the requester left in the form, and is not shown.
+  const vendors = view.vendors.filter((v) => v.name.trim() !== "");
   // Budget details are required for Non-IT and Events; for IT a blank one was skipped on purpose.
   const budgetOptional = view.category === "IT";
   return (
@@ -327,11 +329,11 @@ export default function RequestSummary({
 
       {view.category !== "EVENTS" && (
         <Section title="Vendors" onEdit={edit(4)}>
-          {view.vendors.length === 0 ? (
+          {vendors.length === 0 ? (
             <Row label="Proposed vendor" optional />
           ) : (
-            view.vendors.map((v, index) => (
-              <Row key={index} label={view.vendors.length > 1 ? `Proposed vendor ${index + 1}` : "Proposed vendor"}>
+            vendors.map((v, index) => (
+              <Row key={index} label={vendors.length > 1 ? `Proposed vendor ${index + 1}` : "Proposed vendor"}>
                 <Typography variant="body2" sx={{ overflowWrap: "anywhere" }}>
                   {v.name}
                 </Typography>

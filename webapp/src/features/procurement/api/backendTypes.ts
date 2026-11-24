@@ -208,6 +208,7 @@ export interface BackendSaasDetails {
   adminDetails: string;
   userCount: number;
   userDetails: string;
+  /** Whether outside parties are expected to interact with the platform. */
   externalInteraction?: boolean;
   handlesSensitiveData?: boolean;
   sensitiveDataDetails?: string | null;
@@ -243,6 +244,7 @@ export interface BackendRequestDetail extends BackendRequestSummary {
   additionalApprovers: string[];
   itDetails: BackendItDetails | null;
   saasDetails: BackendSaasDetails | null;
+  /** The event of a Marketing & Events request. */
   eventDetails: BackendEventDetails | null;
   priority: BackendPriority | null;
   assigneeEmail: string | null;
@@ -270,6 +272,7 @@ export interface BackendNewRequest {
   additionalApprovers: string[];
   itDetails: BackendItDetails | null;
   saasDetails: BackendSaasDetails | null;
+  /** The event of a Marketing & Events request; none for any other category. */
   eventDetails: BackendEventDetails | null;
   answers: BackendAnswer[];
 }

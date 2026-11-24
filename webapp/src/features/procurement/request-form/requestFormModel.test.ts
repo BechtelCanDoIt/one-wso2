@@ -416,6 +416,12 @@ describe("a Marketing & Events request", () => {
     expect(missing({ ...draft, event: { ...draft.event, costs: { ...draft.event.costs, SWAG: "1000000000000" } } })).toContain("cost.SWAG");
   });
 
+  it("sends no event for a request that is not a Marketing & Events request, even if one was filled in first", () => {
+    const draft = completeEvent();
+    expect(draftToInput({ ...draft, category: "NON-IT" }).event).toEqual(emptyEvent());
+    expect(draftToInput(draft).event.name).toBe("KubeCon");
+  });
+
   it("sends the event and no vendors", () => {
     const input = draftToInput({ ...completeEvent(), vendors: [{ name: "Acme", website: "", contact: "", email: "", phone: "" }] });
     expect(input.category).toBe("EVENTS");

@@ -176,4 +176,17 @@ describe("RequestSummary", () => {
     render(<RequestSummary view={view({ attachments: [] })} />);
     expect(screen.queryByRole("heading", { name: "Attachments" })).toBeNull();
   });
+
+  it("does not show a vendor the requester left empty, and says none was proposed", () => {
+    render(<RequestSummary view={view({ vendors: [emptyVendor()] })} />);
+    const row = screen.getByText("Proposed vendor").parentElement as HTMLElement;
+    expect(within(row).getByText("Not provided")).toBeInTheDocument();
+  });
+
+  it("numbers only the vendors that have a name", () => {
+    render(<RequestSummary view={view({ vendors: [{ ...emptyVendor(), name: "Acme" }, emptyVendor(), { ...emptyVendor(), name: "Globex" }] })} />);
+    expect(screen.getByText("Proposed vendor 1")).toBeInTheDocument();
+    expect(screen.getByText("Proposed vendor 2")).toBeInTheDocument();
+    expect(screen.queryByText("Proposed vendor 3")).toBeNull();
+  });
 });

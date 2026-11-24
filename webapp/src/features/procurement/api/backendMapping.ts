@@ -279,7 +279,6 @@ function toEvent(e: BackendEventDetails | null): EventDetails {
   };
 }
 
-/** What the backend is sent for an event: only what the questionnaire asks for this type of event, and for a shortlisted one. */
 /** The event the backend is sent: only for a Marketing & Events request, and only what its type and shortlist status are asked for. */
 function toBackendEvent(input: PurchaseRequestInput): BackendEventDetails | null {
   if (input.category !== "EVENTS") return null;
