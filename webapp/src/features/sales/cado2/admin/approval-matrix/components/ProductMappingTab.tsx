@@ -447,10 +447,24 @@ function MappingDialog({
               </Paper>
             </Box>
           ) : null}
-          <TextField select required label="Discount group" value={m.groupCode} onChange={(e) => setM({ ...m, groupCode: e.target.value })}>
+          <TextField
+            select
+            required
+            label="Discount group"
+            value={m.groupCode}
+            onChange={(e) => setM({ ...m, groupCode: e.target.value })}
+            // The chosen group as the tables show it: its code only when its name is shared.
+            slotProps={{ select: { renderValue: (v) => groupLabel(matrix, String(v)) } }}
+          >
+            {/* Every group's code beside its name, so groups with the same name can be told apart. */}
             {matrix.groups.map((g) => (
-              <MenuItem key={g.code || g.name} value={g.code}>
-                {g.name || g.code}
+              <MenuItem key={g.code || g.name} value={g.code} sx={{ gap: 2, justifyContent: "space-between" }}>
+                <span>{g.name || g.code}</span>
+                {g.name && g.code ? (
+                  <Typography component="span" variant="caption" color="text.secondary" sx={{ fontFamily: "monospace" }}>
+                    {g.code}
+                  </Typography>
+                ) : null}
               </MenuItem>
             ))}
           </TextField>
@@ -505,8 +519,16 @@ function MappingDialog({
   );
 }
 
+/**
+ * A group's name, with its code when another group has the same name (FY26
+ * has on-prem and SaaS groups both called "API Management"):
+ * "API Management · SAAS_API".
+ */
 function groupLabel(matrix: ApprovalMatrix, code: string): string {
-  return matrix.groups.find((g) => g.code === code)?.name || code;
+  const name = matrix.groups.find((g) => g.code === code)?.name;
+  if (!name) return code;
+  const shared = matrix.groups.some((g) => g.code !== code && g.name.trim() === name.trim());
+  return shared ? `${name} · ${code}` : name;
 }
 
 /** Search by name or code and tick several; a product in another list can't be ticked. */

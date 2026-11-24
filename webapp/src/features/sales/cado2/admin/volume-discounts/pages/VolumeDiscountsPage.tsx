@@ -19,7 +19,10 @@ import {
   Alert,
   Box,
   Button,
+  FormControlLabel,
   Paper,
+  Radio,
+  RadioGroup,
   Skeleton,
   Stack,
   Table,
@@ -44,9 +47,17 @@ import {
   useDeleteVolumeDiscount,
   useSaveVolumeDiscount,
   useVolumeDiscounts,
+  type VolumeDiscountMethod,
   type VolumeDiscountTable,
 } from "@features/sales/cado2/admin/volume-discounts/api/useVolumeDiscounts";
-import { below, ceilingOK, covers, startOf } from "@features/sales/cado2/admin/volume-discounts/model/tiers";
+import {
+  below,
+  ceilingOK,
+  covers,
+  METHOD_LABEL,
+  rateLabel,
+  startOf,
+} from "@features/sales/cado2/admin/volume-discounts/model/tiers";
 import ChangeLogCard from "@features/sales/cado2/admin/components/ChangeLogCard";
 import { useAdminChanges } from "@features/sales/cado2/admin/components/useAdminChanges";
 import { volumeChangeLines, volumeTitle } from "@features/sales/cado2/admin/components/changeLog";
@@ -66,6 +77,7 @@ interface TierDraft {
 interface TableDraft {
   readonly id: number | null;
   readonly name: string;
+  readonly method: VolumeDiscountMethod;
   readonly products: readonly FormulaProduct[];
   readonly tiers: readonly TierDraft[];
 }
@@ -85,10 +97,24 @@ const draftOf = (t: VolumeDiscountTable | null): TableDraft =>
     ? {
         id: t.id,
         name: t.name,
+        method: t.method,
         products: t.products.map(picked),
         tiers: t.tiers.map((x) => tierDraft(String(x.fromQuantity), String(Number(x.ceilingPercent)))),
       }
-    : { id: null, name: "", products: [], tiers: [tierDraft("1", "0")] };
+    : // A new table is Blended, as the backend makes one sent without a method (D180).
+      { id: null, name: "", method: "BLENDED", products: [], tiers: [tierDraft("1", "0")] };
+
+/** The two methods, as the editor offers them (D180). */
+const METHODS: readonly { value: VolumeDiscountMethod; help: string }[] = [
+  {
+    value: "BLENDED",
+    help: "Each band's rate applies to the units in it; the ceiling is their average. For tiers with volume bands.",
+  },
+  {
+    value: "SINGLE_RATE",
+    help: "The tier the quantity falls in sets the rate for every unit. For tiers with a rate per quantity.",
+  },
+];
 
 /** What's wrong with a draft before it is sent, or null; the backend checks again. */
 function draftProblem(d: TableDraft): string | null {
@@ -100,11 +126,12 @@ function draftProblem(d: TableDraft): string | null {
   const starts = d.tiers.map((t) => startOf(t.from));
   if (starts.some((s) => s === null)) return "Each tier starts at a whole number of at least 1";
   if (starts.some((s, i) => i > 0 && (s as number) <= (starts[i - 1] as number))) return "Tiers must go up";
-  if (d.tiers.some((t) => !ceilingOK(t.ceiling))) return "Each ceiling is between 0 and 100, with at most 2 decimals";
+  if (d.tiers.some((t) => !ceilingOK(t.ceiling)))
+    return `Each ${rateLabel(d.method).toLowerCase()} is between 0 and 100, with at most 2 decimals`;
   return null;
 }
 
-/** The tiers of a saved table: what each covers and its ceiling. */
+/** The tiers of a saved table: what each covers and its rate (D180: a band rate under Blended). */
 function TiersTable({ table }: { table: VolumeDiscountTable }): JSX.Element {
   const ranges = covers(table.tiers.map((t) => t.fromQuantity));
   const first = below(table.tiers[0]?.fromQuantity ?? null);
@@ -113,7 +140,7 @@ function TiersTable({ table }: { table: VolumeDiscountTable }): JSX.Element {
       <TableHead>
         <TableRow>
           <TableCell>Covers</TableCell>
-          <TableCell align="right">Volume discount ceiling</TableCell>
+          <TableCell align="right">{rateLabel(table.method)}</TableCell>
         </TableRow>
       </TableHead>
       <TableBody>
@@ -185,6 +212,7 @@ function TableEditor({ initial, onDone }: { initial: TableDraft; onDone: () => v
         id: draft.id,
         body: {
           name: draft.name.trim(),
+          method: draft.method,
           productCodes: draft.products.map((p) => p.code as string),
           tiers: draft.tiers.map((t) => ({ fromQuantity: Number(t.from), ceilingPercent: t.ceiling.trim() })),
         },
@@ -212,6 +240,33 @@ function TableEditor({ initial, onDone }: { initial: TableDraft; onDone: () => v
               inputProps={{ maxLength: 255 }}
             />
             <Box>
+              {label("How tiers make the ceiling")}
+              <RadioGroup
+                value={draft.method}
+                onChange={(_, v) => setDraft((d) => ({ ...d, method: v as VolumeDiscountMethod }))}
+                aria-label="How tiers make the ceiling"
+              >
+                {METHODS.map((m) => (
+                  <FormControlLabel
+                    key={m.value}
+                    value={m.value}
+                    control={<Radio size="small" />}
+                    label={
+                      <Stack>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                          {METHOD_LABEL[m.value]}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {m.help}
+                        </Typography>
+                      </Stack>
+                    }
+                    sx={{ alignItems: "flex-start", mb: 1, "& .MuiRadio-root": { pt: 0.25 } }}
+                  />
+                ))}
+              </RadioGroup>
+            </Box>
+            <Box>
               {label("Products")}
               <ProductsField
                 name={draft.name || "the table"}
@@ -228,7 +283,7 @@ function TableEditor({ initial, onDone }: { initial: TableDraft; onDone: () => v
                 <TableRow>
                   <TableCell>From quantity</TableCell>
                   <TableCell>Covers</TableCell>
-                  <TableCell align="right">Volume discount ceiling (%)</TableCell>
+                  <TableCell align="right">{rateLabel(draft.method)} (%)</TableCell>
                   <TableCell />
                 </TableRow>
               </TableHead>
@@ -260,7 +315,11 @@ function TableEditor({ initial, onDone }: { initial: TableDraft; onDone: () => v
                         size="small"
                         value={t.ceiling}
                         onChange={(e) => setTier(t.key, { ceiling: e.target.value })}
-                        inputProps={{ inputMode: "decimal", "aria-label": `Tier ${i + 1} volume discount ceiling`, style: { textAlign: "right" } }}
+                        inputProps={{
+                          inputMode: "decimal",
+                          "aria-label": `Tier ${i + 1} ${rateLabel(draft.method).toLowerCase()}`,
+                          style: { textAlign: "right" },
+                        }}
                         sx={{ width: 96 }}
                       />
                     </TableCell>
@@ -305,14 +364,17 @@ function TableEditor({ initial, onDone }: { initial: TableDraft; onDone: () => v
 
 /**
  * CadO2 Admin → Volume Discounts (D169): tables of quantity tiers for a
- * product or group of products. A line's quantity picks its tier; the tier's
- * ceiling is the most discount the AM can give without approval, and the
- * rest is discretionary. Drafts take a change at their next save.
+ * product or group of products. A line's quantity gives its ceiling, the most
+ * discount the AM can give without approval; the rest is discretionary. How
+ * depends on the table's method (D180): Blended averages each band's rate over
+ * the units in it, Single rate gives every unit the quantity's tier. Drafts
+ * take a change at their next save.
  *
  *   WSO2 Gateway (Self-hosted)                          [Edit] [Delete]
- *   Products  SH-API-GW            Covers         Volume discount ceiling
- *                                  Below 10       No volume discount
- *                                  10 – 100       6.44%
+ *   Products  SH-API-GW            TIERS · BLENDED
+ *                                  Covers          Band rate
+ *                                  Below 10        No volume discount
+ *                                  10 – 100        6.44%
  *                                  1,001 and above 56.66%
  */
 export default function VolumeDiscountsPage(): JSX.Element {
@@ -341,9 +403,11 @@ export default function VolumeDiscountsPage(): JSX.Element {
         }
       />
       <Typography variant="body2" color="text.secondary" sx={{ maxWidth: "80ch" }}>
-        Each table lists products and quantity tiers. A line&apos;s quantity picks its tier, and the tier&apos;s ceiling is
-        the most discount the AM can give without approval. Each line is counted on its own, year by year. Drafts pick up
-        changes at their next save; submitted quotes keep the ceiling they had.
+        Each table lists products and quantity tiers. A line&apos;s quantity gives its volume discount ceiling: the most
+        discount the AM can give without approval. <strong>Blended</strong> tables apply each band&apos;s rate to the units
+        in it and average them; <strong>Single rate</strong> tables give every unit the rate of the tier the quantity falls
+        in. Each line is counted on its own, year by year. Drafts pick up changes at their next save; submitted quotes keep
+        the ceiling they had.
       </Typography>
 
       {data.data && !data.data.salesforceAvailable ? (
@@ -388,7 +452,7 @@ export default function VolumeDiscountsPage(): JSX.Element {
                   <ProductChips table={t} />
                 </Box>
                 <Box sx={{ minWidth: 0 }}>
-                  {label("Tiers")}
+                  {label(`Tiers · ${METHOD_LABEL[t.method]}`)}
                   <TiersTable table={t} />
                 </Box>
               </Box>

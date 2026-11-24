@@ -84,6 +84,7 @@ import {
   lastYearEarliestEnd,
   lastYearEndProblem,
   MAX_YEARS,
+  previewWithLine,
   setLastYearEnd,
   type ContractYear,
   type DraftFormValues,
@@ -682,6 +683,8 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
           pricebook={{ id: values.defaultPricebookId, name: values.defaultPricebookName }}
           year={editingYear && editingYear.start ? (editingYear as ContractYear) : null}
           onSave={onSave}
+          // Its volume discount ceiling while it's typed (D169).
+          previewFor={(l) => previewWithLine(getValues(), l, editing.index)}
           onClose={() => setEditing({ open: false, index: null, year: 1 })}
         />
       ) : null}

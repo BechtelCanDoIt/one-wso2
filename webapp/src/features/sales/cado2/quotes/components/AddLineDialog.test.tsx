@@ -57,8 +57,18 @@ const productPages: { more: boolean; fetchNextPage: () => void; book: string; ov
   fetchNextPage: vi.fn(),
   book: "",
 };
+// The live pricing (D169): `price` answers a request, standing in for the
+// backend; `bodies` records what was asked.
+const previews: { bodies: unknown[]; price: (body: { lines: { quantity: number; discountPercent: string }[] }) => unknown } = {
+  bodies: [],
+  price: () => undefined,
+};
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   usePricingFormulas: () => ({ data: formulas.list }),
+  usePricingPreview: (body: { lines: { quantity: number; discountPercent: string }[] } | null) => {
+    if (body) previews.bodies.push(body);
+    return { data: body ? previews.price(body) : undefined, isPlaceholderData: false };
+  },
   useProducts: (_currency: string, _term: string, book: string) => {
     productPages.book = book;
     return {
@@ -136,10 +146,23 @@ function savedSupportLine(): LineValue {
   };
 }
 
-function renderDialog(onSave = vi.fn(), line: LineValue | null = null) {
+function renderDialog(
+  onSave = vi.fn(),
+  line: LineValue | null = null,
+  previewFor?: (l: LineValue) => { body: object; at: number } | null,
+) {
   render(
     <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
-      <AddLineDialog open line={line} currency="USD" pricebook={quoteBook} year={null} onSave={onSave} onClose={vi.fn()} />
+      <AddLineDialog
+        open
+        line={line}
+        currency="USD"
+        pricebook={quoteBook}
+        year={null}
+        onSave={onSave}
+        previewFor={previewFor}
+        onClose={vi.fn()}
+      />
     </DatePickers.LocalizationProvider>,
   );
   return onSave;
@@ -556,5 +579,89 @@ describe("AddLineDialog — closing", () => {
     expect(onClose).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Cancel" }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  // D169: the ceiling under the discount while it's typed, as the products
+  // table shows it after saving. Here the "backend" has one table with a tier
+  // from 10 → 17.75% and from 101 → 44%.
+  describe("volume discount ceiling", () => {
+    const priceWithTiers = (body: { lines: { quantity: number; discountPercent: string }[] }) => {
+      const l = body.lines[0];
+      const ceiling = l.quantity >= 101 ? 44 : l.quantity >= 10 ? 17.75 : 0;
+      return {
+        kind: "priced",
+        preview: {
+          lines: [
+            {
+              pricebookEntryId: "01u000000000001",
+              volumeCeilingPercent: ceiling.toFixed(2),
+              discretionaryDiscountPercent: Math.max(0, Number(l.discountPercent) - ceiling).toFixed(2),
+            },
+          ],
+        },
+      };
+    };
+    // The quote with just this line in it, as ProductsStep builds the request.
+    const alone = (l: LineValue) => ({
+      body: { lines: [{ pricebookEntryId: l.pricebookEntryId, quantity: Number(l.quantity), discountPercent: l.discount }] },
+      at: 0,
+    });
+
+    it("shows the ceiling under the discount as the quantity and discount are typed", async () => {
+      previews.price = priceWithTiers;
+      renderDialog(vi.fn(), null, alone);
+      const user = await pick(/WSO2 API Manager/);
+      const quantity = screen.getByRole("textbox", { name: /Quantity/ });
+      const discount = screen.getByRole("textbox", { name: "Discount" });
+
+      await user.clear(quantity);
+      await user.type(quantity, "100");
+      await user.clear(discount);
+      await user.type(discount, "20");
+      expect(await screen.findByText("Volume discount ceiling 17.75%", {}, { timeout: 2000 })).toBeInTheDocument();
+      expect(screen.getByText("2.25% needs approval")).toBeInTheDocument();
+
+      // Into the next tier: the whole discount is under its ceiling.
+      await user.clear(quantity);
+      await user.type(quantity, "150");
+      expect(await screen.findByText("Volume discount ceiling 44%", {}, { timeout: 2000 })).toBeInTheDocument();
+      expect(screen.getByText("No approval needed")).toBeInTheDocument();
+
+      // A discount that isn't a valid one isn't priced: no ceiling for it.
+      await user.clear(discount);
+      await user.type(discount, "abc");
+      await user.click(screen.getByRole("button", { name: "Add product" }));
+      expect(screen.queryByText(/Volume discount ceiling/)).toBeNull();
+    });
+
+    it("says when the product has no ceiling", async () => {
+      previews.price = () => ({
+        kind: "priced",
+        preview: {
+          lines: [{ pricebookEntryId: "01u000000000001", volumeCeilingPercent: null, discretionaryDiscountPercent: "5.00" }],
+        },
+      });
+      renderDialog(vi.fn(), null, alone);
+      const user = await pick(/WSO2 API Manager/);
+      const discount = screen.getByRole("textbox", { name: "Discount" });
+      await user.clear(discount);
+      await user.type(discount, "5");
+      expect(
+        await screen.findByText("No volume discount ceiling for this product", {}, { timeout: 2000 }),
+      ).toBeInTheDocument();
+    });
+
+    it("shows nothing until the quote can be priced", async () => {
+      previews.bodies = [];
+      previews.price = priceWithTiers;
+      renderDialog(vi.fn(), null, () => null);
+      const user = await pick(/WSO2 API Manager/);
+      const discount = screen.getByRole("textbox", { name: "Discount" });
+      await user.clear(discount);
+      await user.type(discount, "20");
+      await new Promise((r) => setTimeout(r, 700));
+      expect(previews.bodies).toEqual([]);
+      expect(screen.queryByText(/Volume discount ceiling/)).toBeNull();
+    });
   });
 });

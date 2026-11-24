@@ -42,6 +42,7 @@ import {
   lineDatesProblem,
   deleteYear,
   insertIndex,
+  previewWithLine,
   salesPriceProblem,
   setLastYearEnd,
   toDateString,
@@ -814,5 +815,34 @@ describe("commission per year", () => {
     });
     expect(toDraftInput({ ...v, partnerCommissionByYear: ["15", "", "10"] }).partnerCommissionByYear).toBeUndefined();
     expect(toDraftInput(v)).toMatchObject({ partnerCommissionPercent: "15", partnerCommissionByYear: undefined });
+  });
+});
+
+// D169: the Add/Edit Product dialog prices the quote with its line as typed,
+// for the line's volume discount ceiling.
+describe("previewWithLine", () => {
+  type Body = { lines: { pricebookEntryId: string; quantity: number }[] };
+
+  it("prices an edited line in its place", () => {
+    const v = filled();
+    const r = previewWithLine(v, { ...v.lines[1], quantity: "150" }, 1)!;
+    expect(r.at).toBe(1);
+    const lines = (r.body as Body).lines;
+    expect(lines.map((l) => l.pricebookEntryId)).toEqual(v.lines.map((l) => l.pricebookEntryId));
+    expect(lines[1].quantity).toBe(150);
+  });
+
+  it("puts a new line where saving it would", () => {
+    const v = filled();
+    const added = { ...v.lines[0], lineId: null, pricebookEntryId: "01uNEW", yearNumber: 1 };
+    const r = previewWithLine(v, added, null)!;
+    expect(r.at).toBe(insertIndex(v.lines, 1));
+    expect((r.body as Body).lines).toHaveLength(v.lines.length + 1);
+    expect((r.body as Body).lines[r.at].pricebookEntryId).toBe("01uNEW");
+  });
+
+  it("is null until the quote can be priced", () => {
+    const v = { ...filled(), startDate: "" };
+    expect(previewWithLine(v, v.lines[0], 0)).toBeNull();
   });
 });

@@ -36,10 +36,18 @@ export interface VolumeDiscountTier {
   readonly ceilingPercent: string;
 }
 
+/**
+ * How a table's tiers make a line's ceiling (D180). BLENDED: each band's rate
+ * applies to the units in it and the ceiling is their average. SINGLE_RATE:
+ * the tier the quantity falls in sets the rate for every unit.
+ */
+export type VolumeDiscountMethod = "BLENDED" | "SINGLE_RATE";
+
 /** One table of Admin → Volume Discounts (D169). */
 export interface VolumeDiscountTable {
   readonly id: number;
   readonly name: string;
+  readonly method: VolumeDiscountMethod;
   readonly products: readonly VolumeDiscountProduct[];
   /** By start: a tier covers its start up to one below the next's; the last has no limit. */
   readonly tiers: readonly VolumeDiscountTier[];
@@ -56,6 +64,7 @@ export interface VolumeDiscounts {
 /** A table as POST and PUT take it. */
 export interface VolumeDiscountInput {
   readonly name: string;
+  readonly method: VolumeDiscountMethod;
   readonly productCodes: readonly string[];
   readonly tiers: readonly { readonly fromQuantity: number; readonly ceilingPercent: string }[];
 }

@@ -68,8 +68,16 @@ const pct = (v: string) => `${Number(v)}%`;
  *   Volume discount ceiling 4.17%   [No approval needed]
  *   Volume discount ceiling 2.08%   [2.92% needs approval]
  *   No volume discount ceiling                    (a discount on a product without one)
+ *
+ * Also under the discount in the Add/Edit Product dialog, left-aligned there.
  */
-function DiscountHint({ line }: { line: SheetLine }): JSX.Element | null {
+export function DiscountHint({
+  line,
+  align = "end",
+}: {
+  line: Pick<SheetLine, "discountPercent" | "volumeCeilingPercent" | "discretionaryPercent" | "formula">;
+  align?: "start" | "end";
+}): JSX.Element | null {
   const discount = Number(line.discountPercent);
   const above = Number(line.discretionaryPercent ?? 0);
   if (line.volumeCeilingPercent === null) {
@@ -81,7 +89,7 @@ function DiscountHint({ line }: { line: SheetLine }): JSX.Element | null {
     );
   }
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 0.5, mt: 0.25 }}>
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: `flex-${align}`, gap: 0.5, mt: 0.25 }}>
       <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
         Volume discount ceiling {pct(line.volumeCeilingPercent)}
       </Typography>

@@ -87,6 +87,8 @@ vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   usePreviousOpportunityLines: (ids: readonly string[]) => ids.map(() => ({ ...empty, data: previousLines })),
   useOpportunityImport: () => ({ ...empty, data: importData.value }),
   usePricingFormulas: () => empty,
+  // The product dialog's live ceiling (D169): nothing priced in these tests.
+  usePricingPreview: () => ({ data: undefined, isPlaceholderData: false }),
   useQuoteSettings: () =>
     quoteSettings.error
       ? { ...empty, data: undefined, error: quoteSettings.error }

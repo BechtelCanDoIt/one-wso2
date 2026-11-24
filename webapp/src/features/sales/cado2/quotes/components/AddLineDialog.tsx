@@ -38,7 +38,8 @@ import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { descriptionAfterName } from "@features/sales/cado2/utils/productDescription";
 import { lineProblems } from "@features/sales/cado2/quotes/components/lineProblems";
 import type { LinePrefill } from "@features/sales/cado2/quotes/form/opportunityImport";
-import { usePricingFormulas, useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { usePricingFormulas, usePricingPreview, useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
+import { DiscountHint } from "@features/sales/cado2/quotes/components/sheet/OrderFormTable";
 import type {
   LineCategory,
   LineFormula,
@@ -255,8 +256,17 @@ interface AddLineDialogProps {
    */
   readonly prefill?: LinePrefill | null;
   readonly onSave: (line: LineValue) => void;
+  /**
+   * The live-pricing request with this line in the quote and where the line
+   * is in it, or null until the quote can be priced: for its volume discount
+   * ceiling while it's typed (D169). Without it, no ceiling is shown.
+   */
+  readonly previewFor?: (line: LineValue) => { body: object; at: number } | null;
   readonly onClose: () => void;
 }
+
+/** How long typing settles before the ceiling is looked up, as the quote's live pricing. */
+const CEILING_DEBOUNCE_MS = 500;
 
 const CATEGORIES = LINE_CATEGORIES;
 
@@ -278,6 +288,7 @@ export default function AddLineDialog({
   year,
   prefill = null,
   onSave,
+  previewFor,
   onClose,
 }: AddLineDialogProps): JSX.Element {
   const [term, setTerm] = useState("");
@@ -400,9 +411,11 @@ export default function AddLineDialog({
     setProduct(p);
   };
 
-  const save = () => {
-    setTried(true);
-    if (classificationProblem || Object.keys(problems).length > 0 || datesProblem || salesProblem) return;
+  // Whether the line as typed can be saved (or priced).
+  const valid = !classificationProblem && Object.keys(problems).length === 0 && !datesProblem && !salesProblem;
+
+  // The line as typed. Only called when valid: a new line has its product.
+  const toLine = (): LineValue => {
     const base: LineValue = keepsExisting
       ? { ...line }
       : {
@@ -440,8 +453,39 @@ export default function AddLineDialog({
       startDate: year && !recurring ? startDate : "",
       endDate: year && !recurring ? endDate : "",
     };
-    onSave(saved);
+    return saved;
   };
+
+  const save = () => {
+    setTried(true);
+    if (!valid) return;
+    onSave(toLine());
+  };
+
+  // D169: the line's volume discount ceiling while it's typed, from the same
+  // live pricing as the products table. Keyed on the request's text, so it's
+  // only asked again when the line changes; shown only for the line as it
+  // is now (never an earlier quantity's), and not on formula lines, whose
+  // discount says it's off the formula price.
+  const requestText = previewFor && valid && !formula ? JSON.stringify(previewFor(toLine())) : "null";
+  const settled = useDebouncedValue(requestText, CEILING_DEBOUNCE_MS);
+  const request = JSON.parse(settled) as { body: object; at: number } | null;
+  const ceilingPreview = usePricingPreview(request?.body ?? null);
+  const pricedLine =
+    request && settled === requestText && ceilingPreview.data?.kind === "priced" && !ceilingPreview.isPlaceholderData
+      ? ceilingPreview.data.preview.lines[request.at]
+      : undefined;
+  const hint =
+    pricedLine && pricedLine.pricebookEntryId === (keepsExisting ? line.pricebookEntryId : entry?.id)
+      ? {
+          discountPercent: String(Number(discount.trim() || "0")),
+          volumeCeilingPercent: pricedLine.volumeCeilingPercent ? String(Number(pricedLine.volumeCeilingPercent)) : null,
+          discretionaryPercent: pricedLine.discretionaryDiscountPercent
+            ? String(Number(pricedLine.discretionaryDiscountPercent))
+            : null,
+          formula: null,
+        }
+      : null;
 
   return (
     // A click outside doesn't throw the typed line away (2026-10-13); Cancel, X or Escape close it.
@@ -610,11 +654,16 @@ export default function AddLineDialog({
                 onChange={(e) => setDiscount(e.target.value)}
                 size="small"
                 error={Boolean(show("discount"))}
-                helperText={show("discount") ?? (formula ? "Off the formula price" : undefined)}
+                helperText={
+                  show("discount") ??
+                  (formula ? "Off the formula price" : hint ? <DiscountHint line={hint} align="start" /> : undefined)
+                }
                 slotProps={{
                   input: {
                     endAdornment: <InputAdornment position="end">%</InputAdornment>,
                   },
+                  // The ceiling hint is a block (D169).
+                  formHelperText: { component: "div" },
                 }}
               />
             </Stack>

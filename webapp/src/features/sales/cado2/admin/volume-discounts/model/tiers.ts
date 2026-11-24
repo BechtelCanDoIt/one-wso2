@@ -53,6 +53,19 @@ export function below(firstStart: number | null): string | null {
   return firstStart !== null && firstStart > 1 ? `Below ${count(firstStart)}` : null;
 }
 
+/** A table's method in words (D180). */
+export const METHOD_LABEL: Record<"BLENDED" | "SINGLE_RATE", string> = {
+  BLENDED: "Blended",
+  SINGLE_RATE: "Single rate",
+};
+
+/**
+ * What a tier's % is called under the method (D180): under Blended it applies
+ * only to the units in its band, so it isn't the line's ceiling.
+ */
+export const rateLabel = (method: "BLENDED" | "SINGLE_RATE"): string =>
+  method === "BLENDED" ? "Band rate" : "Volume discount ceiling";
+
 /** A ceiling as typed: 0–100 with at most 2 decimals. */
 export function ceilingOK(raw: string): boolean {
   const t = raw.trim();

@@ -17,6 +17,8 @@
 // history of their own, with what it was before and after. Pure functions,
 // unit-tested.
 
+import { METHOD_LABEL } from "@features/sales/cado2/admin/volume-discounts/model/tiers";
+
 /** One change, as GET /admin/…/changes returns it; before is null when created, after when deleted. */
 export interface AdminChange {
   readonly id: number;
@@ -38,12 +40,17 @@ export const ACTION_LABEL: Record<AdminChange["action"], string> = {
 /** A volume discount table as the log keeps it. */
 interface VolumeSnapshot {
   readonly name: string;
+  /** BLENDED or SINGLE_RATE (D180); empty or missing in changes logged before it. */
+  readonly method?: string;
   readonly products: readonly string[];
   readonly tiers: readonly { readonly fromQuantity: number; readonly ceilingPercent: string }[];
 }
 
 const asVolume = (v: unknown): VolumeSnapshot | null => (v && typeof v === "object" ? (v as VolumeSnapshot) : null);
 const pct = (v: string) => `${Number(v).toFixed(2)}%`;
+/** A logged method in words; null when the change predates D180. */
+const methodWords = (m: string | undefined): string | null =>
+  m === "BLENDED" || m === "SINGLE_RATE" ? METHOD_LABEL[m] : null;
 
 /** The table's name, as it is now or was when deleted. */
 export function volumeTitle(c: AdminChange): string {
@@ -53,6 +60,7 @@ export function volumeTitle(c: AdminChange): string {
 /**
  * What changed in a volume discount table, one line each:
  *   "Name: Gateway → API Gateway"
+ *   "Method: Single rate → Blended"
  *   "Products added: C-API-PORTAL"
  *   "From 101: 27.34% → 40.00%"
  *   "From 501: added at 30.00%"
@@ -60,11 +68,18 @@ export function volumeTitle(c: AdminChange): string {
 export function volumeChangeLines(c: AdminChange): string[] {
   const before = asVolume(c.before);
   const after = asVolume(c.after);
-  if (!before && after) return [`${after.tiers.length} tiers, products ${after.products.join(", ") || "none"}`];
+  if (!before && after) {
+    const method = methodWords(after.method);
+    return [`${method ? `${method}, ` : ""}${after.tiers.length} tiers, products ${after.products.join(", ") || "none"}`];
+  }
   if (before && !after) return [`Had ${before.tiers.length} tiers, products ${before.products.join(", ") || "none"}`];
   if (!before || !after) return [];
   const lines: string[] = [];
   if (before.name !== after.name) lines.push(`Name: ${before.name} → ${after.name}`);
+  // Only when both sides recorded one: a change logged before D180 has none.
+  const methodWas = methodWords(before.method);
+  const methodNow = methodWords(after.method);
+  if (methodWas && methodNow && methodWas !== methodNow) lines.push(`Method: ${methodWas} → ${methodNow}`);
   const added = after.products.filter((p) => !before.products.includes(p));
   const removed = before.products.filter((p) => !after.products.includes(p));
   if (added.length) lines.push(`Products added: ${added.join(", ")}`);
