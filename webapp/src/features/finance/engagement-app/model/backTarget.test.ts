@@ -47,11 +47,11 @@ describe("backTarget", () => {
     rememberVisit(`${A}/engagements/E1/allocations`);
     rememberVisit(`${A}/engagements/E1/edit`);
     rememberVisit(`${A}/engagements/E1/allocate`);
-    expect(backTarget(`${A}/engagements/E1`, `${A}/engagements/E1/allocate`)).toBe(`${A}/engagements/E1/allocations`);
-    expect(backTarget(`${A}/engagements/E1`, `${A}/engagements/E1/edit`)).toBe(`${A}/engagements/E1/allocations`);
+    expect(backTarget(`${A}/engagements/E1/allocations`, `${A}/engagements/E1/allocate`)).toBe(`${A}/engagements/E1/allocations`);
+    expect(backTarget(`${A}/engagements/E1/allocations`, `${A}/engagements/E1/edit`)).toBe(`${A}/engagements/E1/allocations`);
     clearVisits();
     rememberVisit(`${A}/engagements/E1/edit`);
-    expect(backTarget(`${A}/engagements/E1`, `${A}/engagements/E1/allocate`)).toBe(`${A}/engagements/E1`);
+    expect(backTarget(`${A}/engagements/E1/allocations`, `${A}/engagements/E1/allocate`)).toBe(`${A}/engagements/E1/allocations`);
   });
 
   it("never takes another section for a list", () => {

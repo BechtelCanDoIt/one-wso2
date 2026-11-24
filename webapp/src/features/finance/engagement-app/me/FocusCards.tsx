@@ -46,6 +46,7 @@ export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) 
             title={a.title || a.engagementId}
             lines={[fmtRange(a.start, a.end)]}
             right={a.status ? <AllocationStatusChip status={a.status} /> : undefined}
+            // `canOpen(id)` only knows the rows of the loaded list page, so it is a fallback for a backend that sends no `canOpen` on the overview.
             to={a.canOpen || canOpen(a.engagementId) ? myEngagementPaths.allocation(a.engagementId) : undefined}
           />
         ))}
@@ -54,11 +55,14 @@ export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) 
   );
 }
 
+/** A trip in one of these stays listed after its planned end date until someone marks it Completed. */
+const UNDER_WAY: ReadonlySet<string> = new Set(["In Progress", "Extended"]);
+
 /** Trips under way or still to come (at most three, soonest first), above the Travels list; nothing when there are none. */
 export function TravelsFocus({ trips }: { trips: readonly TravelRequestSummary[] }): JSX.Element | null {
   const today = localIsoDate();
   const focus = trips
-    .filter((t) => t.status !== "Cancelled" && t.status !== "Completed" && t.end >= today)
+    .filter((t) => t.status !== "Cancelled" && t.status !== "Completed" && (UNDER_WAY.has(t.status) || t.end >= today))
     .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
     .slice(0, MAX);
   if (!focus.length) return null;
