@@ -50,6 +50,22 @@ describe("changeLog", () => {
     expect(volumeChangeLines(deleted)).toEqual(["Had 2 tiers, products SH-API-PORTAL"]);
   });
 
+  // D180: the method, once the log records it.
+  it("says when a table's method changed, and a new table's method", () => {
+    const t = table("Portal", ["SH-API-PORTAL"], [[1, "0"], [2, "2.08"]]);
+    const c = change({ before: { ...t, method: "SINGLE_RATE" }, after: { ...t, method: "BLENDED" } });
+    expect(volumeChangeLines(c)).toEqual(["Method: Single rate → Blended"]);
+    expect(volumeChangeLines(change({ action: "CREATED", after: { ...t, method: "BLENDED" } }))).toEqual([
+      "Blended, 2 tiers, products SH-API-PORTAL",
+    ]);
+  });
+
+  it("says nothing of the method for a change logged before it was recorded", () => {
+    const t = table("Portal", ["SH-API-PORTAL"], [[1, "0"], [2, "2.08"]]);
+    expect(volumeChangeLines(change({ before: { ...t, method: "" }, after: { ...t, method: "BLENDED" } }))).toEqual([]);
+    expect(volumeChangeLines(change({ before: t, after: t }))).toEqual([]);
+  });
+
   it("names a legal text by its label and a notice by its title", () => {
     const label = (k: string) => (k === "TERMS_SAAS_DIRECT" ? "SaaS, direct" : k);
     expect(legalTitle(change({ area: "LEGAL_TEXT", item: "TERMS_SAAS_DIRECT" }), label)).toBe("SaaS, direct");

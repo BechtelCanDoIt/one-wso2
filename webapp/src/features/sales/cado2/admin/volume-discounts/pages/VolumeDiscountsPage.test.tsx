@@ -49,6 +49,7 @@ vi.mock("@features/sales/cado2/admin/pricing-formulas/api/usePricingFormulaAdmin
 const portals = {
   id: 1,
   name: "WSO2 API Portal & AI Hub (Self-hosted) - API Platform",
+  method: "SINGLE_RATE",
   products: [
     { productCode: "C-API-PORTAL", productId: "01tCPO", productName: "WSO2 API Portal and MCP Hub (SaaS) - API Platform" },
     { productCode: "SH-API-PORTAL", productId: "01tSPO", productName: "WSO2 API Portal and MCP Hub (Self-hosted) - API Platform" },
@@ -64,6 +65,7 @@ const portals = {
 const gateway = {
   id: 5,
   name: "WSO2 Gateway (Self-hosted) - API Platform",
+  method: "BLENDED",
   products: [{ productCode: "SH-API-GW", productId: null, productName: null }],
   tiers: [
     { fromQuantity: 10, ceilingPercent: "6.44" },
@@ -98,6 +100,38 @@ describe("VolumeDiscountsPage (D169)", () => {
     expect(g.getByText(/Last changed by admin@wso2.com on 13 Nov 2026/)).toBeInTheDocument();
   });
 
+  // D180: under Blended a tier's % is a band rate, not the line's ceiling.
+  it("shows each table's method and names its rates by it", () => {
+    render(<VolumeDiscountsPage />);
+    const p = within(screen.getByRole("region", { name: portals.name }));
+    expect(p.getByText("Tiers · Single rate")).toBeInTheDocument();
+    expect(p.getByRole("columnheader", { name: "Volume discount ceiling" })).toBeInTheDocument();
+
+    const g = within(screen.getByRole("region", { name: gateway.name }));
+    expect(g.getByText("Tiers · Blended")).toBeInTheDocument();
+    expect(g.getByRole("columnheader", { name: "Band rate" })).toBeInTheDocument();
+    expect(g.queryByRole("columnheader", { name: "Volume discount ceiling" })).toBeNull();
+  });
+
+  it("changes a table's method, renaming its rates as it goes", async () => {
+    const user = userEvent.setup();
+    render(<VolumeDiscountsPage />);
+    await user.click(screen.getByRole("button", { name: `Edit ${portals.name}` }));
+    const editor = within(screen.getByRole("region", { name: `Editing ${portals.name}` }));
+    expect(editor.getByRole("radio", { name: /^Single rate/ })).toBeChecked();
+    expect(editor.getByRole("columnheader", { name: "Volume discount ceiling (%)" })).toBeInTheDocument();
+
+    await user.click(editor.getByRole("radio", { name: /^Blended/ }));
+    expect(editor.getByRole("columnheader", { name: "Band rate (%)" })).toBeInTheDocument();
+    expect(editor.getByRole("textbox", { name: "Tier 2 band rate" })).toHaveValue("2.08");
+
+    await user.click(editor.getByRole("button", { name: "Save" }));
+    expect(save.mutate).toHaveBeenCalledWith(
+      { id: 1, body: expect.objectContaining({ name: portals.name, method: "BLENDED" }) },
+      expect.anything(),
+    );
+  });
+
   it("works out the ranges as the Admin types, and saves the starts and ceilings", async () => {
     const user = userEvent.setup();
     render(<VolumeDiscountsPage />);
@@ -117,6 +151,7 @@ describe("VolumeDiscountsPage (D169)", () => {
         id: 5,
         body: {
           name: gateway.name,
+          method: "BLENDED",
           productCodes: ["SH-API-GW"],
           tiers: [
             { fromQuantity: 10, ceilingPercent: "6.44" },
@@ -154,7 +189,9 @@ describe("VolumeDiscountsPage (D169)", () => {
     await user.click(await screen.findByRole("option", { name: /WSO2 Gateway/ }));
     await user.click(editor.getByRole("button", { name: "Add tier" }));
     await user.type(editor.getByRole("textbox", { name: "Tier 2 from quantity" }), "10");
-    await user.type(editor.getByRole("textbox", { name: "Tier 2 volume discount ceiling" }), "6.44");
+    // A new table starts Blended (D180), so its tiers have band rates.
+    expect(editor.getByRole("radio", { name: /^Blended/ })).toBeChecked();
+    await user.type(editor.getByRole("textbox", { name: "Tier 2 band rate" }), "6.44");
     expect(editor.getByText("1 – 9")).toBeInTheDocument();
     await user.click(editor.getByRole("button", { name: "Save" }));
     expect(save.mutate).toHaveBeenCalledWith(
@@ -162,6 +199,7 @@ describe("VolumeDiscountsPage (D169)", () => {
         id: null,
         body: {
           name: "Gateway",
+          method: "BLENDED",
           productCodes: ["SH-API-GW"],
           tiers: [
             { fromQuantity: 1, ceilingPercent: "0" },
