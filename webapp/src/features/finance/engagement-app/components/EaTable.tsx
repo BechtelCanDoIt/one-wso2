@@ -118,10 +118,23 @@ export default function EaTable<T>({
           <TableBody>
             {loading
               ? Array.from({ length: Math.min(Math.max(rows.length, 3), 10) }, (_, i) => (
-                  <TableRow key={`s${i}`}>
-                    <TableCell colSpan={colCount}>
-                      <Skeleton variant="text" height={28} />
-                    </TableCell>
+                  <TableRow key={`s${i}`} aria-hidden>
+                    {selection ? (
+                      <TableCell padding="checkbox">
+                        <Skeleton variant="rounded" width={18} height={18} sx={{ mx: "auto" }} />
+                      </TableCell>
+                    ) : null}
+                    {columns.map((c) => (
+                      <TableCell key={c.key} align={c.align} sx={{ py: 1.25 }}>
+                        <Skeleton variant="text" width={`${60 + ((i + c.key.length) % 3) * 15}%`} sx={{ fontSize: 13, ml: c.align === "right" ? "auto" : 0 }} />
+                        <Skeleton variant="text" width="40%" sx={{ fontSize: 11.5, ml: c.align === "right" ? "auto" : 0 }} />
+                      </TableCell>
+                    ))}
+                    {hasActions ? (
+                      <TableCell align="right">
+                        <Skeleton variant="rounded" width={72} height={28} sx={{ ml: "auto" }} />
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))
               : null}

@@ -16,7 +16,7 @@
 
 import { useState, type JSX, type ReactNode } from "react";
 import { Link as RouterLink, Navigate, useParams } from "react-router";
-import { Alert, Box, Button, Card, Link, Skeleton, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Alert, Box, Button, Card, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTabs";
 import { HttpError } from "@api/http";
@@ -27,6 +27,7 @@ import { useDeletePerDiem } from "../api/useEngagementMutations";
 import { useEngagementAccess } from "../api/useEngagementUserInfo";
 import { ConfirmDialog } from "../components/EaDialog";
 import EaPage from "../components/EaPage";
+import { DetailSkeleton, TableSkeleton } from "../components/EaSkeletons";
 import EaTable from "../components/EaTable";
 import { FactsCard, FactsGrid } from "../components/Facts";
 import { Empty, Failed, ListCard, SectionTitle } from "../components/ListCard";
@@ -55,7 +56,7 @@ export default function TravelRequestPage({ area = "finance" }: { area?: "financ
   if (trip.isPending) {
     return (
       <EaPage title={`Travel Request ${job}`} back={back}>
-        <Skeleton variant="rounded" height={200} />
+        <DetailSkeleton facts={12} tabs={6} />
       </EaPage>
     );
   }
@@ -164,7 +165,7 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
         {sectionQuery?.isError ? (
           <Failed what="this section" error={sectionQuery.error} onRetry={() => void sectionQuery.refetch()} retrying={sectionQuery.isFetching} />
         ) : sectionQuery?.isPending ? (
-          <Skeleton variant="rounded" height={160} />
+          <TableSkeleton />
         ) : tab === "per-diems" ? (
           <PerDiemsTab t={t} s={sections} />
         ) : tab === "invoices" ? (

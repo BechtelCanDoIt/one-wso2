@@ -23,6 +23,7 @@ import { useAllocationsToday, useDashboard, useReferenceData } from "../api/useE
 import { useEngagementAccess } from "../api/useEngagementUserInfo";
 import EaPage from "../components/EaPage";
 import { Failed } from "../components/ListCard";
+import { TableSkeleton } from "../components/EaSkeletons";
 import { AllocationStatusChip, TravelStatusChip, Mono } from "../components/StatusChips";
 import { engagementPaths } from "../engagementPaths";
 import { ALLOC } from "../model/engagementAccess";
@@ -63,8 +64,12 @@ export default function DashboardPage(): JSX.Element {
     return (
       <EaPage title="Dashboard">
         <Stack spacing={2}>
-          <Skeleton variant="rounded" height={90} />
-          <Skeleton variant="rounded" height={260} />
+          <KpiRow>
+            {Array.from({ length: 5 }, (_, i) => (
+              <Skeleton key={i} variant="rounded" height={64} />
+            ))}
+          </KpiRow>
+          <TableSkeleton columns={4} rows={5} />
         </Stack>
       </EaPage>
     );

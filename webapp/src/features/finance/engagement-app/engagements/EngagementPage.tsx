@@ -16,7 +16,7 @@
 
 import { useState, type JSX } from "react";
 import { Navigate, useParams } from "react-router";
-import { Alert, Box, Card, Skeleton, Table, TableBody, TableCell, TableHead, TableRow } from "@wso2/oxygen-ui";
+import { Alert, Box, Card, Table, TableBody, TableCell, TableHead, TableRow } from "@wso2/oxygen-ui";
 import RoutedTabs from "@components/routed-tabs/RoutedTabs";
 import { HttpError } from "@api/http";
 import type { Allocation, Engagement } from "../api/engagementTypes";
@@ -35,6 +35,7 @@ import { engagementSegments } from "../model/landing";
 import { engagementName, fmtDate, fmtRange, place } from "../model/format";
 import { useEngagementActions } from "./useEngagementActions";
 import RowActions from "../components/RowActions";
+import { DetailSkeleton } from "../components/EaSkeletons";
 
 const TABS: readonly EngagementTab[] = ["allocations", "details"];
 
@@ -62,7 +63,7 @@ export default function EngagementPage({ area = "finance" }: { area?: "finance" 
   if (engagement.isPending) {
     return (
       <EaPage title={id} back={back}>
-        <Skeleton variant="rounded" height={160} />
+        <DetailSkeleton facts={10} />
       </EaPage>
     );
   }
