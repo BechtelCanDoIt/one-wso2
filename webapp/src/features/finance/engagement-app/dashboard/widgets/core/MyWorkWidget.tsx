@@ -38,6 +38,6 @@ export default function MyWorkWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element {
       </Block>
     ) : null,
   ].filter(Boolean);
-  return <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: cards.length > 1 ? "1fr 1fr" : "1fr" }, gap: 2 }}>{cards}</Box>;
+  return <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: cards.length > 1 ? "1fr 1fr" : "1fr" }, columnGap: 5, rowGap: 3 }}>{cards}</Box>;
 }
 
