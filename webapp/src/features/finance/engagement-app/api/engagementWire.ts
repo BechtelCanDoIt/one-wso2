@@ -232,6 +232,8 @@ export interface WDashboard {
     currentMonth?: number;
     byMonth: WSeriesPoint[];
     byType: WBucket[];
+    /** Amounts with no NetSuite rate for their currency and month, left out of the totals. */
+    notConverted?: { source: string; currency?: string | null; amount: number; lines?: number }[] | null;
   };
   engagements?: {
     startingIn30Days: {

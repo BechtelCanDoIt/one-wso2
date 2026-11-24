@@ -544,6 +544,17 @@ export const roleSettings = (r: W.WRoleSettings): V.RoleSettings => ({
 const bucket = (b: W.WBucket): V.CountRow => ({ label: b.label, count: b.value });
 const series = (rows: W.WSeriesPoint[], key: string): V.MonthValue[] => rows.map((r) => ({ month: r.month, value: r.values[key] ?? 0 }));
 
+const COST_SOURCES: readonly V.CostSource[] = ["invoice", "perDiem", "card", "claim"];
+
+export const costSource = (x: string): V.CostSource => (COST_SOURCES as readonly string[]).includes(x) ? (x as V.CostSource) : "invoice";
+
+export const notConverted = (n: { source: string; currency?: string | null; amount: number; lines?: number }): V.NotConverted => ({
+  source: costSource(n.source),
+  currency: s(n.currency).trim().toUpperCase(),
+  amount: n.amount,
+  ...(n.lines === undefined ? {} : { lines: n.lines }),
+});
+
 export function dashboard(d: W.WDashboard): V.Dashboard {
   const mw = d.myWork;
   const myAllocations = [mw?.currentAllocation, mw?.nextAllocation].filter((a): a is W.WAllocationSummary => Boolean(a)).map(upcomingAllocation);
@@ -606,6 +617,7 @@ export function dashboard(d: W.WDashboard): V.Dashboard {
             expenseClaims: m.values["Expense Claims"],
           })),
           byType: tc.byType.map(bucket),
+          notConverted: (tc.notConverted ?? []).map(notConverted),
         }
       : undefined,
     agency: d.agent

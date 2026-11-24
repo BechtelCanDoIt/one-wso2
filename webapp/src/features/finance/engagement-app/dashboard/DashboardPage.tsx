@@ -30,7 +30,8 @@ import { ALLOC } from "../model/engagementAccess";
 import { addDays, fmtDate, fmtMonth, fmtRange, n0, place, plural, usdShort, money } from "../model/format";
 import { useListView } from "../model/useListView";
 import { FilterDate, FilterSelect } from "../components/FilterFields";
-import { Calm, DateRow, Grid, HBars, Kpi, KpiRow, Mini, MonthColumns, QueueTiles, Section, StackedMonths, ViewAll } from "./dashboardParts";
+import { notConvertedText, USD_RATE_HINT } from "./travelCostText";
+import { Calm, DateRow, Grid, HBars, InfoHint, Kpi, KpiRow, Mini, MonthColumns, QueueTiles, Section, StackedMonths, ViewAll } from "./dashboardParts";
 
 /** A line under each Waiting on You tile, by the backend's queue key. The label, count and list are the backend's. */
 const QUEUE_HINT: Readonly<Record<string, string>> = {
@@ -167,6 +168,7 @@ export default function DashboardPage(): JSX.Element {
 function TravelCost({ d }: { d: Dashboard }): JSX.Element {
   const c = d.travelCost!;
   const share = (n: number) => `${Math.round((n / (c.total || 1)) * 100)}% of the total`;
+  const skipped = notConvertedText(c.notConverted);
   const cards = c.creditCards !== undefined;
   const claims = c.expenseClaims !== undefined;
   const months = c.byMonth.map((m) => ({
@@ -179,7 +181,8 @@ function TravelCost({ d }: { d: Dashboard }): JSX.Element {
   return (
     <Section
       title="Travel Cost"
-      sub={`${cards ? (claims ? "Travel invoices, per diem payments, credit card expenses and expense claims" : "Travel invoices, per diem payments and credit card expenses") : "Travel invoices and per diem payments"} in USD at month-end rates, over the last 12 months.`}
+      sub={`${cards ? (claims ? "Travel invoices, per diem payments, credit card expenses and expense claims" : "Travel invoices, per diem payments and credit card expenses") : "Travel invoices and per diem payments"} in USD, over the last 12 months.`}
+      aside={<InfoHint label="How USD is calculated">{USD_RATE_HINT}</InfoHint>}
     >
       <KpiRow>
         <Kpi label="Travel Cost, 12 Months" value={usdShort(c.total)} />
@@ -188,6 +191,11 @@ function TravelCost({ d }: { d: Dashboard }): JSX.Element {
         {cards ? <Kpi label="Credit Card Expenses" value={usdShort(c.creditCards ?? 0)} note={share(c.creditCards ?? 0)} /> : null}
         {claims ? <Kpi label="Expense Claims" value={usdShort(c.expenseClaims ?? 0)} note={share(c.expenseClaims ?? 0)} /> : null}
       </KpiRow>
+      {skipped ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1.5 }}>
+          {skipped}
+        </Typography>
+      ) : null}
       <Grid wide>
         <Mini title="Travel Cost by Month">
           <StackedMonths
@@ -340,7 +348,7 @@ function AllocationsToday({
       ) : (
         <>
       <KpiRow>
-        <Kpi label="Allocations" value={n0(a.total)} note="Engagement and team allocations" />
+        <Kpi label="Allocations" value={n0(a.total)} note="Engagement allocations only" />
         <Kpi label="Consultants Allocated" value={n0(a.consultants)} />
         <Kpi label="Paid Allocations" value={n0(a.paid)} note={a.total ? `${Math.round((a.paid / a.total) * 100)}% of allocations` : undefined} />
         <Kpi label="Non Paid Allocations" value={n0(a.nonPaid)} />

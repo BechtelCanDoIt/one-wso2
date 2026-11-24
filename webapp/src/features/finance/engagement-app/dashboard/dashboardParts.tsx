@@ -16,9 +16,9 @@
 
 import type { JSX, ReactNode } from "react";
 import { Link as RouterLink } from "react-router";
-import { Box, Button, ButtonBase, Card, Stack, Typography } from "@wso2/oxygen-ui";
+import { Box, Button, ButtonBase, Card, IconButton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { BarChart } from "@wso2/oxygen-ui-charts-react";
-import { CircleCheckIcon } from "@wso2/oxygen-ui-icons-react";
+import { CircleCheckIcon, InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import type { CountRow, MonthValue } from "../api/engagementTypes";
 import { fmtMonth, n0 } from "../model/format";
 
@@ -41,6 +41,17 @@ export function Section({ title, sub, aside, children }: { title: string; sub?: 
       </Box>
       {children}
     </Box>
+  );
+}
+
+/** An info icon button with a hint. A button, so the hint opens on keyboard focus as well as on hover. */
+export function InfoHint({ label, children }: { label: string; children: string }): JSX.Element {
+  return (
+    <Tooltip title={children} arrow placement="top">
+      <IconButton size="small" aria-label={label} sx={{ color: "text.secondary" }}>
+        <InfoIcon size={16} />
+      </IconButton>
+    </Tooltip>
   );
 }
 

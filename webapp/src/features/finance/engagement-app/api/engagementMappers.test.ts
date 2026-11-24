@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { tripExpenses } from "./engagementMappers";
+import { dashboard, notConverted, tripExpenses } from "./engagementMappers";
 
 describe("tripExpenses", () => {
   it("names the expense_app statuses and keeps missing values empty", () => {
@@ -33,5 +33,26 @@ describe("tripExpenses", () => {
 
   it("treats missing lists as empty", () => {
     expect(tripExpenses({})).toEqual({ cardExpenses: [], expenseClaims: [] });
+  });
+});
+
+describe("travel cost notConverted", () => {
+  const cost = { total: 10, travelInvoices: 6, perDiems: 4, byMonth: [], byType: [] };
+
+  it("maps each amount with its source, a tidy currency and the line count", () => {
+    const d = dashboard({ travelCost: { ...cost, notConverted: [{ source: "claim", currency: " lkr ", amount: 1234500, lines: 12 }, { source: "card", currency: null, amount: 5 }] } });
+    expect(d.travelCost?.notConverted).toEqual([
+      { source: "claim", currency: "LKR", amount: 1234500, lines: 12 },
+      { source: "card", currency: "", amount: 5 },
+    ]);
+  });
+
+  it("maps an absent or null list to an empty one", () => {
+    expect(dashboard({ travelCost: cost }).travelCost?.notConverted).toEqual([]);
+    expect(dashboard({ travelCost: { ...cost, notConverted: null } }).travelCost?.notConverted).toEqual([]);
+  });
+
+  it("falls back to invoice for a source it does not know", () => {
+    expect(notConverted({ source: "other", amount: 1 }).source).toBe("invoice");
   });
 });

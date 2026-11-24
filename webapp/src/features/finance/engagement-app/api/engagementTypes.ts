@@ -599,6 +599,18 @@ export interface UpcomingTrip {
   readonly status?: TravelStatus;
 }
 
+/** A cost source, as the backend names it. */
+export type CostSource = "invoice" | "perDiem" | "card" | "claim";
+
+/** An amount left out of the USD totals because no rate was found for its currency. */
+export interface NotConverted {
+  readonly source: CostSource;
+  /** Blank when the source did not record a currency. */
+  readonly currency: string;
+  readonly amount: number;
+  readonly lines?: number;
+}
+
 export interface Dashboard {
   /** Sections the backend could not build; each is omitted from the response. */
   readonly failed: readonly string[];
@@ -636,7 +648,7 @@ export interface Dashboard {
     readonly byTravelAgent: readonly CountRow[];
   };
   readonly travelCost?: {
-    /** USD at month-end rates. */
+    /** USD. Each amount is converted at NetSuite's month-end rate (today's rate for the current month). */
     readonly total: number;
     readonly invoices: number;
     readonly perDiems: number;
@@ -647,6 +659,8 @@ export interface Dashboard {
     readonly currentMonth?: number;
     readonly byMonth: readonly { readonly month: string; readonly invoices: number; readonly perDiems: number; readonly creditCards?: number; readonly expenseClaims?: number }[];
     readonly byType: readonly CountRow[];
+    /** Amounts with no rate, left out of every figure above. */
+    readonly notConverted: readonly NotConverted[];
   };
   /** The travel agent's own dashboard; present instead of the sections above. */
   readonly agency?: {

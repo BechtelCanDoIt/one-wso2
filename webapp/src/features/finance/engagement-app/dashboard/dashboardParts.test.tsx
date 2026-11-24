@@ -16,7 +16,8 @@
 
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
-import { HBars } from "./dashboardParts";
+import { HBars, InfoHint } from "./dashboardParts";
+import { notConvertedText, USD_RATE_HINT } from "./travelCostText";
 
 const rows = [
   { label: "Acme Corp", count: 14 },
@@ -38,5 +39,28 @@ describe("HBars", () => {
     const row = getByTitle("Acme Corp").parentElement!;
     expect(row.textContent?.endsWith("14")).toBe(true);
     expect(row.textContent).not.toContain("%");
+  });
+});
+
+describe("notConvertedText", () => {
+  it("is empty when everything converted", () => {
+    expect(notConvertedText([])).toBe("");
+  });
+
+  it("names each amount, its currency and its source", () => {
+    const text = notConvertedText([
+      { source: "invoice", currency: "LKR", amount: 1234500 },
+      { source: "card", currency: "EUR", amount: 2300 },
+      { source: "claim", currency: "", amount: 15 },
+    ]);
+    expect(text).toBe("Not converted, left out of the totals: LKR 1,234,500 (Travel Invoices), EUR 2,300.00 (Credit Card Expenses), Unknown currency 15.00 (Expense Claims)");
+    expect(text).not.toContain(";");
+  });
+});
+
+describe("InfoHint", () => {
+  it("is a button with an accessible name, so the hint opens on focus", () => {
+    const { getByRole } = render(<InfoHint label="How USD is calculated">{USD_RATE_HINT}</InfoHint>);
+    expect(getByRole("button", { name: "How USD is calculated" })).toBeTruthy();
   });
 });
