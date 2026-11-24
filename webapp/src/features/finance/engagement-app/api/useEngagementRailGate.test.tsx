@@ -50,12 +50,10 @@ beforeEach(() => {
 });
 
 describe("which Engagement App rows a person sees", () => {
-  it("an employee sees the Dashboard under Finance and their own pages under Me", () => {
+  it("an employee sees only their own pages under Me, no Engagement App under Finance", () => {
     state.info.data = user([1], [19, 20, 21, 23, 24, 36, 49]);
     const { result } = renderHook(() => useEngagementRailGate(true));
     expect(visible(result.current)).toEqual([
-      ENGAGEMENT_GROUP_ID,
-      ENGAGEMENT_ITEM.dashboard,
       ENGAGEMENT_ITEM.myAllocations,
       ENGAGEMENT_ITEM.myTravelRequests,
       ENGAGEMENT_ITEM.myDocuments,

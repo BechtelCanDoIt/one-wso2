@@ -124,22 +124,29 @@ describe("the Engagement App access ladder", () => {
     expect(screen.queryByText("Nothing here for you yet")).toBeNull();
   });
 
-  it("shows the shared no-access card to someone with no Finance privilege", () => {
-    state.info.data = user([], [49]);
+  it("shows the shared no-access card to someone with no Engagement App privilege", () => {
+    state.info.data = user([], []);
     open("/finance/engagement-app/dashboard");
     expect(screen.getByText("Nothing here for you yet")).toBeInTheDocument();
   });
 
   it("renders the page once allowed", async () => {
+    state.info.data = user([1], [1, 2, 3]);
     open("/finance/engagement-app/dashboard");
     expect(await screen.findByText("Dashboard page")).toBeInTheDocument();
   });
 });
 
 describe("Engagement App routing", () => {
-  it("lands an employee on the Dashboard", () => {
+  it("lands someone with another Finance screen on the Dashboard", () => {
+    state.info.data = user([1], [1, 2, 3]);
     open("/finance/engagement-app");
     expect(where()).toBe("/finance/engagement-app/dashboard");
+  });
+
+  it("sends a plain employee from Finance to their own pages under Me", () => {
+    open("/finance/engagement-app/dashboard");
+    expect(where()).toBe("/me/travel-requests");
   });
 
   it("lands an approver without the Dashboard on Approvals, on its first tab", async () => {
@@ -151,7 +158,7 @@ describe("Engagement App routing", () => {
 
   it("refuses Settings to an employee at its URL, not just in the rail", () => {
     open("/finance/engagement-app/settings/allocation-types");
-    expect(where()).toBe("/finance/engagement-app/dashboard");
+    expect(where()).toBe("/me/travel-requests");
   });
 
   it("opens Settings on a tab its privilege allows", async () => {
@@ -168,6 +175,7 @@ describe("Engagement App routing", () => {
   });
 
   it("sends an unknown Engagement App address to the landing", () => {
+    state.info.data = user([1], [1, 2, 3]);
     open("/finance/engagement-app/nowhere");
     expect(where()).toBe("/finance/engagement-app/dashboard");
   });

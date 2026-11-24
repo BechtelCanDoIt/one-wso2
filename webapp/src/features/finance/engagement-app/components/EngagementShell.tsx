@@ -73,6 +73,8 @@ export default function EngagementShell({ area }: { area: "finance" | "me" }): J
   }
 
   const access = engagementAccess(info.data);
+  // Someone with only their own pages (a plain employee) is sent to them from any Finance address.
+  if (area === "finance" && !access.anyFinance && access.anyMe) return <Navigate to={myLanding(access)} replace />;
   if (area === "finance" ? !access.anyFinance : !access.anyMe) {
     return (
       <Box>
