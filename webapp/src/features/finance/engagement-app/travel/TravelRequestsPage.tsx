@@ -47,7 +47,7 @@ export function TravelRequestsIndex(): JSX.Element {
   return <Navigate to={engagementPaths.travelRequests(access.newTravelRequests ? "new" : "in-progress")} replace />;
 }
 
-/** Travels: the legacy New Travel Requests and All Travel Requests as one list with tabs; a travel agent sees only the agency's requests. */
+/** Travels: the travel requests in tabs; a travel agent sees only the agency's requests. */
 export default function TravelRequestsPage({ segment }: { segment: TravelSegment }): JSX.Element {
   const access = useEngagementAccess();
   const segments = segmentsOf(access);

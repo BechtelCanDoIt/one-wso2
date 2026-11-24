@@ -43,6 +43,17 @@ describe("backTarget", () => {
     expect(backTarget(`${A}/engagements/E1/allocations`, `${A}/engagements/E1/edit`)).toBe(`${A}/engagements/E1/details`);
   });
 
+  it("never returns to an Edit or Allocate form, which would bounce between the two", () => {
+    rememberVisit(`${A}/engagements/E1/allocations`);
+    rememberVisit(`${A}/engagements/E1/edit`);
+    rememberVisit(`${A}/engagements/E1/allocate`);
+    expect(backTarget(`${A}/engagements/E1`, `${A}/engagements/E1/allocate`)).toBe(`${A}/engagements/E1/allocations`);
+    expect(backTarget(`${A}/engagements/E1`, `${A}/engagements/E1/edit`)).toBe(`${A}/engagements/E1/allocations`);
+    clearVisits();
+    rememberVisit(`${A}/engagements/E1/edit`);
+    expect(backTarget(`${A}/engagements/E1`, `${A}/engagements/E1/allocate`)).toBe(`${A}/engagements/E1`);
+  });
+
   it("never takes another section for a list", () => {
     rememberVisit(`${A}/approvals/internal`);
     expect(backTarget(`${A}/engagements`, `${A}/engagements/E1/allocations`)).toBe(`${A}/engagements`);

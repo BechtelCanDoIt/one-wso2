@@ -127,7 +127,7 @@ function InvoiceQueue({ queue }: { queue: "po" | "finance" | "push" }): JSX.Elem
   const list = useListView();
   const invoices = useInvoices({ tab: queue === "po" ? "approve-po" : queue === "finance" ? "approve" : "push", ...list.paramsFor() });
   const rows = invoices.data?.items ?? [];
-  const work = useInvoiceWork(rows);
+  const work = useInvoiceWork(invoices.isPending || invoices.isPlaceholderData ? [] : rows);
   const [open, setOpen] = useState<Invoice | null>(null);
   const hint = queue === "po" ? ["Reject (PO)", "Approve (PO)"] : queue === "finance" ? ["Reject", "Approve"] : ["Push Invoices to NS"];
   return (
@@ -173,7 +173,7 @@ function AllInvoices(): JSX.Element {
   ];
   const invoices = useInvoices({ tab: "all", ...list.paramsFor(filters) });
   const rows = invoices.data?.items ?? [];
-  const work = useInvoiceWork(rows);
+  const work = useInvoiceWork(invoices.isPending || invoices.isPlaceholderData ? [] : rows);
   return (
     <>
       <ListToolbar
@@ -232,7 +232,7 @@ function PaymentsList({ queue }: { queue: boolean }): JSX.Element {
   ];
   const payments = usePerDiemPayments(queue ? { tab: "push", ...list.paramsFor() } : { tab: "all", ...list.paramsFor(filters) });
   const rows = payments.data?.items ?? [];
-  const work = usePaymentWork(rows);
+  const work = usePaymentWork(payments.isPending || payments.isPlaceholderData ? [] : rows);
   return (
     <>
       <ListToolbar
@@ -300,7 +300,7 @@ function SyncFailures(): JSX.Element {
     { key: "ns", label: "NS Status", render: (r) => <NsStatusChip record={r} /> },
   ];
 
-  const chosen = rows.filter((r) => selected.has(keyOf(r)));
+  const chosen = failures.isPending || failures.isPlaceholderData ? [] : rows.filter((r) => selected.has(keyOf(r)));
   const right: ReactNode = chosen.length ? (
     <>
       <Typography variant="body2" color="text.secondary">

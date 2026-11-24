@@ -23,6 +23,9 @@ const seen: string[] = [];
 const pathOf = (url: string): string => url.split("?")[0];
 const parentOf = (path: string): string => path.slice(0, path.lastIndexOf("/"));
 // A section's own root (/finance/engagement-app, /me) has no siblings to return to.
+// An engagement's Edit and Allocate forms are actions, not views: neither is a place to return to.
+const ACTION_ROUTES: ReadonlySet<string> = new Set(["edit", "allocate"]);
+const isAction = (path: string): boolean => ACTION_ROUTES.has(path.slice(path.lastIndexOf("/") + 1));
 const isSectionRoot = (path: string): boolean => path.split("/").filter(Boolean).length <= 2;
 
 /** Records a visited URL (path and query); the newest comes last. */
@@ -44,7 +47,7 @@ export function backTarget(to: string, currentPath: string): string {
   const siblings = !isSectionRoot(parent);
   for (let i = seen.length - 1; i >= 0; i--) {
     const path = pathOf(seen[i]);
-    if (path === currentPath) continue;
+    if (path === currentPath || (isAction(path) && path !== target)) continue;
     if (path === target || parentOf(path) === target || (siblings && parentOf(path) === parent)) return seen[i];
   }
   return to;

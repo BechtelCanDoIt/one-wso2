@@ -63,6 +63,7 @@ export default function EaTable<T>({
   rows,
   rowKey,
   onRowClick,
+  canOpen,
   primaryAction,
   menu,
   selection,
@@ -75,6 +76,8 @@ export default function EaTable<T>({
   readonly rows: readonly T[];
   readonly rowKey: (row: T) => string;
   readonly onRowClick?: (row: T) => void;
+  /** Rows for which this is false are plain: no pointer, tab stop or click handler. */
+  readonly canOpen?: (row: T) => boolean;
   readonly primaryAction?: (row: T) => RowAction | undefined;
   readonly menu?: (row: T) => readonly RowAction[];
   readonly selection?: RowSelection<T>;
@@ -85,7 +88,8 @@ export default function EaTable<T>({
 }): JSX.Element {
   const hasActions = Boolean(primaryAction || menu);
   const colCount = columns.length + (selection ? 1 : 0) + (hasActions ? 1 : 0);
-  const selectable = selection ? rows.filter((r) => selection.canSelect(r) === true).map(rowKey) : [];
+  // Rows shown as a skeleton (or as placeholders of a new search) cannot be selected.
+  const selectable = selection && !loading ? rows.filter((r) => selection.canSelect(r) === true).map(rowKey) : [];
   const allTicked = selectable.length > 0 && selectable.every((id) => selection?.selected.has(id));
 
   return (
@@ -150,24 +154,25 @@ export default function EaTable<T>({
               const action = primaryAction?.(row);
               const items = menu?.(row) ?? [];
               const can = selection?.canSelect(row);
+              const open = onRowClick && (canOpen?.(row) ?? true) ? onRowClick : undefined;
               return (
                 <TableRow
                   key={id}
                   hover
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  tabIndex={onRowClick ? 0 : undefined}
+                  onClick={open ? () => open(row) : undefined}
+                  tabIndex={open ? 0 : undefined}
                   onKeyDown={
-                    onRowClick
+                    open
                       ? (ev) => {
                           if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) {
                             ev.preventDefault();
-                            onRowClick(row);
+                            open(row);
                           }
                         }
                       : undefined
                   }
                   sx={{
-                    cursor: onRowClick ? "pointer" : undefined,
+                    cursor: open ? "pointer" : undefined,
                     "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: -2 },
                     verticalAlign: "top",
                     "& td": { fontSize: 13, py: 1.25 },

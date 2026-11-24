@@ -41,7 +41,7 @@ const TABS: readonly EngagementTab[] = ["allocations", "details"];
 
 const kindLabel = (e: Engagement) => (e.kind === "marketing" ? "Marketing Event" : e.kind === "internal" ? "Internal Engagement" : e.typeName);
 
-/** One engagement: its facts, its allocation records and its details (the upper and lower halves of the legacy Allocate page); under Me (from Allocations) it is read-only, with no actions. */
+/** One engagement: its facts, its allocation records and its details; under Me (from Allocations) it is read-only, with no actions. */
 export default function EngagementPage({ area = "finance" }: { area?: "finance" | "me" }): JSX.Element {
   const { id = "", tab = "allocations" } = useParams();
   const engagement = useEngagement(id);
@@ -145,6 +145,7 @@ export default function EngagementPage({ area = "finance" }: { area?: "finance" 
         ) : (
           <AllocationRecords
             allocations={e.allocations}
+            travelBase={area === "me" ? myEngagementPaths.travelRequest : engagementPaths.travelRequest}
             canChangeStatus={area !== "me" && canEditAllocationStatus(p, e.typeId)}
             onChangeStatus={setStatusOf}
             empty={
@@ -168,17 +169,19 @@ export function AllocationRecords({
   canChangeStatus,
   onChangeStatus,
   empty,
+  travelBase,
 }: {
   allocations: readonly Allocation[];
   canChangeStatus: boolean;
   onChangeStatus: (a: Allocation) => void;
   empty: JSX.Element;
+  travelBase?: (job: string) => string;
 }): JSX.Element {
   const columns: Column<Allocation>[] = [
     { key: "id", label: "Allocation", render: (a) => <Mono>{a.id}</Mono> },
     { key: "who", label: "Consultant", render: (a) => <Two main={a.consultant.name} sub={a.consultant.email} /> },
     { key: "dates", label: "Dates", render: (a) => <Two main={fmtRange(a.start, a.end)} sub={<HourlyLabel allocation={a} />} /> },
-    { key: "travel", label: "Travel", render: (a) => <TravelCell allocation={a} /> },
+    { key: "travel", label: "Travel", render: (a) => <TravelCell allocation={a} travelBase={travelBase} /> },
     { key: "comment", label: "Comment", width: "22%", render: (a) => <Box sx={{ color: "text.secondary", fontSize: 12.5 }}>{a.comment || "—"}</Box> },
     { key: "status", label: "Allocation Status", render: (a) => <AllocationStatusChip status={a.status} /> },
   ];
