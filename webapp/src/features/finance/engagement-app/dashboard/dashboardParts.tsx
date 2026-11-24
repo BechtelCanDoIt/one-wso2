@@ -89,13 +89,13 @@ export function Calm({ children }: { children: ReactNode }): JSX.Element {
 }
 
 /** A compact figure tile. `delta` is a line under the note ("▲ 12% vs last year"); `onClick` makes the tile a button. */
-export function Kpi({ label, value, note, delta, onClick, actionLabel }: { label: string; value: string; note?: string; delta?: string; onClick?: () => void; actionLabel?: string }): JSX.Element {
+export function Kpi({ label, value, note, delta, deltaTone, onClick, actionLabel }: { label: string; value: string; note?: string; delta?: string; deltaTone?: "error" | "success"; onClick?: () => void; actionLabel?: string }): JSX.Element {
   const body = (
     <>
       <Typography sx={{ fontSize: 12, color: "text.secondary", fontWeight: 500 }}>{label}</Typography>
       <Typography sx={{ fontSize: 20, fontWeight: 650, fontVariantNumeric: "tabular-nums", lineHeight: 1.3 }}>{value}</Typography>
       {note ? <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>{note}</Typography> : null}
-      {delta ? <Typography sx={{ fontSize: 11.5, color: "text.secondary" }}>{delta}</Typography> : null}
+      {delta ? <Typography sx={{ fontSize: 11.5, color: deltaTone ? `${deltaTone}.main` : "text.secondary", fontWeight: deltaTone ? 600 : undefined }}>{delta}</Typography> : null}
     </>
   );
   return (
@@ -112,6 +112,15 @@ export function Kpi({ label, value, note, delta, onClick, actionLabel }: { label
         <Box sx={{ px: 1.75, py: 1.25 }}>{body}</Box>
       )}
     </Card>
+  );
+}
+
+/** A change in a table cell, coloured by `tone`. The arrow and number carry the meaning without the colour. */
+export function Change({ text, tone }: { text: string; tone?: "error" | "success" }): JSX.Element {
+  return (
+    <Typography component="span" sx={{ fontSize: "inherit", color: tone ? `${tone}.main` : "inherit", fontWeight: tone ? 600 : undefined }}>
+      {text}
+    </Typography>
   );
 }
 

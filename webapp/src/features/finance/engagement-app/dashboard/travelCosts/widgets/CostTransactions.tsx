@@ -12,7 +12,8 @@ import { fmtDate, n0, n2 } from "../../../model/format";
 import type { WidgetCtx } from "../../widgets/types";
 import { COST_SOURCE_LABEL } from "../../travelCostText";
 import { monthWithin } from "../dateRanges";
-import { deltaCell, originalText, PAID_LABEL, PAID_TONE, rateSourceText, usd2 } from "../costFormat";
+import { deltaCell, deltaTone, originalText, PAID_LABEL, PAID_TONE, rateSourceText, usd2 } from "../costFormat";
+import { Change } from "../../dashboardParts";
 import { clampPage, GROUPS, PAGE_SIZE, transactionParams, type CostSort, type FilterKey, type GroupBy } from "../costView";
 import TransactionDrawer from "./TransactionDrawer";
 
@@ -76,7 +77,7 @@ export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Eleme
     ...(compared
       ? [
           { key: "previous", label: "Last Year", align: "right", render: (g: CostGroup) => (g.previous === undefined ? "—" : usd2(g.previous)) } as Column<CostGroup>,
-          { key: "change", label: "Change", align: "right", render: (g: CostGroup) => deltaCell(g, true) } as Column<CostGroup>,
+          { key: "change", label: "Change", align: "right", render: (g: CostGroup) => <Change text={deltaCell(g, true)} tone={deltaTone(g, true, "spend")} /> } as Column<CostGroup>,
         ]
       : []),
   ];

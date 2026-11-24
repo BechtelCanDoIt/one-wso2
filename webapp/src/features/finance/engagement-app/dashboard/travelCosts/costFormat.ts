@@ -1,8 +1,20 @@
 
 import type { CostLine, Delta } from "../../api/dashboardTypes";
-import { fmtDate, money, usdShort, n2 } from "../../model/format";
+import { fmtDate, money, usdShort, n0, n2 } from "../../model/format";
 
 export const THIN_TEXT = "No comparison: little data last year";
+
+/** Spend: more is worse. Volume (trips, travellers): neither better nor worse. */
+export type DeltaMeaning = "spend" | "volume";
+
+/** The colour of a change: red when spend went up, green when it went down, none for volume or no comparison. The arrow and text always say it too. */
+export function deltaTone(d: Delta, compared: boolean, meaning: DeltaMeaning): "error" | "success" | undefined {
+  if (!compared || meaning === "volume" || d.thin || !d.changePercent) return undefined;
+  return d.changePercent > 0 ? "error" : "success";
+}
+
+/** Whole US dollars with separators, for a figure tile: "USD 12,944". */
+export const usd0 = (v: number): string => `USD ${n0(v)}`;
 
 /** "▲ 12% vs last year", "▼ 8% vs last year", the thin-data sentence, or nothing when the comparison is off. Never colour alone. */
 export function deltaText(d: Delta, compared: boolean): string | undefined {

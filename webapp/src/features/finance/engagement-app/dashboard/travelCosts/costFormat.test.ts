@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import { engagementServiceUrls } from "@config/apiConfig";
-import { deltaCell, deltaText, originalText, rateSourceText, THIN_TEXT } from "./costFormat";
+import { deltaCell, deltaText, deltaTone, originalText, rateSourceText, THIN_TEXT, usd0 } from "./costFormat";
 import { costCsvName, costCsvUrl } from "./useCostCsv";
 
 describe("deltaText", () => {
@@ -72,5 +72,26 @@ describe("CSV downloads", () => {
     expect(lines.pathname.endsWith("/dashboard/travel-costs/transactions")).toBe(true);
     expect(lines.searchParams.getAll("source")).toEqual(["card"]);
     expect(engagementServiceUrls.dashboardSections(["travelTeam", "marketingEvents"])).toContain("sections=travelTeam%2CmarketingEvents");
+  });
+});
+
+describe("deltaTone", () => {
+  const d = (changePercent?: number, thin = false) => ({ value: 1, changePercent, thin }) as Parameters<typeof deltaTone>[0];
+  it("makes more spend red and less spend green", () => {
+    expect(deltaTone(d(12), true, "spend")).toBe("error");
+    expect(deltaTone(d(-8), true, "spend")).toBe("success");
+  });
+  it("never colours volume, no change, thin data or no comparison", () => {
+    expect(deltaTone(d(-64), true, "volume")).toBeUndefined();
+    expect(deltaTone(d(0), true, "spend")).toBeUndefined();
+    expect(deltaTone(d(30, true), true, "spend")).toBeUndefined();
+    expect(deltaTone(d(30), false, "spend")).toBeUndefined();
+  });
+});
+
+describe("usd0", () => {
+  it("shows whole dollars with separators, never a short form", () => {
+    expect(usd0(12944.22)).toBe("USD 12,944");
+    expect(usd0(1410.47)).toBe("USD 1,410");
   });
 });

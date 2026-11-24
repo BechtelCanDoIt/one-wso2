@@ -4,10 +4,10 @@ import { Typography } from "@wso2/oxygen-ui";
 import type { CostBucket } from "../../../api/dashboardTypes";
 import EaTable, { type Column } from "../../../components/EaTable";
 import { n0, usdShort } from "../../../model/format";
-import { HBars } from "../../dashboardParts";
+import { Change, HBars } from "../../dashboardParts";
 import type { WidgetCtx } from "../../widgets/types";
 import { costBuckets, type CostDimension } from "../../widgets/rules";
-import { deltaCell, deltaText, usd2 } from "../costFormat";
+import { deltaCell, deltaText, deltaTone, usd2 } from "../costFormat";
 import { DRILL_KEY } from "../costView";
 
 /** The bars, or their Tables twin; a click on a bar or a row filters every cost widget by it. */
@@ -26,7 +26,7 @@ export function CostBars({ ctx, dimension, firstColumn, withTrips = false }: { c
       ...(compared
         ? [
             { key: "previous", label: "Last Year", align: "right", render: (b: CostBucket) => (b.previous === undefined ? "—" : usd2(b.previous)) } as Column<CostBucket>,
-            { key: "change", label: "Change", align: "right", render: (b: CostBucket) => deltaCell(b, true) } as Column<CostBucket>,
+            { key: "change", label: "Change", align: "right", render: (b: CostBucket) => <Change text={deltaCell(b, true)} tone={deltaTone(b, true, "spend")} /> } as Column<CostBucket>,
           ]
         : []),
       ...(withTrips
