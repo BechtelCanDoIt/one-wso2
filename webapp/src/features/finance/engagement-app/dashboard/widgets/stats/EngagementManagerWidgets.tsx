@@ -72,7 +72,7 @@ export function StartingIn14Widget({ ctx }: { ctx: WidgetCtx }): JSX.Element | n
   );
 }
 
-/** Consultants with the most allocated days in the last 90 days. */
+/** Consultants with the most allocated days inside the last 90 days. */
 export function MostAllocatedWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
   const m = mgr(ctx)?.mostAllocated;
   if (!m) return null;
