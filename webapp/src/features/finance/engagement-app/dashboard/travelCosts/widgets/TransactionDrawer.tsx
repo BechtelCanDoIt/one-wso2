@@ -1,6 +1,5 @@
 
 import type { JSX } from "react";
-import { Box, Typography } from "@wso2/oxygen-ui";
 import type { CostLine } from "../../../api/dashboardTypes";
 import { FactsGrid } from "../../../components/Facts";
 import RecordDrawer from "../../../components/RecordDrawer";
@@ -48,22 +47,6 @@ export default function TransactionDrawer({ line, onClose }: { line: CostLine; o
   return (
     <RecordDrawer title={line.reference || line.id} subtitle={`${COST_SOURCE_LABEL[line.source]}, ${fmtDate(line.date)}`} onClose={onClose}>
       <LineFacts line={line} />
-    </RecordDrawer>
-  );
-}
-
-/** The two lines of a possible duplicate, side by side in one drawer. */
-export function DuplicateDrawer({ a, b, onClose }: { a: CostLine; b: CostLine; onClose: () => void }): JSX.Element {
-  return (
-    <RecordDrawer title={`Possible duplicate on ${a.jobNumber ?? "a trip"}`} subtitle="Same job number, different source, same USD amount. Nothing is removed from the totals." onClose={onClose}>
-      {[a, b].map((l) => (
-        <Box key={l.id} sx={{ mb: 3 }}>
-          <Typography component="h3" sx={{ fontSize: 14, fontWeight: 600, mb: 1 }}>
-            {COST_SOURCE_LABEL[l.source]}, {fmtDate(l.date)}
-          </Typography>
-          <LineFacts line={l} />
-        </Box>
-      ))}
     </RecordDrawer>
   );
 }

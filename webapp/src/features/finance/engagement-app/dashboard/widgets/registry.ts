@@ -12,7 +12,6 @@ import { CampaignCoverageWidget, EventsByMonthWidget, EventsByRegionWidget, Fund
 import { AgentWorkloadWidget, FrequentTravellersWidget, PoAgeWidget, TravelTeamGlanceWidget } from "./stats/TravelTeamWidgets";
 import CostByMonth from "../travelCosts/widgets/CostByMonth";
 import { AgentBars, CostTypeBars, CountryBars, CustomerBars, PaidBars, SourceBars } from "../travelCosts/widgets/CostBars";
-import CostDuplicates from "../travelCosts/widgets/CostDuplicates";
 import CostKpis from "../travelCosts/widgets/CostKpis";
 import CostTransactions from "../travelCosts/widgets/CostTransactions";
 import {
@@ -23,7 +22,6 @@ import {
   byStatusEmpty,
   campaignEmpty,
   costByMonthEmpty,
-  DUPLICATES_RULE,
   engagementsEmpty,
   eventsByMonthEmpty,
   eventsByRegionEmpty,
@@ -122,17 +120,6 @@ export const WIDGETS: readonly WidgetDef[] = [
     Component: AgentBars,
   },
   { id: "tc-lines", title: "Transactions", size: "full", group: "travelCosts", slow: true, source: "own", csv: "transactions", empty: "No transactions match these filters.", Component: CostTransactions },
-  {
-    id: "tc-duplicates",
-    title: "Possible Duplicates",
-    note: DUPLICATES_RULE,
-    size: "full",
-    group: "travelCosts",
-    slow: true,
-    source: "own",
-    empty: "No possible duplicates in this period.",
-    Component: CostDuplicates,
-  },
   { id: "travel", title: "Travel", note: "Trips in progress, starting soon, and how travel has moved over the year.", size: "full", section: "travel", group: "travel", source: "dashboard", empty: "No trips.", Component: TravelWidget },
   {
     id: "tt-glance",

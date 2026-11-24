@@ -123,13 +123,6 @@ export const useTravelCostTransactions = (params: EngagementQueryParams, enabled
     keepPrevious: true,
   });
 
-export const useTravelCostDuplicates = (params: EngagementQueryParams, enabled = true) =>
-  useEngagementGet(["dashboard", "travel-cost-duplicates", params], urls.travelCostDuplicates(params), DM.costDuplicates, {
-    enabled,
-    staleTime: MINUTE,
-    keepPrevious: true,
-  });
-
 export const useAllocationsToday = (params: EngagementQueryParams, enabled = true) =>
   useEngagementGet(["dashboard", "allocations-today", params], urls.allocationsToday(params), M.allocationsToday, { enabled, keepPrevious: true });
 

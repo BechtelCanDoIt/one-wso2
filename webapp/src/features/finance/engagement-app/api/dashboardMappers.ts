@@ -137,7 +137,6 @@ export function travelCosts(w: DW.WTravelCosts): D.TravelCosts {
     byPaid: buckets(w.byPaid),
     paidSharePercent: num(w.paidSharePercent),
     notConverted: (w.notConverted ?? []).map(notConverted),
-    possibleDuplicates: w.possibleDuplicates ?? 0,
     failedSources: (w.failedSources ?? []).map(costSource),
     truncated: Boolean(w.truncated),
     comparisonFailedSources: (w.comparisonFailedSources ?? []).map(costSource),
@@ -185,12 +184,6 @@ export function costTransactions(w: DW.WCostTransactions): D.CostTransactions {
   }
   return { kind: "lines", items: w.items.map(costLine), total: w.total, totalUsd: w.totalUsd, dataAsOf: w.dataAsOf };
 }
-
-export const costDuplicates = (w: DW.WCostDuplicates): D.CostDuplicates => ({
-  total: w.total,
-  dataAsOf: w.dataAsOf,
-  items: w.items.map((x) => ({ jobNumber: x.jobNumber, traveller: x.traveller ? who(x.traveller) : undefined, usdAmount: x.usdAmount, daysApart: x.daysApart, a: costLine(x.a), b: costLine(x.b) })),
-});
 
 export const tripVisa = (t: DW.WTripVisa): D.TripVisa => ({
   jobNumber: t.jobNumber,

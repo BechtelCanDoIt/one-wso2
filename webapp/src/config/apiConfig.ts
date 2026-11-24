@@ -2395,7 +2395,6 @@ export const engagementServiceUrls = {
   dashboardSections: (sections: readonly string[]): string => ea("/dashboard", { sections: sections.join(",") }),
   travelCosts: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs", params),
   travelCostTransactions: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs/transactions", params),
-  travelCostDuplicates: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs/duplicates", params),
   allocationsToday: (params: EngagementQueryParams): string => ea("/dashboard/allocations-today", params),
   myOverview: ea("/me/overview"),
   myAllocations: (params: EngagementQueryParams = {}): string => ea("/me/allocations", params),

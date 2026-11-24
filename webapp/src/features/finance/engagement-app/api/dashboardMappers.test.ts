@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { costDuplicates, costLine, costTransactions, notConverted, travelCosts, travelTeam } from "./dashboardMappers";
+import { costLine, costTransactions, notConverted, travelCosts, travelTeam } from "./dashboardMappers";
 import type { WCostLine, WTravelCosts } from "./dashboardWire";
 
 const line: WCostLine = {
@@ -116,14 +116,6 @@ describe("costTransactions", () => {
     expect(lines).toMatchObject({ kind: "lines", total: 1, totalUsd: 506.67 });
     const groups = costTransactions({ groups: [{ key: "India", label: "India", lines: 2, trips: 1, travellers: 1, total: 9, previous: 0, changePercent: null, thin: true }], total: 1, dataAsOf: "x" });
     expect(groups).toMatchObject({ kind: "groups", groups: [{ key: "India", total: 9, thin: true, changePercent: undefined }] });
-  });
-});
-
-describe("costDuplicates", () => {
-  it("maps both lines of a pair", () => {
-    const d = costDuplicates({ items: [{ jobNumber: "TRV-1", traveller: null, usdAmount: 500, daysApart: 3, a: line, b: { ...line, id: "CC-2", source: "card" } }], total: 1, dataAsOf: "x" });
-    expect(d.items[0]).toMatchObject({ jobNumber: "TRV-1", daysApart: 3, traveller: undefined });
-    expect(d.items[0].b.source).toBe("card");
   });
 });
 

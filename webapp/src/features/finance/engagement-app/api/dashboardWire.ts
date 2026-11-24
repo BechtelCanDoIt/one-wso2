@@ -124,7 +124,6 @@ export interface WTravelCosts {
   byPaid: WCostBucket[];
   paidSharePercent?: number | null;
   notConverted?: { source: string; currency?: string | null; amount: number; lines?: number }[] | null;
-  possibleDuplicates?: number;
   failedSources?: string[] | null;
   truncated?: boolean;
   comparisonFailedSources?: string[] | null;
@@ -170,12 +169,6 @@ export interface WCostGroup {
 export type WCostTransactions =
   | { items: WCostLine[]; total: number; totalUsd: number; dataAsOf: string }
   | { groups: WCostGroup[]; total: number; dataAsOf: string };
-
-export interface WCostDuplicates {
-  items: { jobNumber: string; traveller?: WPerson | null; usdAmount: number; daysApart: number; a: WCostLine; b: WCostLine }[];
-  total: number;
-  dataAsOf: string;
-}
 
 export interface WTripVisa {
   jobNumber: string;

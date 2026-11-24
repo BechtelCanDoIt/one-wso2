@@ -134,7 +134,6 @@ export interface TravelCosts {
   readonly byPaid: readonly CostBucket[];
   readonly paidSharePercent?: number;
   readonly notConverted: readonly NotConverted[];
-  readonly possibleDuplicates: number;
   /** Sources the backend could not read; their lines are left out of every figure. */
   readonly failedSources: readonly CostSource[];
   /** A source hit the 20,000-line cap. */
@@ -188,21 +187,6 @@ export interface CostGroup extends Delta {
 export type CostTransactions =
   | { readonly kind: "lines"; readonly items: readonly CostLine[]; readonly total: number; readonly totalUsd: number; readonly dataAsOf: string }
   | { readonly kind: "groups"; readonly groups: readonly CostGroup[]; readonly total: number; readonly dataAsOf: string };
-
-export interface CostDuplicate {
-  readonly jobNumber: string;
-  readonly traveller?: Person;
-  readonly usdAmount: number;
-  readonly daysApart: number;
-  readonly a: CostLine;
-  readonly b: CostLine;
-}
-
-export interface CostDuplicates {
-  readonly items: readonly CostDuplicate[];
-  readonly total: number;
-  readonly dataAsOf: string;
-}
 
 /** A trip on the Me page with its visa position. */
 export interface TripVisa {

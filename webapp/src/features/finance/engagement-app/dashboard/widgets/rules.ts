@@ -90,5 +90,3 @@ export const barsEmpty =
     return !d || !LISTS[dimension](d).some((b) => b.value !== 0);
   };
 export const costByMonthEmpty = (ctx: WidgetCtx): boolean => !ctx.cost.query.data?.byMonth.some((m) => Object.values(m.values).some((v) => v !== 0));
-
-export const DUPLICATES_RULE = "Same job number, different source, same USD amount within 1%, within 14 days. Nothing is removed from the totals.";

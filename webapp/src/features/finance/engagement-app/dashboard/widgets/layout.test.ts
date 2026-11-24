@@ -85,7 +85,6 @@ describe("registry", () => {
 
   it("offers an export only on Travel Costs widgets", () => {
     for (const w of WIDGETS) if (w.csv) expect(w.group).toBe("travelCosts");
-    expect(widgetById("tc-duplicates")?.csv).toBeUndefined();
     expect(widgetById("tc-lines")?.csv).toBe("transactions");
   });
 });
