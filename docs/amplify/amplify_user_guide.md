@@ -36,7 +36,7 @@ Once you've shared a post, it drops off your list. Share them all and the panel 
 2. **First time only:** you'll be asked to link your LinkedIn account (see below).
 3. A dialog opens with the post. Optionally type your own thoughts in **Add your thoughts**. Up to 3,000 characters, counted the way LinkedIn will see them (the counter under the box keeps track). They show above the repost on your LinkedIn.
    - The toolbar adds bold, italic, strikethrough, links, lists, quotes and code. You can also use markdown (`**bold**`, `*italic*`, `- item`) or Ctrl+B / Ctrl+I (Cmd on a Mac). LinkedIn has no formatting of its own, so these styles use special Unicode letters. Screen readers may read them letter by letter, so use them sparingly.
-   - Type `@` and a few letters to mention a colleague who linked LinkedIn in Amplify, or the company page. Pick a name from the list. Up to 20 mentions per post. `#hashtags` work as usual.
+   - Type `@` and a few letters to mention a colleague who linked LinkedIn in Amplify, or the company page. Pick a name from the list to make it a LinkedIn mention. A name you type without picking it goes out as plain text. Up to 20 mentions per post. `#hashtags` work as usual: a `#` at the start of a word, followed by letters or digits.
    - The preview beside the box shows the text as it will go out.
 4. Click **Amplify**.
 
