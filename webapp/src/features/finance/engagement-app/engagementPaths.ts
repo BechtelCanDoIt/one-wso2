@@ -80,3 +80,7 @@ export const myEngagementPaths = {
   allocations: "/me/allocations",
   allocation: (id: string, tab: EngagementTab = "allocations"): string => `/me/allocations/${encodeURIComponent(id)}/${tab}`,
 } as const;
+
+/** Where one of the person's allocations leads: its engagement under Me when they may open it, else the Allocations list. */
+export const myAllocationLink = (a: { readonly engagementId: string; readonly canOpen?: boolean }): string =>
+  a.canOpen ? myEngagementPaths.allocation(a.engagementId) : myEngagementPaths.allocations;

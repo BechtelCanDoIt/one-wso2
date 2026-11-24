@@ -205,6 +205,8 @@ export interface UpcomingAllocation {
   readonly end: string;
   readonly status?: AllocationStatus;
   readonly current?: boolean;
+  /** The person may open the engagement (false until the backend says so). */
+  readonly canOpen?: boolean;
 }
 
 /** A bar on the allocation timeline: an engagement allocation or a team (default) allocation. */

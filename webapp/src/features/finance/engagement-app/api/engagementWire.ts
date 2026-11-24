@@ -190,6 +190,7 @@ export interface WAllocationSummary {
   endDate: string;
   clearanceStatus?: ClearanceStatus | null;
   current?: boolean;
+  canOpen?: boolean;
 }
 
 export interface WCountCard {

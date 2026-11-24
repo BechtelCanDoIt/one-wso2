@@ -25,6 +25,7 @@ import { myEngagementPaths } from "../engagementPaths";
 import { TRAVEL_STATUSES } from "../model/statuses";
 import { useListView } from "../model/useListView";
 import { travelColumns } from "../travel/travelColumns";
+import { TravelsFocus } from "./FocusCards";
 
 /** My Travels: the Travel app's My Travel Requests page. */
 export default function MyTravelRequestsPage(): JSX.Element {
@@ -42,6 +43,7 @@ export default function MyTravelRequestsPage(): JSX.Element {
   const pair = (v: string): readonly [string, string] => [v, v];
   return (
     <EaPage title="Travels" subtitle="Your travels, with the per diems, invoices and payments booked against them.">
+      <TravelsFocus trips={all} />
       <ListCard>
         <ListToolbar
             search={list.search}

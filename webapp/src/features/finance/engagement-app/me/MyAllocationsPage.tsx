@@ -25,6 +25,7 @@ import { Empty, Failed, ListCard } from "../components/ListCard";
 import ListToolbar, { type FilterDef } from "../components/ListToolbar";
 import { AllocationStatusChip, Two, Mono } from "../components/StatusChips";
 import { myEngagementPaths } from "../engagementPaths";
+import { AllocationsFocus } from "./FocusCards";
 import { engagementName, fmtRange, place } from "../model/format";
 import { ALLOCATION_STATUSES } from "../model/statuses";
 import { PAGE_SIZE, useListView } from "../model/useListView";
@@ -57,6 +58,7 @@ export default function MyAllocationsPage(): JSX.Element {
   ];
   return (
     <EaPage title="Allocations" subtitle="Where you are allocated, and when. Allocation managers set these; the status follows the clearance process.">
+      <AllocationsFocus />
       <ListCard>
         <ListToolbar
           search={list.search}
