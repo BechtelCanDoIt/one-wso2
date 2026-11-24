@@ -43,7 +43,7 @@ export default function WidgetGrid({
     <Stack spacing={2}>
       {layoutBlocks(defs).map((b, i) =>
         b.kind === "controls" ? (
-          <TravelCostControls key="controls" cost={ctx.cost} today={ctx.today} canDownloadTransactions={canDownloadTransactions} />
+          <TravelCostControls key="controls" cost={ctx.cost} today={ctx.businessDate} canDownloadTransactions={canDownloadTransactions} />
         ) : b.kind === "full" ? (
           frame(b.def)
         ) : (

@@ -19,14 +19,18 @@ import { localIsoDate } from "@utils/localDate";
 import { useListView } from "../../model/useListView";
 import { drillPatch, patchCostView, readCostView, type CostView, type CostViewPatch, type FilterKey } from "./costView";
 
-/** The Travel Costs controls bar's state, bound to the address bar. Writes keep every key it does not own (Allocations Today's date and business unit). */
-export function useTravelCostView(): {
+/**
+ * The Travel Costs controls bar's state, bound to the address bar. Writes keep every key it does not own (Allocations Today's date and business unit).
+ * `businessDate` is the backend's "today" (UTC), the same one the page header shows, so the default period and every preset end on it; the browser's
+ * own date stands in only until it has loaded.
+ */
+export function useTravelCostView(businessDate?: string): {
   readonly view: CostView;
   readonly set: (patch: CostViewPatch) => void;
   readonly drill: (key: FilterKey, value: string) => void;
 } {
   const list = useListView();
-  const today = localIsoDate();
+  const today = businessDate || localIsoDate();
   const { filters, setFilters } = list;
   const view = useMemo(() => readCostView(filters, today), [filters, today]);
   const set = useCallback((patch: CostViewPatch) => setFilters(patchCostView(filters, patch)), [filters, setFilters]);

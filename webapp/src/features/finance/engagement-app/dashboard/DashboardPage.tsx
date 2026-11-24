@@ -55,8 +55,10 @@ export default function DashboardPage(): JSX.Element {
   const { prefs, update, reset } = useWidgetPrefs(user.email);
   const [manage, setManage] = useState(false);
   const [notice, setNotice] = useState("");
-  const costView = useTravelCostView();
   const base = dashboard.data;
+  // One "today" for the whole page: the date the backend computed for (UTC), not a second one from the browser clock, which can be a day ahead or behind.
+  const businessDate = base?.date || today;
+  const costView = useTravelCostView(base?.date);
 
   // What the backend lets this person see. An older backend sends no list: offer what came back.
   const serverList = base?.widgets;
@@ -87,7 +89,8 @@ export default function DashboardPage(): JSX.Element {
   const allocationsToday = useAllocationsToday({ date: date || undefined, businessUnitId: buId }, todayOn && (!bu || buId !== undefined));
 
   // Travel Costs: one summary call for the controls bar and every cost widget.
-  const costOn = defs.some((d) => d.group === "travelCosts");
+  // Asked only once the business date is known, so the default period never moves under the widgets.
+  const costOn = Boolean(base?.date) && defs.some((d) => d.group === "travelCosts");
   const params = useMemo(() => costParams(costView.view), [costView.view]);
   const costQuery = useTravelCosts(params, costOn);
   const range = useMemo(() => ({ from: costView.view.period.from, to: costView.view.period.to }), [costView.view.period]);
@@ -117,9 +120,6 @@ export default function DashboardPage(): JSX.Element {
   }
   const d = dashboard.data;
   if (d.agency) return <AgentDashboard d={d} />;
-  // One "today": the date the backend computed for (UTC), not a second one from the browser clock.
-  const businessDate = d.date ?? today;
-
   const ctx: WidgetCtx = {
     today,
     businessDate,
