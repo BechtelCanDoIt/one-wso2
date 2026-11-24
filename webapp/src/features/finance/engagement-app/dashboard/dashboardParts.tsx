@@ -20,6 +20,7 @@ import { Box, Button, ButtonBase, Card, IconButton, Stack, Tooltip, Typography }
 import { BarChart } from "@wso2/oxygen-ui-charts-react";
 import { CircleCheckIcon, InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import type { CountRow, MonthValue } from "../api/engagementTypes";
+import { eaNestedSx, eaSurfaceSx } from "../components/eaStyles";
 import { fmtMonth, n0 } from "../model/format";
 
 /** A dashboard section: a heading, one plain line, and its content. */
@@ -58,7 +59,7 @@ export function InfoHint({ label, children }: { label: string; children: string 
 /** A titled card inside a section; `center` sets short content in the middle of a card stretched to its neighbour's height. */
 export function Mini({ title, aside, center = false, children }: { title: string; aside?: ReactNode; center?: boolean; children: ReactNode }): JSX.Element {
   return (
-    <Card variant="outlined" sx={{ p: 2, minWidth: 0, height: "100%", boxSizing: "border-box", ...(center ? { display: "flex", flexDirection: "column" } : {}) }}>
+    <Card variant="outlined" sx={[{ p: 2, minWidth: 0, height: "100%", boxSizing: "border-box", ...(center ? { display: "flex", flexDirection: "column" } : {}) }, eaSurfaceSx]}>
       <Box sx={{ display: "flex", alignItems: "center", mb: 1.25 }}>
         <Typography component="h3" sx={{ fontSize: 14.5, fontWeight: 600, flex: 1 }}>
           {title}
@@ -99,7 +100,7 @@ export function Kpi({ label, value, note, delta, deltaTone, onClick, actionLabel
     </>
   );
   return (
-    <Card variant="outlined" sx={{ minWidth: 0 }}>
+    <Card variant="outlined" sx={[{ minWidth: 0 }, eaNestedSx]}>
       {onClick ? (
         <ButtonBase
           onClick={onClick}
@@ -147,7 +148,8 @@ export function QueueTiles({ tiles }: { tiles: readonly { key: string; count: nu
           component={t.to ? RouterLink : "div"}
           to={t.to}
           disabled={!t.to}
-          sx={{
+          sx={[
+            {
             display: "flex",
             flexDirection: "column",
             alignItems: "flex-start",
@@ -160,7 +162,9 @@ export function QueueTiles({ tiles }: { tiles: readonly { key: string; count: nu
             bgcolor: "background.paper",
             textAlign: "left",
             "&:hover": { borderColor: "primary.main" },
-          }}
+            },
+            eaNestedSx,
+          ]}
         >
           <Typography
             sx={{

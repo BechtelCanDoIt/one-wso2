@@ -14,6 +14,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { Theme } from "@mui/material/styles";
+
+// Dark-mode card separation, taken from the MIS ARR Dashboard's cards (features/finance/mis/components/misLookTokens.ts): the MIS surfaces
+// use `background.paper` with a `divider` border and no shadow in dark (analysisSurfaceSx, dark branch), and its nested filter card a faint
+// white-to-transparent gradient (gradientCardSx, dark branch). Oxygen's outlined card is a translucent navy there, almost the page's own colour,
+// so the cards blended into the page. Light mode is left exactly as it was: every rule below is dark only.
+const paper = "var(--oxygen-palette-background-paper)";
+const rule = "var(--oxygen-palette-divider)";
+
+/** A card on the page (a widget, the Travel Costs controls): MIS's dark surface. */
+export const eaSurfaceSx = (theme: Theme) => theme.applyStyles("dark", { backgroundColor: paper, borderColor: rule });
+
+/** A tile inside a card: MIS's dark nested tint, so tile-in-card reads as a second level. */
+export const eaNestedSx = (theme: Theme) =>
+  theme.applyStyles("dark", { background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))", borderColor: rule });
+
 /** Button labels as written (Title Case), never upper-cased, and empty selects' labels centred like text fields'; set on the shell and on every dialog and drawer, which render outside it. */
 export const EA_SCOPE_SX = {
   "& .MuiButton-root, & .MuiToggleButton-root": { textTransform: "none" },

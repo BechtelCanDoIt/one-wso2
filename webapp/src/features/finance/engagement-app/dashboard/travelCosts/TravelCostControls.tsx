@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState, type JSX } from "react";
 import { Alert, Badge, Box, Button, Card, Chip, FormControlLabel, Menu, MenuItem, Stack, Switch, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ChartColumnIcon, DownloadIcon, FilterIcon, TableIcon } from "@wso2/oxygen-ui-icons-react";
+import { eaSurfaceSx } from "../../components/eaStyles";
 import { FilterDate, FilterSelect } from "../../components/FilterFields";
 import { fmtDate } from "../../model/format";
 import { InfoHint } from "../dashboardParts";
@@ -82,7 +83,7 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
   }, [drill?.id]);
   const skipped = data ? notConvertedText(data.notConverted) : "";
   return (
-    <Card variant="outlined" component="section" aria-label="Travel Costs controls" sx={{ p: 2, minWidth: 0 }}>
+    <Card variant="outlined" component="section" aria-label="Travel Costs controls" sx={[{ p: 2, minWidth: 0 }, eaSurfaceSx]}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1.5 }}>
         <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, mr: 0.5 }}>
           Travel Costs

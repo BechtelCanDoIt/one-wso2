@@ -2,6 +2,7 @@
 import { useId, type JSX } from "react";
 import { Box, Card, Typography } from "@wso2/oxygen-ui";
 import { DownloadIcon, EyeOffIcon, PinIcon, PinOffIcon } from "@wso2/oxygen-ui-icons-react";
+import { eaSurfaceSx } from "../../components/eaStyles";
 import type { RowAction } from "../../components/EaTable";
 import { RowMenu } from "../../components/RowActions";
 import { Failed } from "../../components/ListCard";
@@ -53,7 +54,7 @@ export default function WidgetFrame({
   const Body = def.Component;
   const retry = () => (def.source === "cost" ? void ctx.cost.query.refetch() : ctx.retry(def.section));
   return (
-    <Card variant="outlined" component="section" aria-labelledby={titleId} sx={{ p: 2, minWidth: 0, height: "100%", boxSizing: "border-box" }}>
+    <Card variant="outlined" component="section" aria-labelledby={titleId} sx={[{ p: 2, minWidth: 0, height: "100%", boxSizing: "border-box" }, eaSurfaceSx]}>
       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, mb: 1.5 }}>
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Typography component="h2" id={titleId} sx={{ fontSize: 15.5, fontWeight: 600, letterSpacing: "-0.01em" }}>
