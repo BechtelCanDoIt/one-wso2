@@ -16,6 +16,8 @@
 
 // The view models the Engagement App screens draw.
 
+import type { AccountManagerStats, EngagementManagerStats, MarketingEventStats, TravelTeamStats, TripVisa, WidgetRef } from "./dashboardTypes";
+
 // ---------------------------------------------------------------- vocabularies
 
 /** Legacy engagement type ids: 1 Internal, 2 Paid (retired), 3 Non-Paid Pre Sale, 4 Non-Paid Post Sale, 5 Marketing Event, 6 Paid Post Sale, 7 Paid Pre Sale. */
@@ -612,6 +614,12 @@ export interface NotConverted {
 }
 
 export interface Dashboard {
+  /** Every widget the caller may see, in catalogue order. Absent from an older backend. */
+  readonly widgets?: readonly WidgetRef[];
+  readonly travelTeam?: TravelTeamStats;
+  readonly engagementManager?: EngagementManagerStats;
+  readonly accountManager?: AccountManagerStats;
+  readonly marketingEvents?: MarketingEventStats;
   /** Sections the backend could not build; each is omitted from the response. */
   readonly failed: readonly string[];
   readonly myWork?: { readonly allocations: readonly UpcomingAllocation[]; readonly trips: readonly UpcomingTrip[] };
@@ -646,21 +654,6 @@ export interface Dashboard {
     readonly topDestinations: readonly CountRow[];
     readonly byMonth: readonly MonthValue[];
     readonly byTravelAgent: readonly CountRow[];
-  };
-  readonly travelCost?: {
-    /** USD. Each amount is converted at NetSuite's month-end rate (today's rate for the current month). */
-    readonly total: number;
-    readonly invoices: number;
-    readonly perDiems: number;
-    /** Only for the travel finance roles. */
-    readonly creditCards?: number;
-    readonly expenseClaims?: number;
-    readonly lastMonth?: number;
-    readonly currentMonth?: number;
-    readonly byMonth: readonly { readonly month: string; readonly invoices: number; readonly perDiems: number; readonly creditCards?: number; readonly expenseClaims?: number }[];
-    readonly byType: readonly CountRow[];
-    /** Amounts with no rate, left out of every figure above. */
-    readonly notConverted: readonly NotConverted[];
   };
   /** The travel agent's own dashboard; present instead of the sections above. */
   readonly agency?: {
@@ -721,6 +714,7 @@ export interface ConsultantAllocationRow {
 
 /** GET /me/overview: the Me overview card. Both lists empty means no card. */
 export interface MyOverview {
+  readonly tripVisas?: readonly TripVisa[];
   readonly allocations: readonly UpcomingAllocation[];
   readonly trips: readonly UpcomingTrip[];
 }

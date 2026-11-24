@@ -16,6 +16,7 @@
 
 // The Engagement App Backend's wire shapes, as finance-tools apps/engagement-app/backend/openapi.yaml (0.2.0) defines them.
 
+import type { WAccountManager, WEngagementManager, WMarketingEvents, WTravelTeam, WTripVisa, WWidgetRef } from "./dashboardWire";
 import type {
   ClearanceStatus,
   EngagementKind,
@@ -203,6 +204,12 @@ export interface WCountCard {
 
 export interface WDashboard {
   failedSections?: string[];
+  /** Every widget the caller may see, in catalogue order. */
+  widgets?: WWidgetRef[];
+  travelTeam?: WTravelTeam;
+  engagementManager?: WEngagementManager;
+  accountManager?: WAccountManager;
+  marketingEvents?: WMarketingEvents;
   myWork?: {
     currentAllocation?: WAllocationSummary | null;
     nextAllocation?: WAllocationSummary | null;
@@ -221,19 +228,6 @@ export interface WDashboard {
     topDestinations: WBucket[];
     byMonth: WSeriesPoint[];
     byAgency: WBucket[];
-  };
-  travelCost?: {
-    total: number;
-    travelInvoices: number;
-    perDiems: number;
-    creditCardExpenses?: number | null;
-    expenseClaims?: number | null;
-    lastMonth?: number;
-    currentMonth?: number;
-    byMonth: WSeriesPoint[];
-    byType: WBucket[];
-    /** Amounts with no NetSuite rate for their currency and month, left out of the totals. */
-    notConverted?: { source: string; currency?: string | null; amount: number; lines?: number }[] | null;
   };
   engagements?: {
     startingIn30Days: {
@@ -290,6 +284,8 @@ export interface WAllocationsToday {
 export interface WMyOverview {
   upcomingAllocations: WAllocationSummary[];
   upcomingTrips: WDashboardTrip[];
+  /** Present for callers with own trips access: at most 20 trips. */
+  tripVisas?: WTripVisa[];
 }
 
 // ---------------------------------------------------------------- engagements

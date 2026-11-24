@@ -16,6 +16,7 @@
 
 // Wire (openapi.yaml) → view model.
 
+import * as DM from "./dashboardMappers";
 import type * as V from "./engagementTypes";
 import type * as W from "./engagementWire";
 import { ALLOCATION_STATUSES, ENGAGEMENT_STATUSES, REQUEST_STATUSES, TRAVEL_STATUSES } from "../model/statuses";
@@ -544,24 +545,17 @@ export const roleSettings = (r: W.WRoleSettings): V.RoleSettings => ({
 const bucket = (b: W.WBucket): V.CountRow => ({ label: b.label, count: b.value });
 const series = (rows: W.WSeriesPoint[], key: string): V.MonthValue[] => rows.map((r) => ({ month: r.month, value: r.values[key] ?? 0 }));
 
-const COST_SOURCES: readonly V.CostSource[] = ["invoice", "perDiem", "card", "claim"];
-
-export const costSource = (x: string): V.CostSource => (COST_SOURCES as readonly string[]).includes(x) ? (x as V.CostSource) : "invoice";
-
-export const notConverted = (n: { source: string; currency?: string | null; amount: number; lines?: number }): V.NotConverted => ({
-  source: costSource(n.source),
-  currency: s(n.currency).trim().toUpperCase(),
-  amount: n.amount,
-  ...(n.lines === undefined ? {} : { lines: n.lines }),
-});
-
 export function dashboard(d: W.WDashboard): V.Dashboard {
   const mw = d.myWork;
   const myAllocations = [mw?.currentAllocation, mw?.nextAllocation].filter((a): a is W.WAllocationSummary => Boolean(a)).map(upcomingAllocation);
   const myTrips = (mw?.nextTrips ?? []).map(upcomingTrip);
-  const tc = d.travelCost;
   return {
     failed: d.failedSections ?? [],
+    widgets: DM.widgetRefs(d.widgets),
+    travelTeam: d.travelTeam ? DM.travelTeam(d.travelTeam) : undefined,
+    engagementManager: d.engagementManager ? DM.engagementManager(d.engagementManager) : undefined,
+    accountManager: d.accountManager ? DM.accountManager(d.accountManager) : undefined,
+    marketingEvents: d.marketingEvents ? DM.marketingEvents(d.marketingEvents) : undefined,
     myWork: mw && (myAllocations.length || myTrips.length) ? { allocations: myAllocations, trips: myTrips } : undefined,
     queue: d.waitingOnYou?.map((c) => ({ key: c.key, label: c.label, count: c.count, highlighted: c.highlighted, to: c.list.path || undefined })),
     allocationsOverTime: d.allocationsOverTime
@@ -569,18 +563,7 @@ export function dashboard(d: W.WDashboard): V.Dashboard {
       : undefined,
     engagements: d.engagements
       ? {
-          startingSoon: d.engagements.startingIn30Days.map((e) => ({
-            id: e.id,
-            kind: e.kind,
-            typeName: s(e.engagementTypeName),
-            account: s(e.account),
-            title: e.title,
-            country: s(e.country),
-            city: opt(e.city),
-            start: e.startDate,
-            end: e.endDate,
-            consultantCount: e.consultants,
-          })),
+          startingSoon: d.engagements.startingIn30Days.map(DM.dashboardEngagement),
           total: d.engagements.startingIn30DaysTotal ?? d.engagements.startingIn30Days.length,
         }
       : undefined,
@@ -598,26 +581,6 @@ export function dashboard(d: W.WDashboard): V.Dashboard {
           topDestinations: d.travel.topDestinations.map(bucket),
           byMonth: series(d.travel.byMonth, "Trips"),
           byTravelAgent: d.travel.byAgency.map(bucket),
-        }
-      : undefined,
-    travelCost: tc
-      ? {
-          total: tc.total,
-          invoices: tc.travelInvoices,
-          perDiems: tc.perDiems,
-          creditCards: tc.creditCardExpenses ?? undefined,
-          expenseClaims: tc.expenseClaims ?? undefined,
-          lastMonth: tc.lastMonth,
-          currentMonth: tc.currentMonth,
-          byMonth: tc.byMonth.map((m) => ({
-            month: m.month,
-            invoices: m.values["Travel Invoices"] ?? 0,
-            perDiems: m.values["Per Diems"] ?? 0,
-            creditCards: m.values["Credit Card Expenses"],
-            expenseClaims: m.values["Expense Claims"],
-          })),
-          byType: tc.byType.map(bucket),
-          notConverted: (tc.notConverted ?? []).map(notConverted),
         }
       : undefined,
     agency: d.agent
@@ -659,4 +622,5 @@ export const allocationsToday = (a: W.WAllocationsToday): V.AllocationsToday => 
 export const myOverview = (m: W.WMyOverview): V.MyOverview => ({
   allocations: m.upcomingAllocations.map(upcomingAllocation),
   trips: m.upcomingTrips.map(upcomingTrip),
+  tripVisas: m.tripVisas?.map(DM.tripVisa),
 });

@@ -22,6 +22,7 @@ import { httpRetry } from "@api/errors";
 import { engagementServiceUrls as urls, type EngagementQueryParams } from "@config/apiConfig";
 import { foldIdentityError } from "@hooks/useAsgardeoSub";
 import { useEngagementBasis } from "./engagementBasis";
+import * as DM from "./dashboardMappers";
 import * as M from "./engagementMappers";
 import type * as V from "./engagementTypes";
 import type * as W from "./engagementWire";
@@ -104,7 +105,30 @@ export const useEmployees = (search: string, enabled = true, limit = 20) =>
 
 // ---------------------------------------------------------------- dashboard
 
+/** The dashboard: everything behind the caller's default-on widgets. */
 export const useDashboard = () => useEngagementGet(["dashboard"], urls.dashboard, M.dashboard);
+
+/** Only these sections: those behind a widget a person turned on that is not on by default. */
+export const useDashboardSections = (sections: readonly string[], enabled = true) =>
+  useEngagementGet(["dashboard", "sections", sections], urls.dashboardSections(sections), M.dashboard, { enabled: enabled && sections.length > 0 });
+
+/** Travel Costs: one summary query for every cost widget. Keeps the last answer on screen while a new range or filter loads. */
+export const useTravelCosts = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["dashboard", "travel-costs", params], urls.travelCosts(params), DM.travelCosts, { enabled, staleTime: MINUTE, keepPrevious: true });
+
+export const useTravelCostTransactions = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["dashboard", "travel-cost-transactions", params], urls.travelCostTransactions(params), DM.costTransactions, {
+    enabled,
+    staleTime: MINUTE,
+    keepPrevious: true,
+  });
+
+export const useTravelCostDuplicates = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["dashboard", "travel-cost-duplicates", params], urls.travelCostDuplicates(params), DM.costDuplicates, {
+    enabled,
+    staleTime: MINUTE,
+    keepPrevious: true,
+  });
 
 export const useAllocationsToday = (params: EngagementQueryParams, enabled = true) =>
   useEngagementGet(["dashboard", "allocations-today", params], urls.allocationsToday(params), M.allocationsToday, { enabled, keepPrevious: true });

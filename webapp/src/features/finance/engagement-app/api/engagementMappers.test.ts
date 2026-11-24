@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { dashboard, notConverted, tripExpenses } from "./engagementMappers";
+import { dashboard, myOverview, tripExpenses } from "./engagementMappers";
 
 describe("tripExpenses", () => {
   it("names the expense_app statuses and keeps missing values empty", () => {
@@ -36,23 +36,35 @@ describe("tripExpenses", () => {
   });
 });
 
-describe("travel cost notConverted", () => {
-  const cost = { total: 10, travelInvoices: 6, perDiems: 4, byMonth: [], byType: [] };
-
-  it("maps each amount with its source, a tidy currency and the line count", () => {
-    const d = dashboard({ travelCost: { ...cost, notConverted: [{ source: "claim", currency: " lkr ", amount: 1234500, lines: 12 }, { source: "card", currency: null, amount: 5 }] } });
-    expect(d.travelCost?.notConverted).toEqual([
-      { source: "claim", currency: "LKR", amount: 1234500, lines: 12 },
-      { source: "card", currency: "", amount: 5 },
+describe("dashboard", () => {
+  it("maps the widgets list and leaves it absent for an older backend", () => {
+    expect(dashboard({ widgets: [{ id: "my-work", defaultOn: true }, { id: "tc-lines", defaultOn: false }] }).widgets).toEqual([
+      { id: "my-work", defaultOn: true },
+      { id: "tc-lines", defaultOn: false },
     ]);
+    expect(dashboard({}).widgets).toBeUndefined();
   });
 
-  it("maps an absent or null list to an empty one", () => {
-    expect(dashboard({ travelCost: cost }).travelCost?.notConverted).toEqual([]);
-    expect(dashboard({ travelCost: { ...cost, notConverted: null } }).travelCost?.notConverted).toEqual([]);
+  it("maps the role stat sections only when the backend sent them", () => {
+    expect(dashboard({}).travelTeam).toBeUndefined();
+    const d = dashboard({
+      failedSections: ["marketingEvents"],
+      accountManager: { startedWithoutConsultants: { total: 0, items: [] }, byStatus: [{ label: "New", value: 2 }], byMonth: [{ month: "2026-11", values: { Engagements: 3 } }] },
+    });
+    expect(d.failed).toEqual(["marketingEvents"]);
+    expect(d.accountManager?.byStatus).toEqual([{ label: "New", count: 2 }]);
+    expect(d.accountManager?.byMonth).toEqual([{ month: "2026-11", value: 3 }]);
   });
+});
 
-  it("falls back to invoice for a source it does not know", () => {
-    expect(notConverted({ source: "other", amount: 1 }).source).toBe("invoice");
+describe("myOverview", () => {
+  it("maps the trip visas when present", () => {
+    const m = myOverview({
+      upcomingAllocations: [],
+      upcomingTrips: [],
+      tripVisas: [{ jobNumber: "TRV-1", country: "India", startDate: "2027-01-10", endDate: "2027-01-20", tripVisa: null, myVisa: null, waiting: true }],
+    });
+    expect(m.tripVisas).toEqual([{ jobNumber: "TRV-1", country: "India", city: undefined, start: "2027-01-10", end: "2027-01-20", tripVisa: undefined, myVisa: undefined, waiting: true }]);
+    expect(myOverview({ upcomingAllocations: [], upcomingTrips: [] }).tripVisas).toBeUndefined();
   });
 });

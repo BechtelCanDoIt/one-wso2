@@ -2391,6 +2391,11 @@ export const engagementServiceUrls = {
   campaigns: (search: string): string => ea("/campaigns", { search, limit: 20 }),
   employees: (search: string, limit = 20): string => ea("/employees", { search, limit }),
   dashboard: ea("/dashboard"),
+  /** The dashboard with only these sections (a widget the caller turned on that is not on by default). */
+  dashboardSections: (sections: readonly string[]): string => ea("/dashboard", { sections: sections.join(",") }),
+  travelCosts: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs", params),
+  travelCostTransactions: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs/transactions", params),
+  travelCostDuplicates: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs/duplicates", params),
   allocationsToday: (params: EngagementQueryParams): string => ea("/dashboard/allocations-today", params),
   myOverview: ea("/me/overview"),
   myAllocations: (params: EngagementQueryParams = {}): string => ea("/me/allocations", params),
