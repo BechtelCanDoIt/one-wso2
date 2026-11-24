@@ -42,6 +42,7 @@ import {
   waitingNote,
   withoutConsultantsEmpty,
   workloadEmpty,
+  PRESENT,
 } from "./rules";
 import type { DashboardSectionKey, WidgetDef } from "./types";
 
@@ -141,6 +142,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     group: "travel",
     source: "dashboard",
     empty: "Nothing to show.",
+    present: PRESENT["tt-glance"],
     Component: TravelTeamGlanceWidget,
   },
   {
@@ -152,6 +154,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No invoices are waiting for PO approval.",
     isEmpty: poAgeEmpty,
+    present: PRESENT["tt-po-age"],
     Component: PoAgeWidget,
   },
   {
@@ -164,6 +167,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No trips in the last 12 months.",
     isEmpty: frequentEmpty,
+    present: PRESENT["tt-frequent"],
     Component: FrequentTravellersWidget,
   },
   {
@@ -176,6 +180,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No trips under way or starting in the next 60 days.",
     isEmpty: workloadEmpty,
+    present: PRESENT["tt-agent-workload"],
     Component: AgentWorkloadWidget,
   },
   {
@@ -188,6 +193,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "Every engagement starting in the next 30 days has a consultant.",
     isEmpty: withoutConsultantsEmpty,
+    present: PRESENT["em-no-consultants"],
     Component: WithoutConsultantsWidget,
   },
   {
@@ -199,6 +205,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No allocations start in the next 14 days.",
     isEmpty: starting14Empty,
+    present: PRESENT["em-starting-14"],
     Component: StartingIn14Widget,
   },
   {
@@ -211,6 +218,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No allocations started in the last 90 days.",
     isEmpty: mostAllocatedEmpty,
+    present: PRESENT["em-most-allocated"],
     Component: MostAllocatedWidget,
   },
   {
@@ -224,6 +232,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No allocations in the last 12 months.",
     isEmpty: topCustomersEmpty,
+    present: PRESENT["em-top-customers"],
     Component: TopCustomersWidget,
   },
   {
@@ -236,6 +245,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "All your running engagements have consultants.",
     isEmpty: startedWithoutEmpty,
+    present: PRESENT["am-started-no-consultants"],
     Component: StartedWithoutConsultantsWidget,
   },
   {
@@ -247,6 +257,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "You have not created an engagement yet.",
     isEmpty: byStatusEmpty,
+    present: PRESENT["am-by-status"],
     Component: ByStatusWidget,
   },
   {
@@ -259,6 +270,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No engagements start in the next 6 months.",
     isEmpty: accountByMonthEmpty,
+    present: PRESENT["am-by-month"],
     Component: AmByMonthWidget,
   },
   {
@@ -270,6 +282,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No marketing events in the last 12 months.",
     isEmpty: eventsByMonthEmpty,
+    present: PRESENT["ev-by-month"],
     Component: EventsByMonthWidget,
   },
   {
@@ -281,6 +294,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No marketing events in the last 12 months.",
     isEmpty: eventsByRegionEmpty,
+    present: PRESENT["ev-by-region"],
     Component: EventsByRegionWidget,
   },
   {
@@ -292,6 +306,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No marketing events in the last 12 months.",
     isEmpty: fundingEmpty,
+    present: PRESENT["ev-funding-bu"],
     Component: FundingByBusinessUnitWidget,
   },
   {
@@ -303,6 +318,7 @@ export const WIDGETS: readonly WidgetDef[] = [
     source: "dashboard",
     empty: "No recent marketing events.",
     isEmpty: campaignEmpty,
+    present: PRESENT["ev-campaign"],
     Component: CampaignCoverageWidget,
   },
   {

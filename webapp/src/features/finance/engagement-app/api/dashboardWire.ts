@@ -42,17 +42,18 @@ export interface WDashboardEngagementItem {
   consultants: number;
 }
 
+// Every part of the four role sections is optional: the backend sends a part only when the caller may see the widget it feeds.
 export interface WTravelTeam {
-  awayThisWeek: { travellers: number; countries: number };
-  endedNotCompleted: { count: number };
-  poQueue: { count: number; oldestDays: number; byAge: WBucket[] };
-  frequentTravellers: { traveller: WPerson; trips: number }[];
-  agentWorkload: WBucket[];
+  awayThisWeek?: { travellers: number; countries: number };
+  endedNotCompleted?: { count: number };
+  poQueue?: { count?: number; oldestDays?: number; byAge?: WBucket[] };
+  frequentTravellers?: { traveller: WPerson; trips: number }[];
+  agentWorkload?: WBucket[];
 }
 
 export interface WEngagementManager {
-  withoutConsultants: { total: number; items: WDashboardEngagementItem[] };
-  startingIn14Days: {
+  withoutConsultants?: { total: number; items: WDashboardEngagementItem[] };
+  startingIn14Days?: {
     total: number;
     items: {
       allocationId: string;
@@ -64,20 +65,20 @@ export interface WEngagementManager {
       travelRequired?: boolean | null;
     }[];
   };
-  mostAllocated: { consultant: WPerson; days: number }[];
-  topCustomers: { by: "customer" | "country"; items: WBucket[] };
+  mostAllocated?: { consultant: WPerson; days: number }[];
+  topCustomers?: { by: "customer" | "country"; items: WBucket[] };
 }
 
 export interface WAccountManager {
-  startedWithoutConsultants: { total: number; items: WDashboardEngagementItem[] };
-  byStatus: WBucket[];
-  byMonth: WSeriesPoint[];
+  startedWithoutConsultants?: { total: number; items: WDashboardEngagementItem[] };
+  byStatus?: WBucket[];
+  byMonth?: WSeriesPoint[];
 }
 
 export interface WMarketingEvents {
-  byMonth: WSeriesPoint[];
-  byRegion: WBucket[];
-  fundingByBusinessUnit: WBucket[];
+  byMonth?: WSeriesPoint[];
+  byRegion?: WBucket[];
+  fundingByBusinessUnit?: WBucket[];
   campaignCoverage?: {
     total: number;
     withCampaign: number;

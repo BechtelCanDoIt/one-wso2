@@ -46,6 +46,8 @@ export type SectionState =
 
 export type WidgetState =
   | { readonly kind: "loading" }
+  /** The section loaded but the backend left this widget's part out: the widget is not drawn at all. */
+  | { readonly kind: "absent" }
   | { readonly kind: "failed"; readonly error?: unknown }
   | { readonly kind: "empty" }
   | { readonly kind: "ready" };
@@ -96,5 +98,7 @@ export interface WidgetDef {
   readonly source: "dashboard" | "cost" | "own";
   readonly empty: string;
   readonly isEmpty?: (ctx: WidgetCtx) => boolean;
+  /** False when the loaded section lacks this widget's part (the backend sends a part only when the caller may see the widget). */
+  readonly present?: (ctx: WidgetCtx) => boolean;
   readonly Component: (props: { readonly ctx: WidgetCtx }) => ReactNode;
 }

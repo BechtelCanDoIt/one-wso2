@@ -134,7 +134,13 @@ describe("travelTeam", () => {
       agentWorkload: [],
     });
     expect(t.endedNotCompleted).toBe(4);
-    expect(t.poQueue.byAge.map((b) => b.label)).toEqual(["Under 7 days", "7 to 30 days"]);
-    expect(t.frequentTravellers[0].traveller).toEqual({ email: "a@wso2.com", name: "a@wso2.com" });
+    expect(t.poQueue?.byAge?.map((b) => b.label)).toEqual(["Under 7 days", "7 to 30 days"]);
+    expect(t.frequentTravellers?.[0].traveller).toEqual({ email: "a@wso2.com", name: "a@wso2.com" });
+  });
+
+  it("leaves out every part the backend left out", () => {
+    const t = travelTeam({ poQueue: { count: 2, oldestDays: 5 } });
+    expect(t).toMatchObject({ awayThisWeek: undefined, endedNotCompleted: undefined, frequentTravellers: undefined, agentWorkload: undefined });
+    expect(t.poQueue).toEqual({ count: 2, oldestDays: 5, byAge: undefined });
   });
 });

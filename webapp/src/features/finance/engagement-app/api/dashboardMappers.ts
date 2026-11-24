@@ -55,18 +55,18 @@ export const dashboardEngagement = (e: DW.WDashboardEngagementItem): D.Dashboard
 });
 
 export const travelTeam = (t: DW.WTravelTeam): D.TravelTeamStats => ({
-  awayThisWeek: { travellers: t.awayThisWeek.travellers, countries: t.awayThisWeek.countries },
-  endedNotCompleted: t.endedNotCompleted.count,
-  poQueue: { count: t.poQueue.count, oldestDays: t.poQueue.oldestDays, byAge: counts(t.poQueue.byAge) },
-  frequentTravellers: (t.frequentTravellers ?? []).map((f) => ({ traveller: who(f.traveller), trips: f.trips })),
-  agentWorkload: counts(t.agentWorkload),
+  awayThisWeek: t.awayThisWeek ? { travellers: t.awayThisWeek.travellers, countries: t.awayThisWeek.countries } : undefined,
+  endedNotCompleted: t.endedNotCompleted?.count,
+  poQueue: t.poQueue ? { count: t.poQueue.count ?? 0, oldestDays: t.poQueue.oldestDays ?? 0, byAge: t.poQueue.byAge ? counts(t.poQueue.byAge) : undefined } : undefined,
+  frequentTravellers: t.frequentTravellers?.map((f) => ({ traveller: who(f.traveller), trips: f.trips })),
+  agentWorkload: t.agentWorkload ? counts(t.agentWorkload) : undefined,
 });
 
 export const engagementManager = (m: DW.WEngagementManager): D.EngagementManagerStats => ({
-  withoutConsultants: { total: m.withoutConsultants.total, items: m.withoutConsultants.items.map(dashboardEngagement) },
-  startingIn14Days: {
+  withoutConsultants: m.withoutConsultants ? { total: m.withoutConsultants.total, items: (m.withoutConsultants.items ?? []).map(dashboardEngagement) } : undefined,
+  startingIn14Days: m.startingIn14Days && {
     total: m.startingIn14Days.total,
-    items: m.startingIn14Days.items.map((a) => ({
+    items: (m.startingIn14Days.items ?? []).map((a) => ({
       allocationId: a.allocationId,
       consultant: who(a.consultant),
       engagementId: a.engagementId,
@@ -76,20 +76,20 @@ export const engagementManager = (m: DW.WEngagementManager): D.EngagementManager
       travelRequired: Boolean(a.travelRequired),
     })),
   },
-  mostAllocated: (m.mostAllocated ?? []).map((x) => ({ consultant: who(x.consultant), days: x.days })),
-  topCustomers: { by: m.topCustomers.by, items: counts(m.topCustomers.items) },
+  mostAllocated: m.mostAllocated?.map((x) => ({ consultant: who(x.consultant), days: x.days })),
+  topCustomers: m.topCustomers && { by: m.topCustomers.by, items: counts(m.topCustomers.items) },
 });
 
 export const accountManager = (a: DW.WAccountManager): D.AccountManagerStats => ({
-  startedWithoutConsultants: { total: a.startedWithoutConsultants.total, items: a.startedWithoutConsultants.items.map(dashboardEngagement) },
-  byStatus: counts(a.byStatus),
-  byMonth: months(a.byMonth, "Engagements"),
+  startedWithoutConsultants: a.startedWithoutConsultants && { total: a.startedWithoutConsultants.total, items: (a.startedWithoutConsultants.items ?? []).map(dashboardEngagement) },
+  byStatus: a.byStatus ? counts(a.byStatus) : undefined,
+  byMonth: a.byMonth ? months(a.byMonth, "Engagements") : undefined,
 });
 
 export const marketingEvents = (e: DW.WMarketingEvents): D.MarketingEventStats => ({
-  byMonth: months(e.byMonth, "Events"),
-  byRegion: counts(e.byRegion),
-  fundingByBusinessUnit: counts(e.fundingByBusinessUnit),
+  byMonth: e.byMonth ? months(e.byMonth, "Events") : undefined,
+  byRegion: e.byRegion ? counts(e.byRegion) : undefined,
+  fundingByBusinessUnit: e.fundingByBusinessUnit ? counts(e.fundingByBusinessUnit) : undefined,
   campaignCoverage: e.campaignCoverage
     ? {
         total: e.campaignCoverage.total,

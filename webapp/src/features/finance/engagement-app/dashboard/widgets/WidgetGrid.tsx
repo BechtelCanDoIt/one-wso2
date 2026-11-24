@@ -4,6 +4,7 @@ import { Box, Stack } from "@wso2/oxygen-ui";
 import TravelCostControls from "../travelCosts/TravelCostControls";
 import { layoutBlocks } from "./layout";
 import type { WidgetCtx, WidgetDef } from "./types";
+import { widgetState } from "./widgetState";
 import WidgetFrame from "./WidgetFrame";
 
 /** The widgets in the order given, laid out: full ones alone, half ones in pairs, the Travel Costs controls above the first cost widget. */
@@ -22,10 +23,12 @@ export default function WidgetGrid({
   onHide: (id: string) => void;
   onPin: (id: string) => void;
 }): JSX.Element {
+  // A widget whose data the backend left out is not drawn.
+  const shown = defs.filter((d) => widgetState(d, ctx).kind !== "absent");
   const frame = (def: WidgetDef) => <WidgetFrame key={def.id} def={def} ctx={ctx} pinned={pinned.includes(def.id)} onHide={() => onHide(def.id)} onPin={() => onPin(def.id)} />;
   return (
     <Stack spacing={2}>
-      {layoutBlocks(defs).map((b, i) =>
+      {layoutBlocks(shown).map((b, i) =>
         b.kind === "controls" ? (
           <TravelCostControls key="controls" cost={ctx.cost} today={ctx.today} canDownloadTransactions={canDownloadTransactions} />
         ) : b.kind === "full" ? (

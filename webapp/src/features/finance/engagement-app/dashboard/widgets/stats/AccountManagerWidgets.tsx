@@ -8,14 +8,14 @@ const acct = (ctx: WidgetCtx) => ctx.dashboard?.accountManager;
 
 /** The person's engagements by status. */
 export function ByStatusWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const a = acct(ctx);
+  const a = acct(ctx)?.byStatus;
   if (!a) return null;
-  return <HBars rows={a.byStatus} percent />;
+  return <HBars rows={a} percent />;
 }
 
 /** The person's engagements by start month, the current month and the next five. */
 export function ByMonthWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const a = acct(ctx);
+  const a = acct(ctx)?.byMonth;
   if (!a) return null;
-  return <MonthColumns rows={a.byMonth} name="Engagements" />;
+  return <MonthColumns rows={a} name="Engagements" />;
 }

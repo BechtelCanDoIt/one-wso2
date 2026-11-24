@@ -12,18 +12,18 @@ const ev = (ctx: WidgetCtx) => ctx.dashboard?.marketingEvents;
 
 
 export function EventsByMonthWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const e = ev(ctx);
-  return e ? <MonthColumns rows={e.byMonth} name="Events" /> : null;
+  const e = ev(ctx)?.byMonth;
+  return e ? <MonthColumns rows={e} name="Events" /> : null;
 }
 
 export function EventsByRegionWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const e = ev(ctx);
-  return e ? <HBars rows={e.byRegion} max={8} /> : null;
+  const e = ev(ctx)?.byRegion;
+  return e ? <HBars rows={e} max={8} /> : null;
 }
 
 export function FundingByBusinessUnitWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const e = ev(ctx);
-  return e ? <HBars rows={e.fundingByBusinessUnit} max={6} /> : null;
+  const e = ev(ctx)?.fundingByBusinessUnit;
+  return e ? <HBars rows={e} max={6} /> : null;
 }
 
 type Creator = NonNullable<MarketingEventStats["campaignCoverage"]>["byCreator"][number];

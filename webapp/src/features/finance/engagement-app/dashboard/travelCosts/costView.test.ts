@@ -15,6 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
+import { engagementServiceUrls } from "@config/apiConfig";
 import { costParams, drillPatch, filterCount, patchCostView, readCostView, transactionParams } from "./costView";
 
 const today = "2026-11-24";
@@ -40,7 +41,7 @@ describe("readCostView", () => {
   });
 
   it("reads comparison off, tables, group, sort, page and comma-joined filters", () => {
-    const v = readCostView({ tcCompare: "0", tcView: "tables", tcGroup: "country", tcSort: "-amount", tcPage: "2", tcSource: "invoice,card", tcAgent: "0,3" }, today);
+    const v = readCostView({ tcCompare: "0", tcView: "tables", tcGroup: "country", tcSort: "-amount", tcPage: "2", tcSource: "invoice|card", tcAgent: "0|3" }, today);
     expect(v).toMatchObject({ compare: false, mode: "tables", group: "country", sort: "-amount", page: 2 });
     expect(v.filters).toEqual({ tcSource: ["invoice", "card"], tcAgent: ["0", "3"] });
     expect(filterCount(v)).toBe(2);
@@ -66,7 +67,7 @@ describe("patchCostView", () => {
 
 describe("drill-down", () => {
   it("sets that filter to the one value, replacing its others, and resets the page", () => {
-    const view = { tcCountry: "India,Japan", tcPage: "2", tcSource: "card", date: "2026-11-01" };
+    const view = { tcCountry: "India|Japan", tcPage: "2", tcSource: "card", date: "2026-11-01" };
     expect(patchCostView(view, drillPatch("tcCountry", "Sri Lanka"))).toEqual({ tcCountry: "Sri Lanka", tcSource: "card", date: "2026-11-01" });
   });
 
@@ -82,8 +83,15 @@ describe("costParams", () => {
   });
 
   it("sends compare=false when off, each filter by its API name, and unlinked as true", () => {
-    const p = costParams(readCostView({ tcCompare: "0", tcSource: "card", tcJob: "TRV-1,TRV-2", tcAgent: "0", tcUnlinked: "1", tcCostType: "Air Ticket" }, today));
+    const p = costParams(readCostView({ tcCompare: "0", tcSource: "card", tcJob: "TRV-1|TRV-2", tcAgent: "0", tcUnlinked: "1", tcCostType: "Air Ticket" }, today));
     expect(p).toMatchObject({ compare: false, source: ["card"], jobNumber: ["TRV-1", "TRV-2"], travelAgent: ["0"], unlinked: "true", costType: ["Air Ticket"] });
+  });
+
+  it("keeps a name with a comma whole and sends country, customer and cost type as repeated parameters", () => {
+    const p = costParams(readCostView({ tcCountry: "Korea, Republic of|India", tcCustomer: "Acme, Inc" }, today));
+    expect(p).toMatchObject({ country: ["Korea, Republic of", "India"], customer: ["Acme, Inc"] });
+    const url = engagementServiceUrls.travelCosts(p);
+    expect(url).toContain("country=Korea%2C+Republic+of&country=India");
   });
 
   it("adds Group By, Sort and the page for the Transactions", () => {

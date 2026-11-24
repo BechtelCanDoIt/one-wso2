@@ -46,16 +46,15 @@ function EngagementList({ items, total, to }: { items: readonly DashboardEngagem
 
 /** Engagements starting in the next 30 days with nobody allocated. */
 export function WithoutConsultantsWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const m = mgr(ctx);
-  if (!m) return null;
-  return <EngagementList items={m.withoutConsultants.items} total={m.withoutConsultants.total} to={engagementPaths.engagements()} />;
+  const w = mgr(ctx)?.withoutConsultants;
+  if (!w) return null;
+  return <EngagementList items={w.items} total={w.total} to={engagementPaths.engagements()} />;
 }
 
 /** Allocations that start in the next 14 days. */
 export function StartingIn14Widget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const m = mgr(ctx);
-  if (!m) return null;
-  const s = m.startingIn14Days;
+  const s = mgr(ctx)?.startingIn14Days;
+  if (!s) return null;
   return (
     <>
       {s.items.map((a) => (
@@ -75,21 +74,21 @@ export function StartingIn14Widget({ ctx }: { ctx: WidgetCtx }): JSX.Element | n
 
 /** Consultants with the most allocated days in the last 90 days. */
 export function MostAllocatedWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const m = mgr(ctx);
+  const m = mgr(ctx)?.mostAllocated;
   if (!m) return null;
-  return <HBars rows={m.mostAllocated.map((x) => ({ label: x.consultant.name, count: x.days }))} format={(n) => plural(n, "day")} />;
+  return <HBars rows={m.map((x) => ({ label: x.consultant.name, count: x.days }))} format={(n) => plural(n, "day")} />;
 }
 
 /** Customers (or countries, when the person allocates no customer type) by allocated days over 12 months. */
 export function TopCustomersWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const m = mgr(ctx);
+  const m = mgr(ctx)?.topCustomers;
   if (!m) return null;
-  return <HBars rows={m.topCustomers.items} format={(n) => plural(n, "day")} />;
+  return <HBars rows={m.items} format={(n) => plural(n, "day")} />;
 }
 
 /** Account Manager: engagements the person created that have started with nobody allocated. */
 export function StartedWithoutConsultantsWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
-  const a = acct(ctx);
+  const a = acct(ctx)?.startedWithoutConsultants;
   if (!a) return null;
-  return <EngagementList items={a.startedWithoutConsultants.items} total={a.startedWithoutConsultants.total} to={engagementPaths.engagements()} />;
+  return <EngagementList items={a.items} total={a.total} to={engagementPaths.engagements()} />;
 }

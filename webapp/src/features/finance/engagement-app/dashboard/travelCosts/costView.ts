@@ -58,7 +58,9 @@ export interface CostView {
 
 export type CostViewPatch = Readonly<Record<string, string | undefined>>;
 
-const split = (v: string | undefined): string[] => (v ? v.split(",").filter(Boolean) : []);
+/** Joins the values of one filter in the address bar. Not a comma: a country or customer name may contain one. */
+export const FILTER_SEP = "|";
+const split = (v: string | undefined): string[] => (v ? v.split(FILTER_SEP).filter(Boolean) : []);
 
 /** The view the address bar describes. Unknown or malformed values read as the default. */
 export function readCostView(raw: Readonly<Record<string, string>>, today: string): CostView {

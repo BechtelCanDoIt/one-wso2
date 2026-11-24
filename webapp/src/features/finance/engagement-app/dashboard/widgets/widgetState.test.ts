@@ -48,6 +48,21 @@ describe("widgetState for a dashboard widget", () => {
   });
 });
 
+describe("widgetState for a role widget whose part the backend left out", () => {
+  it("is absent when the section loaded without the part, and ready when the part came back", () => {
+    const glance = widgetById("tt-glance")!;
+    const poAge = widgetById("tt-po-age")!;
+    const onlyGlance: Dashboard = { failed: [], travelTeam: { awayThisWeek: { travellers: 1, countries: 1 }, endedNotCompleted: 0, poQueue: { count: 0, oldestDays: 0 } } };
+    expect(widgetState(glance, ctx({ dashboard: onlyGlance })).kind).toBe("ready");
+    expect(widgetState(poAge, ctx({ dashboard: onlyGlance })).kind).toBe("absent");
+    expect(widgetState(poAge, ctx({ dashboard: { failed: [] } })).kind).toBe("absent");
+  });
+
+  it("keeps loading and failed ahead of absent", () => {
+    expect(widgetState(widgetById("em-no-consultants")!, ctx({ section: () => ({ status: "loading" }) })).kind).toBe("loading");
+  });
+});
+
 describe("widgetState for a cost widget", () => {
   const source = widgetById("tc-source")!;
   const data = (value: number) => ({ bySource: [{ key: "invoice", label: "Travel Invoices", value }] });

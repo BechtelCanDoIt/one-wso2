@@ -10,7 +10,7 @@ const team = (ctx: WidgetCtx) => ctx.dashboard?.travelTeam;
 /** Travel Team at a Glance: who is away, trips that ended without being completed, and the PO queue. */
 export function TravelTeamGlanceWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
   const t = team(ctx);
-  if (!t) return null;
+  if (!t?.awayThisWeek || t.endedNotCompleted === undefined || !t.poQueue) return null;
   return (
     <KpiRow>
       <Kpi label="Away This Week" value={n0(t.awayThisWeek.travellers)} note={`${plural(t.awayThisWeek.countries, "country", "countries")}`} />
@@ -23,21 +23,21 @@ export function TravelTeamGlanceWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element
 /** Invoices awaiting PO approval, by how long they have waited. The order is the age order, not the size. */
 export function PoAgeWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
   const t = team(ctx);
-  if (!t) return null;
-  return <HBars rows={t.poQueue.byAge} sort={false} max={4} />;
+  if (!t?.poQueue?.byAge) return null;
+  return <HBars rows={t.poQueue?.byAge ?? []} sort={false} max={4} />;
 }
 
 /** Frequent travellers: trips started in the last 12 months. */
 export function FrequentTravellersWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
   const t = team(ctx);
-  if (!t) return null;
+  if (!t?.frequentTravellers) return null;
   return <HBars rows={t.frequentTravellers.map((f) => ({ label: f.traveller.name, count: f.trips }))} format={(n) => plural(n, "trip")} />;
 }
 
 /** Trips under way or starting within 60 days, by travel agent. */
 export function AgentWorkloadWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
   const t = team(ctx);
-  if (!t) return null;
+  if (!t?.agentWorkload) return null;
   return <HBars rows={t.agentWorkload} max={5} />;
 }
 

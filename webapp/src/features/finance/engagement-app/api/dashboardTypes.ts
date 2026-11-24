@@ -43,16 +43,17 @@ export interface DashboardEngagement {
 }
 
 export interface TravelTeamStats {
-  readonly awayThisWeek: { readonly travellers: number; readonly countries: number };
-  readonly endedNotCompleted: number;
-  readonly poQueue: { readonly count: number; readonly oldestDays: number; readonly byAge: readonly CountRow[] };
-  readonly frequentTravellers: readonly { readonly traveller: Person; readonly trips: number }[];
-  readonly agentWorkload: readonly CountRow[];
+  // Every part of the four role sections is absent when the caller may not see its widget.
+  readonly awayThisWeek?: { readonly travellers: number; readonly countries: number };
+  readonly endedNotCompleted?: number;
+  readonly poQueue?: { readonly count: number; readonly oldestDays: number; readonly byAge?: readonly CountRow[] };
+  readonly frequentTravellers?: readonly { readonly traveller: Person; readonly trips: number }[];
+  readonly agentWorkload?: readonly CountRow[];
 }
 
 export interface EngagementManagerStats {
-  readonly withoutConsultants: { readonly total: number; readonly items: readonly DashboardEngagement[] };
-  readonly startingIn14Days: {
+  readonly withoutConsultants?: { readonly total: number; readonly items: readonly DashboardEngagement[] };
+  readonly startingIn14Days?: {
     readonly total: number;
     readonly items: readonly {
       readonly allocationId: string;
@@ -64,20 +65,20 @@ export interface EngagementManagerStats {
       readonly travelRequired: boolean;
     }[];
   };
-  readonly mostAllocated: readonly { readonly consultant: Person; readonly days: number }[];
-  readonly topCustomers: { readonly by: "customer" | "country"; readonly items: readonly CountRow[] };
+  readonly mostAllocated?: readonly { readonly consultant: Person; readonly days: number }[];
+  readonly topCustomers?: { readonly by: "customer" | "country"; readonly items: readonly CountRow[] };
 }
 
 export interface AccountManagerStats {
-  readonly startedWithoutConsultants: { readonly total: number; readonly items: readonly DashboardEngagement[] };
-  readonly byStatus: readonly CountRow[];
-  readonly byMonth: readonly MonthValue[];
+  readonly startedWithoutConsultants?: { readonly total: number; readonly items: readonly DashboardEngagement[] };
+  readonly byStatus?: readonly CountRow[];
+  readonly byMonth?: readonly MonthValue[];
 }
 
 export interface MarketingEventStats {
-  readonly byMonth: readonly MonthValue[];
-  readonly byRegion: readonly CountRow[];
-  readonly fundingByBusinessUnit: readonly CountRow[];
+  readonly byMonth?: readonly MonthValue[];
+  readonly byRegion?: readonly CountRow[];
+  readonly fundingByBusinessUnit?: readonly CountRow[];
   /** Absent when the environment has no campaign column. */
   readonly campaignCoverage?: {
     readonly total: number;

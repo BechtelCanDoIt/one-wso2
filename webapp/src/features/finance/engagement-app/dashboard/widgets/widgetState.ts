@@ -15,6 +15,7 @@ export function widgetState(def: WidgetDef, ctx: WidgetCtx): WidgetState {
   const s: SectionState = def.section ? ctx.section(def.section) : { status: "loaded" };
   if (s.status === "loading") return { kind: "loading" };
   if (s.status === "failed") return { kind: "failed", error: s.error };
+  if (def.present && !def.present(ctx)) return { kind: "absent" };
   return def.isEmpty?.(ctx) ? { kind: "empty" } : { kind: "ready" };
 }
 
