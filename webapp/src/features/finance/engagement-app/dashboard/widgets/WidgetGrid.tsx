@@ -36,7 +36,7 @@ export default function WidgetGrid({
         ) : (
           <Box
             key={`halves-${i}`}
-            sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2, alignItems: "stretch", "& > :last-child:nth-child(odd)": { gridColumn: { lg: "1 / -1" } } }}
+            sx={{ display: "grid", gridTemplateColumns: { xs: "minmax(0, 1fr)", lg: "repeat(2, minmax(0, 1fr))" }, gap: 2, alignItems: "stretch", "& > :last-of-type:nth-of-type(odd)": { gridColumn: { lg: "1 / -1" } } }}
           >
             {b.defs.map(frame)}
           </Box>
