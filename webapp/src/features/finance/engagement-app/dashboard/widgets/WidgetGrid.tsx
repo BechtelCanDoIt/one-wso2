@@ -1,13 +1,12 @@
 
-import type { JSX } from "react";
+import { useState, type JSX } from "react";
 import { Box, Stack } from "@wso2/oxygen-ui";
 import TravelCostControls from "../travelCosts/TravelCostControls";
 import { layoutBlocks } from "./layout";
 import type { WidgetCtx, WidgetDef } from "./types";
-import { widgetState } from "./widgetState";
 import WidgetFrame from "./WidgetFrame";
 
-/** The widgets in the order given, laid out: full ones alone, half ones in pairs, the Travel Costs controls above the first cost widget. */
+/** The widgets in the order given (the page has already dropped those whose data the backend left out), laid out: full ones alone, half ones in pairs, the Travel Costs controls above the first cost widget. */
 export default function WidgetGrid({
   defs,
   ctx,
@@ -23,12 +22,26 @@ export default function WidgetGrid({
   onHide: (id: string) => void;
   onPin: (id: string) => void;
 }): JSX.Element {
-  // A widget whose data the backend left out is not drawn.
-  const shown = defs.filter((d) => widgetState(d, ctx).kind !== "absent");
-  const frame = (def: WidgetDef) => <WidgetFrame key={def.id} def={def} ctx={ctx} pinned={pinned.includes(def.id)} onHide={() => onHide(def.id)} onPin={() => onPin(def.id)} />;
+  // The widgets whose CSV is being prepared. They live here, above the layout blocks, because a block is remounted when an earlier one goes
+  // and a frame's own state would then be lost, which would enable a second export while the first still runs.
+  const [exporting, setExporting] = useState<ReadonlySet<string>>(new Set());
+  const exportCsv = (def: WidgetDef) => () => {
+    if (!def.csv) return;
+    setExporting((s) => new Set(s).add(def.id));
+    void ctx.cost.exportCsv(def.csv).finally(() =>
+      setExporting((s) => {
+        const next = new Set(s);
+        next.delete(def.id);
+        return next;
+      }),
+    );
+  };
+  const frame = (def: WidgetDef) => (
+    <WidgetFrame key={def.id} def={def} ctx={ctx} pinned={pinned.includes(def.id)} exporting={exporting.has(def.id)} onExport={exportCsv(def)} onHide={() => onHide(def.id)} onPin={() => onPin(def.id)} />
+  );
   return (
     <Stack spacing={2}>
-      {layoutBlocks(shown).map((b, i) =>
+      {layoutBlocks(defs).map((b, i) =>
         b.kind === "controls" ? (
           <TravelCostControls key="controls" cost={ctx.cost} today={ctx.today} canDownloadTransactions={canDownloadTransactions} />
         ) : b.kind === "full" ? (

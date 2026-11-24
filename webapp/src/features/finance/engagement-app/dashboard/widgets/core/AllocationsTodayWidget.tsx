@@ -44,7 +44,7 @@ export default function AllocationsTodayWidget({ ctx }: { ctx: WidgetCtx }): JSX
       {!a ? (
         query.isError ? null : <Skeleton variant="rounded" height={200} aria-busy="true" />
       ) : (
-        <>
+        <Box sx={{ opacity: query.isPlaceholderData ? 0.55 : 1, transition: "opacity 120ms" }} aria-busy={query.isPlaceholderData || undefined}>
           <KpiRow>
             <Kpi label="Allocations" value={n0(a.total)} note="Engagement allocations only" />
             <Kpi label="Consultants Allocated" value={n0(a.consultants)} />
@@ -60,7 +60,7 @@ export default function AllocationsTodayWidget({ ctx }: { ctx: WidgetCtx }): JSX
               {a.nonPaidByAllocationType.length ? <HBars rows={a.nonPaidByAllocationType} percent /> : <Calm>No non paid allocations on this date.</Calm>}
             </Block>
           </Box>
-        </>
+        </Box>
       )}
     </>
   );

@@ -54,6 +54,12 @@ describe("legacyWidgets", () => {
     ]);
   });
 
+  it("keeps Waiting on You when its section failed, and drops it when it was left out on purpose", () => {
+    expect(legacyWidgets({ failed: ["waitingOnYou"] }, false)).toEqual([{ id: "waiting-on-you", defaultOn: true }]);
+    expect(legacyWidgets({ failed: [], queue: [] }, false)).toEqual([{ id: "waiting-on-you", defaultOn: true }]);
+    expect(legacyWidgets({ failed: [] }, false)).toEqual([]);
+  });
+
   it("offers a section that failed, so its widget can say so", () => {
     expect(legacyWidgets({ failed: ["travel"] }, false)).toEqual([{ id: "travel", defaultOn: true }]);
   });

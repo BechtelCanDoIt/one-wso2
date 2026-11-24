@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { MAX_RANGE_DAYS, previousYear, rangeFor, rangeProblem, recentYears, shiftYears } from "./dateRanges";
+import { MAX_RANGE_DAYS, monthWithin, previousYear, rangeFor, rangeProblem, recentYears, shiftYears } from "./dateRanges";
 
 describe("rangeFor", () => {
   const today = "2026-11-24";
@@ -60,6 +60,15 @@ describe("rangeFor", () => {
   it("Custom takes the given dates, or the year to date", () => {
     expect(rangeFor("custom", today, { from: "2026-03-01", to: "2026-03-15" })).toEqual({ from: "2026-03-01", to: "2026-03-15" });
     expect(rangeFor("custom", today)).toEqual({ from: "2026-01-01", to: today });
+  });
+});
+
+describe("monthWithin", () => {
+  it("keeps a whole month that fits and cuts one that sticks out of the period", () => {
+    const period = { from: "2026-01-15", to: "2026-03-10" };
+    expect(monthWithin("2026-02", period)).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+    expect(monthWithin("2026-01", period)).toEqual({ from: "2026-01-15", to: "2026-01-31" });
+    expect(monthWithin("2026-03", period)).toEqual({ from: "2026-03-01", to: "2026-03-10" });
   });
 });
 

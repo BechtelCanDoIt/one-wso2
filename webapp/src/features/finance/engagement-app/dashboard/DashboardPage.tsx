@@ -37,7 +37,7 @@ import ManageWidgetsDialog from "./widgets/ManageWidgetsDialog";
 import { sectionOfWidget, WIDGET_IDS, widgetById } from "./widgets/registry";
 import type { DashboardSectionKey, SectionState, WidgetCtx, WidgetDef } from "./widgets/types";
 import WidgetGrid from "./widgets/WidgetGrid";
-import { extraSections, mergeDashboards } from "./widgets/widgetState";
+import { extraSections, mergeDashboards, widgetState } from "./widgets/widgetState";
 import { orderWidgets, setVisible, togglePinned, useWidgetPrefs, visibleIds } from "./widgets/widgetPrefs";
 
 const HIDDEN_NOTICE = "Widget hidden. Manage Widgets brings it back.";
@@ -107,7 +107,8 @@ export default function DashboardPage(): JSX.Element {
       </EaPage>
     );
   }
-  if (dashboard.isError) {
+  // A failed refetch keeps the last good data, and then the widgets stay and the failure is a notice above them.
+  if (!dashboard.data) {
     return (
       <EaPage title="Dashboard">
         <Failed what="the dashboard" error={dashboard.error} onRetry={() => void dashboard.refetch()} retrying={dashboard.isFetching} />
@@ -121,14 +122,18 @@ export default function DashboardPage(): JSX.Element {
     today,
     dashboard: merged,
     section,
-    retry: () => {
-      void dashboard.refetch();
-      if (extra.length) void extraQuery.refetch();
+    // Each widget retries the query that owns its section: the base call for the default ones, the extra call for the others.
+    retry: (key) => {
+      const own = !key || !serverList || covered.has(key);
+      if (own) void dashboard.refetch();
+      if ((!key || !own) && extra.length) void extraQuery.refetch();
     },
     retrying: dashboard.isFetching || extraQuery.isFetching,
     allocationsToday: { businessUnit: bu, date, query: allocationsToday, change: (next) => list.setFilters({ ...list.filters, ...next }) },
     cost: { view: costView.view, set: costView.set, drill: costView.drill, params, query: costQuery, exportCsv },
   };
+  // A widget whose data the backend left out of a loaded section is not drawn.
+  const shownDefs = defs.filter((d) => widgetState(d, ctx).kind !== "absent");
   const first = user.givenName ?? user.displayName?.split(" ")[0];
   const hidden = allowed.length - visible.length;
   const refOf = (id: string) => allowed.find((w) => w.id === id);
@@ -148,9 +153,10 @@ export default function DashboardPage(): JSX.Element {
         ) : undefined
       }
     >
-      {defs.length ? (
+      {dashboard.isError ? <Failed what="the latest dashboard" error={dashboard.error} onRetry={() => void dashboard.refetch()} retrying={dashboard.isFetching} /> : null}
+      {shownDefs.length ? (
         <WidgetGrid
-          defs={defs}
+          defs={shownDefs}
           ctx={ctx}
           pinned={prefs.pinned}
           canDownloadTransactions={allowed.some((w) => w.id === "tc-lines")}
@@ -161,11 +167,15 @@ export default function DashboardPage(): JSX.Element {
           }}
           onPin={(id) => update((p) => togglePinned(p, id))}
         />
+      ) : !allowed.length ? (
+        <Box sx={{ py: 4 }}>
+          <Empty title="No widgets are available to you" body="Nothing on this dashboard is open to your roles." />
+        </Box>
       ) : (
         <Box sx={{ py: 4 }}>
           <Empty
-            title="Every widget is hidden"
-            body="Manage Widgets brings them back."
+            title={defs.length ? "None of your widgets has data" : "Every widget is hidden"}
+            body={defs.length ? "The widgets you chose have nothing to show. Manage Widgets lets you pick others." : "Manage Widgets brings them back."}
             action={
               <Button variant="contained" size="small" onClick={() => setManage(true)}>
                 Manage Widgets

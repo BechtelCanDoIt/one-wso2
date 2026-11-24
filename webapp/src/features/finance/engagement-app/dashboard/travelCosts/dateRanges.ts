@@ -80,6 +80,14 @@ export function rangeFor(preset: RangePreset, today: string, opts: { year?: numb
   }
 }
 
+/** A calendar month (yyyy-MM) cut to `period`, so drilling into a month never reaches outside the period being looked at. */
+export function monthWithin(month: string, period: DateRange): DateRange {
+  const [y, m] = month.split("-").map(Number);
+  const start = iso(y, m, 1);
+  const end = iso(y, m, lastDay(y, m));
+  return { from: start < period.from ? period.from : start, to: end > period.to ? period.to : end };
+}
+
 /** The same period one year earlier, as the backend compares it. */
 export const previousYear = (r: DateRange): DateRange => ({ from: shiftYears(r.from, -1), to: shiftYears(r.to, -1) });
 

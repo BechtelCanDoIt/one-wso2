@@ -130,6 +130,19 @@ describe("setVisible and togglePinned", () => {
     expect(setVisible(on, allowed[2], false).shown).toEqual([]);
   });
 
+  it("lets a widget the backend moved from default-on to default-off be turned on again", () => {
+    const hiddenWhenOn = setVisible(DEFAULT_PREFS, { id: "a", defaultOn: true }, false);
+    const nowOff = { id: "a", defaultOn: false };
+    const shown = setVisible(hiddenWhenOn, nowOff, true);
+    expect(shown).toMatchObject({ hidden: [], shown: ["a"] });
+    expect(visibleIds([nowOff], shown)).toEqual(["a"]);
+  });
+
+  it("clears a stale entry in the other list when hiding", () => {
+    const shown = setVisible(DEFAULT_PREFS, { id: "a", defaultOn: false }, true);
+    expect(setVisible(shown, { id: "a", defaultOn: true }, false)).toMatchObject({ shown: [], hidden: ["a"] });
+  });
+
   it("does not list an id twice", () => {
     const once = setVisible(DEFAULT_PREFS, allowed[0], false);
     expect(setVisible(once, allowed[0], false).hidden).toEqual(["a"]);

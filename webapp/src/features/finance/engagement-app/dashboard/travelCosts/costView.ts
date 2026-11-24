@@ -15,7 +15,7 @@
 // under the License.
 
 import type { EngagementQueryParams } from "@config/apiConfig";
-import { rangeFor, type DateRange, type RangePreset } from "./dateRanges";
+import { rangeFor, rangeProblem, type DateRange, type RangePreset } from "./dateRanges";
 
 // The Travel Costs controls bar's state, in the address bar. It owns only the keys that start with "tc".
 
@@ -60,7 +60,12 @@ export type CostViewPatch = Readonly<Record<string, string | undefined>>;
 
 /** Joins the values of one filter in the address bar. Not a comma: a country or customer name may contain one. */
 export const FILTER_SEP = "|";
-const split = (v: string | undefined): string[] => (v ? v.split(FILTER_SEP).filter(Boolean) : []);
+// A value that contains the separator (or the escape itself) is escaped, so it reads back as the one value it was.
+const escapeValue = (v: string): string => v.replace(/%/g, "%25").replace(/\|/g, "%7C");
+const unescapeValue = (v: string): string => v.replace(/%7C/gi, "|").replace(/%25/g, "%");
+/** One filter's values as the address bar holds them. */
+export const joinFilter = (values: readonly string[]): string => values.map(escapeValue).join(FILTER_SEP);
+const split = (v: string | undefined): string[] => (v ? v.split(FILTER_SEP).filter(Boolean).map(unescapeValue) : []);
 
 /** The view the address bar describes. Unknown or malformed values read as the default. */
 export function readCostView(raw: Readonly<Record<string, string>>, today: string): CostView {
@@ -70,10 +75,13 @@ export function readCostView(raw: Readonly<Record<string, string>>, today: strin
   const filters: Partial<Record<FilterKey, string[]>> = {};
   for (const k of FILTER_KEYS) if (raw[k]) filters[k] = split(raw[k]);
   const sort = (["date", "-date", "amount", "-amount"] as const).find((s) => s === raw.tcSort) ?? "-date";
+  let period = rangeFor(range, today, { year, from: validDay(raw.tcFrom), to: validDay(raw.tcTo) });
+  // A custom range from the address bar is checked like one typed into the controls: a reversed or too long one falls back to the year to date.
+  if (range === "custom" && rangeProblem(period)) period = rangeFor("ytd", today);
   return {
     range,
     year,
-    period: rangeFor(range, today, { year, from: validDay(raw.tcFrom), to: validDay(raw.tcTo) }),
+    period,
     compare: raw.tcCompare !== "0",
     mode: raw.tcView === "tables" ? "tables" : "charts",
     filters,
@@ -97,7 +105,7 @@ export function patchCostView(view: Readonly<Record<string, string>>, patch: Cos
 
 /** Click on a bar or row: that filter takes this one value (replacing any), and the Transactions go back to the first page. */
 export function drillPatch(key: FilterKey, value: string): CostViewPatch {
-  return { [key]: value, tcPage: undefined };
+  return { [key]: escapeValue(value), tcPage: undefined };
 }
 
 /** The filter a chart's bar sends back, by the widget that draws it. */

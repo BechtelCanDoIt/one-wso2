@@ -11,6 +11,7 @@ import { TableSkeleton } from "../../../components/EaSkeletons";
 import { fmtDate, n0, n2 } from "../../../model/format";
 import type { WidgetCtx } from "../../widgets/types";
 import { COST_SOURCE_LABEL } from "../../travelCostText";
+import { monthWithin } from "../dateRanges";
 import { deltaCell, originalText, PAID_LABEL, PAID_TONE, rateSourceText, usd2 } from "../costFormat";
 import { GROUPS, PAGE_SIZE, transactionParams, type CostSort, type FilterKey, type GroupBy } from "../costView";
 import TransactionDrawer from "./TransactionDrawer";
@@ -60,7 +61,10 @@ export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Eleme
 
   const drillGroup = (g: CostGroup) => {
     if (!g.key) return;
-    if (view.group === "month") set({ tcRange: "custom", tcFrom: `${g.key}-01`, tcTo: monthEnd(g.key), tcGroup: undefined });
+    if (view.group === "month") {
+      const r = monthWithin(g.key, view.period);
+      set({ tcRange: "custom", tcFrom: r.from, tcTo: r.to, tcGroup: undefined });
+    }
     else if (view.group) ctx.cost.drill(GROUP_FILTER[view.group], g.key);
   };
   const groupColumns: Column<CostGroup>[] = [
@@ -128,10 +132,4 @@ export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Eleme
       {open ? <TransactionDrawer line={open} onClose={() => setOpen(undefined)} /> : null}
     </>
   );
-}
-
-/** The last day of a yyyy-MM month. */
-function monthEnd(month: string): string {
-  const [y, m] = month.split("-").map(Number);
-  return `${month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, "0")}`;
 }

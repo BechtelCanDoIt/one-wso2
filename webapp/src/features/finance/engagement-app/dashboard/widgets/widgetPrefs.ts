@@ -98,10 +98,13 @@ export function orderWidgets(ids: readonly string[], pinned: readonly string[], 
 const without = (list: readonly string[], id: string): string[] => list.filter((x) => x !== id);
 const withId = (list: readonly string[], id: string): string[] => (list.includes(id) ? [...list] : [...list, id]);
 
-/** Show or hide one widget. A default-on one is tracked in `hidden`, a default-off one in `shown`. */
+/**
+ * Show or hide one widget. A default-on one is tracked in `hidden`, a default-off one in `shown`. The other list is cleared
+ * too, because the backend may have changed the widget's default since the person last chose, and a stale entry would win.
+ */
 export function setVisible(prefs: WidgetPrefs, ref: WidgetRef, visible: boolean): WidgetPrefs {
-  if (ref.defaultOn) return { ...prefs, hidden: visible ? without(prefs.hidden, ref.id) : withId(prefs.hidden, ref.id) };
-  return { ...prefs, shown: visible ? withId(prefs.shown, ref.id) : without(prefs.shown, ref.id) };
+  if (visible) return { ...prefs, hidden: without(prefs.hidden, ref.id), shown: ref.defaultOn ? without(prefs.shown, ref.id) : withId(prefs.shown, ref.id) };
+  return { ...prefs, shown: without(prefs.shown, ref.id), hidden: ref.defaultOn ? withId(prefs.hidden, ref.id) : without(prefs.hidden, ref.id) };
 }
 
 export function togglePinned(prefs: WidgetPrefs, id: string): WidgetPrefs {

@@ -76,7 +76,8 @@ export interface WidgetCtx {
   /** The default sections and any a person turned on, merged. */
   readonly dashboard?: Dashboard;
   readonly section: (key: DashboardSectionKey) => SectionState;
-  readonly retry: () => void;
+  /** Retries the query that owns `section` (the base call, or the extra-sections call); with no section, every query. */
+  readonly retry: (section?: DashboardSectionKey) => void;
   readonly retrying: boolean;
   readonly allocationsToday: AllocationsTodayCtx;
   readonly cost: CostCtx;

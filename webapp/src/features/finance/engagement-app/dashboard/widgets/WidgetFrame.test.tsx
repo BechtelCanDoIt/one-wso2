@@ -36,10 +36,10 @@ function ctx(over: { section?: (k: DashboardSectionKey) => SectionState; dashboa
   };
 }
 
-function frame(id: string, c: WidgetCtx, extra: { pinned?: boolean; onHide?: () => void; onPin?: () => void } = {}) {
+function frame(id: string, c: WidgetCtx, extra: { pinned?: boolean; exporting?: boolean; onExport?: () => void; onHide?: () => void; onPin?: () => void } = {}) {
   return render(
     <MemoryRouter>
-      <WidgetFrame def={widgetById(id)!} ctx={c} pinned={extra.pinned ?? false} onHide={extra.onHide ?? (() => undefined)} onPin={extra.onPin ?? (() => undefined)} />
+      <WidgetFrame def={widgetById(id)!} ctx={c} pinned={extra.pinned ?? false} exporting={extra.exporting ?? false} onExport={extra.onExport ?? (() => undefined)} onHide={extra.onHide ?? (() => undefined)} onPin={extra.onPin ?? (() => undefined)} />
     </MemoryRouter>,
   );
 }
@@ -69,7 +69,7 @@ describe("WidgetFrame", () => {
     const c = ctx({ section: () => ({ status: "failed" }) });
     frame("my-work", c);
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
-    expect(c.retry).toHaveBeenCalled();
+    expect(c.retry).toHaveBeenCalledWith("myWork");
   });
 
   it("shows its empty text", () => {
@@ -87,17 +87,29 @@ describe("WidgetFrame", () => {
   it("offers Pin to Top, Hide Widget and, where it has one, Export CSV in its menu", async () => {
     const onHide = vi.fn();
     const onPin = vi.fn();
-    const exportCsv = vi.fn(() => Promise.resolve());
-    frame("tc-source", ctx({ cost: { isPending: true }, exportCsv }), { onHide, onPin });
+    const onExport = vi.fn();
+    frame("tc-source", ctx({ cost: { isPending: true } }), { onHide, onPin, onExport });
     fireEvent.click(screen.getByRole("button", { name: "More actions for Spend by Source" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Export CSV" }));
-    await waitFor(() => expect(exportCsv).toHaveBeenCalledWith("bySource"));
+    await waitFor(() => expect(onExport).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "More actions for Spend by Source" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Pin to Top" }));
     expect(onPin).toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "More actions for Spend by Source" }));
     fireEvent.click(screen.getByRole("menuitem", { name: "Hide Widget" }));
     expect(onHide).toHaveBeenCalled();
+  });
+
+  it("disables Export CSV while a summary widget still shows the previous period, but not the Transactions export", () => {
+    frame("tc-source", ctx({ cost: { isPlaceholderData: true } }));
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Spend by Source" }));
+    expect(screen.getByRole("menuitem", { name: "Export CSV" }).getAttribute("aria-disabled")).toBe("true");
+  });
+
+  it("disables Export CSV while its own export runs", () => {
+    frame("tc-source", ctx({}), { exporting: true });
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Spend by Source" }));
+    expect(screen.getByRole("menuitem", { name: "Exporting…" }).getAttribute("aria-disabled")).toBe("true");
   });
 
   it("says Unpin for a pinned widget and has no Export CSV where there is nothing to export", () => {

@@ -18,7 +18,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { MyOverview, UserInfo } from "../api/engagementTypes";
 
 const state = {
-  info: { data: { email: "jane@wso2.com", allocations: { privileges: [] }, travel: { privileges: [49] } } as UserInfo | undefined, isSuccess: true },
+  info: { data: { email: "jane@wso2.com", allocations: { privileges: [] }, travel: { privileges: [49] } } as UserInfo | undefined, isSuccess: true, isError: false, isFetching: false, error: null as unknown, refetch: vi.fn() },
   overview: { data: undefined as MyOverview | undefined, isPending: false, isError: false, isFetching: false, error: null as unknown },
 };
 
@@ -29,7 +29,7 @@ vi.mock("@config/apiConfig", async (importOriginal) => ({
 vi.mock("../api/useEngagementUserInfo", () => ({ useEngagementUserInfo: () => state.info }));
 vi.mock("../api/useEngagementApi", () => ({ useMyOverview: () => ({ ...state.overview, refetch: vi.fn() }) }));
 
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { tripsWaiting } from "../api/dashboardMappers";
 import VisaCard from "./VisaCard";
@@ -46,6 +46,7 @@ const trip = { jobNumber: "TRV-1", country: "India", start: "2027-01-10", end: "
 
 beforeEach(() => {
   window.config = { ...(original ?? {}), ONE_WSO2_PREVIEW_FEATURES: { engagementApp: true } } as Window["config"];
+  state.info = { data: { email: "jane@wso2.com", allocations: { privileges: [] }, travel: { privileges: [49] } } as UserInfo, isSuccess: true, isError: false, isFetching: false, error: null, refetch: vi.fn() };
   state.overview = { data: { allocations: [], trips: [], tripVisas: [] }, isPending: false, isError: false, isFetching: false, error: null };
 });
 afterEach(() => {
@@ -60,6 +61,15 @@ describe("tripsWaiting", () => {
 });
 
 describe("the visa card on the Me overview", () => {
+  it("says the access check failed and retries it, instead of vanishing", () => {
+    const refetch = vi.fn();
+    state.info = { data: undefined, isSuccess: false, isError: true, isFetching: false, error: new Error("boom"), refetch };
+    draw();
+    expect(screen.getByText(/Couldn.t check your access/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
+  });
+
   it("is not drawn when there are no upcoming trips", () => {
     const { container } = draw();
     expect(container).toBeEmptyDOMElement();

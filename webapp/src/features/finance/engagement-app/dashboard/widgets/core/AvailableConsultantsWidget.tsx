@@ -10,12 +10,12 @@ import type { WidgetCtx } from "../types";
 export default function AvailableConsultantsWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
   const a = ctx.dashboard?.available;
   if (!a) return null;
-  const pool = a.available + a.allocated || 1;
+  const pool = a.available + a.allocated;
   return (
     <>
       <Box sx={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 1.5, mb: 2 }}>
         <Kpi label="Available" value={n0(a.available)} note="No engagement allocation in the next two weeks" />
-        <Kpi label="Allocated" value={n0(a.allocated)} note={`${Math.round((a.allocated / pool) * 100)}% of ${n0(pool)} consultants`} />
+        <Kpi label="Allocated" value={n0(a.allocated)} note={`${pool ? Math.round((a.allocated / pool) * 100) : 0}% of ${n0(pool)} ${pool === 1 ? "consultant" : "consultants"}`} />
       </Box>
       <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.secondary", mb: 1 }}>Available by Business Unit</Typography>
       {a.byBusinessUnit.length ? <HBars rows={a.byBusinessUnit} /> : <Calm>Everyone has an engagement allocation in the next two weeks.</Calm>}

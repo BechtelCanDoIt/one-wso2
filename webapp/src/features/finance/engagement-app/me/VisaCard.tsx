@@ -61,6 +61,17 @@ export default function VisaCard(): JSX.Element | null {
   const access = engagementAccess(info.data);
   const enabled = on && info.isSuccess && access.myTravelRequests;
   const overview = useMyOverview(enabled);
+  // The access check itself failed: say so, with a way to try again. A feature that is off, or access that is denied, stays silent.
+  if (on && info.isError) {
+    return (
+      <Card variant="outlined" sx={{ ...EA_SCOPE_SX, p: 2 }}>
+        <Typography sx={{ ...CAP, mb: 1.5 }}>Visas for Upcoming Trips</Typography>
+        <ErrorNotice error={info.error} onRetry={() => void info.refetch()} retrying={info.isFetching}>
+          Couldn&apos;t check your access to the visas for your upcoming trips.
+        </ErrorNotice>
+      </Card>
+    );
+  }
   if (!enabled || overview.isPending) return null;
   if (overview.isError) {
     return (

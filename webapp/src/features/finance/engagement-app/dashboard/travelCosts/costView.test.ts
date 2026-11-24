@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import { engagementServiceUrls } from "@config/apiConfig";
-import { costParams, drillPatch, filterCount, patchCostView, readCostView, transactionParams } from "./costView";
+import { costParams, drillPatch, joinFilter, filterCount, patchCostView, readCostView, transactionParams } from "./costView";
 
 const today = "2026-11-24";
 
@@ -92,6 +92,22 @@ describe("costParams", () => {
     expect(p).toMatchObject({ country: ["Korea, Republic of", "India"], customer: ["Acme, Inc"] });
     const url = engagementServiceUrls.travelCosts(p);
     expect(url).toContain("country=Korea%2C+Republic+of&country=India");
+  });
+
+  it("reads back a value that holds the separator or a percent sign as the one value it was", () => {
+    for (const name of ["A|B", "100%", "A%7CB", "Acme, Inc"]) {
+      const p = patchCostView({}, drillPatch("tcCustomer", name));
+      expect(costParams(readCostView(p, today))).toMatchObject({ customer: [name] });
+    }
+    const joined = joinFilter(["A|B", "C"]);
+    expect(costParams(readCostView({ tcCustomer: joined }, today))).toMatchObject({ customer: ["A|B", "C"] });
+  });
+
+  it("falls back to the year to date for a custom range from the address bar that is reversed or longer than two years", () => {
+    const ytd = readCostView({}, today).period;
+    expect(readCostView({ tcRange: "custom", tcFrom: "2026-03-01", tcTo: "2026-02-01" }, today).period).toEqual(ytd);
+    expect(readCostView({ tcRange: "custom", tcFrom: "2024-01-01", tcTo: "2026-02-01" }, today).period).toEqual(ytd);
+    expect(readCostView({ tcRange: "custom", tcFrom: "2025-01-01", tcTo: "2026-02-01" }, today).period).toEqual({ from: "2025-01-01", to: "2026-02-01" });
   });
 
   it("adds Group By, Sort and the page for the Transactions", () => {

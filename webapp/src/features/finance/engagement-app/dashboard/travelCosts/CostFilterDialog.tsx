@@ -7,7 +7,7 @@ import EaDialog from "../../components/EaDialog";
 import { FilterInput } from "../../components/FilterFields";
 import PersonPicker from "../../components/PersonPicker";
 import { FILTER_LABEL, filterOptions } from "./filterOptions";
-import { FILTER_KEYS, FILTER_SEP, type CostView, type CostViewPatch, type FilterKey } from "./costView";
+import { FILTER_KEYS, joinFilter, type CostView, type CostViewPatch, type FilterKey } from "./costView";
 
 type Draft = Partial<Record<FilterKey, string[]>>;
 
@@ -39,7 +39,7 @@ export default function CostFilterDialog({
     const patch: Record<string, string | undefined> = {};
     for (const k of FILTER_KEYS) {
       const values = k === "tcJob" ? jobs : (draft[k] ?? []);
-      patch[k] = values.length ? values.join(FILTER_SEP) : undefined;
+      patch[k] = values.length ? joinFilter(values) : undefined;
     }
     onApply(patch);
   };

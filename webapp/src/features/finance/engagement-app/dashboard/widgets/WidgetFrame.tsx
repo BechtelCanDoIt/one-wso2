@@ -1,5 +1,5 @@
 
-import { useId, useState, type JSX } from "react";
+import { useId, type JSX } from "react";
 import { Box, Card, Skeleton, Typography } from "@wso2/oxygen-ui";
 import { DownloadIcon, EyeOffIcon, PinIcon, PinOffIcon } from "@wso2/oxygen-ui-icons-react";
 import type { RowAction } from "../../components/EaTable";
@@ -36,17 +36,21 @@ export default function WidgetFrame({
   def,
   ctx,
   pinned,
+  exporting,
+  onExport,
   onHide,
   onPin,
 }: {
   def: WidgetDef;
   ctx: WidgetCtx;
   pinned: boolean;
+  /** Whether this widget's CSV is being prepared. The grid holds it, so a change of layout does not forget it. */
+  exporting: boolean;
+  onExport: () => void;
   onHide: () => void;
   onPin: () => void;
 }): JSX.Element {
   const titleId = useId();
-  const [exporting, setExporting] = useState(false);
   const state = widgetState(def, ctx);
   const heading = def.heading?.(ctx) ?? def.title;
   const note = typeof def.note === "function" ? def.note(ctx) : def.note;
@@ -59,17 +63,15 @@ export default function WidgetFrame({
           {
             label: exporting ? "Exporting…" : "Export CSV",
             icon: <DownloadIcon size={15} />,
-            disabled: exporting,
-            onClick: () => {
-              setExporting(true);
-              void ctx.cost.exportCsv(def.csv!).finally(() => setExporting(false));
-            },
+            // A summary widget still showing the previous period would export the new one, so wait for its figures.
+            disabled: exporting || (def.csv !== "transactions" && ctx.cost.query.isPlaceholderData),
+            onClick: onExport,
           },
         ]
       : []),
   ];
   const Body = def.Component;
-  const retry = () => (def.source === "cost" ? void ctx.cost.query.refetch() : ctx.retry());
+  const retry = () => (def.source === "cost" ? void ctx.cost.query.refetch() : ctx.retry(def.section));
   return (
     <Card variant="outlined" component="section" aria-labelledby={titleId} sx={{ p: 2, minWidth: 0, height: "100%", boxSizing: "border-box" }}>
       <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1, mb: 1.5 }}>
