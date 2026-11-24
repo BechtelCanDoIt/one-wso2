@@ -21,6 +21,9 @@ import { money } from "../model/format";
 export const USD_RATE_HINT =
   "Amounts recorded in USD, and card charges billed in USD, are used as they are. Other currencies are converted at NetSuite's month-end rate (today's rate for the current month).";
 
+/** The hint once the Transactions widget shows each line's rate. */
+export const USD_RATE_HINT_WITH_TRANSACTIONS = `${USD_RATE_HINT} Each transaction shows how it was converted.`;
+
 /** What a cost source is called on screen. */
 export const COST_SOURCE_LABEL: Readonly<Record<CostSource, string>> = {
   invoice: "Travel Invoices",
