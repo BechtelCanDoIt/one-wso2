@@ -49,7 +49,7 @@ export default function TravelRequestPage({ area = "finance" }: { area?: "financ
   const { job = "", tab = "info" } = useParams();
   const trip = useTravelRequest(job);
   const pathOf = area === "me" ? myEngagementPaths.travelRequest : engagementPaths.travelRequest;
-  const back = area === "me" ? { to: myEngagementPaths.travelRequests, label: "My Travels" } : { to: engagementPaths.travelRequests(), label: "Travel Requests" };
+  const back = area === "me" ? { to: myEngagementPaths.travelRequests, label: "My Travels" } : { to: engagementPaths.travelRequests(), label: "Travels" };
 
   if (!TABS.includes(tab as TravelTab)) return <Navigate to={pathOf(job)} replace />;
   if (trip.isPending) {

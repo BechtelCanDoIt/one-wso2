@@ -29,9 +29,9 @@ UI never merges them (`model/engagementAccess.ts`).
 | Pre-Sale / Post-Sale Engagement Managers | Allocate on their types (33 / 32), with the Allocate page's reads (6, 16 or 21), as in production |
 | Internal Engagement / Marketing Event Approvers | Approvals (26 / 29; approve needs 28 and a PATCH privilege, as the legacy page checks) |
 | Reports Viewer, Allocations Finance Manager | Engagements and Allocations read-only, Reports (22) |
-| Travel Team (`app-travel-manager-po`) | Travel Requests (New / All), Assign, Update, per diems, PO approval of invoices, Visas & Documents |
-| Travel finance roles | Travel Requests, Invoices & Payments (queues, push, NS Sync Failures), Reports, Visas |
-| Travel agents (`app-travel-agent*`) | Their agency's Dashboard and Travel Requests only (Travel 18 without 1 / 2) |
+| Travel Team (`app-travel-manager-po`) | Travels (New / All), Assign, Update, per diems, PO approval of invoices, Visas & Documents |
+| Travel finance roles | Travels, Invoices & Payments (queues, push, NS Sync Failures), Reports, Visas |
+| Travel agents (`app-travel-agent*`) | Their agency's Dashboard and Travels only (Travel 18 without 1 / 2) |
 | Allocations / Travel Super Admin | Everything their app allows, Settings → Role Settings (23 / Travel 29) |
 
 ---
@@ -49,7 +49,7 @@ Paths are built in `features/finance/engagement-app/engagementPaths.ts`; no comp
 | Approvals | `finance-ea-approvals` | `/approvals` | Allocations 26 / 29 |
 | Engagements | `finance-ea-engagements` | `/engagements` | Allocations 2, 3, 9, 11, 12, 13, 19 |
 | Allocations | `finance-ea-allocations` | `/allocations` | Allocations 9, 19, 21 |
-| Travel Requests | `finance-ea-travel-requests` | `/travel-requests` | Travel 1, 2, 18 |
+| Travels | `finance-ea-travel-requests` | `/travel-requests` | Travel 1, 2, 18 |
 | Invoices & Payments | `finance-ea-invoices` | `/invoices` | Travel 39 / 41 |
 | Reports | `finance-ea-reports` | `/reports` | Allocations 22, Travel 39 / 41 |
 | Visas & Documents | `finance-ea-visas` | `/visas-documents` | Travel 8 / 11 |
@@ -75,7 +75,7 @@ flag is on. Both groups use `alwaysGroup: true`.
 | `/engagements/:id/edit[?mode=pending]` | Edit, or edit while Pending Approval |
 | `/engagements/:id/allocate` | Allocate page |
 | `/allocations/engagement`, `/allocations/team` | Engagement Allocations, Team Allocations |
-| `/travel-requests/new`, `/in-progress`, `/completed`, `/all` | Travel Requests tabs |
+| `/travel-requests/new`, `/in-progress`, `/completed`, `/all` | Travels tabs |
 | `/travel-requests/:job/info`, `/per-diems`, `/invoices`, `/travel-cards`, `/payments` | Travel request tabs |
 | `/invoices/po`, `/finance`, `/push`, `/payments-push`, `/sync-failures`, `/all-invoices`, `/all-payments` | Invoices & Payments tabs |
 | `/reports/consultant-allocations`, `/invoices`, `/per-diem-payments` | Reports tabs |
@@ -133,7 +133,7 @@ message inline). Chips only for real statuses. Every empty list says why and off
   and checks; Allocation Records.
 - **Allocations** — engagement allocations list with Change Status; Team Allocations (search by Business
   Unit / Department / Team, timeline, Add / Edit / Delete default allocations, Bulk Upload).
-- **Travel Requests** — New / In Progress / Completed / All (one or two new ones show above In Progress);
+- **Travels** — New / In Progress / Completed / All (one or two new ones show above In Progress);
   Assign (Travel Handled By, Travel Status, Select Visa; Submit asks Assign / Make On Hold / Cancel);
   Update Travel Details with the legacy transitions.
 - **Travel request page** — Travel Information, Per Diems (Add with the legacy maths, Delete), Travel
@@ -226,7 +226,7 @@ buttons follow them; the legacy privilege rules stand in only when it carries no
 - **Shell, navigation, sign-in, theme**: One WSO2's. The two legacy apps' menus become two rail groups;
   their pages become tabs (§2).
 - **Merged screens**: Customer and Internal Engagements hubs → Engagements; New / All Travel Requests →
-  Travel Requests; All Invoices and All Per Diem Payments → Invoices & Payments with work-queue tabs; Visa
+  Travels; All Invoices and All Per Diem Payments → Invoices & Payments with work-queue tabs; Visa
   Details and Travel Documents → Visas & Documents; both Role Settings → Settings.
 - **New in Release 1**: Campaign Name Tracking on marketing events (and on their travel requests,
   invoices, payments, filters and CSV exports); NS Sync Failures with Re-sync; My Allocations and the Me
