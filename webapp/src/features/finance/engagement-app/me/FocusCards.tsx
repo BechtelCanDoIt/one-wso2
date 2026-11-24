@@ -32,14 +32,14 @@ const MAX = 3;
  */
 export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) => boolean }): JSX.Element | null {
   const overview = useMyOverview();
-  const allocations = overview.data?.allocations ?? [];
+  const allocations = (overview.data?.allocations ?? []).slice(0, MAX);
   if (!allocations.length) return null;
   const today = localIsoDate();
   const current = allocations.filter((a) => a.current ?? (a.start <= today && today <= a.end)).length;
   return (
     <Box sx={{ mb: 2 }}>
       <Mini title={current === 0 ? "Upcoming" : current === allocations.length ? "Current" : "Current and Upcoming"}>
-        {allocations.slice(0, MAX).map((a) => (
+        {allocations.map((a) => (
           <DateRow
             key={a.id}
             date={a.start}
