@@ -52,7 +52,7 @@ export function writeSessionCache(name: string, sub: string | undefined, data: u
   }
 }
 
-/** Forgets every copy (for sign-out and tests). */
+/** Forgets every copy (for tests). Nothing clears the cache on sign-out: a copy is only ever read for the same signed-in subject and goes with the tab. */
 export function clearSessionCache(): void {
   try {
     for (const k of Object.keys(sessionStorage)) if (k.startsWith(PREFIX)) sessionStorage.removeItem(k);
