@@ -118,7 +118,7 @@ message inline). Chips only for real statuses. Every empty list says why and off
   (starting in 30 days, available consultants), Allocations Today (the legacy dashboard: Business Unit,
   Today / Past Date, the three breakdowns), Allocations Over Time. Sections appear as the backend sends
   them. Visas and passports are not on the dashboard. Travel agents get At a Glance tiles, Upcoming Trips,
-  Invoices by Status, Trips by Month and Per Diems on Open Trips for their agency.
+  Invoices by Status and Trips by Month for their agency (no per diem amounts).
 - **Approvals** — the legacy Approve page's two tabs; Approve on the row; Edit while pending.
 - **Engagements** — Customer / Internal / Marketing Events with the legacy filters; Allocate (per type),
   Edit, Mark as Completed / Reopen, Change Engagement Status (Cancelled cascades on the backend).

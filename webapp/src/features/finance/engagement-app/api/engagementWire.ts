@@ -254,15 +254,6 @@ export interface WDashboard {
     upcomingTotal?: number;
     invoicesByStatus: WBucket[];
     tripsByMonth: WSeriesPoint[];
-    perDiemsOnOpenTrips: {
-      jobNumber: string;
-      traveller: WPerson;
-      startDate?: string | null;
-      endDate?: string | null;
-      days?: number | null;
-      currency?: string | null;
-      total?: number | null;
-    }[];
   };
 }
 

@@ -15,13 +15,13 @@
 // under the License.
 
 import type { JSX, ReactNode } from "react";
-import { Box, Typography } from "@wso2/oxygen-ui";
+import { Box } from "@wso2/oxygen-ui";
 import { localIsoDate } from "@utils/localDate";
 import type { Dashboard } from "../api/engagementTypes";
 import EaPage from "../components/EaPage";
 import { TravelStatusChip, Mono } from "../components/StatusChips";
 import { engagementPaths } from "../engagementPaths";
-import { fmtDate, fmtRange, money, place, plural } from "../model/format";
+import { fmtDate, fmtRange, place } from "../model/format";
 import { DateRow, HBars, Mini, MonthColumns, QueueTiles, Section, ViewAll } from "./dashboardParts";
 
 /** Two-column panels; an odd last one spans the row. */
@@ -34,7 +34,7 @@ function Panels({ children }: { children: ReactNode[] }): JSX.Element | null {
   );
 }
 
-/** The travel agent's dashboard: only the agency's own travel requests, invoices and per diems. */
+/** The travel agent's dashboard: only the agency's own travel requests, and invoices. */
 export default function AgentDashboard({ d }: { d: Dashboard }): JSX.Element {
   const a = d.agency!;
   const tiles = [
@@ -66,25 +66,6 @@ export default function AgentDashboard({ d }: { d: Dashboard }): JSX.Element {
               </>
             }
             to={engagementPaths.travelRequest(x.jobNumber)}
-          />
-        ))}
-      </Mini>
-    ) : null,
-    a.perDiemsOnOpenTrips.length ? (
-      <Mini key="perdiems" title="Per Diems on Open Trips">
-        {a.perDiemsOnOpenTrips.slice(0, 5).map((p) => (
-          <DateRow
-            key={`${p.jobNumber}${p.start}`}
-            date={p.start.slice(0, 10)}
-            title={p.traveller.name}
-            lines={[`${fmtRange(p.start.slice(0, 10), p.end.slice(0, 10))}, ${plural(p.days, "day")}`]}
-            right={
-              <>
-                <Typography sx={{ fontSize: 12.5 }}>{money(p.total, p.currency)}</Typography>
-                <Mono>{p.jobNumber}</Mono>
-              </>
-            }
-            to={engagementPaths.travelRequest(p.jobNumber)}
           />
         ))}
       </Mini>

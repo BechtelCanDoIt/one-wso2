@@ -595,15 +595,6 @@ export function dashboard(d: W.WDashboard): V.Dashboard {
           upcomingTotal: d.agent.upcomingTotal ?? d.agent.upcoming.length,
           invoicesByStatus: d.agent.invoicesByStatus.map(bucket),
           tripsByMonth: series(d.agent.tripsByMonth, "Trips"),
-          perDiemsOnOpenTrips: d.agent.perDiemsOnOpenTrips.map((p) => ({
-            jobNumber: p.jobNumber,
-            traveller: person(p.traveller),
-            start: s(p.startDate),
-            end: s(p.endDate),
-            days: p.days ?? 0,
-            currency: s(p.currency),
-            total: p.total ?? 0,
-          })),
         }
       : undefined,
   };

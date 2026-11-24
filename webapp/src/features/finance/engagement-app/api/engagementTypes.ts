@@ -669,15 +669,6 @@ export interface Dashboard {
     readonly upcomingTotal: number;
     readonly invoicesByStatus: readonly CountRow[];
     readonly tripsByMonth: readonly MonthValue[];
-    readonly perDiemsOnOpenTrips: readonly {
-      readonly jobNumber: string;
-      readonly traveller: Person;
-      readonly start: string;
-      readonly end: string;
-      readonly days: number;
-      readonly currency: string;
-      readonly total: number;
-    }[];
   };
 }
 
