@@ -69,6 +69,7 @@ vi.mock("../me/MyAllocationsPage", () => ({ default: () => <h1>My allocations pa
 vi.mock("../me/MyTravelRequestsPage", () => ({ default: () => <h1>My travels page</h1> }));
 
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, useLocation } from "react-router";
 import { engagementRoutes, myEngagementRoutes } from "../routes";
 
@@ -84,13 +85,15 @@ function Where() {
 
 function open(at: string) {
   return render(
-    <MemoryRouter initialEntries={[at]}>
-      <Where />
-      <Routes>
-        {engagementRoutes}
-        {myEngagementRoutes}
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[at]}>
+        <Where />
+        <Routes>
+          {engagementRoutes}
+          {myEngagementRoutes}
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 

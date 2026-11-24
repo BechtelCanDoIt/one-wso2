@@ -22,6 +22,7 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { NothingHere, PageTitle } from "@components/perspective-landing/PerspectiveLanding";
 import { isEngagementAppBackendConfigured } from "@config/apiConfig";
 import { useEngagementUserInfo } from "../api/useEngagementUserInfo";
+import { useRefreshAccessOnForbidden } from "../api/useRefreshAccessOnForbidden";
 import { engagementAccess, type EngagementAccess } from "../model/engagementAccess";
 import { engagementPaths } from "../engagementPaths";
 import { EA_SCOPE_SX } from "./eaStyles";
@@ -33,6 +34,7 @@ const NAME = "Engagement App";
 /** The frame every Engagement App route renders in: resolves access once, in the order docs/conventions.md sets out, before any page asks for data. */
 export default function EngagementShell({ area }: { area: "finance" | "me" }): JSX.Element {
   const info = useEngagementUserInfo();
+  useRefreshAccessOnForbidden();
 
   if (!isEngagementAppBackendConfigured()) {
     return (
