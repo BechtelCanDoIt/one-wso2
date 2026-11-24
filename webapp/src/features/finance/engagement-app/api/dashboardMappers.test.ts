@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { costLine, costTransactions, notConverted, travelCosts, travelTeam } from "./dashboardMappers";
+import { costLine, costTransactions, jobCostSummary, notConverted, travelCosts, travelTeam } from "./dashboardMappers";
 import type { WCostLine, WTravelCosts } from "./dashboardWire";
 
 const line: WCostLine = {
@@ -137,5 +137,35 @@ describe("travelTeam", () => {
     const t = travelTeam({ poQueue: { count: 2, oldestDays: 5 } });
     expect(t).toMatchObject({ awayThisWeek: undefined, endedNotCompleted: undefined, frequentTravellers: undefined, agentWorkload: undefined });
     expect(t.poQueue).toEqual({ count: 2, oldestDays: 5, byAge: undefined });
+  });
+});
+
+describe("jobCostSummary", () => {
+  it("maps the sources and the not converted lines", () => {
+    const got = jobCostSummary({
+      totalUsd: 200.99,
+      bySource: [{ key: "invoice", usd: 0.99, lines: 3 }, { key: "perDiem", usd: 200, lines: 1 }],
+      notConverted: [{ source: "card", currency: "eur", amount: 80, lines: 1 }],
+      incomplete: true,
+      failedSources: ["card"],
+      dataAsOf: "2026-11-25T08:15:00Z",
+    });
+    expect(got.bySource).toEqual([{ source: "invoice", usd: 0.99, lines: 3 }, { source: "perDiem", usd: 200, lines: 1 }]);
+    expect(got.notConverted[0]).toEqual({ source: "card", currency: "EUR", amount: 80, lines: 1 });
+    expect(got.hasUnconvertedHidden).toBe(false);
+    expect(got.incomplete).toBe(true);
+    expect(got.failedSources).toEqual(["card"]);
+  });
+
+  it("leaves bySource out for a travel agent", () => {
+    const got = jobCostSummary({ totalUsd: 5, dataAsOf: "2026-11-25T08:15:00Z" });
+    expect("bySource" in got).toBe(false);
+    expect(got.notConverted).toEqual([]);
+    expect(got.incomplete).toBe(false);
+    expect(got.hasUnconvertedHidden).toBe(false);
+  });
+
+  it("reads the hidden unconverted flag", () => {
+    expect(jobCostSummary({ totalUsd: 5, hasUnconvertedHidden: true, dataAsOf: "2026-11-25T08:15:00Z" }).hasUnconvertedHidden).toBe(true);
   });
 });

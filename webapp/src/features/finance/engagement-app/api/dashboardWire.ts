@@ -180,3 +180,14 @@ export interface WTripVisa {
   myVisa?: { type: string; endDate: string } | null;
   waiting: boolean;
 }
+
+/** GET /travel-requests/{jobNumber}/cost-summary. A travel agent gets no bySource. */
+export interface WJobCostSummary {
+  totalUsd: number;
+  bySource?: { key: string; label?: string; usd: number; lines: number }[] | null;
+  notConverted?: { source: string; currency?: string | null; amount: number; lines?: number }[] | null;
+  hasUnconvertedHidden?: boolean;
+  incomplete?: boolean;
+  failedSources?: string[] | null;
+  dataAsOf: string;
+}

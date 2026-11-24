@@ -42,6 +42,7 @@ import { InvoiceDrawer, PaymentDrawer } from "../invoices/RecordDrawer";
 import { useInvoiceWork, usePaymentWork } from "../invoices/useInvoiceWork";
 import { TABLE_HEAD_SX } from "../components/eaStyles";
 import { Kpi } from "../dashboard/dashboardParts";
+import TotalCostCard from "./TotalCostCard";
 import { AssignDialog, InvoiceDialog, PaymentDialog, PerDiemDialog, UpdateTravelDialog } from "./travelDialogs";
 
 const TABS: readonly TravelTab[] = ["info", "per-diems", "invoices", "payments", "card-expenses", "expense-claims"];
@@ -161,6 +162,7 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
           { label: "Visa", value: t.visa || "—" },
         ]}
       />
+      <TotalCostCard jobNumber={t.jobNumber} />
       <ListCard>
         <RoutedTabs basePath={basePath} tabs={tabs} ariaLabel="Travel request sections" scrollable />
         {sectionQuery?.isError ? (

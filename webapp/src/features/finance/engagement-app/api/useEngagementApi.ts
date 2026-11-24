@@ -203,6 +203,10 @@ export const useTripCards = (jobNumber: string, enabled = true) =>
 export const useTripExpenses = (jobNumber: string, enabled = true) =>
   useEngagementGet(["travel-requests", "expenses", jobNumber], urls.tripExpenses(jobNumber), M.tripExpenses, { enabled });
 
+/** The cost so far of a travel request. A 403 or 404 is not retried: the card is then hidden. */
+export const useJobCostSummary = (jobNumber: string, enabled = true) =>
+  useEngagementGet(["travel-requests", "cost-summary", jobNumber], urls.jobCostSummary(jobNumber), DM.jobCostSummary, { enabled });
+
 export const useTripPayments = (jobNumber: string, enabled = true) =>
   useEngagementGet(["travel-requests", "payments", jobNumber], urls.tripPayments(jobNumber), M.tripPayments, { enabled });
 

@@ -1,6 +1,6 @@
 
 import type { CostLine, Delta } from "../../api/dashboardTypes";
-import { money, usdShort, n2 } from "../../model/format";
+import { fmtDate, money, usdShort, n2 } from "../../model/format";
 
 export const THIN_TEXT = "No comparison: little data last year";
 
@@ -54,3 +54,11 @@ export const PAID_LABEL = { paid: "Paid", nonPaid: "Non-Paid", unknown: "Unknown
 
 /** The chip tone for an engagement's paid kind. */
 export const PAID_TONE = { paid: "success", nonPaid: "default", unknown: "warning" } as const;
+
+/** "24 Nov 2026 08:15 UTC" from the backend's ISO time. */
+export function utcStamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${fmtDate(iso.slice(0, 10))} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
+}

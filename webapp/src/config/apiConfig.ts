@@ -2424,6 +2424,7 @@ export const engagementServiceUrls = {
   perDiem: (job: string, id: string): string => ea(`/travel-requests/${encodeSegment(job)}/per-diems/${encodeSegment(id)}`),
   tripInvoices: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/invoices`),
   travelCards: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/travel-cards`),
+  jobCostSummary: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/cost-summary`),
   tripExpenses: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/expenses`),
   tripPayments: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/per-diem-payments`),
   invoices: (params: EngagementQueryParams = {}): string => ea("/invoices", params),

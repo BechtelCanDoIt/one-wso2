@@ -5,20 +5,13 @@ import { DownloadIcon, FilterIcon } from "@wso2/oxygen-ui-icons-react";
 import { FilterDate, FilterSelect } from "../../components/FilterFields";
 import { fmtDate } from "../../model/format";
 import { InfoHint } from "../dashboardParts";
+import { utcStamp } from "./costFormat";
 import { COST_SOURCE_LABEL, notConvertedText, USD_RATE_HINT_WITH_TRANSACTIONS } from "../travelCostText";
 import type { CostCtx } from "../widgets/types";
 import CostFilterDialog from "./CostFilterDialog";
 import { describeFilter, FILTER_LABEL } from "./filterOptions";
 import { FILTER_KEYS, filterCount, type FilterKey } from "./costView";
 import { RANGE_PRESETS, rangeFor, rangeProblem, recentYears, type RangePreset } from "./dateRanges";
-
-/** "24 Nov 2026 08:15 UTC" from the backend's ISO time. */
-function utcStamp(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const p = (n: number) => String(n).padStart(2, "0");
-  return `${fmtDate(iso.slice(0, 10))} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())} UTC`;
-}
 
 /** The Travel Costs controls bar: period, comparison, view, filters, download, and what to know about the figures. */
 export default function TravelCostControls({ cost, today, canDownloadTransactions }: { cost: CostCtx; today: string; canDownloadTransactions: boolean }): JSX.Element {

@@ -199,3 +199,16 @@ export interface TripVisa {
   readonly myVisa?: { readonly type: string; readonly endDate: string };
   readonly waiting: boolean;
 }
+
+/** The cost so far of one travel request. `bySource` is absent for a travel agent. */
+export interface JobCostSummary {
+  readonly totalUsd: number;
+  readonly bySource?: readonly { readonly source: CostSource; readonly usd: number; readonly lines: number }[];
+  readonly notConverted: readonly NotConverted[];
+  /** An amount in a section the viewer may not open could not be converted. No detail is given. */
+  readonly hasUnconvertedHidden: boolean;
+  /** A source could not be read or the line cap was reached, so the total may be too low. */
+  readonly incomplete: boolean;
+  readonly failedSources: readonly CostSource[];
+  readonly dataAsOf: string;
+}

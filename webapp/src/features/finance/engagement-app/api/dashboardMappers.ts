@@ -198,3 +198,13 @@ export const tripVisa = (t: DW.WTripVisa): D.TripVisa => ({
 
 /** Trips that still need a visa: the person has none for that country that covers the trip. */
 export const tripsWaiting = (trips: readonly D.TripVisa[]): number => trips.filter((t) => t.waiting).length;
+
+export const jobCostSummary = (w: DW.WJobCostSummary): D.JobCostSummary => ({
+  totalUsd: w.totalUsd,
+  ...(w.bySource ? { bySource: w.bySource.map((b) => ({ source: costSource(b.key), usd: b.usd, lines: b.lines })) } : {}),
+  notConverted: (w.notConverted ?? []).map(notConverted),
+  hasUnconvertedHidden: Boolean(w.hasUnconvertedHidden),
+  incomplete: Boolean(w.incomplete),
+  failedSources: (w.failedSources ?? []).map(costSource),
+  dataAsOf: w.dataAsOf,
+});
