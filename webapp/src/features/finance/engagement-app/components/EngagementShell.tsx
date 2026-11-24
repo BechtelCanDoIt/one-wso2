@@ -26,6 +26,7 @@ import { engagementAccess, type EngagementAccess } from "../model/engagementAcce
 import { engagementPaths } from "../engagementPaths";
 import { EA_SCOPE_SX } from "./eaStyles";
 import { firstFinanceScreen, myLanding } from "../model/landing";
+import NoEngagementAccess from "./NoEngagementAccess";
 
 const NAME = "Engagement App";
 
@@ -73,9 +74,11 @@ export default function EngagementShell({ area }: { area: "finance" | "me" }): J
   }
 
   const access = engagementAccess(info.data);
-  // Someone with only their own pages (a plain employee) is sent to them from any Finance address.
-  if (area === "finance" && !access.anyFinance && access.anyMe) return <Navigate to={myLanding(access)} replace />;
-  if (area === "finance" ? !access.anyFinance : !access.anyMe) {
+  // No Finance-side access at all: say so, whatever the address (no silent redirect to Me).
+  if (area === "finance" && !access.anyFinance) {
+    return <NoEngagementAccess access={access} accessRequestEmail={info.data?.accessRequestEmail} />;
+  }
+  if (area === "me" && !access.anyMe) {
     return (
       <Box>
         <PageTitle label={NAME} />

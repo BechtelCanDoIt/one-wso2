@@ -46,6 +46,8 @@ export interface WUserInfo {
     perDiemPayments: ("push" | "all")[];
     netsuiteSyncFailures: boolean;
   };
+  /** Where to ask for access (ACCESS_REQUEST_EMAIL); absent when not set. */
+  accessRequestEmail?: string;
 }
 
 export interface WPage<T> {

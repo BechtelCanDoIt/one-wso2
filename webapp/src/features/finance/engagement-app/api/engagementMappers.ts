@@ -61,7 +61,10 @@ const hourly = (h: W.WHourly | null | undefined): V.HourlyWindow | undefined =>
 
 // ---------------------------------------------------------------- access and reference
 
-export const userInfo = (u: W.WUserInfo): V.UserInfo => u;
+export const userInfo = (u: W.WUserInfo): V.UserInfo => ({
+  ...u,
+  accessRequestEmail: u.accessRequestEmail?.trim() || undefined,
+});
 
 export function referenceData(r: W.WReferenceData): V.ReferenceData {
   const allocationTypes = (r.allocationTypes ?? []).filter((a) => norm(a.status ?? "") === "active").map(allocationType);

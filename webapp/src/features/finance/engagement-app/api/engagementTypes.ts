@@ -64,6 +64,8 @@ export interface UserInfo {
   readonly allocations: AppAccess;
   readonly travel: AppAccess & { readonly agency?: { readonly id: number; readonly name: string } | null };
   readonly workQueues?: WorkQueues;
+  /** Where to ask for access; absent when the backend has none configured. */
+  readonly accessRequestEmail?: string;
 }
 
 /** A list page, the total it was cut from, and the per-tab counts. */
