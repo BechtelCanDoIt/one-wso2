@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { Fragment, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Box, IconButton, Paper, Popper, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import {
   BoldIcon,
@@ -34,12 +34,12 @@ import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import {
   COMMENTARY_MAX_LENGTH,
   MAX_MENTIONS,
-  MENTION_TOKEN,
   activeMentions,
   buildCommentary,
   linkedInLength,
   locateMentions,
   sanitizeMentionLabel,
+  splitCommentary,
   type TrackedMention,
 } from "../util/linkedinMarkdown";
 import {
@@ -105,9 +105,14 @@ export default function CommentaryEditor({
   const length = linkedInLength(commentary);
 
   const typing = mentionQuery !== null && mentionQuery.start !== dismissedAt && !atMentionLimit;
-  const debouncedQuery = useDebouncedValue(typing ? mentionQuery.query.trim() : "", MENTION_DEBOUNCE_MS);
+  const currentQuery = typing ? mentionQuery.query.trim() : "";
+  const debouncedQuery = useDebouncedValue(currentQuery, MENTION_DEBOUNCE_MS);
   const candidatesQuery = useMentionCandidates(debouncedQuery);
-  const candidates: MentionCandidate[] = typing && debouncedQuery ? (candidatesQuery.data ?? []) : [];
+  // Results show (and can be picked) only for the `@` query as typed now: while the debounce or the request
+  // catches up, the list is hidden, so a pick never replaces text the results weren't for. Typing on without a
+  // pick is fine: the `@` text is then sent as plain text.
+  const fresh = currentQuery !== "" && debouncedQuery === currentQuery && !candidatesQuery.isPlaceholderData;
+  const candidates: MentionCandidate[] = fresh ? (candidatesQuery.data ?? []) : [];
   const listOpen = candidates.length > 0;
   const highlighted = listOpen ? Math.min(activeIndex, candidates.length - 1) : -1;
 
@@ -170,8 +175,8 @@ export default function CommentaryEditor({
     apply(h.stack[h.index], false);
   };
 
-  const pick = (candidate: MentionCandidate) => {
-    if (!mentionQuery || atMentionLimit) return;
+  const pick = (candidate: MentionCandidate | undefined) => {
+    if (!candidate || !mentionQuery || atMentionLimit) return;
     const label = sanitizeMentionLabel(candidate.displayName);
     if (!label) return;
     const [, caret] = selection();
@@ -410,29 +415,27 @@ const TOOLS: Array<{
   { id: "redo", label: "Redo", shortcut: "Ctrl+Shift+Z", icon: <Redo2Icon size={16} /> },
 ];
 
-// Mentions and #hashtags in the wire text, for the preview.
-const PREVIEW_SPLIT = new RegExp(`(${MENTION_TOKEN.source}|#[\\p{L}\\p{N}_]+)`, "gu");
-
-/** The commentary as LinkedIn shows it: mention tokens as the name, mentions and hashtags in link colour. */
+/**
+ * The commentary as LinkedIn shows it: mention tokens as the name, mentions and hashtags in link colour. Hashtags
+ * follow the backend's rule (`splitCommentary`), so the preview marks what LinkedIn will get as one.
+ */
 function PreviewText({ text }: { text: string }) {
-  const parts: ReactNode[] = [];
-  let last = 0;
-  for (const m of text.matchAll(PREVIEW_SPLIT)) {
-    const idx = m.index ?? 0;
-    if (idx > last) parts.push(text.slice(last, idx));
-    const token = m[0];
-    const label = token.startsWith("@[") ? (m[2] ?? "") : token;
-    parts.push(
-      <Box
-        component="span"
-        key={`${idx}-${token}`}
-        sx={{ color: "info.main", fontWeight: token.startsWith("@[") ? 600 : 500 }}
-      >
-        {label}
-      </Box>,
-    );
-    last = idx + token.length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  return <>{parts.map((p, i) => (typeof p === "string" ? <Fragment key={`t-${i}`}>{p}</Fragment> : p))}</>;
+  return (
+    <>
+      {splitCommentary(text).map((part, i) =>
+        part.kind === "text" ? (
+          <span key={`t-${i}`}>{part.text}</span>
+        ) : (
+          <Box
+            component="span"
+            key={`${part.kind}-${i}`}
+            data-kind={part.kind}
+            sx={{ color: "info.main", fontWeight: part.kind === "mention" ? 600 : 500 }}
+          >
+            {part.text}
+          </Box>
+        ),
+      )}
+    </>
+  );
 }

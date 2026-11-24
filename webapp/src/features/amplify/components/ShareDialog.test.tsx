@@ -27,7 +27,8 @@ vi.mock("../api/useAmplifyData", () => ({
   useMentionCandidates: (q: string) => {
     if (q) mentionQueries.push(q);
     return {
-      data: q
+      // "Zed" finds nobody, like a name that isn't a linked colleague.
+      data: q && !q.startsWith("Zed")
         ? [
             { ref: "person:e-1", kind: "PERSON", displayName: "Jane Smith" },
             { ref: "org:wso2", kind: "ORGANIZATION", displayName: "Chore Labs" },
@@ -198,6 +199,48 @@ describe("ShareDialog", () => {
     fireEvent.keyDown(thoughts(), { key: "Escape" });
     await waitFor(() => expect(screen.queryByRole("listbox")).toBeNull());
     expect(box().value).toBe("@ja");
+  });
+
+  it("never picks from results for an older query", async () => {
+    render(<ShareDialog campaign={campaign} onClose={() => {}} />);
+    fireEvent.change(thoughts(), { target: { value: "@Ja" } });
+    await screen.findByRole("listbox");
+    // Typed on: the results were for "Ja", so the list hides until the new query's results are in.
+    fireEvent.change(thoughts(), { target: { value: "@Jab" } });
+    expect(screen.queryByRole("listbox")).toBeNull();
+    fireEvent.keyDown(thoughts(), { key: "Enter" });
+    expect(box().value).toBe("@Jab");
+    await screen.findByRole("listbox");
+  });
+
+  it("lets a name be typed without a pick and sends it as plain text", async () => {
+    render(<ShareDialog campaign={campaign} onClose={() => {}} />);
+    fireEvent.change(thoughts(), { target: { value: "Thanks @Zed" } });
+    await waitFor(() => expect(mentionQueries).toContain("Zed"));
+    expect(screen.queryByRole("listbox")).toBeNull();
+    fireEvent.keyDown(thoughts(), { key: "Enter" });
+    fireEvent.keyDown(thoughts(), { key: "Tab" });
+    expect(box().value).toBe("Thanks @Zed");
+    fireEvent.click(amplifyButton());
+    expect(mutate.mock.calls[0][0].commentary).toBe("Thanks @Zed");
+  });
+
+  it("does not force a pick when the list is open", async () => {
+    render(<ShareDialog campaign={campaign} onClose={() => {}} />);
+    fireEvent.change(thoughts(), { target: { value: "@Ja" } });
+    await screen.findByRole("listbox");
+    fireEvent.change(thoughts(), { target: { value: "@Ja rocks" } });
+    fireEvent.click(amplifyButton());
+    expect(mutate.mock.calls[0][0].commentary).toBe("@Ja rocks");
+  });
+
+  it("previews only word-start hashtags, as LinkedIn will get them", () => {
+    render(<ShareDialog campaign={campaign} onClose={() => {}} />);
+    fireEvent.change(thoughts(), { target: { value: "Go #team and C#sharp and #a_b" } });
+    const preview = screen.getByRole("region", { name: "LinkedIn preview" });
+    const marked = Array.from(preview.querySelectorAll('[data-kind="hashtag"]')).map((n) => n.textContent);
+    expect(marked).toEqual(["#team", "#a"]);
+    expect(preview.textContent).toBe("Go #team and C#sharp and #a_b");
   });
 
   it("drops a mention whose name was edited", async () => {

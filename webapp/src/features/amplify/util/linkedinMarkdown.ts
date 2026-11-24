@@ -45,7 +45,7 @@ type Alphabet = { upper: number; lower: number; digit: number | null };
 // spans that must not be styled again (code, links) take E100 onwards.
 const MENTION_BASE = 0xe000;
 const PROTECT_BASE = 0xe100;
-const PUA = /[-]/g;
+const PUA = /[\uE000-\uF8FF]/g;
 
 function mapAscii(text: string, alphabet: Alphabet): string {
   let out = "";
@@ -70,7 +70,7 @@ export function toStrike(text: string): string {
   let out = "";
   for (const ch of text) {
     out += ch;
-    if (!/\s/.test(ch) && !/[-]/.test(ch)) out += STRIKE;
+    if (!/\s/.test(ch) && !/[\uE000-\uF8FF]/.test(ch)) out += STRIKE;
   }
   return out;
 }
@@ -151,7 +151,7 @@ export function toLinkedInText(markdown: string): string {
   }
   return out
     .join("\n")
-    .replace(/[-]/g, (ch) => protectedSpans[ch.charCodeAt(0) - PROTECT_BASE] ?? "");
+    .replace(/[\uE100-\uF8FF]/g, (ch) => protectedSpans[ch.charCodeAt(0) - PROTECT_BASE] ?? "");
 }
 
 // --- Mentions -------------------------------------------------------------
@@ -236,7 +236,7 @@ export function buildCommentary(markdown: string, mentions: TrackedMention[]): s
   withPlaceholders += clean.slice(cursor);
   const converted = toLinkedInText(withPlaceholders);
   return converted
-    .replace(/[-]/g, (ch) => {
+    .replace(/[\uE000-\uE0FF]/g, (ch) => {
       const spot = spots[ch.charCodeAt(0) - MENTION_BASE];
       return spot ? mentionToken(spot.m) : "";
     })
@@ -249,4 +249,62 @@ export function buildCommentary(markdown: string, mentions: TrackedMention[]): s
  */
 export function linkedInLength(text: string): number {
   return text.replace(MENTION_TOKEN, (_m, label: string) => label).length;
+}
+
+// --- Hashtags ---------------------------------------------------------------
+
+// The backend's rule (amplify-common `little_text.bal`, `escapeWithHashtags`), kept the same here so the preview
+// marks exactly what LinkedIn will get as a hashtag: a `#` at the start of a word, followed by letters or digits.
+// The tag is those letters and digits only; `C#`, `#` alone, `#_x` and a `#` straight after a mention are text.
+const TAG_CHAR = /[\p{L}\p{N}]/u;
+const WORD_CHAR = /[\p{L}\p{N}_\\&]/u;
+
+/** A piece of wire commentary as the preview shows it. */
+export type CommentaryPart =
+  | { kind: "text"; text: string }
+  | { kind: "hashtag"; text: string }
+  | { kind: "mention"; text: string };
+
+function splitHashtags(text: string, precededBy: string | null, parts: CommentaryPart[]): void {
+  const chars = Array.from(text);
+  let plain = "";
+  let i = 0;
+  while (i < chars.length) {
+    const previous = i === 0 ? precededBy : chars[i - 1];
+    if (chars[i] === "#" && (previous === null || !WORD_CHAR.test(previous))) {
+      let j = i + 1;
+      while (j < chars.length && TAG_CHAR.test(chars[j])) j += 1;
+      if (j > i + 1) {
+        if (plain) parts.push({ kind: "text", text: plain });
+        parts.push({ kind: "hashtag", text: chars.slice(i, j).join("") });
+        plain = "";
+        i = j;
+        continue;
+      }
+    }
+    plain += chars[i];
+    i += 1;
+  }
+  if (plain) parts.push({ kind: "text", text: plain });
+}
+
+/**
+ * Splits wire commentary into text, hashtags and mentions (shown as their label), with the same hashtag rule
+ * the backend uses when it writes the post.
+ */
+export function splitCommentary(wire: string): CommentaryPart[] {
+  const parts: CommentaryPart[] = [];
+  let cursor = 0;
+  let shownBefore: string | null = null;
+  for (const m of wire.matchAll(new RegExp(MENTION_TOKEN.source, "g"))) {
+    const idx = m.index ?? 0;
+    splitHashtags(wire.slice(cursor, idx), shownBefore, parts);
+    const label = m[1] ?? "";
+    parts.push({ kind: "mention", text: label });
+    const shown = Array.from(label);
+    shownBefore = shown.length > 0 ? shown[shown.length - 1] : "@";
+    cursor = idx + m[0].length;
+  }
+  splitHashtags(wire.slice(cursor), shownBefore, parts);
+  return parts;
 }

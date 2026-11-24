@@ -19,6 +19,7 @@ import {
   activeMentions,
   buildCommentary,
   linkedInLength,
+  splitCommentary,
   toBold,
   toItalic,
   toLinkedInText,
@@ -123,7 +124,7 @@ describe("mentions", () => {
   });
 
   it("drops Private Use Area characters the employee typed", () => {
-    expect(buildCommentary("ab", [])).toBe("ab");
+    expect(buildCommentary("a\uE000b", [])).toBe("ab");
   });
 });
 
@@ -136,5 +137,41 @@ describe("linkedInLength", () => {
 
   it("counts a mention token as its label only", () => {
     expect(linkedInLength("Hi @[Jane Smith](amplify:person:jane@wso2.com)!")).toBe("Hi Jane Smith!".length);
+  });
+});
+
+describe("splitCommentary", () => {
+  const tags = (wire: string) => splitCommentary(wire).filter((p) => p.kind === "hashtag").map((p) => p.text);
+
+  // The same cases as the backend's little_text_test.bal, so preview and post agree.
+  it("marks a # at the start of a word followed by letters or digits", () => {
+    expect(tags("Go #Ballerina!")).toEqual(["#Ballerina"]);
+    expect(tags("#first and (#second)")).toEqual(["#first", "#second"]);
+    expect(tags("Unicode #café2026")).toEqual(["#café2026"]);
+  });
+
+  it("leaves a # inside a word, alone, or before an underscore as text", () => {
+    expect(tags("C# and # and #_x and a#b")).toEqual([]);
+    expect(tags("x_#tag and \\#tag and &#tag")).toEqual([]);
+  });
+
+  it("keeps only the letters and digits as the tag", () => {
+    expect(splitCommentary("#tag_rest")).toEqual([
+      { kind: "hashtag", text: "#tag" },
+      { kind: "text", text: "_rest" },
+    ]);
+  });
+
+  it("treats a # right after a mention as inside a word", () => {
+    expect(tags("@[Jane](amplify:person:e-1)#tag")).toEqual([]);
+    expect(tags("@[Jane](amplify:person:e-1) #tag")).toEqual(["#tag"]);
+  });
+
+  it("shows a mention as its label", () => {
+    expect(splitCommentary("Hi @[Jane Smith](amplify:person:e-1)!")).toEqual([
+      { kind: "text", text: "Hi " },
+      { kind: "mention", text: "Jane Smith" },
+      { kind: "text", text: "!" },
+    ]);
   });
 });

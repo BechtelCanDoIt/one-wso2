@@ -112,6 +112,12 @@ export default function CelebratePage() {
   // A queued share that the poll sees come back FAILED. Shares that were already FAILED when the page loaded
   // are old news: the post is simply back in the list.
   const seenShares = useRef<Share[] | undefined>(undefined);
+  // What the poll effect reads when the poll answers. Kept in a ref so the effect reruns only on new poll data:
+  // rerunning when these change would report the same failure twice.
+  const pollContext = useRef({ openCampaigns, askToRelink, showError });
+  useEffect(() => {
+    pollContext.current = { openCampaigns, askToRelink, showError };
+  });
   useEffect(() => {
     const items = shares.data?.items;
     if (!items) return;
@@ -120,22 +126,20 @@ export default function CelebratePage() {
     if (!before) return;
     const failed = sharesFailedSince(before, items);
     if (failed.length === 0) return;
-    const titleOf = (s: Share) => openCampaigns.find((c) => c.id === s.campaignId)?.title;
+    const latest = pollContext.current;
+    const titleOf = (s: Share) => latest.openCampaigns.find((c) => c.id === s.campaignId)?.title;
     const disconnected = failed.find((s) => s.failureReason === "NEEDS_RECONNECT");
     if (disconnected) {
-      askToRelink(openCampaigns.find((c) => c.id === disconnected.campaignId) ?? null);
+      latest.askToRelink(latest.openCampaigns.find((c) => c.id === disconnected.campaignId) ?? null);
       return;
     }
     const title = titleOf(failed[0]);
     const what = title ? `your repost of "${title}"` : "your repost";
-    showError(
+    latest.showError(
       failed[0].failureReason === "PROVIDER_REJECTED"
         ? `LinkedIn didn't accept ${what}. Try amplifying it again.`
         : `We couldn't post ${what} to LinkedIn. Try amplifying it again.`,
     );
-    // askToRelink and openCampaigns are read at the moment the poll answers; rerunning on their change would
-    // report the same failure twice.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shares.data]);
 
   // Back from LinkedIn consent: /amplify/celebrate?share=<id> opens that
