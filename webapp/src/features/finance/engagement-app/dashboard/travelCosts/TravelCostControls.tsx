@@ -14,6 +14,8 @@ import { describeFilter, FILTER_LABEL } from "./filterOptions";
 import { FILTER_KEYS, filterCount, type FilterKey } from "./costView";
 import { RANGE_PRESETS, rangeFor, rangeProblem, recentYears, type RangePreset } from "./dateRanges";
 
+// The app bar stays on top of the page; a card scrolled to the top must clear it.
+const APP_BAR_CLEARANCE = 80;
 const VISUALLY_HIDDEN = { position: "absolute", width: 1, height: 1, overflow: "hidden", clip: "rect(0 0 0 0)", whiteSpace: "nowrap" } as const;
 
 /** The view toggle's buttons: icons, each with its name as tooltip and label. */
@@ -59,7 +61,7 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
 
   const active = FILTER_KEYS.filter((k) => view.filters[k]?.length);
   // A click on a chart bar sets a filter somewhere else on the page: show where it went.
-  const chips = useRef<HTMLDivElement | null>(null);
+  const card = useRef<HTMLElement | null>(null);
   const [flash, setFlash] = useState<FilterKey>();
   const [said, setSaid] = useState("");
   const drill = cost.lastDrill;
@@ -68,12 +70,14 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
     const values = view.filters[drill.key];
     setSaid(`Filtered by ${FILTER_LABEL[drill.key]}: ${describeFilter(drill.key, values?.length ? values : [drill.value], data?.facets)}`);
     setFlash(drill.key);
-    const el = chips.current;
+    // The controls card is always on the page (the chip row may not be drawn yet on the first click), so bring it into view
+    // when its top is under the app bar or below the fold.
+    const el = card.current;
     if (el) {
       const r = el.getBoundingClientRect();
-      if (r.top < 0 || r.bottom > window.innerHeight) {
+      if (r.top < APP_BAR_CLEARANCE || r.top > window.innerHeight - 80) {
         const calm = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-        el.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+        el.scrollIntoView({ block: "start", behavior: calm ? "auto" : "smooth" });
       }
     }
     const t = setTimeout(() => setFlash(undefined), 1500);
@@ -83,7 +87,7 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
   }, [drill?.id]);
   const skipped = data ? notConvertedText(data.notConverted) : "";
   return (
-    <Card variant="outlined" component="section" aria-label="Travel Costs controls" sx={[{ p: 2, minWidth: 0 }, eaSurfaceSx]}>
+    <Card ref={card} variant="outlined" component="section" aria-label="Travel Costs controls" sx={[{ p: 2, minWidth: 0, scrollMarginTop: APP_BAR_CLEARANCE + 16 }, eaSurfaceSx]}>
       <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1.5 }}>
         <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, mr: 0.5 }}>
           Travel Costs
@@ -150,7 +154,7 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
         {said}
       </Box>
       {active.length ? (
-        <Stack ref={chips} direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: "wrap", rowGap: 0.75 }}>
+        <Stack direction="row" spacing={0.75} sx={{ mt: 1.5, flexWrap: "wrap", rowGap: 0.75 }}>
           {active.map((k: FilterKey) => (
             <Chip
               key={k}

@@ -78,22 +78,28 @@ describe("TravelCostControls drill feedback", () => {
     return { r, again: (d: { id: number; key: FilterKey; value: string }) => r.rerender(ui({ ...cost, lastDrill: d })) };
   }
 
-  it("says what a click filtered by, highlights that chip for a moment and scrolls to it when it is off-screen", () => {
+  it("says what a click filtered by, highlights that chip for a moment and scrolls the controls into view when they are off-screen", () => {
     const { again } = shown(rect(-300, -270));
     expect(screen.getByRole("status").textContent).toBe("");
     again({ id: 1, key: "tcSource", value: "invoice" });
     expect(screen.getByRole("status").textContent).toMatch(/^Filtered by Source: /);
-    expect(scroll).toHaveBeenCalledWith({ block: "center", behavior: "smooth" });
+    expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
     const chip = screen.getByText(/^Source:/).closest(".MuiChip-root") as HTMLElement;
     expect(chip.getAttribute("data-highlighted")).toBe("true");
     act(() => void vi.advanceTimersByTime(1600));
     expect(chip.getAttribute("data-highlighted")).toBeNull();
   });
 
-  it("does not scroll when the chips are already in view", () => {
-    const { again } = shown(rect(100, 130));
+  it("does not scroll when the controls are already in view", () => {
+    const { again } = shown(rect(120, 260));
     again({ id: 1, key: "tcSource", value: "invoice" });
     expect(scroll).not.toHaveBeenCalled();
     expect(screen.getByRole("status").textContent).toMatch(/Filtered by Source/);
+  });
+
+  it("scrolls when the controls sit under the app bar", () => {
+    const { again } = shown(rect(20, 160));
+    again({ id: 1, key: "tcSource", value: "invoice" });
+    expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
   });
 });
