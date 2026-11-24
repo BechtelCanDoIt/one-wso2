@@ -109,7 +109,7 @@ export default function UpcomingCard(): JSX.Element | null {
       ) : null}
       <Box sx={{ mt: 1.5 }}>
         <Button variant="outlined" size="small" component={RouterLink} to={trips.length ? myEngagementPaths.travelRequests : myEngagementPaths.allocations}>
-          {trips.length ? "View My Travels" : "View My Allocations"}
+          {trips.length ? "View Travels" : "View Allocations"}
         </Button>
       </Box>
     </Card>

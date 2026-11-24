@@ -24,7 +24,7 @@ UI never merges them (`model/engagementAccess.ts`).
 
 | Persona (Asgardeo group) | Gets |
 |---|---|
-| Every employee (`wso2-employees`) | Dashboard (Allocations 1); Me: My Travels (Travel 49/36), Passport & Visas (Travel 20/23), My Allocations |
+| Every employee (`wso2-employees`) | Dashboard (Allocations 1); Me: Allocations, Travels (Travel 49/36), Passport & Visas (Travel 20/23) |
 | Account Manager, Customer / Internal / Marketing Event Managers | Engagements (create, edit, status), Allocations, Allocate per type |
 | Pre-Sale / Post-Sale Engagement Managers | Allocate on their types (33 / 32), with the Allocate page's reads (6, 16 or 21), as in production |
 | Internal Engagement / Marketing Event Approvers | Approvals (26 / 29; approve needs 28 and a PATCH privilege, as the legacy page checks) |
@@ -55,9 +55,9 @@ Paths are built in `features/finance/engagement-app/engagementPaths.ts`; no comp
 | Visas & Documents | `finance-ea-visas` | `/visas-documents` | Travel 8 / 11 |
 | Settings | `finance-ea-settings` | `/settings` | Allocations 23, 24, 25, Travel 29 |
 | Engagement App (Me group) | `sec-app-my-engagement-app` | — | any Me row |
-| My Travels | `me-ea-travel-requests` | `/me/travel-requests` | Travel 49 / 36 |
+| Travels (Me) | `me-ea-travel-requests` | `/me/travel-requests` | Travel 49 / 36 |
 | Passport & Visas | `me-ea-passport-visas` | `/me/passport-visas` | Travel 20 / 23 |
-| My Allocations | `me-ea-allocations` | `/me/allocations` | Allocations 1 or Travel 49 |
+| Allocations (Me) | `me-ea-allocations` | `/me/allocations` | Allocations 1 or Travel 49 |
 
 The rows come from `constants/engagementApps.ts`, spread into the Finance and Me sections only while the
 flag is on. Both groups use `alwaysGroup: true`.
@@ -86,10 +86,10 @@ flag is on. Both groups use `alwaysGroup: true`.
 
 | Target | Screen |
 |---|---|
-| `/me/travel-requests` | My Travels |
+| `/me/travel-requests` | Travels (Me) |
 | `/me/travel-requests/:job/:tab` | the person's own travel request (same page, Me rail, read-only actions) |
 | `/me/passport-visas/documents`, `/visas` | Passport & Visas |
-| `/me/allocations` | My Allocations (read-only, new in-app view) |
+| `/me/allocations` | Allocations (Me; read-only, new in-app view) |
 
 ### 2.4 Routing rules
 

@@ -56,7 +56,7 @@ export default function MyAllocationsPage(): JSX.Element {
     { key: "status", label: "Allocation Status", render: (a) => <AllocationStatusChip status={a.status} /> },
   ];
   return (
-    <EaPage title="My Allocations" subtitle="Where you are allocated, and when. Allocation managers set these; the status follows the clearance process.">
+    <EaPage title="Allocations" subtitle="Where you are allocated, and when. Allocation managers set these; the status follows the clearance process.">
       <ListCard>
         <ListToolbar
           search={list.search}

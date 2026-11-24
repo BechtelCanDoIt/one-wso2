@@ -41,7 +41,7 @@ export default function MyTravelRequestsPage(): JSX.Element {
     .sort((a, b) => (a.start < b.start ? 1 : -1));
   const pair = (v: string): readonly [string, string] => [v, v];
   return (
-    <EaPage title="My Travels" subtitle="Your travels, with the per diems, invoices and payments booked against them.">
+    <EaPage title="Travels" subtitle="Your travels, with the per diems, invoices and payments booked against them.">
       <ListCard>
         <ListToolbar
             search={list.search}

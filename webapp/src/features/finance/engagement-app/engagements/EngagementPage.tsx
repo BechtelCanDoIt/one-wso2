@@ -53,7 +53,7 @@ export default function EngagementPage({ area = "finance" }: { area?: "finance" 
   const pathOf = area === "me" ? myEngagementPaths.allocation : engagementPaths.engagement;
   if (!TABS.includes(tab as EngagementTab)) return <Navigate to={pathOf(id)} replace />;
   const back = area === "me"
-    ? { to: myEngagementPaths.allocations, label: "My Allocations" }
+    ? { to: myEngagementPaths.allocations, label: "Allocations" }
     : engagementSegments(access).length
     ? { to: engagementPaths.engagements(), label: "Engagements" }
     : access.approvals
