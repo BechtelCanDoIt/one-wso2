@@ -260,7 +260,8 @@ export const upcomingAllocation = (a: W.WAllocationSummary): V.UpcomingAllocatio
   end: a.endDate,
   status: a.clearanceStatus ? canon(a.clearanceStatus, ALLOCATION_STATUSES) : undefined,
   current: a.current,
-  canOpen: a.canOpen === true,
+  // Left undefined when the backend sends none, so the list's own answer can stand in for it.
+  canOpen: a.canOpen,
 });
 
 export const timelineItem = (t: W.WTimelineItem): V.TimelineItem => ({

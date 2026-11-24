@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { dashboard, notConverted, tripExpenses } from "./engagementMappers";
+import { dashboard, notConverted, tripExpenses, upcomingAllocation } from "./engagementMappers";
 
 describe("tripExpenses", () => {
   it("names the expense_app statuses and keeps missing values empty", () => {
@@ -54,5 +54,14 @@ describe("travel cost notConverted", () => {
 
   it("falls back to invoice for a source it does not know", () => {
     expect(notConverted({ source: "other", amount: 1 }).source).toBe("invoice");
+  });
+});
+
+describe("upcomingAllocation", () => {
+  const w = { id: "A1", engagementId: "E1", engagementTitle: "T", startDate: "2026-12-01", endDate: "2026-12-31", current: false };
+  it("keeps canOpen undefined when the backend sends none, so the list can answer, and keeps an explicit false", () => {
+    expect(upcomingAllocation(w as never).canOpen).toBeUndefined();
+    expect(upcomingAllocation({ ...w, canOpen: false } as never).canOpen).toBe(false);
+    expect(upcomingAllocation({ ...w, canOpen: true } as never).canOpen).toBe(true);
   });
 });
