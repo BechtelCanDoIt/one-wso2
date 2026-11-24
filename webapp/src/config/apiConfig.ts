@@ -2168,6 +2168,10 @@ export const cado2ServiceUrls = {
   // the quote's price book and currency, checked for loading (D150).
   opportunityLines: (opportunityId: string): string =>
     `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/products`,
+  // A renewal opportunity's own product lines, each sorted for import into
+  // the quote with its price book and currency (D178).
+  opportunityImport: (opportunityId: string, currency: string, pricebookId: string): string =>
+    `${cado2BackendUrl}/opportunities/${encodeSegment(opportunityId)}/import?${new URLSearchParams({ currency, pricebookId }).toString()}`,
   // One page of a price book's products in a currency. Paged server-side by
   // limit/offset (Salesforce stops at offset 2000).
   products: (

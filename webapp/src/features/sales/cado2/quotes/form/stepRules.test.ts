@@ -94,6 +94,18 @@ describe("stepChecks", () => {
     expect(legal({ termsOnPremNonStandard: true })).toEqual([]);
   });
 
+  // D179: a year left empty, e.g. cleared, is filled or deleted before going on.
+  it("asks for a product in every year", () => {
+    const products = (v: Partial<DraftFormValues>) => stepChecks({ ...complete(), ...v })[1];
+    const year2 = { ...complete().lines[0], yearNumber: 2 };
+    expect(products({ yearCount: 2, lines: [year2] })).toEqual([
+      expect.objectContaining({ field: "years", message: "Year 1 has no products. Add one, or delete the year" }),
+    ]);
+    expect(products({ yearCount: 3, lines: [complete().lines[0]] })[0].message).toBe("Year 2 has no products. Add one, or delete the year");
+    // No products at all is asked for once, as before.
+    expect(products({ yearCount: 2, lines: [] }).map((c) => c.message)).toEqual(["Add at least one product"]);
+  });
+
   // Year 1 at least, the last year within 12 months,
   // and each product's dates within its own year (from 1 Oct 2026).
   it("checks the contract years on Products & Pricing", () => {
@@ -101,9 +113,11 @@ describe("stepChecks", () => {
     expect(products({ yearCount: 0 }).map((c) => c.field)).toContain("years");
     // Billing is chosen on Commercials (D86).
     expect(products({ yearCount: 1, billingFrequency: "" })).toEqual([]);
-    expect(products({ yearCount: 3 })).toEqual([]);
-    expect(products({ yearCount: 2, lastYearEndDate: "2028-03-31" })).toEqual([]);
-    expect(products({ yearCount: 2, lastYearEndDate: "2028-10-01" })[0].message).toMatch(/at most 12 months/);
+    // A product in each year (D179).
+    const inYears = (n: number) => Array.from({ length: n }, (_, i) => ({ ...complete().lines[0], yearNumber: i + 1 }));
+    expect(products({ yearCount: 3, lines: inYears(3) })).toEqual([]);
+    expect(products({ yearCount: 2, lastYearEndDate: "2028-03-31", lines: inYears(2) })).toEqual([]);
+    expect(products({ yearCount: 2, lastYearEndDate: "2028-10-01", lines: inYears(2) })[0].message).toMatch(/at most 12 months/);
     // A one-off line after Year 1 ends (D146).
     const late = { ...complete().lines[0], recurring: false, startDate: "2027-10-01" };
     expect(products({ lines: [late] }).map((c) => c.field)).toEqual(["lines[0].startDate"]);

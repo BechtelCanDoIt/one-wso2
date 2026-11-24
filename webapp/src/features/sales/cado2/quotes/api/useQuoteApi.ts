@@ -42,6 +42,7 @@ import type {
   DraftResponse,
   Issue,
   Opportunity,
+  OpportunityImport,
   OpportunityLines,
   OpportunityState,
   OpportunityQuote,
@@ -142,6 +143,19 @@ export function usePreviousOpportunityLines(opportunityIds: readonly string[], e
       retry: httpRetry,
     })),
   });
+}
+
+/**
+ * A renewal opportunity's own product lines, sorted for import into the
+ * quote (D178): read fresh from Salesforce on every mount. Off without an
+ * opportunity, currency or price book.
+ */
+export function useOpportunityImport(opportunityId: string | null, currency: string, pricebookId: string, enabled: boolean) {
+  return useAuthedQuery<OpportunityImport>(
+    ["opportunity-import", opportunityId, currency, pricebookId],
+    enabled && opportunityId && currency && pricebookId ? cado2ServiceUrls.opportunityImport(opportunityId, currency, pricebookId) : null,
+    "live",
+  );
 }
 
 /** How many products one page of the Add-line list loads. */

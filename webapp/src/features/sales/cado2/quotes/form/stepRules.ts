@@ -85,6 +85,10 @@ export function stepChecks(
   // The contract years: at least Year 1, the last
   // year's end within it, and every product's dates within its own year.
   need(products, v.yearCount > 0, "years", "Add Year 1");
+  // Every year has a product (D179): one left empty, e.g. cleared, is filled
+  // or deleted before going on. The first such year is named.
+  const emptyYear = Array.from({ length: v.yearCount }, (_, i) => i + 1).find((y) => !v.lines.some((l) => l.yearNumber === y));
+  need(products, v.lines.length === 0 || emptyYear === undefined, "years", `Year ${emptyYear} has no products. Add one, or delete the year`);
   const lastProblem = lastYearEndProblem(v.startDate, v.yearCount, v.lastYearEndDate);
   need(products, !lastProblem, "lastYearEndDate", lastProblem);
   const years = formYears(v);

@@ -35,6 +35,25 @@ const previousLines = {
   lines: [{ id: "00kA", productName: "API Manager", productCode: "P-APIM", quantity: "4", salesPrice: "9000", discount: "25", totalPrice: "27000.00",
     commissionPercent: null, serviceStartDate: "2026-01-01", serviceEndDate: "2026-12-31" }],
 };
+// D178: the renewal opportunity's own lines, sorted for import.
+const importProduct = (id: string, name: string, recurring: boolean, category: "SUBSCRIPTION" | "PROFESSIONAL_SERVICE") => ({
+  id, name, productCode: `C-${id}`, description: null, family: null, unitOfMeasure: "Per core", classification: "PS",
+  category, recurring, classificationProblem: null,
+  pricebookEntries: [{ id: `01u${id}`, unitPrice: "18000", currencyIsoCode: "USD", isActive: true, pricebook: { id: "01sUSD", name: "USD Price Book" } }],
+});
+const importLine = (id: string, name: string, quantity: string, status: "READY" | "CHANGE" | "CANNOT", reason: string | null, product: unknown) => ({
+  id, productName: name, productCode: null, quantity, salesPrice: "18630", discount: "15", totalPrice: "63342.00", commissionPercent: null,
+  serviceStartDate: "2027-01-01", serviceEndDate: "2027-12-31", status, reason, product,
+});
+const importData: { value: unknown } = { value: undefined };
+const fullImport = {
+  opportunityName: "Acme - Renewal 2027", currency: "USD",
+  lines: [
+    importLine("00kR", "WSO2 Micro Integrator", "4", "READY", null, importProduct("01tMI", "WSO2 Micro Integrator", true, "SUBSCRIPTION")),
+    importLine("00kC", "WSO2 Developer Portal", "2.5", "CHANGE", "Quantity 2.5", importProduct("01tDP", "WSO2 Developer Portal", true, "SUBSCRIPTION")),
+    importLine("00kX", "Old Gateway", "1", "CANNOT", "Not in price book", null),
+  ],
+};
 // D155: Admin → Support Plans, and those products in the quote's book.
 const supportProduct = (id: string, name: string, code: string) => ({
   id, name, productCode: code, description: null, family: null, unitOfMeasure: null, classification: "ES",
@@ -66,6 +85,7 @@ const empty = {
 vi.mock("@features/sales/cado2/quotes/api/useQuoteApi", () => ({
   useAccountOpportunities: () => empty,
   usePreviousOpportunityLines: (ids: readonly string[]) => ids.map(() => ({ ...empty, data: previousLines })),
+  useOpportunityImport: () => ({ ...empty, data: importData.value }),
   usePricingFormulas: () => empty,
   useQuoteSettings: () =>
     quoteSettings.error
@@ -233,6 +253,80 @@ describe("ProductsStep (Products & Pricing)", () => {
     await user.click(dialog.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("WSO2 Gateway")).toBeInTheDocument(); // the quote's own lines untouched
+  });
+
+  // D178: a renewal opportunity's own products, imported into Year 1.
+  it("imports the renewal opportunity's products: ready ones as they are, others after a change", async () => {
+    const user = userEvent.setup();
+    const renewal = { opportunityId: "006A", opportunityName: "Acme renewal", dealKind: "RENEWAL" as const };
+    importData.value = fullImport;
+    const first = render(<Harness values={{ opportunityId: "006A", opportunityName: "Acme renewal" }} />);
+    expect(screen.queryByRole("button", { name: "Import from opportunity" })).toBeNull(); // a first sale
+    first.unmount();
+
+    // Nothing on the opportunity: disabled, saying why.
+    importData.value = { ...fullImport, lines: [] };
+    const none = render(<Harness values={renewal} />);
+    expect(screen.getByRole("button", { name: "Import from opportunity" })).toBeDisabled();
+    await user.hover(screen.getByRole("button", { name: "Import from opportunity" }).parentElement!);
+    expect(await screen.findByRole("tooltip")).toHaveTextContent("This opportunity has no products in Salesforce.");
+    none.unmount();
+
+    importData.value = fullImport;
+    render(<Harness values={renewal} />);
+    await user.click(screen.getByRole("button", { name: "Import from opportunity" }));
+    let dialog = within(screen.getByRole("dialog", { name: /Import from opportunity/ }));
+    expect(dialog.getByText("Change before adding")).toBeInTheDocument();
+    expect(dialog.getByText("Can't be added")).toBeInTheDocument();
+    expect(dialog.getByText("Not in price book")).toBeInTheDocument();
+    expect(dialog.getByRole("checkbox", { name: "Add WSO2 Micro Integrator" })).toBeChecked();
+    await user.click(dialog.getByRole("button", { name: "Add 1 product" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByText("WSO2 Micro Integrator")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quantities").textContent).toMatch(/=4\b/);
+
+    // Now on the quote: it can't be imported again (2026-11-24).
+    await user.click(screen.getByRole("button", { name: "Import from opportunity" }));
+    dialog = within(screen.getByRole("dialog", { name: /Import from opportunity/ }));
+    expect(dialog.getByText("Already on this quote")).toBeInTheDocument();
+    expect(dialog.queryByRole("checkbox", { name: "Add WSO2 Micro Integrator" })).toBeNull();
+    expect(dialog.getByRole("button", { name: "Add products" })).toBeDisabled();
+
+    // A line to change opens Add product filled in, its problem shown at once.
+    await user.click(dialog.getByRole("button", { name: "Change and add" }));
+    const add = within(screen.getByRole("dialog", { name: /Add Product/ }));
+    expect(add.getByText("From the opportunity in Salesforce.")).toBeInTheDocument();
+    expect(add.getByRole("textbox", { name: "Quantity" })).toHaveValue("2.5");
+    expect(add.getByText("Use a whole number of at least 1")).toBeInTheDocument();
+    await user.clear(add.getByRole("textbox", { name: "Quantity" }));
+    await user.type(add.getByRole("textbox", { name: "Quantity" }), "3");
+    await user.click(add.getByRole("button", { name: "Add product" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: /Add Product/ })).toBeNull());
+    expect(dialog.getByText("Added")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quantities").textContent).toMatch(/=3\b/);
+  });
+
+  // 2026-11-24: a year's products cleared in one go, after asking; the year stays.
+  it("clears a year's products after asking, keeping the year", async () => {
+    const user = userEvent.setup();
+    render(<Harness values={{ yearCount: 2, lines: [line("WSO2 Gateway", "SUBSCRIPTION"), { ...line("WSO2 Identity Server", "SUBSCRIPTION"), yearNumber: 2 }] }} />);
+
+    // Any year, Year 1 too while Year 2 has products: the step then asks
+    // for a product in it, or for it to be deleted (D179).
+    await user.click(screen.getByRole("button", { name: "Clear Year 1's products" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Clear Year 1?" }));
+    expect(dialog.getByText("This removes Year 1's 1 product. The year itself stays.")).toBeInTheDocument();
+    await user.click(dialog.getByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.getByText("WSO2 Gateway")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Clear Year 1's products" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Clear Year 1?" })).getByRole("button", { name: "Clear products" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(screen.queryByText("WSO2 Gateway")).toBeNull();
+    expect(screen.getByText("WSO2 Identity Server")).toBeInTheDocument(); // Year 2 untouched
+    expect(screen.queryByRole("button", { name: "Clear Year 1's products" })).toBeNull(); // nothing left to clear
+    expect(screen.getByRole("button", { name: "Delete Year 2" })).toBeInTheDocument(); // both years stay
   });
 
   // D151: a rate per year, from the Partner Commission card.
