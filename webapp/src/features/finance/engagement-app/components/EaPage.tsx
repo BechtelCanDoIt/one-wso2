@@ -14,11 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { JSX, ReactNode } from "react";
-import { Link as RouterLink } from "react-router";
+import { useEffect, type JSX, type ReactNode } from "react";
+import { Link as RouterLink, useLocation } from "react-router";
 import { Box, Link, Stack, Typography } from "@wso2/oxygen-ui";
 import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
+import { backTarget, rememberVisit } from "../model/backTarget";
 
 /** The frame every Engagement App screen draws: the title with its status chips, one or two plain sentences under it, and the screen's actions on the right of the title block (FinanceShell's look, with the Claims page's actions placement). */
 export default function EaPage({
@@ -40,12 +41,14 @@ export default function EaPage({
   readonly children: ReactNode;
 }): JSX.Element {
   useDocumentTitle(documentTitle ?? (typeof title === "string" ? title : undefined));
+  const { pathname, search } = useLocation();
+  useEffect(() => rememberVisit(pathname + search), [pathname, search]);
   return (
     <Box sx={{ minWidth: 0 }}>
       {back ? (
         <Link
           component={RouterLink}
-          to={back.to}
+          to={backTarget(back.to, pathname)}
           variant="body2"
           underline="none"
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mb: 1, fontWeight: 600 }}
