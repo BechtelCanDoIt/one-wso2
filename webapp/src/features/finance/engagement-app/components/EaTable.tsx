@@ -58,9 +58,7 @@ export interface RowSelection<T> {
 
 
 const BARE_SX = {
-  "& th:first-of-type, & td:first-of-type": { pl: 0 },
   "& th, & tbody tr td:first-of-type": { whiteSpace: "nowrap" },
-  "& th:last-of-type, & td:last-of-type": { pr: 0 },
   "& .MuiTableCell-alignRight": { whiteSpace: "nowrap" },
 } as const;
 
@@ -93,7 +91,7 @@ export default function EaTable<T>({
   readonly loading?: boolean;
   readonly pagination?: { page: number; pageSize: number; total: number; onPage: (page: number) => void };
   readonly ariaLabel: string;
-  /** Inside a card (a dashboard widget): no box of its own, edges lined up with the card's title, figures kept on one line. */
+  /** Inside a card (a dashboard widget): no box of its own, labels and figures kept on one line. */
   readonly bare?: boolean;
 }): JSX.Element {
   const hasActions = Boolean(primaryAction || menu);
