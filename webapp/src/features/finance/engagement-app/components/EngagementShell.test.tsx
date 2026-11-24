@@ -113,10 +113,11 @@ describe("the Engagement App access ladder", () => {
     expect(screen.getByText("ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL")).toBeInTheDocument();
   });
 
-  it("holds the page, and redirects nothing, while access is being checked", () => {
+  it("holds the page, and redirects nothing, while access is being checked, saying so only if it takes a moment", async () => {
     state.info = { ...state.info, data: undefined, isPending: true };
     open("/finance/engagement-app/settings/allocation-types");
-    expect(screen.getByText("Checking your Engagement App access…")).toBeInTheDocument();
+    expect(screen.queryByText("Checking your Engagement App access…")).toBeNull();
+    expect(await screen.findByText("Checking your Engagement App access…")).toBeInTheDocument();
     expect(where()).toBe("/finance/engagement-app/settings/allocation-types");
   });
 

@@ -1,9 +1,11 @@
 
 import type { JSX } from "react";
-import { Box, Skeleton, Stack, ToggleButton, ToggleButtonGroup } from "@wso2/oxygen-ui";
+import { Box, Stack, ToggleButton, ToggleButtonGroup } from "@wso2/oxygen-ui";
 import { useReferenceData } from "../../../api/useEngagementApi";
 import { FilterDate, FilterSelect } from "../../../components/FilterFields";
+import { DelayedSkeleton } from "../../../components/EaSkeletons";
 import { Failed } from "../../../components/ListCard";
+import { Bars, Tiles } from "../WidgetSkeletons";
 import { addDays, n0 } from "../../../model/format";
 import { Calm, HBars, Kpi, KpiRow } from "../../dashboardParts";
 import { Block } from "../parts";
@@ -42,7 +44,16 @@ export default function AllocationsTodayWidget({ ctx }: { ctx: WidgetCtx }): JSX
       </Stack>
       {query.isError ? <Failed what="the allocations on this date" error={query.error} onRetry={() => void query.refetch()} retrying={query.isFetching} /> : null}
       {!a ? (
-        query.isError ? null : <Skeleton variant="rounded" height={200} aria-busy="true" />
+        query.isError ? null : (
+          <DelayedSkeleton minHeight={260}>
+            <Tiles count={4} />
+            <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "repeat(3, minmax(0, 1fr))" }, gap: 3, mt: 2.5 }}>
+              <Bars rows={4} />
+              <Bars rows={4} />
+              <Bars rows={4} />
+            </Box>
+          </DelayedSkeleton>
+        )
       ) : (
         <Box sx={{ opacity: query.isPlaceholderData ? 0.55 : 1, transition: "opacity 120ms" }} aria-busy={query.isPlaceholderData || undefined}>
           <KpiRow>

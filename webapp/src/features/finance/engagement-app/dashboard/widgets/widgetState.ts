@@ -19,19 +19,41 @@ export function widgetState(def: WidgetDef, ctx: WidgetCtx): WidgetState {
   return def.isEmpty?.(ctx) ? { kind: "empty" } : { kind: "ready" };
 }
 
-/** The sections a visible widget needs that the default call does not return: those behind no default-on widget. */
-export function extraSections(
+/** Sections that the backend builds from one entity call: asked for in one request, so none of that work is done twice. */
+const SHARED_CALL: readonly (readonly DashboardSectionKey[])[] = [["engagements", "availableConsultants", "allocationsOverTime"]];
+
+/** One request of `GET /dashboard?sections=`: the sections it asks for, and whether any widget on screen reads them. */
+export interface SectionGroup {
+  readonly sections: readonly DashboardSectionKey[];
+  readonly needed: boolean;
+}
+
+/**
+ * The requests that fill the widgets: one per group of sections. A group asks for every section the caller may see in it (so hiding or
+ * showing one widget does not change the request or refetch its neighbours) and is only `needed` while a visible widget reads one of them.
+ * The backend still returns a section only for a widget the caller may see.
+ */
+export function sectionGroups(
   allowed: readonly WidgetRef[],
   visible: readonly string[],
   sectionOf: (id: string) => DashboardSectionKey | undefined,
-): DashboardSectionKey[] {
-  const covered = new Set(allowed.filter((w) => w.defaultOn).map((w) => sectionOf(w.id)));
-  const extra: DashboardSectionKey[] = [];
-  for (const id of visible) {
-    const s = sectionOf(id);
-    if (s && !covered.has(s) && !extra.includes(s)) extra.push(s);
+): SectionGroup[] {
+  const offered: DashboardSectionKey[] = [];
+  for (const w of allowed) {
+    const s = sectionOf(w.id);
+    if (s && !offered.includes(s)) offered.push(s);
   }
-  return extra;
+  const used = new Set(visible.map(sectionOf));
+  const groups: SectionGroup[] = [];
+  const placed = new Set<DashboardSectionKey>();
+  for (const s of offered) {
+    if (placed.has(s)) continue;
+    const together = SHARED_CALL.find((g) => g.includes(s));
+    const sections = together ? together.filter((k) => offered.includes(k)) : [s];
+    sections.forEach((k) => placed.add(k));
+    groups.push({ sections, needed: sections.some((k) => used.has(k)) });
+  }
+  return groups;
 }
 
 /** The default sections with those a person turned on added. A section the extra call did not return keeps the default's, and failures are united. */

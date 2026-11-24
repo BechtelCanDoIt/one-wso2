@@ -1,35 +1,14 @@
 
 import { useId, type JSX } from "react";
-import { Box, Card, Skeleton, Typography } from "@wso2/oxygen-ui";
+import { Box, Card, Typography } from "@wso2/oxygen-ui";
 import { DownloadIcon, EyeOffIcon, PinIcon, PinOffIcon } from "@wso2/oxygen-ui-icons-react";
 import type { RowAction } from "../../components/EaTable";
 import { RowMenu } from "../../components/RowActions";
 import { Failed } from "../../components/ListCard";
-import { Calm, KpiRow } from "../dashboardParts";
+import { Calm } from "../dashboardParts";
 import type { WidgetCtx, WidgetDef } from "./types";
+import WidgetSkeleton from "./WidgetSkeletons";
 import { widgetState } from "./widgetState";
-
-/** Widgets that are a row of figures: their skeleton is a row of tiles. */
-const TILE_WIDGETS = new Set(["tc-kpis", "tt-glance", "waiting-on-you"]);
-
-function WidgetSkeleton({ id }: { id: string }): JSX.Element {
-  if (TILE_WIDGETS.has(id)) {
-    return (
-      <Box aria-busy="true" aria-label="Loading">
-        <KpiRow>
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} variant="rounded" height={64} />
-          ))}
-        </KpiRow>
-      </Box>
-    );
-  }
-  return (
-    <Box aria-busy="true" aria-label="Loading">
-      <Skeleton variant="rounded" height={170} />
-    </Box>
-  );
-}
 
 /** A widget: a card with its title, note and menu, and below them its skeleton, its failure with Retry, its empty text, or its body. */
 export default function WidgetFrame({
@@ -54,6 +33,7 @@ export default function WidgetFrame({
   const state = widgetState(def, ctx);
   const heading = def.heading?.(ctx) ?? def.title;
   const note = typeof def.note === "function" ? def.note(ctx) : def.note;
+  // A refetch (a new period or filter) keeps the previous figures on screen, dimmed, instead of going back to a skeleton. Allocations Today dims itself.
   const dim = def.source === "cost" && ctx.cost.query.isPlaceholderData;
   const items: RowAction[] = [
     { label: pinned ? "Unpin" : "Pin to Top", icon: pinned ? <PinOffIcon size={15} /> : <PinIcon size={15} />, onClick: onPin },

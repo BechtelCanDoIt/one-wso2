@@ -18,7 +18,7 @@ import { describe, expect, it } from "vitest";
 import type { Dashboard } from "../../api/engagementTypes";
 import { sectionOfWidget, widgetById } from "./registry";
 import type { DashboardSectionKey, SectionState, WidgetCtx } from "./types";
-import { extraSections, mergeDashboards, widgetState } from "./widgetState";
+import { mergeDashboards, sectionGroups, widgetState } from "./widgetState";
 
 const costQuery = (q: Partial<{ isPending: boolean; isError: boolean; error: Error; data: unknown }>) => ({ isPending: false, isError: false, ...q }) as never;
 
@@ -87,26 +87,50 @@ describe("widgetState for a widget that runs its own queries", () => {
   });
 });
 
-describe("extraSections", () => {
+describe("sectionGroups", () => {
   const allowed = [
     { id: "waiting-on-you", defaultOn: true },
     { id: "tt-glance", defaultOn: true },
-    { id: "tt-frequent", defaultOn: false },
+    { id: "tt-frequent", defaultOn: true },
     { id: "ev-by-month", defaultOn: false },
+    { id: "engagements", defaultOn: true },
+    { id: "available-consultants", defaultOn: false },
+    { id: "allocations-over-time", defaultOn: false },
     { id: "tc-lines", defaultOn: false },
   ];
+  const groups = (visible: string[], a = allowed) => sectionGroups(a, visible, sectionOfWidget).map((g) => [g.sections.join("+"), g.needed]);
 
-  it("asks only for sections no default-on widget already brings", () => {
-    expect(extraSections(allowed, ["waiting-on-you", "tt-frequent", "ev-by-month", "tc-lines"], sectionOfWidget)).toEqual(["marketingEvents"]);
+  it("is one request per section, and one for the sections that share an entity call", () => {
+    expect(groups([])).toEqual([
+      ["waitingOnYou", false],
+      ["travelTeam", false],
+      ["marketingEvents", false],
+      ["engagements+availableConsultants+allocationsOverTime", false],
+    ]);
   });
 
-  it("asks for nothing when nothing extra is on", () => {
-    expect(extraSections(allowed, ["waiting-on-you"], sectionOfWidget)).toEqual([]);
+  it("asks for a section only while a visible widget reads it", () => {
+    expect(groups(["waiting-on-you", "ev-by-month", "tc-lines"])).toEqual([
+      ["waitingOnYou", true],
+      ["travelTeam", false],
+      ["marketingEvents", true],
+      ["engagements+availableConsultants+allocationsOverTime", false],
+    ]);
   });
 
-  it("asks once for a section behind several widgets", () => {
-    const a = [{ id: "ev-by-month", defaultOn: false }, { id: "ev-by-region", defaultOn: false }];
-    expect(extraSections(a, ["ev-by-month", "ev-by-region"], sectionOfWidget)).toEqual(["marketingEvents"]);
+  it("asks once for a section behind several widgets, and keeps the request the same when one of them is hidden", () => {
+    const a = [{ id: "tt-glance", defaultOn: true }, { id: "tt-frequent", defaultOn: true }];
+    expect(groups(["tt-glance", "tt-frequent"], a)).toEqual([["travelTeam", true]]);
+    expect(groups(["tt-glance"], a)).toEqual([["travelTeam", true]]);
+  });
+
+  it("is one call for the shared sections even when only one of their widgets is on", () => {
+    expect(groups(["allocations-over-time"])[3]).toEqual(["engagements+availableConsultants+allocationsOverTime", true]);
+  });
+
+  it("asks only for sections the caller may see", () => {
+    const a = [{ id: "available-consultants", defaultOn: true }, { id: "tc-lines", defaultOn: false }];
+    expect(groups(["available-consultants"], a)).toEqual([["availableConsultants", true]]);
   });
 });
 

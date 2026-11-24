@@ -7,7 +7,7 @@ import EaTable, { type Column } from "../../../components/EaTable";
 import { FilterSelect } from "../../../components/FilterFields";
 import { Empty, Failed } from "../../../components/ListCard";
 import { Status, Two, Mono } from "../../../components/StatusChips";
-import { TableSkeleton } from "../../../components/EaSkeletons";
+import { DelayedSkeleton, TableSkeleton } from "../../../components/EaSkeletons";
 import { fmtDate, n0, n2 } from "../../../model/format";
 import type { WidgetCtx } from "../../widgets/types";
 import { COST_SOURCE_LABEL } from "../../travelCostText";
@@ -55,7 +55,8 @@ const LINE_COLUMNS: readonly Column<CostLine>[] = [
 /** Transactions: every cost line behind the figures, with Group By and a row's detail. */
 export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Element {
   const { view, set } = ctx.cost;
-  const q = useTravelCostTransactions(transactionParams(view));
+  // Not asked before the business date is known: the period would otherwise start from the browser's date and then move.
+  const q = useTravelCostTransactions(transactionParams(view), ctx.cost.ready);
   const [open, setOpen] = useState<CostLine | undefined>();
   const compared = Boolean(ctx.cost.query.data?.compare);
   const d = q.data;
@@ -110,7 +111,9 @@ export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Eleme
       {q.isError ? (
         <Failed what="the transactions" error={q.error} onRetry={() => void q.refetch()} retrying={q.isFetching} />
       ) : q.isPending ? (
-        <TableSkeleton columns={6} rows={6} />
+        <DelayedSkeleton minHeight={260}>
+          <TableSkeleton columns={6} rows={6} />
+        </DelayedSkeleton>
       ) : d?.kind === "groups" ? (
         <EaTable
           ariaLabel="Transactions by group"

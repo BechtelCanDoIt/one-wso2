@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { JSX } from "react";
+import { useEffect, useState, type JSX, type ReactNode } from "react";
 import { Box, Card, Skeleton } from "@wso2/oxygen-ui";
 import EaTable from "./EaTable";
 import { ListCard } from "./ListCard";
@@ -61,5 +61,32 @@ export function DetailSkeleton({ facts = 8, tabs = 2, columns = 4 }: { readonly 
         <TableSkeleton columns={columns} />
       </ListCard>
     </>
+  );
+}
+
+/** How long a response may take before a skeleton is worth showing: a quicker one would only blink. */
+const SKELETON_DELAY_MS = 150;
+
+/** True once `active` has been true for `ms`. A response that comes sooner never shows the skeleton. */
+function useAfterDelay(active: boolean, ms: number = SKELETON_DELAY_MS): boolean {
+  const [late, setLate] = useState(false);
+  useEffect(() => {
+    if (!active) return;
+    const t = setTimeout(() => setLate(true), ms);
+    return () => clearTimeout(t);
+  }, [active, ms]);
+  return active && late;
+}
+
+/**
+ * Space for something still loading. Its children (the skeleton) appear only after the delay, and the box keeps
+ * `minHeight` meanwhile, so nothing below moves when the data or the skeleton arrives.
+ */
+export function DelayedSkeleton({ minHeight, delay = SKELETON_DELAY_MS, children }: { readonly minHeight: number; readonly delay?: number; readonly children: ReactNode }): JSX.Element {
+  const show = useAfterDelay(true, delay);
+  return (
+    <Box sx={{ minHeight }} aria-busy="true" aria-label="Loading">
+      {show ? children : null}
+    </Box>
   );
 }

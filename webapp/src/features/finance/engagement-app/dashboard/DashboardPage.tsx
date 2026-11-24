@@ -15,32 +15,54 @@
 // under the License.
 
 import { useCallback, useMemo, useState, type JSX } from "react";
-import { Box, Button, Chip, Skeleton, Snackbar, Stack } from "@wso2/oxygen-ui";
+import { Box, Button, Chip, Snackbar, Stack } from "@wso2/oxygen-ui";
 import { SlidersHorizontalIcon } from "@wso2/oxygen-ui-icons-react";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
 import { localIsoDate } from "@utils/localDate";
-import { useAllocationsToday, useDashboard, useDashboardSections, useReferenceData, useTravelCosts } from "../api/useEngagementApi";
+import {
+  useAllocationsToday,
+  useDashboard,
+  useDashboardCatalogue,
+  useDashboardSectionGroups,
+  useReferenceData,
+  useTravelCosts,
+} from "../api/useEngagementApi";
+import type { Dashboard } from "../api/engagementTypes";
 import { useEngagementAccess } from "../api/useEngagementUserInfo";
 import EaPage from "../components/EaPage";
-import { TableSkeleton } from "../components/EaSkeletons";
+import { DelayedSkeleton } from "../components/EaSkeletons";
 import { Empty, Failed } from "../components/ListCard";
-import { ALLOC } from "../model/engagementAccess";
 import { fmtDate } from "../model/format";
 import { useListView } from "../model/useListView";
 import AgentDashboard from "./AgentDashboard";
-import { KpiRow } from "./dashboardParts";
 import { costParams } from "./travelCosts/costView";
 import { useCostCsv } from "./travelCosts/useCostCsv";
 import { useTravelCostView } from "./travelCosts/useTravelCostView";
-import { legacyWidgets } from "./widgets/layout";
 import ManageWidgetsDialog from "./widgets/ManageWidgetsDialog";
 import { sectionOfWidget, WIDGET_IDS, widgetById } from "./widgets/registry";
 import type { DashboardSectionKey, SectionState, WidgetCtx, WidgetDef } from "./widgets/types";
 import WidgetGrid from "./widgets/WidgetGrid";
-import { extraSections, mergeDashboards, widgetState } from "./widgets/widgetState";
+import { Bars, Rows, Tiles } from "./widgets/WidgetSkeletons";
+import { mergeDashboards, sectionGroups, widgetState } from "./widgets/widgetState";
 import { orderWidgets, setVisible, togglePinned, useWidgetPrefs, visibleIds } from "./widgets/widgetPrefs";
 
 const HIDDEN_NOTICE = "Widget hidden. Manage Widgets brings it back.";
+
+/**
+ * What stands in for the widgets until the catalogue says which there are (the first visit; a reload draws the last known catalogue at
+ * once). One skeleton for the whole area, shown only if the catalogue is not quick, in space reserved from the start.
+ */
+function CatalogueSkeleton(): JSX.Element {
+  return (
+    <DelayedSkeleton minHeight={420}>
+      <Stack spacing={2}>
+        <Tiles count={5} />
+        <Bars rows={4} />
+        <Rows rows={3} />
+      </Stack>
+    </DelayedSkeleton>
+  );
+}
 
 /** Dashboard: the first screen people land on, built from the widgets each person's privileges allow and that they have chosen to keep. */
 export default function DashboardPage(): JSX.Element {
@@ -50,37 +72,44 @@ export default function DashboardPage(): JSX.Element {
   const list = useListView();
   const bu = list.filters.businessUnit ?? "";
   const date = list.filters.date ?? "";
-  const dashboard = useDashboard();
+  // A travel agent has a dashboard of its own, in one call. Everyone else gets the widget catalogue first, then each widget's section.
+  const agentDashboard = useDashboard(access.isAgent);
+  const catalogue = useDashboardCatalogue(!access.isAgent);
   const ref = useReferenceData();
   const { prefs, update, reset } = useWidgetPrefs(user.email);
   const [manage, setManage] = useState(false);
   const [notice, setNotice] = useState("");
-  const base = dashboard.data;
+  const base = catalogue.data;
   // One "today" for the whole page: the date the backend computed for (UTC), not a second one from the browser clock, which can be a day ahead or behind.
-  const businessDate = base?.date || today;
-  const costView = useTravelCostView(base?.date);
+  // Only an answer from this session has it (the copy kept for a reload has none), and what depends on it waits for it, so the default period never moves.
+  const freshDate = base?.date || undefined;
+  const businessDate = freshDate || today;
+  const costView = useTravelCostView(freshDate);
 
-  // What the backend lets this person see. An older backend sends no list: offer what came back.
+  // What the backend lets this person see (the last known list while the fresh one is on its way).
   const serverList = base?.widgets;
-  const showToday = access.p.a.has(ALLOC.DASHBOARD) && !access.isAgent;
-  const allowed = useMemo(() => (serverList ?? (base ? legacyWidgets(base, showToday) : [])).filter((w) => widgetById(w.id)), [serverList, base, showToday]);
+  const allowed = useMemo(() => (serverList ?? []).filter((w) => widgetById(w.id)), [serverList]);
   const visible = useMemo(() => orderWidgets(visibleIds(allowed, prefs), prefs.pinned, WIDGET_IDS), [allowed, prefs]);
   const defs = useMemo(() => visible.map((id) => widgetById(id)).filter((d): d is WidgetDef => Boolean(d)), [visible]);
 
-  // A widget turned on that is not on by default needs its section fetched on top of the default call.
-  const extra = useMemo(() => (serverList ? extraSections(allowed, visible, sectionOfWidget) : []), [serverList, allowed, visible]);
-  const extraQuery = useDashboardSections(extra, Boolean(base));
-  const merged = useMemo(() => mergeDashboards(base, extraQuery.data), [base, extraQuery.data]);
-  const covered = useMemo(() => new Set(allowed.filter((w) => w.defaultOn).map((w) => sectionOfWidget(w.id))), [allowed]);
+  // Each widget's data: one request per group of sections, all at once, so the slowest does not hold back the rest.
+  const groups = useMemo(() => sectionGroups(allowed, visible, sectionOfWidget), [allowed, visible]);
+  const groupQueries = useDashboardSectionGroups(
+    groups.map((g) => g.sections),
+    groups.map((g) => g.needed && Boolean(base)),
+  );
+  const merged = useMemo(() => groupQueries.reduce<Dashboard | undefined>((all, q) => mergeDashboards(all, q.data), base), [base, groupQueries]);
 
   const section = useCallback(
     (key: DashboardSectionKey): SectionState => {
-      if (!serverList || covered.has(key)) return base?.failed.includes(key) ? { status: "failed" } : { status: "loaded" };
-      if (extraQuery.isError) return { status: "failed", error: extraQuery.error };
-      if (!extraQuery.data) return { status: "loading" };
-      return extraQuery.data.failed.includes(key) ? { status: "failed" } : { status: "loaded" };
+      const i = groups.findIndex((g) => g.sections.includes(key));
+      const q = groupQueries[i];
+      if (!q) return { status: "loading" };
+      if (q.isError && !q.data) return { status: "failed", error: q.error };
+      if (!q.data) return { status: "loading" };
+      return q.data.failed.includes(key) ? { status: "failed" } : { status: "loaded" };
     },
-    [serverList, covered, base, extraQuery.isError, extraQuery.error, extraQuery.data],
+    [groups, groupQueries],
   );
 
   // Allocations Today has its own call (a date and a business unit).
@@ -88,63 +117,71 @@ export default function DashboardPage(): JSX.Element {
   const buId = bu ? ref.data?.businessUnitIds[bu] : undefined;
   const allocationsToday = useAllocationsToday({ date: date || undefined, businessUnitId: buId }, todayOn && (!bu || buId !== undefined));
 
-  // Travel Costs: one summary call for the controls bar and every cost widget.
-  // Asked only once the business date is known, so the default period never moves under the widgets.
-  const costOn = Boolean(base?.date) && defs.some((d) => d.group === "travelCosts");
+  // Travel Costs: one summary call for the controls bar and every cost widget, asked once the business date is known.
+  const costOn = defs.some((d) => d.group === "travelCosts");
   const params = useMemo(() => costParams(costView.view), [costView.view]);
-  const costQuery = useTravelCosts(params, costOn);
+  const costQuery = useTravelCosts(params, costOn && Boolean(freshDate));
   const range = useMemo(() => ({ from: costView.view.period.from, to: costView.view.period.to }), [costView.view.period]);
   const exportCsv = useCostCsv(params, range, setNotice);
 
-  if (dashboard.isPending) {
+  if (access.isAgent) {
+    if (agentDashboard.data?.agency) return <AgentDashboard d={agentDashboard.data} />;
     return (
       <EaPage title="Dashboard">
-        <Stack spacing={2}>
-          <KpiRow>
-            {Array.from({ length: 5 }, (_, i) => (
-              <Skeleton key={i} variant="rounded" height={64} aria-busy="true" />
-            ))}
-          </KpiRow>
-          <TableSkeleton columns={4} rows={5} />
-        </Stack>
+        {agentDashboard.isError ? (
+          <Failed what="the dashboard" error={agentDashboard.error} onRetry={() => void agentDashboard.refetch()} retrying={agentDashboard.isFetching} />
+        ) : (
+          <CatalogueSkeleton />
+        )}
       </EaPage>
     );
   }
-  // A failed refetch keeps the last good data, and then the widgets stay and the failure is a notice above them.
-  if (!dashboard.data) {
+
+  const first = user.givenName ?? user.displayName?.split(" ")[0];
+  const header = {
+    title: "Dashboard",
+    subtitle: `Welcome back${first ? `, ${first}` : ""}. Here is where engagements, allocations and travel stand on ${fmtDate(businessDate)}.`,
+  };
+  // A failed refetch keeps the last good catalogue, and then the widgets stay and the failure is a notice above them.
+  if (!base) {
     return (
-      <EaPage title="Dashboard">
-        <Failed what="the dashboard" error={dashboard.error} onRetry={() => void dashboard.refetch()} retrying={dashboard.isFetching} />
+      <EaPage {...header} actions={undefined}>
+        {catalogue.isError ? (
+          <Failed what="the dashboard" error={catalogue.error} onRetry={() => void catalogue.refetch()} retrying={catalogue.isFetching} />
+        ) : (
+          <CatalogueSkeleton />
+        )}
       </EaPage>
     );
   }
-  const d = dashboard.data;
-  if (d.agency) return <AgentDashboard d={d} />;
+
   const ctx: WidgetCtx = {
     today,
     businessDate,
     dashboard: merged,
     section,
-    // Each widget retries the query that owns its section: the base call for the default ones, the extra call for the others.
+    // Each widget retries the request that owns its section; with no section, every one.
     retry: (key) => {
-      const own = !key || !serverList || covered.has(key);
-      if (own) void dashboard.refetch();
-      if ((!key || !own) && extra.length) void extraQuery.refetch();
+      if (!key) {
+        void catalogue.refetch();
+        groupQueries.forEach((q) => void q.refetch());
+        return;
+      }
+      const i = groups.findIndex((g) => g.sections.includes(key));
+      void groupQueries[i]?.refetch();
     },
-    retrying: dashboard.isFetching || extraQuery.isFetching,
+    retrying: groupQueries.some((q) => q.isFetching),
     allocationsToday: { businessUnit: bu, date, query: allocationsToday, change: (next) => list.setFilters({ ...list.filters, ...next }) },
-    cost: { view: costView.view, set: costView.set, drill: costView.drill, params, query: costQuery, exportCsv },
+    cost: { view: costView.view, set: costView.set, drill: costView.drill, params, query: costQuery, ready: Boolean(freshDate), exportCsv },
   };
   // A widget whose data the backend left out of a loaded section is not drawn.
   const shownDefs = defs.filter((d) => widgetState(d, ctx).kind !== "absent");
-  const first = user.givenName ?? user.displayName?.split(" ")[0];
   const hidden = allowed.length - visible.length;
   const refOf = (id: string) => allowed.find((w) => w.id === id);
 
   return (
     <EaPage
-      title="Dashboard"
-      subtitle={`Welcome back${first ? `, ${first}` : ""}. Here is where engagements, allocations and travel stand on ${fmtDate(businessDate)}.`}
+      {...header}
       actions={
         allowed.length ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
@@ -156,7 +193,7 @@ export default function DashboardPage(): JSX.Element {
         ) : undefined
       }
     >
-      {dashboard.isError ? <Failed what="the latest dashboard" error={dashboard.error} onRetry={() => void dashboard.refetch()} retrying={dashboard.isFetching} /> : null}
+      {catalogue.isError ? <Failed what="the latest dashboard" error={catalogue.error} onRetry={() => void catalogue.refetch()} retrying={catalogue.isFetching} /> : null}
       {shownDefs.length ? (
         <WidgetGrid
           defs={shownDefs}

@@ -2391,6 +2391,8 @@ export const engagementServiceUrls = {
   campaigns: (search: string): string => ea("/campaigns", { search, limit: 20 }),
   employees: (search: string, limit = 20): string => ea("/employees", { search, limit }),
   dashboard: ea("/dashboard"),
+  // An explicit empty `sections` is the widget catalogue alone: the date and the widgets, with no section computed.
+  dashboardCatalogue: `${engagementAppBackendUrl}/dashboard?sections=`,
   /** The dashboard with only these sections (a widget the caller turned on that is not on by default). */
   dashboardSections: (sections: readonly string[]): string => ea("/dashboard", { sections: sections.join(",") }),
   travelCosts: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs", params),

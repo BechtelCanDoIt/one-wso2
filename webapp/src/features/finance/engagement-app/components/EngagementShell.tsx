@@ -25,6 +25,7 @@ import { useEngagementUserInfo } from "../api/useEngagementUserInfo";
 import { useRefreshAccessOnForbidden } from "../api/useRefreshAccessOnForbidden";
 import { engagementAccess, type EngagementAccess } from "../model/engagementAccess";
 import { engagementPaths } from "../engagementPaths";
+import { DelayedSkeleton } from "./EaSkeletons";
 import { EA_SCOPE_SX } from "./eaStyles";
 import { firstFinanceScreen, myLanding } from "../model/landing";
 import NoEngagementAccess from "./NoEngagementAccess";
@@ -54,12 +55,15 @@ export default function EngagementShell({ area }: { area: "finance" | "me" }): J
     return (
       <Box>
         <PageTitle label={NAME} />
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 2 }}>
-          <CircularProgress size={16} />
-          <Typography variant="body2" color="text.secondary">
-            Checking your {NAME} access…
-          </Typography>
-        </Stack>
+        {/* A reload that has the last answer never gets here; a quick answer never shows the spinner. */}
+        <DelayedSkeleton minHeight={40}>
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 2 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              Checking your {NAME} access…
+            </Typography>
+          </Stack>
+        </DelayedSkeleton>
       </Box>
     );
   }

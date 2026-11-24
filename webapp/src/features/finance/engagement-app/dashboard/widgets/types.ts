@@ -59,6 +59,8 @@ export interface CostCtx {
   /** The filter and range parameters of this view. */
   readonly params: EngagementQueryParams;
   readonly query: UseQueryResult<TravelCosts, Error>;
+  /** False until the backend's business date is known, which every period is counted from: nothing that depends on the period is asked before. */
+  readonly ready: boolean;
   readonly exportCsv: (section: CostCsvSection | "summary") => Promise<void>;
 }
 
@@ -77,7 +79,7 @@ export interface WidgetCtx {
   /** The default sections and any a person turned on, merged. */
   readonly dashboard?: Dashboard;
   readonly section: (key: DashboardSectionKey) => SectionState;
-  /** Retries the query that owns `section` (the base call, or the extra-sections call); with no section, every query. */
+  /** Retries the request that owns `section`; with no section, every one. */
   readonly retry: (section?: DashboardSectionKey) => void;
   readonly retrying: boolean;
   readonly allocationsToday: AllocationsTodayCtx;

@@ -19,16 +19,27 @@ import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { engagementServiceUrls } from "@config/apiConfig";
 import { foldIdentityError } from "@hooks/useAsgardeoSub";
+import { readSessionCache, writeSessionCache } from "./sessionCache";
 import { engagementAccess, type EngagementAccess } from "../model/engagementAccess";
 import type { UserInfo } from "./engagementTypes";
 import { useEngagementBasis } from "./engagementBasis";
 
+const CACHE = "user-info";
+
 /** GET /user-info: the caller's privileges per legacy app. */
 export function useEngagementUserInfo(enabled = true): UseQueryResult<UserInfo, Error> {
-  const { getToken, ready, key, subState, retryIdentity } = useEngagementBasis();
+  const { getToken, ready, key, sub, subState, retryIdentity } = useEngagementBasis();
   const query = useQuery<UserInfo, Error>({
     queryKey: key("user-info"),
-    queryFn: async () => authedGet<UserInfo>(engagementServiceUrls.userInfo, await getToken()),
+    queryFn: async () => {
+      const info = await authedGet<UserInfo>(engagementServiceUrls.userInfo, await getToken());
+      writeSessionCache(CACHE, sub, info);
+      return info;
+    },
+    // On a reload, the last answer for this person stands in at once and is asked again in the background (initialDataUpdatedAt 0 makes it stale).
+    // The backend decides every call; a 403 re-asks (useRefreshAccessOnForbidden); a fresh answer replaces this one.
+    initialData: () => readSessionCache<UserInfo>(CACHE, sub),
+    initialDataUpdatedAt: 0,
     enabled: ready && enabled,
     // The backend caches the role tables for a minute; asking more often buys nothing.
     staleTime: 5 * 60 * 1000,
