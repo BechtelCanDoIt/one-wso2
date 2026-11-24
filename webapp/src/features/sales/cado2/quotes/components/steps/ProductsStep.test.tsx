@@ -133,7 +133,8 @@ function Quantities(): JSX.Element {
 function Harness({
   startDate = "2027-01-01",
   values = {},
-}: { startDate?: string; values?: Partial<DraftFormValues> } = {}): JSX.Element {
+  onOpenMatrix,
+}: { startDate?: string; values?: Partial<DraftFormValues>; onOpenMatrix?: () => void } = {}): JSX.Element {
   const form = useForm<DraftFormValues>({
     defaultValues: {
       ...emptyDraftForm(),
@@ -153,7 +154,7 @@ function Harness({
   return (
     <DatePickers.LocalizationProvider dateAdapter={AdapterDateFns}>
       <FormProvider {...form}>
-        <ProductsStep preview={null} />
+        <ProductsStep preview={null} onOpenMatrix={onOpenMatrix} />
         <Quantities />
       </FormProvider>
     </DatePickers.LocalizationProvider>
@@ -253,6 +254,31 @@ describe("ProductsStep (Products & Pricing)", () => {
     await user.click(dialog.getByRole("button", { name: "Close" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
     expect(screen.getByText("WSO2 Gateway")).toBeInTheDocument(); // the quote's own lines untouched
+  });
+
+  // 2026-11-24: on a renewal, Import from opportunity stands out and the
+  // less used views sit under "More"; elsewhere the matrix stays a button.
+  it("groups the renewal's less used views under More", async () => {
+    const user = userEvent.setup();
+    const onOpenMatrix = vi.fn();
+    const first = render(<Harness onOpenMatrix={onOpenMatrix} />);
+    expect(screen.queryByRole("button", { name: "More" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Discount approval matrix" }));
+    expect(onOpenMatrix).toHaveBeenCalledTimes(1);
+    first.unmount();
+
+    render(<Harness onOpenMatrix={onOpenMatrix} values={{ opportunityId: "006A", opportunityName: "Acme renewal", dealKind: "RENEWAL" }} />);
+    expect(screen.getByRole("button", { name: "Import from opportunity" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Discount approval matrix" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Previous year's products" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "More" }));
+    const menu = within(screen.getByRole("menu"));
+    // None chosen in Overview yet: disabled, saying where to choose them.
+    expect(menu.getByRole("menuitem", { name: /Previous year's products/ })).toHaveAttribute("aria-disabled", "true");
+    expect(menu.getByText("Choose the opportunities this renewal replaces in Overview to see their products.")).toBeInTheDocument();
+    await user.click(menu.getByRole("menuitem", { name: /Discount approval matrix/ }));
+    expect(onOpenMatrix).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
   });
 
   // D178: a renewal opportunity's own products, imported into Year 1.

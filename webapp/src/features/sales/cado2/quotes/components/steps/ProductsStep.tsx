@@ -33,6 +33,8 @@ import {
   Tooltip,
   Typography,
   IconButton,
+  ListItemIcon,
+  ListItemText,
 } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import {
@@ -230,6 +232,25 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
   };
   const supportIssues = supportProblems(values.lines, plans);
   const [premiumMenu, setPremiumMenu] = useState<{ anchor: HTMLElement; year: number } | null>(null);
+  // The Products card's less used views (2026-11-24): grouped under "More"
+  // when there are two, so Import from opportunity stands out on a renewal.
+  const [moreMenu, setMoreMenu] = useState<HTMLElement | null>(null);
+  const views: { label: string; icon: JSX.Element; onClick: () => void; disabled?: boolean; detail?: string }[] = [
+    // D159: the products on the opportunities this renewal replaces.
+    ...(isRenewal
+      ? [
+          {
+            label: "Previous year's products",
+            icon: <HistoryIcon size={14} />,
+            onClick: () => setViewingPrevious(true),
+            disabled: previousIds.length === 0,
+            detail: previousIds.length === 0 ? "Choose the opportunities this renewal replaces in Overview to see their products." : undefined,
+          },
+        ]
+      : []),
+    // D176: who approves which discount, with these lines on it.
+    ...(onOpenMatrix ? [{ label: "Discount approval matrix", icon: <TableIcon size={14} />, onClick: onOpenMatrix }] : []),
+  ];
   // A support product as a line in a year: quantity 1, priced from the book
   // (its formula, if any; the unit of measure its version's with %LIST_PRICE%
   // filled in, else Salesforce's, D158).
@@ -465,35 +486,14 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
         aside={
           isRenewal || years.length > 1 || onOpenMatrix ? (
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-              {/* D176: who approves which discount, with these lines on it. */}
-              {onOpenMatrix ? (
-                <Button size="small" startIcon={<TableIcon size={14} />} onClick={onOpenMatrix}>
-                  Discount approval matrix
-                </Button>
-              ) : null}
-              {/* D159: the products on the opportunities this renewal replaces. */}
-              {isRenewal ? (
-                <Tooltip title={previousIds.length === 0 ? "Choose the opportunities this renewal replaces in Overview to see their products." : ""}>
-                  <span>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<HistoryIcon size={14} />}
-                      disabled={previousIds.length === 0}
-                      onClick={() => setViewingPrevious(true)}
-                    >
-                      Previous year&apos;s products
-                    </Button>
-                  </span>
-                </Tooltip>
-              ) : null}
-              {/* D178: the renewal opportunity's own products, imported. */}
+              {/* D178: the renewal opportunity's own products, imported: the
+                  card's main action on a renewal (2026-11-24). */}
               {isRenewal ? (
                 <Tooltip title={importBlocked}>
                   <span>
                     <Button
                       size="small"
-                      variant="outlined"
+                      variant="contained"
                       startIcon={<CloudDownloadIcon size={14} />}
                       disabled={Boolean(importBlocked)}
                       onClick={() => {
@@ -506,6 +506,28 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
                   </span>
                 </Tooltip>
               ) : null}
+              {views.length > 1 ? (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  endIcon={<ChevronDownIcon size={14} />}
+                  aria-haspopup="menu"
+                  aria-expanded={moreMenu !== null}
+                  onClick={(e) => setMoreMenu(e.currentTarget)}
+                >
+                  More
+                </Button>
+              ) : (
+                views.map((v) => (
+                  <Tooltip key={v.label} title={v.detail ?? ""}>
+                    <span>
+                      <Button size="small" startIcon={v.icon} disabled={v.disabled} onClick={v.onClick}>
+                        {v.label}
+                      </Button>
+                    </span>
+                  </Tooltip>
+                ))
+              )}
               {years.length > 1 ? (
                 <Button
                   size="small"
@@ -677,6 +699,27 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
             }}
           >
             {p.code ? `${p.name} · ${p.code}` : p.name}
+          </MenuItem>
+        ))}
+      </Menu>
+      <Menu
+        anchorEl={moreMenu}
+        open={moreMenu !== null}
+        onClose={() => setMoreMenu(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        transformOrigin={{ vertical: "top", horizontal: "right" }}
+      >
+        {views.map((v) => (
+          <MenuItem
+            key={v.label}
+            disabled={v.disabled}
+            onClick={() => {
+              setMoreMenu(null);
+              v.onClick();
+            }}
+          >
+            <ListItemIcon sx={{ color: "inherit" }}>{v.icon}</ListItemIcon>
+            <ListItemText primary={v.label} secondary={v.detail} slotProps={{ secondary: { variant: "caption", sx: { whiteSpace: "normal", maxWidth: 280 } } }} />
           </MenuItem>
         ))}
       </Menu>
