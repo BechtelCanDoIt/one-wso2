@@ -15,35 +15,16 @@
 // under the License.
 
 import type { JSX } from "react";
-import type { ReactNode } from "react";
-import { Box, Card, Typography } from "@wso2/oxygen-ui";
+import { Box } from "@wso2/oxygen-ui";
 import { localIsoDate } from "@utils/localDate";
 import type { TravelRequestSummary } from "../api/engagementTypes";
 import { useMyOverview } from "../api/useEngagementApi";
 import { AllocationStatusChip, Mono, TravelStatusChip } from "../components/StatusChips";
-import { DateRow } from "../dashboard/dashboardParts";
+import { DateRow, Mini } from "../dashboard/dashboardParts";
 import { myEngagementPaths } from "../engagementPaths";
 import { fmtRange, place } from "../model/format";
 
 const MAX = 3;
-
-/** A heading, then one small card per item side by side (wrapping on narrow screens). */
-function Strip({ title, children }: { title: string; children: ReactNode[] }): JSX.Element {
-  return (
-    <Box sx={{ mb: 2 }}>
-      <Typography component="h2" sx={{ fontSize: 14.5, fontWeight: 600, mb: 1 }}>
-        {title}
-      </Typography>
-      <Box sx={{ display: "grid", gap: 1.5, gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))" }}>
-        {children.map((c, i) => (
-          <Card key={i} variant="outlined" sx={{ px: 1.75, py: 0.25, minWidth: 0 }}>
-            {c}
-          </Card>
-        ))}
-      </Box>
-    </Box>
-  );
-}
 
 /**
  * The current and next allocations (at most three), above the Allocations list; nothing when there are none. A row
@@ -56,7 +37,8 @@ export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) 
   const today = localIsoDate();
   const current = allocations.filter((a) => a.current ?? (a.start <= today && today <= a.end)).length;
   return (
-    <Strip title={current === 0 ? "Upcoming" : current === allocations.length ? "Current" : "Current and Upcoming"}>
+    <Box sx={{ mb: 2 }}>
+      <Mini title={current === 0 ? "Upcoming" : current === allocations.length ? "Current" : "Current and Upcoming"}>
         {allocations.slice(0, MAX).map((a) => (
           <DateRow
             key={a.id}
@@ -67,7 +49,8 @@ export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) 
             to={a.canOpen || canOpen(a.engagementId) ? myEngagementPaths.allocation(a.engagementId) : undefined}
           />
         ))}
-    </Strip>
+      </Mini>
+    </Box>
   );
 }
 
@@ -81,7 +64,8 @@ export function TravelsFocus({ trips }: { trips: readonly TravelRequestSummary[]
   if (!focus.length) return null;
   const ongoing = focus.filter((t) => t.start <= today).length;
   return (
-    <Strip title={ongoing === 0 ? "Upcoming" : ongoing === focus.length ? "Under Way" : "Under Way and Upcoming"}>
+    <Box sx={{ mb: 2 }}>
+      <Mini title={ongoing === 0 ? "Upcoming" : ongoing === focus.length ? "Under Way" : "Under Way and Upcoming"}>
         {focus.map((t) => (
           <DateRow
             key={t.jobNumber}
@@ -97,6 +81,7 @@ export function TravelsFocus({ trips }: { trips: readonly TravelRequestSummary[]
             to={myEngagementPaths.travelRequest(t.jobNumber)}
           />
         ))}
-    </Strip>
+      </Mini>
+    </Box>
   );
 }
