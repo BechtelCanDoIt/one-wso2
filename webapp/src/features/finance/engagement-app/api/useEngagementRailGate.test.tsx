@@ -56,9 +56,9 @@ describe("which Engagement App rows a person sees", () => {
     expect(visible(result.current)).toEqual([
       ENGAGEMENT_GROUP_ID,
       ENGAGEMENT_ITEM.dashboard,
+      ENGAGEMENT_ITEM.myAllocations,
       ENGAGEMENT_ITEM.myTravelRequests,
       ENGAGEMENT_ITEM.myDocuments,
-      ENGAGEMENT_ITEM.myAllocations,
     ]);
   });
 

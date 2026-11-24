@@ -82,9 +82,9 @@ export const MY_ENGAGEMENT_APPS: readonly MenuApp[] = [
     icon: BriefcaseBusinessIcon,
     purpose: "Your travel requests, passport and visas, and allocations.",
     items: [
+      { id: ENGAGEMENT_ITEM.myAllocations, label: "My Allocations", icon: CalendarRangeIcon, desc: "Where you are allocated, and when.", requires: ["admin"], path: myEngagementPaths.allocations },
       { id: ENGAGEMENT_ITEM.myTravelRequests, label: "My Travels", icon: PlaneIcon, desc: "Your travels, with their per diems, invoices and payments.", requires: ["admin"], path: myEngagementPaths.travelRequests },
       { id: ENGAGEMENT_ITEM.myDocuments, label: "Passport & Visas", icon: IdCardIcon, desc: "Your passport, other travel documents and visas.", requires: ["admin"], path: myEngagementPaths.documents() },
-      { id: ENGAGEMENT_ITEM.myAllocations, label: "My Allocations", icon: CalendarRangeIcon, desc: "Where you are allocated, and when.", requires: ["admin"], path: myEngagementPaths.allocations },
     ],
   },
 ];
