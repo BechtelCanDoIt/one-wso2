@@ -47,7 +47,7 @@ export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) 
             lines={[fmtRange(a.start, a.end)]}
             right={a.status ? <AllocationStatusChip status={a.status} /> : undefined}
             // `canOpen(id)` only knows the rows of the loaded list page, so it is a fallback for a backend that sends no `canOpen` on the overview.
-            to={a.canOpen || canOpen(a.engagementId) ? myEngagementPaths.allocation(a.engagementId) : undefined}
+            to={(a.canOpen ?? canOpen(a.engagementId)) ? myEngagementPaths.allocation(a.engagementId) : undefined}
           />
         ))}
       </Mini>

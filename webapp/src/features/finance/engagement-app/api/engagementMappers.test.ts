@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { dashboard, myOverview, tripExpenses } from "./engagementMappers";
+import { dashboard, myOverview, tripExpenses, upcomingAllocation } from "./engagementMappers";
 
 describe("tripExpenses", () => {
   it("names the expense_app statuses and keeps missing values empty", () => {
@@ -66,5 +66,14 @@ describe("myOverview", () => {
     });
     expect(m.tripVisas).toEqual([{ jobNumber: "TRV-1", country: "India", city: undefined, start: "2027-01-10", end: "2027-01-20", tripVisa: undefined, myVisa: undefined, waiting: true }]);
     expect(myOverview({ upcomingAllocations: [], upcomingTrips: [] }).tripVisas).toBeUndefined();
+  });
+});
+
+describe("upcomingAllocation", () => {
+  const w = { id: "A1", engagementId: "E1", engagementTitle: "T", startDate: "2026-12-01", endDate: "2026-12-31", current: false };
+  it("keeps canOpen undefined when the backend sends none, so the list can answer, and keeps an explicit false", () => {
+    expect(upcomingAllocation(w as never).canOpen).toBeUndefined();
+    expect(upcomingAllocation({ ...w, canOpen: false } as never).canOpen).toBe(false);
+    expect(upcomingAllocation({ ...w, canOpen: true } as never).canOpen).toBe(true);
   });
 });
