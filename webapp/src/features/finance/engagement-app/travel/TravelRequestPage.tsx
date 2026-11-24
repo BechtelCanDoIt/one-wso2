@@ -15,8 +15,8 @@
 // under the License.
 
 import { useState, type JSX, type ReactNode } from "react";
-import { Link as RouterLink, Navigate, useParams } from "react-router";
-import { Alert, Box, Button, Card, Link, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Navigate, useParams } from "react-router";
+import { Alert, Box, Button, Card, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTabs";
 import { HttpError } from "@api/http";
@@ -27,6 +27,7 @@ import { useDeletePerDiem } from "../api/useEngagementMutations";
 import { useEngagementAccess } from "../api/useEngagementUserInfo";
 import { ConfirmDialog } from "../components/EaDialog";
 import EaPage from "../components/EaPage";
+import RecordLink from "../components/RecordLink";
 import { DetailSkeleton, TableSkeleton } from "../components/EaSkeletons";
 import EaTable from "../components/EaTable";
 import { FactsCard, FactsGrid } from "../components/Facts";
@@ -143,9 +144,9 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
               area === "finance" ? (
                 <Two
                   main={
-                    <Link component={RouterLink} to={engagementPaths.engagement(t.engagement.id)} sx={{ fontFamily: "monospace", fontSize: 12.5 }}>
+                    <RecordLink to={engagementPaths.engagement(t.engagement.id)} kind="engagement">
                       {t.engagement.id}
-                    </Link>
+                    </RecordLink>
                   }
                   sub={engagementName(t.engagement)}
                 />
