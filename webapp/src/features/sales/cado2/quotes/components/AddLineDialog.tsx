@@ -37,6 +37,7 @@ import { formatMoney } from "@features/sales/cado2/utils/money";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import { descriptionAfterName } from "@features/sales/cado2/utils/productDescription";
 import { lineProblems } from "@features/sales/cado2/quotes/components/lineProblems";
+import type { LinePrefill } from "@features/sales/cado2/quotes/form/opportunityImport";
 import { usePricingFormulas, usePricingPreview, useProducts } from "@features/sales/cado2/quotes/api/useQuoteApi";
 import { DiscountHint } from "@features/sales/cado2/quotes/components/sheet/OrderFormTable";
 import type {
@@ -249,6 +250,11 @@ interface AddLineDialogProps {
   readonly pricebook: PricebookRef;
   /** The contract year the line is in; its dates stay within it. Null before the start date. */
   readonly year: ContractYear | null;
+  /**
+   * A new line filled in from a renewal opportunity's Salesforce line, to
+   * change before adding (D178): its product fixed, its problems shown at once.
+   */
+  readonly prefill?: LinePrefill | null;
   readonly onSave: (line: LineValue) => void;
   /**
    * The live-pricing request with this line in the quote and where the line
@@ -280,6 +286,7 @@ export default function AddLineDialog({
   currency,
   pricebook,
   year,
+  prefill = null,
   onSave,
   previewFor,
   onClose,
@@ -288,23 +295,24 @@ export default function AddLineDialog({
   const debounced = useDebouncedValue(term, 300);
   // The quote's price book only, a page at a time as the rep scrolls.
   // Editing never searches: a line's product can't be changed, only removed (2026-10-12).
-  const products = useProducts(open && !line ? currency : "", debounced, pricebook.id);
+  const products = useProducts(open && !line && !prefill ? currency : "", debounced, pricebook.id);
   const options = products.data ?? [];
   const { state: listState, listboxProps } = useProductList(products, options.length);
 
-  const [product, setProduct] = useState<Product | null>(null);
+  const [product, setProduct] = useState<Product | null>(prefill?.product ?? null);
   // The parent mounts the dialog afresh for each add/edit, so the line (or
   // blanks) only needs loading once.
   // Locked for now (2026-10-14): a saved line keeps its value; a new one has none.
-  const [quantity, setQuantity] = useState(line?.quantity ?? "1");
-  const [discount, setDiscount] = useState(line?.discount ?? "0");
+  const [quantity, setQuantity] = useState(line?.quantity ?? prefill?.quantity ?? "1");
+  const [discount, setDiscount] = useState(line?.discount ?? prefill?.discount ?? "0");
   // The unit price charged: "" = the list price.
-  const [salesPrice, setSalesPrice] = useState(line?.salesPrice ?? "");
-  const [tried, setTried] = useState(false);
+  const [salesPrice, setSalesPrice] = useState(line?.salesPrice ?? prefill?.salesPrice ?? "");
+  // A prefilled line shows what to change straight away (D178).
+  const [tried, setTried] = useState(Boolean(prefill));
   // A one-off line's dates within the year (D146), shown filled in: the
   // end follows the start until the AM picks one. A recurring line has none.
-  const [startDate, setStartDate] = useState(line?.startDate || year?.start || "");
-  const [pickedEnd, setEndDate] = useState(line?.endDate ?? "");
+  const [startDate, setStartDate] = useState(line?.startDate || prefill?.startDate || year?.start || "");
+  const [pickedEnd, setEndDate] = useState(line?.endDate ?? prefill?.endDate ?? "");
   const endDate = pickedEnd || startDate;
   const formulas = usePricingFormulas();
 
@@ -527,6 +535,7 @@ export default function AddLineDialog({
                 unitPrice={entry.unitPrice ?? ""}
                 currency={currency}
                 pricing={pricing}
+                note={prefill ? "From the opportunity in Salesforce." : undefined}
               />
             ) : null}
             {moveTo ? (
@@ -541,7 +550,7 @@ export default function AddLineDialog({
                 {moveTo.text} This line keeps the pricing it was saved with until you change it.
               </Alert>
             ) : null}
-            {line ? null : (
+            {line || prefill ? null : (
               <ProductListContext.Provider value={listState}>
                 <Autocomplete
                   options={options}

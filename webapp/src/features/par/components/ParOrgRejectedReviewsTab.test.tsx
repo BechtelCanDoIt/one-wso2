@@ -42,8 +42,15 @@ const { default: ParOrgRejectedReviewsTab } = await import("./ParOrgRejectedRevi
 
 describe("ParOrgRejectedReviewsTab", () => {
   it("tells an offer that was declined from a request, by the backend's TRUE / FALSE", () => {
-    render(<ParOrgRejectedReviewsTab cycle={{ parCycleId: 2 } as ParCycle} />);
+    render(<ParOrgRejectedReviewsTab cycle={{ parCycleId: 2, parCycleStatus: "OPEN" } as ParCycle} />);
     expect(screen.getByText("Was offered a review by")).toBeInTheDocument();
     expect(screen.getByText("Requested a review from")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Restore the declined review" })).toHaveLength(2);
+  });
+
+  it("offers no Restore for a closed cycle", () => {
+    render(<ParOrgRejectedReviewsTab cycle={{ parCycleId: 2, parCycleStatus: "CLOSED" } as ParCycle} />);
+    expect(screen.getByText("Was offered a review by")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore the declined review" })).not.toBeInTheDocument();
   });
 });

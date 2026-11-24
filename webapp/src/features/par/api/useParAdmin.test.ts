@@ -18,7 +18,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 
 // Captures the queries useLegacyParHistoryByCycles builds, so tests can run
-// their own queryFn and assert on the real fallback logic.
+// their own queryFn.
 type Query = { queryKey: unknown[]; queryFn: () => Promise<unknown> };
 let capturedQueries: Query[] = [];
 let combine: ((results: unknown[]) => unknown) | undefined;
@@ -65,28 +65,10 @@ describe("useLegacyParHistoryByCycles", () => {
     expect(url.searchParams.get("summary")).toBe("true");
   });
 
-  it.each([404, 405])("falls back to the path route when the backend doesn't have the new one yet (%i)", async (status) => {
-    vi.mocked(authedGet).mockRejectedValueOnce(new HttpError("url", status, "")).mockResolvedValueOnce(rows);
-    await expect(runQuery()).resolves.toEqual(rows);
-    const [, fallback] = calledUrls();
-    expect(calledUrls()).toHaveLength(2);
-    expect(fallback.pathname).toContain("/legacy-par-history-cycles/");
-    expect(fallback.pathname).toMatch(/\/participants$/);
-    expect(fallback.searchParams.get("summary")).toBe("true");
-  });
-
-  it.each([400, 403, 500])("rethrows any other error without a second request (%i)", async (status) => {
+  it.each([400, 403, 404, 500])("rethrows an error without a second request (%i)", async (status) => {
     vi.mocked(authedGet).mockRejectedValueOnce(new HttpError("url", status, ""));
     await expect(runQuery()).rejects.toMatchObject({ status });
     expect(calledUrls()).toHaveLength(1);
-  });
-
-  it("surfaces the path route's own error when the fallback fails too", async () => {
-    // e.g. enableLegacyParDataView off: both routes answer 404.
-    vi.mocked(authedGet)
-      .mockRejectedValueOnce(new HttpError("url", 404, ""))
-      .mockRejectedValueOnce(new HttpError("url", 404, "path"));
-    await expect(runQuery()).rejects.toMatchObject({ status: 404, responseBody: "path" });
   });
 
   it("asks for every stored spelling, one query each", () => {

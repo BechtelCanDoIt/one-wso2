@@ -55,10 +55,6 @@ import {
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import ConfirmationDialog from "@components/confirmation-dialog/ConfirmationDialog";
 import { describeError } from "@api/errors";
-import {
-  evidenceEnabledRating as defaultEvidenceEnabledRating,
-  top5p20pEnabledRating as defaultTop5p20pEnabledRating,
-} from "@config/apiConfig";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useParRating } from "../api/useParData";
 import { useLeadRatingUpdate } from "../api/useLeadRatingUpdate";
@@ -70,12 +66,7 @@ import { deadlineEndsEverywhereAt, hasEndedEverywhere, isDeadlinePassed } from "
 import { formatShortDate, formatShortDateTime } from "../util/parDate";
 import { downloadParPdf } from "../util/parPdf";
 import { isOpenableUrl, parseSavedUrls, type DriveFile } from "../util/parDriveFile";
-import {
-  LEADERSHIP_ALLOWED_RATINGS,
-  isEvidenceMissing,
-  missedDeadlineRatingFor,
-  ratingOptions,
-} from "../util/parLeadership";
+import { isEvidenceMissing, missedDeadlineRatingFor, ratingOptions, ratingRulesFor } from "../util/parLeadership";
 import ParRichTextField, { type ParRichTextFieldHandle } from "./ParRichTextField";
 import { ParCommentView } from "./ParContent";
 import { ParAutoAssignedChip } from "./ParChips";
@@ -128,12 +119,9 @@ export default function ParLeadReviewPanel({
   const [evidenceTab, setEvidenceTab] = useState(0);
   const { showSuccess, showError } = useNotifications();
 
-  // Cycle-scoped value first (not on the wire yet — always undefined until
-  // the backend ships it, see the field's own comment in api/types.ts),
-  // falling back to the deploy-wide window.config value.
-  const top5p20pEnabledRating = cycle.parCycleConfigurations?.top5p20pEnabledRating ?? defaultTop5p20pEnabledRating;
-  const evidenceEnabledRating = cycle.parCycleConfigurations?.evidenceEnabledRating ?? defaultEvidenceEnabledRating;
-  const leadershipAllowedRatings = cycle.parCycleConfigurations?.leadershipAllowedRatings ?? LEADERSHIP_ALLOWED_RATINGS;
+  // The cycle's ratings and the rules that depend on them.
+  const ratingRules = ratingRulesFor(cycle.parCycleConfigurations);
+  const { top5p20pEnabledRating, evidenceEnabledRating } = ratingRules;
 
   const [leadComment, setLeadComment] = useState("");
   // The lead's 360° summary (PAR 2.0, not the leadership team): shared with
@@ -171,10 +159,7 @@ export default function ParLeadReviewPanel({
   // rating (the leadership team's own for them), and the lead has nothing to
   // submit: the backend refuses the lead's saves and shares. People Ops can
   // still change it.
-  const missedDeadlineRating = missedDeadlineRatingFor(
-    cycle.parCycleConfigurations,
-    Boolean(parRatingData?.parIsLeadershipEmployee),
-  );
+  const missedDeadlineRating = missedDeadlineRatingFor(ratingRules, Boolean(parRatingData?.parIsLeadershipEmployee));
   const selfReviewMissed =
     !isAdminView &&
     selfReviewClosed &&
@@ -723,11 +708,7 @@ export default function ParLeadReviewPanel({
                       labelId="lead-review-rating-label"
                       aria-labelledby="lead-review-rating-label"
                     >
-                      {ratingOptions(cycle.parCycleConfigurations?.parRatings ?? [], {
-                        isLeadership,
-                        leadershipAllowedRatings,
-                        currentRating: shownRating,
-                      }).map((r) => (
+                      {ratingOptions(ratingRules, { isLeadership, currentRating: shownRating }).map((r) => (
                           <ComplexSelect.MenuItem key={r} value={r}>
                             {r}
                           </ComplexSelect.MenuItem>
