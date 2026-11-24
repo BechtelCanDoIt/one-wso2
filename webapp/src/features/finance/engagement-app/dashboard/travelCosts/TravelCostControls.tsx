@@ -1,7 +1,7 @@
 
 import { useState, type JSX } from "react";
-import { Alert, Badge, Box, Button, Card, Chip, FormControlLabel, Menu, MenuItem, Stack, Switch, ToggleButton, ToggleButtonGroup, Typography } from "@wso2/oxygen-ui";
-import { DownloadIcon, FilterIcon } from "@wso2/oxygen-ui-icons-react";
+import { Alert, Badge, Box, Button, Card, Chip, FormControlLabel, Menu, MenuItem, Stack, Switch, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { ChartColumnIcon, DownloadIcon, FilterIcon, TableIcon } from "@wso2/oxygen-ui-icons-react";
 import { FilterDate, FilterSelect } from "../../components/FilterFields";
 import { fmtDate } from "../../model/format";
 import { InfoHint } from "../dashboardParts";
@@ -12,6 +12,12 @@ import CostFilterDialog from "./CostFilterDialog";
 import { describeFilter, FILTER_LABEL } from "./filterOptions";
 import { FILTER_KEYS, filterCount, type FilterKey } from "./costView";
 import { RANGE_PRESETS, rangeFor, rangeProblem, recentYears, type RangePreset } from "./dateRanges";
+
+/** The view toggle's buttons: icons, each with its name as tooltip and label. */
+const VIEW_MODES = [
+  { mode: "charts", label: "Charts", Icon: ChartColumnIcon },
+  { mode: "tables", label: "Tables", Icon: TableIcon },
+] as const;
 
 /** The Travel Costs controls bar: period, comparison, view, filters, download, and what to know about the figures. */
 export default function TravelCostControls({ cost, today, canDownloadTransactions }: { cost: CostCtx; today: string; canDownloadTransactions: boolean }): JSX.Element {
@@ -87,9 +93,14 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
           label="Compare With Last Year"
           slotProps={{ typography: { fontSize: 13 } }}
         />
-        <ToggleButtonGroup exclusive size="small" value={view.mode} onChange={(_, v: "charts" | "tables" | null) => v && set({ tcView: v === "tables" ? "tables" : undefined })} aria-label="View" sx={{ "& .MuiToggleButton-root": { px: 1.75 } }}>
-          <ToggleButton value="charts">Charts</ToggleButton>
-          <ToggleButton value="tables">Tables</ToggleButton>
+        <ToggleButtonGroup exclusive size="small" value={view.mode} onChange={(_, v: "charts" | "tables" | null) => v && set({ tcView: v === "tables" ? "tables" : undefined })} aria-label="View" sx={{ "& .MuiToggleButton-root": { px: 1.25, height: 36 } }}>
+          {VIEW_MODES.map(({ mode, label, Icon }) => (
+            <Tooltip key={mode} title={label}>
+              <ToggleButton value={mode} aria-label={label} aria-pressed={view.mode === mode}>
+                <Icon size={16} aria-hidden />
+              </ToggleButton>
+            </Tooltip>
+          ))}
         </ToggleButtonGroup>
         <Badge color="primary" badgeContent={filterCount(view)} invisible={!filterCount(view)}>
           <Button variant="outlined" size="small" startIcon={<FilterIcon size={15} />} onClick={() => setFiltersOpen(true)} sx={{ fontWeight: 600, height: 36 }}>
