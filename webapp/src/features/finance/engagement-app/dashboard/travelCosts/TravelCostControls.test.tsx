@@ -86,7 +86,7 @@ describe("TravelCostControls drill feedback", () => {
     expect(scroll).toHaveBeenCalledWith({ block: "start", behavior: "smooth" });
     const chip = screen.getByText(/^Source:/).closest(".MuiChip-root") as HTMLElement;
     expect(chip.getAttribute("data-highlighted")).toBe("true");
-    act(() => void vi.advanceTimersByTime(1600));
+    act(() => void vi.advanceTimersByTime(2300));
     expect(chip.getAttribute("data-highlighted")).toBeNull();
   });
 

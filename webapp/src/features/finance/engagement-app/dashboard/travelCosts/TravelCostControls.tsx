@@ -1,5 +1,6 @@
 
 import { useEffect, useRef, useState, type JSX } from "react";
+import { keyframes } from "@mui/material/styles";
 import { Alert, Badge, Box, Button, Card, Chip, FormControlLabel, Menu, MenuItem, Stack, Switch, ToggleButton, ToggleButtonGroup, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { ChartColumnIcon, DownloadIcon, FilterIcon, TableIcon } from "@wso2/oxygen-ui-icons-react";
 import { eaSurfaceSx } from "../../components/eaStyles";
@@ -13,6 +14,21 @@ import CostFilterDialog from "./CostFilterDialog";
 import { describeFilter, FILTER_LABEL } from "./filterOptions";
 import { FILTER_KEYS, filterCount, type FilterKey } from "./costView";
 import { RANGE_PRESETS, rangeFor, rangeProblem, recentYears, type RangePreset } from "./dateRanges";
+
+// A just-added filter chip: three soft rings in the brand colour, then still. Reduced motion gets a plain outline.
+const chipPulse = keyframes`
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--oxygen-palette-primary-main) 55%, transparent); }
+  100% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--oxygen-palette-primary-main) 0%, transparent); }
+`;
+const FLASH_MS = 2200;
+const FLASH_SX = {
+  backgroundColor: "color-mix(in srgb, var(--oxygen-palette-primary-main) 16%, transparent)",
+  outline: "1px solid",
+  outlineColor: "primary.main",
+  animation: `${chipPulse} 700ms ease-out 3`,
+  transition: "background-color 300ms",
+  "@media (prefers-reduced-motion: reduce)": { animation: "none", outlineWidth: 2 },
+} as const;
 
 // The app bar stays on top of the page; a card scrolled to the top must clear it.
 const APP_BAR_CLEARANCE = 80;
@@ -80,7 +96,7 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
         el.scrollIntoView({ block: "start", behavior: calm ? "auto" : "smooth" });
       }
     }
-    const t = setTimeout(() => setFlash(undefined), 1500);
+    const t = setTimeout(() => setFlash(undefined), FLASH_MS);
     return () => clearTimeout(t);
     // Only a new click: the filters it set are read as they stand then.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -160,7 +176,7 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
               key={k}
               size="small"
               data-highlighted={k === flash ? "true" : undefined}
-              sx={k === flash ? { outline: "2px solid", outlineColor: "primary.main", outlineOffset: 1, backgroundColor: "action.selected", transition: "outline-color 300ms, background-color 300ms" } : { transition: "outline-color 300ms, background-color 300ms" }}
+              sx={k === flash ? FLASH_SX : { transition: "background-color 300ms" }}
               label={`${FILTER_LABEL[k]}: ${describeFilter(k, view.filters[k] ?? [], data?.facets)}`} onDelete={() => set({ [k]: undefined })} />
           ))}
         </Stack>
