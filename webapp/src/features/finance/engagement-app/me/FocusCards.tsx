@@ -16,7 +16,7 @@
 
 import type { JSX } from "react";
 import { Box } from "@wso2/oxygen-ui";
-import { localIsoDate } from "@utils/localDate";
+import { localIsoDate, localIsoDateOffset } from "@utils/localDate";
 import type { TravelRequestSummary } from "../api/engagementTypes";
 import { useMyOverview } from "../api/useEngagementApi";
 import { AllocationStatusChip, Mono, TravelStatusChip } from "../components/StatusChips";
@@ -55,15 +55,29 @@ export function AllocationsFocus({ canOpen }: { canOpen: (engagementId: string) 
   );
 }
 
-/** A trip in one of these stays listed after its planned end date until someone marks it Completed. */
+/** A trip in one of these stays listed for a while after its planned end date until someone marks it Completed. */
 const UNDER_WAY: ReadonlySet<string> = new Set(["In Progress", "Extended"]);
 
-/** Trips under way or still to come (at most three, soonest first), above the Travels list; nothing when there are none. */
+/** Days an unclosed In Progress or Extended trip stays listed after its planned end date. */
+const GRACE_DAYS = 30;
+
+/**
+ * Trips under way or still to come (at most three), above the Travels list; nothing when there are none. A trip counts
+ * while its end date is today or later, and an In Progress or Extended one also for 30 days after it. Current trips
+ * come first, then upcoming ones by start date. Older trips nobody closed stay out.
+ */
 export function TravelsFocus({ trips }: { trips: readonly TravelRequestSummary[] }): JSX.Element | null {
   const today = localIsoDate();
+  const graceStart = localIsoDateOffset(-GRACE_DAYS);
+  const current = (t: TravelRequestSummary) => t.start <= today;
   const focus = trips
-    .filter((t) => t.status !== "Cancelled" && t.status !== "Completed" && (UNDER_WAY.has(t.status) || t.end >= today))
-    .sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
+    .filter(
+      (t) =>
+        t.status !== "Cancelled" &&
+        t.status !== "Completed" &&
+        (t.end >= today || (UNDER_WAY.has(t.status) && t.end >= graceStart)),
+    )
+    .sort((a, b) => Number(!current(a)) - Number(!current(b)) || (a.start < b.start ? -1 : a.start > b.start ? 1 : 0))
     .slice(0, MAX);
   if (!focus.length) return null;
   const ongoing = focus.filter((t) => t.start <= today).length;
