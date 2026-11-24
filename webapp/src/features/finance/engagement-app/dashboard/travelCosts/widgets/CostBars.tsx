@@ -46,6 +46,8 @@ export function CostBars({ ctx, dimension, firstColumn, withTrips = false }: { c
         onRowClick={(b) => pick(b.key)}
         canOpen={(b) => Boolean(b.key)}
         empty={null}
+        bare
+
       />
     );
   }

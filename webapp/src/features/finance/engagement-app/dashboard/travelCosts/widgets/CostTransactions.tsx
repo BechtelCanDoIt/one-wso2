@@ -117,6 +117,7 @@ export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Eleme
       ) : d?.kind === "groups" ? (
         <EaTable
           ariaLabel="Transactions by group"
+          bare
           columns={groupColumns}
           rows={d.groups}
           rowKey={(g) => g.key || g.label}
@@ -129,6 +130,7 @@ export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Eleme
       ) : d ? (
         <EaTable
           ariaLabel="Transactions"
+          bare
           columns={LINE_COLUMNS}
           rows={d.items}
           rowKey={(l) => l.id}

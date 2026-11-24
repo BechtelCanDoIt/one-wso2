@@ -16,19 +16,17 @@
 
 import type { Theme } from "@mui/material/styles";
 
-// Dark-mode card separation, taken from the MIS ARR Dashboard's cards (features/finance/mis/components/misLookTokens.ts): the MIS surfaces
-// use `background.paper` with a `divider` border and no shadow in dark (analysisSurfaceSx, dark branch), and its nested filter card a faint
-// white-to-transparent gradient (gradientCardSx, dark branch). Oxygen's outlined card is a translucent navy there, almost the page's own colour,
-// so the cards blended into the page. Light mode is left exactly as it was: every rule below is dark only.
-const paper = "var(--oxygen-palette-background-paper)";
-const rule = "var(--oxygen-palette-divider)";
+// Dark-mode card separation. Oxygen's outlined card is a translucent navy, almost the page's own colour, so cards blended into the page.
+// A navy "paper" fill fixed that but made the page look blue, so separation comes from neutral light instead: a faint white lift on the
+// card and a thin grey rule, and tiles inside a card are flat with only a rule. Light mode is left exactly as it was: every rule is dark only.
 
-/** A card on the page (a widget, the Travel Costs controls): MIS's dark surface. */
-export const eaSurfaceSx = (theme: Theme) => theme.applyStyles("dark", { backgroundColor: paper, borderColor: rule });
+/** A card on the page (a widget, the Travel Costs controls). */
+export const eaSurfaceSx = (theme: Theme) =>
+  theme.applyStyles("dark", { backgroundColor: "rgba(255, 255, 255, 0.025)", backgroundImage: "none", borderColor: "rgba(255, 255, 255, 0.10)" });
 
-/** A tile inside a card: MIS's dark nested tint, so tile-in-card reads as a second level. */
+/** A tile inside a card: flat, outlined only, so tile-in-card reads as a second level without another fill. */
 export const eaNestedSx = (theme: Theme) =>
-  theme.applyStyles("dark", { background: "linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02))", borderColor: rule });
+  theme.applyStyles("dark", { backgroundColor: "transparent", backgroundImage: "none", borderColor: "rgba(255, 255, 255, 0.08)" });
 
 /** Button labels as written (Title Case), never upper-cased, and empty selects' labels centred like text fields'; set on the shell and on every dialog and drawer, which render outside it. */
 export const EA_SCOPE_SX = {

@@ -57,6 +57,13 @@ export interface RowSelection<T> {
 }
 
 
+const BARE_SX = {
+  "& th:first-of-type, & td:first-of-type": { pl: 0 },
+  "& th, & tbody tr td:first-of-type": { whiteSpace: "nowrap" },
+  "& th:last-of-type, & td:last-of-type": { pr: 0 },
+  "& .MuiTableCell-alignRight": { whiteSpace: "nowrap" },
+} as const;
+
 /** The one table every Engagement App list uses. */
 export default function EaTable<T>({
   columns,
@@ -71,6 +78,7 @@ export default function EaTable<T>({
   loading = false,
   pagination,
   ariaLabel,
+  bare = false,
 }: {
   readonly columns: readonly Column<T>[];
   readonly rows: readonly T[];
@@ -85,6 +93,8 @@ export default function EaTable<T>({
   readonly loading?: boolean;
   readonly pagination?: { page: number; pageSize: number; total: number; onPage: (page: number) => void };
   readonly ariaLabel: string;
+  /** Inside a card (a dashboard widget): no box of its own, edges lined up with the card's title, figures kept on one line. */
+  readonly bare?: boolean;
 }): JSX.Element {
   const hasActions = Boolean(primaryAction || menu);
   const colCount = columns.length + (selection ? 1 : 0) + (hasActions ? 1 : 0);
@@ -93,9 +103,9 @@ export default function EaTable<T>({
   const allTicked = selectable.length > 0 && selectable.every((id) => selection?.selected.has(id));
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, overflow: "hidden" }}>
+    <Box sx={bare ? undefined : { border: 1, borderColor: "divider", borderRadius: 1.5, overflow: "hidden" }}>
       <Box sx={{ overflowX: "auto" }}>
-        <Table size="small" aria-label={ariaLabel}>
+        <Table size="small" aria-label={ariaLabel} sx={bare ? BARE_SX : undefined}>
           <TableHead>
             <TableRow sx={TABLE_HEAD_SX}>
               {selection ? (

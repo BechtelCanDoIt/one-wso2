@@ -25,7 +25,7 @@ export default function CostByMonth({ ctx }: { ctx: WidgetCtx }): JSX.Element | 
       ...present.map((s): Column<CostMonth> => ({ key: s, label: COST_SOURCE_LABEL[s], align: "right", render: (m) => usd2(m.values[COST_SOURCE_LABEL[s]] ?? 0) })),
       { key: "total", label: "Total", align: "right", render: (m) => usd2(total(m)) },
     ];
-    return <EaTable ariaLabel="Travel cost by month" columns={columns} rows={data.byMonth} rowKey={(m) => m.month} empty={null} />;
+    return <EaTable ariaLabel="Travel cost by month" columns={columns} rows={data.byMonth} rowKey={(m) => m.month} empty={null} bare />;
   }
   const rows = data.byMonth.map((m) => ({ month: fmtMonth(m.month), ...Object.fromEntries(present.map((s) => [s, m.values[COST_SOURCE_LABEL[s]] ?? 0])) }));
   return <StackedMonths rows={rows} series={present.map((s) => ({ key: s, name: COST_SOURCE_LABEL[s] }))} />;

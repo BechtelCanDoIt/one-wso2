@@ -42,7 +42,7 @@ export function CampaignCoverageWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element
     <>
       <Kpi label="Events With a Campaign ID" value={`${Math.round(c.percent)}%`} note={`${n0(c.withCampaign)} of ${n0(c.total)} events since 90 days ago`} />
       <Typography sx={{ fontSize: 13, fontWeight: 600, color: "text.secondary", my: 1.5 }}>By Creator</Typography>
-      <EaTable ariaLabel="Campaign ID coverage by creator" columns={COLUMNS} rows={c.byCreator} rowKey={(r) => r.creator.email} empty={null} />
+      <EaTable ariaLabel="Campaign ID coverage by creator" columns={COLUMNS} rows={c.byCreator} rowKey={(r) => r.creator.email} empty={null} bare />
     </>
   );
 }
