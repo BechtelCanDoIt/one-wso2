@@ -198,7 +198,7 @@ export interface Allocation {
   readonly canChangeStatus?: boolean;
 }
 
-/** One own allocation on the Me card, My Allocations and the Dashboard's My Work. */
+/** One own allocation on the Me card, and My Allocations. */
 export interface UpcomingAllocation {
   readonly id: string;
   readonly engagementId: string;
@@ -622,7 +622,6 @@ export interface Dashboard {
   readonly marketingEvents?: MarketingEventStats;
   /** Sections the backend could not build; each is omitted from the response. */
   readonly failed: readonly string[];
-  readonly myWork?: { readonly allocations: readonly UpcomingAllocation[]; readonly trips: readonly UpcomingTrip[] };
   readonly queue?: readonly QueueTile[];
   readonly allocationsOverTime?: {
     readonly byMonth: readonly MonthValue[];

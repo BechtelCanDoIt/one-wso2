@@ -3,7 +3,6 @@ import AllocationsOverTimeWidget from "./core/AllocationsOverTimeWidget";
 import AllocationsTodayWidget from "./core/AllocationsTodayWidget";
 import AvailableConsultantsWidget from "./core/AvailableConsultantsWidget";
 import EngagementsWidget from "./core/EngagementsWidget";
-import MyWorkWidget from "./core/MyWorkWidget";
 import TravelWidget from "./core/TravelWidget";
 import WaitingOnYouWidget from "./core/WaitingOnYouWidget";
 import { ByMonthWidget as AmByMonthWidget, ByStatusWidget } from "./stats/AccountManagerWidgets";
@@ -29,7 +28,6 @@ import {
   fundingEmpty,
   kpisEmpty,
   mostAllocatedEmpty,
-  myWorkEmpty,
   overTimeEmpty,
   poAgeEmpty,
   startedWithoutEmpty,
@@ -48,7 +46,6 @@ const NO_COST = "No travel cost in this period.";
 
 /** Every widget, in screen order. The backend's `widgets` list says which a person may see and which are on by default. */
 export const WIDGETS: readonly WidgetDef[] = [
-  { id: "my-work", title: "My Work", size: "full", section: "myWork", group: "core", source: "dashboard", empty: "No allocation or trip coming up.", isEmpty: myWorkEmpty, Component: MyWorkWidget },
   {
     id: "waiting-on-you",
     title: "Waiting on You",

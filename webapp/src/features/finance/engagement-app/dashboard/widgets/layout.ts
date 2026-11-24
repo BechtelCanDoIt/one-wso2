@@ -36,7 +36,6 @@ export function layoutBlocks(defs: readonly WidgetDef[]): LayoutBlock[] {
 export function legacyWidgets(d: Dashboard, today: boolean): WidgetRef[] {
   const on = (id: string, present: boolean): WidgetRef[] => (present ? [{ id, defaultOn: true }] : []);
   return [
-    ...on("my-work", Boolean(d.myWork) || d.failed.includes("myWork")),
     ...on("waiting-on-you", Boolean(d.queue) || d.failed.includes("waitingOnYou")),
     ...on("travel", Boolean(d.travel) || d.failed.includes("travel")),
     ...on("engagements", Boolean(d.engagements) || d.failed.includes("engagements")),

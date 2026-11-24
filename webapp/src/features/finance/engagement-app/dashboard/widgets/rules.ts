@@ -10,7 +10,6 @@ const mgr = (ctx: WidgetCtx) => ctx.dashboard?.engagementManager;
 const acct = (ctx: WidgetCtx) => ctx.dashboard?.accountManager;
 const ev = (ctx: WidgetCtx) => ctx.dashboard?.marketingEvents;
 
-export const myWorkEmpty = (ctx: WidgetCtx): boolean => !ctx.dashboard?.myWork;
 export const waitingEmpty = (ctx: WidgetCtx): boolean => !ctx.dashboard?.queue?.length;
 export const waitingNote = (ctx: WidgetCtx): string | undefined => {
   const q = ctx.dashboard?.queue ?? [];

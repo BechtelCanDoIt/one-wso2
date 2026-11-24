@@ -88,7 +88,7 @@ describe("widgetState for a widget that runs its own queries", () => {
 
 describe("extraSections", () => {
   const allowed = [
-    { id: "my-work", defaultOn: true },
+    { id: "waiting-on-you", defaultOn: true },
     { id: "tt-glance", defaultOn: true },
     { id: "tt-frequent", defaultOn: false },
     { id: "ev-by-month", defaultOn: false },
@@ -96,11 +96,11 @@ describe("extraSections", () => {
   ];
 
   it("asks only for sections no default-on widget already brings", () => {
-    expect(extraSections(allowed, ["my-work", "tt-frequent", "ev-by-month", "tc-lines"], sectionOfWidget)).toEqual(["marketingEvents"]);
+    expect(extraSections(allowed, ["waiting-on-you", "tt-frequent", "ev-by-month", "tc-lines"], sectionOfWidget)).toEqual(["marketingEvents"]);
   });
 
   it("asks for nothing when nothing extra is on", () => {
-    expect(extraSections(allowed, ["my-work"], sectionOfWidget)).toEqual([]);
+    expect(extraSections(allowed, ["waiting-on-you"], sectionOfWidget)).toEqual([]);
   });
 
   it("asks once for a section behind several widgets", () => {
@@ -110,7 +110,7 @@ describe("extraSections", () => {
 });
 
 describe("mergeDashboards", () => {
-  const base: Dashboard = { failed: ["travel"], widgets: [{ id: "a", defaultOn: true }], myWork: { allocations: [], trips: [] } };
+  const base: Dashboard = { failed: ["travel"], widgets: [{ id: "a", defaultOn: true }], queue: [] };
 
   it("returns the default when there is nothing extra", () => {
     expect(mergeDashboards(base, undefined)).toBe(base);
@@ -120,7 +120,7 @@ describe("mergeDashboards", () => {
     const extra: Dashboard = { failed: ["marketingEvents"], marketingEvents: { byMonth: [], byRegion: [], fundingByBusinessUnit: [] } };
     const merged = mergeDashboards(base, extra)!;
     expect(merged.marketingEvents).toBeDefined();
-    expect(merged.myWork).toBe(base.myWork);
+    expect(merged.queue).toBe(base.queue);
     expect(merged.failed).toEqual(["travel", "marketingEvents"]);
     expect(merged.widgets).toBe(base.widgets);
   });

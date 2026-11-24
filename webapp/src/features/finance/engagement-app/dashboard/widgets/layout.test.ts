@@ -24,11 +24,11 @@ const shape = (defs: WidgetDef[]) => layoutBlocks(defs).map((b) => (b.kind === "
 
 describe("layoutBlocks", () => {
   it("puts full widgets on their own and runs of half widgets side by side", () => {
-    expect(shape(ids("my-work", "engagements", "available-consultants", "allocations-today"))).toEqual(["my-work", "engagements+available-consultants", "allocations-today"]);
+    expect(shape(ids("waiting-on-you", "engagements", "available-consultants", "allocations-today"))).toEqual(["waiting-on-you", "engagements+available-consultants", "allocations-today"]);
   });
 
   it("adds the controls once, above the first Travel Costs widget", () => {
-    expect(shape(ids("my-work", "tc-source", "tc-month", "tc-kpis"))).toEqual(["my-work", "controls", "tc-source+tc-month", "tc-kpis"]);
+    expect(shape(ids("waiting-on-you", "tc-source", "tc-month", "tc-kpis"))).toEqual(["waiting-on-you", "controls", "tc-source+tc-month", "tc-kpis"]);
   });
 
   it("adds the controls for Transactions alone", () => {
@@ -68,7 +68,7 @@ describe("legacyWidgets", () => {
 describe("registry", () => {
   it("has a unique id per widget, in catalogue order, and every widget has a heading and an empty text", () => {
     expect(new Set(WIDGET_IDS).size).toBe(WIDGETS.length);
-    expect(WIDGET_IDS.slice(0, 3)).toEqual(["my-work", "waiting-on-you", "tc-kpis"]);
+    expect(WIDGET_IDS.slice(0, 2)).toEqual(["waiting-on-you", "tc-kpis"]);
     for (const w of WIDGETS) {
       expect(w.title).not.toBe("");
       expect(w.empty).not.toBe("");

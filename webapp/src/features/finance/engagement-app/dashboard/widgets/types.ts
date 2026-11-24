@@ -23,7 +23,6 @@ import type { CostView, CostViewPatch, FilterKey } from "../travelCosts/costView
 
 /** The dashboard sections `GET /dashboard?sections=` takes. */
 export type DashboardSectionKey =
-  | "myWork"
   | "waitingOnYou"
   | "travel"
   | "travelTeam"

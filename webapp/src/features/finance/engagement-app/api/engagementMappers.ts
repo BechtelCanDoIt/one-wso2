@@ -547,9 +547,6 @@ const bucket = (b: W.WBucket): V.CountRow => ({ label: b.label, count: b.value }
 const series = (rows: W.WSeriesPoint[], key: string): V.MonthValue[] => rows.map((r) => ({ month: r.month, value: r.values[key] ?? 0 }));
 
 export function dashboard(d: W.WDashboard): V.Dashboard {
-  const mw = d.myWork;
-  const myAllocations = [mw?.currentAllocation, mw?.nextAllocation].filter((a): a is W.WAllocationSummary => Boolean(a)).map(upcomingAllocation);
-  const myTrips = (mw?.nextTrips ?? []).map(upcomingTrip);
   return {
     failed: d.failedSections ?? [],
     widgets: DM.widgetRefs(d.widgets),
@@ -557,7 +554,6 @@ export function dashboard(d: W.WDashboard): V.Dashboard {
     engagementManager: d.engagementManager ? DM.engagementManager(d.engagementManager) : undefined,
     accountManager: d.accountManager ? DM.accountManager(d.accountManager) : undefined,
     marketingEvents: d.marketingEvents ? DM.marketingEvents(d.marketingEvents) : undefined,
-    myWork: mw && (myAllocations.length || myTrips.length) ? { allocations: myAllocations, trips: myTrips } : undefined,
     queue: d.waitingOnYou?.map((c) => ({ key: c.key, label: c.label, count: c.count, highlighted: c.highlighted, to: c.list.path || undefined })),
     allocationsOverTime: d.allocationsOverTime
       ? { byMonth: series(d.allocationsOverTime.byMonth, "Allocations"), byBusinessUnit: d.allocationsOverTime.byBusinessUnit.map(bucket) }

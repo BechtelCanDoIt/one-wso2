@@ -21,7 +21,7 @@ import ManageWidgetsDialog from "./ManageWidgetsDialog";
 import { DEFAULT_PREFS, type WidgetPrefs } from "./widgetPrefs";
 
 const allowed = [
-  { id: "my-work", defaultOn: true },
+  { id: "waiting-on-you", defaultOn: true },
   { id: "tc-source", defaultOn: true },
   { id: "tc-lines", defaultOn: false },
 ];
@@ -35,32 +35,32 @@ describe("ManageWidgetsDialog", () => {
   it("lists the allowed widgets under their groups, with checkboxes named by title", () => {
     render(<Harness />);
     expect(screen.getByRole("region", { name: "Travel Costs" })).toBeTruthy();
-    expect((screen.getByRole("checkbox", { name: "My Work" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("checkbox", { name: "Waiting on You" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Transactions" }) as HTMLInputElement).checked).toBe(false);
     expect(screen.queryByRole("checkbox", { name: "Travel Agent Comparison" })).toBeNull();
   });
 
   it("turns a widget off and on", () => {
     render(<Harness />);
-    fireEvent.click(screen.getByRole("checkbox", { name: "My Work" }));
-    expect((screen.getByRole("checkbox", { name: "My Work" }) as HTMLInputElement).checked).toBe(false);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Waiting on You" }));
+    expect((screen.getByRole("checkbox", { name: "Waiting on You" }) as HTMLInputElement).checked).toBe(false);
     fireEvent.click(screen.getByRole("checkbox", { name: "Transactions" }));
     expect((screen.getByRole("checkbox", { name: "Transactions" }) as HTMLInputElement).checked).toBe(true);
   });
 
   it("pins a widget with a toggle button that says so", () => {
     render(<Harness />);
-    const pin = screen.getByRole("button", { name: "Pin My Work to the top" });
+    const pin = screen.getByRole("button", { name: "Pin Waiting on You to the top" });
     expect(pin.getAttribute("aria-pressed")).toBe("false");
     fireEvent.click(pin);
-    expect(screen.getByRole("button", { name: "Pin My Work to the top" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "Pin Waiting on You to the top" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("resets to the defaults", () => {
-    render(<Harness start={{ ...DEFAULT_PREFS, hidden: ["my-work"], shown: ["tc-lines"], pinned: ["tc-source"] }} />);
-    expect((screen.getByRole("checkbox", { name: "My Work" }) as HTMLInputElement).checked).toBe(false);
+    render(<Harness start={{ ...DEFAULT_PREFS, hidden: ["waiting-on-you"], shown: ["tc-lines"], pinned: ["tc-source"] }} />);
+    expect((screen.getByRole("checkbox", { name: "Waiting on You" }) as HTMLInputElement).checked).toBe(false);
     fireEvent.click(screen.getByRole("button", { name: "Reset to Default" }));
-    expect((screen.getByRole("checkbox", { name: "My Work" }) as HTMLInputElement).checked).toBe(true);
+    expect((screen.getByRole("checkbox", { name: "Waiting on You" }) as HTMLInputElement).checked).toBe(true);
     expect((screen.getByRole("checkbox", { name: "Transactions" }) as HTMLInputElement).checked).toBe(false);
     const group = screen.getByRole("region", { name: "Travel Costs" });
     expect(within(group).getByRole("button", { name: "Pin Spend by Source to the top" }).getAttribute("aria-pressed")).toBe("false");

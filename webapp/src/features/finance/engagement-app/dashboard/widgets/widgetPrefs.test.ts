@@ -96,6 +96,12 @@ describe("visibleIds", () => {
     expect(visibleIds(allowed, { ...DEFAULT_PREFS, hidden: ["zzz"], shown: ["old-widget"] })).toEqual(["a", "b"]);
   });
 
+  it("ignores a saved choice that names the removed my-work widget", () => {
+    const saved = parsePrefs(JSON.stringify({ v: 1, hidden: ["my-work", "a"], shown: ["my-work"], pinned: ["my-work", "b"] }));
+    expect(visibleIds(allowed, saved)).toEqual(["b"]);
+    expect(orderWidgets(visibleIds(allowed, saved), saved.pinned, ["a", "b", "c"])).toEqual(["b"]);
+  });
+
   it("does not show a widget the person may not see even if they once turned it on", () => {
     expect(visibleIds([{ id: "a", defaultOn: true }], { ...DEFAULT_PREFS, shown: ["c"] })).toEqual(["a"]);
   });

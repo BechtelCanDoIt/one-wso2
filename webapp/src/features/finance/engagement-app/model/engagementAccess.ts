@@ -226,7 +226,7 @@ export function engagementAccess(info: UserInfo | undefined): EngagementAccess {
     myAllocations: a.has(ALLOC.DASHBOARD) || t.has(TRAVEL.MY_TRAVEL_REQUESTS),
   };
   // The Dashboard (Allocations 1, which every employee holds) only for someone with another Finance screen. A plain
-  // employee's Dashboard would show only My Work, which Me already covers, so the Engagement App stays out of their
+  // employee's Dashboard would hold nothing that Me does not already cover, so the Engagement App stays out of their
   // Finance menu. Agents get their own dashboard.
   const otherFinance =
     base.approvals || base.engagements || base.allocations || base.travelRequests || base.invoices || base.reports || base.visasDocuments || base.settings;

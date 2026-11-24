@@ -67,14 +67,14 @@ describe("WidgetFrame", () => {
 
   it("retries the dashboard for a widget whose section failed", () => {
     const c = ctx({ section: () => ({ status: "failed" }) });
-    frame("my-work", c);
+    frame("waiting-on-you", c);
     fireEvent.click(screen.getByRole("button", { name: /retry/i }));
-    expect(c.retry).toHaveBeenCalledWith("myWork");
+    expect(c.retry).toHaveBeenCalledWith("waitingOnYou");
   });
 
   it("shows its empty text", () => {
-    frame("my-work", ctx({ dashboard: { failed: [] } }));
-    expect(screen.getByText("No allocation or trip coming up.")).toBeTruthy();
+    frame("waiting-on-you", ctx({ dashboard: { failed: [] } }));
+    expect(screen.getByText("Nothing is waiting on you right now.")).toBeTruthy();
   });
 
   it("dims its body while a newer answer loads", () => {
@@ -113,8 +113,8 @@ describe("WidgetFrame", () => {
   });
 
   it("says Unpin for a pinned widget and has no Export CSV where there is nothing to export", () => {
-    frame("my-work", ctx({ dashboard: { failed: [] } }), { pinned: true });
-    fireEvent.click(screen.getByRole("button", { name: "More actions for My Work" }));
+    frame("waiting-on-you", ctx({ dashboard: { failed: [] } }), { pinned: true });
+    fireEvent.click(screen.getByRole("button", { name: "More actions for Waiting on You" }));
     expect(screen.getByRole("menuitem", { name: "Unpin" })).toBeTruthy();
     expect(screen.queryByRole("menuitem", { name: "Export CSV" })).toBeNull();
   });

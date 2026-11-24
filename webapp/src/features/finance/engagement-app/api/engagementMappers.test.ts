@@ -38,8 +38,8 @@ describe("tripExpenses", () => {
 
 describe("dashboard", () => {
   it("maps the widgets list and leaves it absent for an older backend", () => {
-    expect(dashboard({ widgets: [{ id: "my-work", defaultOn: true }, { id: "tc-lines", defaultOn: false }] }).widgets).toEqual([
-      { id: "my-work", defaultOn: true },
+    expect(dashboard({ widgets: [{ id: "waiting-on-you", defaultOn: true }, { id: "tc-lines", defaultOn: false }] }).widgets).toEqual([
+      { id: "waiting-on-you", defaultOn: true },
       { id: "tc-lines", defaultOn: false },
     ]);
     expect(dashboard({}).widgets).toBeUndefined();

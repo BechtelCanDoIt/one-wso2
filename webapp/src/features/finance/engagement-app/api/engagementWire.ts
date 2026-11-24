@@ -210,13 +210,6 @@ export interface WDashboard {
   engagementManager?: WEngagementManager;
   accountManager?: WAccountManager;
   marketingEvents?: WMarketingEvents;
-  myWork?: {
-    currentAllocation?: WAllocationSummary | null;
-    nextAllocation?: WAllocationSummary | null;
-    todayTeamAllocation?: WTimelineItem | null;
-    nextTrips?: WDashboardTrip[];
-    upcomingTripCount?: number;
-  };
   waitingOnYou?: WCountCard[];
   travel?: {
     inProgress: number;
