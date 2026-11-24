@@ -9,7 +9,7 @@ import type { CostCsvSection } from "../widgets/types";
 
 const FILE_PART: Readonly<Record<CostCsvSection | "summary", string>> = {
   summary: "Summary",
-  kpis: "Summary_Figures",
+  kpis: "Key_Figures",
   bySource: "By_Source",
   byMonth: "By_Month",
   byCountry: "By_Country",

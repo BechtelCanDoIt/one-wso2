@@ -58,6 +58,7 @@ describe("CSV downloads", () => {
   it("names the file Travel_Costs_<Section>_<from>_<to>.csv", () => {
     expect(costCsvName("summary", { from: "2026-01-01", to: "2026-11-24" })).toBe("Travel_Costs_Summary_2026-01-01_2026-11-24.csv");
     expect(costCsvName("byCountry", { from: "2026-01-01", to: "2026-11-24" })).toBe("Travel_Costs_By_Country_2026-01-01_2026-11-24.csv");
+    expect(costCsvName("kpis", { from: "2026-01-01", to: "2026-11-24" })).toBe("Travel_Costs_Key_Figures_2026-01-01_2026-11-24.csv");
   });
 
   it("asks the summary endpoint for a section and the transactions endpoint for every line", () => {

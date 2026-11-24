@@ -17,7 +17,7 @@
 import type { CostSource, NotConverted } from "../api/engagementTypes";
 import { money } from "../model/format";
 
-/** The hint beside every Travel Cost heading, and the first line of every cost CSV. */
+/** The hint beside every Travel Cost heading, (the CSVs carry a short version in their header block). */
 export const USD_RATE_HINT =
   "Amounts recorded in USD, and card charges billed in USD, are used as they are. Other currencies are converted at NetSuite's month-end rate (today's rate for the current month).";
 
