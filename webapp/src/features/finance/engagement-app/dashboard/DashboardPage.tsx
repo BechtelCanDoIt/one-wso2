@@ -211,7 +211,7 @@ function TravelCost({ d }: { d: Dashboard }): JSX.Element {
 function Travel({ d }: { d: Dashboard }): JSX.Element {
   const t = d.travel!;
   return (
-    <Section title="Travel" sub="Trips in progress, what is coming up, and how travel has moved over the year.">
+    <Section title="Travel" sub="Trips in progress, starting soon, and how travel has moved over the year.">
       <KpiRow>
         <Kpi label="Trips In Progress" value={n0(t.inProgress)} note="Travelling today" />
         <Kpi label="Starting in 30 Days" value={n0(t.startingIn30Days)} />
@@ -219,39 +219,16 @@ function Travel({ d }: { d: Dashboard }): JSX.Element {
         <Kpi label="Trips in 12 Months" value={n0(t.tripsIn12Months)} />
       </KpiRow>
       <Grid>
-        <Mini title="Upcoming Trips" aside={t.upcomingTotal > 5 ? <ViewAll to={engagementPaths.travelRequests("in-progress")} /> : undefined}>
-          {t.upcoming.length ? (
-            t.upcoming.slice(0, 5).map((x) => (
-              <DateRow
-                key={x.jobNumber}
-                date={x.start}
-                title={x.traveller.name}
-                lines={[`${place(x.country, x.city)}, ${fmtRange(x.start, x.end)}`, x.travelAgent || "No travel agent yet"]}
-                right={
-                  <>
-                    {x.status ? <TravelStatusChip status={x.status} /> : null}
-                    <Mono>{x.jobNumber}</Mono>
-                  </>
-                }
-                to={engagementPaths.travelRequest(x.jobNumber)}
-              />
-            ))
-          ) : (
-            <Calm>No trips coming up.</Calm>
-          )}
-        </Mini>
         <Mini title="Top Destinations">
           <HBars rows={t.topDestinations} max={6} />
-        </Mini>
-      </Grid>
-      <Grid>
-        <Mini title="Trips by Month">
-          <MonthColumns rows={t.byMonth} name="Trips" />
         </Mini>
         <Mini title="Trips by Travel Agent">
           <HBars rows={t.byTravelAgent} percent />
         </Mini>
       </Grid>
+      <Mini title="Trips by Month">
+        <MonthColumns rows={t.byMonth} name="Trips" />
+      </Mini>
     </Section>
   );
 }
