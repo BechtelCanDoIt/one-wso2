@@ -15,7 +15,7 @@
 
 import type { ReactNode } from "react";
 import { AMPLIFY_BAR } from "../config/themeConfig";
-import { Box, Chip, Skeleton, Typography } from "@wso2/oxygen-ui";
+import { Box, Checkbox, Chip, FormControlLabel, Skeleton, Typography } from "@wso2/oxygen-ui";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { HttpError } from "@api/http";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
@@ -172,6 +172,29 @@ export function PriorityPill() {
     <Box component="span" sx={{ ml: 1, display: "inline-block" }}>
       <StateChip label="Priority" tone="primary" />
     </Box>
+  );
+}
+
+/** The Archived pill after a post title: the post was deleted from the Posts page but still counts here. */
+export function ArchivedPill() {
+  return (
+    <Box component="span" sx={{ ml: 1, display: "inline-block" }}>
+      <StateChip label="Archived" tone="default" />
+    </Box>
+  );
+}
+
+/**
+ * The "Include archived posts" checkbox above a board. Ticked, the summary cards count archived posts too;
+ * the post lists show them (with the Archived pill) either way.
+ */
+export function IncludeArchivedToggle({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
+  return (
+    <FormControlLabel
+      sx={{ m: 0, mb: 1 }}
+      control={<Checkbox size="small" checked={checked} onChange={(e) => onChange(e.target.checked)} />}
+      label={<Typography variant="body2">Include archived posts</Typography>}
+    />
   );
 }
 

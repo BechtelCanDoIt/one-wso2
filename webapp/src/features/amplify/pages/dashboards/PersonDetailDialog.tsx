@@ -21,7 +21,7 @@ import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useDashboardPerson } from "../../api/useAmplifyDashboards";
 import { usePersonLookup, type PersonRef } from "../../api/usePersonLookup";
-import { Empty, PriorityPill, SectionLabel } from "../../components/DashboardParts";
+import { ArchivedPill, Empty, PriorityPill, SectionLabel } from "../../components/DashboardParts";
 import RepostGrid from "../../components/RepostGrid";
 import { num, windowText } from "../../util/dashboardFormat";
 
@@ -134,6 +134,7 @@ export default function PersonDetailDialog({
                                 p.title
                               )}
                               {p.isPriority && <PriorityPill />}
+                              {p.archived && <ArchivedPill />}
                             </TableCell>
                             <TableCell>{p.categoryLabel}</TableCell>
                             <TableCell>{windowText(p.opensAt, p.closesAt)}</TableCell>

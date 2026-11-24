@@ -20,11 +20,12 @@ import { Box, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography
 import type { DashboardCampaignRow, DashboardOperations } from "../../api/amplifyTypes";
 import { useDashboardOperations } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
-import { Block, BoardState, Empty, PriorityPill, StackedBar, StatCard, StateChip } from "../../components/DashboardParts";
+import { ArchivedPill, Block, BoardState, Empty, IncludeArchivedToggle, PriorityPill, StackedBar, StatCard, StateChip } from "../../components/DashboardParts";
 import PostLink from "../../components/PostLink";
 import { useAmplifyGrant } from "../../api/useAmplifyEditorAccess";
 import { useRetryAnnouncement, useSendAnnouncement } from "../../api/useAmplifyMutations";
 import { describeAmplifyError } from "../../util/amplifyError";
+import { useIncludeArchived } from "../../util/includeArchived";
 import { announcementLabel, commentedReposts, plainReposts, updatedStamp, deltaText, num, percentOf, windowText } from "../../util/dashboardFormat";
 
 const ANNOUNCEMENT_TONE = { SENT: "info", QUEUED: "warning", FAILED: "error", NONE: "default" } as const;
@@ -202,6 +203,7 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
                     <TableCell>
                       <PostLink campaignId={p.campaignId}>{p.title}</PostLink>
                       {p.isPriority && <PriorityPill />}
+                      {p.archived && <ArchivedPill />}
                     </TableCell>
                     <TableCell>{p.categoryLabel}</TableCell>
                     <TableCell>{windowText(p.opensAt, p.closesAt)}</TableCell>
@@ -222,9 +224,11 @@ export function OperationsBoard({ data }: { data: DashboardOperations }) {
 }
 
 export default function OperationsPage() {
-  const q = useDashboardOperations();
+  const [includeArchived, setIncludeArchived] = useIncludeArchived();
+  const q = useDashboardOperations(includeArchived);
   return (
     <AmplifyShell title="Operations" subtitle="What's live, who's sharing, and whether anything is stuck.">
+      <IncludeArchivedToggle checked={includeArchived} onChange={setIncludeArchived} />
       <BoardState queries={[q]}>{q.data && <OperationsBoard data={q.data} />}</BoardState>
     </AmplifyShell>
   );
