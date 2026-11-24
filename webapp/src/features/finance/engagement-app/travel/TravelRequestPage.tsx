@@ -30,7 +30,7 @@ import EaPage from "../components/EaPage";
 import EaTable from "../components/EaTable";
 import { FactsCard, FactsGrid } from "../components/Facts";
 import { Empty, Failed, ListCard, SectionTitle } from "../components/ListCard";
-import { TravelStatusChip, Two, Mono } from "../components/StatusChips";
+import { ExpenseStatusChip, TravelStatusChip, Two, Mono } from "../components/StatusChips";
 import { engagementPaths, myEngagementPaths, type TravelTab } from "../engagementPaths";
 import { TRAVEL } from "../model/engagementAccess";
 import { engagementName, fmtDate, fmtDateTime, fmtRange, money, place } from "../model/format";
@@ -349,7 +349,7 @@ function CardExpensesTab({ rows }: { rows: readonly CardExpense[] }): JSX.Elemen
         { key: "d", label: "Date", render: (c: CardExpense) => (c.date ? fmtDate(c.date) : "—") },
         { key: "t", label: "Expense Type", render: (c: CardExpense) => <Two main={c.expenseType ?? "—"} sub={c.reference} /> },
         { key: "e", label: "Employee", render: (c: CardExpense) => c.employee ?? "—" },
-        { key: "s", label: "Status", render: (c: CardExpense) => c.status },
+        { key: "s", label: "Status", render: (c: CardExpense) => <ExpenseStatusChip status={c.status} /> },
         { key: "a", label: "Amount", align: "right", render: (c: CardExpense) => money(c.amount, c.currency) },
       ]}
       rows={rows}
@@ -368,7 +368,7 @@ function ExpenseClaimsTab({ rows }: { rows: readonly ExpenseClaim[] }): JSX.Elem
         { key: "d", label: "Date", render: (c: ExpenseClaim) => (c.date ? fmtDate(c.date) : "—") },
         { key: "n", label: "Claim", render: (c: ExpenseClaim) => <Two main={c.expenseType ?? "—"} sub={c.claimNumber ? `Claim ${c.claimNumber}` : undefined} /> },
         { key: "e", label: "Employee", render: (c: ExpenseClaim) => c.employee ?? "—" },
-        { key: "s", label: "Status", render: (c: ExpenseClaim) => c.status },
+        { key: "s", label: "Status", render: (c: ExpenseClaim) => <ExpenseStatusChip status={c.status} /> },
         { key: "a", label: "Amount", align: "right", render: (c: ExpenseClaim) => money(c.amount, c.currency) },
         { key: "r", label: "Reimbursement", align: "right", render: (c: ExpenseClaim) => money(c.reimbursementAmount, c.reimbursementCurrency) },
       ]}

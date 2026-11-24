@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Chips for real statuses only: request, engagement, allocation, travel, invoice, payment, NetSuite and document status.
+// Chips for real statuses only: request, engagement, allocation, travel, expense, invoice, payment, NetSuite and document status.
 
 import type { JSX } from "react";
 import { Box, Typography } from "@wso2/oxygen-ui";
@@ -30,6 +30,7 @@ import type {
 import {
   allocationTone,
   engagementTone,
+  expenseTone,
   financeApproval,
   invoiceTone,
   poApproval,
@@ -51,6 +52,7 @@ export const AllocationStatusChip = ({ status }: { status: AllocationStatus }) =
   <Status label={status} tone={allocationTone(status)} />
 );
 export const TravelStatusChip = ({ status }: { status: TravelStatus }) => <Status label={status} tone={travelTone(status)} />;
+export const ExpenseStatusChip = ({ status }: { status: string }) => <Status label={status} tone={expenseTone(status)} />;
 export const InvoiceStatusChip = ({ invoice }: { invoice: Pick<Invoice, "status"> }) => (
   <Status label={invoice.status} tone={invoiceTone(invoice.status)} />
 );

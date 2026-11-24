@@ -28,6 +28,19 @@ import type {
 
 export type ChipTone = "success" | "error" | "warning" | "info" | "default";
 
+const EXPENSE_TONE: Readonly<Record<string, ChipTone>> = {
+  New: "default",
+  "Pending Lead": "warning",
+  "Pending Finance": "warning",
+  Submitted: "success",
+  "Pending Approval": "warning",
+  "Lead Approved": "info",
+  Approved: "success",
+  Rejected: "error",
+};
+/** A credit card expense's or an expense claim's status (as the mapper words it). */
+export const expenseTone = (status: string): ChipTone => EXPENSE_TONE[status] ?? "default";
+
 export const REQUEST_STATUSES: readonly RequestStatus[] = [
   "Pending Approval",
   "New",
