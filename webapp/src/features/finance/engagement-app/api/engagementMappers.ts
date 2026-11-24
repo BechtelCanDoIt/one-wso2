@@ -548,6 +548,7 @@ const series = (rows: W.WSeriesPoint[], key: string): V.MonthValue[] => rows.map
 
 export function dashboard(d: W.WDashboard): V.Dashboard {
   return {
+    date: d.date,
     failed: d.failedSections ?? [],
     widgets: DM.widgetRefs(d.widgets),
     travelTeam: d.travelTeam ? DM.travelTeam(d.travelTeam) : undefined,

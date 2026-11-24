@@ -117,9 +117,12 @@ export default function DashboardPage(): JSX.Element {
   }
   const d = dashboard.data;
   if (d.agency) return <AgentDashboard d={d} />;
+  // One "today": the date the backend computed for (UTC), not a second one from the browser clock.
+  const businessDate = d.date ?? today;
 
   const ctx: WidgetCtx = {
     today,
+    businessDate,
     dashboard: merged,
     section,
     // Each widget retries the query that owns its section: the base call for the default ones, the extra call for the others.
@@ -141,7 +144,7 @@ export default function DashboardPage(): JSX.Element {
   return (
     <EaPage
       title="Dashboard"
-      subtitle={`Welcome back${first ? `, ${first}` : ""}. Here is where engagements, allocations and travel stand on ${fmtDate(today)}.`}
+      subtitle={`Welcome back${first ? `, ${first}` : ""}. Here is where engagements, allocations and travel stand on ${fmtDate(businessDate)}.`}
       actions={
         allowed.length ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>

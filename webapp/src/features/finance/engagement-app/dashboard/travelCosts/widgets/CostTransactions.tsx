@@ -1,5 +1,5 @@
 
-import { useState, type JSX } from "react";
+import { useEffect, useState, type JSX } from "react";
 import { Box, Stack } from "@wso2/oxygen-ui";
 import type { CostGroup, CostLine } from "../../../api/dashboardTypes";
 import { useTravelCostTransactions } from "../../../api/useEngagementApi";
@@ -13,7 +13,7 @@ import type { WidgetCtx } from "../../widgets/types";
 import { COST_SOURCE_LABEL } from "../../travelCostText";
 import { monthWithin } from "../dateRanges";
 import { deltaCell, originalText, PAID_LABEL, PAID_TONE, rateSourceText, usd2 } from "../costFormat";
-import { GROUPS, PAGE_SIZE, transactionParams, type CostSort, type FilterKey, type GroupBy } from "../costView";
+import { clampPage, GROUPS, PAGE_SIZE, transactionParams, type CostSort, type FilterKey, type GroupBy } from "../costView";
 import TransactionDrawer from "./TransactionDrawer";
 
 const GROUP_LABEL: Readonly<Record<GroupBy, string>> = {
@@ -80,7 +80,12 @@ export default function CostTransactions({ ctx }: { ctx: WidgetCtx }): JSX.Eleme
         ]
       : []),
   ];
-  const pagination = d && d.total > PAGE_SIZE ? { page: view.page, pageSize: PAGE_SIZE, total: d.total, onPage: (p: number) => set({ tcPage: p > 0 ? String(p) : undefined }) } : undefined;
+  // A page past the end (an old link, a filter that left fewer rows) goes to the last page instead of showing "No transactions".
+  const page = d ? clampPage(view.page, d.total) : view.page;
+  useEffect(() => {
+    if (d && page !== view.page) set({ tcPage: page > 0 ? String(page) : undefined });
+  }, [d, page, view.page, set]);
+  const pagination = d && d.total > PAGE_SIZE ? { page, pageSize: PAGE_SIZE, total: d.total, onPage: (p: number) => set({ tcPage: p > 0 ? String(p) : undefined }) } : undefined;
 
   return (
     <>

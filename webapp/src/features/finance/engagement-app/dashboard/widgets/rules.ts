@@ -21,7 +21,7 @@ export const overTimeEmpty = (ctx: WidgetCtx): boolean => !ctx.dashboard?.alloca
 export const allocationsTodayHeading = (ctx: WidgetCtx): string =>
   ctx.allocationsToday.date ? `Allocations on ${fmtDate(ctx.allocationsToday.query.data?.date ?? ctx.allocationsToday.date)}` : "Allocations Today";
 export const allocationsTodayNote = (ctx: WidgetCtx): string => {
-  const on = ctx.allocationsToday.query.data?.date ?? (ctx.allocationsToday.date || ctx.today);
+  const on = ctx.allocationsToday.query.data?.date ?? (ctx.allocationsToday.date || ctx.businessDate);
   return `Everyone allocated on ${fmtDate(on)}${ctx.allocationsToday.businessUnit ? ` in ${ctx.allocationsToday.businessUnit}` : ", across every business unit"}.`;
 };
 
@@ -44,22 +44,22 @@ export const eventsByRegionEmpty = (ctx: WidgetCtx): boolean => !ev(ctx)?.byRegi
 export const fundingEmpty = (ctx: WidgetCtx): boolean => !ev(ctx)?.fundingByBusinessUnit?.length;
 export const campaignEmpty = (ctx: WidgetCtx): boolean => !ev(ctx)?.campaignCoverage?.total;
 
-// Whether the part a role widget reads came back. The backend leaves out a part the caller may not see.
+// Whether the part a role widget reads came back. The backend leaves out a part the caller may not see, and sends a list part as [] when it is visible but empty. To be safe against an older backend that drops an empty list, a list widget counts as present when its section came back (the widgets list already limits what the caller sees) and then shows its empty message.
 export const PRESENT = {
   "tt-glance": (ctx: WidgetCtx): boolean => Boolean(team(ctx)?.awayThisWeek && team(ctx)?.endedNotCompleted !== undefined && team(ctx)?.poQueue),
   "tt-po-age": (ctx: WidgetCtx): boolean => Boolean(team(ctx)?.poQueue?.byAge),
-  "tt-frequent": (ctx: WidgetCtx): boolean => Boolean(team(ctx)?.frequentTravellers),
-  "tt-agent-workload": (ctx: WidgetCtx): boolean => Boolean(team(ctx)?.agentWorkload),
+  "tt-frequent": (ctx: WidgetCtx): boolean => team(ctx) !== undefined,
+  "tt-agent-workload": (ctx: WidgetCtx): boolean => team(ctx) !== undefined,
   "em-no-consultants": (ctx: WidgetCtx): boolean => Boolean(mgr(ctx)?.withoutConsultants),
   "em-starting-14": (ctx: WidgetCtx): boolean => Boolean(mgr(ctx)?.startingIn14Days),
-  "em-most-allocated": (ctx: WidgetCtx): boolean => Boolean(mgr(ctx)?.mostAllocated),
+  "em-most-allocated": (ctx: WidgetCtx): boolean => mgr(ctx) !== undefined,
   "em-top-customers": (ctx: WidgetCtx): boolean => Boolean(mgr(ctx)?.topCustomers),
   "am-started-no-consultants": (ctx: WidgetCtx): boolean => Boolean(acct(ctx)?.startedWithoutConsultants),
-  "am-by-status": (ctx: WidgetCtx): boolean => Boolean(acct(ctx)?.byStatus),
+  "am-by-status": (ctx: WidgetCtx): boolean => acct(ctx) !== undefined,
   "am-by-month": (ctx: WidgetCtx): boolean => Boolean(acct(ctx)?.byMonth),
   "ev-by-month": (ctx: WidgetCtx): boolean => Boolean(ev(ctx)?.byMonth),
-  "ev-by-region": (ctx: WidgetCtx): boolean => Boolean(ev(ctx)?.byRegion),
-  "ev-funding-bu": (ctx: WidgetCtx): boolean => Boolean(ev(ctx)?.fundingByBusinessUnit),
+  "ev-by-region": (ctx: WidgetCtx): boolean => ev(ctx) !== undefined,
+  "ev-funding-bu": (ctx: WidgetCtx): boolean => ev(ctx) !== undefined,
   "ev-campaign": (ctx: WidgetCtx): boolean => ev(ctx)?.campaignCoverage !== undefined,
 } as const;
 

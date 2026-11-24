@@ -72,6 +72,8 @@ export interface AllocationsTodayCtx {
 /** Everything a widget may need, built once by the dashboard page. */
 export interface WidgetCtx {
   readonly today: string;
+  /** The backend's business date (UTC), the one "today" of Allocations Today and the page header; the browser's own date until the dashboard has loaded. */
+  readonly businessDate: string;
   /** The default sections and any a person turned on, merged. */
   readonly dashboard?: Dashboard;
   readonly section: (key: DashboardSectionKey) => SectionState;

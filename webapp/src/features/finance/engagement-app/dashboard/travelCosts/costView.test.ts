@@ -16,7 +16,7 @@
 
 import { describe, expect, it } from "vitest";
 import { engagementServiceUrls } from "@config/apiConfig";
-import { costParams, drillPatch, joinFilter, filterCount, patchCostView, readCostView, transactionParams } from "./costView";
+import { clampPage, costParams, lastPage, drillPatch, joinFilter, filterCount, patchCostView, readCostView, transactionParams } from "./costView";
 
 const today = "2026-11-24";
 
@@ -114,5 +114,23 @@ describe("costParams", () => {
     const p = transactionParams(readCostView({ tcGroup: "month", tcSort: "amount", tcPage: "2" }, today));
     expect(p).toMatchObject({ groupBy: "month", sort: "amount", limit: 25, offset: 50 });
     expect(transactionParams(readCostView({}, today)).sort).toBeUndefined();
+  });
+});
+
+describe("page clamping", () => {
+  it("holds a page past the end to the last page", () => {
+    expect(lastPage(508)).toBe(20);
+    expect(lastPage(25)).toBe(0);
+    expect(lastPage(26)).toBe(1);
+    expect(lastPage(0)).toBe(0);
+    expect(clampPage(999, 508)).toBe(20);
+    expect(clampPage(3, 508)).toBe(3);
+    expect(clampPage(5, 0)).toBe(0);
+    expect(clampPage(-2, 508)).toBe(0);
+  });
+
+  it("reads a fractional page as a whole one", () => {
+    expect(readCostView({ tcPage: "1.7" }, today).page).toBe(1);
+    expect(transactionParams(readCostView({ tcPage: "999" }, today)).offset).toBe(999 * 25);
   });
 });

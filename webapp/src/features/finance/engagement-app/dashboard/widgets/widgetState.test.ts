@@ -25,6 +25,7 @@ const costQuery = (q: Partial<{ isPending: boolean; isError: boolean; error: Err
 function ctx(over: { section?: (k: DashboardSectionKey) => SectionState; dashboard?: Dashboard; cost?: unknown } = {}): WidgetCtx {
   return {
     today: "2026-11-24",
+    businessDate: "2026-11-24",
     dashboard: over.dashboard,
     section: over.section ?? (() => ({ status: "loaded" })),
     retry: () => undefined,
@@ -123,5 +124,17 @@ describe("mergeDashboards", () => {
     expect(merged.queue).toBe(base.queue);
     expect(merged.failed).toEqual(["travel", "marketingEvents"]);
     expect(merged.widgets).toBe(base.widgets);
+  });
+});
+
+describe("widgetState for a visible list widget with nothing to show", () => {
+  it("is empty, not absent, when the section came back without the list (an older backend dropped the empty one)", () => {
+    const workload = widgetById("tt-agent-workload")!;
+    const frequent = widgetById("tt-frequent")!;
+    const section: Dashboard = { failed: [], travelTeam: { awayThisWeek: { travellers: 1, countries: 1 }, endedNotCompleted: 0, poQueue: { count: 0, oldestDays: 0 } } };
+    expect(widgetState(workload, ctx({ dashboard: section })).kind).toBe("empty");
+    expect(widgetState(frequent, ctx({ dashboard: section })).kind).toBe("empty");
+    expect(widgetState(workload, ctx({ dashboard: { ...section, travelTeam: { ...section.travelTeam!, agentWorkload: [] } } })).kind).toBe("empty");
+    expect(widgetState(workload, ctx({ dashboard: { failed: [] } })).kind).toBe("absent");
   });
 });

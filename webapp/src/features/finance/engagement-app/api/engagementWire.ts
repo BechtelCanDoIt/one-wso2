@@ -203,6 +203,8 @@ export interface WCountCard {
 }
 
 export interface WDashboard {
+  /** The business date (UTC) the dashboard is for. */
+  date?: string;
   failedSections?: string[];
   /** Every widget the caller may see, in catalogue order. */
   widgets?: WWidgetRef[];

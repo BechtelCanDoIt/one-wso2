@@ -27,7 +27,7 @@ export default function AllocationsTodayWidget({ ctx }: { ctx: WidgetCtx }): JSX
           exclusive
           size="small"
           value={past ? "past" : "today"}
-          onChange={(_, v: "today" | "past" | null) => v && change({ date: v === "past" ? addDays(ctx.today, -1) : "" })}
+          onChange={(_, v: "today" | "past" | null) => v && change({ date: v === "past" ? addDays(ctx.businessDate, -1) : "" })}
           aria-label="Date"
           sx={{ "& .MuiToggleButton-root": { px: 2 } }}
         >
@@ -36,7 +36,7 @@ export default function AllocationsTodayWidget({ ctx }: { ctx: WidgetCtx }): JSX
         </ToggleButtonGroup>
         {past ? (
           <Box sx={{ minWidth: 180 }}>
-            <FilterDate label="Select Date" value={date} max={addDays(ctx.today, -1)} onChange={(v) => v && v < ctx.today && change({ date: v })} />
+            <FilterDate label="Select Date" value={date} max={addDays(ctx.businessDate, -1)} onChange={(v) => v && v < ctx.businessDate && change({ date: v })} />
           </Box>
         ) : null}
       </Stack>

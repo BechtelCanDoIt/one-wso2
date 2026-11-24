@@ -37,6 +37,11 @@ describe("tripExpenses", () => {
 });
 
 describe("dashboard", () => {
+  it("keeps the business date the backend computed for", () => {
+    expect(dashboard({ date: "2026-11-24", failedSections: [] }).date).toBe("2026-11-24");
+    expect(dashboard({ failedSections: [] }).date).toBeUndefined();
+  });
+
   it("maps the widgets list and leaves it absent for an older backend", () => {
     expect(dashboard({ widgets: [{ id: "waiting-on-you", defaultOn: true }, { id: "tc-lines", defaultOn: false }] }).widgets).toEqual([
       { id: "waiting-on-you", defaultOn: true },

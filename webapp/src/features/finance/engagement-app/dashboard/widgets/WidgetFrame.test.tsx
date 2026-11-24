@@ -27,6 +27,7 @@ const query = (q: object) => ({ isPending: false, isError: false, isFetching: fa
 function ctx(over: { section?: (k: DashboardSectionKey) => SectionState; dashboard?: Dashboard; cost?: object; exportCsv?: () => Promise<void> } = {}): WidgetCtx {
   return {
     today: "2026-11-24",
+    businessDate: "2026-11-24",
     dashboard: over.dashboard,
     section: over.section ?? (() => ({ status: "loaded" })),
     retry: vi.fn(),

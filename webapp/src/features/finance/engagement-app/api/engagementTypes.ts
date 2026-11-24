@@ -614,6 +614,8 @@ export interface NotConverted {
 }
 
 export interface Dashboard {
+  /** The business date (UTC) the backend computed for; absent from an older backend. */
+  readonly date?: string;
   /** Every widget the caller may see, in catalogue order. Absent from an older backend. */
   readonly widgets?: readonly WidgetRef[];
   readonly travelTeam?: TravelTeamStats;

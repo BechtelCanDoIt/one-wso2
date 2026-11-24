@@ -87,9 +87,15 @@ export function readCostView(raw: Readonly<Record<string, string>>, today: strin
     filters,
     group: GROUPS.find((g) => g === raw.tcGroup),
     sort,
-    page: Math.max(0, Number(raw.tcPage ?? 0) || 0),
+    page: Math.max(0, Math.floor(Number(raw.tcPage ?? 0)) || 0),
   };
 }
+
+/** The last page (0-based) of `total` rows; 0 when there are none. */
+export const lastPage = (total: number): number => Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+
+/** `page` held to the pages that exist, e.g. `?tcPage=999` on 508 rows is page 20. */
+export const clampPage = (page: number, total: number): number => Math.min(Math.max(0, page), lastPage(total));
 
 /** `view` with the `patch` applied. An empty or undefined patch value removes the key; every key outside "tc" is kept. */
 export function patchCostView(view: Readonly<Record<string, string>>, patch: CostViewPatch): Record<string, string> {

@@ -101,7 +101,7 @@ export default function AgentDashboard({ d }: { d: Dashboard }): JSX.Element {
     ) : null,
   ].filter(Boolean);
   return (
-    <EaPage title="Dashboard" subtitle={`Travel requests handled by ${a.name} on ${fmtDate(localIsoDate())}.`}>
+    <EaPage title="Dashboard" subtitle={`Travel requests handled by ${a.name} on ${fmtDate(d.date ?? localIsoDate())}.`}>
       <Section title="At a Glance">
         <QueueTiles tiles={tiles} />
       </Section>
