@@ -78,4 +78,5 @@ export const myEngagementPaths = {
     `/me/travel-requests/${encodeURIComponent(jobNumber)}/${tab}`,
   documents: (tab?: DocumentsTab): string => (tab ? `/me/passport-visas/${tab}` : "/me/passport-visas"),
   allocations: "/me/allocations",
+  allocation: (id: string, tab: EngagementTab = "allocations"): string => `/me/allocations/${encodeURIComponent(id)}/${tab}`,
 } as const;

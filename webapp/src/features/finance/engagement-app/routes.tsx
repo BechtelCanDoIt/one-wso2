@@ -131,5 +131,7 @@ export const myEngagementRoutes = (
     <Route path="me/passport-visas/documents" element={gated(["myDocuments", "myVisas"], <DocumentsPage own tab="documents" />, "me")} />
     <Route path="me/passport-visas/visas" element={gated(["myDocuments", "myVisas"], <DocumentsPage own tab="visas" />, "me")} />
     <Route path="me/allocations" element={gated("myAllocations", <MyAllocationsPage />, "me")} />
+    <Route path="me/allocations/:id" element={<Navigate to="allocations" replace />} />
+    <Route path="me/allocations/:id/:tab" element={gated("myAllocations", <EngagementPage area="me" />, "me")} />
   </Route>
 );

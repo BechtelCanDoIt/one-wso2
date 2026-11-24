@@ -29,7 +29,7 @@ import EaTable, { type Column } from "../components/EaTable";
 import { FactsCard, FactsGrid } from "../components/Facts";
 import { Empty, Failed, ListCard } from "../components/ListCard";
 import { AllocationStatusChip, EngagementStatusChip, RequestStatusChip, Two, Mono } from "../components/StatusChips";
-import { engagementPaths, type EngagementTab } from "../engagementPaths";
+import { engagementPaths, myEngagementPaths, type EngagementTab } from "../engagementPaths";
 import { canEditAllocationStatus } from "../model/engagementAccess";
 import { engagementSegments } from "../model/landing";
 import { engagementName, fmtDate, fmtRange, place } from "../model/format";
@@ -40,8 +40,8 @@ const TABS: readonly EngagementTab[] = ["allocations", "details"];
 
 const kindLabel = (e: Engagement) => (e.kind === "marketing" ? "Marketing Event" : e.kind === "internal" ? "Internal Engagement" : e.typeName);
 
-/** One engagement: its facts, its allocation records and its details (the upper and lower halves of the legacy Allocate page). */
-export default function EngagementPage(): JSX.Element {
+/** One engagement: its facts, its allocation records and its details (the upper and lower halves of the legacy Allocate page); under Me when opened from My Allocations. */
+export default function EngagementPage({ area = "finance" }: { area?: "finance" | "me" }): JSX.Element {
   const { id = "", tab = "allocations" } = useParams();
   const engagement = useEngagement(id);
   const access = useEngagementAccess();
@@ -49,8 +49,11 @@ export default function EngagementPage(): JSX.Element {
   const { actionsFor, dialogs } = useEngagementActions();
   const [statusOf, setStatusOf] = useState<Allocation | null>(null);
 
-  if (!TABS.includes(tab as EngagementTab)) return <Navigate to={engagementPaths.engagement(id)} replace />;
-  const back = engagementSegments(access).length
+  const pathOf = area === "me" ? myEngagementPaths.allocation : engagementPaths.engagement;
+  if (!TABS.includes(tab as EngagementTab)) return <Navigate to={pathOf(id)} replace />;
+  const back = area === "me"
+    ? { to: myEngagementPaths.allocations, label: "My Allocations" }
+    : engagementSegments(access).length
     ? { to: engagementPaths.engagements(), label: "Engagements" }
     : access.approvals
       ? { to: engagementPaths.approvals(), label: "Approvals" }
@@ -114,7 +117,7 @@ export default function EngagementPage(): JSX.Element {
       />
       <ListCard>
         <RoutedTabs
-          basePath={`${engagementPaths.engagements()}/${encodeURIComponent(e.id)}`}
+          basePath={`${area === "me" ? myEngagementPaths.allocations : engagementPaths.engagements()}/${encodeURIComponent(e.id)}`}
           ariaLabel="Engagement sections"
           tabs={[
             {

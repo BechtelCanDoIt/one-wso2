@@ -24,7 +24,7 @@ import EaTable, { type Column } from "../components/EaTable";
 import { Empty, Failed, ListCard } from "../components/ListCard";
 import ListToolbar, { type FilterDef } from "../components/ListToolbar";
 import { AllocationStatusChip, Two, Mono } from "../components/StatusChips";
-import { engagementPaths, myEngagementPaths } from "../engagementPaths";
+import { myEngagementPaths } from "../engagementPaths";
 import { engagementName, fmtRange, place } from "../model/format";
 import { ALLOCATION_STATUSES } from "../model/statuses";
 import { PAGE_SIZE, useListView } from "../model/useListView";
@@ -76,7 +76,7 @@ export default function MyAllocationsPage(): JSX.Element {
             rows={allocations.data?.items ?? []}
             rowKey={(a) => a.id}
             loading={allocations.isPending}
-            onRowClick={(a) => (a.engagement.canOpen ? navigate(engagementPaths.engagement(a.engagement.id)) : undefined)}
+            onRowClick={(a) => (a.engagement.canOpen ? navigate(myEngagementPaths.allocation(a.engagement.id)) : undefined)}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: allocations.data?.total ?? 0, onPage: list.setPage }}
             empty={
               filtered ? (
