@@ -28,6 +28,7 @@ export default function RecordLink({ to, kind, children }: { to: string; kind: k
     <Link
       component={RouterLink}
       to={to}
+      color="primary"
       underline="hover"
       onClick={(e) => e.stopPropagation()}
       sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, fontFamily: "monospace", fontSize: 12.5, whiteSpace: "nowrap" }}

@@ -17,8 +17,7 @@
 // Chips for real statuses only: request, engagement, allocation, travel, expense, invoice, payment, NetSuite and document status.
 
 import type { JSX } from "react";
-import { Box, Typography } from "@wso2/oxygen-ui";
-import { StatusChip } from "@features/finance/components/FinanceChips";
+import { Box, Chip, Typography } from "@wso2/oxygen-ui";
 import type {
   AllocationStatus,
   EngagementStatus,
@@ -40,10 +39,38 @@ import {
 } from "../model/statuses";
 import { expiresIn } from "../model/format";
 
-export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.Element => (
-  <StatusChip label={label} color={tone} />
-);
+// "In progress" blue, the same in every theme: some themes (Choreo Labs) make `info` neutral (ink in light, white in
+// dark), which leaves an in-progress status looking like plain text. Both shades pass WCAG AA on their background.
+const INFO_BLUE = { light: "#1D4ED8", dark: "#60A5FA" } as const;
 
+/** An outlined status chip with a light fill of its own colour, so it reads as a badge rather than text. */
+export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.Element => (
+  <Chip
+    label={label}
+    color={tone === "info" ? "default" : tone}
+    size="small"
+    variant="outlined"
+    sx={(t) => ({
+      height: 20,
+      fontSize: 10.5,
+      fontWeight: 600,
+      borderWidth: 1.5,
+      bgcolor: tone === "default" || tone === "info" ? t.vars?.palette.action.selected : `color-mix(in srgb, ${t.vars?.palette[tone].main} 14%, transparent)`,
+      ...(tone === "info"
+        ? {
+            color: INFO_BLUE.light,
+            borderColor: INFO_BLUE.light,
+            bgcolor: `color-mix(in srgb, ${INFO_BLUE.light} 10%, transparent)`,
+            ...t.applyStyles("dark", {
+              color: INFO_BLUE.dark,
+              borderColor: INFO_BLUE.dark,
+              bgcolor: `color-mix(in srgb, ${INFO_BLUE.dark} 14%, transparent)`,
+            }),
+          }
+        : {}),
+    })}
+  />
+);
 export const RequestStatusChip = ({ status }: { status: RequestStatus }) => <Status label={status} tone={requestTone(status)} />;
 export const EngagementStatusChip = ({ status }: { status: EngagementStatus }) => (
   <Status label={status} tone={engagementTone(status)} />

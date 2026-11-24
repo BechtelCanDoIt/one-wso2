@@ -49,6 +49,8 @@ export default function EaPage({
         <Link
           component={RouterLink}
           to={backTarget(back.to, pathname)}
+          // An explicit colour: some themes (Choreo Labs) draw a colourless link as body text.
+          color="primary"
           variant="body2"
           underline="none"
           sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, mb: 1, fontWeight: 600 }}

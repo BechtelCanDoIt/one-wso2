@@ -66,6 +66,7 @@ vi.mock("../travel/TravelRequestPage", async () => {
   };
 });
 vi.mock("../me/MyAllocationsPage", () => ({ default: () => <h1>My allocations page</h1> }));
+vi.mock("../me/MyTravelRequestsPage", () => ({ default: () => <h1>My travels page</h1> }));
 
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, useLocation } from "react-router";
