@@ -15,20 +15,18 @@
 // under the License.
 
 import { useCallback, useMemo, useState, type JSX } from "react";
-import { Box, Button, Chip, Snackbar, Stack } from "@wso2/oxygen-ui";
+import { Box, Button, Card, Chip, Skeleton, Snackbar, Stack } from "@wso2/oxygen-ui";
 import { SlidersHorizontalIcon } from "@wso2/oxygen-ui-icons-react";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
 import { localIsoDate } from "@utils/localDate";
 import {
   useAllocationsToday,
-  useDashboard,
   useDashboardCatalogue,
   useDashboardSectionGroups,
   useReferenceData,
   useTravelCosts,
 } from "../api/useEngagementApi";
 import type { Dashboard } from "../api/engagementTypes";
-import { useEngagementAccess } from "../api/useEngagementUserInfo";
 import EaPage from "../components/EaPage";
 import { DelayedSkeleton } from "../components/EaSkeletons";
 import { Empty, Failed } from "../components/ListCard";
@@ -42,39 +40,39 @@ import ManageWidgetsDialog from "./widgets/ManageWidgetsDialog";
 import { sectionOfWidget, WIDGET_IDS, widgetById } from "./widgets/registry";
 import type { DashboardSectionKey, SectionState, WidgetCtx, WidgetDef } from "./widgets/types";
 import WidgetGrid from "./widgets/WidgetGrid";
-import { Bars, Rows, Tiles } from "./widgets/WidgetSkeletons";
+import { Rows } from "./widgets/WidgetSkeletons";
 import { mergeDashboards, sectionGroups, widgetState } from "./widgets/widgetState";
 import { orderWidgets, setVisible, togglePinned, useWidgetPrefs, visibleIds } from "./widgets/widgetPrefs";
 
 const HIDDEN_NOTICE = "Widget hidden. Manage Widgets brings it back.";
 
 /**
- * What stands in for the widgets until the catalogue says which there are (the first visit; a reload draws the last known catalogue at
- * once). One skeleton for the whole area, shown only if the catalogue is not quick, in space reserved from the start.
+ * What stands in for the widgets until the catalogue says which there are (a first visit; a reload draws the person's last known list at
+ * once). Nobody's widgets are known yet, so it is one plain card, not a guess at tiles or tables that many people (an employee with a single
+ * widget, a person with none) would never get. Shown only if the catalogue is not quick, in space reserved from the start.
  */
 function CatalogueSkeleton(): JSX.Element {
   return (
-    <DelayedSkeleton minHeight={420}>
-      <Stack spacing={2}>
-        <Tiles count={5} />
-        <Bars rows={4} />
-        <Rows rows={3} />
-      </Stack>
+    <DelayedSkeleton minHeight={220}>
+      <Card variant="outlined" sx={{ p: 2 }}>
+        <Skeleton variant="text" width={180} sx={{ fontSize: 15.5 }} />
+        <Box sx={{ mt: 1.5 }}>
+          <Rows rows={3} />
+        </Box>
+      </Card>
     </DelayedSkeleton>
   );
 }
 
 /** Dashboard: the first screen people land on, built from the widgets each person's privileges allow and that they have chosen to keep. */
 export default function DashboardPage(): JSX.Element {
-  const access = useEngagementAccess();
   const user = useAsgardeoUser();
   const today = localIsoDate();
   const list = useListView();
   const bu = list.filters.businessUnit ?? "";
   const date = list.filters.date ?? "";
-  // A travel agent has a dashboard of its own, in one call. Everyone else gets the widget catalogue first, then each widget's section.
-  const agentDashboard = useDashboard(access.isAgent);
-  const catalogue = useDashboardCatalogue(!access.isAgent);
+  // The widget catalogue first, then each widget's section. A travel agent's answer is the agent dashboard itself.
+  const catalogue = useDashboardCatalogue();
   const ref = useReferenceData();
   const { prefs, update, reset } = useWidgetPrefs(user.email);
   const [manage, setManage] = useState(false);
@@ -124,18 +122,7 @@ export default function DashboardPage(): JSX.Element {
   const range = useMemo(() => ({ from: costView.view.period.from, to: costView.view.period.to }), [costView.view.period]);
   const exportCsv = useCostCsv(params, range, setNotice);
 
-  if (access.isAgent) {
-    if (agentDashboard.data?.agency) return <AgentDashboard d={agentDashboard.data} />;
-    return (
-      <EaPage title="Dashboard">
-        {agentDashboard.isError ? (
-          <Failed what="the dashboard" error={agentDashboard.error} onRetry={() => void agentDashboard.refetch()} retrying={agentDashboard.isFetching} />
-        ) : (
-          <CatalogueSkeleton />
-        )}
-      </EaPage>
-    );
-  }
+  if (base?.agency) return <AgentDashboard d={base} />;
 
   const first = user.givenName ?? user.displayName?.split(" ")[0];
   const header = {

@@ -125,4 +125,13 @@ describe("DashboardPage loading", () => {
     expect(screen.getByText("To approve")).toBeTruthy();
     expect(screen.getByText(/Couldn.t load Travel Team at a Glance/)).toBeTruthy();
   });
+
+  it("draws an ordinary employee's one widget, or none, with no skeleton for widgets they cannot have", () => {
+    state.catalogue = catalogue({ widgets: [{ id: "allocations-today", defaultOn: false }] });
+    const { container } = page();
+    expect(screen.getByText("Every widget is hidden")).toBeTruthy();
+    expect(screen.queryByRole("region")).toBeNull();
+    expect(container.querySelectorAll('[aria-busy="true"]').length).toBe(0);
+    expect(state.groupCalls.at(-1)!.sections).toEqual([]);
+  });
 });

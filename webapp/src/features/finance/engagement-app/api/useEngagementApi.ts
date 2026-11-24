@@ -44,8 +44,8 @@ function useEngagementGet<TWire, TView>(
     enabled?: boolean;
     staleTime?: number;
     keepPrevious?: boolean;
-    /** Keep a copy of the answer in sessionStorage and start from it on a reload (stale, so it is asked again at once). `keep` trims what is kept. */
-    persist?: { readonly name: string; readonly keep: (wire: TWire) => TWire };
+    /** Keep a copy of the answer in sessionStorage and start from it on a reload (stale, so it is asked again at once). `keep` trims what is kept, or returns undefined to keep nothing. */
+    persist?: { readonly name: string; readonly keep: (wire: TWire) => TWire | undefined };
   } = {},
 ): UseQueryResult<TView, Error> {
   const { getToken, ready, key, sub, subState, retryIdentity } = useEngagementBasis();
@@ -53,7 +53,10 @@ function useEngagementGet<TWire, TView>(
     queryKey: key(...parts),
     queryFn: async () => {
       const wire = await authedGet<TWire>(url, await getToken());
-      if (persist) writeSessionCache(persist.name, sub, persist.keep(wire));
+      if (persist) {
+        const kept = persist.keep(wire);
+        if (kept !== undefined) writeSessionCache(persist.name, sub, kept);
+      }
       return wire;
     },
     select,
@@ -123,17 +126,18 @@ export const useEmployees = (search: string, enabled = true, limit = 20) =>
 
 // ---------------------------------------------------------------- dashboard
 
-/** The dashboard in one call: everything behind the caller's default-on widgets. Only the travel agent's dashboard still reads it this way. */
-export const useDashboard = (enabled = true) => useEngagementGet(["dashboard"], urls.dashboard, M.dashboard, { enabled });
-
 /**
  * The widget catalogue: the business date and the widgets the caller may see, with no section computed (`sections=` empty), so it answers
- * quickly. The widgets are kept for a reload, the date is not (a copy would be a day old after midnight).
+ * quickly. The widgets are kept for a reload, the date is not (a copy would be a day old after midnight). A travel agent's answer carries
+ * the agent dashboard instead of widgets, and is not kept.
  */
 export const useDashboardCatalogue = (enabled = true) =>
   useEngagementGet(["dashboard", "catalogue"], urls.dashboardCatalogue, M.dashboard, {
     enabled,
-    persist: { name: "dashboard-catalogue", keep: (w: W.WDashboard): W.WDashboard => ({ widgets: w.widgets, failedSections: [] }) },
+    persist: {
+      name: "dashboard-catalogue",
+      keep: (w: W.WDashboard) => (w.agent || !w.widgets?.length ? undefined : { widgets: w.widgets, failedSections: [] }),
+    },
   });
 
 /** One request per group of sections, all at once. A group is the sections that share one entity call, so none is asked for twice. */
