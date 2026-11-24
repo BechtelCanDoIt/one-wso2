@@ -41,7 +41,7 @@ const TABS: readonly EngagementTab[] = ["allocations", "details"];
 
 const kindLabel = (e: Engagement) => (e.kind === "marketing" ? "Marketing Event" : e.kind === "internal" ? "Internal Engagement" : e.typeName);
 
-/** One engagement: its facts, its allocation records and its details (the upper and lower halves of the legacy Allocate page); under Me when opened from My Allocations. */
+/** One engagement: its facts, its allocation records and its details (the upper and lower halves of the legacy Allocate page); under Me (from Allocations) it is read-only, with no actions. */
 export default function EngagementPage({ area = "finance" }: { area?: "finance" | "me" }): JSX.Element {
   const { id = "", tab = "allocations" } = useParams();
   const engagement = useEngagement(id);
@@ -96,7 +96,7 @@ export default function EngagementPage({ area = "finance" }: { area?: "finance" 
         </>
       }
       back={back}
-      actions={<RowActions primary={primary} menu={menu} label={e.id} />}
+      actions={area === "me" ? undefined : <RowActions primary={primary} menu={menu} label={e.id} />}
     >
       {pending ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -145,7 +145,7 @@ export default function EngagementPage({ area = "finance" }: { area?: "finance" 
         ) : (
           <AllocationRecords
             allocations={e.allocations}
-            canChangeStatus={canEditAllocationStatus(p, e.typeId)}
+            canChangeStatus={area !== "me" && canEditAllocationStatus(p, e.typeId)}
             onChangeStatus={setStatusOf}
             empty={
               <Empty
