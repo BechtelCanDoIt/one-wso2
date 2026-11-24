@@ -531,6 +531,7 @@ export default function ProductsStep({ preview, onOpenMatrix }: ProductsStepProp
               {years.length > 1 ? (
                 <Button
                   size="small"
+                  variant="outlined"
                   startIcon={anyFolded ? <ChevronsUpDownIcon size={14} /> : <ChevronsDownUpIcon size={14} />}
                   onClick={() => fold.toggleAll(years.map((y) => y.number))}
                 >
