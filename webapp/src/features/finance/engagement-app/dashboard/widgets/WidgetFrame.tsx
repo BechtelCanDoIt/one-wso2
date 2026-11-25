@@ -20,6 +20,7 @@ import { DownloadIcon, EyeOffIcon, PinIcon, PinOffIcon } from "@wso2/oxygen-ui-i
 import { eaSurfaceSx } from "../../components/eaStyles";
 import type { RowAction } from "../../components/EaTable";
 import { RowMenu } from "../../components/RowActions";
+import { Refreshing } from "../../components/EaSkeletons";
 import { Failed } from "../../components/ListCard";
 import { Calm } from "../dashboardParts";
 import type { WidgetCtx, WidgetDef } from "./types";
@@ -49,7 +50,7 @@ export default function WidgetFrame({
   const state = widgetState(def, ctx);
   const heading = def.heading?.(ctx) ?? def.title;
   const note = typeof def.note === "function" ? def.note(ctx) : def.note;
-  // A refetch (a new period or filter) keeps the previous figures on screen, dimmed, instead of going back to a skeleton. Allocations Today dims itself.
+  // A refetch (a new period or filter) dims the previous figures briefly, then shows the skeleton until the new ones arrive. Allocations Today handles its own.
   const dim = def.source === "cost" && ctx.cost.query.isPlaceholderData;
   const items: RowAction[] = [
     { label: pinned ? "Unpin" : "Pin to Top", icon: pinned ? <PinOffIcon size={15} /> : <PinIcon size={15} />, onClick: onPin },
@@ -89,10 +90,12 @@ export default function WidgetFrame({
         <Failed what={heading} error={state.error ?? null} onRetry={retry} retrying={def.source === "cost" ? ctx.cost.query.isFetching : ctx.retrying} />
       ) : state.kind === "empty" ? (
         <Calm>{def.empty}</Calm>
-      ) : (
-        <Box sx={{ opacity: dim ? 0.55 : 1, transition: "opacity 120ms" }} aria-busy={dim || undefined}>
+      ) : dim ? (
+        <Refreshing skeleton={<WidgetSkeleton id={def.id} delay={0} />}>
           <Body ctx={ctx} />
-        </Box>
+        </Refreshing>
+      ) : (
+        <Body ctx={ctx} />
       )}
     </Card>
   );

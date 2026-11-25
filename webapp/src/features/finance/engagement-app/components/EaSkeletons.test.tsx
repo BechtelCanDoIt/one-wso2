@@ -15,7 +15,7 @@
 // under the License.
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DelayedSkeleton } from "./EaSkeletons";
+import { DelayedSkeleton, Refreshing } from "./EaSkeletons";
 
 describe("DelayedSkeleton", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -47,5 +47,23 @@ describe("DelayedSkeleton", () => {
     unmount();
     act(() => void vi.advanceTimersByTime(500));
     expect(container.querySelector('[data-testid="bars"]')).toBeNull();
+  });
+});
+
+describe("Refreshing", () => {
+  beforeEach(() => vi.useFakeTimers());
+  afterEach(() => vi.useRealTimers());
+
+  it("keeps the old content dimmed for 150 ms, then swaps in the skeleton", () => {
+    const { queryByTestId } = render(
+      <Refreshing skeleton={<div data-testid="skeleton" />}>
+        <div data-testid="old" />
+      </Refreshing>,
+    );
+    expect(queryByTestId("old")).toBeTruthy();
+    expect(queryByTestId("skeleton")).toBeNull();
+    act(() => void vi.advanceTimersByTime(151));
+    expect(queryByTestId("old")).toBeNull();
+    expect(queryByTestId("skeleton")).toBeTruthy();
   });
 });
