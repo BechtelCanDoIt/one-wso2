@@ -18,7 +18,6 @@ import { useState } from "react";
 import {
   Alert,
   Autocomplete,
-  Box,
   Button,
   Card,
   Chip,
@@ -31,14 +30,23 @@ import { describeError } from "@api/errors";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { useParGlobalConfig } from "../api/useParAdmin";
 import { useUpdateParGlobalConfig } from "../api/useParMutations";
+import ParRatingSettingsFields from "../components/ParRatingSettingsFields";
+import {
+  allRatings,
+  ratingSettingsFrom,
+  ratingSettingsProblem,
+  type RatingSettings,
+} from "../util/parRatingSettings";
 
 // Ports GlobalSettings.tsx: the org-wide defaults ParCycleCreationDialog.tsx
 // prefills new cycles from. Editing here never touches a cycle already
 // created — only what the next one starts with. Field set and validation
-// mirror that dialog's own "Cycle configuration" section exactly, since it's
-// the same four values on the same resource (GET/PUT meta/configurations).
+// mirror that dialog's: where `par2` is on, the ratings and their rules;
+// elsewhere the two questions and the two rating lists. A save sends only
+// those, and the backend keeps the rest as it is.
 export default function ParAdminGlobalConfigTab() {
   const globalConfig = useParGlobalConfig();
   const updateConfig = useUpdateParGlobalConfig();
@@ -48,7 +56,9 @@ export default function ParAdminGlobalConfigTab() {
   const [reviewQuestion, setReviewQuestion] = useState("");
   const [ratings, setRatings] = useState<string[]>([]);
   const [reviewRatings, setReviewRatings] = useState<string[]>([]);
+  const [ratingSettings, setRatingSettings] = useState<RatingSettings>(ratingSettingsFrom(undefined));
   const [seeded, setSeeded] = useState(false);
+  const par2 = isPreviewEnabled("par2");
   const [confirmContent, setConfirmContent] = useState<ConfirmationContent | null>(null);
 
   // Seed once per fetch so a background refetch doesn't stomp an
@@ -60,6 +70,7 @@ export default function ParAdminGlobalConfigTab() {
     setReviewQuestion(globalConfig.data.threeSixtyReviewQuestion);
     setRatings(globalConfig.data.parRatings);
     setReviewRatings(globalConfig.data.threeSixtyReviewRatings);
+    setRatingSettings(ratingSettingsFrom(globalConfig.data));
   }
 
   if (globalConfig.isLoading) {
@@ -76,20 +87,26 @@ export default function ParAdminGlobalConfigTab() {
     return <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 1.5 }} />;
   }
 
+  const savedRatingSettings = ratingSettingsFrom(globalConfig.data);
+
   const reset = () => {
     setEmployeeQuestion(globalConfig.data.employeeParQuestion);
     setReviewQuestion(globalConfig.data.threeSixtyReviewQuestion);
     setRatings(globalConfig.data.parRatings);
     setReviewRatings(globalConfig.data.threeSixtyReviewRatings);
+    setRatingSettings(savedRatingSettings);
   };
 
-  const isValid = employeeQuestion.trim() && reviewQuestion.trim() && ratings.length > 0 && reviewRatings.length > 0;
+  const isValid = par2
+    ? ratingSettingsProblem(ratingSettings) === null
+    : employeeQuestion.trim() && reviewQuestion.trim() && ratings.length > 0 && reviewRatings.length > 0;
 
-  const hasChanged =
-    employeeQuestion !== globalConfig.data.employeeParQuestion ||
-    reviewQuestion !== globalConfig.data.threeSixtyReviewQuestion ||
-    JSON.stringify(ratings) !== JSON.stringify(globalConfig.data.parRatings) ||
-    JSON.stringify(reviewRatings) !== JSON.stringify(globalConfig.data.threeSixtyReviewRatings);
+  const hasChanged = par2
+    ? JSON.stringify(ratingSettings) !== JSON.stringify(savedRatingSettings)
+    : employeeQuestion !== globalConfig.data.employeeParQuestion ||
+      reviewQuestion !== globalConfig.data.threeSixtyReviewQuestion ||
+      JSON.stringify(ratings) !== JSON.stringify(globalConfig.data.parRatings) ||
+      JSON.stringify(reviewRatings) !== JSON.stringify(globalConfig.data.threeSixtyReviewRatings);
 
   const handleSubmit = () => {
     setConfirmContent({
@@ -97,12 +114,14 @@ export default function ParAdminGlobalConfigTab() {
       text: "This will change the defaults used for new PAR cycles — existing cycles are not affected.",
       confirmAction: () => {
         updateConfig.mutate(
-          {
-            employeeParQuestion: employeeQuestion.trim(),
-            threeSixtyReviewQuestion: reviewQuestion.trim(),
-            parRatings: ratings,
-            threeSixtyReviewRatings: reviewRatings,
-          },
+          par2
+            ? ratingSettings
+            : {
+                employeeParQuestion: employeeQuestion.trim(),
+                threeSixtyReviewQuestion: reviewQuestion.trim(),
+                parRatings: ratings,
+                threeSixtyReviewRatings: reviewRatings,
+              },
           {
             onSuccess: () => showSuccess("Global PAR configurations updated"),
             onError: (err) => showError(describeError(err)),
@@ -136,42 +155,44 @@ export default function ParAdminGlobalConfigTab() {
       </Typography>
 
       <Card variant="outlined" sx={{ borderRadius: 2, p: 2.5 }}>
-        <Stack spacing={2.5}>
-          <TextField
-            label="Employee PAR question"
-            size="small"
-            fullWidth
-            multiline
-            minRows={3}
-            aria-label="Employee PAR question"
-            value={employeeQuestion}
-            onChange={(e) => setEmployeeQuestion(e.target.value)}
+        {par2 ? (
+          <ParRatingSettingsFields
+            value={ratingSettings}
+            onChange={setRatingSettings}
+            suggestions={allRatings(savedRatingSettings)}
+            disabled={updateConfig.isPending}
           />
-          <TextField
-            label="360° feedback question"
-            size="small"
-            fullWidth
-            multiline
-            minRows={3}
-            aria-label="360 feedback question"
-            value={reviewQuestion}
-            onChange={(e) => setReviewQuestion(e.target.value)}
-          />
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              PAR ratings
-            </Typography>
+        ) : (
+          <Stack spacing={2.5}>
+            <TextField
+              label="Employee PAR question"
+              size="small"
+              fullWidth
+              multiline
+              minRows={3}
+              aria-label="Employee PAR question"
+              value={employeeQuestion}
+              onChange={(e) => setEmployeeQuestion(e.target.value)}
+            />
+            <TextField
+              label="360° feedback question"
+              size="small"
+              fullWidth
+              multiline
+              minRows={3}
+              aria-label="360 feedback question"
+              value={reviewQuestion}
+              onChange={(e) => setReviewQuestion(e.target.value)}
+            />
             {ratingsField("PAR ratings", ratings, setRatings, "PAR ratings")}
-          </Box>
-          <Box>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-              360° feedback ratings
-            </Typography>
             {ratingsField("360° feedback ratings", reviewRatings, setReviewRatings, "360 feedback ratings")}
-          </Box>
-
-          {updateConfig.isError && <Alert severity="error">{describeError(updateConfig.error)}</Alert>}
-        </Stack>
+          </Stack>
+        )}
+        {updateConfig.isError && (
+          <Alert severity="error" sx={{ mt: 2.5 }}>
+            {describeError(updateConfig.error)}
+          </Alert>
+        )}
       </Card>
 
       <Stack direction="row" justifyContent="flex-end" spacing={1.5}>

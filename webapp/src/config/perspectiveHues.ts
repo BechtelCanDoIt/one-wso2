@@ -198,6 +198,30 @@ export const PERSPECTIVE_HUES: Record<string, PerspectiveHue> = {
     light: { bg: "#E1F2E4", fg: "#2E7A3B" },
     dark: { bg: "#1C2820", fg: "#3FA34F" },
   },
+
+  // Swag Store. Past this file's cap, like Knowledge and Amplify, and for the
+  // same reason: without an entry the launcher tile renders unreadably dark.
+  // Olive at 78 degrees, in the widest opening left on the wheel (between
+  // security's gold at 43 and amplify's green at 128), 35 and 50 degrees from
+  // them. Measured 4.49:1 light and 5.22:1 dark. Still owes the "different
+  // encoding" conversation the cap asks for.
+  store: {
+    hue: "#7CA51D",
+    light: { bg: "#EBF2DD", fg: "#597715" },
+    dark: { bg: "#23281A", fg: "#7CA51D" },
+  },
+
+  // Procurement. Past this file's cap, like Knowledge, Amplify and Swag Store, and
+  // for the same reason: without an entry the launcher tile is unreadable in dark
+  // mode. Indigo at 247 degrees, in the opening between legal's blue at 225 and
+  // csm's violet at 268, 22 and 21 degrees from them. Measured 4.63:1 light and
+  // 3.82:1 dark. A stopgap until the launcher's owner picks its colour. Still owes
+  // the "different encoding" conversation the cap asks for.
+  procurement: {
+    hue: "#7B6DE3",
+    light: { bg: "#ECEBFB", fg: "#6354DE" },
+    dark: { bg: "#252131", fg: "#7B6DE3" },
+  },
 };
 
 export function perspectiveHue(key: string): PerspectiveHue | undefined {

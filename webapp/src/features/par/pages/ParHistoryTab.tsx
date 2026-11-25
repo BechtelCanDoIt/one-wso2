@@ -32,13 +32,20 @@ import {
 } from "@wso2/oxygen-ui";
 import { ArrowLeftIcon, ChevronRightIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { formatShortDate } from "../util/parDate";
 import { deriveLegacyCycleDates, formatLegacyCycleName, legacyCycleLabel } from "../util/parLegacyHistory";
 import { useParLegacyHistory } from "../api/useLeadHistory";
 import { useClosedParCycles, useParRating } from "../api/useParData";
+import { useSelfReview } from "../api/useSelfReview";
+import { useCycleLeadership360ForPdf } from "../api/useLeadership360";
 import ParRatingSummary from "../components/ParRatingSummary";
+import ParSelfReviewView from "../components/ParSelfReviewView";
+import { decodeParComment } from "../util/parComment";
+import { downloadPar2Pdf } from "../util/parPdf";
 import ParLegacyRecordDetail from "../components/ParLegacyRecordDetail";
+import Leadership360ResultsCard from "../components/Leadership360ResultsCard";
 import type { ParCycle, ParLegacyHistory } from "../api/types";
 
 type Row =
@@ -231,10 +238,19 @@ function HistoryTable({ rows, onOpen }: { rows: Row[]; onOpen: (row: Row) => voi
   );
 }
 
-function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
+export function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: string | undefined }) {
   const rating = useParRating(cycle.parCycleId, workEmail);
+  // A PAR 2.0 cycle has a guided self-review (nil for any other cycle) and, for a leader, Leadership
+  // 360° results. A member's 360° scores are never shown to them. Only looked up behind the par2 preview flag.
+  const par2 = isPreviewEnabled("par2");
+  const selfReview = useSelfReview(cycle.parCycleId, workEmail, par2);
+  const leadership360 = useCycleLeadership360ForPdf(
+    cycle.parCycleId,
+    workEmail,
+    par2 && Boolean(selfReview.data) && isPreviewEnabled("leadership360"),
+  );
 
-  if (rating.isLoading) {
+  if (rating.isLoading || (par2 && selfReview.isLoading)) {
     return <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 1.5 }} />;
   }
   if (rating.isError) {
@@ -246,6 +262,48 @@ function RealCycleDetail({ cycle, workEmail }: { cycle: ParCycle; workEmail: str
   }
   if (!rating.data) {
     return <Alert severity="info">No record was found for you in this cycle.</Alert>;
+  }
+  if (par2 && selfReview.isError) {
+    return (
+      <ErrorNotice error={selfReview.error} onRetry={() => selfReview.refetch()} retrying={selfReview.isFetching}>
+        Couldn't load your self-review for this cycle.
+      </ErrorNotice>
+    );
+  }
+  if (selfReview.data) {
+    const { definition } = selfReview.data.template;
+    return (
+      <Stack spacing={1.75}>
+        <ParRatingSummary
+          cycle={cycle}
+          rating={rating.data}
+          selfReview={<ParSelfReviewView definition={definition} answers={selfReview.data.answers} />}
+          // Offered once a leader's Leadership 360° lookup is done, so the PDF doesn't go without it; a
+          // failed one is offered again below.
+          onDownloadPdf={
+            leadership360.isLoading || leadership360.failed
+              ? undefined
+              : () =>
+                  downloadPar2Pdf({
+                    rating: rating.data!,
+                    leadComment: decodeParComment(rating.data!.parLeadComment),
+                    selfReview: { definition, answers: selfReview.data!.answers },
+                    leadership360: leadership360.data,
+                  })
+          }
+        />
+        {leadership360.failed && (
+          <ErrorNotice
+            error={leadership360.failed.error}
+            onRetry={leadership360.failed.retry}
+            retrying={leadership360.failed.retrying}
+          >
+            Couldn't load your Leadership 360° results for the PDF.
+          </ErrorNotice>
+        )}
+        {isPreviewEnabled("leadership360") && <Leadership360ResultsCard view="SELF" parCycleId={cycle.parCycleId} />}
+      </Stack>
+    );
   }
   return <ParRatingSummary cycle={cycle} rating={rating.data} />;
 }

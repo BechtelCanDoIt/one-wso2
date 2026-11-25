@@ -20,7 +20,7 @@ import { useEffect } from "react";
  * What index.html ships, and what the tab reads on any screen that doesn't
  * name itself.
  */
-export const BASE_DOCUMENT_TITLE = "One WSO2";
+export const BASE_DOCUMENT_TITLE = "One App";
 
 /**
  * Name the browser tab after the screen the reader is on.

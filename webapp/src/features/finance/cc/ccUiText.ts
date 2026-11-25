@@ -69,3 +69,40 @@ export function ruleWording(message: string): string {
 export function describeRuleError(error: unknown): string {
   return ruleWording(describeError(error));
 }
+
+/** An ISO date as the reminder dialog spells it: "19 May 2026". */
+function spellIsoDate(iso: string): string {
+  // Field by field, not `new Date(iso)`: that reads a bare ISO date as UTC
+  // midnight, which is the day before west of Greenwich.
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-UK", { day: "2-digit", month: "short", year: "numeric" }).format(
+    new Date(year, month - 1, day),
+  );
+}
+
+/**
+ * The reminder confirmation's title, and its sentence as `before`, `recipient`
+ * and `after` — every word of it, split only so the recipient can be set apart
+ * from the rest when it is rendered.
+ *
+ * @param lead - The card lead the reminder would go to.
+ * @param dateFrom - Start of the window the mail is scoped to; absent for all time.
+ */
+export function describeReminderConfirmation(
+  lead: { leadName: string; leadEmail: string },
+  dateFrom?: string,
+): { title: string; before: string; recipient: string; after: string } {
+  // `dateFrom` is what the request carries, so the window named here cannot be
+  // one the mail was not scoped to.
+  const period = dateFrom
+    ? `unsubmitted transactions from ${spellIsoDate(dateFrom)} onwards`
+    : "every unsubmitted transaction on record";
+  // Copied card holders are named as a group: that list is resolved from the
+  // backlog at send time and never reaches this screen.
+  return {
+    title: "Send this reminder?",
+    before: "An email goes to",
+    recipient: lead.leadName ? `${lead.leadName} (${lead.leadEmail})` : lead.leadEmail,
+    after: `about ${period}, copying the card holders with outstanding items.`,
+  };
+}

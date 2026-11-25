@@ -80,8 +80,11 @@ export interface EvidenceQuote {
 
 // ---- POST /meetings/coverage ------------------------------------------------
 
-/** NONE: the meeting has no transcript yet. */
-export type CoverageStatus = "NONE" | "PENDING" | "RUNNING" | "DONE" | "FAILED";
+/**
+ * NONE: the meeting has no transcript yet. EMPTY: its transcript has no lines, so there
+ * was nothing to analyse -- not a failure, and not retried. FAILED: the analysis failed.
+ */
+export type CoverageStatus = "NONE" | "PENDING" | "RUNNING" | "DONE" | "FAILED" | "EMPTY";
 
 export interface MeetingCoverage {
   meetingId: number;
@@ -205,6 +208,13 @@ export interface RoleProposalValue {
   candidates: ContactOption[];
 }
 
+/**
+ * How a Proposal's value was reached across the deal's calls. SINGLE: one call said it.
+ * MERGED: several calls, combined. FALLBACK: combining them failed, so the value is the
+ * newest call's alone, and must never be shown as a combined one.
+ */
+export type MergeStatus = "SINGLE" | "MERGED" | "FALLBACK";
+
 export interface FieldProposal {
   /** For role: RoleProposalValue. */
   value: FieldValue | RoleProposalValue;
@@ -213,6 +223,8 @@ export interface FieldProposal {
   evidence: EvidenceQuote[];
   /** Differs from Salesforce and not yet approved. */
   pending: boolean;
+  /** Absent from an older backend; read as SINGLE. */
+  mergeStatus?: MergeStatus;
 }
 
 export interface DealField {
@@ -313,6 +325,28 @@ export interface ApproveRequest {
   edits: Record<string, FieldValue>;
   /** Role fieldKey -> contactId. */
   roleMatches: Record<string, string>;
+  /**
+   * Role fieldKey -> a Contact to create on the Opportunity's Account for that role, when
+   * the person heard is not a Contact yet and the AM has checked the details. Created
+   * before anything else is written; a refused create leaves the deal untouched. Sent
+   * only when there is one: a backend older than this refuses unknown keys.
+   */
+  newContacts?: Record<string, NewContact>;
+}
+
+/** A Contact Approve all creates. The backend needs a last name and an email. */
+export interface NewContact {
+  firstName: string | null;
+  lastName: string;
+  email: string;
+  title: string | null;
+}
+
+/** A Contact Approve all created for a role field. */
+export interface CreatedContact {
+  fieldKey: string;
+  contactId: string;
+  name: string;
 }
 
 export interface ApproveResult {
@@ -320,9 +354,25 @@ export interface ApproveResult {
   written: string[];
   /** For example notInSalesforce, unchanged. */
   skipped: { fieldKey: string; reason: string }[];
+  /** The Contacts created for newContacts, in gates.json order. Absent from an older backend. */
+  createdContacts?: CreatedContact[];
   /** A Salesforce 422; nothing partial is hidden. */
   error: { message: string; fields?: string[] } | null;
   deal: DealDetail;
+}
+
+// ---- POST /deals/{opportunityId}/proposals/{fieldKey}/reject ---------------
+//
+// Answers the refreshed DealDetail as the whole body. Nothing is written to Salesforce:
+// the field's proposal goes, and stays gone until new evidence changes the value.
+
+/** Why the AM turned a Proposal down. */
+export type RejectReason = "WRONG_VALUE" | "WRONG_PERSON" | "NOT_SUPPORTED" | "OUTDATED" | "OTHER";
+
+export interface RejectProposalRequest {
+  reason: RejectReason;
+  /** At most 1000 characters. */
+  note: string | null;
 }
 
 // ---- POST /deals/{opportunityId}/move-stage --------------------------------
@@ -376,6 +426,10 @@ export interface GateFieldDefinition {
   conversational: boolean;
   sfField?: string;
   role?: string;
+  /** Other Salesforce role names read as this role. */
+  roleAliases?: string[];
+  /** The Opportunity's primary contact: the Contact flagged primary, with no role name. */
+  primary?: boolean;
   options?: string[];
   optional?: boolean;
   notInSalesforce?: boolean;

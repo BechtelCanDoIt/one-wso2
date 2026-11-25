@@ -174,6 +174,17 @@ export const MARKETING_OPS_APPS: readonly MenuApp[] = [
         requires: ["admin"],
         path: "/marketing-ops/ad-campaigns/campaign-tracker",
       },
+      // Backend-integrated benchmark grading — same `adcampaigns` gate. The
+      // backend provides raw per-campaign lines (objective, format, region,
+      // LinkedIn form/messaging metrics); grading is computed client-side from
+      // those lines. See benchmarkGradingLogic.ts for the index formula.
+      {
+        id: "mops-benchmark-grading",
+        label: "Benchmark Grading",
+        desc: "Every campaign scored on conversion and cost against WSO2's internal benchmarks, with grade distribution by owner.",
+        requires: ["admin"],
+        path: "/marketing-ops/ad-campaigns/benchmark-grading",
+      },
     ],
   },
   {
@@ -187,6 +198,21 @@ export const MARKETING_OPS_APPS: readonly MenuApp[] = [
       // submitting your own lists, `events-review` covers reviewing others'.
       // Neither implies the other — a reviewer holds both groups because the
       // operation's router is gated on `events`. See access_map.yaml.
+      // First, because it is the first step: a raw lead file is mapped onto the
+      // template columns here, and the RMM uploads the result to My Submissions. Same
+      // `events` capability as My Submissions. Hidden until the
+      // `eventsLeadImport` preview flag is on.
+      ...(isPreviewEnabled("eventsLeadImport")
+        ? [
+            {
+              id: "mops-events-lead-import",
+              label: "Lead Import",
+              desc: "Map a raw event lead file — any layout, any language — onto the List Import Template columns.",
+              requires: ["admin" as const],
+              path: "/marketing-ops/events/lead-import",
+            },
+          ]
+        : []),
       {
         id: "mops-events-mine",
         label: "My Submissions",

@@ -1,0 +1,199 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import type { JSX } from "react";
+import { Navigate, useNavigate } from "react-router";
+import { Button } from "@wso2/oxygen-ui";
+import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
+import RoutedTabs from "@components/routed-tabs/RoutedTabs";
+import type { EngagementSummary } from "../api/engagementTypes";
+import { useEngagements, useEngagementTypes, useReferenceData } from "../api/useEngagementApi";
+import { useEngagementAccess } from "../api/useEngagementUserInfo";
+import EaPage from "../components/EaPage";
+import EaTable, { type Column } from "../components/EaTable";
+import { Empty, Failed, ListCard } from "../components/ListCard";
+import ListToolbar, { type FilterDef } from "../components/ListToolbar";
+import { EngagementStatusChip, RequestStatusChip, Two, Mono } from "../components/StatusChips";
+import { engagementPaths, type EngagementSegment } from "../engagementPaths";
+import { ALLOC } from "../model/engagementAccess";
+import { engagementSegments } from "../model/landing";
+import { engagementName, fmtRange, place, plural } from "../model/format";
+import { ENGAGEMENT_STATUSES } from "../model/statuses";
+import { PAGE_SIZE, useListView } from "../model/useListView";
+import { useEngagementActions } from "./useEngagementActions";
+
+const SEGMENT_LABEL: Record<EngagementSegment, string> = {
+  customer: "Customer",
+  internal: "Internal",
+  marketing: "Marketing Events",
+};
+
+/** `/engagements`: the first segment this person may open. */
+export function EngagementsIndex(): JSX.Element {
+  const access = useEngagementAccess();
+  return <Navigate to={engagementPaths.engagements(engagementSegments(access)[0] ?? "customer")} replace />;
+}
+
+/** Engagements: the legacy Customer Engagements and Internal Engagements hubs as one list with three segments. */
+export default function EngagementsPage({ segment }: { segment: EngagementSegment }): JSX.Element {
+  const access = useEngagementAccess();
+  const segments = engagementSegments(access);
+  const navigate = useNavigate();
+  const list = useListView();
+  const types = useEngagementTypes();
+  const ref = useReferenceData();
+  const { actionsFor, dialogs } = useEngagementActions();
+  const cust = segment === "customer";
+  const consultants = access.p.a.has(cust ? ALLOC.CUSTOMER_CONSULTANTS : ALLOC.INTERNAL_CONSULTANTS);
+  const segTypes = (types.data ?? []).filter((t) => (cust ? t.kind === "Customer" : t.id === (segment === "marketing" ? 5 : 1)));
+  const allocTypes = [...new Set(segTypes.flatMap((t) => t.allocationTypes.map((a) => a.name)))].sort();
+  const pair = (v: string): readonly [string, string] => [v, v];
+
+  const filters: FilterDef[] = [
+    ...(cust
+      ? [{ key: "engagementTypeId", label: "Engagement Type", type: "select" as const, options: segTypes.map((t) => [String(t.id), t.name] as const) }]
+      : []),
+    { key: "allocationType", label: segment === "marketing" ? "Event Type" : "Allocation Type", type: "select", options: allocTypes.map(pair) },
+    {
+      key: "requestStatus",
+      label: "Request Status",
+      type: "multi",
+      options: (cust ? ["New", "Updated", "In Progress", "Completed", "Cancelled"] : ["Approved", "Updated", "In Progress", "Completed", "Cancelled"]).map(pair),
+    },
+    { key: "engagementStatus", label: "Engagement Status", type: "multi", options: ENGAGEMENT_STATUSES.map(pair) },
+    { key: "businessUnit", label: "Business Unit", type: "select", options: (ref.data?.businessUnits ?? []).map(pair) },
+    { key: "country", label: "Country", type: "select", options: (ref.data?.countries ?? []).map(pair) },
+    { key: "consultants", label: "Consultants", type: "select", options: [["allocated", "Allocated"], ["none", "None Yet"]] },
+    { key: "startFrom", label: "Start Date From", type: "date" },
+    { key: "startTo", label: "Start Date To", type: "date" },
+    { key: "endTo", label: "End Date To", type: "date" },
+  ];
+  const engagements = useEngagements({ segment, ...list.paramsFor(filters) }, segments.includes(segment));
+
+  if (!segments.includes(segment)) return <Navigate to={engagementPaths.engagements(segments[0])} replace />;
+
+  const columns: Column<EngagementSummary>[] = [
+    {
+      key: "engagement",
+      label: segment === "marketing" ? "Event" : "Engagement",
+      width: "24%",
+      render: (e) => <Two main={<Mono>{e.id}</Mono>} sub={cust ? engagementName(e) : e.title} />,
+    },
+    {
+      key: "type",
+      label: segment === "marketing" ? "Event Type" : "Allocation Type",
+      render: (e) => <Two main={e.allocationType} sub={<Mono>{e.code}</Mono>} />,
+    },
+    { key: "location", label: "Location", render: (e) => <Two main={place(e.country, e.city)} sub={e.nature} /> },
+    { key: "dates", label: "Dates", render: (e) => <span style={{ whiteSpace: "nowrap" }}>{fmtRange(e.start, e.end)}</span> },
+    ...(consultants
+      ? [
+          {
+            key: "consultants",
+            label: "Consultants",
+            render: (e: EngagementSummary) => {
+              const people = e.consultants ?? [];
+              if (!people.length) return "—";
+              const names = people.slice(0, 2).map((p) => p.name).join(", ");
+              return <Two main={plural(people.length, "consultant")} sub={people.length > 2 ? `${names} +${people.length - 2}` : names} />;
+            },
+          },
+        ]
+      : []),
+    { key: "request", label: "Request Status", render: (e) => <RequestStatusChip status={e.requestStatus} /> },
+    { key: "status", label: "Engagement Status", render: (e) => <EngagementStatusChip status={e.engagementStatus} /> },
+  ];
+
+  const create =
+    segment === "customer" && access.createCustomer ? (
+      <CreateButton label="Create Customer Engagement" onClick={() => navigate(engagementPaths.newEngagement("customer"))} />
+    ) : segment === "internal" && access.createInternal ? (
+      <CreateButton label="Create Internal Engagement" onClick={() => navigate(engagementPaths.newEngagement("internal", 1))} />
+    ) : segment === "marketing" && access.createMarketing ? (
+      <CreateButton label="Create Marketing Event" onClick={() => navigate(engagementPaths.newEngagement("internal", 5))} />
+    ) : null;
+
+  const counts = engagements.data?.counts;
+  const filtered = Object.keys(list.filters).length > 0 || Boolean(list.search);
+  const names = segments.map((s) => ({ customer: "customer engagements", internal: "internal engagements", marketing: "marketing events" })[s]);
+  const what = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names[0];
+
+  return (
+    <EaPage
+      title="Engagements"
+      subtitle={`${what.charAt(0).toUpperCase()}${what.slice(1)}, and who is working on them.`}
+    >
+      <ListCard>
+        {segments.length > 1 ? (
+          <RoutedTabs
+            basePath={engagementPaths.engagements()}
+            ariaLabel="Engagement kinds"
+            tabs={segments.map((s) => ({
+              segment: s,
+              label: SEGMENT_LABEL[s],
+              badge: counts?.[s] !== undefined ? { label: String(counts[s]), reason: `${counts[s]} ${SEGMENT_LABEL[s]}` } : undefined,
+            }))}
+          />
+        ) : null}
+        <ListToolbar
+          search={list.search}
+          placeholder="Search engagements"
+          onSearch={list.setSearch}
+          filters={filters}
+          applied={list.filters}
+          onApply={list.setFilters}
+          onRemove={list.removeFilter}
+          right={create}
+        />
+        {engagements.isError ? (
+          <Failed what="engagements" error={engagements.error} onRetry={() => void engagements.refetch()} retrying={engagements.isFetching} />
+        ) : (
+          <EaTable
+            ariaLabel="Engagements"
+            columns={columns}
+            rows={engagements.data?.items ?? []}
+            rowKey={(e) => e.id}
+            loading={engagements.isPending || engagements.isPlaceholderData}
+            onRowClick={(e) => navigate(engagementPaths.engagement(e.id))}
+            primaryAction={(e) => actionsFor(e).primary}
+            menu={(e) => actionsFor(e).menu}
+            pagination={{ page: list.page, pageSize: PAGE_SIZE, total: engagements.data?.total ?? 0, onPage: list.setPage }}
+            empty={
+              filtered ? (
+                <Empty title="No Engagements Match the Filters" body="Change the search or the filters to see more." />
+              ) : (
+                <Empty
+                  title={segment === "marketing" ? "No Marketing Events Yet" : "No Engagements Yet"}
+                  body="Engagements you can see appear here once they are created."
+                  action={create}
+                />
+              )
+            }
+          />
+        )}
+      </ListCard>
+      {dialogs}
+    </EaPage>
+  );
+}
+
+function CreateButton({ label, onClick }: { label: string; onClick: () => void }): JSX.Element {
+  return (
+    <Button size="small" variant="contained" startIcon={<PlusIcon size={14} />} onClick={onClick}>
+      {label}
+    </Button>
+  );
+}

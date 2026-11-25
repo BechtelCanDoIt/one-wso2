@@ -17,9 +17,10 @@
 // Central perspective registry. The waffle switcher and left rail both read
 // from this — one edit here changes every entry point.
 
-import { csmUrl, isCsmConfigured, isIsacConfigured, isacUrl } from "@config/apiConfig";
+import { csmUrl, isCsmConfigured, isEngagementAppBackendConfigured, isIsacConfigured, isacUrl } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { CADO2_APPS } from "@constants/cado2Apps";
+import { ENGAGEMENT_APPS, MY_ENGAGEMENT_APPS } from "@constants/engagementApps";
 import {
   ArrowBigUpDash,
   AwardIcon,
@@ -61,6 +62,10 @@ import {
   HandshakeIcon,
   WalletIcon,
   ServerIcon,
+  ShoppingBagIcon,
+  ShoppingCartIcon,
+  PackageIcon,
+  BellIcon,
   type LucideIcon,
 } from "@wso2/oxygen-ui-icons-react";
 import type { ComponentType } from "react";
@@ -73,6 +78,7 @@ import {
   ME_FINANCE_APPS,
 } from "@constants/financeApps";
 import { MIS_APPS } from "@constants/misApps";
+import { PROCUREMENT_APPS, PROCUREMENT_TEAM_APPS } from "@constants/procurementApps";
 import { DOWNLOAD_STATS_APPS } from "@constants/downloadStatsApps";
 import { CLAIM_APPROVAL_PATH } from "@features/finance/approvals/claimApprovalTabs";
 import { MARKETING_OPS_APPS } from "@constants/marketingOpsApps";
@@ -85,6 +91,8 @@ import { INFRA_APPS } from "@constants/infraApps";
 import { UMT_PATH, umtPaths } from "@features/umt/lib/umtPaths";
 import { UMT_DOCUMENTATION_ITEM_ID, openUmtDocumentation } from "@features/umt/lib/umtDocumentation";
 import { SMART_SEARCH_LIBRARY_PATH } from "@features/sales/smartSearch/smartSearchPaths";
+import { swagStorePaths } from "@features/swag-store/swagStorePaths";
+import { SWAG_STORE_ADMIN_GROUP_ID, SWAG_STORE_ADMIN_SCREENS } from "@features/swag-store/admin/swagStoreAdminItems";
 import {
   Cado2LogoIcon,
   EchoLogoIcon,
@@ -128,6 +136,8 @@ export interface PerspectiveSection {
   // with the arrow the launcher puts on tiles that leave One WSO2. Only read on
   // a group's children: a top-level row, or a `path` row, ignores it.
   opensInNewTab?: boolean;
+  // A nested row whose label may wrap onto two lines — see MenuApp.wrapLabels.
+  wrapLabel?: boolean;
 }
 
 // Turn an App → items registry into rail sections: one collapsible group
@@ -148,6 +158,7 @@ function appsToSections(apps: readonly MenuApp[]): PerspectiveSection[] {
       icon: it.icon,
       requires: it.requires,
       path: it.path,
+      ...(app.wrapLabels ? { wrapLabel: true } : {}),
     })),
   }));
 }
@@ -188,6 +199,20 @@ const BANKING_ADMIN_SECTION: PerspectiveSection = {
   label: "Banking",
   icon: LandmarkIcon,
   path: "/banking/admin",
+};
+
+// Swag Store's admin screens, for the store team. Not a People Ops admin
+// screen: who sees each row is the store's own roles (catalog_manager,
+// fulfilment_ops) from its GET /users/me, decided by the swag-store-admin
+// rail gate, never by the People Ops privileges from ONE_WSO2_PEOPLE_BACKEND_URL.
+// The rows come from the store's screens table, which also says who each one
+// is for.
+const SWAG_STORE_ADMIN_SECTION: PerspectiveSection = {
+  id: SWAG_STORE_ADMIN_GROUP_ID,
+  label: "Swag Store",
+  icon: ShoppingBagIcon,
+  alwaysGroup: true,
+  children: Object.values(SWAG_STORE_ADMIN_SCREENS).map(({ id, label, path }) => ({ id, label, path })),
 };
 
 export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
@@ -355,6 +380,7 @@ export const PEOPLE_OPS_SECTIONS: PerspectiveSection[] = [
     ],
   },
   BANKING_ADMIN_SECTION,
+  ...(isPreviewEnabled("swagStore") ? [SWAG_STORE_ADMIN_SECTION] : []),
 ];
 
 /**
@@ -496,10 +522,20 @@ const ME_SECTIONS: PerspectiveSection[] = [
   },
   ...appsToSections(ME_APPS),
   ...appsToSections(ME_FINANCE_APPS),
+  // The person's own trips, passport and visas, and allocations, as top-level
+  // rows like Leave and Claims, only while the Engagement App backend URL is set.
+  ...(isEngagementAppBackendConfigured()
+    ? MY_ENGAGEMENT_APPS.flatMap((app) =>
+        app.items.map(({ id, label, icon, requires, path }) => ({ id, label, icon, requires, path })),
+      )
+    : []),
   // par-app's employee portal.
   ...appsToSections(ME_PAR_APPS),
   // promotion-app's employee portal.
   ...appsToSections(ME_PROMOTION_APPS),
+  // Procurement: raising a purchase request is something any employee does.
+  // With the flag off the group doesn't exist.
+  ...(isPreviewEnabled("procurement") ? appsToSections(PROCUREMENT_APPS) : []),
 ];
 
 // Amplify — employees share official WSO2 LinkedIn posts and earn points;
@@ -584,6 +620,16 @@ const AMPLIFY_SECTIONS: PerspectiveSection[] = [
   },
 ];
 
+// Swag Store's shop rows: flat leaves, open to every employee. Categories are
+// chips on the Shop page rather than rows here, because the rail shows one
+// level and its labels are plain strings.
+const SWAG_STORE_SHOP_SECTIONS: PerspectiveSection[] = [
+  { id: "swag-store-shop", label: "Shop", icon: ShoppingBagIcon, path: swagStorePaths.shop },
+  { id: "swag-store-cart", label: "Cart", icon: ShoppingCartIcon, path: swagStorePaths.cart },
+  { id: "swag-store-orders", label: "Orders", icon: PackageIcon, path: swagStorePaths.orders },
+  { id: "swag-store-alerts", label: "Alerts", icon: BellIcon, path: swagStorePaths.alerts },
+];
+
 // Knowledge's one item so far. Its own perspective (not nested under Me)
 // since "a company-wide learnings feed" is a destination in its own right,
 // not a personal-portal item — see `knowledge` in PERSPECTIVES below.
@@ -639,21 +685,31 @@ export const UMT_ITEM_IDS: ReadonlySet<string> = new Set([
   UMT_SECTION.id,
   ...(UMT_SECTION.children ?? []).map((child) => child.id),
 ]);
-// Sales's rail: Echo, the call-intelligence product, as a group of its screens (Calls and
-// Deals); Sales Pitstop's Library while its preview flag is on; and CadO2 while its flag is on.
+// Sales's rail: Opportunities first, where an account manager lands; Echo, the call
+// recordings, as a group of its one screen (Calls); Sales Pitstop's Library; and CadO2
+// while its flag is on.
+//
+// One row per Opportunity with its MEDDPICC state, beside the calls it came from. A row of
+// its own rather than one of Echo's screens: Echo is the recordings, and a deal is worked
+// from here. Served by the MEDDPICC backend (ONE_WSO2_ECHO_BACKEND_URL) rather than the
+// calls' (ONE_WSO2_REVOPS_BACKEND_URL), but gated like Calls: it is the same sales team,
+// and the rail already has ONE_WSO2_REVOPS_BACKEND_URL's answer.
+const SALES_OPPORTUNITIES_ROW: PerspectiveSection = {
+  id: "sales-deals",
+  label: "Opportunities",
+  icon: HandshakeIcon,
+  path: "/sales/deals",
+};
+// Echo: the calls it recorded, with their transcripts and notes. A group even with one
+// screen, so the rail names both the product and the screen, as Sales Pitstop's does.
 const SALES_ECHO_SECTION: PerspectiveSection = {
   id: "sales-echo",
   label: "Echo",
   icon: EchoLogoIcon,
   alwaysGroup: true,
   children: [
-    // The recordings Echo captured, with their transcripts and MEDDPICC evidence.
     // The id is an internal key and does not need to match the label.
     { id: "sales-meetings", label: "Calls", icon: VideoIcon, path: "/sales/meetings" },
-    // One row per Opportunity with its MEDDPICC state, beside the calls it came from.
-    // Served by the MEDDPICC backend rather than meet-app, but gated like Calls: it is
-    // the same sales team, and meet-app's answer is the one the rail already has.
-    { id: "sales-deals", label: "Opportunities", icon: HandshakeIcon, path: "/sales/deals" },
   ],
 };
 
@@ -670,12 +726,13 @@ const SALES_PITSTOP_SECTION: PerspectiveSection = {
 };
 
 const SALES_SECTIONS: PerspectiveSection[] = [
+  SALES_OPPORTUNITIES_ROW,
   SALES_ECHO_SECTION,
   SALES_PITSTOP_SECTION,
   // CadO2 answers to its own backend (CADO2_ITEM_IDS, the `cado2` adapter).
   // With the flag off the group doesn't exist, so nothing asks that backend.
   // Its group shows CADO2's own logo, as Echo's does (D101).
-  ...(isPreviewEnabled("cado2") ? appsToSections(CADO2_APPS).map((s) => ({ ...s, icon: Cado2LogoIcon })) : []),
+  ...(isPreviewEnabled("quickquote") ? appsToSections(CADO2_APPS).map((s) => ({ ...s, icon: Cado2LogoIcon })) : []),
 ];
 
 /**
@@ -688,10 +745,11 @@ const SALES_SECTIONS: PerspectiveSection[] = [
  * id no adapter claims falls through to the capability check, and a group with no `requires`
  * would pass it for everyone.
  *
- * Echo's rows only: CadO2's rows sit in the same perspective but belong to its own adapter, and
- * two adapters claiming one id is a test failure (claimConflicts).
+ * Opportunities and Echo's rows only: CadO2's rows sit in the same perspective but belong to its
+ * own adapter, and two adapters claiming one id is a test failure (claimConflicts).
  */
 export const SALES_ITEM_IDS: ReadonlySet<string> = new Set([
+  SALES_OPPORTUNITIES_ROW.id,
   SALES_ECHO_SECTION.id,
   ...(SALES_ECHO_SECTION.children ?? []).map((child) => child.id),
 ]);
@@ -780,6 +838,10 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // not something everyone has — unlike leave or claims, it is not part of
       // the set every employee needs.
       ...appsToSections(FINANCE_PERSPECTIVE_APPS),
+      // Engagement App (engagements, allocations and travel), only while
+      // ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL is set. Gated on the Engagement App
+      // Backend's own privileges, not `requires` — see useEngagementRailGate.
+      ...(isEngagementAppBackendConfigured() ? appsToSections(ENGAGEMENT_APPS) : []),
       // Due Diligence — also surfaced under Legal (see the `legal` perspective
       // below). ONE registry (DUE_DILIGENCE_APPS), included in both places, so
       // the two rails can't drift. Gated on the due-diligence backend's own
@@ -810,6 +872,24 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
   // `externallyGated: true` for the same reason Marketing Ops carries it:
   // `access: true` only means the perspective is built, not that everyone who
   // opens it can use what's inside — see useDueDiligenceGate.
+  // Procurement: the team that assigns and handles approved purchase requests.
+  // Everyone else raises and tracks requests under Me. `externallyGated`
+  // because who belongs to the team is the backend's own role, read from its
+  // /me -- see useProcurementTeamRailGate. Held behind the `procurement` flag.
+  ...(isPreviewEnabled("procurement")
+    ? [
+        {
+          key: "procurement",
+          label: "Procurement",
+          icon: PackageIcon,
+          access: true,
+          externallyGated: true,
+          forwardsToFirstItem: true,
+          path: "/procurement",
+          sections: appsToSections(PROCUREMENT_TEAM_APPS),
+        },
+      ]
+    : []),
   {
     key: "legal",
     label: "Legal",
@@ -898,6 +978,22 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
           path: "/amplify",
           forwardsToFirstItem: true,
           sections: AMPLIFY_SECTIONS,
+        },
+      ]
+    : []),
+  // Swag Store, held behind its preview flag until the pilot. The top-bar
+  // button opens it too. `forwardsToFirstItem` drops the Overview row: the
+  // landing route is the Shop page itself, which is the first row.
+  ...(isPreviewEnabled("swagStore")
+    ? [
+        {
+          key: "store",
+          label: "Swag Store",
+          icon: ShoppingBagIcon,
+          access: true,
+          path: swagStorePaths.shop,
+          forwardsToFirstItem: true,
+          sections: SWAG_STORE_SHOP_SECTIONS,
         },
       ]
     : []),

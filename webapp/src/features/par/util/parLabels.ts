@@ -43,7 +43,7 @@ export function employeeChipLabel(text: string): { label: string; color: ChipCol
     case "successful":
       return { label: trimmed, color: "success" };
     case "needs improvements":
-      return { label: "Need Improvements", color: "error" };
+      return { label: trimmed, color: "error" };
     // Legacy 2021-2024 scales use the singular form.
     case "needs improvement":
       return { label: trimmed, color: "error" };

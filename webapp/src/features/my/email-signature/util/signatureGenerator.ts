@@ -14,6 +14,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import {
+  emailSignatureLogoUrl,
+  emailSignatureOverrideEmailUser,
+  emailSignatureOverrideWorkEmail,
+} from "@config/apiConfig";
+
 // Builds the HTML table markup Gmail's rich-text signature box accepts.
 // Ported from the standalone Email Group Manager app's
 // utils/signatureGenerator.js — table-based layout and inline styles are
@@ -33,6 +39,8 @@ export interface SignatureData {
   linkedin: string;
   customUrl: string;
   customUrlLabel: string;
+  /** The part of the work email before "@". Not a form field; a template adds its own domain. */
+  emailUser: string;
 }
 
 export const EMPTY_SIGNATURE_DATA: SignatureData = {
@@ -44,6 +52,7 @@ export const EMPTY_SIGNATURE_DATA: SignatureData = {
   linkedin: "",
   customUrl: "",
   customUrlLabel: "",
+  emailUser: "",
 };
 
 /** True once there's enough to preview — matches the source app's own gate. */
@@ -51,7 +60,7 @@ export function hasSignatureContent(data: SignatureData): boolean {
   return data.name.trim().length > 0 || data.designation.trim().length > 0;
 }
 
-function escapeHtml(str: string): string {
+export function escapeHtml(str: string): string {
   return str
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -73,7 +82,37 @@ export function isSafeUrl(url: string): boolean {
   return /^https?:\/\//i.test(url.trim());
 }
 
-export function generateSignatureHTML(data: SignatureData): string {
+/** What an email username may contain. A value outside it never reaches a template. */
+export const EMAIL_USER_PATTERN = /^[\w.+-]+$/;
+
+/** One person whose signature email uses a different username than their work email. */
+export interface EmailUserOverride {
+  workEmail: string;
+  emailUser: string;
+}
+
+const EMAIL_USER_OVERRIDE: EmailUserOverride = {
+  workEmail: emailSignatureOverrideWorkEmail,
+  emailUser: emailSignatureOverrideEmailUser,
+};
+
+/**
+ * The username the signature's email uses: the override's username when this
+ * is the override's work email (matched case-insensitively), otherwise the
+ * part before "@". A template adds the domain. An override with either value
+ * blank, or a username a template would reject, is ignored.
+ */
+export function signatureEmailUser(workEmail: string, override: EmailUserOverride = EMAIL_USER_OVERRIDE): string {
+  const email = workEmail.trim();
+  const overrideUser = override.emailUser.trim();
+  const matches =
+    email !== "" &&
+    email.toLowerCase() === override.workEmail.trim().toLowerCase() &&
+    EMAIL_USER_PATTERN.test(overrideUser);
+  return matches ? overrideUser : email.split("@")[0].trim();
+}
+
+export function generateSignatureHTML(data: SignatureData, logoUrl: string = emailSignatureLogoUrl): string {
   const socialLinks: string[] = [];
   if (data.medium && isSafeUrl(data.medium)) {
     socialLinks.push(
@@ -120,7 +159,7 @@ export function generateSignatureHTML(data: SignatureData): string {
           <tbody>
             <tr>
               <td style="${tdBase};padding: 0 0 3px 0;">
-                <a href="https://wso2.com" style="text-decoration: none;border: 0;display: block;"><img src="https://wso2.cachefly.net/wso2/sites/all/image_resources/logos/wso2-orange-logo.png" alt="WSO2" width="100" height="25" style="-ms-interpolation-mode: bicubic;width: 100px;height: auto;outline: none;text-decoration: none;border: 0;display: block;"></a>
+                <a href="https://wso2.com" style="text-decoration: none;border: 0;display: block;"><img src="${escapeHtml(logoUrl)}" alt="WSO2" width="100" height="25" style="-ms-interpolation-mode: bicubic;width: 100px;height: auto;outline: none;text-decoration: none;border: 0;display: block;"></a>
               </td>
             </tr>
             ${

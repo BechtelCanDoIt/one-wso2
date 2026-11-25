@@ -35,6 +35,7 @@ import {
 import {
   ArrowRightIcon,
   ChevronDownIcon,
+  ChevronRightIcon,
   ExternalLinkIcon,
   RefreshCwIcon,
   SparklesIcon,
@@ -44,11 +45,14 @@ import { formatDateTime, parseUtc } from "../../util/salesTime";
 import { describeError } from "../../util/salesError";
 import {
   describeMoveStageError,
+  describeRejectError,
   useApproveDeal,
   useIncludeCalls,
   useMoveStage,
   useRefreshDeal,
+  useRejectProposal,
   type MoveStageFailure,
+  type RejectFailure,
 } from "../api/useMeddpiccMutations";
 import type {
   ApproveResult,
@@ -58,6 +62,8 @@ import type {
   EvidenceSourceType,
   FieldValue,
   LetterKey,
+  NewContact,
+  RejectProposalRequest,
   TimelineMark,
 } from "../types";
 import { activityOf, describeSources, journeyOf, kindOf, sourcesOf } from "../util/evidenceSource";
@@ -67,19 +73,26 @@ import DealJourney, { KindMark, QUIET_AFTER_DAYS } from "./DealJourney";
 import DealScore from "./DealScore";
 import { DealFlags } from "./DealFlags";
 import { KINDS } from "../util/timelineKinds";
+import { threadActivity, type ActivityThread } from "../util/activityThreads";
 import StagePath from "./StagePath";
 import DealChat, { type ChatEntry } from "./DealChat";
 import { meetingPath, type DealTab } from "../../util/salesPaths";
 import {
   EMPTY_DRAFT,
+  approvalSummary,
   buildApproveRequest,
+  describeApproval,
   hasSomethingToApprove,
   initialRoleMatches,
+  newContactProblem,
+  pendingRoleFields,
   unmatchedRoles,
   type ApprovalDraft,
 } from "../util/approval";
 import { formatAmount, formatSalesforceDate, letterLabel } from "../util/meddpiccFormat";
 import DealFieldRow from "./DealFieldRow";
+import ProvenanceDrawer from "./ProvenanceDrawer";
+import RejectProposalDialog from "./RejectProposalDialog";
 import MeddpiccCircles from "./MeddpiccCircles";
 import StageChip from "./StageChip";
 
@@ -95,6 +108,11 @@ import StageChip from "./StageChip";
  * stage path; and Activity, the deal's journey from start to close, its activity and the
  * products discussed. The page keeps the tab in the URL. Above them, the deal's facts.
  */
+
+/** `record` without the given keys. */
+function without<T>(record: Record<string, T>, keys: ReadonlySet<string>): Record<string, T> {
+  return Object.fromEntries(Object.entries(record).filter(([key]) => !keys.has(key)));
+}
 
 export default function DealView({
   detail,
@@ -114,6 +132,7 @@ export default function DealView({
   const moveStage = useMoveStage(deal.opportunityId);
   const includeCalls = useIncludeCalls(deal.opportunityId);
   const refresh = useRefreshDeal(deal.opportunityId);
+  const reject = useRejectProposal(deal.opportunityId);
 
   const [letter, setLetter] = useState<LetterKey | null>(initialLetter);
   // The Ask AI thread lives here, so it survives switching tabs.
@@ -131,14 +150,22 @@ export default function DealView({
   // render time rather than copied in, so a refetched deal with a new
   // suggestion is honoured without an effect to resync it.
   const [roleChoices, setRoleChoices] = useState<Record<string, string>>({});
+  // The Contacts the AM asked Approve all to create, by role field.
+  const [newContacts, setNewContacts] = useState<Record<string, NewContact>>({});
+  // The field whose suggestion is being explained in the side panel; null when it is closed.
+  const [explained, setExplained] = useState<DealField | null>(null);
   const [approveResult, setApproveResult] = useState<ApproveResult | null>(null);
   const [approveError, setApproveError] = useState<string | null>(null);
   const [moveFailure, setMoveFailure] = useState<MoveStageFailure | null>(null);
   const [includeError, setIncludeError] = useState<string | null>(null);
+  // The field whose suggestion is being rejected in the dialog; null when it is closed.
+  const [rejecting, setRejecting] = useState<DealField | null>(null);
+  const [rejectFailure, setRejectFailure] = useState<RejectFailure | null>(null);
 
   const draft: ApprovalDraft = {
     edits,
     roleMatches: { ...initialRoleMatches(fields), ...roleChoices },
+    newContacts,
   };
   const unmatched = unmatchedRoles(fields, draft);
   const somethingToApprove = hasSomethingToApprove(fields, draft);
@@ -153,7 +180,28 @@ export default function DealView({
       delete next[key];
       return next;
     });
+  const dropNewContact = (key: string) =>
+    setNewContacts((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  // "Create a contact" is the AM's whole answer for the role: it replaces a match or a clear.
+  const setNewContact = (key: string, contact: NewContact | null) => {
+    if (contact === null) {
+      dropNewContact(key);
+      return;
+    }
+    undoEdit(key);
+    setRoleChoices((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+    setNewContacts((prev) => ({ ...prev, [key]: contact }));
+  };
   const matchRole = (key: string, contactId: string | null) => {
+    dropNewContact(key);
     if (contactId === null) {
       // "Not known": a clear, and no match alongside it.
       setEdit(key, null);
@@ -171,22 +219,62 @@ export default function DealView({
   const approveAll = async () => {
     setApproveError(null);
     setApproveResult(null);
+    const request = buildApproveRequest(fields, draft);
     try {
-      const result = await approve.mutateAsync(buildApproveRequest(fields, draft));
+      const result = await approve.mutateAsync(request);
       setApproveResult(result);
       if (!result.error) {
-        setEdits({});
-        setRoleChoices({});
-        showSuccess(
-          result.written.length
-            ? `Written to Salesforce: ${result.written.map(labelOf).join(", ")}.`
-            : "Approved. Nothing needed writing to Salesforce.",
-        );
+        // Only what this request carried is cleared: an answer given while it was in
+        // flight was not sent, and stays for the next Approve all.
+        const sent = new Set([
+          ...Object.keys(request.edits),
+          ...Object.keys(request.roleMatches),
+          ...Object.keys(request.newContacts ?? {}),
+        ]);
+        setEdits((prev) => without(prev, sent));
+        setRoleChoices((prev) => without(prev, sent));
+        setNewContacts((prev) => without(prev, sent));
+        const created = result.createdContacts ?? [];
+        const said = [
+          result.written.length ? `Written to Salesforce: ${result.written.map(labelOf).join(", ")}.` : "",
+          created.length ? `Created in Salesforce: ${created.map((c) => c.name).join(", ")}.` : "",
+        ].filter(Boolean);
+        showSuccess(said.length ? said.join(" ") : "Approved. Nothing needed writing to Salesforce.");
       }
     } catch (error: unknown) {
       setApproveError(describeError(error));
     }
   };
+
+  const openReject = (field: DealField) => {
+    setRejectFailure(null);
+    setRejecting(field);
+  };
+
+  const rejectProposal = async (request: RejectProposalRequest) => {
+    if (!rejecting) return;
+    const { key, label, kind } = rejecting;
+    setRejectFailure(null);
+    try {
+      await reject.mutateAsync({ fieldKey: key, request });
+      // A role's answers belong to the suggestion that just went: a "not known" left in the
+      // draft would otherwise go out with Approve all as a clear of the role in Salesforce.
+      if (kind === "role") {
+        undoEdit(key);
+        dropNewContact(key);
+        setRoleChoices((prev) => without(prev, new Set([key])));
+      }
+      setRejecting(null);
+      showSuccess(`Rejected the suggestion for ${label}. Nothing changed in Salesforce.`);
+    } catch (error: unknown) {
+      setRejectFailure(describeRejectError(error));
+    }
+  };
+
+  const refreshDeal = () =>
+    refresh.mutate(undefined, {
+      onError: (err) => showError(`Couldn't refresh from Salesforce: ${describeError(err)}`),
+    });
 
   const moveToNext = async () => {
     if (!detail.nextStage) return;
@@ -217,13 +305,25 @@ export default function DealView({
   const askNextByField = new Map(detail.askNext.map((item) => [item.fieldKey, item.question]));
   const scopeName = letter ? letterLabel(letter) : gate;
 
+  // A new contact the AM has not finished: Approve all waits for it. Only for a role still
+  // waiting: a draft for one settled meanwhile is not sent, so it must not block the rest.
+  const pendingRoles = new Set(pendingRoleFields(fields).map((field) => field.key));
+  const contactProblem = Object.entries(newContacts)
+    .filter(([key]) => pendingRoles.has(key))
+    .map(([key, contact]) => ({ key, problem: newContactProblem(contact) }))
+    .find((entry) => entry.problem !== null);
+
   const approveHint = readOnly
     ? "Only the Opportunity owner can approve."
     : unmatched.length > 0
       ? `Pick the matching contact for ${unmatched.map((f) => f.label.toLowerCase()).join(", ")}, or mark it not known.`
-      : !somethingToApprove
-        ? "Nothing is waiting for approval."
-        : null;
+      : contactProblem
+        ? `Finish the new contact for ${labelOf(contactProblem.key).toLowerCase()}: ${contactProblem.problem}.`
+        : !somethingToApprove
+          ? "Nothing is waiting for approval."
+          : null;
+  // What the button is about to do, in one sentence, before anything reaches Salesforce.
+  const summaryText = describeApproval(approvalSummary(fields, draft));
 
   // Whether the action card is needed: something to approve (or a role still to match),
   // a stage to move to, or a result or failure from the last attempt to show.
@@ -248,6 +348,10 @@ export default function DealView({
       onEdit={setEdit}
       onUndo={undoEdit}
       onRoleMatch={matchRole}
+      onNewContact={setNewContact}
+      onExplain={setExplained}
+      onReject={openReject}
+      accountName={deal.accountName}
       sourceFilter={sourceFilter}
       variant={variant}
       askNext={variant === "full" ? askNextByField.get(field.key) : undefined}
@@ -378,11 +482,7 @@ export default function DealView({
                 size="small"
                 aria-label="Refresh from Salesforce"
                 disabled={refresh.isPending}
-                onClick={() =>
-                  refresh.mutate(undefined, {
-                    onError: (err) => showError(`Couldn't refresh from Salesforce: ${describeError(err)}`),
-                  })
-                }
+                onClick={refreshDeal}
                 startIcon={refresh.isPending ? <CircularProgress size={14} /> : <RefreshCwIcon size={14} />}
                 sx={{ textTransform: "none" }}
               >
@@ -579,7 +679,7 @@ export default function DealView({
                     ) : (
                       <Typography variant="body2">
                         {somethingToApprove
-                          ? "Approve all writes your reviewed answers to Salesforce."
+                          ? summaryText || "Approve all writes your reviewed answers to Salesforce."
                           : `This stage is complete. Move the opportunity on when you're ready.`}
                       </Typography>
                     )}
@@ -639,7 +739,7 @@ export default function DealView({
               title="Needs your review"
               tone="warning"
               count={sections.review.length}
-              description="Heard on calls and proposed by the AI. Approve all writes them to Salesforce; edit one first if it isn't right."
+              description="What the calls say, next to what Salesforce has. Approve all writes the suggestions; edit one first if it isn't right."
               hideWhenEmpty
             >
               {sections.review.map((field) => renderField(field))}
@@ -708,17 +808,22 @@ export default function DealView({
                 {sourceFilter ? ` of ${activity.length}` : ""})
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: "block" }}>
-                Everything the opportunity's MEDDPICC is drawn from, newest first.
+                Everything the opportunity's MEDDPICC is drawn from, newest first. An email thread
+                is one row, which opens to its messages.
               </Typography>
               <Stack component="ul" spacing={0.75} sx={{ listStyle: "none", p: 0, m: 0, mt: 0.75 }}>
-                {shownActivity.map((entry) => (
-                  <ActivityRow
-                    key={`${entry.type}-${entry.id}`}
-                    entry={entry}
-                    coverage={entry.meetingId !== null ? coverageByMeeting.get(entry.meetingId) : undefined}
-                    now={now}
-                  />
-                ))}
+                {threadActivity(shownActivity).map((item) =>
+                  item.kind === "thread" ? (
+                    <ActivityThreadRow key={`thread-${item.subject.toLowerCase()}`} thread={item} now={now} />
+                  ) : (
+                    <ActivityRow
+                      key={`${item.entry.type}-${item.entry.id}`}
+                      entry={item.entry}
+                      coverage={item.entry.meetingId !== null ? coverageByMeeting.get(item.entry.meetingId) : undefined}
+                      now={now}
+                    />
+                  ),
+                )}
               </Stack>
             </Box>
           )}
@@ -726,6 +831,27 @@ export default function DealView({
       ) : (
         <DealChat opportunityId={deal.opportunityId} entries={chat} onChange={setChat} />
       )}
+
+      {/* The full account of a suggestion, beside the page; the field is read fresh from the deal. */}
+      <ProvenanceDrawer
+        field={explained ? (fields.find((f) => f.key === explained.key) ?? explained) : null}
+        detail={detail}
+        open={explained !== null}
+        onClose={() => setExplained(null)}
+      />
+
+      <RejectProposalDialog
+        field={rejecting}
+        open={rejecting !== null}
+        pending={reject.isPending}
+        failure={rejectFailure}
+        onClose={() => setRejecting(null)}
+        onConfirm={(request) => void rejectProposal(request)}
+        onRefresh={() => {
+          setRejecting(null);
+          refreshDeal();
+        }}
+      />
     </>
   );
 }
@@ -792,6 +918,55 @@ function ActivityRow({
         )}
       </Box>
     </Stack>
+  );
+}
+
+/**
+ * An email thread on the activity list: one row, titled by the subject without its Re:
+ * prefixes and placed by its newest message, that opens to the messages in the order they
+ * were sent, each a row of its own with its link into Salesforce.
+ */
+function ActivityThreadRow({ thread, now }: { thread: ActivityThread; now: number }) {
+  const [open, setOpen] = useState(false);
+  const { subject, messages, latest } = thread;
+  return (
+    <Box component="li">
+      <Stack direction="row" spacing={1.25} sx={{ alignItems: "flex-start", py: 0.5 }}>
+        <Box sx={{ width: 14, height: 20, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <KindMark kind="EMAIL" upcoming={false} />
+        </Box>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: "anywhere" }}>
+            {subject}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" component="div">
+            Email thread · {messages.length} messages · last {formatDateTime(latest.occurredAt)}
+            {latest.actor && ` · ${latest.actor}`}
+          </Typography>
+          <Button
+            size="small"
+            onClick={() => setOpen((current) => !current)}
+            aria-expanded={open}
+            startIcon={open ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />}
+            sx={{ mt: 0.25, textTransform: "none" }}
+          >
+            {open ? "Hide the messages" : `Show the ${messages.length} messages`}
+          </Button>
+          {open && (
+            <Stack
+              component="ul"
+              spacing={0.25}
+              aria-label={`Messages in ${subject}`}
+              sx={{ listStyle: "none", p: 0, m: 0, mt: 0.5, pl: 1.5, borderLeft: 2, borderColor: "divider" }}
+            >
+              {messages.map((message) => (
+                <ActivityRow key={message.id} entry={message} coverage={undefined} now={now} />
+              ))}
+            </Stack>
+          )}
+        </Box>
+      </Stack>
+    </Box>
   );
 }
 

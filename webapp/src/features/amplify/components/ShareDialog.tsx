@@ -41,8 +41,13 @@ interface ShareDialogProps {
   "data-componentid"?: string;
 }
 
+// Amplify posts each person's shares one at a time, a few minutes apart (amplify-jobs pacing), so a share
+// queued after others can take a while to appear on LinkedIn.
+export const SHARE_QUEUED_MESSAGE =
+  "Queued. Amplify posts your shares on LinkedIn one at a time, a few minutes apart, so this one may take a while.";
+
 /**
- * "Amplify, share this for me." A repost of Chore Labs' post on the employee's
+ * "Amplify, share this for me." A repost of Choreo Labs' post on the employee's
  * LinkedIn. Text in "Add your thoughts" makes it a REPOST_COMMENTARY; empty
  * stays a plain REPOST. The repost is queued; the next Amplify run publishes it.
  *
@@ -82,7 +87,7 @@ export default function ShareDialog({
       commentary ? { campaignId: campaign.id, kind: "REPOST_COMMENTARY", commentary } : { campaignId: campaign.id, kind: "REPOST" },
       {
         onSuccess: () => {
-          showSuccess("Queued. It goes out on your LinkedIn with the next Amplify run.");
+          showSuccess(SHARE_QUEUED_MESSAGE);
           close();
         },
         onError: (err) => {

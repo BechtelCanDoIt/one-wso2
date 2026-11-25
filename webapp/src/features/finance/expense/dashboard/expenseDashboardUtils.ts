@@ -19,12 +19,78 @@
 // every other finance screen uses, so the portal has one currency format.
 
 import { toIso } from "../../util/financeFormat";
-import type { ExpenseDashboardPeriod, ExpenseSubsidiarySummary } from "../expenseTypes";
+import type {
+  ExpenseDashboardPeriod,
+  ExpenseEmployee,
+  ExpenseReportEmployeeOption,
+  ExpenseSubsidiarySummary,
+  ExpenseTypeData,
+} from "../expenseTypes";
 
 export const ALL_ENTITIES = "All entities";
 export const ALL_CATEGORIES = "All categories";
 export const ALL_STATUSES = "All statuses";
 export const ALL_REGIONS = "All regions";
+export const ALL_EMPLOYEES = "All employees";
+
+/** One entry per distinct expense type name, in the order the catalogue first
+ *  mentions it. The catalogue holds a name once per GL code, so the raw list
+ *  repeats a name as many times as it has rows. */
+export function getCategoryOptions(expenseTypes: readonly ExpenseTypeData[]): string[] {
+  return [...new Set(expenseTypes.map((expenseType) => expenseType.type))];
+}
+
+/** The directory status of someone who has left. */
+const LEFT_EMPLOYEE_STATUS = "left";
+
+/**
+ * Everyone the Employee filter offers: `employees` minus those who have left,
+ * plus anyone in `employeesWithClaims` the directory left out, each as the work
+ * email filtered on and the display name shown, ordered by name. A name two
+ * people share is qualified with the work email, so the two choices read apart.
+ */
+export function getEmployeeOptions(
+  employees: readonly ExpenseEmployee[],
+  employeesWithClaims: readonly ExpenseReportEmployeeOption[],
+): ExpenseReportEmployeeOption[] {
+  const namesByEmail = new Map<string, string>();
+  for (const employee of employees) {
+    // Only leavers are dropped, rather than keeping only "Active", so a missing or
+    // unrecognised status is still offered. Normalised as the status chip helper does.
+    if (employee.employeeStatus?.trim().toLowerCase() === LEFT_EMPLOYEE_STATUS) continue;
+    const name = [employee.firstName, employee.lastName].filter(Boolean).join(" ").trim();
+    namesByEmail.set(employee.workEmail, name.length > 0 ? name : employee.workEmail);
+  }
+  for (const employee of employeesWithClaims) {
+    if (!namesByEmail.has(employee.employeeEmail)) {
+      namesByEmail.set(employee.employeeEmail, employee.employeeName);
+    }
+  }
+
+  const timesNameUsed = new Map<string, number>();
+  for (const name of namesByEmail.values()) timesNameUsed.set(name, (timesNameUsed.get(name) ?? 0) + 1);
+
+  return [...namesByEmail]
+    .map(([employeeEmail, employeeName]) => ({
+      employeeEmail,
+      employeeName:
+        (timesNameUsed.get(employeeName) ?? 0) > 1 ? `${employeeName} (${employeeEmail})` : employeeName,
+    }))
+    .sort((a, b) => a.employeeName.localeCompare(b.employeeName));
+}
+
+/** Every expense type ID filed under `category`, or undefined for the
+ *  `ALL_CATEGORIES` sentinel and for a name the catalogue does not hold. */
+export function getExpenseTypeIdsForCategory(
+  category: string,
+  expenseTypes: readonly ExpenseTypeData[],
+): number[] | undefined {
+  if (category === ALL_CATEGORIES) return undefined;
+  const ids = expenseTypes.filter((expenseType) => expenseType.type === category).map((e) => e.id);
+  // An empty list reads as "no expense type filter" and widens the report to every
+  // category, so an unmatched name stays undefined.
+  return ids.length > 0 ? ids : undefined;
+}
 
 /** `startDate` is omitted for an open-ended period ("All Time"), which the
  *  backend treats as unbounded and skips the prior-period comparison for. */

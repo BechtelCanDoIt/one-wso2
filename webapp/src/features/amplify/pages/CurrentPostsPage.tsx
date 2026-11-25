@@ -16,8 +16,9 @@
 
 import { useMemo, useState } from "react";
 import { Box, Button, Chip, Skeleton, Typography } from "@wso2/oxygen-ui";
-import { LinkedinIcon, PlusIcon } from "@wso2/oxygen-ui-icons-react";
+import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import { useNavigate } from "react-router";
+import { LinkedinIcon } from "@components/icons/LinkedinIcon";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { AMPLIFY_NEW_POST_PATH } from "@constants/perspectives";
 import type { Campaign, CampaignStatus } from "../api/amplifyTypes";
@@ -34,7 +35,7 @@ const STATUS_LABEL: Record<CampaignStatus, string> = {
   ARCHIVED: "Archived",
 };
 
-// Current Posts: the official Chore Labs LinkedIn posts in Amplify, for PO and
+// Current Posts: the official Choreo Labs LinkedIn posts in Amplify, for PO and
 // Marketing to update. Archived posts are left out. Only callers granted
 // CAN_CAMPAIGN reach this page (AmplifyEditorRoute); amplify-api limits
 // any-status reads and every edit to the same grant.
@@ -54,7 +55,7 @@ export default function CurrentPostsPage() {
   return (
     <AmplifyShell
       title="Current Posts"
-      subtitle="The official Chore Labs LinkedIn posts that are live in Amplify. Edit a published post on LinkedIn itself."
+      subtitle="The official Choreo Labs LinkedIn posts that are live in Amplify. Edit a published post on LinkedIn itself."
     >
       {campaigns.isPending ? (
         <Skeleton variant="rounded" height={320} sx={{ mb: 3 }} />

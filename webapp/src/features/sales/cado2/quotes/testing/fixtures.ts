@@ -96,6 +96,9 @@ export const gateway: LineView = {
   recurring: true,
   quantity: 20,
   category: "SUBSCRIPTION",
+  discountPercent: "10.00",
+  volumeCeilingPercent: null,
+  volumeDiscountPercent: "0.00",
   discretionaryDiscountPercent: "10.00",
   yearNumber: 1,
   startDate: "2026-10-01",
@@ -124,6 +127,8 @@ export const ready: DraftResponse = {
   ...draft,
   version: {
     ...draft.version,
+    // A line has a discount, so ready to submit means justified (D58, D141).
+    justification: "Competitive deal",
     contacts: [
       { role: "BILLING", source: "SALESFORCE", sfContactId: "003000000000002", name: "Ana Payables", title: null, email: "ap@acme.example" },
       { role: "SECURITY", source: "SALESFORCE", sfContactId: "003000000000001", name: "Marco Ruiz", title: "Head of IT", email: "marco@acme.example" },

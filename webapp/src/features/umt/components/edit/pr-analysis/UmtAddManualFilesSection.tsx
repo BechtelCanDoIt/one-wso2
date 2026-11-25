@@ -60,6 +60,7 @@ import {
   zipTargetDirectory,
   type UmtPendingManualUpload,
 } from "../../../lib/umtPrAnalysis";
+import { UMT_ALL_ROWS_GRID_PROPS } from "../../../lib/umtGrid";
 import type { UmtBundleInfoChange, UmtFileOperation } from "../../../api/umtUpdates";
 import { renderLinkValue } from "../../umtViewSectionPrimitives";
 
@@ -114,7 +115,7 @@ export default function UmtAddManualFilesSection({
   const [deleteBundleTarget, setDeleteBundleTarget] = useState<string | null>(null);
   // Stable per-entry ids independent of `bundlesInfoPath`, so two entries
   // sharing a path never collapse into a single grid row or get deleted
-  // together; the collision itself is surfaced inline for the user to resolve.
+  // together.
   const bundleEntryIdsRef = useRef(new WeakMap<UmtBundleInfoChange, string>());
   const nextBundleEntryId = useRef(0);
   function bundleEntryId(row: UmtBundleInfoChange): string {
@@ -246,7 +247,17 @@ export default function UmtAddManualFilesSection({
         setFormError(errors[0] ?? "Bundle info fields are required for plugin JAR changes.");
         return;
       }
-      if (bundlesInfoChanges.some((row) => row.bundlesInfoPath === bundlesInfoPath.trim())) {
+      // One bundles.info file can hold entries for several bundles, and a
+      // bundle is identified by its JAR name and version, so only an entry for
+      // the same bundle in the same file is a duplicate.
+      if (
+        bundlesInfoChanges.some(
+          (row) =>
+            row.bundlesInfoPath === bundlesInfoPath.trim() &&
+            row.jarName === jarName.trim() &&
+            row.jarVersion === jarVersion.trim(),
+        )
+      ) {
         setFormError("This Bundle Info has already been added.");
         return;
       }
@@ -382,6 +393,7 @@ export default function UmtAddManualFilesSection({
       {files.length > 0 ? (
         <DataGridComponent
           autoHeight
+          {...UMT_ALL_ROWS_GRID_PROPS}
           columnHeaderHeight={40}
           disableColumnMenu
           disableRowSelectionOnClick
@@ -456,6 +468,7 @@ export default function UmtAddManualFilesSection({
       {bundlesInfoChanges.length > 0 && (
         <DataGridComponent
           autoHeight
+          {...UMT_ALL_ROWS_GRID_PROPS}
           columnHeaderHeight={40}
           disableColumnMenu
           disableRowSelectionOnClick
@@ -463,7 +476,7 @@ export default function UmtAddManualFilesSection({
           getRowId={(row: UmtBundleInfoChange) => bundleEntryId(row)}
           hideFooter
           rows={bundlesInfoChanges}
-          sx={{ mt: 2 }}
+          sx={{ mt: 2, ...denseDataGridSx }}
           columns={[
             {
               field: "bundlesInfoPath",
@@ -484,6 +497,17 @@ export default function UmtAddManualFilesSection({
               renderCell: (params: { row: UmtBundleInfoChange }) => (
                 <Stack sx={{ justifyContent: "center", minHeight: "100%", py: 0.75, width: "100%" }}>
                   {params.row.jarName}
+                </Stack>
+              ),
+            },
+            {
+              field: "jarVersion",
+              headerName: "JAR Version",
+              flex: 1,
+              sortable: false,
+              renderCell: (params: { row: UmtBundleInfoChange }) => (
+                <Stack sx={{ justifyContent: "center", minHeight: "100%", py: 0.75, width: "100%" }}>
+                  {params.row.jarVersion}
                 </Stack>
               ),
             },

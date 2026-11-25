@@ -14,23 +14,37 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useEffect, type JSX } from "react";
 import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type JSX,
+} from "react";
+import {
+  alpha,
   Box,
-  ColorSchemeImage,
   ColorSchemeToggle,
   Header,
   IconButton,
+  InputBase,
   Tooltip,
   Typography,
+  useTheme,
 } from "@wso2/oxygen-ui";
-import { MenuIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { MenuIcon, SearchIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
 import AppsGridIcon from "./AppsGridIcon";
+import BrandLockup, { BRAND_CLEAR_SPACE } from "./BrandLockup";
 import { Link as RouterLink } from "react-router";
 import { landingPath } from "@config/landingConfig";
 import PinnedTabs from "@features/pinned/components/PinnedTabs";
 import PinThisPageButton from "@features/pinned/components/PinThisPageButton";
+import StoreButton from "@features/swag-store/components/StoreButton";
 import { usePinnedEntries } from "@features/pinned/usePinned";
+import { useUserInfo } from "@api/useUserInfo";
+import { capabilitiesFromPrivileges } from "@constants/appMenu";
+import AskNoveraPalette from "@components/ask-novera/AskNoveraPalette";
 import ThemeSelect from "./ThemeSelect";
 import UserProfileMenu from "./UserProfileMenu";
 
@@ -52,37 +66,6 @@ const IS_APPLE_PLATFORM =
 /** No "+" in either form, matching the badge's compact style. */
 const SHORTCUT_HINT = IS_APPLE_PLATFORM ? "⌘K" : "Ctrl K";
 
-// Brand lockup sizing. Constrained by https://wso2.com/about/brand, which is
-// stricter than it looks — check there before changing any of this:
-//
-//  - "Icon should not be isolated." The pulse mark may not be used apart from
-//    the wordmark, so the full logo asset is the only option here — regardless
-//    of what any other app does. (The favicon is the one exception, because a
-//    ~16px square slot cannot hold a 2.5:1 lockup at all.)
-//  - The logo "is strictly monochrome": black on light, white on dark. Orange
-//    (#F14E23) is approved for the icon on DARK backgrounds only, so it can't be
-//    used on this header, whose background is `background.paper`.
-//  - The padding inside the SVG is not slack to be cropped out — it is the
-//    mandated clear space ("4x padding"). Leave it alone.
-//
-// Sizing: the visible letters are half the height set here (artwork occupies
-// y 163.7-490.6 of a 0-654.2 viewBox). "One" is one word of the two-word name,
-// so it has to render at the same letter height as "WSO2" beside it — these two
-// constants move together. Inter at weight 600 has a 0.7375x cap height,
-// measured in a browser:
-//
-//   title px   cap height   logo px to match
-//   18         13.27        26.5   <- Oxygen's own BrandTitle token
-//   22         16.22        32.4   <- chosen; the pair scaled up for presence
-//   24         17.70        35.4
-//
-// UNRESOLVED: the brand minimum for digital use is 180x72px, which at this
-// aspect means a 72px-tall logo. The Oxygen toolbar is 56px (xs) / 64px (sm+),
-// so no compliant-minimum logo fits. Needs a ruling from the brand owner on
-// what applies to product chrome; every value here is below that minimum.
-const BRAND_TITLE_PX = 22;
-const BRAND_LOGO_PX = 32;
-
 interface TopBarProps {
   collapsed: boolean;
   onToggleSidebar: () => void;
@@ -90,7 +73,6 @@ interface TopBarProps {
   onToggleWaffle: (anchor: HTMLElement) => void;
   /** Whether the launcher is currently showing, for aria-expanded. */
   waffleOpen: boolean;
-  onOpenAsk: () => void;
 }
 
 // The persistent top bar, on Oxygen's compound `Header`, in the order the
@@ -105,21 +87,51 @@ export default function TopBar({
   onToggleSidebar,
   onToggleWaffle,
   waffleOpen,
-  onOpenAsk,
 }: TopBarProps): JSX.Element {
   // Only the count matters here — the strip itself renders the entries.
   const hasPinned = usePinnedEntries().length > 0;
+  const userInfo = useUserInfo();
+  const userCaps = useMemo(
+    () => capabilitiesFromPrivileges(userInfo.data?.privileges),
+    [userInfo.data?.privileges],
+  );
+  const theme = useTheme();
+  const [searchQuery, setSearchQuery] = useState("");
+  const [resultsOpen, setResultsOpen] = useState(false);
+  const [isFocused, setIsFocused] = useState(false);
+  const [pillEl, setPillEl] = useState<HTMLElement | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
+    const handler = (e: KeyboardEvent): void => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        onOpenAsk();
+        const input = inputRef.current;
+        const isHidden =
+          window.innerWidth < theme.breakpoints.values.sm ||
+          !input ||
+          (typeof input.checkVisibility === "function" && !input.checkVisibility());
+        if (isHidden) {
+          setResultsOpen(true);
+        } else {
+          input.focus();
+        }
       }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onOpenAsk]);
+  }, [theme.breakpoints.values.sm]);
+
+  const handleSearchSubmit = (e: FormEvent<HTMLFormElement>): void => {
+    e.preventDefault();
+    setResultsOpen(true);
+  };
+
+  const handleClear = (): void => {
+    setSearchQuery("");
+    setResultsOpen(false);
+    inputRef.current?.focus();
+  };
 
   return (
     <Header>
@@ -132,7 +144,7 @@ export default function TopBar({
         collapseIcon={<MenuIcon size={20} />}
       />
 
-      <Header.Brand sx={{ flexShrink: 0 }}>
+      <Header.Brand sx={{ flexShrink: 0, mr: BRAND_CLEAR_SPACE }}>
         {/* The lockup is the way home, as it is in every other product.
             Deliberately a real link rather than an onClick, so cmd-click and
             middle-click open a new tab the way a logo is expected to.
@@ -144,12 +156,13 @@ export default function TopBar({
             has not changed it. Sending someone to Me when they have chosen a
             different home would contradict their own preference.
 
-            aria-label because the only text inside is "One" and the wordmark
-            carries alt="" — on its own that is a thin name for a link. */}
+            aria-label because the only text inside is "One" and the mark is
+            hidden from assistive tech — on its own that is a thin name for a
+            link. */}
         <Box
           component={RouterLink}
           to={landingPath()}
-          aria-label="One WSO2 home"
+          aria-label="One App home"
           sx={{
             display: "flex",
             alignItems: "center",
@@ -164,97 +177,126 @@ export default function TopBar({
             },
           }}
         >
-          {/* Overrides Oxygen's 16→18px token, paired with BRAND_LOGO_PX above:
-              "One" is one word of the name, so its size is set by the lockup
-              rather than by the app-name token. */}
-          <Header.BrandTitle sx={{ whiteSpace: "nowrap", fontSize: BRAND_TITLE_PX }}>
-            One
-          </Header.BrandTitle>
-          {/* Negative margin so "One" and the WSO2 logo read as one lockup rather
-              than two adjacent elements. */}
-          <Header.BrandLogo sx={{ ml: "-4px" }}>
-            {/* The full logo, monochrome per brand rules — black on light, white
-                on dark. ColorSchemeImage picks the variant from the resolved
-                colour scheme. alt="" because "One" beside it plus the wordmark
-                already read as the product name. */}
-            <ColorSchemeImage
-              src={{ light: "/wso2-logo-black.svg", dark: "/wso2-logo-white.svg" }}
-              alt=""
-              height={BRAND_LOGO_PX}
-              width="auto"
-            />
-          </Header.BrandLogo>
+          {/* The brand lockup with ChoreoLabsMark and "One" wordmark in Sora. */}
+          <BrandLockup />
         </Box>
       </Header.Brand>
 
-      {/* Palette trigger. A click target rather than a real input: the palette
-          owns the query field.
+      <Box sx={{ flexGrow: 1, minWidth: 0 }} />
 
-          Fixed responsive widths rather than `flex: 1`, so the flexible slot
-          belongs to PinnedTabs instead — the pinned strip is the part that
-          benefits from spare room. It also narrows once anything is pinned,
-          since the two share that row; at `xs` it collapses to an icon. */}
-      <Box
-        role="button"
-        tabIndex={0}
-        onClick={onOpenAsk}
+      <IconButton
+        size="small"
+        onClick={() => setResultsOpen(true)}
         aria-label="Ask Novera"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault();
-            onOpenAsk();
-          }
-        }}
         sx={{
-          flexShrink: 0,
-          width: hasPinned
-            ? { xs: 40, sm: 200, md: 260, lg: 320 }
-            : { xs: 40, sm: 280, md: 400, lg: 520 },
-          display: "flex",
-          alignItems: "center",
-          justifyContent: { xs: "center", sm: "flex-start" },
-          gap: 1.25,
-          bgcolor: "action.hover",
-          border: 1,
-          borderColor: "divider",
-          borderRadius: 1.5,
-          px: { xs: 0, sm: 1.75 },
-          py: 0.75,
+          display: { xs: "inline-flex", sm: "none" },
           color: "text.secondary",
-          cursor: "text",
-          transition: "border-color .15s, width .15s",
-          "&:hover": { borderColor: "text.disabled" },
-          "&:focus-visible": { outline: 2, outlineStyle: "solid", outlineColor: "primary.main" },
+          p: 1,
         }}
       >
-        <SearchIcon size={16} style={{ flexShrink: 0 }} />
-        {/* Names Novera deliberately: it is a committed part of the product, and
-            the palette states plainly that the assistant is still coming rather
-            than implying it already answers. */}
-        <Typography variant="body2" noWrap sx={{ display: { xs: "none", sm: "block" } }}>
-          Ask Novera
-        </Typography>
-        <Box
-          sx={{
-            ml: "auto",
-            display: { xs: "none", md: "block" },
-            bgcolor: "background.paper",
-            border: 1,
-            borderColor: "divider",
-            borderRadius: 0.75,
-            px: 0.75,
-            flexShrink: 0,
-          }}
-        >
-          <Typography variant="caption">{SHORTCUT_HINT}</Typography>
-        </Box>
-      </Box>
+        <SearchIcon size={18} />
+      </IconButton>
+
+      {/* Hand-built search pill using InputBase rather than Oxygen's SearchBar:
+          Oxygen's SearchBar wraps a standard 40px OutlinedInput with rigid padding and fixed
+          startAdornment. The TopBar search pill needs a compact 32px height, form-level submit
+          handling, custom focus-ring glowing around the entire pill, and dynamic right-side
+          swapping between the shortcut badge (⌘K) and clear button. */}
+          <Box
+            ref={setPillEl}
+            component="form"
+            onSubmit={handleSearchSubmit}
+            onClick={() => inputRef.current?.focus()}
+            sx={{
+              display: { xs: "none", sm: "flex" },
+              cursor: "text",
+              flexShrink: 0,
+              width: hasPinned
+                ? { sm: 200, md: 260, lg: 320 }
+                : { sm: 280, md: 400, lg: 640 },
+              alignItems: "center",
+              gap: 1.25,
+              bgcolor: "action.hover",
+              border: 1,
+              borderColor: isFocused ? "primary.main" : "divider",
+              borderRadius: 1.5,
+              px: 1.75,
+              py: 0.5,
+              color: "text.secondary",
+              transition: "border-color .15s, width .15s, box-shadow .15s",
+              boxShadow: isFocused
+                ? (t) =>
+                    `0 0 0 1px ${
+                      t.vars
+                        ? `rgba(${t.vars.palette.primary.mainChannel} / ${t.palette.mode === "dark" ? 0.45 : 0.25})`
+                        : alpha(t.palette.primary.main, t.palette.mode === "dark" ? 0.45 : 0.25)
+                    }`
+                : "none",
+              "&:hover": { borderColor: isFocused ? "primary.main" : "text.disabled" },
+            }}
+          >
+            <SearchIcon size={16} style={{ flexShrink: 0 }} />
+            <InputBase
+              inputRef={inputRef}
+              placeholder="Ask Novera"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Escape" && !e.nativeEvent.isComposing) {
+                  setSearchQuery("");
+                  setResultsOpen(false);
+                  inputRef.current?.blur();
+                }
+              }}
+              inputProps={{ "aria-label": "Ask Novera" }}
+              sx={{
+                flex: 1,
+                fontSize: 13.5,
+                color: "text.primary",
+                "& input": { p: 0 },
+              }}
+            />
+
+            {searchQuery ? (
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClear();
+                }}
+                aria-label="Clear search"
+                sx={{ p: 0.25, color: "text.secondary" }}
+              >
+                <XIcon size={14} />
+              </IconButton>
+            ) : (
+              <Box
+                sx={{
+                  ml: "auto",
+                  display: { xs: "none", md: "block" },
+                  bgcolor: "background.paper",
+                  border: 1,
+                  borderColor: "divider",
+                  borderRadius: 0.75,
+                  px: 0.75,
+                  flexShrink: 0,
+                }}
+              >
+                <Typography variant="caption">{SHORTCUT_HINT}</Typography>
+              </Box>
+            )}
+          </Box>
 
       {/* Takes the flexible middle slot, collapsing to a plain spacer when
           nothing is pinned. */}
       <PinnedTabs />
 
       <Header.Actions>
+        {/* Swag Store's shortcut, just left of the app switcher. Renders
+            nothing while its preview flag is off. */}
+        <StoreButton />
         <Tooltip title="Switch app">
           <IconButton
             onClick={(e) => onToggleWaffle(e.currentTarget)}
@@ -278,6 +320,16 @@ export default function TopBar({
         </Box>
         <UserProfileMenu />
       </Header.Actions>
+
+      {/* Full-Screen Search Canvas Overlay */}
+      {resultsOpen && (
+        <AskNoveraPalette
+          anchorEl={pillEl}
+          onClose={() => setResultsOpen(false)}
+          initialQuery={searchQuery}
+          userCaps={userCaps}
+        />
+      )}
     </Header>
   );
 }

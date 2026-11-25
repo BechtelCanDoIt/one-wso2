@@ -216,7 +216,7 @@ export default function CelebratePage() {
   const postsError = campaigns.error ?? shares.error ?? me.error;
 
   return (
-    <AmplifyShell title="Celebrate" subtitle="Share Chore Labs' posts on LinkedIn, earn points, and see where you rank.">
+    <AmplifyShell title="Celebrate" subtitle="Share Choreo Labs' posts on LinkedIn, earn points, and see where you rank.">
       {postsLoading ? (
         <Skeleton variant="rounded" height={320} sx={{ mb: 3 }} />
       ) : postsError ? (

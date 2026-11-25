@@ -22,7 +22,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 type Perspectives = typeof import("./perspectives");
 
 async function load(
-  preview: { cado2?: boolean; nda?: boolean } = {},
+  preview: { quickquote?: boolean; nda?: boolean; procurement?: boolean } = {},
 ): Promise<Perspectives> {
   vi.resetModules();
   window.config = {
@@ -95,20 +95,57 @@ describe("the Sales perspective", () => {
     expect(findPerspectiveByKey("sales")?.sections?.map((section) => section.id)).toContain("sales-echo");
   });
 
-  // Echo is a group of its screens, like CadO2: Calls and Deals.
-  it("lists Echo as a group with Calls and Deals inside it", async () => {
+  // Opportunities is the first row, where Sales lands; Echo is a group of its one screen,
+  // Calls, like Sales Pitstop's.
+  it("puts Opportunities first, then Echo as a group with Calls inside it", async () => {
     const { findPerspectiveByKey } = await load();
-    const echo = findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sales-echo");
+    const sections = findPerspectiveByKey("sales")?.sections ?? [];
+    expect(sections[0]).toMatchObject({ id: "sales-deals", label: "Opportunities", path: "/sales/deals" });
+    expect(sections[0]?.children).toBeUndefined();
+    const echo = sections.find((s) => s.id === "sales-echo");
     expect(echo?.label).toBe("Echo");
     expect(echo?.alwaysGroup).toBe(true);
-    expect(echo?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
-      ["sales-meetings", "Calls", "/sales/meetings"],
-      ["sales-deals", "Opportunities", "/sales/deals"],
-    ]);
+    expect(echo?.children?.map((c) => [c.id, c.label, c.path])).toEqual([["sales-meetings", "Calls", "/sales/meetings"]]);
   });
 });
 
 // CadO2 lands behind its own flag, as a whole, inside the Sales perspective.
+describe("Procurement's rail entries", () => {
+  const procurementGroupIn = (perspectives: Perspectives) =>
+    perspectives.findPerspectiveByKey("me")?.sections?.find((s) => s.id === "sec-app-procurement");
+
+  it("are one Procurement entry under Me once the flag is on", async () => {
+    const entry = procurementGroupIn(await load({ procurement: true }));
+    expect(entry?.label).toBe("Procurement");
+    expect(entry?.children?.map((c) => [c.label, c.path, c.requires])).toEqual([
+      ["Procurement", "/me/procurement", undefined],
+    ]);
+  });
+
+  it("are gone when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ procurement: false }, {}]) {
+      expect(procurementGroupIn(await load(preview))).toBeUndefined();
+    }
+  });
+});
+
+describe("the Procurement perspective", () => {
+  it("is a perspective of its own, with the team's queue, once the flag is on", async () => {
+    const perspective = (await load({ procurement: true })).findPerspectiveByKey("procurement");
+    expect(perspective).toMatchObject({ label: "Procurement", path: "/procurement", externallyGated: true, forwardsToFirstItem: true });
+    expect(perspective?.sections?.flatMap((s) => s.children ?? []).map((c) => [c.label, c.path])).toEqual([
+      ["Requests", "/procurement/requests"],
+      ["Approvals", "/procurement/approvals"],
+    ]);
+  });
+
+  it("is not there when the flag is off, or never mentioned", async () => {
+    for (const preview of [{ procurement: false }, {}]) {
+      expect((await load(preview)).findPerspectiveByKey("procurement")).toBeUndefined();
+    }
+  });
+});
+
 describe("CadO2's rail entries", () => {
   const salesIdsIn = (perspectives: Perspectives) =>
     (perspectives.findPerspectiveByKey("sales")?.sections ?? [])
@@ -116,24 +153,25 @@ describe("CadO2's rail entries", () => {
       .map((section) => section.id);
 
   it("are a CadO2 group under Sales once the flag is on", async () => {
-    const perspectives = await load({ cado2: true });
+    const perspectives = await load({ quickquote: true });
     const group = perspectives.findPerspectiveByKey("sales")?.sections?.find((s) => s.id === "sec-app-cado2");
     expect(group?.label).toBe("QuickQuote");
     expect(group?.alwaysGroup).toBe(true);
     expect(group?.children?.map((c) => [c.label, c.path])).toEqual([
-      ["Quotes", "/sales/cado2/quotes"],
-      ["My Approvals", "/sales/cado2/approvals"],
-      ["Insights", "/sales/cado2/insights/operations"],
-      ["Admin", "/sales/cado2/admin"],
+      ["Quotes", "/sales/quickquote/quotes"],
+      ["Deal Desk", "/sales/quickquote/desk"], // D130
+      ["My Approvals", "/sales/quickquote/approvals"],
+      ["Insights", "/sales/quickquote/insights/operations"],
+      ["Admin", "/sales/quickquote/admin"],
     ]);
   });
 
   it("are gone when the flag is off, or never mentioned", async () => {
-    for (const preview of [{ cado2: false }, {}]) {
+    for (const preview of [{ quickquote: false }, {}]) {
       expect(salesIdsIn(await load(preview))).toEqual([
+        "sales-deals",
         "sales-echo",
         "sales-meetings",
-        "sales-deals",
         "sales-pitstop",
         "sales-library",
       ]);
@@ -141,10 +179,10 @@ describe("CadO2's rail entries", () => {
   });
 
   it("never join the Echo gate's ids", async () => {
-    const { SALES_ITEM_IDS } = await load({ cado2: true });
-    // Echo and Deals are the Sales rows gated through ONE_WSO2_REVOPS_BACKEND_URL;
+    const { SALES_ITEM_IDS } = await load({ quickquote: true });
+    // Opportunities and Echo are the Sales rows gated through ONE_WSO2_REVOPS_BACKEND_URL;
     // nothing of CadO2's joins them.
-    expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-deals", "sales-echo", "sales-meetings"]);
   });
 });
 
@@ -161,11 +199,12 @@ describe("the Ask Sales rail entry", () => {
     expect(group?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
       ["sales-library", "Ask Sales", "/sales/library"],
     ]);
-    expect(salesIdsIn(perspectives)).toEqual(["sales-echo", "sales-pitstop"]);
+    expect(salesIdsIn(perspectives)).toEqual(["sales-deals", "sales-echo", "sales-pitstop"]);
   });
 
   it("sits before CadO2 when its flag is on", async () => {
-    expect(salesIdsIn(await load({ cado2: true }))).toEqual([
+    expect(salesIdsIn(await load({ quickquote: true }))).toEqual([
+      "sales-deals",
       "sales-echo",
       "sales-pitstop",
       "sec-app-cado2",
@@ -173,13 +212,13 @@ describe("the Ask Sales rail entry", () => {
   });
 
   it("is not affected by the other preview flags being off", async () => {
-    expect(salesIdsIn(await load({ cado2: false }))).toEqual(["sales-echo", "sales-pitstop"]);
+    expect(salesIdsIn(await load({ quickquote: false }))).toEqual(["sales-deals", "sales-echo", "sales-pitstop"]);
   });
 
   it("never joins the Echo gate's ids", async () => {
     const { SALES_ITEM_IDS } = await load({});
-    // Echo and Deals are gated through ONE_WSO2_REVOPS_BACKEND_URL; the Library is decided by its own backend.
-    expect([...SALES_ITEM_IDS]).toEqual(["sales-echo", "sales-meetings", "sales-deals"]);
+    // Opportunities and Echo are gated through ONE_WSO2_REVOPS_BACKEND_URL; the Library is decided by its own backend.
+    expect([...SALES_ITEM_IDS]).toEqual(["sales-deals", "sales-echo", "sales-meetings"]);
   });
 });
 
@@ -305,7 +344,7 @@ describe("a rail row does one thing", () => {
     window.config = {
       ...(window.config ?? {}),
       ONE_WSO2_PREVIEW_FEATURES: previewOn
-        ? { cado2: true, nda: true }
+        ? { quickquote: true, nda: true }
         : {},
       // ISAC and CSM are only in the registry once their addresses are set.
       ONE_WSO2_MARKETINGOPS_ISAC_URL: "https://isac.example",
@@ -360,5 +399,66 @@ describe("the Marketing Ops rail", () => {
       (section) => section.id,
     );
     expect(ids?.slice(0, 3)).toEqual(["sec-app-marketing-calendar", "mops-isac", "sec-app-email-workbench"]);
+  });
+});
+
+describe("the Swag Store perspective", () => {
+  async function loadWithStore(on: boolean): Promise<Perspectives> {
+    vi.resetModules();
+    window.config = {
+      ...(window.config ?? {}),
+      ONE_WSO2_PREVIEW_FEATURES: on ? { swagStore: true } : {},
+    } as Window["config"];
+    return import("./perspectives");
+  }
+
+  it("is absent while its preview flag is off, so /store opens no rail", async () => {
+    const perspectives = await loadWithStore(false);
+    expect(perspectives.findPerspectiveByKey("store")).toBeUndefined();
+    expect(perspectives.findPerspectiveByPath("/store")).toBeUndefined();
+  });
+
+  it("is reachable at /store with the Shop row first once the flag is on", async () => {
+    const perspectives = await loadWithStore(true);
+    const store = perspectives.findPerspectiveByKey("store");
+    expect(store?.path).toBe("/store");
+    expect(perspectives.reachablePerspectives().map((p) => p.key)).toContain("store");
+    expect(store?.sections?.[0]).toMatchObject({ id: "swag-store-shop", label: "Shop", path: "/store" });
+  });
+
+  it("puts the store's admin group in People Ops only while the flag is on", async () => {
+    const off = await loadWithStore(false);
+    expect(off.findPerspectiveByKey("people")?.sections?.some((s) => s.id === "swag-store-admin")).toBe(false);
+
+    const on = await loadWithStore(true);
+    const people = on.findPerspectiveByKey("people");
+    const group = people?.sections?.find((s) => s.id === "swag-store-admin");
+    expect(group).toMatchObject({ label: "Swag Store", alwaysGroup: true });
+    expect(group?.children?.map((c) => [c.id, c.label, c.path])).toEqual([
+      ["swag-store-admin-dashboard", "Dashboard", "/people-ops/swag-store/dashboard"],
+      ["swag-store-admin-orders", "Orders", "/people-ops/swag-store/orders"],
+      ["swag-store-admin-products", "Products", "/people-ops/swag-store/products"],
+      ["swag-store-admin-demand", "Demand", "/people-ops/swag-store/demand"],
+      ["swag-store-admin-settings", "Settings", "/people-ops/swag-store/settings/offices"],
+    ]);
+    expect(on.findPerspectiveByPath("/people-ops/swag-store/dashboard")?.key).toBe("people");
+  });
+
+  it("owns every store page, so product pages keep the store rail", async () => {
+    const perspectives = await loadWithStore(true);
+    expect(perspectives.findPerspectiveByPath("/store/p/hoodie")?.key).toBe("store");
+  });
+
+  it("lists Shop, Cart, Orders and Alerts as flat rows, with checkout under Cart", async () => {
+    const perspectives = await loadWithStore(true);
+    const rows = perspectives.findPerspectiveByKey("store")?.sections ?? [];
+    expect(rows.map((r) => [r.label, r.path])).toEqual([
+      ["Shop", "/store"],
+      ["Cart", "/store/cart"],
+      ["Orders", "/store/orders"],
+      ["Alerts", "/store/alerts"],
+    ]);
+    expect(rows.every((r) => !r.children)).toBe(true);
+    expect(perspectives.findPerspectiveByPath("/store/cart/checkout")?.key).toBe("store");
   });
 });

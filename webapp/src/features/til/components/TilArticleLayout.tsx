@@ -81,7 +81,7 @@ export default function TilArticleLayout({ shellHref, children }: { shellHref: s
           </Box>
         </Box>
         <Link component={RouterLink} to={shellHref} sx={{ fontSize: 13, color: "var(--til-accent)", textUnderlineOffset: "3px", flexShrink: 0 }}>
-          Open in One WSO2
+          Open in One App
         </Link>
       </Box>
 
@@ -106,7 +106,7 @@ export default function TilArticleLayout({ shellHref, children }: { shellHref: s
       >
         <span>Shared inside WSO2 · sign-in required</span>
         <Link component={RouterLink} to={TIL_FEED_PATH} sx={{ color: "var(--til-accent)", textUnderlineOffset: "3px" }}>
-          Back to the feed in One WSO2
+          Back to the feed in One App
         </Link>
       </Box>
     </Box>

@@ -50,7 +50,7 @@ import type { EmployeeDirectoryRecord, OrgChartNode } from "../api/orgChartTypes
 
 const AVATAR_PIXEL_SIZE = 64;
 
-// The white WSO2 wordmark (public/wso2-logo-white.svg), inlined so the
+// The white WSO2 wordmark, inlined so the
 // exported file stays a single self-contained document — no external asset
 // request. White reads on the banner's orange gradient the same way it does
 // on the app's own orange surfaces.
@@ -655,7 +655,7 @@ export function buildOrgChartHtml(
   <div class="banner">
     <div class="banner-text">
       <span class="eyebrow">Organization Chart</span>
-      <p class="subtitle">Company reporting hierarchy · exported from One WSO2 on ${escapeHtml(generated)}</p>
+      <p class="subtitle">Company reporting hierarchy · exported from One App on ${escapeHtml(generated)}</p>
     </div>
     <div class="banner-logo">${LOGO_SVG}</div>
   </div>

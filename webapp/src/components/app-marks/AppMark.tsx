@@ -158,6 +158,18 @@ export function FinanceMark({ size }: MarkProps) {
   );
 }
 
+/** Procurement — a box with its lid, the goods that get bought and delivered. */
+export function ProcurementMark({ size }: MarkProps) {
+  const t = appMarkTones("procurement")!;
+  return (
+    <Svg size={size}>
+      <rect x="7" y="15" width="34" height="27" rx="4" fill={t.field} />
+      <rect x="4" y="7" width="40" height="12" rx="3.5" fill={t.lead} />
+      <rect x="18.5" y="26" width="11" height="4.5" rx="2.25" fill={t.detail} />
+    </Svg>
+  );
+}
+
 /** Marketing Ops — a megaphone with its sound arc. */
 export function MarketingMark({ size }: MarkProps) {
   const t = appMarkTones("marketing")!;

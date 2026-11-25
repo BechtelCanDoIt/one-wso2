@@ -33,7 +33,7 @@ beforeEach(() => {
 describe("a screen that names itself", () => {
   it("puts its name in front of the app's", () => {
     renderHook(() => useDocumentTitle("ARR Build"));
-    expect(document.title).toBe("ARR Build · One WSO2");
+    expect(document.title).toBe("ARR Build · One App");
   });
 
   it("follows the name changing without remounting", () => {
@@ -41,7 +41,7 @@ describe("a screen that names itself", () => {
       initialProps: { t: "ARR Build" },
     });
     rerender({ t: "ARR Analysis" });
-    expect(document.title).toBe("ARR Analysis · One WSO2");
+    expect(document.title).toBe("ARR Analysis · One App");
   });
 
   // Leaving the old name behind would put a stale screen's title above whatever

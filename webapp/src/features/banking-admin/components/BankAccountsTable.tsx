@@ -14,31 +14,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useState } from "react";
-import {
-  Chip,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TablePagination,
-  TableRow,
-  Typography,
-} from "@wso2/oxygen-ui";
+
+import { useMemo } from "react";
+import { Chip, DataGrid, Stack, Typography } from "@wso2/oxygen-ui";
 import type { AccountStatus, BankAccount } from "@features/my/api/types";
-import type { BankAccountsTableColumn } from "../bankAccountsColumns";
+import { BLANK, type BankAccountsTableColumn } from "../bankAccountsColumns";
+import { BankingGridToolbar } from "./BankingGridToolbar";
 
 // Report and Employee Operations both render the same underlying dataset
-// (BankAccount[]) as a plain table — this is the one shared piece, per the
-// spec's own rationale for bundling these two tabs into one ticket. Each
-// caller supplies its own column set (they overlap but aren't identical:
-// Report adds Branch Name, Employee Operations adds a Status chip and a
-// per-row action) — see bankAccountsColumns.ts for the shared ones.
+// (BankAccount[]) — this is the one shared piece, per the spec's own
+// rationale for bundling these two tabs into one ticket. Each caller
+// supplies its own column set (they overlap but aren't identical: Report
+// adds Branch Name and a detail set it hides by default, Employee
+// Operations adds a Status chip and a per-row action) — see
+// bankAccountsColumns.ts for the shared ones.
+//
+// A DataGrid rather than a plain table, for the toolbar above it: these
+// rows are reconciled against payroll and NetSuite outside the app, and
+// Export is the only way to get them out without copying the page by hand.
+// Columns and Filters come with it, which is what makes the wider detail
+// set worth carrying at all — see ReportTab's own list.
 
 // Same page-size choices across every tab that lists bank accounts (Report
 // and Employee Operations), so the control feels consistent between them.
 const ROWS_PER_PAGE_OPTIONS = [6, 10, 25, 50];
+
+// One array rather than a fresh `[]` per render, so a caller that leaves
+// `hiddenByDefault` out hands the grid the same initial state every time.
+const NOTHING_HIDDEN: readonly string[] = [];
 
 type ChipColor = "default" | "success" | "warning" | "error";
 
@@ -61,56 +64,105 @@ export default function BankAccountsTable({
   accounts,
   columns,
   emptyMessage,
+  hiddenByDefault = NOTHING_HIDDEN,
+  loading = false,
 }: {
   accounts: BankAccount[];
+  /**
+   * Stable across renders, please. The grid keeps each column's width and
+   * the baseline the Columns panel's Reset restores to against the array it
+   * was given, and rebuilds both when it is handed a new one — so a caller
+   * that assembles this inline throws away the admin's own resizes.
+   */
   columns: BankAccountsTableColumn[];
   emptyMessage: string;
+  /**
+   * Fields the Columns panel starts with switched off. The column is still
+   * there to be turned on, and an export carries whatever is on at the time.
+   */
+  hiddenByDefault?: readonly string[];
+  /**
+   * A request for these rows is in flight. Shown as the grid's own loading
+   * overlay, which keeps the empty message from reading as "nothing found"
+   * while the answer is still on its way.
+   */
+  loading?: boolean;
 }) {
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(ROWS_PER_PAGE_OPTIONS[0]);
+  const gridColumns = useMemo<DataGrid.GridColDef<BankAccount>[]>(
+    () =>
+      columns.map((column) => {
+        const { render } = column;
+        return {
+          field: column.field,
+          headerName: column.label,
+          flex: 1,
+          minWidth: 140,
+          // Sorting or filtering a column of buttons orders rows by nothing
+          // and exports them as blanks, so the action column opts out of all
+          // three rather than offering controls that do nothing. Its header
+          // menu holds only those three, so it goes as well — and with
+          // nothing left to offer, hiding the column would only strand the
+          // row's one control behind the Columns panel.
+          sortable: !column.action,
+          filterable: !column.action,
+          disableExport: column.action,
+          hideable: !column.action,
+          disableColumnMenu: column.action,
+          // A column with a closed set of values filters by equality rather
+          // than substring — see the column contract's own `options`.
+          ...(column.options ? { type: "singleSelect" as const, valueOptions: [...column.options] } : {}),
+          // Export, sorting and filtering read this, not the rendered cell —
+          // so a column that renders a chip still saves as readable text.
+          valueGetter: (_value: unknown, row: BankAccount) => column.value(row),
+          // Display only, so none of this reaches the exported file: a
+          // missing field is painted as a dash here and left as an empty
+          // cell there.
+          renderCell: render
+            ? (params: DataGrid.GridRenderCellParams<BankAccount>) =>
+                render(params.row, { tabIndex: params.tabIndex })
+            : (params: DataGrid.GridRenderCellParams<BankAccount>) =>
+                params.value === "" || params.value == null ? BLANK : String(params.value),
+        };
+      }),
+    [columns],
+  );
 
-  if (accounts.length === 0) {
-    return <Typography color="text.secondary">{emptyMessage}</Typography>;
-  }
-
-  const lastPage = Math.max(0, Math.ceil(accounts.length / rowsPerPage) - 1);
-  const currentPage = Math.min(page, lastPage);
-  const visible = accounts.slice(currentPage * rowsPerPage, (currentPage + 1) * rowsPerPage);
+  // Rendered through the grid's own overlay rather than in place of the
+  // grid. Returning early here unmounted it on every empty result — a
+  // Search that matched nothing, a failed one, and each time Employee
+  // Operations switched employee — and the grid rebuilds its column
+  // visibility, filters, sort, density and page size when it mounts, so
+  // the admin's own view was thrown away each time.
+  const noRowsOverlay = useMemo(
+    () =>
+      function NoAccounts() {
+        return (
+          <Stack height="100%" alignItems="center" justifyContent="center">
+            <Typography color="text.secondary">{emptyMessage}</Typography>
+          </Stack>
+        );
+      },
+    [emptyMessage],
+  );
 
   return (
-    <TableContainer>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            {columns.map((c) => (
-              <TableCell key={c.label} sx={{ fontWeight: 600, whiteSpace: "nowrap" }}>
-                {c.label}
-              </TableCell>
-            ))}
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {visible.map((a) => (
-            <TableRow key={a.accountId} hover>
-              {columns.map((c) => (
-                <TableCell key={c.label}>{c.render(a)}</TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      <TablePagination
-        component="div"
-        count={accounts.length}
-        page={currentPage}
-        rowsPerPage={rowsPerPage}
-        rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
-        onPageChange={(_, next) => setPage(next)}
-        onRowsPerPageChange={(e) => {
-          setRowsPerPage(parseInt(e.target.value, 10));
-          setPage(0);
-        }}
-      />
-    </TableContainer>
+    <DataGrid.DataGrid
+      rows={accounts}
+      columns={gridColumns}
+      getRowId={(row) => row.accountId}
+      autoHeight
+      showToolbar
+      loading={loading}
+      slots={{ toolbar: BankingGridToolbar, noRowsOverlay }}
+      disableRowSelectionOnClick
+      initialState={{
+        // Read once, at mount — switching a column on afterwards is the
+        // admin's own choice to keep, not something to re-apply.
+        columns: { columnVisibilityModel: Object.fromEntries(hiddenByDefault.map((field) => [field, false])) },
+        pagination: { paginationModel: { pageSize: ROWS_PER_PAGE_OPTIONS[0] } },
+      }}
+      pageSizeOptions={ROWS_PER_PAGE_OPTIONS}
+      sx={{ border: "none" }}
+    />
   );
 }

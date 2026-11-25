@@ -34,10 +34,13 @@ describe("EvidenceItem", () => {
     expect(onSeek).toHaveBeenCalledWith(760);
   });
 
-  it("links a quote from another call to that call's analysis", () => {
+  it("links a quote from another call to that call's analysis, and to the moment it was said", () => {
     renderIn(<EvidenceItem quote={quote({ authorRole: "WSO2", speaker: "Ravi Kumar" })} />);
     expect(screen.getByText("WSO2")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Nordlys – budget sign-off" })).toHaveAttribute("href", "/sales/meetings/22?tab=meddpicc");
+    const moment = screen.getByRole("link", { name: "Open the recording at 12:40, in a new tab" });
+    expect(moment).toHaveAttribute("href", "/sales/meetings/22?tab=transcript&t=760");
+    expect(moment).toHaveAttribute("target", "_blank");
   });
 
   it("opens an email quote in Salesforce", () => {
@@ -85,6 +88,9 @@ describe("DealFieldRow on an attest field", () => {
       onEdit={() => {}}
       onUndo={() => {}}
       onRoleMatch={() => {}}
+        onNewContact={() => {}}
+        onExplain={() => {}}
+        accountName="Brightwater Pumps Limited"
     />
   );
 

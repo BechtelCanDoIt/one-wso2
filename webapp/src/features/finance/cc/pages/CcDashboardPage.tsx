@@ -58,6 +58,7 @@ import {
   type CcCardHolderCompliance,
   type CcCardLeadCompliance,
 } from "../ccTypes";
+import { CcReminderConfirmDialog } from "../CcReminderConfirmDialog";
 import {
   CC_BREAKDOWN_MONTHS,
   CC_GRANULARITIES,
@@ -802,6 +803,8 @@ function CardLeadComplianceTable({
   const items = query.data ?? [];
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (key: string) => setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
+  // Lead awaiting send confirmation; null when the dialog is closed.
+  const [confirming, setConfirming] = useState<CcCardLeadCompliance | null>(null);
   const { showSuccess, showError } = useNotifications();
   const reminder = useCcCardLeadReminder();
   // In flight and already-sent counts both come from the module-scoped store,
@@ -934,7 +937,7 @@ function CardLeadComplianceTable({
                             // needs to be able to come back and chase the same lead
                             // again.
                             disabled={isUnassigned || sending}
-                            onClick={() => void emailReminder(lead)}
+                            onClick={() => setConfirming(lead)}
                             sx={{ p: 0.5 }}
                           >
                             {sending ? <CircularProgress size={14} /> : <MailIcon size={14} />}
@@ -1017,6 +1020,12 @@ function CardLeadComplianceTable({
           setPage(0);
         }}
         labelRowsPerPage="Rows per page"
+      />
+      <CcReminderConfirmDialog
+        lead={confirming}
+        dateFrom={dateFrom}
+        onConfirm={(lead) => void emailReminder(lead)}
+        onClose={() => setConfirming(null)}
       />
     </Box>
   );

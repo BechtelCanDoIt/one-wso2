@@ -29,6 +29,7 @@ import {
 } from "@wso2/oxygen-ui";
 import { ChevronDownIcon } from "@wso2/oxygen-ui-icons-react";
 import { groupFileOperationsByType } from "../../../lib/umtPrAnalysis";
+import { UMT_ALL_ROWS_GRID_PROPS } from "../../../lib/umtGrid";
 import type { UmtFileOperation, UmtPullRequestAnalysis } from "../../../api/umtUpdates";
 
 const { DataGrid: DataGridComponent } = DataGrid;
@@ -111,7 +112,7 @@ export default function UmtPrAnalysisResults({ result }: { result: UmtPullReques
         <ResultSection title="Bundles Info Changes">
           <DenseTable
             ariaLabel="Bundles info changes"
-            rowKey={(row, index) => row.bundlesInfoPath ?? String(index)}
+            rowKey={(row, index) => `${row.bundlesInfoPath ?? "bundle-info"}-${index}`}
             rows={bundlesInfoChanges}
             columns={[
               { key: "path", label: "Bundles Info Path", render: (row) => displayValue(row.bundlesInfoPath) },
@@ -226,6 +227,7 @@ function DenseTable<Row>({
     <Paper variant="outlined" sx={{ minWidth: 0, overflow: "hidden", position: "relative" }}>
       <DataGridComponent
         autoHeight
+        {...UMT_ALL_ROWS_GRID_PROPS}
         columnHeaderHeight={40}
         columns={gridColumns}
         disableColumnMenu

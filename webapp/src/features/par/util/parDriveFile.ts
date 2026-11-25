@@ -14,6 +14,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// Whether an evidence link may be opened: https only, so a saved link with another scheme (javascript:, data:)
+// is shown as text and never run.
+export function isOpenableUrl(url: string): boolean {
+  try {
+    return new URL(url.trim()).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export interface DriveFile {
   id: string;
   name: string;

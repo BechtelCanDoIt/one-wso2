@@ -62,7 +62,7 @@ export default function SettingsPage(): JSX.Element {
           ))}
         </TextField>
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          Takes effect the next time you open One WSO2 without a specific page in
+          Takes effect the next time you open One App without a specific page in
           the address bar.
         </Typography>
       </Box>

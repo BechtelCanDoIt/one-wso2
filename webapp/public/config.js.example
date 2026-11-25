@@ -23,7 +23,7 @@ window.config = {
   // ONE_WSO2_AUTH_WELL_KNOWN_URL: "https://<idp-host>/.well-known/openid-configuration",
 
   // UI
-  ONE_WSO2_THEME: "wso2",
+  ONE_WSO2_THEME: "choreoLabs",
 
   // People backend base URL. Powers the Me profile, My Team, Org Chart and the
   // People Ops reports.
@@ -67,11 +67,23 @@ window.config = {
   // ONE_WSO2_REVOPS_BACKEND_URL: "<your-sales-meetings-backend-url>",
 
   // CadO2 quote tool backend — powers Sales → CadO2 (quotes, approvals and
-  // their admin). Shown only while `cado2` is on in ONE_WSO2_PREVIEW_FEATURES
+  // their admin). Shown only while `quickquote` is on in ONE_WSO2_PREVIEW_FEATURES
   // below. With the flag on and this unset, CadO2's pages say "not connected"
   // and make no requests. Salesforce record links use
   // ONE_WSO2_SALESFORCE_BASE_URL.
   // ONE_WSO2_CADO2_BACKEND_URL: "<your-cado2-backend-url>",
+
+  // Swag Store backend — the store where employees spend O2C coins on WSO2
+  // swag. Shown only while `swagStore` is on in ONE_WSO2_PREVIEW_FEATURES
+  // below. Include the version segment. For a local backend on port 8080, use
+  // "/swag-store-backend" (the dev server's proxy).
+  // ONE_WSO2_SWAG_STORE_BACKEND_URL: "<your-swag-store-backend-url>",
+  // Procurement backend — powers Me → Procurement (raise and track
+  // purchase requests, team lead approval, Procurement assignment). Shown only
+  // while `procurement` is on in ONE_WSO2_PREVIEW_FEATURES below. With the flag
+  // on and this unset, its pages say "not connected" and make no requests
+  // (a dev build serves sample data instead).
+  // ONE_WSO2_PROCUREMENT_BACKEND_URL: "<your-procurement-backend-url>",
 
   // Pitstop backend that serves Smart Search — powers Sales → Library, the
   // plain-language search over Pitstop's content. Include the version segment.
@@ -194,15 +206,26 @@ window.config = {
   // GitHub OAuth for Infra Portal connect. Authorize URL defaults to GitHub.
   // Redirect URL must be this app's origin + /infra/github/callback, and that
   // exact URL must be registered on the GitHub OAuth app.
-  // ONE_WSO2_GITHUB_OAUTH_CLIENT_ID: "<github-oauth-client-id>",
-  // ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL: "https://github.com/login/oauth/authorize",
-  // ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL: "https://<one-wso2-origin>/infra/github/callback",
+  // ONE_WSO2_GITHUB_OAUTH: {
+  //   CLIENT_ID: "<github-oauth-client-id>",
+  //   AUTHORIZE_URL: "https://github.com/login/oauth/authorize",
+  //   REDIRECT_URL: "https://<one-wso2-origin>/infra/github/callback",
+  // },
 
   // Salesforce Lightning base URL — for deep-linking to the record an incoming
   // one collided with, from CRM Upload's review queue. A link target, not an
   // API. Defaults to https://wso2.lightning.force.com. Set it only for a
   // sandbox org.
   // ONE_WSO2_SALESFORCE_BASE_URL: "https://wso2.lightning.force.com",
+
+  // Image URL used in the generated email signature. Optional — when unset or
+  // blank, the built-in default is used.
+  // ONE_WSO2_EMAIL_SIGNATURE_LOGO_URL: "<your-image-url>",
+
+  // Path or URL of an HTML file that replaces the built-in email signature
+  // layout, e.g. a file mounted next to this one. Optional — when unset, or when
+  // the file can't be loaded, the built-in layout is used.
+  // ONE_WSO2_EMAIL_SIGNATURE_TEMPLATE_URL: "/email-signature.html",
 
   // Idle handling. Defaults to false. The "Are you still there?" dialog
   // appears after 25 minutes of inactivity either way; this decides only what
@@ -220,6 +243,10 @@ window.config = {
   // Each entry is deleted when its feature ships — a list that only grows
   // stops describing anything.
   //
-  // ONE_WSO2_PREVIEW_FEATURES: { infra: false, cado2: false, nda: false, amplify: false, marketingCalendar: false },
+  // ONE_WSO2_PREVIEW_FEATURES: {
+  //   infra: false, quickquote: false, nda: false, amplify: false,
+  //   marketingCalendar: false, eventsLeadImport: false, swagStore: false,
+  //   procurement: false, leadership360: false
+  // },
 
 };

@@ -44,7 +44,7 @@ const RECORD: NdaRecord = {
   generatedAt: "2026-10-29T04:30:00Z",
   generatedByEmail: "jane@wso2.com",
   template: "Mutual NDA \u2014 Standard",
-  wso2Entity: "WSO2 (UK) Ltd \u2014 UK",
+  wso2Entity: "Choreo Labs (UK) Ltd \u2014 UK",
   counterpartyName: "Example Vendor Ltd",
   counterpartyAddress: "1 Example Road, London, United Kingdom",
   counterpartyCountry: "United Kingdom",
@@ -61,9 +61,17 @@ describe("NdaRecordsTable", () => {
     expect(within(row).getByText("jane@wso2.com")).toBeInTheDocument();
     expect(within(row).getByText("Example Vendor Ltd")).toBeInTheDocument();
     expect(within(row).getByText("1 Example Road, London, United Kingdom")).toBeInTheDocument();
-    expect(within(row).getByText("WSO2 (UK) Ltd (UK)")).toBeInTheDocument();
+    expect(within(row).getByText("Choreo Labs (UK) Ltd (UK)")).toBeInTheDocument();
     expect(within(row).getByText("Manual entry")).toBeInTheDocument();
     expect(within(row).getByText(new Date(RECORD.generatedAt).toLocaleString())).toBeInTheDocument();
+  });
+
+  it("shows an NDA made before its entity was renamed under the name it was made with", () => {
+    const older = { ...RECORD, id: 6, wso2Entity: "WSO2 (UK) Ltd \u2014 UK" };
+    query.value = { data: { items: [older], total: 1, days: 7, maxDays: 30 }, isPending: false, isError: false };
+    render(<NdaRecordsTable />);
+
+    expect(within(screen.getAllByRole("row")[1]).getByText("WSO2 (UK) Ltd (UK)")).toBeInTheDocument();
   });
 
   it("says how far back the list goes", () => {

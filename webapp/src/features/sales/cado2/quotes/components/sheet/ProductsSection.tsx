@@ -15,8 +15,8 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Button, Typography } from "@wso2/oxygen-ui";
-import { ChevronsDownUpIcon, ChevronsUpDownIcon, PackageIcon } from "@wso2/oxygen-ui-icons-react";
+import { Button, Stack, Typography } from "@wso2/oxygen-ui";
+import { ChevronsDownUpIcon, ChevronsUpDownIcon, PackageIcon, TableIcon } from "@wso2/oxygen-ui-icons-react";
 import type { QuoteSheet } from "@features/sales/cado2/quotes/sheet/sheetModel";
 import SheetCard from "@features/sales/cado2/components/section-card/SectionCard";
 import EmptyState from "@features/sales/cado2/components/empty-state/EmptyState";
@@ -25,9 +25,10 @@ import { useCollapsedYears } from "./useCollapsedYears";
 
 /**
  * Every line, as on the order form, year by year in one card,
- * closed by the order total over every year.
+ * closed by the order total over every year. `onOpenMatrix` adds the
+ * "Discount approval matrix" button (D176).
  */
-export default function ProductsSection({ sheet }: { sheet: QuoteSheet }): JSX.Element {
+export default function ProductsSection({ sheet, onOpenMatrix }: { sheet: QuoteSheet; onOpenMatrix?: () => void }): JSX.Element {
   const fold = useCollapsedYears();
   const years = sheet.contractYears;
   const anyFolded = fold.collapsed.size > 0;
@@ -39,19 +40,26 @@ export default function ProductsSection({ sheet }: { sheet: QuoteSheet }): JSX.E
       title="Products"
       icon={<PackageIcon size={18} />}
       aside={
-        years.length > 1 ? (
-          <Button
-            size="small"
-            startIcon={anyFolded ? <ChevronsUpDownIcon size={14} /> : <ChevronsDownUpIcon size={14} />}
-            onClick={() => fold.toggleAll(years.map((y) => y.number))}
-          >
-            {anyFolded ? "Expand all" : "Collapse all"}
-          </Button>
-        ) : (
-          <Typography variant="body2" color="text.secondary">
-            {sheet.lines.length} line{sheet.lines.length === 1 ? "" : "s"}
-          </Typography>
-        )
+        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+          {onOpenMatrix && sheet.lines.length > 0 ? (
+            <Button size="small" startIcon={<TableIcon size={14} />} onClick={onOpenMatrix}>
+              Discount approval matrix
+            </Button>
+          ) : null}
+          {years.length > 1 ? (
+            <Button
+              size="small"
+              startIcon={anyFolded ? <ChevronsUpDownIcon size={14} /> : <ChevronsDownUpIcon size={14} />}
+              onClick={() => fold.toggleAll(years.map((y) => y.number))}
+            >
+              {anyFolded ? "Expand all" : "Collapse all"}
+            </Button>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              {sheet.lines.length} line{sheet.lines.length === 1 ? "" : "s"}
+            </Typography>
+          )}
+        </Stack>
       }
     >
       {sheet.lines.length === 0 ? (
@@ -65,11 +73,13 @@ export default function ProductsSection({ sheet }: { sheet: QuoteSheet }): JSX.E
             commissionPercent={sheet.partnerCommissionPercent}
             collapsed={fold.collapsed}
             onToggle={fold.toggle}
+            discountDetail="columns"
           />
           <OrderTotalsFooter
             lines={sheet.lines}
             currency={sheet.currency}
             commissionPercent={sheet.partnerCommissionPercent}
+            commissionRates={sheet.partnerCommissionRates}
             yearCount={years.length}
           />
         </>

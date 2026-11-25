@@ -29,6 +29,7 @@ import type {
   LegalConfig,
   LegalSections,
   DealType,
+  DiscountApproval,
   DraftResponse,
   LineCategory,
   LineFormula,
@@ -52,9 +53,10 @@ import {
   type AddressValue,
   type ContactValue,
   type DraftFormValues,
+  commissionByYearInput,
 } from "@features/sales/cado2/quotes/form/draftForm";
 
-export type ContactRole = "BILLING" | "SECURITY";
+export type ContactRole = "BILLING" | "SECURITY" | "LEGAL";
 
 export interface SheetContact {
   readonly role: ContactRole;
@@ -78,18 +80,25 @@ export interface SheetLine {
   /** The product's description, without the name if it repeats it. */
   readonly productDescription: string | null;
   readonly pricebookName: string;
-  /** "" = not chosen yet (D72): listed under "Uncategorised". */
+  /** Its group, from its classification (D152); "" = not set up: listed under "Not set up". */
   readonly category: LineCategory | "";
-  /** The rep chose the category, because the product isn't mapped: Deal Desk verifies it. */
-  readonly categoryByRep: boolean;
-  /** Charged every year of the term, from its product's Salesforce classification (D76). */
+  /** Charged every year of the term, from its product's Salesforce classification (D152). */
   readonly recurring: boolean;
   readonly quantity: string;
   readonly unitOfMeasure: string | null;
   /** The unit price charged: the sales price, which is the list price unless raised. */
   readonly unitPrice: string;
-  /** e.g. "10" for 10%; "0" when none, and always on a formula line. */
+  /** e.g. "10" for 10%; "0" when none. A formula line's is off its formula price (D149). */
   readonly discountPercent: string;
+  /**
+   * D169: the line's volume discount ceiling, e.g. "4.17"; null when it has
+   * none or it isn't known yet (the wizard, before pricing).
+   */
+  readonly volumeCeilingPercent: string | null;
+  /** D169: the part of the discount above the ceiling, which approvals measure; null when not known. */
+  readonly discretionaryPercent: string | null;
+  /** D181: the AM's limit and whether the discount stays within it; null or absent when not known. */
+  readonly discountApproval?: DiscountApproval | null;
   /**
    * A formula line's version and how it worked the unit price out (D81, D82):
    * "v3 · 15 Oct 2026" and "max(25,000, 10% × 320,000)"; null on a price-book line.
@@ -100,8 +109,6 @@ export interface SheetLine {
   /** Its dates within its year; a one-off is dated on its start. Null until it has a year and a start. */
   readonly startDate: string | null;
   readonly endDate: string | null;
-  /** A bundle child: its parent's product name; null otherwise. */
-  readonly parentName: string | null;
   /** From the pricing, when the quote can be priced. */
   readonly annualList: string | null;
   readonly annualNet: string | null;
@@ -149,10 +156,12 @@ export interface QuoteSheet {
   /** Whether any line recurs, i.e. the quote has a subscription term. */
   readonly recurring: boolean;
   readonly billingFrequency: BillingFrequency | null;
-  /** e.g. "15" on a partner-led quote with a commission; null otherwise. */
+  /** e.g. "15" on a partner-led quote with a commission; null otherwise. Year 1's with rates per year. */
   readonly partnerCommissionPercent: string | null;
-  /** Billing, then security; null when not chosen. */
-  readonly contacts: readonly [SheetContact | null, SheetContact | null];
+  /** D151: each year's rate when they differ, e.g. ["15", "10", "10"]; null with one rate. */
+  readonly partnerCommissionRates?: readonly string[] | null;
+  /** Billing, security, then legal (D165); null when not chosen. */
+  readonly contacts: readonly [SheetContact | null, SheetContact | null, SheetContact | null];
   readonly lines: readonly SheetLine[];
   readonly years: readonly PricingYear[];
   readonly totals: Totals | null;
@@ -177,11 +186,16 @@ export interface SheetLegal {
   readonly contractName: string;
   readonly contractDate: string;
   readonly partnerName: string;
-  /** Section 06 as it prints: Legal's wording when they changed it. */
+  /** Section 06 as it prints (D139): Legal's override, else Deal Desk's, else the AM's. */
   readonly specialTerms: string | null;
+  /** Whose text it is: AM, DEAL_DESK or LEGAL. */
+  readonly specialTermsBy: "AM" | "DEAL_DESK" | "LEGAL";
   readonly specialTermsByLegal: boolean;
-  /** What the AM wrote, when Legal reworded it. */
+  /** What the AM wrote; Deal Desk's override (null when none); who wrote each override. */
   readonly amSpecialTerms: string | null;
+  readonly deskSpecialTerms: string | null;
+  readonly deskSpecialTermsByEmail: string | null;
+  readonly legalSpecialTermsByEmail: string | null;
   readonly frozen: boolean;
 }
 
@@ -195,7 +209,7 @@ export interface SheetYear {
   readonly arr: string | null;
 }
 
-const ROLES: readonly ContactRole[] = ["BILLING", "SECURITY"];
+const ROLES: readonly ContactRole[] = ["BILLING", "SECURITY", "LEGAL"];
 
 /** A formula line's version label and explanation, for the order form. */
 function formulaOf(f: LineFormula | null | undefined): SheetLine["formula"] {
@@ -262,7 +276,8 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
     recurring: hasRecurring(v.lines),
     billingFrequency: v.billingFrequency,
     partnerCommissionPercent: v.partnerCommissionPercent ? String(Number(v.partnerCommissionPercent)) : null,
-    contacts: [contact("BILLING"), contact("SECURITY")],
+    partnerCommissionRates: v.partnerCommissionByYear?.length ? v.partnerCommissionByYear.map((r) => String(Number(r))) : null,
+    contacts: [contact("BILLING"), contact("SECURITY"), contact("LEGAL")],
     lines: v.lines.map((l) => ({
       number: l.lineNumber,
       productName: l.productName,
@@ -270,17 +285,18 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
       productDescription: descriptionAfterName(l.productName, l.productDescription),
       pricebookName: l.pricebookName,
       category: l.category,
-      categoryByRep: l.categorySource !== "MAPPED",
       recurring: l.recurring,
       quantity: String(l.quantity),
       unitOfMeasure: blank(l.unitOfMeasure),
       unitPrice: l.salesPrice ?? l.unitPrice,
-      discountPercent: String(Number(l.discretionaryDiscountPercent)),
+      discountPercent: String(Number(l.discountPercent)),
+      volumeCeilingPercent: l.volumeCeilingPercent === null ? null : String(Number(l.volumeCeilingPercent)),
+      discretionaryPercent: String(Number(l.discretionaryDiscountPercent)),
+      discountApproval: l.discountApproval ?? null,
       formula: l.pricingMethod === "FORMULA" ? formulaOf(l.formula) : null,
       yearNumber: l.yearNumber ?? 0,
       startDate: l.startDate,
       endDate: l.endDate,
-      parentName: l.parentLineNumber ? (v.lines.find((p) => p.lineNumber === l.parentLineNumber)?.productName ?? null) : null,
       annualList: pricing ? l.annualList : null,
       annualNet: pricing ? l.annualNet : null,
       arr: pricing ? l.arr : null,
@@ -301,8 +317,12 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
           contractDate: v.legal.contractDate ?? "",
           partnerName: v.legal.partnerName,
           specialTerms: v.legal.specialTerms,
+          specialTermsBy: v.legal.specialTermsBy ?? (v.legal.specialTermsByLegal ? "LEGAL" : "AM"),
           specialTermsByLegal: v.legal.specialTermsByLegal,
           amSpecialTerms: v.legal.amSpecialTerms,
+          deskSpecialTerms: v.legal.deskSpecialTerms ?? null,
+          deskSpecialTermsByEmail: v.legal.deskSpecialTermsByEmail ?? null,
+          legalSpecialTermsByEmail: v.legal.legalSpecialTermsByEmail ?? null,
           frozen: v.legal.frozen,
         }
       : null,
@@ -319,7 +339,7 @@ export function sheetFromVersion(res: DraftResponse): QuoteSheet {
 // ---------------------------------------------------------------------------
 
 function formContact(role: ContactRole, c: ContactValue): SheetContact | null {
-  if (c.mode === "none" || !blank(c.name)) return null;
+  if (c.mode === "none" || (!blank(c.name) && !blank(c.email))) return null;
   return { role, name: c.name.trim(), title: blank(c.title), email: blank(c.email), source: c.mode === "manual" ? "MANUAL" : "SALESFORCE" };
 }
 
@@ -352,8 +372,12 @@ function formLegal(v: DraftFormValues, cfg: LegalConfig): SheetLegal {
     contractDate: v.partnerContractDate,
     partnerName: v.partner?.name ?? "",
     specialTerms: v.specialTermsEnabled ? blank(v.specialTerms) : null,
+    specialTermsBy: "AM",
     specialTermsByLegal: false,
     amSpecialTerms: null,
+    deskSpecialTerms: null,
+    deskSpecialTermsByEmail: null,
+    legalSpecialTermsByEmail: null,
     frozen: false,
   };
 }
@@ -367,7 +391,7 @@ export function sheetFromForm(
 ): QuoteSheet {
   const recurring = hasRecurring(v.lines);
   const years = formYears(v);
-  const contacts = [v.billingContact, v.securityContact].map((c, i) => formContact(ROLES[i], c));
+  const contacts = [v.billingContact, v.securityContact, v.legalContact].map((c, i) => formContact(ROLES[i], c));
   return {
     accountId: v.accountId,
     opportunityId: v.opportunityId,
@@ -392,9 +416,18 @@ export function sheetFromForm(
     }),
     recurring,
     billingFrequency: v.billingFrequency || null,
-    partnerCommissionPercent:
-      isPartnerLed(v) && !commissionProblem(v.partnerCommissionPercent) ? String(Number(v.partnerCommissionPercent)) : null,
-    contacts: [contacts[0], contacts[1]],
+    // With rates per year (D151) the single rate reads as Year 1's.
+    partnerCommissionPercent: !isPartnerLed(v)
+      ? null
+      : v.partnerCommissionByYear.length > 0
+        ? commissionByYearInput(v)
+          ? String(Number(v.partnerCommissionByYear[0]))
+          : null
+        : !commissionProblem(v.partnerCommissionPercent)
+          ? String(Number(v.partnerCommissionPercent))
+          : null,
+    partnerCommissionRates: isPartnerLed(v) && commissionByYearInput(v) ? v.partnerCommissionByYear.map((r) => String(Number(r))) : null,
+    contacts: [contacts[0], contacts[1], contacts[2]],
     lines: v.lines.map((l, i) => {
       const p = preview?.lines[i];
       // A formula line's price is the preview's: worked out from the rest of the quote (D81).
@@ -407,17 +440,19 @@ export function sheetFromForm(
         productDescription: descriptionAfterName(l.productName, l.productDescription),
         pricebookName: l.pricebookName,
         category: l.category,
-        categoryByRep: l.categorySource !== "MAPPED",
         recurring: l.recurring,
         quantity: l.quantity,
         unitOfMeasure: blank(l.unitOfMeasure),
         unitPrice: byFormula ? (p.unitPrice ?? l.unitPrice) : l.salesPrice || l.unitPrice,
-        discountPercent: byFormula ? "0" : String(Number(l.discount || "0")),
+        discountPercent: String(Number(l.discount || "0")),
+        // From the preview, when it prices this same line (D169).
+        volumeCeilingPercent: p?.volumeCeilingPercent ? String(Number(p.volumeCeilingPercent)) : null,
+        discretionaryPercent: p?.discretionaryDiscountPercent ? String(Number(p.discretionaryDiscountPercent)) : null,
+        discountApproval: p?.discountApproval ?? null,
         formula: byFormula ? formulaOf(p.formula) : null,
         yearNumber: l.yearNumber,
         startDate: dates?.start ?? null,
         endDate: dates?.end ?? null,
-        parentName: l.parentKey ? (v.lines.find((p) => p.key === l.parentKey)?.productName ?? null) : null,
         annualList: p?.annualList ?? null,
         annualNet: p?.annualNet ?? null,
         arr: p?.arr ?? null,

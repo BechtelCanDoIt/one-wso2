@@ -1,4 +1,4 @@
-# One WSO2
+# One App
 
 **One** is WSO2's unified internal web experience: a single sign-in and a single app where an
 employee's role loads the right *perspective* — Me, People Ops, Finance, Sales, Marketing Ops,
@@ -10,7 +10,7 @@ It is a React single-page app over independent backends, each joined by the same
 
 | Path | What it is |
 |---|---|
-| [`webapp/`](webapp/) | The One WSO2 web app — React 19, TypeScript, Vite, Oxygen UI. Start with [`webapp/README.md`](webapp/README.md). |
+| [`webapp/`](webapp/) | The One App web app — React 19, TypeScript, Vite, Oxygen UI. Start with [`webapp/README.md`](webapp/README.md). |
 | [`docs/One-Experience-Vision.md`](docs/One-Experience-Vision.md) | The product vision: the Perspectives model, information architecture, the assistant, and phasing. |
 | [`docs/conventions.md`](docs/conventions.md) | Rules every feature follows: configuration, access gates, routing, data fetching, errors, time. |
 

@@ -161,7 +161,7 @@ export default function AuthGuard() {
           We couldn&apos;t sign you in
         </Typography>
         <Typography color="text.secondary" sx={{ maxWidth: 420 }}>
-          The sign-in didn&apos;t finish. Try again, and if it keeps happening, open One WSO2 in a new
+          The sign-in didn&apos;t finish. Try again, and if it keeps happening, open One App in a new
           tab.
         </Typography>
         <Button variant="contained" onClick={retrySignIn} sx={{ mt: 1 }}>

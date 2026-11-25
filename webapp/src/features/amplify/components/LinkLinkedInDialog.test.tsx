@@ -50,7 +50,7 @@ describe("LinkLinkedInDialog", () => {
     renderDialog();
     expect(screen.getByText("Link Your LinkedIn Account")).toBeTruthy();
     expect(screen.getByText(/By using the Amplify App, I agree to connect my LinkedIn profile/)).toBeTruthy();
-    const link = screen.getByRole("link", { name: "Chore Labs Employee Privacy Notice" });
+    const link = screen.getByRole("link", { name: "Choreo Labs Employee Privacy Notice" });
     expect(link.getAttribute("href")).toBe("https://example.test/privacy");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toContain("noopener");

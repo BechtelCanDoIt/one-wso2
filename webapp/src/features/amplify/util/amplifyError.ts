@@ -33,7 +33,7 @@ export function amplifyProblemCode(err: unknown): string | undefined {
 const MESSAGES: Record<string, string> = {
   ROLE_NOT_PERMITTED: "You don't have access to do that.",
   CAMPAIGN_ALREADY_REGISTERED: "That post is already in Amplify.",
-  NOT_WSO2_RESOURCE: "That post isn't on the Chore Labs company page.",
+  NOT_WSO2_RESOURCE: "That post isn't on the Choreo Labs company page.",
   INVALID_POST_URN: "That doesn't look like a LinkedIn post link.",
   INVALID_CAMPAIGN: "Check the post details and try again.",
   INVALID_WINDOW: "The tracking end date has to be after the post date.",
@@ -48,6 +48,8 @@ const MESSAGES: Record<string, string> = {
   COMMENTARY_TOO_LONG: "Your thoughts are too long for LinkedIn. Shorten them and try again.",
   TOO_MANY_MENTIONS: "You can mention up to 20 people or pages in one post.",
   DUPLICATE_ACTION: "You've already shared this post.",
+  COMMENTARY_NOT_OWN_WORDS:
+    "Add a few more words of your own. Words copied from the post don't count. Or share it without thoughts.",
   FEATURE_DISABLED: "Sharing is paused right now. Try again later.",
   OAUTH_STATE_INVALID: "That LinkedIn link expired. Start again from Celebrate.",
   MEMBER_ALREADY_LINKED: "That LinkedIn account is already linked to another employee.",

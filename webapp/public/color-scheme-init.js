@@ -24,13 +24,19 @@
 // runs as a same-origin file instead, loaded synchronously from index.html.
 //
 // It mirrors what the app resolves at runtime: the light/dark mode MUI keeps
-// under "mui-mode" (default "system"), and the palette key ThemePreferenceContext
-// keeps under "one-wso2.theme" (default window.config.ONE_WSO2_THEME, then
-// "wso2"). The colours are each Oxygen theme's palette.background.default; if
-// they drift, the cost is a brief shade change, not a white flash.
+// under "mui-mode", and the palette key ThemePreferenceContext keeps under
+// "one-wso2.theme" (default window.config.ONE_WSO2_THEME, then "choreoLabs").
+// The colours are each Oxygen theme's palette.background.default; if they
+// drift, the cost is a brief shade change, not a white flash.
+//
+// It also sets the default mode, dark. MUI's own default is "system", and
+// Oxygen's provider passes no other, so when nothing is saved yet this saves
+// "dark" before MUI reads the key. The toggle overwrites it with the person's
+// own choice — light, dark or system — which is then kept as before.
 (function () {
   var BACKGROUNDS = {
-    wso2: { light: "#ffffff", dark: "#0f172a" },
+    choreoLabs: { light: "#f4f6fa", dark: "#050a1c" },
+    wso2: { light: "#ffffff", dark: "#0b142b" },
     acrylicOrange: { light: "#f5f5f5", dark: "#000000" },
     oneWso2: { light: "#f5f5f5", dark: "#000000" },
     acrylicPurple: { light: "#f5f5f5", dark: "#000000" },
@@ -50,7 +56,16 @@
   }
 
   var mode = read("mui-mode");
-  if (mode !== "light" && mode !== "dark") {
+  if (mode !== "light" && mode !== "dark" && mode !== "system") {
+    mode = "dark";
+    try {
+      window.localStorage.setItem("mui-mode", mode);
+    } catch (e) {
+      // Disabled storage: this load still paints dark, but MUI falls back to
+      // its own "system" default once it mounts.
+    }
+  }
+  if (mode === "system") {
     mode =
       window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches
         ? "dark"
@@ -60,7 +75,7 @@
   var themeKey = read("one-wso2.theme");
   if (!Object.prototype.hasOwnProperty.call(BACKGROUNDS, themeKey)) {
     var configured = window.config && window.config.ONE_WSO2_THEME;
-    themeKey = Object.prototype.hasOwnProperty.call(BACKGROUNDS, configured) ? configured : "wso2";
+    themeKey = Object.prototype.hasOwnProperty.call(BACKGROUNDS, configured) ? configured : "choreoLabs";
   }
 
   var root = document.documentElement;
