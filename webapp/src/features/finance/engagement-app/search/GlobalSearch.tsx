@@ -183,7 +183,7 @@ function SearchBox(): JSX.Element {
           aria-label="Search suggestions"
           // Keep the focus in the box when the list is clicked.
           onMouseDown={(e) => e.preventDefault()}
-          sx={{ position: "absolute", top: "calc(100% + 4px)", right: 0, left: { xs: 0, md: "auto" }, width: { xs: "100%", md: 440 }, maxHeight: 460, overflowY: "auto", zIndex: (t) => t.zIndex.modal - 1, border: 1, borderColor: "divider" }}
+          sx={{ position: "absolute", top: "calc(100% + 4px)", right: 0, left: { xs: 0, md: "auto" }, width: { xs: "100%", md: 440 }, maxHeight: 460, overflowY: "auto", zIndex: (t) => t.zIndex.modal - 1, border: 1, borderColor: "divider", bgcolor: "background.default", backgroundImage: "none", backdropFilter: "none" }}
         >
           {loading ? (
             <Box sx={{ display: "flex", alignItems: "center", gap: 1, p: 1.5 }}>

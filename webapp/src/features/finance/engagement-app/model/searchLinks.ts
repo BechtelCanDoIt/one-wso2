@@ -38,8 +38,21 @@ export const canSearch = (a: EngagementAccess): boolean => a.travelRequests || a
 const firstTab = (tabs: readonly InvoicesTab[], wanted: readonly InvoicesTab[]): InvoicesTab | undefined => wanted.find((t) => tabs.includes(t));
 
 /** The list a group's hits come from, with the search typed into it. There is no list per hit for an invoice or a payment, so the tab is the broadest one the caller holds. */
+// A whole job number typed without its separators or prefix ("2026110003", "trv 2026 11 0003"), as the Backend's search reads it.
+const JOB_FULL = /^(?:trv[- ]?)?(\d{4})[- ]?(\d{2})[- ]?(\d{4})$/i;
+const JOB_PREFIX = /^trv[- ]/i;
+
+/** The query as the list pages' job number search needs it: "2026110003" is TRV-2026-11-0003, and "trv-2026" is TRV-2026. */
+export function jobQuery(q: string): string {
+  const t = q.trim();
+  const m = JOB_FULL.exec(t);
+  if (m) return `TRV-${m[1]}-${m[2]}-${m[3]}`;
+  return JOB_PREFIX.test(t) ? `TRV-${t.slice(4).trim()}` : t;
+}
+
 export function listPath(kind: SearchKind, q: string, access: EngagementAccess, queues?: WorkQueues): string {
-  const query = { q: q.trim() || undefined };
+  const jobKind = kind === "travelRequests" || kind === "invoices" || kind === "perDiemPayments";
+  const query = { q: (jobKind ? jobQuery(q) : q.trim()) || undefined };
   const tabs = invoiceTabs(access, queues);
   switch (kind) {
     case "travelRequests":
