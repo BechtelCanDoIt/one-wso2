@@ -75,6 +75,16 @@ describe("who sees what", () => {
     expect(a.anyMe).toBe(false);
   });
 
+  it("only an agent without the Travel Team privileges sees a missing agency as their own", () => {
+    const agency = { id: 2, name: "Classic Travels" };
+    const agent = engagementAccess({ ...user([], [18]), travel: { privileges: [18], agency } } as UserInfo);
+    expect(agent.agencyScope).toBe(true);
+    // Mapped to an agency but also on the Travel Team: the Backend shows the real (possibly empty) agency.
+    const both = engagementAccess({ ...user([], [1, 2, 18]), travel: { privileges: [1, 2, 18], agency } } as UserInfo);
+    expect(both.isAgent).toBe(true);
+    expect(both.agencyScope).toBe(false);
+  });
+
   it("the Travel Team is not an agent: it holds the All / New Travel Requests pages", () => {
     const a = engagementAccess(user([1], [1, 2, 3, 4, 5, 6, 18]));
     expect(a.isAgent).toBe(false);

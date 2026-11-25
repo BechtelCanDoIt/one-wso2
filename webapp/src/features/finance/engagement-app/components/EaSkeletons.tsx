@@ -79,6 +79,23 @@ function useAfterDelay(active: boolean, ms: number = SKELETON_DELAY_MS): boolean
 }
 
 /**
+ * Something on screen being fetched again (a new period or filter): the old content stays, dimmed, for a moment,
+ * then `skeleton` takes its place, so a quick answer never flashes and a slow one doesn't pass old figures off as new.
+ */
+export function Refreshing({ skeleton, delay = SKELETON_DELAY_MS, children }: { readonly skeleton: ReactNode; readonly delay?: number; readonly children: ReactNode }): JSX.Element {
+  const late = useAfterDelay(true, delay);
+  return late ? (
+    <Box aria-busy="true" aria-label="Loading">
+      {skeleton}
+    </Box>
+  ) : (
+    <Box sx={{ opacity: 0.55, transition: "opacity 120ms" }} aria-busy="true">
+      {children}
+    </Box>
+  );
+}
+
+/**
  * Space for something still loading. Its children (the skeleton) appear only after the delay, and the box keeps
  * `minHeight` meanwhile, so nothing below moves when the data or the skeleton arrives.
  */

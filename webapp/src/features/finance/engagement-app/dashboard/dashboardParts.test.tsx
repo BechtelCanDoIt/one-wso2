@@ -15,9 +15,18 @@
 // under the License.
 
 import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { HBars, InfoHint } from "./dashboardParts";
-import { notConvertedText, USD_RATE_HINT } from "./travelCostText";
+import { describe, expect, it, vi } from "vitest";
+import { STACKED_MONTHS_MARGIN } from "./chartLayout";
+import { HBars, InfoHint, StackedMonths } from "./dashboardParts";
+import { notConvertedSummary, notConvertedText, USD_RATE_HINT } from "./travelCostText";
+
+const chart = vi.hoisted(() => ({ props: undefined as Record<string, unknown> | undefined }));
+vi.mock("@wso2/oxygen-ui-charts-react", () => ({
+  BarChart: (props: Record<string, unknown>) => {
+    chart.props = props;
+    return null;
+  },
+}));
 
 const rows = [
   { label: "Acme Corp", count: 14 },
@@ -55,6 +64,45 @@ describe("notConvertedText", () => {
     ]);
     expect(text).toBe("Not converted, left out of the totals: LKR 1,234,500 (Travel Invoices), EUR 2,300.00 (Credit Card Expenses), Unknown currency 15.00 (Expense Claims)");
     expect(text).not.toContain(";");
+  });
+});
+
+describe("notConvertedSummary", () => {
+  it("counts the amounts and currencies and names each source once", () => {
+    const text = notConvertedSummary([
+      { source: "perDiem", currency: "AED", amount: 5940 },
+      { source: "claim", currency: "AED", amount: 4401.78 },
+      { source: "claim", currency: "BRL", amount: 712.35 },
+      { source: "claim", currency: "GBP", amount: 506.48 },
+    ]);
+    expect(text).toBe("Not converted, left out of the totals: 4 amounts in 3 currencies (Per Diems, Expense Claims).");
+    expect(text).not.toContain(";");
+  });
+
+  it("keeps unknown currencies out of the currency count", () => {
+    const text = notConvertedSummary([
+      { source: "claim", currency: "", amount: 1 },
+      { source: "claim", currency: "", amount: 2 },
+      { source: "card", currency: "", amount: 3 },
+      { source: "card", currency: "", amount: 4 },
+    ]);
+    expect(text).toBe("Not converted, left out of the totals: 4 amounts in unknown currency (Expense Claims, Credit Card Expenses).");
+    expect(
+      notConvertedSummary([
+        { source: "claim", currency: "AED", amount: 1 },
+        { source: "claim", currency: "", amount: 2 },
+      ]),
+    ).toBe("Not converted, left out of the totals: 2 amounts in 1 currency and unknown currency (Expense Claims).");
+  });
+});
+
+describe("StackedMonths", () => {
+  // jsdom can't measure clipping, so check the chart gets the roomy left margin and a six-figure total.
+  it("passes the six-figure Y axis margin to the chart", () => {
+    expect(STACKED_MONTHS_MARGIN.left).toBeGreaterThanOrEqual(20);
+    render(<StackedMonths rows={[{ month: "Jan", a: 800000 }]} series={[{ key: "a", name: "Invoices" }]} />);
+    expect(chart.props?.margin).toBe(STACKED_MONTHS_MARGIN);
+    expect(chart.props?.data).toEqual([{ month: "Jan", a: 800000 }]);
   });
 });
 

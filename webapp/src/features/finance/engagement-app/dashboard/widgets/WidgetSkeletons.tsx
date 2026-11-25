@@ -127,9 +127,9 @@ function Shape({ id }: { readonly id: string }): JSX.Element {
 }
 
 /** A widget's skeleton: the shape of its content, shown only when the answer is not quick, in space reserved from the start. */
-export default function WidgetSkeleton({ id }: { readonly id: string }): JSX.Element {
+export default function WidgetSkeleton({ id, delay }: { readonly id: string; readonly delay?: number }): JSX.Element {
   return (
-    <DelayedSkeleton minHeight={RESERVED[skeletonShape(id)]}>
+    <DelayedSkeleton minHeight={RESERVED[skeletonShape(id)]} delay={delay}>
       <Shape id={id} />
     </DelayedSkeleton>
   );

@@ -15,7 +15,9 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { jobQuery } from "./searchLinks";
+import type { UserInfo } from "../api/engagementTypes";
+import { engagementAccess } from "./engagementAccess";
+import { engagementListLinks, jobQuery } from "./searchLinks";
 
 describe("jobQuery", () => {
   it("writes a whole job number the way the lists store it", () => {
@@ -28,5 +30,15 @@ describe("jobQuery", () => {
     expect(jobQuery("trv-2026-11")).toBe("TRV-2026-11");
     expect(jobQuery(" 2026-11 ")).toBe("2026-11");
     expect(jobQuery("INV-0001")).toBe("INV-0001");
+  });
+});
+
+describe("engagementListLinks", () => {
+  const access = (privileges: number[]) => engagementAccess({ email: "jane@wso2.com", allocations: { privileges }, travel: { privileges: [] } } as UserInfo);
+
+  it("gives one link per engagement list the person can open, with the search typed in", () => {
+    const links = engagementListLinks(" acme ", access([3, 13]));
+    expect(links.map((l) => l.label)).toEqual(["Customer", "Internal", "Marketing"]);
+    expect(links[1].to).toContain("q=acme");
   });
 });

@@ -124,6 +124,7 @@ export default function TravelRequestsPage({ segment }: { segment: TravelSegment
             onRowClick={open}
             primaryAction={primary}
             menu={menu}
+            sorting={{ sort: list.sort, onSort: list.setSort }}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: trips.data?.total ?? 0, onPage: list.setPage }}
             empty={
               Object.keys(list.filters).length || list.search ? (

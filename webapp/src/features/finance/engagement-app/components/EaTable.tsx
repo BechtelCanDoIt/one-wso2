@@ -26,9 +26,11 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TableSortLabel,
   Tooltip,
 } from "@wso2/oxygen-ui";
 import { TABLE_HEAD_SX } from "./eaStyles";
+import { nextSort } from "../model/sorting";
 import { RowMenu } from "./RowActions";
 
 export interface Column<T> {
@@ -37,6 +39,14 @@ export interface Column<T> {
   readonly align?: "left" | "right";
   readonly width?: string | number;
   readonly render: (row: T) => ReactNode;
+  /** The sort value of this column (`startDate`, or `-startDate` for descending); the header is clickable when the table has `onSort`. */
+  readonly sortKey?: string;
+}
+
+/** The sort a table shows (`""` is the default order) and the handler that asks for another. */
+export interface TableSort {
+  readonly sort: string;
+  readonly onSort: (sort: string) => void;
 }
 
 /** A row action: the primary one is a filled button, the rest sit in the row's menu. */
@@ -75,6 +85,7 @@ export default function EaTable<T>({
   empty,
   loading = false,
   pagination,
+  sorting,
   ariaLabel,
   bare = false,
 }: {
@@ -91,6 +102,8 @@ export default function EaTable<T>({
   readonly loading?: boolean;
   /** `pageSizes` with `onPageSize` lets the reader pick how many rows a page shows. */
   readonly pagination?: { page: number; pageSize: number; total: number; onPage: (page: number) => void; pageSizes?: readonly number[]; onPageSize?: (size: number) => void };
+  /** Makes the headers of columns with a `sortKey` clickable. */
+  readonly sorting?: TableSort;
   readonly ariaLabel: string;
   /** Inside a card (a dashboard widget): no box of its own, labels and figures kept on one line. */
   readonly bare?: boolean;
@@ -120,11 +133,26 @@ export default function EaTable<T>({
                   ) : null}
                 </TableCell>
               ) : null}
-              {columns.map((c) => (
-                <TableCell key={c.key} align={c.align} sx={{ width: c.width }}>
-                  {c.label}
-                </TableCell>
-              ))}
+              {columns.map((c) => {
+                const key = sorting && c.sortKey ? c.sortKey : undefined;
+                const dir = key ? (sorting?.sort === key ? "asc" : sorting?.sort === `-${key}` ? "desc" : undefined) : undefined;
+                return (
+                  <TableCell
+                    key={c.key}
+                    align={c.align}
+                    sx={{ width: c.width }}
+                    aria-sort={key ? (dir === "asc" ? "ascending" : dir === "desc" ? "descending" : "none") : undefined}
+                  >
+                    {key && sorting ? (
+                      <TableSortLabel active={Boolean(dir)} direction={dir ?? "asc"} onClick={() => sorting.onSort(nextSort(sorting.sort, key))}>
+                        {c.label}
+                      </TableSortLabel>
+                    ) : (
+                      c.label
+                    )}
+                  </TableCell>
+                );
+              })}
               {hasActions ? <TableCell sx={{ width: 150 }} aria-label="Actions" /> : null}
             </TableRow>
           </TableHead>

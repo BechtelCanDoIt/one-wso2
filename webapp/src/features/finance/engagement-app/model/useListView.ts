@@ -37,24 +37,26 @@ const codec: UrlViewCodec<ListView> = {
 
 export const PAGE_SIZE = 25;
 
-/** A list screen's view, bound to the address bar: the search (`q`), each applied filter by its key (several values comma-joined), and the page. */
+/** A list screen's view, bound to the address bar: the search (`q`), each applied filter by its key (several values comma-joined), the page, and the column sort (`sort`, `-` for descending). */
 export function useListView() {
   const { view, setView } = useUrlViewState(codec);
   const page = Math.max(0, Number(view.page ?? 0) || 0);
+  const sort = view.sort ?? "";
 
   const setFilters = useCallback(
     (filters: ListView) => {
       // A new filter or search goes back to the first page.
       const next: Record<string, string> = { ...filters };
       if (view.q) next.q = view.q;
+      if (view.sort) next.sort = view.sort;
       setView(next);
     },
-    [setView, view.q],
+    [setView, view.q, view.sort],
   );
 
   const filters = useMemo(() => {
     const out: Record<string, string> = {};
-    for (const [k, v] of Object.entries(view)) if (k !== "q" && k !== "page") out[k] = v;
+    for (const [k, v] of Object.entries(view)) if (k !== "q" && k !== "page" && k !== "sort") out[k] = v;
     return out;
   }, [view]);
 
@@ -62,8 +64,11 @@ export function useListView() {
     view,
     search: view.q ?? "",
     page,
+    sort,
     filters,
-    setSearch: (q: string) => setView({ ...filters, ...(q ? { q } : {}) }),
+    setSearch: (q: string) => setView({ ...filters, ...(q ? { q } : {}), ...(sort ? { sort } : {}) }),
+    /** A new sort goes back to the first page; `""` is the default order. */
+    setSort: (next: string) => setView({ ...filters, ...(view.q ? { q: view.q } : {}), ...(next ? { sort: next } : {}) }),
     setPage: (p: number) => setView({ ...view, page: p > 0 ? String(p) : "" }),
     setFilters,
     removeFilter: (key: string) => {
@@ -77,7 +82,7 @@ export function useListView() {
       for (const [k, v] of Object.entries(filters)) {
         out[k] = defs.find((d) => d.key === k)?.type === "multi" ? v.split(",").filter(Boolean) : v;
       }
-      return { ...out, search: view.q || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE };
+      return { ...out, search: view.q || undefined, sort: sort || undefined, limit: PAGE_SIZE, offset: page * PAGE_SIZE };
     },
   };
 }
