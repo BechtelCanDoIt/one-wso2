@@ -810,8 +810,9 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // not something everyone has — unlike leave or claims, it is not part of
       // the set every employee needs.
       ...appsToSections(FINANCE_PERSPECTIVE_APPS),
-      // Engagement App — the legacy Allocations and Travel apps, only while the backend URL is set. Gated on the Engagement App Backend's own privileges, not
-      // `requires` — see useEngagementRailGate.
+      // Engagement App (engagements, allocations and travel), only while
+      // ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL is set. Gated on the Engagement App
+      // Backend's own privileges, not `requires` — see useEngagementRailGate.
       ...(isEngagementAppBackendConfigured() ? appsToSections(ENGAGEMENT_APPS) : []),
       // Due Diligence — also surfaced under Legal (see the `legal` perspective
       // below). ONE registry (DUE_DILIGENCE_APPS), included in both places, so

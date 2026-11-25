@@ -1122,9 +1122,10 @@ export default function App() {
               preview flag; Cado2Shell resolves access for every page. See
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
           {isPreviewEnabled("quickquote") && cado2Routes}
-          {/* Finance → Engagement App and its pages under Me (the legacy
-              Allocations and Travel apps), only while its backend URL is set;
-              EngagementShell resolves access for every page. See @features/finance/engagement-app/routes and
+          {/* Finance → Engagement App (engagements, allocations and travel) and
+              its pages under Me, only while ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL
+              is set. EngagementShell resolves access for every page. See
+              @features/finance/engagement-app/routes and
               docs/ported-apps/engagement-app.md. */}
           {isEngagementAppBackendConfigured() && engagementRoutes}
           {isEngagementAppBackendConfigured() && myEngagementRoutes}

@@ -73,8 +73,8 @@ declare global {
       ONE_WSO2_SWAG_STORE_BACKEND_URL?: string;
       // Base URL for the Engagement App Backend (Finance → Engagement App and
       // the Engagement App pages under Me), version segment included. Optional —
-      // when absent its pages show
-      // a not-connected state and make no requests.
+      // when absent the Engagement App is hidden: no rail entries, no routes
+      // and no requests.
       ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL?: string;
       // Base URL for the Procurement backend, version segment included.
       // Optional — when absent (and the `procurement` preview flag is on)
