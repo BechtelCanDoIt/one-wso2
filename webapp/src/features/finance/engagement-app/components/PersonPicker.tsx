@@ -19,6 +19,8 @@ import { Autocomplete, Box, TextField, Typography } from "@wso2/oxygen-ui";
 import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import type { EmployeeOption } from "../api/engagementTypes";
 import { useEmployees } from "../api/useEngagementApi";
+import { usePeopleFaces } from "../api/usePeopleFaces";
+import { PersonAvatar } from "./PersonChip";
 
 /** An employee, searched by name or email as you type (from two letters). */
 export default function PersonPicker({
@@ -39,6 +41,7 @@ export default function PersonPicker({
   const [text, setText] = useState("");
   const q = useDebouncedValue(text.trim(), 250);
   const people = useEmployees(q, q.length >= 2, 20);
+  const faceOf = usePeopleFaces();
   return (
     <Autocomplete
       size="small"
@@ -53,6 +56,9 @@ export default function PersonPicker({
       noOptionsText={q.length < 2 ? "Type at least 2 letters to search" : people.isError ? "Couldn't search employees" : "Nobody matches"}
       renderOption={(props, o) => (
         <li {...props} key={o.email}>
+          <Box sx={{ mr: 1.5, display: "flex" }}>
+            <PersonAvatar name={o.name || o.email} photo={faceOf(o.email).photo} size={32} />
+          </Box>
           <Box>
             <Box sx={{ fontSize: 13.5 }}>{o.name}</Box>
             <Typography variant="caption" color="text.secondary">

@@ -118,11 +118,13 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
   const skipped = data ? notConvertedText(data.notConverted) : "";
   return (
     <Card ref={card} variant="outlined" component="section" aria-label="Travel Costs controls" sx={[{ p: 2, minWidth: 0, scrollMarginTop: APP_BAR_CLEARANCE + 16 }, eaSurfaceSx]}>
-      <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1.5 }}>
-        <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600, mr: 0.5 }}>
-          Travel Costs
-        </Typography>
-        <InfoHint label="How USD is calculated">{USD_RATE_HINT_WITH_TRANSACTIONS}</InfoHint>
+      <Stack direction="row" useFlexGap spacing={2.5} sx={{ alignItems: "center", flexWrap: "wrap", rowGap: 1.5 }}>
+        <Stack direction="row" spacing={0.5} sx={{ alignItems: "center" }}>
+          <Typography component="h2" sx={{ fontSize: 15, fontWeight: 600 }}>
+            Travel Costs
+          </Typography>
+          <InfoHint label="How USD is calculated">{USD_RATE_HINT_WITH_TRANSACTIONS}</InfoHint>
+        </Stack>
         <Box sx={{ flex: 1 }} />
         <Box sx={{ minWidth: 180 }}>
           <FilterSelect label="Period" anyLabel={null} value={view.range} options={RANGE_PRESETS.map((p) => [p.value, p.label] as const)} onChange={pickPreset} />
@@ -152,6 +154,7 @@ export default function TravelCostControls({ cost, today, canDownloadTransaction
           control={<Switch size="small" checked={view.compare} onChange={(e) => set({ tcCompare: e.target.checked ? undefined : "0" })} />}
           label="Compare With Last Year"
           slotProps={{ typography: { fontSize: 13 } }}
+          sx={{ m: 0, gap: 1 }}
         />
         <ToggleButtonGroup exclusive size="small" value={view.mode} onChange={(_, v: "charts" | "tables" | null) => v && set({ tcView: v === "tables" ? "tables" : undefined })} aria-label="View" sx={{ "& .MuiToggleButton-root": { px: 1.25, height: 36 } }}>
           {VIEW_MODES.map(({ mode, label, Icon }) => (
