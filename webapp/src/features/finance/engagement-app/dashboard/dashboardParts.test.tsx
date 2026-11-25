@@ -17,7 +17,7 @@
 import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { HBars, InfoHint } from "./dashboardParts";
-import { notConvertedText, USD_RATE_HINT } from "./travelCostText";
+import { notConvertedSummary, notConvertedText, USD_RATE_HINT } from "./travelCostText";
 
 const rows = [
   { label: "Acme Corp", count: 14 },
@@ -54,6 +54,19 @@ describe("notConvertedText", () => {
       { source: "claim", currency: "", amount: 15 },
     ]);
     expect(text).toBe("Not converted, left out of the totals: LKR 1,234,500 (Travel Invoices), EUR 2,300.00 (Credit Card Expenses), Unknown currency 15.00 (Expense Claims)");
+    expect(text).not.toContain(";");
+  });
+});
+
+describe("notConvertedSummary", () => {
+  it("counts the amounts and currencies and names each source once", () => {
+    const text = notConvertedSummary([
+      { source: "perDiem", currency: "AED", amount: 5940 },
+      { source: "claim", currency: "AED", amount: 4401.78 },
+      { source: "claim", currency: "BRL", amount: 712.35 },
+      { source: "claim", currency: "GBP", amount: 506.48 },
+    ]);
+    expect(text).toBe("Not converted, left out of the totals: 4 amounts in 3 currencies (Per Diems, Expense Claims).");
     expect(text).not.toContain(";");
   });
 });

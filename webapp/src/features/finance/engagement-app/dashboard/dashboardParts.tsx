@@ -280,7 +280,8 @@ export function StackedMonths({ rows, series }: { rows: readonly Record<string, 
       height={240}
       maxBarSize={28}
       legend={{ show: true, align: "left", verticalAlign: "bottom" }}
-      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+      // Room on the left for six-figure USD ticks ("800000"); the chart's Y axis can't shorten them.
+      margin={{ top: 8, right: 8, left: 20, bottom: 0 }}
     />
   );
 }

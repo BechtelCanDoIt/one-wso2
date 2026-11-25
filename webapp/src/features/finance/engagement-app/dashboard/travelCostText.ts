@@ -32,9 +32,23 @@ export const COST_SOURCE_LABEL: Readonly<Record<CostSource, string>> = {
   claim: "Expense Claims",
 };
 
+/** Up to this many unconverted amounts are listed in full; more are summed up in one line with the list behind Show Details. */
+export const NOT_CONVERTED_INLINE_MAX = 3;
+
+/** Every unconverted amount with its source, e.g. "AED 5,940.00 (Per Diems), BRL 712.35 (Expense Claims)". */
+export function notConvertedList(rows: readonly NotConverted[]): string {
+  return rows.map((r) => `${r.currency ? money(r.amount, r.currency) : `Unknown currency ${money(r.amount, undefined)}`} (${COST_SOURCE_LABEL[r.source]})`).join(", ");
+}
+
 /** The one line under the KPIs for amounts that could not be converted, or an empty string when there are none. */
 export function notConvertedText(rows: readonly NotConverted[]): string {
   if (!rows.length) return "";
-  const parts = rows.map((r) => `${r.currency ? money(r.amount, r.currency) : `Unknown currency ${money(r.amount, undefined)}`} (${COST_SOURCE_LABEL[r.source]})`);
-  return `Not converted, left out of the totals: ${parts.join(", ")}`;
+  return `Not converted, left out of the totals: ${notConvertedList(rows)}`;
+}
+
+/** The short form for many amounts: how many, in how many currencies, and from which sources. */
+export function notConvertedSummary(rows: readonly NotConverted[]): string {
+  const currencies = new Set(rows.map((r) => r.currency || "")).size;
+  const sources = [...new Set(rows.map((r) => COST_SOURCE_LABEL[r.source]))];
+  return `Not converted, left out of the totals: ${rows.length} amounts in ${currencies} ${currencies === 1 ? "currency" : "currencies"} (${sources.join(", ")}).`;
 }
