@@ -111,7 +111,7 @@ function SearchBox(): JSX.Element {
       e.preventDefault();
       setOpen(true);
       setActive((a) => (e.key === "ArrowDown" ? (a + 1) % rows.length : (a <= 0 ? rows.length : a) - 1));
-    } else if (e.key === "Enter") {
+    } else if (e.key === "Enter" && !e.nativeEvent.isComposing) {
       e.preventDefault();
       const row = rows[active];
       if (row) pick(row);

@@ -37,7 +37,6 @@ export const canSearch = (a: EngagementAccess): boolean => a.travelRequests || a
 
 const firstTab = (tabs: readonly InvoicesTab[], wanted: readonly InvoicesTab[]): InvoicesTab | undefined => wanted.find((t) => tabs.includes(t));
 
-/** The list a group's hits come from, with the search typed into it. There is no list per hit for an invoice or a payment, so the tab is the broadest one the caller holds. */
 // A whole job number typed without its separators or prefix ("2026110003", "trv 2026 11 0003"), as the Backend's search reads it.
 const JOB_FULL = /^(?:trv[- ]?)?(\d{4})[- ]?(\d{2})[- ]?(\d{4})$/i;
 const JOB_PREFIX = /^trv[- ]/i;
@@ -50,6 +49,7 @@ export function jobQuery(q: string): string {
   return JOB_PREFIX.test(t) ? `TRV-${t.slice(4).trim()}` : t;
 }
 
+/** The list a group's hits come from, with the search typed into it. There is no list per hit for an invoice or a payment, so the tab is the broadest one the caller holds. */
 export function listPath(kind: SearchKind, q: string, access: EngagementAccess, queues?: WorkQueues): string {
   const jobKind = kind === "travelRequests" || kind === "invoices" || kind === "perDiemPayments";
   const query = { q: (jobKind ? jobQuery(q) : q.trim()) || undefined };
@@ -68,7 +68,7 @@ export function listPath(kind: SearchKind, q: string, access: EngagementAccess, 
   }
 }
 
-/** The page of one hit. An invoice, a payment and an allocation have no page of their own: they open their list with the search typed in. */
+/** The page of one hit. An invoice, a payment and an allocation have no page of their own: they open their list with the search typed in (an invoice or payment by its travel request's job number, when it has one). */
 export function itemPath(kind: SearchKind, item: SearchItem, access: EngagementAccess, queues?: WorkQueues): string {
   switch (kind) {
     case "travelRequests":
@@ -76,9 +76,9 @@ export function itemPath(kind: SearchKind, item: SearchItem, access: EngagementA
     case "engagements":
       return engagementPaths.engagement(item.id);
     case "invoices":
-      return listPath(kind, item.title, access, queues);
+      return listPath(kind, item.jobNumber ?? item.title, access, queues);
     case "perDiemPayments":
-      return listPath(kind, item.id, access, queues);
+      return listPath(kind, item.jobNumber ?? item.id, access, queues);
     case "allocations":
       return listPath(kind, item.id, access, queues);
   }
