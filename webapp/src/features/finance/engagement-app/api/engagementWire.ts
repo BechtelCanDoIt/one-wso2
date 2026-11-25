@@ -638,3 +638,27 @@ export interface WRoleSettings {
   roles: { id: number; name: string; privilegeIds: number[] }[];
   privileges: { id: number; name: string; description?: string | null }[];
 }
+
+// ---------------------------------------------------------------- search
+
+export interface WSearchItem {
+  id: string;
+  title: string;
+  subtitle?: string | null;
+  status?: string | null;
+  segment?: string | null;
+  jobNumber?: string | null;
+}
+
+export interface WSearchGroup {
+  kind: string;
+  total: number;
+  items: WSearchItem[];
+}
+
+export interface WSearchResults {
+  query?: string;
+  groups?: WSearchGroup[];
+  /** Kinds whose lookup failed. */
+  failed?: string[];
+}

@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { dashboard, myOverview, tripExpenses, upcomingAllocation } from "./engagementMappers";
+import { dashboard, myOverview, searchResults, tripExpenses, upcomingAllocation } from "./engagementMappers";
 
 describe("tripExpenses", () => {
   it("names the expense_app statuses and keeps missing values empty", () => {
@@ -80,5 +80,31 @@ describe("upcomingAllocation", () => {
     expect(upcomingAllocation(w as never).canOpen).toBeUndefined();
     expect(upcomingAllocation({ ...w, canOpen: false } as never).canOpen).toBe(false);
     expect(upcomingAllocation({ ...w, canOpen: true } as never).canOpen).toBe(true);
+  });
+});
+
+describe("searchResults", () => {
+  it("maps groups, items and failed kinds, keeping the backend's order", () => {
+    const r = searchResults({
+      query: "2026-11",
+      groups: [
+        { kind: "travelRequests", total: 12, items: [{ id: "TRV-2026-11-0003", title: "TRV-2026-11-0003", subtitle: "Jane Doe, India", status: "In Progress" }] },
+        { kind: "engagements", total: 1, items: [{ id: "E1", title: "Acme", segment: "marketing" }] },
+      ],
+      failed: ["allocations"],
+    });
+    expect(r.query).toBe("2026-11");
+    expect(r.groups.map((g) => [g.kind, g.total])).toEqual([["travelRequests", 12], ["engagements", 1]]);
+    expect(r.groups[0].items[0]).toMatchObject({ id: "TRV-2026-11-0003", subtitle: "Jane Doe, India", status: "In Progress" });
+    expect(r.groups[1].items[0]).toMatchObject({ segment: "marketing", status: undefined, jobNumber: undefined });
+    expect(r.failed).toEqual(["allocations"]);
+  });
+
+  it("drops a kind this build does not know and fills in missing lists", () => {
+    const r = searchResults({ groups: [{ kind: "widgets", total: 3, items: [] }, { kind: "invoices", total: 1, items: [{ id: "9", title: "", jobNumber: "TRV-1" }] }], failed: ["widgets", "invoices"] });
+    expect(r.groups).toHaveLength(1);
+    expect(r.groups[0].items[0]).toMatchObject({ title: "9", jobNumber: "TRV-1" });
+    expect(r.failed).toEqual(["invoices"]);
+    expect(searchResults({})).toEqual({ query: "", groups: [], failed: [] });
   });
 });

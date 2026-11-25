@@ -65,7 +65,9 @@ export const engagementPaths = {
     withQuery(segment ? `${A}/travel-requests/${segment}` : `${A}/travel-requests`, query),
   travelRequest: (jobNumber: string, tab: TravelTab = "info"): string =>
     `${A}/travel-requests/${encodeURIComponent(jobNumber)}/${tab}`,
-  invoices: (tab?: InvoicesTab): string => (tab ? `${A}/invoices/${tab}` : `${A}/invoices`),
+  invoices: (tab?: InvoicesTab, query?: Record<string, string | undefined>): string =>
+    withQuery(tab ? `${A}/invoices/${tab}` : `${A}/invoices`, query),
+  search: (q?: string): string => withQuery(`${A}/search`, { q }),
   reports: (tab?: ReportsTab): string => (tab ? `${A}/reports/${tab}` : `${A}/reports`),
   documents: (tab?: DocumentsTab): string => (tab ? `${A}/visas-documents/${tab}` : `${A}/visas-documents`),
   settings: (tab?: SettingsTab): string => (tab ? `${A}/settings/${tab}` : `${A}/settings`),
