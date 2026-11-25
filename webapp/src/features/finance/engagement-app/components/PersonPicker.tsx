@@ -30,6 +30,7 @@ export default function PersonPicker({
   required,
   error,
   placeholder = "Search by name or email",
+  clearOnPick,
 }: {
   readonly label: string;
   readonly value: EmployeeOption | null;
@@ -37,6 +38,8 @@ export default function PersonPicker({
   readonly required?: boolean;
   readonly error?: string;
   readonly placeholder?: string;
+  /** For adding several people one after another: the search box empties after each pick and keeps its focus. */
+  readonly clearOnPick?: boolean;
 }): JSX.Element {
   const [text, setText] = useState("");
   const q = useDebouncedValue(text.trim(), 250);
@@ -47,8 +50,12 @@ export default function PersonPicker({
       size="small"
       options={q.length >= 2 ? (people.data ?? []) : []}
       value={value}
-      onChange={(_, v) => onChange(v)}
-      onInputChange={(_, v, reason) => (reason === "input" ? setText(v) : undefined)}
+      onChange={(_, v) => {
+        onChange(v);
+        if (clearOnPick) setText("");
+      }}
+      inputValue={clearOnPick ? text : undefined}
+      onInputChange={(_, v, reason) => (reason === "input" || (clearOnPick && reason === "clear") ? setText(v) : undefined)}
       getOptionLabel={(o) => o.name || o.email}
       isOptionEqualToValue={(a, b) => a.email === b.email}
       filterOptions={(x) => x}

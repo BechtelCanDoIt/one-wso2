@@ -13,7 +13,7 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Dashboard } from "../api/engagementTypes";
@@ -82,7 +82,7 @@ describe("DashboardPage loading", () => {
     for (const name of ["Waiting on You", "Travel Team at a Glance", "Allocations Starting in 14 Days", "Travel Cost Summary"]) {
       expect(screen.getByRole("region", { name })).toBeTruthy();
     }
-    expect(screen.getByRole("button", { name: "Manage Widgets" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Manage Widgets/ })).toBeTruthy();
   });
 
   it("asks for each section in its own request, the ones that share an entity call together", () => {
@@ -133,5 +133,26 @@ describe("DashboardPage loading", () => {
     expect(screen.queryByRole("region")).toBeNull();
     expect(container.querySelectorAll('[aria-busy="true"]').length).toBe(0);
     expect(state.groupCalls.at(-1)!.sections).toEqual([]);
+  });
+
+  it("counts the enabled widgets on Manage Widgets, in the badge and in the button's name, and follows a preference change", () => {
+    state.catalogue = catalogue({});
+    page();
+    // The open dialog hides the page behind it from the accessibility tree, hence hidden: true.
+    const button = () => screen.getByRole("button", { name: /^Manage Widgets, /, hidden: true });
+    expect(button().getAttribute("aria-label")).toBe("Manage Widgets, All 4 widgets enabled");
+    expect(button().parentElement?.textContent).toContain("4");
+    fireEvent.click(button());
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("checkbox", { name: /Waiting on You/ }));
+    expect(button().getAttribute("aria-label")).toBe("Manage Widgets, 3 of 4 widgets enabled, 1 hidden");
+    expect(button().parentElement?.textContent).toContain("3");
+  });
+
+  it("shows a zero count when every widget is turned off", () => {
+    state.catalogue = catalogue({ widgets: [{ id: "waiting-on-you", defaultOn: false }] });
+    page();
+    const button = screen.getAllByRole("button", { name: /^Manage Widgets, / })[0];
+    expect(button.getAttribute("aria-label")).toBe("Manage Widgets, 0 of 1 widgets enabled, 1 hidden");
+    expect(button.parentElement?.textContent).toContain("0");
   });
 });

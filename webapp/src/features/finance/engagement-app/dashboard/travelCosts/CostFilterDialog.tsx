@@ -55,6 +55,7 @@ export default function CostFilterDialog({
   const access = useEngagementAccess();
   const jq = useDebouncedValue(job.trim(), 250);
   const canSuggest = access.travelRequests && jq.length >= 2;
+  // Suggestions count only once they answer what is typed now, not the previous search kept while the new one loads.
   const suggested = useTravelRequests({ segment: "all", search: jq, limit: 8 }, canSuggest);
   const set = (k: FilterKey, v: string[]) => setDraft((d) => ({ ...d, [k]: v }));
   const addJob = (raw: string) => {
@@ -98,8 +99,7 @@ export default function CostFilterDialog({
           );
         })}
         <Box>
-          {/* Remounted after each pick so the search box clears for the next person. */}
-          <PersonPicker key={(draft.tcEmployee ?? []).length} label="Employee" value={null} onChange={addPerson} />
+          <PersonPicker label="Employee" value={null} onChange={addPerson} clearOnPick />
           <Stack direction="row" spacing={0.75} sx={{ mt: 1, flexWrap: "wrap", rowGap: 0.75 }}>
             {(draft.tcEmployee ?? []).map((e) => (
               <PersonChip key={e} email={e} name={names[e]} face={faceOf(e)} onDelete={() => set("tcEmployee", (draft.tcEmployee ?? []).filter((x) => x !== e))} />
@@ -110,7 +110,7 @@ export default function CostFilterDialog({
           <Autocomplete
             freeSolo
             size="small"
-            options={canSuggest ? (suggested.data?.items ?? []).filter((t) => !(draft.tcJob ?? []).includes(t.jobNumber)) : []}
+            options={canSuggest && job.trim() === jq && !suggested.isPlaceholderData ? (suggested.data?.items ?? []).filter((t) => !(draft.tcJob ?? []).includes(t.jobNumber)) : []}
             filterOptions={(x) => x}
             value={null}
             inputValue={job}

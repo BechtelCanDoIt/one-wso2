@@ -174,6 +174,8 @@ export default function DashboardPage(): JSX.Element {
   // A widget whose data the backend left out of a loaded section is not drawn.
   const shownDefs = defs.filter((d) => widgetState(d, ctx).kind !== "absent");
   const hidden = allowed.length - visible.length;
+  // The count is of widgets turned on, not of widgets with data, so the wording says enabled.
+  const enabledText = hidden > 0 ? `${visible.length} of ${allowed.length} widgets enabled, ${hidden} hidden` : `All ${allowed.length} widgets enabled`;
   const refOf = (id: string) => allowed.find((w) => w.id === id);
 
   return (
@@ -181,9 +183,9 @@ export default function DashboardPage(): JSX.Element {
       {...header}
       actions={
         allowed.length ? (
-          <Tooltip title={hidden > 0 ? `${visible.length} of ${allowed.length} widgets shown, ${hidden} hidden` : `All ${allowed.length} widgets shown`}>
+          <Tooltip title={enabledText}>
             <Badge color="primary" badgeContent={visible.length} showZero>
-              <Button variant="outlined" size="small" startIcon={<SlidersHorizontalIcon size={15} />} onClick={() => setManage(true)} sx={{ fontWeight: 600 }}>
+              <Button variant="outlined" size="small" aria-label={`Manage Widgets, ${enabledText}`} startIcon={<SlidersHorizontalIcon size={15} />} onClick={() => setManage(true)} sx={{ fontWeight: 600 }}>
                 Manage Widgets
               </Button>
             </Badge>
