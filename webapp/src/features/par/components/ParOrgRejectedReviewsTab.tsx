@@ -25,20 +25,18 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  InputAdornment,
   Skeleton,
   Stack,
-  TextField,
   Tooltip,
   Typography,
 } from "@wso2/oxygen-ui";
-import { RotateCcwIcon, SearchIcon } from "@wso2/oxygen-ui-icons-react";
+import { RotateCcwIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useParAdminParticipants, useParRejectedReviews } from "../api/useParAdmin";
 import { useRestoreRejectedReview } from "../api/useParMutations";
-import { ParGridToolbar } from "./parGridToolbar";
+import { ParGridSearch, ParGridToolbar } from "./parGridToolbar";
 import ParEmptyState from "./ParEmptyState";
 import type { ParCycle, ParRejectedReview } from "../api/types";
 
@@ -49,6 +47,8 @@ export default function ParOrgRejectedReviewsTab({ cycle }: { cycle: ParCycle })
   const rejectedReviews = useParRejectedReviews(cycle.parCycleId);
   const participants = useParAdminParticipants(cycle.parCycleId);
   const restore = useRestoreRejectedReview(cycle.parCycleId);
+  // Only the open cycle's declined reviews can be restored; History shows a closed one's as they ended.
+  const canRestore = cycle.parCycleStatus === "OPEN";
   const { showSuccess, showError } = useNotifications();
 
   const [searchText, setSearchText] = useState("");
@@ -104,8 +104,8 @@ export default function ParOrgRejectedReviewsTab({ cycle }: { cycle: ParCycle })
       renderCell: (params) => (
         <Chip
           size="small"
-          color={params.row.isOfferedFeedback === "offered" ? "info" : "warning"}
-          label={params.row.isOfferedFeedback === "offered" ? "Was offered a review by" : "Requested a review from"}
+          color={params.row.isOfferedFeedback === "TRUE" ? "info" : "warning"}
+          label={params.row.isOfferedFeedback === "TRUE" ? "Was offered a review by" : "Requested a review from"}
         />
       ),
     },
@@ -141,31 +141,17 @@ export default function ParOrgRejectedReviewsTab({ cycle }: { cycle: ParCycle })
 
   return (
     <Stack spacing={1.5}>
-      <Box sx={{ display: "flex", justifyContent: "flex-end" }}>
-        <TextField
-          size="small"
-          placeholder="Search Reviews"
-          value={searchText}
-          onChange={(e) => setSearchText(e.target.value)}
-          slotProps={{
-            input: {
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon size={16} />
-                </InputAdornment>
-              ),
-            },
-          }}
-        />
-      </Box>
       <DataGrid.DataGrid
         rows={filteredRows}
-        columns={columns}
+        columns={canRestore ? columns : columns.filter((column) => column.field !== "actions")}
         getRowId={(row) => row.employeeEmail + row.reviewerEmail}
         rowHeight={56}
         disableRowSelectionOnClick
         showToolbar
         slots={{ toolbar: ParGridToolbar }}
+        slotProps={{
+          toolbar: { children: <ParGridSearch placeholder="Search Reviews" value={searchText} onChange={setSearchText} /> },
+        }}
         sx={{ border: "none" }}
         initialState={{ pagination: { paginationModel: { pageSize: 10 } } }}
         pageSizeOptions={[10, 20, 25]}

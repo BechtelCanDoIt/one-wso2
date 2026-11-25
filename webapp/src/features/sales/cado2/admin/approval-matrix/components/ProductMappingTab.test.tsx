@@ -103,10 +103,43 @@ describe("ProductMappingTab", () => {
     // Same group as where it comes from: nothing to warn about.
     expect(dialog.queryByText(/move here/)).toBeNull();
     await user.click(dialog.getByRole("combobox", { name: /Discount group/ }));
-    await user.click(screen.getByRole("option", { name: "SaaS products" }));
+    await user.click(screen.getByRole("option", { name: /^SaaS products/ }));
     expect(dialog.getByText("1 of these move here from Product Unit APIM (On-prem platform).")).toBeInTheDocument();
     await user.click(dialog.getByRole("button", { name: "Add rule" }));
     expect(latest.at(-1)).toMatchObject({ kind: "RULE", classification: "CL", productUnit: "apim", groupCode: "SAAS" });
+  });
+
+  // FY26 has on-prem and SaaS groups with the same name: the code tells them apart.
+  it("shows each group's code in the dropdown, and where two groups share a name", async () => {
+    const user = userEvent.setup();
+    const twins: ApprovalMatrix = {
+      ...base,
+      groups: [
+        { code: "ONPREM_API", name: "API Management", reviewers: [], ladder: [] },
+        { code: "SAAS_API", name: "API Management", reviewers: [], ladder: [] },
+        { code: "MOESIF", name: "Moesif", reviewers: [], ladder: [] },
+      ],
+      mappings: [
+        { ...blank, kind: "RULE", classification: "PS", productUnit: "APIM", groupCode: "ONPREM_API" },
+        { ...blank, kind: "RULE", classification: "CL", productUnit: "APIM", groupCode: "SAAS_API" },
+        { ...blank, kind: "RULE", classification: "CL", productUnit: "Moesif", groupCode: "MOESIF" },
+      ],
+    };
+    render(<ProductMappingTab matrix={twins} onChange={vi.fn()} />);
+    const rules = within(screen.getByRole("table", { name: "Rules" }));
+    expect(rules.getByText("API Management · ONPREM_API")).toBeInTheDocument();
+    expect(rules.getByText("API Management · SAAS_API")).toBeInTheDocument();
+    // A unique name stays as it is (here both the Product Unit and the group say Moesif).
+    expect(rules.getAllByText("Moesif")).toHaveLength(2);
+    expect(rules.queryByText(/MOESIF/)).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Add a rule" }));
+    const dialog = within(screen.getByRole("dialog", { name: "Add Rule" }));
+    await user.click(dialog.getByRole("combobox", { name: /Discount group/ }));
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["API ManagementONPREM_API", "API ManagementSAAS_API", "MoesifMOESIF"]);
+    await user.click(screen.getByRole("option", { name: /SAAS_API/ }));
+    expect(dialog.getByRole("combobox", { name: /Discount group/ })).toHaveTextContent("API Management · SAAS_API");
   });
 
   it("refuses a pattern that ties with another group's, naming a product", async () => {

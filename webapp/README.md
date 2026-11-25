@@ -1,4 +1,4 @@
-# One WSO2 Webapp
+# One App Webapp
 
 WSO2's internal cross-perspective portal: a React 19 + TypeScript + Vite single-page app. Sign-in is
 Asgardeo, UI is Oxygen UI, and every environment is configured at runtime through `window.config`,
@@ -35,6 +35,10 @@ registration, and the backend URL for each feature you want live (see [Configura
 `public/config.js` is git-ignored — never commit environment-specific values. At deploy time the
 host injects a fresh `config.js` per environment.
 
+A few values are read at build time from `.env` instead (also git-ignored); copy
+[`.env.example`](.env.example) to `.env` if you need them. They end up in the built JavaScript, so
+they are still readable in the browser.
+
 ### Scripts
 
 | Command | What it does |
@@ -42,7 +46,7 @@ host injects a fresh `config.js` per environment.
 | `npm run dev` | dev server at http://localhost:3000 |
 | `npm run build` | `tsc -b && vite build` → `dist/` |
 | `npm run preview` | serve the production build |
-| `npm run check:prod-pdf` | check that the NDA PDF downloads under the production CSP (`vite build` + `vite preview` + Chrome) |
+| `npm run check:prod-pdf` | check that the NDA PDF downloads from a production build (`vite build` + `vite preview` + Chrome) |
 | `npm test` | run the test suite once (`vitest run`) |
 | `npm run test:watch` | tests in watch mode |
 | `npm run lint` | ESLint (cached in `.eslintcache`; delete it after upgrading an ESLint plugin, since plugin upgrades don't clear it) |
@@ -52,14 +56,7 @@ Before opening a PR: `npx tsc -b && npm test && npm run lint`.
 ## Configuration
 
 Runtime config is read from `window.config`, set by `public/config.js`.
-[`public/config.js.example`](public/config.js.example) is the full, commented list of keys. Build-time
-env vars use the `ONE_WSO2_` prefix (`vite.config.ts`).
-
-### Build-time keys
-
-| Key | Description | Example |
-|---|---|---|
-| `ONE_WSO2_CSP_AUTH_ORIGINS` | Comma-separated `https://host[:port]` origins added to the production CSP's `connect-src` and `frame-src`. The policy is baked into the build while `window.config` is not, so a deployment that signs in through an identity server outside the default allowlist (ThunderID or another non-Asgardeo OIDC server) must name that origin here and rebuild. Entries must be https origins — the build fails on anything else. | `https://id.internal.example.com` |
+[`public/config.js.example`](public/config.js.example) is the full, commented list of keys.
 
 ### App-wide keys
 
@@ -70,9 +67,9 @@ env vars use the `ONE_WSO2_` prefix (`vite.config.ts`).
 | `ONE_WSO2_AUTH_SIGN_IN_REDIRECT_URL` | sign-in callback (must match the Asgardeo app) | `http://localhost:3000` |
 | `ONE_WSO2_AUTH_SIGN_OUT_REDIRECT_URL` | sign-out callback | `http://localhost:3000` |
 | `ONE_WSO2_ASGARDEO_MYACCOUNT_URL` | optional; defaults to the auth base URL with `api.` swapped for `myaccount.` | |
-| `ONE_WSO2_THEME` | `wso2` (default), `acrylicOrange`, `acrylicPurple`, `classic`, `highContrast`, `paleIndigo`, `paleGray` | `wso2` |
+| `ONE_WSO2_THEME` | `choreoLabs` (default), `acrylicOrange`, `acrylicPurple`, `classic`, `highContrast`, `paleIndigo`, `paleGray`, `wso2` | `choreoLabs` |
 | `ONE_WSO2_IDLE_AUTO_SIGN_OUT` | optional; `true` signs out 30 minutes after inactivity instead of waiting at the idle prompt | `false` |
-| `ONE_WSO2_PREVIEW_FEATURES` | features built but not released; absent or `false` hides them | `{ cado2: false }` |
+| `ONE_WSO2_PREVIEW_FEATURES` | features built but not released; absent or `false` hides them | `{ quickquote: false }` |
 
 ### Feature backends
 
@@ -95,9 +92,12 @@ naming the key and makes no requests.
 | Security: Evidence Portal | `ONE_WSO2_EVIDENCE_PORTAL_BACKEND_URL` |
 | UMT | `ONE_WSO2_UMT_BACKEND_URL` |
 | Sales meetings | `ONE_WSO2_REVOPS_BACKEND_URL` |
-| CadO2 (quotes and approvals) | `ONE_WSO2_CADO2_BACKEND_URL`, `ONE_WSO2_SALESFORCE_BASE_URL` (also needs `cado2` in `ONE_WSO2_PREVIEW_FEATURES`) |
+| CadO2 (quotes and approvals) | `ONE_WSO2_CADO2_BACKEND_URL`, `ONE_WSO2_SALESFORCE_BASE_URL` (also needs `quickquote` in `ONE_WSO2_PREVIEW_FEATURES`) |
+| Swag Store | `ONE_WSO2_SWAG_STORE_BACKEND_URL` (also needs `swagStore` in `ONE_WSO2_PREVIEW_FEATURES`) |
+| Engagement App (engagements, allocations, travel requests, invoices and payments; Me travel, passport and allocations) | `ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL` (the backend runs locally on `http://localhost:8190`) |
 | Marketing Ops | `ONE_WSO2_MARKETINGOPS_BACKEND_URL`, `ONE_WSO2_MARKETINGOPS_ISAC_URL`, `ONE_WSO2_PARDOT_BASE_URL`, `ONE_WSO2_SALESFORCE_BASE_URL` |
 | Due Diligence | `ONE_WSO2_DUE_DILIGENCE_BACKEND_URL` |
+| Procurement | `ONE_WSO2_PROCUREMENT_BACKEND_URL` (also needs `procurement` in `ONE_WSO2_PREVIEW_FEATURES`) |
 | Finance MIS | `ONE_WSO2_MIS_ARR_BACKEND_URL` |
 | Infra Portal | `ONE_WSO2_INFRA_BACKEND_URL` |
 | Sales Library (Smart Search over Pitstop content) | `ONE_WSO2_SMART_SEARCH_BACKEND_URL` |
@@ -127,8 +127,7 @@ mirrored in `tsconfig.app.json`):
 webapp/
 ├── public/
 │   ├── config.js.example    → runtime config template (copy to config.js)
-│   ├── favicon-*.svg        → WSO2 logomark, light and dark
-│   └── wso2-logo-*.svg      → wordmarks for light and dark headers
+│   └── favicon-mark-*.svg   → Choreo Labs mark, light and dark
 ├── src/
 │   ├── main.tsx             → React root
 │   ├── AppWithConfig.tsx    → provider tree (Asgardeo, Router, theme, Query)
@@ -146,7 +145,7 @@ webapp/
 ├── index.html
 ├── package.json
 ├── tsconfig*.json
-└── vite.config.ts           → build, aliases, production CSP, Vitest
+└── vite.config.ts           → build, aliases, Vitest
 ```
 
 ## Perspective model

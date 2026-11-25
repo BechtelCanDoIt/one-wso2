@@ -176,7 +176,7 @@ export function ExpenseClaimPrintout({
                 }}
               >
                 {receipt
-                  ? "This receipt could not be read. Open the claim in One WSO2 to view it."
+                  ? "This receipt could not be read. Open the claim in One App to view it."
                   : "This receipt could not be loaded."}
               </Box>
             </Box>

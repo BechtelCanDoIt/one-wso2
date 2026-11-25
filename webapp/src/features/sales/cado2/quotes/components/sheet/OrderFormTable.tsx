@@ -15,14 +15,18 @@
 // under the License.
 
 import { Fragment, type JSX, type ReactNode } from "react";
-import { alpha, Box, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
-import { CircleAlertIcon, PencilIcon } from "@wso2/oxygen-ui-icons-react";
+import { alpha, Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
+import { CircleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
-import { durationShort, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
+import type { DiscountApproval } from "@features/sales/cado2/quotes/api/quoteTypes";
+import { commissionRatesText, durationShort, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
-import { visuallyHidden } from "@features/sales/cado2/utils/visuallyHidden";
+import { visuallyHidden } from "@utils/visuallyHidden";
 
 const num = { fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" } as const;
+
+/** A unit price after its discount, to the cent: 32,000 less 5% → "30400.00". */
+const afterDiscount = (price: string, pct: string) => (Math.round(Number(price) * (100 - Number(pct))) / 100).toFixed(2);
 
 interface OrderFormTableProps {
   readonly lines: readonly SheetLine[];
@@ -33,6 +37,8 @@ interface OrderFormTableProps {
   readonly below?: (index: number) => ReactNode;
   /** A partner-led quote's commission %, e.g. "15": adds the commission and net rows. */
   readonly commissionPercent?: string | null;
+  /** D151: each year's rate, when they differ. */
+  readonly commissionRates?: readonly string[] | null;
   /** The totals box's label. */
   readonly totalLabel?: string;
   /** False inside a year: the Products card closes with the totals over every year. */
@@ -40,11 +46,82 @@ interface OrderFormTableProps {
   /** A last row inside the table with the lines' total, e.g. "Year 1 total": quieter than the order totals. */
   readonly closingTotalLabel?: string;
   /**
-   * The wizard: frame the "Uncategorised" group in red and say how to fix it
-   * (D93, D95). Elsewhere (Review, the quote page) the group still shows,
-   * with a plain heading.
+   * The wizard: frame the "Not set up" group in red and say what it means
+   * (D93, D95, D152). Elsewhere (Review, the quote page) the group still
+   * shows, with a plain heading.
    */
-  readonly flagUncategorised?: boolean;
+  readonly flagNotSetUp?: boolean;
+  /**
+   * D169, D181: "hints" (the wizard) puts the volume discount ceiling and the
+   * AM's limit under each discount, with whether the discount needs approval; "columns" (the
+   * read-only views) adds Volume discount ceiling and Discretionary columns beside
+   * the discount. Left out, the discount shows alone.
+   */
+  readonly discountDetail?: "hints" | "columns";
+}
+
+/** D169: what a percentage reads as, e.g. "4.17%". */
+const pct = (v: string) => `${Number(v)}%`;
+
+/** D181: the chip under a discount, by whether it stays within the AM's limit. */
+const LIMIT_CHIP: Record<DiscountApproval["status"], { label: string; color: "success" | "warning" | "error" }> = {
+  NONE: { label: "No approval needed", color: "success" },
+  NEEDS_APPROVAL: { label: "Needs approval", color: "warning" },
+  DEAL_DESK: { label: "Needs Deal Desk approval", color: "warning" },
+  ABOVE_ALL: { label: "Above every approver's limit", color: "error" },
+};
+
+/**
+ * The wizard's hint under a line's discount (D169, D181): the two limits the
+ * AM can give without approval, then, once there's a discount, whether it
+ * stays within them.
+ *
+ *   Volume discount ceiling 2.08%
+ *   AM limit +3%                      ← on top of the ceiling
+ *   [No approval needed]
+ *
+ *   Volume discount ceiling none
+ *   AM limit 5%
+ *   [Needs approval]
+ *
+ * "AM limit none set" when no discount group covers the product (Deal Desk
+ * checks a discount on it, D177). Also under the discount in the Add/Edit
+ * Product dialog, left-aligned there. Nothing until the line is priced.
+ */
+export function DiscountHint({
+  line,
+  align = "end",
+}: {
+  line: Pick<SheetLine, "discountPercent" | "volumeCeilingPercent" | "discretionaryPercent" | "formula" | "discountApproval">;
+  align?: "start" | "end";
+}): JSX.Element | null {
+  const discount = Number(line.discountPercent);
+  const limit = line.discountApproval ?? null;
+  const ceiling = line.volumeCeilingPercent;
+  // Not priced yet: nothing known about either limit.
+  if (ceiling === null && !limit && (!discount || line.discretionaryPercent === null)) return null;
+  const ceilingText = ceiling !== null ? pct(ceiling) : line.formula ? "none (formula-priced)" : "none";
+  let amText: string | null = null;
+  if (limit) {
+    if (limit.groupCode === null) amText = "none set";
+    else if (limit.amLimitPercent === null) amText = "no limit";
+    else amText = `${ceiling !== null && Number(ceiling) > 0 ? "+" : ""}${pct(limit.amLimitPercent)}`;
+  }
+  const chip = limit && discount > 0 ? LIMIT_CHIP[limit.status] : null;
+  const row = { whiteSpace: "nowrap" } as const;
+  return (
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: `flex-${align}`, gap: 0.25, mt: 0.25 }}>
+      <Typography variant="caption" color="text.secondary" sx={row}>
+        Volume discount ceiling {ceilingText}
+      </Typography>
+      {amText ? (
+        <Typography variant="caption" color="text.secondary" sx={row}>
+          AM limit {amText}
+        </Typography>
+      ) : null}
+      {chip ? <Chip size="small" color={chip.color} variant="outlined" label={chip.label} sx={{ mt: 0.25 }} /> : null}
+    </Box>
+  );
 }
 
 /**
@@ -65,14 +142,19 @@ export default function OrderFormTable({
   actions,
   below,
   commissionPercent = null,
-  flagUncategorised = false,
+  commissionRates = null,
+  flagNotSetUp = false,
+  discountDetail,
   totalLabel = "Total order value",
   showTotals = true,
   closingTotalLabel,
 }: OrderFormTableProps): JSX.Element {
   const form = orderForm(lines, commissionPercent);
-  // Product, unit of measure, unit list, qty, discount, duration, amount (+ actions).
-  const dataCols = 7;
+  // Product, unit of measure, unit list, qty, discount, duration, amount (+ actions);
+  // with the volume columns (D169), the ceiling before the discount and the
+  // discretionary part after it.
+  const split = discountDetail === "columns";
+  const dataCols = split ? 9 : 7;
   const cols = actions ? dataCols + 1 : dataCols;
   // Lines whose category isn't chosen yet (D72): listed first, under their own
   // heading, on every view, so no line is ever left out of the table.
@@ -107,19 +189,18 @@ export default function OrderFormTable({
   );
 
 
-  // The uncategorised group's heading (D93, D95): in the error colour, saying
-  // what to do, so it reads as something to fix, not just another section.
-  const uncategorisedHeader = (
+  // The "Not set up" group's heading (D93, D95, D152): in the error colour,
+  // saying what it means, so it reads as something to fix, not just another
+  // section. Only an Admin can fix it; the AM can remove the line.
+  const notSetUpHeader = (
     <TableRow>
       <TableCell colSpan={cols} sx={{ bgcolor: (t) => alpha(t.palette.error.main, 0.06), py: 0.75 }}>
         <Box sx={{ display: "flex", alignItems: "center", flexWrap: "wrap", columnGap: 1, color: "error.main" }}>
           <CircleAlertIcon size={16} aria-hidden />
           <Typography variant="overline" sx={{ fontWeight: 700, lineHeight: 1.6 }}>
-            Uncategorised
+            Not set up
           </Typography>
-          <Typography variant="body2" sx={{ display: "inline-flex", alignItems: "center", gap: 0.5 }}>
-            · Click <PencilIcon size={14} aria-label="Edit" /> to choose a category
-          </Typography>
+          <Typography variant="body2">· Classification not set up · ask an Admin</Typography>
         </Box>
       </TableCell>
     </TableRow>
@@ -140,19 +221,19 @@ export default function OrderFormTable({
                 {l.productCode}
               </Typography>
             ) : null}
-            {/* A bundle child: it comes with, and leaves with, its parent. */}
-            {l.parentName ? (
-              <Typography variant="caption" color="text.secondary" display="block" aria-label="Bundled">
-                Comes with {l.parentName}
-              </Typography>
-            ) : null}
-            {/* How a formula line's unit price was worked out (D81); it has no discount. */}
+            {/* How a formula line's unit price was worked out (D81), and
+                what its discount brings it to (D149). */}
             {l.formula ? (
               <Typography variant="caption" color="text.secondary" display="block" aria-label="Priced by formula">
                 Formula {l.formula.version}:{" "}
                 <Box component="span" sx={{ fontFamily: "monospace" }}>
                   {l.formula.explanation}
                 </Box>
+              </Typography>
+            ) : null}
+            {l.formula && Number(l.discountPercent) > 0 ? (
+              <Typography variant="caption" display="block" sx={{ color: "primary.main" }} aria-label="After discount">
+                After {l.discountPercent}% discount: {formatMoney(afterDiscount(l.unitPrice, l.discountPercent))}
               </Typography>
             ) : null}
           </TableCell>
@@ -163,15 +244,26 @@ export default function OrderFormTable({
           <TableCell align="right" sx={num}>
             {l.quantity}
           </TableCell>
+          {split ? (
+            <TableCell align="right" sx={num}>
+              {l.volumeCeilingPercent === null ? "–" : pct(l.volumeCeilingPercent)}
+            </TableCell>
+          ) : null}
           <TableCell align="right" sx={num}>
             {Number(l.discountPercent) ? `${l.discountPercent}%` : "–"}
+            {discountDetail === "hints" ? <DiscountHint line={l} /> : null}
           </TableCell>
-          {/* Each line's term (D113): its dates, its length below like the
-              SKU under the name; a one-off line shows its date and "One-time". */}
+          {split ? (
+            <TableCell align="right" sx={{ ...num, ...(Number(l.discretionaryPercent) > 0 ? { color: "warning.main", fontWeight: 600 } : {}) }}>
+              {Number(l.discretionaryPercent) ? pct(l.discretionaryPercent ?? "0") : "–"}
+            </TableCell>
+          ) : null}
+          {/* Each line's term (D113): its start and end (D146), its length
+              below like the SKU under the name; a one-off line "One-time". */}
           <TableCell sx={{ whiteSpace: "nowrap" }}>
             {!l.startDate
               ? "–"
-              : l.recurring && l.endDate
+              : l.endDate
                 ? `${formatDate(l.startDate)} – ${formatDate(l.endDate)}`
                 : formatDate(l.startDate)}
             {l.startDate && (!l.recurring || l.endDate) ? (
@@ -224,7 +316,7 @@ export default function OrderFormTable({
           size="small"
           aria-label="Products"
           // Light lines between columns (D97); not after the last cell, so the
-          // Uncategorised group's red frame keeps its right edge.
+          // "Not set up" group's red frame keeps its right edge.
           sx={{ "& th:not(:last-child), & td:not(:last-child)": { borderRight: 1, borderRightColor: "divider" } }}
         >
           <TableHead
@@ -241,9 +333,11 @@ export default function OrderFormTable({
             <TableRow>
               <TableCell>Product or service</TableCell>
               <TableCell>Unit of measure</TableCell>
-              <TableCell align="right">Unit price</TableCell>
+              <TableCell align="right">Sales price</TableCell>
               <TableCell align="right">Qty</TableCell>
-              <TableCell align="right">Discount</TableCell>
+              {split ? <TableCell align="right">Volume discount ceiling</TableCell> : null}
+              <TableCell align="right">{split ? "Entered discount" : "Discount"}</TableCell>
+              {split ? <TableCell align="right">Discretionary</TableCell> : null}
               <TableCell>Term</TableCell>
               <TableCell align="right">Amount{cur}</TableCell>
               {actions ? (
@@ -255,11 +349,11 @@ export default function OrderFormTable({
               ) : null}
             </TableRow>
           </TableHead>
-          {/* Lines waiting for a category come first, under a plain heading, with no
-              subtotal, framed by a thin red line until each has one (D72, D93). */}
-          {pending.length > 0 && flagUncategorised ? (
+          {/* Lines whose classification isn't set up come first, with no
+              subtotal, framed by a thin red line (D93, D152). */}
+          {pending.length > 0 && flagNotSetUp ? (
             <TableBody
-              aria-label="Uncategorised"
+              aria-label="Not set up"
               sx={(t) => {
                 const line = `1px solid ${t.palette.error.main}`;
                 return {
@@ -272,14 +366,14 @@ export default function OrderFormTable({
                 };
               }}
             >
-              {uncategorisedHeader}
+              {notSetUpHeader}
               {pending.map(lineRow)}
             </TableBody>
           ) : null}
           {/* Read-only views: the same lines under a plain heading. */}
-          {pending.length > 0 && !flagUncategorised ? (
-            <TableBody aria-label="Uncategorised">
-              {groupHeader("Uncategorised")}
+          {pending.length > 0 && !flagNotSetUp ? (
+            <TableBody aria-label="Not set up">
+              {groupHeader("Not set up")}
               {pending.map(lineRow)}
             </TableBody>
           ) : null}
@@ -317,7 +411,12 @@ export default function OrderFormTable({
             <>
               <Box sx={{ pt: 0.75 }}>
                 {summaryRow(totalLabel, form.total)}
-                {summaryRow(`Partner commission (${commissionPercent}%)`, form.commission, false, "− ")}
+                {summaryRow(
+                  `Partner commission (${commissionRates?.length ? commissionRatesText(commissionRates) : `${commissionPercent}%`})`,
+                  form.commission,
+                  false,
+                  "− ",
+                )}
               </Box>
               {summaryRow("Net order value", form.netOrderValue, true)}
             </>

@@ -73,6 +73,19 @@ declare global {
       // Optional — when absent (and the `cado2` preview flag is on) CadO2's
       // pages show a not-connected state and make no requests.
       ONE_WSO2_CADO2_BACKEND_URL?: string;
+      // Base URL for the Swag Store backend, version segment included.
+      // Optional — when absent (and the `swagStore` preview flag is on) the
+      // store's pages show a not-connected state and make no requests.
+      ONE_WSO2_SWAG_STORE_BACKEND_URL?: string;
+      // Base URL for the Engagement App Backend (Finance → Engagement App and
+      // the Engagement App pages under Me), version segment included. Optional —
+      // when absent the Engagement App is hidden: no rail entries, no routes
+      // and no requests.
+      ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL?: string;
+      // Base URL for the Procurement backend, version segment included.
+      // Optional — when absent (and the `procurement` preview flag is on)
+      // Me → Procurement shows a not-connected state and makes no requests.
+      ONE_WSO2_PROCUREMENT_BACKEND_URL?: string;
       // Base URL for the Pitstop backend that serves Smart Search, version
       // segment included. Optional — when absent Sales → Library shows a
       // not-connected state and makes no requests.
@@ -111,6 +124,16 @@ declare global {
       // "not configured" state. Leave-app has its own /user-info +
       // privileges, distinct from people-app.
       ONE_WSO2_LEAVE_BACKEND_URL?: string;
+      // GitHub OAuth for Infra Connect. Optional. Without a client ID and
+      // redirect URL, the Infra home page shows "GitHub OAuth is not configured"
+      // instead of the Connect button.
+      ONE_WSO2_GITHUB_OAUTH?: {
+        CLIENT_ID?: string;
+        AUTHORIZE_URL?: string;
+        REDIRECT_URL?: string;
+      };
+      // Deprecated; use ONE_WSO2_GITHUB_OAUTH. A nested value, even an empty one,
+      // takes precedence.
       ONE_WSO2_GITHUB_OAUTH_CLIENT_ID?: string;
       ONE_WSO2_GITHUB_OAUTH_AUTHORIZE_URL?: string;
       ONE_WSO2_GITHUB_OAUTH_REDIRECT_URL?: string;
@@ -193,6 +216,12 @@ declare global {
       // https://wso2.lightning.force.com, correct for every WSO2
       // environment today. Set it only for a sandbox org.
       ONE_WSO2_SALESFORCE_BASE_URL?: string;
+      // Image URL used in the generated email signature. Optional.
+      ONE_WSO2_EMAIL_SIGNATURE_LOGO_URL?: string;
+      // Path or URL of an HTML file that replaces the built-in email signature
+      // layout. Optional; when unset, or when the file can't be loaded, the
+      // built-in layout is used.
+      ONE_WSO2_EMAIL_SIGNATURE_TEMPLATE_URL?: string;
       // Override for the Asgardeo My Account portal URL that the top-bar
       // "Profile" menu item opens. Only set this on non-standard tenants
       // (self-hosted / custom domain); on Asgardeo Cloud we derive it from

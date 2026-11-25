@@ -22,21 +22,28 @@
 // can take back.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router";
 import { umtPaths } from "../lib/umtPaths";
 
 const state = vi.hoisted(() => ({
   uat: undefined as unknown,
+  // What a fresh UAT fetch returns; undefined means unchanged.
+  uatNow: undefined as unknown,
   create: vi.fn(async () => undefined),
 }));
 
 const UAT_STAGING = {
-  recordsTotal: 1,
-  recordsFiltered: 1,
+  recordsTotal: 2,
+  recordsFiltered: 2,
   data: [
     { id: 11, lifecycle: "UpdateLifecycle", products: [{ product: { name: "wso2am", version: "4.2.0" } }] },
+    {
+      id: 12,
+      lifecycle: "SecurityUpdateLifecycle",
+      products: [{ product: { name: "wso2is", version: "7.2.0.4.full" } }],
+    },
   ],
 };
 
@@ -60,7 +67,7 @@ vi.mock("../api/useUmtUpdates", () => ({
     isFetching: false,
     isPending: lifecycleState === "UATStaging" ? false : state.uat === undefined,
     error: null,
-    refetch: () => {},
+    refetch: async () => ({ isSuccess: true, data: state.uatNow ?? state.uat, dataUpdatedAt: Date.now() }),
   }),
 }));
 
@@ -96,6 +103,7 @@ const createButton = () => screen.getByRole("button", { name: /Create Release Ch
 describe("UmtCreateReleaseChunkPage", () => {
   beforeEach(() => {
     state.create.mockClear();
+    state.uatNow = undefined;
   });
 
   // Selecting the row is what makes the two cases differ: with a selection in
@@ -148,6 +156,23 @@ describe("UmtCreateReleaseChunkPage", () => {
     expect(state.create).not.toHaveBeenCalled();
   });
 
+  it("checks against UAT as it is when Create is clicked, not as the page loaded it", async () => {
+    state.uat = {
+      recordsTotal: 1,
+      recordsFiltered: 1,
+      data: [{ id: 99, products: [{ product: { name: "wso2am", version: "4.2.0" } }] }],
+    };
+    state.uatNow = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+    renderPage();
+
+    await selectTheUpdate();
+    await userEvent.click(createButton());
+    await userEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: /^Create$/ }));
+
+    expect(screen.queryByText("Cannot Promote Updates")).not.toBeInTheDocument();
+    expect(state.create).toHaveBeenCalledWith([11]);
+  });
+
   it("restores the selection kept in its history entry", () => {
     state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
     render(
@@ -172,6 +197,7 @@ describe("UmtCreateReleaseChunkPage", () => {
     );
 
     await userEvent.click(createButton());
+    await userEvent.click(await screen.findByRole("button", { name: /^Create$/ }));
 
     expect(state.create).toHaveBeenCalledWith([11]);
   });
@@ -206,7 +232,71 @@ describe("UmtCreateReleaseChunkPage", () => {
 
     expect(JSON.parse(screen.getByTestId("location-state").textContent ?? "null")).toEqual({
       backTo: umtPaths.newReleaseChunk,
-      backState: { selectedIds: [11] },
+      backState: { selectedIds: [11], search: "", lifecycle: "" },
+    });
+  });
+
+  describe("filters", () => {
+    const AM = "wso2am - 4.2.0";
+    const IS = "wso2is - 7.2.0.4.full";
+    const searchBox = () => screen.getByPlaceholderText(/Search by product/);
+
+    it("matches the search against name-version, ignoring spaces and case", async () => {
+      renderPage();
+
+      await userEvent.type(searchBox(), "WSO2IS - 7.2.0.4");
+
+      expect(screen.getByText(IS)).toBeInTheDocument();
+      expect(screen.queryByText(AM)).not.toBeInTheDocument();
+    });
+
+    it("shows only updates of the chosen lifecycle", async () => {
+      renderPage();
+
+      await userEvent.click(screen.getByRole("combobox", { name: /Lifecycle/ }));
+      await userEvent.click(screen.getByRole("option", { name: "SecurityUpdateLifecycle" }));
+
+      expect(screen.getByText(IS)).toBeInTheDocument();
+      expect(screen.queryByText(AM)).not.toBeInTheDocument();
+    });
+
+    it("restores the search and lifecycle kept in its history entry", () => {
+      render(
+        <MemoryRouter
+          initialEntries={[
+            {
+              pathname: umtPaths.newReleaseChunk,
+              state: { selectedIds: [], search: "wso2is", lifecycle: "SecurityUpdateLifecycle" },
+            },
+          ]}
+        >
+          <UmtCreateReleaseChunkPage />
+        </MemoryRouter>,
+      );
+
+      expect(searchBox()).toHaveValue("wso2is");
+      expect(screen.getByText(IS)).toBeInTheDocument();
+      expect(screen.queryByText(AM)).not.toBeInTheDocument();
+    });
+
+    // A tick on a row the search hides stays, select-all adds only the rows
+    // on screen, and the confirmation lists every update that goes in.
+    it("keeps ticks on hidden rows and lists them before creating", async () => {
+      state.uat = { recordsTotal: 0, recordsFiltered: 0, data: [] };
+      renderPage();
+
+      await selectTheUpdate();
+      await userEvent.type(searchBox(), "wso2is");
+      const [selectAll] = screen.getAllByRole("checkbox");
+      await userEvent.click(selectAll);
+      await userEvent.click(createButton());
+
+      const dialog = await screen.findByRole("dialog");
+      expect(within(dialog).getByText(AM)).toBeInTheDocument();
+      expect(within(dialog).getByText(IS)).toBeInTheDocument();
+
+      await userEvent.click(within(dialog).getByRole("button", { name: /^Create$/ }));
+      expect(state.create).toHaveBeenCalledWith([11, 12]);
     });
   });
 });

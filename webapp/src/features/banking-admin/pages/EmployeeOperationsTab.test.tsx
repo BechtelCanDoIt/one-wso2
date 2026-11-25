@@ -80,11 +80,28 @@ vi.mock("@features/my/api/useBankingConfig", () => ({
     isError: false,
   }),
 }));
-vi.mock("@features/my/api/useDeactivateAccount", () => ({ useDeactivateAccount: () => deactivateAccount }));
+// The tab reads the signed-in address to tell filing for yourself from
+// filing on somebody's behalf. Nobody in the fixtures is the signed-in
+// user, so every selection below is a submission on another employee's
+// behalf — the case the unrestricted Bank Location list is meant for.
+vi.mock("@hooks/useAsgardeoUser", () => ({
+  useAsgardeoUser: () => ({ email: "admin@wso2.com" }),
+}));
+
+vi.mock("@features/my/api/useDeactivateAccount", () => ({
+  useDeactivateAccount: () => deactivateAccount,
+  DEACTIVATE_MUTATION_KEY: ["deactivate-account"],
+}));
 vi.mock("@features/my/banking/components/BankAccountRequestDialog", () => ({
-  default: (props: { accountType: string; employeeEmail: string; employeeWorkLocation?: string }) => (
+  default: (props: {
+    accountType: string;
+    employeeEmail: string;
+    employeeWorkLocation?: string;
+    allowAnyBankLocation?: boolean;
+  }) => (
     <div data-testid="bank-account-request-dialog">
-      {props.accountType} / {props.employeeEmail} / {props.employeeWorkLocation}
+      {props.accountType} / {props.employeeEmail} / {props.employeeWorkLocation} /
+      {props.allowAnyBankLocation ? " any-location" : " own-location"}
     </div>
   ),
 }));
@@ -296,5 +313,45 @@ describe("EmployeeOperationsTab", () => {
     expect(screen.getByTestId("bank-account-request-dialog")).toHaveTextContent(
       "SALARY / jane@wso2.com / Sri Lanka",
     );
+  });
+
+  // Filing for somebody else is the whole reason the unrestricted list
+  // exists: only the admin is in a position to say that an employee banks
+  // abroad.
+  it("offers every bank location when filing for another employee", async () => {
+    const user = userEvent.setup();
+    render(<EmployeeOperationsTab />);
+    await selectEmployee(user);
+    await user.click(screen.getByRole("button", { name: "Add Bank Account" }));
+    await user.click(screen.getByRole("menuitem", { name: "Consultancy" }));
+
+    expect(screen.getByTestId("bank-account-request-dialog")).toHaveTextContent("any-location");
+  });
+
+  // An account you file for yourself is held to your own locations by the
+  // backend whoever you are. Offering the unrestricted list to an admin who
+  // picked themselves walks them through all three steps and refuses the
+  // lot at Save.
+  it("keeps an admin filing for themselves on their own locations", async () => {
+    const user = userEvent.setup();
+    employees.data = [employee({ workEmail: "admin@wso2.com", firstName: "Admin", lastName: "User" })];
+    render(<EmployeeOperationsTab />);
+    await selectEmployee(user, "Admin User (admin@wso2.com)");
+    await user.click(screen.getByRole("button", { name: "Add Bank Account" }));
+    await user.click(screen.getByRole("menuitem", { name: "Consultancy" }));
+
+    expect(screen.getByTestId("bank-account-request-dialog")).toHaveTextContent("own-location");
+  });
+
+  // The address on a token need not be cased the way the directory spells it.
+  it("recognises the signed-in admin whatever case their address is filed under", async () => {
+    const user = userEvent.setup();
+    employees.data = [employee({ workEmail: "Admin@WSO2.com", firstName: "Admin", lastName: "User" })];
+    render(<EmployeeOperationsTab />);
+    await selectEmployee(user, "Admin User (Admin@WSO2.com)");
+    await user.click(screen.getByRole("button", { name: "Add Bank Account" }));
+    await user.click(screen.getByRole("menuitem", { name: "Consultancy" }));
+
+    expect(screen.getByTestId("bank-account-request-dialog")).toHaveTextContent("own-location");
   });
 });

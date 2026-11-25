@@ -45,7 +45,7 @@ import {
 const TITLE_MAX = 200;
 const SUMMARY_MAX = 2000;
 
-// New Post: PO and Marketing register an official Chore Labs LinkedIn post, with a
+// New Post: PO and Marketing register an official Choreo Labs LinkedIn post, with a
 // category and a priority flag. Save & share now registers it and starts an
 // Amplify run straight away. Only callers granted
 // CAN_CAMPAIGN reach this page (AmplifyEditorRoute), and amplify-api
@@ -131,12 +131,12 @@ export default function NewPostPage() {
   return (
     <AmplifyShell
       title="New Post"
-      subtitle="Let Marketing and PO register official Chore Labs LinkedIn posts, with a category and a priority flag."
+      subtitle="Let Marketing and PO register official Choreo Labs LinkedIn posts, with a category and a priority flag."
     >
       {!orgConfigured && (
         <Alert severity="warning" sx={{ mb: 2 }}>
           Amplify doesn&apos;t have a LinkedIn company page configured yet (<code>WSO2ORGANIZATIONURN</code> on
-          amplify-api), so posts can&apos;t be registered. Amplify only accepts posts from the Chore Labs company page.
+          amplify-api), so posts can&apos;t be registered. Amplify only accepts posts from the Choreo Labs company page.
         </Alert>
       )}
       <Box component="form" noValidate onSubmit={onSubmit}>
@@ -186,7 +186,7 @@ export default function NewPostPage() {
                 urlCheck={postIdCheck}
                 required
                 errorText={idError && postIdCheck.state !== "bad" ? POST_ID_HELP : undefined}
-                hint="Checks the format only, not that the post exists. Must be a post on the Chore Labs company page."
+                hint="Checks the format only, not that the post exists. Must be a post on the Choreo Labs company page."
                 sx={{ flex: 1, minWidth: 220 }}
                 disabled={busy}
               />
@@ -205,7 +205,7 @@ export default function NewPostPage() {
             {imageCheck.state === "ok" && <ImagePreview url={imageUrl.trim()} />}
             <TextField
               label="Card summary"
-              placeholder="2-3 lines shown on the Amplify cards in One WSO2 and Google Chat"
+              placeholder="2-3 lines shown on the Amplify cards in One App and Google Chat"
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               multiline

@@ -18,17 +18,19 @@
 // path: findPerspectiveByPath matches with `pathname.startsWith`, so anything
 // under /sales keeps the Sales rail around CadO2's screens.
 
-export const CADO2_PATH = "/sales/cado2";
+export const CADO2_PATH = "/sales/quickquote";
 
 /** Admin sections, each its own route under /admin. */
 export type Cado2AdminSection =
   | "approval-matrix"
   | "approval-slas"
   | "email-notifications"
+  | "quote-versions"
   | "legal-entities"
   | "currencies"
-  | "product-categories"
-  | "product-bundles"
+  | "product-classifications"
+  | "support-plans"
+  | "volume-discounts"
   | "legal-texts"
   | "supporting-documents"
   | "quote-access"

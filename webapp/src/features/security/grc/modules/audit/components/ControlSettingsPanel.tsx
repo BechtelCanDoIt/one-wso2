@@ -204,6 +204,7 @@ function ControlFormDialog({
   const isPastDate = (d: string, initial: string) =>
     !allowPastDueDate && d.length > 0 && d !== initial && d < todayUtcDateOnlyString();
   const PAST_DATE_HINT = "This date is in the past - double-check before saving";
+  // The due date is the control's ultimate deadline and is always required.
   const dueDateValid = form.dueDate.length > 0;
   const populationDueDateValid = form.populationDueDate.length > 0;
   const isValid =
@@ -339,7 +340,7 @@ function ControlFormDialog({
           />
 
           <TextField
-            label="Due Date"
+            label="Ultimate Deadline"
             type="date"
             required
             value={form.dueDate}
@@ -347,7 +348,11 @@ function ControlFormDialog({
             size="small"
             InputLabelProps={{ shrink: true }}
             error={isPastDate(form.dueDate, initialValues.dueDate)}
-            helperText={isPastDate(form.dueDate, initialValues.dueDate) ? PAST_DATE_HINT : undefined}
+            helperText={
+              isPastDate(form.dueDate, initialValues.dueDate)
+                ? PAST_DATE_HINT
+                : "Final date for this control to be completed"
+            }
           />
 
           <TextField

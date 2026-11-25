@@ -217,6 +217,89 @@ describe("DealView", { timeout: 20000 }, () => {
     // The notice says why; there is no disabled Approve all to puzzle over.
     expect(screen.queryByRole("button", { name: /^Approve all/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Edit / })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Reject the suggestion/ })).not.toBeInTheDocument();
+  });
+
+  it("rejects a suggestion with a reason and a note, and drops it from the deal", async () => {
+    const user = userEvent.setup();
+    const reject = vi.spyOn(mockMeddpiccClient, "rejectProposal");
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("button", { name: "Reject the suggestion for Decision process" }));
+    const dialog = screen.getByRole("dialog", { name: "Reject this suggestion?" });
+    const confirm = within(dialog).getByRole("button", { name: "Reject" });
+    // A reason first; the note is optional.
+    expect(confirm).toBeDisabled();
+    await user.click(within(dialog).getByRole("radio", { name: "Quote doesn't show it" }));
+    await user.type(within(dialog).getByRole("textbox", { name: "Note (optional)" }), "  The RFP was dropped.  ");
+    await user.click(confirm);
+
+    await waitFor(() => expect(reject).toHaveBeenCalledTimes(1));
+    expect(reject).toHaveBeenCalledWith("006MOCK0000BRWT", "decisionProcess", {
+      reason: "NOT_SUPPORTED",
+      note: "The RFP was dropped.",
+    });
+    await waitFor(() =>
+      expect(showSuccess).toHaveBeenCalledWith("Rejected the suggestion for Decision process. Nothing changed in Salesforce."),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Reject this suggestion?" })).not.toBeInTheDocument());
+    // The deal came back without it: nothing left to reject or explain on that field.
+    expect(screen.queryByRole("button", { name: "Reject the suggestion for Decision process" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Where Decision process came from" })).not.toBeInTheDocument();
+  });
+
+  it("sends no note when none is written", async () => {
+    const user = userEvent.setup();
+    const reject = vi.spyOn(mockMeddpiccClient, "rejectProposal");
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("button", { name: "Reject the suggestion for Decision process" }));
+    const dialog = screen.getByRole("dialog", { name: "Reject this suggestion?" });
+    await user.click(within(dialog).getByRole("radio", { name: "Wrong value" }));
+    await user.click(within(dialog).getByRole("button", { name: "Reject" }));
+
+    await waitFor(() =>
+      expect(reject).toHaveBeenCalledWith("006MOCK0000BRWT", "decisionProcess", { reason: "WRONG_VALUE", note: null }),
+    );
+  });
+
+  it("says there is nothing to reject when the suggestion has already gone, and offers a refresh", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(mockMeddpiccClient, "rejectProposal").mockRejectedValueOnce(
+      new HttpError("/reject", 409, JSON.stringify({ message: "no pending proposal on decisionProcess" })),
+    );
+    const deal = vi.spyOn(mockMeddpiccClient, "deal");
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("button", { name: "Reject the suggestion for Decision process" }));
+    const dialog = screen.getByRole("dialog", { name: "Reject this suggestion?" });
+    await user.click(within(dialog).getByRole("radio", { name: "Out of date" }));
+    await user.click(within(dialog).getByRole("button", { name: "Reject" }));
+
+    expect(await within(dialog).findByText("Nothing to reject — refresh to see the latest.")).toBeInTheDocument();
+    expect(showSuccess).not.toHaveBeenCalled();
+    await user.click(within(dialog).getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(deal).toHaveBeenLastCalledWith("006MOCK0000BRWT", { refresh: true }));
+  });
+
+  it("shows the server's own message for any other refusal", async () => {
+    const user = userEvent.setup();
+    vi.spyOn(mockMeddpiccClient, "rejectProposal").mockRejectedValueOnce(
+      new HttpError("/reject", 403, JSON.stringify({ message: "Only the Opportunity owner can reject a suggestion." })),
+    );
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("button", { name: "Reject the suggestion for Decision process" }));
+    const dialog = screen.getByRole("dialog", { name: "Reject this suggestion?" });
+    await user.click(within(dialog).getByRole("radio", { name: "Other" }));
+    await user.click(within(dialog).getByRole("button", { name: "Reject" }));
+
+    expect(await within(dialog).findByText("Only the Opportunity owner can reject a suggestion.")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Refresh" })).not.toBeInTheDocument();
   });
 
   // The redesign: the AM's attention goes to what the AI proposes and what is missing;
@@ -266,6 +349,60 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(screen.getByRole("region", { name: "Missing" })).toBeInTheDocument();
   });
 
+  it("creates the contact for a person the deal doesn't have yet, once the AM has checked the details", async () => {
+    const user = userEvent.setup();
+    const approve = vi.spyOn(mockMeddpiccClient, "approve");
+    renderPanel("006MOCK0000MERI");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    await user.click(screen.getByRole("button", { name: /^Economic Buyer:/ }));
+
+    await user.click(screen.getByRole("combobox", { name: "Matching contact" }));
+    await user.click(await screen.findByRole("option", { name: "Not in Salesforce yet — create a contact" }));
+
+    // The form starts from what was heard, and Approve all waits for the email.
+    const form = screen.getByRole("group", { name: "New contact" });
+    expect(within(form).getByRole("textbox", { name: /First name/ })).toHaveValue("Grace");
+    expect(within(form).getByRole("textbox", { name: /Last name/ })).toHaveValue("Lim");
+    expect(approveButton()).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("Finish the new contact for economic buyer: an email is needed.");
+
+    await user.type(within(form).getByRole("textbox", { name: /Email/ }), "grace.lim@meridian.example");
+    expect(approveButton()).toBeEnabled();
+    expect(screen.getByText(/creates Grace Lim as economic buyer/)).toBeInTheDocument();
+
+    await user.click(approveButton());
+
+    await waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+    expect(approve.mock.calls[0]?.[1].newContacts).toEqual({
+      economicBuyer: { firstName: "Grace", lastName: "Lim", email: "grace.lim@meridian.example", title: "CFO" },
+    });
+    await waitFor(() => expect(showSuccess).toHaveBeenCalledWith(expect.stringContaining("Created in Salesforce: Grace Lim.")));
+    expect(screen.queryByRole("group", { name: "New contact" })).not.toBeInTheDocument();
+  });
+
+  it("opens the full account of a suggestion beside the page, and closes it", async () => {
+    const user = userEvent.setup();
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+
+    await user.click(screen.getByRole("button", { name: "Where Decision process came from" }));
+
+    const panel = screen.getByRole("dialog", { name: "Where this came from" });
+    expect(within(panel).getByText("Decision process")).toBeInTheDocument();
+    expect(within(panel).getByText("Both calls mention an RFP; the deep dive adds a two-week POC before it.")).toBeInTheDocument();
+    expect(within(panel).getByText("Backed by 2 quotes from 2 calls, shown below word for word.")).toBeInTheDocument();
+    const quotes = within(panel).getByRole("region", { name: "Every quote (2)" });
+    // Each quote opens its recording at the moment it was said, in a new tab.
+    const moments = within(quotes).getAllByRole("link", { name: /^Open the recording at \d+:\d\d, in a new tab$/ });
+    expect(moments).toHaveLength(2);
+    expect(moments[0]).toHaveAttribute("target", "_blank");
+    expect(moments[0]).toHaveAttribute("href", expect.stringMatching(/^\/sales\/meetings\/\d+\?tab=transcript&t=\d+$/));
+    expect(within(panel).getByRole("region", { name: "Calls on this deal" })).toHaveTextContent("mentioned it");
+
+    await user.click(within(panel).getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Where this came from" })).not.toBeInTheDocument());
+  });
+
   it("leads with the deal's facts, its Letters in Salesforce and what is waiting for review", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
@@ -278,12 +415,18 @@ describe("DealView", { timeout: 20000 }, () => {
   });
 
   // The score and flags themselves are covered in DealScore.test and DealFlags.test.
-  it("has a deal score card, a dash with no score, and no attention box with no flags", async () => {
+  it("has a deal score card with Salesforce's score, and no attention box with no flags", async () => {
     renderPanel("006MOCK0000MERI");
     await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
     expect(screen.getByText("Opportunity score")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Opportunity score 78.9, Strong" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: "Needs attention" })).not.toBeInTheDocument();
+  });
+
+  it("shows a dash on the score card where Salesforce has none", async () => {
+    renderPanel("006MOCK0000BRWT");
+    await screen.findByRole("heading", { name: "Brightwater – API Manager first sale" });
+    expect(screen.getByRole("img", { name: "No opportunity score" })).toBeInTheDocument();
   });
 
   it("re-reads the deal from Salesforce on Refresh, and shows what came back", async () => {
@@ -389,6 +532,45 @@ describe("DealView", { timeout: 20000 }, () => {
     expect(await within(log).findByText("Ask AI isn't connected yet, so this question wasn't answered.")).toBeInTheDocument();
     await user.type(screen.getByRole("textbox", { name: "Your question" }), "Again?{Enter}");
     expect(await within(log).findByText(/asked a lot in the last minute/)).toBeInTheDocument();
+  });
+
+  it("folds an email thread into one row that opens to its messages", async () => {
+    const user = userEvent.setup();
+    const realDeal = mockMeddpiccClient.deal;
+    const email = (id: string, title: string, occurredAt: string, actor: string) => ({
+      type: "EMAIL" as const, kind: "EMAIL" as const, id, title, occurredAt, actor, letters: [], meetingId: null,
+      url: `https://example.org/${id}`,
+    });
+    const spy = vi.spyOn(mockMeddpiccClient, "deal").mockImplementation(async (id, options) => ({
+      ...(await realDeal(id, options)),
+      activity: [
+        email("02sC", "RE: Integration platform – pricing", "2026-09-22T10:00:00Z", "Aisha Rahman"),
+        email("02sB", "Re: Integration platform – pricing", "2026-09-21T15:00:00Z", "Sophie Martin"),
+        email("02sD", "Security questionnaire", "2026-09-21T09:00:00Z", "Aisha Rahman"),
+        email("02sA", "Integration platform – pricing", "2026-09-20T09:00:00Z", "Sophie Martin"),
+      ],
+    }));
+    renderPanel("006MOCK0000MERI", "activity");
+    await screen.findByRole("heading", { name: "Meridian Bank – integration platform" });
+    const activity = within(screen.getByRole("region", { name: "Activity" }));
+    // One row for the thread, titled without its Re: prefixes; a lone email stays a row.
+    expect(activity.getByText("Integration platform – pricing")).toBeInTheDocument();
+    expect(activity.getByText(/^Email thread · 3 messages · last/)).toBeInTheDocument();
+    expect(activity.queryByText("RE: Integration platform – pricing")).not.toBeInTheDocument();
+    expect(activity.getByText("Security questionnaire")).toBeInTheDocument();
+
+    await user.click(activity.getByRole("button", { name: "Show the 3 messages" }));
+    const messages = within(activity.getByRole("list", { name: "Messages in Integration platform – pricing" }));
+    expect(messages.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+      expect.stringContaining("Integration platform – pricing"),
+      expect.stringContaining("Re: Integration platform – pricing"),
+      expect.stringContaining("RE: Integration platform – pricing"),
+    ]);
+    expect(messages.getByRole("link", { name: "RE: Integration platform – pricing" })).toHaveAttribute("href", "https://example.org/02sC");
+
+    await user.click(activity.getByRole("button", { name: "Hide the messages" }));
+    expect(activity.queryByRole("list", { name: /^Messages in / })).not.toBeInTheDocument();
+    spy.mockRestore();
   });
 
   it("filters the activity list and the journey by source with the chips", async () => {

@@ -15,6 +15,7 @@
 // under the License.
 
 import type { Capability } from "@constants/appMenu";
+import { isEngagementAppBackendConfigured } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { ENGINEERING_ADMIN_ITEM_ID } from "@constants/downloadStatsApps";
 import { DUE_DILIGENCE_ITEM_IDS } from "@constants/dueDiligenceApps";
@@ -42,8 +43,11 @@ import {
   UMT_ITEM_IDS,
   type PerspectiveSection,
 } from "@constants/perspectives";
+import { PROCUREMENT_TEAM_ITEM_IDS } from "@constants/procurementApps";
 import { SECURITY_ITEM_IDS } from "@constants/securityApps";
 import { CADO2_ITEM_IDS } from "@constants/cado2Apps";
+import { ENGAGEMENT_ITEM_IDS } from "@constants/engagementApps";
+import { SWAG_STORE_ADMIN_ITEM_IDS } from "@features/swag-store/admin/swagStoreAdminItems";
 
 /**
  * The four facts every feature presents to the fold.
@@ -93,12 +97,15 @@ export type AdapterName =
   | "infra"
   | "sales"
   | "cado2"
+  | "engagement"
   | "promotion"
   | "security"
   | "umt"
   | "subscriptions"
   | "engineering"
-  | "amplify";
+  | "amplify"
+  | "swag-store-admin"
+  | "procurement";
 
 const ADAPTER_NAMES: readonly AdapterName[] = [
   "par",
@@ -112,12 +119,15 @@ const ADAPTER_NAMES: readonly AdapterName[] = [
   "infra",
   "sales",
   "cado2",
+  "engagement",
   "promotion",
   "security",
   "umt",
   "subscriptions",
   "engineering",
   "amplify",
+  "swag-store-admin",
+  "procurement",
 ];
 
 /** Which sections this adapter answers. A perspective claim answers every section of that perspective. */
@@ -204,6 +214,8 @@ export function claimOf(name: AdapterName): SectionClaim {
       return { kind: "sections", ids: SALES_ITEM_IDS };
     case "cado2":
       return { kind: "sections", ids: CADO2_ITEM_IDS };
+    case "engagement":
+      return { kind: "sections", ids: ENGAGEMENT_ITEM_IDS };
     case "promotion":
       return { kind: "sections", ids: PROMOTION_SECTION_IDS };
     case "security":
@@ -216,6 +228,10 @@ export function claimOf(name: AdapterName): SectionClaim {
       return ids([ENGINEERING_ADMIN_ITEM_ID]);
     case "amplify":
       return { kind: "sections", ids: new Set([...AMPLIFY_EDITOR_ITEM_IDS, ...AMPLIFY_DASHBOARD_ITEM_IDS, ...AMPLIFY_PEOPLE_OPS_ITEM_IDS]) };
+    case "swag-store-admin":
+      return { kind: "sections", ids: SWAG_STORE_ADMIN_ITEM_IDS };
+    case "procurement":
+      return { kind: "sections", ids: PROCUREMENT_TEAM_ITEM_IDS };
     default: {
       const neverName: never = name;
       return neverName;
@@ -246,11 +262,20 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   if (perspectiveKey === "sales") names.push("sales");
   // CadO2's rows exist only while its preview flag is on. Asking its /me when
   // they are absent would hold the Sales landing on a backend with nothing to show.
-  if (perspectiveKey === "sales" && isPreviewEnabled("cado2")) names.push("cado2");
+  if (perspectiveKey === "sales" && isPreviewEnabled("quickquote")) names.push("cado2");
+  // The Engagement App has a group under Finance and one under Me, and exists
+  // only while its backend URL is set.
+  if ((perspectiveKey === "finance" || perspectiveKey === "me") && isEngagementAppBackendConfigured()) {
+    names.push("engagement");
+  }
   if (perspectiveKey === "people" || perspectiveKey === "me") names.push("promotion");
   if (perspectiveKey === "security") names.push("security");
   if (perspectiveKey === "engineering") names.push("engineering", "umt");
   if (perspectiveKey === "amplify") names.push("amplify");
+  // The store's admin rows exist only while its preview flag is on. Asking its
+  // /users/me when they are absent would hold People Ops on a backend with nothing to show.
+  if (perspectiveKey === "people" && isPreviewEnabled("swagStore")) names.push("swag-store-admin");
+  if (perspectiveKey === "procurement") names.push("procurement");
   names.push("subscriptions");
   return names;
 }

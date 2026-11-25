@@ -54,7 +54,7 @@ import {
   X,
   XCircle,
 } from "@wso2/oxygen-ui-icons-react";
-import { useEffect, useRef, useState, type JSX } from "react";
+import { Fragment, useEffect, useRef, useState, type JSX } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import ControlStatusChip from "@features/security/grc/modules/audit/components/ControlStatusChip";
 import UserAvatar from "@features/security/grc/modules/audit/components/UserAvatar";
@@ -81,6 +81,15 @@ import { useOverrideControlStatus } from "@features/security/grc/modules/audit/a
 import { isAssignedAuditor } from "@features/security/grc/modules/audit/utils/auditor";
 import type { AuditControl, ControlStatus } from "@features/security/grc/modules/audit/types/audit";
 import { useAuditPrivileges } from "@features/security/grc/modules/audit/hooks/useAuditPrivileges";
+import { HandlerChip, DelayedBadge, UltimateStatusBadge } from "@features/security/grc/modules/audit/components/DeadlineBadges";
+import {
+  groupDelayLog,
+  isCurrentDeadlineOverdue,
+  planGroups,
+  isDeadlineTracked,
+  lateDaySummary,
+} from "@features/security/grc/modules/audit/utils/deadlines";
+import { todayUtcDateOnlyString } from "@features/security/grc/utils/dateTime";
 import { AuditPrivilege } from "@features/security/grc/modules/audit/privileges";
 import { CONTROL_STATUS_LABELS, isPopulationOverdue } from "@features/security/grc/modules/audit/utils/controlStatus";
 
@@ -1769,7 +1778,7 @@ export default function ControlDrawer({ control, open, onClose }: ControlDrawerP
                   </Typography>
                 </InfoTile>
 
-                <DueDateTile label="Due Date" date={control.dueDate} overdue={control.isOverdue} />
+                <DueDateTile label="Ultimate Deadline" date={control.dueDate} overdue={control.isOverdue} />
 
                 <InfoTile label="Team">
                   <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
@@ -1818,6 +1827,92 @@ export default function ControlDrawer({ control, open, onClose }: ControlDrawerP
 
               </Box>
             </SectionCard>
+
+            {/* Deadlines — workflow-aware due dates. Only for a control the server
+                tracks; the old Due Date tile above is unchanged. The delay log is
+                sent to org-wide GRC viewers only, so its list is shown only when
+                the field is present. */}
+            {isDeadlineTracked(control) && (
+              <SectionCard
+                icon={<CalendarDays size={16} />}
+                iconBg="transparent"
+                title="Deadlines"
+              >
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1 }}>
+                  <InfoTile label="Currently With">
+                    {control.currentHandler ? (
+                      <Box>
+                        <HandlerChip handler={control.currentHandler} />
+                      </Box>
+                    ) : (
+                      <Typography variant="body2" color="text.disabled" fontSize="0.8rem">—</Typography>
+                    )}
+                  </InfoTile>
+                  <DueDateTile
+                    label="Current Deadline"
+                    date={control.currentHandler ? control.currentDueDate ?? null : null}
+                    overdue={isCurrentDeadlineOverdue(control, todayUtcDateOnlyString())}
+                  />
+                  <InfoTile label="Delayed">
+                    <Box>
+                      <DelayedBadge delayed={control.delayed} />
+                    </Box>
+                  </InfoTile>
+                  <InfoTile label="Ultimate Status">
+                    <Box>
+                      <UltimateStatusBadge delayed={control.ultimateDelayed} />
+                    </Box>
+                  </InfoTile>
+                  {planGroups(control).map((g) =>
+                    g.label ? null : (
+                      <Fragment key="plan">
+                        <DueDateTile label="Planned (Owner)" date={g.owner} />
+                        <DueDateTile label="Planned (Compliance)" date={g.compliance} />
+                        <DueDateTile label="Planned (Auditor)" date={g.auditor} />
+                      </Fragment>
+                    ),
+                  )}
+                </Box>
+                {/* An OE control has a plan per phase: population, then evidence once it starts. */}
+                {planGroups(control).map((g) =>
+                  g.label ? (
+                    <Box key={g.label} sx={{ mt: 1.5 }}>
+                      <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                        {g.label} Plan
+                      </Typography>
+                      <Box sx={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 1, mt: 0.5 }}>
+                        <DueDateTile label="Planned (Owner)" date={g.owner} />
+                        <DueDateTile label="Planned (Compliance)" date={g.compliance} />
+                        <DueDateTile label="Planned (Auditor)" date={g.auditor} />
+                      </Box>
+                    </Box>
+                  ) : null,
+                )}
+                {control.delayLog && (
+                  <Box sx={{ mt: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                      Delay Log
+                    </Typography>
+                    {lateDaySummary(control.delayLog) && (
+                      <Typography variant="body2" fontSize="0.8rem" fontWeight={600} sx={{ color: "#dc2626" }}>
+                        {lateDaySummary(control.delayLog)}
+                      </Typography>
+                    )}
+                    {control.delayLog.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary" fontSize="0.8rem">No delays.</Typography>
+                    ) : (
+                      <Box component="ul" aria-label="Delay log" sx={{ m: 0, mt: 0.5, pl: 2.5 }}>
+                        {groupDelayLog(control.delayLog).map((line) => (
+                          <Typography key={line} component="li" variant="body2" fontSize="0.8rem">
+                            {line}
+                          </Typography>
+                        ))}
+                      </Box>
+                    )}
+                  </Box>
+                )}
+              </SectionCard>
+            )}
 
             {/* Population Details — OE only, its own box separate from Control
                 Details above, same fixed-grid style. Population Comments is

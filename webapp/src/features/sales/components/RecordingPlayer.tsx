@@ -41,6 +41,15 @@ export interface RecordingPlayerHandle {
  */
 const RecordingPlayer = forwardRef<RecordingPlayerHandle, {
   meetingId: number;
+  /** Which recording of the call, when it has several; the backend's first when omitted. */
+  recordingId?: number;
+  /**
+   * Seconds to start playing from once this recording loads. Set when a transcript line
+   * from another recording was clicked (the page switches to that recording, and the new
+   * element can only be seeked once it has read the file's metadata), and when the URL
+   * names a moment (?t=): a quote on a deal opens the call at the second it was said.
+   */
+  startAt?: number;
   /** Called as playback proceeds, so a transcript can mark the current line. */
   onTimeUpdate?: (seconds: number) => void;
   /**
@@ -50,7 +59,7 @@ const RecordingPlayer = forwardRef<RecordingPlayerHandle, {
    * the last person stopped talking, which is not where the recording ends.
    */
   onDurationChange?: (seconds: number) => void;
-}>(function RecordingPlayer({ meetingId, onTimeUpdate, onDurationChange }, ref) {
+}>(function RecordingPlayer({ meetingId, recordingId, startAt, onTimeUpdate, onDurationChange }, ref) {
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useImperativeHandle(ref, () => ({
@@ -66,13 +75,15 @@ const RecordingPlayer = forwardRef<RecordingPlayerHandle, {
       video.scrollIntoView({ behavior: "smooth", block: "nearest" });
     },
   }), []);
-  const { data, isLoading, error, refetch } = useRecordingPlayback(meetingId);
+  const { data, isLoading, error, refetch } = useRecordingPlayback(meetingId, recordingId);
   // Raised only after a retry has already failed, so a single expiry recovers silently
   // rather than blaming the viewer for a token they never saw.
   const [playbackFailed, setPlaybackFailed] = useState(false);
   const retriedRef = useRef(false);
-  // Position to restore after a re-minted URL reloads the element. 0 means nothing to do.
-  const resumeAtRef = useRef(0);
+  // Position to restore after a re-minted URL reloads the element, or to start from when
+  // the page asked for one. 0 means nothing to do. The player is remounted per recording,
+  // so startAt is read once, here.
+  const resumeAtRef = useRef(startAt ?? 0);
 
   /**
    * Recover from a token that expired mid-playback.
@@ -98,7 +109,10 @@ const RecordingPlayer = forwardRef<RecordingPlayerHandle, {
     // videoRef.current.src here as well raced that render: whichever landed second won,
     // and the seek-restore attached to the losing load was silently dropped. The position
     // is parked here instead and applied by onLoadedMetadata, whichever load wins.
-    resumeAtRef.current = videoRef.current?.currentTime ?? 0;
+    // Only once playback has reached one: before the first metadata the time is still 0,
+    // and an opening position from the page is still parked here, waiting to be applied.
+    const at = videoRef.current?.currentTime ?? 0;
+    if (at > 0) resumeAtRef.current = at;
 
     const refreshed = await refetch();
     if (!refreshed.data?.url) {
@@ -169,9 +183,16 @@ const RecordingPlayer = forwardRef<RecordingPlayerHandle, {
           // rather than from the error handler, so it applies to whichever load actually
           // happened instead of the one that handler expected.
           if (resumeAtRef.current > 0) {
-            video.currentTime = resumeAtRef.current;
+            const at = resumeAtRef.current;
             resumeAtRef.current = 0;
-            void video.play();
+            video.currentTime = at;
+            // Told directly rather than left to the timeupdate event: the transcript marks
+            // its line from this, and should do so even where the browser refuses to play.
+            onTimeUpdate?.(at);
+            // Allowed to fail. A browser may refuse to start sound in a tab nobody has
+            // clicked in, which a link from a deal opens; the recording then waits at the
+            // position, a press of play away.
+            video.play()?.catch(() => {});
           }
         }}
         // Clears the retry latch only once the replacement is genuinely playing. The rule

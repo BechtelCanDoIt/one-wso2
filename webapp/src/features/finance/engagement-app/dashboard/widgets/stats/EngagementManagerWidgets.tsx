@@ -1,0 +1,109 @@
+// Copyright (c) 2026 WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+import type { JSX } from "react";
+import { Box, Typography } from "@wso2/oxygen-ui";
+import { engagementPaths } from "../../../engagementPaths";
+import { Status } from "../../../components/StatusChips";
+import { fmtRange, n0, place, plural } from "../../../model/format";
+import type { DashboardEngagement } from "../../../api/dashboardTypes";
+import { DateRow, HBars, ViewAll } from "../../dashboardParts";
+import type { WidgetCtx } from "../types";
+
+const mgr = (ctx: WidgetCtx) => ctx.dashboard?.engagementManager;
+const acct = (ctx: WidgetCtx) => ctx.dashboard?.accountManager;
+
+
+
+/** "Showing 6 of 8", and the full list a click away. */
+function More({ shown, total, to }: { shown: number; total: number; to: string }): JSX.Element | null {
+  if (total <= shown) return null;
+  return (
+    <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mt: 1 }}>
+      <Typography variant="body2" color="text.secondary">
+        Showing {n0(shown)} of {n0(total)}
+      </Typography>
+      <ViewAll to={to} />
+    </Box>
+  );
+}
+
+function EngagementList({ items, total, to }: { items: readonly DashboardEngagement[]; total: number; to: string }): JSX.Element {
+  return (
+    <>
+      {items.map((x) => (
+        <DateRow
+          key={x.id}
+          date={x.start}
+          title={x.kind === "customer" ? x.account || x.title : x.title}
+          lines={[x.kind === "customer" ? x.title : x.typeName, `${place(x.country, x.city)}, ${fmtRange(x.start, x.end)}`]}
+          right={<Status label="No consultants" tone="warning" />}
+          to={engagementPaths.engagement(x.id)}
+        />
+      ))}
+      <More shown={items.length} total={total} to={to} />
+    </>
+  );
+}
+
+/** Engagements starting in the next 30 days with nobody allocated. */
+export function WithoutConsultantsWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
+  const w = mgr(ctx)?.withoutConsultants;
+  if (!w) return null;
+  return <EngagementList items={w.items} total={w.total} to={engagementPaths.engagements()} />;
+}
+
+/** Allocations that start in the next 14 days. */
+export function StartingIn14Widget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
+  const s = mgr(ctx)?.startingIn14Days;
+  if (!s) return null;
+  return (
+    <>
+      {s.items.map((a) => (
+        <DateRow
+          key={a.allocationId}
+          date={a.start}
+          title={a.consultant.name}
+          lines={[a.engagementTitle, fmtRange(a.start, a.end)]}
+          right={a.travelRequired ? <Status label="Travel required" tone="info" /> : undefined}
+          to={engagementPaths.engagement(a.engagementId)}
+        />
+      ))}
+      <More shown={s.items.length} total={s.total} to={engagementPaths.allocations()} />
+    </>
+  );
+}
+
+/** Consultants with the most allocated days inside the last 90 days. */
+export function MostAllocatedWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
+  const m = mgr(ctx)?.mostAllocated;
+  if (!m) return null;
+  return <HBars rows={m.map((x) => ({ label: x.consultant.name, count: x.days }))} format={(n) => plural(n, "day")} />;
+}
+
+/** Customers (or countries, when the person allocates no customer type) by allocated days over 12 months. */
+export function TopCustomersWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
+  const m = mgr(ctx)?.topCustomers;
+  if (!m) return null;
+  return <HBars rows={m.items} format={(n) => plural(n, "day")} />;
+}
+
+/** Account Manager: engagements the person created that have started with nobody allocated. */
+export function StartedWithoutConsultantsWidget({ ctx }: { ctx: WidgetCtx }): JSX.Element | null {
+  const a = acct(ctx)?.startedWithoutConsultants;
+  if (!a) return null;
+  return <EngagementList items={a.items} total={a.total} to={engagementPaths.engagements()} />;
+}

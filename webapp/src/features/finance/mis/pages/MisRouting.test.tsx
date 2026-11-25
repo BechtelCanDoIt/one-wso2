@@ -190,6 +190,6 @@ describe("the browser tab", () => {
   it("is named after the screen, not just the app", () => {
     state.allow = new Set(["mis-arr-build"]);
     show("/finance/mis/arr-build");
-    expect(document.title).toBe("ARR Dashboard · One WSO2");
+    expect(document.title).toBe("ARR Dashboard · One App");
   });
 });

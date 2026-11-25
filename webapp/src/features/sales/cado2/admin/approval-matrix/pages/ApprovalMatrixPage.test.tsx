@@ -165,4 +165,26 @@ describe("ApprovalMatrixPage", () => {
       expect.anything(),
     );
   });
+
+  // D176: the Matrix tab lays the groups out like the sheet, and shows unsaved edits over the saved value.
+  it("shows the matrix, with unsaved changes marked", async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <ApprovalMatrixPage />
+      </MemoryRouter>,
+    );
+    const agm = screen.getByLabelText("Area GM limit");
+    await user.clear(agm);
+    await user.type(agm, "25");
+    await user.click(screen.getByRole("tab", { name: "Matrix" }));
+
+    const grid = within(screen.getByRole("table", { name: "Discount approval matrix" }));
+    const row = within(grid.getByText("Platform products").closest("tr") as HTMLElement);
+    expect(row.getByText("APIM (any classification)")).toBeInTheDocument();
+    expect(row.getByText("25%")).toBeInTheDocument();
+    expect(row.getByText("20%")).toBeInTheDocument(); // the saved value, struck through
+    expect(row.getByText("Above 33%")).toBeInTheDocument();
+    expect(screen.getByText(/1 group has unsaved changes/)).toBeInTheDocument();
+  });
 });

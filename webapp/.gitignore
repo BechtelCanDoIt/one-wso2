@@ -25,3 +25,8 @@ dist-ssr
 
 # Runtime config — never commit env-specific values
 public/config.js
+
+# Build-time values (see .env.example) — never commit
+.env
+.env.*
+!.env.example

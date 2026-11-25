@@ -33,7 +33,7 @@ function record(partial: Partial<EmployeeDirectoryRecord>): EmployeeDirectoryRec
     subTeam: null,
     unit: null,
     employmentType: "Permanent",
-    company: "Chore Labs",
+    company: "Choreo Labs",
     workLocation: "US",
     employeeStatus: "Active",
     ...partial,

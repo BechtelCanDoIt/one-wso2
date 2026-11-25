@@ -16,7 +16,7 @@
 
 import { Box, IconButton, Typography } from "@wso2/oxygen-ui";
 import { FileIcon, FileTextIcon, PresentationIcon, SheetIcon, XIcon } from "@wso2/oxygen-ui-icons-react";
-import type { DriveFile } from "../util/parDriveFile";
+import { isOpenableUrl, type DriveFile } from "../util/parDriveFile";
 
 function DriveIcon({ mimeType }: { mimeType: string }) {
   if (mimeType.includes("document")) return <FileTextIcon size={16} color="#4285F4" />;
@@ -54,7 +54,7 @@ export default function ParDriveFileChip({ file, onRemove, disabled = false }: {
     >
       <Box
         component="a"
-        href={file.url}
+        href={isOpenableUrl(file.url) ? file.url : undefined}
         target="_blank"
         rel="noopener noreferrer"
         sx={{

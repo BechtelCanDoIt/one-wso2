@@ -101,7 +101,7 @@ export function GlanceBoard({
       </Typography>
       <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, alignItems: "stretch" }}>
         <Box sx={{ flex: "2 1 520px", minWidth: 0 }}>
-          <Block title="Employee reposts of Chore Labs posts">
+          <Block title="Employee reposts of Choreo Labs posts">
             <Box sx={{ display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: 1.5 }}>
               <Typography sx={{ fontSize: 52, fontWeight: 600, lineHeight: 1 }}>{num(data.reposts.thisMonth)}</Typography>
               <Typography color="text.secondary">

@@ -20,7 +20,9 @@ import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import ParDateField from "./ParDateField";
 import ConfirmationDialog, { type ConfirmationContent } from "@components/confirmation-dialog/ConfirmationDialog";
+import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { useUpdateParCycle } from "../api/useParMutations";
+import { useParShowsPar2 } from "../api/useReview360";
 import type { ParCycle } from "../api/types";
 
 function fieldsFromCycle(cycle: ParCycle) {
@@ -49,6 +51,10 @@ export default function ParCycleSettingsDialog({
   cycle: ParCycle;
 }) {
   const updateCycle = useUpdateParCycle(cycle.parCycleId);
+  // A PAR 2.0 cycle's forms take the place of the two questions, which aren't
+  // shown, checked or sent until it's known the cycle has none.
+  const par2 = useParShowsPar2(cycle.parCycleId);
+  const showsQuestions = !par2.showsPar2 && !par2.isLoading && par2.error === null;
   const { showSuccess, showError } = useNotifications();
 
   const [form, setForm] = useState(fieldsFromCycle(cycle));
@@ -76,8 +82,7 @@ export default function ParCycleSettingsDialog({
     form.parSpecialRatingDeadline > evalStart &&
     form.parF2FDeadline &&
     form.parF2FDeadline > evalStart &&
-    employeeQuestion.trim() &&
-    reviewQuestion.trim();
+    (!showsQuestions || (employeeQuestion.trim() && reviewQuestion.trim()));
 
   const hasChanged =
     JSON.stringify(form) !== JSON.stringify(fieldsFromCycle(cycle)) ||
@@ -101,10 +106,14 @@ export default function ParCycleSettingsDialog({
             ...form,
             // Partial update — rating scales aren't edited by this dialog, so
             // only the two question fields go out.
-            parCycleConfigurations: {
-              employeeParQuestion: employeeQuestion.trim(),
-              threeSixtyReviewQuestion: reviewQuestion.trim(),
-            },
+            ...(showsQuestions
+              ? {
+                  parCycleConfigurations: {
+                    employeeParQuestion: employeeQuestion.trim(),
+                    threeSixtyReviewQuestion: reviewQuestion.trim(),
+                  },
+                }
+              : {}),
           },
           {
             onSuccess: () => {
@@ -262,35 +271,46 @@ export default function ParCycleSettingsDialog({
               />
             </Grid>
 
-            <Grid size={12}>
-              <Typography variant="subtitle2" sx={{ mt: 1 }}>
-                Cycle configuration
-              </Typography>
-            </Grid>
-            <Grid size={12}>
-              <TextField
-                label="Employee PAR question"
-                size="small"
-                fullWidth
-                multiline
-                minRows={3}
-                aria-label="Employee PAR question"
-                value={employeeQuestion}
-                onChange={(e) => setEmployeeQuestion(e.target.value)}
-              />
-            </Grid>
-            <Grid size={12}>
-              <TextField
-                label="360° feedback question"
-                size="small"
-                fullWidth
-                multiline
-                minRows={3}
-                aria-label="360 feedback question"
-                value={reviewQuestion}
-                onChange={(e) => setReviewQuestion(e.target.value)}
-              />
-            </Grid>
+            {par2.error && (
+              <Grid size={12}>
+                <ErrorNotice error={par2.error} onRetry={par2.retry} retrying={par2.retrying}>
+                  Couldn't check whether this cycle uses the PAR 2.0 forms.
+                </ErrorNotice>
+              </Grid>
+            )}
+            {showsQuestions && (
+              <>
+                <Grid size={12}>
+                  <Typography variant="subtitle2" sx={{ mt: 1 }}>
+                    Cycle configuration
+                  </Typography>
+                </Grid>
+                <Grid size={12}>
+                  <TextField
+                    label="Employee PAR question"
+                    size="small"
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    aria-label="Employee PAR question"
+                    value={employeeQuestion}
+                    onChange={(e) => setEmployeeQuestion(e.target.value)}
+                  />
+                </Grid>
+                <Grid size={12}>
+                  <TextField
+                    label="360° feedback question"
+                    size="small"
+                    fullWidth
+                    multiline
+                    minRows={3}
+                    aria-label="360 feedback question"
+                    value={reviewQuestion}
+                    onChange={(e) => setReviewQuestion(e.target.value)}
+                  />
+                </Grid>
+              </>
+            )}
 
             {updateCycle.isError && (
               <Grid size={12}>

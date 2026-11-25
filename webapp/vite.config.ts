@@ -1,29 +1,7 @@
-import { defineConfig, mergeConfig, type Plugin } from "vite";
+import { defineConfig, mergeConfig } from "vite";
 import { configDefaults, defineConfig as defineVitestConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import path from "path";
-import { buildCsp, parseAuthOrigins } from "./src/config/csp";
-
-// The production CSP lives in src/config/csp.ts — build-time only, and
-// unit-tested there. ONE_WSO2_CSP_AUTH_ORIGINS adds extra sign-in origins
-// for deployments whose IdP is not already allowlisted.
-const CSP = buildCsp(parseAuthOrigins(process.env.ONE_WSO2_CSP_AUTH_ORIGINS));
-
-function cspPlugin(): Plugin {
-  return {
-    name: "one-wso2-csp",
-    apply: "build",
-    transformIndexHtml() {
-      return [
-        {
-          tag: "meta",
-          injectTo: "head",
-          attrs: { "http-equiv": "Content-Security-Policy", content: CSP },
-        },
-      ];
-    },
-  };
-}
 
 // https://vite.dev/config/
 const viteConfig = defineConfig({
@@ -33,7 +11,6 @@ const viteConfig = defineConfig({
         plugins: [["babel-plugin-react-compiler"]],
       },
     }),
-    cspPlugin(),
   ],
   resolve: {
     alias: {
@@ -60,6 +37,21 @@ const viteConfig = defineConfig({
         target: "http://localhost:9090",
         rewrite: (path) => path.replace(/^\/legal-backend/, ""),
         changeOrigin: true,
+      },
+      // Dev-only proxy for a Swag Store backend on localhost:8080. The backend
+      // reads the caller from x-jwt-assertion, which the API gateway sets in a
+      // real deployment; here the browser's bearer token is copied into it.
+      // In production, set ONE_WSO2_SWAG_STORE_BACKEND_URL to the gateway URL.
+      "/swag-store-backend": {
+        target: "http://localhost:8080",
+        rewrite: (path) => path.replace(/^\/swag-store-backend/, ""),
+        changeOrigin: true,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            const auth = req.headers.authorization;
+            if (auth?.startsWith("Bearer ")) proxyReq.setHeader("x-jwt-assertion", auth.slice("Bearer ".length));
+          });
+        },
       },
     },
   },

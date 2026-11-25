@@ -52,7 +52,7 @@ export function downloadHint(options: {
   } else if (!options.hasCustomer) {
     choose.push("a customer");
   }
-  if (options.hasCountry && !options.hasWso2Company) choose.push("a WSO2 Company");
+  if (options.hasCountry && !options.hasWso2Company) choose.push("a Choreo Labs Company");
 
   const parts = [
     ...(fill.length ? [`fill in the ${joinWithAnd(fill)}`] : []),

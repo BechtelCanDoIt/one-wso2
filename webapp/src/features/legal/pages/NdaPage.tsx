@@ -65,7 +65,7 @@ const NDA_TEMPLATE_LOCKED = "Mutual NDA \u2014 Standard";
 
 // Derived from the keys of NDA_ENTITY_CONFIGS so the dropdown and the configs
 // cannot drift apart. Each key corresponds to an official WSO2 NDA template docx.
-// "WSO2 LLC — US" is labelled "WSO2 LLC (US)".
+// "Choreo Labs LLC — US" is labelled "Choreo Labs LLC (US)".
 const WSO2_COMPANIES: { value: string; label: string }[] = Object.keys(NDA_ENTITY_CONFIGS).map((value) => ({
   value,
   label: value.replace(/ \u2014 (\w+)$/, " ($1)"),
@@ -264,7 +264,7 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
       subtitle={
         showRecords
           ? "View all generated NDAs."
-          : "Generate WSO2's standard Mutual NDA as a PDF."
+          : "Generate Choreo Labs's standard Mutual NDA as a PDF."
       }
     />
   );
@@ -442,11 +442,11 @@ setSnack({ open: true, severity: "success", message: "NDA downloaded successfull
           renderInput={(params) => (
             <TextField
               {...params}
-              label="WSO2 Company"
+              label="Choreo Labs Company"
               error={Boolean(partyCountry && !wso2Company)}
               helperText={
                 partyCountry && !wso2Company
-                  ? `No WSO2 entity matches the counterparty's country "${partyCountry}". Choose one.`
+                  ? `No Choreo Labs entity matches the counterparty's country "${partyCountry}". Choose one.`
                   : "Set from the counterparty's country. It decides which law governs the NDA."
               }
             />

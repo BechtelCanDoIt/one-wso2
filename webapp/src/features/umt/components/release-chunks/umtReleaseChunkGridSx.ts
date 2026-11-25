@@ -14,6 +14,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import { UMT_FROSTED_HEADER_SX } from "../../lib/umtGrid";
+
 // The line height every cell in the release-chunk grids is built from.
 //
 // A pending-chunk row is really a little table of its own: Update Levels,
@@ -32,6 +34,7 @@ export const CHUNK_CELL_PADDING_X = 10;
 
 export const UMT_CHUNK_GRID_SX = {
   border: 0,
+  ...UMT_FROSTED_HEADER_SX,
   "& .MuiDataGrid-cell": {
     alignItems: "flex-start",
     display: "flex",
@@ -48,6 +51,12 @@ export const UMT_CHUNK_GRID_SX = {
   },
   "& .MuiDataGrid-cell:focus, & .MuiDataGrid-cell:focus-within": { outline: "none" },
   "& .MuiDataGrid-cell:focus-visible": { outline: "auto 1px" },
+  // Keep the row's trailing filler cell at zero width when columns overflow.
+  "& .MuiDataGrid-cellEmpty": {
+    borderRightWidth: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
 } as const;
 
 /**
@@ -92,7 +101,7 @@ export const UMT_CHUNK_GRID_BORDERED_SX = {
     borderRightColor: "divider",
   },
   "& .MuiDataGrid-columnHeader": {
-    backgroundColor: "action.hover",
+    ...UMT_CHUNK_GRID_SX["& .MuiDataGrid-columnHeader"],
     borderRightWidth: "1px",
     borderRightStyle: "solid",
     borderRightColor: "divider",

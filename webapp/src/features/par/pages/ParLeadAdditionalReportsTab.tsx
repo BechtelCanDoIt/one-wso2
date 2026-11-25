@@ -26,7 +26,6 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Grid,
   IconButton,
   InputAdornment,
   Skeleton,
@@ -252,18 +251,23 @@ export default function ParLeadAdditionalReportsTab() {
 
   return (
     <Stack spacing={2}>
-      <Grid container spacing={2} sx={{ alignItems: "center" }}>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Box display="flex" alignItems="center" gap={1}>
-            <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" />
-            <Typography component="span" variant="caption" color="text.secondary">
-              ({formatShortDate(cycle.parCycleStartDate)} - {formatShortDate(cycle.parCycleEndDate)})
-            </Typography>
-          </Box>
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+          <Chip label={cycle.parCycleName} size="small" color="primary" variant="outlined" />
+          <Typography component="span" variant="caption" color="text.secondary">
+            ({formatShortDate(cycle.parCycleStartDate)} - {formatShortDate(cycle.parCycleEndDate)})
+          </Typography>
+        </Box>
+        <Tooltip title="Open Cycle Dates" arrow>
+          <IconButton onClick={() => setCycleDatesOpen(true)} aria-label="cycle dates">
+            <CalendarIcon size={18} />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+
+      <Card variant="outlined" sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="flex-end" alignItems="center" sx={{ mb: 1.5 }}>
           <TextField
-            fullWidth
             size="small"
             placeholder="Search employees..."
             value={searchQuery}
@@ -278,19 +282,7 @@ export default function ParLeadAdditionalReportsTab() {
               },
             }}
           />
-        </Grid>
-        <Grid size={{ xs: 12, md: 4 }}>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-            <Tooltip title="Open Cycle Dates" arrow>
-              <IconButton onClick={() => setCycleDatesOpen(true)} aria-label="cycle dates">
-                <CalendarIcon size={18} />
-              </IconButton>
-            </Tooltip>
-          </Box>
-        </Grid>
-      </Grid>
-
-      <Card variant="outlined" sx={{ p: 2 }}>
+        </Stack>
         <DataGrid.DataGrid
           rows={rows}
           columns={columns}

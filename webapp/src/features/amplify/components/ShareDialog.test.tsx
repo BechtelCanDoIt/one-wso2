@@ -20,6 +20,7 @@ import { HttpError } from "@api/http";
 
 const mutate = vi.fn();
 const mentionQueries: string[] = [];
+const showSuccess = vi.fn();
 vi.mock("../api/useAmplifyMutations", () => ({ useRequestShare: () => ({ mutate, isPending: false }) }));
 vi.mock("../api/useAmplifyData", () => ({
   useAmplifyCategories: () => ({ data: [{ code: "PRODUCT", label: "Product" }] }),
@@ -39,10 +40,10 @@ vi.mock("../api/useAmplifyData", () => ({
   useAmplifyConfig: () => ({ linkedinOrgUrn: "urn:li:organization:1", privacyNoticeUrl: "https://example.test/privacy", campaignLinkOrigins: ["https://www.linkedin.com", "https://linkedin.com"] }),
 }));
 vi.mock("@context/notifications/NotificationsContext", () => ({
-  useNotifications: () => ({ showError: vi.fn(), showSuccess: vi.fn() }),
+  useNotifications: () => ({ showError: vi.fn(), showSuccess }),
 }));
 
-import ShareDialog from "./ShareDialog";
+import ShareDialog, { SHARE_QUEUED_MESSAGE } from "./ShareDialog";
 import type { Campaign } from "../api/amplifyTypes";
 
 describe("ShareDialog", () => {
@@ -57,6 +58,7 @@ describe("ShareDialog", () => {
   beforeEach(() => {
     mutate.mockReset();
     mentionQueries.length = 0;
+    showSuccess.mockClear();
   });
 
   it("asks for a REPOST of the post, not a new post that links to it", () => {
@@ -97,6 +99,14 @@ describe("ShareDialog", () => {
 
   const amplifyButton = () => screen.getByRole("button", { name: "Amplify" }) as HTMLButtonElement;
   const box = () => thoughts() as HTMLTextAreaElement;
+
+  it("says the share is queued and may take a while, since shares go out one at a time", () => {
+    mutate.mockImplementation((_body, opts: { onSuccess: () => void }) => opts.onSuccess());
+    render(<ShareDialog campaign={campaign} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Amplify" }));
+    expect(showSuccess).toHaveBeenCalledWith(SHARE_QUEUED_MESSAGE);
+    expect(SHARE_QUEUED_MESSAGE).toMatch(/one at a time/);
+  });
 
   it("wraps the selection in ** when Bold is pressed", () => {
     render(<ShareDialog campaign={campaign} onClose={() => {}} />);

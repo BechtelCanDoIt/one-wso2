@@ -20,28 +20,54 @@ import type { Campaign } from "../api/amplifyTypes";
 import { useAmplifyConfig } from "../api/useAmplifyData";
 import { linkedInPostUrl } from "../util/linkedinPost";
 
-// Choreo Labs icon (white), hosted by Choreo Labs. Shown at 80% size, centred on a black card, when the post has no usable image.
-export const DEFAULT_POST_IMAGE = "https://choreolabs.com/themes/wso2theme/images/choreo/brand/choreo-labs-icon-white.png";
+// Choreo Labs logo, drawn inline so there is nothing to fetch. White on the black card.
+function ChoreoLabsLogo() {
+  return (
+    <svg
+      data-testid="default-post-image"
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 844.97 887.42"
+      fill="#fff"
+      aria-hidden="true"
+      focusable="false"
+      style={{ display: "block", height: "80%", width: "auto", maxWidth: "80%", aspectRatio: "844.97 / 887.42" }}
+    >
+      <ellipse cx="710.09" cy="282.87" rx="134.88" ry="60.8" />
+      <ellipse cx="629.81" cy="135.53" rx="129.85" ry="51.34" />
+      <ellipse cx="470.02" cy="24.5" rx="141.63" ry="24.5" />
+      <ellipse cx="710.09" cy="604.55" rx="134.88" ry="60.8" />
+      <ellipse cx="629.81" cy="751.87" rx="129.85" ry="51.34" />
+      <ellipse cx="470.02" cy="862.91" rx="141.63" ry="24.5" />
+      <ellipse cx="134.88" cy="430.4" rx="134.88" ry="60.8" />
+      <ellipse cx="181.78" cy="607.8" rx="110.13" ry="51.34" />
+      <ellipse cx="181.78" cy="252.45" rx="110.13" ry="51.34" />
+    </svg>
+  );
+}
 
 // The post's own image, or the default when the URL is empty or fails to load.
 function PostImage({ url }: { url?: string | null }) {
   const [failedUrl, setFailedUrl] = useState<string | null>(null);
   const useDefault = !url || failedUrl === url;
+  const onError = () => {
+    if (url && !useDefault) setFailedUrl(url);
+  };
+  if (useDefault) {
+    // Logo sits at 80% of the frame, centred, so it never touches the edges.
+    return (
+      <Box sx={{ width: "100%", height: "100%", bgcolor: "#000", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <ChoreoLabsLogo />
+      </Box>
+    );
+  }
   return (
     <Box
       component="img"
-      src={useDefault ? DEFAULT_POST_IMAGE : url}
+      src={url ?? undefined}
       alt=""
       loading="lazy"
-      onError={() => {
-        if (url && !useDefault) setFailedUrl(url);
-      }}
-      sx={
-        useDefault
-          ? // The default icon sits at 80% of the black area, centred, so it has white space around it.
-            { display: "block", position: "absolute", top: "10%", left: "10%", width: "80%", height: "80%", objectFit: "contain" }
-          : { display: "block", width: "100%", height: "100%", objectFit: "cover" }
-      }
+      onError={onError}
+      sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover" }}
     />
   );
 }
@@ -52,7 +78,7 @@ function postDate(iso: string): string {
 }
 
 /**
- * One post: headline, "Chore Labs on LinkedIn · date", image, chips, the 2–3 line
+ * One post: headline, "Choreo Labs on LinkedIn · date", image, chips, the 2–3 line
  * summary, and an action button. Same card on Celebrate, Current Posts and the
  * share dialog; only the chips and the action differ (the dialog passes none).
  */
@@ -80,7 +106,7 @@ export default function PostCard({
           {campaign.title}
         </Link>
         <Typography variant="caption" color="text.secondary">
-          Chore Labs on LinkedIn · {postDate(campaign.opensAt)}
+          Choreo Labs on LinkedIn · {postDate(campaign.opensAt)}
         </Typography>
       </Box>
 

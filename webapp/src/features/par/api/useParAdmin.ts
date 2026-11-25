@@ -213,25 +213,11 @@ export function useDistinctLegacyParCycles(enabled = true) {
 // ParAdminLegacyCycleView.tsx fetches one record's full detail
 // separately, via useParLegacyHistory below, only once it's actually opened.
 async function fetchLegacyCycleParticipants(cycleName: string, accessToken: string): Promise<ParLegacyHistory[]> {
-  try {
-    return await authedGet<ParLegacyHistory[]>(
-      parServiceUrls.legacyParHistoryCyclesParticipants(cycleName, true),
-      accessToken,
-      digiopsHeaders(),
-    );
-  } catch (e) {
-    // A backend without the query-parameter route yet answers 404
-    // (through the gateway) or 405 (directly). Fall back to the path
-    // form so this works whichever of the two is deployed first.
-    if (e instanceof HttpError && (e.status === 404 || e.status === 405)) {
-      return authedGet<ParLegacyHistory[]>(
-        parServiceUrls.legacyParHistoryCyclesParticipantsByPath(cycleName, true),
-        accessToken,
-        digiopsHeaders(),
-      );
-    }
-    throw e;
-  }
+  return authedGet<ParLegacyHistory[]>(
+    parServiceUrls.legacyParHistoryCyclesParticipants(cycleName, true),
+    accessToken,
+    digiopsHeaders(),
+  );
 }
 
 // The same cycle can be stored under more than one spelling (e.g. a raw and

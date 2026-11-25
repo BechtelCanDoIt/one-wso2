@@ -30,15 +30,18 @@ import {
 } from "@wso2/oxygen-ui";
 import { PlayCircleIcon } from "@wso2/oxygen-ui-icons-react";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
+import { isPreviewEnabled } from "@config/previewFeatures";
 import { describeError } from "@api/errors";
 import { useNotifications } from "@context/notifications/NotificationsContext";
 import { useMeProfile } from "@features/my/api/useMeProfile";
 import { formatShortDate } from "../util/parDate";
 import { useActiveParCycle, useParEmployeeInfo, useParRating } from "../api/useParData";
 import { useSaveParRating } from "../api/useParMutations";
+import { useSelfReview } from "../api/useSelfReview";
 import { decodeParComment, encodeParComment, isEmptyHtml } from "../util/parComment";
 import { isDeadlinePassed } from "../util/parDeadline";
 import ParRatingSummary from "../components/ParRatingSummary";
+import ParSelfReviewForm from "../components/ParSelfReviewForm";
 import ParRichTextField from "../components/ParRichTextField";
 import { ParCommentView, ParQuestionText } from "../components/ParContent";
 import type { ParCycle, ParRating } from "../api/types";
@@ -58,6 +61,10 @@ export default function ParEmployeeFeedbackTab() {
   // one to show.
   const cycle = activeCycles.data?.[0];
   const rating = useParRating(cycle?.parCycleId, workEmail);
+  // A PAR 2.0 cycle has a guided self-review; any other cycle answers null
+  // and keeps the single comment below. Only looked up behind the par2
+  // preview flag, so today's cycles never depend on it.
+  const selfReview = useSelfReview(cycle?.parCycleId, workEmail, isPreviewEnabled("par2"));
   const save = useSaveParRating(cycle?.parCycleId, workEmail);
   const { showSuccess, showError } = useNotifications();
 
@@ -100,6 +107,25 @@ export default function ParEmployeeFeedbackTab() {
     );
   } else if (!rating.data) {
     body = <Alert severity="info">Your record for this cycle isn't ready yet — check back shortly.</Alert>;
+  } else if (selfReview.isLoading) {
+    body = <Skeleton variant="rectangular" height={260} sx={{ borderRadius: 1.5, maxWidth: 1100 }} />;
+  } else if (selfReview.isError) {
+    body = (
+      <ErrorNotice error={selfReview.error} onRetry={() => selfReview.refetch()} retrying={selfReview.isFetching}>
+        Couldn't load your self-review.
+      </ErrorNotice>
+    );
+  } else if (selfReview.data && workEmail) {
+    body = (
+      <ParSelfReviewForm
+        key={cycle.parCycleId}
+        cycle={cycle}
+        rating={rating.data}
+        selfReview={selfReview.data}
+        workEmail={workEmail}
+        leadEmail={leadEmail}
+      />
+    );
   } else {
     const ratingData = rating.data;
     body = (

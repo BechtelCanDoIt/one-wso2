@@ -24,7 +24,7 @@
  * branching the build or holding work out of `main`.
  *
  * ```js
- * ONE_WSO2_PREVIEW_FEATURES: { cado2: true },
+ * ONE_WSO2_PREVIEW_FEATURES: { quickquote: true },
  * ```
  *
  * ## Absent means off
@@ -55,13 +55,14 @@
  */
 export type PreviewFeature =
   /**
-   * Sales → CadO2, the whole quote tool: its rail group (My Quotes, My
-   * Approvals, Admin), every route under `/sales/cado2`, and its backend
+   * Sales → QuickQuote (code name CadO2), the whole quote tool: its rail
+   * group (My Quotes, My Approvals, Admin), every route under
+   * `/sales/quickquote`, and its backend
    * calls. Held back as a whole until every screen is in place. CadO2's own
    * `/me` roles still decide who sees which item once this is on. See
    * docs/ported-apps/cado2.md.
    */
-  | "cado2"
+  | "quickquote"
   /**
    * Legal → NDA, the PDF generator — its rail entry and the `/legal/nda`
    * route. Held back until it is ready for production. Due Diligence, the
@@ -77,6 +78,14 @@ export type PreviewFeature =
    */
   | "marketingCalendar"
   /**
+   * Marketing Ops → Events → Lead Import, which converts a raw event lead file
+   * into the filled List Import Template: its rail entry and the
+   * `/marketing-ops/events/lead-import` route. Held back until the MOP
+   * lead-import backend is live in production. My Submissions and Review
+   * Queue, the rest of Events, are unaffected.
+   */
+  | "eventsLeadImport"
+  /**
    * Amplify, the whole app: its launcher tile, its rail group (Celebrate,
    * New Post, Current Posts) and every route under `/amplify`. Held back until
    * the Amplify API proxy is live for the phase 1 pilot. Who sees New Post and
@@ -88,7 +97,35 @@ export type PreviewFeature =
    * Marketing Ops → Campaign Tracker → Pacing tab. The BudgetSyncPacingPanel
    * is still being built out; this flag hides the tab until it is ready.
    */
-  | "campaignTrackerPacing";
+  | "campaignTrackerPacing"
+  /**
+   * Swag Store, where employees spend O2C coins on WSO2 swag: its top-bar
+   * button, its launcher tile and rail, every route under `/store`, and its
+   * backend calls. Held back until the store's first release is ready for
+   * the pilot.
+   */
+  | "swagStore"
+  /**
+   * Procurement: Me → Procurement, where an employee raises a purchase request
+   * and follows it and approves requests that name them, and the Procurement
+   * perspective, where the team assigns and handles approved ones. Its rail
+   * entries, every route under `/me/procurement` and `/procurement`, and its
+   * backend calls. Held back while the app is being built: attachments,
+   * Marketing & Events and the rest of the team's screens are not in yet.
+   */
+  | "procurement"
+  /**
+   * Leadership 360° feedback on members of the leadership group, in Give
+   * feedback, with the results in a leader's PAR and their lead's review. Held
+   * back until the PAR backend's `/leadership-360` endpoints are deployed.
+   */
+  | "leadership360"
+  /**
+   * PAR 2.0 in a PAR 2.0 cycle: Active cycle, Give feedback and History
+   * under Me → Performance, and the 360° evidence in the Lead View. Held back
+   * until the PAR backend's structured 360 endpoints are deployed.
+   */
+  | "par2";
 
 /**
  * Whether a preview feature should be shown.

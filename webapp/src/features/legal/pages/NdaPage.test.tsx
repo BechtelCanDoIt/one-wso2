@@ -189,7 +189,7 @@ describe("NdaPage counterparty", () => {
 
 describe("NdaPage counterparty and WSO2 company", () => {
   const allowed: Access = { isPending: false, isError: false, data: { canSearchSalesforce: true } };
-  const wso2Company = () => screen.getByRole("combobox", { name: /WSO2 Company/ });
+  const wso2Company = () => screen.getByRole("combobox", { name: /Choreo Labs Company/ });
 
   async function pickSalesforceCustomer(user: ReturnType<typeof userEvent.setup>) {
     await user.type(screen.getByRole("combobox", { name: "Customer Name" }), "Acme");
@@ -218,7 +218,7 @@ describe("NdaPage counterparty and WSO2 company", () => {
 
     await user.type(screen.getByRole("combobox", { name: /Country/ }), "United Kingdom");
     await user.click(await screen.findByRole("option", { name: "United Kingdom" }));
-    expect(wso2Company()).toHaveValue("WSO2 (UK) Ltd (UK)");
+    expect(wso2Company()).toHaveValue("Choreo Labs (UK) Ltd (UK)");
 
     // Back to the Salesforce customer, back to its entity.
     await user.click(screen.getByRole("button", { name: "Salesforce customer" }));
@@ -238,7 +238,7 @@ describe("NdaPage counterparty and WSO2 company", () => {
     expect(rendered.props).toMatchObject({
       customerName: "Example Vendor Ltd",
       customerAddress: "1 Example Road, London, United Kingdom",
-      wso2Company: "WSO2 (UK) Ltd \u2014 UK",
+      wso2Company: "Choreo Labs (UK) Ltd \u2014 UK",
     });
   });
 });
@@ -257,7 +257,7 @@ describe("downloadHint", () => {
   });
 
   it("asks for the WSO2 Company when the country has no matching entity", () => {
-    expect(downloadHint({ ...base, hasCustomer: true, hasCountry: true })).toBe("To download, choose a WSO2 Company.");
+    expect(downloadHint({ ...base, hasCustomer: true, hasCountry: true })).toBe("To download, choose a Choreo Labs Company.");
   });
 
   it("lists only the manual fields still empty", () => {
@@ -296,7 +296,7 @@ describe("NdaPage records", () => {
     await waitFor(() => expect(rendered.props).not.toBeNull());
     expect(recording.mutateAsync).toHaveBeenCalledWith({
       template: "Mutual NDA \u2014 Standard",
-      wso2Entity: "WSO2 (UK) Ltd \u2014 UK",
+      wso2Entity: "Choreo Labs (UK) Ltd \u2014 UK",
       counterpartyName: "Example Vendor Ltd",
       counterpartyAddress: "1 Example Road, London, United Kingdom",
       counterpartyCountry: "United Kingdom",
@@ -394,7 +394,7 @@ describe("NdaPage records", () => {
   it("offers the NDA records tab only to those who may view them", () => {
     renderPage(recordsOn, { url: "/legal/nda?tab=records" });
     expect(screen.queryByRole("tab", { name: "NDA Records" })).not.toBeInTheDocument();
-    expect(screen.getByText("Generate WSO2's standard Mutual NDA as a PDF.")).toBeInTheDocument();
+    expect(screen.getByText("Generate Choreo Labs's standard Mutual NDA as a PDF.")).toBeInTheDocument();
     // Without the permission, ?tab=records still shows the form.
     expect(screen.getByRole("button", { name: /Download NDA PDF/ })).toBeInTheDocument();
   });
@@ -404,7 +404,7 @@ describe("NdaPage records", () => {
     renderPage({ ...recordsOn, data: { ...recordsOn.data!, canViewNdaRecords: true } });
 
     expect(screen.getByRole("tab", { name: "Generate NDA" })).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByText("Generate WSO2's standard Mutual NDA as a PDF.")).toBeInTheDocument();
+    expect(screen.getByText("Generate Choreo Labs's standard Mutual NDA as a PDF.")).toBeInTheDocument();
     await user.click(screen.getByRole("tab", { name: "NDA Records" }));
     expect(screen.getByRole("table", { name: "Generated NDAs" })).toBeInTheDocument();
     expect(screen.getByText("View all generated NDAs.")).toBeInTheDocument();

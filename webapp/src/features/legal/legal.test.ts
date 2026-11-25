@@ -24,7 +24,7 @@ import {
   manualCounterpartyAddress,
   missingManualFields,
 } from "./manualCounterparty";
-import { NDA_ENTITY_CONFIGS, entityForCountry } from "./pages/NdaPdfDocument";
+import { NDA_ENTITY_CONFIGS, entityForCountry, ndaPartyName } from "./pages/NdaPdfDocument";
 
 describe("COUNTRY_OPTIONS", () => {
   it("lists every ISO 3166-1 country once, by English name", () => {
@@ -91,8 +91,10 @@ describe("ndaFileNamePart", () => {
 describe("entityForCountry", () => {
   it("maps a billing country to its WSO2 entity, by name or ISO code, ignoring case", () => {
     expect(entityForCountry("Sri Lanka")).toBe("WSO2 Lanka (Pvt) Ltd — LK");
-    expect(entityForCountry("united states")).toBe("WSO2 LLC — US");
-    expect(entityForCountry(" GB ")).toBe("WSO2 (UK) Ltd — UK");
+    expect(entityForCountry("united states")).toBe("Choreo Labs LLC — US");
+    expect(entityForCountry(" GB ")).toBe("Choreo Labs (UK) Ltd — UK");
+    expect(entityForCountry("Singapore")).toBe("Choreo Labs SG Pte Ltd — SG");
+    expect(entityForCountry("za")).toBe("Choreo Labs South Africa Pty Ltd — ZA");
   });
 
   it("returns empty when no entity serves the country, so the user must choose", () => {
@@ -122,6 +124,27 @@ describe("NDA_ENTITY_CONFIGS", () => {
     expect(brasil.entityFull).toBe("WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA");
     expect(brasil.signatureLabel).toBe("WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA");
   });
+
+  // The UK, Singapore and South Africa companies are now Choreo Labs: the name
+  // appears in the dropdown, the opening paragraph and under the signature.
+  it.each([
+    ["Choreo Labs (UK) Ltd \u2014 UK", "Choreo Labs (UK) Ltd.", "English law"],
+    ["Choreo Labs SG Pte Ltd \u2014 SG", "Choreo Labs SG Pte Ltd", "laws of Singapore"],
+    ["Choreo Labs South Africa Pty Ltd \u2014 ZA", "Choreo Labs South Africa Pty Limited", "Republic of South Africa"],
+  ])("names %s as Choreo Labs in the NDA", (key, name, law) => {
+    const cfg = NDA_ENTITY_CONFIGS[key];
+    expect(cfg, key).toBeDefined();
+    expect(cfg.entityFull).toBe(name);
+    expect(cfg.signatureLabel).toBe(name);
+    expect(cfg.governingLaw).toContain(law);
+  });
+
+  it("no longer offers the old WSO2 names for the UK, Singapore and South Africa", () => {
+    const keys = Object.keys(NDA_ENTITY_CONFIGS);
+    expect(keys).not.toContain("WSO2 (UK) Ltd \u2014 UK");
+    expect(keys).not.toContain("WSO2 SG Pte Ltd \u2014 SG");
+    expect(keys).not.toContain("WSO2 South Africa Pty Ltd \u2014 ZA");
+  });
 });
 
 describe("formatCustomerAddress", () => {
@@ -147,5 +170,22 @@ describe("formatCustomerAddress", () => {
   it("keeps a lone state or postcode without stray separators", () => {
     expect(formatCustomerAddress({ ...empty, billingCity: "Colombo", billingState: "WP" })).toBe("Colombo, WP");
     expect(formatCustomerAddress({ ...empty, billingCity: "Colombo", billingPostalCode: "00400" })).toBe("Colombo, 00400");
+  });
+});
+
+describe("ndaPartyName", () => {
+  it("calls a WSO2 entity WSO2", () => {
+    expect(ndaPartyName(NDA_ENTITY_CONFIGS["WSO2 Middle East FZ-LLC — AE"])).toBe("WSO2");
+    expect(ndaPartyName({ entityFull: "WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA" })).toBe("WSO2");
+  });
+
+  it("calls a Choreo Labs entity Choreo Labs", () => {
+    expect(ndaPartyName(NDA_ENTITY_CONFIGS["Choreo Labs Australia Pty Ltd — AU"])).toBe("Choreo Labs");
+  });
+
+  it("names every entity after its own legal name", () => {
+    for (const cfg of Object.values(NDA_ENTITY_CONFIGS)) {
+      expect(cfg.entityFull.toLowerCase()).toContain(ndaPartyName(cfg).toLowerCase());
+    }
   });
 });

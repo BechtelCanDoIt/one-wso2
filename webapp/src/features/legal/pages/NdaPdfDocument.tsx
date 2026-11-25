@@ -27,7 +27,7 @@ Font.registerHyphenationCallback((word) => [word]);
 // Text follows WSO2's official regional Mutual NDA templates.
 
 export interface NdaEntityConfig {
-  /** Full legal entity name, e.g. "WSO2 (UK) Ltd." */
+  /** Full legal entity name, e.g. "Choreo Labs (UK) Ltd." */
   entityFull: string;
   /** Incorporation / address description that follows the entity name in para 1. */
   entityDescription: string;
@@ -41,15 +41,24 @@ export interface NdaEntityConfig {
   countries: string[];
 }
 
+/**
+ * The short name the NDA text uses for the WSO2 party: "WSO2" for a WSO2
+ * entity (e.g. "WSO2 Middle East FZ-LLC"), otherwise "Choreo Labs" (e.g.
+ * "Choreo Labs Australia Pty Ltd."). Decided by the entity's legal name.
+ */
+export function ndaPartyName(cfg: Pick<NdaEntityConfig, "entityFull">): string {
+  return /\bwso2/i.test(cfg.entityFull) ? "WSO2" : "Choreo Labs";
+}
+
 export const NDA_ENTITY_CONFIGS: Record<string, NdaEntityConfig> = {
-  "WSO2 LLC — US": {
-    entityFull: "WSO2 LLC",
+  "Choreo Labs LLC — US": {
+    entityFull: "Choreo Labs LLC",
     entityDescription:
       "a Limited Liability Company in Delaware having its principal place of business at WeWork Quarry Oaks II, 10900 Stonelake Blvd, Building 2, Suite 100, Austin TX, 78759",
     jurisdictionPhrase: "USA and/or overseas",
     governingLaw:
       'This Agreement shall be governed by the laws of Texas excluding its conflicts of laws principles. In the event of a dispute between the parties hereto, arising out of or in connection with or with respect to this Agreement or any breach thereof, such dispute shall be determined and settled by arbitration in Houston, Texas, in accordance with the rules of the American Arbitration Association ("AAA"). The award rendered by the arbitrator shall be final and binding on the parties thereto, and judgment may be entered in any court of competent jurisdiction. Nothing in the above provision shall prevent either party from applying to a court of competent jurisdiction for equitable or injunctive relief.',
-    signatureLabel: "WSO2 LLC",
+    signatureLabel: "Choreo Labs LLC",
     countries: ["US", "USA", "United States", "United States of America"],
   },
 
@@ -75,25 +84,25 @@ export const NDA_ENTITY_CONFIGS: Record<string, NdaEntityConfig> = {
     countries: ["IN", "India"],
   },
 
-  "WSO2 (UK) Ltd — UK": {
-    entityFull: "WSO2 (UK) Ltd.",
+  "Choreo Labs (UK) Ltd — UK": {
+    entityFull: "Choreo Labs (UK) Ltd.",
     entityDescription:
       "a company incorporated under the laws of England having its principal place of business at Appledram Barns, Birdham Road, Chichester, West Sussex, PO20 7EQ",
     jurisdictionPhrase: "UK and/or overseas",
     governingLaw:
       'This Agreement shall be governed by English law. In the event of a dispute between the parties hereto, arising out of or in connection with or with respect to this Agreement or any breach thereof, such dispute shall be determined and settled by arbitration in London, United Kingdom, in accordance with the rules of the International Chamber of Commerce ("ICC"). The award rendered by the arbitrator shall be final and binding on the parties thereto, and judgment may be entered in any court of competent jurisdiction. Nothing in the above provision shall prevent either party from applying to a court of competent jurisdiction for equitable or injunctive relief.',
-    signatureLabel: "WSO2 (UK) Ltd.",
+    signatureLabel: "Choreo Labs (UK) Ltd.",
     countries: ["GB", "UK", "United Kingdom", "Great Britain", "England", "Scotland", "Wales", "Northern Ireland"],
   },
 
-  "WSO2 Australia Pty Ltd — AU": {
-    entityFull: "WSO2 Australia Pty Ltd.",
+  "Choreo Labs Australia Pty Ltd — AU": {
+    entityFull: "Choreo Labs Australia Pty Ltd.",
     entityDescription:
       "a company incorporated under the laws of New South Wales having ABN 90 623 311 348 and its registered office at Level 18, 420 George Street, Sydney NSW 2000, Australia",
     jurisdictionPhrase: "Australia and/or overseas",
     governingLaw:
       'This Agreement shall be governed by the laws of the State of New South Wales, Australia. In the event of a dispute between the parties hereto, arising out of or in connection with or with respect to this Agreement or any breach thereof, such dispute shall be resolved by arbitration in the Australian Disputes Centre ("ADC") in Sydney, New South Wales, in accordance with the Conciliation Rules. The award rendered by the arbitrator shall be final and binding on the parties thereto, and judgment may be entered in any court of competent jurisdiction. Nothing in the above provision shall prevent either party from applying to a court of competent jurisdiction for equitable or injunctive relief.',
-    signatureLabel: "WSO2 Australia Pty Ltd.",
+    signatureLabel: "Choreo Labs Australia Pty Ltd.",
     countries: ["AU", "Australia"],
   },
 
@@ -108,36 +117,36 @@ export const NDA_ENTITY_CONFIGS: Record<string, NdaEntityConfig> = {
     countries: ["AE", "UAE", "United Arab Emirates"],
   },
 
-  "WSO2EA Ltd — KE": {
-    entityFull: "WSO2EA Limited",
+  "Choreo Labs Kenya Limited": {
+    entityFull: "Choreo Labs Kenya Limited",
     entityDescription:
       "a Private Limited Liability Company in Kenya having its registered address at Riverside Park, Chiromo Road PO Box 10643-00100, Nairobi, Kenya",
     jurisdictionPhrase: "Kenya and/or overseas",
     governingLaw:
       "This Agreement and any dispute or claim arising out of or in connection with it (whether contractual or non-contractual in nature) shall be governed by, and is to be construed in accordance with the laws of Kenya. In the case of any dispute, claim, controversy or disagreement arising out of or in connection with this Agreement, the parties shall first use their best efforts to resolve the dispute by negotiation within a period of fifteen (15) Business Days of such dispute arising. If the dispute is not resolved by negotiation, either party may refer the dispute to arbitration in Kenya in accordance with the Arbitration Act (No. 4 of 1995, Laws of Kenya). The seat of arbitration shall be Nairobi, Kenya, and proceedings shall be conducted in English.",
-    signatureLabel: "WSO2EA Limited",
+    signatureLabel: "Choreo Labs Kenya Limited",
     countries: ["KE", "Kenya"],
   },
 
-  "WSO2 SG Pte Ltd — SG": {
-    entityFull: "WSO2 SG Pte Ltd",
+  "Choreo Labs SG Pte Ltd — SG": {
+    entityFull: "Choreo Labs SG Pte Ltd",
     entityDescription:
       "a Limited Liability Company in Singapore having its principal place of business at 160 Robinson Road, #14-04 Singapore Business Federation Center, Singapore 068914",
     jurisdictionPhrase: "Singapore and/or overseas",
     governingLaw:
       'This Agreement shall be governed by the laws of Singapore excluding its conflicts of laws principles. In the event of a dispute between the parties hereto, arising out of or in connection with or with respect to this Agreement or any breach thereof, such dispute shall be determined and settled by arbitration in Singapore, in accordance with the rules of the Singapore International Arbitration Centre ("SIAC"). The award rendered by the arbitrator shall be final and binding on the parties thereto, and judgment may be entered in any court of competent jurisdiction. Nothing in the above provision shall prevent either party from applying to a court of competent jurisdiction for equitable or injunctive relief.',
-    signatureLabel: "WSO2 SG Pte Ltd",
+    signatureLabel: "Choreo Labs SG Pte Ltd",
     countries: ["SG", "Singapore"],
   },
 
-  "WSO2 South Africa Pty Ltd — ZA": {
-    entityFull: "WSO2 South Africa Pty Limited",
+  "Choreo Labs South Africa Pty Ltd — ZA": {
+    entityFull: "Choreo Labs South Africa Pty Limited",
     entityDescription:
       "a company incorporated in accordance with the laws of the Republic of South Africa, with its registered address at 5 Mareshah 9 Deane Crescent, Northmead, Benoni, Gauteng, 1501",
     jurisdictionPhrase: "South Africa and/or overseas",
     governingLaw:
       "This Agreement shall be governed by and construed in accordance with the laws of the Republic of South Africa and the Parties hereby submit to the non-exclusive jurisdiction of the High Court of South Africa (Gauteng Local Division, Johannesburg), to settle any disputes in connection with the Agreement.",
-    signatureLabel: "WSO2 South Africa Pty Limited",
+    signatureLabel: "Choreo Labs South Africa Pty Limited",
     countries: ["ZA", "South Africa"],
   },
 
@@ -415,17 +424,21 @@ export default function NdaPdfDocument({
   const cfg = NDA_ENTITY_CONFIGS[wso2Company];
   if (!cfg) throw new Error(`No NDA entity config for "${wso2Company}"`);
 
+  // "WSO2" or "Choreo Labs", as the entity is named; upper case where the template shouts.
+  const party = ndaPartyName(cfg);
+  const PARTY = party.toUpperCase();
+
   const addressPhrase = ` having its principal place of business at ${customerAddress || "_____________________"}`;
 
   const openingParagraph =
     `This Agreement is made and entered into as of ${effectiveDate} ` +
     `("Effective Date") by and between ${cfg.entityFull} ` +
     `${cfg.entityDescription} ` +
-    `(hereinafter referred to as "WSO2" and shall include WSO2 and any of its ` +
+    `(hereinafter referred to as "${PARTY}" and shall include ${party} and any of its ` +
     `subsidiaries, branches or affiliates in the ${cfg.jurisdictionPhrase}) and ` +
     `${customerName}${addressPhrase} ` +
     `(hereinafter referred to as "COMPANY" shall include Company and any of its ` +
-    `subsidiaries, branches or affiliates). WSO2 and the Company are sometimes ` +
+    `subsidiaries, branches or affiliates). ${party} and the Company are sometimes ` +
     `referred to herein individually as "a Party" and collectively as "the Parties".`;
 
   return (
@@ -433,7 +446,7 @@ export default function NdaPdfDocument({
       <Page size="A4" style={styles.page}>
         {/* ── Page header ── */}
         <View style={styles.pageHeader} fixed>
-          <Text style={styles.pageHeaderBrand}>{"WSO2 \u2014 CONFIDENTIAL"}</Text>
+          <Text style={styles.pageHeaderBrand}>{`${PARTY} \u2014 CONFIDENTIAL`}</Text>
           <Text style={styles.pageHeaderMeta}>{template}</Text>
         </View>
 
@@ -445,7 +458,7 @@ export default function NdaPdfDocument({
 
         {/* ── Recitals ── */}
         <Text style={styles.recital}>
-          WHEREAS WSO2 and the COMPANY intend to disclose to each other certain
+          WHEREAS {party} and the COMPANY intend to disclose to each other certain
           information in anticipation of, or in furtherance of a commercial
           relationship (Project).
         </Text>
@@ -478,7 +491,7 @@ export default function NdaPdfDocument({
 
         {/* ── Clause 5 — Return / Destruction ── */}
         <Clause number="5.">
-          {`Upon the request of a Party and/or in the event of the termination of the association between WSO2 and the COMPANY (for any reason whatsoever) each Party agrees to and will ensure that its employees, agents and Authorised Persons will surrender to the other Party all notes, records and documentation that was supplied to that Party by, or was used, created or controlled by that Party during the period of the association between WSO2 and the COMPANY. This includes all material whether in written or machine-readable form. The Receiving Party will destroy or return to the Disclosing Party upon demand any and all materials or information in tangible form entrusted to the Receiving Party for the Project or copies thereof and the Receiving Party will not distribute in whole or in part any such documents, materials or other items without the Disclosing Party's prior written consent.`}
+          {`Upon the request of a Party and/or in the event of the termination of the association between ${party} and the COMPANY (for any reason whatsoever) each Party agrees to and will ensure that its employees, agents and Authorised Persons will surrender to the other Party all notes, records and documentation that was supplied to that Party by, or was used, created or controlled by that Party during the period of the association between ${party} and the COMPANY. This includes all material whether in written or machine-readable form. The Receiving Party will destroy or return to the Disclosing Party upon demand any and all materials or information in tangible form entrusted to the Receiving Party for the Project or copies thereof and the Receiving Party will not distribute in whole or in part any such documents, materials or other items without the Disclosing Party's prior written consent.`}
         </Clause>
 
         {/* ── Clause 6 — Exclusions ── */}
@@ -523,7 +536,7 @@ export default function NdaPdfDocument({
           {`If any of the provisions of this Agreement, or any part thereof is construed to be invalid or unenforceable, the same shall not affect the remainder of such provision or provisions, which shall be given full effect. In the event that the courts hold any one or more provisions wholly or partially unenforceable by reason of the scope thereof or otherwise, it is the intention of the Parties hereto that such determination not bar or in any way affect each Party's right to the relief provided for in this Agreement.`}
         </SubClause>
         <SubClause number="(ii)">
-          {`Each Party agrees that no contract or agreement providing for a commercial relationship (or any other transaction) between WSO2 and the COMPANY shall be deemed to exist between the Parties unless and until a definitive written agreement has been executed and delivered by both Parties. Unless and until such a definitive written agreement has been executed and delivered by both Parties, neither Party has any legal obligation of any kind with respect to any commercial relationship (or other transaction) by virtue of this Agreement.`}
+          {`Each Party agrees that no contract or agreement providing for a commercial relationship (or any other transaction) between ${party} and the COMPANY shall be deemed to exist between the Parties unless and until a definitive written agreement has been executed and delivered by both Parties. Unless and until such a definitive written agreement has been executed and delivered by both Parties, neither Party has any legal obligation of any kind with respect to any commercial relationship (or other transaction) by virtue of this Agreement.`}
         </SubClause>
 
         {/* ── 8(iii) — Term and termination ── */}
