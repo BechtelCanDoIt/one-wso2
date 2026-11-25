@@ -117,14 +117,14 @@ export const NDA_ENTITY_CONFIGS: Record<string, NdaEntityConfig> = {
     countries: ["AE", "UAE", "United Arab Emirates"],
   },
 
-  "WSO2EA Ltd — KE": {
-    entityFull: "WSO2EA Limited",
+  "Choreo Labs Kenya Limited": {
+    entityFull: "Choreo Labs Kenya Limited",
     entityDescription:
       "a Private Limited Liability Company in Kenya having its registered address at Riverside Park, Chiromo Road PO Box 10643-00100, Nairobi, Kenya",
     jurisdictionPhrase: "Kenya and/or overseas",
     governingLaw:
       "This Agreement and any dispute or claim arising out of or in connection with it (whether contractual or non-contractual in nature) shall be governed by, and is to be construed in accordance with the laws of Kenya. In the case of any dispute, claim, controversy or disagreement arising out of or in connection with this Agreement, the parties shall first use their best efforts to resolve the dispute by negotiation within a period of fifteen (15) Business Days of such dispute arising. If the dispute is not resolved by negotiation, either party may refer the dispute to arbitration in Kenya in accordance with the Arbitration Act (No. 4 of 1995, Laws of Kenya). The seat of arbitration shall be Nairobi, Kenya, and proceedings shall be conducted in English.",
-    signatureLabel: "WSO2EA Limited",
+    signatureLabel: "Choreo Labs Kenya Limited",
     countries: ["KE", "Kenya"],
   },
 
