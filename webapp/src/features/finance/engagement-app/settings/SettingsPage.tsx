@@ -255,7 +255,7 @@ function AllocationTypes(): JSX.Element {
           rows={rows.slice(list.page * PAGE_SIZE, (list.page + 1) * PAGE_SIZE)}
           pagination={{ page: list.page, pageSize: PAGE_SIZE, total: rows.length, onPage: list.setPage }}
           rowKey={(x) => x.id}
-          loading={types.isPending}
+          loading={types.isPending || types.isPlaceholderData}
           menu={(x) => [
             { label: "Edit", onClick: () => setEditing(x) },
             { label: "Delete", danger: true, onClick: () => setDeleting(x) },

@@ -20,7 +20,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { authedDelete, authedPatch, authedPost, authedPut } from "@api/http";
 import { engagementServiceUrls as urls } from "@config/apiConfig";
-import { useEngagementBasis } from "./engagementBasis";
+import { ENGAGEMENT_KEY_ROOT, useEngagementBasis } from "./engagementBasis";
 import { engagementUpload } from "./engagementHttp";
 import * as M from "./engagementMappers";
 import type { AllocationTypeDef, BatchOutcome, ClearanceStatus, DocumentKind, EngagementStatus, TravelStatus } from "./engagementTypes";
@@ -56,6 +56,7 @@ function useEngagementMutation<V, R = unknown>(run: (vars: V, token: string) => 
   const { getToken, key } = useEngagementBasis();
   const queryClient = useQueryClient();
   return useMutation<R, Error, V>({
+    mutationKey: [ENGAGEMENT_KEY_ROOT, "mutation"],
     mutationFn: async (vars) => run(vars, await getToken()),
     onSuccess: (_result, vars) =>
       Promise.all(affects(vars).map((parts) => queryClient.invalidateQueries({ queryKey: key(...parts) }))).then(() => undefined),

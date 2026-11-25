@@ -59,7 +59,7 @@ export default function EaDialog({
   readonly busy?: boolean;
   /** A validation message (string) or a failed request (shown via describeError). */
   readonly error?: unknown;
-  /** More actions beside the confirming one, e.g. "Confirm and Approve". */
+  /** More actions beside the confirming one, e.g. "Confirm and Approve". In a read-only dialog they sit on the left, opposite Close. */
   readonly extraActions?: ReactNode;
   readonly maxWidth?: "xs" | "sm" | "md";
   readonly confirmDisabled?: boolean;
@@ -102,9 +102,17 @@ export default function EaDialog({
             </Button>
           </>
         ) : (
-          <Button size="small" variant="contained" onClick={onClose}>
-            Close
-          </Button>
+          <>
+            {extraActions ? (
+              <>
+                {extraActions}
+                <Box sx={{ flex: 1 }} />
+              </>
+            ) : null}
+            <Button size="small" variant="contained" onClick={onClose}>
+              Close
+            </Button>
+          </>
         )}
       </DialogActions>
     </Dialog>

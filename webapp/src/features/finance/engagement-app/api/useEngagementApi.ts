@@ -16,13 +16,15 @@
 
 // Every Engagement App read, one hook per screen's data.
 
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
+import { useQueries, useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { authedGet } from "@api/http";
 import { httpRetry } from "@api/errors";
 import { engagementServiceUrls as urls, type EngagementQueryParams } from "@config/apiConfig";
 import { foldIdentityError } from "@hooks/useAsgardeoSub";
 import { useEngagementBasis } from "./engagementBasis";
+import * as DM from "./dashboardMappers";
 import * as M from "./engagementMappers";
+import { readSessionCache, writeSessionCache } from "./sessionCache";
 import type * as V from "./engagementTypes";
 import type * as W from "./engagementWire";
 
@@ -33,17 +35,43 @@ function useEngagementGet<TWire, TView>(
   parts: readonly unknown[],
   url: string,
   select: (wire: TWire) => TView,
-  { enabled = true, staleTime = 0, keepPrevious = false }: { enabled?: boolean; staleTime?: number; keepPrevious?: boolean } = {},
+  {
+    enabled = true,
+    staleTime = 0,
+    keepPrevious = false,
+    persist,
+    expectForbidden = false,
+  }: {
+    enabled?: boolean;
+    staleTime?: number;
+    keepPrevious?: boolean;
+    /** Keep a copy of the answer in sessionStorage and start from it on a reload (stale, so it is asked again at once). `keep` trims what is kept, or returns undefined to keep nothing. */
+    persist?: { readonly name: string; readonly keep: (wire: TWire) => TWire | undefined };
+    /** A 403 is a normal answer here (the card is hidden), so it must not make the app re-ask /user-info. */
+    expectForbidden?: boolean;
+  } = {},
 ): UseQueryResult<TView, Error> {
   const { getToken, ready, key, sub, subState, retryIdentity } = useEngagementBasis();
   const query = useQuery<TWire, Error, TView>({
     queryKey: key(...parts),
-    queryFn: async () => authedGet<TWire>(url, await getToken()),
+    queryFn: async () => {
+      const wire = await authedGet<TWire>(url, await getToken());
+      if (persist) {
+        const kept = persist.keep(wire);
+        if (kept !== undefined) writeSessionCache(persist.name, sub, kept);
+      }
+      return wire;
+    },
     select,
+    meta: expectForbidden ? { expectForbidden: true } : undefined,
     enabled: ready && enabled,
     staleTime,
+    initialData: persist ? () => readSessionCache<TWire>(persist.name, sub) : undefined,
+    initialDataUpdatedAt: 0,
+    // The app's client does not refetch on mount by default, but a copy from a reload (never fetched, so updated at 0) must be asked again.
+    refetchOnMount: persist ? (query) => query.state.dataUpdatedAt === 0 : undefined,
     retry: httpRetry,
-    // Keep the previous rows while the next page loads, but never another subject's rows (key[1] is the subject).
+    // Keep the previous result (its total, for the pager) while the next page loads, the table showing a skeleton meanwhile; never another subject's rows (key[1] is the subject).
     placeholderData: keepPrevious ? (previous, previousQuery) => (previousQuery?.queryKey[1] === sub ? previous : undefined) : undefined,
   });
   return foldIdentityError(query, subState, retryIdentity);
@@ -104,7 +132,45 @@ export const useEmployees = (search: string, enabled = true, limit = 20) =>
 
 // ---------------------------------------------------------------- dashboard
 
-export const useDashboard = () => useEngagementGet(["dashboard"], urls.dashboard, M.dashboard);
+/**
+ * The widget catalogue: the business date and the widgets the caller may see, with no section computed (`sections=` empty), so it answers
+ * quickly. The widgets are kept for a reload, the date is not (a copy would be a day old after midnight). A travel agent's answer carries
+ * the agent dashboard instead of widgets, and is not kept.
+ */
+export const useDashboardCatalogue = (enabled = true) =>
+  useEngagementGet(["dashboard", "catalogue"], urls.dashboardCatalogue, M.dashboard, {
+    enabled,
+    persist: {
+      name: "dashboard-catalogue",
+      keep: (w: W.WDashboard) => (w.agent || !w.widgets?.length ? undefined : { widgets: w.widgets, failedSections: [] }),
+    },
+  });
+
+/** One request per group of sections, all at once. A group is the sections that share one entity call, so none is asked for twice. */
+export function useDashboardSectionGroups(groups: readonly (readonly string[])[], enabled: readonly boolean[]): UseQueryResult<V.Dashboard, Error>[] {
+  const { getToken, ready, key } = useEngagementBasis();
+  return useQueries({
+    queries: groups.map((sections, i) => ({
+      queryKey: key("dashboard", "sections", [...sections].sort()),
+      queryFn: async () => authedGet<W.WDashboard>(urls.dashboardSections(sections), await getToken()),
+      select: M.dashboard,
+      enabled: ready && Boolean(enabled[i]) && sections.length > 0,
+      staleTime: 0,
+      retry: httpRetry,
+    })),
+  }) as UseQueryResult<V.Dashboard, Error>[];
+}
+
+/** Travel Costs: one summary query for every cost widget. Keeps the last answer on screen while a new range or filter loads. */
+export const useTravelCosts = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["dashboard", "travel-costs", params], urls.travelCosts(params), DM.travelCosts, { enabled, staleTime: MINUTE, keepPrevious: true });
+
+export const useTravelCostTransactions = (params: EngagementQueryParams, enabled = true) =>
+  useEngagementGet(["dashboard", "travel-cost-transactions", params], urls.travelCostTransactions(params), DM.costTransactions, {
+    enabled,
+    staleTime: MINUTE,
+    keepPrevious: true,
+  });
 
 export const useAllocationsToday = (params: EngagementQueryParams, enabled = true) =>
   useEngagementGet(["dashboard", "allocations-today", params], urls.allocationsToday(params), M.allocationsToday, { enabled, keepPrevious: true });
@@ -185,6 +251,10 @@ export const useTripCards = (jobNumber: string, enabled = true) =>
 
 export const useTripExpenses = (jobNumber: string, enabled = true) =>
   useEngagementGet(["travel-requests", "expenses", jobNumber], urls.tripExpenses(jobNumber), M.tripExpenses, { enabled });
+
+/** The cost so far of a travel request. A 403 or 404 is not retried: the card is then hidden. */
+export const useJobCostSummary = (jobNumber: string, enabled = true) =>
+  useEngagementGet(["travel-requests", "cost-summary", jobNumber], urls.jobCostSummary(jobNumber), DM.jobCostSummary, { enabled, expectForbidden: true });
 
 export const useTripPayments = (jobNumber: string, enabled = true) =>
   useEngagementGet(["travel-requests", "payments", jobNumber], urls.tripPayments(jobNumber), M.tripPayments, { enabled });

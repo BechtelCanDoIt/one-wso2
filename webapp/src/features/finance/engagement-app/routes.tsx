@@ -18,10 +18,14 @@
 
 import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route } from "react-router";
-import { Skeleton } from "@wso2/oxygen-ui";
+import { Box } from "@wso2/oxygen-ui";
+import { ENGAGEMENT_APP_PATH } from "./engagementPaths";
 import EngagementShell, { EngagementLanding, EngagementRequires, type EngagementNeed } from "./components/EngagementShell";
 
-const DashboardPage = lazy(() => import("./dashboard/DashboardPage"));
+const dashboardModule = () => import("./dashboard/DashboardPage");
+const DashboardPage = lazy(dashboardModule);
+// The dashboard is where people land: fetch its code while sign-in and /user-info are still running, not after them.
+if (typeof window !== "undefined" && new RegExp(`${ENGAGEMENT_APP_PATH}(/dashboard)?/?$`).test(window.location.pathname)) void dashboardModule();
 const approvalsModule = () => import("./approvals/ApprovalsPage");
 const ApprovalsPage = lazy(approvalsModule);
 const ApprovalsIndex = lazy(() => approvalsModule().then((m) => ({ default: m.ApprovalsIndex })));
@@ -55,7 +59,8 @@ const SettingsIndex = lazy(() => settingsModule().then((m) => ({ default: m.Sett
 const MyTravelRequestsPage = lazy(() => import("./me/MyTravelRequestsPage"));
 const MyAllocationsPage = lazy(() => import("./me/MyAllocationsPage"));
 
-const loading = <Skeleton variant="rounded" height={240} />;
+// Space only, no skeleton of its own: the page that loads draws the one skeleton for its body, so there is not a second one before it.
+const loading = <Box sx={{ minHeight: 240 }} aria-busy="true" />;
 
 /** A page behind the privilege it needs, loaded on first use. */
 const gated = (need: EngagementNeed | readonly EngagementNeed[], page: ReactNode, area: "finance" | "me" = "finance") => (
@@ -131,5 +136,7 @@ export const myEngagementRoutes = (
     <Route path="me/passport-visas/documents" element={gated(["myDocuments", "myVisas"], <DocumentsPage own tab="documents" />, "me")} />
     <Route path="me/passport-visas/visas" element={gated(["myDocuments", "myVisas"], <DocumentsPage own tab="visas" />, "me")} />
     <Route path="me/allocations" element={gated("myAllocations", <MyAllocationsPage />, "me")} />
+    <Route path="me/allocations/:id" element={<Navigate to="allocations" replace />} />
+    <Route path="me/allocations/:id/:tab" element={gated("myAllocations", <EngagementPage area="me" />, "me")} />
   </Route>
 );

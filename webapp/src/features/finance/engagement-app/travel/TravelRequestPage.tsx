@@ -15,8 +15,8 @@
 // under the License.
 
 import { useState, type JSX, type ReactNode } from "react";
-import { Link as RouterLink, Navigate, useParams } from "react-router";
-import { Alert, Box, Button, Card, Link, Skeleton, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from "@wso2/oxygen-ui";
+import { Navigate, useParams } from "react-router";
+import { Alert, Box, Button, Card, Stack, Table, TableBody, TableCell, TableHead, TableRow, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { PlusIcon } from "@wso2/oxygen-ui-icons-react";
 import RoutedTabs, { type RoutedTabDef } from "@components/routed-tabs/RoutedTabs";
 import { HttpError } from "@api/http";
@@ -27,10 +27,12 @@ import { useDeletePerDiem } from "../api/useEngagementMutations";
 import { useEngagementAccess } from "../api/useEngagementUserInfo";
 import { ConfirmDialog } from "../components/EaDialog";
 import EaPage from "../components/EaPage";
+import RecordLink from "../components/RecordLink";
+import { DetailSkeleton, TableSkeleton } from "../components/EaSkeletons";
 import EaTable from "../components/EaTable";
 import { FactsCard, FactsGrid } from "../components/Facts";
 import { Empty, Failed, ListCard, SectionTitle } from "../components/ListCard";
-import { TravelStatusChip, Two, Mono } from "../components/StatusChips";
+import { ExpenseStatusChip, TravelStatusChip, Two, Mono } from "../components/StatusChips";
 import { engagementPaths, myEngagementPaths, type TravelTab } from "../engagementPaths";
 import { TRAVEL } from "../model/engagementAccess";
 import { engagementName, fmtDate, fmtDateTime, fmtRange, money, place } from "../model/format";
@@ -40,6 +42,7 @@ import { InvoiceDrawer, PaymentDrawer } from "../invoices/RecordDrawer";
 import { useInvoiceWork, usePaymentWork } from "../invoices/useInvoiceWork";
 import { TABLE_HEAD_SX } from "../components/eaStyles";
 import { Kpi } from "../dashboard/dashboardParts";
+import TotalCostCard from "./TotalCostCard";
 import { AssignDialog, InvoiceDialog, PaymentDialog, PerDiemDialog, UpdateTravelDialog } from "./travelDialogs";
 
 const TABS: readonly TravelTab[] = ["info", "per-diems", "invoices", "payments", "card-expenses", "expense-claims"];
@@ -49,13 +52,13 @@ export default function TravelRequestPage({ area = "finance" }: { area?: "financ
   const { job = "", tab = "info" } = useParams();
   const trip = useTravelRequest(job);
   const pathOf = area === "me" ? myEngagementPaths.travelRequest : engagementPaths.travelRequest;
-  const back = area === "me" ? { to: myEngagementPaths.travelRequests, label: "My Travels" } : { to: engagementPaths.travelRequests(), label: "Travel Requests" };
+  const back = area === "me" ? { to: myEngagementPaths.travelRequests, label: "Travels" } : { to: engagementPaths.travelRequests(), label: "Travels" };
 
   if (!TABS.includes(tab as TravelTab)) return <Navigate to={pathOf(job)} replace />;
   if (trip.isPending) {
     return (
       <EaPage title={`Travel Request ${job}`} back={back}>
-        <Skeleton variant="rounded" height={200} />
+        <DetailSkeleton facts={12} tabs={6} />
       </EaPage>
     );
   }
@@ -142,9 +145,9 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
               area === "finance" ? (
                 <Two
                   main={
-                    <Link component={RouterLink} to={engagementPaths.engagement(t.engagement.id)} sx={{ fontFamily: "monospace", fontSize: 12.5 }}>
+                    <RecordLink to={engagementPaths.engagement(t.engagement.id)} kind="engagement">
                       {t.engagement.id}
-                    </Link>
+                    </RecordLink>
                   }
                   sub={engagementName(t.engagement)}
                 />
@@ -159,12 +162,13 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
           { label: "Visa", value: t.visa || "—" },
         ]}
       />
+      <TotalCostCard jobNumber={t.jobNumber} />
       <ListCard>
         <RoutedTabs basePath={basePath} tabs={tabs} ariaLabel="Travel request sections" scrollable />
         {sectionQuery?.isError ? (
           <Failed what="this section" error={sectionQuery.error} onRetry={() => void sectionQuery.refetch()} retrying={sectionQuery.isFetching} />
         ) : sectionQuery?.isPending ? (
-          <Skeleton variant="rounded" height={160} />
+          <TableSkeleton />
         ) : tab === "per-diems" ? (
           <PerDiemsTab t={t} s={sections} />
         ) : tab === "invoices" ? (
@@ -349,7 +353,7 @@ function CardExpensesTab({ rows }: { rows: readonly CardExpense[] }): JSX.Elemen
         { key: "d", label: "Date", render: (c: CardExpense) => (c.date ? fmtDate(c.date) : "—") },
         { key: "t", label: "Expense Type", render: (c: CardExpense) => <Two main={c.expenseType ?? "—"} sub={c.reference} /> },
         { key: "e", label: "Employee", render: (c: CardExpense) => c.employee ?? "—" },
-        { key: "s", label: "Status", render: (c: CardExpense) => c.status },
+        { key: "s", label: "Status", render: (c: CardExpense) => <ExpenseStatusChip status={c.status} /> },
         { key: "a", label: "Amount", align: "right", render: (c: CardExpense) => money(c.amount, c.currency) },
       ]}
       rows={rows}
@@ -368,7 +372,7 @@ function ExpenseClaimsTab({ rows }: { rows: readonly ExpenseClaim[] }): JSX.Elem
         { key: "d", label: "Date", render: (c: ExpenseClaim) => (c.date ? fmtDate(c.date) : "—") },
         { key: "n", label: "Claim", render: (c: ExpenseClaim) => <Two main={c.expenseType ?? "—"} sub={c.claimNumber ? `Claim ${c.claimNumber}` : undefined} /> },
         { key: "e", label: "Employee", render: (c: ExpenseClaim) => c.employee ?? "—" },
-        { key: "s", label: "Status", render: (c: ExpenseClaim) => c.status },
+        { key: "s", label: "Status", render: (c: ExpenseClaim) => <ExpenseStatusChip status={c.status} /> },
         { key: "a", label: "Amount", align: "right", render: (c: ExpenseClaim) => money(c.amount, c.currency) },
         { key: "r", label: "Reimbursement", align: "right", render: (c: ExpenseClaim) => money(c.reimbursementAmount, c.reimbursementCurrency) },
       ]}

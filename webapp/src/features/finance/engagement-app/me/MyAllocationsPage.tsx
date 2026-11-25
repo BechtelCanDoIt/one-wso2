@@ -24,7 +24,8 @@ import EaTable, { type Column } from "../components/EaTable";
 import { Empty, Failed, ListCard } from "../components/ListCard";
 import ListToolbar, { type FilterDef } from "../components/ListToolbar";
 import { AllocationStatusChip, Two, Mono } from "../components/StatusChips";
-import { engagementPaths, myEngagementPaths } from "../engagementPaths";
+import { myEngagementPaths } from "../engagementPaths";
+import { AllocationsFocus } from "./FocusCards";
 import { engagementName, fmtRange, place } from "../model/format";
 import { ALLOCATION_STATUSES } from "../model/statuses";
 import { PAGE_SIZE, useListView } from "../model/useListView";
@@ -56,7 +57,8 @@ export default function MyAllocationsPage(): JSX.Element {
     { key: "status", label: "Allocation Status", render: (a) => <AllocationStatusChip status={a.status} /> },
   ];
   return (
-    <EaPage title="My Allocations" subtitle="Where you are allocated, and when. Allocation managers set these; the status follows the clearance process.">
+    <EaPage title="Allocations" subtitle="Where you are allocated, and when. Allocation managers set your allocations, and the status follows the clearance process.">
+      <AllocationsFocus canOpen={(id) => (allocations.data?.items ?? []).some((a) => a.engagement.id === id && a.engagement.canOpen)} />
       <ListCard>
         <ListToolbar
           search={list.search}
@@ -75,8 +77,9 @@ export default function MyAllocationsPage(): JSX.Element {
             columns={columns}
             rows={allocations.data?.items ?? []}
             rowKey={(a) => a.id}
-            loading={allocations.isPending}
-            onRowClick={(a) => (a.engagement.canOpen ? navigate(engagementPaths.engagement(a.engagement.id)) : undefined)}
+            loading={allocations.isPending || allocations.isPlaceholderData}
+            canOpen={(a) => a.engagement.canOpen === true}
+            onRowClick={(a) => navigate(myEngagementPaths.allocation(a.engagement.id))}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: allocations.data?.total ?? 0, onPage: list.setPage }}
             empty={
               filtered ? (

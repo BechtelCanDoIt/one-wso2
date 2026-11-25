@@ -206,7 +206,7 @@ function EngagementForm({
           notify.showSuccess(`Engagement ${id} added successfully`);
           navigate(id ? engagementPaths.engagement(id) : engagementPaths.engagements("customer"), { replace: true });
         } else {
-          notify.showSuccess(`${mkt ? "Event" : "Engagement"} ${id} added successfully; it is waiting for approval`);
+          notify.showSuccess(`${mkt ? "Event" : "Engagement"} ${id} added successfully. It is waiting for approval`);
           navigate(access.approvals ? engagementPaths.approvals(mkt ? "marketing" : "internal") : engagementPaths.engagements(mkt ? "marketing" : "internal"), {
             replace: true,
           });

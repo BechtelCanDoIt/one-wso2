@@ -24,7 +24,7 @@ import { localIsoDate } from "@utils/localDate";
 import { useMyOverview } from "../api/useEngagementApi";
 import { useEngagementUserInfo } from "../api/useEngagementUserInfo";
 import { AllocationStatusChip, TravelStatusChip } from "../components/StatusChips";
-import { myEngagementPaths } from "../engagementPaths";
+import { myAllocationLink, myEngagementPaths } from "../engagementPaths";
 import { engagementAccess } from "../model/engagementAccess";
 import { EA_SCOPE_SX } from "../components/eaStyles";
 import { fmtRange, place } from "../model/format";
@@ -89,6 +89,7 @@ export default function UpcomingCard(): JSX.Element | null {
               title={a.title || a.engagementId}
               sub={fmtRange(a.start, a.end)}
               chip={a.status ? <AllocationStatusChip status={a.status} /> : undefined}
+              to={myAllocationLink(a)}
             />
           ))}
         </>
@@ -109,7 +110,7 @@ export default function UpcomingCard(): JSX.Element | null {
       ) : null}
       <Box sx={{ mt: 1.5 }}>
         <Button variant="outlined" size="small" component={RouterLink} to={trips.length ? myEngagementPaths.travelRequests : myEngagementPaths.allocations}>
-          {trips.length ? "View My Travels" : "View My Allocations"}
+          {trips.length ? "View Travels" : "View Allocations"}
         </Button>
       </Box>
     </Card>

@@ -15,20 +15,14 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Link as RouterLink } from "react-router";
-import { Link } from "@wso2/oxygen-ui";
+import RecordLink from "../components/RecordLink";
 import { engagementPaths } from "../engagementPaths";
 
 /** A job number that opens its travel request, without also opening the row it sits in. */
 export default function JobLink({ job, to = engagementPaths.travelRequest }: { job: string; to?: (job: string) => string }): JSX.Element {
   return (
-    <Link
-      component={RouterLink}
-      to={to(job)}
-      onClick={(e) => e.stopPropagation()}
-      sx={{ fontFamily: "monospace", fontSize: 12.5, whiteSpace: "nowrap" }}
-    >
+    <RecordLink to={to(job)} kind="travel">
       {job}
-    </Link>
+    </RecordLink>
   );
 }

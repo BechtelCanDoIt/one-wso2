@@ -57,12 +57,18 @@ export interface RowSelection<T> {
 }
 
 
+const BARE_SX = {
+  "& th, & tbody tr td:first-of-type": { whiteSpace: "nowrap" },
+  "& .MuiTableCell-alignRight": { whiteSpace: "nowrap" },
+} as const;
+
 /** The one table every Engagement App list uses. */
 export default function EaTable<T>({
   columns,
   rows,
   rowKey,
   onRowClick,
+  canOpen,
   primaryAction,
   menu,
   selection,
@@ -70,11 +76,14 @@ export default function EaTable<T>({
   loading = false,
   pagination,
   ariaLabel,
+  bare = false,
 }: {
   readonly columns: readonly Column<T>[];
   readonly rows: readonly T[];
   readonly rowKey: (row: T) => string;
   readonly onRowClick?: (row: T) => void;
+  /** Rows for which this is false are plain: no pointer, tab stop or click handler. */
+  readonly canOpen?: (row: T) => boolean;
   readonly primaryAction?: (row: T) => RowAction | undefined;
   readonly menu?: (row: T) => readonly RowAction[];
   readonly selection?: RowSelection<T>;
@@ -82,16 +91,19 @@ export default function EaTable<T>({
   readonly loading?: boolean;
   readonly pagination?: { page: number; pageSize: number; total: number; onPage: (page: number) => void };
   readonly ariaLabel: string;
+  /** Inside a card (a dashboard widget): no box of its own, labels and figures kept on one line. */
+  readonly bare?: boolean;
 }): JSX.Element {
   const hasActions = Boolean(primaryAction || menu);
   const colCount = columns.length + (selection ? 1 : 0) + (hasActions ? 1 : 0);
-  const selectable = selection ? rows.filter((r) => selection.canSelect(r) === true).map(rowKey) : [];
+  // Rows shown as a skeleton (or as placeholders of a new search) cannot be selected.
+  const selectable = selection && !loading ? rows.filter((r) => selection.canSelect(r) === true).map(rowKey) : [];
   const allTicked = selectable.length > 0 && selectable.every((id) => selection?.selected.has(id));
 
   return (
-    <Box sx={{ border: 1, borderColor: "divider", borderRadius: 1.5, overflow: "hidden" }}>
+    <Box sx={bare ? undefined : { border: 1, borderColor: "divider", borderRadius: 1.5, overflow: "hidden" }}>
       <Box sx={{ overflowX: "auto" }}>
-        <Table size="small" aria-label={ariaLabel}>
+        <Table size="small" aria-label={ariaLabel} sx={bare ? BARE_SX : undefined}>
           <TableHead>
             <TableRow sx={TABLE_HEAD_SX}>
               {selection ? (
@@ -116,12 +128,25 @@ export default function EaTable<T>({
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading && rows.length === 0
-              ? [0, 1, 2].map((i) => (
-                  <TableRow key={`s${i}`}>
-                    <TableCell colSpan={colCount}>
-                      <Skeleton variant="text" height={28} />
-                    </TableCell>
+            {loading
+              ? Array.from({ length: Math.min(Math.max(rows.length, 3), 10) }, (_, i) => (
+                  <TableRow key={`s${i}`} aria-hidden>
+                    {selection ? (
+                      <TableCell padding="checkbox">
+                        <Skeleton variant="rounded" width={18} height={18} sx={{ mx: "auto" }} />
+                      </TableCell>
+                    ) : null}
+                    {columns.map((c) => (
+                      <TableCell key={c.key} align={c.align} sx={{ py: 1.25 }}>
+                        <Skeleton variant="text" width={`${60 + ((i + c.key.length) % 3) * 15}%`} sx={{ fontSize: 13, ml: c.align === "right" ? "auto" : 0 }} />
+                        <Skeleton variant="text" width="40%" sx={{ fontSize: 11.5, ml: c.align === "right" ? "auto" : 0 }} />
+                      </TableCell>
+                    ))}
+                    {hasActions ? (
+                      <TableCell align="right">
+                        <Skeleton variant="rounded" width={72} height={28} sx={{ ml: "auto" }} />
+                      </TableCell>
+                    ) : null}
                   </TableRow>
                 ))
               : null}
@@ -132,29 +157,30 @@ export default function EaTable<T>({
                 </TableCell>
               </TableRow>
             ) : null}
-            {rows.map((row) => {
+            {(loading ? [] : rows).map((row) => {
               const id = rowKey(row);
               const action = primaryAction?.(row);
               const items = menu?.(row) ?? [];
               const can = selection?.canSelect(row);
+              const open = onRowClick && (canOpen?.(row) ?? true) ? onRowClick : undefined;
               return (
                 <TableRow
                   key={id}
-                  hover
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
-                  tabIndex={onRowClick ? 0 : undefined}
+                  hover={Boolean(open)}
+                  onClick={open ? () => open(row) : undefined}
+                  tabIndex={open ? 0 : undefined}
                   onKeyDown={
-                    onRowClick
+                    open
                       ? (ev) => {
                           if (ev.target === ev.currentTarget && (ev.key === "Enter" || ev.key === " ")) {
                             ev.preventDefault();
-                            onRowClick(row);
+                            open(row);
                           }
                         }
                       : undefined
                   }
                   sx={{
-                    cursor: onRowClick ? "pointer" : undefined,
+                    cursor: open ? "pointer" : undefined,
                     "&:focus-visible": { outline: "2px solid", outlineColor: "primary.main", outlineOffset: -2 },
                     verticalAlign: "top",
                     "& td": { fontSize: 13, py: 1.25 },

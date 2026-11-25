@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 import { Box, Button, Card, CircularProgress, Stack, Typography } from "@wso2/oxygen-ui";
 import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
 import { Link as RouterLink, Navigate } from "react-router";
@@ -130,9 +130,15 @@ export function PageTitle({ label }: { label: string }): JSX.Element {
 export function NothingHere({
   label,
   icon: Icon,
+  heading = "Nothing here for you yet",
+  children,
 }: {
   label: string;
   icon: React.ComponentType<{ size?: number }>;
+  /** Replaces the card's heading. */
+  heading?: string;
+  /** Replaces the card's one-sentence body. */
+  children?: ReactNode;
 }): JSX.Element {
   return (
     <Card variant="outlined" sx={{ mt: 1.5, p: 3, maxWidth: 620 }}>
@@ -159,8 +165,11 @@ export function NothingHere({
             component="h2"
             sx={{ fontSize: 17, fontWeight: 600, letterSpacing: "-0.02em", mb: 0.6 }}
           >
-            Nothing here for you yet
+            {heading}
           </Typography>
+          {children ? (
+            <Box sx={{ maxWidth: "52ch" }}>{children}</Box>
+          ) : (
           <Typography variant="body2" color="text.secondary" sx={{ maxWidth: "52ch" }}>
             {/* One sentence, the same one everywhere. Each perspective used to
                 add a line naming the system its access came from, and reading
@@ -171,6 +180,7 @@ export function NothingHere({
             {label} is here, but none of it is open to you at the moment. When that
             changes, it&apos;ll appear in the menu on the left.
           </Typography>
+          )}
         </Box>
       </Box>
 

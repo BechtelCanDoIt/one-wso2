@@ -16,7 +16,7 @@
 
 import { useState, type JSX } from "react";
 import { Navigate, useParams } from "react-router";
-import { Alert, Box, Card, Skeleton, Table, TableBody, TableCell, TableHead, TableRow } from "@wso2/oxygen-ui";
+import { Alert, Box, Card, Table, TableBody, TableCell, TableHead, TableRow } from "@wso2/oxygen-ui";
 import RoutedTabs from "@components/routed-tabs/RoutedTabs";
 import { HttpError } from "@api/http";
 import type { Allocation, Engagement } from "../api/engagementTypes";
@@ -29,19 +29,20 @@ import EaTable, { type Column } from "../components/EaTable";
 import { FactsCard, FactsGrid } from "../components/Facts";
 import { Empty, Failed, ListCard } from "../components/ListCard";
 import { AllocationStatusChip, EngagementStatusChip, RequestStatusChip, Two, Mono } from "../components/StatusChips";
-import { engagementPaths, type EngagementTab } from "../engagementPaths";
+import { engagementPaths, myEngagementPaths, type EngagementTab } from "../engagementPaths";
 import { canEditAllocationStatus } from "../model/engagementAccess";
 import { engagementSegments } from "../model/landing";
 import { engagementName, fmtDate, fmtRange, place } from "../model/format";
 import { useEngagementActions } from "./useEngagementActions";
 import RowActions from "../components/RowActions";
+import { DetailSkeleton } from "../components/EaSkeletons";
 
 const TABS: readonly EngagementTab[] = ["allocations", "details"];
 
 const kindLabel = (e: Engagement) => (e.kind === "marketing" ? "Marketing Event" : e.kind === "internal" ? "Internal Engagement" : e.typeName);
 
-/** One engagement: its facts, its allocation records and its details (the upper and lower halves of the legacy Allocate page). */
-export default function EngagementPage(): JSX.Element {
+/** One engagement: its facts, its allocation records and its details; under Me (from Allocations) it is read-only, with no actions. */
+export default function EngagementPage({ area = "finance" }: { area?: "finance" | "me" }): JSX.Element {
   const { id = "", tab = "allocations" } = useParams();
   const engagement = useEngagement(id);
   const access = useEngagementAccess();
@@ -49,8 +50,11 @@ export default function EngagementPage(): JSX.Element {
   const { actionsFor, dialogs } = useEngagementActions();
   const [statusOf, setStatusOf] = useState<Allocation | null>(null);
 
-  if (!TABS.includes(tab as EngagementTab)) return <Navigate to={engagementPaths.engagement(id)} replace />;
-  const back = engagementSegments(access).length
+  const pathOf = area === "me" ? myEngagementPaths.allocation : engagementPaths.engagement;
+  if (!TABS.includes(tab as EngagementTab)) return <Navigate to={pathOf(id)} replace />;
+  const back = area === "me"
+    ? { to: myEngagementPaths.allocations, label: "Allocations" }
+    : engagementSegments(access).length
     ? { to: engagementPaths.engagements(), label: "Engagements" }
     : access.approvals
       ? { to: engagementPaths.approvals(), label: "Approvals" }
@@ -59,7 +63,7 @@ export default function EngagementPage(): JSX.Element {
   if (engagement.isPending) {
     return (
       <EaPage title={id} back={back}>
-        <Skeleton variant="rounded" height={160} />
+        <DetailSkeleton facts={10} />
       </EaPage>
     );
   }
@@ -92,7 +96,7 @@ export default function EngagementPage(): JSX.Element {
         </>
       }
       back={back}
-      actions={<RowActions primary={primary} menu={menu} label={e.id} />}
+      actions={area === "me" ? undefined : <RowActions primary={primary} menu={menu} label={e.id} />}
     >
       {pending ? (
         <Alert severity="warning" sx={{ mb: 2 }}>
@@ -114,7 +118,7 @@ export default function EngagementPage(): JSX.Element {
       />
       <ListCard>
         <RoutedTabs
-          basePath={`${engagementPaths.engagements()}/${encodeURIComponent(e.id)}`}
+          basePath={`${area === "me" ? myEngagementPaths.allocations : engagementPaths.engagements()}/${encodeURIComponent(e.id)}`}
           ariaLabel="Engagement sections"
           tabs={[
             {
@@ -141,7 +145,8 @@ export default function EngagementPage(): JSX.Element {
         ) : (
           <AllocationRecords
             allocations={e.allocations}
-            canChangeStatus={canEditAllocationStatus(p, e.typeId)}
+            travelBase={area === "me" ? myEngagementPaths.travelRequest : engagementPaths.travelRequest}
+            canChangeStatus={area !== "me" && canEditAllocationStatus(p, e.typeId)}
             onChangeStatus={setStatusOf}
             empty={
               <Empty
@@ -164,17 +169,19 @@ export function AllocationRecords({
   canChangeStatus,
   onChangeStatus,
   empty,
+  travelBase,
 }: {
   allocations: readonly Allocation[];
   canChangeStatus: boolean;
   onChangeStatus: (a: Allocation) => void;
   empty: JSX.Element;
+  travelBase?: (job: string) => string;
 }): JSX.Element {
   const columns: Column<Allocation>[] = [
     { key: "id", label: "Allocation", render: (a) => <Mono>{a.id}</Mono> },
     { key: "who", label: "Consultant", render: (a) => <Two main={a.consultant.name} sub={a.consultant.email} /> },
     { key: "dates", label: "Dates", render: (a) => <Two main={fmtRange(a.start, a.end)} sub={<HourlyLabel allocation={a} />} /> },
-    { key: "travel", label: "Travel", render: (a) => <TravelCell allocation={a} /> },
+    { key: "travel", label: "Travel", render: (a) => <TravelCell allocation={a} travelBase={travelBase} /> },
     { key: "comment", label: "Comment", width: "22%", render: (a) => <Box sx={{ color: "text.secondary", fontSize: 12.5 }}>{a.comment || "—"}</Box> },
     { key: "status", label: "Allocation Status", render: (a) => <AllocationStatusChip status={a.status} /> },
   ];

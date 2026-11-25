@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { tripExpenses } from "./engagementMappers";
+import { dashboard, myOverview, tripExpenses, upcomingAllocation } from "./engagementMappers";
 
 describe("tripExpenses", () => {
   it("names the expense_app statuses and keeps missing values empty", () => {
@@ -33,5 +33,52 @@ describe("tripExpenses", () => {
 
   it("treats missing lists as empty", () => {
     expect(tripExpenses({})).toEqual({ cardExpenses: [], expenseClaims: [] });
+  });
+});
+
+describe("dashboard", () => {
+  it("keeps the business date the backend computed for", () => {
+    expect(dashboard({ date: "2026-11-24", failedSections: [] }).date).toBe("2026-11-24");
+    expect(dashboard({ failedSections: [] }).date).toBeUndefined();
+  });
+
+  it("maps the widgets list and leaves it absent for an older backend", () => {
+    expect(dashboard({ widgets: [{ id: "waiting-on-you", defaultOn: true }, { id: "tc-lines", defaultOn: false }] }).widgets).toEqual([
+      { id: "waiting-on-you", defaultOn: true },
+      { id: "tc-lines", defaultOn: false },
+    ]);
+    expect(dashboard({}).widgets).toBeUndefined();
+  });
+
+  it("maps the role stat sections only when the backend sent them", () => {
+    expect(dashboard({}).travelTeam).toBeUndefined();
+    const d = dashboard({
+      failedSections: ["marketingEvents"],
+      accountManager: { startedWithoutConsultants: { total: 0, items: [] }, byStatus: [{ label: "New", value: 2 }], byMonth: [{ month: "2026-11", values: { Engagements: 3 } }] },
+    });
+    expect(d.failed).toEqual(["marketingEvents"]);
+    expect(d.accountManager?.byStatus).toEqual([{ label: "New", count: 2 }]);
+    expect(d.accountManager?.byMonth).toEqual([{ month: "2026-11", value: 3 }]);
+  });
+});
+
+describe("myOverview", () => {
+  it("maps the trip visas when present", () => {
+    const m = myOverview({
+      upcomingAllocations: [],
+      upcomingTrips: [],
+      tripVisas: [{ jobNumber: "TRV-1", country: "India", startDate: "2027-01-10", endDate: "2027-01-20", tripVisa: null, myVisa: null, waiting: true }],
+    });
+    expect(m.tripVisas).toEqual([{ jobNumber: "TRV-1", country: "India", city: undefined, start: "2027-01-10", end: "2027-01-20", tripVisa: undefined, myVisa: undefined, waiting: true }]);
+    expect(myOverview({ upcomingAllocations: [], upcomingTrips: [] }).tripVisas).toBeUndefined();
+  });
+});
+
+describe("upcomingAllocation", () => {
+  const w = { id: "A1", engagementId: "E1", engagementTitle: "T", startDate: "2026-12-01", endDate: "2026-12-31", current: false };
+  it("keeps canOpen undefined when the backend sends none, so the list can answer, and keeps an explicit false", () => {
+    expect(upcomingAllocation(w as never).canOpen).toBeUndefined();
+    expect(upcomingAllocation({ ...w, canOpen: false } as never).canOpen).toBe(false);
+    expect(upcomingAllocation({ ...w, canOpen: true } as never).canOpen).toBe(true);
   });
 });

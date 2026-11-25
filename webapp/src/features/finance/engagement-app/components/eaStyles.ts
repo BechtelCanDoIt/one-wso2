@@ -14,6 +14,20 @@
 // specific language governing permissions and limitations
 // under the License.
 
+import type { Theme } from "@mui/material/styles";
+
+// Dark-mode card separation. Oxygen's outlined card is a translucent navy, almost the page's own colour, so cards blended into the page.
+// A navy "paper" fill fixed that but made the page look blue, so separation comes from neutral light instead: a faint white lift on the
+// card and a thin grey rule, and tiles inside a card are flat with only a rule. Light mode is left exactly as it was: every rule is dark only.
+
+/** A card on the page (a widget, the Travel Costs controls). */
+export const eaSurfaceSx = (theme: Theme) =>
+  theme.applyStyles("dark", { backgroundColor: "rgba(255, 255, 255, 0.025)", backgroundImage: "none", borderColor: "rgba(255, 255, 255, 0.10)" });
+
+/** A tile inside a card: flat, outlined only, so tile-in-card reads as a second level without another fill. */
+export const eaNestedSx = (theme: Theme) =>
+  theme.applyStyles("dark", { backgroundColor: "transparent", backgroundImage: "none", borderColor: "rgba(255, 255, 255, 0.08)" });
+
 /** Button labels as written (Title Case), never upper-cased, and empty selects' labels centred like text fields'; set on the shell and on every dialog and drawer, which render outside it. */
 export const EA_SCOPE_SX = {
   "& .MuiButton-root, & .MuiToggleButton-root": { textTransform: "none" },

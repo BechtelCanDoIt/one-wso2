@@ -16,6 +16,7 @@
 
 // The Engagement App Backend's wire shapes, as finance-tools apps/engagement-app/backend/openapi.yaml (0.2.0) defines them.
 
+import type { WAccountManager, WEngagementManager, WMarketingEvents, WTravelTeam, WTripVisa, WWidgetRef } from "./dashboardWire";
 import type {
   ClearanceStatus,
   EngagementKind,
@@ -45,6 +46,8 @@ export interface WUserInfo {
     perDiemPayments: ("push" | "all")[];
     netsuiteSyncFailures: boolean;
   };
+  /** Where to ask for access (ACCESS_REQUEST_EMAIL); absent when not set. */
+  accessRequestEmail?: string;
 }
 
 export interface WPage<T> {
@@ -190,6 +193,7 @@ export interface WAllocationSummary {
   endDate: string;
   clearanceStatus?: ClearanceStatus | null;
   current?: boolean;
+  canOpen?: boolean;
 }
 
 export interface WCountCard {
@@ -201,14 +205,15 @@ export interface WCountCard {
 }
 
 export interface WDashboard {
+  /** The business date (UTC) the dashboard is for. */
+  date?: string;
   failedSections?: string[];
-  myWork?: {
-    currentAllocation?: WAllocationSummary | null;
-    nextAllocation?: WAllocationSummary | null;
-    todayTeamAllocation?: WTimelineItem | null;
-    nextTrips?: WDashboardTrip[];
-    upcomingTripCount?: number;
-  };
+  /** Every widget the caller may see, in catalogue order. */
+  widgets?: WWidgetRef[];
+  travelTeam?: WTravelTeam;
+  engagementManager?: WEngagementManager;
+  accountManager?: WAccountManager;
+  marketingEvents?: WMarketingEvents;
   waitingOnYou?: WCountCard[];
   travel?: {
     inProgress: number;
@@ -220,17 +225,6 @@ export interface WDashboard {
     topDestinations: WBucket[];
     byMonth: WSeriesPoint[];
     byAgency: WBucket[];
-  };
-  travelCost?: {
-    total: number;
-    travelInvoices: number;
-    perDiems: number;
-    creditCardExpenses?: number | null;
-    expenseClaims?: number | null;
-    lastMonth?: number;
-    currentMonth?: number;
-    byMonth: WSeriesPoint[];
-    byType: WBucket[];
   };
   engagements?: {
     startingIn30Days: {
@@ -260,15 +254,6 @@ export interface WDashboard {
     upcomingTotal?: number;
     invoicesByStatus: WBucket[];
     tripsByMonth: WSeriesPoint[];
-    perDiemsOnOpenTrips: {
-      jobNumber: string;
-      traveller: WPerson;
-      startDate?: string | null;
-      endDate?: string | null;
-      days?: number | null;
-      currency?: string | null;
-      total?: number | null;
-    }[];
   };
 }
 
@@ -287,6 +272,8 @@ export interface WAllocationsToday {
 export interface WMyOverview {
   upcomingAllocations: WAllocationSummary[];
   upcomingTrips: WDashboardTrip[];
+  /** Present for callers with own trips access: at most 20 trips. */
+  tripVisas?: WTripVisa[];
 }
 
 // ---------------------------------------------------------------- engagements

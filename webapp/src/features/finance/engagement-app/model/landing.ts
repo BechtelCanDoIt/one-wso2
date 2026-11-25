@@ -32,9 +32,10 @@ export function firstFinanceScreen(access: EngagementAccess): string {
 }
 
 export function myLanding(access: EngagementAccess): string {
+  // The order of the Me menu: Allocations, Travels, Passport & Visas.
+  if (access.myAllocations) return myEngagementPaths.allocations;
   if (access.myTravelRequests) return myEngagementPaths.travelRequests;
   if (access.myDocuments || access.myVisas) return myEngagementPaths.documents();
-  if (access.myAllocations) return myEngagementPaths.allocations;
   return "/me";
 }
 

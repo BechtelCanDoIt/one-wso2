@@ -15,10 +15,10 @@
 // under the License.
 
 import type { JSX } from "react";
-import { Link as RouterLink } from "react-router";
-import { Link, Typography } from "@wso2/oxygen-ui";
+import { Typography } from "@wso2/oxygen-ui";
 import type { Allocation } from "../api/engagementTypes";
 import { engagementPaths } from "../engagementPaths";
+import JobLink from "../invoices/JobLink";
 
 /** "09:00 – 11:00 (Asia/Colombo)" for an hourly allocation, else nothing. */
 export function HourlyLabel({ allocation }: { allocation: Allocation }): JSX.Element | null {
@@ -32,14 +32,7 @@ export function TravelCell({ allocation, travelBase = engagementPaths.travelRequ
   if (a.travelRequired !== "Yes") return <Muted>Not Required</Muted>;
   if (a.travelRequest) {
     return (
-      <Link
-        component={RouterLink}
-        to={travelBase(a.travelRequest)}
-        onClick={(e) => e.stopPropagation()}
-        sx={{ fontFamily: "monospace", fontSize: 12.5, whiteSpace: "nowrap" }}
-      >
-        {a.travelRequest}
-      </Link>
+      <JobLink job={a.travelRequest} to={travelBase} />
     );
   }
   return a.travelRaised ? <>Yes</> : <Muted>Not Raised</Muted>;

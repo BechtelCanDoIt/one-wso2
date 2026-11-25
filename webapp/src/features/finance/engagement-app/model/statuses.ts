@@ -26,7 +26,21 @@ import type {
   TravelStatus,
 } from "../api/engagementTypes";
 
-export type ChipTone = "success" | "error" | "warning" | "info" | "default";
+/** A status colour: the theme's success / error / warning, or a fixed in-progress blue (info) or extended violet. */
+export type ChipTone = "success" | "error" | "warning" | "info" | "violet" | "default";
+
+const EXPENSE_TONE: Readonly<Record<string, ChipTone>> = {
+  New: "default",
+  "Pending Lead": "warning",
+  "Pending Finance": "warning",
+  Submitted: "success",
+  "Pending Approval": "warning",
+  "Lead Approved": "info",
+  Approved: "success",
+  Rejected: "error",
+};
+/** A credit card expense's or an expense claim's status (as the mapper words it). */
+export const expenseTone = (status: string): ChipTone => EXPENSE_TONE[status] ?? "default";
 
 export const REQUEST_STATUSES: readonly RequestStatus[] = [
   "Pending Approval",
@@ -91,7 +105,7 @@ const TRAVEL_TONE: Record<TravelStatus, ChipTone> = {
   New: "warning",
   "In Progress": "info",
   "On Hold": "default",
-  Extended: "info",
+  Extended: "violet",
   Completed: "success",
   Cancelled: "default",
 };

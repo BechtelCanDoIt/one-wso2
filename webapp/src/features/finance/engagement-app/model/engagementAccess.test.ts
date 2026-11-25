@@ -35,8 +35,9 @@ const user = (allocations: number[], travel: number[] = []): UserInfo => ({
 });
 
 describe("privilege numbers stay with the app that issued them", () => {
-  it("reads Allocations 1 as the Dashboard and never as New Travel Requests", () => {
-    const a = engagementAccess(user([ALLOC.DASHBOARD]));
+  it("reads Allocations 1 as the Dashboard (with another Finance screen) and never as New Travel Requests", () => {
+    expect(engagementAccess(user([ALLOC.DASHBOARD])).dashboard).toBe(false);
+    const a = engagementAccess(user([ALLOC.DASHBOARD, ALLOC.ALLOCATION_TYPES]));
     expect(a.dashboard).toBe(true);
     expect(a.newTravelRequests).toBe(false);
     expect(a.travelRequests).toBe(false);
@@ -57,9 +58,10 @@ describe("privilege numbers stay with the app that issued them", () => {
 });
 
 describe("who sees what", () => {
-  it("an employee (wso2-employees) sees the Dashboard and their own pages", () => {
+  it("an employee (wso2-employees) sees only their own pages, no Finance Engagement App", () => {
     const a = engagementAccess(user([1], [19, 20, 21, 23, 24, 36, 37, 38, 47, 48, 49]));
-    expect(a.dashboard).toBe(true);
+    expect(a.dashboard).toBe(false);
+    expect(a.anyFinance).toBe(false);
     expect(a.engagements || a.allocations || a.invoices || a.settings).toBe(false);
     expect([a.myTravelRequests, a.myDocuments, a.myVisas, a.myAllocations]).toEqual([true, true, true, true]);
   });

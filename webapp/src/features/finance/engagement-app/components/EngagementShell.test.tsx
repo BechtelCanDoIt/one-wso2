@@ -66,8 +66,10 @@ vi.mock("../travel/TravelRequestPage", async () => {
   };
 });
 vi.mock("../me/MyAllocationsPage", () => ({ default: () => <h1>My allocations page</h1> }));
+vi.mock("../me/MyTravelRequestsPage", () => ({ default: () => <h1>My travels page</h1> }));
 
 import { render, screen } from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MemoryRouter, Routes, useLocation } from "react-router";
 import { engagementRoutes, myEngagementRoutes } from "../routes";
 
@@ -83,13 +85,15 @@ function Where() {
 
 function open(at: string) {
   return render(
-    <MemoryRouter initialEntries={[at]}>
-      <Where />
-      <Routes>
-        {engagementRoutes}
-        {myEngagementRoutes}
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={new QueryClient()}>
+      <MemoryRouter initialEntries={[at]}>
+        <Where />
+        <Routes>
+          {engagementRoutes}
+          {myEngagementRoutes}
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -109,10 +113,11 @@ describe("the Engagement App access ladder", () => {
     expect(screen.getByText("ONE_WSO2_ENGAGEMENT_APP_BACKEND_URL")).toBeInTheDocument();
   });
 
-  it("holds the page, and redirects nothing, while access is being checked", () => {
+  it("holds the page, and redirects nothing, while access is being checked, saying so only if it takes a moment", async () => {
     state.info = { ...state.info, data: undefined, isPending: true };
     open("/finance/engagement-app/settings/allocation-types");
-    expect(screen.getByText("Checking your Engagement App access…")).toBeInTheDocument();
+    expect(screen.queryByText("Checking your Engagement App access…")).toBeNull();
+    expect(await screen.findByText("Checking your Engagement App access…")).toBeInTheDocument();
     expect(where()).toBe("/finance/engagement-app/settings/allocation-types");
   });
 
@@ -124,22 +129,80 @@ describe("the Engagement App access ladder", () => {
     expect(screen.queryByText("Nothing here for you yet")).toBeNull();
   });
 
-  it("shows the shared no-access card to someone with no Finance privilege", () => {
-    state.info.data = user([], [49]);
+  it("shows the no-access page to someone with no Engagement App privilege, and no Me links", () => {
+    state.info.data = user([], []);
     open("/finance/engagement-app/dashboard");
+    expect(screen.getByText("You don't have access to the Engagement App")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Allocations" })).toBeNull();
+  });
+
+  it("keeps the shared Nothing-here card for the Me area when there is no Me access", () => {
+    state.info.data = user([], []);
+    open("/me/allocations");
     expect(screen.getByText("Nothing here for you yet")).toBeInTheDocument();
   });
 
   it("renders the page once allowed", async () => {
+    state.info.data = user([1], [1, 2, 3]);
     open("/finance/engagement-app/dashboard");
     expect(await screen.findByText("Dashboard page")).toBeInTheDocument();
   });
 });
 
 describe("Engagement App routing", () => {
-  it("lands an employee on the Dashboard", () => {
+  it("lands someone with another Finance screen on the Dashboard", () => {
+    state.info.data = user([1], [1, 2, 3]);
     open("/finance/engagement-app");
     expect(where()).toBe("/finance/engagement-app/dashboard");
+  });
+
+  it("tells a plain employee they have no access, rather than redirecting them to Me", () => {
+    state.info.data = { ...user([1], [49]), accessRequestEmail: "wso2-digital-team@wso2.com" };
+    open("/finance/engagement-app/dashboard");
+    expect(where()).toBe("/finance/engagement-app/dashboard");
+    expect(screen.getByRole("heading", { level: 1, name: "Engagement App" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "You don't have access to the Engagement App" })).toBeInTheDocument();
+    expect(screen.getByText("Your own allocations and travels are under Me.")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Allocations" })).toHaveAttribute("href", "/me/allocations");
+    expect(screen.getByRole("link", { name: "Travels" })).toHaveAttribute("href", "/me/travel-requests");
+    expect(screen.getByRole("link", { name: "wso2-digital-team@wso2.com" })).toHaveAttribute("href", "mailto:wso2-digital-team@wso2.com");
+    expect(screen.getByText(/If you think you need access, email/)).toBeInTheDocument();
+  });
+
+  it("shows the same page at any Finance address, deep ones included", () => {
+    open("/finance/engagement-app/travel-requests/TRV-1/info");
+    expect(screen.getByText("You don't have access to the Engagement App")).toBeInTheDocument();
+    expect(where()).toBe("/finance/engagement-app/travel-requests/TRV-1/info");
+  });
+
+  it("offers only the Me links the person can open", () => {
+    state.info.data = user([], [36]);
+    open("/finance/engagement-app");
+    expect(screen.queryByRole("link", { name: "Allocations" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Travels" })).toBeInTheDocument();
+  });
+
+  it("leaves out the Me sentence when the person has neither Me page", () => {
+    state.info.data = { ...user([], [19]), accessRequestEmail: "team@wso2.com" };
+    open("/finance/engagement-app");
+    expect(screen.getByText("You don't have access to the Engagement App")).toBeInTheDocument();
+    expect(screen.queryByText(/Your own allocations and travels/)).toBeNull();
+    expect(screen.queryByRole("link", { name: "Allocations" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Travels" })).toBeNull();
+  });
+
+  it("hides the contact line when no access request email is configured", () => {
+    open("/finance/engagement-app/dashboard");
+    expect(screen.getByText("You don't have access to the Engagement App")).toBeInTheDocument();
+    expect(screen.queryByText(/If you think you need access/)).toBeNull();
+    expect(screen.queryByRole("link", { name: /@/ })).toBeNull();
+  });
+
+  it("still shows the app to someone with Finance access", async () => {
+    state.info.data = user([1], [1, 2, 3]);
+    open("/finance/engagement-app/dashboard");
+    expect(await screen.findByText("Dashboard page")).toBeInTheDocument();
+    expect(screen.queryByText("You don't have access to the Engagement App")).toBeNull();
   });
 
   it("lands an approver without the Dashboard on Approvals, on its first tab", async () => {
@@ -150,6 +213,13 @@ describe("Engagement App routing", () => {
   });
 
   it("refuses Settings to an employee at its URL, not just in the rail", () => {
+    open("/finance/engagement-app/settings/allocation-types");
+    expect(screen.getByText("You don't have access to the Engagement App")).toBeInTheDocument();
+    expect(screen.queryByText("Settings allocation-types")).toBeNull();
+  });
+
+  it("keeps today's redirect for a page the person lacks while they have other Finance access", () => {
+    state.info.data = user([1], [1, 2, 3]);
     open("/finance/engagement-app/settings/allocation-types");
     expect(where()).toBe("/finance/engagement-app/dashboard");
   });
@@ -168,6 +238,7 @@ describe("Engagement App routing", () => {
   });
 
   it("sends an unknown Engagement App address to the landing", () => {
+    state.info.data = user([1], [1, 2, 3]);
     open("/finance/engagement-app/nowhere");
     expect(where()).toBe("/finance/engagement-app/dashboard");
   });

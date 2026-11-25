@@ -22,16 +22,20 @@ import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { NothingHere, PageTitle } from "@components/perspective-landing/PerspectiveLanding";
 import { isEngagementAppBackendConfigured } from "@config/apiConfig";
 import { useEngagementUserInfo } from "../api/useEngagementUserInfo";
+import { useRefreshAccessOnForbidden } from "../api/useRefreshAccessOnForbidden";
 import { engagementAccess, type EngagementAccess } from "../model/engagementAccess";
 import { engagementPaths } from "../engagementPaths";
+import { DelayedSkeleton } from "./EaSkeletons";
 import { EA_SCOPE_SX } from "./eaStyles";
 import { firstFinanceScreen, myLanding } from "../model/landing";
+import NoEngagementAccess from "./NoEngagementAccess";
 
 const NAME = "Engagement App";
 
 /** The frame every Engagement App route renders in: resolves access once, in the order docs/conventions.md sets out, before any page asks for data. */
 export default function EngagementShell({ area }: { area: "finance" | "me" }): JSX.Element {
   const info = useEngagementUserInfo();
+  useRefreshAccessOnForbidden();
 
   if (!isEngagementAppBackendConfigured()) {
     return (
@@ -51,12 +55,15 @@ export default function EngagementShell({ area }: { area: "finance" | "me" }): J
     return (
       <Box>
         <PageTitle label={NAME} />
-        <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 2 }}>
-          <CircularProgress size={16} />
-          <Typography variant="body2" color="text.secondary">
-            Checking your {NAME} access…
-          </Typography>
-        </Stack>
+        {/* A reload that has the last answer never gets here; a quick answer never shows the spinner. */}
+        <DelayedSkeleton minHeight={40}>
+          <Stack direction="row" spacing={1.25} sx={{ alignItems: "center", mt: 2 }}>
+            <CircularProgress size={16} />
+            <Typography variant="body2" color="text.secondary">
+              Checking your {NAME} access…
+            </Typography>
+          </Stack>
+        </DelayedSkeleton>
       </Box>
     );
   }
@@ -73,7 +80,11 @@ export default function EngagementShell({ area }: { area: "finance" | "me" }): J
   }
 
   const access = engagementAccess(info.data);
-  if (area === "finance" ? !access.anyFinance : !access.anyMe) {
+  // No Finance-side access at all: say so, whatever the address (no silent redirect to Me).
+  if (area === "finance" && !access.anyFinance) {
+    return <NoEngagementAccess access={access} accessRequestEmail={info.data?.accessRequestEmail} />;
+  }
+  if (area === "me" && !access.anyMe) {
     return (
       <Box>
         <PageTitle label={NAME} />

@@ -14,11 +14,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
-// Chips for real statuses only: request, engagement, allocation, travel, invoice, payment, NetSuite and document status.
+// Chips for real statuses only: request, engagement, allocation, travel, expense, invoice, payment, NetSuite and document status.
 
 import type { JSX } from "react";
-import { Box, Typography } from "@wso2/oxygen-ui";
-import { StatusChip } from "@features/finance/components/FinanceChips";
+import { Box, Chip, Typography } from "@wso2/oxygen-ui";
 import type {
   AllocationStatus,
   EngagementStatus,
@@ -30,6 +29,7 @@ import type {
 import {
   allocationTone,
   engagementTone,
+  expenseTone,
   financeApproval,
   invoiceTone,
   poApproval,
@@ -39,9 +39,50 @@ import {
 } from "../model/statuses";
 import { expiresIn } from "../model/format";
 
-export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.Element => (
-  <StatusChip label={label} color={tone} />
-);
+// Fixed colours, the same in every theme: in-progress blue (some themes, like Choreo Labs, make `info` neutral, ink in
+// light and white in dark, which leaves a status looking like plain text) and violet for an extended trip. Each shade
+// passes WCAG AA on its background.
+const FIXED = {
+  info: { light: "#1D4ED8", dark: "#60A5FA" },
+  violet: { light: "#6D28D9", dark: "#A78BFA" },
+} as const;
+
+/** An outlined status chip with a light fill of its own colour, so it reads as a badge rather than text. */
+export const Status = ({ label, tone }: { label: string; tone: ChipTone }): JSX.Element => {
+  const fixed = tone === "info" || tone === "violet" ? FIXED[tone] : undefined;
+  const themed = tone === "success" || tone === "error" || tone === "warning" ? tone : undefined;
+  return (
+    <Chip
+      label={label}
+      color={themed ?? "default"}
+      size="small"
+      variant="outlined"
+      sx={(t) => {
+        // `vars` is absent on a theme without CSS variables.
+        const pal = (t.vars ?? t).palette;
+        return {
+        height: 20,
+        fontSize: 10.5,
+        fontWeight: 600,
+        borderWidth: 1.5,
+        bgcolor: themed ? `color-mix(in srgb, ${pal[themed].main} 14%, transparent)` : pal.action.selected,
+        ...(fixed
+          ? {
+              color: fixed.light,
+              borderColor: fixed.light,
+              bgcolor: `color-mix(in srgb, ${fixed.light} 10%, transparent)`,
+              ...t.applyStyles("dark", {
+                color: fixed.dark,
+                borderColor: fixed.dark,
+                bgcolor: `color-mix(in srgb, ${fixed.dark} 14%, transparent)`,
+              }),
+            }
+          : {}),
+        };
+      }}
+    />
+  );
+};
 
 export const RequestStatusChip = ({ status }: { status: RequestStatus }) => <Status label={status} tone={requestTone(status)} />;
 export const EngagementStatusChip = ({ status }: { status: EngagementStatus }) => (
@@ -51,6 +92,7 @@ export const AllocationStatusChip = ({ status }: { status: AllocationStatus }) =
   <Status label={status} tone={allocationTone(status)} />
 );
 export const TravelStatusChip = ({ status }: { status: TravelStatus }) => <Status label={status} tone={travelTone(status)} />;
+export const ExpenseStatusChip = ({ status }: { status: string }) => <Status label={status} tone={expenseTone(status)} />;
 export const InvoiceStatusChip = ({ invoice }: { invoice: Pick<Invoice, "status"> }) => (
   <Status label={invoice.status} tone={invoiceTone(invoice.status)} />
 );

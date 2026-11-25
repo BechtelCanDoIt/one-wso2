@@ -2391,6 +2391,12 @@ export const engagementServiceUrls = {
   campaigns: (search: string): string => ea("/campaigns", { search, limit: 20 }),
   employees: (search: string, limit = 20): string => ea("/employees", { search, limit }),
   dashboard: ea("/dashboard"),
+  // An explicit empty `sections` is the widget catalogue alone: the date and the widgets, with no section computed.
+  dashboardCatalogue: `${engagementAppBackendUrl}/dashboard?sections=`,
+  /** The dashboard with only these sections (a widget the caller turned on that is not on by default). */
+  dashboardSections: (sections: readonly string[]): string => ea("/dashboard", { sections: sections.join(",") }),
+  travelCosts: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs", params),
+  travelCostTransactions: (params: EngagementQueryParams): string => ea("/dashboard/travel-costs/transactions", params),
   allocationsToday: (params: EngagementQueryParams): string => ea("/dashboard/allocations-today", params),
   myOverview: ea("/me/overview"),
   myAllocations: (params: EngagementQueryParams = {}): string => ea("/me/allocations", params),
@@ -2420,6 +2426,7 @@ export const engagementServiceUrls = {
   perDiem: (job: string, id: string): string => ea(`/travel-requests/${encodeSegment(job)}/per-diems/${encodeSegment(id)}`),
   tripInvoices: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/invoices`),
   travelCards: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/travel-cards`),
+  jobCostSummary: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/cost-summary`),
   tripExpenses: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/expenses`),
   tripPayments: (job: string): string => ea(`/travel-requests/${encodeSegment(job)}/per-diem-payments`),
   invoices: (params: EngagementQueryParams = {}): string => ea("/invoices", params),

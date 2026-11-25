@@ -16,6 +16,8 @@
 
 // The view models the Engagement App screens draw.
 
+import type { AccountManagerStats, EngagementManagerStats, MarketingEventStats, TravelTeamStats, TripVisa, WidgetRef } from "./dashboardTypes";
+
 // ---------------------------------------------------------------- vocabularies
 
 /** Legacy engagement type ids: 1 Internal, 2 Paid (retired), 3 Non-Paid Pre Sale, 4 Non-Paid Post Sale, 5 Marketing Event, 6 Paid Post Sale, 7 Paid Pre Sale. */
@@ -62,6 +64,8 @@ export interface UserInfo {
   readonly allocations: AppAccess;
   readonly travel: AppAccess & { readonly agency?: { readonly id: number; readonly name: string } | null };
   readonly workQueues?: WorkQueues;
+  /** Where to ask for access; absent when the backend has none configured. */
+  readonly accessRequestEmail?: string;
 }
 
 /** A list page, the total it was cut from, and the per-tab counts. */
@@ -196,7 +200,7 @@ export interface Allocation {
   readonly canChangeStatus?: boolean;
 }
 
-/** One own allocation on the Me card, My Allocations and the Dashboard's My Work. */
+/** One own allocation on the Me card, and My Allocations. */
 export interface UpcomingAllocation {
   readonly id: string;
   readonly engagementId: string;
@@ -205,6 +209,8 @@ export interface UpcomingAllocation {
   readonly end: string;
   readonly status?: AllocationStatus;
   readonly current?: boolean;
+  /** The person may open the engagement (false until the backend says so). */
+  readonly canOpen?: boolean;
 }
 
 /** A bar on the allocation timeline: an engagement allocation or a team (default) allocation. */
@@ -597,10 +603,29 @@ export interface UpcomingTrip {
   readonly status?: TravelStatus;
 }
 
+/** A cost source, as the backend names it. */
+export type CostSource = "invoice" | "perDiem" | "card" | "claim";
+
+/** An amount left out of the USD totals because no rate was found for its currency. */
+export interface NotConverted {
+  readonly source: CostSource;
+  /** Blank when the source did not record a currency. */
+  readonly currency: string;
+  readonly amount: number;
+  readonly lines?: number;
+}
+
 export interface Dashboard {
+  /** The business date (UTC) the backend computed for; absent from an older backend. */
+  readonly date?: string;
+  /** Every widget the caller may see, in catalogue order. Absent from an older backend. */
+  readonly widgets?: readonly WidgetRef[];
+  readonly travelTeam?: TravelTeamStats;
+  readonly engagementManager?: EngagementManagerStats;
+  readonly accountManager?: AccountManagerStats;
+  readonly marketingEvents?: MarketingEventStats;
   /** Sections the backend could not build; each is omitted from the response. */
   readonly failed: readonly string[];
-  readonly myWork?: { readonly allocations: readonly UpcomingAllocation[]; readonly trips: readonly UpcomingTrip[] };
   readonly queue?: readonly QueueTile[];
   readonly allocationsOverTime?: {
     readonly byMonth: readonly MonthValue[];
@@ -633,19 +658,6 @@ export interface Dashboard {
     readonly byMonth: readonly MonthValue[];
     readonly byTravelAgent: readonly CountRow[];
   };
-  readonly travelCost?: {
-    /** USD at month-end rates. */
-    readonly total: number;
-    readonly invoices: number;
-    readonly perDiems: number;
-    /** Only for the travel finance roles. */
-    readonly creditCards?: number;
-    readonly expenseClaims?: number;
-    readonly lastMonth?: number;
-    readonly currentMonth?: number;
-    readonly byMonth: readonly { readonly month: string; readonly invoices: number; readonly perDiems: number; readonly creditCards?: number; readonly expenseClaims?: number }[];
-    readonly byType: readonly CountRow[];
-  };
   /** The travel agent's own dashboard; present instead of the sections above. */
   readonly agency?: {
     readonly name: string;
@@ -657,15 +669,6 @@ export interface Dashboard {
     readonly upcomingTotal: number;
     readonly invoicesByStatus: readonly CountRow[];
     readonly tripsByMonth: readonly MonthValue[];
-    readonly perDiemsOnOpenTrips: readonly {
-      readonly jobNumber: string;
-      readonly traveller: Person;
-      readonly start: string;
-      readonly end: string;
-      readonly days: number;
-      readonly currency: string;
-      readonly total: number;
-    }[];
   };
 }
 
@@ -705,6 +708,7 @@ export interface ConsultantAllocationRow {
 
 /** GET /me/overview: the Me overview card. Both lists empty means no card. */
 export interface MyOverview {
+  readonly tripVisas?: readonly TripVisa[];
   readonly allocations: readonly UpcomingAllocation[];
   readonly trips: readonly UpcomingTrip[];
 }

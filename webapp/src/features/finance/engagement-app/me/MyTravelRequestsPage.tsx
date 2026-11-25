@@ -25,6 +25,7 @@ import { myEngagementPaths } from "../engagementPaths";
 import { TRAVEL_STATUSES } from "../model/statuses";
 import { useListView } from "../model/useListView";
 import { travelColumns } from "../travel/travelColumns";
+import { TravelsFocus } from "./FocusCards";
 
 /** My Travels: the Travel app's My Travel Requests page. */
 export default function MyTravelRequestsPage(): JSX.Element {
@@ -41,7 +42,8 @@ export default function MyTravelRequestsPage(): JSX.Element {
     .sort((a, b) => (a.start < b.start ? 1 : -1));
   const pair = (v: string): readonly [string, string] => [v, v];
   return (
-    <EaPage title="My Travels" subtitle="Your travels, with the per diems, invoices and payments booked against them.">
+    <EaPage title="Travels" subtitle="Your travels, with the per diems, invoices and payments booked against them.">
+      <TravelsFocus trips={all} />
       <ListCard>
         <ListToolbar
             search={list.search}
@@ -65,7 +67,7 @@ export default function MyTravelRequestsPage(): JSX.Element {
             columns={travelColumns({ traveller: false })}
             rows={rows}
             rowKey={(t) => t.jobNumber}
-            loading={trips.isPending}
+            loading={trips.isPending || trips.isPlaceholderData}
             onRowClick={(t) => navigate(myEngagementPaths.travelRequest(t.jobNumber))}
             empty={
               all.length ? (

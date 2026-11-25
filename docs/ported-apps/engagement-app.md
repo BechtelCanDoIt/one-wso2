@@ -24,14 +24,14 @@ UI never merges them (`model/engagementAccess.ts`).
 
 | Persona (Asgardeo group) | Gets |
 |---|---|
-| Every employee (`wso2-employees`) | Dashboard (Allocations 1); Me: My Travels (Travel 49/36), Passport & Visas (Travel 20/23), My Allocations |
+| Every employee (`wso2-employees`) | Me only: a plain employee has no Finance screen and is sent to Me. The Dashboard (Allocations 1) opens only for someone with another Finance screen. Me: Allocations, Travels (Travel 49/36), Passport & Visas (Travel 20/23) |
 | Account Manager, Customer / Internal / Marketing Event Managers | Engagements (create, edit, status), Allocations, Allocate per type |
 | Pre-Sale / Post-Sale Engagement Managers | Allocate on their types (33 / 32), with the Allocate page's reads (6, 16 or 21), as in production |
 | Internal Engagement / Marketing Event Approvers | Approvals (26 / 29; approve needs 28 and a PATCH privilege, as the legacy page checks) |
 | Reports Viewer, Allocations Finance Manager | Engagements and Allocations read-only, Reports (22) |
-| Travel Team (`app-travel-manager-po`) | Travel Requests (New / All), Assign, Update, per diems, PO approval of invoices, Visas & Documents |
-| Travel finance roles | Travel Requests, Invoices & Payments (queues, push, NS Sync Failures), Reports, Visas |
-| Travel agents (`app-travel-agent*`) | Their agency's Dashboard and Travel Requests only (Travel 18 without 1 / 2) |
+| Travel Team (`app-travel-manager-po`) | Travels (New / All), Assign, Update, per diems, PO approval of invoices, Visas & Documents |
+| Travel finance roles | Travels, Invoices & Payments (queues, push, NS Sync Failures), Reports, Visas |
+| Travel agents (`app-travel-agent*`) | Their agency's Dashboard and Travels only (Travel 18 without 1 / 2) |
 | Allocations / Travel Super Admin | Everything their app allows, Settings → Role Settings (23 / Travel 29) |
 
 ---
@@ -45,19 +45,19 @@ Paths are built in `features/finance/engagement-app/engagementPaths.ts`; no comp
 | Rail item | Id | Target | Access |
 |---|---|---|---|
 | Engagement App (Finance group) | `sec-app-engagement-app` | — | any Finance row |
-| Dashboard | `finance-ea-dashboard` | `/dashboard` | Allocations 1, or a travel agent |
+| Dashboard | `finance-ea-dashboard` | `/dashboard` | Allocations 1 and at least one other Finance screen, or a travel agent |
 | Approvals | `finance-ea-approvals` | `/approvals` | Allocations 26 / 29 |
 | Engagements | `finance-ea-engagements` | `/engagements` | Allocations 2, 3, 9, 11, 12, 13, 19 |
 | Allocations | `finance-ea-allocations` | `/allocations` | Allocations 9, 19, 21 |
-| Travel Requests | `finance-ea-travel-requests` | `/travel-requests` | Travel 1, 2, 18 |
+| Travels | `finance-ea-travel-requests` | `/travel-requests` | Travel 1, 2, 18 |
 | Invoices & Payments | `finance-ea-invoices` | `/invoices` | Travel 39 / 41 |
 | Reports | `finance-ea-reports` | `/reports` | Allocations 22, Travel 39 / 41 |
 | Visas & Documents | `finance-ea-visas` | `/visas-documents` | Travel 8 / 11 |
 | Settings | `finance-ea-settings` | `/settings` | Allocations 23, 24, 25, Travel 29 |
 | Engagement App (Me group) | `sec-app-my-engagement-app` | — | any Me row |
-| My Travels | `me-ea-travel-requests` | `/me/travel-requests` | Travel 49 / 36 |
+| Travels (Me) | `me-ea-travel-requests` | `/me/travel-requests` | Travel 49 / 36 |
 | Passport & Visas | `me-ea-passport-visas` | `/me/passport-visas` | Travel 20 / 23 |
-| My Allocations | `me-ea-allocations` | `/me/allocations` | Allocations 1 or Travel 49 |
+| Allocations (Me) | `me-ea-allocations` | `/me/allocations` | Allocations 1 or Travel 49 |
 
 The rows come from `constants/engagementApps.ts`, spread into the Finance and Me sections only while the
 flag is on. Both groups use `alwaysGroup: true`.
@@ -75,7 +75,7 @@ flag is on. Both groups use `alwaysGroup: true`.
 | `/engagements/:id/edit[?mode=pending]` | Edit, or edit while Pending Approval |
 | `/engagements/:id/allocate` | Allocate page |
 | `/allocations/engagement`, `/allocations/team` | Engagement Allocations, Team Allocations |
-| `/travel-requests/new`, `/in-progress`, `/completed`, `/all` | Travel Requests tabs |
+| `/travel-requests/new`, `/in-progress`, `/completed`, `/all` | Travels tabs |
 | `/travel-requests/:job/info`, `/per-diems`, `/invoices`, `/travel-cards`, `/payments` | Travel request tabs |
 | `/invoices/po`, `/finance`, `/push`, `/payments-push`, `/sync-failures`, `/all-invoices`, `/all-payments` | Invoices & Payments tabs |
 | `/reports/consultant-allocations`, `/invoices`, `/per-diem-payments` | Reports tabs |
@@ -86,10 +86,11 @@ flag is on. Both groups use `alwaysGroup: true`.
 
 | Target | Screen |
 |---|---|
-| `/me/travel-requests` | My Travels |
+| `/me/travel-requests` | Travels (Me) |
 | `/me/travel-requests/:job/:tab` | the person's own travel request (same page, Me rail, read-only actions) |
 | `/me/passport-visas/documents`, `/visas` | Passport & Visas |
-| `/me/allocations` | My Allocations (read-only, new in-app view) |
+| `/me/allocations` | Allocations (Me; read-only, new in-app view) |
+| `/me/allocations/:id/:tab` | the person's engagement under Me (same page, Me rail, read-only, no actions) |
 
 ### 2.4 Routing rules
 
@@ -117,7 +118,7 @@ message inline). Chips only for real statuses. Every empty list says why and off
   (starting in 30 days, available consultants), Allocations Today (the legacy dashboard: Business Unit,
   Today / Past Date, the three breakdowns), Allocations Over Time. Sections appear as the backend sends
   them. Visas and passports are not on the dashboard. Travel agents get At a Glance tiles, Upcoming Trips,
-  Invoices by Status, Trips by Month and Per Diems on Open Trips for their agency.
+  Invoices by Status and Trips by Month for their agency (no per diem amounts).
 - **Approvals** — the legacy Approve page's two tabs; Approve on the row; Edit while pending.
 - **Engagements** — Customer / Internal / Marketing Events with the legacy filters; Allocate (per type),
   Edit, Mark as Completed / Reopen, Change Engagement Status (Cancelled cascades on the backend).
@@ -133,7 +134,7 @@ message inline). Chips only for real statuses. Every empty list says why and off
   and checks; Allocation Records.
 - **Allocations** — engagement allocations list with Change Status; Team Allocations (search by Business
   Unit / Department / Team, timeline, Add / Edit / Delete default allocations, Bulk Upload).
-- **Travel Requests** — New / In Progress / Completed / All (one or two new ones show above In Progress);
+- **Travels** — New / In Progress / Completed / All (one or two new ones show above In Progress);
   Assign (Travel Handled By, Travel Status, Select Visa; Submit asks Assign / Make On Hold / Cancel);
   Update Travel Details with the legacy transitions.
 - **Travel request page** — Travel Information, Per Diems (Add with the legacy maths, Delete), Travel
@@ -226,7 +227,7 @@ buttons follow them; the legacy privilege rules stand in only when it carries no
 - **Shell, navigation, sign-in, theme**: One WSO2's. The two legacy apps' menus become two rail groups;
   their pages become tabs (§2).
 - **Merged screens**: Customer and Internal Engagements hubs → Engagements; New / All Travel Requests →
-  Travel Requests; All Invoices and All Per Diem Payments → Invoices & Payments with work-queue tabs; Visa
+  Travels; All Invoices and All Per Diem Payments → Invoices & Payments with work-queue tabs; Visa
   Details and Travel Documents → Visas & Documents; both Role Settings → Settings.
 - **New in Release 1**: Campaign Name Tracking on marketing events (and on their travel requests,
   invoices, payments, filters and CSV exports); NS Sync Failures with Re-sync; My Allocations and the Me

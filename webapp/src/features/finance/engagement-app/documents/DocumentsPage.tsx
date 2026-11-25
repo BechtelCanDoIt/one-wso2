@@ -126,7 +126,7 @@ function AllDocuments({ tab, tabs }: { tab: DocumentsTab; tabs: DocumentsTab[] }
             columns={visaColumns(false, today)}
             rows={visas.data?.items ?? []}
             rowKey={(v) => v.id}
-            loading={visas.isPending}
+            loading={visas.isPending || visas.isPlaceholderData}
             onRowClick={canInfo ? setOpen : undefined}
             menu={canEdit ? (v) => [{ label: "Edit Visa", onClick: () => setEditing(v) }] : undefined}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: visas.data?.total ?? 0, onPage: list.setPage }}
@@ -144,7 +144,7 @@ function AllDocuments({ tab, tabs }: { tab: DocumentsTab; tabs: DocumentsTab[] }
             columns={documentColumns(false, today)}
             rows={docs.data?.items ?? []}
             rowKey={(d) => d.id}
-            loading={docs.isPending}
+            loading={docs.isPending || docs.isPlaceholderData}
             onRowClick={canInfo ? setOpen : undefined}
             menu={canEdit ? (d) => [{ label: "Edit Travel Document", onClick: () => setEditing(d) }] : undefined}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: docs.data?.total ?? 0, onPage: list.setPage }}
@@ -234,7 +234,7 @@ function OwnDocuments({ tab, tabs }: { tab: DocumentsTab; tabs: DocumentsTab[] }
             columns={visaColumns(true, today)}
             rows={shownVisas}
             rowKey={(v) => v.id}
-            loading={visas.isPending}
+            loading={visas.isPending || visas.isPlaceholderData}
             onRowClick={p.t.has(TRAVEL.VIEW_OWN_VISA) ? setOpen : undefined}
             empty={mine ? <Empty title="No Visas Match" body="Change the search or the filters to see more." /> : none}
           />
@@ -244,7 +244,7 @@ function OwnDocuments({ tab, tabs }: { tab: DocumentsTab; tabs: DocumentsTab[] }
             columns={documentColumns(true, today)}
             rows={shownDocs}
             rowKey={(d) => d.id}
-            loading={docs.isPending}
+            loading={docs.isPending || docs.isPlaceholderData}
             onRowClick={p.t.has(TRAVEL.VIEW_OWN_DOCUMENT) ? setOpen : undefined}
             empty={mine ? <Empty title="No Travel Documents Match" body="Change the search or the filters to see more." /> : none}
           />

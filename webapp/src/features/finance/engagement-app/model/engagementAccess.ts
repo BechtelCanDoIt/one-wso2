@@ -190,11 +190,10 @@ export function engagementAccess(info: UserInfo | undefined): EngagementAccess {
   const travelRoles = bothSuperAdmin && t.has(TRAVEL.ROLE_SETTINGS);
   const allocationTypes = a.has(ALLOC.ALLOCATION_TYPES);
 
-  const access = {
+  const base = {
     p,
     isAgent,
     agencyName: info?.travel.agency?.name,
-    // The legacy Allocations Dashboard (privilege 1, every employee); agents get their own.
     dashboard: a.has(ALLOC.DASHBOARD) || isAgent,
     approvals: anyOf(a, ALLOC.APPROVE_INTERNAL_VIEW, ALLOC.APPROVE_MARKETING_VIEW),
     engagements: customerEngagements || internalEngagements,
@@ -226,6 +225,12 @@ export function engagementAccess(info: UserInfo | undefined): EngagementAccess {
     // Own allocations are new in Release 1 (read-only); every employee holds Allocations 1.
     myAllocations: a.has(ALLOC.DASHBOARD) || t.has(TRAVEL.MY_TRAVEL_REQUESTS),
   };
+  // The Dashboard (Allocations 1, which every employee holds) only for someone with another Finance screen. A plain
+  // employee's Dashboard would hold nothing that Me does not already cover, so the Engagement App stays out of their
+  // Finance menu. Agents get their own dashboard.
+  const otherFinance =
+    base.approvals || base.engagements || base.allocations || base.travelRequests || base.invoices || base.reports || base.visasDocuments || base.settings;
+  const access = { ...base, dashboard: isAgent || (a.has(ALLOC.DASHBOARD) && otherFinance) };
   return {
     ...access,
     anyFinance:

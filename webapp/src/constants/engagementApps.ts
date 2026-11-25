@@ -66,7 +66,7 @@ export const ENGAGEMENT_APPS: readonly MenuApp[] = [
       { id: ENGAGEMENT_ITEM.approvals, label: "Approvals", icon: InboxIcon, desc: "Internal engagements and marketing events waiting for approval.", requires: ["admin"], path: engagementPaths.approvals() },
       { id: ENGAGEMENT_ITEM.engagements, label: "Engagements", icon: BriefcaseIcon, desc: "Customer engagements, internal engagements and marketing events.", requires: ["admin"], path: engagementPaths.engagements() },
       { id: ENGAGEMENT_ITEM.allocations, label: "Allocations", icon: UsersIcon, desc: "Engagement allocations and team allocations.", requires: ["admin"], path: engagementPaths.allocations() },
-      { id: ENGAGEMENT_ITEM.travelRequests, label: "Travel Requests", icon: PlaneIcon, desc: "Travel requests from confirmed allocations.", requires: ["admin"], path: engagementPaths.travelRequests() },
+      { id: ENGAGEMENT_ITEM.travelRequests, label: "Travels", icon: PlaneIcon, desc: "Travel requests from confirmed allocations.", requires: ["admin"], path: engagementPaths.travelRequests() },
       { id: ENGAGEMENT_ITEM.invoices, label: "Invoices & Payments", icon: ReceiptIcon, desc: "Travel invoices and per diem payments, with their approval and NetSuite status.", requires: ["admin"], path: engagementPaths.invoices() },
       { id: ENGAGEMENT_ITEM.reports, label: "Reports", icon: TableIcon, desc: "Consultant allocations, travel invoices and per diem payments, with Export CSV.", requires: ["admin"], path: engagementPaths.reports() },
       { id: ENGAGEMENT_ITEM.visas, label: "Visas & Documents", icon: StampIcon, desc: "Employees' visas and travel documents.", requires: ["admin"], path: engagementPaths.documents() },
@@ -82,9 +82,9 @@ export const MY_ENGAGEMENT_APPS: readonly MenuApp[] = [
     icon: BriefcaseBusinessIcon,
     purpose: "Your travel requests, passport and visas, and allocations.",
     items: [
-      { id: ENGAGEMENT_ITEM.myTravelRequests, label: "My Travels", icon: PlaneIcon, desc: "Your travels, with their per diems, invoices and payments.", requires: ["admin"], path: myEngagementPaths.travelRequests },
+      { id: ENGAGEMENT_ITEM.myAllocations, label: "Allocations", icon: CalendarRangeIcon, desc: "Where you are allocated, and when.", requires: ["admin"], path: myEngagementPaths.allocations },
+      { id: ENGAGEMENT_ITEM.myTravelRequests, label: "Travels", icon: PlaneIcon, desc: "Your travels, with their per diems, invoices and payments.", requires: ["admin"], path: myEngagementPaths.travelRequests },
       { id: ENGAGEMENT_ITEM.myDocuments, label: "Passport & Visas", icon: IdCardIcon, desc: "Your passport, other travel documents and visas.", requires: ["admin"], path: myEngagementPaths.documents() },
-      { id: ENGAGEMENT_ITEM.myAllocations, label: "My Allocations", icon: CalendarRangeIcon, desc: "Where you are allocated, and when.", requires: ["admin"], path: myEngagementPaths.allocations },
     ],
   },
 ];

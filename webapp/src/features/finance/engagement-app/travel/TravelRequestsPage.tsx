@@ -47,7 +47,7 @@ export function TravelRequestsIndex(): JSX.Element {
   return <Navigate to={engagementPaths.travelRequests(access.newTravelRequests ? "new" : "in-progress")} replace />;
 }
 
-/** Travel Requests: the legacy New Travel Requests and All Travel Requests as one list with tabs; a travel agent sees only the agency's requests. */
+/** Travels: the travel requests in tabs; a travel agent sees only the agency's requests. */
 export default function TravelRequestsPage({ segment }: { segment: TravelSegment }): JSX.Element {
   const access = useEngagementAccess();
   const segments = segmentsOf(access);
@@ -76,7 +76,7 @@ export default function TravelRequestsPage({ segment }: { segment: TravelSegment
 
   return (
     <EaPage
-      title="Travel Requests"
+      title="Travels"
       subtitle={
         agent
           ? "Travel requests handled by your agency."
@@ -88,7 +88,7 @@ export default function TravelRequestsPage({ segment }: { segment: TravelSegment
       {showFresh ? (
         <Box sx={{ mb: 2 }}>
           <ListCard>
-            <SectionTitle>New Travel Requests</SectionTitle>
+            <SectionTitle>New Travels</SectionTitle>
             <EaTable ariaLabel="New travel requests" columns={columns} rows={freshRows} rowKey={(t) => t.jobNumber} onRowClick={open} primaryAction={primary} empty={null} />
           </ListCard>
         </Box>
@@ -120,20 +120,20 @@ export default function TravelRequestsPage({ segment }: { segment: TravelSegment
             columns={columns}
             rows={trips.data?.items ?? []}
             rowKey={(t) => t.jobNumber}
-            loading={trips.isPending}
+            loading={trips.isPending || trips.isPlaceholderData}
             onRowClick={open}
             primaryAction={primary}
             menu={menu}
             pagination={{ page: list.page, pageSize: PAGE_SIZE, total: trips.data?.total ?? 0, onPage: list.setPage }}
             empty={
               Object.keys(list.filters).length || list.search ? (
-                <Empty title="No Travel Requests Match" body="Change the search or the filters to see more." />
+                <Empty title="No Travels Match" body="Change the search or the filters to see more." />
               ) : segment === "new" ? (
-                <Empty title="No New Travel Requests" body="Every travel request has a travel agent. New ones arrive when an allocation that needs travel is confirmed." />
+                <Empty title="No New Travels" body="Every travel request has a travel agent. New ones arrive when an allocation that needs travel is confirmed." />
               ) : segment === "in-progress" ? (
-                <Empty title="No Travel Requests In Progress" body="Requests move here once a travel agent is assigned." />
+                <Empty title="No Travels In Progress" body="Requests move here once a travel agent is assigned." />
               ) : (
-                <Empty title="No Travel Requests Yet" body="A travel request is created when an allocation with Travel Required = Yes is confirmed." />
+                <Empty title="No Travels Yet" body="A travel request is created when an allocation with Travel Required = Yes is confirmed." />
               )
             }
           />
