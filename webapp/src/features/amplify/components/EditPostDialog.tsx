@@ -32,8 +32,12 @@ import type { Campaign } from "../api/amplifyTypes";
 import { useEditCampaign } from "../api/useAmplifyMutations";
 import { describeAmplifyError } from "../util/amplifyError";
 import { closesAtFromDateInput } from "../util/linkedinPost";
+import { checkImageUrl } from "../util/imageUrlCheck";
+import { useUrlCheck } from "../util/useUrlCheck";
 import CategoryPicker from "./CategoryPicker";
 import DeletePostDialog from "./DeletePostDialog";
+import ImagePreview from "./ImagePreview";
+import UrlCheckField from "./UrlCheckField";
 
 /**
  * Update Post: the card fields Amplify owns (headline, summary, post link, image,
@@ -53,6 +57,8 @@ export default function EditPostDialog({ campaign, onClose }: { campaign: Campai
   const [isPriority, setIsPriority] = useState(campaign.isPriority);
   const [trackUntil, setTrackUntil] = useState(campaign.closesAt.slice(0, 10));
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  // The stored image is checked as the dialog opens, and again whenever the box loses focus.
+  const imageCheck = useUrlCheck(checkImageUrl, imageUrl, campaign.imageUrl ?? "");
   const busy = edit.isPending;
 
   const save = () => {
@@ -97,6 +103,7 @@ export default function EditPostDialog({ campaign, onClose }: { campaign: Campai
             slotProps={{ htmlInput: { maxLength: 200 } }}
             disabled={busy}
           />
+          {imageCheck.state === "ok" && <ImagePreview url={imageUrl.trim()} />}
           <TextField
             label="Card summary"
             value={summary}
@@ -116,11 +123,12 @@ export default function EditPostDialog({ campaign, onClose }: { campaign: Campai
             slotProps={{ htmlInput: { maxLength: 2048 } }}
             disabled={busy}
           />
-          <TextField
+          <UrlCheckField
             label="Image URL (optional)"
+            subject="Image URL"
             value={imageUrl}
             onChange={(e) => setImageUrl(e.target.value)}
-            fullWidth
+            urlCheck={imageCheck}
             disabled={busy}
           />
           <CategoryPicker value={category} onChange={setCategory} disabled={busy} />

@@ -29,18 +29,11 @@ Use this when Marketing has published a post on the WSO2 LinkedIn company page a
 2. **LinkedIn post.** Easiest route: paste the post's link or URN into **Post ID**. Amplify fills in the post type (`share`, `ugcPost` or `activity`) and the numeric ID for you. Or pick the type and type the digits yourself. It must be a post on the WSO2 company page. Amplify rejects anything else.
 3. **Headline.** Up to 200 characters. Shown on every card.
 4. **Card summary.** Two or three lines, up to 2,000 characters. Shown on the cards in One WSO2.
-5. **Image URL** (optional). An HTTPS link to the post's image. Without one, or if it fails to load, the card shows the black Amplify default image.
+5. **Image URL** (optional). An HTTPS link to the post's image. When you click out of the box, Amplify tries to load the image. A green check means it loaded, and the image appears under **Headline** as a preview. A red stop sign and red text mean it didn't load (or that this site doesn't allow images from that host yet); there's no preview, and the card would show the black Amplify default image. Empty shows nothing.
 6. **Category.** Product, Company news, Customer story, Event, Thought leadership or Careers. Pick one.
 7. **Priority** switch. A priority post is marked on every card and sorts to the top of everyone's list. Use it sparingly, or it stops meaning anything.
 8. **Track engagement until.** The date Amplify stops counting this post. Blank means 30 days after the post date.
-9. Click **Save & share now** or **Save**.
-
-| Button | What happens |
-|---|---|
-| **Save & share now** | Registers the post and starts an Amplify run right away. Employees see it on Celebrate within minutes, and Novera announces it. |
-| **Save** | Registers the post. It goes out with the next scheduled Amplify run (every five minutes by default). |
-
-Both buttons take you to Current Posts afterward.
+9. Click **Save & share now**. It registers the post and starts an Amplify run right away. Employees see it on Celebrate within minutes, and Novera announces it. You land on Current Posts afterward.
 
 **If you see a yellow warning** saying no LinkedIn company page is configured, posts can't be registered yet. That's a setup item on the Amplify service (`WSO2ORGANIZATIONURN`). Tell the Amplify team.
 
@@ -54,7 +47,7 @@ Current Posts lists every post that isn't archived, three at a time (use the arr
 | **Next run** | Registered and waiting for the next Amplify run. |
 | **Closed** | Past its tracking date. Employees no longer see it. |
 
-Click **Update post** to change its **Headline**, **Card summary**, **Post URL**, **Image URL**, **Category**, **Priority** flag or **Track engagement until** date. Click **Save**.
+Click **Update post** to change its **Headline**, **Card summary**, **Post URL**, **Image URL**, **Category**, **Priority** flag or **Track engagement until** date. The image check works the same way here: the stored image is checked when the dialog opens. Click **Save**.
 
 Two things to know:
 
@@ -154,6 +147,6 @@ The Amplify service has more than the One WSO2 screens show. These work through 
 |---|---|
 | New Post, Current Posts or Dashboarding is missing from the menu | You're not in the group that grants it. Ask the Amplify team to add you. |
 | "Couldn't load" on a board | Click **Retry**. If it keeps failing, check the Operations board and tell the Amplify team. |
-| A saved post isn't on Celebrate yet | Saved with **Save**? It waits for the next run. Use **Save & share now** to start one immediately. |
+| A saved post isn't on Celebrate yet | Give the Amplify run a few minutes. Posts go out with the next scheduled run (every five minutes by default). |
 | Employees say Amplify won't let them share | Check **Connections** on Operations. Their link may be expired or revoked. They link again from the Amplify pop-up. |
 | Shares show as failed | See **Share health** on Operations. Failed shares retry when the employee clicks Amplify again. |

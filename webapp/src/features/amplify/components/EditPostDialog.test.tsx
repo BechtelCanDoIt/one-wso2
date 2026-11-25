@@ -29,6 +29,9 @@ vi.mock("@context/notifications/NotificationsContext", () => ({
 }));
 vi.mock("./CategoryPicker", () => ({ default: () => <div /> }));
 
+const checkImageUrl = vi.fn();
+vi.mock("../util/imageUrlCheck", () => ({ checkImageUrl: (...args: unknown[]) => checkImageUrl(...args) }));
+
 import EditPostDialog from "./EditPostDialog";
 
 const campaign = {
@@ -102,5 +105,49 @@ describe("EditPostDialog delete", () => {
     fireEvent.click(screen.getByRole("button", { name: "Go" }));
     expect(archive.mock.calls[0][0]).toEqual({ id: "c-1" });
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("EditPostDialog image URL check", () => {
+  const withImage = { ...campaign, imageUrl: "https://media.licdn.com/a.png" } as Campaign;
+  beforeEach(() => checkImageUrl.mockReset());
+
+  it("checks the stored image when the dialog opens and shows the preview between headline and summary", async () => {
+    checkImageUrl.mockResolvedValue("ok");
+    render(<EditPostDialog campaign={withImage} onClose={vi.fn()} />);
+    expect(checkImageUrl).toHaveBeenCalledWith("https://media.licdn.com/a.png", expect.anything());
+    const preview = (await screen.findByAltText("Preview of the post image")) as HTMLImageElement;
+    expect(preview.src).toBe("https://media.licdn.com/a.png");
+    expect(screen.getByRole("img", { name: "Image URL is good" })).toBeTruthy();
+    const headline = screen.getByLabelText(/Headline/);
+    const summary = screen.getByLabelText(/Card summary/);
+    expect(headline.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(preview.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("marks a bad stored image and shows no preview", async () => {
+    checkImageUrl.mockResolvedValue("bad");
+    render(<EditPostDialog campaign={withImage} onClose={vi.fn()} />);
+    expect(await screen.findByRole("img", { name: "Image URL has a problem" })).toBeTruthy();
+    expect(screen.queryByAltText("Preview of the post image")).toBeNull();
+  });
+
+  it("checks nothing on open when there is no image, and checks an edited value on blur", async () => {
+    checkImageUrl.mockResolvedValue("ok");
+    render(<EditPostDialog campaign={campaign} onClose={vi.fn()} />);
+    expect(checkImageUrl).not.toHaveBeenCalled();
+    expect(screen.queryByRole("img", { name: /Image URL/ })).toBeNull();
+    const box = screen.getByRole("textbox", { name: /Image URL/ });
+    fireEvent.change(box, { target: { value: "https://media.licdn.com/c.png" } });
+    fireEvent.blur(box);
+    expect(await screen.findByAltText("Preview of the post image")).toBeTruthy();
+  });
+
+  it("still sends the image URL on save", () => {
+    checkImageUrl.mockResolvedValue("ok");
+    mutate.mockClear();
+    render(<EditPostDialog campaign={withImage} onClose={vi.fn()} />);
+    save();
+    expect(patchOf().imageUrl).toBe("https://media.licdn.com/a.png");
   });
 });

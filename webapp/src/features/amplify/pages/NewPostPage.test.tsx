@@ -15,7 +15,7 @@
 // under the License.
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mutate = vi.fn();
 vi.mock("../api/useAmplifyMutations", () => ({ useRegisterCampaign: () => ({ mutate, isPending: false }) }));
@@ -36,16 +36,22 @@ vi.mock("../components/AmplifyShell", () => ({
 }));
 vi.mock("../components/CategoryPicker", () => ({ default: () => <div /> }));
 
+const checkImageUrl = vi.fn();
+vi.mock("../util/imageUrlCheck", () => ({ checkImageUrl: (...args: unknown[]) => checkImageUrl(...args) }));
+
 import NewPostPage from "./NewPostPage";
 
 describe("NewPostPage post type and id", () => {
-  beforeEach(() => mutate.mockClear());
+  beforeEach(() => {
+    mutate.mockClear();
+    checkImageUrl.mockReset();
+  });
 
   const fill = (id: string) => {
     fireEvent.change(screen.getByLabelText(/Post ID/), { target: { value: id } });
     fireEvent.change(screen.getByLabelText(/Headline/), { target: { value: "Hello" } });
   };
-  const save = () => fireEvent.click(screen.getByRole("button", { name: /^Save$/ }));
+  const save = () => fireEvent.click(screen.getByRole("button", { name: /^Save & share now$/ }));
 
   it("shows the fixed LinkedIn prefix and registers a share by default", () => {
     render(<NewPostPage />);
@@ -72,5 +78,79 @@ describe("NewPostPage post type and id", () => {
     fill("https://www.linkedin.com/feed/update/urn:li:activity:7123/");
     save();
     expect(mutate).not.toHaveBeenCalled();
+  });
+});
+
+describe("NewPostPage buttons", () => {
+  it("has only Save & share now, and it shares", () => {
+    render(<NewPostPage />);
+    expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
+    expect(screen.queryByText(/Saved but not shared/)).toBeNull();
+    expect(screen.getAllByRole("button", { name: /Save/ })).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText(/Post ID/), { target: { value: "7123" } });
+    fireEvent.change(screen.getByLabelText(/Headline/), { target: { value: "Hello" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save & share now$/ }));
+    expect(mutate.mock.calls[0][0].shareNow).toBe(true);
+  });
+});
+
+describe("NewPostPage image URL check", () => {
+  beforeEach(() => checkImageUrl.mockReset());
+
+  const typeImage = (value: string) => {
+    const box = screen.getByRole("textbox", { name: /Image URL/ });
+    fireEvent.change(box, { target: { value } });
+    fireEvent.blur(box);
+  };
+
+  it("shows a check and the preview, between headline and summary, when the image is good", async () => {
+    checkImageUrl.mockResolvedValue("ok");
+    render(<NewPostPage />);
+    typeImage("https://media.licdn.com/a.png");
+    expect(await screen.findByRole("img", { name: "Image URL is good" })).toBeTruthy();
+    const preview = screen.getByAltText("Preview of the post image") as HTMLImageElement;
+    expect(preview.src).toBe("https://media.licdn.com/a.png");
+    const headline = screen.getByLabelText(/Headline/);
+    const summary = screen.getByLabelText(/Card summary/);
+    expect(headline.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(preview.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toContain("Image URL looks good");
+  });
+
+  it("shows the stop sign, the reason and no preview when the image is bad", async () => {
+    checkImageUrl.mockResolvedValue({ verdict: "bad", message: "That link didn't load as an image." });
+    render(<NewPostPage />);
+    typeImage("https://example.com/nope");
+    expect(await screen.findByRole("img", { name: "Image URL has a problem" })).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "Image URL is good" })).toBeNull();
+    expect(screen.queryByAltText("Preview of the post image")).toBeNull();
+    expect(screen.getByText("That link didn't load as an image.")).toBeTruthy();
+    expect(screen.getByRole("textbox", { name: /Image URL/ }).getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("shows nothing for an empty box and does not call the checker", () => {
+    render(<NewPostPage />);
+    typeImage("   ");
+    expect(checkImageUrl).not.toHaveBeenCalled();
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.queryByAltText("Preview of the post image")).toBeNull();
+  });
+
+  it("hides the check and preview again when the text changes after a good check", async () => {
+    checkImageUrl.mockResolvedValue("ok");
+    render(<NewPostPage />);
+    typeImage("https://media.licdn.com/a.png");
+    await screen.findByAltText("Preview of the post image");
+    fireEvent.change(screen.getByRole("textbox", { name: /Image URL/ }), { target: { value: "https://media.licdn.com/b.png" } });
+    await waitFor(() => expect(screen.queryByAltText("Preview of the post image")).toBeNull());
+    expect(screen.queryByRole("img", { name: "Image URL is good" })).toBeNull();
+  });
+
+  it("shows nothing when the checker cannot tell", async () => {
+    checkImageUrl.mockResolvedValue("unknown");
+    render(<NewPostPage />);
+    typeImage("https://media.licdn.com/a.png");
+    await waitFor(() => expect(checkImageUrl).toHaveBeenCalled());
+    expect(screen.queryByRole("img")).toBeNull();
   });
 });
