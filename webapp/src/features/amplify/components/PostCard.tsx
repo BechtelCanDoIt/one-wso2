@@ -20,7 +20,7 @@ import type { Campaign } from "../api/amplifyTypes";
 import { useAmplifyConfig } from "../api/useAmplifyData";
 import { linkedInPostUrl } from "../util/linkedinPost";
 
-// Choreo Labs icon (white), hosted by Choreo Labs. Shown on a black card when the post has no usable image.
+// Choreo Labs icon (white), hosted by Choreo Labs. Shown at 80% size, centred on a black card, when the post has no usable image.
 export const DEFAULT_POST_IMAGE = "https://choreolabs.com/themes/wso2theme/images/choreo/brand/choreo-labs-icon-white.png";
 
 // The post's own image, or the default when the URL is empty or fails to load.
@@ -36,7 +36,12 @@ function PostImage({ url }: { url?: string | null }) {
       onError={() => {
         if (url && !useDefault) setFailedUrl(url);
       }}
-      sx={{ display: "block", width: "100%", height: "100%", objectFit: "cover", bgcolor: useDefault ? "#000" : undefined }}
+      sx={
+        useDefault
+          ? // The default icon sits at 80% of the black area, centred, so it has white space around it.
+            { display: "block", position: "absolute", top: "10%", left: "10%", width: "80%", height: "80%", objectFit: "contain" }
+          : { display: "block", width: "100%", height: "100%", objectFit: "cover" }
+      }
     />
   );
 }
@@ -79,7 +84,7 @@ export default function PostCard({
         </Typography>
       </Box>
 
-      <Box sx={{ aspectRatio: "16 / 9", borderRadius: 1, overflow: "hidden", bgcolor: "common.black" }}>
+      <Box sx={{ position: "relative", aspectRatio: "16 / 9", borderRadius: 1, overflow: "hidden", bgcolor: "common.black" }}>
         <PostImage url={campaign.imageUrl} />
       </Box>
 
