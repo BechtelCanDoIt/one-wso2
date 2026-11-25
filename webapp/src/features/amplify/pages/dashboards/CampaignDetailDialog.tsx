@@ -20,7 +20,7 @@ import { dialogPaperSx } from "@components/confirmation-dialog/dialogPaperSx";
 import { AMPLIFY_BAR } from "../../config/themeConfig";
 import type { DashboardCampaignDetail, DashboardCampaignRow, DashboardPerson } from "../../api/amplifyTypes";
 import { usePersonLookup, type PersonRef } from "../../api/usePersonLookup";
-import { SectionLabel } from "../../components/DashboardParts";
+import { ArchivedPill, SectionLabel } from "../../components/DashboardParts";
 import PersonLink from "../../components/PersonLink";
 import PostCard, { CategoryChip, PriorityChip } from "../../components/PostCard";
 import { announcementLabel, commentedReposts, num, plainReposts, rate } from "../../util/dashboardFormat";
@@ -168,6 +168,7 @@ export default function CampaignDetailDialog({
               chips={
                 <>
                   {sel.isPriority && <PriorityChip />}
+                  {sel.archived && <ArchivedPill />}
                   <CategoryChip label={sel.categoryLabel} />
                 </>
               }

@@ -19,9 +19,10 @@ import { AMPLIFY_BAR } from "../../config/themeConfig";
 import type { DashboardScorecard } from "../../api/amplifyTypes";
 import { useDashboardScorecard } from "../../api/useAmplifyDashboards";
 import AmplifyShell from "../../components/AmplifyShell";
-import { Block, BoardState, Empty, StateChip } from "../../components/DashboardParts";
+import { Block, BoardState, Empty, IncludeArchivedToggle, StateChip } from "../../components/DashboardParts";
 import type { ScorecardMeasure } from "../../api/amplifyTypes";
 import { updatedStamp, fraction, measureValue, scoreBar, targetText } from "../../util/dashboardFormat";
+import { useIncludeArchived } from "../../util/includeArchived";
 
 /**
  * A measure's value against its target: green when on track, red when below target (the status chip says it in
@@ -154,9 +155,11 @@ export function ScorecardBoard({ data }: { data: DashboardScorecard }) {
 }
 
 export default function ScorecardPage() {
-  const q = useDashboardScorecard();
+  const [includeArchived, setIncludeArchived] = useIncludeArchived();
+  const q = useDashboardScorecard(includeArchived);
   return (
     <AmplifyShell title="Scorecard" subtitle="How participation is tracking against its targets.">
+      <IncludeArchivedToggle checked={includeArchived} onChange={setIncludeArchived} />
       <BoardState queries={[q]}>{q.data && <ScorecardBoard data={q.data} />}</BoardState>
     </AmplifyShell>
   );

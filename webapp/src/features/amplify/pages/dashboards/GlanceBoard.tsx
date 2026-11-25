@@ -23,8 +23,9 @@ import { useDashboardGlance, useGroupBoard } from "../../api/useAmplifyDashboard
 import { nameOrUnknown, type PersonRef } from "../../api/usePersonLookup";
 import AmplifyShell from "../../components/AmplifyShell";
 import PersonLink from "../../components/PersonLink";
-import { Block, BoardState, Empty, MedalRank, StatCard } from "../../components/DashboardParts";
+import { Block, BoardState, Empty, IncludeArchivedToggle, MedalRank, StatCard } from "../../components/DashboardParts";
 import { updatedStamp, changePercent, monthLabel, num, percentOf } from "../../util/dashboardFormat";
+import { useIncludeArchived } from "../../util/includeArchived";
 
 function MonthlyLine({ monthly }: { monthly: DashboardGlance["monthly"] }) {
   if (monthly.length === 0) return <Empty>No reposts recorded yet.</Empty>;
@@ -190,12 +191,14 @@ export function GlanceBoard({
 }
 
 export default function GlancePage() {
-  const glance = useDashboardGlance();
+  const [includeArchived, setIncludeArchived] = useIncludeArchived();
+  const glance = useDashboardGlance(includeArchived);
   const board = useAmplifyLeaderboard();
   const teams = useGroupBoard("TEAM");
   const directory = useAmplifyPeople();
   return (
     <AmplifyShell title="At A Glance" subtitle="One screen for the leadership check-in.">
+      <IncludeArchivedToggle checked={includeArchived} onChange={setIncludeArchived} />
       <BoardState queries={[glance]}>
         {glance.data && (
           <GlanceBoard data={glance.data} people={board.data?.company ?? []} teams={teams.data?.entries ?? []} directory={directory} />

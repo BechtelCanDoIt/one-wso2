@@ -264,6 +264,8 @@ export interface DashboardCampaignRow {
   categoryLabel: string;
   isPriority: boolean;
   status?: "SCHEDULED" | "OPEN" | "CLOSED" | "ARCHIVED";
+  /** The post was archived (deleted from the Posts page); the boards still list it. */
+  archived?: boolean;
   opensAt: string;
   closesAt: string;
   reposts: number;
@@ -272,7 +274,15 @@ export interface DashboardCampaignRow {
   announcement?: DashboardAnnouncement;
 }
 
-export interface DashboardOperations {
+/** Which posts a board's numbers count, echoed by the API. */
+export interface DashboardScope {
+  /** Archived posts count in the summary numbers (the `includeArchived` query parameter). */
+  includeArchived?: boolean;
+  /** Posts that opened more than this many months ago are left out. */
+  retentionMonths?: number;
+}
+
+export interface DashboardOperations extends DashboardScope {
   asOf: string;
   headcount?: number | null;
   kpis: {
@@ -333,6 +343,9 @@ export interface DashboardPersonBoard {
     categoryCode: string;
     categoryLabel: string;
     isPriority: boolean;
+    status?: "SCHEDULED" | "OPEN" | "CLOSED" | "ARCHIVED";
+    /** The post was archived; still listed. */
+    archived?: boolean;
     opensAt: string;
     closesAt: string;
     reposts: number;
@@ -349,6 +362,9 @@ export interface DashboardCampaignDetail {
   categoryCode: string;
   categoryLabel: string;
   isPriority: boolean;
+  status?: "SCHEDULED" | "OPEN" | "CLOSED" | "ARCHIVED";
+  /** The post was archived; it still opens here. */
+  archived?: boolean;
   opensAt: string;
   closesAt: string;
   reposts: number;
@@ -366,7 +382,7 @@ export interface DashboardCampaignDetail {
   repostsWithCommentary?: number;
 }
 
-export interface DashboardCampaigns {
+export interface DashboardCampaigns extends DashboardScope {
   asOf: string;
   windowDays: number;
   peopleConnected?: number;
@@ -386,7 +402,7 @@ export interface DashboardParticipation {
   };
 }
 
-export interface DashboardGlance {
+export interface DashboardGlance extends DashboardScope {
   asOf: string;
   month: string;
   reposts: { thisMonth: number; previousMonth: number };
@@ -419,7 +435,7 @@ export interface ScorecardMeasure {
   note?: string | null;
 }
 
-export interface DashboardScorecard {
+export interface DashboardScorecard extends DashboardScope {
   asOf: string;
   measures: ScorecardMeasure[];
 }
