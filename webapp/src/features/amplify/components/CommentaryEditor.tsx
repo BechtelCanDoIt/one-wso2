@@ -14,7 +14,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-import { useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { forwardRef, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { Box, IconButton, Paper, Popper, TextField, Tooltip, Typography } from "@wso2/oxygen-ui";
 import {
   BoldIcon,
@@ -333,26 +333,17 @@ export default function CommentaryEditor({
           </Box>
         </Box>
 
-        <Box>
-          <Typography variant="overline" color="text.secondary" component="p" id={`${ids}-preview-label`}>
-            LinkedIn preview
-          </Typography>
-          <Paper
-            variant="outlined"
-            role="region"
-            aria-labelledby={`${ids}-preview-label`}
-            aria-live="polite"
-            sx={{ p: 1.5, minHeight: 120, whiteSpace: "pre-wrap", overflowWrap: "anywhere", fontSize: 14, bgcolor: "background.default" }}
-          >
-            {commentary ? (
-              <PreviewText text={commentary} />
-            ) : (
-              <Typography variant="body2" color="text.secondary">
-                Your thoughts show here the way LinkedIn will show them.
-              </Typography>
-            )}
-          </Paper>
-        </Box>
+        {/* An outlined field with the same notched label as "Add your thoughts", so the two headers and box tops line up. */}
+        <TextField
+          id={`${ids}-preview`}
+          label="LinkedIn preview"
+          fullWidth
+          slotProps={{
+            inputLabel: { shrink: true },
+            input: { readOnly: true, inputComponent: PreviewSurface as never },
+            htmlInput: { previewText: commentary, labelId: `${ids}-preview-label` },
+          }}
+        />
       </Box>
 
       <Popper
@@ -414,6 +405,34 @@ const TOOLS: Array<{
   { id: "undo", label: "Undo", shortcut: "Ctrl+Z", icon: <Undo2Icon size={16} /> },
   { id: "redo", label: "Redo", shortcut: "Ctrl+Shift+Z", icon: <Redo2Icon size={16} /> },
 ];
+
+/**
+ * The body of the "LinkedIn preview" field. The field passes its input styling in `className`, which gives the
+ * text the same padding and font as the "Add your thoughts" box beside it. It stays a labelled live region so a
+ * screen reader hears the text change. Defined at module level: the field would remount a new function each render.
+ */
+const PreviewSurface = forwardRef<HTMLDivElement, { className?: string; previewText?: string; labelId?: string }>(
+  function PreviewSurface({ className, previewText, labelId }, ref) {
+    return (
+      <div
+        ref={ref}
+        className={className}
+        role="region"
+        aria-labelledby={labelId}
+        aria-live="polite"
+        style={{ height: "auto", minHeight: "7.2em", whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}
+      >
+        {previewText ? (
+          <PreviewText text={previewText} />
+        ) : (
+          <Typography variant="body2" color="text.secondary" component="span">
+            Your thoughts show here the way LinkedIn will show them.
+          </Typography>
+        )}
+      </div>
+    );
+  },
+);
 
 /**
  * The commentary as LinkedIn shows it: mention tokens as the name, mentions and hashtags in link colour. Hashtags
