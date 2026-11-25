@@ -145,7 +145,7 @@ export function UpdateTravelDialog({ trip, onClose }: { trip: TravelRequest; onC
   const canVisa = a ? Boolean(a.editVisa) : p.t.has(TRAVEL.EDIT_VISA);
   const options = useVisaOptions(trip.jobNumber, canVisa);
   // An agent's own trips are its agency's, though the API leaves the agency out for agents.
-  const agency = agent || (agencyScope ? (agencyName ?? "") : "Not Assigned");
+  const agency = agent || (agencyScope ? (agencyName ?? "") : "");
   // Visas are keyed by id, the two sentinels by their label.
   const currentVisa = options.data?.find((o) => o.id === trip.visaId || (trip.visa && trip.visa.startsWith(o.label)))?.id ?? "";
   const shownVisa = visa || currentVisa;
@@ -180,7 +180,7 @@ export function UpdateTravelDialog({ trip, onClose }: { trip: TravelRequest; onC
       <Box sx={{ display: "grid", gap: 2, pt: 1 }}>
         <Select label="Travel Status" value={status} options={nextTravelStatuses(trip.status)} disabled={!canStatus} onChange={(v) => setStatus(v as TravelStatus)} />
         {isAgent ? (
-          <TextField size="small" label="Travel Agent" value={agency} disabled />
+          <TextField size="small" label="Travel Agent" value={agency || "Not Assigned"} disabled />
         ) : (
           <Select
             label="Travel Agent"

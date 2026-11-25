@@ -18,6 +18,7 @@ import type { JSX, ReactNode } from "react";
 import { Link as RouterLink } from "react-router";
 import { Box, Button, ButtonBase, Card, IconButton, Stack, Tooltip, Typography } from "@wso2/oxygen-ui";
 import { BarChart } from "@wso2/oxygen-ui-charts-react";
+import { STACKED_MONTHS_MARGIN } from "./chartLayout";
 import { CircleCheckIcon, InfoIcon } from "@wso2/oxygen-ui-icons-react";
 import type { CountRow, MonthValue } from "../api/engagementTypes";
 import { eaNestedSx, eaSurfaceSx } from "../components/eaStyles";
@@ -280,8 +281,7 @@ export function StackedMonths({ rows, series }: { rows: readonly Record<string, 
       height={240}
       maxBarSize={28}
       legend={{ show: true, align: "left", verticalAlign: "bottom" }}
-      // Room on the left for six-figure USD ticks ("800000"); the chart's Y axis can't shorten them.
-      margin={{ top: 8, right: 8, left: 20, bottom: 0 }}
+      margin={STACKED_MONTHS_MARGIN}
     />
   );
 }

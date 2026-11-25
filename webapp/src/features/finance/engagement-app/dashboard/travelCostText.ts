@@ -48,7 +48,9 @@ export function notConvertedText(rows: readonly NotConverted[]): string {
 
 /** The short form for many amounts: how many, in how many currencies, and from which sources. */
 export function notConvertedSummary(rows: readonly NotConverted[]): string {
-  const currencies = new Set(rows.map((r) => r.currency || "")).size;
+  const recorded = new Set(rows.map((r) => r.currency).filter(Boolean)).size;
+  const unknown = rows.some((r) => !r.currency);
+  const parts = [...(recorded ? [`${recorded} ${recorded === 1 ? "currency" : "currencies"}`] : []), ...(unknown ? ["unknown currency"] : [])];
   const sources = [...new Set(rows.map((r) => COST_SOURCE_LABEL[r.source]))];
-  return `Not converted, left out of the totals: ${rows.length} amounts in ${currencies} ${currencies === 1 ? "currency" : "currencies"} (${sources.join(", ")}).`;
+  return `Not converted, left out of the totals: ${rows.length} amounts in ${parts.join(" and ")} (${sources.join(", ")}).`;
 }
