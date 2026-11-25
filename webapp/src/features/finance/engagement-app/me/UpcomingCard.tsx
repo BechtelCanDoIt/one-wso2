@@ -19,7 +19,6 @@ import { Link as RouterLink } from "react-router";
 import { Box, Button, ButtonBase, Card, Typography } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { isEngagementAppBackendConfigured } from "@config/apiConfig";
-import { isPreviewEnabled } from "@config/previewFeatures";
 import { localIsoDate } from "@utils/localDate";
 import { useMyOverview } from "../api/useEngagementApi";
 import { useEngagementUserInfo } from "../api/useEngagementUserInfo";
@@ -55,7 +54,7 @@ function Line({ title, sub, chip, to }: { title: string; sub: string; chip: Reac
 
 /** The one card the Engagement App adds to the Me overview, at the end of More About You: the person's current and next allocations with their status, and upcoming trips with the travel agent. */
 export default function UpcomingCard(): JSX.Element | null {
-  const on = isPreviewEnabled("engagementApp") && isEngagementAppBackendConfigured();
+  const on = isEngagementAppBackendConfigured();
   const info = useEngagementUserInfo(on);
   const access = engagementAccess(info.data);
   const enabled = on && info.isSuccess && (access.myAllocations || access.myTravelRequests);

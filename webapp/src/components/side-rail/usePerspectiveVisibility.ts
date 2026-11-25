@@ -17,6 +17,7 @@
 import { useMemo } from "react";
 import { SRI_LANKA_ONLY_ITEM_IDS, type PerspectiveSection } from "@constants/perspectives";
 import { capabilitiesFromPrivileges } from "@constants/appMenu";
+import { isEngagementAppBackendConfigured } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { infraVisibility, useInfraGate } from "@features/infra/api/useInfraGate";
 import { useActivePerspective } from "@context/perspective/PerspectiveContext";
@@ -217,9 +218,9 @@ export function usePerspectiveVisibility(): PerspectiveVisibility {
   const cado2Gate = useCado2RailGate(active.key === "sales" && isPreviewEnabled("quickquote"));
   // Engagement App, under Finance and under Me: rows decided by its backend's
   // own /user-info (legacy Allocations and Travel privileges), and only while
-  // its preview flag is on -- see useEngagementRailGate.
+  // its backend URL is set -- see useEngagementRailGate.
   const engagementGate = useEngagementRailGate(
-    (active.key === "finance" || active.key === "me") && isPreviewEnabled("engagementApp"),
+    (active.key === "finance" || active.key === "me") && isEngagementAppBackendConfigured(),
   );
   // The Swag Store admin rows sit in People Ops only while the store's flag is
   // on; its /users/me is asked only then -- see useSwagStoreAdminGate.

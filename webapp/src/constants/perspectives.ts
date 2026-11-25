@@ -17,7 +17,7 @@
 // Central perspective registry. The waffle switcher and left rail both read
 // from this — one edit here changes every entry point.
 
-import { csmUrl, isCsmConfigured, isIsacConfigured, isacUrl } from "@config/apiConfig";
+import { csmUrl, isCsmConfigured, isEngagementAppBackendConfigured, isIsacConfigured, isacUrl } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { CADO2_APPS } from "@constants/cado2Apps";
 import { ENGAGEMENT_APPS, MY_ENGAGEMENT_APPS } from "@constants/engagementApps";
@@ -523,8 +523,8 @@ const ME_SECTIONS: PerspectiveSection[] = [
   ...appsToSections(ME_APPS),
   ...appsToSections(ME_FINANCE_APPS),
   // The person's own trips, passport and visas, and allocations, as top-level
-  // rows like Leave and Claims, behind the Engagement App preview flag.
-  ...(isPreviewEnabled("engagementApp")
+  // rows like Leave and Claims, only while the Engagement App backend URL is set.
+  ...(isEngagementAppBackendConfigured()
     ? MY_ENGAGEMENT_APPS.flatMap((app) =>
         app.items.map(({ id, label, icon, requires, path }) => ({ id, label, icon, requires, path })),
       )
@@ -810,10 +810,9 @@ export const PERSPECTIVES: readonly PerspectiveDef[] = [
       // not something everyone has — unlike leave or claims, it is not part of
       // the set every employee needs.
       ...appsToSections(FINANCE_PERSPECTIVE_APPS),
-      // Engagement App — the legacy Allocations and Travel apps, behind their
-      // preview flag. Gated on the Engagement App Backend's own privileges, not
+      // Engagement App — the legacy Allocations and Travel apps, only while the backend URL is set. Gated on the Engagement App Backend's own privileges, not
       // `requires` — see useEngagementRailGate.
-      ...(isPreviewEnabled("engagementApp") ? appsToSections(ENGAGEMENT_APPS) : []),
+      ...(isEngagementAppBackendConfigured() ? appsToSections(ENGAGEMENT_APPS) : []),
       // Due Diligence — also surfaced under Legal (see the `legal` perspective
       // below). ONE registry (DUE_DILIGENCE_APPS), included in both places, so
       // the two rails can't drift. Gated on the due-diligence backend's own

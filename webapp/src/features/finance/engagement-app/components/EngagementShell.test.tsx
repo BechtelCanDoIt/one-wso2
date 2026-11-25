@@ -23,10 +23,11 @@ vi.mock("@components/side-rail/usePerspectiveVisibility", () => ({
   usePerspectiveVisibility: () => ({ resolveVisible: () => true, isResolving: false, visibleLeaves: [], isError: false, retry: () => {} }),
 }));
 
-const state = {
+// Hoisted: the perspective rows read the connected check while their module loads.
+const state = vi.hoisted(() => ({
   configured: true,
   info: { data: undefined as UserInfo | undefined, isPending: false, isLoading: false, isError: false, isFetching: false, error: null as unknown },
-};
+}));
 const refetch = vi.fn();
 vi.mock("@config/apiConfig", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@config/apiConfig")>()),

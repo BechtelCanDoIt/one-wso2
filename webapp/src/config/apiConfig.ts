@@ -2349,7 +2349,7 @@ export const cado2ServiceUrls = {
 // (Finance → Engagement App, and its pages under Me). Its own Go backend, the
 // Engagement App Backend, configured with the version segment included. Unset
 // means "not connected": the pages say so and make no requests. Gated as a
-// whole by the `engagementApp` preview flag as well (previewFeatures.ts).
+//
 //
 // Paths are finance-tools apps/engagement-app/backend/openapi.yaml (0.2.0).
 export const engagementAppBackendUrl: string = stripTrailingSlashes(

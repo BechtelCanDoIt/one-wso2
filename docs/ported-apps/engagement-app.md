@@ -1,6 +1,6 @@
 # Engagement App — functional specification
 
-**Status:** Release 1 screens built behind the `engagementApp` preview flag; go-live Wed 18 Nov 2026
+**Status:** Release 1 screens built; go-live Wed 18 Nov 2026
 (UAT 16–17 Nov). The Engagement App Backend (`finance-tools apps/engagement-app/backend`) serves
 `GET /user-info` today; every other endpoint is outlined in its `openapi.yaml` without schemas, so the
 wire shapes in `api/engagementTypes.ts` are provisional (§5).
@@ -95,7 +95,7 @@ flag is on. Both groups use `alwaysGroup: true`.
 ### 2.4 Routing rules
 
 - Code lives in `features/finance/engagement-app/`; routes are two fragments (`engagementRoutes`,
-  `myEngagementRoutes`) mounted in `App.tsx` only while `isPreviewEnabled("engagementApp")`.
+  `myEngagementRoutes`) mounted in `App.tsx`.
 - Every leaf renders inside `EngagementShell` (gate ladder, §4) and `EngagementRequires` (the route's own
   privilege). A refused route goes to the half's landing. Pages are lazy-loaded.
 - Tabs are routes. List search, filters and page are in the query string (`model/useListView.ts`), so a

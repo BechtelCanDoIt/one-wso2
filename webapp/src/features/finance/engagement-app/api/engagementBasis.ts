@@ -17,7 +17,6 @@
 import { useCallback } from "react";
 import { useAsgardeo } from "@asgardeo/react";
 import { isEngagementAppBackendConfigured } from "@config/apiConfig";
-import { isPreviewEnabled } from "@config/previewFeatures";
 import { useAccessToken } from "@hooks/useAccessToken";
 import { useAsgardeoSub } from "@hooks/useAsgardeoSub";
 
@@ -33,8 +32,7 @@ export function useEngagementBasis() {
   const getToken = useAccessToken();
   const { state: subState, retry: retryIdentity } = useAsgardeoSub();
   const sub = subState.status === "ready" ? subState.sub : undefined;
-  const ready =
-    isSignedIn && isPreviewEnabled("engagementApp") && isEngagementAppBackendConfigured() && Boolean(sub);
+  const ready = isSignedIn && isEngagementAppBackendConfigured() && Boolean(sub);
   const key = useCallback((...parts: readonly unknown[]): EngagementKey => [ENGAGEMENT_KEY_ROOT, sub, ...parts], [sub]);
   return { getToken, sub, subState, retryIdentity, ready, key };
 }

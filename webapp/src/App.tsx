@@ -70,6 +70,7 @@ import PromotionCycleHistoryPage, {
 import CycleHistoryTab from "@features/promotion/pages/CycleHistoryTab";
 import PeopleHrArchiveTab from "@features/promotion/pages/PeopleHrArchiveTab";
 import AuthGuard from "@layouts/AuthGuard";
+import { isEngagementAppBackendConfigured } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import AppLayout from "@layouts/AppLayout";
 import ActiveEmployeesReportPage from "@features/people-ops/pages/ActiveEmployeesReportPage";
@@ -1122,12 +1123,11 @@ export default function App() {
               @features/sales/cado2/routes and docs/ported-apps/cado2.md. */}
           {isPreviewEnabled("quickquote") && cado2Routes}
           {/* Finance → Engagement App and its pages under Me (the legacy
-              Allocations and Travel apps), behind the `engagementApp` preview
-              flag; EngagementShell resolves access for every page. See
-              @features/finance/engagement-app/routes and
+              Allocations and Travel apps), only while its backend URL is set;
+              EngagementShell resolves access for every page. See @features/finance/engagement-app/routes and
               docs/ported-apps/engagement-app.md. */}
-          {isPreviewEnabled("engagementApp") && engagementRoutes}
-          {isPreviewEnabled("engagementApp") && myEngagementRoutes}
+          {isEngagementAppBackendConfigured() && engagementRoutes}
+          {isEngagementAppBackendConfigured() && myEngagementRoutes}
           {/* Me → Procurement, behind the `procurement` preview flag. */}
           {isPreviewEnabled("procurement") && procurementRoutes}
           {isPreviewEnabled("procurement") && procurementWorkspaceRoutes}

@@ -15,6 +15,7 @@
 // under the License.
 
 import type { Capability } from "@constants/appMenu";
+import { isEngagementAppBackendConfigured } from "@config/apiConfig";
 import { isPreviewEnabled } from "@config/previewFeatures";
 import { ENGINEERING_ADMIN_ITEM_ID } from "@constants/downloadStatsApps";
 import { DUE_DILIGENCE_ITEM_IDS } from "@constants/dueDiligenceApps";
@@ -262,9 +263,8 @@ export function claimsForPerspective(perspectiveKey: string): AdapterName[] {
   // they are absent would hold the Sales landing on a backend with nothing to show.
   if (perspectiveKey === "sales" && isPreviewEnabled("quickquote")) names.push("cado2");
   // The Engagement App has a group under Finance and one under Me, and exists
-  // only while its preview flag is on. Asking its /user-info otherwise would
-  // hold those landings on a backend with nothing to show.
-  if ((perspectiveKey === "finance" || perspectiveKey === "me") && isPreviewEnabled("engagementApp")) {
+  // only while its backend URL is set.
+  if ((perspectiveKey === "finance" || perspectiveKey === "me") && isEngagementAppBackendConfigured()) {
     names.push("engagement");
   }
   if (perspectiveKey === "people" || perspectiveKey === "me") names.push("promotion");

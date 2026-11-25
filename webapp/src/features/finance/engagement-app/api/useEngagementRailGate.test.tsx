@@ -22,10 +22,11 @@ import { claimOf, claimsForPerspective } from "@components/side-rail/visibilityF
 import type { UserInfo } from "./engagementTypes";
 import { engagementVisibility, useEngagementRailGate } from "./useEngagementRailGate";
 
-const state = {
+// Hoisted: the perspective rows read the connected check while their module loads.
+const state = vi.hoisted(() => ({
   configured: true,
   info: { data: undefined as UserInfo | undefined, isPending: false, isLoading: false, isError: false, error: null as unknown },
-};
+}));
 
 vi.mock("@config/apiConfig", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@config/apiConfig")>()),
@@ -124,12 +125,11 @@ describe("the engagement adapter", () => {
     expect([...claim.ids].filter((id) => FINANCE_ITEM_IDS.has(id))).toEqual([]);
   });
 
-  it("is in play under Finance and Me only while the preview flag is on", () => {
-    window.config = { ...(original ?? {}), ONE_WSO2_PREVIEW_FEATURES: { engagementApp: true } } as Window["config"];
+  it("is in play under Finance and Me only while the backend URL is set", () => {
     expect(claimsForPerspective("finance")).toContain("engagement");
     expect(claimsForPerspective("me")).toContain("engagement");
     expect(claimsForPerspective("sales")).not.toContain("engagement");
-    window.config = { ...(original ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
+    state.configured = false;
     expect(claimsForPerspective("finance")).not.toContain("engagement");
   });
 });

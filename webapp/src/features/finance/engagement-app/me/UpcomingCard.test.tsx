@@ -49,7 +49,6 @@ const draw = () =>
   );
 
 beforeEach(() => {
-  window.config = { ...(original ?? {}), ONE_WSO2_PREVIEW_FEATURES: { engagementApp: true } } as Window["config"];
   state.configured = true;
   state.overview = { data: { allocations: [], trips: [] }, isPending: false, isError: false, isFetching: false, error: null };
   overviewEnabled.mockClear();
@@ -109,11 +108,8 @@ describe("the Allocations & Trips card on the Me overview", () => {
     expect(screen.queryByText(/passport|visa/i)).toBeNull();
   });
 
-  it("is not drawn, and asks nothing, while the feature is off or not connected", () => {
-    window.config = { ...(original ?? {}), ONE_WSO2_PREVIEW_FEATURES: {} } as Window["config"];
-    expect(draw().container).toBeEmptyDOMElement();
+  it("is not drawn, and asks nothing, while not connected", () => {
     state.configured = false;
-    window.config = { ...(original ?? {}), ONE_WSO2_PREVIEW_FEATURES: { engagementApp: true } } as Window["config"];
     expect(draw().container).toBeEmptyDOMElement();
     expect(overviewEnabled).not.toHaveBeenCalledWith(true);
   });
