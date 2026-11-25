@@ -17,9 +17,9 @@
 // Where each kind of search hit leads, and where its group's "View All" goes.
 
 import type { SearchItem, SearchKind, WorkQueues } from "../api/engagementTypes";
-import { engagementPaths, type InvoicesTab } from "../engagementPaths";
+import { engagementPaths, type EngagementSegment, type InvoicesTab } from "../engagementPaths";
 import type { EngagementAccess } from "./engagementAccess";
-import { invoiceTabs } from "./landing";
+import { engagementSegments, invoiceTabs } from "./landing";
 
 /** The backend searches from this many characters. */
 export const SEARCH_MIN_CHARS = 2;
@@ -62,7 +62,7 @@ export function listPath(kind: SearchKind, q: string, access: EngagementAccess, 
     case "perDiemPayments":
       return engagementPaths.invoices(firstTab(tabs, ["all-payments", "payments-push"]) ?? "all-payments", query);
     case "engagements":
-      return engagementPaths.engagements(access.customerEngagements ? "customer" : access.internalEngagements ? "internal" : undefined, query);
+      return engagementPaths.engagements(engagementSegments(access)[0], query);
     case "allocations":
       return engagementPaths.allocations(access.engagementAllocations ? "engagement" : "team", query);
   }
@@ -82,4 +82,12 @@ export function itemPath(kind: SearchKind, item: SearchItem, access: EngagementA
     case "allocations":
       return listPath(kind, item.id, access, queues);
   }
+}
+
+const SEGMENT_LABEL: Readonly<Record<EngagementSegment, string>> = { customer: "Customer", internal: "Internal", marketing: "Marketing" };
+
+/** One "View All" per engagement list the person can open (Customer, Internal, Marketing), each with the search typed in. */
+export function engagementListLinks(q: string, access: EngagementAccess): { label: string; to: string }[] {
+  const query = { q: q.trim() || undefined };
+  return engagementSegments(access).map((s) => ({ label: SEGMENT_LABEL[s], to: engagementPaths.engagements(s, query) }));
 }

@@ -23,15 +23,15 @@ const KEY = "engagement-app.transactions.pageSize";
 describe("useTransactionPageSize", () => {
   afterEach(() => localStorage.clear());
 
-  it("starts at 25 when nothing is stored", () => {
-    expect(renderHook(() => useTransactionPageSize()).result.current[0]).toBe(25);
+  it("starts at 10 when nothing is stored", () => {
+    expect(renderHook(() => useTransactionPageSize()).result.current[0]).toBe(10);
   });
 
   it("reads a stored choice and ignores one it doesn't offer", () => {
-    localStorage.setItem(KEY, "10");
-    expect(renderHook(() => useTransactionPageSize()).result.current[0]).toBe(10);
+    localStorage.setItem(KEY, "15");
+    expect(renderHook(() => useTransactionPageSize()).result.current[0]).toBe(15);
     localStorage.setItem(KEY, "7");
-    expect(renderHook(() => useTransactionPageSize()).result.current[0]).toBe(25);
+    expect(renderHook(() => useTransactionPageSize()).result.current[0]).toBe(10);
   });
 
   it("keeps a new choice in the browser", () => {

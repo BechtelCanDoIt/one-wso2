@@ -86,7 +86,7 @@ interface TripSections {
 }
 
 function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: TravelTab; area: "finance" | "me"; back: { to: string; label: string } }): JSX.Element {
-  const { p, newTravelRequests, isAgent, agencyName } = useEngagementAccess();
+  const { p, newTravelRequests, agencyScope, agencyName } = useEngagementAccess();
   const [dialog, setDialog] = useState<"assign" | "update" | null>(null);
   const perDiems = useTripPerDiems(t.jobNumber, t.tabs.perDiems);
   const invoices = useTripInvoices(t.jobNumber, t.tabs.invoices);
@@ -158,7 +158,7 @@ function TravelRequestView({ t, tab, area, back }: { t: TravelRequest; tab: Trav
           t.campaign && t.engagement && { label: "Campaign ID", value: <Mono>{t.campaign.id}</Mono> },
           { label: "Destination", value: place(t.country, t.city) },
           { label: "Dates", value: fmtRange(t.start, t.end) },
-          { label: "Travel Agent", value: t.travelAgent || (isAgent ? agencyName : undefined) || "—" },
+          { label: "Travel Agent", value: t.travelAgent || (agencyScope ? agencyName : undefined) || "Not Assigned" },
           { label: "Visa", value: t.visa || "—" },
         ]}
       />

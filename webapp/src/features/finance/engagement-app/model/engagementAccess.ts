@@ -125,6 +125,11 @@ export interface EngagementAccess {
   readonly isAgent: boolean;
   /** The agent's agency name. */
   readonly agencyName?: string;
+  /**
+   * The Backend shows this person their agency's requests without the Travel Agent field (its "agency" scope):
+   * an agent who isn't also a Travel Team member (Travel 1, 2 or 5). Only then is a missing agency their own.
+   */
+  readonly agencyScope: boolean;
   readonly dashboard: boolean;
   readonly approvals: boolean;
   readonly engagements: boolean;
@@ -194,6 +199,7 @@ export function engagementAccess(info: UserInfo | undefined): EngagementAccess {
     p,
     isAgent,
     agencyName: info?.travel.agency?.name,
+    agencyScope: isAgent && !anyOf(t, TRAVEL.NEW_REQUESTS, TRAVEL.ALL_REQUESTS, TRAVEL.EDIT_AGENT),
     dashboard: a.has(ALLOC.DASHBOARD) || isAgent,
     approvals: anyOf(a, ALLOC.APPROVE_INTERNAL_VIEW, ALLOC.APPROVE_MARKETING_VIEW),
     engagements: customerEngagements || internalEngagements,

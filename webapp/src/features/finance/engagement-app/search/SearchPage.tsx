@@ -25,7 +25,7 @@ import { DelayedSkeleton } from "../components/EaSkeletons";
 import EaPage from "../components/EaPage";
 import { Empty, Failed, ListCard } from "../components/ListCard";
 import { engagementPaths } from "../engagementPaths";
-import { canSearch, itemPath, listPath, SEARCH_LABEL, SEARCH_MIN_CHARS } from "../model/searchLinks";
+import { canSearch, engagementListLinks, itemPath, listPath, SEARCH_LABEL, SEARCH_MIN_CHARS } from "../model/searchLinks";
 import SearchHit from "./SearchHit";
 
 const LIMIT = 20;
@@ -113,9 +113,24 @@ export default function SearchPage(): JSX.Element {
                     {g.total}
                   </Typography>
                   <Box sx={{ flex: 1 }} />
-                  <Link component={RouterLink} to={listPath(g.kind, q, access, queues)} underline="none" color="primary" variant="body2" sx={{ fontWeight: 600 }}>
-                    View All in {SEARCH_LABEL[g.kind]}
-                  </Link>
+                  {g.kind === "engagements" && engagementListLinks(q, access).length > 1 ? (
+                    // Engagements live in one list per segment, so each gets its own link.
+                    <Typography variant="body2" color="text.secondary" component="span">
+                      View All in{" "}
+                      {engagementListLinks(q, access).map((l, i) => (
+                        <span key={l.label}>
+                          {i > 0 ? ", " : null}
+                          <Link component={RouterLink} to={l.to} underline="none" color="primary" sx={{ fontWeight: 600 }}>
+                            {l.label}
+                          </Link>
+                        </span>
+                      ))}
+                    </Typography>
+                  ) : (
+                    <Link component={RouterLink} to={listPath(g.kind, q, access, queues)} underline="none" color="primary" variant="body2" sx={{ fontWeight: 600 }}>
+                      View All in {SEARCH_LABEL[g.kind]}
+                    </Link>
+                  )}
                 </Box>
                 {g.items.map((item, i) => (
                   <Box key={item.id}>

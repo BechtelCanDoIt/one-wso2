@@ -15,20 +15,20 @@
 // under the License.
 
 import { useCallback, useState } from "react";
-import { PAGE_SIZE, PAGE_SIZES } from "./costView";
+import { PAGE_SIZES, TRANSACTIONS_DEFAULT_PAGE_SIZE } from "./costView";
 
 const KEY = "engagement-app.transactions.pageSize";
 
 function stored(): number {
   try {
     const n = Number(localStorage.getItem(KEY));
-    return PAGE_SIZES.includes(n) ? n : PAGE_SIZE;
+    return PAGE_SIZES.includes(n) ? n : TRANSACTIONS_DEFAULT_PAGE_SIZE;
   } catch {
-    return PAGE_SIZE;
+    return TRANSACTIONS_DEFAULT_PAGE_SIZE;
   }
 }
 
-/** Rows per page in the Transactions widget, kept in this browser. Falls back to 25 when storage is blocked or holds something else. */
+/** Rows per page in the Transactions widget, kept in this browser. Starts at 10, and falls back to 10 when storage is blocked or holds something else. */
 export function useTransactionPageSize(): [number, (size: number) => void] {
   const [size, setSize] = useState(stored);
   const choose = useCallback((next: number) => {
