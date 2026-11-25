@@ -40,12 +40,15 @@ function useEngagementGet<TWire, TView>(
     staleTime = 0,
     keepPrevious = false,
     persist,
+    expectForbidden = false,
   }: {
     enabled?: boolean;
     staleTime?: number;
     keepPrevious?: boolean;
     /** Keep a copy of the answer in sessionStorage and start from it on a reload (stale, so it is asked again at once). `keep` trims what is kept, or returns undefined to keep nothing. */
     persist?: { readonly name: string; readonly keep: (wire: TWire) => TWire | undefined };
+    /** A 403 is a normal answer here (the card is hidden), so it must not make the app re-ask /user-info. */
+    expectForbidden?: boolean;
   } = {},
 ): UseQueryResult<TView, Error> {
   const { getToken, ready, key, sub, subState, retryIdentity } = useEngagementBasis();
@@ -60,6 +63,7 @@ function useEngagementGet<TWire, TView>(
       return wire;
     },
     select,
+    meta: expectForbidden ? { expectForbidden: true } : undefined,
     enabled: ready && enabled,
     staleTime,
     initialData: persist ? () => readSessionCache<TWire>(persist.name, sub) : undefined,
@@ -250,7 +254,7 @@ export const useTripExpenses = (jobNumber: string, enabled = true) =>
 
 /** The cost so far of a travel request. A 403 or 404 is not retried: the card is then hidden. */
 export const useJobCostSummary = (jobNumber: string, enabled = true) =>
-  useEngagementGet(["travel-requests", "cost-summary", jobNumber], urls.jobCostSummary(jobNumber), DM.jobCostSummary, { enabled });
+  useEngagementGet(["travel-requests", "cost-summary", jobNumber], urls.jobCostSummary(jobNumber), DM.jobCostSummary, { enabled, expectForbidden: true });
 
 export const useTripPayments = (jobNumber: string, enabled = true) =>
   useEngagementGet(["travel-requests", "payments", jobNumber], urls.tripPayments(jobNumber), M.tripPayments, { enabled });

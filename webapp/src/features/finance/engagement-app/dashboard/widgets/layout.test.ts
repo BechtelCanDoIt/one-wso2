@@ -15,7 +15,7 @@
 // under the License.
 
 import { describe, expect, it } from "vitest";
-import { layoutBlocks, legacyWidgets } from "./layout";
+import { layoutBlocks } from "./layout";
 import { WIDGETS, WIDGET_IDS, widgetById } from "./registry";
 import type { WidgetDef } from "./types";
 
@@ -41,27 +41,6 @@ describe("layoutBlocks", () => {
 
   it("does not merge half widgets split by a full one", () => {
     expect(shape(ids("tc-source", "tc-lines", "tc-month"))).toEqual(["controls", "tc-source", "tc-lines", "tc-month"]);
-  });
-});
-
-describe("legacyWidgets", () => {
-  it("offers what an older backend sent, all on by default", () => {
-    const refs = legacyWidgets({ failed: [], queue: [], travel: undefined, available: { available: 1, allocated: 1, byBusinessUnit: [] } }, true);
-    expect(refs).toEqual([
-      { id: "waiting-on-you", defaultOn: true },
-      { id: "available-consultants", defaultOn: true },
-      { id: "allocations-today", defaultOn: true },
-    ]);
-  });
-
-  it("keeps Waiting on You when its section failed, and drops it when it was left out on purpose", () => {
-    expect(legacyWidgets({ failed: ["waitingOnYou"] }, false)).toEqual([{ id: "waiting-on-you", defaultOn: true }]);
-    expect(legacyWidgets({ failed: [], queue: [] }, false)).toEqual([{ id: "waiting-on-you", defaultOn: true }]);
-    expect(legacyWidgets({ failed: [] }, false)).toEqual([]);
-  });
-
-  it("offers a section that failed, so its widget can say so", () => {
-    expect(legacyWidgets({ failed: ["travel"] }, false)).toEqual([{ id: "travel", defaultOn: true }]);
   });
 });
 

@@ -19,12 +19,13 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { Navigate, Route } from "react-router";
 import { Box } from "@wso2/oxygen-ui";
+import { ENGAGEMENT_APP_PATH } from "./engagementPaths";
 import EngagementShell, { EngagementLanding, EngagementRequires, type EngagementNeed } from "./components/EngagementShell";
 
 const dashboardModule = () => import("./dashboard/DashboardPage");
 const DashboardPage = lazy(dashboardModule);
 // The dashboard is where people land: fetch its code while sign-in and /user-info are still running, not after them.
-if (typeof window !== "undefined" && /\/finance\/engagement-app(\/dashboard)?\/?$/.test(window.location.pathname)) void dashboardModule();
+if (typeof window !== "undefined" && new RegExp(`${ENGAGEMENT_APP_PATH}(/dashboard)?/?$`).test(window.location.pathname)) void dashboardModule();
 const approvalsModule = () => import("./approvals/ApprovalsPage");
 const ApprovalsPage = lazy(approvalsModule);
 const ApprovalsIndex = lazy(() => approvalsModule().then((m) => ({ default: m.ApprovalsIndex })));

@@ -29,7 +29,7 @@ vi.mock("@config/apiConfig", async (importOriginal) => ({
 vi.mock("../api/useEngagementUserInfo", () => ({ useEngagementUserInfo: () => state.info }));
 vi.mock("../api/useEngagementApi", () => ({ useMyOverview: () => ({ ...state.overview, refetch: vi.fn() }) }));
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { tripsWaiting } from "../api/dashboardMappers";
 import VisaCard from "./VisaCard";
@@ -61,13 +61,10 @@ describe("tripsWaiting", () => {
 });
 
 describe("the visa card on the Me overview", () => {
-  it("says the access check failed and retries it, instead of vanishing", () => {
-    const refetch = vi.fn();
-    state.info = { data: undefined, isSuccess: false, isError: true, isFetching: false, error: new Error("boom"), refetch };
-    draw();
-    expect(screen.getByText(/Couldn.t check your access/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /retry/i }));
-    expect(refetch).toHaveBeenCalled();
+  it("stays silent when the access check fails, like the Upcoming card", () => {
+    state.info = { data: undefined, isSuccess: false, isError: true, isFetching: false, error: new Error("boom"), refetch: vi.fn() };
+    const { container } = draw();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("is not drawn when there are no upcoming trips", () => {

@@ -45,13 +45,14 @@ function refreshAccess(client: QueryClient): void {
 /**
  * Privileges can shrink mid-session while /user-info is cached for minutes, so the rail would keep offering a page
  * the backend now refuses. When any Engagement App read or write answers 403, ask /user-info again, once per burst.
+ * A query that marks `meta: { expectForbidden: true }` treats a 403 as a normal answer and does not trigger this.
  * A refetch never causes another 403 by itself and 4xx answers are not retried, so this cannot loop.
  */
 export function useRefreshAccessOnForbidden(): void {
   const client = useQueryClient();
   useEffect(() => {
     const stopQueries = client.getQueryCache().subscribe((event) => {
-      if (event.type === "updated" && event.action.type === "error" && isForbidden(event.action.error) && isEngagementKey(event.query.queryKey)) {
+      if (event.type === "updated" && event.action.type === "error" && isForbidden(event.action.error) && isEngagementKey(event.query.queryKey) && !event.query.meta?.expectForbidden) {
         refreshAccess(client);
       }
     });

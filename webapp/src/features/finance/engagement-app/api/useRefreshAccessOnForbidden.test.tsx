@@ -146,6 +146,20 @@ describe("refreshing access when the backend answers 403", () => {
     expect(userInfoCalls()).toBe(1);
   });
 
+  it("does not refresh for a 403 from a query that expects one", async () => {
+    const client = new QueryClient();
+    const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    renderHook(() => ({ info: useEngagementUserInfo(), refresh: useRefreshAccessOnForbidden() }), { wrapper });
+    await waitFor(() => expect(userInfoCalls()).toBe(1));
+    await client
+      .fetchQuery({ queryKey: ["engagement-app", "me", "cost"], meta: { expectForbidden: true }, retry: false, queryFn: () => Promise.reject(new HttpError("cost", 403, "")) })
+      .catch(() => undefined);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 100));
+    });
+    expect(userInfoCalls()).toBe(1);
+  });
+
   it("also refreshes when an Engagement App write answers 403", async () => {
     const client = new QueryClient();
     const wrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;

@@ -28,7 +28,7 @@ import { DateRow, HBars, Mini, MonthColumns, QueueTiles, Section, ViewAll } from
 function Panels({ children }: { children: ReactNode[] }): JSX.Element | null {
   if (!children.length) return null;
   return (
-    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2, alignItems: "stretch", "& > :last-child:nth-child(odd)": { gridColumn: "1 / -1" } }}>
+    <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" }, gap: 2, alignItems: "stretch", "& > :last-of-type:nth-of-type(odd)": { gridColumn: "1 / -1" } }}>
       {children}
     </Box>
   );
