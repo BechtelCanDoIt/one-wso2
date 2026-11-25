@@ -311,7 +311,7 @@ export default function OrderFormTable({
             <TableRow>
               <TableCell>Product or service</TableCell>
               <TableCell>Unit of measure</TableCell>
-              <TableCell align="right">Unit price</TableCell>
+              <TableCell align="right">Sales price</TableCell>
               <TableCell align="right">Qty</TableCell>
               {split ? <TableCell align="right">Volume discount ceiling</TableCell> : null}
               <TableCell align="right">{split ? "Entered discount" : "Discount"}</TableCell>
