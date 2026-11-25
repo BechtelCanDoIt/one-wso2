@@ -17,6 +17,7 @@
 import { describe, expect, it } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import type { SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import type { DiscountApproval } from "@features/sales/cado2/quotes/api/quoteTypes";
 import OrderFormTable from "./OrderFormTable";
 
 const line = (number: number, code: string, discount: string, ceiling: string | null, discretionary: string | null): SheetLine => ({
@@ -35,15 +36,46 @@ const lines = [
 ];
 
 describe("OrderFormTable's volume discount ceilings (D169)", () => {
-  it("puts the ceiling under each discount in the wizard, with whether it needs approval", () => {
-    render(<OrderFormTable lines={lines} currency="USD" discountDetail="hints" />);
+  it("puts both limits under each discount in the wizard, with whether it needs approval (D181)", () => {
+    const limit = (groupCode: string | null, amLimitPercent: string | null, status: DiscountApproval["status"]) =>
+      ({ groupCode, amLimitPercent, status }) as const;
+    const wizard: SheetLine[] = [
+      // 2.92% above the ceiling: within the SaaS AM's 3%.
+      { ...line(1, "C-API-PORTAL", "5", "2.08", "2.92"), discountApproval: limit("SAAS_API", "3.00", "NONE") },
+      { ...line(2, "SH-API-APIM-CORE", "20", null, "20"), discountApproval: limit("ONPREM_API", "5.00", "NEEDS_APPROVAL") },
+      // No discount group covers it: Deal Desk checks it (D177).
+      { ...line(3, "C-CHO-ELA", "6", null, "6"), discountApproval: limit(null, null, "DEAL_DESK") },
+      // No discount yet: the limits, no chip.
+      { ...line(4, "SH-API-GW", "0", "6.44", "0"), discountApproval: limit("ONPREM_API", "5.00", "NONE") },
+      {
+        ...line(5, "SH-INT-FORMULA", "10", null, "10"),
+        formula: { version: "v1", explanation: "x" },
+        discountApproval: limit("ONPREM_INTEGRATION", "5.00", "NEEDS_APPROVAL"),
+      },
+      // Not priced yet: nothing.
+      line(6, "SH-API-PORTAL", "4", null, null),
+    ];
+    render(<OrderFormTable lines={wizard} currency="USD" discountDetail="hints" />);
     const row = (code: string) => within(screen.getByText(code).closest("tr")!);
-    expect(row("SH-API-PORTAL").getByText("Volume discount ceiling 4.17%")).toBeInTheDocument();
-    expect(row("SH-API-PORTAL").getByText("No approval needed")).toBeInTheDocument();
-    expect(row("C-API-PORTAL").getByText("2.92% needs approval")).toBeInTheDocument();
-    expect(row("SH-API-APIM-CORE").getByText("No volume discount ceiling for this product")).toBeInTheDocument();
+
+    expect(row("C-API-PORTAL").getByText("Volume discount ceiling 2.08%")).toBeInTheDocument();
+    expect(row("C-API-PORTAL").getByText("AM limit +3%")).toBeInTheDocument();
+    expect(row("C-API-PORTAL").getByText("No approval needed")).toBeInTheDocument();
+
+    expect(row("SH-API-APIM-CORE").getByText("Volume discount ceiling none")).toBeInTheDocument();
+    expect(row("SH-API-APIM-CORE").getByText("AM limit 5%")).toBeInTheDocument();
+    expect(row("SH-API-APIM-CORE").getByText("Needs approval")).toBeInTheDocument();
+
+    expect(row("C-CHO-ELA").getByText("AM limit none set")).toBeInTheDocument();
+    expect(row("C-CHO-ELA").getByText("Needs Deal Desk approval")).toBeInTheDocument();
+
     expect(row("SH-API-GW").getByText("Volume discount ceiling 6.44%")).toBeInTheDocument();
-    expect(row("SH-API-GW").queryByText("No approval needed")).not.toBeInTheDocument();
+    expect(row("SH-API-GW").getByText("AM limit +5%")).toBeInTheDocument();
+    expect(row("SH-API-GW").queryByText(/approval/)).not.toBeInTheDocument();
+
+    expect(row("SH-INT-FORMULA").getByText("Volume discount ceiling none (formula-priced)")).toBeInTheDocument();
+
+    expect(row("SH-API-PORTAL").queryByText(/Volume discount ceiling|AM limit/)).not.toBeInTheDocument();
   });
 
   it("adds Volume discount ceiling and Discretionary columns in the read-only views", () => {

@@ -447,6 +447,29 @@ export interface LineFormula {
 /** How a line's unit price was worked out: the price book, or an Admin's formula (D81). */
 export type PricingMethod = "PRICE_BOOK" | "FORMULA";
 
+/**
+ * D181: a line's discount limit under the current approval matrix. The discount
+ * the AM may give without approval is the volume discount ceiling plus
+ * amLimitPercent; status says whether the line's discretionary discount (the
+ * part above the ceiling) stays within it.
+ */
+export interface DiscountApproval {
+  /** The line's discount group; null when no group covers the product. */
+  readonly groupCode: string | null;
+  /**
+   * The AM's rung on the group's ladder, e.g. "5.00": "0.00" when the ladder
+   * doesn't start with the AM; null without a group, or when the AM's rung
+   * has no upper limit.
+   */
+  readonly amLimitPercent: string | null;
+  /**
+   * NONE: no discretionary discount, or within the AM's limit. NEEDS_APPROVAL:
+   * above it. DEAL_DESK: a discount no group covers (D177). ABOVE_ALL: above
+   * every rung (the submit is blocked).
+   */
+  readonly status: "NONE" | "NEEDS_APPROVAL" | "DEAL_DESK" | "ABOVE_ALL";
+}
+
 export interface PricingPreview {
   readonly rulesVersion: string;
   readonly termMonths: string;
@@ -477,6 +500,8 @@ export interface PricingPreview {
     readonly volumeCeilingPercent?: string | null;
     readonly volumeDiscountPercent?: string;
     readonly discretionaryDiscountPercent?: string;
+    /** D181: null without the approval matrix. */
+    readonly discountApproval?: DiscountApproval | null;
     readonly annualList: string;
     readonly annualNet: string;
     readonly arr: string;
@@ -617,6 +642,8 @@ export interface LineView {
   readonly volumeCeilingPercent: string | null;
   readonly volumeDiscountPercent: string;
   readonly discretionaryDiscountPercent: string;
+  /** D181: on a draft's lines; null on other versions'. */
+  readonly discountApproval?: DiscountApproval | null;
   /** The contract year it belongs to. */
   readonly yearNumber: number | null;
   /** Null until the quote has a start date and a year (D78). */
