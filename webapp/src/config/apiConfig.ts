@@ -2396,6 +2396,8 @@ export const engagementServiceUrls = {
   campaigns: (search: string): string => ea("/campaigns", { search, limit: 20 }),
   employees: (search: string, limit = 20): string => ea("/employees", { search, limit }),
   dashboard: ea("/dashboard"),
+  /** Global search: up to `limit` hits per kind of record, for the kinds the caller may open. */
+  search: (q: string, limit: number): string => ea("/search", { q, limit }),
   // An explicit empty `sections` is the widget catalogue alone: the date and the widgets, with no section computed.
   dashboardCatalogue: `${engagementAppBackendUrl}/dashboard?sections=`,
   /** The dashboard with only these sections (a widget the caller turned on that is not on by default). */

@@ -19,6 +19,7 @@
 import * as DM from "./dashboardMappers";
 import type * as V from "./engagementTypes";
 import type * as W from "./engagementWire";
+import { SEARCH_KINDS } from "./engagementTypes";
 import { ALLOCATION_STATUSES, ENGAGEMENT_STATUSES, REQUEST_STATUSES, TRAVEL_STATUSES } from "../model/statuses";
 
 const norm = (x: string) => x.replace(/[\s_-]+/g, "").toLowerCase();
@@ -616,3 +617,31 @@ export const myOverview = (m: W.WMyOverview): V.MyOverview => ({
   trips: m.upcomingTrips.map(upcomingTrip),
   tripVisas: m.tripVisas?.map(DM.tripVisa),
 });
+
+// ---------------------------------------------------------------- search
+
+const searchKind = (k: string | null | undefined): V.SearchKind | undefined => SEARCH_KINDS.find((x) => x === k);
+const SEGMENTS = ["customer", "internal", "marketing"] as const;
+
+export const searchItem = (i: W.WSearchItem): V.SearchItem => ({
+  id: i.id,
+  title: i.title || i.id,
+  subtitle: opt(i.subtitle),
+  status: opt(i.status),
+  segment: SEGMENTS.find((x) => x === i.segment),
+  jobNumber: opt(i.jobNumber),
+});
+
+/** Groups of a kind this build does not know are dropped, so a newer backend cannot break the box. */
+export function searchResults(r: W.WSearchResults): V.SearchResults {
+  const groups: V.SearchGroup[] = [];
+  for (const g of r.groups ?? []) {
+    const kind = searchKind(g.kind);
+    if (kind) groups.push({ kind, total: g.total ?? g.items?.length ?? 0, items: (g.items ?? []).map(searchItem) });
+  }
+  return {
+    query: r.query ?? "",
+    groups,
+    failed: (r.failed ?? []).flatMap((k) => searchKind(k) ?? []),
+  };
+}

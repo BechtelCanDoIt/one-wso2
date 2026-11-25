@@ -712,3 +712,33 @@ export interface MyOverview {
   readonly allocations: readonly UpcomingAllocation[];
   readonly trips: readonly UpcomingTrip[];
 }
+
+// ---------------------------------------------------------------- search
+
+/** The kinds of record global search finds, in the order the backend lists them. */
+export const SEARCH_KINDS = ["travelRequests", "invoices", "perDiemPayments", "engagements", "allocations"] as const;
+export type SearchKind = (typeof SEARCH_KINDS)[number];
+
+export interface SearchItem {
+  readonly id: string;
+  readonly title: string;
+  readonly subtitle?: string;
+  readonly status?: string;
+  /** Engagements only. */
+  readonly segment?: EngagementKind;
+  /** Invoices and per diem payments: the travel request they belong to. */
+  readonly jobNumber?: string;
+}
+
+export interface SearchGroup {
+  readonly kind: SearchKind;
+  /** Every match, of which `items` is the first few. */
+  readonly total: number;
+  readonly items: readonly SearchItem[];
+}
+
+export interface SearchResults {
+  readonly query: string;
+  readonly groups: readonly SearchGroup[];
+  readonly failed: readonly SearchKind[];
+}

@@ -25,6 +25,8 @@ const batch = vi.fn();
 const showSuccess = vi.fn();
 const showError = vi.fn();
 
+// The header search box has its own tests.
+vi.mock("../search/GlobalSearch", () => ({ default: () => null }));
 vi.mock("../api/useEngagementUserInfo", async () => {
   const { engagementAccess } = await import("../model/engagementAccess");
   return { useEngagementAccess: () => engagementAccess(state.info), useEngagementUserInfo: () => ({ data: state.info }) };

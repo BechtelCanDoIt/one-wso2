@@ -19,6 +19,8 @@ import { Link as RouterLink, useLocation } from "react-router";
 import { Box, Link, Stack, Typography } from "@wso2/oxygen-ui";
 import { ArrowLeftIcon } from "@wso2/oxygen-ui-icons-react";
 import { useDocumentTitle } from "@hooks/useDocumentTitle";
+import GlobalSearch from "../search/GlobalSearch";
+import { ENGAGEMENT_APP_PATH, engagementPaths } from "../engagementPaths";
 import { backTarget, rememberVisit } from "../model/backTarget";
 
 /** The frame every Engagement App screen draws: the title with its status chips, one or two plain sentences under it, and the screen's actions on the right of the title block (FinanceShell's look, with the Claims page's actions placement). */
@@ -42,6 +44,8 @@ export default function EaPage({
 }): JSX.Element {
   useDocumentTitle(documentTitle ?? (typeof title === "string" ? title : undefined));
   const { pathname, search } = useLocation();
+  // The search box rides every Finance screen but the results page, which has its own field.
+  const searchable = pathname.startsWith(`${ENGAGEMENT_APP_PATH}/`) && pathname !== engagementPaths.search();
   useEffect(() => rememberVisit(pathname + search), [pathname, search]);
   return (
     <Box sx={{ minWidth: 0 }}>
@@ -72,6 +76,7 @@ export default function EaPage({
             </Typography>
           ) : null}
         </Box>
+        {searchable ? <GlobalSearch /> : null}
         {actions ? (
           <Stack direction="row" spacing={1} sx={{ flexShrink: 0, alignItems: "center", flexWrap: "wrap", rowGap: 1 }}>
             {actions}

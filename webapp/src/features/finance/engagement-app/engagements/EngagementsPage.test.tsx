@@ -23,6 +23,8 @@ const state = {
   listParams: undefined as unknown,
 };
 
+// The header search box has its own tests.
+vi.mock("../search/GlobalSearch", () => ({ default: () => null }));
 vi.mock("../api/useEngagementUserInfo", async () => {
   const { engagementAccess } = await import("../model/engagementAccess");
   return { useEngagementAccess: () => engagementAccess(state.info), useEngagementUserInfo: () => ({ data: state.info }) };

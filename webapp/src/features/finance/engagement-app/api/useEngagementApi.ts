@@ -24,6 +24,7 @@ import { foldIdentityError } from "@hooks/useAsgardeoSub";
 import { useEngagementBasis } from "./engagementBasis";
 import * as DM from "./dashboardMappers";
 import * as M from "./engagementMappers";
+import { SEARCH_MIN_CHARS } from "../model/searchLinks";
 import { readSessionCache, writeSessionCache } from "./sessionCache";
 import type * as V from "./engagementTypes";
 import type * as W from "./engagementWire";
@@ -85,6 +86,18 @@ const pageOf =
   <TW, TV>(map: (x: TW) => TV) =>
   (w: W.WPage<TW>): V.Page<TV> =>
     M.page(w, map);
+
+// ---------------------------------------------------------------- search
+
+/** Global search: `limit` hits per kind. Asked only for a query of two characters or more, once `enabled`. */
+export const useEngagementSearch = (q: string, limit: number, enabled = true) => {
+  // The backend takes 2 to 200 characters.
+  const text = q.trim().slice(0, 200);
+  return useEngagementGet(["search", text, limit], urls.search(text, limit), M.searchResults, {
+    enabled: enabled && text.length >= SEARCH_MIN_CHARS,
+    staleTime: MINUTE,
+  });
+};
 
 // ---------------------------------------------------------------- reference
 

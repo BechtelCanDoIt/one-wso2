@@ -56,6 +56,7 @@ const DocumentsIndex = lazy(() => documentsModule().then((m) => ({ default: m.Do
 const settingsModule = () => import("./settings/SettingsPage");
 const SettingsPage = lazy(settingsModule);
 const SettingsIndex = lazy(() => settingsModule().then((m) => ({ default: m.SettingsIndex })));
+const SearchPage = lazy(() => import("./search/SearchPage"));
 const MyTravelRequestsPage = lazy(() => import("./me/MyTravelRequestsPage"));
 const MyAllocationsPage = lazy(() => import("./me/MyAllocationsPage"));
 
@@ -107,6 +108,8 @@ export const engagementRoutes = (
     {(["po", "finance", "push", "payments-push", "sync-failures", "all-invoices", "all-payments"] as const).map((tab) => (
       <Route key={tab} path={`invoices/${tab}`} element={gated("invoices", <InvoicesPage tab={tab} />)} />
     ))}
+
+    <Route path="search" element={gated("anyFinance", <SearchPage />)} />
 
     <Route path="reports" element={gated("reports", <ReportsIndex />)} />
     {(["consultant-allocations", "invoices", "per-diem-payments"] as const).map((tab) => (
