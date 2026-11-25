@@ -33,6 +33,7 @@ import type {
   CampaignPage,
   Category,
   Leaderboard,
+  MentionCandidate,
   Share,
   TeamPage,
   TopBoard,
@@ -133,6 +134,27 @@ export function sharePublishedSince(before: Share[] | undefined, after: Share[])
   return after.some((s) => s.status === "PUBLISHED" && queued.has(s.id));
 }
 
+/**
+ * Shares that were QUEUED in `before` and are FAILED in `after`: the ones that just failed. Shares that were
+ * already FAILED when the page loaded are not news and are left out.
+ */
+export function sharesFailedSince(before: Share[] | undefined, after: Share[]): Share[] {
+  const queued = new Set((before ?? []).filter((s) => s.status === "QUEUED").map((s) => s.id));
+  return after.filter((s) => s.status === "FAILED" && queued.has(s.id));
+}
+
+/** Refetches GET /me now: its `linkedin.status` changes when LinkedIn refuses the employee's token. */
+function refreshMe(qc: QueryClient, sub: string | undefined): Promise<void> {
+  return qc.invalidateQueries({ queryKey: amplifyKey("me", sub), refetchType: "all" });
+}
+
+/** A function that refetches GET /me, for a page that learns the LinkedIn link broke (POST /shares said so). */
+export function useRefreshAmplifyMe(): () => Promise<void> {
+  const { userSub } = useAmplifyQueryBasis();
+  const qc = useQueryClient();
+  return () => refreshMe(qc, userSub);
+}
+
 /** Refetches the leaderboard and the Celebrate top board now, including copies no page is showing. */
 function refreshBoards(qc: QueryClient, sub: string | undefined): Promise<unknown> {
   return Promise.all([
@@ -159,6 +181,11 @@ export function useMyShares() {
       const before = qc.getQueryData<{ items: Share[] }>(queryKey)?.items;
       const shares = await authedGet<{ items: Share[] }>(amplifyServiceUrls.myShares, await getAccessToken());
       if (sharePublishedSince(before, shares.items)) void refreshBoards(qc, userSub);
+      // LinkedIn refused the token: amplify-api has marked the link NEEDS_RECONNECT, so /me must say so before
+      // the next Amplify click decides between the share dialog and the link dialog.
+      if (sharesFailedSince(before, shares.items).some((s) => s.failureReason === "NEEDS_RECONNECT")) {
+        void refreshMe(qc, userSub);
+      }
       return shares;
     },
     staleTime: 30 * 1000,
@@ -166,6 +193,34 @@ export function useMyShares() {
     retry: amplifyRetry,
   });
   return foldIdentityError(query, subState, retryIdentity);
+}
+
+/** How long the mention typeahead waits after the last keystroke before asking. */
+export const MENTION_DEBOUNCE_MS = 250;
+
+/**
+ * GET /mentions?q=: up to 10 people (colleagues who linked LinkedIn in Amplify) and pages the caller can mention.
+ * `q` is expected debounced; nothing is asked for while it is empty. The API caps `q` at 50 characters.
+ */
+export function useMentionCandidates(q: string) {
+  const { getAccessToken, subState, retryIdentity, userSub, ready } = useAmplifyQueryBasis();
+  const query = q.trim().slice(0, 50);
+  const result = useQuery<MentionCandidate[]>({
+    queryKey: amplifyKey("mentions", userSub, query),
+    enabled: ready && query.length > 0,
+    queryFn: async () => {
+      const params = new URLSearchParams({ q: query });
+      const body = await authedGet<{ items: MentionCandidate[] }>(
+        `${amplifyServiceUrls.mentions}?${params}`,
+        await getAccessToken(),
+      );
+      return body.items ?? [];
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 60 * 1000,
+    retry: amplifyRetry,
+  });
+  return foldIdentityError(result, subState, retryIdentity);
 }
 
 /** Search, sort and paging for the team page. */

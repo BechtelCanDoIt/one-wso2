@@ -1807,6 +1807,8 @@ export const amplifyServiceUrls = {
   // POST "share this for me" — one per campaign per employee.
   shares: (id: string) => `${amplifyBackendUrl}/campaigns/${encodeURIComponent(id)}/shares`,
   myShares: `${amplifyBackendUrl}/me/shares`,
+  // Mention typeahead: colleagues who linked LinkedIn, plus the company page.
+  mentions: `${amplifyBackendUrl}/mentions`,
   categories: `${amplifyBackendUrl}/categories`,
   // Company top N, the caller's standing and My Team.
   leaderboard: `${amplifyBackendUrl}/leaderboard`,

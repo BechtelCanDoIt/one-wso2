@@ -123,10 +123,24 @@ export interface Category {
 // The API requires text for it and refuses text on a plain REPOST. SHARE_COMMENTARY stays unused.
 export type ShareKind = "REPOST" | "REPOST_COMMENTARY" | "SHARE";
 
+/** Why a share ended FAILED. NEEDS_RECONNECT means LinkedIn refused the token: the employee has to link again. */
+export type ShareFailureReason = "NEEDS_RECONNECT" | "PROVIDER_REJECTED" | "RETRIES_EXHAUSTED";
+
 export interface Share {
   id: string;
   campaignId: string;
   status: "QUEUED" | "PUBLISHED" | "FAILED";
+  /** Set when `status` is FAILED (GET /me/shares). */
+  failureReason?: ShareFailureReason | null;
+  failedAt?: string | null;
+}
+
+/** One GET /mentions candidate: a colleague who linked LinkedIn in Amplify, or the company page. */
+export interface MentionCandidate {
+  /** Opaque, sent back in the mention token: `person:<employeeId>` or `org:<key>`. Never shown. */
+  ref: string;
+  kind: "PERSON" | "ORGANIZATION";
+  displayName: string;
 }
 
 export interface LeaderboardEntry {
