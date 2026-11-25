@@ -585,9 +585,11 @@ describe("AddLineDialog — closing", () => {
   // table shows it after saving. Here the "backend" has one table with a tier
   // from 10 → 17.75% and from 101 → 44%.
   describe("volume discount ceiling", () => {
+    // An on-prem API product: the AM may add 5% on top of the ceiling (D181).
     const priceWithTiers = (body: { lines: { quantity: number; discountPercent: string }[] }) => {
       const l = body.lines[0];
       const ceiling = l.quantity >= 101 ? 44 : l.quantity >= 10 ? 17.75 : 0;
+      const discretionary = Math.max(0, Number(l.discountPercent || "0") - ceiling);
       return {
         kind: "priced",
         preview: {
@@ -595,7 +597,12 @@ describe("AddLineDialog — closing", () => {
             {
               pricebookEntryId: "01u000000000001",
               volumeCeilingPercent: ceiling.toFixed(2),
-              discretionaryDiscountPercent: Math.max(0, Number(l.discountPercent) - ceiling).toFixed(2),
+              discretionaryDiscountPercent: discretionary.toFixed(2),
+              discountApproval: {
+                groupCode: "ONPREM_API",
+                amLimitPercent: "5.00",
+                status: discretionary > 5 ? "NEEDS_APPROVAL" : "NONE",
+              },
             },
           ],
         },
@@ -607,7 +614,16 @@ describe("AddLineDialog — closing", () => {
       at: 0,
     });
 
-    it("shows the ceiling under the discount as the quantity and discount are typed", async () => {
+    it("shows both limits once a product is picked, before a discount is typed (D181)", async () => {
+      previews.price = priceWithTiers;
+      renderDialog(vi.fn(), null, alone);
+      await pick(/WSO2 API Manager/);
+      expect(await screen.findByText("Volume discount ceiling 0%", {}, { timeout: 2000 })).toBeInTheDocument();
+      expect(screen.getByText("AM limit 5%")).toBeInTheDocument();
+      expect(screen.queryByText(/approval/)).toBeNull();
+    });
+
+    it("shows the limits under the discount as the quantity and discount are typed", async () => {
       previews.price = priceWithTiers;
       renderDialog(vi.fn(), null, alone);
       const user = await pick(/WSO2 API Manager/);
@@ -619,7 +635,13 @@ describe("AddLineDialog — closing", () => {
       await user.clear(discount);
       await user.type(discount, "20");
       expect(await screen.findByText("Volume discount ceiling 17.75%", {}, { timeout: 2000 })).toBeInTheDocument();
-      expect(screen.getByText("2.25% needs approval")).toBeInTheDocument();
+      expect(screen.getByText("AM limit +5%")).toBeInTheDocument();
+      // 2.25% above the ceiling: within the AM's 5% (D181).
+      expect(screen.getByText("No approval needed")).toBeInTheDocument();
+
+      await user.clear(discount);
+      await user.type(discount, "25");
+      expect(await screen.findByText("Needs approval", {}, { timeout: 2000 })).toBeInTheDocument();
 
       // Into the next tier: the whole discount is under its ceiling.
       await user.clear(quantity);
@@ -638,17 +660,24 @@ describe("AddLineDialog — closing", () => {
       previews.price = () => ({
         kind: "priced",
         preview: {
-          lines: [{ pricebookEntryId: "01u000000000001", volumeCeilingPercent: null, discretionaryDiscountPercent: "5.00" }],
+          lines: [
+            {
+              pricebookEntryId: "01u000000000001",
+              volumeCeilingPercent: null,
+              discretionaryDiscountPercent: "20.00",
+              discountApproval: { groupCode: "ONPREM_API", amLimitPercent: "5.00", status: "NEEDS_APPROVAL" },
+            },
+          ],
         },
       });
       renderDialog(vi.fn(), null, alone);
       const user = await pick(/WSO2 API Manager/);
       const discount = screen.getByRole("textbox", { name: "Discount" });
       await user.clear(discount);
-      await user.type(discount, "5");
-      expect(
-        await screen.findByText("No volume discount ceiling for this product", {}, { timeout: 2000 }),
-      ).toBeInTheDocument();
+      await user.type(discount, "20");
+      expect(await screen.findByText("Volume discount ceiling none", {}, { timeout: 2000 })).toBeInTheDocument();
+      expect(screen.getByText("AM limit 5%")).toBeInTheDocument();
+      expect(screen.getByText("Needs approval")).toBeInTheDocument();
     });
 
     it("shows nothing until the quote can be priced", async () => {

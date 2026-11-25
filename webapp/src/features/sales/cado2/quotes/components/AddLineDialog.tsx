@@ -462,7 +462,8 @@ export default function AddLineDialog({
     onSave(toLine());
   };
 
-  // D169: the line's volume discount ceiling while it's typed, from the same
+  // D169, D181: the line's volume discount ceiling and the AM's limit, from
+  // the moment a product and quantity are picked, while it's typed; from the same
   // live pricing as the products table. Keyed on the request's text, so it's
   // only asked again when the line changes; shown only for the line as it
   // is now (never an earlier quantity's), and not on formula lines, whose
@@ -483,6 +484,7 @@ export default function AddLineDialog({
           discretionaryPercent: pricedLine.discretionaryDiscountPercent
             ? String(Number(pricedLine.discretionaryDiscountPercent))
             : null,
+          discountApproval: pricedLine.discountApproval ?? null,
           formula: null,
         }
       : null;

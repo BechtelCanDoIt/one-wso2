@@ -18,6 +18,7 @@ import { Fragment, type JSX, type ReactNode } from "react";
 import { alpha, Box, Chip, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from "@wso2/oxygen-ui";
 import { CircleAlertIcon } from "@wso2/oxygen-ui-icons-react";
 import { orderForm, type SheetLine } from "@features/sales/cado2/quotes/sheet/sheetModel";
+import type { DiscountApproval } from "@features/sales/cado2/quotes/api/quoteTypes";
 import { commissionRatesText, durationShort, formatDate } from "@features/sales/cado2/quotes/form/draftForm";
 import { formatMoney } from "@features/sales/cado2/utils/money";
 import { visuallyHidden } from "@utils/visuallyHidden";
@@ -51,8 +52,8 @@ interface OrderFormTableProps {
    */
   readonly flagNotSetUp?: boolean;
   /**
-   * D169, the volume discount ceiling: "hints" (the wizard) puts it under
-   * each discount, with whether the discount needs approval; "columns" (the
+   * D169, D181: "hints" (the wizard) puts the volume discount ceiling and the
+   * AM's limit under each discount, with whether the discount needs approval; "columns" (the
    * read-only views) adds Volume discount ceiling and Discretionary columns beside
    * the discount. Left out, the discount shows alone.
    */
@@ -62,42 +63,63 @@ interface OrderFormTableProps {
 /** D169: what a percentage reads as, e.g. "4.17%". */
 const pct = (v: string) => `${Number(v)}%`;
 
+/** D181: the chip under a discount, by whether it stays within the AM's limit. */
+const LIMIT_CHIP: Record<DiscountApproval["status"], { label: string; color: "success" | "warning" | "error" }> = {
+  NONE: { label: "No approval needed", color: "success" },
+  NEEDS_APPROVAL: { label: "Needs approval", color: "warning" },
+  DEAL_DESK: { label: "Needs Deal Desk approval", color: "warning" },
+  ABOVE_ALL: { label: "Above every approver's limit", color: "error" },
+};
+
 /**
- * The wizard's hint under a line's discount (D169):
+ * The wizard's hint under a line's discount (D169, D181): the two limits the
+ * AM can give without approval, then, once there's a discount, whether it
+ * stays within them.
  *
- *   Volume discount ceiling 4.17%   [No approval needed]
- *   Volume discount ceiling 2.08%   [2.92% needs approval]
- *   No volume discount ceiling                    (a discount on a product without one)
+ *   Volume discount ceiling 2.08%
+ *   AM limit +3%                      ← on top of the ceiling
+ *   [No approval needed]
  *
- * Also under the discount in the Add/Edit Product dialog, left-aligned there.
+ *   Volume discount ceiling none
+ *   AM limit 5%
+ *   [Needs approval]
+ *
+ * "AM limit none set" when no discount group covers the product (Deal Desk
+ * checks a discount on it, D177). Also under the discount in the Add/Edit
+ * Product dialog, left-aligned there. Nothing until the line is priced.
  */
 export function DiscountHint({
   line,
   align = "end",
 }: {
-  line: Pick<SheetLine, "discountPercent" | "volumeCeilingPercent" | "discretionaryPercent" | "formula">;
+  line: Pick<SheetLine, "discountPercent" | "volumeCeilingPercent" | "discretionaryPercent" | "formula" | "discountApproval">;
   align?: "start" | "end";
 }): JSX.Element | null {
   const discount = Number(line.discountPercent);
-  const above = Number(line.discretionaryPercent ?? 0);
-  if (line.volumeCeilingPercent === null) {
-    if (!discount || line.discretionaryPercent === null) return null;
-    return (
-      <Typography variant="caption" color="text.secondary" display="block" sx={{ whiteSpace: "normal" }}>
-        {line.formula ? "Formula-priced: no volume discount ceiling" : "No volume discount ceiling for this product"}
-      </Typography>
-    );
+  const limit = line.discountApproval ?? null;
+  const ceiling = line.volumeCeilingPercent;
+  // Not priced yet: nothing known about either limit.
+  if (ceiling === null && !limit && (!discount || line.discretionaryPercent === null)) return null;
+  const ceilingText = ceiling !== null ? pct(ceiling) : line.formula ? "none (formula-priced)" : "none";
+  let amText: string | null = null;
+  if (limit) {
+    if (limit.groupCode === null) amText = "none set";
+    else if (limit.amLimitPercent === null) amText = "no limit";
+    else amText = `${ceiling !== null && Number(ceiling) > 0 ? "+" : ""}${pct(limit.amLimitPercent)}`;
   }
+  const chip = limit && discount > 0 ? LIMIT_CHIP[limit.status] : null;
+  const row = { whiteSpace: "nowrap" } as const;
   return (
-    <Box sx={{ display: "flex", flexDirection: "column", alignItems: `flex-${align}`, gap: 0.5, mt: 0.25 }}>
-      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: "nowrap" }}>
-        Volume discount ceiling {pct(line.volumeCeilingPercent)}
+    <Box sx={{ display: "flex", flexDirection: "column", alignItems: `flex-${align}`, gap: 0.25, mt: 0.25 }}>
+      <Typography variant="caption" color="text.secondary" sx={row}>
+        Volume discount ceiling {ceilingText}
       </Typography>
-      {above > 0 ? (
-        <Chip size="small" color="warning" variant="outlined" label={`${pct(String(above))} needs approval`} />
-      ) : discount > 0 ? (
-        <Chip size="small" color="success" variant="outlined" label="No approval needed" />
+      {amText ? (
+        <Typography variant="caption" color="text.secondary" sx={row}>
+          AM limit {amText}
+        </Typography>
       ) : null}
+      {chip ? <Chip size="small" color={chip.color} variant="outlined" label={chip.label} sx={{ mt: 0.25 }} /> : null}
     </Box>
   );
 }
@@ -311,7 +333,7 @@ export default function OrderFormTable({
             <TableRow>
               <TableCell>Product or service</TableCell>
               <TableCell>Unit of measure</TableCell>
-              <TableCell align="right">Unit price</TableCell>
+              <TableCell align="right">Sales price</TableCell>
               <TableCell align="right">Qty</TableCell>
               {split ? <TableCell align="right">Volume discount ceiling</TableCell> : null}
               <TableCell align="right">{split ? "Entered discount" : "Discount"}</TableCell>
