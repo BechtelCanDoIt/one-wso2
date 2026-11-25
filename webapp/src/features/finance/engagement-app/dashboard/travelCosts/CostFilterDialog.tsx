@@ -15,12 +15,19 @@
 // under the License.
 
 import { useState, type JSX } from "react";
-import { Autocomplete, Box, Button, Checkbox, Chip, FormControlLabel, Stack, TextField } from "@wso2/oxygen-ui";
+import { Autocomplete, Box, Checkbox, Chip, FormControlLabel, Stack, TextField } from "@wso2/oxygen-ui";
+import { useDebouncedValue } from "@hooks/useDebouncedValue";
 import type { EmployeeOption } from "../../api/engagementTypes";
+import { useTravelRequests } from "../../api/useEngagementApi";
+import { useEngagementAccess } from "../../api/useEngagementUserInfo";
 import type { TravelCosts } from "../../api/dashboardTypes";
 import EaDialog from "../../components/EaDialog";
 import { FilterInput } from "../../components/FilterFields";
+import { usePeopleFaces } from "../../api/usePeopleFaces";
+import { PersonChip } from "../../components/PersonChip";
 import PersonPicker from "../../components/PersonPicker";
+import { Mono } from "../../components/StatusChips";
+import { fmtRange, place } from "../../model/format";
 import { FILTER_LABEL, filterOptions } from "./filterOptions";
 import { FILTER_KEYS, joinFilter, type CostView, type CostViewPatch, type FilterKey } from "./costView";
 
@@ -42,11 +49,25 @@ export default function CostFilterDialog({
 }): JSX.Element {
   const [draft, setDraft] = useState<Draft>(() => Object.fromEntries(FILTER_KEYS.map((k) => [k, [...(view.filters[k] ?? [])]])));
   const [job, setJob] = useState("");
+  // Names of the people picked here, for their chips until the directory has them.
+  const [names, setNames] = useState<Record<string, string>>({});
+  const faceOf = usePeopleFaces();
+  const access = useEngagementAccess();
+  const jq = useDebouncedValue(job.trim(), 250);
+  const canSuggest = access.travelRequests && jq.length >= 2;
+  // Suggestions count only once they answer what is typed now, not the previous search kept while the new one loads.
+  const suggested = useTravelRequests({ segment: "all", search: jq, limit: 8 }, canSuggest);
   const set = (k: FilterKey, v: string[]) => setDraft((d) => ({ ...d, [k]: v }));
-  const addJob = () => {
-    const v = job.trim();
+  const addJob = (raw: string) => {
+    const v = raw.trim();
     if (v && !(draft.tcJob ?? []).includes(v)) set("tcJob", [...(draft.tcJob ?? []), v]);
     setJob("");
+  };
+  const addPerson = (p: EmployeeOption | null) => {
+    if (!p) return;
+    const email = p.email.toLowerCase();
+    setNames((n) => ({ ...n, [email]: p.name }));
+    if (!(draft.tcEmployee ?? []).includes(email)) set("tcEmployee", [...(draft.tcEmployee ?? []), email]);
   };
   const apply = () => {
     // A job number typed but not added still counts.
@@ -78,38 +99,44 @@ export default function CostFilterDialog({
           );
         })}
         <Box>
-          <PersonPicker
-            label="Employee"
-            value={null}
-            onChange={(p: EmployeeOption | null) => p && !(draft.tcEmployee ?? []).includes(p.email.toLowerCase()) && set("tcEmployee", [...(draft.tcEmployee ?? []), p.email.toLowerCase()])}
-          />
+          <PersonPicker label="Employee" value={null} onChange={addPerson} clearOnPick />
           <Stack direction="row" spacing={0.75} sx={{ mt: 1, flexWrap: "wrap", rowGap: 0.75 }}>
             {(draft.tcEmployee ?? []).map((e) => (
-              <Chip key={e} size="small" label={e} onDelete={() => set("tcEmployee", (draft.tcEmployee ?? []).filter((x) => x !== e))} />
+              <PersonChip key={e} email={e} name={names[e]} face={faceOf(e)} onDelete={() => set("tcEmployee", (draft.tcEmployee ?? []).filter((x) => x !== e))} />
             ))}
           </Stack>
         </Box>
         <Box>
-          <Stack direction="row" spacing={1}>
-            <TextField
-              size="small"
-              fullWidth
-              label="Travel Job Number"
-              value={job}
-              onChange={(e) => setJob(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  addJob();
-                }
-              }}
-              slotProps={{ inputLabel: { shrink: true } }}
-              placeholder="Type a job number and press Add"
-            />
-            <Button size="small" variant="outlined" onClick={addJob} disabled={!job.trim()}>
-              Add
-            </Button>
-          </Stack>
+          <Autocomplete
+            freeSolo
+            size="small"
+            options={canSuggest && job.trim() === jq && !suggested.isPlaceholderData ? (suggested.data?.items ?? []).filter((t) => !(draft.tcJob ?? []).includes(t.jobNumber)) : []}
+            filterOptions={(x) => x}
+            value={null}
+            inputValue={job}
+            onInputChange={(_, v, reason) => (reason === "input" || reason === "clear" ? setJob(v) : undefined)}
+            onChange={(_, v) => (v ? addJob(typeof v === "string" ? v : v.jobNumber) : undefined)}
+            getOptionLabel={(o) => (typeof o === "string" ? o : o.jobNumber)}
+            loading={canSuggest && suggested.isFetching}
+            renderOption={(props, t) => (
+              <li {...props} key={t.jobNumber}>
+                <Box>
+                  <Mono>{t.jobNumber}</Mono>
+                  <Box sx={{ fontSize: 12, color: "text.secondary" }}>
+                    {t.traveller.name}, {place(t.country)}, {fmtRange(t.start, t.end)}
+                  </Box>
+                </Box>
+              </li>
+            )}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Travel Job Number"
+                placeholder={access.travelRequests ? "Type part of a job number, then pick one or press Enter" : "Type a job number and press Enter"}
+                slotProps={{ inputLabel: { ...params.InputLabelProps, shrink: true } }}
+              />
+            )}
+          />
           <Stack direction="row" spacing={0.75} sx={{ mt: 1, flexWrap: "wrap", rowGap: 0.75 }}>
             {(draft.tcJob ?? []).map((j) => (
               <Chip key={j} size="small" label={j} onDelete={() => set("tcJob", (draft.tcJob ?? []).filter((x) => x !== j))} />

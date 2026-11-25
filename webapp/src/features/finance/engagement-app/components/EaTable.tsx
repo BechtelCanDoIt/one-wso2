@@ -89,7 +89,8 @@ export default function EaTable<T>({
   readonly selection?: RowSelection<T>;
   readonly empty: ReactNode;
   readonly loading?: boolean;
-  readonly pagination?: { page: number; pageSize: number; total: number; onPage: (page: number) => void };
+  /** `pageSizes` with `onPageSize` lets the reader pick how many rows a page shows. */
+  readonly pagination?: { page: number; pageSize: number; total: number; onPage: (page: number) => void; pageSizes?: readonly number[]; onPageSize?: (size: number) => void };
   readonly ariaLabel: string;
   /** Inside a card (a dashboard widget): no box of its own, labels and figures kept on one line. */
   readonly bare?: boolean;
@@ -234,13 +235,14 @@ export default function EaTable<T>({
           </TableBody>
         </Table>
       </Box>
-      {pagination && pagination.total > pagination.pageSize ? (
+      {pagination && pagination.total > Math.min(pagination.pageSize, ...(pagination.onPageSize ? (pagination.pageSizes ?? []) : [])) ? (
         <TablePagination
           component="div"
           count={pagination.total}
           page={pagination.page}
           rowsPerPage={pagination.pageSize}
-          rowsPerPageOptions={[pagination.pageSize]}
+          rowsPerPageOptions={pagination.onPageSize && pagination.pageSizes ? [...pagination.pageSizes] : [pagination.pageSize]}
+          onRowsPerPageChange={pagination.onPageSize ? (e) => pagination.onPageSize?.(Number(e.target.value)) : undefined}
           onPageChange={(_, p) => pagination.onPage(p)}
           sx={{ borderTop: 1, borderColor: "divider" }}
         />

@@ -36,6 +36,8 @@ const PARAM: Readonly<Record<FilterKey, string>> = {
 };
 
 export const PAGE_SIZE = 25;
+/** The rows-per-page choices the Transactions widget offers. */
+export const PAGE_SIZES: readonly number[] = [5, 10, 15, 25];
 export const GROUPS = ["employee", "jobNumber", "country", "customer", "travelAgent", "source", "costType", "month"] as const;
 export type GroupBy = (typeof GROUPS)[number];
 export type CostSort = "date" | "-date" | "amount" | "-amount";
@@ -92,10 +94,10 @@ export function readCostView(raw: Readonly<Record<string, string>>, today: strin
 }
 
 /** The last page (0-based) of `total` rows; 0 when there are none. */
-export const lastPage = (total: number): number => Math.max(0, Math.ceil(total / PAGE_SIZE) - 1);
+export const lastPage = (total: number, size = PAGE_SIZE): number => Math.max(0, Math.ceil(total / size) - 1);
 
 /** `page` held to the pages that exist, e.g. `?tcPage=999` on 508 rows is page 20. */
-export const clampPage = (page: number, total: number): number => Math.min(Math.max(0, page), lastPage(total));
+export const clampPage = (page: number, total: number, size = PAGE_SIZE): number => Math.min(Math.max(0, page), lastPage(total, size));
 
 /** `view` with the `patch` applied. An empty or undefined patch value removes the key; every key outside "tc" is kept. */
 export function patchCostView(view: Readonly<Record<string, string>>, patch: CostViewPatch): Record<string, string> {
@@ -140,8 +142,8 @@ export function costParams(view: CostView): EngagementQueryParams {
 }
 
 /** The Transactions call: the same filters, plus Group By, Sort and the page. */
-export function transactionParams(view: CostView): EngagementQueryParams {
-  return { ...costParams(view), groupBy: view.group, sort: view.sort === "-date" ? undefined : view.sort, limit: PAGE_SIZE, offset: view.page * PAGE_SIZE };
+export function transactionParams(view: CostView, size = PAGE_SIZE): EngagementQueryParams {
+  return { ...costParams(view), groupBy: view.group, sort: view.sort === "-date" ? undefined : view.sort, limit: size, offset: view.page * size };
 }
 
 /** How many filters are applied (for the Filters button's badge). */

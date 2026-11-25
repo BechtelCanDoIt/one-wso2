@@ -15,7 +15,7 @@
 // under the License.
 
 import { useCallback, useMemo, useState, type JSX } from "react";
-import { Box, Button, Card, Chip, Skeleton, Snackbar, Stack } from "@wso2/oxygen-ui";
+import { Badge, Box, Button, Card, Skeleton, Snackbar, Tooltip } from "@wso2/oxygen-ui";
 import { SlidersHorizontalIcon } from "@wso2/oxygen-ui-icons-react";
 import { useAsgardeoUser } from "@hooks/useAsgardeoUser";
 import { localIsoDate } from "@utils/localDate";
@@ -174,6 +174,8 @@ export default function DashboardPage(): JSX.Element {
   // A widget whose data the backend left out of a loaded section is not drawn.
   const shownDefs = defs.filter((d) => widgetState(d, ctx).kind !== "absent");
   const hidden = allowed.length - visible.length;
+  // The count is of widgets turned on, not of widgets with data, so the wording says enabled.
+  const enabledText = hidden > 0 ? `${visible.length} of ${allowed.length} widgets enabled, ${hidden} hidden` : `All ${allowed.length} widgets enabled`;
   const refOf = (id: string) => allowed.find((w) => w.id === id);
 
   return (
@@ -181,12 +183,13 @@ export default function DashboardPage(): JSX.Element {
       {...header}
       actions={
         allowed.length ? (
-          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
-            {hidden > 0 ? <Chip size="small" label={`${hidden} hidden`} /> : null}
-            <Button variant="outlined" size="small" startIcon={<SlidersHorizontalIcon size={15} />} onClick={() => setManage(true)} sx={{ fontWeight: 600 }}>
-              Manage Widgets
-            </Button>
-          </Stack>
+          <Tooltip title={enabledText}>
+            <Badge color="primary" badgeContent={visible.length} showZero>
+              <Button variant="outlined" size="small" aria-label={`Manage Widgets, ${enabledText}`} startIcon={<SlidersHorizontalIcon size={15} />} onClick={() => setManage(true)} sx={{ fontWeight: 600 }}>
+                Manage Widgets
+              </Button>
+            </Badge>
+          </Tooltip>
         ) : undefined
       }
     >
