@@ -26,7 +26,7 @@ In the **Amplify** perspective's left menu you'll find:
 Use this when Marketing has published a post on the WSO2 LinkedIn company page and wants employees to amplify it.
 
 1. Open **New Post**.
-2. **LinkedIn post.** Easiest route: paste the post's link or URN into **Post ID**. Amplify fills in the post type (`share`, `ugcPost` or `activity`) and the numeric ID for you. Or pick the type and type the digits yourself. It must be a post on the WSO2 company page. Amplify rejects anything else.
+2. **LinkedIn post.** Easiest route: paste the post's link or URN into **Post ID**. Amplify fills in the post type (`share`, `ugcPost` or `activity`) and the numeric ID for you. Or pick the type and type the digits yourself. It must be a post on the WSO2 company page. Amplify rejects anything else. When you click out of **Post ID** (or change the post type), Amplify checks the format: a green check means the type and ID make a valid post reference, and red text with a stop sign explains what to fix. **The check is format only.** It can't ask LinkedIn whether the post exists, so a green check is not proof that the post is real. Double-check the link by opening the post on LinkedIn.
 3. **Headline.** Up to 200 characters. Shown on every card.
 4. **Card summary.** Two or three lines, up to 2,000 characters. Shown on the cards in One WSO2.
 5. **Image URL** (optional). An HTTPS link to the post's image. When you click out of the box, Amplify tries to load the image. A green check means it loaded, and the image appears under **Headline** as a preview. A red stop sign and red text mean it didn't load (or that this site doesn't allow images from that host yet); there's no preview, and the card would show the black Amplify default image. Empty shows nothing.
@@ -47,7 +47,7 @@ Current Posts lists every post that isn't archived, three at a time (use the arr
 | **Next run** | Registered and waiting for the next Amplify run. |
 | **Closed** | Past its tracking date. Employees no longer see it. |
 
-Click **Update post** to change its **Headline**, **Card summary**, **Post URL**, **Image URL**, **Category**, **Priority** flag or **Track engagement until** date. The image check works the same way here: the stored image is checked when the dialog opens. Click **Save**.
+Click **Update post** to change its **Headline**, **Card summary**, **Post URL**, **Image URL**, **Category**, **Priority** flag or **Track engagement until** date. The image check works the same way here: the stored image is checked when the dialog opens. The **Post URL** box gets the same format check (a link on linkedin.com, still format only). Click **Save**.
 
 Two things to know:
 

@@ -27,6 +27,7 @@ import ImagePreview from "../components/ImagePreview";
 import UrlCheckField from "../components/UrlCheckField";
 import { describeAmplifyError } from "../util/amplifyError";
 import { checkImageUrl } from "../util/imageUrlCheck";
+import { POST_ID_HELP, checkPostIdFormat, postIdCheckKey } from "../util/postIdCheck";
 import { useUrlCheck } from "../util/useUrlCheck";
 import {
   DEFAULT_POST_KIND,
@@ -65,6 +66,8 @@ export default function NewPostPage() {
   const [trackUntil, setTrackUntil] = useState("");
   const [touched, setTouched] = useState(false);
   const imageCheck = useUrlCheck(checkImageUrl, imageUrl);
+  const postIdKey = postIdCheckKey(postKind, postId);
+  const postIdCheck = useUrlCheck(checkPostIdFormat, postIdKey);
 
   // The first category until one is chosen, so there is always a choice.
   const category = chosenCategory || categories.data?.[0]?.code || "";
@@ -81,6 +84,7 @@ export default function NewPostPage() {
     if (pasted) {
       setPostKind(pasted.kind);
       setPostId(pasted.id);
+      postIdCheck.check(postIdCheckKey(pasted.kind, pasted.id));
     } else {
       setPostId(value);
     }
@@ -150,7 +154,11 @@ export default function NewPostPage() {
                 label="Post type"
                 value={postKind}
                 onChange={(e) => {
-                  if (isPostKind(e.target.value)) setPostKind(e.target.value);
+                  const next = e.target.value;
+                  if (!isPostKind(next)) return;
+                  setPostKind(next);
+                  // A filled id is re-checked against the new type; an empty one stays quiet.
+                  postIdCheck.check(postIdCheckKey(next, postId));
                 }}
                 sx={{ minWidth: 170 }}
                 disabled={busy}
@@ -164,18 +172,21 @@ export default function NewPostPage() {
               <Typography component="span" sx={{ pt: 2, color: "text.secondary" }}>
                 :
               </Typography>
-              <TextField
+              <UrlCheckField
                 label="Post ID"
+                subject="Post ID"
+                labels={{
+                  ok: "Post ID format is valid. This doesn't confirm the post exists on LinkedIn",
+                  bad: "Post ID format is not valid",
+                }}
                 placeholder="7123456789012345678"
                 value={postId}
                 onChange={(e) => onPostIdChange(e.target.value)}
+                checkValue={postIdKey}
+                urlCheck={postIdCheck}
                 required
-                error={idError}
-                helperText={
-                  idError
-                    ? "Enter the post's numeric ID (the digits after the last colon)."
-                    : "Must be a post on the Chore Labs company page."
-                }
+                errorText={idError && postIdCheck.state !== "bad" ? POST_ID_HELP : undefined}
+                hint="Checks the format only, not that the post exists. Must be a post on the Chore Labs company page."
                 sx={{ flex: 1, minWidth: 220 }}
                 disabled={busy}
               />

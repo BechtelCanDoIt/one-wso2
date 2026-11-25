@@ -48,7 +48,7 @@ describe("NewPostPage post type and id", () => {
   });
 
   const fill = (id: string) => {
-    fireEvent.change(screen.getByLabelText(/Post ID/), { target: { value: id } });
+    fireEvent.change(screen.getByRole("textbox", { name: /Post ID/ }), { target: { value: id } });
     fireEvent.change(screen.getByLabelText(/Headline/), { target: { value: "Hello" } });
   };
   const save = () => fireEvent.click(screen.getByRole("button", { name: /^Save & share now$/ }));
@@ -66,7 +66,7 @@ describe("NewPostPage post type and id", () => {
   it("fills the kind and keeps only the id when a whole ugcPost link is pasted", () => {
     render(<NewPostPage />);
     fill("https://www.linkedin.com/feed/update/urn:li:ugcPost:7123/");
-    expect((screen.getByLabelText(/Post ID/) as HTMLInputElement).value).toBe("7123");
+    expect((screen.getByRole("textbox", { name: /Post ID/ }) as HTMLInputElement).value).toBe("7123");
     save();
     expect(mutate.mock.calls[0][0].draft.resourceUrn).toBe("urn:li:ugcPost:7123");
   });
@@ -87,7 +87,7 @@ describe("NewPostPage buttons", () => {
     expect(screen.queryByRole("button", { name: /^Save$/ })).toBeNull();
     expect(screen.queryByText(/Saved but not shared/)).toBeNull();
     expect(screen.getAllByRole("button", { name: /Save/ })).toHaveLength(1);
-    fireEvent.change(screen.getByLabelText(/Post ID/), { target: { value: "7123" } });
+    fireEvent.change(screen.getByRole("textbox", { name: /Post ID/ }), { target: { value: "7123" } });
     fireEvent.change(screen.getByLabelText(/Headline/), { target: { value: "Hello" } });
     fireEvent.click(screen.getByRole("button", { name: /^Save & share now$/ }));
     expect(mutate.mock.calls[0][0].shareNow).toBe(true);
@@ -114,7 +114,7 @@ describe("NewPostPage image URL check", () => {
     const summary = screen.getByLabelText(/Card summary/);
     expect(headline.compareDocumentPosition(preview) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(preview.compareDocumentPosition(summary) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    expect(screen.getByRole("status").textContent).toContain("Image URL looks good");
+    expect(screen.getAllByRole("status").map((n) => n.textContent).join(" ")).toContain("Image URL looks good");
   });
 
   it("shows the stop sign, the reason and no preview when the image is bad", async () => {
@@ -152,5 +152,75 @@ describe("NewPostPage image URL check", () => {
     typeImage("https://media.licdn.com/a.png");
     await waitFor(() => expect(checkImageUrl).toHaveBeenCalled());
     expect(screen.queryByRole("img")).toBeNull();
+  });
+});
+
+describe("NewPostPage post ID format check", () => {
+  beforeEach(() => mutate.mockClear());
+  const box = () => screen.getByRole("textbox", { name: /Post ID/ });
+  const blurWith = (value: string) => {
+    fireEvent.change(box(), { target: { value } });
+    fireEvent.blur(box());
+  };
+
+  it("shows a green check on blur for a valid id, worded as format only", async () => {
+    render(<NewPostPage />);
+    blurWith("7123");
+    const tick = await screen.findByRole("img", { name: /Post ID format is valid/ });
+    expect(tick.getAttribute("aria-label")).toContain("doesn't confirm the post exists");
+    expect(screen.getByText(/Checks the format only/)).toBeTruthy();
+  });
+
+  it("shows red text, a stop sign and the reason once, for an id that can't be read", async () => {
+    render(<NewPostPage />);
+    blurWith("not valid!");
+    expect(await screen.findByRole("img", { name: "Post ID format is not valid" })).toBeTruthy();
+    // One visible message (the hidden live region repeats it for screen readers).
+    expect(screen.getAllByText(/Enter the post's numeric ID/).filter((n) => n.tagName === "P")).toHaveLength(1);
+    expect(box().getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("shows nothing for an empty box", () => {
+    render(<NewPostPage />);
+    blurWith("  ");
+    expect(screen.queryByRole("img", { name: /Post ID/ })).toBeNull();
+  });
+
+  it("keeps the submit-time error for an empty id, without a competing second message", () => {
+    render(<NewPostPage />);
+    fireEvent.change(screen.getByLabelText(/Headline/), { target: { value: "Hello" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Save & share now$/ }));
+    expect(mutate).not.toHaveBeenCalled();
+    expect(screen.getAllByText(/Enter the post's numeric ID/)).toHaveLength(1);
+  });
+
+  it("re-checks a filled id when the post type changes, and not an empty one", async () => {
+    render(<NewPostPage />);
+    blurWith("7123");
+    await screen.findByRole("img", { name: /Post ID format is valid/ });
+    // The check belongs to the share + 7123 pair, so a different type returns the box to idle, then re-checks.
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: /Post type/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "urn:li:ugcPost" }));
+    expect(await screen.findByRole("img", { name: /Post ID format is valid/ })).toBeTruthy();
+  });
+
+  it("does not check on a type change while the id is empty", () => {
+    render(<NewPostPage />);
+    fireEvent.mouseDown(screen.getByRole("combobox", { name: /Post type/ }));
+    fireEvent.click(screen.getByRole("option", { name: "urn:li:ugcPost" }));
+    expect(screen.queryByRole("img", { name: /Post ID/ })).toBeNull();
+  });
+
+  it("fills the type and the id from a pasted link, then checks it", async () => {
+    render(<NewPostPage />);
+    fireEvent.change(box(), { target: { value: "https://www.linkedin.com/feed/update/urn:li:ugcPost:7123/" } });
+    expect((box() as HTMLInputElement).value).toBe("7123");
+    expect(await screen.findByRole("img", { name: /Post ID format is valid/ })).toBeTruthy();
+  });
+
+  it("marks a pasted link it can't read as bad on blur", async () => {
+    render(<NewPostPage />);
+    blurWith("https://www.linkedin.com/feed/update/urn:li:activity:7123/");
+    expect(await screen.findByRole("img", { name: "Post ID format is not valid" })).toBeTruthy();
   });
 });

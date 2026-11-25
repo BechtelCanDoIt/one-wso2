@@ -36,6 +36,12 @@ type Props = Omit<TextFieldProps, "onBlur" | "error" | "select"> & {
   subject: string;
   /** Shown under the box while the value is not bad. */
   hint?: string;
+  /** What the checker is given when it differs from the box text (e.g. the post type joined with the id). */
+  checkValue?: string;
+  /** A problem found elsewhere (e.g. at submit): red box and this text, without the stop sign. */
+  errorText?: string;
+  /** Words for the icons and the announcement; the defaults say the value "looks good" / "has a problem". */
+  labels?: { ok?: string; bad?: string };
 };
 
 /**
@@ -43,14 +49,27 @@ type Props = Omit<TextFieldProps, "onBlur" | "error" | "select"> & {
  * end. Bad: red text and a stop sign instead of the check, with the checker's reason under
  * the box. Empty (or not checked yet): nothing. The result is also announced politely.
  */
-export default function UrlCheckField({ urlCheck, subject, hint, value, slotProps, ...rest }: Props) {
+export default function UrlCheckField({
+  urlCheck,
+  subject,
+  hint,
+  checkValue,
+  errorText,
+  labels,
+  value,
+  slotProps,
+  ...rest
+}: Props) {
   const { state, message, check } = urlCheck;
   const bad = state === "bad";
+  const okLabel = labels?.ok ?? `${subject} is good`;
+  const badLabel = labels?.bad ?? `${subject} has a problem`;
+  const red = bad || Boolean(errorText);
   const status =
     state === "ok"
-      ? `${subject} looks good.`
+      ? `${labels?.ok ?? `${subject} looks good`}.`
       : bad
-        ? `${subject} has a problem. ${message ?? ""}`.trim()
+        ? `${badLabel}. ${message ?? ""}`.trim()
         : state === "checking"
           ? `Checking ${subject}.`
           : "";
@@ -61,10 +80,10 @@ export default function UrlCheckField({ urlCheck, subject, hint, value, slotProp
         {...rest}
         value={value}
         fullWidth
-        error={bad}
-        onBlur={() => check(String(value ?? ""))}
-        helperText={bad && message ? message : hint}
-        sx={{ ...(bad ? { "& .MuiInputBase-input": { color: "error.main" } } : {}), ...rest.sx }}
+        error={red}
+        onBlur={() => check(checkValue ?? String(value ?? ""))}
+        helperText={bad && message ? message : (errorText ?? hint)}
+        sx={{ ...(red ? { "& .MuiInputBase-input": { color: "error.main" } } : {}), ...rest.sx }}
         slotProps={{
           ...slotProps,
           input: {
@@ -75,12 +94,12 @@ export default function UrlCheckField({ urlCheck, subject, hint, value, slotProp
                   {state === "checking" && <CircularProgress size={18} aria-label={`Checking ${subject}`} />}
                   {state === "ok" && (
                     <Box component="span" sx={{ display: "inline-flex", color: "success.main" }}>
-                      <CircleCheckIcon size={20} role="img" aria-label={`${subject} is good`} />
+                      <CircleCheckIcon size={20} role="img" aria-label={okLabel} />
                     </Box>
                   )}
                   {bad && (
                     <Box component="span" sx={{ display: "inline-flex", color: "error.main" }}>
-                      <OctagonXIcon size={20} role="img" aria-label={`${subject} has a problem`} />
+                      <OctagonXIcon size={20} role="img" aria-label={badLabel} />
                     </Box>
                   )}
                 </InputAdornment>
