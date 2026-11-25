@@ -19,7 +19,6 @@ import { Link as RouterLink } from "react-router";
 import { Box, ButtonBase, Card, Typography } from "@wso2/oxygen-ui";
 import ErrorNotice from "@components/error-notice/ErrorNotice";
 import { isEngagementAppBackendConfigured } from "@config/apiConfig";
-import { isPreviewEnabled } from "@config/previewFeatures";
 import { tripsWaiting } from "../api/dashboardMappers";
 import type { TripVisa } from "../api/dashboardTypes";
 import { useMyOverview } from "../api/useEngagementApi";
@@ -56,7 +55,7 @@ function Row({ trip }: { trip: TripVisa }): JSX.Element {
 
 /** The Me overview's visa card: upcoming trips with the visa each needs, and how many are waiting for one. Draws nothing when there are no upcoming trips. */
 export default function VisaCard(): JSX.Element | null {
-  const on = isPreviewEnabled("engagementApp") && isEngagementAppBackendConfigured();
+  const on = isEngagementAppBackendConfigured();
   const info = useEngagementUserInfo(on);
   const access = engagementAccess(info.data);
   const enabled = on && info.isSuccess && access.myTravelRequests;
