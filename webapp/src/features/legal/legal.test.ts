@@ -24,7 +24,7 @@ import {
   manualCounterpartyAddress,
   missingManualFields,
 } from "./manualCounterparty";
-import { NDA_ENTITY_CONFIGS, entityForCountry } from "./pages/NdaPdfDocument";
+import { NDA_ENTITY_CONFIGS, entityForCountry, ndaPartyName } from "./pages/NdaPdfDocument";
 
 describe("COUNTRY_OPTIONS", () => {
   it("lists every ISO 3166-1 country once, by English name", () => {
@@ -170,5 +170,22 @@ describe("formatCustomerAddress", () => {
   it("keeps a lone state or postcode without stray separators", () => {
     expect(formatCustomerAddress({ ...empty, billingCity: "Colombo", billingState: "WP" })).toBe("Colombo, WP");
     expect(formatCustomerAddress({ ...empty, billingCity: "Colombo", billingPostalCode: "00400" })).toBe("Colombo, 00400");
+  });
+});
+
+describe("ndaPartyName", () => {
+  it("calls a WSO2 entity WSO2", () => {
+    expect(ndaPartyName(NDA_ENTITY_CONFIGS["WSO2 Middle East FZ-LLC — AE"])).toBe("WSO2");
+    expect(ndaPartyName({ entityFull: "WSO2 BRASIL TECNOLOGIA E SOFTWARE LTDA" })).toBe("WSO2");
+  });
+
+  it("calls a Choreo Labs entity Choreo Labs", () => {
+    expect(ndaPartyName(NDA_ENTITY_CONFIGS["Choreo Labs Australia Pty Ltd — AU"])).toBe("Choreo Labs");
+  });
+
+  it("names every entity after its own legal name", () => {
+    for (const cfg of Object.values(NDA_ENTITY_CONFIGS)) {
+      expect(cfg.entityFull.toLowerCase()).toContain(ndaPartyName(cfg).toLowerCase());
+    }
   });
 });
